@@ -34,8 +34,7 @@ from core.events.curriculum_events import (
     LearningStepDeleted,
     LearningStepUpdated,
 )
-from core.models.enums.ku_enums import KuType
-from core.models.ku import Ku
+from core.models.ku import LearningStepKu
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
@@ -53,7 +52,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
+class LsCoreService(BaseService["BackendOperations[LearningStepKu]", LearningStepKu]):
     """
     Core CRUD operations for learning steps.
 
@@ -95,7 +94,8 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
     # See: /docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md
     _config = create_curriculum_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=LearningStepKu,
+        entity_label="Ku",
         domain_name="ls",
         search_fields=("title", "intent", "description"),  # LS-specific fields
         search_order_by="updated_at",
@@ -107,7 +107,7 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         """Entity label for Neo4j queries."""
         return "Ku"
 
-    def __init__(self, backend: BackendOperations[Ku], event_bus: Any = None) -> None:
+    def __init__(self, backend: BackendOperations[LearningStepKu], event_bus: Any = None) -> None:
         """
         Initialize core step service.
 
@@ -122,7 +122,7 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         self.event_bus = event_bus
 
     @with_error_handling(operation="create_step", error_type="database", uid_param="step.uid")
-    async def create_step(self, step: Ku, path_uid: str | None = None) -> Result[Ku]:
+    async def create_step(self, step: LearningStepKu, path_uid: str | None = None) -> Result[LearningStepKu]:
         """
         Create a standalone Ls or add to existing path.
 
@@ -240,7 +240,7 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         return Result.ok(step)
 
     @with_error_handling(operation="get_step", error_type="database", uid_param="step_uid")
-    async def get_step(self, step_uid: str) -> Result[Ku | None]:
+    async def get_step(self, step_uid: str) -> Result[LearningStepKu | None]:
         """
         Get a learning step by UID.
 
@@ -284,9 +284,8 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
                     # Default to primary if type not specified
                     primary_uids.append(rel["uid"])
 
-        step = Ku(
+        step = LearningStepKu(
             uid=step_data["uid"],
-            ku_type=KuType.LEARNING_STEP,
             title=step_data.get("title", "Learning Step"),
             intent=step_data.get("intent", "Complete this learning step"),
             description=step_data.get("description"),
@@ -314,7 +313,7 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         min_confidence: float = 0.7,
         include_relationships: Sequence[str] | None = None,
         exclude_relationships: Sequence[str] | None = None,
-    ) -> Result[Ku]:
+    ) -> Result[LearningStepKu]:
         """
         Get learning step with comprehensive graph context (SINGLE QUERY).
 
@@ -452,10 +451,9 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
                 else:
                     primary_uids.append(rel["uid"])
 
-        # Build Ku with knowledge UIDs
-        step = Ku(
+        # Build LearningStepKu with knowledge UIDs
+        step = LearningStepKu(
             uid=step_data["uid"],
-            ku_type=KuType.LEARNING_STEP,
             title=step_data.get("title", "Learning Step"),
             intent=step_data.get("intent", "Complete this learning step"),
             description=step_data.get("description"),
@@ -525,7 +523,7 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         return Result.ok(step)
 
     @with_error_handling(operation="update_step", error_type="database", uid_param="step_uid")
-    async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[Ku]:
+    async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[LearningStepKu]:
         """
         Update a learning step.
 
@@ -615,9 +613,8 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
                 else:
                     primary_uids.append(rel["uid"])
 
-        updated_step = Ku(
+        updated_step = LearningStepKu(
             uid=step_data["uid"],
-            ku_type=KuType.LEARNING_STEP,
             title=step_data.get("title", "Learning Step"),
             intent=step_data.get("intent", "Complete this learning step"),
             description=step_data.get("description"),
@@ -720,7 +717,7 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         order_by: str | None = None,
         order_desc: bool = False,
         user_uid: str | None = None,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[LearningStepKu]]:
         """
         List learning steps with pagination and sorting support.
 
@@ -797,9 +794,8 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
                         primary_uids.append(rel["uid"])
 
             steps.append(
-                Ku(
+                LearningStepKu(
                     uid=step_data["uid"],
-                    ku_type=KuType.LEARNING_STEP,
                     title=step_data.get("title", "Learning Step"),
                     intent=step_data.get("intent", "Complete this learning step"),
                     description=step_data.get("description"),

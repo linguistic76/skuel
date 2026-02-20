@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 
 from core.models.enums import Domain
 from core.models.enums.ku_enums import KuStatus, StepDifficulty
-from core.models.ku import Ku
+from core.models.ku import LearningStepKu
 from core.models.ku.ku_dto import KuDTO
 from core.models.search.query_parser import ParsedSearchQuery
 from core.services.base_service import BaseService
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class LsSearchService(BaseService["BackendOperations[Ku]", Ku]):
+class LsSearchService(BaseService["BackendOperations[LearningStepKu]", LearningStepKu]):
     """
     Search service for Learning Steps - BaseService pattern.
 
@@ -77,14 +77,15 @@ class LsSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     _config = create_curriculum_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=LearningStepKu,
+        entity_label="Ku",
         domain_name="ls",
         search_fields=("title", "intent", "description"),  # LS-specific fields
         search_order_by="updated_at",
         content_field="description",  # LS stores content in description
     )
 
-    def __init__(self, backend: BackendOperations[Ku]) -> None:
+    def __init__(self, backend: BackendOperations[LearningStepKu]) -> None:
         """Initialize service with required backend."""
         super().__init__(backend=backend, service_name="ls.search")
 
@@ -107,7 +108,7 @@ class LsSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # LS-SPECIFIC METHODS
     # =========================================================================
 
-    async def get_for_learning_path(self, path_uid: str, limit: int = 100) -> Result[list[Ku]]:
+    async def get_for_learning_path(self, path_uid: str, limit: int = 100) -> Result[list[LearningStepKu]]:
         """
         Get Learning Steps belonging to a specific learning path.
 
@@ -142,12 +143,12 @@ class LsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        steps = [from_neo4j_node(record["ls"], Ku) for record in result.value]
+        steps = [from_neo4j_node(record["ls"], LearningStepKu) for record in result.value]
 
         self.logger.debug(f"Found {len(steps)} steps for path {path_uid}")
         return Result.ok(steps)
 
-    async def get_standalone_steps(self, limit: int = 50) -> Result[list[Ku]]:
+    async def get_standalone_steps(self, limit: int = 50) -> Result[list[LearningStepKu]]:
         """
         Get standalone Learning Steps (not part of any learning path).
 
@@ -171,12 +172,12 @@ class LsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        steps = [from_neo4j_node(record["ls"], Ku) for record in result.value]
+        steps = [from_neo4j_node(record["ls"], LearningStepKu) for record in result.value]
 
         self.logger.debug(f"Found {len(steps)} standalone steps")
         return Result.ok(steps)
 
-    async def get_by_knowledge(self, ku_uid: str, limit: int = 20) -> Result[list[Ku]]:
+    async def get_by_knowledge(self, ku_uid: str, limit: int = 20) -> Result[list[LearningStepKu]]:
         """
         Find learning steps that contain/teach this knowledge.
 
@@ -208,14 +209,14 @@ class LsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        steps = [from_neo4j_node(record["ls"], Ku) for record in result.value]
+        steps = [from_neo4j_node(record["ls"], LearningStepKu) for record in result.value]
 
         self.logger.debug(f"Found {len(steps)} learning steps for knowledge {ku_uid}")
         return Result.ok(steps)
 
     async def get_prioritized(
         self, user_uid: str, context: UserContext, limit: int = 20
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[LearningStepKu]]:
         """
         Get Learning Steps prioritized by user context.
 
@@ -265,14 +266,14 @@ class LsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        steps = [from_neo4j_node(record["ls"], Ku) for record in result.value]
+        steps = [from_neo4j_node(record["ls"], LearningStepKu) for record in result.value]
 
         self.logger.debug(f"Prioritized LS search returned {len(steps)} results")
         return Result.ok(steps)
 
     async def intelligent_search(
         self, query: str, limit: int = 50
-    ) -> Result[tuple[list[Ku], ParsedSearchQuery]]:
+    ) -> Result[tuple[list[LearningStepKu], ParsedSearchQuery]]:
         """
         Natural language search with automatic semantic filter extraction.
 

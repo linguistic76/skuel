@@ -49,13 +49,11 @@ from core.models.enums.ku_enums import (
     HabitPolarity,
     KuStatus,
     KuType,
-    LpType,
     MeasurementType,
     PrincipleCategory,
     PrincipleSource,
     PrincipleStrength,
     ProcessorType,
-    StepDifficulty,
 )
 from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_nested_types import (
@@ -79,9 +77,12 @@ KU_TYPE_CLASS_MAP: dict[KuType, type[KuBase]] = {}
 def _populate_type_class_map() -> None:
     """Populate KU_TYPE_CLASS_MAP after all classes are defined."""
     from core.models.ku.ku_choice import ChoiceKu
+    from core.models.ku.ku_curriculum import CurriculumKu
     from core.models.ku.ku_event import EventKu
     from core.models.ku.ku_goal import GoalKu
     from core.models.ku.ku_habit import HabitKu
+    from core.models.ku.ku_learning_path import LearningPathKu
+    from core.models.ku.ku_learning_step import LearningStepKu
     from core.models.ku.ku_principle import PrincipleKu
     from core.models.ku.ku_task import TaskKu
 
@@ -91,6 +92,10 @@ def _populate_type_class_map() -> None:
     KU_TYPE_CLASS_MAP[KuType.EVENT] = EventKu
     KU_TYPE_CLASS_MAP[KuType.CHOICE] = ChoiceKu
     KU_TYPE_CLASS_MAP[KuType.PRINCIPLE] = PrincipleKu
+    KU_TYPE_CLASS_MAP[KuType.CURRICULUM] = CurriculumKu
+    KU_TYPE_CLASS_MAP[KuType.RESOURCE] = CurriculumKu  # Same model — zero extra fields
+    KU_TYPE_CLASS_MAP[KuType.LEARNING_STEP] = LearningStepKu
+    KU_TYPE_CLASS_MAP[KuType.LEARNING_PATH] = LearningPathKu
 
 
 # Called at module load time (after Ku class is defined, at bottom of file)
@@ -378,26 +383,6 @@ class Ku(KuBase):
     vision_captured_at: datetime | None = None  # type: ignore[assignment]
 
     # =========================================================================
-    # CURRICULUM STRUCTURE (LEARNING_STEP, LEARNING_PATH)
-    # =========================================================================
-    intent: str | None = None  # LS learning intent
-    primary_knowledge_uids: tuple[str, ...] = ()  # LS primary KU references
-    supporting_knowledge_uids: tuple[str, ...] = ()  # LS supporting KU references
-    learning_path_uid: str | None = None  # LS -> LP relationship
-    sequence: int | None = None  # LS order in path
-
-    # Mastery
-    mastery_threshold: float = 0.7  # LS mastery target
-    current_mastery: float = 0.0  # LS current progress
-    estimated_hours: float | None = None  # LS/LP time estimate
-    step_difficulty: StepDifficulty | None = None  # LS difficulty
-
-    # Path configuration (LP)
-    path_type: LpType | None = None
-    outcomes: tuple[str, ...] = ()  # LP expected outcomes
-    checkpoint_week_intervals: tuple[int, ...] = ()  # LP milestone intervals
-
-    # =========================================================================
     # DOMAIN-SPECIFIC METHODS
     # =========================================================================
 
@@ -564,19 +549,6 @@ class Ku(KuBase):
             score += 0.2
         return min(1.0, score)
 
-    def get_combined_knowledge_uids(self) -> set[str]:
-        """Get all knowledge UIDs related to this entity."""
-        uids: set[str] = set()
-        if self.primary_knowledge_uids:
-            uids.update(self.primary_knowledge_uids)
-        if self.supporting_knowledge_uids:
-            uids.update(self.supporting_knowledge_uids)
-        return uids
-
-    def get_all_knowledge_uids(self) -> set[str]:
-        """Alias for get_combined_knowledge_uids."""
-        return self.get_combined_knowledge_uids()
-
     # --- Habit methods ---
 
     def calculate_consistency_score(self) -> float:
@@ -705,16 +677,6 @@ class Ku(KuBase):
         """Check if this entity validates knowledge mastery."""
         return self.knowledge_mastery_check
 
-    def calculate_learning_impact(self) -> float:
-        """Calculate learning impact score."""
-        score = 0.0
-        if self.primary_knowledge_uids:
-            score += min(0.4, len(self.primary_knowledge_uids) * 0.1)
-        if self.supporting_knowledge_uids:
-            score += min(0.3, len(self.supporting_knowledge_uids) * 0.1)
-        score += self.difficulty_rating * 0.3
-        return min(1.0, score)
-
     # --- Event methods ---
 
     def start_datetime(self) -> datetime | None:
@@ -741,18 +703,6 @@ class Ku(KuBase):
         if not all([my_start, my_end, other_start, other_end]):
             return False
         return my_start < other_end and other_start < my_end  # type: ignore[operator]
-
-    # --- Learning Path methods ---
-
-    @property
-    def steps(self) -> tuple[()]:
-        """LP steps are graph relationships, not model attributes. Returns empty tuple."""
-        return ()
-
-    @property
-    def goal(self) -> str:
-        """LP goal -- alias for description or vision_statement."""
-        return self.description or self.vision_statement or ""
 
     # --- Cross-domain query helpers ---
 
@@ -961,19 +911,6 @@ class Ku(KuBase):
             momentum=dto.momentum,
             vision_themes=tuple(dto.vision_themes),
             vision_captured_at=dto.vision_captured_at,
-            # Curriculum Structure
-            intent=dto.intent,
-            primary_knowledge_uids=tuple(dto.primary_knowledge_uids),
-            supporting_knowledge_uids=tuple(dto.supporting_knowledge_uids),
-            learning_path_uid=dto.learning_path_uid,
-            sequence=dto.sequence,
-            mastery_threshold=dto.mastery_threshold,
-            current_mastery=dto.current_mastery,
-            estimated_hours=dto.estimated_hours,
-            step_difficulty=dto.step_difficulty,
-            path_type=dto.path_type,
-            outcomes=tuple(dto.outcomes),
-            checkpoint_week_intervals=tuple(dto.checkpoint_week_intervals),
             # Substance tracking (from KuBase)
             times_applied_in_tasks=dto.times_applied_in_tasks,
             times_practiced_in_events=dto.times_practiced_in_events,
@@ -1183,19 +1120,6 @@ class Ku(KuBase):
             momentum=self.momentum,
             vision_themes=list(self.vision_themes),
             vision_captured_at=self.vision_captured_at,
-            # Curriculum Structure
-            intent=self.intent,
-            primary_knowledge_uids=list(self.primary_knowledge_uids),
-            supporting_knowledge_uids=list(self.supporting_knowledge_uids),
-            learning_path_uid=self.learning_path_uid,
-            sequence=self.sequence,
-            mastery_threshold=self.mastery_threshold,
-            current_mastery=self.current_mastery,
-            estimated_hours=self.estimated_hours,
-            step_difficulty=self.step_difficulty,
-            path_type=self.path_type,
-            outcomes=list(self.outcomes),
-            checkpoint_week_intervals=list(self.checkpoint_week_intervals),
             # Substance tracking (from KuBase)
             times_applied_in_tasks=self.times_applied_in_tasks,
             times_practiced_in_events=self.times_practiced_in_events,

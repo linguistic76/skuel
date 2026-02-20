@@ -33,8 +33,9 @@ from core.events.learning_events import (
     LearningPathProgressUpdated,
 )
 from core.models.enums import Domain, SELCategory
-from core.models.enums.ku_enums import KuType, LpType
+from core.models.enums.ku_enums import LpType
 from core.models.ku.ku import Ku
+from core.models.ku.ku_learning_path import LearningPathKu
 from core.services.lp.lp_progress_service import LpProgressService
 
 
@@ -107,12 +108,11 @@ class TestKuLpEventFlow:
             kus.append(result.value)
 
         # Create learning path
-        lp = Ku(
+        lp = LearningPathKu(
             uid="lp.python_basics",
             title="Python Basics",
             description="Master Python fundamentals",
             domain=Domain.TECH,
-            ku_type=KuType.LEARNING_PATH,
             path_type=LpType.STRUCTURED,
         )
         result = await lp_backend.create(lp)
@@ -334,12 +334,11 @@ class TestKuLpEventFlow:
         lp1, kus = python_basics_path
 
         # Create second LP that also includes the first KU
-        lp2 = Ku(
+        lp2 = LearningPathKu(
             uid="lp.python_advanced",
             title="Python Advanced",
             description="Master advanced Python",
             domain=Domain.TECH,
-            ku_type=KuType.LEARNING_PATH,
             path_type=LpType.STRUCTURED,
         )
         result = await lp_backend.create(lp2)

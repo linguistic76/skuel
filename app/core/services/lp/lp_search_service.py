@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 
 from core.models.enums import Domain
 from core.models.enums.ku_enums import LpType
-from core.models.ku import Ku
+from core.models.ku import LearningPathKu
 from core.models.ku.ku_dto import KuDTO
 from core.models.search.query_parser import ParsedSearchQuery
 from core.services.base_service import BaseService
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class LpSearchService(BaseService["BackendOperations[Ku]", Ku]):
+class LpSearchService(BaseService["BackendOperations[LearningPathKu]", LearningPathKu]):
     """
     Search service for Learning Paths - BaseService pattern.
 
@@ -79,14 +79,15 @@ class LpSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # Note: LP uses name instead of title, and stores main content in goal field
     _config = create_curriculum_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=LearningPathKu,
+        entity_label="Ku",
         domain_name="lp",
         search_fields=("title", "description"),  # LP: name→title, goal→description
         search_order_by="updated_at",
         content_field="description",  # LP goal mapped to Ku description
     )
 
-    def __init__(self, backend: BackendOperations[Ku]) -> None:
+    def __init__(self, backend: BackendOperations[LearningPathKu]) -> None:
         """Initialize service with required backend."""
         super().__init__(backend=backend, service_name="lp.search")
 
@@ -108,7 +109,7 @@ class LpSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # LP-SPECIFIC METHODS
     # =========================================================================
 
-    async def get_by_path_type(self, path_type: LpType, limit: int = 50) -> Result[list[Ku]]:
+    async def get_by_path_type(self, path_type: LpType, limit: int = 50) -> Result[list[LearningPathKu]]:
         """
         Get Learning Paths by path type.
 
@@ -126,7 +127,7 @@ class LpSearchService(BaseService["BackendOperations[Ku]", Ku]):
             path_type=get_enum_value(path_type),
         )
 
-    async def list_by_creator(self, user_uid: str, limit: int = 50) -> Result[list[Ku]]:
+    async def list_by_creator(self, user_uid: str, limit: int = 50) -> Result[list[LearningPathKu]]:
         """
         List Learning Paths created by a specific user.
 
@@ -145,7 +146,7 @@ class LpSearchService(BaseService["BackendOperations[Ku]", Ku]):
             created_by=user_uid,
         )
 
-    async def get_aligned_with_goal(self, goal_uid: str, limit: int = 50) -> Result[list[Ku]]:
+    async def get_aligned_with_goal(self, goal_uid: str, limit: int = 50) -> Result[list[LearningPathKu]]:
         """
         Get Learning Paths aligned with a specific goal.
 
@@ -181,12 +182,12 @@ class LpSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        paths = [from_neo4j_node(record["lp"], Ku) for record in result.value]
+        paths = [from_neo4j_node(record["lp"], LearningPathKu) for record in result.value]
 
         self.logger.debug(f"Found {len(paths)} paths aligned with goal {goal_uid}")
         return Result.ok(paths)
 
-    async def get_by_knowledge(self, ku_uid: str, limit: int = 20) -> Result[list[Ku]]:
+    async def get_by_knowledge(self, ku_uid: str, limit: int = 20) -> Result[list[LearningPathKu]]:
         """
         Find learning paths that teach this knowledge (via learning steps).
 
@@ -221,12 +222,12 @@ class LpSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        paths = [from_neo4j_node(record["lp"], Ku) for record in result.value]
+        paths = [from_neo4j_node(record["lp"], LearningPathKu) for record in result.value]
 
         self.logger.debug(f"Found {len(paths)} learning paths for knowledge {ku_uid}")
         return Result.ok(paths)
 
-    async def get_with_steps(self, uid: str, limit: int = 100) -> Result[tuple[Ku, list]]:
+    async def get_with_steps(self, uid: str, limit: int = 100) -> Result[tuple[LearningPathKu, list]]:
         """
         Get Learning Path with its steps loaded.
 
@@ -258,7 +259,7 @@ class LpSearchService(BaseService["BackendOperations[Ku]", Ku]):
 
     async def get_prioritized(
         self, user_uid: str, context: UserContext, limit: int = 20
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[LearningPathKu]]:
         """
         Get Learning Paths prioritized by user context.
 
@@ -306,14 +307,14 @@ class LpSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        paths = [from_neo4j_node(record["lp"], Ku) for record in result.value]
+        paths = [from_neo4j_node(record["lp"], LearningPathKu) for record in result.value]
 
         self.logger.debug(f"Prioritized LP search returned {len(paths)} results")
         return Result.ok(paths)
 
     async def intelligent_search(
         self, query: str, limit: int = 50
-    ) -> Result[tuple[list[Ku], ParsedSearchQuery]]:
+    ) -> Result[tuple[list[LearningPathKu], ParsedSearchQuery]]:
         """
         Natural language search with automatic semantic filter extraction.
 

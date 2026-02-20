@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
-from core.models.ku import Ku
+from core.models.ku import LearningStepKu
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import GraphContextOrchestrator
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"]):
+class LsIntelligenceService(BaseAnalyticsService["BackendOperations[LearningStepKu]", "LearningStepKu"]):
     """
     Intelligence service for Learning Steps.
 
@@ -64,7 +64,7 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
 
     def __init__(
         self,
-        backend: BackendOperations[Ku],
+        backend: BackendOperations[LearningStepKu],
         graph_intelligence_service: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
@@ -87,11 +87,11 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[LearningStepKu, KuDTO](
                 service=self,
                 backend_get_method="get",
                 dto_class=KuDTO,
-                model_class=Ku,
+                model_class=LearningStepKu,
                 domain=Domain.LEARNING,
             )
 
@@ -101,7 +101,7 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[LearningStepKu, GraphContext]]:
         """
         Get learning step with full graph context.
 

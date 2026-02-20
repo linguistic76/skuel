@@ -30,6 +30,7 @@ from neo4j import AsyncGraphDatabase
 from core.models.enums.ku_enums import StepDifficulty
 from core.models.ku import Ku
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_learning_step import LearningStepKu
 from core.services.lp_service import LpService
 from core.services.ls_service import LsService
 from routes.graphql.types import LearningStep
@@ -472,10 +473,8 @@ async def test_learning_step_from_domain_handles_empty_knowledge_uids(lp_service
         - Ls with empty primary_knowledge_uids tuple
         - Should return empty string for knowledge_uid (not crash)
     """
-    # Arrange - Create Ku with empty primary_knowledge_uids
-    from core.models.ku import Ku
-
-    ls_with_no_knowledge = Ku(
+    # Arrange - Create LearningStepKu with empty primary_knowledge_uids
+    ls_with_no_knowledge = LearningStepKu(
         uid="ls.test_no_knowledge",
         title="Test Step With No Knowledge",
         intent="Test intent",

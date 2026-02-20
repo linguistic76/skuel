@@ -19,9 +19,10 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.models.enums import Domain, KuStatus, Priority
-from core.models.enums.ku_enums import KuType
-from core.models.ku import Ku, LpPosition
+from core.models.ku import LpPosition
 from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.ku.ku_learning_path import LearningPathKu
+from core.models.ku.ku_learning_step import LearningStepKu
 from core.models.ku.ku_request import KuTaskCreateRequest
 from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
 from core.services.user import UserContext
@@ -70,30 +71,27 @@ def user_context() -> UserContext:
 def learning_position() -> LpPosition:
     """Create sample learning position."""
     # Create learning steps (Ku with ku_type=LEARNING_STEP)
-    step1 = Ku(
+    step1 = LearningStepKu(
         uid="ls:python_fundamentals",
         title="Python Fundamentals",
-        ku_type=KuType.LEARNING_STEP,
         intent="Learn Python basics",
         primary_knowledge_uids=("ku.python.basics",),
         mastery_threshold=0.8,
         estimated_hours=10.0,
     )
-    step2 = Ku(
+    step2 = LearningStepKu(
         uid="ls:python_advanced",
         title="Python Advanced",
-        ku_type=KuType.LEARNING_STEP,
         intent="Master advanced Python concepts",
         primary_knowledge_uids=("ku.python.advanced",),
         mastery_threshold=0.85,
         estimated_hours=20.0,
     )
 
-    # Create learning path (Ku with ku_type=LEARNING_PATH)
-    path = Ku(
+    # Create learning path (LearningPathKu)
+    path = LearningPathKu(
         uid="lp:python_mastery",
         title="Python Mastery",
-        ku_type=KuType.LEARNING_PATH,
         description="Master Python programming",
         domain=Domain.TECH,
         metadata={"steps": [step1, step2]},
@@ -425,37 +423,33 @@ async def test_full_learning_workflow(
 async def test_multiple_active_paths_suggestions(scheduling_service):
     """Test suggestions generation with multiple active learning paths."""
     # Setup - multiple paths
-    python_step = Ku(
+    python_step = LearningStepKu(
         uid="ls:python_basics",
         title="Python Basics",
-        ku_type=KuType.LEARNING_STEP,
         intent="Learn Python basics",
         primary_knowledge_uids=("ku.python.basics",),
         mastery_threshold=0.8,
         estimated_hours=10.0,
     )
-    path1 = Ku(
+    path1 = LearningPathKu(
         uid="lp:python",
         title="Python",
-        ku_type=KuType.LEARNING_PATH,
         description="Learn Python programming",
         domain=Domain.TECH,
         metadata={"steps": [python_step]},
     )
 
-    html_step = Ku(
+    html_step = LearningStepKu(
         uid="ls:html_basics",
         title="HTML Basics",
-        ku_type=KuType.LEARNING_STEP,
         intent="Learn HTML basics",
         primary_knowledge_uids=("ku.html.basics",),
         mastery_threshold=0.75,
         estimated_hours=8.0,
     )
-    path2 = Ku(
+    path2 = LearningPathKu(
         uid="lp:web_dev",
         title="Web Development",
-        ku_type=KuType.LEARNING_PATH,
         description="Learn web development",
         domain=Domain.TECH,
         metadata={"steps": [html_step]},

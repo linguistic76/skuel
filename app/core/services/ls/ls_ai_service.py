@@ -15,7 +15,7 @@ NOTE: LS is a Curriculum domain - content is SHARED (no user_uid ownership).
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku import Ku
+from core.models.ku import LearningStepKu
 from core.services.base_ai_service import BaseAIService
 from core.services.protocols import LsOperations
 from core.utils.result_simplified import Errors, Result
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
 
-class LsAIService(BaseAIService[LsOperations, Ku]):
+class LsAIService(BaseAIService[LsOperations, LearningStepKu]):
     """
     AI-powered features for Learning Steps domain.
 
@@ -77,7 +77,7 @@ class LsAIService(BaseAIService[LsOperations, Ku]):
         if all_steps_result.is_error:
             return Result.fail(all_steps_result.expect_error())
 
-        all_steps: list[Ku] = all_steps_result.value or []
+        all_steps: list[LearningStepKu] = all_steps_result.value or []
         candidates = [
             (s.uid, f"{s.title} {s.intent or ''} {s.description or ''}")
             for s in all_steps
