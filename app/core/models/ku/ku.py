@@ -4,29 +4,32 @@ Unified Knowledge Domain Model (Tier 3 - Core)
 
 "Ku is the heartbeat of SKUEL."
 
-Immutable domain model for ALL knowledge in the system. 15 manifestations:
+God object for ALL knowledge in the system. 15 manifestations, 13 now with
+dedicated subclasses (Phases 1-8 of decomposition):
 
     Knowledge (shared):
-        CURRICULUM      -> Admin-created shared knowledge
+        CURRICULUM      -> CurriculumKu (Phase 7)
     Curriculum Structure:
-        LEARNING_STEP   -> Step in a learning path
-        LEARNING_PATH   -> Ordered sequence of steps
+        LEARNING_STEP   -> LearningStepKu (Phase 7)
+        LEARNING_PATH   -> LearningPathKu (Phase 7)
     Content Processing:
-        SUBMISSION      -> Student submission (user-owned)
-        AI_REPORT       -> AI-derived from submission
-        FEEDBACK_REPORT -> Teacher feedback on submission
+        SUBMISSION      -> SubmissionKu (Phase 8)
+        JOURNAL         -> JournalKu(SubmissionKu) (Phase 8)
+        AI_REPORT       -> AiReportKu(SubmissionKu) (Phase 8)
+        FEEDBACK_REPORT -> FeedbackKu(SubmissionKu) (Phase 8)
     Activity (user-owned):
-        TASK            -> Knowledge about what needs doing
-        GOAL            -> Knowledge about where you're heading
-        HABIT           -> Knowledge about what you practice
-        EVENT           -> Knowledge about what you attend
-        CHOICE          -> Knowledge about decisions you make
-        PRINCIPLE       -> Knowledge about what you believe
+        TASK            -> TaskKu (Phase 1)
+        GOAL            -> GoalKu (Phase 2)
+        HABIT           -> HabitKu (Phase 3)
+        EVENT           -> EventKu (Phase 4)
+        CHOICE          -> ChoiceKu (Phase 5)
+        PRINCIPLE       -> PrincipleKu (Phase 6)
     Destination:
-        LIFE_PATH       -> Knowledge about your life direction
+        LIFE_PATH       -> LifePathKu (Phase 9)
 
 Inherits ~48 common fields + methods from KuBase.
 Adds ~90 domain-specific fields + domain methods.
+Fields are NOT removed from Ku in subclass phases — that's Phase 10 (cleanup).
 
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 See: /.claude/plans/ku-decomposition-domain-types.md
@@ -76,14 +79,19 @@ KU_TYPE_CLASS_MAP: dict[KuType, type[KuBase]] = {}
 
 def _populate_type_class_map() -> None:
     """Populate KU_TYPE_CLASS_MAP after all classes are defined."""
+    from core.models.ku.ku_ai_report import AiReportKu
     from core.models.ku.ku_choice import ChoiceKu
     from core.models.ku.ku_curriculum import CurriculumKu
     from core.models.ku.ku_event import EventKu
+    from core.models.ku.ku_feedback import FeedbackKu
     from core.models.ku.ku_goal import GoalKu
     from core.models.ku.ku_habit import HabitKu
+    from core.models.ku.ku_journal import JournalKu
     from core.models.ku.ku_learning_path import LearningPathKu
     from core.models.ku.ku_learning_step import LearningStepKu
+    from core.models.ku.ku_life_path import LifePathKu
     from core.models.ku.ku_principle import PrincipleKu
+    from core.models.ku.ku_submission import SubmissionKu
     from core.models.ku.ku_task import TaskKu
 
     KU_TYPE_CLASS_MAP[KuType.TASK] = TaskKu
@@ -96,6 +104,11 @@ def _populate_type_class_map() -> None:
     KU_TYPE_CLASS_MAP[KuType.RESOURCE] = CurriculumKu  # Same model — zero extra fields
     KU_TYPE_CLASS_MAP[KuType.LEARNING_STEP] = LearningStepKu
     KU_TYPE_CLASS_MAP[KuType.LEARNING_PATH] = LearningPathKu
+    KU_TYPE_CLASS_MAP[KuType.SUBMISSION] = SubmissionKu
+    KU_TYPE_CLASS_MAP[KuType.JOURNAL] = JournalKu
+    KU_TYPE_CLASS_MAP[KuType.AI_REPORT] = AiReportKu
+    KU_TYPE_CLASS_MAP[KuType.FEEDBACK_REPORT] = FeedbackKu
+    KU_TYPE_CLASS_MAP[KuType.LIFE_PATH] = LifePathKu
 
 
 # Called at module load time (after Ku class is defined, at bottom of file)

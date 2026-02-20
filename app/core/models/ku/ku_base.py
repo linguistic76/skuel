@@ -166,6 +166,10 @@ class KuBase:
         return self.ku_type == KuType.SUBMISSION
 
     @property
+    def is_journal(self) -> bool:
+        return self.ku_type == KuType.JOURNAL
+
+    @property
     def is_ai_report(self) -> bool:
         return self.ku_type == KuType.AI_REPORT
 

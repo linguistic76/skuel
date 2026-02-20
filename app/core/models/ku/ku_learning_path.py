@@ -57,8 +57,11 @@ class LearningPathKu(KuBase):
     # =========================================================================
 
     @property
-    def steps(self) -> tuple[()]:
-        """LP steps are graph relationships, not model attributes. Returns empty tuple."""
+    def steps(self) -> tuple:
+        """LP steps are graph relationships (HAS_STEP), not model attributes.
+
+        Always returns empty tuple. Use LpService.get_path_steps(uid) for actual steps.
+        """
         return ()
 
     @property

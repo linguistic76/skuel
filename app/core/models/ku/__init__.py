@@ -5,42 +5,36 @@ Knowledge Models - Unified Ku Architecture
 "Ku is the heartbeat of SKUEL."
 
 Three-tier model for ALL knowledge in the system:
-1. ku.py - Immutable domain model (frozen dataclass, ~138 fields)
+1. ku.py - God object (frozen dataclass, ~138 fields) + KU_TYPE_CLASS_MAP
 2. ku_dto.py - Mutable data transfer objects (KuDTOMixin)
 3. ku_request.py - External API models (Pydantic, 14 create + 1 update + 1 response)
 
+Domain Subclasses (Phases 1-8 decomposition):
+4. ku_task.py, ku_goal.py, ku_habit.py, ku_event.py - Activity domains
+5. ku_choice.py, ku_principle.py - Activity domains
+6. ku_curriculum.py - Shared knowledge (CURRICULUM, RESOURCE)
+7. ku_learning_step.py, ku_learning_path.py - Curriculum structure
+8. ku_submission.py - Content processing base (SUBMISSION, JOURNAL, AI_REPORT, FEEDBACK_REPORT)
+9. ku_journal.py, ku_ai_report.py, ku_feedback.py - Content processing leaf types
+
 Content & RAG Support:
-4. ku_content.py - Rich content storage with automatic chunking
-5. ku_chunks.py - Semantic chunking for RAG retrieval
-6. ku_metadata.py - Analytics and search optimization
+10. ku_content.py - Rich content storage with automatic chunking
+11. ku_chunks.py - Semantic chunking for RAG retrieval
+12. ku_metadata.py - Analytics and search optimization
 
 Assignment & KuSchedule:
-7. assignment.py - Instruction templates for LLM processing (Assign stage)
-8. assignment_request.py - Assignment API validation models
-9. ku_schedule.py - Recurring progress Ku generation
+13. assignment.py - Instruction templates for LLM processing (Assign stage)
+14. assignment_request.py - Assignment API validation models
+15. ku_schedule.py - Recurring progress Ku generation
 
 Nested Types:
-10. ku_nested_types.py - Milestone, ChoiceOption, PrincipleExpression, AlignmentAssessment
-
-14 KuType manifestations:
-    CURRICULUM      -> Admin-created shared knowledge
-    SUBMISSION      -> Student submission
-    AI_REPORT       -> AI-derived from submission
-    FEEDBACK_REPORT -> Teacher feedback on submission
-    TASK            -> Knowledge about what needs doing
-    GOAL            -> Knowledge about where you're heading
-    HABIT           -> Knowledge about what you practice
-    EVENT           -> Knowledge about what you attend
-    CHOICE          -> Knowledge about decisions you make
-    PRINCIPLE       -> Knowledge about what you believe
-    MOC             -> Map of Content (KU organizing KUs)
-    LEARNING_STEP   -> Step in a learning path
-    LEARNING_PATH   -> Ordered sequence of steps
-    LIFE_PATH       -> Knowledge about your life direction
+16. ku_nested_types.py - Milestone, ChoiceOption, PrincipleExpression, AlignmentAssessment
 
 Usage:
     from core.models.ku import Ku, KuDTO, KuResponse
-    from core.models.ku import KuCurriculumCreateRequest, KuTaskCreateRequest
+    from core.models.ku import TaskKu, GoalKu, HabitKu, EventKu, ChoiceKu, PrincipleKu
+    from core.models.ku import CurriculumKu, LearningStepKu, LearningPathKu
+    from core.models.ku import SubmissionKu, JournalKu, AiReportKu, FeedbackKu
     from core.models.ku import Assignment, AssignmentDTO, KuSchedule
     from core.models.ku import Milestone, ChoiceOption, PrincipleExpression
 """
@@ -58,6 +52,7 @@ from .assignment_request import (
     KuFeedbackGenerateRequest,
 )
 from .ku import KU_TYPE_CLASS_MAP, Ku
+from .ku_ai_report import AiReportKu
 from .ku_base import KuBase
 from .ku_choice import ChoiceKu
 from .ku_chunks import KuChunk, KuChunkType, chunk_content
@@ -66,10 +61,13 @@ from .ku_converters import ku_to_response
 from .ku_curriculum import CurriculumKu
 from .ku_dto import KuDTO
 from .ku_event import EventKu
+from .ku_feedback import FeedbackKu
 from .ku_goal import GoalKu
 from .ku_habit import HabitKu
+from .ku_journal import JournalKu
 from .ku_learning_path import LearningPathKu
 from .ku_learning_step import LearningStepKu
+from .ku_life_path import LifePathKu
 from .ku_metadata import KuMetadata
 from .ku_nested_types import (
     AlignmentAssessment,
@@ -123,6 +121,7 @@ from .ku_schedule import (
     ku_schedule_domain_to_dto,
     ku_schedule_dto_to_domain,
 )
+from .ku_submission import SubmissionKu
 from .ku_task import TaskKu
 from .lp_position import LpPosition, create_lp_position
 
@@ -139,6 +138,11 @@ __all__ = [
     "CurriculumKu",
     "LearningStepKu",
     "LearningPathKu",
+    "SubmissionKu",
+    "JournalKu",
+    "AiReportKu",
+    "FeedbackKu",
+    "LifePathKu",
     "KU_TYPE_CLASS_MAP",
     "KuChunk",
     "KuChunkType",
