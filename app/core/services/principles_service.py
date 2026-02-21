@@ -22,6 +22,7 @@ from core.models.enums.ku_enums import PrincipleCategory
 from core.models.ku.ku import Ku
 from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_principle import PrincipleKu
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 
@@ -398,10 +399,14 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         # Apply additional filters if provided
         if filters:
             if "category" in filters:
-                matching = [p for p in matching if p.category and p.category == filters["category"]]
+                matching = [
+                    p for p in matching
+                    if isinstance(p, PrincipleKu) and p.category and p.category == filters["category"]
+                ]
             if "strength" in filters:
                 matching = [
-                    p for p in matching if p.strength and p.strength.value == filters["strength"]
+                    p for p in matching
+                    if isinstance(p, PrincipleKu) and p.strength and p.strength.value == filters["strength"]
                 ]
 
         return Result.ok(matching)

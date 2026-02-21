@@ -13,6 +13,7 @@ from core.models.enums import Domain, KuStatus, Priority
 from core.models.ku.ku import Ku
 from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_learning_step import LearningStepKu
 from core.models.ku.ku_request import KuChoiceCreateRequest
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -264,7 +265,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Ku]", Ku]):
 
             # Current step relevance
             current_step = learning_position.current_steps.get(path.uid)
-            if current_step:
+            if current_step and isinstance(current_step, LearningStepKu):
                 # Check if any knowledge UIDs from the step appear in the option
                 step_knowledge = current_step.get_all_knowledge_uids()
                 if any(ku.lower() in option_lower for ku in step_knowledge):
@@ -372,7 +373,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Ku]", Ku]):
 
             # Check current step relevance
             current_step = learning_position.current_steps.get(path.uid)
-            if current_step:
+            if current_step and isinstance(current_step, LearningStepKu):
                 # Check if any knowledge UIDs from the step appear in the choice text
                 step_knowledge = current_step.get_all_knowledge_uids()
                 if any(ku.lower() in choice_text for ku in step_knowledge):

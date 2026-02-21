@@ -18,6 +18,7 @@ from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.ku.ku import Ku
 from core.models.ku.ku_base import KuBase
+from core.models.ku.ku_choice import ChoiceKu
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
@@ -179,7 +180,8 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
         if choices_result.is_error:
             return Result.fail(choices_result.expect_error())
 
-        choices = choices_result.value or []
+        all_items = choices_result.value or []
+        choices = [c for c in all_items if isinstance(c, ChoiceKu)]
 
         # Calculate analytics
         total_choices = len(choices)
@@ -365,6 +367,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
         choice = choice_result.value  # backend.get() already returns Ku domain model
+        assert isinstance(choice, ChoiceKu)
 
         # Get cross-domain context using relationship helper (Priority 2 refactoring)
         if self.relationships is None:
@@ -1426,7 +1429,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
                 return
 
             choice = choice_result.value
-            if not choice:
+            if not choice or not isinstance(choice, ChoiceKu):
                 self.logger.warning(f"Choice not found for decision analysis: {event.choice_uid}")
                 return
 
@@ -1656,10 +1659,12 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
             evidence.append("No choices found in analysis period")
             return DecisionQualityLevel.STRUGGLING, 0.0, evidence
 
-        all_choices = choices_result.value
-        # Filter to period (using created_at)
+        all_items = choices_result.value
+        # Filter to ChoiceKu instances and period (using created_at)
         period_choices = [
-            c for c in all_choices if c.created_at and c.created_at.date() >= start_date
+            c
+            for c in all_items
+            if isinstance(c, ChoiceKu) and c.created_at and c.created_at.date() >= start_date
         ]
 
         if not period_choices:
@@ -2078,7 +2083,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
             return Result.fail(choice_result.expect_error())
 
         choice = choice_result.value
-        if not choice:
+        if not choice or not isinstance(choice, ChoiceKu):
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
         # Fetch relationships

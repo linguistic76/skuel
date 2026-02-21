@@ -153,6 +153,8 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         # Score and sort by priority factors
         scored_choices = []
         for choice in pending_choices:
+            if not isinstance(choice, ChoiceKu):
+                continue
             score = self._calculate_priority_score(choice, user_context)
             scored_choices.append((choice, score))
 
@@ -165,7 +167,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         self.logger.info(f"Prioritized {len(prioritized)} choices for user {user_context.user_uid}")
         return Result.ok(prioritized)
 
-    def _calculate_priority_score(self, choice: Ku, user_context: UserContext) -> float:
+    def _calculate_priority_score(self, choice: ChoiceKu, user_context: UserContext) -> float:
         """
         Calculate priority score for a choice based on user context.
 
@@ -662,7 +664,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
 
         # Choice-specific: High stakes filtering (post-filter)
         if "high stakes" in query_lower or "important decision" in query_lower:
-            choices = [c for c in choices if c.has_high_stakes()]
+            choices = [c for c in choices if isinstance(c, ChoiceKu) and c.has_high_stakes()]
 
         self.logger.info(
             "Intelligent search: query=%r filters=%s results=%d",

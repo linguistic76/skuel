@@ -17,9 +17,11 @@ from operator import itemgetter
 from typing import Any
 
 from core.models.enums import Domain, KuStatus
-from core.models.ku.ku import Ku
 from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_learning_path import LearningPathKu
+from core.models.ku.ku_learning_step import LearningStepKu
+from core.models.ku.ku_principle import PrincipleKu
 from core.models.ku.ku_request import KuPrincipleCreateRequest
 from core.models.ku.lp_position import LpPosition
 from core.services.base_service import BaseService
@@ -37,7 +39,7 @@ logger = get_logger(__name__)
 # ========================================================================
 
 
-def _calculate_virtue_embodiment_score(principle: Ku, learning_position: LpPosition) -> float:
+def _calculate_virtue_embodiment_score(principle: KuBase, learning_position: LpPosition) -> float:
     """
     Custom scorer for principle virtue embodiment.
 
@@ -57,17 +59,20 @@ def _calculate_virtue_embodiment_score(principle: Ku, learning_position: LpPosit
     # Calculate average progress across all paths
     total_progress = 0.0
     for path in learning_position.active_paths:
+        steps = path.steps if isinstance(path, LearningPathKu) else ()
         completed_steps = len(
-            [s for s in path.steps if s.uid in learning_position.completed_step_uids]
+            [s for s in steps if s.uid in learning_position.completed_step_uids]
         )
-        total_steps = len(path.steps)
+        total_steps = len(steps)
         path_progress = completed_steps / total_steps if total_steps > 0 else 0.0
         total_progress += path_progress
 
     avg_progress = total_progress / len(learning_position.active_paths)
 
-    # Get principle category
-    principle_category = principle.category.lower() if principle.category else ""
+    # Get principle category (PrincipleKu has .category property)
+    principle_category = ""
+    if isinstance(principle, PrincipleKu):
+        principle_category = principle.category.lower() if principle.category else ""
 
     # Discipline: consistency-weighted
     if principle_category in {"personal", "health"}:
@@ -81,7 +86,7 @@ def _calculate_virtue_embodiment_score(principle: Ku, learning_position: LpPosit
     return avg_progress * 0.7
 
 
-def _calculate_embodiment_data(principle: Ku, learning_position: LpPosition) -> dict[str, Any]:
+def _calculate_embodiment_data(principle: KuBase, learning_position: LpPosition) -> dict[str, Any]:
     """
     Calculate character development embodiment data.
 
@@ -90,8 +95,12 @@ def _calculate_embodiment_data(principle: Ku, learning_position: LpPosition) -> 
     """
     embodiment_score = _calculate_virtue_embodiment_score(principle, learning_position)
 
+    category = "unknown"
+    if isinstance(principle, PrincipleKu):
+        category = principle.category if principle.category else "unknown"
+
     return {
-        "virtue_category": principle.category if principle.category else "unknown",
+        "virtue_category": category,
         "embodiment_depth": embodiment_score,
         "character_development_stage": (
             "embodied"
@@ -322,7 +331,8 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, KuBase]):
 
                 # Current step context support
                 current_step = learning_position.current_steps.get(path.uid)
-                if current_step and (current_step.estimated_hours or 0) > 5:  # Substantial learning
+                step_hours = current_step.estimated_hours if isinstance(current_step, LearningStepKu | LearningPathKu) else None
+                if current_step and (step_hours or 0) > 5:  # Substantial learning
                     path_support += 0.2
 
                 if path_support > 0.4:
@@ -396,10 +406,11 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, KuBase]):
             path_embodiment = 0.0
 
             # Check how principle is embodied in path progression
+            steps = path.steps if isinstance(path, LearningPathKu) else ()
             completed_steps = len(
-                [s for s in path.steps if s.uid in learning_position.completed_step_uids]
+                [s for s in steps if s.uid in learning_position.completed_step_uids]
             )
-            total_steps = len(path.steps)
+            total_steps = len(steps)
             path_progress = completed_steps / total_steps if total_steps > 0 else 0.0
 
             # Principle-specific embodiment scoring

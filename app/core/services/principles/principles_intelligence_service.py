@@ -29,6 +29,7 @@ from core.models.insight.persisted_insight import InsightImpact, InsightType, Pe
 from core.models.ku.ku import Ku
 from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_principle import PrincipleKu
 from core.models.relationship_names import RelationshipName
 
 # NOTE (November 2025): Removed Has* protocol imports - Principle model is well-typed
@@ -184,7 +185,10 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         if principles_result.is_error:
             return Result.fail(principles_result.expect_error())
 
-        principles = principles_result.value or []
+        all_principles = principles_result.value or []
+        principles: list[PrincipleKu] = [
+            p for p in all_principles if isinstance(p, PrincipleKu)
+        ]
 
         # Calculate analytics
         total_principles = len(principles)
@@ -456,7 +460,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         )
 
     async def _calculate_system_alignment_for_dual_track(
-        self, principle: Ku, user_uid: str
+        self, principle: KuBase, user_uid: str
     ) -> tuple[AlignmentLevel, float, list[str]]:
         """
         Calculate system alignment from goals and habits.
@@ -578,8 +582,8 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
             recommendations.append(
                 "Continue your current approach - your self-awareness is accurate."
             )
-            # Check if principle has expressions (Principle model has this attribute)
-            if isinstance(entity, KuBase) and entity.expressions:
+            # Check if principle has expressions (PrincipleKu model has this attribute)
+            if isinstance(entity, PrincipleKu) and entity.expressions:
                 recommendations.append(
                     "Consider documenting new expressions of this principle as they arise."
                 )
@@ -755,7 +759,9 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         if principles_result.is_error:
             return Result.fail(principles_result.expect_error())  # P3: Type-safe error propagation
 
-        principles = principles_result.value
+        principles: list[PrincipleKu] = [
+            p for p in (principles_result.value or []) if isinstance(p, PrincipleKu)
+        ]
 
         if len(principles) < 2:
             return Result.ok(
@@ -927,7 +933,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         counts = PatternAnalyzer.extract_dict_field_counts(context_dict, ["choices", "habits"])
         return counts["choices"] + counts["habits"]
 
-    def _calculate_current_state(self, principle: Ku, recent_activities: int) -> dict[str, float]:
+    def _calculate_current_state(self, principle: KuBase, recent_activities: int) -> dict[str, float]:
         """Calculate current state metrics."""
         # NOTE: Principle model does not have adherence_score field
         # Using default 0.5 - consider adding adherence tracking in future
@@ -1032,7 +1038,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
     # HELPER METHODS - CONFLICT ANALYSIS
     # ========================================================================
 
-    def _determine_conflict_severity(self, p1: Ku, p2: Ku) -> tuple[str, int, int, int]:
+    def _determine_conflict_severity(self, p1: PrincipleKu, p2: PrincipleKu) -> tuple[str, int, int, int]:
         """
         Determine conflict severity based on principle strengths.
 
@@ -1049,7 +1055,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
             return "low", 0, 0, 1
 
     def _create_conflict_record(
-        self, p1: Ku, p2: Ku, severity: str, overlapping_goals: set
+        self, p1: PrincipleKu, p2: PrincipleKu, severity: str, overlapping_goals: set
     ) -> dict[str, Any]:
         """Create a conflict record dict."""
         return {
@@ -1061,7 +1067,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
             "description": f"{p1.title} and {p2.title} both guide the same goals",
         }
 
-    def _calculate_harmony_score(self, principles: list[Ku], conflicts: list[dict]) -> float:
+    def _calculate_harmony_score(self, principles: list[PrincipleKu], conflicts: list[dict]) -> float:
         """Calculate overall principle harmony score.
 
         Uses MetricsCalculator.calculate_harmony_score for consistent calculation.
@@ -1296,7 +1302,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
                 )
                 return
 
-            principle = principle_result.value
+            principle: KuBase | None = principle_result.value
             if not principle:
                 self.logger.warning(
                     f"Principle not found for cascade analysis: {event.principle_uid}"
@@ -1435,7 +1441,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
                 )
                 return
 
-            principle = principle_result.value
+            principle: KuBase | None = principle_result.value
             if not principle:
                 self.logger.warning(
                     f"Principle not found for reflection analysis: {event.principle_uid}"
@@ -1638,8 +1644,8 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
                 )
                 return
 
-            principle1 = p1_result.value
-            principle2 = p2_result.value
+            principle1: KuBase | None = p1_result.value
+            principle2: KuBase | None = p2_result.value
             if not principle1 or not principle2:
                 self.logger.warning(
                     f"One or both principles not found for conflict analysis: "
@@ -1648,10 +1654,13 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
                 return
 
             # 2. Determine conflict severity based on principle strengths
-            severity = self._determine_conflict_severity_for_event(
-                principle1.strength.value if principle1.strength else "unknown",
-                principle2.strength.value if principle2.strength else "unknown",
-            )
+            p1_strength = "unknown"
+            p2_strength = "unknown"
+            if isinstance(principle1, PrincipleKu) and principle1.strength:
+                p1_strength = principle1.strength.value
+            if isinstance(principle2, PrincipleKu) and principle2.strength:
+                p2_strength = principle2.strength.value
+            severity = self._determine_conflict_severity_for_event(p1_strength, p2_strength)
 
             # 3. Generate resolution guidance
             resolution_guidance = self._generate_resolution_guidance(
@@ -1736,12 +1745,8 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
                         "severity": severity,
                         "conflict_context": event.conflict_context,
                         "reflection_uid": event.reflection_uid,
-                        "principle1_strength": principle1.strength.value
-                        if principle1.strength
-                        else "unknown",
-                        "principle2_strength": principle2.strength.value
-                        if principle2.strength
-                        else "unknown",
+                        "principle1_strength": p1_strength,
+                        "principle2_strength": p2_strength,
                     },
                 )
                 create_result = await self.insight_store.create_insight(insight)
@@ -1774,8 +1779,8 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
 
     def _generate_resolution_guidance(
         self,
-        principle1: Ku,
-        principle2: Ku,
+        principle1: KuBase,
+        principle2: KuBase,
         severity: str,
         conflict_context: str | None,
     ) -> list[dict[str, str]]:

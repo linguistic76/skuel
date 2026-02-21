@@ -13,7 +13,8 @@ They enhance the user experience but are not required for core functionality.
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku.ku import Ku
+from core.models.ku.ku_base import KuBase
+from core.models.ku.ku_principle import PrincipleKu
 from core.services.base_ai_service import BaseAIService
 from core.services.protocols import PrinciplesOperations
 from core.utils.result_simplified import Errors, Result
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
 
-class PrinciplesAIService(BaseAIService[PrinciplesOperations, Ku]):
+class PrinciplesAIService(BaseAIService[PrinciplesOperations, KuBase]):
     """
     AI-powered features for Principles domain.
 
@@ -95,10 +96,14 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, Ku]):
         if not principle:
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
+        category = "personal"
+        if isinstance(principle, PrincipleKu) and principle.category:
+            category = principle.category
+
         context = {
             "name": principle.title,
             "description": principle.description or "No description",
-            "category": principle.category if principle.category else "personal",
+            "category": category,
         }
 
         prompt = """Help deepen understanding of this principle.
@@ -150,10 +155,14 @@ Format each as KEY: [response]"""
         if not principle:
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
+        category = "personal"
+        if isinstance(principle, PrincipleKu) and principle.category:
+            category = principle.category
+
         context = {
             "name": principle.title,
             "description": principle.description or "No description",
-            "category": principle.category if principle.category else "personal",
+            "category": category,
         }
 
         prompt = f"""Suggest {num_practices} practices to embody this principle more fully.
@@ -204,10 +213,14 @@ WHEN: [when/where to apply it]"""
         if not principle:
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
+        strength_display = "50%"
+        if isinstance(principle, PrincipleKu) and principle.strength:
+            strength_display = principle.strength.value
+
         context = {
             "name": principle.title,
             "description": principle.description or "No description",
-            "strength": f"{(principle.strength or 0.5) * 100:.0f}%",
+            "strength": strength_display,
         }
 
         prompt = """Provide a brief, meaningful insight about living this principle.

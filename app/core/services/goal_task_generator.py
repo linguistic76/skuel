@@ -13,9 +13,9 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 from core.models.enums import KuStatus, Priority, RecurrencePattern
-from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.ku.ku_goal import GoalKu
 from core.services.goals.goal_relationships import GoalRelationships
 
 # Import protocol interfaces
@@ -112,7 +112,7 @@ class GoalTaskGenerator:
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, KuDTO, Ku)
+        goal = to_domain_model(goal_result.value, KuDTO, GoalKu)
 
         # GRAPH-NATIVE: Fetch goal relationships from graph
         rels = (
@@ -228,7 +228,7 @@ class GoalTaskGenerator:
             if goal_result.is_error:
                 continue
 
-            goal = to_domain_model(goal_result.value, KuDTO, Ku)
+            goal = to_domain_model(goal_result.value, KuDTO, GoalKu)
 
             # Check if goal is at risk
             if goal.days_remaining() and goal.days_remaining() < 30:
@@ -247,7 +247,7 @@ class GoalTaskGenerator:
     # ========================================================================
 
     async def _generate_milestone_tasks(
-        self, goal: Ku, _user_context: UserContext
+        self, goal: GoalKu, _user_context: UserContext
     ) -> list[TaskDTO]:
         """Generate tasks for goal milestones."""
         tasks: list[TaskDTO] = []
@@ -293,7 +293,7 @@ class GoalTaskGenerator:
         return tasks
 
     async def _generate_knowledge_tasks(
-        self, goal: Ku, rels: GoalRelationships, user_context: UserContext
+        self, goal: GoalKu, rels: GoalRelationships, user_context: UserContext
     ) -> list[TaskDTO]:
         """
         Generate tasks for acquiring required knowledge.
@@ -352,7 +352,7 @@ class GoalTaskGenerator:
         return tasks
 
     async def _generate_habit_tasks(
-        self, goal: Ku, user_context: UserContext, rels: GoalRelationships | None = None
+        self, goal: GoalKu, user_context: UserContext, rels: GoalRelationships | None = None
     ) -> list[TaskDTO]:
         """Generate tasks for reinforcing supporting habits."""
         tasks: list[TaskDTO] = []
@@ -391,7 +391,7 @@ class GoalTaskGenerator:
 
         return tasks
 
-    async def _generate_checkin_tasks(self, goal: Ku, _user_context: UserContext) -> list[TaskDTO]:
+    async def _generate_checkin_tasks(self, goal: GoalKu, _user_context: UserContext) -> list[TaskDTO]:
         """Generate periodic check-in tasks for goal progress."""
         tasks = []
 
@@ -419,7 +419,7 @@ class GoalTaskGenerator:
 
         return tasks
 
-    async def _generate_urgent_tasks(self, goal: Ku, _user_context: UserContext) -> list[TaskDTO]:
+    async def _generate_urgent_tasks(self, goal: GoalKu, _user_context: UserContext) -> list[TaskDTO]:
         """Generate urgent tasks for at-risk goals."""
         tasks = []
 
@@ -444,7 +444,7 @@ class GoalTaskGenerator:
 
         return tasks
 
-    def _calculate_priority(self, goal: Ku, task_due_date: date) -> Priority:
+    def _calculate_priority(self, goal: GoalKu, task_due_date: date) -> Priority:
         """Calculate task priority based on goal urgency and due date."""
         days_until_due = (task_due_date - date.today()).days
         goal_days_remaining = goal.days_remaining() or 365
@@ -537,7 +537,7 @@ class GoalTaskGenerator:
     # TASK TEMPLATE LIBRARY
     # ========================================================================
 
-    def get_task_templates(self, goal: Ku) -> dict[str, TaskDTO]:
+    def get_task_templates(self, goal: GoalKu) -> dict[str, TaskDTO]:
         """
         Get library of reusable task templates.
 

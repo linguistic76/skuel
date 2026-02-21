@@ -21,7 +21,6 @@ from datetime import date, timedelta
 
 from core.models.enums import Domain
 from core.models.enums.ku_enums import PrincipleCategory, PrincipleStrength
-from core.models.ku.ku import Ku
 from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_principle import PrincipleKu
@@ -101,7 +100,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
     # search() - inherited from BaseService using _dto_class, _model_class, _search_fields
 
     @with_error_handling("get_by_status", error_type="database")
-    async def get_by_status(self, status: str, limit: int = 100) -> Result[list[Ku]]:
+    async def get_by_status(self, status: str, limit: int = 100) -> Result[list[KuBase]]:
         """
         Filter principles by active/inactive status.
 
@@ -123,7 +122,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
         return Result.ok(principles)
 
     @with_error_handling("get_by_domain", error_type="database")
-    async def get_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Ku]]:
+    async def get_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[KuBase]]:
         """
         Filter principles by category (mapped from Domain concept).
 
@@ -167,7 +166,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
         return Result.ok(principles)
 
     @with_error_handling("get_prioritized", error_type="database")
-    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Ku]]:
+    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[KuBase]]:
         """
         Get principles prioritized for the user's current context.
 
@@ -210,7 +209,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
         )
         return Result.ok(prioritized)
 
-    def _calculate_priority_score(self, principle: Ku, user_context: UserContext) -> float:
+    def _calculate_priority_score(self, principle: KuBase, user_context: UserContext) -> float:
         """
         Calculate priority score for a principle based on user context.
 
@@ -220,6 +219,9 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
         - Review needs
         - Integration level (guiding goals and habits)
         """
+        if not isinstance(principle, PrincipleKu):
+            return 0.0
+
         score = 0.0
 
         # Strength level (0-40 points)
@@ -257,7 +259,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
         days_ahead: int = 30,
         user_uid: str | None = None,
         limit: int = 100,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[KuBase]]:
         """
         Get principles needing review within specified number of days.
 
@@ -314,7 +316,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
         self,
         user_uid: str | None = None,
         limit: int = 100,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[KuBase]]:
         """
         Get principles past their review date (default 90-day threshold).
 
@@ -367,7 +369,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
     @with_error_handling("get_by_strength", error_type="database")
     async def get_by_strength(
         self, strength: PrincipleStrength, limit: int = 100
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[KuBase]]:
         """
         Get principles filtered by strength level.
 
@@ -393,7 +395,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
     @with_error_handling("get_by_category", error_type="database")
     async def get_by_category(
         self, category: PrincipleCategory | str, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[KuBase]]:
         """
         Get principles in a specific category.
 
@@ -469,7 +471,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
         return result
 
     @with_error_handling("get_for_choice", error_type="database")
-    async def get_for_choice(self, choice_uid: str, limit: int = 10) -> Result[list[Ku]]:
+    async def get_for_choice(self, choice_uid: str, limit: int = 10) -> Result[list[KuBase]]:
         """
         Get principles relevant to a choice/decision.
 
@@ -489,7 +491,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
         )
 
     @with_error_handling("get_for_goal", error_type="database")
-    async def get_for_goal(self, goal_uid: str, limit: int = 10) -> Result[list[Ku]]:
+    async def get_for_goal(self, goal_uid: str, limit: int = 10) -> Result[list[KuBase]]:
         """
         Get principles that guide a specific goal.
 
@@ -509,7 +511,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
         )
 
     @with_error_handling("get_active_principles", error_type="database")
-    async def get_active_principles(self, user_uid: str, limit: int = 100) -> Result[list[Ku]]:
+    async def get_active_principles(self, user_uid: str, limit: int = 100) -> Result[list[KuBase]]:
         """
         Get all active principles for a user.
 
@@ -551,7 +553,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
     @with_error_handling("get_needing_review", error_type="database")
     async def get_needing_review(
         self, days_threshold: int = 90, limit: int = 20
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[KuBase]]:
         """
         Get principles that need alignment review.
 
@@ -598,7 +600,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
     @with_error_handling("get_related_principles", error_type="database")
     async def get_related_principles(
         self, principle_uid: str, depth: int = 2, limit: int = 10
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[KuBase]]:
         """
         Get principles related to a given principle.
 
@@ -659,6 +661,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
             return Result.ok([])
 
         principle = self._to_domain_model(principle_result.value, KuDTO, KuBase)
+        assert isinstance(principle, PrincipleKu)
 
         # Get principles in same category (excluding self)
         cypher_query = """
@@ -706,7 +709,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
     @with_error_handling("intelligent_search", error_type="database")
     async def intelligent_search(
         self, query: str, user_uid: str | None = None, limit: int = 50
-    ) -> Result[tuple[list[Ku], ParsedSearchQuery]]:
+    ) -> Result[tuple[list[KuBase], ParsedSearchQuery]]:
         """
         Natural language search with semantic filter extraction.
 
@@ -812,9 +815,13 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
 
         # Principle-specific: Review state filtering (post-filter)
         if "review" in query_lower or "reviewing" in query_lower:
-            principles = [p for p in principles if p.needs_review()]
+            principles = [
+                p for p in principles if isinstance(p, PrincipleKu) and p.needs_review()
+            ]
         elif "well-aligned" in query_lower or "aligned" in query_lower:
-            principles = [p for p in principles if p.is_well_aligned()]
+            principles = [
+                p for p in principles if isinstance(p, PrincipleKu) and p.is_well_aligned()
+            ]
 
         self.logger.info(
             "Intelligent search: query=%r filters=%s results=%d",

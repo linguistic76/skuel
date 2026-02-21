@@ -20,6 +20,7 @@ from core.events.choice_events import (
 from core.models.enums.ku_enums import ChoiceType, KuStatus, KuType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_base import KuBase
+from core.models.ku.ku_choice import ChoiceKu
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_nested_types import ChoiceOption
 from core.models.relationship_names import RelationshipName
@@ -132,6 +133,9 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             None if valid, Result.fail() with validation error if invalid
         """
         from core.utils.result_simplified import Errors
+
+        if not isinstance(choice, ChoiceKu):
+            return None
 
         # Business Rule 1: Minimum options
         if not choice.options or len(choice.options) < 2:
@@ -511,6 +515,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             return Result.fail(update_result)
 
         choice = self._to_domain_model(update_result.value, KuDTO, KuBase)
+        assert isinstance(choice, ChoiceKu)
 
         # Calculate outcome quality score
         outcome_quality = choice.get_decision_quality_score() or 0.5
@@ -691,7 +696,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             return Result.fail(existing_result.expect_error())
 
         existing = existing_result.value
-        if not existing:
+        if not existing or not isinstance(existing, ChoiceKu):
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
         # Business Rule: Cannot modify decided/evaluated choices
@@ -802,7 +807,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             return Result.fail(existing_result.expect_error())
 
         existing = existing_result.value
-        if not existing:
+        if not existing or not isinstance(existing, ChoiceKu):
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
         # Business Rule: Cannot modify decided/evaluated choices
@@ -915,7 +920,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             return Result.fail(existing_result.expect_error())
 
         existing = existing_result.value
-        if not existing:
+        if not existing or not isinstance(existing, ChoiceKu):
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
         # Business Rule: Cannot modify decided/evaluated choices

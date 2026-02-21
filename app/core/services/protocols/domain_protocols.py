@@ -17,7 +17,7 @@ THE 14 DOMAINS AND THEIR PROTOCOLS
     3. HabitsOperations[Habit]         - Recurring behaviors and streaks
     4. EventsOperations[Ku]            - Calendar items and scheduling (unified Ku model)
     5. ChoicesOperations[Choice]       - Decisions and outcomes
-    6. PrinciplesOperations[Ku]        - Values and alignment (unified Ku model)
+    6. PrinciplesOperations[KuBase]     - Values and alignment (unified Ku model)
     7. FinancesOperations[ExpensePure] - Expenses and budgets
 
 **Curriculum Domain Protocols (3):**
@@ -90,6 +90,7 @@ if TYPE_CHECKING:
     from core.models.finance.finance_pure import BudgetPure, ExpensePure
     from core.models.finance.invoice import InvoicePure
     from core.models.ku.ku import Ku
+    from core.models.ku.ku_base import KuBase
     from core.models.ku.ku_habit import HabitKu
     from core.models.ku.ku_task import TaskKu
     from core.models.type_hints import EntityUID, Metadata
@@ -999,7 +1000,7 @@ class ChoicesOperations(BackendOperations["Ku"], GraphRelationshipOperations, Pr
 
 
 @runtime_checkable
-class PrinciplesOperations(BackendOperations["Ku"], GraphRelationshipOperations, Protocol):
+class PrinciplesOperations(BackendOperations["KuBase"], GraphRelationshipOperations, Protocol):
     """Core principle management operations. Uses unified Ku model with KuType.PRINCIPLE.
 
     Inherits base CRUD operations from BackendOperations:
@@ -1013,20 +1014,20 @@ class PrinciplesOperations(BackendOperations["Ku"], GraphRelationshipOperations,
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
 
-    async def create(self, principle: Any) -> Result[Ku]:
-        """Create a new principle. Returns Result[Ku]."""
+    async def create(self, principle: Any) -> Result[KuBase]:
+        """Create a new principle. Returns Result[KuBase]."""
         ...
 
-    async def get(self, principle_uid: str) -> Result[Ku | None]:
-        """Get a principle by UID. Returns Result[Ku | None]."""
+    async def get(self, principle_uid: str) -> Result[KuBase | None]:
+        """Get a principle by UID. Returns Result[KuBase | None]."""
         ...
 
-    async def find_by(self, limit: int = 100, **filters: Any) -> Result[builtins.list[Ku]]:
-        """Find principles matching filters. Returns Result[list[Ku]]."""
+    async def find_by(self, limit: int = 100, **filters: Any) -> Result[builtins.list[KuBase]]:
+        """Find principles matching filters. Returns Result[list[KuBase]]."""
         ...
 
-    async def update(self, principle_uid: str, updates: dict[str, Any]) -> Result[Ku]:
-        """Update a principle. Returns Result[Ku]."""
+    async def update(self, principle_uid: str, updates: dict[str, Any]) -> Result[KuBase]:
+        """Update a principle. Returns Result[KuBase]."""
         ...
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:

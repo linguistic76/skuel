@@ -14,6 +14,7 @@ They enhance the user experience but are not required for core functionality.
 from typing import TYPE_CHECKING, Any
 
 from core.models.ku.ku import Ku
+from core.models.ku.ku_choice import ChoiceKu
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
@@ -90,7 +91,7 @@ class ChoicesAIService(BaseAIService["BackendOperations[Ku]", Ku]):
             return Result.fail(choice_result.expect_error())
 
         choice = choice_result.value
-        if not choice:
+        if not choice or not isinstance(choice, ChoiceKu):
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
         context = {
@@ -152,13 +153,13 @@ CONSIDERATION: [factor 2]"""
             return Result.fail(choice_result.expect_error())
 
         choice = choice_result.value
-        if not choice:
+        if not choice or not isinstance(choice, ChoiceKu):
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
         context = {
             "title": choice.title,
             "description": choice.description or "No description",
-            "current_options": ", ".join(choice.options) if choice.options else "Not specified",
+            "current_options": ", ".join(str(o) for o in choice.options) if choice.options else "Not specified",
         }
 
         prompt = f"""Generate {num_alternatives} alternative approaches for this decision.
