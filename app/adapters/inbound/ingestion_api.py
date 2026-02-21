@@ -25,8 +25,8 @@ from typing import TYPE_CHECKING, Any
 from starlette.requests import Request
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
+from adapters.inbound.auth import require_admin
 from adapters.inbound.boundary import boundary_handler
-from core.auth import require_admin
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

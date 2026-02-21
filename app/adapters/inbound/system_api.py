@@ -27,8 +27,8 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
+from adapters.inbound.auth import require_admin
 from adapters.inbound.boundary import boundary_handler
-from core.auth import require_admin
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

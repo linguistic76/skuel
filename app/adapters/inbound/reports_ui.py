@@ -33,7 +33,7 @@ from fasthtml.common import (
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
 
-from core.auth import require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 from core.models.enums.ku_enums import KuType, ProcessorType
 from core.utils.logging import get_logger
 from ui.daisy_components import Button, ButtonT

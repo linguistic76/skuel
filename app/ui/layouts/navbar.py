@@ -409,13 +409,18 @@ async def create_navbar_for_request(
         FastHTML Nav element with proper authentication state
     """
 
-    from core.auth import get_current_user, get_is_admin, get_is_teacher, is_authenticated
+    from adapters.inbound.auth import (
+        get_current_user,
+        get_is_admin,
+        get_is_teacher,
+        is_authenticated,
+    )
 
     # Get unread insight count (Phase 1 integration)
     unread_insights = 0
     if is_authenticated(request) and insight_store:
         try:
-            from core.auth import require_authenticated_user
+            from adapters.inbound.auth import require_authenticated_user
 
             user_uid = require_authenticated_user(request)
             # Get total active insights count
@@ -429,7 +434,7 @@ async def create_navbar_for_request(
     unread_notifications = 0
     if is_authenticated(request) and notification_service:
         try:
-            from core.auth import require_authenticated_user
+            from adapters.inbound.auth import require_authenticated_user
 
             user_uid = require_authenticated_user(request)
             count_result = await notification_service.get_unread_count(user_uid)

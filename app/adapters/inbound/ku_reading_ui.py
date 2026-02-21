@@ -18,7 +18,7 @@ from typing import Any
 
 from fasthtml.common import H3, A, Button, Div, NotStr, P, Request, Small, Span
 
-from core.auth import require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
 from ui.daisy_components import Card, CardBody

@@ -43,7 +43,9 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class LsIntelligenceService(BaseAnalyticsService["BackendOperations[LearningStepKu]", "LearningStepKu"]):
+class LsIntelligenceService(
+    BaseAnalyticsService["BackendOperations[LearningStepKu]", "LearningStepKu"]
+):
     """
     Intelligence service for Learning Steps.
 
@@ -101,7 +103,9 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[LearningStep
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[LearningStepKu, GraphContext]]:
+    async def get_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[LearningStepKu, GraphContext]]:
         """
         Get learning step with full graph context.
 

@@ -38,8 +38,8 @@ from typing import Any
 
 from fasthtml.common import Request
 
+from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from core.auth import require_authenticated_user
 from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

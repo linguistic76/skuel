@@ -13,8 +13,8 @@ from typing import Any
 
 from fasthtml.common import Request
 
+from adapters.inbound.auth import require_authenticated_user, require_ownership_query
 from adapters.inbound.boundary import boundary_handler
-from core.auth import require_authenticated_user, require_ownership_query
 from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
 from core.models.ku.ku_request import (
     AlignmentAssessmentRequest,

@@ -209,15 +209,11 @@ class TestCurriculumKuLearningMethods:
         assert cu.matches_time_available(10) is False
 
     def test_is_appropriate_for_level(self):
-        beginner = CurriculumKu(
-            uid="ku_test", title="Test", learning_level=LearningLevel.BEGINNER
-        )
+        beginner = CurriculumKu(uid="ku_test", title="Test", learning_level=LearningLevel.BEGINNER)
         assert beginner.is_appropriate_for_level(LearningLevel.BEGINNER) is True
         assert beginner.is_appropriate_for_level(LearningLevel.EXPERT) is True
 
-        expert = CurriculumKu(
-            uid="ku_test2", title="Test2", learning_level=LearningLevel.EXPERT
-        )
+        expert = CurriculumKu(uid="ku_test2", title="Test2", learning_level=LearningLevel.EXPERT)
         assert expert.is_appropriate_for_level(LearningLevel.BEGINNER) is False
         assert expert.is_appropriate_for_level(LearningLevel.EXPERT) is True
 

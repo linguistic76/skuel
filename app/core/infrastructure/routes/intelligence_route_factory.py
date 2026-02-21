@@ -48,8 +48,8 @@ Benefits:
 
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
+from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from core.auth import require_authenticated_user
 from core.infrastructure.routes.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope
 from core.utils.logging import get_logger

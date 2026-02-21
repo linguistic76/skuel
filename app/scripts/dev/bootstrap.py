@@ -379,7 +379,7 @@ def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None)
     """
 
     # Import UI foundation
-    from core.auth import get_session_middleware_config
+    from adapters.inbound.auth import get_session_middleware_config
 
     # Get session configuration for FastHTML
     session_config = get_session_middleware_config()

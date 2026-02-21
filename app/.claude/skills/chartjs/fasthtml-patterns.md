@@ -276,7 +276,7 @@ def chart_modal_trigger():
 ### Passing User UID
 
 ```python
-from core.auth import require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 
 @rt("/dashboard")
 async def dashboard(request):

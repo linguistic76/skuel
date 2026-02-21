@@ -951,7 +951,7 @@ factory = CRUDRouteFactory(
 **Manual Routes:** Must include explicit ownership check for user-owned content:
 
 ```python
-from core.auth import require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 
 @rt("/api/tasks/{uid}/complete")
 @boundary_handler()

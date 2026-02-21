@@ -16,7 +16,7 @@ from fasthtml.common import H1, A, Nav, NotStr, P
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
-from core.auth import is_authenticated
+from adapters.inbound.auth import is_authenticated
 from core.utils.logging import get_logger
 from ui.daisy_components import Container, Div
 

@@ -106,11 +106,7 @@ class CurriculumKu(KuBase):
 
     def explain_existence(self) -> str:
         """Explain why this curriculum exists."""
-        return (
-            self.description
-            or self.summary
-            or f"curriculum: {self.title}"
-        )
+        return self.description or self.summary or f"curriculum: {self.title}"
 
     # =========================================================================
     # LEARNING METHODS

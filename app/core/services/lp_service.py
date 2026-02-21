@@ -222,7 +222,9 @@ class LpService(FacadeDelegationMixin):
     # ============================================================================
     # Note: These require ls_service guard, kept explicit.
 
-    async def create_step(self, step: LearningStepKu, path_uid: str | None = None) -> Result[LearningStepKu]:
+    async def create_step(
+        self, step: LearningStepKu, path_uid: str | None = None
+    ) -> Result[LearningStepKu]:
         """Create a learning step. Delegates to LsService."""
         if not self.ls_service:
             from core.utils.result_simplified import Errors
@@ -270,7 +272,9 @@ class LpService(FacadeDelegationMixin):
         typed_ls_service = cast("LsFacadeProtocol", self.ls_service)
         return await typed_ls_service.delete_step(step_uid)
 
-    async def list_steps(self, path_uid: str | None = None, limit: int = 100) -> Result[list[LearningStepKu]]:
+    async def list_steps(
+        self, path_uid: str | None = None, limit: int = 100
+    ) -> Result[list[LearningStepKu]]:
         """List learning steps. Delegates to LsService."""
         if not self.ls_service:
             from core.utils.result_simplified import Errors

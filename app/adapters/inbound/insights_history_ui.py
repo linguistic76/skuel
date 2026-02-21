@@ -12,8 +12,8 @@ from typing import Any
 from fasthtml.common import Div, NotStr, P, Select, Span
 from starlette.requests import Request
 
+from adapters.inbound.auth import require_authenticated_user
 from components.insight_card import InsightCard
-from core.auth import require_authenticated_user
 from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType

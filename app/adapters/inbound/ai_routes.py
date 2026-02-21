@@ -17,7 +17,7 @@ Pattern: Check if facade.ai is available, return 503 if not.
 
 from starlette.responses import JSONResponse
 
-from core.auth import require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.ai")

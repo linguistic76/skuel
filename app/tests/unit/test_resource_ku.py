@@ -71,9 +71,7 @@ class TestResourceKuCreation:
         r_no_time = ResourceKu(uid="ku_book", title="A Book")
         assert r_no_time.is_time_based is False
 
-        r_with_time = ResourceKu(
-            uid="ku_talk", title="A Talk", resource_duration_minutes=45
-        )
+        r_with_time = ResourceKu(uid="ku_talk", title="A Talk", resource_duration_minutes=45)
         assert r_with_time.is_time_based is True
 
 
@@ -168,9 +166,7 @@ class TestResourceKuMethods:
 
     def test_explain_existence_with_author(self):
         """explain_existence includes author attribution."""
-        r = ResourceKu(
-            uid="ku_test", title="The Alchemist", author="Paulo Coelho"
-        )
+        r = ResourceKu(uid="ku_test", title="The Alchemist", author="Paulo Coelho")
         explanation = r.explain_existence()
         assert "The Alchemist" in explanation
         assert "Paulo Coelho" in explanation

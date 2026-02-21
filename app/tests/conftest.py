@@ -191,7 +191,7 @@ def authenticated_client_simple(skuel_app) -> "Generator[TestClient, None, None]
     """
     from starlette.testclient import TestClient
 
-    from core.auth.session import DEFAULT_DEV_USER
+    from adapters.inbound.auth.session import DEFAULT_DEV_USER
 
     with TestClient(skuel_app) as client:
         # Log in with default dev user

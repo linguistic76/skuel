@@ -156,7 +156,9 @@ class EventsLearningService(BaseService["BackendOperations[EventKu]", EventKu]):
     # LEARNING-RELATED EVENT QUERIES
     # ========================================================================
 
-    async def get_learning_events(self, user_uid: str, days_ahead: int = 7) -> Result[list[EventKu]]:
+    async def get_learning_events(
+        self, user_uid: str, days_ahead: int = 7
+    ) -> Result[list[EventKu]]:
         """
         Get all upcoming learning-related events.
 

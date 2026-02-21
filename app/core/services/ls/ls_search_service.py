@@ -108,7 +108,9 @@ class LsSearchService(BaseService["BackendOperations[LearningStepKu]", LearningS
     # LS-SPECIFIC METHODS
     # =========================================================================
 
-    async def get_for_learning_path(self, path_uid: str, limit: int = 100) -> Result[list[LearningStepKu]]:
+    async def get_for_learning_path(
+        self, path_uid: str, limit: int = 100
+    ) -> Result[list[LearningStepKu]]:
         """
         Get Learning Steps belonging to a specific learning path.
 

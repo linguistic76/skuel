@@ -62,7 +62,7 @@ from starlette.responses import Response
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-from core.auth.session import require_authenticated_user
+from adapters.inbound.auth.session import require_authenticated_user
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 

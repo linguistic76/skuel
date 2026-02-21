@@ -276,7 +276,9 @@ def create_activity_domain_config(
         generate_prerequisite_relationships,
     )
 
-    entity_label = entity_label or getattr(model_class, "_neo4j_label", None) or model_class.__name__
+    entity_label = (
+        entity_label or getattr(model_class, "_neo4j_label", None) or model_class.__name__
+    )
 
     # FAIL-FAST: Validate entity exists in unified registry
     if entity_label not in LABEL_CONFIGS:
@@ -353,7 +355,9 @@ def create_curriculum_domain_config(
         generate_prerequisite_relationships,
     )
 
-    entity_label = entity_label or getattr(model_class, "_neo4j_label", None) or model_class.__name__
+    entity_label = (
+        entity_label or getattr(model_class, "_neo4j_label", None) or model_class.__name__
+    )
 
     # FAIL-FAST: Validate entity exists in unified registry
     if entity_label not in LABEL_CONFIGS:

@@ -30,7 +30,7 @@ pytestmark = pytest.mark.skipif(
 @pytest.fixture(autouse=True)
 def mock_graphql_auth():
     """Mock authentication for GraphQL tests to bypass session requirement."""
-    from core.auth.session import DEFAULT_DEV_USER
+    from adapters.inbound.auth.session import DEFAULT_DEV_USER
 
     with patch("adapters.inbound.graphql_routes.require_authenticated_user") as mock:
         mock.return_value = DEFAULT_DEV_USER

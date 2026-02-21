@@ -521,7 +521,9 @@ class LsOperations(CurriculumOperations["LearningStepKu"], Protocol):
         """
         ...
 
-    async def get_learning_steps_batch(self, uids: list[str]) -> Result[list[LearningStepKu | None]]:
+    async def get_learning_steps_batch(
+        self, uids: list[str]
+    ) -> Result[list[LearningStepKu | None]]:
         """
         Batch load learning steps by UIDs.
 
@@ -730,7 +732,9 @@ class LpOperations(CurriculumOperations["LearningPathKu"], Protocol):
         """
         ...
 
-    async def get_learning_paths_batch(self, uids: list[str]) -> Result[list[LearningPathKu | None]]:
+    async def get_learning_paths_batch(
+        self, uids: list[str]
+    ) -> Result[list[LearningPathKu | None]]:
         """
         Batch load learning paths by UIDs.
 

@@ -29,12 +29,14 @@ if TYPE_CHECKING:
 from core.models.enums.ku_enums import KuType, ProcessorType
 from core.models.ku.ku_base import KuBase
 
-_SUBMISSION_KU_TYPES = frozenset({
-    KuType.SUBMISSION,
-    KuType.JOURNAL,
-    KuType.AI_REPORT,
-    KuType.FEEDBACK_REPORT,
-})
+_SUBMISSION_KU_TYPES = frozenset(
+    {
+        KuType.SUBMISSION,
+        KuType.JOURNAL,
+        KuType.AI_REPORT,
+        KuType.FEEDBACK_REPORT,
+    }
+)
 
 
 @dataclass(frozen=True)

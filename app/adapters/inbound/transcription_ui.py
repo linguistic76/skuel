@@ -19,7 +19,7 @@ from typing import Any
 from fasthtml.common import H1, H2, H3, A, Form, NotStr, P, Script
 from starlette.requests import Request
 
-from core.auth import get_current_user
+from adapters.inbound.auth import get_current_user
 from core.utils.logging import get_logger
 from ui.daisy_components import (
     Button,

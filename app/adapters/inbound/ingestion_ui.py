@@ -11,7 +11,7 @@ Security:
 from fasthtml.common import Form, NotStr, P, Pre
 from starlette.requests import Request
 
-from core.auth import require_admin
+from adapters.inbound.auth import require_admin
 from core.utils.logging import get_logger
 from ui.daisy_components import Button, Card, CardBody, Div, Input, Label
 from ui.layouts.base_page import BasePage

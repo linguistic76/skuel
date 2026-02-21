@@ -92,7 +92,9 @@ class EventsProgressService(BaseService["BackendOperations[EventKu]", EventKu]):
     # CONTEXT-FIRST HELPERS
     # ========================================================================
 
-    def _get_event_from_rich_context(self, event_uid: str, user_context: UserContext) -> EventKu | None:
+    def _get_event_from_rich_context(
+        self, event_uid: str, user_context: UserContext
+    ) -> EventKu | None:
         """Try to get Ku from UserContext.active_events_rich."""
         if not user_context.active_events_rich:
             return None

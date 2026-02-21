@@ -640,7 +640,7 @@ fixable = ["ALL"]
 "test_graphql_complexity.py" = ["RUF001", "RUF003"]  # GraphQL tests use × multiplication symbol
 "core/services/journal_core_service.py" = ["RUF001"]  # Journal service uses Unicode symbols
 "core/services/audio_transcription_service.py" = ["RUF001"]  # Emojis in log messages for readability (✅⚠️ℹ️)
-"core/auth/session.py" = ["RUF001"]             # Session management uses Unicode indicators
+"adapters/inbound/auth/session.py" = ["RUF001"]  # Session management uses Unicode indicators
 "core/infrastructure/routes/intelligence_route_factory.py" = ["RUF002"]  # Math symbols (×) in docstring calculations
 
 # Mock data - unused parameters reserved for future real implementation

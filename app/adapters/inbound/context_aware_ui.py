@@ -11,7 +11,7 @@ Clean component-based UI routes for context-aware functionality.
 - Status: Display-only file, no forms to migrate
 """
 
-from core.auth import require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 
 __version__ = "2.1"
 

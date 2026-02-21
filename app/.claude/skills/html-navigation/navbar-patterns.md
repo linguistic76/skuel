@@ -154,7 +154,7 @@ def create_navbar_for_request(request: Request, active_page: str = "") -> Nav:
 
     This is the recommended way to create navbars in routes.
     """
-    from core.auth import get_current_user, get_is_admin, is_authenticated
+    from adapters.inbound.auth import get_current_user, get_is_admin, is_authenticated
 
     return create_navbar(
         current_user=get_current_user(request),

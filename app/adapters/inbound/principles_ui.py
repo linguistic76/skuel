@@ -26,9 +26,9 @@ from typing import Any, Protocol
 from fasthtml.common import H1, H2, H3, P
 from starlette.responses import Response
 
+from adapters.inbound.auth import require_authenticated_user
 from components.error_components import ErrorComponents
 from components.principles_views import PrinciplesViewComponents
-from core.auth import require_authenticated_user
 from core.constants import QueryLimit
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
 from core.services.protocols.facade_protocols import PrinciplesFacadeProtocol

@@ -19,8 +19,8 @@ Each route maps to exactly one service method.
 
 from typing import Any
 
+from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from core.auth import require_authenticated_user
 from core.models.transcription.transcription import (
     TranscriptionCreateRequest,
     TranscriptionProcessOptions,

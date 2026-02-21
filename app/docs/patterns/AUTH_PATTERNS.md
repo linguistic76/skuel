@@ -23,7 +23,7 @@ SKUEL uses **graph-native authentication** (sessions stored in Neo4j) with cooki
 ## The UserUID Type Alias
 
 ```python
-from core.auth import UserUID
+from adapters.inbound.auth import UserUID
 
 # UserUID is a type alias for str with format "user.{name}"
 # Examples: "user.mike", "user.alice"
@@ -40,7 +40,7 @@ The `UserUID` type alias provides:
 **Use for:** All API routes that require a real authenticated user.
 
 ```python
-from core.auth import require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 
 @rt("/api/tasks")
 async def list_tasks(request):
@@ -68,7 +68,7 @@ async def list_tasks(request):
 **Use for:** UI routes where development convenience outweighs strict auth.
 
 ```python
-from core.auth import get_current_user_or_default
+from adapters.inbound.auth import get_current_user_or_default
 
 @rt("/tasks")
 async def tasks_page(request):
@@ -97,7 +97,7 @@ async def tasks_page(request):
 **Use for:** Routes that require specific role permissions.
 
 ```python
-from core.auth import require_admin, require_teacher
+from adapters.inbound.auth import require_admin, require_teacher
 
 # SKUEL012: Use named functions, not lambdas
 def get_user_service():
@@ -175,7 +175,7 @@ async def update_goal(request):
 For simpler ownership verification:
 
 ```python
-from core.auth import with_ownership
+from adapters.inbound.auth import with_ownership
 
 def get_goals_service():
     return goals_service
@@ -194,7 +194,7 @@ async def update_goal_progress(request, user_uid, entity):
 For conditional UI rendering:
 
 ```python
-from core.auth import get_is_admin
+from adapters.inbound.auth import get_is_admin
 
 def create_navbar(request):
     is_admin = get_is_admin(request)  # Reads from session, no DB call

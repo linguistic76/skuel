@@ -109,7 +109,9 @@ class LpSearchService(BaseService["BackendOperations[LearningPathKu]", LearningP
     # LP-SPECIFIC METHODS
     # =========================================================================
 
-    async def get_by_path_type(self, path_type: LpType, limit: int = 50) -> Result[list[LearningPathKu]]:
+    async def get_by_path_type(
+        self, path_type: LpType, limit: int = 50
+    ) -> Result[list[LearningPathKu]]:
         """
         Get Learning Paths by path type.
 
@@ -146,7 +148,9 @@ class LpSearchService(BaseService["BackendOperations[LearningPathKu]", LearningP
             created_by=user_uid,
         )
 
-    async def get_aligned_with_goal(self, goal_uid: str, limit: int = 50) -> Result[list[LearningPathKu]]:
+    async def get_aligned_with_goal(
+        self, goal_uid: str, limit: int = 50
+    ) -> Result[list[LearningPathKu]]:
         """
         Get Learning Paths aligned with a specific goal.
 
@@ -227,7 +231,9 @@ class LpSearchService(BaseService["BackendOperations[LearningPathKu]", LearningP
         self.logger.debug(f"Found {len(paths)} learning paths for knowledge {ku_uid}")
         return Result.ok(paths)
 
-    async def get_with_steps(self, uid: str, limit: int = 100) -> Result[tuple[LearningPathKu, list]]:
+    async def get_with_steps(
+        self, uid: str, limit: int = 100
+    ) -> Result[tuple[LearningPathKu, list]]:
         """
         Get Learning Path with its steps loaded.
 

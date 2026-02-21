@@ -106,7 +106,10 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         return "Ku"
 
     def __init__(
-        self, backend: BackendOperations[LearningPathKu], ls_service: Any = None, event_bus: Any = None
+        self,
+        backend: BackendOperations[LearningPathKu],
+        ls_service: Any = None,
+        event_bus: Any = None,
     ) -> None:
         """
         Initialize core path service.
@@ -288,7 +291,9 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         return Result.ok(path)
 
     @with_error_handling("get_learning_paths_batch", error_type="database")
-    async def get_learning_paths_batch(self, uids: list[str]) -> Result[list[LearningPathKu | None]]:
+    async def get_learning_paths_batch(
+        self, uids: list[str]
+    ) -> Result[list[LearningPathKu | None]]:
         """
         Get multiple learning paths in one batched query.
 
@@ -546,7 +551,9 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         return Result.ok(path)
 
     @with_error_handling("list_user_paths", error_type="database", uid_param="user_uid")
-    async def list_user_paths(self, user_uid: str, limit: int | None = None) -> Result[list[LearningPathKu]]:
+    async def list_user_paths(
+        self, user_uid: str, limit: int | None = None
+    ) -> Result[list[LearningPathKu]]:
         """List all learning paths for a specific user."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:HAS_PATH]->(p:Ku {ku_type: 'learning_path'})
@@ -1061,7 +1068,9 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
     # ============================================================================
 
     @with_error_handling("_persist_path", error_type="database", uid_param="user_uid")
-    async def _persist_path(self, path: LearningPathKu, steps: list[LearningStepKu], user_uid: str) -> Result[bool]:
+    async def _persist_path(
+        self, path: LearningPathKu, steps: list[LearningStepKu], user_uid: str
+    ) -> Result[bool]:
         """Persist a learning path to Neo4j graph."""
         # Create path node with all fields
         path_result = await self.backend.execute_query(

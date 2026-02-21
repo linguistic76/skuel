@@ -15,7 +15,7 @@ from typing import Any
 from fasthtml.common import JSONResponse
 from starlette.requests import Request
 
-from core.auth import require_admin
+from adapters.inbound.auth import require_admin
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.monitoring")

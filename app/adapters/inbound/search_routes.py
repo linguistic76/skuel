@@ -22,13 +22,13 @@ from typing import TYPE_CHECKING, Any
 
 from starlette.requests import Request
 
+from adapters.inbound.auth import require_authenticated_user
 from components.search_components import (
     render_empty_search_prompt,
     render_search_error,
     render_search_page_with_navbar,
     render_search_results,
 )
-from core.auth import require_authenticated_user
 from core.models.enums import (
     ContentType,
     EducationalLevel,

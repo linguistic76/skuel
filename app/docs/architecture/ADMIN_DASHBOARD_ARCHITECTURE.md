@@ -313,7 +313,7 @@ def create_navbar(
 **Helper function:**
 
 ```python
-from core.auth import is_current_user_admin
+from adapters.inbound.auth import is_current_user_admin
 
 # In route function
 is_admin = await is_current_user_admin(request, services.user_service)

@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 
 from starlette.requests import Request
 
+from adapters.inbound.auth import require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
-from core.auth import require_authenticated_user, require_teacher
 from core.models.ku import ku_to_response
 from core.models.ku.ku_request import AssessmentCreateRequest
 from core.utils.logging import get_logger

@@ -24,7 +24,7 @@ from typing import Any, Protocol
 
 from fasthtml.common import Div, Request, Span
 
-from core.auth import require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 from core.utils.result_simplified import Result
 
 

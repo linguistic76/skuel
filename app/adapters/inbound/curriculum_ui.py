@@ -15,7 +15,7 @@ from typing import Any
 from fasthtml.common import H1, A, Div, P, Span
 from starlette.requests import Request
 
-from core.auth import require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
 

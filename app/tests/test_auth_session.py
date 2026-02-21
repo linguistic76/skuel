@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from core.auth import (
+from adapters.inbound.auth import (
     DEFAULT_DEV_USER,
     clear_current_user,
     get_current_user,

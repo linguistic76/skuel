@@ -24,8 +24,8 @@ if TYPE_CHECKING:
 
 from starlette.requests import Request
 
+from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from core.auth import require_authenticated_user
 from core.models.ku import ku_to_response
 from core.models.ku.ku_request import (
     KuScheduleCreateRequest,

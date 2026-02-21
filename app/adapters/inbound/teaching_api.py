@@ -19,8 +19,8 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
+from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.boundary import boundary_handler
-from core.auth.roles import UserRole, require_role
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

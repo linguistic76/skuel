@@ -17,7 +17,7 @@ from typing import Any
 
 from fasthtml.common import H1, H2, H3, Code, Form, Li, P, Pre, Ul
 
-from core.auth import require_teacher
+from adapters.inbound.auth import require_teacher
 from core.utils.logging import get_logger
 from ui.daisy_components import (
     Button,
@@ -53,7 +53,7 @@ class ExerciseUIComponents:
 
         # Get user_uid from session if not provided
         if user_uid is None and request:
-            from core.auth import require_authenticated_user
+            from adapters.inbound.auth import require_authenticated_user
 
             user_uid = require_authenticated_user(request)
 

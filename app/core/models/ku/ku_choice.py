@@ -128,7 +128,9 @@ class ChoiceKu(KuBase):
 
     def explain_existence(self) -> str:
         """Explain why this choice exists."""
-        return self.decision_rationale or self.description or self.summary or f"choice: {self.title}"
+        return (
+            self.decision_rationale or self.description or self.summary or f"choice: {self.title}"
+        )
 
     # =========================================================================
     # CONVERSION (generic -- uses KuBase._from_dto / to_dto)

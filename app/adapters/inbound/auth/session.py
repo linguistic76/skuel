@@ -648,7 +648,7 @@ def get_session_middleware_config() -> dict:
     Usage in bootstrap:
         ```python
         from starlette.middleware.sessions import SessionMiddleware
-        from core.auth.session import get_session_middleware_config
+        from adapters.inbound.auth.session import get_session_middleware_config
 
         config = get_session_middleware_config()
         app.add_middleware(SessionMiddleware, **config)

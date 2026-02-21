@@ -38,7 +38,7 @@ SKUEL's GraphQL API now uses **session-based authentication** with a development
 ```python
 # adapters/inbound/graphql_routes.py
 
-from core.auth.session import get_current_user_or_default
+from adapters.inbound.auth.session import get_current_user_or_default
 
 @rt("/graphql", methods=["POST"])
 async def graphql_post(request: Any) -> Response:
@@ -115,7 +115,7 @@ query {
 **Implementation:**
 ```python
 # Future: Strict authentication mode
-from core.auth.session import get_current_user  # No fallback
+from adapters.inbound.auth.session import get_current_user  # No fallback
 
 user_uid = get_current_user(request)
 if not user_uid:
@@ -268,7 +268,7 @@ async def user_dashboard(
 
 **Login route (example):**
 ```python
-from core.auth.session import set_current_user
+from adapters.inbound.auth.session import set_current_user
 
 @rt("/login", methods=["POST"])
 async def login(request, username: str, password: str):
@@ -284,7 +284,7 @@ async def login(request, username: str, password: str):
 
 **Logout route (example):**
 ```python
-from core.auth.session import clear_current_user
+from adapters.inbound.auth.session import clear_current_user
 
 @rt("/logout")
 async def logout(request):
@@ -297,7 +297,7 @@ async def logout(request):
 **In bootstrap:**
 ```python
 from starlette.middleware.sessions import SessionMiddleware
-from core.auth.session import get_session_middleware_config
+from adapters.inbound.auth.session import get_session_middleware_config
 
 config = get_session_middleware_config()
 app.add_middleware(SessionMiddleware, **config)

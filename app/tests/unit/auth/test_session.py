@@ -20,7 +20,7 @@ import pytest
 from starlette.exceptions import HTTPException
 from starlette.responses import RedirectResponse
 
-from core.auth.session import (
+from adapters.inbound.auth.session import (
     DEFAULT_DEV_USER,
     clear_current_user,
     get_current_user,

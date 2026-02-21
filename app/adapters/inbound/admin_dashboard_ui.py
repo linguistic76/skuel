@@ -27,13 +27,13 @@ from typing import Any
 
 from fasthtml.common import H1, H2, H3, A, Div, P, Span
 
+from adapters.inbound.auth import require_admin
 from components.admin_components import (
     AdminAnalyticsComponents,
     AdminLearningComponents,
     AdminSystemComponents,
     AdminUIComponents,
 )
-from core.auth import require_admin
 from core.utils.logging import get_logger
 from ui.admin.layout import create_admin_page
 from ui.daisy_components import Button, ButtonT

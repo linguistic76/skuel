@@ -174,13 +174,9 @@ class ExerciseService(BaseService):
     ) -> Result[list[ExerciseKu]]:
         """List all exercises for a user."""
         if active_only:
-            result = await self.backend.find_by(
-                user_uid=user_uid, ku_type="exercise"
-            )
+            result = await self.backend.find_by(user_uid=user_uid, ku_type="exercise")
         else:
-            result = await self.backend.find_by(
-                user_uid=user_uid, ku_type="exercise"
-            )
+            result = await self.backend.find_by(user_uid=user_uid, ku_type="exercise")
 
         if result.is_error:
             return result
@@ -437,9 +433,7 @@ class ExerciseService(BaseService):
     # ========================================================================
 
     @with_error_handling("link_to_curriculum", error_type="database")
-    async def link_to_curriculum(
-        self, exercise_uid: str, curriculum_uid: str
-    ) -> Result[bool]:
+    async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
         """
         Link an exercise to a curriculum KU via REQUIRES_KNOWLEDGE.
 
@@ -478,15 +472,11 @@ class ExerciseService(BaseService):
                 )
             )
 
-        self.logger.info(
-            f"Linked exercise {exercise_uid} to curriculum {curriculum_uid}"
-        )
+        self.logger.info(f"Linked exercise {exercise_uid} to curriculum {curriculum_uid}")
         return Result.ok(True)
 
     @with_error_handling("unlink_from_curriculum", error_type="database")
-    async def unlink_from_curriculum(
-        self, exercise_uid: str, curriculum_uid: str
-    ) -> Result[bool]:
+    async def unlink_from_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
         """
         Remove REQUIRES_KNOWLEDGE relationship between exercise and curriculum KU.
 
@@ -520,15 +510,11 @@ class ExerciseService(BaseService):
                 )
             )
 
-        self.logger.info(
-            f"Unlinked exercise {exercise_uid} from curriculum {curriculum_uid}"
-        )
+        self.logger.info(f"Unlinked exercise {exercise_uid} from curriculum {curriculum_uid}")
         return Result.ok(True)
 
     @with_error_handling("get_required_knowledge", error_type="database")
-    async def get_required_knowledge(
-        self, exercise_uid: str
-    ) -> Result[list[dict[str, Any]]]:
+    async def get_required_knowledge(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
         """
         Get all curriculum KUs required by an exercise.
 
@@ -596,7 +582,5 @@ class ExerciseService(BaseService):
             return Result.fail(result.expect_error())
 
         exercises = [dict(record) for record in (result.value or [])]
-        self.logger.info(
-            f"Found {len(exercises)} exercises for curriculum {curriculum_uid}"
-        )
+        self.logger.info(f"Found {len(exercises)} exercises for curriculum {curriculum_uid}")
         return Result.ok(exercises)

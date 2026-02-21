@@ -16,7 +16,7 @@ See: /docs/patterns/AUTH_PATTERNS.md, /docs/patterns/OWNERSHIP_VERIFICATION.md
 from collections.abc import Callable
 from typing import Any
 
-from core.auth.session import require_authenticated_user
+from adapters.inbound.auth.session import require_authenticated_user
 from core.models.enums import UserRole
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

@@ -26,7 +26,7 @@ from fasthtml.common import (
 )
 from starlette.requests import Request
 
-from core.auth import require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 from ui.daisy_components import Button, ButtonT, Card, Div, Option, Select, Span, Textarea
 from ui.patterns.sidebar import SidebarItem, SidebarPage

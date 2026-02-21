@@ -12,8 +12,8 @@ from typing import Any
 
 from fasthtml.common import Request
 
+from adapters.inbound.auth import require_teacher
 from adapters.inbound.boundary import boundary_handler
-from core.auth import require_teacher
 from core.infrastructure.routes import CRUDRouteFactory
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole

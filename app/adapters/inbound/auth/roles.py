@@ -41,7 +41,7 @@ Most API routes extract user_uid directly via require_authenticated_user().
 This is more efficient when you only need the identifier (no DB fetch).
 
     ```python
-    from core.auth import require_authenticated_user
+    from adapters.inbound.auth import require_authenticated_user
 
 
     @rt("/api/tasks")
@@ -60,7 +60,7 @@ See also: /docs/patterns/AUTH_PATTERNS.md for complete documentation.
 
 Usage:
     ```python
-    from core.auth import require_role, require_admin, require_teacher
+    from adapters.inbound.auth import require_role, require_admin, require_teacher
     from core.models.enums import UserRole
 
 
@@ -96,7 +96,7 @@ from typing import Any
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 
-from core.auth.session import get_current_user, require_authenticated_user
+from adapters.inbound.auth.session import get_current_user, require_authenticated_user
 from core.models.enums import UserRole
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

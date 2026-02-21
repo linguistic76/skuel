@@ -27,8 +27,8 @@ from fasthtml.common import (
 )
 from starlette.requests import Request
 
-from core.auth import require_authenticated_user
-from core.auth.roles import UserRole, require_role
+from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth.roles import UserRole, require_role
 from core.utils.logging import get_logger
 from ui.daisy_components import Button, ButtonT
 from ui.patterns.page_header import PageHeader

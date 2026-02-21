@@ -22,7 +22,7 @@ from fasthtml.common import (
 )
 from starlette.requests import Request
 
-from core.auth import require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 from ui.daisy_components import Button, ButtonT
 from ui.layouts.base_page import BasePage

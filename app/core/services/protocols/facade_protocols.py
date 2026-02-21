@@ -766,11 +766,15 @@ class LpFacadeProtocol(Protocol):
         """Get a single learning path by UID."""
         ...
 
-    async def get_learning_paths_batch(self, uids: list[str]) -> Result[list[LearningPathKu | None]]:
+    async def get_learning_paths_batch(
+        self, uids: list[str]
+    ) -> Result[list[LearningPathKu | None]]:
         """Get multiple learning paths in one batched query."""
         ...
 
-    async def list_user_paths(self, user_uid: str, limit: int | None = None) -> Result[list[LearningPathKu]]:
+    async def list_user_paths(
+        self, user_uid: str, limit: int | None = None
+    ) -> Result[list[LearningPathKu]]:
         """List all learning paths for a specific user."""
         ...
 
@@ -820,7 +824,9 @@ class LpFacadeProtocol(Protocol):
         """Recommend best path for user by readiness score."""
         ...
 
-    async def get_path_with_context(self, path_uid: str, depth: int = 2) -> Result[tuple[LearningPathKu, Any]]:
+    async def get_path_with_context(
+        self, path_uid: str, depth: int = 2
+    ) -> Result[tuple[LearningPathKu, Any]]:
         """Get path with full graph context."""
         ...
 
@@ -1326,7 +1332,9 @@ class LsFacadeProtocol(Protocol):
     # Core delegations (→ LsCoreService)
     # ========================================================================
 
-    async def create_step(self, entity: LearningStepKu, path_uid: str | None = None) -> Result[LearningStepKu]:
+    async def create_step(
+        self, entity: LearningStepKu, path_uid: str | None = None
+    ) -> Result[LearningStepKu]:
         """Create a new learning step."""
         ...
 

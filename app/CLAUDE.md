@@ -385,7 +385,7 @@ Key: Frozen dataclasses with `__post_init__` for dynamic defaults, `DomainModelP
 
 **Auth Patterns:**
 ```python
-from core.auth import UserUID, require_authenticated_user
+from adapters.inbound.auth import UserUID, require_authenticated_user
 
 user_uid: UserUID = require_authenticated_user(request)  # Returns "user_{name}"
 

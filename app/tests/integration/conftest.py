@@ -953,7 +953,9 @@ async def tasks_backend(neo4j_driver):
     """Create tasks backend for testing — unified Ku model with ku_type filter."""
     from core.models.ku.ku_base import KuBase
 
-    return UniversalNeo4jBackend[KuBase](neo4j_driver, "Ku", KuBase, default_filters={"ku_type": "task"})
+    return UniversalNeo4jBackend[KuBase](
+        neo4j_driver, "Ku", KuBase, default_filters={"ku_type": "task"}
+    )
 
 
 @pytest_asyncio.fixture
@@ -969,7 +971,9 @@ async def goals_backend(neo4j_driver):
     """Create goals backend for testing — unified Ku model with ku_type filter."""
     from core.models.ku.ku_base import KuBase
 
-    return UniversalNeo4jBackend[KuBase](neo4j_driver, "Ku", KuBase, default_filters={"ku_type": "goal"})
+    return UniversalNeo4jBackend[KuBase](
+        neo4j_driver, "Ku", KuBase, default_filters={"ku_type": "goal"}
+    )
 
 
 @pytest_asyncio.fixture
@@ -985,7 +989,9 @@ async def habits_backend(neo4j_driver):
     """Create habits backend for testing — unified Ku model with ku_type filter."""
     from core.models.ku.ku_base import KuBase
 
-    return UniversalNeo4jBackend[KuBase](neo4j_driver, "Ku", KuBase, default_filters={"ku_type": "habit"})
+    return UniversalNeo4jBackend[KuBase](
+        neo4j_driver, "Ku", KuBase, default_filters={"ku_type": "habit"}
+    )
 
 
 @pytest_asyncio.fixture
@@ -1001,7 +1007,9 @@ async def events_backend(neo4j_driver):
     """Create events backend for testing — unified Ku model with ku_type filter."""
     from core.models.ku.ku_base import KuBase
 
-    return UniversalNeo4jBackend[KuBase](neo4j_driver, "Ku", KuBase, default_filters={"ku_type": "event"})
+    return UniversalNeo4jBackend[KuBase](
+        neo4j_driver, "Ku", KuBase, default_filters={"ku_type": "event"}
+    )
 
 
 @pytest_asyncio.fixture
@@ -1017,7 +1025,9 @@ async def choices_backend(neo4j_driver):
     """Create choices backend for testing — unified Ku model with ku_type filter."""
     from core.models.ku.ku_base import KuBase
 
-    return UniversalNeo4jBackend[KuBase](neo4j_driver, "Ku", KuBase, default_filters={"ku_type": "choice"})
+    return UniversalNeo4jBackend[KuBase](
+        neo4j_driver, "Ku", KuBase, default_filters={"ku_type": "choice"}
+    )
 
 
 @pytest_asyncio.fixture

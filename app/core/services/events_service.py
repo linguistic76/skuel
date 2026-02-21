@@ -340,7 +340,9 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[EventK
             return Result.fail(result)
         return Result.ok(result.value > 0)
 
-    async def get_events_supporting_goal(self, goal_uid: str, user_uid: str) -> Result[list[EventKu]]:
+    async def get_events_supporting_goal(
+        self, goal_uid: str, user_uid: str
+    ) -> Result[list[EventKu]]:
         """Get all events that support a specific goal."""
         # Get event UIDs linked to the goal
         event_uids_result = await self.relationships.get_related_uids("goals", goal_uid)
@@ -476,7 +478,9 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[EventK
     # Note: Most search methods auto-generated via _delegations.
     # Only methods that unwrap typed requests remain explicit.
 
-    async def get_recurring_events(self, request: GetRecurringEventsRequest) -> Result[list[EventKu]]:
+    async def get_recurring_events(
+        self, request: GetRecurringEventsRequest
+    ) -> Result[list[EventKu]]:
         """
         Get all recurring events for a user using typed request.
 

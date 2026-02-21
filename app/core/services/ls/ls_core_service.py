@@ -122,7 +122,9 @@ class LsCoreService(BaseService["BackendOperations[LearningStepKu]", LearningSte
         self.event_bus = event_bus
 
     @with_error_handling(operation="create_step", error_type="database", uid_param="step.uid")
-    async def create_step(self, step: LearningStepKu, path_uid: str | None = None) -> Result[LearningStepKu]:
+    async def create_step(
+        self, step: LearningStepKu, path_uid: str | None = None
+    ) -> Result[LearningStepKu]:
         """
         Create a standalone Ls or add to existing path.
 

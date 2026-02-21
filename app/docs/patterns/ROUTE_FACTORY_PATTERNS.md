@@ -300,7 +300,7 @@ async def assign_task_route(request: Request, uid: str) -> Result[Any]:
 **All manual routes operating on user-owned entities must verify ownership:**
 
 ```python
-from core.auth import require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 
 @rt("/api/{domain}/action", methods=["POST"])
 @boundary_handler()

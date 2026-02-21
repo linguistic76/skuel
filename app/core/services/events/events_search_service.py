@@ -114,7 +114,9 @@ class EventsSearchService(BaseService["BackendOperations[EventKu]", EventKu]):
     # get_by_category(), list_categories(), get_by_relationship()
 
     @with_error_handling("get_prioritized", error_type="database")
-    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[EventKu]]:
+    async def get_prioritized(
+        self, user_context: UserContext, limit: int = 10
+    ) -> Result[list[EventKu]]:
         """
         Get events prioritized for the user's current context.
 
@@ -435,7 +437,9 @@ class EventsSearchService(BaseService["BackendOperations[EventKu]", EventKu]):
         return Result.ok(events)
 
     @with_error_handling("get_for_goal", error_type="database", uid_param="goal_uid")
-    async def get_for_goal(self, goal_uid: str, user_uid: str | None = None) -> Result[list[EventKu]]:
+    async def get_for_goal(
+        self, goal_uid: str, user_uid: str | None = None
+    ) -> Result[list[EventKu]]:
         """
         Get events that support a specific goal.
 
@@ -644,7 +648,9 @@ class EventsSearchService(BaseService["BackendOperations[EventKu]", EventKu]):
         return Result.ok(events)
 
     @with_error_handling("get_for_habit", error_type="database", uid_param="habit_uid")
-    async def get_for_habit(self, habit_uid: str, user_uid: str | None = None) -> Result[list[EventKu]]:
+    async def get_for_habit(
+        self, habit_uid: str, user_uid: str | None = None
+    ) -> Result[list[EventKu]]:
         """
         Get events that reinforce a specific habit.
 

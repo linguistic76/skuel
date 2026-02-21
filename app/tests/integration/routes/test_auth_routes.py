@@ -324,7 +324,7 @@ class TestSessionManagement:
 
     def test_is_authenticated_with_session(self):
         """Test is_authenticated returns True when user in session."""
-        from core.auth.session import is_authenticated
+        from adapters.inbound.auth.session import is_authenticated
 
         class MockRequest:
             session = {"user_uid": "user.test"}
@@ -333,7 +333,7 @@ class TestSessionManagement:
 
     def test_is_authenticated_without_session(self):
         """Test is_authenticated returns False when no user in session."""
-        from core.auth.session import is_authenticated
+        from adapters.inbound.auth.session import is_authenticated
 
         class MockRequest:
             session = {}
@@ -342,7 +342,7 @@ class TestSessionManagement:
 
     def test_get_current_user_returns_uid(self):
         """Test get_current_user returns user UID from session."""
-        from core.auth.session import get_current_user
+        from adapters.inbound.auth.session import get_current_user
 
         class MockRequest:
             session = {"user_uid": "user.test"}
@@ -351,7 +351,7 @@ class TestSessionManagement:
 
     def test_get_current_user_returns_none(self):
         """Test get_current_user returns None when no session."""
-        from core.auth.session import get_current_user
+        from adapters.inbound.auth.session import get_current_user
 
         class MockRequest:
             session = {}
@@ -360,7 +360,7 @@ class TestSessionManagement:
 
     def test_set_current_user_sets_session(self):
         """Test set_current_user sets session data."""
-        from core.auth.session import set_current_user
+        from adapters.inbound.auth.session import set_current_user
 
         class MockRequest:
             session = {}
@@ -370,7 +370,7 @@ class TestSessionManagement:
 
     def test_set_current_user_with_token(self):
         """Test set_current_user sets session with token."""
-        from core.auth.session import set_current_user
+        from adapters.inbound.auth.session import set_current_user
 
         class MockRequest:
             session = {}
@@ -381,7 +381,7 @@ class TestSessionManagement:
 
     def test_clear_current_user_clears_session(self):
         """Test clear_current_user clears session."""
-        from core.auth.session import clear_current_user
+        from adapters.inbound.auth.session import clear_current_user
 
         class MockRequest:
             session = {"user_uid": "user.test", "session_token": "token", "other": "data"}

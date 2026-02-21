@@ -1135,9 +1135,7 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
         return Result.ok(True)
 
     # Backward-compatible alias
-    async def process_assignment_submission(
-        self, ku_uid: str, project_uid: str
-    ) -> Result[bool]:
+    async def process_assignment_submission(self, ku_uid: str, project_uid: str) -> Result[bool]:
         """Alias for process_exercise_submission (backward compatibility)."""
         return await self.process_exercise_submission(ku_uid, project_uid)
 

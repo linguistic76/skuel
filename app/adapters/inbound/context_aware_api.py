@@ -22,8 +22,8 @@ from typing import Any
 
 from fasthtml.common import Request
 
+from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from core.auth import require_authenticated_user
 from core.models.goal.goal_request import ContextualGoalTaskGenerationRequest
 from core.models.habit.habit_request import ContextualHabitCompletionRequest
 from core.models.task.task_request import ContextualTaskCompletionRequest

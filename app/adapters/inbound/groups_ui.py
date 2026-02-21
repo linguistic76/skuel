@@ -11,7 +11,7 @@ from typing import Any
 
 from fasthtml.common import H1, H2, Div, Li, P, Request, Ul
 
-from core.auth import require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)
