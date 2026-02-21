@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 from core.events import publish_event
 from core.events.submission_events import AssessmentCreated, SubmissionDeleted
 from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
-from core.models.ku import Ku, KuDTO
+from core.models.ku import FeedbackKu, JournalKu, Ku, KuBase, KuDTO
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -107,7 +107,7 @@ class KuCategory:
         ]
 
 
-class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
+class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
     """
     Core Ku service for content management operations.
 
@@ -138,7 +138,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
     # =========================================================================
     _config = DomainConfig(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=KuBase,
         entity_label="Ku",
         search_fields=("title", "original_filename", "processed_content"),
         search_order_by="created_at",
@@ -876,7 +876,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         if transcription_uid:
             journal_metadata["transcription_uid"] = transcription_uid
 
-        journal = Ku(
+        journal = JournalKu(
             uid=uid,
             title=title,
             ku_type=KuType.JOURNAL,
@@ -1261,7 +1261,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
 
         uid = UIDGenerator.generate_uid("ku")
 
-        assessment = Ku(
+        assessment = FeedbackKu(
             uid=uid,
             title=title,
             ku_type=KuType.FEEDBACK_REPORT,
@@ -1371,7 +1371,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         for record in result.value or []:
             node = record["k"]
             dto = KuDTO.from_dict(node)
-            kus.append(Ku.from_dto(dto))
+            kus.append(KuBase.from_dto(dto))
         return Result.ok(kus)
 
     @with_error_handling("get_assessments_by_teacher", error_type="database")

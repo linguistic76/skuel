@@ -1,42 +1,44 @@
 """
-Knowledge Models - Unified Ku Architecture
-============================================
+Knowledge Models - Decomposed Ku Architecture (Phase 10 Complete)
+==================================================================
 
 "Ku is the heartbeat of SKUEL."
 
-Three-tier model for ALL knowledge in the system:
-1. ku.py - God object (frozen dataclass, ~138 fields) + KU_TYPE_CLASS_MAP
-2. ku_dto.py - Mutable data transfer objects (KuDTOMixin)
-3. ku_request.py - External API models (Pydantic, 14 create + 1 update + 1 response)
+After Phase 10 decomposition, the God Object is gone. Each domain has its own
+frozen dataclass inheriting from KuBase (~48 common fields).
 
-Domain Subclasses (Phases 1-8 decomposition):
-4. ku_task.py, ku_goal.py, ku_habit.py, ku_event.py - Activity domains
-5. ku_choice.py, ku_principle.py - Activity domains
-6. ku_curriculum.py - Shared knowledge (CURRICULUM, RESOURCE)
-7. ku_learning_step.py, ku_learning_path.py - Curriculum structure
-8. ku_submission.py - Content processing base (SUBMISSION, JOURNAL, AI_REPORT, FEEDBACK_REPORT)
-9. ku_journal.py, ku_ai_report.py, ku_feedback.py - Content processing leaf types
+Architecture:
+    ku_base.py      - KuBase (~29 common fields + stubs, from_dto dispatcher)
+    ku.py           - Ku union type alias + KU_TYPE_CLASS_MAP
+    ku_task.py      - TaskKu(KuBase)          +25 task fields
+    ku_goal.py      - GoalKu(KuBase)          +24 goal fields
+    ku_habit.py     - HabitKu(KuBase)         +31 habit fields
+    ku_event.py     - EventKu(KuBase)         +37 event fields
+    ku_choice.py    - ChoiceKu(KuBase)        +13 choice fields
+    ku_principle.py - PrincipleKu(KuBase)     +19 principle fields
+    ku_curriculum.py  - CurriculumKu(KuBase)  +21 learning/substance fields
+    ku_resource.py    - ResourceKu(KuBase)    +7 resource fields
+    ku_learning_step.py - LearningStepKu(CurriculumKu) +9 fields
+    ku_learning_path.py - LearningPathKu(CurriculumKu) +4 fields
+    ku_submission.py  - SubmissionKu(KuBase)  +13 file/processing fields
+    ku_journal.py     - JournalKu(SubmissionKu)  +0
+    ku_ai_report.py   - AiReportKu(SubmissionKu) +0
+    ku_feedback.py    - FeedbackKu(SubmissionKu)  +2 feedback fields
+    ku_life_path.py   - LifePathKu(KuBase)       +12 alignment fields
 
-Content & RAG Support:
-10. ku_content.py - Rich content storage with automatic chunking
-11. ku_chunks.py - Semantic chunking for RAG retrieval
-12. ku_metadata.py - Analytics and search optimization
-
-Assignment & KuSchedule:
-13. assignment.py - Instruction templates for LLM processing (Assign stage)
-14. assignment_request.py - Assignment API validation models
-15. ku_schedule.py - Recurring progress Ku generation
-
-Nested Types:
-16. ku_nested_types.py - Milestone, ChoiceOption, PrincipleExpression, AlignmentAssessment
+Support:
+    ku_dto.py          - Unified KuDTO (all fields, mutable)
+    ku_request.py      - Pydantic API models (14 create + 1 update + 1 response)
+    ku_nested_types.py - Milestone, ChoiceOption, PrincipleExpression, AlignmentAssessment
+    ku_content.py, ku_chunks.py, ku_metadata.py - Content & RAG
+    assignment.py, ku_schedule.py - Assignment & scheduling
 
 Usage:
-    from core.models.ku import Ku, KuDTO, KuResponse
     from core.models.ku import TaskKu, GoalKu, HabitKu, EventKu, ChoiceKu, PrincipleKu
     from core.models.ku import CurriculumKu, LearningStepKu, LearningPathKu
     from core.models.ku import SubmissionKu, JournalKu, AiReportKu, FeedbackKu
+    from core.models.ku import KuBase, Ku, KuDTO, KuResponse
     from core.models.ku import Assignment, AssignmentDTO, KuSchedule
-    from core.models.ku import Milestone, ChoiceOption, PrincipleExpression
 """
 
 from .assignment import (
@@ -115,6 +117,7 @@ from .ku_request import (
     ProgressKuGenerateRequest,
     RemoveTagsRequest,
 )
+from .ku_resource import ResourceKu
 from .ku_schedule import (
     KuSchedule,
     KuScheduleDTO,
@@ -136,6 +139,7 @@ __all__ = [
     "ChoiceKu",
     "PrincipleKu",
     "CurriculumKu",
+    "ResourceKu",
     "LearningStepKu",
     "LearningPathKu",
     "SubmissionKu",

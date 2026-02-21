@@ -34,7 +34,7 @@ from core.events.learning_events import (
 )
 from core.models.enums import Domain, SELCategory
 from core.models.enums.ku_enums import LpType
-from core.models.ku.ku import Ku
+from core.models.ku.ku_curriculum import CurriculumKu
 from core.models.ku.ku_learning_path import LearningPathKu
 from core.services.lp.lp_progress_service import LpProgressService
 
@@ -51,13 +51,13 @@ class TestKuLpEventFlow:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
+        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
 
     @pytest_asyncio.fixture
     async def lp_backend(self, neo4j_driver, clean_neo4j):
         """Create LP backend with clean database (unified Ku model)."""
-        return UniversalNeo4jBackend[Ku](
-            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "learning_path"}
+        return UniversalNeo4jBackend[LearningPathKu](
+            neo4j_driver, "Ku", LearningPathKu, default_filters={"ku_type": "learning_path"}
         )
 
     @pytest_asyncio.fixture
@@ -97,7 +97,7 @@ class TestKuLpEventFlow:
         for i, title in enumerate(
             ["Python Variables", "Python Functions", "Python Classes"], start=1
         ):
-            ku = Ku(
+            ku = CurriculumKu(
                 uid=f"ku.python_basics_{i}",
                 title=title,
                 domain=Domain.TECH,
@@ -294,7 +294,7 @@ class TestKuLpEventFlow:
         event_bus.subscribe(KnowledgeMastered, lp_progress_service.handle_knowledge_mastered)
 
         # Create unrelated KU
-        unrelated_ku = Ku(
+        unrelated_ku = CurriculumKu(
             uid="ku.advanced_algorithms",
             title="Advanced Algorithms",
             domain=Domain.TECH,

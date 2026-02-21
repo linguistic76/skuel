@@ -441,9 +441,9 @@ class TestEventEmbeddingEvents:
         event_bus.subscribe(EventEmbeddingRequested, capture_event)
 
         # Create event
-        from core.models.ku.ku import Ku
+        from core.models.ku.ku_event import EventKu
 
-        event_entity = Ku(
+        event_entity = EventKu(
             uid="event.test",
             user_uid=user_uid,
             title="Team Meeting",

@@ -23,7 +23,7 @@ from typing import Any
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
-from core.models.ku import Ku, KuDTO
+from core.models.ku import Ku, KuBase, KuDTO, SubmissionKu
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -34,7 +34,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class KuSubmissionService(BaseService[BackendOperations[Ku], Ku]):
+class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
     """
     Service for file submission and Ku management.
 
@@ -47,7 +47,7 @@ class KuSubmissionService(BaseService[BackendOperations[Ku], Ku]):
     # =========================================================================
     _config = DomainConfig(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=KuBase,
         entity_label="Ku",
         search_fields=("title", "original_filename", "file_type"),
         search_order_by="created_at",
@@ -144,8 +144,8 @@ class KuSubmissionService(BaseService[BackendOperations[Ku], Ku]):
 
         file_path = file_path_result.value
 
-        # Create Ku record
-        ku = Ku(
+        # Create Ku record — SubmissionKu accepts all 4 content-processing types
+        ku = SubmissionKu(
             uid=uid,
             title=title or original_filename,
             ku_type=ku_type,

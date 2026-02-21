@@ -13,7 +13,7 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, SELCategory
-from core.models.ku import Ku
+from core.models.ku import CurriculumKu
 from core.services.ku.ku_relationship_helpers import (
     KuRelationshipFilters,
     KuRelationshipTypeFilters,
@@ -27,31 +27,31 @@ class TestKuConfidenceFiltering:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
+        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
 
     @pytest_asyncio.fixture
     async def sample_kus_with_relationships(self, ku_backend):
         """Create sample KUs with varying relationship strengths."""
         # Create knowledge units
-        ku_basics = Ku(
+        ku_basics = CurriculumKu(
             uid="ku:python_basics",
             title="Python Basics",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
-        ku_functions = Ku(
+        ku_functions = CurriculumKu(
             uid="ku:python_functions",
             title="Python Functions",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
-        ku_oop = Ku(
+        ku_oop = CurriculumKu(
             uid="ku:python_oop",
             title="Python OOP",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
-        ku_advanced = Ku(
+        ku_advanced = CurriculumKu(
             uid="ku:python_advanced",
             title="Advanced Python",
             domain=Domain.TECH,
@@ -248,24 +248,24 @@ class TestKuTypeFiltering:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
+        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
 
     @pytest_asyncio.fixture
     async def sample_kus_with_types(self, ku_backend):
         """Create sample KUs with different prerequisite types."""
-        ku_basics = Ku(
+        ku_basics = CurriculumKu(
             uid="ku:math_basics",
             title="Math Basics",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
-        ku_algebra = Ku(
+        ku_algebra = CurriculumKu(
             uid="ku:algebra",
             title="Algebra",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
-        ku_calculus = Ku(
+        ku_calculus = CurriculumKu(
             uid="ku:calculus",
             title="Calculus",
             domain=Domain.TECH,
@@ -342,7 +342,7 @@ class TestBatchPerformance:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
+        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
 
     @pytest_asyncio.fixture
     async def many_kus_with_relationships(self, ku_backend):
@@ -354,7 +354,7 @@ class TestBatchPerformance:
 
         create_tasks = [
             ku_backend.create(
-                Ku(
+                CurriculumKu(
                     uid=uid,
                     title=f"Test KU {i}",
                     domain=Domain.TECH,

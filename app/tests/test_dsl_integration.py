@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
-from core.models.ku import Ku
+from core.models.ku import SubmissionKu
 from core.services.dsl import (
     ActivityExtractionResult,
     ReportActivityExtractorService,
@@ -128,7 +128,7 @@ class TestJournalActivityExtractor:
         future_date = date.today() + timedelta(days=30)
         when_str = future_date.strftime("%Y-%m-%dT10:00")
 
-        return Ku(
+        return SubmissionKu(
             uid="report:test",
             title="Test Journal",
             user_uid="user:mike",
@@ -196,7 +196,7 @@ Some reflections on the day...
     @pytest.mark.asyncio
     async def test_extract_handles_empty_content(self, extractor):
         """Extractor handles empty content gracefully."""
-        empty_ku = Ku(
+        empty_ku = SubmissionKu(
             uid="report:empty",
             title="Empty",
             user_uid="user:mike",

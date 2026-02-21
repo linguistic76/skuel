@@ -25,9 +25,9 @@ import pytest
 
 from core.models.enums import Domain, KuStatus, Priority, RecurrencePattern
 from core.models.enums.ku_enums import KuStatus as HabitStatus
-from core.models.ku.ku import Ku
-from core.models.ku.ku import Ku as Habit
+from core.models.ku.ku_event import EventKu
 from core.models.ku.ku_goal import GoalKu
+from core.models.ku.ku_habit import HabitKu
 from core.models.ku.ku_task import TaskKu as Task
 
 # ============================================================================
@@ -121,7 +121,7 @@ async def test_task_relationship_auto_creation(tasks_backend, test_user_uid, cre
 async def test_event_relationship_auto_creation(events_backend, test_user_uid, create_test_users):
     """Test automatic user relationship creation for events."""
 
-    event = Ku(
+    event = EventKu(
         uid="event_test_001",
         user_uid=test_user_uid,
         title="Test Event",
@@ -151,7 +151,7 @@ async def test_event_relationship_auto_creation(events_backend, test_user_uid, c
 @pytest.mark.asyncio
 async def test_habit_relationship_auto_creation(habits_backend, test_user_uid, create_test_users):
     """Test automatic user relationship creation for habits."""
-    habit = Habit(
+    habit = HabitKu(
         uid="habit_test_001",
         user_uid=test_user_uid,
         title="Test Habit",

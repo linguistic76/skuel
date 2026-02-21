@@ -4,7 +4,7 @@ LearningPathKu - Learning Path Domain Model
 
 Frozen dataclass for learning path entities (KuType.LEARNING_PATH).
 
-Inherits ~48 common fields from KuBase. Adds 4 learning-path-specific fields:
+Inherits common fields from KuBase via CurriculumKu. Adds 4 learning-path-specific fields:
 - Path configuration (4): path_type, outcomes, checkpoint_week_intervals, estimated_hours
 
 Learning-path-specific methods/properties: steps, goal, get_summary, from_dto.
@@ -12,7 +12,7 @@ Learning-path-specific methods/properties: steps, goal, get_summary, from_dto.
 Note: LP steps are graph relationships (HAS_STEP), not model attributes.
 The `steps` property returns an empty tuple — use LpService.get_steps() instead.
 
-See: /.claude/plans/ku-decomposition-domain-types.md (Phase 7)
+See: /.claude/plans/crispy-spinning-wozniak.md
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
@@ -23,19 +23,17 @@ if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums.ku_enums import KuType, LpType
-from core.models.ku.ku_base import KuBase
+from core.models.ku.ku_curriculum import CurriculumKu
 
 
 @dataclass(frozen=True)
-class LearningPathKu(KuBase):
+class LearningPathKu(CurriculumKu):
     """
     Immutable domain model for learning paths (KuType.LEARNING_PATH).
 
-    Inherits ~48 common fields from KuBase (identity, content, status,
-    learning, sharing, substance, meta, embedding).
-
-    Adds 4 learning-path-specific fields for path configuration.
-    Steps are graph relationships (HAS_STEP), not model attributes.
+    Inherits ~50 fields from CurriculumKu (KuBase fields + learning metadata
+    + substance tracking). Adds 4 learning-path-specific fields for path
+    configuration. Steps are graph relationships (HAS_STEP), not model attributes.
     """
 
     def __post_init__(self) -> None:

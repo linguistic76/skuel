@@ -14,7 +14,7 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, KuStatus, Priority, SELCategory
-from core.models.ku.ku import Ku
+from core.models.ku.ku_curriculum import CurriculumKu
 from core.models.ku.ku_task import TaskKu as Task
 from core.models.relationship_names import RelationshipName
 from core.services.tasks.tasks_core_service import TasksCoreService
@@ -27,13 +27,13 @@ class TestCascadeDeleteTrue:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
+        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
 
     @pytest_asyncio.fixture
     async def task_backend(self, neo4j_driver, clean_neo4j):
         """Create Task backend with clean database."""
-        return UniversalNeo4jBackend[Ku](
-            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "task"}
+        return UniversalNeo4jBackend[CurriculumKu](
+            neo4j_driver, "Ku", CurriculumKu, default_filters={"ku_type": "task"}
         )
 
     @pytest_asyncio.fixture
@@ -44,7 +44,7 @@ class TestCascadeDeleteTrue:
     async def test_cascade_delete_removes_entity(self, ku_backend):
         """Test cascade=True successfully deletes entity."""
         # Create entity
-        ku = Ku(
+        ku = CurriculumKu(
             uid="ku:cascade-delete-1",
             title="To Delete",
             domain=Domain.TECH,
@@ -66,13 +66,13 @@ class TestCascadeDeleteTrue:
     async def test_cascade_delete_removes_relationships(self, ku_backend):
         """Test cascade=True removes all relationships."""
         # Create two KUs with a relationship
-        ku1 = Ku(
+        ku1 = CurriculumKu(
             uid="ku:cascade-source",
             title="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
-        ku2 = Ku(
+        ku2 = CurriculumKu(
             uid="ku:cascade-target",
             title="Target",
             domain=Domain.TECH,
@@ -109,13 +109,13 @@ class TestCascadeDeleteTrue:
     async def test_cascade_delete_preserves_related_entities(self, ku_backend):
         """Test cascade=True does NOT delete connected entities."""
         # Create two KUs with a relationship
-        ku1 = Ku(
+        ku1 = CurriculumKu(
             uid="ku:preserve-source",
             title="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
-        ku2 = Ku(
+        ku2 = CurriculumKu(
             uid="ku:preserve-target",
             title="Target",
             domain=Domain.TECH,
@@ -141,7 +141,7 @@ class TestCascadeDeleteTrue:
     async def test_cascade_delete_multiple_relationships(self, ku_backend):
         """Test cascade=True works with multiple relationships."""
         # Create central node and many related nodes
-        center = Ku(
+        center = CurriculumKu(
             uid="ku:multi-center",
             title="Center",
             domain=Domain.TECH,
@@ -151,7 +151,7 @@ class TestCascadeDeleteTrue:
 
         # Create 5 related nodes
         for i in range(5):
-            related = Ku(
+            related = CurriculumKu(
                 uid=f"ku:multi-related-{i}",
                 title=f"Related {i}",
                 domain=Domain.TECH,
@@ -202,7 +202,7 @@ class TestCascadeDeleteTrue:
         )
         await tasks_service.create(task)
 
-        ku = Ku(
+        ku = CurriculumKu(
             uid="ku:cross-domain",
             title="Cross Domain KU",
             domain=Domain.TECH,
@@ -239,12 +239,12 @@ class TestCascadeDeleteFalse:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
+        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
 
     async def test_non_cascade_delete_no_relationships(self, ku_backend):
         """Test cascade=False deletes entity with no relationships."""
         # Create isolated entity
-        ku = Ku(
+        ku = CurriculumKu(
             uid="ku:isolated-delete",
             title="Isolated",
             domain=Domain.TECH,
@@ -265,13 +265,13 @@ class TestCascadeDeleteFalse:
     async def test_non_cascade_delete_with_relationships_fails(self, ku_backend):
         """Test cascade=False fails when entity has relationships."""
         # Create two KUs with a relationship
-        ku1 = Ku(
+        ku1 = CurriculumKu(
             uid="ku:non-cascade-source",
             title="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
-        ku2 = Ku(
+        ku2 = CurriculumKu(
             uid="ku:non-cascade-target",
             title="Target",
             domain=Domain.TECH,
@@ -292,13 +292,13 @@ class TestCascadeDeleteFalse:
     async def test_non_cascade_delete_error_message(self, ku_backend):
         """Test cascade=False provides descriptive error message."""
         # Create KUs with relationship
-        ku1 = Ku(
+        ku1 = CurriculumKu(
             uid="ku:error-msg-source",
             title="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
-        ku2 = Ku(
+        ku2 = CurriculumKu(
             uid="ku:error-msg-target",
             title="Target",
             domain=Domain.TECH,
@@ -324,13 +324,13 @@ class TestCascadeDeleteFalse:
     async def test_non_cascade_delete_preserves_entity(self, ku_backend):
         """Test cascade=False preserves entity after failed delete."""
         # Create KUs with relationship
-        ku1 = Ku(
+        ku1 = CurriculumKu(
             uid="ku:preserve-entity",
             title="Preserved",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
-        ku2 = Ku(
+        ku2 = CurriculumKu(
             uid="ku:preserve-target",
             title="Target",
             domain=Domain.TECH,
@@ -355,13 +355,13 @@ class TestCascadeDeleteFalse:
     async def test_non_cascade_delete_preserves_relationships(self, ku_backend):
         """Test cascade=False preserves relationships after failed delete."""
         # Create KUs with relationship
-        ku1 = Ku(
+        ku1 = CurriculumKu(
             uid="ku:preserve-rel-source",
             title="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
-        ku2 = Ku(
+        ku2 = CurriculumKu(
             uid="ku:preserve-rel-target",
             title="Target",
             domain=Domain.TECH,
@@ -394,7 +394,7 @@ class TestDeleteEdgeCases:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
+        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
 
     async def test_delete_nonexistent_entity(self, ku_backend):
         """Test deleting non-existent entity returns Ok(False)."""
@@ -405,7 +405,7 @@ class TestDeleteEdgeCases:
     async def test_delete_idempotent(self, ku_backend):
         """Test multiple deletes don't error."""
         # Create entity
-        ku = Ku(
+        ku = CurriculumKu(
             uid="ku:idempotent-delete",
             title="Idempotent",
             domain=Domain.TECH,
@@ -427,19 +427,19 @@ class TestDeleteEdgeCases:
         """Test cascade=True cleans up both incoming and outgoing relationships."""
         # Create 3 KUs: A -> B -> C (B has both incoming and outgoing)
         nodes = [
-            Ku(
+            CurriculumKu(
                 uid="ku:bidir-a",
                 title="A",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Ku(
+            CurriculumKu(
                 uid="ku:bidir-b",
                 title="B",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Ku(
+            CurriculumKu(
                 uid="ku:bidir-c",
                 title="C",
                 domain=Domain.TECH,
@@ -479,13 +479,13 @@ class TestDeleteEdgeCases:
     async def test_delete_with_relationship_properties(self, ku_backend):
         """Test cascade=True works when relationships have properties."""
         # Create KUs with relationship that has properties
-        ku1 = Ku(
+        ku1 = CurriculumKu(
             uid="ku:props-source",
             title="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
-        ku2 = Ku(
+        ku2 = CurriculumKu(
             uid="ku:props-target",
             title="Target",
             domain=Domain.TECH,

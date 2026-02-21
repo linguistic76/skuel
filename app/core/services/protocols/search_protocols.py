@@ -35,8 +35,8 @@ if TYPE_CHECKING:
 
     from core.models.enums import Domain
     from core.models.ku.ku import Ku
-    from core.models.ku.ku import Ku as Habit
-    from core.models.ku.ku import Ku as Task
+    from core.models.ku.ku_habit import HabitKu as Habit
+    from core.models.ku.ku_task import TaskKu as Task
     from core.models.search.filters import BaseSearchFilters
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest

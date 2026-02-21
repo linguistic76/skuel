@@ -30,7 +30,7 @@ import pytest
 import pytest_asyncio
 
 from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
-from core.models.ku import Ku
+from core.models.ku import CurriculumKu, SubmissionKu
 from core.services.reports import KuProcessingService
 from core.utils.result_simplified import Errors, Result
 
@@ -49,7 +49,7 @@ class TestOptionAJournalsProcessing:
         service = AsyncMock()
 
         # Mock Ku with transcript type
-        ku = Ku(
+        ku = SubmissionKu(
             uid="report.test_transcript",
             title="Meeting Notes",
             user_uid="user.test",
@@ -73,7 +73,7 @@ class TestOptionAJournalsProcessing:
 
         # update_report_status tracks status changes
         def mock_update_status(uid, status, error_message=None):
-            updated = Ku(
+            updated = SubmissionKu(
                 uid=current_state["report"].uid,
                 title=current_state["report"].title,
                 user_uid=current_state["report"].user_uid,
@@ -93,7 +93,7 @@ class TestOptionAJournalsProcessing:
 
         # update_processed_content stores the content
         def mock_update_content(uid, processed_content):
-            updated = Ku(
+            updated = SubmissionKu(
                 uid=current_state["report"].uid,
                 title=current_state["report"].title,
                 user_uid=current_state["report"].user_uid,
@@ -235,7 +235,7 @@ class TestOptionAJournalsProcessing:
     async def test_text_processing_reads_content(self, mock_report_service):
         """Test that text files are read directly from storage."""
         # Arrange - Create text file Ku
-        text_ku = Ku(
+        text_ku = SubmissionKu(
             uid="report.test_text",
             title="Notes",
             user_uid="user.test",
@@ -306,7 +306,7 @@ class TestOptionAJournalsProcessing:
     async def test_already_processing_report_rejected(self):
         """Test that already-processing Ku are rejected."""
         # Arrange - Ku already in PROCESSING state
-        processing_ku = Ku(
+        processing_ku = SubmissionKu(
             uid="report.processing",
             title="Processing",
             user_uid="user.test",
@@ -339,7 +339,7 @@ class TestOptionAJournalsProcessing:
     async def test_unsupported_file_type_rejected(self):
         """Test that unsupported file types return an error."""
         # Arrange - Ku with unsupported file type
-        pdf_ku = Ku(
+        pdf_ku = SubmissionKu(
             uid="report.pdf",
             title="PDF Report",
             user_uid="user.test",
@@ -376,7 +376,7 @@ class TestOptionAJournalsProcessing:
     async def test_ku_type_discriminator_works(self, mock_report_service):
         """Test that ku_type discriminator works correctly."""
         # Arrange
-        assignment_ku = Ku(
+        assignment_ku = SubmissionKu(
             uid="report.transcript_type",
             title="Transcript",
             user_uid="user.test",
@@ -395,10 +395,9 @@ class TestOptionAJournalsProcessing:
         assert assignment_ku.ku_type == KuType.SUBMISSION
 
         # Can differentiate from other ku types
-        curriculum_ku = Ku(
+        curriculum_ku = CurriculumKu(
             uid="ku.curriculum_type",
             title="Curriculum Content",
-            ku_type=KuType.CURRICULUM,
         )
 
         assert curriculum_ku.ku_type != KuType.SUBMISSION
@@ -435,7 +434,7 @@ class TestOptionAJournalsProcessing:
         mock_report_service.update_ku_status.reset_mock()
 
         # Now, update the Ku to COMPLETED state for reprocessing test
-        completed_ku = Ku(
+        completed_ku = SubmissionKu(
             uid="report.test_transcript",
             title="Meeting Notes",
             user_uid="user.test",

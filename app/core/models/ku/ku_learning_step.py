@@ -4,7 +4,7 @@ LearningStepKu - Learning Step Domain Model
 
 Frozen dataclass for learning step entities (KuType.LEARNING_STEP).
 
-Inherits ~48 common fields from KuBase. Adds 9 learning-step-specific fields:
+Inherits common fields from KuBase via CurriculumKu. Adds 9 learning-step-specific fields:
 - Intent (1): intent
 - Knowledge references (2): primary_knowledge_uids, supporting_knowledge_uids
 - Path relationship (2): learning_path_uid, sequence
@@ -13,7 +13,7 @@ Inherits ~48 common fields from KuBase. Adds 9 learning-step-specific fields:
 Learning-step-specific methods: get_combined_knowledge_uids, get_all_knowledge_uids,
 calculate_mastery_progress, is_mastered, calculate_learning_impact, get_summary, from_dto.
 
-See: /.claude/plans/ku-decomposition-domain-types.md (Phase 7)
+See: /.claude/plans/crispy-spinning-wozniak.md
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
@@ -24,19 +24,17 @@ if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums.ku_enums import KuType, StepDifficulty
-from core.models.ku.ku_base import KuBase
+from core.models.ku.ku_curriculum import CurriculumKu
 
 
 @dataclass(frozen=True)
-class LearningStepKu(KuBase):
+class LearningStepKu(CurriculumKu):
     """
     Immutable domain model for learning steps (KuType.LEARNING_STEP).
 
-    Inherits ~48 common fields from KuBase (identity, content, status,
-    learning, sharing, substance, meta, embedding).
-
-    Adds 9 learning-step-specific fields for intent, knowledge references,
-    path relationship, and mastery tracking.
+    Inherits ~50 fields from CurriculumKu (KuBase fields + learning metadata
+    + substance tracking). Adds 9 learning-step-specific fields for intent,
+    knowledge references, path relationship, and mastery tracking.
     """
 
     def __post_init__(self) -> None:

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain, KuStatus, Priority
 from core.models.ku.ku import Ku
+from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_request import KuChoiceCreateRequest
 from core.services.base_service import BaseService
@@ -60,7 +61,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Ku]", Ku]):
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=KuBase,
         domain_name="choices",
         date_field="decision_date",
         completed_statuses=(KuStatus.COMPLETED.value,),
@@ -77,13 +78,13 @@ class ChoicesLearningService(BaseService["BackendOperations[Ku]", Ku]):
         self.logger = get_logger("skuel.services.choices.learning")
 
         # Initialize LearningAlignmentHelper for learning operations (Phase 4)
-        self.learning_helper = LearningAlignmentHelper[Ku, KuDTO, KuChoiceCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[KuBase, KuDTO, KuChoiceCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="get_user_choices",
             backend_create_method="create",
             dto_class=KuDTO,
-            model_class=Ku,
+            model_class=KuBase,
             domain=Domain.CHOICES,
             entity_name="choice",
         )
@@ -347,7 +348,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Ku]", Ku]):
         if choice_result.is_error:
             return Result.fail(choice_result.expect_error())
 
-        choice = self._to_domain_model(choice_result.value, KuDTO, Ku)
+        choice = self._to_domain_model(choice_result.value, KuDTO, KuBase)
 
         # Use typed local variables for calculations
         learning_impact_score: float = 0.0

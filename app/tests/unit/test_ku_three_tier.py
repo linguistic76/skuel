@@ -2,18 +2,26 @@
 KU Three-Tier Round-Trip Tests
 ==============================
 
-Validates that all 26 business fields survive the KuDTO ↔ Ku round-trip,
+Validates that business fields survive the KuDTO ↔ Ku round-trip,
 and that from_dict/to_dict handle enum/datetime serialization correctly.
+
+After Phase 2 decomposition: curriculum-only fields (learning metadata,
+substance tracking) live on CurriculumKu, not KuBase. Tests verify
+correct dispatch and field separation.
 """
 
 from datetime import datetime, timedelta
 
-from core.models.enums import Domain, LearningLevel, SELCategory
-from core.models.ku.ku import Ku
+from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
+from core.models.enums.ku_enums import KuType
+from core.models.ku.ku_base import KuBase
+from core.models.ku.ku_curriculum import CurriculumKu
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_resource import ResourceKu
+from core.models.ku.ku_task import TaskKu
 
 # =========================================================================
-# Round-trip: KuDTO → Ku.from_dto() → Ku.to_dto() → all fields preserved
+# Round-trip: KuDTO → KuBase.from_dto() → Ku.to_dto() → all fields preserved
 # =========================================================================
 
 
@@ -52,9 +60,9 @@ class TestKuThreeTierRoundTrip:
         )
 
     def test_dto_to_ku_preserves_all_fields(self):
-        """KuDTO → Ku.from_dto() must carry all 26 fields."""
+        """KuDTO → KuBase.from_dto() must carry all 26 fields."""
         dto = self._make_full_dto()
-        ku = Ku.from_dto(dto)
+        ku = KuBase.from_dto(dto)
 
         assert ku.uid == dto.uid
         assert ku.title == dto.title
@@ -88,7 +96,7 @@ class TestKuThreeTierRoundTrip:
     def test_ku_to_dto_preserves_all_fields(self):
         """Ku.to_dto() must carry all 26 fields back to KuDTO."""
         dto = self._make_full_dto()
-        ku = Ku.from_dto(dto)
+        ku = KuBase.from_dto(dto)
         dto2 = ku.to_dto()
 
         assert dto2.uid == dto.uid
@@ -128,7 +136,7 @@ class TestKuThreeTierRoundTrip:
             domain=Domain.TECH,
             sel_category=None,
         )
-        ku = Ku.from_dto(dto)
+        ku = KuBase.from_dto(dto)
         assert ku.sel_category is None
 
         dto2 = ku.to_dto()
@@ -263,3 +271,175 @@ class TestKuDTOToDict:
         assert d["times_built_into_habits"] == 1
         assert d["journal_reflections_count"] == 5
         assert d["choices_informed_count"] == 4
+
+
+# =========================================================================
+# Dispatch: KuType → correct subclass
+# =========================================================================
+
+
+class TestKuTypeDispatch:
+    """Verify KuBase.from_dto() dispatches to correct subclass."""
+
+    def test_resource_dispatches_to_resource_ku(self):
+        """KuType.RESOURCE dispatches to ResourceKu, not CurriculumKu."""
+        dto = KuDTO(uid="ku_test_res", title="Test Resource", ku_type=KuType.RESOURCE)
+        ku = KuBase.from_dto(dto)
+        assert isinstance(ku, ResourceKu)
+        assert not isinstance(ku, CurriculumKu)
+
+    def test_curriculum_dispatches_to_curriculum_ku(self):
+        """KuType.CURRICULUM still dispatches to CurriculumKu."""
+        dto = KuDTO(uid="ku_test_cur", title="Test Curriculum", ku_type=KuType.CURRICULUM)
+        ku = KuBase.from_dto(dto)
+        assert isinstance(ku, CurriculumKu)
+
+    def test_task_dispatches_to_task_ku(self):
+        """KuType.TASK dispatches to TaskKu, not CurriculumKu."""
+        dto = KuDTO(uid="task_test_abc", title="Test Task", ku_type=KuType.TASK)
+        ku = KuBase.from_dto(dto)
+        assert isinstance(ku, TaskKu)
+        assert not isinstance(ku, CurriculumKu)
+
+
+# =========================================================================
+# Phase 2: Curriculum field separation
+# =========================================================================
+
+
+class TestCurriculumFieldSeparation:
+    """Verify curriculum-only fields live on CurriculumKu, not KuBase/TaskKu."""
+
+    def test_task_ku_lacks_curriculum_fields(self):
+        """TaskKu must NOT have curriculum-only fields (complexity, substance, etc.)."""
+        import dataclasses
+
+        task_field_names = {f.name for f in dataclasses.fields(TaskKu)}
+        curriculum_only = {
+            "complexity",
+            "learning_level",
+            "sel_category",
+            "quality_score",
+            "estimated_time_minutes",
+            "difficulty_rating",
+            "semantic_links",
+            "target_age_range",
+            "learning_objectives",
+            "times_applied_in_tasks",
+            "times_practiced_in_events",
+            "times_built_into_habits",
+            "journal_reflections_count",
+            "choices_informed_count",
+            "last_applied_date",
+            "last_practiced_date",
+            "last_built_into_habit_date",
+            "last_reflected_date",
+            "last_choice_informed_date",
+        }
+        overlap = task_field_names & curriculum_only
+        assert overlap == set(), f"TaskKu should NOT have curriculum fields: {overlap}"
+
+    def test_curriculum_ku_has_all_curriculum_fields(self):
+        """CurriculumKu must have all 19 curriculum-specific fields."""
+        import dataclasses
+
+        curriculum_field_names = {f.name for f in dataclasses.fields(CurriculumKu)}
+        expected = {
+            "complexity",
+            "learning_level",
+            "sel_category",
+            "quality_score",
+            "estimated_time_minutes",
+            "difficulty_rating",
+            "semantic_links",
+            "target_age_range",
+            "learning_objectives",
+            "times_applied_in_tasks",
+            "times_practiced_in_events",
+            "times_built_into_habits",
+            "journal_reflections_count",
+            "choices_informed_count",
+            "last_applied_date",
+            "last_practiced_date",
+            "last_built_into_habit_date",
+            "last_reflected_date",
+            "last_choice_informed_date",
+        }
+        missing = expected - curriculum_field_names
+        assert missing == set(), f"CurriculumKu missing fields: {missing}"
+
+    def test_kubase_stubs_return_defaults(self):
+        """KuBase stubs return 0.0 and False for non-curriculum types."""
+        task = TaskKu(uid="task_test", title="Test Task")
+        assert task.substance_score() == 0.0
+        assert task.needs_review() is False
+
+    def test_curriculum_ku_overrides_stubs(self):
+        """CurriculumKu overrides stubs with real implementations."""
+        cu = CurriculumKu(
+            uid="ku_test",
+            title="Test",
+            times_applied_in_tasks=5,
+            times_practiced_in_events=3,
+            times_built_into_habits=2,
+            last_applied_date=datetime.now(),
+            last_practiced_date=datetime.now(),
+            last_built_into_habit_date=datetime.now(),
+        )
+        score = cu.substance_score()
+        assert score > 0.0, "CurriculumKu with activity should have substance > 0"
+        # needs_review depends on decay — just verify it returns bool
+        assert isinstance(cu.needs_review(), bool)
+
+    def test_task_dto_round_trip_ignores_curriculum_fields(self):
+        """TaskKu round-trip via DTO must not gain curriculum fields."""
+        dto = KuDTO(
+            uid="task_test_rt",
+            title="Task RT",
+            ku_type=KuType.TASK,
+            complexity="advanced",
+            times_applied_in_tasks=10,
+            semantic_links=["ku_other"],
+        )
+        ku = KuBase.from_dto(dto)
+        assert isinstance(ku, TaskKu)
+        # TaskKu should NOT have these attributes from CurriculumKu
+        assert not hasattr(ku, "complexity") or "complexity" not in {
+            f.name for f in __import__("dataclasses").fields(ku)
+        }
+
+    def test_curriculum_dto_round_trip_preserves_all_fields(self):
+        """CurriculumKu round-trip via DTO preserves all curriculum fields."""
+        now = datetime.now()
+        dto = KuDTO(
+            uid="ku_test_crt",
+            title="Curriculum RT",
+            ku_type=KuType.CURRICULUM,
+            complexity=KuComplexity.ADVANCED,
+            learning_level=LearningLevel.EXPERT,
+            sel_category=SELCategory.SELF_AWARENESS,
+            quality_score=0.9,
+            estimated_time_minutes=45,
+            difficulty_rating=0.8,
+            semantic_links=["ku_a", "ku_b"],
+            times_applied_in_tasks=5,
+            times_practiced_in_events=3,
+            last_applied_date=now,
+            last_practiced_date=now,
+        )
+        ku = KuBase.from_dto(dto)
+        assert isinstance(ku, CurriculumKu)
+        assert ku.complexity == KuComplexity.ADVANCED
+        assert ku.learning_level == LearningLevel.EXPERT
+        assert ku.sel_category == SELCategory.SELF_AWARENESS
+        assert ku.quality_score == 0.9
+        assert ku.estimated_time_minutes == 45
+        assert ku.difficulty_rating == 0.8
+        assert ku.semantic_links == ("ku_a", "ku_b")
+        assert ku.times_applied_in_tasks == 5
+        assert ku.times_practiced_in_events == 3
+
+        # Round-trip back to DTO
+        dto2 = ku.to_dto()
+        assert dto2.semantic_links == ["ku_a", "ku_b"]
+        assert dto2.times_applied_in_tasks == 5

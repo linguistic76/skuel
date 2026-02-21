@@ -26,6 +26,7 @@ from core.events.curriculum_events import LearningStepCompleted
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
 from core.models.ku.ku import Ku
+from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -38,7 +39,7 @@ if TYPE_CHECKING:
     from core.services.user import UserContext
 
 
-class KuIntelligenceService(BaseAnalyticsService[KuOperations, Ku]):
+class KuIntelligenceService(BaseAnalyticsService[KuOperations, KuBase]):
     """Real implementation of knowledge intelligence features.
 
     NOTE: This service extends BaseAnalyticsService (ADR-030) and has NO AI dependencies.
@@ -90,11 +91,11 @@ class KuIntelligenceService(BaseAnalyticsService[KuOperations, Ku]):
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[KuBase, KuDTO](
                 service=self,
                 backend_get_method="get",  # KuService uses generic 'get'
                 dto_class=KuDTO,
-                model_class=Ku,
+                model_class=KuBase,
                 domain=Domain.KNOWLEDGE,
             )
 

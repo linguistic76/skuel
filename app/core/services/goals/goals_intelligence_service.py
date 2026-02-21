@@ -24,9 +24,9 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import Domain, KuStatus
 from core.models.enums.activity_enums import ProgressLevel
 from core.models.graph_context import GraphContext
-from core.models.ku.ku import Ku as Habit
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_goal import GoalKu
+from core.models.ku.ku_habit import HabitKu as Habit
 from core.models.shared.dual_track import DualTrackResult
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import (

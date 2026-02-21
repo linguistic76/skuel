@@ -18,6 +18,7 @@ from typing import Any
 
 from core.models.enums import Domain, KuStatus
 from core.models.ku.ku import Ku
+from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_request import KuPrincipleCreateRequest
 from core.models.ku.lp_position import LpPosition
@@ -102,7 +103,7 @@ def _calculate_embodiment_data(principle: Ku, learning_position: LpPosition) -> 
     }
 
 
-class PrinciplesLearningService(BaseService[PrinciplesOperations, Ku]):
+class PrinciplesLearningService(BaseService[PrinciplesOperations, KuBase]):
     """
     Learning path integration for principles.
 
@@ -138,7 +139,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Ku]):
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=KuBase,
         domain_name="principles",
         date_field="created_at",
         completed_statuses=(KuStatus.ARCHIVED.value,),
@@ -154,13 +155,13 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Ku]):
         super().__init__(backend, "principles.learning")
 
         # Initialize LearningAlignmentHelper with custom scorers (Phase 6)
-        self.learning_helper = LearningAlignmentHelper[Ku, KuDTO, KuPrincipleCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[KuBase, KuDTO, KuPrincipleCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="list_user_principles",
             backend_create_method="create",
             dto_class=KuDTO,
-            model_class=Ku,
+            model_class=KuBase,
             domain=Domain.PRINCIPLES,
             entity_name="principle",
             alignment_scorer=_calculate_virtue_embodiment_score,

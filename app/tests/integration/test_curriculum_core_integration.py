@@ -24,8 +24,8 @@ from testcontainers.neo4j import Neo4jContainer
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, LearningLevel, SELCategory
 
-# Domain models - use unified Ku model + domain-specific types
-from core.models.ku.ku import Ku
+# Domain models - use domain-specific types
+from core.models.ku.ku_curriculum import CurriculumKu
 from core.models.ku.ku_learning_path import LearningPathKu
 from core.models.ku.ku_learning_step import LearningStepKu
 
@@ -35,14 +35,14 @@ from core.models.ku.ku_learning_step import LearningStepKu
 
 
 @pytest.fixture
-def ku_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[Ku]:
+def ku_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[CurriculumKu]:
     """Create KU backend with real Neo4j."""
     from neo4j import AsyncGraphDatabase
 
     uri = neo4j_container.get_connection_url()
     driver = AsyncGraphDatabase.driver(uri)
 
-    return UniversalNeo4jBackend[Ku](driver, "Ku", Ku)
+    return UniversalNeo4jBackend[CurriculumKu](driver, "Ku", CurriculumKu)
 
 
 @pytest.fixture
@@ -106,7 +106,7 @@ class TestKnowledgeUnitCRUD:
     @pytest.mark.asyncio
     async def test_create_knowledge_unit(self, ku_backend, clean_curriculum) -> None:
         """Should create KU in Neo4j."""
-        ku = Ku(
+        ku = CurriculumKu(
             uid="ku:test_python_basics",
             title="Python Basics",
             domain=Domain.TECH,
@@ -124,7 +124,7 @@ class TestKnowledgeUnitCRUD:
     async def test_get_knowledge_unit(self, ku_backend, clean_curriculum) -> None:
         """Should retrieve KU from Neo4j."""
         # Create KU
-        ku = Ku(
+        ku = CurriculumKu(
             uid="ku:test_get",
             title="Test Get",
             domain=Domain.TECH,
@@ -145,7 +145,7 @@ class TestKnowledgeUnitCRUD:
     async def test_update_knowledge_unit(self, ku_backend, clean_curriculum) -> None:
         """Should update KU in Neo4j."""
         # Create KU
-        ku = Ku(
+        ku = CurriculumKu(
             uid="ku:test_update",
             title="Original Title",
             domain=Domain.TECH,
@@ -169,7 +169,7 @@ class TestKnowledgeUnitCRUD:
     async def test_delete_knowledge_unit(self, ku_backend, clean_curriculum) -> None:
         """Should delete KU from Neo4j."""
         # Create KU
-        ku = Ku(
+        ku = CurriculumKu(
             uid="ku:test_delete",
             title="Test Delete",
             domain=Domain.TECH,

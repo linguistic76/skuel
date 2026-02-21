@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType, ProgressDepth
-from core.models.ku import Ku
+from core.models.ku import AiReportKu, Ku
 from core.services.protocols.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -121,7 +121,7 @@ class ProgressKuGenerator:
 
             # 5. Create Ku node
             uid = UIDGenerator.generate_uid("ku")
-            ku = Ku(
+            ku = AiReportKu(
                 uid=uid,
                 title=title,
                 ku_type=KuType.AI_REPORT,

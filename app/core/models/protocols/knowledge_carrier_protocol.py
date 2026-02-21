@@ -11,8 +11,11 @@ Design Philosophy (from SKUEL):
 
 Protocol Tiers:
 1. KnowledgeCarrier - Base protocol (all 10 domains implement)
-2. SubstantiatedKnowledge - Extended with substance_score() (KU + Curriculum)
+2. CurriculumCarrier - Curriculum entities (KU, LS, LP)
 3. ActivityCarrier - Activity domains with learning integration
+
+Note: SubstantiatedKnowledge protocol removed — substance_score() lives
+directly on CurriculumKu class. Use isinstance(entity, CurriculumKu) instead.
 
 Architecture:
     SKUEL organizes knowledge through 10 domains that all implement
@@ -139,62 +142,6 @@ class KnowledgeCarrier(Protocol):
 
             task = Task(uid="task.123", ...)  # with APPLIES_KNOWLEDGE relationships
             task.get_knowledge_uids()  # → ("ku.python",) via graph lookup
-        """
-        ...
-
-
-@runtime_checkable
-class SubstantiatedKnowledge(KnowledgeCarrier, Protocol):
-    """
-    Extended protocol for entities that track knowledge substantiation.
-
-    Substance measures how well knowledge is LIVED, not just learned.
-    This is SKUEL's "Applied knowledge, not pure theory" philosophy.
-
-    Implemented by:
-    - KU: Full substance tracking with time decay
-    - LS: Aggregated substance from contained KUs
-    - LP: Aggregated substance from steps
-    - MOC: Aggregated substance from mapped content
-
-    Substance Scale (from CLAUDE.md):
-        - 0.0-0.2: Pure theory (read about it)
-        - 0.3-0.5: Applied knowledge (tried it)
-        - 0.6-0.7: Well-practiced (regular use)
-        - 0.8-1.0: Lifestyle-integrated (embodied)
-
-    Activity domains DO NOT implement this protocol directly.
-    Instead, they CONTRIBUTE TO KU substance via event-driven updates:
-        - TaskKnowledgeApplied → updates KU.times_applied_in_tasks
-        - EventKnowledgePracticed → updates KU.times_practiced_in_events
-        - HabitKnowledgeBuilt → updates KU.times_built_into_habits
-
-    Example:
-        if isinstance(entity, SubstantiatedKnowledge):
-            score = entity.substance_score()
-            if score < 0.3:
-                # Knowledge is theoretical - suggest practice
-                pass
-    """
-
-    def substance_score(self) -> float:
-        """
-        Calculate how well knowledge is applied in real life.
-
-        Returns:
-            float: Substance score 0.0-1.0
-
-        KU Calculation (full implementation):
-            Weighted sum with time decay:
-            - times_applied_in_tasks * 0.05 (max 0.25)
-            - times_practiced_in_events * 0.05 (max 0.25)
-            - times_built_into_habits * 0.10 (max 0.30)
-            - journal_reflections_count * 0.07 (max 0.20)
-            - choices_informed_count * 0.07 (max 0.15)
-            + exponential decay based on last_applied_date
-
-        LS/LP/MOC Calculation (aggregated):
-            avg(ku.substance_score() for ku in get_knowledge_uids())
         """
         ...
 

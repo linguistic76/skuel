@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import KuStatus
 from core.models.ku.ku import Ku
+from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
 
@@ -80,7 +81,7 @@ class ChoicesService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]",
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=KuBase,
         domain_name="choices",
         date_field="decision_date",
         completed_statuses=(KuStatus.COMPLETED.value,),

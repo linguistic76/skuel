@@ -7,7 +7,7 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, SELCategory
-from core.models.ku import Ku
+from core.models.ku import CurriculumKu
 
 
 @pytest.mark.asyncio
@@ -17,18 +17,18 @@ class TestRelationshipPropertiesDebug:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
+        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
 
     async def test_relationship_properties_are_stored(self, ku_backend):
         """Verify that relationship properties are actually persisted."""
         # Create two KUs
-        ku1 = Ku(
+        ku1 = CurriculumKu(
             uid="ku:test1",
             title="Test 1",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
-        ku2 = Ku(
+        ku2 = CurriculumKu(
             uid="ku:test2",
             title="Test 2",
             domain=Domain.TECH,

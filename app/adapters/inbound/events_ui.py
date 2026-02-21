@@ -30,8 +30,8 @@ from components.events_views import EventsViewComponents
 from components.shared_ui_components import SharedUIComponents
 from core.auth import require_authenticated_user
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
-from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_event import EventKu
 from core.services.protocols.facade_protocols import EventsFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
 from core.ui.daisy_components import (
@@ -644,7 +644,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
             location=location,
         )
 
-        event = Ku.from_dto(event_dto)
+        event = EventKu.from_dto(event_dto)
         return await events_service.core.create(event)
 
     async def render_event_success_view(_user_uid: str) -> Any:

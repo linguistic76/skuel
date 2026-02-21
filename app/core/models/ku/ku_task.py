@@ -175,16 +175,28 @@ class TaskKu(KuBase):
         return self.get_combined_knowledge_uids()
 
     def calculate_knowledge_complexity(self) -> float:
-        """Calculate knowledge complexity (0.0-1.0)."""
-        return self.difficulty_rating
+        """Calculate knowledge complexity (0.0-1.0).
+
+        Returns default 0.5 — real complexity comes from related CurriculumKu
+        nodes via graph relationships, not from the task itself.
+        """
+        return 0.5
 
     def is_knowledge_bridge(self) -> bool:
-        """Check if this entity bridges multiple domains."""
-        return len(self.semantic_links) >= 3
+        """Check if this entity bridges multiple knowledge domains.
+
+        Tasks bridge domains via graph relationships, not semantic_links
+        (which are a CurriculumKu concept). Always False for tasks.
+        """
+        return False
 
     def calculate_learning_impact(self) -> float:
-        """Calculate learning impact score."""
-        return min(1.0, self.difficulty_rating * 0.3)
+        """Calculate learning impact score.
+
+        Returns default 0.15 — real learning impact comes from related
+        CurriculumKu nodes, not the task itself.
+        """
+        return 0.15
 
     @property
     def category(self) -> str | None:

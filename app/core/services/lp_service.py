@@ -25,7 +25,8 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import make_attribute_sort_key
 
 if TYPE_CHECKING:
-    from core.models.ku import Ku
+    from core.models.ku.ku_learning_path import LearningPathKu
+    from core.models.ku.ku_learning_step import LearningStepKu
     from core.services.ku_service import KuService
     from core.services.ls_service import LsService
     from core.services.protocols import EventBusOperations
@@ -221,7 +222,7 @@ class LpService(FacadeDelegationMixin):
     # ============================================================================
     # Note: These require ls_service guard, kept explicit.
 
-    async def create_step(self, step: Ku, path_uid: str | None = None) -> Result[Ku]:
+    async def create_step(self, step: LearningStepKu, path_uid: str | None = None) -> Result[LearningStepKu]:
         """Create a learning step. Delegates to LsService."""
         if not self.ls_service:
             from core.utils.result_simplified import Errors
@@ -233,7 +234,7 @@ class LpService(FacadeDelegationMixin):
         typed_ls_service = cast("LsFacadeProtocol", self.ls_service)
         return await typed_ls_service.create_step(step, path_uid)
 
-    async def get_step(self, step_uid: str) -> Result[Ku | None]:
+    async def get_step(self, step_uid: str) -> Result[LearningStepKu | None]:
         """Get a learning step by UID. Delegates to LsService."""
         if not self.ls_service:
             from core.utils.result_simplified import Errors
@@ -245,7 +246,7 @@ class LpService(FacadeDelegationMixin):
         typed_ls_service = cast("LsFacadeProtocol", self.ls_service)
         return await typed_ls_service.get_step(step_uid)
 
-    async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[Ku]:
+    async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[LearningStepKu]:
         """Update a learning step. Delegates to LsService."""
         if not self.ls_service:
             from core.utils.result_simplified import Errors
@@ -269,7 +270,7 @@ class LpService(FacadeDelegationMixin):
         typed_ls_service = cast("LsFacadeProtocol", self.ls_service)
         return await typed_ls_service.delete_step(step_uid)
 
-    async def list_steps(self, path_uid: str | None = None, limit: int = 100) -> Result[list[Ku]]:
+    async def list_steps(self, path_uid: str | None = None, limit: int = 100) -> Result[list[LearningStepKu]]:
         """List learning steps. Delegates to LsService."""
         if not self.ls_service:
             from core.utils.result_simplified import Errors
@@ -285,7 +286,7 @@ class LpService(FacadeDelegationMixin):
     # CRUD OPERATIONS PROTOCOL COMPATIBILITY
     # ============================================================================
 
-    async def create(self, entity: Ku) -> Result[Ku]:
+    async def create(self, entity: LearningPathKu) -> Result[LearningPathKu]:
         """Create method for CRUDRouteFactory compatibility."""
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
         typed_self = cast("LpFacadeProtocol", self)
@@ -299,13 +300,13 @@ class LpService(FacadeDelegationMixin):
             domain=entity.domain,
         )
 
-    async def get(self, uid: str) -> Result[Ku | None]:
+    async def get(self, uid: str) -> Result[LearningPathKu | None]:
         """Get method for CRUDRouteFactory compatibility."""
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
         typed_self = cast("LpFacadeProtocol", self)
         return await typed_self.get_learning_path(uid)
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Ku]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[LearningPathKu]:
         """Update method for CRUDRouteFactory compatibility."""
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
         typed_self = cast("LpFacadeProtocol", self)
@@ -324,7 +325,7 @@ class LpService(FacadeDelegationMixin):
         order_by: str | None = None,
         order_desc: bool = False,
         user_uid: str | None = None,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[LearningPathKu]]:
         """
         List learning paths with pagination and sorting support.
 

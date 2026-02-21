@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
-from core.models.ku import Ku as KnowledgeUnit
+from core.models.ku import CurriculumKu as KnowledgeUnit
 from core.services.sync_types import SyncStats
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

@@ -31,6 +31,7 @@ from typing import Any
 from core.events import publish_event
 from core.models.enums import Domain, KnowledgeStatus
 from core.models.ku.ku import Ku
+from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
@@ -44,7 +45,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMixin):
+class KuCoreService(BaseService[CurriculumOperations[KuBase], KuBase], MetadataManagerMixin):
     """
     Core CRUD operations for knowledge units.
 
@@ -82,7 +83,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
     # BaseService configuration (January 2026 - DomainConfig)
     _config = create_curriculum_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=KuBase,
         domain_name="ku",
         search_fields=("title", "summary", "tags"),
         supports_user_progress=True,  # KU supports mastery tracking

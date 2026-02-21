@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
-from core.models.ku import Ku
+from core.models.ku import AiReportKu
 from core.services.reports.progress_report_generator import (
     TIME_PERIOD_DAYS,
     ProgressKuGenerator,
@@ -112,7 +112,7 @@ class TestGenerate:
         # Verify backend.create was called
         assert mock_backend.create.call_count == 1
         created_ku = mock_backend.create.call_args[0][0]
-        assert isinstance(created_ku, Ku)
+        assert isinstance(created_ku, AiReportKu)
         assert created_ku.ku_type == KuType.AI_REPORT
         assert created_ku.status == KuStatus.COMPLETED
         assert created_ku.processor_type == ProcessorType.AUTOMATIC

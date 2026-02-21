@@ -16,7 +16,7 @@ from typing import Any
 
 from core.constants import QueryLimit
 from core.models.enums.ku_enums import KuType
-from core.models.ku import Ku, KuDTO
+from core.models.ku import Ku, KuBase, KuDTO
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -28,7 +28,7 @@ from core.utils.result_simplified import Result
 logger = get_logger("skuel.services.ku_search")
 
 
-class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
+class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
     """
     Ku search service — unified interface for all Ku types.
 
@@ -50,7 +50,7 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
     # =========================================================================
     _config = DomainConfig(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=KuBase,
         entity_label="Ku",
         search_fields=("title", "original_filename", "processed_content"),
         search_order_by="created_at",

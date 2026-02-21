@@ -22,7 +22,9 @@ from datetime import date, timedelta
 from core.models.enums import Domain
 from core.models.enums.ku_enums import PrincipleCategory, PrincipleStrength
 from core.models.ku.ku import Ku
+from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_principle import PrincipleKu
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.services.base_service import BaseService
@@ -33,7 +35,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 
 
-class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
+class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
     """
     Principle search and discovery operations.
 
@@ -86,7 +88,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
     # Note: Principles use name instead of title, plus statement and why_important
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=KuBase,
         domain_name="principles",
         date_field="created_at",
         completed_statuses=(),  # Principles don't have completion status
@@ -115,7 +117,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
         if result.is_error:
             return result
 
-        principles = self._to_domain_models(result.value, KuDTO, Ku)
+        principles = self._to_domain_models(result.value, KuDTO, KuBase)
 
         self.logger.debug(f"Found {len(principles)} principles with status '{status}'")
         return Result.ok(principles)
@@ -157,7 +159,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
         if result.is_error:
             return result
 
-        principles = self._to_domain_models(result.value, KuDTO, Ku)
+        principles = self._to_domain_models(result.value, KuDTO, KuBase)
 
         self.logger.debug(
             f"Found {len(principles)} principles in domain '{domain_value}' (category: {category_value})"
@@ -187,7 +189,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
         if result.is_error:
             return result
 
-        principles = self._to_domain_models(result.value, KuDTO, Ku)
+        principles = self._to_domain_models(result.value, KuDTO, KuBase)
 
         # Score and sort by priority factors
         scored_principles = []
@@ -300,7 +302,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
         for record in result.value:
             principle_node = record["p"]
             dto = KuDTO.from_dict(dict(principle_node))
-            principles.append(Ku.from_dto(dto))
+            principles.append(PrincipleKu.from_dto(dto))
 
         self.logger.debug(
             f"Found {len(principles)} principles needing review within {days_ahead} days"
@@ -353,7 +355,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
         for record in result.value:
             principle_node = record["p"]
             dto = KuDTO.from_dict(dict(principle_node))
-            principles.append(Ku.from_dto(dto))
+            principles.append(PrincipleKu.from_dto(dto))
 
         self.logger.debug(f"Found {len(principles)} overdue principles")
         return Result.ok(principles)
@@ -383,7 +385,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
         if result.is_error:
             return result
 
-        principles = self._to_domain_models(result.value, KuDTO, Ku)
+        principles = self._to_domain_models(result.value, KuDTO, KuBase)
 
         self.logger.debug(f"Found {len(principles)} {strength_value} principles")
         return Result.ok(principles)
@@ -409,7 +411,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
         if result.is_error:
             return result
 
-        principles = self._to_domain_models(result.value, KuDTO, Ku)
+        principles = self._to_domain_models(result.value, KuDTO, KuBase)
 
         self.logger.debug(f"Found {len(principles)} principles in category '{category_value}'")
         return Result.ok(principles)
@@ -522,7 +524,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
         if result.is_error:
             return result
 
-        principles = self._to_domain_models(result.value, KuDTO, Ku)
+        principles = self._to_domain_models(result.value, KuDTO, KuBase)
 
         # Sort by strength (core first)
         from core.utils.sort_functions import get_principle_strength_order
@@ -586,7 +588,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
         for record in result.value:
             principle_node = record["p"]
             dto = KuDTO.from_dict(dict(principle_node))
-            principles.append(Ku.from_dto(dto))
+            principles.append(PrincipleKu.from_dto(dto))
 
         self.logger.debug(
             f"Found {len(principles)} principles needing review (threshold: {days_threshold} days)"
@@ -641,7 +643,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
             for record in result.value:
                 if record.get("related"):
                     dto = KuDTO.from_dict(dict(record["related"]))
-                    principles.append(Ku.from_dto(dto))
+                    principles.append(PrincipleKu.from_dto(dto))
             if principles:
                 self.logger.debug(
                     f"Found {len(principles)} principles related to {principle_uid} (depth={depth})"
@@ -656,7 +658,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
         if not principle_result.value:
             return Result.ok([])
 
-        principle = self._to_domain_model(principle_result.value, KuDTO, Ku)
+        principle = self._to_domain_model(principle_result.value, KuDTO, KuBase)
 
         # Get principles in same category (excluding self)
         cypher_query = """
@@ -685,7 +687,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
         for record in result.value:
             principle_node = record["p"]
             dto = KuDTO.from_dict(dict(principle_node))
-            principles.append(Ku.from_dto(dto))
+            principles.append(PrincipleKu.from_dto(dto))
 
         self.logger.debug(f"Found {len(principles)} principles related to {principle_uid}")
         return Result.ok(principles)
@@ -796,7 +798,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
             result = await self.backend.find_by(limit=limit, **filters)
             if result.is_error:
                 return Result.fail(result.expect_error())
-            principles = self._to_domain_models(result.value, KuDTO, Ku)
+            principles = self._to_domain_models(result.value, KuDTO, KuBase)
         else:
             # Fall back to text search using cleaned query
             result = await self.search(parsed.text_query, limit=limit)

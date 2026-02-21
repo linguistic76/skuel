@@ -4161,14 +4161,14 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 
 def create_tasks_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
     """Create universal backend for tasks."""
-    from core.models.ku.ku import Ku as TaskPure
+    from core.models.ku.ku_task import TaskKu as TaskPure
 
     return UniversalNeo4jBackend[TaskPure](driver, "Task", TaskPure)
 
 
 def create_events_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
     """Create universal backend for events."""
-    from core.models.ku.ku import Ku as EventPure
+    from core.models.ku.ku_event import EventKu as EventPure
 
     return UniversalNeo4jBackend[EventPure](driver, "Event", EventPure)
 
@@ -4182,7 +4182,7 @@ def create_finance_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
 
 def create_habits_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
     """Create universal backend for habits."""
-    from core.models.ku.ku import Ku as HabitPure
+    from core.models.ku.ku_habit import HabitKu as HabitPure
 
     return UniversalNeo4jBackend[HabitPure](driver, "Habit", HabitPure)
 

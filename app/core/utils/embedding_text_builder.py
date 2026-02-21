@@ -27,6 +27,7 @@ class HasAttributes(Protocol):
 # Single source of truth for embedding field mappings
 EMBEDDING_FIELD_MAPS: dict[KuType, tuple[str, ...]] = {
     KuType.CURRICULUM: ("title", "content", "summary"),
+    KuType.RESOURCE: ("title", "author", "content", "summary"),
     KuType.TASK: ("title", "description"),
     KuType.GOAL: ("title", "description", "vision_statement"),
     KuType.HABIT: ("name", "title", "description", "cue", "reward"),
@@ -105,9 +106,9 @@ def build_embedding_text(
     if not parts:
         return ""
 
-    # CURRICULUM uses double newlines for better semantic separation
+    # CURRICULUM and RESOURCE use double newlines for better semantic separation
     # (title, content blocks, summary are distinct concepts)
-    separator = "\n\n" if ku_type == KuType.CURRICULUM else "\n"
+    separator = "\n\n" if ku_type in {KuType.CURRICULUM, KuType.RESOURCE} else "\n"
     return separator.join(parts)
 
 

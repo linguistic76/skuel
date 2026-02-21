@@ -14,7 +14,7 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, KuStatus, Priority, SELCategory
-from core.models.ku.ku import Ku
+from core.models.ku.ku_curriculum import CurriculumKu
 from core.models.ku.ku_task import TaskKu as Task
 from core.models.relationship_names import RelationshipName
 from core.services.tasks.tasks_core_service import TasksCoreService
@@ -27,14 +27,14 @@ class TestRelationshipMetadataOperations:
     @pytest_asyncio.fixture
     async def tasks_backend(self, neo4j_driver, clean_neo4j):
         """Create tasks backend with clean database."""
-        return UniversalNeo4jBackend[Ku](
-            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "task"}
+        return UniversalNeo4jBackend[Task](
+            neo4j_driver, "Ku", Task, default_filters={"ku_type": "task"}
         )
 
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver):
         """Create KU backend for creating knowledge units."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
+        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
 
     @pytest_asyncio.fixture
     async def tasks_service(self, tasks_backend):
@@ -54,7 +54,7 @@ class TestRelationshipMetadataOperations:
     async def test_get_metadata_with_properties(self, tasks_backend, tasks_service, ku_backend):
         """Test getting metadata from relationship with properties."""
         # Create knowledge unit first
-        ku = Ku(
+        ku = CurriculumKu(
             uid="ku:python",
             title="Python",
             domain=Domain.TECH,
@@ -126,7 +126,7 @@ class TestRelationshipMetadataOperations:
     async def test_update_single_property(self, tasks_backend, tasks_service, ku_backend):
         """Test updating a single property preserves others."""
         # Create knowledge unit first
-        ku = Ku(
+        ku = CurriculumKu(
             uid="ku:algorithms",
             title="Algorithms",
             domain=Domain.TECH,
@@ -181,7 +181,7 @@ class TestRelationshipMetadataOperations:
     async def test_update_multiple_properties(self, tasks_backend, tasks_service, ku_backend):
         """Test updating multiple properties at once."""
         # Create knowledge unit first
-        ku = Ku(
+        ku = CurriculumKu(
             uid="ku:databases",
             title="Databases",
             domain=Domain.TECH,
@@ -247,7 +247,7 @@ class TestRelationshipMetadataOperations:
     async def test_add_new_properties(self, tasks_backend, tasks_service, ku_backend):
         """Test adding new properties to relationship that didn't have them."""
         # Create knowledge unit first
-        ku = Ku(
+        ku = CurriculumKu(
             uid="ku:testing",
             title="Testing",
             domain=Domain.TECH,
@@ -306,7 +306,7 @@ class TestRelationshipMetadataOperations:
     async def test_increment_counter_pattern(self, tasks_backend, tasks_service, ku_backend):
         """Test common pattern: get, increment, update."""
         # Create knowledge unit first
-        ku = Ku(
+        ku = CurriculumKu(
             uid="ku:patterns",
             title="Patterns",
             domain=Domain.TECH,

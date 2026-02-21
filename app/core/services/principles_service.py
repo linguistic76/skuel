@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.ku_enums import PrincipleCategory
 from core.models.ku.ku import Ku
+from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -68,7 +69,7 @@ def _by_assessed_date(item: dict[str, Any]) -> str:
     return item.get("assessed_date", "")
 
 
-class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations, Ku]):
+class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations, KuBase]):
     """
     Principles service facade with specialized sub-services.
 
@@ -105,7 +106,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=KuBase,
         domain_name="principles",
         date_field="created_at",
         completed_statuses=(),  # Principles don't have completion status
@@ -486,7 +487,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
             return Result.fail(principle_result.expect_error())
 
         principle_data = principle_result.value
-        if isinstance(principle_data, Ku):
+        if isinstance(principle_data, KuBase):
             ku_dto = principle_data.to_dto()
         elif isinstance(principle_data, dict):
             ku_dto = KuDTO.from_dict(principle_data)
@@ -523,7 +524,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
             return Result.fail(principle_result.expect_error())
 
         principle_data = principle_result.value
-        if isinstance(principle_data, Ku):
+        if isinstance(principle_data, KuBase):
             ku_dto = principle_data.to_dto()
         elif isinstance(principle_data, dict):
             ku_dto = KuDTO.from_dict(principle_data)
@@ -568,7 +569,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
             return Result.fail(principle_result.expect_error())
 
         principle_data = principle_result.value
-        if isinstance(principle_data, Ku):
+        if isinstance(principle_data, KuBase):
             ku_dto = principle_data.to_dto()
         elif isinstance(principle_data, dict):
             ku_dto = KuDTO.from_dict(principle_data)

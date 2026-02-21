@@ -23,7 +23,8 @@ from core.constants import QueryLimit
 from core.events import publish_event
 from core.models.enums.ku_enums import AlignmentLevel, PrincipleStrength
 from core.models.ku.ku import Ku
-from core.models.ku.ku import Ku as Habit
+from core.models.ku.ku_habit import HabitKu
+from core.models.ku.ku_principle import PrincipleKu
 from core.models.principle.principle_types import (
     AlignmentAssessment as UserAlignmentAssessment,
 )
@@ -373,7 +374,7 @@ class PrinciplesAlignmentService:
         principle_dict = principle_result.value
         if isinstance(principle_dict, dict):
             principle_dto = KuDTO.from_dict(principle_dict)
-            principle = Ku.from_dto(principle_dto)
+            principle = PrincipleKu.from_dto(principle_dto)
         else:
             principle = principle_dict
 
@@ -874,7 +875,7 @@ class PrinciplesAlignmentService:
         return recommendations[:5]  # Top 5 recommendations
 
     def _generate_habit_recommendations(
-        self, habit: Habit, alignments: list[PrincipleAlignment], principles: list[Ku]
+        self, habit: HabitKu, alignments: list[PrincipleAlignment], principles: list[Ku]
     ) -> list[str]:
         """Generate recommendations for improving habit alignment"""
         recommendations = []
@@ -953,7 +954,7 @@ class PrinciplesAlignmentService:
                 from core.models.ku.ku_dto import KuDTO
 
                 principle_dto = KuDTO.from_dict(item)
-                principle = Ku.from_dto(principle_dto)
+                principle = PrincipleKu.from_dto(principle_dto)
             else:
                 principle = item
 
@@ -1014,7 +1015,7 @@ class PrinciplesAlignmentService:
         from core.models.ku.ku_dto import KuDTO
 
         principle_dto = KuDTO.from_dict(principle_dict)
-        principle = Ku.from_dto(principle_dto)
+        principle = PrincipleKu.from_dto(principle_dto)
 
         # Extract expressions
         expressions = list(principle.expressions) if principle.expressions else []
@@ -1087,7 +1088,7 @@ class PrinciplesAlignmentService:
                 from core.models.ku.ku_dto import KuDTO
 
                 principle_dto = KuDTO.from_dict(item)
-                principle = Ku.from_dto(principle_dto)
+                principle = PrincipleKu.from_dto(principle_dto)
             else:
                 principle = item
 

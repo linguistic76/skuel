@@ -31,8 +31,8 @@ from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.habit_events import HabitCompleted
 from core.models.enums import Domain, KuStatus
 from core.models.enums.ku_enums import KuType, MeasurementType
-from core.models.ku.ku import Ku
-from core.models.ku.ku import Ku as Habit
+from core.models.ku.ku_goal import GoalKu
+from core.models.ku.ku_habit import HabitKu as Habit
 from core.services.goals.goals_progress_service import GoalsProgressService
 
 
@@ -55,8 +55,8 @@ class TestHabitGoalEventFlow:
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
         """Create goals backend with clean database."""
-        return UniversalNeo4jBackend[Ku](
-            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "goal"}
+        return UniversalNeo4jBackend[GoalKu](
+            neo4j_driver, "Ku", GoalKu, default_filters={"ku_type": "goal"}
         )
 
     @pytest_asyncio.fixture
@@ -76,7 +76,7 @@ class TestHabitGoalEventFlow:
     @pytest_asyncio.fixture
     async def habit_based_goal(self, goals_backend, test_user_uid):
         """Create a habit-based goal in Neo4j - 30-day meditation streak."""
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.meditation_master",
             user_uid=test_user_uid,
             title="30-Day Meditation Streak",
@@ -96,7 +96,7 @@ class TestHabitGoalEventFlow:
     @pytest_asyncio.fixture
     async def mixed_goal(self, goals_backend, test_user_uid):
         """Create a mixed-measurement goal in Neo4j."""
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.healthy_lifestyle",
             user_uid=test_user_uid,
             title="Build Healthy Lifestyle",
@@ -116,7 +116,7 @@ class TestHabitGoalEventFlow:
     @pytest_asyncio.fixture
     async def task_based_goal(self, goals_backend, test_user_uid):
         """Create a task-based goal to verify habit completions don't affect it."""
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.learn_python",
             user_uid=test_user_uid,
             title="Learn Python",

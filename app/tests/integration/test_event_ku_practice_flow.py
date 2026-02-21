@@ -34,7 +34,8 @@ from core.models.enums import (
     KuStatus,
     SELCategory,
 )
-from core.models.ku.ku import Ku
+from core.models.ku.ku_curriculum import CurriculumKu
+from core.models.ku.ku_event import EventKu
 from core.services.ku.ku_practice_service import KuPracticeService
 
 
@@ -50,13 +51,13 @@ class TestEventKuPracticeFlow:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
+        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
 
     @pytest_asyncio.fixture
     async def event_backend(self, neo4j_driver, clean_neo4j):
         """Create Event backend with clean database."""
-        return UniversalNeo4jBackend[Ku](
-            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "event"}
+        return UniversalNeo4jBackend[EventKu](
+            neo4j_driver, "Ku", EventKu, default_filters={"ku_type": "event"}
         )
 
     @pytest_asyncio.fixture
@@ -94,7 +95,7 @@ class TestEventKuPracticeFlow:
         # Create 2 KUs related to meditation
         kus = []
         for i, title in enumerate(["Mindfulness Breathing", "Body Scan Technique"], start=1):
-            ku = Ku(
+            ku = CurriculumKu(
                 uid=f"ku.meditation_{i}",
                 title=title,
                 domain=Domain.HEALTH,
@@ -105,7 +106,7 @@ class TestEventKuPracticeFlow:
             kus.append(result.value)
 
         # Create meditation event
-        event = Ku(
+        event = EventKu(
             uid="event.morning_meditation",
             user_uid=test_user_uid,
             title="Morning Meditation Session",
@@ -277,7 +278,7 @@ class TestEventKuPracticeFlow:
     ):
         """Test that completing an event with no KUs doesn't affect practice counts."""
         # Create event with no PRACTICES relationships
-        event = Ku(
+        event = EventKu(
             uid="event.no_kus",
             user_uid=test_user_uid,
             title="Event Without KUs",

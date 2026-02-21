@@ -19,6 +19,7 @@ from core.events.choice_events import (
 )
 from core.models.enums.ku_enums import ChoiceType, KuStatus, KuType
 from core.models.ku.ku import Ku
+from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_nested_types import ChoiceOption
 from core.models.relationship_names import RelationshipName
@@ -106,7 +107,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=KuBase,
         domain_name="choices",
         date_field="decision_deadline",
         completed_statuses=(KuStatus.COMPLETED.value,),
@@ -334,7 +335,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return result
 
-        choices = self._to_domain_models(result.value, KuDTO, Ku)
+        choices = self._to_domain_models(result.value, KuDTO, KuBase)
         return Result.ok(choices)
 
     @with_error_handling("get_choices_for_goal", error_type="database", uid_param="goal_uid")
@@ -425,7 +426,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         if update_result.is_error:
             return Result.fail(update_result)
 
-        choice = self._to_domain_model(update_result.value, KuDTO, Ku)
+        choice = self._to_domain_model(update_result.value, KuDTO, KuBase)
 
         # Publish ChoiceUpdated event (event-driven architecture)
         if updated_fields:
@@ -509,7 +510,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         if update_result.is_error:
             return Result.fail(update_result)
 
-        choice = self._to_domain_model(update_result.value, KuDTO, Ku)
+        choice = self._to_domain_model(update_result.value, KuDTO, KuBase)
 
         # Calculate outcome quality score
         outcome_quality = choice.get_decision_quality_score() or 0.5
@@ -559,7 +560,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return result
 
-        choice = self._to_domain_model(result.value, KuDTO, Ku)
+        choice = self._to_domain_model(result.value, KuDTO, KuBase)
 
         # Publish ChoiceMade event
         from core.events import ChoiceMade
@@ -606,7 +607,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             return result
 
         # Convert to domain models
-        choices = self._to_domain_models(result.value, KuDTO, Ku)
+        choices = self._to_domain_models(result.value, KuDTO, KuBase)
 
         # Service-layer filtering: sorting
         if order_by:
@@ -743,7 +744,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         if update_result.is_error:
             return Result.fail(update_result.expect_error())
 
-        choice = self._to_domain_model(update_result.value, KuDTO, Ku)
+        choice = self._to_domain_model(update_result.value, KuDTO, KuBase)
 
         # Publish ChoiceUpdated event
         event = ChoiceUpdated(
@@ -873,7 +874,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         if update_result.is_error:
             return Result.fail(update_result.expect_error())
 
-        choice = self._to_domain_model(update_result.value, KuDTO, Ku)
+        choice = self._to_domain_model(update_result.value, KuDTO, KuBase)
 
         # Publish ChoiceUpdated event
         event = ChoiceUpdated(
@@ -977,7 +978,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         if update_result.is_error:
             return Result.fail(update_result.expect_error())
 
-        choice = self._to_domain_model(update_result.value, KuDTO, Ku)
+        choice = self._to_domain_model(update_result.value, KuDTO, KuBase)
 
         # Publish ChoiceUpdated event
         event = ChoiceUpdated(
@@ -1032,7 +1033,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         choices = []
         for record in result.value:
             choice_data = record["subchoice"]
-            choice = self._to_domain_model(choice_data, KuDTO, Ku)
+            choice = self._to_domain_model(choice_data, KuDTO, KuBase)
             choices.append(choice)
 
         return Result.ok(choices)
@@ -1063,7 +1064,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             return Result.ok(None)
 
         parent_data = result.value[0]["parent"]
-        parent = self._to_domain_model(parent_data, KuDTO, Ku)
+        parent = self._to_domain_model(parent_data, KuDTO, KuBase)
         return Result.ok(parent)
 
     @with_error_handling("get_choice_hierarchy", error_type="database", uid_param="choice_uid")
@@ -1120,7 +1121,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         if current_result.is_error:
             return Result.fail(current_result)
 
-        current_choice = self._to_domain_model(current_result.value, KuDTO, Ku)
+        current_choice = self._to_domain_model(current_result.value, KuDTO, KuBase)
 
         ancestors_result = await self.backend.execute_query(
             ancestors_query, {"choice_uid": choice_uid}
@@ -1141,7 +1142,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         ):
             for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
                 choice_data = node
-                ancestors.append(self._to_domain_model(choice_data, KuDTO, Ku))
+                ancestors.append(self._to_domain_model(choice_data, KuDTO, KuBase))
 
         # Process siblings
         siblings = []
@@ -1153,7 +1154,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             for node in siblings_result.value[0]["siblings"]:
                 if node:  # Skip None values
                     choice_data = node
-                    siblings.append(self._to_domain_model(choice_data, KuDTO, Ku))
+                    siblings.append(self._to_domain_model(choice_data, KuDTO, KuBase))
 
         # Process children
         children = []
@@ -1165,7 +1166,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             for node in children_result.value[0]["children"]:
                 if node:  # Skip None values
                     choice_data = node
-                    children.append(self._to_domain_model(choice_data, KuDTO, Ku))
+                    children.append(self._to_domain_model(choice_data, KuDTO, KuBase))
 
         return Result.ok(
             {

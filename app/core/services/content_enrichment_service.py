@@ -23,7 +23,7 @@ from typing import Any
 
 from core.events import publish_event
 from core.models.enums.ku_enums import KuStatus, KuType
-from core.models.ku import Ku, KuDTO
+from core.models.ku import Ku, KuBase, KuDTO, SubmissionKu
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -34,7 +34,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 
-class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
+class ContentEnrichmentService(BaseService[BackendOperations[KuBase], KuBase]):
     """
     Transcript processor service - transforms raw transcripts into formatted documents.
 
@@ -83,7 +83,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
     # =========================================================================
     _config = DomainConfig(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=KuBase,
         entity_label="Ku",
         search_fields=("title", "content", "processed_content"),
         search_order_by="created_at",
@@ -1449,7 +1449,7 @@ Return ONLY Markdown in this structure:
 
         from core.utils.uid_generator import UIDGenerator
 
-        ku = Ku(
+        ku = SubmissionKu(
             uid=UIDGenerator.generate_uid("ku"),
             user_uid=user_uid,
             ku_type=KuType.SUBMISSION,

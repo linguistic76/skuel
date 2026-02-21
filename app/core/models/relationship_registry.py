@@ -44,7 +44,8 @@ from core.models.enums.ku_enums import KuType
 
 # Curriculum domain imports - Phase 3 (February 2026): LS/LP unified into Ku
 # NOTE (February 2026): Habit imports removed — Habit merged into Ku
-from core.models.ku.ku import Ku
+# NOTE (February 2026): Ku is now a Union type alias; use KuBase (the actual class) for model_class
+from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
 
 # NOTE (February 2026): MOC is not a separate KuType.
@@ -55,9 +56,9 @@ from core.models.query import QueryIntent
 from core.models.relationship_names import RelationshipName
 
 # Task and Goal domains unified into Ku (February 2026)
-Task = Ku
+Task = KuBase
 TaskDTO = KuDTO
-Goal = Ku
+Goal = KuBase
 GoalDTO = KuDTO
 
 # =============================================================================
@@ -848,7 +849,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
     domain=Domain.HABITS,
     entity_label="Ku",  # Phase 4: Unified into Ku with ku_type='habit'
     dto_class=KuDTO,
-    model_class=Ku,
+    model_class=KuBase,
     backend_get_method="get",
     ownership_relationship=RelationshipName.HAS_KU,
     relationships=(
@@ -1005,7 +1006,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
     domain=Domain.EVENTS,
     entity_label="Event",
     dto_class=KuDTO,
-    model_class=Ku,
+    model_class=KuBase,
     backend_get_method="get_event",
     ownership_relationship=RelationshipName.HAS_EVENT,
     relationships=(
@@ -1146,7 +1147,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
     domain=Domain.CHOICES,
     entity_label="Ku",  # Phase 4: Unified into Ku with ku_type='choice'
     dto_class=KuDTO,
-    model_class=Ku,
+    model_class=KuBase,
     backend_get_method="get",
     ownership_relationship=RelationshipName.HAS_KU,
     relationships=(
@@ -1293,7 +1294,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
     domain=Domain.PRINCIPLES,
     entity_label="Ku",  # Phase 4: Unified into Ku with ku_type='principle'
     dto_class=KuDTO,
-    model_class=Ku,
+    model_class=KuBase,
     backend_get_method="get",
     ownership_relationship=RelationshipName.HAS_KU,
     relationships=(
@@ -1598,7 +1599,7 @@ KU_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,
     entity_label="Ku",
     dto_class=KuDTO,
-    model_class=Ku,
+    model_class=KuBase,
     backend_get_method="get",
     ownership_relationship=None,  # Shared content
     is_shared_content=True,
@@ -1723,7 +1724,7 @@ LS_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
     entity_label="Ku",
     dto_class=KuDTO,
-    model_class=Ku,
+    model_class=KuBase,
     backend_get_method="get",
     ownership_relationship=None,  # Shared content
     is_shared_content=True,
@@ -1819,7 +1820,7 @@ LP_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
     entity_label="Ku",
     dto_class=KuDTO,
-    model_class=Ku,
+    model_class=KuBase,
     backend_get_method="get",
     ownership_relationship=None,  # Shared content
     is_shared_content=True,

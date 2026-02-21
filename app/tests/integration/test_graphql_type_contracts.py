@@ -28,7 +28,7 @@ import pytest_asyncio
 from neo4j import AsyncGraphDatabase
 
 from core.models.enums.ku_enums import StepDifficulty
-from core.models.ku import Ku
+from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_learning_step import LearningStepKu
 from core.services.lp_service import LpService
@@ -278,7 +278,7 @@ async def test_learning_path_service_returns_typed_steps(lp_service, type_contra
     # Assert - Each step is properly typed
     for i, step in enumerate(steps, 1):
         # Core type check
-        assert isinstance(step, Ku), f"Step {i} should be Ku instance, got {type(step)}"
+        assert isinstance(step, KuBase), f"Step {i} should be KuBase instance, got {type(step)}"
 
         # Required string fields
         assert isinstance(step.uid, str), f"Step {i} uid should be string"

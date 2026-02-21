@@ -17,6 +17,7 @@ from core.models.enums import Domain
 from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.ku.ku import Ku
+from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
@@ -111,11 +112,11 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
 
         # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[KuBase, KuDTO](
                 service=self,
                 backend_get_method="get",  # ChoicesService uses generic 'get'
                 dto_class=KuDTO,
-                model_class=Ku,
+                model_class=KuBase,
                 domain=Domain.CHOICES,
             )
 

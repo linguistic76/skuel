@@ -34,13 +34,14 @@ from core.models.enums import (
 from core.models.enums.ku_enums import (
     GoalType,
     KuStatus,
-    KuType,
     MeasurementType,
     PrincipleCategory,
 )
 from core.models.enums.ku_enums import KuStatus as HabitStatus
-from core.models.ku.ku import Ku
-from core.models.ku.ku import Ku as Habit
+from core.models.ku.ku_curriculum import CurriculumKu
+from core.models.ku.ku_goal import GoalKu
+from core.models.ku.ku_habit import HabitKu
+from core.models.ku.ku_principle import PrincipleKu
 from core.services.goals.goals_recommendation_service import GoalsRecommendationService
 
 
@@ -56,27 +57,27 @@ class TestGoalRecommendationsFlow:
     @pytest_asyncio.fixture
     async def goal_backend(self, neo4j_driver, clean_neo4j):
         """Create Goal backend with clean database."""
-        return UniversalNeo4jBackend[Ku](
-            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "goal"}
+        return UniversalNeo4jBackend[GoalKu](
+            neo4j_driver, "Ku", GoalKu, default_filters={"ku_type": "goal"}
         )
 
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
+        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
 
     @pytest_asyncio.fixture
     async def habit_backend(self, neo4j_driver, clean_neo4j):
         """Create Habit backend with clean database."""
-        return UniversalNeo4jBackend[Habit](
-            neo4j_driver, "Ku", Habit, default_filters={"ku_type": "habit"}
+        return UniversalNeo4jBackend[HabitKu](
+            neo4j_driver, "Ku", HabitKu, default_filters={"ku_type": "habit"}
         )
 
     @pytest_asyncio.fixture
     async def principle_backend(self, neo4j_driver, clean_neo4j):
         """Create Principle backend with clean database."""
-        return UniversalNeo4jBackend[Ku](
-            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "principle"}
+        return UniversalNeo4jBackend[PrincipleKu](
+            neo4j_driver, "Ku", PrincipleKu, default_filters={"ku_type": "principle"}
         )
 
     @pytest_asyncio.fixture
@@ -121,7 +122,7 @@ class TestGoalRecommendationsFlow:
         # Create 2 related knowledge units
         kus = []
         for i, title in enumerate(["Python Basics", "Web Development Fundamentals"], start=1):
-            ku = Ku(
+            ku = CurriculumKu(
                 uid=f"ku.tech_{i}",
                 title=title,
                 domain=Domain.TECH,
@@ -136,12 +137,11 @@ class TestGoalRecommendationsFlow:
         for i, name in enumerate(["Daily Coding Practice", "Code Review Participation"], start=1):
             from core.models.enums.ku_enums import HabitCategory
 
-            habit = Habit(
+            habit = HabitKu(
                 uid=f"habit.tech_{i}",
                 user_uid=test_user_uid,
                 title=name,
                 description=f"Maintain {name.lower()}",
-                ku_type=KuType.HABIT,
                 habit_category=HabitCategory.LEARNING,
                 status=HabitStatus.ACTIVE,
             )
@@ -150,10 +150,9 @@ class TestGoalRecommendationsFlow:
             habits.append(result.value)
 
         # Create 1 guiding principle
-        principle = Ku(
+        principle = PrincipleKu(
             uid="principle.continuous_learning",
             user_uid=test_user_uid,
-            ku_type=KuType.PRINCIPLE,
             title="Continuous Learning",
             statement="Always be learning and growing",
             principle_category=PrincipleCategory.PERSONAL,
@@ -163,7 +162,7 @@ class TestGoalRecommendationsFlow:
         principle = result.value
 
         # Create achieved goal
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.build_web_app",
             user_uid=test_user_uid,
             title="Build First Web Application",
@@ -518,7 +517,7 @@ class TestGoalRecommendationsFlow:
     ):
         """Test that recommendations are generated even without knowledge/habit/principle relationships."""
         # Create goal with no relationships
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.simple",
             user_uid=test_user_uid,
             title="Simple Goal",

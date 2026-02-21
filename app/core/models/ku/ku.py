@@ -29,6 +29,7 @@ from core.models.ku.ku_learning_path import LearningPathKu
 from core.models.ku.ku_learning_step import LearningStepKu
 from core.models.ku.ku_life_path import LifePathKu
 from core.models.ku.ku_principle import PrincipleKu
+from core.models.ku.ku_resource import ResourceKu
 from core.models.ku.ku_submission import SubmissionKu
 from core.models.ku.ku_task import TaskKu
 
@@ -46,6 +47,7 @@ Ku = (
     | ChoiceKu
     | PrincipleKu
     | CurriculumKu
+    | ResourceKu
     | LearningStepKu
     | LearningPathKu
     | SubmissionKu
@@ -69,7 +71,7 @@ KU_TYPE_CLASS_MAP: dict[KuType, type[KuBase]] = {
     KuType.CHOICE: ChoiceKu,
     KuType.PRINCIPLE: PrincipleKu,
     KuType.CURRICULUM: CurriculumKu,
-    KuType.RESOURCE: CurriculumKu,  # Same model — zero extra fields
+    KuType.RESOURCE: ResourceKu,
     KuType.LEARNING_STEP: LearningStepKu,
     KuType.LEARNING_PATH: LearningPathKu,
     KuType.SUBMISSION: SubmissionKu,

@@ -27,6 +27,7 @@ from core.constants import GraphDepth
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.finance.finance_pure import ExpensePure
 from core.models.ku.ku import Ku
+from core.models.ku.ku_base import KuBase
 from core.models.query import build_prerequisite_chain
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -695,7 +696,7 @@ class CrossDomainQueries:
         from core.utils.neo4j_mapper import from_neo4j_node
 
         dto = from_neo4j_node(dict(node), KuDTO)
-        return Ku.from_dto(dto)
+        return KuBase.from_dto(dto)
 
     def _neo4j_node_to_event(self, node) -> Ku:
         """Convert Neo4j node to Event domain model."""
@@ -703,7 +704,7 @@ class CrossDomainQueries:
         from core.utils.neo4j_mapper import from_neo4j_node
 
         dto = from_neo4j_node(dict(node), KuDTO)
-        return Ku.from_dto(dto)
+        return KuBase.from_dto(dto)
 
     def _neo4j_node_to_habit(self, node) -> Ku:
         """Convert Neo4j node to Habit domain model."""
@@ -711,7 +712,7 @@ class CrossDomainQueries:
         from core.utils.neo4j_mapper import from_neo4j_node
 
         dto = from_neo4j_node(dict(node), KuDTO)
-        return Ku.from_dto(dto)
+        return KuBase.from_dto(dto)
 
     def _neo4j_node_to_goal(self, node) -> Ku:
         """Convert Neo4j node to Goal domain model."""
@@ -719,7 +720,7 @@ class CrossDomainQueries:
         from core.utils.neo4j_mapper import from_neo4j_node
 
         dto = from_neo4j_node(dict(node), KuDTO)
-        return Ku.from_dto(dto)
+        return KuBase.from_dto(dto)
 
     def _neo4j_node_to_knowledge_unit(self, node) -> Ku:
         """Convert Neo4j node to Knowledge domain model."""
@@ -727,7 +728,7 @@ class CrossDomainQueries:
         from core.utils.neo4j_mapper import from_neo4j_node
 
         dto = from_neo4j_node(dict(node), KuDTO)
-        return Ku.from_dto(dto)
+        return KuBase.from_dto(dto)
 
     def _neo4j_node_to_expense(self, node) -> ExpensePure:
         """Convert Neo4j node to ExpensePure domain model."""

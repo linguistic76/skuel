@@ -303,7 +303,18 @@ class KuDTO(KuDTOMixin):
     subject_uid: str | None = None
 
     # =========================================================================
-    # LEARNING
+    # RESOURCE (Tier A — raw content)
+    # =========================================================================
+    source_url: str | None = None
+    author: str | None = None
+    publisher: str | None = None
+    publication_year: int | None = None
+    isbn: str | None = None
+    media_type: str | None = None
+    resource_duration_minutes: int | None = None
+
+    # =========================================================================
+    # LEARNING (curriculum-specific, but DTO is the superset for all types)
     # =========================================================================
     complexity: KuComplexity = KuComplexity.MEDIUM
     learning_level: LearningLevel = LearningLevel.BEGINNER
@@ -312,6 +323,8 @@ class KuDTO(KuDTOMixin):
     estimated_time_minutes: int = 15
     difficulty_rating: float = 0.5
     semantic_links: list[str] = field(default_factory=list)
+    target_age_range: tuple[int, int] | None = None  # e.g. (8, 12) for ages 8-12
+    learning_objectives: list[str] = field(default_factory=list)
     priority: str | None = None
 
     # =========================================================================
@@ -703,6 +716,14 @@ class KuDTO(KuDTOMixin):
                 "description",
                 "word_count",
                 "domain",
+                # Resource
+                "source_url",
+                "author",
+                "publisher",
+                "publication_year",
+                "isbn",
+                "media_type",
+                "resource_duration_minutes",
                 # File
                 "original_filename",
                 "file_path",
@@ -730,6 +751,8 @@ class KuDTO(KuDTOMixin):
                 "estimated_time_minutes",
                 "difficulty_rating",
                 "semantic_links",
+                "target_age_range",
+                "learning_objectives",
                 "priority",
                 # Sharing
                 "visibility",
@@ -964,6 +987,16 @@ class KuDTO(KuDTOMixin):
             "description": self.description,
             "word_count": self.word_count,
             # =================================================================
+            # RESOURCE
+            # =================================================================
+            "source_url": self.source_url,
+            "author": self.author,
+            "publisher": self.publisher,
+            "publication_year": self.publication_year,
+            "isbn": self.isbn,
+            "media_type": self.media_type,
+            "resource_duration_minutes": self.resource_duration_minutes,
+            # =================================================================
             # FILE
             # =================================================================
             "original_filename": self.original_filename,
@@ -997,6 +1030,8 @@ class KuDTO(KuDTOMixin):
             "estimated_time_minutes": self.estimated_time_minutes,
             "difficulty_rating": self.difficulty_rating,
             "semantic_links": list(self.semantic_links),
+            "target_age_range": list(self.target_age_range) if self.target_age_range else None,
+            "learning_objectives": list(self.learning_objectives),
             "priority": self.priority,
             # =================================================================
             # SHARING
@@ -1341,6 +1376,7 @@ class KuDTO(KuDTOMixin):
             list_fields=[
                 "tags",
                 "semantic_links",
+                "learning_objectives",
                 "reminder_days",
                 "attendee_emails",
                 "potential_obstacles",

@@ -3,11 +3,11 @@ Unit Tests for Ku Types Extension
 ===================================
 
 Tests KuType enum values, display names,
-is_processable, subject_uid on Ku, and converter logic.
+is_processable, subject_uid on submission subclasses, and converter logic.
 """
 
 from core.models.enums.ku_enums import KuStatus, KuType
-from core.models.ku import Ku, KuDTO
+from core.models.ku import AiReportKu, CurriculumKu, FeedbackKu, KuDTO, SubmissionKu
 
 # ============================================================================
 # ENUM TESTS
@@ -63,10 +63,10 @@ class TestKuTypeEnum:
 
 
 class TestKuSubjectUid:
-    """Test subject_uid field on Ku."""
+    """Test subject_uid field on submission subclasses."""
 
     def test_subject_uid_defaults_none(self):
-        ku = Ku(
+        ku = SubmissionKu(
             uid="ku_test_123",
             title="Test Ku",
             ku_type=KuType.SUBMISSION,
@@ -76,7 +76,7 @@ class TestKuSubjectUid:
         assert ku.subject_uid is None
 
     def test_subject_uid_set_explicitly(self):
-        ku = Ku(
+        ku = FeedbackKu(
             uid="ku_test_123",
             title="Midterm Feedback",
             ku_type=KuType.FEEDBACK_REPORT,
@@ -87,7 +87,7 @@ class TestKuSubjectUid:
         assert ku.subject_uid == "user_student"
 
     def test_is_ai_report_property(self):
-        ku = Ku(
+        ku = AiReportKu(
             uid="ku_test_123",
             title="Progress Summary",
             ku_type=KuType.AI_REPORT,
@@ -97,7 +97,7 @@ class TestKuSubjectUid:
         assert ku.is_ai_report is True
 
     def test_is_feedback_report_property(self):
-        ku = Ku(
+        ku = FeedbackKu(
             uid="ku_test_123",
             title="Teacher Feedback",
             ku_type=KuType.FEEDBACK_REPORT,
@@ -108,7 +108,7 @@ class TestKuSubjectUid:
         assert ku.is_feedback_report is True
 
     def test_is_user_owned(self):
-        ku = Ku(
+        ku = SubmissionKu(
             uid="ku_test_123",
             title="My Submission",
             ku_type=KuType.SUBMISSION,
@@ -118,7 +118,7 @@ class TestKuSubjectUid:
         assert ku.is_user_owned is True
 
     def test_curriculum_not_user_owned(self):
-        ku = Ku(
+        ku = CurriculumKu(
             uid="ku_test_123",
             title="Shared Knowledge",
             ku_type=KuType.CURRICULUM,
@@ -135,7 +135,7 @@ class TestKuConversions:
     """Test subject_uid roundtrips through DTO conversions."""
 
     def test_to_dto_preserves_subject_uid(self):
-        ku = Ku(
+        ku = FeedbackKu(
             uid="ku_test_123",
             title="Teacher Feedback",
             ku_type=KuType.FEEDBACK_REPORT,
@@ -155,11 +155,11 @@ class TestKuConversions:
             status=KuStatus.COMPLETED,
             subject_uid="user_student",
         )
-        ku = Ku.from_dto(dto)
+        ku = FeedbackKu.from_dto(dto)
         assert ku.subject_uid == "user_student"
 
     def test_roundtrip_none_subject_uid(self):
-        ku = Ku(
+        ku = SubmissionKu(
             uid="ku_test_123",
             title="My Submission",
             ku_type=KuType.SUBMISSION,
@@ -167,5 +167,5 @@ class TestKuConversions:
             status=KuStatus.COMPLETED,
         )
         dto = ku.to_dto()
-        restored = Ku.from_dto(dto)
+        restored = SubmissionKu.from_dto(dto)
         assert restored.subject_uid is None

@@ -19,9 +19,9 @@ from core.models.enums import (
 from core.models.event.event_request import EventType
 
 # Import from three-tier models
-from core.models.ku.ku import Ku as EventPure
-from core.models.ku.ku import Ku as HabitPure
-from core.models.ku.ku import Ku as TaskPure
+from core.models.ku.ku_event import EventKu as EventPure
+from core.models.ku.ku_habit import HabitKu as HabitPure
+from core.models.ku.ku_task import TaskKu as TaskPure
 
 # Protocols
 from core.services.protocols.calendar_protocol import CalendarTrackable, TimeWindow, WindowKind

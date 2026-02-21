@@ -28,7 +28,7 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, KuStatus, Priority
 from core.models.enums.ku_enums import GoalTimeframe, GoalType, MeasurementType
-from core.models.ku.ku import Ku
+from core.models.ku.ku_goal import GoalKu
 from core.services.goals.goals_core_service import GoalsCoreService
 
 
@@ -44,8 +44,8 @@ class TestGoalsCoreOperations:
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
         """Create goals backend with clean database."""
-        return UniversalNeo4jBackend[Ku](
-            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "goal"}
+        return UniversalNeo4jBackend[GoalKu](
+            neo4j_driver, "Ku", GoalKu, default_filters={"ku_type": "goal"}
         )
 
     @pytest_asyncio.fixture
@@ -66,7 +66,7 @@ class TestGoalsCoreOperations:
         """Test creating a new goal."""
         # Arrange
         today = date.today()
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.learn_python",
             user_uid=test_user_uid,
             title="Learn Python Programming",
@@ -98,7 +98,7 @@ class TestGoalsCoreOperations:
     async def test_get_goal_by_uid(self, goals_service, test_user_uid):
         """Test retrieving a goal by UID."""
         # Arrange - Create a goal first
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.get_test",
             user_uid=test_user_uid,
             title="Test Goal for Retrieval",
@@ -132,7 +132,7 @@ class TestGoalsCoreOperations:
         """Test listing all goals for a user."""
         # Arrange - Create multiple goals
         goals = [
-            Ku(
+            GoalKu(
                 uid=f"goal.list_test_{i}",
                 user_uid=test_user_uid,
                 title=f"Test Goal {i}",
@@ -160,7 +160,7 @@ class TestGoalsCoreOperations:
         """Test creating multiple goals for the same user."""
         # Arrange & Act - Create 5 goals
         for i in range(5):
-            goal = Ku(
+            goal = GoalKu(
                 uid=f"goal.multi_{i}",
                 user_uid=test_user_uid,
                 title=f"Multi Goal {i}",
@@ -184,7 +184,7 @@ class TestGoalsCoreOperations:
     async def test_filter_by_status(self, goals_service, test_user_uid):
         """Test filtering goals by status."""
         # Arrange - Create goals with different statuses
-        active_goal = Ku(
+        active_goal = GoalKu(
             uid="goal.active",
             user_uid=test_user_uid,
             title="Active Goal",
@@ -193,7 +193,7 @@ class TestGoalsCoreOperations:
             domain=Domain.PERSONAL,
             status=KuStatus.ACTIVE,
         )
-        achieved_goal = Ku(
+        achieved_goal = GoalKu(
             uid="goal.achieved",
             user_uid=test_user_uid,
             title="Achieved Goal",
@@ -226,7 +226,7 @@ class TestGoalsCoreOperations:
     async def test_filter_by_priority(self, goals_service, test_user_uid):
         """Test filtering goals by priority."""
         # Arrange - Create goals with different priorities
-        high_goal = Ku(
+        high_goal = GoalKu(
             uid="goal.high_priority",
             user_uid=test_user_uid,
             title="High Priority Goal",
@@ -235,7 +235,7 @@ class TestGoalsCoreOperations:
             domain=Domain.BUSINESS,
             priority=Priority.HIGH,
         )
-        low_goal = Ku(
+        low_goal = GoalKu(
             uid="goal.low_priority",
             user_uid=test_user_uid,
             title="Low Priority Goal",
@@ -268,7 +268,7 @@ class TestGoalsCoreOperations:
     async def test_filter_by_timeframe(self, goals_service, test_user_uid):
         """Test filtering goals by timeframe."""
         # Arrange - Create goals with different timeframes
-        weekly_goal = Ku(
+        weekly_goal = GoalKu(
             uid="goal.weekly",
             user_uid=test_user_uid,
             title="Weekly Goal",
@@ -277,7 +277,7 @@ class TestGoalsCoreOperations:
             domain=Domain.HEALTH,
             timeframe=GoalTimeframe.WEEKLY,
         )
-        yearly_goal = Ku(
+        yearly_goal = GoalKu(
             uid="goal.yearly",
             user_uid=test_user_uid,
             title="Yearly Goal",
@@ -323,7 +323,7 @@ class TestGoalsCoreOperations:
         ]
 
         for status in statuses:
-            goal = Ku(
+            goal = GoalKu(
                 uid=f"goal.status_{status.value}",
                 user_uid=test_user_uid,
                 title=f"Goal with {status.value} status",
@@ -348,7 +348,7 @@ class TestGoalsCoreOperations:
         ]
 
         for goal_type in goal_types:
-            goal = Ku(
+            goal = GoalKu(
                 uid=f"goal.type_{goal_type.value}",
                 user_uid=test_user_uid,
                 title=f"{goal_type.value.title()} Goal",
@@ -364,7 +364,7 @@ class TestGoalsCoreOperations:
         """Test that target date must be after start date."""
         # Arrange - Create goal with invalid dates (target before start)
         today = date.today()
-        invalid_goal = Ku(
+        invalid_goal = GoalKu(
             uid="goal.invalid_dates",
             user_uid=test_user_uid,
             title="Invalid Date Goal",
@@ -385,7 +385,7 @@ class TestGoalsCoreOperations:
     async def test_goal_with_progress_tracking(self, goals_service, test_user_uid):
         """Test creating a goal with progress tracking fields."""
         # Arrange
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.with_progress",
             user_uid=test_user_uid,
             title="Goal with Progress Tracking",
@@ -422,7 +422,7 @@ class TestGoalsCoreOperations:
         """Test creating a goal with optional fields populated."""
         # Arrange
         today = date.today()
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.full_details",
             user_uid=test_user_uid,
             title="Fully Detailed Goal",
@@ -458,7 +458,7 @@ class TestGoalsCoreOperations:
     async def test_goal_without_optional_fields(self, goals_service, test_user_uid):
         """Test creating a goal with minimal required fields."""
         # Arrange - Only required fields
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.minimal",
             user_uid=test_user_uid,
             title="Minimal Goal",
@@ -489,7 +489,7 @@ class TestGoalsCoreOperations:
         ]
 
         for i, (start, target) in enumerate(date_ranges):
-            goal = Ku(
+            goal = GoalKu(
                 uid=f"goal.date_range_{i}",
                 user_uid=test_user_uid,
                 title=f"Goal with date range {i}",

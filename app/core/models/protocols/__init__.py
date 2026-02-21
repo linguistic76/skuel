@@ -26,7 +26,6 @@ from .knowledge_carrier_protocol import (
     ActivityCarrier,
     CurriculumCarrier,
     KnowledgeCarrier,
-    SubstantiatedKnowledge,
 )
 
 __all__ = [
@@ -40,5 +39,4 @@ __all__ = [
     "ActivityCarrier",
     "CurriculumCarrier",
     "KnowledgeCarrier",
-    "SubstantiatedKnowledge",
 ]

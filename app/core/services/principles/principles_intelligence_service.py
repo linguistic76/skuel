@@ -27,6 +27,7 @@ from core.models.enums import Domain
 from core.models.enums.ku_enums import AlignmentLevel
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.ku.ku import Ku
+from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 
@@ -58,7 +59,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, Ku]):
+class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, KuBase]):
     """
     Pure Cypher graph intelligence for principles.
 
@@ -119,11 +120,11 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
 
         # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[KuBase, KuDTO](
                 service=self,
                 backend_get_method="get",  # PrinciplesService uses generic 'get'
                 dto_class=KuDTO,
-                model_class=Ku,
+                model_class=KuBase,
                 domain=Domain.PRINCIPLES,
             )
 
@@ -578,7 +579,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
                 "Continue your current approach - your self-awareness is accurate."
             )
             # Check if principle has expressions (Principle model has this attribute)
-            if isinstance(entity, Ku) and entity.expressions:
+            if isinstance(entity, KuBase) and entity.expressions:
                 recommendations.append(
                     "Consider documenting new expressions of this principle as they arise."
                 )
@@ -623,7 +624,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         principle_data = principle_result.value
         if isinstance(principle_data, dict):
             dto = KuDTO.from_dict(principle_data)
-        elif isinstance(principle_data, Ku):
+        elif isinstance(principle_data, KuBase):
             dto = principle_data.to_dto()
         else:
             self.logger.warning(f"Unknown principle data type: {type(principle_data)}")

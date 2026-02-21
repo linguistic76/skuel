@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, Any
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
-from core.models.ku import Ku
+from core.models.ku import Ku, KuBase
 from core.models.ku.ku_dto import KuDTO
 from core.models.query import QueryIntent
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -61,7 +61,7 @@ if TYPE_CHECKING:
     from core.services.protocols import QueryExecutor
 
 
-class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
+class LpIntelligenceService(BaseAnalyticsService[Any, KuBase]):
     """
     Unified Learning Path Intelligence Service.
 
@@ -174,11 +174,11 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service and self.learning_backend:
-            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[KuBase, KuDTO](
                 service=self,
                 backend_get_method="get",
                 dto_class=KuDTO,
-                model_class=Ku,
+                model_class=KuBase,
                 domain=Domain.LEARNING,
             )
 

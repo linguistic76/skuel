@@ -12,7 +12,7 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, SELCategory
-from core.models.ku.ku import Ku
+from core.models.ku.ku_curriculum import CurriculumKu
 
 
 @pytest.mark.asyncio
@@ -22,7 +22,7 @@ class TestTraverseOperations:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
+        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
 
     @pytest_asyncio.fixture
     async def traversal_graph(self, ku_backend):
@@ -36,37 +36,37 @@ class TestTraverseOperations:
         """
         # Create nodes
         nodes = {
-            "A": Ku(
+            "A": CurriculumKu(
                 uid="ku:traverse-a",
                 title="Node A",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            "B": Ku(
+            "B": CurriculumKu(
                 uid="ku:traverse-b",
                 title="Node B",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            "C": Ku(
+            "C": CurriculumKu(
                 uid="ku:traverse-c",
                 title="Node C",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            "D": Ku(
+            "D": CurriculumKu(
                 uid="ku:traverse-d",
                 title="Node D",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            "E": Ku(
+            "E": CurriculumKu(
                 uid="ku:traverse-e",
                 title="Node E",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            "F": Ku(
+            "F": CurriculumKu(
                 uid="ku:traverse-f",
                 title="Node F",
                 domain=Domain.TECH,
@@ -261,19 +261,19 @@ class TestTraverseOperations:
         """Test traversal handles cycles without infinite loop."""
         # Create a cycle: X -> Y -> Z -> X
         nodes = [
-            Ku(
+            CurriculumKu(
                 uid="ku:cycle-x",
                 title="Cycle X",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Ku(
+            CurriculumKu(
                 uid="ku:cycle-y",
                 title="Cycle Y",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Ku(
+            CurriculumKu(
                 uid="ku:cycle-z",
                 title="Cycle Z",
                 domain=Domain.TECH,
@@ -307,7 +307,7 @@ class TestTraverseOperations:
     async def test_traverse_self_loop(self, ku_backend, clean_neo4j):
         """Test traversal handles self-referential relationships."""
         # Create node with self-loop
-        node = Ku(
+        node = CurriculumKu(
             uid="ku:selfloop",
             title="Self Loop",
             domain=Domain.TECH,
@@ -337,7 +337,7 @@ class TestGetDomainContextRaw:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
+        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
 
     @pytest_asyncio.fixture
     async def context_graph(self, ku_backend):
@@ -349,25 +349,25 @@ class TestGetDomainContextRaw:
             Center --ENABLES(0.7)---> Related2
         """
         nodes = [
-            Ku(
+            CurriculumKu(
                 uid="ku:context-center",
                 title="Center Node",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Ku(
+            CurriculumKu(
                 uid="ku:context-related1",
                 title="Related 1",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Ku(
+            CurriculumKu(
                 uid="ku:context-related2",
                 title="Related 2",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Ku(
+            CurriculumKu(
                 uid="ku:context-deep1",
                 title="Deep 1",
                 domain=Domain.TECH,
@@ -458,7 +458,7 @@ class TestGetDomainContextRaw:
     async def test_context_raw_empty(self, ku_backend, context_graph):
         """Test context for isolated node returns empty list."""
         # Create isolated node
-        isolated = Ku(
+        isolated = CurriculumKu(
             uid="ku:isolated",
             title="Isolated",
             domain=Domain.TECH,
@@ -496,7 +496,7 @@ class TestFindPath:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
+        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
 
     @pytest_asyncio.fixture
     async def path_graph(self, ku_backend):
@@ -512,25 +512,25 @@ class TestFindPath:
         - ENABLES path: length 2
         """
         nodes = [
-            Ku(
+            CurriculumKu(
                 uid="ku:path-start",
                 title="Start",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Ku(
+            CurriculumKu(
                 uid="ku:path-mid1",
                 title="Mid1",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Ku(
+            CurriculumKu(
                 uid="ku:path-mid2",
                 title="Mid2",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Ku(
+            CurriculumKu(
                 uid="ku:path-end",
                 title="End",
                 domain=Domain.TECH,
@@ -638,19 +638,19 @@ class TestFindPath:
         # Start -> End (direct, length 1)
         # Start -> Mid -> End (length 2)
         nodes = [
-            Ku(
+            CurriculumKu(
                 uid="ku:short-start",
                 title="Start",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Ku(
+            CurriculumKu(
                 uid="ku:short-mid",
                 title="Mid",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
-            Ku(
+            CurriculumKu(
                 uid="ku:short-end",
                 title="End",
                 domain=Domain.TECH,

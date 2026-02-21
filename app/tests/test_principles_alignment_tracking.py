@@ -22,7 +22,7 @@ from core.models.enums.ku_enums import (
     PrincipleSource,
     PrincipleStrength,
 )
-from core.models.ku.ku import Ku
+from core.models.ku.ku_principle import PrincipleKu
 from core.models.principle.principle_types import AlignmentAssessment, PrincipleExpression
 from core.services.principles.principles_alignment_service import PrinciplesAlignmentService
 from core.utils.result_simplified import Result
@@ -41,9 +41,9 @@ def alignment_service(mock_backend) -> PrinciplesAlignmentService:
 
 
 @pytest.fixture
-def sample_principle_with_alignment() -> Ku:
+def sample_principle_with_alignment() -> PrincipleKu:
     """Create sample principle with alignment history."""
-    return Ku(
+    return PrincipleKu(
         ku_type=KuType.PRINCIPLE,
         uid="principle.integrity",
         user_uid="user.mike",  # REQUIRED - principle ownership
@@ -79,9 +79,9 @@ def sample_principle_with_alignment() -> Ku:
 
 
 @pytest.fixture
-def sample_principle_no_alignment() -> Ku:
+def sample_principle_no_alignment() -> PrincipleKu:
     """Create sample principle without alignment history."""
-    return Ku(
+    return PrincipleKu(
         ku_type=KuType.PRINCIPLE,
         uid="principle.growth",
         user_uid="user.mike",  # REQUIRED - principle ownership
@@ -191,7 +191,7 @@ class TestCalculateAverageAlignment:
     async def test_calculate_average_multiple_alignments(self, alignment_service, mock_backend):
         """Test average with multiple principles having different alignment levels."""
         # Create principles with different alignment levels
-        principle1 = Ku(
+        principle1 = PrincipleKu(
             ku_type=KuType.PRINCIPLE,
             uid="p1",
             user_uid="user.mike",  # REQUIRED - principle ownership
@@ -214,7 +214,7 @@ class TestCalculateAverageAlignment:
             updated_at=datetime.now(),
         )
 
-        principle2 = Ku(
+        principle2 = PrincipleKu(
             ku_type=KuType.PRINCIPLE,
             uid="p2",
             user_uid="user.mike",  # REQUIRED - principle ownership

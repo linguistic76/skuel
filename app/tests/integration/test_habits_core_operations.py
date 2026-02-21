@@ -35,7 +35,7 @@ from core.models.enums.ku_enums import (
 from core.models.enums.ku_enums import (
     KuStatus as HabitStatus,
 )
-from core.models.ku.ku import Ku as Habit
+from core.models.ku.ku_habit import HabitKu as Habit
 from core.services.habits.habits_core_service import HabitsCoreService
 
 

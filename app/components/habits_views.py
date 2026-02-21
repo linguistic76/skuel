@@ -37,7 +37,7 @@ from core.models.event.calendar_models import (
     CalendarData,
     CalendarView,
 )
-from core.models.ku.ku import Ku as Habit
+from core.models.ku.ku_habit import HabitKu as Habit
 from core.ui.daisy_components import (
     Button,
     Div,

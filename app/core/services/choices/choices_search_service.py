@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 from core.models.enums import Priority
 from core.models.enums.ku_enums import KuStatus
 from core.models.ku.ku import Ku
+from core.models.ku.ku_base import KuBase
+from core.models.ku.ku_choice import ChoiceKu
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
@@ -90,7 +92,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=KuBase,
         domain_name="choices",
         date_field="decision_deadline",
         completed_statuses=(KuStatus.COMPLETED.value,),
@@ -133,7 +135,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return result
 
-        all_choices = self._to_domain_models(result.value, KuDTO, Ku)
+        all_choices = self._to_domain_models(result.value, KuDTO, KuBase)
 
         # Filter to pending/active choices
         pending_choices = [
@@ -270,7 +272,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for record in result.value:
             choice_node = record["c"]
             dto = KuDTO.from_dict(dict(choice_node))
-            choices.append(Ku.from_dto(dto))
+            choices.append(ChoiceKu.from_dto(dto))
 
         self.logger.debug(f"Found {len(choices)} choices due within {days_ahead} days")
         return Result.ok(choices)
@@ -318,7 +320,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for record in result.value:
             choice_node = record["c"]
             dto = KuDTO.from_dict(dict(choice_node))
-            choices.append(Ku.from_dto(dto))
+            choices.append(ChoiceKu.from_dto(dto))
 
         self.logger.debug(f"Found {len(choices)} overdue choices")
         return Result.ok(choices)
@@ -360,7 +362,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for record in result.value:
             choice_node = record["c"]
             dto = KuDTO.from_dict(dict(choice_node))
-            choices.append(Ku.from_dto(dto))
+            choices.append(ChoiceKu.from_dto(dto))
 
         self.logger.debug(f"Found {len(choices)} pending choices for user {user_uid}")
         return Result.ok(choices)
@@ -388,7 +390,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return result
 
-        choices = self._to_domain_models(result.value, KuDTO, Ku)
+        choices = self._to_domain_models(result.value, KuDTO, KuBase)
 
         self.logger.debug(f"Found {len(choices)} choices with urgency '{urgency}'")
         return Result.ok(choices)
@@ -453,7 +455,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for record in result.value:
             choice_node = record["c"]
             dto = KuDTO.from_dict(dict(choice_node))
-            choices.append(Ku.from_dto(dto))
+            choices.append(ChoiceKu.from_dto(dto))
 
         self.logger.debug(
             f"Found {len(choices)} choices needing decision within {deadline_days} days"
@@ -498,7 +500,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for record in result.value:
             choice_node = record["c"]
             dto = KuDTO.from_dict(dict(choice_node))
-            choices.append(Ku.from_dto(dto))
+            choices.append(ChoiceKu.from_dto(dto))
 
         self.logger.debug(f"Found {len(choices)} choices aligned with principle {principle_uid}")
         return Result.ok(choices)
@@ -549,7 +551,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for record in result.value:
             choice_node = record["c"]
             dto = KuDTO.from_dict(dict(choice_node))
-            choices.append(Ku.from_dto(dto))
+            choices.append(ChoiceKu.from_dto(dto))
 
         self.logger.debug(f"Found {len(choices)} decided choices for user {user_uid}")
         return Result.ok(choices)
@@ -646,7 +648,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
             result = await self.backend.find_by(limit=limit, **filters)
             if result.is_error:
                 return Result.fail(result.expect_error())
-            choices = self._to_domain_models(result.value, KuDTO, Ku)
+            choices = self._to_domain_models(result.value, KuDTO, KuBase)
         else:
             # Fall back to text search using cleaned query
             result = await self.search(parsed.text_query, limit=limit)
