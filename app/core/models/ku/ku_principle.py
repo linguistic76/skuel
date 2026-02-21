@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 from core.models.enums.ku_enums import (
     AlignmentLevel,
+    KuStatus,
     KuType,
     PrincipleCategory,
     PrincipleSource,
@@ -142,6 +143,59 @@ class PrincipleKu(KuBase):
     # OVERRIDES
     # =========================================================================
 
+    def needs_review(self) -> bool:
+        """Principle needs review based on alignment drift or time-based cadence."""
+        # Dormant principles don't need review
+        if not self.is_active or self.status in (KuStatus.ARCHIVED, KuStatus.PAUSED):
+            return False
+
+        # Alignment issues always trigger review
+        if self.has_alignment_issues():
+            return True
+
+        # Unassessed alignment triggers review (after grace period)
+        if self.current_alignment is None or self.current_alignment == AlignmentLevel.UNKNOWN:
+            return self._past_grace_period()
+
+        # Time-based: check review cadence
+        if self.last_review_date is None:
+            return self._past_grace_period()
+
+        days_since = (date.today() - self.last_review_date).days
+        return days_since >= self._review_cadence_days()
+
+    def _review_cadence_days(self) -> int:
+        """Review interval based on strength level."""
+        cadence = {
+            PrincipleStrength.EXPLORING: 14,
+            PrincipleStrength.DEVELOPING: 21,
+            PrincipleStrength.MODERATE: 30,
+            PrincipleStrength.STRONG: 45,
+            PrincipleStrength.CORE: 60,
+        }
+        return cadence.get(self.strength, 30)
+
+    def _past_grace_period(self) -> bool:
+        """True if principle is older than 7 days (past new-principle grace period)."""
+        reference = self.adopted_date or (self.created_at.date() if self.created_at else None)
+        if reference is None:
+            return True
+        return (date.today() - reference).days > 7
+
+    def days_until_review_needed(self) -> int | None:
+        """Days until next review, 0 if overdue, None if not applicable."""
+        if not self.is_active or self.status in (KuStatus.ARCHIVED, KuStatus.PAUSED):
+            return None
+
+        if self.needs_review():
+            return 0
+
+        if self.last_review_date is None:
+            return None
+
+        remaining = self._review_cadence_days() - (date.today() - self.last_review_date).days
+        return max(0, remaining)
+
     @property
     def category(self) -> str | None:
         """Principle category -- uses principle_category, falls back to domain."""
@@ -175,7 +229,9 @@ class PrincipleKu(KuBase):
         return cls._from_dto(dto)
 
     def __str__(self) -> str:
-        return f"PrincipleKu(uid={self.uid}, title='{self.title}', category={self.principle_category})"
+        return (
+            f"PrincipleKu(uid={self.uid}, title='{self.title}', category={self.principle_category})"
+        )
 
     def __repr__(self) -> str:
         return (
