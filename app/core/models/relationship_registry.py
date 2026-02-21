@@ -1892,6 +1892,63 @@ LP_CONFIG = DomainRelationshipConfig(
     },
 )
 
+# -----------------------------------------------------------------------------
+# EXERCISE (Instruction Templates - Curriculum Tier B)
+# Exercises require curriculum knowledge and produce submissions
+# -----------------------------------------------------------------------------
+EXERCISE_CONFIG = DomainRelationshipConfig(
+    domain=Domain.KNOWLEDGE,  # Curriculum tier
+    entity_label="Ku",  # ExerciseKu is a :Ku node with ku_type='exercise'
+    dto_class=KuDTO,
+    model_class=KuBase,
+    backend_get_method="get",
+    ownership_relationship=RelationshipName.OWNS,
+    is_shared_content=False,  # Exercises are teacher-owned
+    relationships=(
+        # Outgoing: Exercise → CurriculumKu (what knowledge this exercise requires)
+        UnifiedRelationshipDefinition(
+            RelationshipName.REQUIRES_KNOWLEDGE,
+            "Ku",
+            "outgoing",
+            "required_knowledge",
+            "required_knowledge",
+            fields=("uid", "title", "complexity", "learning_level"),
+        ),
+        # Outgoing: Exercise → Group (teacher assigns to group)
+        UnifiedRelationshipDefinition(
+            RelationshipName.FOR_GROUP,
+            "Group",
+            "outgoing",
+            "target_group",
+            "target_group",
+            fields=("uid", "title"),
+            single=True,
+        ),
+        # Incoming: SubmissionKu → Exercise (student submissions fulfilling this exercise)
+        UnifiedRelationshipDefinition(
+            RelationshipName.FULFILLS_EXERCISE,
+            "Ku",
+            "incoming",
+            "submissions",
+            "submissions",
+            fields=("uid", "title", "status", "user_uid"),
+        ),
+    ),
+    prerequisite_relationship_names=(RelationshipName.REQUIRES_KNOWLEDGE,),
+    enables_relationship_names=(),
+    bidirectional_relationships=(),
+    semantic_types=(
+        SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
+        SemanticRelationshipType.PROVIDES_PRACTICAL_APPLICATION,
+    ),
+    scoring_weights=_build_scoring_weights(knowledge=0.5, goals=0.3, alignment=0.2),
+    default_context_intent=QueryIntent.PREREQUISITE,
+    intent_mappings={
+        "context": QueryIntent.PREREQUISITE,
+        "practice": QueryIntent.PRACTICE,
+    },
+)
+
 # =============================================================================
 # NOTE (February 2026): MOC_CONFIG REMOVED
 # =============================================================================
@@ -1941,6 +1998,7 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     "Ku": KU_CONFIG,
     "Ls": LS_CONFIG,  # Virtual key — nodes are :Ku{ku_type='learning_step'}
     "Lp": LP_CONFIG,  # Virtual key — nodes are :Ku{ku_type='learning_path'}
+    "Exercise": EXERCISE_CONFIG,  # Virtual key — nodes are :Ku{ku_type='exercise'}
 }
 
 
@@ -2178,6 +2236,7 @@ _KU_TYPE_TO_LABEL: dict[KuType, str] = {
     KuType.PRINCIPLE: "Principle",
     KuType.LEARNING_PATH: "Lp",
     KuType.LEARNING_STEP: "Ls",
+    KuType.EXERCISE: "Exercise",  # Virtual key — nodes are :Ku{ku_type='exercise'}
 }
 
 _LABEL_TO_DEFAULT_KU_TYPE: dict[str, KuType] = {
@@ -2190,6 +2249,7 @@ _LABEL_TO_DEFAULT_KU_TYPE: dict[str, KuType] = {
     "Principle": KuType.PRINCIPLE,
     "Lp": KuType.LEARNING_PATH,
     "Ls": KuType.LEARNING_STEP,
+    "Exercise": KuType.EXERCISE,  # Virtual key — nodes are :Ku{ku_type='exercise'}
 }
 
 

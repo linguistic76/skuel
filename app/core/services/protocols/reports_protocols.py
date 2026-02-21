@@ -428,6 +428,31 @@ class ExerciseOperations(Protocol):
         """Alias for delete_exercise."""
         ...
 
+    # Curriculum linking (Phase 4)
+    async def link_to_curriculum(
+        self, exercise_uid: str, curriculum_uid: str
+    ) -> Result[bool]:
+        """Link exercise to curriculum KU via REQUIRES_KNOWLEDGE."""
+        ...
+
+    async def unlink_from_curriculum(
+        self, exercise_uid: str, curriculum_uid: str
+    ) -> Result[bool]:
+        """Remove REQUIRES_KNOWLEDGE relationship."""
+        ...
+
+    async def get_required_knowledge(
+        self, exercise_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get curriculum KUs required by an exercise."""
+        ...
+
+    async def get_exercises_for_curriculum(
+        self, curriculum_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get exercises that require a specific curriculum KU."""
+        ...
+
 
 @runtime_checkable
 class KuFeedbackOperations(Protocol):

@@ -170,5 +170,109 @@ def create_exercises_api_routes(
             }
         )
 
-    logger.info("Exercises API routes registered (Factory pattern)")
+    # ========================================================================
+    # CURRICULUM LINKING ROUTES (Phase 4)
+    # ========================================================================
+
+    @rt("/api/exercises/require-knowledge", methods=["POST"])
+    @require_teacher(get_user_service_instance)
+    @boundary_handler()
+    async def require_knowledge(request: Request, current_user: Any = None) -> Result[Any]:
+        """
+        Link an exercise to a curriculum KU via REQUIRES_KNOWLEDGE.
+
+        Body (JSON):
+        - exercise_uid: Exercise UID (required)
+        - curriculum_uid: Curriculum KU UID (required)
+
+        Returns:
+        - 200: Relationship created
+        - 404: Exercise or curriculum KU not found
+        """
+        body = await request.json()
+        exercise_uid = body.get("exercise_uid")
+        curriculum_uid = body.get("curriculum_uid")
+
+        if not exercise_uid or not curriculum_uid:
+            return Result.fail(
+                Errors.validation(
+                    "exercise_uid and curriculum_uid are required",
+                    field="body",
+                )
+            )
+
+        return await exercises_service.link_to_curriculum(exercise_uid, curriculum_uid)
+
+    @rt("/api/exercises/unrequire-knowledge", methods=["POST"])
+    @require_teacher(get_user_service_instance)
+    @boundary_handler()
+    async def unrequire_knowledge(request: Request, current_user: Any = None) -> Result[Any]:
+        """
+        Remove REQUIRES_KNOWLEDGE relationship between exercise and curriculum KU.
+
+        Body (JSON):
+        - exercise_uid: Exercise UID (required)
+        - curriculum_uid: Curriculum KU UID (required)
+
+        Returns:
+        - 200: Relationship removed
+        - 404: Relationship not found
+        """
+        body = await request.json()
+        exercise_uid = body.get("exercise_uid")
+        curriculum_uid = body.get("curriculum_uid")
+
+        if not exercise_uid or not curriculum_uid:
+            return Result.fail(
+                Errors.validation(
+                    "exercise_uid and curriculum_uid are required",
+                    field="body",
+                )
+            )
+
+        return await exercises_service.unlink_from_curriculum(exercise_uid, curriculum_uid)
+
+    @rt("/api/exercises/required-knowledge", methods=["GET"])
+    @require_teacher(get_user_service_instance)
+    @boundary_handler()
+    async def get_required_knowledge(request: Request, current_user: Any = None) -> Result[Any]:
+        """
+        Get all curriculum KUs required by an exercise.
+
+        Query params:
+        - uid: Exercise UID (required)
+
+        Returns:
+        - 200: List of required curriculum KUs
+        """
+        uid = request.query_params.get("uid")
+        if not uid:
+            return Result.fail(Errors.validation("uid is required", field="uid"))
+
+        return await exercises_service.get_required_knowledge(uid)
+
+    @rt("/api/exercises/for-curriculum", methods=["GET"])
+    @require_teacher(get_user_service_instance)
+    @boundary_handler()
+    async def get_exercises_for_curriculum(
+        request: Request, current_user: Any = None
+    ) -> Result[Any]:
+        """
+        Get all exercises that require a specific curriculum KU.
+
+        Query params:
+        - curriculum_uid: Curriculum KU UID (required)
+
+        Returns:
+        - 200: List of exercises requiring this curriculum KU
+        """
+        curriculum_uid = request.query_params.get("curriculum_uid")
+        if not curriculum_uid:
+            return Result.fail(
+                Errors.validation("curriculum_uid is required", field="curriculum_uid")
+            )
+
+        return await exercises_service.get_exercises_for_curriculum(curriculum_uid)
+
+    logger.info("Exercises API routes registered (Factory pattern + curriculum linking)")
     return []
