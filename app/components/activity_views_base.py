@@ -25,7 +25,7 @@ from fasthtml.common import (
     Span,
 )
 
-from core.ui.daisy_components import Button, ButtonT, Size
+from ui.daisy_components import Button, ButtonT, Size
 
 
 class ActivityViewTabs:

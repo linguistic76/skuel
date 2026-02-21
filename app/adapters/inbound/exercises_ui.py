@@ -18,7 +18,8 @@ from typing import Any
 from fasthtml.common import H1, H2, H3, Code, Form, Li, P, Pre, Ul
 
 from core.auth import require_teacher
-from core.ui.daisy_components import (
+from core.utils.logging import get_logger
+from ui.daisy_components import (
     Button,
     ButtonT,
     Card,
@@ -30,7 +31,6 @@ from core.ui.daisy_components import (
     Span,
     Textarea,
 )
-from core.utils.logging import get_logger
 from ui.layouts.navbar import create_navbar_for_request
 
 logger = get_logger("skuel.routes.exercises.ui")
@@ -105,9 +105,7 @@ class ExerciseUIComponents:
         # Truncate instructions for preview
         instructions_text = exercise.instructions or ""
         instructions_preview = (
-            instructions_text[:150] + "..."
-            if len(instructions_text) > 150
-            else instructions_text
+            instructions_text[:150] + "..." if len(instructions_text) > 150 else instructions_text
         )
 
         return Card(
@@ -232,8 +230,7 @@ class ExerciseUIComponents:
                             Option(
                                 "Claude 3.5 Haiku (Faster)",
                                 value="claude-3-5-haiku-20241022",
-                                selected=exercise
-                                and exercise.model == "claude-3-5-haiku-20241022",
+                                selected=exercise and exercise.model == "claude-3-5-haiku-20241022",
                             ),
                             Option(
                                 "GPT-4o",
@@ -288,9 +285,7 @@ class ExerciseUIComponents:
                     ),
                     # Submit buttons
                     Div(
-                        Button(
-                            "Save Exercise", type="submit", variant=ButtonT.primary, cls="mr-2"
-                        ),
+                        Button("Save Exercise", type="submit", variant=ButtonT.primary, cls="mr-2"),
                         Button(
                             "Cancel",
                             hx_get="/ui/exercises",

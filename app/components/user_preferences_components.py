@@ -13,7 +13,7 @@ from typing import Any
 
 from fasthtml.common import H1, H2, Form, P
 
-from core.ui.daisy_components import Button, Div, Input, Label, Option, Select, Span
+from ui.daisy_components import Button, Div, Input, Label, Option, Select, Span
 
 
 class UserPreferencesComponents:

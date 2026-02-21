@@ -23,7 +23,7 @@ from typing import Any
 
 from fasthtml.common import H1, H2, H3, P
 
-from core.ui.daisy_components import Button, Card, CardBody, Div, Span
+from ui.daisy_components import Button, Card, CardBody, Div, Span
 
 
 class AtomicHabitsMobile:

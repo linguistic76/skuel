@@ -15,7 +15,7 @@ from typing import Any
 
 from fasthtml.common import H3, H4, Li, P, Ul
 
-from core.ui.daisy_components import (
+from ui.daisy_components import (
     Button,
     Card,
     CardBody,

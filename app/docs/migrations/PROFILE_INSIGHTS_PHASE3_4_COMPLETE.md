@@ -159,7 +159,7 @@ January 31, 2026
 
 **Tasks**: 17
 
-#### 12. `/core/ui/daisy_components.py` (+0 lines)
+#### 12. `/ui/daisy_components.py` (+0 lines)
 
 **No changes** - Used existing components (Div, P, Span, etc.)
 

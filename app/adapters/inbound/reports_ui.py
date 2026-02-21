@@ -35,8 +35,8 @@ from starlette.requests import Request
 
 from core.auth import require_authenticated_user
 from core.models.enums.ku_enums import KuType, ProcessorType
-from core.ui.daisy_components import Button, ButtonT
 from core.utils.logging import get_logger
+from ui.daisy_components import Button, ButtonT
 from ui.layouts.base_page import BasePage
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
@@ -925,7 +925,9 @@ def create_reports_ui_routes(
 
             # Extract optional exercise link
             raw_exercise_uid = form.get("fulfills_exercise_uid")
-            fulfills_exercise_uid = str(raw_exercise_uid).strip() or None if raw_exercise_uid else None
+            fulfills_exercise_uid = (
+                str(raw_exercise_uid).strip() or None if raw_exercise_uid else None
+            )
 
             # Submit for human review — processor_type always HUMAN for regular users
             result = await _report_service.submit_file(

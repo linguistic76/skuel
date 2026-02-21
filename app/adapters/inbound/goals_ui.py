@@ -36,7 +36,14 @@ from core.models.enums import Priority
 from core.models.goal.goal_request import GoalCreateRequest
 from core.services.protocols.facade_protocols import GoalsFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
-from core.ui.daisy_components import (
+from core.utils.logging import get_logger
+from core.utils.result_simplified import Errors, Result
+from core.utils.sort_functions import (
+    get_created_at_attr,
+    get_current_value,
+    make_priority_string_getter,
+)
+from ui.daisy_components import (
     Button,
     ButtonT,
     Card,
@@ -48,13 +55,6 @@ from core.ui.daisy_components import (
     Select,
     Size,
     Span,
-)
-from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import (
-    get_created_at_attr,
-    get_current_value,
-    make_priority_string_getter,
 )
 from ui.goals.layout import create_goals_page
 from ui.layouts.base_page import BasePage

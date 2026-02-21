@@ -3,7 +3,7 @@
   You're right that 39% coverage presents opportunities. Here's what I see from the test output:
 
   Critical gaps (0% coverage):
-  - core/ui/ - All UI components (20+ files)
+  - ui/ - All UI components (20+ files)
   - adapters/inbound/*_routes.py - Route handlers (39 files)
   - routes/graphql/ - GraphQL resolvers
 

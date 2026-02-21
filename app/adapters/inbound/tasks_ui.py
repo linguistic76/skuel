@@ -33,7 +33,6 @@ from core.models.enums import KuStatus, Priority
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.ku.ku_request import KuTaskCreateRequest as TaskCreateRequest
 from core.services.protocols.facade_protocols import TasksFacadeProtocol
-from core.ui.daisy_components import Button, ButtonT, Card
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
@@ -42,6 +41,7 @@ from core.utils.sort_functions import (
     get_task_due_date_sort_key,
     make_priority_order_getter,
 )
+from ui.daisy_components import Button, ButtonT, Card
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.relationships import EntityRelationshipsSection

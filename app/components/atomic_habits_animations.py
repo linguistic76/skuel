@@ -16,7 +16,7 @@ All animations use CSS transitions and HTMX for smooth, performant updates.
 
 from fasthtml.common import P, Style
 
-from core.ui.daisy_components import Div, Span
+from ui.daisy_components import Div, Span
 
 
 class AtomicHabitsAnimations:

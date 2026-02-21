@@ -155,7 +155,6 @@ if TYPE_CHECKING:
 from core.services.protocols import (
     AskesisCoreOperations,
     AskesisOperations,
-    ExerciseOperations,
     AsyncCloseable,
     CalendarServiceOperations,
     ChoicesOperations,
@@ -164,6 +163,7 @@ from core.services.protocols import (
     # Infrastructure
     EventBusOperations,
     EventsOperations,
+    ExerciseOperations,
     FinancesOperations,
     GoalsOperations,
     GoalTaskGeneratorOperations,

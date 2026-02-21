@@ -20,7 +20,8 @@ from fasthtml.common import H1, H2, H3, A, Form, NotStr, P, Script
 from starlette.requests import Request
 
 from core.auth import get_current_user
-from core.ui.daisy_components import (
+from core.utils.logging import get_logger
+from ui.daisy_components import (
     Button,
     Card,
     Container,
@@ -30,7 +31,6 @@ from core.ui.daisy_components import (
     Span,
     Textarea,
 )
-from core.utils.logging import get_logger
 from ui.layouts.navbar import create_navbar_for_request
 
 logger = get_logger("skuel.routes.transcription.ui")

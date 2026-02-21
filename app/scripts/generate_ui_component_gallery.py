@@ -2,7 +2,7 @@
 Auto-Generated UI Component Gallery
 ====================================
 
-Generates an interactive HTML gallery of all UI helpers from core.ui.enum_helpers.
+Generates an interactive HTML gallery of all UI helpers from ui.enum_helpers.
 
 This is a SIMPLIFIED version that uses static data to avoid import issues.
 
@@ -250,7 +250,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         </div>
 
         <footer class="mt-12 text-center text-gray-600">
-            <p>Generated from <code class="bg-gray-200 px-2 py-1 rounded">core/ui/enum_helpers.py</code></p>
+            <p>Generated from <code class="bg-gray-200 px-2 py-1 rounded">ui/enum_helpers.py</code></p>
             <p class="mt-2">Last updated: {timestamp}</p>
         </footer>
     </div>

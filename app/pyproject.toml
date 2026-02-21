@@ -225,7 +225,7 @@ disallow_any_generics = false  # Allow untyped generics in models
 
 [[tool.mypy.overrides]]
 # Utility modules - lenient for generic helper functions
-module = ["core.utils.*", "core.ui.*"]
+module = ["core.utils.*", "ui.*"]
 disallow_untyped_defs = false
 warn_return_any = false
 disallow_any_generics = false
@@ -616,7 +616,7 @@ fixable = ["ALL"]
 
 # UI component files - PascalCase function names are intentional (FastHTML convention)
 "adapters/inbound/*_components.py" = ["N802"]       # UI component functions use PascalCase
-"core/ui/*.py" = ["N802", "RUF001", "RUF002"]       # Shared UI components use PascalCase + Unicode icons
+"ui/*.py" = ["N802", "RUF001", "RUF002"]              # Shared UI components use PascalCase + Unicode icons
 "ui/**/*.py" = ["F405", "N802", "RUF001", "RUF002", "RUF012", "ARG001", "ARG002", "ANN", "PERF401"]  # UI: PascalCase + Unicode + class defaults
 "components/**/*.py" = ["F405", "N802", "RUF001", "RUF002", "ARG001"]  # Components: PascalCase + Unicode
 

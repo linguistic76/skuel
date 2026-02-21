@@ -7,7 +7,7 @@ Clean component-based UI routes for context-aware functionality.
 ✅ MIGRATED TO FORMGENERATOR/CARDGENERATOR PATTERN (Phase 3)
 ✅ MIGRATED TO SHARED UI COMPONENTS (October 10, 2025)
 - Previously: Manual component composition (display-only)
-- Now: Uses /core/ui/shared_components.py for all UI elements
+- Now: Uses /ui/shared_components.py for all UI elements
 - Status: Display-only file, no forms to migrate
 """
 
@@ -19,15 +19,15 @@ from typing import Any
 
 from fasthtml.common import H1, H3, P
 
-from core.ui.daisy_components import Card, Div
-from core.ui.shared_components import (
+from core.utils.logging import get_logger
+from ui.daisy_components import Card, Div
+from ui.shared_components import (
     InsightCard,
     MetricCard,
     ProgressMetric,
     RecommendationCard,
     SettingToggle,
 )
-from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.context_aware.ui")
 

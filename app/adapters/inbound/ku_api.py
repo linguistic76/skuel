@@ -322,7 +322,7 @@ def create_ku_api_routes(
         """HTMX: Render SEL journey as HTML fragment."""
         from fasthtml.common import P
 
-        from core.ui.daisy_components import Div
+        from ui.daisy_components import Div
 
         user_uid = require_authenticated_user(request)
         result = await ku_service.get_sel_journey(user_uid)
@@ -343,7 +343,7 @@ def create_ku_api_routes(
         from fasthtml.common import P
 
         from core.models.enums import SELCategory
-        from core.ui.daisy_components import Div
+        from ui.daisy_components import Div
 
         user_uid = require_authenticated_user(request)
 

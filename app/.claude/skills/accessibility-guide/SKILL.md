@@ -202,7 +202,7 @@ Div(
 **Implementation:**
 
 ```python
-from core.ui.daisy_components import FormControl, Label, LabelText, Input
+from ui.daisy_components import FormControl, Label, LabelText, Input
 
 # ✅ Basic label association (implicit via FormControl)
 FormControl(
@@ -284,7 +284,7 @@ FormControl(
 **Implementation:**
 
 ```python
-from core.ui.daisy_components import Modal, ModalBox, ModalAction, Button, ButtonT
+from ui.daisy_components import Modal, ModalBox, ModalAction, Button, ButtonT
 
 def create_accessible_modal(modal_id: str, title: str, content: Any) -> Any:
     """Create fully accessible modal dialog."""

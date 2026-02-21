@@ -35,10 +35,10 @@ from starlette.responses import FileResponse
 
 from core.auth import require_admin, require_authenticated_user
 from core.models.enums.ku_enums import KuType, ProcessorType
-from core.ui.daisy_components import Button, ButtonT
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from ui.daisy_components import Button, ButtonT
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 

@@ -36,8 +36,8 @@ from fasthtml.common import (
 )
 
 from core.models.enums import KuStatus, Priority
-from core.ui.daisy_components import Button, ButtonT, Input, Select, Size, Textarea
 from core.utils.logging import get_logger
+from ui.daisy_components import Button, ButtonT, Input, Select, Size, Textarea
 
 logger = get_logger("skuel.components.todoist")
 

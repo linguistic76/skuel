@@ -11,7 +11,7 @@ from typing import Any
 
 from fasthtml.common import H3, H4, Details, Li, P, Script, Summary, Ul
 
-from core.ui.daisy_components import Button, Div, Input, Span
+from ui.daisy_components import Button, Div, Input, Span
 
 
 def knowledge_suggestion_card(

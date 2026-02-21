@@ -6,7 +6,7 @@ Centralized theme headers for SKUEL PWA using DaisyUI components.
 SKUEL-native configuration for frontend dependencies.
 
 Usage:
-    from core.ui.theme import daisy_headers, Theme
+    from ui.theme import daisy_headers, Theme
 
     # In bootstrap.py
     app, rt = fast_app(hdrs=daisy_headers())
@@ -99,7 +99,7 @@ def daisy_headers(
 
     Example:
         from fasthtml.common import fast_app
-        from core.ui.theme import daisy_headers
+        from ui.theme import daisy_headers
 
         app, rt = fast_app(hdrs=daisy_headers(theme=Theme.dark))
     """

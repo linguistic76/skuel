@@ -26,8 +26,8 @@ from starlette.responses import RedirectResponse
 
 from components.drawer_layout import create_drawer_layout
 from core.auth import require_authenticated_user
-from core.ui.daisy_components import Button, Card, Div, Label, Progress, Span, Textarea
 from core.utils.logging import get_logger
+from ui.daisy_components import Button, Card, Div, Label, Progress, Span, Textarea
 from ui.tokens import Container
 
 logger = get_logger("skuel.routes.lifepath.ui")

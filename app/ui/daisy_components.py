@@ -8,7 +8,7 @@ Provides type-safe, Pythonic component ergonomics with DaisyUI design system.
 Philosophy: FT Components → SKUEL Wrappers → DaisyUI Classes
 
 Usage:
-    from core.ui.daisy_components import (
+    from ui.daisy_components import (
         Button, ButtonT, Card, CardBody, Alert, AlertT,
         Badge, BadgeT, Input, Select, Textarea, Modal, Loading,
         DivHStacked, DivVStacked, DivFullySpaced, Grid, Size

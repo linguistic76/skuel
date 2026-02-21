@@ -27,9 +27,9 @@ from fasthtml.common import Script, StaticFiles, fast_app
 
 from core.config import UnifiedConfig
 from core.services.protocols.infrastructure_protocols import EventBusOperations
-from core.ui.theme import chartjs_headers, daisy_headers
 from core.utils.logging import RequestIDMiddleware, get_logger
 from core.utils.services_bootstrap import Services, compose_services
+from ui.theme import chartjs_headers, daisy_headers
 
 try:
     from starlette.applications import ASGIApp

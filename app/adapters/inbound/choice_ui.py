@@ -31,7 +31,15 @@ from core.auth import require_authenticated_user
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
 from core.services.protocols.facade_protocols import ChoicesFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
-from core.ui.daisy_components import (
+from core.utils.logging import get_logger
+from core.utils.result_simplified import Errors, Result
+from core.utils.sort_functions import (
+    get_created_at_attr,
+    get_decision_deadline,
+    make_priority_string_getter,
+)
+from ui.choices.layout import create_choices_page
+from ui.daisy_components import (
     Button,
     ButtonT,
     Card,
@@ -43,14 +51,6 @@ from core.ui.daisy_components import (
     Span,
     Textarea,
 )
-from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import (
-    get_created_at_attr,
-    get_decision_deadline,
-    make_priority_string_getter,
-)
-from ui.choices.layout import create_choices_page
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.relationships import EntityRelationshipsSection

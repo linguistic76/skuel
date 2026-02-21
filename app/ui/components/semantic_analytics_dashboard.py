@@ -7,7 +7,7 @@ DaisyUI components for displaying semantic analytics.
 
 ✅ MIGRATED TO SHARED UI COMPONENTS (October 10, 2025)
 - Previously: Custom component implementations
-- Now: Uses /core/ui/shared_components.py for common UI elements
+- Now: Uses /ui/shared_components.py for common UI elements
 - Retains: Domain-specific components (KnowledgeGapCard, AnalyticsDashboard)
 
 ✅ MIGRATED TO DAISYUI (January 2026)
@@ -24,22 +24,22 @@ from typing import Any
 
 from fasthtml.common import H1, H3, H4, Details, P, Summary
 
-from core.ui.daisy_components import Button, Card, CardBody, Div, Span
-from core.ui.enum_helpers import get_severity_color
-from core.ui.shared_components import (
+from core.utils.logging import get_logger
+from ui.daisy_components import Button, Card, CardBody, Div, Span
+from ui.enum_helpers import get_severity_color
+from ui.shared_components import (
     Badge,
     HealthStatusCard,
     MetricCard,
     QuickStatsBar,
     TrendIndicator,
 )
-from core.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 
 # Note: MetricCard, HealthStatusCard, TrendIndicator, QuickStatsBar
-# are now imported from core.ui.shared_components
+# are now imported from ui.shared_components
 
 
 def KnowledgeGapCard(gap: dict[str, Any], index: int) -> Div:
@@ -193,7 +193,7 @@ def TrendsCard(trends_data: dict[str, Any]) -> Any:
     )
 
 
-# Note: QuickStatsBar is now imported from core.ui.shared_components
+# Note: QuickStatsBar is now imported from ui.shared_components
 
 
 def AnalyticsDashboard(
@@ -335,7 +335,7 @@ def AnalyticsWidget(widget_type: str = "metrics", refresh_seconds: int = 60) -> 
 
 # Export components
 # Note: MetricCard, HealthStatusCard, TrendIndicator, QuickStatsBar
-# are now available from core.ui.shared_components
+# are now available from ui.shared_components
 __all__ = [
     "AnalyticsDashboard",
     "AnalyticsWidget",

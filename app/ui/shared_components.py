@@ -6,7 +6,7 @@ Reusable DaisyUI components following Dynamic Enum Pattern.
 
 Core Principle: "Single source of truth for UI component patterns"
 
-All components use dynamic enum methods from `/core/ui/enum_helpers.py`
+All components use dynamic enum methods from `/ui/enum_helpers.py`
 for presentation (colors, icons, status). This ensures:
 - Zero hardcoded presentation dictionaries
 - UI updates automatically when enums change
@@ -23,7 +23,7 @@ Components:
 - SettingToggle: Toggle settings display
 
 Usage:
-    from core.ui.shared_components import (
+    from ui.shared_components import (
         MetricCard,
         HealthStatusCard,
         StatusBadge,
@@ -48,7 +48,7 @@ from typing import Any
 
 from fasthtml.common import H3, H4, Details, P, Summary
 
-from core.ui.daisy_components import (
+from ui.daisy_components import (
     Alert,
     AlertT,
     Badge,
@@ -60,7 +60,7 @@ from core.ui.daisy_components import (
     ProgressT,
     Span,
 )
-from core.ui.enum_helpers import get_health_color, get_health_icon, get_trend_color, get_trend_icon
+from ui.enum_helpers import get_health_color, get_health_icon, get_trend_color, get_trend_icon
 
 # ============================================================================
 # METRIC CARDS

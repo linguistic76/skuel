@@ -280,7 +280,7 @@ class UnifiedUserContext:
 
 ### SubstanceScoreCard Component
 
-**Location:** `/core/ui/substance_dashboard.py` (lines 47-80)
+**Location:** `/ui/substance_dashboard.py` (lines 47-80)
 
 The primary component displaying substance status with color-coded visual feedback:
 
@@ -355,7 +355,7 @@ Div(
 | **Domain Events** | `/core/events/ku_events.py` | 5 substance events |
 | **Event Listeners** | `/core/services/ku_service.py` | Atomic substance updates |
 | **Event Wiring** | `/core/utils/services_bootstrap.py` | Subscribe KuService to events |
-| **Dashboard UI** | `/core/ui/substance_dashboard.py` | Substance visualization |
+| **Dashboard UI** | `/ui/substance_dashboard.py` | Substance visualization |
 | **Life Path Fields** | `/core/services/user/unified_user_context.py` | Life alignment tracking |
 
 ---
@@ -482,7 +482,7 @@ substance_score = min(1.0, sum([
 
 - [Substance Tracking Implementation](/home/mike/skuel/app/SUBSTANCE_TRACKING_IMPLEMENTATION.md)
 - [Knowledge Events Catalog](/home/mike/skuel/app/core/events/ku_events.py)
-- [Substance Dashboard Components](/home/mike/skuel/app/core/ui/substance_dashboard.py)
+- [Substance Dashboard Components](/home/mike/skuel/app/ui/substance_dashboard.py)
 - [KU Model Implementation](/home/mike/skuel/app/core/models/ku/ku.py)
 - [Event-Driven Architecture Guide](/home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md)
 

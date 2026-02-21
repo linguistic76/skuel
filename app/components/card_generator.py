@@ -30,8 +30,8 @@ from typing import Any, get_args, get_origin
 
 from fasthtml.common import H3, Li, P, Ul
 
-from core.ui.daisy_components import Div, Label, Span
 from core.utils.logging import get_logger
+from ui.daisy_components import Div, Label, Span
 
 logger = get_logger("skuel.components.card_generator")
 

@@ -45,12 +45,12 @@ Use this guide when:
 
 **Layer 1: Primitives (DaisyUI + Tailwind)**
 
-Location: `/core/ui/daisy_components.py`, `/static/css/`
+Location: `/ui/daisy_components.py`, `/static/css/`
 
 Purpose: **Atomic styling components** with no domain knowledge
 
 ```python
-from core.ui.daisy_components import Button, Card, CardBody, Badge, ButtonT
+from ui.daisy_components import Button, Card, CardBody, Badge, ButtonT
 
 # Primitive usage - no domain semantics
 Button("Click Me", variant=ButtonT.primary)
@@ -221,7 +221,7 @@ def EntityCard(
 ```
 Need to create a new component?
 ├─ Is it domain-agnostic styling (button, card, input)?
-│   ├─ YES → Add to /core/ui/daisy_components.py (Primitive)
+│   ├─ YES → Add to /ui/daisy_components.py (Primitive)
 │   └─ NO → Continue
 ├─ Is it reusable across multiple domains?
 │   ├─ YES → Add to /ui/patterns/ (Pattern)
@@ -297,7 +297,7 @@ def TaskCard(
 ```python
 from typing import Any, TYPE_CHECKING
 from fasthtml.common import Div, H4, P, Span
-from core.ui.daisy_components import Card, CardBody, CardActions, Badge, Button, ButtonT, Size
+from ui.daisy_components import Card, CardBody, CardActions, Badge, Button, ButtonT, Size
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -482,7 +482,7 @@ PageHeader(
 ```python
 from typing import Any, TYPE_CHECKING
 from fasthtml.common import Div, P, Span
-from core.ui.daisy_components import Grid, Card, CardBody
+from ui.daisy_components import Grid, Card, CardBody
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -648,7 +648,7 @@ EmptyState(
 from typing import Any
 from core.models.task.task import Task
 from core.models.enums import ActivityStatus, Priority
-from core.ui.daisy_components import Card, CardBody, Badge, Button, ButtonT, BadgeT, Size
+from ui.daisy_components import Card, CardBody, Badge, Button, ButtonT, BadgeT, Size
 
 def _priority_badge(priority: Priority) -> BadgeT:
     """Map priority to badge variant."""
@@ -802,7 +802,7 @@ def create_tasks_page(
 
 def render_view_tabs(active_view: str) -> Any:
     """Render view tabs for tasks page."""
-    from core.ui.daisy_components import Tabs, Tab
+    from ui.daisy_components import Tabs, Tab
 
     return Tabs(
         Tab("List", active=active_view == "list", hx_get="/tasks/view/list", hx_target="#task-content"),

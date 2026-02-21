@@ -146,21 +146,21 @@ curl -s -w "HTTP %{http_code}\n" http://localhost:8000/tasks
 
 ### FastHTML Components Import
 
-**Symptom**: `ImportError: cannot import name 'H1' from 'core.ui.daisy_components'`
+**Symptom**: `ImportError: cannot import name 'H1' from 'ui.daisy_components'`
 
 **Cause**: FastHTML components (`H1`, `H2`, `H3`, `P`, `Div`, `Span`) imported from wrong module
 
 **Solution**:
 ```python
 # ❌ WRONG
-from core.ui.daisy_components import H1, H2, H3, P, Div, Span
+from ui.daisy_components import H1, H2, H3, P, Div, Span
 
 # ✅ CORRECT
 from fasthtml.common import H1, H2, H3, P, Div, Span
-from core.ui.daisy_components import Button, ButtonT, Card, Progress  # DaisyUI custom components
+from ui.daisy_components import Button, ButtonT, Card, Progress  # DaisyUI custom components
 ```
 
-**Rule**: `core.ui.daisy_components` only contains SKUEL-specific DaisyUI wrappers. Standard HTML/FastHTML components come from `fasthtml.common`.
+**Rule**: `ui.daisy_components` only contains SKUEL-specific DaisyUI wrappers. Standard HTML/FastHTML components come from `fasthtml.common`.
 
 ---
 

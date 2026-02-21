@@ -23,7 +23,8 @@ from fasthtml.common import H2, H3, A, Form, P
 
 from components.activity_views_base import ActivityViewTabs
 from core.models.ku.ku import Ku
-from core.ui.daisy_components import (
+from core.utils.logging import get_logger
+from ui.daisy_components import (
     Button,
     Div,
     Input,
@@ -33,7 +34,6 @@ from core.ui.daisy_components import (
     Span,
     Textarea,
 )
-from core.utils.logging import get_logger
 
 logger = get_logger("skuel.components.choices_views")
 

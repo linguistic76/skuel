@@ -40,8 +40,8 @@ from core.services.protocols import (
     MinLenConstraint,
     PydanticFieldInfo,
 )
-from core.ui.daisy_components import Button, ButtonT, Input, InputT, Select, Textarea
 from core.utils.logging import get_logger
+from ui.daisy_components import Button, ButtonT, Input, InputT, Select, Textarea
 
 logger = get_logger("skuel.components.form_generator")
 

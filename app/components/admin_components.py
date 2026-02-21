@@ -22,7 +22,7 @@ from typing import ClassVar
 from fasthtml.common import H2, A, Form, P
 
 from components.shared_ui_components import SharedUIComponents
-from core.ui.daisy_components import (
+from ui.daisy_components import (
     Button,
     Div,
     Option,

@@ -38,7 +38,8 @@ from core.models.event.calendar_models import (
     CalendarView,
 )
 from core.models.ku.ku import Ku
-from core.ui.daisy_components import (
+from core.utils.logging import get_logger
+from ui.daisy_components import (
     Button,
     Div,
     Input,
@@ -49,7 +50,6 @@ from core.ui.daisy_components import (
     Span,
     Textarea,
 )
-from core.utils.logging import get_logger
 
 logger = get_logger("skuel.components.goals_views")
 

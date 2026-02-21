@@ -7,7 +7,7 @@ Following SKUEL principles: just numbers and charts, no AI recommendations.
 
 MIGRATED TO SHARED UI COMPONENTS (October 10, 2025)
 - Previously: Custom metric_card() implementation
-- Now: Uses /core/ui/shared_components.py for MetricCard and QuickMetricCard
+- Now: Uses /ui/shared_components.py for MetricCard and QuickMetricCard
 - Benefit: Consistent styling across all dashboards
 """
 
@@ -39,10 +39,10 @@ from starlette.requests import Request
 
 from core.auth import require_authenticated_user
 from core.models.enums import AnalyticsDomain
-from core.ui.daisy_components import Button, ButtonT
-from core.ui.shared_components import MetricCard, QuickMetricCard
 from core.utils.logging import get_logger
+from ui.daisy_components import Button, ButtonT
 from ui.layouts.navbar import create_navbar_for_request
+from ui.shared_components import MetricCard, QuickMetricCard
 
 logger = get_logger("skuel.routes.analytics.ui")
 

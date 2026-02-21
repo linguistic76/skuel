@@ -1584,7 +1584,7 @@ Common deployment and development issues with solutions:
 **Server Won't Start:**
 - Port 8000 in use: `lsof -ti:8000 | xargs kill -9 2>/dev/null || true`
 - Embeddings service error: Now optional (graceful degradation to keyword search)
-- Import errors: Check FastHTML components from `fasthtml.common`, not `core.ui.daisy_components`
+- Import errors: Check FastHTML components from `fasthtml.common`, not `ui.daisy_components`
 
 **Routes Return 404:**
 - Check if both API and UI routes registered in `bootstrap.py`

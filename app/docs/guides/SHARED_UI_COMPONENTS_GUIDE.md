@@ -80,7 +80,7 @@ from components.shared_ui_components import SharedUIComponents
 
 # DaisyUI components are imported internally by SharedUIComponents
 # You don't need to import them directly unless building custom renderers:
-from core.ui.daisy_components import Button, ButtonT, Card, Input, InputT, Select, Size
+from ui.daisy_components import Button, ButtonT, Card, Input, InputT, Select, Size
 ```
 
 ### 1. Basic Dashboard

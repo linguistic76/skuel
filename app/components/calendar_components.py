@@ -28,7 +28,7 @@ from core.models.event.calendar_models import (
     CalendarItemType,
     CalendarOccurrence,
 )
-from core.ui.daisy_components import Button, Div, Input, Label, Option, Select, Span
+from ui.daisy_components import Button, Div, Input, Label, Option, Select, Span
 
 
 def create_month_grid(calendar_data: CalendarData) -> Div:

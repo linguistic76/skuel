@@ -30,7 +30,7 @@ Reusable component patterns for Social Emotional Learning (SEL) adaptive curricu
 from ui.patterns.entity_card import EntityCard, CardConfig
 from ui.primitives.badge import Badge
 from ui.primitives.button import ButtonLink
-from core.ui.enum_helpers import get_sel_icon
+from ui.enum_helpers import get_sel_icon
 
 def SELCategoryCard(category: SELCategory, progress: SELCategoryProgress) -> Any:
     """SEL category card showing progress."""

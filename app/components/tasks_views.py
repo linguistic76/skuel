@@ -47,8 +47,8 @@ from core.models.event.calendar_models import (
     CalendarData,
     CalendarView,
 )
-from core.ui.daisy_components import Button, ButtonT, Input, Select, Size, Textarea
 from core.utils.logging import get_logger
+from ui.daisy_components import Button, ButtonT, Input, Select, Size, Textarea
 
 logger = get_logger("skuel.components.tasks_views")
 

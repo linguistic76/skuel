@@ -209,7 +209,7 @@ Alpine directives are passed as `**kwargs` in FastHTML components:
 
 ```python
 from fasthtml.common import Div
-from core.ui.daisy_components import Button
+from ui.daisy_components import Button
 
 def my_component() -> Div:
     return Div(
@@ -242,7 +242,7 @@ SKUEL's `daisy_headers()` automatically includes Alpine.js (self-hosted for stab
 
 ```python
 from fasthtml.common import fast_app
-from core.ui.theme import daisy_headers
+from ui.theme import daisy_headers
 
 app, rt = fast_app(
     hdrs=daisy_headers(),  # Includes Alpine.js 3.14.8

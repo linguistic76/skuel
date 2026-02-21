@@ -178,8 +178,8 @@ Phase 5 finalized the MonsterUI → DaisyUI migration:
 | Action | Result |
 |--------|--------|
 | Remove `monsterui` from pyproject.toml | Done |
-| Create SKUEL DaisyUI wrappers | `/core/ui/daisy_components.py` |
-| Create theme configuration | `/core/ui/theme.py` with `daisy_headers()` |
+| Create SKUEL DaisyUI wrappers | `/ui/daisy_components.py` |
+| Create theme configuration | `/ui/theme.py` with `daisy_headers()` |
 | Migrate 35+ files from MonsterUI | All imports updated |
 | Convert 213 uk-* FrankenUI classes | Replaced with DaisyUI |
 | Delete MonsterUI skill folder | Removed `/.claude/skills/monsterui/` |
@@ -187,8 +187,8 @@ Phase 5 finalized the MonsterUI → DaisyUI migration:
 | Update UI_COMPONENT_PATTERNS.md | Rewritten for SKUEL/DaisyUI |
 
 **Key Migration Patterns:**
-- `from monsterui.all import *` → `from core.ui.daisy_components import *`
-- `Theme.blue.headers()` → `daisy_headers()` from `core.ui.theme`
+- `from monsterui.all import *` → `from ui.daisy_components import *`
+- `Theme.blue.headers()` → `daisy_headers()` from `ui.theme`
 - Type-safe enums: `ButtonT`, `AlertT`, `BadgeT`, `ProgressT`, `Size`
 
 **One Path Forward:** MonsterUI is fully removed. SKUEL uses DaisyUI directly via type-safe Python wrappers

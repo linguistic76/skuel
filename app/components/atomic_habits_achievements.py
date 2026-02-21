@@ -27,7 +27,7 @@ from typing import Any, ClassVar
 
 from fasthtml.common import H2, H3, P
 
-from core.ui.daisy_components import Button, Card, CardBody, Div, Label, Progress, Span
+from ui.daisy_components import Button, Card, CardBody, Div, Label, Progress, Span
 
 
 class BadgeCategory(str, Enum):

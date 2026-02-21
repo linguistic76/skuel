@@ -156,12 +156,12 @@ SKUEL chose HTMX 1.9.10 over 2.0.x for these reasons:
 
 ## SKUEL Pages
 
-Pages using `daisy_headers()` from `core.ui.theme` get standardized headers including HTMX 1.9.10:
+Pages using `daisy_headers()` from `ui.theme` get standardized headers including HTMX 1.9.10:
 
 ```python
 from fasthtml.common import fast_app
-from core.ui.theme import daisy_headers
-from core.ui.daisy_components import Card, CardBody
+from ui.theme import daisy_headers
+from ui.daisy_components import Card, CardBody
 
 app, rt = fast_app(hdrs=daisy_headers())
 

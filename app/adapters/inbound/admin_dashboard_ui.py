@@ -34,9 +34,9 @@ from components.admin_components import (
     AdminUIComponents,
 )
 from core.auth import require_admin
-from core.ui.daisy_components import Button, ButtonT
 from core.utils.logging import get_logger
 from ui.admin.layout import create_admin_page
+from ui.daisy_components import Button, ButtonT
 
 logger = get_logger("skuel.routes.admin.ui")
 

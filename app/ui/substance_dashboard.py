@@ -15,7 +15,7 @@ Components:
 - FullSubstanceDashboard: Complete dashboard (all components)
 
 Usage:
-    from core.ui.substance_dashboard import (
+    from ui.substance_dashboard import (
         SubstanceScoreCard,
         FullSubstanceDashboard
     )
@@ -34,8 +34,8 @@ from typing import Any
 
 from fasthtml.common import H3, H4, P
 
-from core.ui.daisy_components import Button, Card, CardBody, Div, Progress, ProgressT, Span
-from core.ui.shared_components import (
+from ui.daisy_components import Button, Card, CardBody, Div, Progress, ProgressT, Span
+from ui.shared_components import (
     StatusBadge,
 )
 

@@ -11,7 +11,7 @@ and generates UI-ready data structures for dropdowns, filters, and badges.
 
 Usage:
     ```python
-    from core.ui.enum_search_components import (
+    from ui.enum_search_components import (
         generate_priority_filter_options,
         generate_status_filter_options,
         generate_all_filter_options,

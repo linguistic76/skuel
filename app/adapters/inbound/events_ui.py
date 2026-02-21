@@ -34,7 +34,10 @@ from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_event import EventKu
 from core.services.protocols.facade_protocols import EventsFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
-from core.ui.daisy_components import (
+from core.utils.logging import get_logger
+from core.utils.result_simplified import Errors, Result
+from core.utils.sort_functions import get_created_at_attr, get_title_lower
+from ui.daisy_components import (
     Button,
     ButtonT,
     Card,
@@ -46,9 +49,6 @@ from core.ui.daisy_components import (
     Span,
     Textarea,
 )
-from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import get_created_at_attr, get_title_lower
 from ui.events.layout import create_events_page
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType

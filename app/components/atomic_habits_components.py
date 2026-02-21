@@ -16,7 +16,7 @@ from typing import Any
 from fasthtml.common import H2, H3, H4, Form, Option, P, Strong
 
 from components.atomic_habits_animations import AtomicHabitsAnimations
-from core.ui.daisy_components import (
+from ui.daisy_components import (
     Button,
     Card,
     CardBody,

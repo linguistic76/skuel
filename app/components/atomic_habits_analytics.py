@@ -20,7 +20,7 @@ from typing import Any, TypedDict
 from fasthtml.common import H1, H2, H3, Option, P
 
 from components.atomic_habits_animations import AtomicHabitsAnimations
-from core.ui.daisy_components import (
+from ui.daisy_components import (
     Button,
     Card,
     CardBody,
@@ -36,7 +36,7 @@ from core.ui.daisy_components import (
     Thead,
     Tr,
 )
-from core.ui.ui_types import BenchmarkData, HabitMigration
+from ui.ui_types import BenchmarkData, HabitMigration
 
 
 class HistoricalDataPoint(TypedDict):

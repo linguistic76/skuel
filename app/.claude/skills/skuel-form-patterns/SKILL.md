@@ -179,7 +179,7 @@ Button(
 
 ```python
 from fasthtml.common import Form, Option
-from core.ui.daisy_components import (
+from ui.daisy_components import (
     Button, ButtonT,
     FormControl, Label, LabelText,
     Input, Select, Textarea,
@@ -417,7 +417,7 @@ def validate_event_form_data(form_data: dict[str, Any]) -> Result[None]:
 **Implementation:**
 
 ```python
-from core.ui.daisy_components import Checkbox, Toggle
+from ui.daisy_components import Checkbox, Toggle
 
 # Checkbox (DaisyUI)
 FormControl(
@@ -438,7 +438,7 @@ FormControl(
 )
 
 # Radio buttons (mutually exclusive)
-from core.ui.daisy_components import Radio
+from ui.daisy_components import Radio
 
 FormControl(
     Label(LabelText("Task Type")),

@@ -29,7 +29,8 @@ from fasthtml.common import (
 )
 
 from core.models.enums import Domain
-from core.ui.daisy_components import (
+from core.utils.logging import get_logger
+from ui.daisy_components import (
     Badge,
     Button,
     Card,
@@ -39,8 +40,7 @@ from core.ui.daisy_components import (
     Progress,
     Span,
 )
-from core.ui.enum_helpers import get_bridge_color
-from core.utils.logging import get_logger
+from ui.enum_helpers import get_bridge_color
 
 logger = get_logger(__name__)
 

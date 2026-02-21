@@ -27,8 +27,8 @@ from components.form_generator import FormGenerator
 from core.auth import require_admin
 from core.constants import QueryLimit
 from core.models.finance.finance_request import BudgetCreateRequest, ExpenseCreateRequest
-from core.ui.daisy_components import Card, Div, Span
 from core.utils.logging import get_logger
+from ui.daisy_components import Card, Div, Span
 from ui.finance import create_finance_page
 from ui.finance.section_views import FinanceSectionViews
 

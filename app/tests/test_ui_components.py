@@ -14,7 +14,7 @@ Run with:
     poetry run pytest tests/test_ui_components.py -v
 """
 
-from core.ui.enum_helpers import (
+from ui.enum_helpers import (
     Badge,
     get_activity_icon,
     get_bridge_color,

@@ -16,7 +16,7 @@ Pattern: Consolidated from 6 UI route files (tasks, goals, habits, events, choic
 
 from fasthtml.common import P
 
-from core.ui.daisy_components import Div
+from ui.daisy_components import Div
 
 
 class ErrorComponents:

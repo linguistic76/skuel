@@ -29,8 +29,8 @@ from starlette.requests import Request
 
 from core.auth import require_authenticated_user
 from core.auth.roles import UserRole, require_role
-from core.ui.daisy_components import Button, ButtonT
 from core.utils.logging import get_logger
+from ui.daisy_components import Button, ButtonT
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 

@@ -463,7 +463,7 @@ If issues arise:
 
 **Resolution**:
 1. Added `create_tasks_ui_routes()` call in `/scripts/dev/bootstrap.py:596-600`
-2. Fixed imports in `/adapters/inbound/tasks_ui.py` (moved `H1, H2, H3, P, Div, Span` from `core.ui.daisy_components` to `fasthtml.common`)
+2. Fixed imports in `/adapters/inbound/tasks_ui.py` (moved `H1, H2, H3, P, Div, Span` from `ui.daisy_components` to `fasthtml.common`)
 
 **Testing**:
 ```bash
@@ -474,7 +474,7 @@ curl -o /dev/null -w '%{http_code}' http://localhost:8000/tasks
 
 **Lessons Learned**:
 - When bypassing DomainRouteConfig pattern for special cases (like prometheus_metrics), must manually register BOTH API and UI routes
-- FastHTML components (`H1`, `H2`, `H3`, `P`, `Div`, `Span`) come from `fasthtml.common`, not `core.ui.daisy_components`
+- FastHTML components (`H1`, `H2`, `H3`, `P`, `Div`, `Span`) come from `fasthtml.common`, not `ui.daisy_components`
 - Route registration errors manifest as 404s for end users
 
 ### Issue 4: Server Port Already in Use (2026-01-31)

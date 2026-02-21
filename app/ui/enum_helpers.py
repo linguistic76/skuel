@@ -14,7 +14,7 @@ Architecture (3 tiers):
     3. Component Builders - Full UI components (badges, chips, indicators)
 
 Usage in UI components:
-    from core.ui.enum_helpers import (
+    from ui.enum_helpers import (
         get_trend_color,           # Basic helper
         get_priority_badge_class,  # Tailwind mapper
         render_priority_badge      # Component builder
@@ -52,7 +52,7 @@ from core.models.enums import (
     TrendDirection,
 )
 from core.models.event.calendar_models import CalendarItemType
-from core.ui.daisy_components import Button, Card, CardBody, Div, Span
+from ui.daisy_components import Button, Card, CardBody, Div, Span
 
 
 # Simple Badge component (local helper for this module)

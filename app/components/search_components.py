@@ -32,8 +32,8 @@ from core.models.enums import (
     SELCategory,
 )
 from core.models.search_request import SearchResponse
-from core.ui.daisy_components import Div, Span
-from core.ui.enum_helpers import (
+from ui.daisy_components import Div, Span
+from ui.enum_helpers import (
     get_content_icon,
     get_educational_icon,
     get_sel_icon,

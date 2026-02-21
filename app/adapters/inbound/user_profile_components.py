@@ -21,9 +21,9 @@ from typing import Any
 from fasthtml.common import H1, H2, H3, Li, P, Ul
 
 from core.models.user.user import User
-from core.ui.daisy_components import Button, Card, CardBody, Div, Progress, Span
-from core.ui.enum_helpers import get_sel_icon
 from core.utils.logging import get_logger
+from ui.daisy_components import Button, Card, CardBody, Div, Progress, Span
+from ui.enum_helpers import get_sel_icon
 
 logger = get_logger(__name__)
 

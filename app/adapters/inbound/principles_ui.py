@@ -33,10 +33,10 @@ from core.constants import QueryLimit
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
 from core.services.protocols.facade_protocols import PrinciplesFacadeProtocol
 from core.services.protocols.query_types import PrinciplesFilterSpec
-from core.ui.daisy_components import Button, ButtonT, Card, Div, Span
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_or_name_lower
+from ui.daisy_components import Button, ButtonT, Card, Div, Span
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.relationships import EntityRelationshipsSection

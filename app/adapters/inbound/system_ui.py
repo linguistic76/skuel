@@ -17,8 +17,8 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from core.auth import is_authenticated
-from core.ui.daisy_components import Container, Div
 from core.utils.logging import get_logger
+from ui.daisy_components import Container, Div
 
 logger = get_logger("skuel.routes.system.ui")
 

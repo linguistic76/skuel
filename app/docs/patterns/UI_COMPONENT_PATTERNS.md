@@ -50,7 +50,7 @@ SKUEL uses a layered UI component architecture built on Tailwind CSS and DaisyUI
 - `/ui/layouts/base_page.py` - Unified page wrapper
 - `/ui/layouts/page_types.py` - Page type definitions (HUB vs STANDARD)
 - `/ui/tokens.py` - Spacing, container, and styling tokens
-- `/core/ui/daisy_components.py` - DaisyUI wrappers (legacy, still usable)
+- `/ui/daisy_components.py` - DaisyUI wrappers (legacy, still usable)
 
 ---
 
@@ -330,7 +330,7 @@ Defined in `/static/css/input.css`:
 from fasthtml.common import H1, H2, H3, P, A, Form, Li, Ul
 
 # SKUEL DaisyUI wrappers
-from core.ui.daisy_components import (
+from ui.daisy_components import (
     # Buttons
     Button, ButtonT,
     # Cards
@@ -364,7 +364,7 @@ from core.ui.daisy_components import (
 )
 
 # Theme for app initialization
-from core.ui.theme import daisy_headers, Theme
+from ui.theme import daisy_headers, Theme
 ```
 
 ---
@@ -375,7 +375,7 @@ All SKUEL pages use `daisy_headers()` for consistent styling:
 
 ```python
 from fasthtml.common import fast_app
-from core.ui.theme import daisy_headers, Theme
+from ui.theme import daisy_headers, Theme
 
 # Default (light theme)
 app, rt = fast_app(hdrs=daisy_headers())
@@ -384,7 +384,7 @@ app, rt = fast_app(hdrs=daisy_headers())
 app, rt = fast_app(hdrs=daisy_headers(theme=Theme.dark))
 
 # With PWA support
-from core.ui.theme import pwa_headers
+from ui.theme import pwa_headers
 app, rt = fast_app(hdrs=(*daisy_headers(), *pwa_headers()))
 ```
 
@@ -840,7 +840,7 @@ Button("Click", variant=ButtonT.primary)
 from monsterui.all import Button, Card  # DELETED
 
 # GOOD: Use SKUEL wrappers
-from core.ui.daisy_components import Button, Card
+from ui.daisy_components import Button, Card
 ```
 
 ### Do Use Tailwind for Custom Styling

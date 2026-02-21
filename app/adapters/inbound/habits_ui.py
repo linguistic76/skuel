@@ -41,7 +41,6 @@ from core.models.enums.ku_enums import KuStatus
 from core.models.habit.habit_request import HabitCreateRequest
 from core.services.protocols.facade_protocols import GoalsFacadeProtocol, HabitsFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
-from core.ui.daisy_components import Button, ButtonT, Card, CardBody, Div, Size, Span
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
@@ -50,6 +49,7 @@ from core.utils.sort_functions import (
     get_name_lower,
     get_recurrence_pattern,
 )
+from ui.daisy_components import Button, ButtonT, Card, CardBody, Div, Size, Span
 from ui.habits.layout import create_habits_page
 from ui.layouts.base_page import BasePage
 from ui.layouts.navbar import create_navbar_for_request

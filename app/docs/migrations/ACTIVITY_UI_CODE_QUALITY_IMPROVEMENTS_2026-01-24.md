@@ -363,9 +363,9 @@ Per domain:
    - etc. (6 files total)
 
 2. **Extract Common Helpers** - Move shared utilities to module
-   - `core/ui/helpers/validation.py` - Common validation patterns
-   - `core/ui/helpers/stats.py` - Common stats patterns
-   - `core/ui/helpers/sorting.py` - Common sort key functions
+   - `ui/helpers/validation.py` - Common validation patterns
+   - `ui/helpers/stats.py` - Common stats patterns
+   - `ui/helpers/sorting.py` - Common sort key functions
 
 3. **Performance Profiling** - Identify optimization opportunities
    - Profile pure helpers with large datasets
