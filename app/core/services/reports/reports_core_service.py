@@ -25,7 +25,7 @@ Services:
 - KuProcessingService: Content processing orchestration
 - KuCoreService: Content management + journal CRUD (THIS FILE)
 - KuSearchService: Read-only queries
-- AssignmentService: LLM instruction projects
+- ExerciseService: LLM instruction templates (in exercises package)
 - KuFeedbackService: AI feedback generation
 """
 
@@ -1017,63 +1017,61 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
     # FIFO CLEANUP FOR VOICE JOURNALS
     # ========================================================================
 
-    async def process_assignment_submission(
+    async def process_exercise_submission(
         self,
         ku_uid: str,
-        project_uid: str,
+        exercise_uid: str,
     ) -> Result[bool]:
         """
-        Process a Ku submitted against an ASSIGNED Assignment.
+        Process a Ku submitted against an ASSIGNED Exercise.
 
-        When a student submits against an assigned project:
-        1. Create FULFILLS_PROJECT relationship
-        2. Look up the project's owner (teacher)
+        When a student submits against an assigned exercise:
+        1. Create FULFILLS_EXERCISE relationship
+        2. Look up the exercise's owner (teacher)
         3. Auto-create SHARES_WITH from teacher to Ku
         4. Set Ku status to SUBMITTED if processor_type is HUMAN
 
-        Called by routes after Ku creation when project_uid is provided.
+        Called by routes after Ku creation when exercise_uid is provided.
 
         Args:
             ku_uid: The submitted Ku UID
-            project_uid: The Assignment UID this Ku fulfills
+            exercise_uid: The Exercise UID this Ku fulfills
 
         Returns:
-            Result[bool]: True if assignment processing was applied
+            Result[bool]: True if exercise processing was applied
         """
         from core.models.relationship_names import RelationshipName
 
-        # Check if the project is ASSIGNED scope and get group info
-        project_result = await self.backend.execute_query(
+        # Check if the exercise is ASSIGNED scope and get group info
+        exercise_result = await self.backend.execute_query(
             """
-            MATCH (project:Assignment {uid: $project_uid})
-            OPTIONAL MATCH (project)-[:FOR_GROUP]->(g:Group)
-            RETURN project.scope as scope,
-                   project.user_uid as teacher_uid,
-                   project.processor_type as processor_type,
+            MATCH (exercise:Ku {uid: $exercise_uid, ku_type: 'exercise'})
+            OPTIONAL MATCH (exercise)-[:FOR_GROUP]->(g:Group)
+            RETURN exercise.scope as scope,
+                   exercise.user_uid as teacher_uid,
+                   exercise.scope as exercise_scope,
                    g.uid as group_uid
             """,
-            {"project_uid": project_uid},
+            {"exercise_uid": exercise_uid},
         )
 
-        if project_result.is_error:
-            self.logger.error(f"Error querying project: {project_result.error}")
+        if exercise_result.is_error:
+            self.logger.error(f"Error querying exercise: {exercise_result.error}")
             return Result.ok(False)  # Non-fatal
 
-        records = project_result.value or []
+        records = exercise_result.value or []
         if not records:
-            return Result.ok(False)  # Project not found — not an error, just not an assignment
+            return Result.ok(False)  # Exercise not found — not an error
 
         scope = records[0]["scope"]
         if scope != "assigned":
-            return Result.ok(False)  # Not an assigned project
+            return Result.ok(False)  # Not an assigned exercise
 
         teacher_uid = records[0]["teacher_uid"]
-        processor_type = records[0]["processor_type"]
         group_uid = records[0]["group_uid"]
 
         # Verify student is a member of the target group (if group exists)
         if group_uid:
-            # Find the student who owns this Ku
             student_result = await self.backend.execute_query(
                 """
                 MATCH (student:User)-[:OWNS]->(ku:Ku {uid: $ku_uid})
@@ -1092,23 +1090,23 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
                 student_uid = student_records[0]["student_uid"]
                 self.logger.warning(
                     f"Student {student_uid} is not a member of group {group_uid} "
-                    f"for assignment project {project_uid}"
+                    f"for exercise {exercise_uid}"
                 )
                 return Result.ok(False)
 
-        # 1. Create FULFILLS_PROJECT relationship
+        # 1. Create FULFILLS_EXERCISE relationship
         fulfills_result = await self.backend.execute_query(
             f"""
             MATCH (ku:Ku {{uid: $ku_uid}})
-            MATCH (project:Assignment {{uid: $project_uid}})
-            MERGE (ku)-[:{RelationshipName.FULFILLS_PROJECT}]->(project)
+            MATCH (exercise:Ku {{uid: $exercise_uid, ku_type: 'exercise'}})
+            MERGE (ku)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
             RETURN true as success
             """,
-            {"ku_uid": ku_uid, "project_uid": project_uid},
+            {"ku_uid": ku_uid, "exercise_uid": exercise_uid},
         )
 
         if fulfills_result.is_error:
-            self.logger.warning(f"Failed to create FULFILLS_PROJECT: {fulfills_result.error}")
+            self.logger.warning(f"Failed to create FULFILLS_EXERCISE: {fulfills_result.error}")
 
         # 2. Auto-share with teacher
         share_result = await self.backend.execute_query(
@@ -1130,32 +1128,18 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
         if share_result.is_error:
             self.logger.warning(f"Failed to auto-share with teacher: {share_result.error}")
 
-        # 3. Set status to SUBMITTED if processor_type is HUMAN
-        if processor_type in ("human", "hybrid"):
-            status_result = await self.backend.execute_query(
-                """
-                MATCH (ku:Ku {uid: $ku_uid})
-                SET ku.status = $status,
-                    ku.processor_type = $processor_type,
-                    ku.updated_at = datetime($now)
-                RETURN true as success
-                """,
-                {
-                    "ku_uid": ku_uid,
-                    "status": KuStatus.SUBMITTED.value,
-                    "processor_type": processor_type,
-                    "now": datetime.now().isoformat(),
-                },
-            )
-
-            if status_result.is_error:
-                self.logger.warning(f"Failed to set status to SUBMITTED: {status_result.error}")
-
         self.logger.info(
-            f"Assignment submission processed: ku={ku_uid} -> project={project_uid}, "
-            f"teacher={teacher_uid}, processor={processor_type}"
+            f"Exercise submission processed: ku={ku_uid} -> exercise={exercise_uid}, "
+            f"teacher={teacher_uid}"
         )
         return Result.ok(True)
+
+    # Backward-compatible alias
+    async def process_assignment_submission(
+        self, ku_uid: str, project_uid: str
+    ) -> Result[bool]:
+        """Alias for process_exercise_submission (backward compatibility)."""
+        return await self.process_exercise_submission(ku_uid, project_uid)
 
     async def _enforce_fifo(self, user_uid: str, max_retention: int) -> Result[int]:
         """

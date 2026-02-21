@@ -1,6 +1,6 @@
 """
-Assignments API - Factory Pattern Routes
-=============================================
+Exercises API - Factory Pattern Routes
+=========================================
 
 Provides:
 - Standard CRUD operations via CRUDRouteFactory
@@ -17,9 +17,9 @@ from core.infrastructure.routes import CRUDRouteFactory
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
 from core.models.ku import KuFeedbackGenerateRequest
-from core.models.ku.assignment_request import (
-    AssignmentCreateRequest,
-    AssignmentUpdateRequest,
+from core.models.ku.exercise_request import (
+    ExerciseCreateRequest,
+    ExerciseUpdateRequest,
 )
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
@@ -28,22 +28,22 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger(__name__)
 
 
-def create_assignments_api_routes(
+def create_exercises_api_routes(
     app: Any,
     rt: Any,
-    assignments_service: Any,
+    exercises_service: Any,
     transcript_service: Any,
     report_feedback_service: Any,
     user_service: Any = None,
 ) -> list[Any]:
     """
-    Create assignments API routes using factory pattern.
+    Create exercises API routes using factory pattern.
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
-        assignments_service: AssignmentService instance
-        transcript_service: TranscriptProcessor for entry lookup
+        exercises_service: ExerciseService instance
+        transcript_service: ContentEnrichmentService for entry lookup
         report_feedback_service: KuFeedbackService for AI feedback
         user_service: UserService for role checks
     """
@@ -58,43 +58,38 @@ def create_assignments_api_routes(
     # ========================================================================
 
     crud_factory = CRUDRouteFactory(
-        service=assignments_service,
-        domain_name="assignments",
-        create_schema=AssignmentCreateRequest,
-        update_schema=AssignmentUpdateRequest,
-        uid_prefix="assignment",
+        service=exercises_service,
+        domain_name="exercises",
+        create_schema=ExerciseCreateRequest,
+        update_schema=ExerciseUpdateRequest,
+        uid_prefix="exercise",
         scope=ContentScope.USER_OWNED,
         require_role=UserRole.TEACHER,
         user_service_getter=get_user_service_instance,
     )
 
     # Register all standard CRUD routes:
-    # - POST /api/assignments/create        (create)
-    # - GET  /api/assignments/get?uid=...   (get)
-    # - POST /api/assignments/update?uid=.. (update)
-    # - POST /api/assignments/delete?uid=.. (delete)
-    # - GET  /api/assignments/list          (list with pagination)
+    # - POST /api/exercises/create        (create)
+    # - GET  /api/exercises/get?uid=...   (get)
+    # - POST /api/exercises/update?uid=.. (update)
+    # - POST /api/exercises/delete?uid=.. (delete)
+    # - GET  /api/exercises/list          (list with pagination)
     crud_factory.register_routes(app, rt)
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)
     # ========================================================================
 
-    @rt("/api/assignments/feedback", methods=["POST"])
+    @rt("/api/exercises/feedback", methods=["POST"])
     @require_teacher(get_user_service_instance)
     @boundary_handler()
     async def feedback(request: Request, current_user: Any = None) -> Result[Any]:
         """
-        Generate AI feedback for an entry using an assignment.
-
-        This is domain-specific and kept as a manual route because it:
-        1. Involves complex coordination between services
-        2. Has optional side effects (saving feedback to entry)
-        3. Uses custom LLM parameters (temperature, max_tokens)
+        Generate AI feedback for an entry using an exercise.
 
         Body (JSON):
         - entry_uid: Entry UID (required)
-        - project_uid: Assignment UID (required)
+        - project_uid: Exercise UID (required)
         - temperature: Sampling temperature 0-1 (optional, default 0.7)
         - max_tokens: Max tokens to generate (optional, default 4000)
         - save_feedback: Whether to save to entry (optional, default true)
@@ -102,7 +97,7 @@ def create_assignments_api_routes(
         Returns:
         - 200: Feedback generated
         - 400: Invalid input
-        - 404: Entry or assignment not found
+        - 404: Entry or exercise not found
         - 503: Service not available
         """
         if not report_feedback_service:
@@ -112,7 +107,10 @@ def create_assignments_api_routes(
 
         if not transcript_service:
             return Result.fail(
-                Errors.system("Transcript service not available", service="TranscriptProcessor")
+                Errors.system(
+                    "Transcript service not available",
+                    service="ContentEnrichmentService",
+                )
             )
 
         # Parse request body
@@ -122,22 +120,22 @@ def create_assignments_api_routes(
         except Exception as e:
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
-        # Get entry and project
+        # Get entry and exercise
         entry_result = await transcript_service.get(feedback_request.entry_uid)
         if entry_result.is_error:
             return Result.fail(Errors.not_found("Entry", feedback_request.entry_uid))
 
-        project_result = await assignments_service.get_project(feedback_request.project_uid)
-        if project_result.is_error:
-            return Result.fail(Errors.not_found("Assignment", feedback_request.project_uid))
+        exercise_result = await exercises_service.get_exercise(feedback_request.project_uid)
+        if exercise_result.is_error:
+            return Result.fail(Errors.not_found("Exercise", feedback_request.project_uid))
 
         entry = entry_result.value
-        project = project_result.value
+        exercise = exercise_result.value
 
         # Generate feedback
         feedback_result = await report_feedback_service.generate_feedback(
             entry=entry,
-            project=project,
+            project=exercise,
             temperature=feedback_request.temperature,
             max_tokens=feedback_request.max_tokens,
         )
@@ -172,5 +170,5 @@ def create_assignments_api_routes(
             }
         )
 
-    logger.info("Assignments API routes registered (Factory pattern)")
+    logger.info("Exercises API routes registered (Factory pattern)")
     return []

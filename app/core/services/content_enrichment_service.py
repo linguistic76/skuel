@@ -11,7 +11,7 @@ Submit (voice or text) → Extract (transcribe if audio) → Enrich (LLM + instr
 The power comes from Neo4j context awareness:
 - Recent entries, active goals, habits, tasks
 - UserContext for personalized editing
-- Processing instructions stored as Assignment nodes in Neo4j
+- Processing instructions stored as Exercise Ku nodes in Neo4j
 
 Renamed from ContentEnrichmentService to ContentEnrichmentService
 """
@@ -836,9 +836,9 @@ class ContentEnrichmentService(BaseService[BackendOperations[KuBase], KuBase]):
         if not instructions_uid:
             instructions_uid = "instructions:default-report-formatting"
 
-        # Load from Neo4j (instructions stored as Assignment nodes)
+        # Load from Neo4j (instructions stored as Exercise Ku nodes)
         query = """
-        MATCH (i:Assignment {uid: $uid})
+        MATCH (i:Ku {uid: $uid, ku_type: 'exercise'})
         RETURN i.instructions as instructions, i.name as name
         """
 
@@ -913,9 +913,10 @@ Preserve the author's voice and authenticity while improving readability.
             uid = f"instructions:{name.lower().replace(' ', '-')}"
 
         query = """
-        CREATE (i:Assignment {
+        CREATE (i:Ku:Exercise {
             uid: $uid,
             name: $name,
+            ku_type: 'exercise',
             instructions: $instructions,
             created_at: datetime(),
             char_count: size($instructions)
@@ -934,9 +935,9 @@ Preserve the author's voice and authenticity while improving readability.
 
     @with_error_handling("list_instruction_sets", error_type="database")
     async def list_instruction_sets(self) -> Result[list[dict[str, Any]]]:
-        """List all available assignments."""
+        """List all available exercise instruction sets."""
         query = """
-        MATCH (i:Assignment)
+        MATCH (i:Ku {ku_type: 'exercise'})
         RETURN i.uid as uid, i.name as name, i.char_count as char_count
         ORDER BY i.name
         """

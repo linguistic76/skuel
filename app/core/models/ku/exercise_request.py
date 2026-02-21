@@ -1,13 +1,11 @@
 """
-Assignment Request Models (Tier 1 - External)
-===============================================
+Exercise Request Models (Tier 1 - External)
+=============================================
 
-"Ku is the heartbeat of SKUEL."
-
-Pydantic models for Assignment API validation and serialization.
+Pydantic models for Exercise API validation and serialization.
 Handles input validation at the API boundary.
 
-Pipeline role: ASSIGN stage (Assign → Submit → Analyze → Review)
+Pipeline role: EXERCISE stage (Exercise → Submit → Analyze → Review)
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
@@ -17,16 +15,16 @@ from datetime import date
 from pydantic import BaseModel, Field, model_validator
 
 
-class AssignmentCreateRequest(BaseModel):
-    """Request to create a new Assignment (instruction template)."""
+class ExerciseCreateRequest(BaseModel):
+    """Request to create a new Exercise (instruction template)."""
 
-    user_uid: str = Field(..., description="User UID who owns this project")
+    user_uid: str = Field(..., description="User UID who owns this exercise")
 
     name: str = Field(
         ...,
         min_length=1,
         max_length=200,
-        description="Display name for the project (e.g., 'Daily Reflection')",
+        description="Display name for the exercise (e.g., 'Daily Reflection')",
     )
 
     instructions: str = Field(
@@ -44,15 +42,15 @@ class AssignmentCreateRequest(BaseModel):
 
     domain: str | None = Field(default=None, description="Optional domain categorization")
 
-    # Assignment fields (ADR-040)
+    # Exercise fields (ADR-040)
     scope: str = Field(
         default="personal",
-        description="Project scope: 'personal' (default) or 'assigned' (teacher assignment)",
+        description="Exercise scope: 'personal' (default) or 'assigned' (teacher exercise)",
     )
 
     due_date: date | None = Field(
         default=None,
-        description="Due date for assigned projects",
+        description="Due date for assigned exercises",
     )
 
     processor_type: str = Field(
@@ -66,7 +64,7 @@ class AssignmentCreateRequest(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_assignment_fields(self) -> "AssignmentCreateRequest":
+    def validate_exercise_fields(self) -> "ExerciseCreateRequest":
         """If scope=assigned, group_uid is required."""
         if self.scope == "assigned" and not self.group_uid:
             msg = "group_uid is required when scope is 'assigned'"
@@ -74,8 +72,8 @@ class AssignmentCreateRequest(BaseModel):
         return self
 
 
-class AssignmentUpdateRequest(BaseModel):
-    """Request to update an existing Assignment."""
+class ExerciseUpdateRequest(BaseModel):
+    """Request to update an existing Exercise."""
 
     name: str | None = Field(
         default=None, min_length=1, max_length=200, description="New display name"
@@ -95,11 +93,11 @@ class AssignmentUpdateRequest(BaseModel):
 
 
 class KuFeedbackGenerateRequest(BaseModel):
-    """Request to generate feedback for a Ku entry using a Assignment."""
+    """Request to generate feedback for a Ku entry using an Exercise."""
 
     entry_uid: str = Field(..., description="UID of the Ku entry to analyze")
 
-    project_uid: str = Field(..., description="UID of the Assignment with instructions")
+    project_uid: str = Field(..., description="UID of the Exercise with instructions")
 
     temperature: float | None = Field(
         default=0.7, ge=0.0, le=1.0, description="Sampling temperature for LLM (0-1)"

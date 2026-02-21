@@ -81,7 +81,8 @@ class NeoLabel(str, Enum):
     # =========================================================================
     # Content/Processing Infrastructure
     # =========================================================================
-    ASSIGNMENT = "Assignment"
+    ASSIGNMENT = "Assignment"  # Legacy — migrating to :Ku with ku_type="exercise"
+    EXERCISE = "Exercise"  # Secondary label on :Ku nodes with ku_type="exercise"
     KU_SCHEDULE = "KuSchedule"
     TRANSCRIPTION = "Transcription"
 

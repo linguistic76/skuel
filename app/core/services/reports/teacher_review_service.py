@@ -5,7 +5,7 @@ Teacher Review Service
 Manages the teacher review workflow for assigned Ku submissions.
 
 Reuses SHARES_WITH infrastructure. When a student submits a Ku against
-an ASSIGNED Assignment, the Ku is auto-shared with the teacher.
+an ASSIGNED Exercise, the Ku is auto-shared with the teacher.
 The teacher's review queue = Ku shared with them via role="teacher".
 
 When providing feedback or requesting revision, a FEEDBACK_REPORT Ku node
@@ -92,7 +92,7 @@ class TeacherReviewService:
         MATCH (teacher:User {{uid: $teacher_uid}})-[r:SHARES_WITH {{role: 'teacher'}}]->(ku:Ku)
         {where_clause}
         OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
-        OPTIONAL MATCH (ku)-[:FULFILLS_PROJECT]->(project:Assignment)
+        OPTIONAL MATCH (ku)-[:FULFILLS_EXERCISE]->(project:Ku {{ku_type: 'exercise'}})
         OPTIONAL MATCH (fb:Ku {{ku_type: 'feedback_report'}})-[:FEEDBACK_FOR]->(ku)
         WITH ku, student, project, r, count(fb) as feedback_count
         RETURN ku.uid as ku_uid,

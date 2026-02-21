@@ -600,24 +600,24 @@ REPORTS_SIDEBAR_ITEMS = [
 # ============================================================================
 
 
-def _render_upload_form(assigned_projects: list[Any] | None = None) -> Any:
-    """Render the file upload form card with optional assignment selector."""
-    # Build assignment selector if projects exist
-    assignment_section: Any = ""
-    if assigned_projects:
-        project_options = [Option("None — standalone submission", value="")]
-        project_options.extend(
-            Option(getattr(p, "name", p.uid), value=p.uid) for p in assigned_projects
+def _render_upload_form(assigned_exercises: list[Any] | None = None) -> Any:
+    """Render the file upload form card with optional exercise selector."""
+    # Build exercise selector if exercises exist
+    exercise_section: Any = ""
+    if assigned_exercises:
+        exercise_options = [Option("None — standalone submission", value="")]
+        exercise_options.extend(
+            Option(getattr(p, "name", p.uid), value=p.uid) for p in assigned_exercises
         )
-        assignment_section = Div(
-            Label("Assignment (optional)", cls="label"),
+        exercise_section = Div(
+            Label("Exercise (optional)", cls="label"),
             Select(
-                *project_options,
-                name="fulfills_project_uid",
+                *exercise_options,
+                name="fulfills_exercise_uid",
                 cls="select select-bordered w-full",
             ),
             P(
-                "Link this submission to a teacher assignment",
+                "Link this submission to a teacher exercise",
                 cls="text-xs text-base-content/60 mt-1",
             ),
             cls="mb-4",
@@ -626,8 +626,8 @@ def _render_upload_form(assigned_projects: list[Any] | None = None) -> Any:
     return Div(
         Div(
             Form(
-                # Assignment selector (only if projects exist)
-                assignment_section,
+                # Exercise selector (only if exercises exist)
+                exercise_section,
                 # Identifier input (loose KU reference)
                 Div(
                     Label("Identifier", cls="label"),
@@ -733,7 +733,7 @@ def _render_filters_section() -> Any:
                         Label("Type", cls="label"),
                         Select(
                             Option("All Types", value="", selected=True),
-                            Option("Assignment", value="assignment"),
+                            Option("Submission", value="submission"),
                             Option("Transcript", value="transcript"),
                             Option("Journal", value="journal"),
                             Option("Progress Report", value="progress"),
@@ -804,7 +804,7 @@ def create_reports_ui_routes(
         rt: Router instance
         report_service: ReportSubmissionService
         processing_service: ReportProcessorService
-        _report_projects_service: AssignmentService for assignment dropdown (optional)
+        _report_projects_service: ExerciseService for exercise dropdown (optional)
     """
 
     logger.info("Creating Submissions UI routes")
@@ -826,18 +826,18 @@ def create_reports_ui_routes(
     async def _render_submit_page(request: Request) -> Any:
         user_uid = require_authenticated_user(request)
 
-        # Fetch assigned projects for assignment dropdown
-        assigned_projects: list[Any] = []
+        # Fetch assigned exercises for exercise dropdown
+        assigned_exercises: list[Any] = []
         if _report_projects_service:
-            projects_result = await _report_projects_service.list_user_projects(user_uid)
+            projects_result = await _report_projects_service.list_user_exercises(user_uid)
             if not projects_result.is_error and projects_result.value:
-                assigned_projects = [
+                assigned_exercises = [
                     p for p in projects_result.value if getattr(p, "scope", None) == "assigned"
                 ]
 
         content = Div(
             PageHeader("Submit", subtitle="Upload a file linked to a Knowledge Unit"),
-            _render_upload_form(assigned_projects),
+            _render_upload_form(assigned_exercises),
             _upload_form_script(),
         )
         return await SidebarPage(
@@ -923,9 +923,9 @@ def create_reports_ui_routes(
                 f"Report upload: {filename} ({len(file_content)} bytes, identifier={identifier})"
             )
 
-            # Extract optional assignment project
-            raw_project_uid = form.get("fulfills_project_uid")
-            fulfills_project_uid = str(raw_project_uid).strip() or None if raw_project_uid else None
+            # Extract optional exercise link
+            raw_exercise_uid = form.get("fulfills_exercise_uid")
+            fulfills_exercise_uid = str(raw_exercise_uid).strip() or None if raw_exercise_uid else None
 
             # Submit for human review — processor_type always HUMAN for regular users
             result = await _report_service.submit_file(
@@ -935,7 +935,7 @@ def create_reports_ui_routes(
                 ku_type=KuType.SUBMISSION,
                 processor_type=ProcessorType.HUMAN,
                 metadata={"identifier": identifier},
-                fulfills_project_uid=fulfills_project_uid,
+                fulfills_project_uid=fulfills_exercise_uid,
             )
 
             if result.is_error:

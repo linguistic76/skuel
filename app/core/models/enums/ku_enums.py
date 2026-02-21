@@ -32,7 +32,7 @@ from enum import Enum
 
 class KuType(str, Enum):
     """
-    Type of Knowledge Unit — 15 manifestations of knowledge in SKUEL.
+    Type of Knowledge Unit — 16 manifestations of knowledge in SKUEL.
 
     "Everything is a Ku" — a task is knowledge about what needs doing,
     a principle is knowledge about what you believe, a goal is knowledge
@@ -45,6 +45,7 @@ class KuType(str, Enum):
         Curriculum Structure:
             LEARNING_STEP   → Step in a learning path
             LEARNING_PATH   → Ordered sequence of steps
+            EXERCISE        → Instruction template for practicing curriculum
         Content Processing:
             JOURNAL         → Raw student submission (voice/text, informal)
             SUBMISSION      → Student-uploaded work (file submissions)
@@ -65,7 +66,7 @@ class KuType(str, Enum):
 
     Content origin tiers (see ContentOrigin):
         A  CURATED      → RESOURCE
-        B  CURRICULUM   → CURRICULUM, LEARNING_STEP, LEARNING_PATH
+        B  CURRICULUM   → CURRICULUM, LEARNING_STEP, LEARNING_PATH, EXERCISE
         C  USER_CREATED → Activities, SUBMISSION, JOURNAL, LIFE_PATH
         D  FEEDBACK     → AI_REPORT, FEEDBACK_REPORT
 
@@ -98,6 +99,9 @@ class KuType(str, Enum):
     EVENT = "event"
     CHOICE = "choice"
     PRINCIPLE = "principle"
+
+    # Curriculum instruction templates
+    EXERCISE = "exercise"
 
     # Destination
     LIFE_PATH = "life_path"
@@ -210,11 +214,14 @@ _KU_TYPE_DISPLAY_NAMES: dict[KuType, str] = {
     KuType.EVENT: "Event",
     KuType.CHOICE: "Choice",
     KuType.PRINCIPLE: "Principle",
+    KuType.EXERCISE: "Exercise",
     KuType.LIFE_PATH: "Life Path",
 }
 
 _KNOWLEDGE_TYPES = frozenset({KuType.CURRICULUM, KuType.RESOURCE})
-_CURRICULUM_STRUCTURE_TYPES = frozenset({KuType.LEARNING_STEP, KuType.LEARNING_PATH})
+_CURRICULUM_STRUCTURE_TYPES = frozenset(
+    {KuType.LEARNING_STEP, KuType.LEARNING_PATH, KuType.EXERCISE}
+)
 _CONTENT_PROCESSING_TYPES = frozenset(
     {KuType.JOURNAL, KuType.SUBMISSION, KuType.AI_REPORT, KuType.FEEDBACK_REPORT}
 )
@@ -234,6 +241,7 @@ _SHARED_TYPES = frozenset(
         KuType.RESOURCE,
         KuType.LEARNING_STEP,
         KuType.LEARNING_PATH,
+        KuType.EXERCISE,
     }
 )
 
@@ -263,6 +271,7 @@ _CONTENT_ORIGIN_BY_TYPE: dict[KuType, ContentOrigin] = {
     KuType.CURRICULUM: ContentOrigin.CURRICULUM,
     KuType.LEARNING_STEP: ContentOrigin.CURRICULUM,
     KuType.LEARNING_PATH: ContentOrigin.CURRICULUM,
+    KuType.EXERCISE: ContentOrigin.CURRICULUM,
     # C — User-generated content
     KuType.TASK: ContentOrigin.USER_CREATED,
     KuType.GOAL: ContentOrigin.USER_CREATED,
@@ -308,7 +317,8 @@ _KU_TYPE_ALIASES: dict[str, KuType] = {
     "lp": KuType.LEARNING_PATH,
     "path": KuType.LEARNING_PATH,
     "report": KuType.AI_REPORT,
-    "assignment": KuType.SUBMISSION,
+    "exercise": KuType.EXERCISE,
+    "assignment": KuType.EXERCISE,
     "feedback": KuType.FEEDBACK_REPORT,
     "lifepath": KuType.LIFE_PATH,
 }
@@ -698,6 +708,14 @@ _VALID_STATUSES_BY_TYPE: dict[KuType, frozenset[KuStatus]] = {
             KuStatus.ARCHIVED,
         }
     ),
+    KuType.EXERCISE: frozenset(
+        {
+            KuStatus.DRAFT,
+            KuStatus.ACTIVE,
+            KuStatus.COMPLETED,
+            KuStatus.ARCHIVED,
+        }
+    ),
     KuType.LIFE_PATH: frozenset(
         {
             KuStatus.ACTIVE,
@@ -711,6 +729,7 @@ _DEFAULT_STATUS_BY_TYPE: dict[KuType, KuStatus] = {
     KuType.RESOURCE: KuStatus.COMPLETED,
     KuType.LEARNING_STEP: KuStatus.DRAFT,
     KuType.LEARNING_PATH: KuStatus.DRAFT,
+    KuType.EXERCISE: KuStatus.DRAFT,
     KuType.JOURNAL: KuStatus.DRAFT,
     KuType.SUBMISSION: KuStatus.DRAFT,
     KuType.AI_REPORT: KuStatus.DRAFT,

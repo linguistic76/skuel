@@ -264,13 +264,12 @@ class RelationshipName(str, Enum):
     )
 
     # =========================================================================
-    # ASSIGNMENT/GROUP RELATIONSHIPS (ADR-040)
-    # Teacher assignment workflow and group management
+    # EXERCISE/GROUP RELATIONSHIPS (ADR-040)
+    # Teacher exercise workflow and group management
     # =========================================================================
-    FOR_GROUP = "FOR_GROUP"  # (ReportProject)-[:FOR_GROUP]->(Group) - Assignment targets group
-    FULFILLS_PROJECT = (
-        "FULFILLS_PROJECT"  # (Report)-[:FULFILLS_PROJECT]->(ReportProject) - Student submission
-    )
+    FOR_GROUP = "FOR_GROUP"  # (Exercise)-[:FOR_GROUP]->(Group)
+    # (Ku)-[:FULFILLS_EXERCISE]->(Exercise) - Student submission
+    FULFILLS_EXERCISE = "FULFILLS_EXERCISE"
 
     # =========================================================================
     # CONTENT/PROCESSING RELATIONSHIPS

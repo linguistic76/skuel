@@ -31,26 +31,19 @@ Support:
     ku_request.py      - Pydantic API models (14 create + 1 update + 1 response)
     ku_nested_types.py - Milestone, ChoiceOption, PrincipleExpression, AlignmentAssessment
     ku_content.py, ku_chunks.py, ku_metadata.py - Content & RAG
-    assignment.py, ku_schedule.py - Assignment & scheduling
+    ku_exercise.py - ExerciseKu(CurriculumKu) - instruction templates
+    ku_schedule.py - Scheduling
 
 Usage:
     from core.models.ku import TaskKu, GoalKu, HabitKu, EventKu, ChoiceKu, PrincipleKu
-    from core.models.ku import CurriculumKu, LearningStepKu, LearningPathKu
+    from core.models.ku import CurriculumKu, ExerciseKu, LearningStepKu, LearningPathKu
     from core.models.ku import SubmissionKu, JournalKu, AiReportKu, FeedbackKu
-    from core.models.ku import KuBase, Ku, KuDTO, KuResponse
-    from core.models.ku import Assignment, AssignmentDTO, KuSchedule
+    from core.models.ku import KuBase, Ku, KuDTO, KuResponse, KuSchedule
 """
 
-from .assignment import (
-    Assignment,
-    AssignmentDTO,
-    assignment_domain_to_dto,
-    assignment_dto_to_domain,
-    create_assignment,
-)
-from .assignment_request import (
-    AssignmentCreateRequest,
-    AssignmentUpdateRequest,
+from .exercise_request import (
+    ExerciseCreateRequest,
+    ExerciseUpdateRequest,
     KuFeedbackGenerateRequest,
 )
 from .ku import KU_TYPE_CLASS_MAP, Ku
@@ -63,6 +56,7 @@ from .ku_converters import ku_to_response
 from .ku_curriculum import CurriculumKu
 from .ku_dto import KuDTO
 from .ku_event import EventKu
+from .ku_exercise import ExerciseKu
 from .ku_feedback import FeedbackKu
 from .ku_goal import GoalKu
 from .ku_habit import HabitKu
@@ -139,6 +133,7 @@ __all__ = [
     "ChoiceKu",
     "PrincipleKu",
     "CurriculumKu",
+    "ExerciseKu",
     "ResourceKu",
     "LearningStepKu",
     "LearningPathKu",
@@ -199,15 +194,9 @@ __all__ = [
     "KuScheduleCreateRequest",
     "KuScheduleUpdateRequest",
     "AssessmentCreateRequest",
-    # Assignment (instruction templates — Assign stage)
-    "Assignment",
-    "AssignmentDTO",
-    "create_assignment",
-    "assignment_dto_to_domain",
-    "assignment_domain_to_dto",
-    # Assignment requests
-    "AssignmentCreateRequest",
-    "AssignmentUpdateRequest",
+    # Exercise requests (instruction templates)
+    "ExerciseCreateRequest",
+    "ExerciseUpdateRequest",
     "KuFeedbackGenerateRequest",
     # KuSchedule (recurring progress generation)
     "KuSchedule",

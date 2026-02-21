@@ -155,7 +155,7 @@ if TYPE_CHECKING:
 from core.services.protocols import (
     AskesisCoreOperations,
     AskesisOperations,
-    AssignmentOperations,
+    ExerciseOperations,
     AsyncCloseable,
     CalendarServiceOperations,
     ChoicesOperations,
@@ -252,8 +252,8 @@ class Services:
     report_feedback: KuFeedbackOperations | None = (
         None  # KuFeedbackService - LLM feedback on Ku content
     )
-    assignments: AssignmentOperations | None = (
-        None  # AssignmentService - Reusable LLM instruction templates
+    exercises: ExerciseOperations | None = (
+        None  # ExerciseService - Reusable LLM instruction templates
     )
 
     # Journal processing services
@@ -1573,24 +1573,25 @@ async def compose_services(
         )
         logger.info("✅ Transcript processor service created")
 
-        # Create Ku feedback and assignment services (February 2026: Unified Ku model)
-        from core.models.ku.assignment import Assignment
-        from core.services.reports import AssignmentService, KuFeedbackService
+        # Create Ku feedback and exercise services (February 2026: Unified Ku model)
+        from core.models.ku.ku_exercise import ExerciseKu
+        from core.services.exercises import ExerciseService
+        from core.services.reports import KuFeedbackService
 
         report_feedback_service = KuFeedbackService(
             openai_service=ai_service,
             anthropic_service=None,  # Only OpenAI configured for now
         )
 
-        assignments_backend = UniversalNeo4jBackend[Assignment](
+        exercise_backend = UniversalNeo4jBackend[ExerciseKu](
             driver=driver,
-            label=NeoLabel.ASSIGNMENT,
-            entity_class=Assignment,
+            label=NeoLabel.KU,
+            entity_class=ExerciseKu,
             prometheus_metrics=prometheus_metrics,
         )
 
-        assignment_service = AssignmentService(backend=assignments_backend)
-        logger.info("✅ Ku feedback and assignment services created")
+        exercise_service = ExerciseService(backend=exercise_backend)
+        logger.info("✅ Ku feedback and exercise services created")
 
         # Create group service (ADR-040: Teacher Assignment Workflow)
         from core.models.group.group import Group
@@ -1632,7 +1633,7 @@ async def compose_services(
 
             if Path(default_instructions_path).exists():
                 # load_project_from_file handles both create and update
-                result = await assignment_service.load_project_from_file(
+                result = await exercise_service.load_project_from_file(
                     file_path=default_instructions_path,
                     user_uid="user_system",  # System-owned default project (UID follows user_{username} pattern)
                     project_uid=default_project_uid,
@@ -2031,20 +2032,20 @@ async def compose_services(
             "(automatic journal report creation from voice transcriptions)"
         )
 
-        # Subscribe to SubmissionCreated for assignment linking (ADR-040)
+        # Subscribe to SubmissionCreated for exercise linking (ADR-040)
         import functools
 
-        from core.events.handlers.assignment_handler import handle_assignment_submission
+        from core.events.handlers.exercise_handler import handle_exercise_submission
         from core.events.submission_events import SubmissionCreated
 
-        assignment_handler = functools.partial(
-            handle_assignment_submission,
+        exercise_handler = functools.partial(
+            handle_exercise_submission,
             reports_core_service=reports_core_service,
         )
-        event_bus.subscribe(SubmissionCreated, assignment_handler)
+        event_bus.subscribe(SubmissionCreated, exercise_handler)
         logger.info(
-            "✅ Assignment handler subscribed to SubmissionCreated "
-            "(automatic FULFILLS_PROJECT + SHARES_WITH creation)"
+            "✅ Exercise handler subscribed to SubmissionCreated "
+            "(automatic FULFILLS_EXERCISE + SHARES_WITH creation)"
         )
 
         # Subscribe to feedback events for student notifications
@@ -2361,9 +2362,9 @@ async def compose_services(
             # Content
             content_enrichment=content_enrichment,
             report_feedback=report_feedback_service,  # LLM feedback on reports/journals
-            assignments=assignment_service,  # Reusable LLM instruction templates
+            exercises=exercise_service,  # Reusable LLM instruction templates
             journal_generator=journal_generator,  # je_output formatting and disk storage
-            # Group & Teaching (ADR-040: Teacher assignment workflow)
+            # Group & Teaching (ADR-040: Teacher exercise workflow)
             group_service=group_service,
             teacher_review=teacher_review_service,
             # Notifications

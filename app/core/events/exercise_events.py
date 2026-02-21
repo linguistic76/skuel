@@ -1,8 +1,10 @@
 """
-Assignment Domain Events
-=========================
+Exercise Domain Events
+========================
 
-Events published when teacher assignment operations occur.
+Events published when teacher exercise operations occur.
+
+Formerly assignment_events.py — renamed per Phase 3 of Ku hierarchy refactoring.
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
@@ -15,32 +17,32 @@ from core.events.base import BaseEvent
 
 
 @dataclass(frozen=True)
-class AssignmentCreated(BaseEvent):
+class ExerciseCreated(BaseEvent):
     """
-    Published when a teacher creates an assigned ReportProject.
+    Published when a teacher creates an assigned Exercise.
 
     Triggers:
     - Notification to group members
     - Calendar integration (due date)
     """
 
-    project_uid: str
+    exercise_uid: str
     teacher_uid: str
     group_uid: str
-    project_name: str
+    exercise_name: str
     occurred_at: datetime
     due_date: str | None = None  # ISO format date string
     metadata: dict[str, Any] | None = None
 
     @property
     def event_type(self) -> str:
-        return "assignment.created"
+        return "exercise.created"
 
 
 @dataclass(frozen=True)
-class AssignmentSubmitted(BaseEvent):
+class ExerciseSubmitted(BaseEvent):
     """
-    Published when a student submits a report for an assignment.
+    Published when a student submits a report for an exercise.
 
     Triggers:
     - Teacher notification (new submission in review queue)
@@ -48,7 +50,7 @@ class AssignmentSubmitted(BaseEvent):
     """
 
     report_uid: str
-    project_uid: str
+    exercise_uid: str
     student_uid: str
     teacher_uid: str
     occurred_at: datetime
@@ -56,4 +58,4 @@ class AssignmentSubmitted(BaseEvent):
 
     @property
     def event_type(self) -> str:
-        return "assignment.submitted"
+        return "exercise.submitted"

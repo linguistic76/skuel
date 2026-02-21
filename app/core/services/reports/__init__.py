@@ -19,13 +19,11 @@ Sub-services:
 - KuSearchService: Query and search operations
 - KuRelationshipService: Graph relationship creation
 - KuSharingService: Content sharing between users
-- KuFeedbackService: AI feedback generation via Assignment
-- AssignmentService: LLM instruction project management
+- KuFeedbackService: AI feedback generation via Exercise
 - KuScheduleService: Scheduled processing
 - ProgressKuGenerator: AI-generated progress reports
 """
 
-from core.services.reports.assignment_service import AssignmentService
 from core.services.reports.progress_report_generator import (
     ProgressKuGenerator,
 )
@@ -61,7 +59,6 @@ __all__ = [
     "KuRelationshipService",
     "KuSharingService",
     "KuFeedbackService",
-    "AssignmentService",
     "KuAIInsights",
     "KuProcessingContext",
     "ProgressKuGenerator",

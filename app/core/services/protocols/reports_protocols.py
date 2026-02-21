@@ -13,7 +13,7 @@ handles backend CRUD. These protocols cover the higher-level content lifecycle:
     KuContentSearchOperations    — Cross-type search and statistics
     KuSharingOperations          — Visibility and sharing control
     KuProcessingOperations       — Processing pipeline (transcription, LLM)
-    AssignmentOperations          — LLM instruction templates (assignments)
+    ExerciseOperations            — LLM instruction templates (exercises)
     KuFeedbackOperations         — LLM-based feedback generation
     ProgressKuGeneratorOperations — Progress Ku generation
     KuScheduleOperations         — Recurring progress Ku scheduling
@@ -346,14 +346,14 @@ class KuProcessingOperations(Protocol):
 
 
 @runtime_checkable
-class AssignmentOperations(Protocol):
+class ExerciseOperations(Protocol):
     """Reusable LLM instruction template operations.
 
-    Route consumer: assignments_api.py (via CRUDRouteFactory)
-    Implementation: AssignmentService
+    Route consumer: exercises_api.py (via CRUDRouteFactory)
+    Implementation: ExerciseService
     """
 
-    async def create_project(
+    async def create_exercise(
         self,
         user_uid: str,
         name: str,
@@ -366,19 +366,48 @@ class AssignmentOperations(Protocol):
         processor_type: Any = ...,
         group_uid: str | None = None,
     ) -> Result[Any]:
-        """Create an Assignment. Returns Result[Assignment]."""
+        """Create an Exercise. Returns Result[ExerciseKu]."""
         ...
 
-    async def get_project(self, uid: str) -> Result[Any | None]:
-        """Get project by UID. Returns Result[Assignment | None]."""
+    async def get_exercise(self, uid: str) -> Result[Any | None]:
+        """Get exercise by UID. Returns Result[ExerciseKu | None]."""
         ...
 
-    async def list_user_projects(
+    async def list_user_exercises(
         self,
         user_uid: str,
         active_only: bool = True,
     ) -> Result[list[Any]]:
-        """List user's projects. Returns Result[list[Assignment]]."""
+        """List user's exercises. Returns Result[list[ExerciseKu]]."""
+        ...
+
+    async def update_exercise(
+        self,
+        uid: str,
+        name: str | None = None,
+        instructions: str | None = None,
+        model: str | None = None,
+        context_notes: list[str] | None = None,
+        domain: Any | None = None,
+        is_active: bool | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Result[Any]:
+        """Update an exercise. Returns Result[ExerciseKu]."""
+        ...
+
+    async def delete_exercise(self, uid: str) -> Result[bool]:
+        """Delete an exercise. Returns Result[bool]."""
+        ...
+
+    # Backward-compatible aliases for route consumers
+    async def get_project(self, uid: str) -> Result[Any | None]:
+        """Alias for get_exercise."""
+        ...
+
+    async def list_user_projects(
+        self, user_uid: str, active_only: bool = True
+    ) -> Result[list[Any]]:
+        """Alias for list_user_exercises."""
         ...
 
     async def update_project(
@@ -392,11 +421,11 @@ class AssignmentOperations(Protocol):
         is_active: bool | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> Result[Any]:
-        """Update a project. Returns Result[Assignment]."""
+        """Alias for update_exercise."""
         ...
 
     async def delete_project(self, uid: str) -> Result[bool]:
-        """Delete a project. Returns Result[bool]."""
+        """Alias for delete_exercise."""
         ...
 
 

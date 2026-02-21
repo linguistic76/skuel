@@ -116,6 +116,7 @@ class KuBase:
                 KuType.CURRICULUM,
                 KuType.LEARNING_STEP,
                 KuType.LEARNING_PATH,
+                KuType.EXERCISE,
             }:
                 object.__setattr__(self, "visibility", Visibility.PUBLIC)
             else:

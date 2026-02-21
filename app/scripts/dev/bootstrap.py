@@ -767,12 +767,12 @@ async def _wire_all_routes(
     create_advanced_routes(app, rt, services)
     logger.info("✅ Advanced API routes registered (Phase 2 - Optional)")
 
-    # Assignment routes (instruction templates for submissions)
-    if services.assignments:
-        from adapters.inbound.assignments_routes import create_assignments_routes
+    # Exercise routes (instruction templates for submissions)
+    if services.exercises:
+        from adapters.inbound.exercises_routes import create_exercises_routes
 
-        create_assignments_routes(app, rt, services)
-        logger.info("✅ Assignment routes registered")
+        create_exercises_routes(app, rt, services)
+        logger.info("✅ Exercise routes registered")
 
     # Group routes (ADR-040: Teacher Assignment Workflow)
     if services.group_service:

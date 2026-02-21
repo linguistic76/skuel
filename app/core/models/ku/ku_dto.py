@@ -303,6 +303,16 @@ class KuDTO(KuDTOMixin):
     subject_uid: str | None = None
 
     # =========================================================================
+    # EXERCISE (instruction templates — CurriculumKu subclass)
+    # =========================================================================
+    model: str | None = None  # LLM model to use (e.g., "claude-3-5-sonnet-20241022")
+    scope: str | None = None  # ProjectScope value ("personal" or "assigned")
+    due_date: date | None = None
+    group_uid: str | None = None  # Target group for ASSIGNED scope
+    enrichment_mode: str | None = None  # Processing strategy
+    context_notes: list[str] = field(default_factory=list)  # Reference materials
+
+    # =========================================================================
     # RESOURCE (Tier A — raw content)
     # =========================================================================
     source_url: str | None = None
@@ -739,6 +749,12 @@ class KuDTO(KuDTOMixin):
                 "processed_file_path",
                 "instructions",
                 "max_retention",
+                # Exercise
+                "model",
+                "scope",
+                "group_uid",
+                "enrichment_mode",
+                "context_notes",
                 # Feedback
                 "feedback",
                 "feedback_generated_at",
@@ -1014,6 +1030,14 @@ class KuDTO(KuDTOMixin):
             "processed_content": self.processed_content,
             "processed_file_path": self.processed_file_path,
             "instructions": self.instructions,
+            # =================================================================
+            # EXERCISE
+            # =================================================================
+            "model": self.model,
+            "scope": self.scope,
+            "group_uid": self.group_uid,
+            "enrichment_mode": self.enrichment_mode,
+            "context_notes": list(self.context_notes) if self.context_notes else [],
             # =================================================================
             # FEEDBACK
             # =================================================================
@@ -1395,6 +1419,7 @@ class KuDTO(KuDTOMixin):
                 "outcomes",
                 "checkpoint_week_intervals",
                 "progress_history",
+                "context_notes",
                 # Note: milestones, options, expressions, alignment_history
                 # are pre-processed by _reconstruct_nested_types() above
             ],

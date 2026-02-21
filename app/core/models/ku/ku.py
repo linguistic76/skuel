@@ -21,6 +21,7 @@ from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_choice import ChoiceKu
 from core.models.ku.ku_curriculum import CurriculumKu
 from core.models.ku.ku_event import EventKu
+from core.models.ku.ku_exercise import ExerciseKu
 from core.models.ku.ku_feedback import FeedbackKu
 from core.models.ku.ku_goal import GoalKu
 from core.models.ku.ku_habit import HabitKu
@@ -50,6 +51,7 @@ Ku = (
     | ResourceKu
     | LearningStepKu
     | LearningPathKu
+    | ExerciseKu
     | SubmissionKu
     | JournalKu
     | AiReportKu
@@ -74,6 +76,7 @@ KU_TYPE_CLASS_MAP: dict[KuType, type[KuBase]] = {
     KuType.RESOURCE: ResourceKu,
     KuType.LEARNING_STEP: LearningStepKu,
     KuType.LEARNING_PATH: LearningPathKu,
+    KuType.EXERCISE: ExerciseKu,
     KuType.SUBMISSION: SubmissionKu,
     KuType.JOURNAL: JournalKu,
     KuType.AI_REPORT: AiReportKu,
