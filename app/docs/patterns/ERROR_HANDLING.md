@@ -246,7 +246,7 @@ async def tasks_dashboard(request) -> Any:
 - Rich error information with ErrorContext
 - Prevents double-wrapping
 
-### 2. Error Boundary Utilities (`/core/utils/error_boundary.py`)
+### 2. Error Boundary Utilities (`/adapters/inbound/boundary.py` + `/adapters/inbound/boundary.py`)
 ```python
 # Decorator for routes - converts Result to HTTP
 @boundary_handler(success_status=200)
@@ -994,7 +994,7 @@ async def add_relationship(
 ## File Locations
 
 - **Current Implementation**: `/core/utils/result_simplified.py`
-- **Boundary Utilities**: `/core/utils/error_boundary.py`
+- **Boundary Utilities**: `/adapters/inbound/boundary.py` + `/adapters/inbound/boundary.py`
 - **Migration Guide**: `/core/utils/result_migration_guide.md`
 - **Old Implementation**: `/core/utils/result.py` (deprecated)
 - **Tests**: `/tests/test_result_simplified.py`

@@ -12,11 +12,13 @@ import json
 import pytest
 from starlette.responses import JSONResponse
 
-from core.utils.error_boundary import (
+from adapters.inbound.boundary import (
     boundary_handler,
-    exception_to_result,
     result_to_exception,
     result_to_response,
+)
+from core.utils.error_boundary import (
+    exception_to_result,
     safe_backend_operation,
 )
 from core.utils.result_simplified import ErrorCategory, Errors, Result

@@ -19,6 +19,7 @@ Each route maps to exactly one service method.
 
 from typing import Any
 
+from adapters.inbound.boundary import boundary_handler
 from core.auth import require_authenticated_user
 from core.models.transcription.transcription import (
     TranscriptionCreateRequest,
@@ -26,7 +27,6 @@ from core.models.transcription.transcription import (
     TranscriptionStatus,
 )
 from core.services.transcription import TranscriptionService
-from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

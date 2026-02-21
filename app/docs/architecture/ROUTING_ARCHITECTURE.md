@@ -195,7 +195,7 @@ def create_tasks_routes(app, rt, services):
 
 from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_dto import TaskDTO
-from core.utils.error_boundary import boundary_handler
+from adapters.inbound.boundary import boundary_handler
 
 @rt("/api/tasks", methods=["POST"])
 @boundary_handler()  # Auto-converts Result[T] to HTTP response

@@ -357,4 +357,4 @@ Keep manual try-except for:
 
 - `/docs/patterns/ERROR_HANDLING.md` - Result[T] error handling philosophy
 - `/core/utils/decorators.py` - Decorator implementations
-- `/core/utils/error_boundary.py` - Route-level boundary handlers
+- `/adapters/inbound/boundary.py` + `/adapters/inbound/boundary.py` - Route-level boundary handlers

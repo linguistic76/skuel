@@ -425,7 +425,7 @@ class TestFormValidation:
 
     def test_safe_form_string_extracts_value(self):
         """Test safe_form_string extracts form values safely."""
-        from core.utils.form_helpers import safe_form_string
+        from adapters.inbound.form_helpers import safe_form_string
 
         assert safe_form_string("value") == "value"
         assert safe_form_string("  trimmed  ") == "trimmed"

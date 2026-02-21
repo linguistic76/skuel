@@ -49,9 +49,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from adapters.inbound.boundary import boundary_handler
 from core.infrastructure.routes.route_helpers import check_required_role
 from core.models.enums import UserRole
-from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

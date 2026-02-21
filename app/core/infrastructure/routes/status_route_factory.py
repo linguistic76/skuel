@@ -47,10 +47,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from adapters.inbound.boundary import boundary_handler
 from core.auth.session import require_authenticated_user
 from core.infrastructure.routes.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope
-from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 

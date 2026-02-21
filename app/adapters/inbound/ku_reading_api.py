@@ -17,8 +17,8 @@ from typing import Any
 
 from fasthtml.common import Button, Request
 
+from adapters.inbound.boundary import boundary_handler
 from core.auth import require_authenticated_user
-from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 

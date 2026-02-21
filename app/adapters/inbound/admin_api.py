@@ -26,9 +26,9 @@ from typing import TYPE_CHECKING, Any
 
 from starlette.requests import Request
 
+from adapters.inbound.boundary import boundary_handler
 from core.auth import require_admin
 from core.models.enums import UserRole
-from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

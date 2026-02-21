@@ -246,7 +246,7 @@ async def update_for_user(self, uid: str, updates: dict,
 Routes use `@boundary_handler` to convert `Result[T]` to HTTP responses:
 
 ```python
-from core.utils.error_boundary import boundary_handler
+from adapters.inbound.boundary import boundary_handler
 
 @rt("/api/tasks")
 @boundary_handler(success_status=201)  # POST creates → 201
@@ -484,7 +484,7 @@ async def test_success_case():
 |------|---------|
 | `/core/utils/result_simplified.py` | Result[T] type definition |
 | `/core/utils/errors_simplified.py` | ErrorContext, Errors factory |
-| `/core/utils/error_boundary.py` | @boundary_handler decorator |
+| `/adapters/inbound/boundary.py` + `/adapters/inbound/boundary.py` | @boundary_handler decorator |
 | `/docs/patterns/ERROR_HANDLING.md` | Full documentation |
 
 ## Related Skills

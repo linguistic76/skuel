@@ -16,8 +16,8 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import Div, P
 from starlette.requests import Request
 
+from adapters.inbound.boundary import boundary_handler
 from components.calendar_components import calendar_item_to_dict
-from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:

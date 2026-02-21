@@ -118,7 +118,7 @@ warn_unreachable = false
 
 **Critical modules** (type safety matters):
 - `core.utils.result` - Result[T] pattern
-- `core.utils.error_boundary` - Error handling
+- `adapters.inbound.boundary` + `core.utils.error_boundary` - Error handling
 - `config` - Application configuration
 
 **Medium strictness:**

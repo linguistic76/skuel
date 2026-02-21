@@ -54,7 +54,7 @@ TypeError: 'types.UnionType' object is not callable
 
 ### What `@boundary_handler()` Does
 
-The `boundary_handler` decorator (`core/utils/error_boundary.py`) solves this by wrapping the handler:
+The `boundary_handler` decorator (`adapters/inbound/boundary.py`) solves this by wrapping the handler:
 
 ```python
 @wraps(func)
@@ -349,7 +349,7 @@ The SKUEL version has zero try/except, zero manual status codes, zero `jsonify()
 
 | File | Purpose |
 |------|---------|
-| `core/utils/error_boundary.py` | `boundary_handler()`, `result_to_response()` |
+| `adapters/inbound/boundary.py` | `boundary_handler()`, `result_to_response()` |
 | `core/infrastructure/routes/lateral_route_factory.py` | Generic lateral route generation (9 domains) |
 | `adapters/inbound/lateral_routes.py` | Lateral route orchestrator + domain-specific routes |
 | `core/infrastructure/routes/crud_route_factory.py` | CRUD route generation |

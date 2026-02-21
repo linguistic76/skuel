@@ -13,6 +13,7 @@ from typing import Any
 
 from fasthtml.common import Request
 
+from adapters.inbound.boundary import boundary_handler
 from core.auth import require_authenticated_user, require_ownership_query
 from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
 from core.models.ku.ku_request import (
@@ -22,7 +23,6 @@ from core.models.ku.ku_request import (
 )
 from core.services.conversion_service import ConversionService
 from core.services.protocols.facade_protocols import PrinciplesFacadeProtocol
-from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
 

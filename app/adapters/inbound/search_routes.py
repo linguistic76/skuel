@@ -45,7 +45,7 @@ from core.models.search_request import SearchRequest
 
 if TYPE_CHECKING:
     from core.utils.services_bootstrap import Services
-from core.utils.error_boundary import boundary_handler
+from adapters.inbound.boundary import boundary_handler
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.search")

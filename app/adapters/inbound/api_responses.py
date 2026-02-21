@@ -12,7 +12,7 @@ Modern Usage (via boundary_handler):
         return result  # Auto-converted to JSONResponse
 
 Legacy Direct Usage (calendar UI components only):
-    from core.utils.api_responses import error_response
+    from adapters.inbound.api_responses import error_response
     return error_response("Not found", status_code=404)
 
 Available Functions:

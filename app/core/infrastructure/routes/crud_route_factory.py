@@ -278,7 +278,7 @@ class CRUDRouteFactory[T]:
         """
         if not self.prometheus_metrics:
             # No metrics - just apply boundary handler
-            from core.utils.error_boundary import boundary_handler
+            from adapters.inbound.boundary import boundary_handler
 
             return boundary_handler(success_status=success_status)(handler)
 

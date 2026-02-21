@@ -5,7 +5,7 @@ This demonstrates how to safely extract form data in FastHTML routes
 without triggering MyPy union-attr errors.
 """
 
-from core.utils.form_helpers import safe_form_bool, safe_form_int, safe_form_string
+from adapters.inbound.form_helpers import safe_form_bool, safe_form_int, safe_form_string
 
 
 # ❌ BEFORE: Unsafe pattern (MyPy error)

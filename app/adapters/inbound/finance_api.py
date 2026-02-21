@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from core.services.protocols import FinancesOperations
 
 # Pydantic schemas for boundary
+from adapters.inbound.boundary import boundary_handler
 from core.auth import require_admin
 from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
 from core.infrastructure.routes.crud_route_factory import CRUDRouteFactory
@@ -31,7 +32,6 @@ from core.models.finance.finance_request import (
 from core.models.finance.finance_request import (
     ExpenseUpdateRequest as ExpenseUpdateSchema,
 )
-from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

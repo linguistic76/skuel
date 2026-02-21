@@ -178,7 +178,7 @@ def instrument_with_boundary_handler(
 
                 # Convert Result[T] to JSONResponse
                 if isinstance(result, Result):
-                    from core.utils.error_boundary import result_to_response
+                    from adapters.inbound.boundary import result_to_response
 
                     response = result_to_response(result, success_status)
                     status_code = response.status_code

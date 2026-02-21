@@ -21,9 +21,9 @@ from typing import Any
 import pytest
 from starlette.responses import JSONResponse
 
+from adapters.inbound.boundary import boundary_handler
 from core.infrastructure.routes.crud_route_factory import CRUDRouteFactory
 from core.models.enums import KuStatus, Priority
-from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Errors, Result
 
 

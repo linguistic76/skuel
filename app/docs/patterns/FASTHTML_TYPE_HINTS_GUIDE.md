@@ -33,7 +33,7 @@ FastHTML automatically extracts and validates parameters based on function type 
 
 ```python
 from fasthtml.common import Request
-from core.utils.error_boundary import boundary_handler
+from adapters.inbound.boundary import boundary_handler
 from core.utils.result_simplified import Result
 
 @rt("/api/tasks/{uid}/complete", methods=["POST"])
@@ -67,7 +67,7 @@ async def complete_task_route(request: Request) -> Result[Any]:
 ### ✅ NEW WAY - Type Hints (Clean)
 
 ```python
-from core.utils.error_boundary import boundary_handler
+from adapters.inbound.boundary import boundary_handler
 from core.utils.result_simplified import Result
 
 @rt("/tasks/complete")

@@ -28,6 +28,8 @@ from typing import TYPE_CHECKING, Any
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
+from adapters.inbound.form_helpers import safe_form_string
+
 # Import auth components
 from components.auth_components import AuthComponents
 from core.auth import (
@@ -36,7 +38,6 @@ from core.auth import (
     is_authenticated,
     set_current_user,
 )
-from core.utils.form_helpers import safe_form_string
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:

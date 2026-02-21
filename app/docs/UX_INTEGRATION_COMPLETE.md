@@ -81,7 +81,7 @@ assert 'toastManager' in str(page)  # ✅ PASS
 
 ### Files Modified
 
-**`/core/utils/error_boundary.py`:**
+**`/adapters/inbound/boundary.py` + `/adapters/inbound/boundary.py`:**
 - Enhanced `result_to_response()` to extract `_headers` from result.value
 - Auto-adds toast headers to error responses
 - Preserves custom headers from services
@@ -143,7 +143,7 @@ return Result.fail(Errors.not_found("task", "Task not found"))
 ### Testing
 
 ```python
-from core.utils.error_boundary import result_to_response
+from adapters.inbound.boundary import result_to_response
 from core.utils.result_simplified import Result
 
 result = Result.ok({
@@ -413,7 +413,7 @@ assert skeleton is not None  ✅
    - Added toast container with Alpine.js integration
    - Added Button and P imports
 
-2. **`/core/utils/error_boundary.py`**
+2. **`/adapters/inbound/boundary.py` + `/adapters/inbound/boundary.py`**
    - Enhanced result_to_response() to handle _headers
    - Auto-add error toasts
 

@@ -29,10 +29,10 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import JSONResponse, Request
 
+from adapters.inbound.boundary import boundary_handler
 from core.auth import require_authenticated_user
 from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
 from core.services.user import UserContext
-from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 

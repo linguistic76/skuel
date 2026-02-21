@@ -13,6 +13,7 @@ from typing import Any
 
 from fasthtml.common import Request
 
+from adapters.inbound.boundary import boundary_handler
 from core.auth import require_authenticated_user, require_ownership_query
 from core.infrastructure.routes import (
     StatusRouteFactory,
@@ -21,7 +22,6 @@ from core.infrastructure.routes import (
 from core.models.enums import ContentScope
 from core.models.ku.ku_goal import GoalKu
 from core.services.protocols.facade_protocols import GoalsFacadeProtocol
-from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Result
 
 

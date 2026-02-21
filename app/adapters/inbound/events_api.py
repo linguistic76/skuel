@@ -14,6 +14,7 @@ from typing import Any
 
 from fasthtml.common import Request
 
+from adapters.inbound.boundary import boundary_handler
 from core.auth import require_ownership_query
 from core.infrastructure.routes import (
     StatusRouteFactory,
@@ -26,7 +27,6 @@ from core.models.event.event_request import (
     GetRecurringEventsRequest,
 )
 from core.services.protocols.facade_protocols import EventsFacadeProtocol
-from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Result
 
 

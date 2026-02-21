@@ -21,6 +21,7 @@ from typing import Any
 
 from starlette.responses import Response
 
+from adapters.inbound.boundary import boundary_handler
 from components.timeline_components import (
     render_timeline_error,
     render_timeline_viewer_page,
@@ -28,7 +29,6 @@ from components.timeline_components import (
 from core.auth import require_authenticated_user
 from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
 from core.models.enums import KuStatus
-from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
