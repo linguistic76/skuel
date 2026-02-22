@@ -154,9 +154,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             step_difficulty: $step_difficulty,
             status: $status,
             completed: $completed,
-            completed_at: $completed_at,
-            domain: $domain,
-            priority: $priority
+            domain: $domain
         })
         """
 
@@ -205,9 +203,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             "step_difficulty": get_enum_value(step.step_difficulty),
             "status": get_enum_value(step.status),
             "completed": step.is_completed,
-            "completed_at": step.completed_at.isoformat() if step.completed_at else None,
             "domain": get_enum_value(step.domain),
-            "priority": get_enum_value(step.priority),
             "primary_knowledge_uids": list(step.primary_knowledge_uids),
             "supporting_knowledge_uids": list(step.supporting_knowledge_uids),
             "path_uid": path_uid,
@@ -300,9 +296,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             estimated_hours=step_data.get("estimated_hours", 1.0),
             step_difficulty=step_data.get("step_difficulty"),
             status=step_data.get("status"),
-            completed_at=step_data.get("completed_at"),
             domain=step_data.get("domain", "PERSONAL"),
-            priority=step_data.get("priority", "MEDIUM"),
         )
 
         return Result.ok(step)
@@ -468,9 +462,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             estimated_hours=step_data.get("estimated_hours", 1.0),
             step_difficulty=step_data.get("step_difficulty"),
             status=step_data.get("status"),
-            completed_at=step_data.get("completed_at"),
             domain=step_data.get("domain", "PERSONAL"),
-            priority=step_data.get("priority", "MEDIUM"),
         )
 
         # Enrich with graph context in metadata
@@ -560,7 +552,6 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             "status",
             "completed",
             "domain",
-            "priority",
         }
         for key, value in updates.items():
             if key in allowed_fields:
@@ -629,9 +620,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             estimated_hours=step_data.get("estimated_hours", 1.0),
             step_difficulty=step_data.get("step_difficulty"),
             status=step_data.get("status"),
-            completed_at=step_data.get("completed_at"),
             domain=step_data.get("domain", "PERSONAL"),
-            priority=step_data.get("priority", "MEDIUM"),
         )
 
         logger.info(f"Updated learning step {step_uid}")

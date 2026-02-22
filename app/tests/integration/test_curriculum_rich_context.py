@@ -32,11 +32,6 @@ from core.utils.uid_generator import UIDGenerator
 class TestCurriculumRichContext:
     """Test rich context pattern for LP and LS domains."""
 
-    @pytest.mark.xfail(
-        reason="Production bug: ls_core_service.py get_with_context passes completed_at "
-        "and priority to LearningStep.__init__ but these are not valid fields on LearningStep",
-        strict=True,
-    )
     async def test_learning_step_get_with_context(self, services, test_user):
         """
         Test LsCoreService.get_with_context() fetches step + graph neighborhood.
