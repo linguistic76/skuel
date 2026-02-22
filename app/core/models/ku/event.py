@@ -4,7 +4,7 @@ Event - Event Domain Model
 
 Frozen dataclass for event entities (EntityType.EVENT).
 
-Inherits ~48 common fields from Entity. Adds 26 event-specific fields:
+Inherits common fields from UserOwnedEntity. Adds 26 event-specific fields:
 - Scheduling (4): event_date, start_time, end_time, duration_minutes
 - Event Logistics (4): event_type, location, is_online, meeting_url
 - Recurrence (3): recurrence_pattern, recurrence_end_date, recurrence_parent_uid
@@ -32,15 +32,15 @@ if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums.ku_enums import EntityType
-from core.models.ku.entity import Entity
+from core.models.ku.user_owned_entity import UserOwnedEntity
 
 
 @dataclass(frozen=True)
-class Event(Entity):
+class Event(UserOwnedEntity):
     """
     Immutable domain model for events (EntityType.EVENT).
 
-    Inherits ~48 common fields from Entity (identity, content, status,
+    Inherits common fields from UserOwnedEntity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
     Adds 26 event-specific fields for scheduling, logistics, attendees,

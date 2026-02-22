@@ -61,10 +61,10 @@ class TestResourceKuCreation:
         assert r.source_url == "https://example.com/meditations"
         assert r.media_type == "book"
 
-    def test_visibility_defaults_private(self):
-        """Resources default to PRIVATE visibility (set in Entity.__post_init__)."""
+    def test_visibility_defaults_public(self):
+        """Resources default to PUBLIC visibility (shared type, Entity.__post_init__)."""
         r = Resource(uid="ku_test", title="Test")
-        assert r.visibility == Visibility.PRIVATE
+        assert r.visibility == Visibility.PUBLIC
 
     def test_is_time_based_property(self):
         """is_time_based returns True when resource_duration_minutes is set."""

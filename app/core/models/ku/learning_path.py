@@ -94,5 +94,5 @@ class LearningPath(Curriculum):
         return (
             f"LearningPath(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, path_type={self.path_type}, "
-            f"outcomes={len(self.outcomes)}, user_uid={self.user_uid})"
+            f"outcomes={len(self.outcomes)})"
         )

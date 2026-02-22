@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums.ku_enums import EntityType, ProcessorType
-from core.models.ku.entity import Entity
+from core.models.ku.user_owned_entity import UserOwnedEntity
 
 _SUBMISSION_KU_TYPES = frozenset(
     {
@@ -40,21 +40,21 @@ _SUBMISSION_KU_TYPES = frozenset(
 
 
 @dataclass(frozen=True)
-class Submission(Entity):
+class Submission(UserOwnedEntity):
     """
     Immutable domain model for content-processing entities.
 
     Accepts 4 ku_types: SUBMISSION, JOURNAL, AI_REPORT, FEEDBACK_REPORT.
 
-    Inherits ~48 common fields from Entity (identity, content, status,
-    learning, sharing, substance, meta, embedding).
+    Inherits common fields from UserOwnedEntity (identity, content, status,
+    sharing, meta, embedding, user_uid, priority).
 
     Adds 13 submission-specific fields for file storage, content processing,
     and subject tracking.
     """
 
     def __post_init__(self) -> None:
-        """Validate ku_type is a submission type, then delegate to Entity."""
+        """Validate ku_type is a submission type, then delegate to UserOwnedEntity."""
         if self.ku_type not in _SUBMISSION_KU_TYPES:
             object.__setattr__(self, "ku_type", EntityType.SUBMISSION)
         super().__post_init__()

@@ -3,18 +3,25 @@ Entity - Common Fields and Methods for All Knowledge Types
 ==========================================================
 
 Base frozen dataclass shared by all 15 EntityType domain subclasses.
-Contains ~29 fields genuinely common to every manifestation of knowledge:
-Identity (7), Content (4), Status (2), Sharing (1), Meta (6), Embedding (3).
+Contains ~19 fields genuinely common to every manifestation of knowledge:
+Identity (5), Content (4), Status (1), Sharing (1), Meta (6), Embedding (3).
+
+User ownership fields (user_uid, priority) live on UserOwnedEntity — the
+intermediate class for user-owned types (Activity Domains, Submissions, LifePath).
 
 Learning metadata, substance tracking, and curriculum-specific methods live
 on Curriculum (the intermediate class for curriculum-carrying types).
 
-Domain subclasses (Task, Goal, Habit, etc.) inherit from Entity
-and add their own fields and methods. The dispatcher `Entity.from_dto(dto)`
-routes to the correct subclass based on dto.ku_type.
+Hierarchy:
+    Entity (~19 fields)
+    ├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
+    │   ├── Task, Goal, Habit, Event, Choice, Principle
+    │   ├── Submission → Journal, AiReport, Feedback
+    │   └── LifePath
+    ├── Curriculum(Entity) → LearningStep, LearningPath, Exercise
+    └── Resource(Entity)
 
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
-See: /.claude/plans/crispy-spinning-wozniak.md
 """
 
 import dataclasses
@@ -35,14 +42,14 @@ class Entity:
     """
     Base frozen dataclass for all knowledge types.
 
-    Contains ~29 fields shared by every EntityType manifestation:
-    Identity (7), Content (4), Status (2), Sharing (1), Meta (6), Embedding (3).
+    Contains ~19 fields shared by every EntityType manifestation:
+    Identity (5), Content (4), Status (1), Sharing (1), Meta (6), Embedding (3).
 
-    Learning metadata (7), substance tracking (10), and cache (2) fields
-    live on Curriculum — they only apply to curriculum-carrying types.
+    User ownership (user_uid, priority) lives on UserOwnedEntity.
+    Learning metadata and substance tracking live on Curriculum.
 
-    Domain-specific subclasses (Task, Goal, Habit, etc.) inherit
-    from Entity and add their own fields and methods.
+    Domain-specific subclasses inherit from Entity (shared types) or
+    UserOwnedEntity (user-owned types) and add their own fields.
     """
 
     # Neo4j node label — all EntityType subclasses share the :Ku label
@@ -54,7 +61,6 @@ class Entity:
     uid: str
     title: str
     ku_type: EntityType = EntityType.CURRICULUM
-    user_uid: str | None = None  # None for shared types (CURRICULUM, LS, LP)
     parent_ku_uid: str | None = None  # Derivation chain — what Ku this was based on
     domain: Domain = Domain.KNOWLEDGE
     created_by: str | None = None
@@ -71,7 +77,6 @@ class Entity:
     # STATUS
     # =========================================================================
     status: EntityStatus = None  # type: ignore[assignment]  # Set in __post_init__
-    priority: str | None = None  # Priority enum value (LOW/MEDIUM/HIGH/CRITICAL)
 
     # =========================================================================
     # SHARING
@@ -110,30 +115,39 @@ class Entity:
         if self.status is None:
             object.__setattr__(self, "status", self.ku_type.default_status())
 
-        # Default visibility: shared types are PUBLIC, others are PRIVATE
+        # Default visibility: PUBLIC for shared types (Entity direct children).
+        # UserOwnedEntity overrides to PRIVATE before calling super().__post_init__().
         if self.visibility is None:
-            if self.ku_type in {
-                EntityType.CURRICULUM,
-                EntityType.LEARNING_STEP,
-                EntityType.LEARNING_PATH,
-                EntityType.EXERCISE,
-            }:
-                object.__setattr__(self, "visibility", Visibility.PUBLIC)
-            else:
-                object.__setattr__(self, "visibility", Visibility.PRIVATE)
+            object.__setattr__(self, "visibility", Visibility.PUBLIC)
 
         # Compute word_count from content if not set
         if self.word_count == 0 and self.content:
             object.__setattr__(self, "word_count", len(self.content.split()))
 
+    # =========================================================================
+    # USER OWNERSHIP COMPATIBILITY
+    # Properties for backward compatibility with code accessing user_uid/priority
+    # on any Entity subclass. UserOwnedEntity overrides with real fields.
+    # =========================================================================
+
+    @property
+    def user_uid(self) -> str | None:
+        """Shared types have no owner. UserOwnedEntity overrides with a field."""
+        return None
+
+    @property
+    def priority(self) -> str | None:
+        """Shared types have no priority. UserOwnedEntity overrides with a field."""
+        return None
+
     @property
     def is_user_owned(self) -> bool:
-        """Check if this Ku has an owner (non-shared type)."""
-        return self.user_uid is not None
+        """Check if this entity has an owner. Overridden by UserOwnedEntity."""
+        return False
 
     @property
     def is_derived(self) -> bool:
-        """Check if this Ku was derived from another Ku."""
+        """Check if this entity was derived from another entity."""
         return self.parent_ku_uid is not None
 
     # =========================================================================
@@ -168,22 +182,15 @@ class Entity:
         """Only completed Ku can be shared (quality control)."""
         return self.status == EntityStatus.COMPLETED
 
-    def can_view(self, viewer_uid: str, shared_user_uids: set[str] | None = None) -> bool:
+    def can_view(self, _viewer_uid: str, _shared_user_uids: set[str] | None = None) -> bool:
         """
-        Check if a user can view this Ku.
+        Check if a user can view this entity.
 
-        Access granted if:
-        - Ku is PUBLIC (all curriculum)
-        - Viewer is the owner
-        - Ku is SHARED and viewer is in shared_user_uids
+        Base implementation checks visibility only (no user ownership).
+        UserOwnedEntity overrides with full ownership + sharing logic.
+        Shared types (Curriculum, Resource) are always PUBLIC.
         """
-        if self.visibility == Visibility.PUBLIC:
-            return True
-        if self.user_uid and viewer_uid == self.user_uid:
-            return True
-        if self.visibility == Visibility.SHARED and shared_user_uids:
-            return viewer_uid in shared_user_uids
-        return False
+        return self.visibility == Visibility.PUBLIC
 
     # =========================================================================
     # KNOWLEDGE CARRIER PROTOCOL
@@ -321,5 +328,5 @@ class Entity:
         return (
             f"Ku(uid='{self.uid}', ku_type={self.ku_type}, "
             f"title='{self.title}', domain={self.domain}, "
-            f"status={self.status}, user_uid={self.user_uid})"
+            f"status={self.status})"
         )

@@ -4,7 +4,7 @@ Habit - Habit Domain Model
 
 Frozen dataclass for habit entities (EntityType.HABIT).
 
-Inherits ~48 common fields from Entity. Adds 31 habit-specific fields:
+Inherits common fields from UserOwnedEntity. Adds 31 habit-specific fields:
 - Classification (3): polarity, habit_category, habit_difficulty
 - Streak Tracking (6): current_streak, best_streak, total_completions,
   total_attempts, success_rate, last_completed
@@ -40,15 +40,15 @@ from core.models.enums.ku_enums import (
     HabitDifficulty,
     HabitPolarity,
 )
-from core.models.ku.entity import Entity
+from core.models.ku.user_owned_entity import UserOwnedEntity
 
 
 @dataclass(frozen=True)
-class Habit(Entity):
+class Habit(UserOwnedEntity):
     """
     Immutable domain model for habits (EntityType.HABIT).
 
-    Inherits ~48 common fields from Entity (identity, content, status,
+    Inherits common fields from UserOwnedEntity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
     Adds 31 habit-specific fields for classification, streak tracking,

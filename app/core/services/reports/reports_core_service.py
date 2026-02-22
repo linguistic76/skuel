@@ -406,9 +406,11 @@ class KuCoreService(BaseService[BackendOperations[Entity], Entity]):
             return Result.fail(delete_result.expect_error())
 
         if delete_result.value:
+            from core.models.ku.user_owned_entity import UserOwnedEntity
+
             event = SubmissionDeleted(
                 submission_uid=uid,
-                user_uid=ku.user_uid,
+                user_uid=ku.user_uid if isinstance(ku, UserOwnedEntity) else None,
                 ku_type=ku.ku_type.value,
                 occurred_at=datetime.now(),
             )

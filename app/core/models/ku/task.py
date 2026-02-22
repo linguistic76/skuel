@@ -4,7 +4,7 @@ Task - Task Domain Model
 
 Frozen dataclass for task entities (EntityType.TASK).
 
-Inherits ~48 common fields from Entity. Adds 25 task-specific fields:
+Inherits common fields from UserOwnedEntity. Adds 25 task-specific fields:
 - Scheduling (9): due_date, scheduled_date, completion_date, duration, recurrence
 - Hierarchy (3): parent_uid, project, assignee
 - Cross-domain links (4): goal, habit, learning step/path references
@@ -26,15 +26,15 @@ if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums.ku_enums import EntityType
-from core.models.ku.entity import Entity
+from core.models.ku.user_owned_entity import UserOwnedEntity
 
 
 @dataclass(frozen=True)
-class Task(Entity):
+class Task(UserOwnedEntity):
     """
     Immutable domain model for tasks (EntityType.TASK).
 
-    Inherits ~48 common fields from Entity (identity, content, status,
+    Inherits common fields from UserOwnedEntity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
     Adds 25 task-specific fields for scheduling, hierarchy, cross-domain
@@ -42,7 +42,7 @@ class Task(Entity):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=TASK, then delegate to Entity for timestamps/status defaults."""
+        """Force ku_type=TASK, then delegate to UserOwnedEntity for defaults."""
         if self.ku_type != EntityType.TASK:
             object.__setattr__(self, "ku_type", EntityType.TASK)
         super().__post_init__()

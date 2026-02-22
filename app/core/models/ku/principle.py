@@ -4,7 +4,7 @@ Principle - Principle Domain Model
 
 Frozen dataclass for principle entities (EntityType.PRINCIPLE).
 
-Inherits ~48 common fields from Entity. Adds 19 principle-specific fields:
+Inherits common fields from UserOwnedEntity. Adds 19 principle-specific fields:
 - Statement (1): statement
 - Classification (3): principle_category, principle_source, strength
 - Philosophical context (3): tradition, original_source, personal_interpretation
@@ -36,16 +36,16 @@ from core.models.enums.ku_enums import (
     PrincipleSource,
     PrincipleStrength,
 )
-from core.models.ku.entity import Entity
 from core.models.ku.ku_nested_types import AlignmentAssessment, PrincipleExpression
+from core.models.ku.user_owned_entity import UserOwnedEntity
 
 
 @dataclass(frozen=True)
-class Principle(Entity):
+class Principle(UserOwnedEntity):
     """
     Immutable domain model for principles (EntityType.PRINCIPLE).
 
-    Inherits ~48 common fields from Entity (identity, content, status,
+    Inherits common fields from UserOwnedEntity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
     Adds 19 principle-specific fields for classification, philosophical context,

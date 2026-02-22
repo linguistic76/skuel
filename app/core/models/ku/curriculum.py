@@ -476,5 +476,5 @@ class Curriculum(Entity):
         return (
             f"Curriculum(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, domain={self.domain}, "
-            f"complexity={self.complexity}, user_uid={self.user_uid})"
+            f"complexity={self.complexity})"
         )

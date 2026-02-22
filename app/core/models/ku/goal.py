@@ -4,7 +4,7 @@ Goal - Goal Domain Model
 
 Frozen dataclass for goal entities (EntityType.GOAL).
 
-Inherits ~48 common fields from Entity. Adds 24 goal-specific fields:
+Inherits common fields from UserOwnedEntity. Adds 24 goal-specific fields:
 - Classification (3): goal_type, timeframe, measurement_type
 - Measurement (3): target_value, current_value, unit_of_measurement
 - Timeline (3): start_date, target_date, achieved_date
@@ -36,16 +36,16 @@ from core.models.enums.ku_enums import (
     GoalType,
     MeasurementType,
 )
-from core.models.ku.entity import Entity
 from core.models.ku.ku_nested_types import Milestone
+from core.models.ku.user_owned_entity import UserOwnedEntity
 
 
 @dataclass(frozen=True)
-class Goal(Entity):
+class Goal(UserOwnedEntity):
     """
     Immutable domain model for goals (EntityType.GOAL).
 
-    Inherits ~48 common fields from Entity (identity, content, status,
+    Inherits common fields from UserOwnedEntity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
     Adds 24 goal-specific fields for classification, measurement, timeline,

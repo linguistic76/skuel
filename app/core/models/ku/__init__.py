@@ -1,44 +1,49 @@
 """
-Knowledge Models - Decomposed Ku Architecture (Phase 10 Complete)
-==================================================================
+Knowledge Models - Domain-First Architecture
+==============================================
 
 "Ku is the heartbeat of SKUEL."
 
-After Phase 10 decomposition, the God Object is gone. Each domain has its own
-frozen dataclass inheriting from Entity (~48 common fields).
+Each domain has its own frozen dataclass. User-owned types inherit from
+UserOwnedEntity (adds user_uid, priority). Shared types inherit from Entity.
 
 Architecture:
-    ku_base.py      - Entity (~29 common fields + stubs, from_dto dispatcher)
-    ku.py           - Ku union type alias + ENTITY_TYPE_CLASS_MAP
-    ku_task.py      - Task(Entity)          +25 task fields
-    ku_goal.py      - Goal(Entity)          +24 goal fields
-    ku_habit.py     - Habit(Entity)         +31 habit fields
-    ku_event.py     - Event(Entity)         +37 event fields
-    ku_choice.py    - Choice(Entity)        +13 choice fields
-    ku_principle.py - Principle(Entity)     +19 principle fields
-    ku_curriculum.py  - Curriculum(Entity)  +21 learning/substance fields
-    ku_resource.py    - Resource(Entity)    +7 resource fields
-    ku_learning_step.py - LearningStep(Curriculum) +9 fields
-    ku_learning_path.py - LearningPath(Curriculum) +4 fields
-    ku_submission.py  - Submission(Entity)  +13 file/processing fields
-    ku_journal.py     - Journal(Submission)  +0
-    ku_ai_report.py   - AiReport(Submission) +0
-    ku_feedback.py    - Feedback(Submission)  +2 feedback fields
-    ku_life_path.py   - LifePath(Entity)       +12 alignment fields
+    entity.py            - Entity (~19 common fields, from_dto dispatcher)
+    user_owned_entity.py - UserOwnedEntity(Entity) +2 fields (user_uid, priority)
+    ku.py                - Ku union type alias + ENTITY_TYPE_CLASS_MAP
+
+    User-owned (via UserOwnedEntity):
+        task.py       - Task          +25 task fields
+        goal.py       - Goal          +24 goal fields
+        habit.py      - Habit         +31 habit fields
+        event.py      - Event         +26 event fields
+        choice.py     - Choice        +13 choice fields
+        principle.py  - Principle     +19 principle fields
+        submission.py - Submission    +13 file/processing fields
+            journal.py    - Journal(Submission)   +0
+            ai_report.py  - AiReport(Submission)  +0
+            feedback.py   - Feedback(Submission)  +2
+        life_path.py  - LifePath      +14 alignment fields
+
+    Shared (via Entity):
+        curriculum.py     - Curriculum    +21 learning/substance fields
+            learning_step.py - LearningStep(Curriculum) +9
+            learning_path.py - LearningPath(Curriculum) +4
+            exercise.py      - Exercise(Curriculum)     +7
+        resource.py       - Resource      +7 resource fields
 
 Support:
     ku_dto.py          - Unified KuDTO (all fields, mutable)
-    ku_request.py      - Pydantic API models (14 create + 1 update + 1 response)
+    ku_request.py      - Pydantic API models
     ku_nested_types.py - Milestone, ChoiceOption, PrincipleExpression, AlignmentAssessment
     ku_content.py, ku_chunks.py, ku_metadata.py - Content & RAG
-    ku_exercise.py - Exercise(Curriculum) - instruction templates
-    ku_schedule.py - Scheduling
+    ku_schedule.py     - Scheduling
 
 Usage:
     from core.models.ku import Task, Goal, Habit, Event, Choice, Principle
     from core.models.ku import Curriculum, Exercise, LearningStep, LearningPath
     from core.models.ku import Submission, Journal, AiReport, Feedback
-    from core.models.ku import Entity, Ku, KuDTO, KuResponse, KuSchedule
+    from core.models.ku import Entity, UserOwnedEntity, Ku, KuDTO, KuSchedule
 """
 
 from .ai_report import AiReport
@@ -56,7 +61,7 @@ from .feedback import Feedback
 from .goal import Goal
 from .habit import Habit
 from .journal import Journal
-from .ku import ENTITY_TYPE_CLASS_MAP, CurriculumEntity, Ku, SubmissionEntity
+from .ku import ENTITY_TYPE_CLASS_MAP, ActivityEntity, CurriculumEntity, Ku, SubmissionEntity
 from .ku_chunks import KuChunk, KuChunkType, chunk_content
 from .ku_content import KuContent
 from .ku_converters import ku_to_response
@@ -121,11 +126,14 @@ from .principle import Principle
 from .resource import Resource
 from .submission import Submission
 from .task import Task
+from .user_owned_entity import UserOwnedEntity
 
 __all__ = [
     # Core domain models
     "Ku",
     "Entity",
+    "UserOwnedEntity",
+    "ActivityEntity",
     "Task",
     "Goal",
     "Habit",

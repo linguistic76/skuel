@@ -13,6 +13,7 @@ from typing import Any
 from .entity import Entity
 from .feedback import Feedback
 from .submission import Submission
+from .user_owned_entity import UserOwnedEntity
 
 
 def ku_to_response(ku: Entity) -> dict[str, Any]:
@@ -20,12 +21,13 @@ def ku_to_response(ku: Entity) -> dict[str, Any]:
     Convert any Entity subclass to API response format.
 
     Uses isinstance checks for subclass-specific fields (Submission, Feedback).
+    user_uid and priority only exist on UserOwnedEntity subclasses.
     """
     response: dict[str, Any] = {
         "uid": ku.uid,
         "title": ku.title,
         "ku_type": ku.ku_type.value,
-        "user_uid": ku.user_uid,
+        "user_uid": ku.user_uid if isinstance(ku, UserOwnedEntity) else None,
         "parent_ku_uid": ku.parent_ku_uid,
         "domain": ku.domain.value,
         "created_by": ku.created_by,

@@ -132,6 +132,5 @@ class LearningStep(Curriculum):
         return (
             f"LearningStep(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, sequence={self.sequence}, "
-            f"mastery={self.current_mastery}/{self.mastery_threshold}, "
-            f"user_uid={self.user_uid})"
+            f"mastery={self.current_mastery}/{self.mastery_threshold})"
         )

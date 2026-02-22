@@ -1382,7 +1382,9 @@ Return ONLY Markdown in this structure:
 
         if ku_result.is_ok:
             ku = ku_result.value
-            ku_user_uid = ku.user_uid
+            from core.models.ku.user_owned_entity import UserOwnedEntity
+
+            ku_user_uid = ku.user_uid if isinstance(ku, UserOwnedEntity) else "unknown"
 
         result = await super().delete(uid, cascade=cascade)
 

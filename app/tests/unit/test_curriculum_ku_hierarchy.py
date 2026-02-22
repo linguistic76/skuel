@@ -69,17 +69,17 @@ class TestCurriculumKuCreation:
         assert cu.last_reflected_date is None
         assert cu.last_choice_informed_date is None
 
-    def test_inherits_kubase_fields(self):
-        """Curriculum inherits all Entity identity/content/status fields."""
+    def test_inherits_entity_fields(self):
+        """Curriculum inherits Entity identity/content/status fields (no user_uid)."""
         cu = Curriculum(
             uid="ku_test",
             title="Test",
-            user_uid="user_alice",
             domain=Domain.TECH,
             content="Some content",
             tags=("python", "testing"),
         )
-        assert cu.user_uid == "user_alice"
+        # Curriculum is a shared type — user_uid property returns None
+        assert cu.user_uid is None
         assert cu.domain == Domain.TECH
         assert cu.content == "Some content"
         assert cu.tags == ("python", "testing")

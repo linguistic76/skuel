@@ -66,6 +66,9 @@ Ku = (
 # curriculum entities or submission entities.
 # =============================================================================
 
+# Activity entities — user-owned entities with user_uid and priority
+ActivityEntity = Task | Goal | Habit | Event | Choice | Principle
+
 # Curriculum entities — carry learning_level, quality_score, sel_category, etc.
 CurriculumEntity = Curriculum | LearningStep | LearningPath | Exercise
 

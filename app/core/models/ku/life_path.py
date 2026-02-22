@@ -31,23 +31,23 @@ if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums.ku_enums import AlignmentLevel, EntityType
-from core.models.ku.entity import Entity
+from core.models.ku.user_owned_entity import UserOwnedEntity
 
 
 @dataclass(frozen=True)
-class LifePath(Entity):
+class LifePath(UserOwnedEntity):
     """
     Immutable domain model for life path entities (EntityType.LIFE_PATH).
 
-    Inherits ~48 common fields from Entity (identity, content, status,
-    learning, sharing, substance, meta, embedding).
+    Inherits common fields from UserOwnedEntity (identity, content, status,
+    sharing, meta, embedding, user_uid, priority).
 
     Adds 14 life-path-specific fields for designation, alignment scores,
     dimension scores, and vision metadata.
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=LIFE_PATH, then delegate to Entity."""
+        """Force ku_type=LIFE_PATH, then delegate to UserOwnedEntity."""
         if self.ku_type != EntityType.LIFE_PATH:
             object.__setattr__(self, "ku_type", EntityType.LIFE_PATH)
         super().__post_init__()

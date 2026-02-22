@@ -4,7 +4,7 @@ Choice - Choice Domain Model
 
 Frozen dataclass for choice entities (EntityType.CHOICE).
 
-Inherits ~48 common fields from Entity. Adds 14 choice-specific fields:
+Inherits common fields from UserOwnedEntity. Adds 14 choice-specific fields:
 - Decision (7): choice_type, options, selected_option_uid, decision_rationale,
   decision_criteria, constraints, stakeholders
 - Decision Timing (2): decision_deadline, decided_at
@@ -26,16 +26,16 @@ if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums.ku_enums import ChoiceType, EntityType
-from core.models.ku.entity import Entity
 from core.models.ku.ku_nested_types import ChoiceOption
+from core.models.ku.user_owned_entity import UserOwnedEntity
 
 
 @dataclass(frozen=True)
-class Choice(Entity):
+class Choice(UserOwnedEntity):
     """
     Immutable domain model for choices (EntityType.CHOICE).
 
-    Inherits ~48 common fields from Entity (identity, content, status,
+    Inherits common fields from UserOwnedEntity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
     Adds 14 choice-specific fields for decision context, timing, outcome

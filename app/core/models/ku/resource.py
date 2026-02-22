@@ -110,5 +110,5 @@ class Resource(Entity):
         return (
             f"Resource(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, media_type={self.media_type}, "
-            f"author={self.author}, user_uid={self.user_uid})"
+            f"author={self.author})"
         )
