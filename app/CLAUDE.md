@@ -1450,7 +1450,7 @@ def create_tasks_routes(app, rt, services, _sync_service=None):
 For Activity Domains, use `create_activity_domain_route_config()` to move CRUD/Query/Intelligence factories from api_factory to config:
 
 ```python
-from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
+from adapters.inbound.route_factories import create_activity_domain_route_config, register_domain_routes
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 
 TASKS_CONFIG = create_activity_domain_route_config(

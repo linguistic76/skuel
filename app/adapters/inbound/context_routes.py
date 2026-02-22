@@ -15,7 +15,7 @@ Version: 2.0 (Migrated to DomainRouteConfig pattern)
 
 from adapters.inbound.context_aware_api import create_context_aware_api_routes
 from adapters.inbound.context_aware_ui import create_context_aware_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 # Configuration for Context routes
 CONTEXT_CONFIG = DomainRouteConfig(

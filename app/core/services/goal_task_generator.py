@@ -391,7 +391,9 @@ class GoalTaskGenerator:
 
         return tasks
 
-    async def _generate_checkin_tasks(self, goal: GoalKu, _user_context: UserContext) -> list[TaskDTO]:
+    async def _generate_checkin_tasks(
+        self, goal: GoalKu, _user_context: UserContext
+    ) -> list[TaskDTO]:
         """Generate periodic check-in tasks for goal progress."""
         tasks = []
 
@@ -419,7 +421,9 @@ class GoalTaskGenerator:
 
         return tasks
 
-    async def _generate_urgent_tasks(self, goal: GoalKu, _user_context: UserContext) -> list[TaskDTO]:
+    async def _generate_urgent_tasks(
+        self, goal: GoalKu, _user_context: UserContext
+    ) -> list[TaskDTO]:
         """Generate urgent tasks for at-risk goals."""
         tasks = []
 

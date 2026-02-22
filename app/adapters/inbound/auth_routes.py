@@ -7,7 +7,7 @@ Minimal factory that wires authentication API and UI routes using DomainRouteCon
 
 from adapters.inbound.auth_api import create_auth_api_routes
 from adapters.inbound.auth_ui import create_auth_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 AUTH_CONFIG = DomainRouteConfig(
     domain_name="auth",

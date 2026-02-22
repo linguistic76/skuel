@@ -27,7 +27,7 @@ from components.timeline_components import (
     render_timeline_error,
     render_timeline_viewer_page,
 )
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.models.enums import KuStatus
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

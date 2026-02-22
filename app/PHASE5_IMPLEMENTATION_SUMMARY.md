@@ -89,7 +89,7 @@ EntityRelationshipsSection(
 
 ### API Layer (27 Endpoints)
 
-**Factory:** `core/infrastructure/routes/lateral_route_factory.py`
+**Factory:** `adapters/inbound/route_factories/lateral_route_factory.py`
 
 **Endpoint Pattern:**
 ```
@@ -201,7 +201,7 @@ Alpine.data('relationshipGraph', function(entity_uid, entity_type, initial_depth
 - `core/services/lateral_relationships/lateral_relationship_service.py`
 
 ### API Layer (2)
-- `core/infrastructure/routes/lateral_route_factory.py`
+- `adapters/inbound/route_factories/lateral_route_factory.py`
 - `adapters/inbound/lateral_routes.py`
 
 ### UI Components (4)

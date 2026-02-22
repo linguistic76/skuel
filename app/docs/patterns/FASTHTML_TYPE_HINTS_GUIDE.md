@@ -431,7 +431,7 @@ async def action_name(              # Descriptive function name
 
 - FastHTML Best Practices: `/docs/FastHTML Best Practices – fasthtml.html`
 - Migration Guide: `/docs/API_MIGRATION_FASTHTML.md`
-- Route Factory: `/core/infrastructure/routes/crud_route_factory.py`
+- Route Factory: `/adapters/inbound/route_factories/crud_route_factory.py`
 - Cleanup Analysis: `/docs/analysis/ROUTE_CLEANUP_OPPORTUNITIES.md`
 
 ---

@@ -336,7 +336,7 @@ RETURN {nodes: nodeData, edges: edgeData}
 
 **Key Files:**
 - `/adapters/inbound/lateral_routes.py` - Route registration
-- `/core/infrastructure/routes/lateral_route_factory.py` - Route factory
+- `/adapters/inbound/route_factories/lateral_route_factory.py` - Route factory
 
 **API Endpoint Pattern:**
 
@@ -354,7 +354,7 @@ GET /api/goals/goal_launch-product_def456/lateral/graph?depth=2
 **Route Factory Usage:**
 
 ```python
-from core.infrastructure.routes.lateral_route_factory import LateralRouteFactory
+from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
 
 def create_tasks_lateral_routes(app, rt, tasks_service, lateral_service):
     """Register lateral relationship routes for Tasks domain."""
@@ -1780,7 +1780,7 @@ What is the user's goal?
 **File:** `/adapters/inbound/{domain}_routes.py`
 
 ```python
-from core.infrastructure.routes.lateral_route_factory import LateralRouteFactory
+from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
 
 def create_{domain}_routes(app, rt, services, _sync_service=None):
     # ... existing routes ...
@@ -1955,7 +1955,7 @@ Link(rel="stylesheet", href="/static/vendor/vis-network/vis-network.min.css"),
 | `/ui/patterns/relationships/relationship_graph.py` | All | FastHTML wrapper component |
 | `/ui/patterns/relationships/relationship_section.py` | All | Main orchestrator (tabs, depth control) |
 | `/adapters/inbound/lateral_routes.py` | All | Route registration examples |
-| `/core/infrastructure/routes/lateral_route_factory.py` | All | Route factory pattern |
+| `/adapters/inbound/route_factories/lateral_route_factory.py` | All | Route factory pattern |
 
 ---
 

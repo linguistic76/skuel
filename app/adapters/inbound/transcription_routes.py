@@ -6,7 +6,7 @@ Minimal factory that wires transcription API routes using DomainRouteConfig.
 """
 
 from adapters.inbound.transcription_api import create_transcription_api_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 TRANSCRIPTION_CONFIG = DomainRouteConfig(
     domain_name="transcription",

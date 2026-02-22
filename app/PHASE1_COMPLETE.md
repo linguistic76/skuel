@@ -232,7 +232,7 @@ skuel_search_similarity_score{search_type}
 - Can identify slowest endpoints
 
 **Key Files to Modify**:
-- `/core/infrastructure/routes/crud_route_factory.py` - Add HTTP instrumentation
+- `/adapters/inbound/route_factories/crud_route_factory.py` - Add HTTP instrumentation
 - `/adapters/persistence/neo4j/universal_backend.py` - Add DB metrics
 - `/core/utils/services_bootstrap.py` - Wire PrometheusMetrics into services
 

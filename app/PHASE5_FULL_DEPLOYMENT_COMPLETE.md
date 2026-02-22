@@ -281,7 +281,7 @@ All detail pages use:
 - `/core/services/lateral_relationships/lateral_relationship_service.py` (lines 634-1014)
 
 **API Routes:**
-- `/core/infrastructure/routes/lateral_route_factory.py` (lines 447-560)
+- `/adapters/inbound/route_factories/lateral_route_factory.py` (lines 447-560)
 
 **UI Components:**
 - `/ui/patterns/relationships/__init__.py` - Exports

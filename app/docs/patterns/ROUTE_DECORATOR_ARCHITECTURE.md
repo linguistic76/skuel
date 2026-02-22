@@ -350,10 +350,10 @@ The SKUEL version has zero try/except, zero manual status codes, zero `jsonify()
 | File | Purpose |
 |------|---------|
 | `adapters/inbound/boundary.py` | `boundary_handler()`, `result_to_response()` |
-| `core/infrastructure/routes/lateral_route_factory.py` | Generic lateral route generation (9 domains) |
+| `adapters/inbound/route_factories/lateral_route_factory.py` | Generic lateral route generation (9 domains) |
 | `adapters/inbound/lateral_routes.py` | Lateral route orchestrator + domain-specific routes |
-| `core/infrastructure/routes/crud_route_factory.py` | CRUD route generation |
-| `core/infrastructure/routes/intelligence_route_factory.py` | Intelligence route generation |
+| `adapters/inbound/route_factories/crud_route_factory.py` | CRUD route generation |
+| `adapters/inbound/route_factories/intelligence_route_factory.py` | Intelligence route generation |
 | `adapters/inbound/{domain}_routes.py` | Domain entry points |
 | `adapters/inbound/{domain}_api.py` | Domain API handlers |
 | `adapters/inbound/{domain}_ui.py` | Domain UI handlers |

@@ -17,7 +17,7 @@ related: []
 ### Basic Usage
 
 ```python
-from core.infrastructure.routes import IntelligenceRouteFactory
+from adapters.inbound.route_factories import IntelligenceRouteFactory
 
 def create_habits_intelligence_routes(app, rt, habits_intelligence_service):
     # Create factory
@@ -90,7 +90,7 @@ The factory automatically creates these intelligence routes:
 ### 1. Service Must Implement `IntelligenceOperations` Protocol
 
 ```python
-from core.infrastructure.routes import IntelligenceOperations
+from adapters.inbound.route_factories import IntelligenceOperations
 
 class HabitsIntelligenceService:
     async def get_analytics(
@@ -159,7 +159,7 @@ intel_factory = IntelligenceRouteFactory(
 For domains with additional advanced features:
 
 ```python
-from core.infrastructure.routes import AdvancedIntelligenceFactory
+from adapters.inbound.route_factories import AdvancedIntelligenceFactory
 
 advanced_factory = AdvancedIntelligenceFactory(
     intelligence_service=learning_intelligence_service,
@@ -388,7 +388,7 @@ def create_habits_intelligence_routes(app, rt, habits_intelligence_service):
 ### After: Factory Pattern (~200 lines)
 
 ```python
-from core.infrastructure.routes import IntelligenceRouteFactory
+from adapters.inbound.route_factories import IntelligenceRouteFactory
 
 def create_habits_intelligence_routes(app, rt, habits_intelligence_service):
     # Standard intelligence routes (80% eliminated)
@@ -542,7 +542,7 @@ poetry run pytest tests/infrastructure/test_intelligence_route_factory.py -v
 
 ## References
 
-- **Implementation:** `/core/infrastructure/routes/intelligence_route_factory.py`
+- **Implementation:** `/adapters/inbound/route_factories/intelligence_route_factory.py`
 - **Tests:** `/tests/infrastructure/test_intelligence_route_factory.py`
 - **CRUD Factory:** `/docs/CRUD_ROUTE_FACTORY_USAGE.md`
 - **Refactoring Plan:** `/docs/INBOUND_ADAPTER_REFACTORING_PLAN.md`

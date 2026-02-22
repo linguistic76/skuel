@@ -60,7 +60,7 @@ Route Factories (3 types)
 
 **Usage:**
 ```python
-from core.infrastructure.routes import CRUDRouteFactory
+from adapters.inbound.route_factories import CRUDRouteFactory
 
 crud_factory = CRUDRouteFactory(
     service=tasks_service,
@@ -96,7 +96,7 @@ crud_factory.register_routes(app, rt)
 
 **Usage:**
 ```python
-from core.infrastructure.routes.query_route_factory import CommonQueryRouteFactory
+from adapters.inbound.route_factories.query_route_factory import CommonQueryRouteFactory
 
 query_factory = CommonQueryRouteFactory(
     service=tasks_service,
@@ -205,7 +205,7 @@ async def get_expenses_by_date_range(request: Request):
 - Performance metrics endpoints
 - Behavioral insights endpoints
 
-**Usage:** See `/core/infrastructure/routes/intelligence_route_factory.py`
+**Usage:** See `/adapters/inbound/route_factories/intelligence_route_factory.py`
 
 **Domains Using It:** Intelligence services
 
@@ -462,8 +462,8 @@ DOMAIN_CONFIG = {
 
 ```python
 # 1. Import factories
-from core.infrastructure.routes import CRUDRouteFactory
-from core.infrastructure.routes.query_route_factory import CommonQueryRouteFactory
+from adapters.inbound.route_factories import CRUDRouteFactory
+from adapters.inbound.route_factories.query_route_factory import CommonQueryRouteFactory
 
 # 2. Register CRUD factory
 crud_factory = CRUDRouteFactory(
@@ -550,8 +550,8 @@ async def custom_action_route(request: Request, uid: str) -> Result[Any]:
 
 - `/docs/patterns/OWNERSHIP_VERIFICATION.md` - Ownership verification pattern
 - `/docs/patterns/ERROR_HANDLING.md` - Result[T] error handling
-- `/core/infrastructure/routes/crud_route_factory.py` - CRUDRouteFactory implementation
-- `/core/infrastructure/routes/query_route_factory.py` - CommonQueryRouteFactory implementation
+- `/adapters/inbound/route_factories/crud_route_factory.py` - CRUDRouteFactory implementation
+- `/adapters/inbound/route_factories/query_route_factory.py` - CommonQueryRouteFactory implementation
 
 ---
 

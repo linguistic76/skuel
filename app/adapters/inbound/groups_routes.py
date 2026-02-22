@@ -9,7 +9,7 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 
 from adapters.inbound.groups_api import create_groups_api_routes
 from adapters.inbound.groups_ui import create_groups_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 GROUPS_CONFIG = DomainRouteConfig(
     domain_name="groups",

@@ -22,7 +22,7 @@ import pytest
 from starlette.responses import JSONResponse
 
 from adapters.inbound.boundary import boundary_handler
-from core.infrastructure.routes.crud_route_factory import CRUDRouteFactory
+from adapters.inbound.route_factories.crud_route_factory import CRUDRouteFactory
 from core.models.enums import KuStatus, Priority
 from core.utils.result_simplified import Errors, Result
 

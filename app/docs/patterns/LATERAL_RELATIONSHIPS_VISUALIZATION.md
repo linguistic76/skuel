@@ -370,7 +370,7 @@ RETURN DISTINCT related, r
 
 ### 4. API Layer
 
-**File:** `core/infrastructure/routes/lateral_route_factory.py`
+**File:** `adapters/inbound/route_factories/lateral_route_factory.py`
 
 **Pattern:** Factory creates 3 routes per domain
 

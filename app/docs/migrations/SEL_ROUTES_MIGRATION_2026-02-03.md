@@ -76,7 +76,7 @@ Factory that wires SEL API and UI routes using DomainRouteConfig.
 
 from adapters.inbound.sel_api import create_sel_api_routes
 from adapters.inbound.sel_ui import create_sel_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 SEL_CONFIG = DomainRouteConfig(
     domain_name="sel",
@@ -410,7 +410,7 @@ poetry run python main.py
 - **LifePath Migration:** Similar drawer layout pattern completed same day
 
 ### Implementation
-- **Core Infrastructure:** `/core/infrastructure/routes/domain_route_factory.py`
+- **Core Infrastructure:** `/adapters/inbound/route_factories/domain_route_factory.py`
 - **Drawer Layout Component:** `/components/drawer_layout.py`
 - **SEL Components:** `/adapters/inbound/sel_components.py`
 

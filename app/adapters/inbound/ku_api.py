@@ -18,8 +18,8 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from core.infrastructure.routes import CRUDRouteFactory, IntelligenceRouteFactory
-from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
+from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRouteFactory
+from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
 from core.models.ku.ku_request import KuCurriculumCreateRequest, KuUpdateRequest

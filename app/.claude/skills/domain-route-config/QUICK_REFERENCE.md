@@ -18,7 +18,7 @@ Wires {Domain} API and UI routes using DomainRouteConfig pattern.
 
 from adapters.inbound.{domain}_api import create_{domain}_api_routes
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 {DOMAIN}_CONFIG = DomainRouteConfig(
     domain_name="{domain}",
@@ -47,7 +47,7 @@ For domains with no UI pages (e.g., transcription, visualization).
 
 ```python
 from adapters.inbound.{domain}_api import create_{domain}_api_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 {DOMAIN}_CONFIG = DomainRouteConfig(
     domain_name="{domain}",
@@ -74,7 +74,7 @@ For content-focused domains with no CRUD API (e.g., Nous). Note: `primary_servic
 
 ```python
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 {DOMAIN}_CONFIG = DomainRouteConfig(
     domain_name="{domain}",
@@ -106,7 +106,7 @@ from typing import Any
 from adapters.inbound.{domain}_api import create_{domain}_api_routes
 from adapters.inbound.{domain}_extra_ui import create_{domain}_extra_routes
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.{domain}")

@@ -404,9 +404,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, KuBase]):
         if result.is_error:
             return result
 
-        principles: list[PrincipleKu] = [
-            p for p in result.value if isinstance(p, PrincipleKu)
-        ]
+        principles: list[PrincipleKu] = [p for p in result.value if isinstance(p, PrincipleKu)]
 
         # Filter by strength if requested
         if strength_filter:

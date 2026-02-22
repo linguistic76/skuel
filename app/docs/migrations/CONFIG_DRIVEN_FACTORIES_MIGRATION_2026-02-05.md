@@ -26,7 +26,7 @@ All 6 Activity Domains had near-identical factory instantiation code in their `*
 
 ```python
 # Repeated in tasks_api.py, goals_api.py, habits_api.py, events_api.py, choices_api.py, principles_api.py
-from core.infrastructure.routes import CRUDRouteFactory, CommonQueryRouteFactory, IntelligenceRouteFactory
+from adapters.inbound.route_factories import CRUDRouteFactory, CommonQueryRouteFactory, IntelligenceRouteFactory
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 
 def create_tasks_api_routes(app, rt, tasks_service, user_service, goals_service, habits_service, prometheus_metrics=None):
@@ -103,7 +103,7 @@ TASKS_CONFIG = create_activity_domain_route_config(
 
 Created three frozen dataclasses for static factory parameters:
 
-**`/core/infrastructure/routes/domain_route_factory.py`:**
+**`/adapters/inbound/route_factories/domain_route_factory.py`:**
 
 ```python
 @dataclass(frozen=True)
@@ -250,9 +250,9 @@ def create_activity_domain_route_config(
 ### Files Modified
 
 **Core Infrastructure (3 files):**
-- `core/infrastructure/routes/domain_route_factory.py` - Added sub-configs, expanded main config, added factory function
-- `core/infrastructure/routes/__init__.py` - Exported new types
-- `core/infrastructure/routes/route_helpers.py` - New helper utilities
+- `adapters/inbound/route_factories/domain_route_factory.py` - Added sub-configs, expanded main config, added factory function
+- `adapters/inbound/route_factories/__init__.py` - Exported new types
+- `adapters/inbound/route_factories/route_helpers.py` - New helper utilities
 
 **Activity Domain Routes (6 files):**
 - `adapters/inbound/tasks_routes.py`
@@ -294,7 +294,7 @@ Stripped CRUD/Query/Intelligence factory blocks (~80-120 lines removed per file)
 ```python
 from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 TASKS_CONFIG = DomainRouteConfig(
     domain_name="tasks",
@@ -317,7 +317,7 @@ def create_tasks_routes(app, rt, services, _sync_service=None):
 ```python
 from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
-from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
+from adapters.inbound.route_factories import create_activity_domain_route_config, register_domain_routes
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 
 TASKS_CONFIG = create_activity_domain_route_config(
@@ -400,7 +400,7 @@ poetry run python -m py_compile adapters/inbound/{tasks,goals,habits,events,choi
 # ✅ All files compiled successfully
 
 # Linting
-poetry run ruff check core/infrastructure/routes/ adapters/inbound/{tasks,goals,habits,events,choices,principles}_{routes,api}.py
+poetry run ruff check adapters/inbound/route_factories/ adapters/inbound/{tasks,goals,habits,events,choices,principles}_{routes,api}.py
 # ✅ All checks passed
 
 # Tests

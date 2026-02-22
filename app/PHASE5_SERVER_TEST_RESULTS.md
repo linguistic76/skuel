@@ -226,7 +226,7 @@ GET  /api/{domain}/{uid}/lateral/graph
 - Registration: Confirmed in bootstrap
 
 ### ✅ API Layer
-- Factory: `core/infrastructure/routes/lateral_route_factory.py`
+- Factory: `adapters/inbound/route_factories/lateral_route_factory.py`
 - Routes: `adapters/inbound/lateral_routes.py`
 - Registration: 92 routes confirmed in logs
 

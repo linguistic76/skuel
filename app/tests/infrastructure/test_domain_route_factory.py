@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.infrastructure.routes.domain_route_factory import (
+from adapters.inbound.route_factories.domain_route_factory import (
     CRUDRouteConfig,
     DomainRouteConfig,
     IntelligenceRouteConfig,
@@ -111,7 +111,7 @@ def test_intelligence_route_config_frozen_sentinel():
 # ============================================================================
 
 
-@patch("core.infrastructure.routes.crud_route_factory.CRUDRouteFactory")
+@patch("adapters.inbound.route_factories.crud_route_factory.CRUDRouteFactory")
 def test_crud_config_triggers_factory(mock_crud: MagicMock):
     """crud config → CRUDRouteFactory instantiated and .register_routes called."""
     services = _make_services()
@@ -141,7 +141,7 @@ def test_crud_config_triggers_factory(mock_crud: MagicMock):
     mock_crud.return_value.register_routes.assert_called_once_with("app", "rt")
 
 
-@patch("core.infrastructure.routes.query_route_factory.CommonQueryRouteFactory")
+@patch("adapters.inbound.route_factories.query_route_factory.CommonQueryRouteFactory")
 def test_query_config_triggers_factory(mock_query: MagicMock):
     """query config → CommonQueryRouteFactory instantiated and registered."""
     user_svc = MagicMock()
@@ -168,7 +168,7 @@ def test_query_config_triggers_factory(mock_query: MagicMock):
     mock_query.return_value.register_routes.assert_called_once_with("app", "rt")
 
 
-@patch("core.infrastructure.routes.intelligence_route_factory.IntelligenceRouteFactory")
+@patch("adapters.inbound.route_factories.intelligence_route_factory.IntelligenceRouteFactory")
 def test_intelligence_config_triggers_factory(mock_intel: MagicMock):
     """intelligence sentinel → IntelligenceRouteFactory instantiated and registered."""
     primary = MagicMock()
@@ -190,9 +190,9 @@ def test_intelligence_config_triggers_factory(mock_intel: MagicMock):
     mock_intel.return_value.register_routes.assert_called_once_with("app", "rt")
 
 
-@patch("core.infrastructure.routes.intelligence_route_factory.IntelligenceRouteFactory")
-@patch("core.infrastructure.routes.query_route_factory.CommonQueryRouteFactory")
-@patch("core.infrastructure.routes.crud_route_factory.CRUDRouteFactory")
+@patch("adapters.inbound.route_factories.intelligence_route_factory.IntelligenceRouteFactory")
+@patch("adapters.inbound.route_factories.query_route_factory.CommonQueryRouteFactory")
+@patch("adapters.inbound.route_factories.crud_route_factory.CRUDRouteFactory")
 def test_all_three_configs_called_in_order(mock_crud, mock_query, mock_intel):
     """All 3 sub-configs → factories called, then api_factory."""
     call_order: list[str] = []
@@ -252,7 +252,7 @@ def test_all_three_configs_called_in_order(mock_crud, mock_query, mock_intel):
     ]
 
 
-@patch("core.infrastructure.routes.crud_route_factory.CRUDRouteFactory")
+@patch("adapters.inbound.route_factories.crud_route_factory.CRUDRouteFactory")
 def test_prometheus_metrics_attr_resolves_from_services(mock_crud: MagicMock):
     """prometheus_metrics_attr resolves the attribute from the services container."""
     prom = MagicMock(name="prometheus")
@@ -421,9 +421,9 @@ def test_factory_threads_prometheus_metrics_attr():
 # ============================================================================
 
 
-@patch("core.infrastructure.routes.intelligence_route_factory.IntelligenceRouteFactory")
-@patch("core.infrastructure.routes.query_route_factory.CommonQueryRouteFactory")
-@patch("core.infrastructure.routes.crud_route_factory.CRUDRouteFactory")
+@patch("adapters.inbound.route_factories.intelligence_route_factory.IntelligenceRouteFactory")
+@patch("adapters.inbound.route_factories.query_route_factory.CommonQueryRouteFactory")
+@patch("adapters.inbound.route_factories.crud_route_factory.CRUDRouteFactory")
 def test_full_roundtrip_factory_to_register(mock_crud, mock_query, mock_intel):
     """Factory function → register_domain_routes → all 3 factories called."""
     primary = MagicMock()

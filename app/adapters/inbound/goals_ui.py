@@ -31,7 +31,7 @@ from components.error_components import ErrorComponents
 from components.form_generator import FormGenerator
 from components.goals_views import GoalsViewComponents
 from components.shared_ui_components import SharedUIComponents
-from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
+from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.models.enums import Priority
 from core.models.goal.goal_request import GoalCreateRequest
 from core.services.protocols.facade_protocols import GoalsFacadeProtocol

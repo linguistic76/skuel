@@ -79,7 +79,7 @@ Implemented comprehensive **Visual Hierarchy Component Library** providing 4 reu
 
 ### API Routes (2 files, ~380 lines)
 
-7. **`/core/infrastructure/routes/hierarchy_route_factory.py`** (300 lines)
+7. **`/adapters/inbound/route_factories/hierarchy_route_factory.py`** (300 lines)
    - `HierarchyRouteFactory` - Generic route factory
    - `HierarchicalService` protocol
    - Auto-detects method names (get_subgoals, create_subgoal_relationship)
@@ -352,7 +352,7 @@ curl -X POST http://localhost:8000/api/goals/bulk-delete \
 ./dev quality
 
 # Check types
-poetry run mypy ui/patterns/ core/infrastructure/routes/
+poetry run mypy ui/patterns/ adapters/inbound/route_factories/
 ```
 
 ---

@@ -18,7 +18,7 @@ from unittest.mock import patch
 import pytest
 from starlette.responses import JSONResponse
 
-from core.infrastructure.routes.intelligence_route_factory import (
+from adapters.inbound.route_factories.intelligence_route_factory import (
     IntelligenceRouteFactory,
 )
 from core.models.enums import ContentScope, Domain
@@ -33,7 +33,7 @@ from core.utils.result_simplified import Result
 def mock_auth():
     """Automatically mock authentication for all tests."""
     with patch(
-        "core.infrastructure.routes.intelligence_route_factory.require_authenticated_user"
+        "adapters.inbound.route_factories.intelligence_route_factory.require_authenticated_user"
     ) as mock:
         mock.return_value = "user.test"
         yield mock

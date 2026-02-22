@@ -12,7 +12,7 @@ Core Pattern Consolidated:
 5. Add-another vs list-switch response logic
 
 Usage:
-    from core.infrastructure.routes.quick_add_factory import (
+    from adapters.inbound.route_factories.quick_add_factory import (
         QuickAddConfig,
         QuickAddRouteFactory,
     )

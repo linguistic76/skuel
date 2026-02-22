@@ -30,7 +30,7 @@ from adapters.inbound.auth import require_authenticated_user
 from components.error_components import ErrorComponents
 from components.principles_views import PrinciplesViewComponents
 from core.constants import QueryLimit
-from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
+from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.services.protocols.facade_protocols import PrinciplesFacadeProtocol
 from core.services.protocols.query_types import PrinciplesFilterSpec
 from core.utils.logging import get_logger

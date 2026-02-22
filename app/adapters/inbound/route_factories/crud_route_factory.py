@@ -63,7 +63,7 @@ from typing import Any, Protocol, TypeVar, cast
 from pydantic import BaseModel
 
 from adapters.inbound.auth.session import get_current_user, require_authenticated_user
-from core.infrastructure.routes.route_helpers import check_required_role
+from adapters.inbound.route_factories.route_helpers import check_required_role
 from core.models.enums import ContentScope, UserRole
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

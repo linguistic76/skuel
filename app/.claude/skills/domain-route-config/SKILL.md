@@ -30,10 +30,10 @@ DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80
 ### Import Surface
 
 ```python
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 ```
 
-Both are exported from `core/infrastructure/routes/__init__.py`. The implementation lives in `core/infrastructure/routes/domain_route_factory.py` (119 lines).
+Both are exported from `adapters/inbound/route_factories/__init__.py`. The implementation lives in `adapters/inbound/route_factories/domain_route_factory.py` (119 lines).
 
 ---
 
@@ -95,7 +95,7 @@ Wires {Domain} API and UI routes using DomainRouteConfig pattern.
 
 from adapters.inbound.{domain}_api import create_{domain}_api_routes
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 {DOMAIN}_CONFIG = DomainRouteConfig(
     domain_name="{domain}",
@@ -132,7 +132,7 @@ __all__ = ["create_{domain}_routes"]
 ```python
 from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 TASKS_CONFIG = DomainRouteConfig(
     domain_name="tasks",
@@ -220,7 +220,7 @@ Note `primary_service_attr="ku"` — Nous doesn't have its own service; it reuse
 from adapters.inbound.insights_api import create_insights_api_routes
 from adapters.inbound.insights_history_ui import create_insights_history_routes
 from adapters.inbound.insights_ui import create_insights_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 INSIGHTS_CONFIG = DomainRouteConfig(
     domain_name="insights",
@@ -372,8 +372,8 @@ def create_tasks_ui_routes(_app, rt, tasks_service, services=None):
 
 | File | Role |
 |------|------|
-| `core/infrastructure/routes/domain_route_factory.py` | The dataclass + `register_domain_routes()` — source of truth (119 lines) |
-| `core/infrastructure/routes/__init__.py` | Export surface: `DomainRouteConfig`, `register_domain_routes` |
+| `adapters/inbound/route_factories/domain_route_factory.py` | The dataclass + `register_domain_routes()` — source of truth (119 lines) |
+| `adapters/inbound/route_factories/__init__.py` | Export surface: `DomainRouteConfig`, `register_domain_routes` |
 | `adapters/inbound/tasks_routes.py` | Exemplar: Standard pattern with related services |
 | `adapters/inbound/ku_routes.py` | Exemplar: Standard pattern, no related services |
 | `adapters/inbound/nous_routes.py` | Exemplar: UI-only pattern |

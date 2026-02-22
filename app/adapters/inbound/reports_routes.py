@@ -21,7 +21,7 @@ from adapters.inbound.reports_assessment_api import create_reports_assessment_ap
 from adapters.inbound.reports_progress_api import create_reports_progress_api_routes
 from adapters.inbound.reports_sharing_api import create_reports_sharing_api_routes
 from adapters.inbound.reports_ui import create_reports_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.reports")

@@ -20,7 +20,7 @@ Version: 2.0 (Migrated to DomainRouteConfig pattern)
 from adapters.inbound.learning_api import create_learning_api_routes
 from adapters.inbound.learning_steps_api import create_learning_steps_api_routes
 from adapters.inbound.learning_ui import create_learning_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.learning")

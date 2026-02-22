@@ -166,7 +166,9 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
         return Result.ok(principles)
 
     @with_error_handling("get_prioritized", error_type="database")
-    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[KuBase]]:
+    async def get_prioritized(
+        self, user_context: UserContext, limit: int = 10
+    ) -> Result[list[KuBase]]:
         """
         Get principles prioritized for the user's current context.
 
@@ -815,9 +817,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
 
         # Principle-specific: Review state filtering (post-filter)
         if "review" in query_lower or "reviewing" in query_lower:
-            principles = [
-                p for p in principles if isinstance(p, PrincipleKu) and p.needs_review()
-            ]
+            principles = [p for p in principles if isinstance(p, PrincipleKu) and p.needs_review()]
         elif "well-aligned" in query_lower or "aligned" in query_lower:
             principles = [
                 p for p in principles if isinstance(p, PrincipleKu) and p.is_well_aligned()

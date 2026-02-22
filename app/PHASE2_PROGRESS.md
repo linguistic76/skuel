@@ -10,7 +10,7 @@
 **Files Modified**:
 - `/core/infrastructure/monitoring/http_instrumentation.py` (NEW)
 - `/core/infrastructure/monitoring/__init__.py`
-- `/core/infrastructure/routes/crud_route_factory.py`
+- `/adapters/inbound/route_factories/crud_route_factory.py`
 
 **What Was Done**:
 - Created `instrument_handler` decorator for wrapping route handlers
@@ -303,7 +303,7 @@ open http://localhost:3000
 
 **Modified Files** (4):
 - `/core/infrastructure/monitoring/__init__.py` - Added exports
-- `/core/infrastructure/routes/crud_route_factory.py` - Added instrumentation
+- `/adapters/inbound/route_factories/crud_route_factory.py` - Added instrumentation
 - `/adapters/persistence/neo4j/universal_backend.py` - Added instrumentation
 - `/scripts/dev/bootstrap.py` - Added PrometheusMetrics initialization
 - `/core/utils/services_bootstrap.py` - Updated signature

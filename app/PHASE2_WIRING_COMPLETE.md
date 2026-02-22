@@ -288,7 +288,7 @@ open http://localhost:3000
 **Infrastructure** (Core - Don't Touch):
 - `/core/infrastructure/monitoring/http_instrumentation.py` (NEW)
 - `/core/infrastructure/monitoring/prometheus_metrics.py` (Phase 1)
-- `/core/infrastructure/routes/crud_route_factory.py` (Instrumentation support)
+- `/adapters/inbound/route_factories/crud_route_factory.py` (Instrumentation support)
 - `/adapters/persistence/neo4j/universal_backend.py` (Instrumentation support)
 
 **Bootstrap** (Critical Path):

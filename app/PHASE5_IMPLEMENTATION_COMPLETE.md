@@ -38,7 +38,7 @@ Added 3 new methods:
 
 ### 2. API Endpoints (100% Complete)
 
-**File:** `/core/infrastructure/routes/lateral_route_factory.py`
+**File:** `/adapters/inbound/route_factories/lateral_route_factory.py`
 
 Added 3 new routes (all domains):
 
@@ -299,7 +299,7 @@ def render_detail(entity):
 ## 📚 Documentation References
 
 - **Service Layer:** `/core/services/lateral_relationships/lateral_relationship_service.py` (lines 634-1014)
-- **API Routes:** `/core/infrastructure/routes/lateral_route_factory.py` (lines 447-560)
+- **API Routes:** `/adapters/inbound/route_factories/lateral_route_factory.py` (lines 447-560)
 - **UI Components:** `/ui/patterns/relationships/` (all files)
 - **Alpine Component:** `/static/js/skuel.js` (lines 1480-1616)
 - **Vis.js Docs:** https://visjs.github.io/vis-network/docs/network/

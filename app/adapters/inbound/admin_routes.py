@@ -6,7 +6,7 @@ Minimal factory that wires admin API routes using DomainRouteConfig.
 """
 
 from adapters.inbound.admin_api import create_admin_api_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 ADMIN_CONFIG = DomainRouteConfig(
     domain_name="admin",

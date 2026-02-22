@@ -78,7 +78,7 @@ poetry run pytest tests/unit/test_lateral_graph_queries.py -v
 
 ### 2. API Layer (92 Routes)
 
-**Factory:** `core/infrastructure/routes/lateral_route_factory.py`
+**Factory:** `adapters/inbound/route_factories/lateral_route_factory.py`
 **Registration:** `adapters/inbound/lateral_routes.py`
 
 **Base Routes (27 = 3 per domain × 9 domains):**
@@ -206,7 +206,7 @@ curl http://localhost:8000/api/tasks/task_test/lateral/chain
 - `core/services/lateral_relationships/lateral_relationship_service.py`
 
 ### API Layer (2 files)
-- `core/infrastructure/routes/lateral_route_factory.py`
+- `adapters/inbound/route_factories/lateral_route_factory.py`
 - `adapters/inbound/lateral_routes.py`
 
 ### UI Components (4 files)

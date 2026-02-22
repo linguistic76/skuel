@@ -15,7 +15,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user, require_ownership_query
 from adapters.inbound.boundary import boundary_handler
-from core.infrastructure.routes import (
+from adapters.inbound.route_factories import (
     StatusRouteFactory,
     StatusTransition,
 )

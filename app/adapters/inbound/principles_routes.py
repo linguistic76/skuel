@@ -8,7 +8,10 @@ Analytics factory remains in principles_api.py.
 
 from adapters.inbound.principles_api import create_principles_api_routes
 from adapters.inbound.principles_ui import create_principles_ui_routes
-from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
+from adapters.inbound.route_factories import (
+    create_activity_domain_route_config,
+    register_domain_routes,
+)
 from core.models.ku.ku_request import KuPrincipleCreateRequest, KuUpdateRequest
 
 PRINCIPLES_CONFIG = create_activity_domain_route_config(

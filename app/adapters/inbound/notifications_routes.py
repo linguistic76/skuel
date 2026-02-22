@@ -9,7 +9,7 @@ UI-only (no separate API factory needed — HTMX handles mutations).
 from typing import Any
 
 from adapters.inbound.notifications_ui import create_notifications_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 
 def _noop_api_factory(_app: Any, _rt: Any, _primary: Any, **_kw: Any) -> list[Any]:

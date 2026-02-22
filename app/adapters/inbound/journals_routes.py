@@ -11,7 +11,7 @@ Admin uploads files → processed by AI using Assignment instructions.
 from typing import Any
 
 from adapters.inbound.journals_ui import create_journals_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 
 def _noop_api_factory(_app: Any, _rt: Any, _primary: Any, **_kw: Any) -> list[Any]:

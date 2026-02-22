@@ -304,7 +304,7 @@ class LateralRelationshipService:
 
 ### API Routes (92 Total)
 
-**Factory:** `core/infrastructure/routes/lateral_route_factory.py`
+**Factory:** `adapters/inbound/route_factories/lateral_route_factory.py`
 **Registration:** `adapters/inbound/lateral_routes.py`
 
 **Route Structure:**

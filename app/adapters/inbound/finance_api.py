@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 # Pydantic schemas for boundary
 from adapters.inbound.auth import require_admin
 from adapters.inbound.boundary import boundary_handler
-from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
-from core.infrastructure.routes.crud_route_factory import CRUDRouteFactory
+from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
+from adapters.inbound.route_factories.crud_route_factory import CRUDRouteFactory
 from core.models.enums import UserRole
 from core.models.finance.finance_request import (
     BudgetCreateRequest as BudgetCreateSchema,

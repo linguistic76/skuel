@@ -12,7 +12,7 @@
 All lateral relationship API endpoints have been successfully created and registered for all 8 domains.
 
 **Files Created:** 2
-- `/core/infrastructure/routes/lateral_route_factory.py` (NEW - 460 lines)
+- `/adapters/inbound/route_factories/lateral_route_factory.py` (NEW - 460 lines)
 - `/adapters/inbound/lateral_routes.py` (NEW - 510 lines)
 
 **Files Modified:** 1
@@ -391,7 +391,7 @@ result = await services.ku_lateral.create_prerequisite_relationship(
 - `/core/utils/services_bootstrap.py` (MODIFIED - ~80 lines added)
 
 ### Phase 4: API Routes (THIS PHASE)
-- `/core/infrastructure/routes/lateral_route_factory.py` (NEW - 460 lines)
+- `/adapters/inbound/route_factories/lateral_route_factory.py` (NEW - 460 lines)
 - `/adapters/inbound/lateral_routes.py` (NEW - 510 lines)
 - `/scripts/dev/bootstrap.py` (MODIFIED - ~5 lines added)
 

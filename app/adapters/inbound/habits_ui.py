@@ -35,7 +35,7 @@ from components.error_components import ErrorComponents
 from components.form_generator import FormGenerator
 from components.habits_views import HabitsViewComponents
 from components.shared_ui_components import SharedUIComponents
-from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
+from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.models.enums import Priority
 from core.models.enums.ku_enums import KuStatus
 from core.models.habit.habit_request import HabitCreateRequest

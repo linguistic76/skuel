@@ -29,7 +29,7 @@ UI:
 
 from adapters.inbound.analytics_summary_api import create_analytics_summary_api_routes
 from adapters.inbound.analytics_ui import create_analytics_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 # Configuration for Analytics routes
 ANALYTICS_CONFIG = DomainRouteConfig(

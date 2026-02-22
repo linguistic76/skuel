@@ -395,7 +395,7 @@ RETURN t
 
 from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 TASKS_CONFIG = DomainRouteConfig(
     domain_name="tasks",
@@ -470,13 +470,13 @@ The following shows all 5 factories in a single API file:
 ```python
 # File: /adapters/inbound/tasks_api.py
 
-from core.infrastructure.routes import (
+from adapters.inbound.route_factories import (
     CRUDRouteFactory,
     StatusRouteFactory,
     CommonQueryRouteFactory,
     IntelligenceRouteFactory,
 )
-from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
+from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 

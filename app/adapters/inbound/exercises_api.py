@@ -14,7 +14,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_teacher
 from adapters.inbound.boundary import boundary_handler
-from core.infrastructure.routes import CRUDRouteFactory
+from adapters.inbound.route_factories import CRUDRouteFactory
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
 from core.models.ku import KuFeedbackGenerateRequest

@@ -491,7 +491,7 @@ RETURN count(e) as failures
 
 **Core Principle:** "Authentication patterns are explicit per factory type"
 
-Quick reference for auth behavior across all route factories in `/core/infrastructure/routes/`:
+Quick reference for auth behavior across all route factories in `/adapters/inbound/route_factories/`:
 
 | Factory | Auth Required | Content Scope | Role Support | Use Case |
 |---------|--------------|---------------|--------------|----------|
@@ -531,7 +531,7 @@ factory = CRUDRouteFactory(
 - Role-based access disables ownership checks
 - Use for admin dashboards, teacher content creation
 
-**See:** Individual factory docstrings in `/core/infrastructure/routes/` for implementation details.
+**See:** Individual factory docstrings in `/adapters/inbound/route_factories/` for implementation details.
 
 ---
 

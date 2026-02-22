@@ -38,7 +38,7 @@ Generates 5 standard CRUD routes with automatic ownership verification.
 ### Usage
 
 ```python
-from core.infrastructure.routes import CRUDRouteFactory
+from adapters.inbound.route_factories import CRUDRouteFactory
 from core.models.enums import ContentScope
 
 # Activity domain (user-owned)
@@ -98,7 +98,7 @@ Generates status change routes with automatic ownership verification.
 For services using `(uid, **kwargs)` method signature:
 
 ```python
-from core.infrastructure.routes import StatusRouteFactory, StatusTransition
+from adapters.inbound.route_factories import StatusRouteFactory, StatusTransition
 
 status_factory = StatusRouteFactory(
     service=goals_service,
@@ -251,7 +251,7 @@ class ContentScope(str, Enum):
 Generates common query pattern routes.
 
 ```python
-from core.infrastructure.routes.query_route_factory import CommonQueryRouteFactory
+from adapters.inbound.route_factories.query_route_factory import CommonQueryRouteFactory
 
 query_factory = CommonQueryRouteFactory(
     service=tasks_service,
@@ -273,7 +273,7 @@ query_factory.register_routes(app, rt)
 Generates analytics endpoints with custom handlers.
 
 ```python
-from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
+from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 
 async def handle_habit_analytics(service, params):
     uid = params.get("uid")
@@ -314,7 +314,7 @@ Generates intelligence routes for the `IntelligenceOperations` protocol (January
 ### Usage
 
 ```python
-from core.infrastructure.routes import IntelligenceRouteFactory
+from adapters.inbound.route_factories import IntelligenceRouteFactory
 from core.models.enums import ContentScope
 
 # For Activity Domains (user-owned content)
@@ -408,12 +408,12 @@ Example from Habits domain:
 
 | File | Purpose |
 |------|---------|
-| `/core/infrastructure/routes/crud_route_factory.py` | CRUDRouteFactory |
-| `/core/infrastructure/routes/status_route_factory.py` | StatusRouteFactory |
-| `/core/infrastructure/routes/query_route_factory.py` | CommonQueryRouteFactory |
-| `/core/infrastructure/routes/analytics_route_factory.py` | AnalyticsRouteFactory |
-| `/core/infrastructure/routes/intelligence_route_factory.py` | IntelligenceRouteFactory |
-| `/core/infrastructure/routes/__init__.py` | Exports |
+| `/adapters/inbound/route_factories/crud_route_factory.py` | CRUDRouteFactory |
+| `/adapters/inbound/route_factories/status_route_factory.py` | StatusRouteFactory |
+| `/adapters/inbound/route_factories/query_route_factory.py` | CommonQueryRouteFactory |
+| `/adapters/inbound/route_factories/analytics_route_factory.py` | AnalyticsRouteFactory |
+| `/adapters/inbound/route_factories/intelligence_route_factory.py` | IntelligenceRouteFactory |
+| `/adapters/inbound/route_factories/__init__.py` | Exports |
 
 ## See Also
 

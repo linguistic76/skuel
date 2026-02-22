@@ -225,7 +225,7 @@ services = Services(
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `/core/infrastructure/routes/lateral_route_factory.py` | 460 | Generic route factory for all domains |
+| `/adapters/inbound/route_factories/lateral_route_factory.py` | 460 | Generic route factory for all domains |
 | `/adapters/inbound/lateral_routes.py` | 510 | Route registration + domain-specific routes |
 
 ### Files Modified (1 file, ~5 lines)
@@ -297,7 +297,7 @@ logger.info(f"✅ Registered {len(lateral_routes)} lateral relationship routes")
 12. `/core/services/principles/principles_lateral_service.py` (390 lines)
 
 **Phase 4: API Routes**
-13. `/core/infrastructure/routes/lateral_route_factory.py` (460 lines)
+13. `/adapters/inbound/route_factories/lateral_route_factory.py` (460 lines)
 14. `/adapters/inbound/lateral_routes.py` (510 lines)
 
 ### Modified Files (2 files)
@@ -824,7 +824,7 @@ Created full detail pages with relationships visualization:
 
 **Files Modified:** 14
 1. `/core/services/lateral_relationships/lateral_relationship_service.py` (+350 lines)
-2. `/core/infrastructure/routes/lateral_route_factory.py` (+120 lines)
+2. `/adapters/inbound/route_factories/lateral_route_factory.py` (+120 lines)
 3. `/ui/layouts/base_page.py` (+3 lines - Vis.js includes)
 4. `/static/js/skuel.js` (+150 lines - Alpine component)
 5. `/ui/patterns/relationships/__init__.py` (+35 lines)

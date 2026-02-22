@@ -15,7 +15,7 @@ Version: 2.0 (Migrated to DomainRouteConfig pattern)
 
 from adapters.inbound.askesis_api import create_askesis_api_routes
 from adapters.inbound.askesis_ui import create_askesis_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 # Configuration for Askesis routes
 ASKESIS_CONFIG = DomainRouteConfig(

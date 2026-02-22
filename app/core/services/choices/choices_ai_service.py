@@ -159,7 +159,9 @@ CONSIDERATION: [factor 2]"""
         context = {
             "title": choice.title,
             "description": choice.description or "No description",
-            "current_options": ", ".join(str(o) for o in choice.options) if choice.options else "Not specified",
+            "current_options": ", ".join(str(o) for o in choice.options)
+            if choice.options
+            else "Not specified",
         }
 
         prompt = f"""Generate {num_alternatives} alternative approaches for this decision.

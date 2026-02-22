@@ -204,7 +204,7 @@ Version: 2.0 (Migrated to DomainRouteConfig pattern)
 
 from adapters.inbound.{domain}_api import create_{domain}_api_routes
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 {DOMAIN}_CONFIG = DomainRouteConfig(
     domain_name="{domain}",
@@ -249,7 +249,7 @@ Version: 3.0 (Config-Driven Factory Registration)
 
 from adapters.inbound.{domain}_api import create_{domain}_api_routes
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
-from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
+from adapters.inbound.route_factories import create_activity_domain_route_config, register_domain_routes
 from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain}UpdateRequest
 
 {DOMAIN}_CONFIG = create_activity_domain_route_config(
@@ -644,7 +644,7 @@ NOUS_CONFIG = DomainRouteConfig(
 The `register_domain_routes()` function must check for `None` before calling api_factory:
 
 ```python
-# /core/infrastructure/routes/domain_route_factory.py:103
+# /adapters/inbound/route_factories/domain_route_factory.py:103
 if config.api_factory:  # ✓ REQUIRED - prevents TypeError
     api_routes = config.api_factory(app, rt, primary_service, **api_related)
 ```
@@ -1027,7 +1027,7 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
 
 ### Implementation
 
-- **Core pattern:** `/core/infrastructure/routes/domain_route_factory.py`
+- **Core pattern:** `/adapters/inbound/route_factories/domain_route_factory.py`
   - Sub-config dataclasses:
     - `CRUDRouteConfig` (lines 55-65) - CRUD factory parameters
     - `QueryRouteConfig` (lines 68-76) - Query factory parameters
@@ -1113,7 +1113,7 @@ from adapters.inbound.{domain}_api import create_{domain}_api_routes
 # 2. UI factory
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
 # 3. Infrastructure
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 ```
 
 ### Service Attribute Patterns
@@ -1206,7 +1206,7 @@ RuntimeError: Error registering nous routes
 **Cause:** domain_route_factory.py attempts to call `config.api_factory()` without checking for None
 
 **Fix (infrastructure):**
-In `/core/infrastructure/routes/domain_route_factory.py` line 103, ensure null check exists:
+In `/adapters/inbound/route_factories/domain_route_factory.py` line 103, ensure null check exists:
 
 ```python
 # ✓ CORRECT - with null check

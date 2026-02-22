@@ -8,7 +8,10 @@ Status and Analytics factories remain in habits_api.py.
 
 from adapters.inbound.habits_api import create_habits_api_routes
 from adapters.inbound.habits_ui import create_habits_ui_routes
-from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
+from adapters.inbound.route_factories import (
+    create_activity_domain_route_config,
+    register_domain_routes,
+)
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
 
 HABITS_CONFIG = create_activity_domain_route_config(

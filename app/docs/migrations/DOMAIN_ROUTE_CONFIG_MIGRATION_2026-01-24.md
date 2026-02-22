@@ -286,5 +286,5 @@ def create_{domain}_routes(app, rt, services, _sync_service=None):
 ## References
 
 - **Pattern Documentation:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md`
-- **Implementation:** `/core/infrastructure/routes/domain_route_factory.py`
+- **Implementation:** `/adapters/inbound/route_factories/domain_route_factory.py`
 - **Example Files:** `tasks_routes.py`, `habits_routes.py`, `finance_routes.py`

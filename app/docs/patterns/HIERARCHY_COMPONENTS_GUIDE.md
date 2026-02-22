@@ -850,7 +850,7 @@ def render_hierarchy_view(root_uid: str, root_goal: Goal) -> Div:
 
 | File | Purpose |
 |------|---------|
-| `/core/infrastructure/routes/hierarchy_route_factory.py` | Generic route factory |
+| `/adapters/inbound/route_factories/hierarchy_route_factory.py` | Generic route factory |
 | `/adapters/inbound/hierarchy_routes.py` | Route registration |
 
 ### Integration Files

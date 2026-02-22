@@ -69,7 +69,7 @@ Updated all docstring examples to use underscore notation:
 **Files Updated:**
 - `/core/services/protocols/query_types.py` - Changed UID examples from `task:123` to `task_123abc`
 - `/core/services/user/debounced_invalidator.py` - Changed `"user.mike"` to `"user_mike"`
-- `/core/infrastructure/routes/query_route_factory.py` - Changed example UID
+- `/adapters/inbound/route_factories/query_route_factory.py` - Changed example UID
 - `/core/services/tasks/tasks_intelligence_service.py` - Changed `"user.mike"` to `"user_mike"`
 - `/core/services/goals/goals_intelligence_service.py` - Changed `"user.mike"` to `"user_mike"`
 - `/core/services/habits/habits_intelligence_service.py` - Changed `"user.mike"` to `"user_mike"`

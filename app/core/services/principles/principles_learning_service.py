@@ -60,9 +60,7 @@ def _calculate_virtue_embodiment_score(principle: KuBase, learning_position: LpP
     total_progress = 0.0
     for path in learning_position.active_paths:
         steps = path.steps if isinstance(path, LearningPathKu) else ()
-        completed_steps = len(
-            [s for s in steps if s.uid in learning_position.completed_step_uids]
-        )
+        completed_steps = len([s for s in steps if s.uid in learning_position.completed_step_uids])
         total_steps = len(steps)
         path_progress = completed_steps / total_steps if total_steps > 0 else 0.0
         total_progress += path_progress
@@ -331,7 +329,11 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, KuBase]):
 
                 # Current step context support
                 current_step = learning_position.current_steps.get(path.uid)
-                step_hours = current_step.estimated_hours if isinstance(current_step, LearningStepKu | LearningPathKu) else None
+                step_hours = (
+                    current_step.estimated_hours
+                    if isinstance(current_step, LearningStepKu | LearningPathKu)
+                    else None
+                )
                 if current_step and (step_hours or 0) > 5:  # Substantial learning
                     path_support += 0.2
 

@@ -19,7 +19,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from core.infrastructure.routes.lateral_route_factory import LateralRouteFactory
+from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
 from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result

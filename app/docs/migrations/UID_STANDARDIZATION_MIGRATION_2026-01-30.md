@@ -178,7 +178,7 @@ Update all docstring examples that reference UIDs:
 - `/core/services/tasks/tasks_intelligence_service.py` - Update examples
 - `/core/services/goals/goals_intelligence_service.py` - Update examples
 - `/core/services/principles/principles_core_service.py` - Update examples
-- `/core/infrastructure/routes/query_route_factory.py` - Update examples
+- `/adapters/inbound/route_factories/query_route_factory.py` - Update examples
 
 Search pattern: `grep -r '"user\.` and `"task\.` and `"goal\.` in docstrings
 

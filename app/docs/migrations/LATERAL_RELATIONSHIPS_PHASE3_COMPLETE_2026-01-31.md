@@ -214,7 +214,7 @@ Neo4j Driver → Creates [:BLOCKS], [:PREREQUISITE_FOR], etc.
 
 Create API endpoints for all lateral relationship operations:
 
-1. **Create `/core/infrastructure/routes/lateral_route_factory.py`**
+1. **Create `/adapters/inbound/route_factories/lateral_route_factory.py`**
    - Generic route factory for all domains
    - Endpoints: GET children, POST move, PATCH update, POST bulk-delete
 

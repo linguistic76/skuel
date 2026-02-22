@@ -18,7 +18,7 @@ Version: 2.0 (Migrated to DomainRouteConfig pattern)
 
 from adapters.inbound.finance_api import create_finance_api_routes
 from adapters.inbound.finance_ui import create_finance_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 # Configuration for Finance routes
 FINANCE_CONFIG = DomainRouteConfig(

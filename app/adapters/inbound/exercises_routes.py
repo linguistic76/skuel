@@ -10,7 +10,7 @@ Formerly assignments_routes.py — renamed per Phase 3 of Ku hierarchy refactori
 
 from adapters.inbound.exercises_api import create_exercises_api_routes
 from adapters.inbound.exercises_ui import create_exercises_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 EXERCISES_CONFIG = DomainRouteConfig(
     domain_name="exercises",

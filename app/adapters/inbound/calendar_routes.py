@@ -12,7 +12,7 @@ Architecture:
 
 from adapters.inbound.calendar_api import create_calendar_api_routes
 from adapters.inbound.calendar_ui import create_calendar_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 CALENDAR_CONFIG = DomainRouteConfig(
     domain_name="calendar",

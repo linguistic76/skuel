@@ -13,7 +13,7 @@ Philosophy:
 
 from adapters.inbound.lifepath_api import create_lifepath_api_routes
 from adapters.inbound.lifepath_ui import create_lifepath_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 LIFEPATH_CONFIG = DomainRouteConfig(
     domain_name="lifepath",

@@ -14,7 +14,7 @@ require runtime closures or domain-specific handlers (Status, Analytics,
 manual routes) remain in api_factory.
 
 Usage:
-    from core.infrastructure.routes import (
+    from adapters.inbound.route_factories import (
         create_activity_domain_route_config,
         register_domain_routes,
     )
@@ -159,9 +159,9 @@ def register_domain_routes(
         List of registered routes (empty if primary service missing)
     """
     # Import factories here to avoid circular imports at module level
-    from core.infrastructure.routes.crud_route_factory import CRUDRouteFactory
-    from core.infrastructure.routes.intelligence_route_factory import IntelligenceRouteFactory
-    from core.infrastructure.routes.query_route_factory import CommonQueryRouteFactory
+    from adapters.inbound.route_factories.crud_route_factory import CRUDRouteFactory
+    from adapters.inbound.route_factories.intelligence_route_factory import IntelligenceRouteFactory
+    from adapters.inbound.route_factories.query_route_factory import CommonQueryRouteFactory
     from core.models.enums import ContentScope
 
     logger = get_logger(f"skuel.routes.{config.domain_name}")

@@ -126,7 +126,7 @@ crud_factory = CRUDRouteFactory(
 For status change operations (activate, pause, complete, archive), use StatusRouteFactory:
 
 ```python
-from core.infrastructure.routes import StatusRouteFactory, StatusTransition
+from adapters.inbound.route_factories import StatusRouteFactory, StatusTransition
 from core.models.enums import ContentScope
 
 status_factory = StatusRouteFactory(
@@ -381,5 +381,5 @@ async def test_ownership_prevents_cross_user_access():
 
 - `/core/services/base_service.py` - Ownership methods
 - `/core/auth/session.py` - `with_ownership` decorator
-- `/core/infrastructure/routes/crud_route_factory.py` - Factory implementation
+- `/adapters/inbound/route_factories/crud_route_factory.py` - Factory implementation
 - `/docs/patterns/ERROR_HANDLING.md` - Result[T] pattern

@@ -15,7 +15,7 @@ Version: 2.0 (Migrated to DomainRouteConfig pattern)
 
 from adapters.inbound.ku_api import create_ku_api_routes
 from adapters.inbound.ku_ui import create_ku_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 # Configuration for KU routes
 KU_CONFIG = DomainRouteConfig(

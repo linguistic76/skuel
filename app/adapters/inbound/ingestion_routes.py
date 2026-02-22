@@ -9,7 +9,7 @@ Handles both MD and YAML formats for all 14 entity types.
 
 from adapters.inbound.ingestion_api import create_ingestion_api_routes
 from adapters.inbound.ingestion_ui import create_ingestion_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 INGESTION_CONFIG = DomainRouteConfig(
     domain_name="ingestion",

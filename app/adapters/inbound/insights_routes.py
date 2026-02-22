@@ -21,7 +21,7 @@ from typing import Any
 from adapters.inbound.insights_api import create_insights_api_routes
 from adapters.inbound.insights_history_ui import create_insights_history_routes
 from adapters.inbound.insights_ui import create_insights_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.insights")

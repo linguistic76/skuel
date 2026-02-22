@@ -8,7 +8,10 @@ Status factory remains in goals_api.py.
 
 from adapters.inbound.goals_api import create_goals_api_routes
 from adapters.inbound.goals_ui import create_goals_ui_routes
-from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
+from adapters.inbound.route_factories import (
+    create_activity_domain_route_config,
+    register_domain_routes,
+)
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
 
 GOALS_CONFIG = create_activity_domain_route_config(

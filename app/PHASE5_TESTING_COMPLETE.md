@@ -70,7 +70,7 @@ poetry run pytest tests/unit/test_lateral_graph_queries.py -v
 
 ## 3. API Layer - VERIFIED ✅
 
-**File:** `core/infrastructure/routes/lateral_route_factory.py`
+**File:** `adapters/inbound/route_factories/lateral_route_factory.py`
 
 **3 Routes Per Domain (27 total):**
 
@@ -279,7 +279,7 @@ curl http://localhost:5001/api/goals/{goal_uid}/lateral/graph?depth=2
 - `core/services/lateral_relationships/lateral_relationship_service.py` - 3 methods
 
 **API Layer (2):**
-- `core/infrastructure/routes/lateral_route_factory.py` - 3 routes per domain
+- `adapters/inbound/route_factories/lateral_route_factory.py` - 3 routes per domain
 - `adapters/inbound/lateral_routes.py` - 9 domain registrations
 
 **UI Components (4):**

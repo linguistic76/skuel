@@ -561,7 +561,7 @@ Div(
 **Implementation:**
 
 ```python
-from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
+from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 
 # Quick-add configuration
 QUICK_ADD_CONFIG = QuickAddConfig(

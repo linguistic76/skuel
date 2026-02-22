@@ -19,11 +19,11 @@ Factories:
 - IntelligenceRouteFactory: AI/intelligence endpoints (analytics, recommendations)
 """
 
-from core.infrastructure.routes.crud_route_factory import (
+from adapters.inbound.route_factories.crud_route_factory import (
     CRUDOperations,
     CRUDRouteFactory,
 )
-from core.infrastructure.routes.domain_route_factory import (
+from adapters.inbound.route_factories.domain_route_factory import (
     CRUDRouteConfig,
     DomainRouteConfig,
     IntelligenceRouteConfig,
@@ -31,20 +31,20 @@ from core.infrastructure.routes.domain_route_factory import (
     create_activity_domain_route_config,
     register_domain_routes,
 )
-from core.infrastructure.routes.intelligence_route_factory import (
+from adapters.inbound.route_factories.intelligence_route_factory import (
     IntelligenceOperations,
     IntelligenceRouteFactory,
 )
-from core.infrastructure.routes.query_route_factory import CommonQueryRouteFactory
-from core.infrastructure.routes.quick_add_factory import (
+from adapters.inbound.route_factories.query_route_factory import CommonQueryRouteFactory
+from adapters.inbound.route_factories.quick_add_factory import (
     QuickAddConfig,
     QuickAddRouteFactory,
 )
-from core.infrastructure.routes.route_helpers import (
+from adapters.inbound.route_factories.route_helpers import (
     check_required_role,
     verify_entity_ownership,
 )
-from core.infrastructure.routes.status_route_factory import (
+from adapters.inbound.route_factories.status_route_factory import (
     StatusOperations,
     StatusRouteFactory,
     StatusTransition,

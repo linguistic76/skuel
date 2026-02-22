@@ -186,9 +186,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
             return Result.fail(principles_result.expect_error())
 
         all_principles = principles_result.value or []
-        principles: list[PrincipleKu] = [
-            p for p in all_principles if isinstance(p, PrincipleKu)
-        ]
+        principles: list[PrincipleKu] = [p for p in all_principles if isinstance(p, PrincipleKu)]
 
         # Calculate analytics
         total_principles = len(principles)
@@ -933,7 +931,9 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         counts = PatternAnalyzer.extract_dict_field_counts(context_dict, ["choices", "habits"])
         return counts["choices"] + counts["habits"]
 
-    def _calculate_current_state(self, principle: KuBase, recent_activities: int) -> dict[str, float]:
+    def _calculate_current_state(
+        self, principle: KuBase, recent_activities: int
+    ) -> dict[str, float]:
         """Calculate current state metrics."""
         # NOTE: Principle model does not have adherence_score field
         # Using default 0.5 - consider adding adherence tracking in future
@@ -1038,7 +1038,9 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
     # HELPER METHODS - CONFLICT ANALYSIS
     # ========================================================================
 
-    def _determine_conflict_severity(self, p1: PrincipleKu, p2: PrincipleKu) -> tuple[str, int, int, int]:
+    def _determine_conflict_severity(
+        self, p1: PrincipleKu, p2: PrincipleKu
+    ) -> tuple[str, int, int, int]:
         """
         Determine conflict severity based on principle strengths.
 
@@ -1067,7 +1069,9 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
             "description": f"{p1.title} and {p2.title} both guide the same goals",
         }
 
-    def _calculate_harmony_score(self, principles: list[PrincipleKu], conflicts: list[dict]) -> float:
+    def _calculate_harmony_score(
+        self, principles: list[PrincipleKu], conflicts: list[dict]
+    ) -> float:
         """Calculate overall principle harmony score.
 
         Uses MetricsCalculator.calculate_harmony_score for consistent calculation.

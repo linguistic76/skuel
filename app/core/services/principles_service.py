@@ -400,13 +400,19 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         if filters:
             if "category" in filters:
                 matching = [
-                    p for p in matching
-                    if isinstance(p, PrincipleKu) and p.category and p.category == filters["category"]
+                    p
+                    for p in matching
+                    if isinstance(p, PrincipleKu)
+                    and p.category
+                    and p.category == filters["category"]
                 ]
             if "strength" in filters:
                 matching = [
-                    p for p in matching
-                    if isinstance(p, PrincipleKu) and p.strength and p.strength.value == filters["strength"]
+                    p
+                    for p in matching
+                    if isinstance(p, PrincipleKu)
+                    and p.strength
+                    and p.strength.value == filters["strength"]
                 ]
 
         return Result.ok(matching)

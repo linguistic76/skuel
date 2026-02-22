@@ -28,7 +28,7 @@ from typing import Any
 from fasthtml.common import JSONResponse, Request
 
 from adapters.inbound.boundary import boundary_handler
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.services.calendar_optimization_service import SchedulingStrategy
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

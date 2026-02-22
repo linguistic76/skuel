@@ -9,7 +9,10 @@ UI: Three-view standalone (calendar-first) via events_ui.py.
 
 from adapters.inbound.events_api import create_events_api_routes
 from adapters.inbound.events_ui import create_events_ui_routes
-from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
+from adapters.inbound.route_factories import (
+    create_activity_domain_route_config,
+    register_domain_routes,
+)
 from core.models.ku.ku_request import KuEventCreateRequest, KuUpdateRequest
 
 EVENTS_CONFIG = create_activity_domain_route_config(

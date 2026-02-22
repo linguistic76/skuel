@@ -270,7 +270,7 @@ NOUS_CONFIG = DomainRouteConfig(
 
 During NOUS migration, discovered `TypeError: 'NoneType' object is not callable` when using `api_factory=None`.
 
-**Root Cause:** `/core/infrastructure/routes/domain_route_factory.py` line 103 called `config.api_factory()` without checking for None.
+**Root Cause:** `/adapters/inbound/route_factories/domain_route_factory.py` line 103 called `config.api_factory()` without checking for None.
 
 **Fix Applied:**
 ```python
@@ -302,7 +302,7 @@ if config.api_factory:  # ✓ Added null check
 
 ### 1. domain_route_factory.py - UI-Only Pattern Support
 
-**File:** `/core/infrastructure/routes/domain_route_factory.py`
+**File:** `/adapters/inbound/route_factories/domain_route_factory.py`
 **Line:** 103
 
 **Change:**
@@ -633,7 +633,7 @@ Phase 3 migration complete. DomainRouteConfig pattern now proven across 22 domai
 
 ### Implementation
 
-- **Core Infrastructure:** `/core/infrastructure/routes/domain_route_factory.py`
+- **Core Infrastructure:** `/adapters/inbound/route_factories/domain_route_factory.py`
 - **Service Bootstrap:** `/core/utils/services_bootstrap.py`
 - **Route Registration:** `/scripts/dev/bootstrap.py`
 
