@@ -30,22 +30,22 @@ from typing import Any
 
 from core.events import publish_event
 from core.models.enums import Domain, KnowledgeStatus
+from core.models.ku.entity import Entity
 from core.models.ku.ku import Ku
-from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
+from core.ports.content_protocols import ensure_content_protocol
+from core.ports.curriculum_protocols import CurriculumOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.services.metadata_manager_mixin import MetadataManagerMixin
-from core.ports.content_protocols import ensure_content_protocol
-from core.ports.curriculum_protocols import CurriculumOperations
 from core.utils.decorators import with_error_handling
 from core.utils.metrics import track_query_metrics
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class KuCoreService(BaseService[CurriculumOperations[KuBase], KuBase], MetadataManagerMixin):
+class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataManagerMixin):
     """
     Core CRUD operations for knowledge units.
 
@@ -83,7 +83,7 @@ class KuCoreService(BaseService[CurriculumOperations[KuBase], KuBase], MetadataM
     # BaseService configuration (January 2026 - DomainConfig)
     _config = create_curriculum_domain_config(
         dto_class=KuDTO,
-        model_class=KuBase,
+        model_class=Entity,
         domain_name="ku",
         search_fields=("title", "summary", "tags"),
         supports_user_progress=True,  # KU supports mastery tracking

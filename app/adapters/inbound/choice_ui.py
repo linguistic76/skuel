@@ -26,9 +26,9 @@ from fasthtml.common import H1, H2, H3, Form, P
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from components.choices_views import ChoicesViewComponents
 from components.error_components import ErrorComponents
-from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.ports.facade_protocols import ChoicesFacadeProtocol
 from core.ports.query_types import ActivityFilterSpec
 from core.utils.logging import get_logger

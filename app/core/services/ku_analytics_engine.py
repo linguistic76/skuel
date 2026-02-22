@@ -25,9 +25,9 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
-from core.models.enums import KuStatus
+from core.models.enums import EntityStatus
 from core.models.enums.neo_labels import NeoLabel
-from core.models.ku.ku_task import TaskKu as Task
+from core.models.ku.task import Task as Task
 from core.services.tasks.task_relationships import TaskRelationships
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -590,7 +590,7 @@ class KuAnalyticsEngine:
             for ku_uid, ku_tasks in knowledge_validations.items():
                 if len(ku_tasks) >= 2:
                     # Calculate success rate (assume completed tasks are successful)
-                    completed_count = sum(1 for t in ku_tasks if t.status == KuStatus.COMPLETED)
+                    completed_count = sum(1 for t in ku_tasks if t.status == EntityStatus.COMPLETED)
                     success_rate = completed_count / len(ku_tasks) if ku_tasks else 0
 
                     patterns.append(
@@ -982,7 +982,7 @@ class KuAnalyticsEngine:
         self, knowledge_uid: str, tasks: list[Task]
     ) -> KuMasteryProgression:
         """Calculate mastery progression for a knowledge area."""
-        completed_tasks = [t for t in tasks if t.status == KuStatus.COMPLETED]
+        completed_tasks = [t for t in tasks if t.status == EntityStatus.COMPLETED]
         validation_tasks = [t for t in completed_tasks if t.knowledge_mastery_check]
 
         # GRAPH-NATIVE: Fetch relationships for completed tasks only (optimization)
@@ -1209,7 +1209,7 @@ class KuAnalyticsEngine:
             return insights
 
         # Analyze completion rates by knowledge complexity
-        completed_tasks = [t for t in tasks if t.status == KuStatus.COMPLETED]
+        completed_tasks = [t for t in tasks if t.status == EntityStatus.COMPLETED]
         if len(completed_tasks) >= 5:
             # GRAPH-NATIVE: Fetch relationships for completed tasks only
             completed_rels = await asyncio.gather(
@@ -1253,7 +1253,7 @@ class KuAnalyticsEngine:
         insights = []
 
         validation_tasks = [t for t in tasks if t.knowledge_mastery_check]
-        completed_validations = [t for t in validation_tasks if t.status == KuStatus.COMPLETED]
+        completed_validations = [t for t in validation_tasks if t.status == EntityStatus.COMPLETED]
 
         if validation_tasks:
             validation_rate = len(completed_validations) / len(validation_tasks)

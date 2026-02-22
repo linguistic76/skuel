@@ -1,10 +1,10 @@
 """
-LearningPathKu - Learning Path Domain Model
+LearningPath - Learning Path Domain Model
 =============================================
 
-Frozen dataclass for learning path entities (KuType.LEARNING_PATH).
+Frozen dataclass for learning path entities (EntityType.LEARNING_PATH).
 
-Inherits common fields from KuBase via CurriculumKu. Adds 4 learning-path-specific fields:
+Inherits common fields from Entity via Curriculum. Adds 4 learning-path-specific fields:
 - Path configuration (4): path_type, outcomes, checkpoint_week_intervals, estimated_hours
 
 Learning-path-specific methods/properties: steps, goal, get_summary, from_dto.
@@ -22,24 +22,24 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
-from core.models.enums.ku_enums import KuType, LpType
-from core.models.ku.ku_curriculum import CurriculumKu
+from core.models.enums.ku_enums import EntityType, LpType
+from core.models.ku.curriculum import Curriculum
 
 
 @dataclass(frozen=True)
-class LearningPathKu(CurriculumKu):
+class LearningPath(Curriculum):
     """
-    Immutable domain model for learning paths (KuType.LEARNING_PATH).
+    Immutable domain model for learning paths (EntityType.LEARNING_PATH).
 
-    Inherits ~50 fields from CurriculumKu (KuBase fields + learning metadata
+    Inherits ~50 fields from Curriculum (Entity fields + learning metadata
     + substance tracking). Adds 4 learning-path-specific fields for path
     configuration. Steps are graph relationships (HAS_STEP), not model attributes.
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=LEARNING_PATH, then delegate to KuBase."""
-        if self.ku_type != KuType.LEARNING_PATH:
-            object.__setattr__(self, "ku_type", KuType.LEARNING_PATH)
+        """Force ku_type=LEARNING_PATH, then delegate to Entity."""
+        if self.ku_type != EntityType.LEARNING_PATH:
+            object.__setattr__(self, "ku_type", EntityType.LEARNING_PATH)
         super().__post_init__()
 
     # =========================================================================
@@ -79,20 +79,20 @@ class LearningPathKu(CurriculumKu):
         return text[: max_length - 3] + "..."
 
     # =========================================================================
-    # CONVERSION (generic -- uses KuBase._from_dto / to_dto)
+    # CONVERSION (generic -- uses Entity._from_dto / to_dto)
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "LearningPathKu":
-        """Create LearningPathKu from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO") -> "LearningPath":
+        """Create LearningPath from a KuDTO."""
         return cls._from_dto(dto)
 
     def __str__(self) -> str:
-        return f"LearningPathKu(uid={self.uid}, path_type={self.path_type}, title='{self.title}')"
+        return f"LearningPath(uid={self.uid}, path_type={self.path_type}, title='{self.title}')"
 
     def __repr__(self) -> str:
         return (
-            f"LearningPathKu(uid='{self.uid}', title='{self.title}', "
+            f"LearningPath(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, path_type={self.path_type}, "
             f"outcomes={len(self.outcomes)}, user_uid={self.user_uid})"
         )

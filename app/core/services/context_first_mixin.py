@@ -65,7 +65,7 @@ from core.models.context_types import (
     _compute_relevance,
     _compute_urgency,
 )
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
 
 if TYPE_CHECKING:
     import logging
@@ -331,14 +331,14 @@ class ContextFirstMixin(ABC):
         """
         unlocks = []
 
-        if entity_type == KuType.TASK.value:
+        if entity_type == EntityType.TASK.value:
             # Check if any blocked tasks depend on this one
             for _blocked_uid in context.blocked_task_uids:
                 # Would need graph query to verify dependency
                 # For now, return empty - implemented in relationship service
                 pass
 
-        elif entity_type == KuType.CURRICULUM.value:
+        elif entity_type == EntityType.CURRICULUM.value:
             # Check context for entities waiting on this knowledge
             # Would need graph query
             pass

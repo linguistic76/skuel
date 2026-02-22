@@ -9,7 +9,7 @@ operations where learning path progression guides task, habit, goal, and other d
 Design Principle: "How does the user's learning path position frame this operation?"
 
 Phase 3 Unified Ku Model: LpPosition now uses Ku for both paths and steps.
-Steps are stored in path.metadata["steps"] (list[LearningStepKu]).
+Steps are stored in path.metadata["steps"] (list[LearningStep]).
 """
 
 from dataclasses import dataclass
@@ -17,18 +17,18 @@ from datetime import datetime
 from typing import Any
 
 from core.models.enums import Domain
-from core.models.ku.ku_learning_path import LearningPathKu
-from core.models.ku.ku_learning_step import LearningStepKu
+from core.models.ku.learning_path import LearningPath
+from core.models.ku.learning_step import LearningStep
 
 
-def _get_path_steps(path: LearningPathKu) -> list[LearningStepKu]:
+def _get_path_steps(path: LearningPath) -> list[LearningStep]:
     """Get steps from a learning path Ku's metadata."""
     if path.metadata:
         return path.metadata.get("steps", [])
     return []
 
 
-def _get_next_step(path: LearningPathKu, completed_step_uids: set[str]) -> LearningStepKu | None:
+def _get_next_step(path: LearningPath, completed_step_uids: set[str]) -> LearningStep | None:
     """Get the next incomplete step in a learning path."""
     steps = _get_path_steps(path)
     for step in steps:
@@ -47,8 +47,8 @@ class LpPosition:
     """
 
     # Core Learning State (using Ku model)
-    active_paths: list[LearningPathKu]  # User's current learning paths
-    current_steps: dict[str, LearningStepKu]  # Current step in each path (path_uid -> step)
+    active_paths: list[LearningPath]  # User's current learning paths
+    current_steps: dict[str, LearningStep]  # Current step in each path (path_uid -> step)
     completed_step_uids: set[str]  # All completed step UIDs across paths
     next_recommended: list[str]  # Next step UIDs ready to start
 
@@ -336,7 +336,7 @@ class LpPosition:
 
 def create_lp_position(
     user_uid: str,
-    active_paths: list[LearningPathKu],
+    active_paths: list[LearningPath],
     completed_step_uids: set[str],
     readiness_map: dict[str, bool] | None = None,
 ) -> LpPosition:
@@ -345,7 +345,7 @@ def create_lp_position(
 
     Args:
         user_uid: User identifier,
-        active_paths: User's active learning paths (LearningPathKu instances),
+        active_paths: User's active learning paths (LearningPath instances),
         completed_step_uids: Set of completed step UIDs
         readiness_map: Optional map of step UIDs to readiness status.
                       If None, all steps assumed ready. Use LsRelationshipService.is_ready()

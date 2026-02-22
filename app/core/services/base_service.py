@@ -90,6 +90,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 # Import protocols for type constraints and runtime validation
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_names import RelationshipName
+from core.ports import BackendOperations
 from core.services.mixins import (
     ContextOperationsMixin,
     ConversionHelpersMixin,
@@ -99,7 +100,6 @@ from core.services.mixins import (
     TimeQueryMixin,
     UserProgressMixin,
 )
-from core.ports import BackendOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

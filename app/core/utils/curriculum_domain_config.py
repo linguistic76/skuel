@@ -45,6 +45,7 @@ from core.services.relationships import UnifiedRelationshipService
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
+    from core.ports import EventBusOperations, KuOperations, QueryBuilderOperations
     from core.services.ku.ku_adaptive_service import KuAdaptiveService
     from core.services.ku.ku_core_service import KuCoreService
     from core.services.ku.ku_graph_service import KuGraphService
@@ -58,7 +59,6 @@ if TYPE_CHECKING:
     from core.services.lp.lp_search_service import LpSearchService
     from core.services.lp_intelligence_service import LpIntelligenceService
     from core.services.ls_service import LsService
-    from core.ports import EventBusOperations, KuOperations, QueryBuilderOperations
 
 # Type vars for generics
 T = TypeVar("T")  # Domain model type

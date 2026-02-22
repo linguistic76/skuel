@@ -32,11 +32,11 @@ from core.constants import MasteryLevel
 from core.events import publish_event
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.enums import Domain
-from core.models.ku import LearningPathKu, LearningStepKu
+from core.models.ku import LearningPath, LearningStep
 from core.models.ku.ku_dto import KuDTO
+from core.ports import HasUID, get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
-from core.ports import HasUID, get_enum_value
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import from_neo4j_node
@@ -51,7 +51,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPathKu]):
+class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]):
     """
     Core CRUD operations for learning paths.
 
@@ -92,7 +92,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
     # See: /docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md
     _config = create_curriculum_domain_config(
         dto_class=KuDTO,
-        model_class=LearningPathKu,
+        model_class=LearningPath,
         entity_label="Ku",
         domain_name="lp",
         search_fields=("title", "description"),  # LP: name→title, goal→description
@@ -107,7 +107,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
 
     def __init__(
         self,
-        backend: BackendOperations[LearningPathKu],
+        backend: BackendOperations[LearningPath],
         ls_service: Any = None,
         event_bus: Any = None,
     ) -> None:
@@ -127,21 +127,21 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         self.event_bus = event_bus
 
     @staticmethod
-    def _build_lp_from_record(path_data: dict, steps: list[LearningStepKu]) -> LearningPathKu:
-        """Build LearningPathKu from Neo4j node dict + pre-built step list.
+    def _build_lp_from_record(path_data: dict, steps: list[LearningStep]) -> LearningPath:
+        """Build LearningPath from Neo4j node dict + pre-built step list.
 
         Uses from_neo4j_node for full field deserialization.
         Steps (from HAS_STEP relationships) are stored in metadata["steps"].
         """
-        ku = from_neo4j_node(path_data, LearningPathKu)
+        ku = from_neo4j_node(path_data, LearningPath)
         existing_metadata = ku.metadata if ku.metadata else {}
         existing_metadata["steps"] = steps
         object.__setattr__(ku, "metadata", existing_metadata)
         return ku
 
     @staticmethod
-    def _build_steps_from_data(steps_data: list[dict]) -> list[LearningStepKu]:
-        """Build LearningStepKu list from step node dicts fetched via HAS_STEP join.
+    def _build_steps_from_data(steps_data: list[dict]) -> list[LearningStep]:
+        """Build LearningStep list from step node dicts fetched via HAS_STEP join.
 
         Uses from_neo4j_node for full field deserialization of each step.
         """
@@ -149,13 +149,13 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
             return []
 
         sorted_steps = sorted(steps_data, key=get_sequence)
-        steps: list[LearningStepKu] = []
+        steps: list[LearningStep] = []
         for step_info in sorted_steps:
             step_node = step_info.get("step") or step_info
             if step_node:
                 step_dict = dict(step_node) if not isinstance(step_node, dict) else step_node
                 if step_dict.get("uid"):
-                    steps.append(from_neo4j_node(step_dict, LearningStepKu))
+                    steps.append(from_neo4j_node(step_dict, LearningStep))
         return steps
 
     def _build_prerequisite_query(self, knowledge_var: str = "k", depth: int = 3) -> str:
@@ -194,7 +194,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         knowledge_units: list[Any],
         title: str | None = None,
         description: str | None = None,
-    ) -> Result[LearningPathKu]:
+    ) -> Result[LearningPath]:
         """Create a learning path from a list of knowledge units."""
         path_uid = f"path_{user_uid}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
@@ -205,7 +205,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
             step_uid = f"{path_uid}_step_{i + 1}"
             estimated_hours = 2
 
-            step = LearningStepKu(
+            step = LearningStep(
                 uid=step_uid,
                 title=f"Step {i + 1}",
                 intent="Complete this learning step",
@@ -217,7 +217,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
             steps.append(step)
             total_estimated_hours += estimated_hours
 
-        path = LearningPathKu(
+        path = LearningPath(
             uid=path_uid,
             title=title or f"Learning Path for {user_uid}",
             description=description or "Complete knowledge units in sequence",
@@ -251,9 +251,9 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         user_uid: str,
         title: str,
         description: str,
-        steps: list[LearningStepKu],
+        steps: list[LearningStep],
         domain: Domain = Domain.LEARNING,
-    ) -> Result[LearningPathKu]:
+    ) -> Result[LearningPath]:
         """
         Create and persist a learning path.
 
@@ -261,7 +261,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         """
         path_uid = f"path_{user_uid}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-        path = LearningPathKu(
+        path = LearningPath(
             uid=path_uid,
             title=title,
             description=description,
@@ -293,7 +293,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
     @with_error_handling("get_learning_paths_batch", error_type="database")
     async def get_learning_paths_batch(
         self, uids: list[str]
-    ) -> Result[list[LearningPathKu | None]]:
+    ) -> Result[list[LearningPath | None]]:
         """
         Get multiple learning paths in one batched query.
 
@@ -317,7 +317,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         if query_result.is_error:
             return Result.fail(query_result)
 
-        paths_map: dict[str, LearningPathKu] = {}
+        paths_map: dict[str, LearningPath] = {}
         for record in query_result.value:
             path_data = dict(record["p"])
             steps = self._build_steps_from_data(record["steps_data"])
@@ -329,7 +329,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         return Result.ok(result_list)
 
     @with_error_handling("get_learning_path", error_type="database", uid_param="path_uid")
-    async def get_learning_path(self, path_uid: str) -> Result[LearningPathKu | None]:
+    async def get_learning_path(self, path_uid: str) -> Result[LearningPath | None]:
         """Get a single learning path by UID (returns None if not found)."""
         query_result = await self.backend.execute_query(
             """
@@ -363,7 +363,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         min_confidence: float = 0.7,
         include_relationships: Sequence[str] | None = None,
         exclude_relationships: Sequence[str] | None = None,
-    ) -> Result[LearningPathKu]:
+    ) -> Result[LearningPath]:
         """
         Get learning path with comprehensive graph context (SINGLE QUERY).
 
@@ -482,7 +482,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
             for step_info in sorted_steps:
                 if step_info.get("uid"):
                     steps.append(
-                        LearningStepKu(
+                        LearningStep(
                             uid=step_info["uid"],
                             title=step_info.get("title", "Learning Step"),
                             intent=step_info.get("intent", "Complete this learning step"),
@@ -492,7 +492,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
                         )
                     )
 
-        # Build LearningPathKu — from_neo4j_node handles all fields from full node
+        # Build LearningPath — from_neo4j_node handles all fields from full node
         path = self._build_lp_from_record(path_data, steps)
 
         # Calculate progress percentage
@@ -553,7 +553,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
     @with_error_handling("list_user_paths", error_type="database", uid_param="user_uid")
     async def list_user_paths(
         self, user_uid: str, limit: int | None = None
-    ) -> Result[list[LearningPathKu]]:
+    ) -> Result[list[LearningPath]]:
         """List all learning paths for a specific user."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:HAS_PATH]->(p:Ku {ku_type: 'learning_path'})
@@ -589,7 +589,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         offset: int = 0,
         order_by: str | None = None,
         order_desc: bool = False,
-    ) -> Result[list[LearningPathKu]]:
+    ) -> Result[list[LearningPath]]:
         """
         List all learning paths in the system with pagination and sorting.
 
@@ -632,7 +632,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
 
         return Result.ok(paths)
 
-    async def get_path_steps(self, path_uid: str) -> Result[list[LearningStepKu]]:
+    async def get_path_steps(self, path_uid: str) -> Result[list[LearningStep]]:
         """
         Get steps for a learning path.
 
@@ -649,7 +649,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         steps = path.metadata.get("steps", []) if path.metadata else []
         return Result.ok(list(steps))
 
-    async def get_current_step(self, path_uid: str) -> Result[LearningStepKu | None]:
+    async def get_current_step(self, path_uid: str) -> Result[LearningStep | None]:
         """
         Get the current (first incomplete) step in a learning path.
 
@@ -679,7 +679,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         return Result.ok(None)
 
     @with_error_handling("update_path", error_type="database", uid_param="path_uid")
-    async def update_path(self, path_uid: str, updates: dict[str, Any]) -> Result[LearningPathKu]:
+    async def update_path(self, path_uid: str, updates: dict[str, Any]) -> Result[LearningPath]:
         """
         Update an existing learning path.
 
@@ -753,7 +753,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         for step_node in steps_data:
             step_dict = dict(step_node) if not isinstance(step_node, dict) else step_node
             if step_dict.get("uid"):
-                steps.append(from_neo4j_node(step_dict, LearningStepKu))
+                steps.append(from_neo4j_node(step_dict, LearningStep))
 
         updated_path = self._build_lp_from_record(path_data, steps)
 
@@ -805,7 +805,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
     # ============================================================================
 
     @with_error_handling("get_steps", error_type="database", uid_param="path_uid")
-    async def get_steps(self, path_uid: str, depth: int = 1) -> Result[list[LearningStepKu]]:
+    async def get_steps(self, path_uid: str, depth: int = 1) -> Result[list[LearningStep]]:
         """
         Get all steps in a learning path ordered by sequence.
 
@@ -837,12 +837,12 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         steps = []
         for record in result.value:
             ls_data = record["ls"]
-            steps.append(from_neo4j_node(ls_data, LearningStepKu))
+            steps.append(from_neo4j_node(ls_data, LearningStep))
 
         return Result.ok(steps)
 
     @with_error_handling("get_parent_path", error_type="database", uid_param="step_uid")
-    async def get_parent_path(self, step_uid: str) -> Result[LearningPathKu | None]:
+    async def get_parent_path(self, step_uid: str) -> Result[LearningPath | None]:
         """
         Get the learning path containing this step.
 
@@ -870,7 +870,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
             return Result.ok(None)
 
         lp_data = result.value[0]["lp"]
-        lp = self._to_domain_model(lp_data, KuDTO, LearningPathKu)
+        lp = self._to_domain_model(lp_data, KuDTO, LearningPath)
         return Result.ok(lp)
 
     @with_error_handling("get_path_hierarchy", error_type="database", uid_param="path_uid")
@@ -892,7 +892,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
         if current_result.is_error:
             return Result.fail(current_result)
 
-        current_lp = self._to_domain_model(current_result.value, KuDTO, LearningPathKu)
+        current_lp = self._to_domain_model(current_result.value, KuDTO, LearningPath)
 
         # Get steps
         steps_result = await self.get_steps(path_uid)
@@ -1069,7 +1069,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
 
     @with_error_handling("_persist_path", error_type="database", uid_param="user_uid")
     async def _persist_path(
-        self, path: LearningPathKu, steps: list[LearningStepKu], user_uid: str
+        self, path: LearningPath, steps: list[LearningStep], user_uid: str
     ) -> Result[bool]:
         """Persist a learning path to Neo4j graph."""
         # Create path node with all fields

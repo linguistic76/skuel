@@ -15,7 +15,7 @@ All tests use mock embedding services to avoid API calls.
 
 import pytest
 
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
 from core.services.ingestion.preparer import prepare_entity_data_async
 
 
@@ -54,7 +54,7 @@ async def test_complete_semantic_search_flow(
     from pathlib import Path
 
     prepared = await prepare_entity_data_async(
-        entity_type=KuType.CURRICULUM,
+        entity_type=EntityType.CURRICULUM,
         data=ku_data,
         body=body_content.strip(),
         file_path=Path("/fake/path/test.md"),

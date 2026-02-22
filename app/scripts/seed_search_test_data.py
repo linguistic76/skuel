@@ -27,16 +27,16 @@ from core.models.enums import (
     ContentType,
     Domain,
     EducationalLevel,
-    KuStatus,
+    EntityStatus,
     LearningLevel,
     Priority,
     RecurrencePattern,
     SELCategory,
 )
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
+from core.models.ku.habit import Habit as Habit
 from core.models.ku.ku import Ku
-from core.models.ku.ku_habit import HabitKu as Habit
-from core.models.ku.ku_task import TaskKu as Task
+from core.models.ku.task import Task as Task
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -142,7 +142,7 @@ TASKS = [
         "uid": "task.001",
         "title": "Complete meditation practice",
         "description": "15-minute morning meditation session",
-        "status": KuStatus.ACTIVE,
+        "status": EntityStatus.ACTIVE,
         "priority": Priority.HIGH,
         "due_date": date.today() + timedelta(days=1),
         "created_at": datetime.now(),
@@ -151,7 +151,7 @@ TASKS = [
         "uid": "task.002",
         "title": "Review goal progress",
         "description": "Weekly review of personal development goals",
-        "status": KuStatus.SCHEDULED,
+        "status": EntityStatus.SCHEDULED,
         "priority": Priority.MEDIUM,
         "due_date": date.today() + timedelta(days=3),
         "created_at": datetime.now(),
@@ -160,7 +160,7 @@ TASKS = [
         "uid": "task.003",
         "title": "Practice active listening",
         "description": "Apply active listening techniques in today's meetings",
-        "status": KuStatus.DRAFT,
+        "status": EntityStatus.DRAFT,
         "priority": Priority.LOW,
         "due_date": date.today(),
         "created_at": datetime.now(),
@@ -174,7 +174,7 @@ EVENTS = [
         "description": "Learn mindfulness techniques for stress reduction",
         "start_time": datetime.now() + timedelta(days=7),
         "end_time": datetime.now() + timedelta(days=7, hours=2),
-        "status": KuStatus.SCHEDULED,
+        "status": EntityStatus.SCHEDULED,
         "priority": Priority.HIGH,
         "created_at": datetime.now(),
     },
@@ -184,7 +184,7 @@ EVENTS = [
         "description": "Collaborative activities to strengthen team relationships",
         "start_time": datetime.now() + timedelta(days=14),
         "end_time": datetime.now() + timedelta(days=14, hours=3),
-        "status": KuStatus.SCHEDULED,
+        "status": EntityStatus.SCHEDULED,
         "priority": Priority.MEDIUM,
         "created_at": datetime.now(),
     },
@@ -196,7 +196,7 @@ HABITS = [
         "name": "Morning Meditation",
         "description": "Daily 10-minute meditation practice",
         "frequency": RecurrencePattern.DAILY,
-        "status": KuStatus.ACTIVE,
+        "status": EntityStatus.ACTIVE,
         "current_streak": 15,
         "best_streak": 30,
         "created_at": datetime.now(),
@@ -206,7 +206,7 @@ HABITS = [
         "name": "Evening Journaling",
         "description": "Reflect on the day through journaling",
         "frequency": RecurrencePattern.DAILY,
-        "status": KuStatus.ACTIVE,
+        "status": EntityStatus.ACTIVE,
         "current_streak": 8,
         "best_streak": 12,
         "created_at": datetime.now(),
@@ -218,7 +218,7 @@ GOALS = [
         "uid": "goal.001",
         "name": "Develop Emotional Intelligence",
         "description": "Improve self-awareness and emotional regulation skills",
-        "status": KuStatus.ACTIVE,
+        "status": EntityStatus.ACTIVE,
         "priority": Priority.HIGH,
         "target_date": date.today() + timedelta(days=90),
         "progress_percentage": 35.0,
@@ -228,7 +228,7 @@ GOALS = [
         "uid": "goal.002",
         "name": "Build Better Relationships",
         "description": "Strengthen connections through active listening and empathy",
-        "status": KuStatus.ACTIVE,
+        "status": EntityStatus.ACTIVE,
         "priority": Priority.MEDIUM,
         "target_date": date.today() + timedelta(days=180),
         "progress_percentage": 20.0,
@@ -252,7 +252,7 @@ PRINCIPLES = [
         "uid": "principle.001",
         "title": "Practice mindfulness daily",
         "description": "Commit to being present and aware in each moment",
-        "ku_type": KuType.PRINCIPLE.value,
+        "ku_type": EntityType.PRINCIPLE.value,
         "domain": Domain.PERSONAL,
         "created_at": datetime.now(),
     },

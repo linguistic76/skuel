@@ -3,7 +3,7 @@ Enhanced Principles Service - Facade Pattern
 =============================================
 
 Principles service facade that delegates to specialized sub-services.
-Uses unified Ku model with KuType.PRINCIPLE discrimination.
+Uses unified Ku model with EntityType.PRINCIPLE discrimination.
 
 Sub-Services:
 - PrinciplesCoreService: CRUD operations for principles
@@ -19,10 +19,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.ku_enums import PrincipleCategory
+from core.models.ku.entity import Entity
 from core.models.ku.ku import Ku
-from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_principle import PrincipleKu
+from core.models.ku.principle import Principle
+from core.ports.domain_protocols import (
+    GoalsOperations,
+    HabitsOperations,
+    PrinciplesOperations,
+)
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 
@@ -39,11 +44,6 @@ from core.services.principles import (
     PrinciplesReflectionService,
 )
 from core.services.principles.principles_ai_service import PrinciplesAIService
-from core.ports.domain_protocols import (
-    GoalsOperations,
-    HabitsOperations,
-    PrinciplesOperations,
-)
 
 # Unified relationship service (replaces PrinciplesRelationshipService)
 from core.services.relationships import UnifiedRelationshipService
@@ -52,13 +52,13 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.ports.search_protocols import PrinciplesSearchOperations
     from core.services.principles.principles_alignment_service import (
         AlignmentAssessment,
     )
     from core.services.principles.principles_intelligence_service import (
         PrinciplesIntelligenceService,
     )
-    from core.ports.search_protocols import PrinciplesSearchOperations
 
 
 # NOTE: AlignmentAssessment and MotivationalProfile are now imported from
@@ -70,7 +70,7 @@ def _by_assessed_date(item: dict[str, Any]) -> str:
     return item.get("assessed_date", "")
 
 
-class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations, KuBase]):
+class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations, Entity]):
     """
     Principles service facade with specialized sub-services.
 
@@ -107,7 +107,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=KuBase,
+        model_class=Entity,
         domain_name="principles",
         date_field="created_at",
         completed_statuses=(),  # Principles don't have completion status
@@ -402,7 +402,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
                 matching = [
                     p
                     for p in matching
-                    if isinstance(p, PrincipleKu)
+                    if isinstance(p, Principle)
                     and p.category
                     and p.category == filters["category"]
                 ]
@@ -410,7 +410,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
                 matching = [
                     p
                     for p in matching
-                    if isinstance(p, PrincipleKu)
+                    if isinstance(p, Principle)
                     and p.strength
                     and p.strength.value == filters["strength"]
                 ]
@@ -498,7 +498,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
             return Result.fail(principle_result.expect_error())
 
         principle_data = principle_result.value
-        if isinstance(principle_data, KuBase):
+        if isinstance(principle_data, Entity):
             ku_dto = principle_data.to_dto()
         elif isinstance(principle_data, dict):
             ku_dto = KuDTO.from_dict(principle_data)
@@ -535,7 +535,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
             return Result.fail(principle_result.expect_error())
 
         principle_data = principle_result.value
-        if isinstance(principle_data, KuBase):
+        if isinstance(principle_data, Entity):
             ku_dto = principle_data.to_dto()
         elif isinstance(principle_data, dict):
             ku_dto = KuDTO.from_dict(principle_data)
@@ -580,7 +580,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
             return Result.fail(principle_result.expect_error())
 
         principle_data = principle_result.value
-        if isinstance(principle_data, KuBase):
+        if isinstance(principle_data, Entity):
             ku_dto = principle_data.to_dto()
         elif isinstance(principle_data, dict):
             ku_dto = KuDTO.from_dict(principle_data)

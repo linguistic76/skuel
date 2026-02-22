@@ -1,10 +1,10 @@
 """
-LifePathKu - Life Path Domain Model
+LifePath - Life Path Domain Model
 =====================================
 
-Frozen dataclass for life path entities (KuType.LIFE_PATH).
+Frozen dataclass for life path entities (EntityType.LIFE_PATH).
 
-Inherits ~48 common fields from KuBase. Adds 14 life-path-specific fields:
+Inherits ~48 common fields from Entity. Adds 14 life-path-specific fields:
 - Designation (2): life_path_uid, designated_at
 - Alignment scores (3): alignment_score, word_action_gap, alignment_level
 - Dimension scores (5): knowledge, activity, goal, principle, momentum
@@ -30,16 +30,16 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
-from core.models.enums.ku_enums import AlignmentLevel, KuType
-from core.models.ku.ku_base import KuBase
+from core.models.enums.ku_enums import AlignmentLevel, EntityType
+from core.models.ku.entity import Entity
 
 
 @dataclass(frozen=True)
-class LifePathKu(KuBase):
+class LifePath(Entity):
     """
-    Immutable domain model for life path entities (KuType.LIFE_PATH).
+    Immutable domain model for life path entities (EntityType.LIFE_PATH).
 
-    Inherits ~48 common fields from KuBase (identity, content, status,
+    Inherits ~48 common fields from Entity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
     Adds 14 life-path-specific fields for designation, alignment scores,
@@ -47,9 +47,9 @@ class LifePathKu(KuBase):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=LIFE_PATH, then delegate to KuBase."""
-        if self.ku_type != KuType.LIFE_PATH:
-            object.__setattr__(self, "ku_type", KuType.LIFE_PATH)
+        """Force ku_type=LIFE_PATH, then delegate to Entity."""
+        if self.ku_type != EntityType.LIFE_PATH:
+            object.__setattr__(self, "ku_type", EntityType.LIFE_PATH)
         super().__post_init__()
 
     # =========================================================================
@@ -120,20 +120,20 @@ class LifePathKu(KuBase):
         return text[: max_length - 3] + "..."
 
     # =========================================================================
-    # CONVERSION (generic -- uses KuBase._from_dto / to_dto)
+    # CONVERSION (generic -- uses Entity._from_dto / to_dto)
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "LifePathKu":
-        """Create LifePathKu from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO") -> "LifePath":
+        """Create LifePath from a KuDTO."""
         return cls._from_dto(dto)
 
     def __str__(self) -> str:
-        return f"LifePathKu(uid={self.uid}, title='{self.title}')"
+        return f"LifePath(uid={self.uid}, title='{self.title}')"
 
     def __repr__(self) -> str:
         return (
-            f"LifePathKu(uid='{self.uid}', title='{self.title}', "
+            f"LifePath(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, alignment={self.alignment_score:.2f}, "
             f"user_uid={self.user_uid})"
         )

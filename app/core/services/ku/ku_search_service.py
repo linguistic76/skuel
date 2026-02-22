@@ -29,13 +29,13 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from core.constants import QueryLimit
 from core.models.enums import KuComplexity
 from core.models.enums.neo_labels import NeoLabel
+from core.models.ku.entity import Entity
 from core.models.ku.ku import Ku
-from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
+from core.ports import KuOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
-from core.ports import KuOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.metrics import track_query_metrics
@@ -51,7 +51,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class KuSearchService(BaseService[KuOperations, KuBase]):
+class KuSearchService(BaseService[KuOperations, Entity]):
     """
     Search service for Knowledge Units - BaseService pattern.
 
@@ -93,7 +93,7 @@ class KuSearchService(BaseService[KuOperations, KuBase]):
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     _config = create_curriculum_domain_config(
         dto_class=KuDTO,
-        model_class=KuBase,
+        model_class=Entity,
         domain_name="ku",
         search_fields=("title", "summary", "tags"),  # Content lives on :Content node, not :Ku
         search_order_by="updated_at",

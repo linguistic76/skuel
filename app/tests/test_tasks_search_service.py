@@ -21,12 +21,12 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.models.enums import Domain, KuStatus, Priority
+from core.models.enums import Domain, EntityStatus, Priority
 from core.models.ku import LpPosition
 from core.models.ku.ku_dto import KuDTO as TaskDTO
-from core.models.ku.ku_learning_path import LearningPathKu
-from core.models.ku.ku_learning_step import LearningStepKu
-from core.models.ku.ku_task import TaskKu as Task
+from core.models.ku.learning_path import LearningPath
+from core.models.ku.learning_step import LearningStep
+from core.models.ku.task import Task as Task
 from core.services.tasks.tasks_search_service import TasksSearchService
 from core.services.user import UserContext
 from core.utils.result_simplified import Errors, Result
@@ -80,7 +80,7 @@ def sample_tasks() -> list[Any]:
                 user_uid="user:demo",
                 title="Complete Python module",
                 priority=Priority.HIGH.value,
-                status=KuStatus.ACTIVE.value,
+                status=EntityStatus.ACTIVE.value,
                 fulfills_goal_uid="goal:learn_python",
                 reinforces_habit_uid=None,
                 goal_progress_contribution=0.2,
@@ -93,7 +93,7 @@ def sample_tasks() -> list[Any]:
                 user_uid="user:demo",
                 title="Daily coding practice",
                 priority=Priority.MEDIUM.value,
-                status=KuStatus.SCHEDULED.value,
+                status=EntityStatus.SCHEDULED.value,
                 fulfills_goal_uid=None,
                 reinforces_habit_uid="habit:daily_code",
                 created_at=now,
@@ -105,7 +105,7 @@ def sample_tasks() -> list[Any]:
                 user_uid="user:demo",
                 title="Blocked task - needs prereq",
                 priority=Priority.HIGH.value,
-                status=KuStatus.DRAFT.value,
+                status=EntityStatus.DRAFT.value,
                 created_at=now,
             )
         ),
@@ -115,7 +115,7 @@ def sample_tasks() -> list[Any]:
                 user_uid="user:demo",
                 title="Learning step task",
                 priority=Priority.LOW.value,
-                status=KuStatus.DRAFT.value,
+                status=EntityStatus.DRAFT.value,
                 knowledge_mastery_check=True,
                 source_learning_step_uid="ls:python_fundamentals",
                 created_at=now,
@@ -140,7 +140,7 @@ def user_context() -> UserContext:
 @pytest.fixture
 def learning_position() -> LpPosition:
     """Create sample learning position."""
-    step1 = LearningStepKu(
+    step1 = LearningStep(
         uid="ls:python_fundamentals",
         title="Python Fundamentals",
         intent="Learn Python basics",
@@ -148,7 +148,7 @@ def learning_position() -> LpPosition:
         mastery_threshold=0.8,
         estimated_hours=10.0,
     )
-    step2 = LearningStepKu(
+    step2 = LearningStep(
         uid="ls:python_advanced",
         title="Python Advanced",
         intent="Master advanced Python concepts",
@@ -157,7 +157,7 @@ def learning_position() -> LpPosition:
         estimated_hours=20.0,
     )
 
-    path = LearningPathKu(
+    path = LearningPath(
         uid="lp:python_mastery",
         title="Python Mastery",
         description="Master Python programming",
@@ -330,7 +330,7 @@ async def test_get_blocked_tasks_empty(search_service, mock_backend):
             user_uid="user:demo",
             title="Simple task",
             priority=Priority.MEDIUM.value,
-            status=KuStatus.DRAFT.value,
+            status=EntityStatus.DRAFT.value,
             created_at=datetime.now(),
         )
     )

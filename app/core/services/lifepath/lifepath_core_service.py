@@ -27,8 +27,8 @@ from core.utils.result_simplified import Errors, Result
 from .lifepath_types import LifePathDesignation
 
 if TYPE_CHECKING:
-    from core.services.lp_service import LpService
     from core.ports import QueryExecutor
+    from core.services.lp_service import LpService
 
 logger = get_logger(__name__)
 

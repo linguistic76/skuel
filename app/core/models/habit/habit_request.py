@@ -14,7 +14,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.models.enums import Priority, RecurrencePattern
-from core.models.enums.ku_enums import HabitCategory, HabitDifficulty, HabitPolarity, KuStatus
+from core.models.enums.ku_enums import EntityStatus, HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.validation_rules import (
     validate_habit_duration_by_difficulty,
     validate_habit_target_days_by_pattern,
@@ -151,7 +151,7 @@ class HabitUpdateRequest(BaseModel):
     reward: str | None = Field(None, max_length=500)
 
     # Status and priority can change
-    status: KuStatus | None = None
+    status: EntityStatus | None = None
     priority: Priority | None = None
     tags: list[str] | None = Field(None, max_length=20)
 
@@ -208,7 +208,7 @@ class HabitFilterRequest(BaseModel):
     """
 
     category: HabitCategory | None = None
-    status: KuStatus | None = None
+    status: EntityStatus | None = None
     priority: Priority | None = None
     difficulty: HabitDifficulty | None = None
     polarity: HabitPolarity | None = None

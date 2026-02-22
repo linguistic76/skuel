@@ -24,9 +24,9 @@ if TYPE_CHECKING:
 # Knowledge generation service (Phase 4.1)
 # Protocol interfaces
 # Domain models
-from core.models.enums import KuStatus
+from core.models.enums import EntityStatus
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_task import TaskKu
+from core.models.ku.task import Task
 
 # Base service
 from core.services.base_service import BaseService
@@ -118,7 +118,7 @@ class TaskAnalyticsDashboard(TypedDict):
     analytics_status: AnalyticsStatus
 
 
-class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]", TaskKu]):
+class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Task]", Task]):
     """
     Tasks service facade with specialized sub-services.
 
@@ -167,10 +167,10 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=TaskKu,
+        model_class=Task,
         domain_name="tasks",
         date_field="due_date",
-        completed_statuses=(KuStatus.COMPLETED.value,),
+        completed_statuses=(EntityStatus.COMPLETED.value,),
         entity_label="Ku",
     )
 
@@ -255,7 +255,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]
 
     def __init__(
         self,
-        backend: BackendOperations[TaskKu],
+        backend: BackendOperations[Task],
         ku_inference_service=None,
         analytics_engine=None,
         ku_generation_service=None,
@@ -365,7 +365,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]
     # EXPLICIT CORE METHODS (custom logic)
     # ========================================================================
 
-    async def create_task(self, task_request: KuTaskCreateRequest, user_uid: str) -> Result[TaskKu]:
+    async def create_task(self, task_request: KuTaskCreateRequest, user_uid: str) -> Result[Task]:
         """
         Create a task with automatic knowledge inference.
 
@@ -378,7 +378,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]
         """
         return await self.core.create_task(task_request, user_uid)
 
-    async def get_tasks_batch(self, uids: list[str]) -> Result[list[TaskKu | None]]:
+    async def get_tasks_batch(self, uids: list[str]) -> Result[list[Task | None]]:
         """
         Get multiple tasks in one batched query.
 
@@ -404,7 +404,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]
         user_context: UserContext,
         actual_minutes: int | None = None,
         quality_score: int | None = None,
-    ) -> Result[TaskKu]:
+    ) -> Result[Task]:
         """Complete a task and cascade updates through the system."""
         # Delegate to progress service for core completion
         result = await self.progress.complete_task_with_cascade(
@@ -422,7 +422,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]
         uid: str,
         actual_minutes: int | None = None,
         quality_score: int | None = None,
-    ) -> Result[TaskKu]:
+    ) -> Result[Task]:
         """
         Complete a task (StatusRouteFactory compatible).
 
@@ -432,15 +432,15 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]
             uid, user_context=None, actual_minutes=actual_minutes, quality_score=quality_score
         )
 
-    async def uncomplete_task(self, uid: str) -> Result[TaskKu]:
+    async def uncomplete_task(self, uid: str) -> Result[Task]:
         """
         Mark task as incomplete (StatusRouteFactory compatible).
 
         Reverts task status to IN_PROGRESS.
         """
-        from core.models.enums import KuStatus
+        from core.models.enums import EntityStatus
 
-        return await self.core.update_task(uid, {"status": KuStatus.ACTIVE})
+        return await self.core.update_task(uid, {"status": EntityStatus.ACTIVE})
 
     # ========================================================================
     # RELATIONSHIPS AND DEPENDENCIES - Explicit methods (custom logic)
@@ -450,7 +450,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]
 
     async def get_task_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[TaskKu, GraphContext]]:
+    ) -> Result[tuple[Task, GraphContext]]:
         """Get task with full graph context using pure Cypher graph intelligence."""
         return await self.relationships.get_with_context(uid, depth)
 
@@ -474,7 +474,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]
         task, context = result.value
         return Result.ok({"task": task, "practice_context": context})
 
-    async def get_task_dependencies(self, task_uid: str) -> Result[list[TaskKu]]:
+    async def get_task_dependencies(self, task_uid: str) -> Result[list[Task]]:
         """Get task dependencies (both directions)."""
         # Get prerequisite task UIDs
         prereq_result = await self.relationships.get_related_uids("prerequisite_tasks", task_uid)
@@ -542,7 +542,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]
 
     async def get_user_assigned_tasks(
         self, user_uid: str, include_completed: bool = False, limit: int = 100
-    ) -> Result[list[TaskKu]]:
+    ) -> Result[list[Task]]:
         """Get tasks assigned to user via graph traversal."""
         # Use backend list with user_uid filter
         filters = {"user_uid": user_uid}
@@ -551,14 +551,14 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]
         result = await self.backend.list(filters=filters, limit=limit)
         if result.is_error:
             return Result.fail(result)
-        # list() returns tuple[list[TaskKu], int]
+        # list() returns tuple[list[Task], int]
         tasks, _ = result.value
         return Result.ok(tasks)
 
     async def get_tasks_requiring_knowledge(
         self, knowledge_uid: str, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list[TaskKu]]:
-        """Get tasks that require specific knowledge (returns TaskKu objects, not dicts)."""
+    ) -> Result[list[Task]]:
+        """Get tasks that require specific knowledge (returns Task objects, not dicts)."""
         # Use find_by_semantic_filter to find tasks with relationship to this knowledge
         return await self.relationships.find_by_semantic_filter(
             target_uid=knowledge_uid,
@@ -665,7 +665,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]
         """
         from operator import attrgetter
 
-        from core.models.enums import KuStatus
+        from core.models.enums import EntityStatus
         from core.services.tasks.task_relationships import TaskRelationships
 
         tasks_result = await self.core.get_user_tasks(user_uid)
@@ -681,7 +681,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]
             tasks_to_prioritize = [
                 t
                 for t in all_tasks
-                if t.status in [KuStatus.DRAFT, KuStatus.ACTIVE, KuStatus.SCHEDULED]
+                if t.status in [EntityStatus.DRAFT, EntityStatus.ACTIVE, EntityStatus.SCHEDULED]
             ]
 
         # Get learning patterns
@@ -732,7 +732,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]
         """
         from datetime import date, timedelta
 
-        from core.models.enums import KuStatus
+        from core.models.enums import EntityStatus
 
         tasks_result = await self.core.get_user_tasks(user_uid)
         if tasks_result.is_error:
@@ -742,7 +742,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[TaskKu]
         completed_tasks = [
             task
             for task in tasks_result.value
-            if task.status == KuStatus.COMPLETED
+            if task.status == EntityStatus.COMPLETED
             and task.completion_date
             and task.completion_date >= cutoff_date
         ]

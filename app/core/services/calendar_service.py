@@ -35,7 +35,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from core.models.enums import Priority
-from core.models.enums.ku_enums import KuStatus, KuType
+from core.models.enums.ku_enums import EntityStatus, EntityType
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarItem,
@@ -43,12 +43,12 @@ from core.models.event.calendar_models import (
     CalendarOccurrence,
     CalendarView,
 )
+from core.models.ku.event import Event as EventPure
+from core.models.ku.habit import Habit as HabitPure
 from core.models.ku.ku_dto import KuDTO as EventDTO
 from core.models.ku.ku_dto import KuDTO as HabitDTO
 from core.models.ku.ku_dto import KuDTO as TaskDTO
-from core.models.ku.ku_event import EventKu as EventPure
-from core.models.ku.ku_habit import HabitKu as HabitPure
-from core.models.ku.ku_task import TaskKu as TaskPure
+from core.models.ku.task import Task as TaskPure
 from core.ports import get_enum_value
 
 # Import protocol interfaces for dependency injection
@@ -216,9 +216,9 @@ class CalendarService:
         # Handle demo items specially - return them directly
         if item_uid.startswith("demo-"):
             demo_items = []
-            if KuType.TASK.value in item_uid:
+            if EntityType.TASK.value in item_uid:
                 demo_items = self._create_demo_tasks()
-            elif KuType.EVENT.value in item_uid:
+            elif EntityType.EVENT.value in item_uid:
                 demo_items = self._create_demo_events()
 
             # Find matching demo item
@@ -271,7 +271,7 @@ class CalendarService:
         duration = kwargs.get("duration", 60)  # Default 60 minutes
         end_time = start_time + timedelta(minutes=duration)
 
-        if item_type == KuType.TASK.value and self.tasks_service:
+        if item_type == EntityType.TASK.value and self.tasks_service:
             # Create task
             task_dto = TaskDTO(
                 uid="",  # Will be generated
@@ -280,7 +280,7 @@ class CalendarService:
                 description=kwargs.get("description", ""),
                 scheduled_date=start_time.date(),
                 due_date=start_time.date(),
-                status=KuStatus.SCHEDULED,
+                status=EntityStatus.SCHEDULED,
                 priority=Priority.MEDIUM,
             )
             result = await self.tasks_service.create(task_dto)
@@ -289,7 +289,7 @@ class CalendarService:
             # Type boundary: Extract error from Result[Task] for Result[CalendarItem]
             return Result.fail(result.expect_error())
 
-        elif item_type == KuType.EVENT.value and self.events_service:
+        elif item_type == EntityType.EVENT.value and self.events_service:
             # Create event
             event_dto = EventDTO(
                 uid="",  # Will be generated
@@ -299,7 +299,7 @@ class CalendarService:
                 event_date=start_time.date(),
                 start_time=start_time.time(),
                 end_time=end_time.time(),
-                status=KuStatus.SCHEDULED,
+                status=EntityStatus.SCHEDULED,
             )
             result = await self.events_service.create(event_dto)
             if result.is_ok:
@@ -307,7 +307,7 @@ class CalendarService:
             # Type boundary: Extract error from Result[Ku] for Result[CalendarItem]
             return Result.fail(result.expect_error())
 
-        elif item_type == KuType.HABIT.value and self.habits_service:
+        elif item_type == EntityType.HABIT.value and self.habits_service:
             # Create habit
             habit_dto = HabitDTO(
                 uid="",  # Will be generated
@@ -315,7 +315,7 @@ class CalendarService:
                 title=title,
                 description=kwargs.get("description", ""),
                 target_days_per_week=kwargs.get("frequency", 7),
-                status=KuStatus.ACTIVE,  # Use KuStatus, not KuStatus
+                status=EntityStatus.ACTIVE,  # Use EntityStatus, not EntityStatus
             )
             result = await self.habits_service.create(habit_dto)
             if result.is_ok:

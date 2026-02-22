@@ -11,7 +11,7 @@ from typing import Any, cast
 
 from core.models.enums import (
     ActivityType,
-    KuStatus,
+    EntityStatus,
     Priority,
     RecurrencePattern,
     Visibility,
@@ -19,9 +19,9 @@ from core.models.enums import (
 from core.models.event.event_request import EventType
 
 # Import from three-tier models
-from core.models.ku.ku_event import EventKu as EventPure
-from core.models.ku.ku_habit import HabitKu as HabitPure
-from core.models.ku.ku_task import TaskKu as TaskPure
+from core.models.ku.event import Event as EventPure
+from core.models.ku.habit import Habit as HabitPure
+from core.models.ku.task import Task as TaskPure
 
 # Protocols
 from core.ports.calendar_protocol import CalendarTrackable, TimeWindow, WindowKind
@@ -65,20 +65,20 @@ class EventAdapter:
         priority_str = str(self._event.priority).upper()
         return priority_map.get(priority_str, Priority.MEDIUM)
 
-    def get_status(self) -> KuStatus:
-        """Convert event status to KuStatus"""
-        # Map EventStatus literals to KuStatus
+    def get_status(self) -> EntityStatus:
+        """Convert event status to EntityStatus"""
+        # Map EventStatus literals to EntityStatus
         status_map = {
-            "DRAFT": KuStatus.DRAFT,
-            "SCHEDULED": KuStatus.SCHEDULED,
-            "IN_PROGRESS": KuStatus.ACTIVE,
-            "COMPLETED": KuStatus.COMPLETED,
-            "CANCELLED": KuStatus.CANCELLED,
-            "POSTPONED": KuStatus.PAUSED,
-            "NO_SHOW": KuStatus.CANCELLED,
+            "DRAFT": EntityStatus.DRAFT,
+            "SCHEDULED": EntityStatus.SCHEDULED,
+            "IN_PROGRESS": EntityStatus.ACTIVE,
+            "COMPLETED": EntityStatus.COMPLETED,
+            "CANCELLED": EntityStatus.CANCELLED,
+            "POSTPONED": EntityStatus.PAUSED,
+            "NO_SHOW": EntityStatus.CANCELLED,
         }
         status_str = str(self._event.status).upper()
-        return status_map.get(status_str, KuStatus.DRAFT)
+        return status_map.get(status_str, EntityStatus.DRAFT)
 
     def get_calendar_windows(self) -> list[TimeWindow]:
         """
@@ -124,26 +124,26 @@ class EventAdapter:
 
     def can_edit(self) -> bool:
         """Check if event can be edited"""
-        return self.get_status() not in {KuStatus.CANCELLED, KuStatus.COMPLETED}
+        return self.get_status() not in {EntityStatus.CANCELLED, EntityStatus.COMPLETED}
 
     def can_delete(self) -> bool:
         """Check if event can be deleted"""
-        return self.get_status() != KuStatus.ACTIVE
+        return self.get_status() != EntityStatus.ACTIVE
 
     def can_reschedule(self) -> bool:
         """Check if event can be rescheduled"""
         return self.get_status() not in {
-            KuStatus.COMPLETED,
-            KuStatus.CANCELLED,
-            KuStatus.ACTIVE,
+            EntityStatus.COMPLETED,
+            EntityStatus.CANCELLED,
+            EntityStatus.ACTIVE,
         }
 
     def get_completion_percentage(self) -> float:
         """Get completion percentage"""
         status = self.get_status()
-        if status == KuStatus.COMPLETED:
+        if status == EntityStatus.COMPLETED:
             return 100.0
-        elif status == KuStatus.ACTIVE:
+        elif status == EntityStatus.ACTIVE:
             # Could calculate based on time elapsed
             return 50.0
         else:
@@ -177,7 +177,7 @@ class EventAdapter:
         return None
 
     def get_actual_duration_minutes(self) -> int | None:
-        if self.get_status() == KuStatus.COMPLETED:
+        if self.get_status() == EntityStatus.COMPLETED:
             return self.get_estimated_duration_minutes()
         return None
 

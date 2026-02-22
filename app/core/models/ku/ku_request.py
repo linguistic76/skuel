@@ -5,7 +5,7 @@ Unified Knowledge Request Models (Tier 1 - External)
 "Ku is the heartbeat of SKUEL."
 
 Pydantic models for API boundaries — validation and serialization.
-14 create requests (one per KuType), one update, one response.
+14 create requests (one per EntityType), one update, one response.
 
 Create requests (Content Processing):
     KuCurriculumCreateRequest    → Admin creates shared knowledge
@@ -54,13 +54,13 @@ from core.models.enums import (
 from core.models.enums.ku_enums import (
     AlignmentLevel,
     ChoiceType,
+    EntityStatus,
+    EntityType,
     GoalTimeframe,
     GoalType,
     HabitCategory,
     HabitDifficulty,
     HabitPolarity,
-    KuStatus,
-    KuType,
     LpType,
     MeasurementType,
     PrincipleCategory,
@@ -667,7 +667,7 @@ class KuLearningPathCreateRequest(CreateRequestBase):
 
 
 # =============================================================================
-# CREATE REQUESTS — Destination (1 new KuType)
+# CREATE REQUESTS — Destination (1 new EntityType)
 # =============================================================================
 
 
@@ -689,7 +689,7 @@ class KuLifePathCreateRequest(CreateRequestBase):
 class KuUpdateRequest(UpdateRequestBase):
     """Update any Ku type. All fields optional.
 
-    Services validate which fields are appropriate per KuType.
+    Services validate which fields are appropriate per EntityType.
     """
 
     # --- COMMON ---
@@ -702,7 +702,7 @@ class KuUpdateRequest(UpdateRequestBase):
     priority: Priority | None = None
 
     # --- PROCESSING ---
-    status: KuStatus | None = None
+    status: EntityStatus | None = None
     processor_type: ProcessorType | None = None
     instructions: str | None = None
     processing_error: str | None = None
@@ -826,13 +826,13 @@ class KuUpdateRequest(UpdateRequestBase):
 class KuResponse(ResponseBase):
     """API response for any Ku type.
 
-    Contains all fields needed to display any KuType. Fields that don't apply
-    to a specific KuType will be at their default value (None, 0, [], etc.).
+    Contains all fields needed to display any EntityType. Fields that don't apply
+    to a specific EntityType will be at their default value (None, 0, [], etc.).
     """
 
     uid: str
     title: str
-    ku_type: KuType
+    ku_type: EntityType
     user_uid: str | None = None
     parent_ku_uid: str | None = None
     parent_uid: str | None = None
@@ -850,7 +850,7 @@ class KuResponse(ResponseBase):
     file_type: str | None = None
 
     # Processing
-    status: KuStatus
+    status: EntityStatus
     processor_type: ProcessorType | None = None
     processing_error: str | None = None
     priority: Priority | None = None

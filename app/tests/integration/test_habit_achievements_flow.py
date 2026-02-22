@@ -23,9 +23,9 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.habit_events import AchievementEarned, HabitStreakMilestone
 from core.models.enums import RecurrencePattern
-from core.models.enums.ku_enums import HabitCategory, KuType
-from core.models.enums.ku_enums import KuStatus as HabitStatus
-from core.models.ku.ku_habit import HabitKu as Habit
+from core.models.enums.ku_enums import EntityStatus as HabitStatus
+from core.models.enums.ku_enums import EntityType, HabitCategory
+from core.models.ku.habit import Habit as Habit
 from core.services.habits.habit_achievement_service import HabitAchievementService
 
 
@@ -85,7 +85,7 @@ class TestHabitAchievementsFlow:
         habit = Habit(
             uid="habit.daily_coding",
             user_uid=test_user_uid,
-            ku_type=KuType.HABIT,
+            ku_type=EntityType.HABIT,
             title="Daily Coding Practice",
             description="Code for at least 30 minutes every day",
             habit_category=HabitCategory.LEARNING,
@@ -405,7 +405,7 @@ class TestHabitAchievementsFlow:
         habit2 = Habit(
             uid="habit.daily_reading",
             user_uid=test_user_uid,
-            ku_type=KuType.HABIT,
+            ku_type=EntityType.HABIT,
             title="Daily Reading",
             description="Read for 20 minutes daily",
             habit_category=HabitCategory.LEARNING,

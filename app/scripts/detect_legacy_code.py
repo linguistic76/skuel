@@ -123,7 +123,7 @@ class LegacyCodeDetector:
             return ("missing_protocol", "high")
 
         # Import/module errors
-        import_attrs = ["Errors", "EventType", "KuStatus"]
+        import_attrs = ["Errors", "EventType", "EntityStatus"]
         if attribute in import_attrs:
             return ("import_error", "low")
 

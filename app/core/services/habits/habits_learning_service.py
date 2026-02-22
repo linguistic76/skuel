@@ -16,22 +16,22 @@ from datetime import datetime
 from typing import Any
 
 from core.events import HabitCreated, publish_event
-from core.models.enums import Domain, KuStatus
+from core.models.enums import Domain, EntityStatus
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.habit_request import HabitCreateRequest
+from core.models.ku.habit import Habit
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_habit import HabitKu
 from core.models.ku.lp_position import LpPosition
+from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentHelper
-from core.ports.domain_protocols import HabitsOperations
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
 from core.utils.result_simplified import Result
 
 
-class HabitsLearningService(BaseService[HabitsOperations, HabitKu]):
+class HabitsLearningService(BaseService[HabitsOperations, Habit]):
     """
     Learning path integration service for habits.
 
@@ -66,11 +66,11 @@ class HabitsLearningService(BaseService[HabitsOperations, HabitKu]):
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=HabitKu,
+        model_class=Habit,
         entity_label="Ku",
         domain_name="habits",
         date_field="created_at",
-        completed_statuses=(KuStatus.ARCHIVED.value,),
+        completed_statuses=(EntityStatus.ARCHIVED.value,),
     )
 
     def __init__(self, backend: HabitsOperations, event_bus=None) -> None:
@@ -89,13 +89,13 @@ class HabitsLearningService(BaseService[HabitsOperations, HabitKu]):
         self.event_bus = event_bus
 
         # Initialize LearningAlignmentHelper for learning operations (Phase 4)
-        self.learning_helper = LearningAlignmentHelper[HabitKu, KuDTO, HabitCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Habit, KuDTO, HabitCreateRequest](
             service=self,
             backend_get_method="get_habit",
             backend_get_user_method="get_user_habits",
             backend_create_method="create_habit",
             dto_class=KuDTO,
-            model_class=HabitKu,
+            model_class=Habit,
             domain=Domain.HABITS,
             entity_name="habit",
         )
@@ -113,7 +113,7 @@ class HabitsLearningService(BaseService[HabitsOperations, HabitKu]):
     # LEARNING-AWARE HABIT OPERATIONS
     # ========================================================================
 
-    async def get_learning_habits(self, user_context: UserContext) -> Result[list[HabitKu]]:
+    async def get_learning_habits(self, user_context: UserContext) -> Result[list[Habit]]:
         """
         Get habits that support learning (reinforce knowledge).
         """
@@ -122,7 +122,7 @@ class HabitsLearningService(BaseService[HabitsOperations, HabitKu]):
         for habit_uid in user_context.active_habit_uids:
             habit_result = await self.backend.get_habit(habit_uid)
             if habit_result.is_ok:
-                habit = to_domain_model(habit_result.value, KuDTO, HabitKu)
+                habit = to_domain_model(habit_result.value, KuDTO, Habit)
 
                 # GRAPH-NATIVE: Check if habit is learning-related
                 # Check category and source fields (learning step/path linkage)
@@ -215,7 +215,7 @@ class HabitsLearningService(BaseService[HabitsOperations, HabitKu]):
 
     async def create_habit_with_learning_alignment(
         self, habit_request: HabitCreateRequest, learning_position: LpPosition | None = None
-    ) -> Result[HabitKu]:
+    ) -> Result[Habit]:
         """
         Create a habit aligned with user's learning path progression.
 
@@ -283,7 +283,7 @@ class HabitsLearningService(BaseService[HabitsOperations, HabitKu]):
 
     async def get_learning_reinforcing_habits(
         self, user_uid: str, learning_position: LpPosition
-    ) -> Result[list[HabitKu]]:
+    ) -> Result[list[Habit]]:
         """
         Get existing habits that reinforce current learning paths.
 

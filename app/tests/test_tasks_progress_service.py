@@ -19,9 +19,9 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from core.models.enums import KuStatus, Priority
+from core.models.enums import EntityStatus, Priority
 from core.models.ku.ku_dto import KuDTO as TaskDTO
-from core.models.ku.ku_task import TaskKu as Task
+from core.models.ku.task import Task as Task
 from core.services.tasks.tasks_progress_service import TasksProgressService
 from core.services.user import UserContext
 from core.utils.result_simplified import Errors, Result
@@ -41,7 +41,7 @@ def mock_backend() -> Any:
         "uid": "task:123",
         "user_uid": "user:123",
         "title": "Test Task",
-        "status": KuStatus.ACTIVE.value,
+        "status": EntityStatus.ACTIVE.value,
         "priority": Priority.MEDIUM.value,
         "due_date": None,  # No due date by default
         "created_at": datetime.now(),
@@ -86,7 +86,7 @@ def sample_task() -> Task:
             user_uid="user:demo",
             title="Test Task",
             priority=Priority.HIGH.value,
-            status=KuStatus.ACTIVE.value,
+            status=EntityStatus.ACTIVE.value,
             fulfills_goal_uid="goal:learn_python",
             reinforces_habit_uid="habit:daily_code",
             goal_progress_contribution=0.2,
@@ -106,7 +106,7 @@ def blocked_task() -> Task:
             user_uid="user:demo",
             title="Blocked Task",
             priority=Priority.MEDIUM.value,
-            status=KuStatus.DRAFT.value,
+            status=EntityStatus.DRAFT.value,
             created_at=datetime.now(),
         )
     )
@@ -157,7 +157,7 @@ async def test_complete_task_with_cascade_success(
 
     # Setup updated task (completed)
     completed_dto = sample_task.to_dto()
-    completed_dto.status = KuStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED.value
     completed_dto.completion_date = date.today()
     completed_dto.actual_minutes = 90
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
@@ -170,7 +170,7 @@ async def test_complete_task_with_cascade_success(
     # Verify
     assert result.is_ok
     completed_task = result.value
-    assert completed_task.status == KuStatus.COMPLETED
+    assert completed_task.status == EntityStatus.COMPLETED
     assert completed_task.completion_date == date.today()
     assert completed_task.actual_minutes == 90
 
@@ -184,7 +184,7 @@ async def test_complete_task_cascade_effects(
     mock_backend.get.return_value = Result.ok(sample_task.to_dto().to_dict())
 
     completed_dto = sample_task.to_dto()
-    completed_dto.status = KuStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED.value
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
@@ -266,7 +266,7 @@ async def test_check_prerequisites_met(progress_service, mock_backend, sample_ta
             user_uid="user:demo",
             title="Simple Task",
             priority=Priority.MEDIUM.value,
-            status=KuStatus.DRAFT.value,
+            status=EntityStatus.DRAFT.value,
             created_at=datetime.now(),
         )
     )
@@ -350,7 +350,7 @@ async def test_unblock_task_if_ready_success(progress_service, mock_backend):
             user_uid="user:demo",
             title="Ready Task",
             priority=Priority.HIGH.value,
-            status=KuStatus.DRAFT.value,
+            status=EntityStatus.DRAFT.value,
             created_at=datetime.now(),
         )
     )
@@ -366,7 +366,7 @@ async def test_unblock_task_if_ready_success(progress_service, mock_backend):
     ):
         # Setup unblocked task
         unblocked_dto = ready_task.to_dto()
-        unblocked_dto.status = KuStatus.SCHEDULED.value
+        unblocked_dto.status = EntityStatus.SCHEDULED.value
         mock_backend.update.return_value = Result.ok(unblocked_dto.to_dict())
 
         # Create mock context
@@ -383,7 +383,7 @@ async def test_unblock_task_if_ready_success(progress_service, mock_backend):
         # Verify
         assert result.is_ok
         assert result.value is not None
-        assert result.value.status == KuStatus.SCHEDULED
+        assert result.value.status == EntityStatus.SCHEDULED
 
 
 @pytest.mark.asyncio
@@ -476,7 +476,7 @@ async def test_complete_task_updates_goal(progress_service, mock_backend, user_c
             user_uid="user:demo",
             title="Goal Task",
             priority=Priority.HIGH.value,
-            status=KuStatus.ACTIVE.value,
+            status=EntityStatus.ACTIVE.value,
             fulfills_goal_uid="goal:learn_python",
             goal_progress_contribution=0.3,
             completion_updates_goal=True,
@@ -487,7 +487,7 @@ async def test_complete_task_updates_goal(progress_service, mock_backend, user_c
     mock_backend.get.return_value = Result.ok(goal_task.to_dto().to_dict())
 
     completed_dto = goal_task.to_dto()
-    completed_dto.status = KuStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED.value
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
@@ -508,7 +508,7 @@ async def test_complete_task_reinforces_habit(progress_service, mock_backend, us
             user_uid="user:demo",
             title="Habit Task",
             priority=Priority.MEDIUM.value,
-            status=KuStatus.ACTIVE.value,
+            status=EntityStatus.ACTIVE.value,
             reinforces_habit_uid="habit:daily_code",
             created_at=datetime.now(),
         )
@@ -517,7 +517,7 @@ async def test_complete_task_reinforces_habit(progress_service, mock_backend, us
     mock_backend.get.return_value = Result.ok(habit_task.to_dto().to_dict())
 
     completed_dto = habit_task.to_dto()
-    completed_dto.status = KuStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED.value
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
@@ -542,7 +542,7 @@ async def test_complete_task_updates_knowledge_mastery(
             user_uid="user:demo",
             title="Mastery Task",
             priority=Priority.HIGH.value,
-            status=KuStatus.ACTIVE.value,
+            status=EntityStatus.ACTIVE.value,
             knowledge_mastery_check=True,
             created_at=datetime.now(),
         )
@@ -551,7 +551,7 @@ async def test_complete_task_updates_knowledge_mastery(
     mock_backend.get.return_value = Result.ok(mastery_task.to_dto().to_dict())
 
     completed_dto = mastery_task.to_dto()
-    completed_dto.status = KuStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED.value
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
@@ -577,7 +577,7 @@ async def test_complete_and_unblock_workflow(progress_service, mock_backend, use
             user_uid="user:demo",
             title="Prerequisite Task",
             priority=Priority.HIGH.value,
-            status=KuStatus.ACTIVE.value,
+            status=EntityStatus.ACTIVE.value,
             created_at=datetime.now(),
         )
     )
@@ -585,7 +585,7 @@ async def test_complete_and_unblock_workflow(progress_service, mock_backend, use
     mock_backend.get.return_value = Result.ok(task.to_dto().to_dict())
 
     completed_dto = task.to_dto()
-    completed_dto.status = KuStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED.value
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Complete the task

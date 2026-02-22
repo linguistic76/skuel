@@ -17,17 +17,17 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import GoalAchieved, GoalMilestoneReached, GoalProgressUpdated, publish_event
 from core.events.task_events import TaskCompleted
-from core.models.enums import Domain, KuStatus
+from core.models.enums import Domain, EntityStatus
 from core.models.enums.ku_enums import MeasurementType
 from core.models.graph_context import GraphContext
+from core.models.ku.goal import Goal
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_goal import GoalKu
+from core.ports.domain_protocols import GoalsOperations
+from core.ports.query_types import GoalUpdatePayload
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.goals.goal_relationships import GoalRelationships
 from core.services.infrastructure import ProgressCalculationHelper
-from core.ports.domain_protocols import GoalsOperations
-from core.ports.query_types import GoalUpdatePayload
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
 from core.utils.result_simplified import Errors, Result
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from core.services.relationships import UnifiedRelationshipService
 
 
-class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
+class GoalsProgressService(BaseService[GoalsOperations, Goal]):
     """
     Goal progress tracking and milestone management service.
 
@@ -75,10 +75,10 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=GoalKu,
+        model_class=Goal,
         domain_name="goals",
         date_field="target_date",
-        completed_statuses=(KuStatus.COMPLETED.value,),
+        completed_statuses=(EntityStatus.COMPLETED.value,),
         entity_label="Ku",
     )
 
@@ -130,7 +130,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
 
     def _get_goal_from_rich_context(
         self, goal_uid: str, user_context: UserContext
-    ) -> GoalKu | None:
+    ) -> Goal | None:
         """
         Try to get Goal entity from UserContext rich data.
 
@@ -142,7 +142,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
             user_context: User's context (may contain rich goal data)
 
         Returns:
-            GoalKu if found in rich context, None otherwise
+            Goal if found in rich context, None otherwise
         """
         if not user_context.active_goals_rich:
             return None
@@ -208,7 +208,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
                     )
         return None
 
-    def _dict_to_goal(self, goal_dict: dict[str, Any]) -> GoalKu:
+    def _dict_to_goal(self, goal_dict: dict[str, Any]) -> Goal:
         """
         Convert a goal dictionary from MEGA-QUERY to Goal domain model.
 
@@ -216,7 +216,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
             goal_dict: Dict with goal properties from Neo4j
 
         Returns:
-            GoalKu domain model
+            Goal domain model
         """
         # Parse date fields
         target_date = goal_dict.get("target_date")
@@ -248,7 +248,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
 
         # Parse enums
         status_val = goal_dict.get("status", "active")
-        status = KuStatus(status_val) if isinstance(status_val, str) else status_val
+        status = EntityStatus(status_val) if isinstance(status_val, str) else status_val
 
         domain_val = goal_dict.get("domain")
         domain = Domain(domain_val) if domain_val and isinstance(domain_val, str) else domain_val
@@ -266,7 +266,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
             tuple(milestones_list) if isinstance(milestones_list, list) else milestones_list
         )
 
-        return GoalKu(
+        return Goal(
             uid=goal_dict.get("uid", ""),
             user_uid=goal_dict.get("user_uid", ""),
             title=goal_dict.get("title", ""),
@@ -326,7 +326,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
             goal_result = await self.backend.get_goal(goal_uid)
             if goal_result.is_error:
                 return Result.fail(goal_result.expect_error())
-            goal = to_domain_model(goal_result.value, KuDTO, GoalKu)
+            goal = to_domain_model(goal_result.value, KuDTO, Goal)
             self.logger.debug(f"Goal {goal_uid} fetched from Neo4j (not in rich context)")
         else:
             self.logger.debug(f"Goal {goal_uid} found in rich context (no Neo4j query needed)")
@@ -390,7 +390,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
 
     async def complete_milestone(
         self, goal_uid: str, milestone_index: int, user_context: UserContext
-    ) -> Result[GoalKu]:
+    ) -> Result[Goal]:
         """
         Mark a milestone as complete and update goal progress.
 
@@ -406,7 +406,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, KuDTO, GoalKu)
+        goal = to_domain_model(goal_result.value, KuDTO, Goal)
 
         if not goal.milestones or milestone_index >= len(goal.milestones):
             return Result.fail(
@@ -439,7 +439,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
 
         # Check if goal is complete
         if completed_count == len(updated_milestones):
-            updates["status"] = KuStatus.COMPLETED
+            updates["status"] = EntityStatus.COMPLETED
             updates["completion_date"] = date.today()
 
         update_result = await self.backend.update_goal(goal_uid, updates)
@@ -449,7 +449,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
         # Context invalidation happens via GoalMilestoneReached/GoalAchieved events (event-driven architecture)
         # Event handlers in bootstrap will call user_service.invalidate_context()
 
-        updated_goal = to_domain_model(update_result.value, KuDTO, GoalKu)
+        updated_goal = to_domain_model(update_result.value, KuDTO, Goal)
 
         self.logger.info(f"Completed milestone {milestone_index} for goal {goal_uid}")
 
@@ -487,7 +487,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
 
     async def update_goal_from_habit_progress(
         self, goal_uid: str, habit_uid: str, new_streak: int
-    ) -> Result[GoalKu]:
+    ) -> Result[Goal]:
         """
         Update goal progress based on habit streak changes.
 
@@ -503,7 +503,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, KuDTO, GoalKu)
+        goal = to_domain_model(goal_result.value, KuDTO, Goal)
 
         # GRAPH-NATIVE: Fetch relationships from graph
         rels = None
@@ -541,14 +541,14 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
 
             # Check if goal is achieved
             if new_progress >= 100:
-                updates["status"] = KuStatus.COMPLETED
+                updates["status"] = EntityStatus.COMPLETED
                 updates["completion_date"] = date.today()
 
             update_result = await self.backend.update_goal(goal_uid, updates)
             if update_result.is_error:
                 return Result.fail(update_result.expect_error())
 
-            updated_goal = to_domain_model(update_result.value, KuDTO, GoalKu)
+            updated_goal = to_domain_model(update_result.value, KuDTO, Goal)
 
             self.logger.info(
                 f"Updated goal {goal_uid} progress from habit {habit_uid} to {new_progress:.1f}%"
@@ -587,7 +587,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
     # VELOCITY & FORECASTING HELPERS
     # ========================================================================
 
-    def calculate_velocity_metrics(self, context: GraphContext, goal: GoalKu) -> dict[str, float]:
+    def calculate_velocity_metrics(self, context: GraphContext, goal: Goal) -> dict[str, float]:
         """
         Calculate velocity metrics from graph context.
 
@@ -637,7 +637,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
             "current_progress_rate": current_progress_rate,
         }
 
-    def generate_forecast(self, goal: GoalKu, current_progress_rate: float) -> dict[str, Any]:
+    def generate_forecast(self, goal: Goal, current_progress_rate: float) -> dict[str, Any]:
         """
         Generate completion forecast based on current progress rate.
 
@@ -677,7 +677,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
         }
 
     def calculate_timeline_analysis(
-        self, goal: GoalKu, velocity_metrics: dict[str, float], days_ahead_or_behind: int
+        self, goal: Goal, velocity_metrics: dict[str, float], days_ahead_or_behind: int
     ) -> dict[str, Any]:
         """
         Calculate timeline analysis including required velocity and current pace.
@@ -819,7 +819,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
         if not goal_dto:
             return Result.fail(Errors.not_found(resource="Goal", identifier=uid))
 
-        goal = to_domain_model(goal_dto, KuDTO, GoalKu)
+        goal = to_domain_model(goal_dto, KuDTO, Goal)
         old_progress = goal.progress_percentage or 0.0
 
         # Update progress
@@ -883,7 +883,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
         if not goal_dto:
             return Result.fail(Errors.not_found(resource="Goal", identifier=uid))
 
-        goal = to_domain_model(goal_dto, KuDTO, GoalKu)
+        goal = to_domain_model(goal_dto, KuDTO, Goal)
 
         # Extract progress notes from DTO metadata
         metadata: dict[str, Any] = goal_dto.metadata or {}
@@ -944,7 +944,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, KuDTO, GoalKu)
+        goal = to_domain_model(goal_result.value, KuDTO, Goal)
 
         # Create new milestone with UID
         import uuid
@@ -986,7 +986,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, KuDTO, GoalKu)
+        goal = to_domain_model(goal_result.value, KuDTO, Goal)
 
         # Convert milestones to dicts
         milestones = []
@@ -1160,7 +1160,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
 
         # Check if goal is achieved
         if new_progress >= 100:
-            updates["status"] = KuStatus.COMPLETED.value
+            updates["status"] = EntityStatus.COMPLETED.value
             updates["completion_date"] = date.today()
 
         update_result = await self.backend.update(goal_uid, updates)
@@ -1347,7 +1347,7 @@ class GoalsProgressService(BaseService[GoalsOperations, GoalKu]):
 
         # Check if goal is achieved
         if new_progress >= 100:
-            updates["status"] = KuStatus.COMPLETED.value
+            updates["status"] = EntityStatus.COMPLETED.value
             updates["completion_date"] = date.today()
 
         update_result = await self.backend.update(goal_uid, updates)

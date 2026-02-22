@@ -34,7 +34,7 @@ class SubmissionCreated(BaseEvent):
 
     submission_uid: str
     user_uid: str
-    ku_type: str  # KuType enum value
+    ku_type: str  # EntityType enum value
     occurred_at: datetime
     # File fields - optional (journals don't have files)
     processor_type: str | None = None  # ProcessorType enum value

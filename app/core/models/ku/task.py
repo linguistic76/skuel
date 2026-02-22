@@ -1,10 +1,10 @@
 """
-TaskKu - Task Domain Model
+Task - Task Domain Model
 ============================
 
-Frozen dataclass for task entities (KuType.TASK).
+Frozen dataclass for task entities (EntityType.TASK).
 
-Inherits ~48 common fields from KuBase. Adds 25 task-specific fields:
+Inherits ~48 common fields from Entity. Adds 25 task-specific fields:
 - Scheduling (9): due_date, scheduled_date, completion_date, duration, recurrence
 - Hierarchy (3): parent_uid, project, assignee
 - Cross-domain links (4): goal, habit, learning step/path references
@@ -25,16 +25,16 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
-from core.models.enums.ku_enums import KuType
-from core.models.ku.ku_base import KuBase
+from core.models.enums.ku_enums import EntityType
+from core.models.ku.entity import Entity
 
 
 @dataclass(frozen=True)
-class TaskKu(KuBase):
+class Task(Entity):
     """
-    Immutable domain model for tasks (KuType.TASK).
+    Immutable domain model for tasks (EntityType.TASK).
 
-    Inherits ~48 common fields from KuBase (identity, content, status,
+    Inherits ~48 common fields from Entity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
     Adds 25 task-specific fields for scheduling, hierarchy, cross-domain
@@ -42,9 +42,9 @@ class TaskKu(KuBase):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=TASK, then delegate to KuBase for timestamps/status defaults."""
-        if self.ku_type != KuType.TASK:
-            object.__setattr__(self, "ku_type", KuType.TASK)
+        """Force ku_type=TASK, then delegate to Entity for timestamps/status defaults."""
+        if self.ku_type != EntityType.TASK:
+            object.__setattr__(self, "ku_type", EntityType.TASK)
         super().__post_init__()
 
     # =========================================================================
@@ -177,7 +177,7 @@ class TaskKu(KuBase):
     def calculate_knowledge_complexity(self) -> float:
         """Calculate knowledge complexity (0.0-1.0).
 
-        Returns default 0.5 — real complexity comes from related CurriculumKu
+        Returns default 0.5 — real complexity comes from related Curriculum
         nodes via graph relationships, not from the task itself.
         """
         return 0.5
@@ -186,7 +186,7 @@ class TaskKu(KuBase):
         """Check if this entity bridges multiple knowledge domains.
 
         Tasks bridge domains via graph relationships, not semantic_links
-        (which are a CurriculumKu concept). Always False for tasks.
+        (which are a Curriculum concept). Always False for tasks.
         """
         return False
 
@@ -194,7 +194,7 @@ class TaskKu(KuBase):
         """Calculate learning impact score.
 
         Returns default 0.15 — real learning impact comes from related
-        CurriculumKu nodes, not the task itself.
+        Curriculum nodes, not the task itself.
         """
         return 0.15
 
@@ -219,20 +219,20 @@ class TaskKu(KuBase):
         return self.source_learning_step_uid is not None
 
     # =========================================================================
-    # CONVERSION (generic — uses KuBase._from_dto / to_dto)
+    # CONVERSION (generic — uses Entity._from_dto / to_dto)
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "TaskKu":
-        """Create TaskKu from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO") -> "Task":
+        """Create Task from a KuDTO."""
         return cls._from_dto(dto)
 
     def __str__(self) -> str:
-        return f"TaskKu(uid={self.uid}, title='{self.title}', due={self.due_date})"
+        return f"Task(uid={self.uid}, title='{self.title}', due={self.due_date})"
 
     def __repr__(self) -> str:
         return (
-            f"TaskKu(uid='{self.uid}', title='{self.title}', "
+            f"Task(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, priority={self.priority}, "
             f"due_date={self.due_date}, user_uid={self.user_uid})"
         )

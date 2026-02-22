@@ -31,19 +31,19 @@ The DSL transforms freeform journal input into SKUEL's domain architecture:
 
 This is the bridge from "user speaks/writes" to "structured action".
 
-**DSL Syntax (v0.5 - KuType/NonKuDomain Contexts):**
+**DSL Syntax (v0.5 - EntityType/NonKuDomain Contexts):**
 
 ```markdown
 - [ ] Description @context(task) @when(2025-11-27T09:30) @priority(1)
       @duration(90m) @energy(focus) @ku(ku:sel/mindfulness) @link(goal:health)
 ```
 
-**Required:** `@context()` - determines entity type (uses KuType or NonKuDomain enums)
+**Required:** `@context()` - determines entity type (uses EntityType or NonKuDomain enums)
 **Optional:** All other tags
 
 **Type Safety:**
 
-The `@context()` tag values are now parsed to `KuType` or `NonKuDomain` enum values, providing:
+The `@context()` tag values are now parsed to `EntityType` or `NonKuDomain` enum values, providing:
 - Compile-time verification of valid context values
 - IDE autocomplete for entity types
 - Exhaustiveness checking in pattern matching
@@ -56,18 +56,18 @@ from datetime import datetime
 from typing import Any
 
 from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-# DSL-specific aliases that map user-facing context strings to KuType/NonKuDomain.
-# KuType.from_string() handles most aliases (e.g. "ku" -> CURRICULUM, "ls" -> LEARNING_STEP),
-# but DSL historically accepted some forms not in the KuType alias table.
-_DSL_CONTEXT_ALIASES: dict[str, KuType | NonKuDomain] = {
-    "learningstep": KuType.LEARNING_STEP,
-    "learningpath": KuType.LEARNING_PATH,
-    "journal": KuType.SUBMISSION,
-    "life_path": KuType.LIFE_PATH,
+# DSL-specific aliases that map user-facing context strings to EntityType/NonKuDomain.
+# EntityType.from_string() handles most aliases (e.g. "ku" -> CURRICULUM, "ls" -> LEARNING_STEP),
+# but DSL historically accepted some forms not in the EntityType alias table.
+_DSL_CONTEXT_ALIASES: dict[str, EntityType | NonKuDomain] = {
+    "learningstep": EntityType.LEARNING_STEP,
+    "learningpath": EntityType.LEARNING_PATH,
+    "journal": EntityType.SUBMISSION,
+    "life_path": EntityType.LIFE_PATH,
 }
 
 # ============================================================================
@@ -85,12 +85,12 @@ class ParsedActivityLine:
 
     **Type Safety:**
 
-    The `contexts` field uses `list[KuType | NonKuDomain]` instead of `list[str]`,
+    The `contexts` field uses `list[EntityType | NonKuDomain]` instead of `list[str]`,
     providing compile-time verification of valid entity types. This means:
 
-    - `KuType.TASK in contexts` instead of `"task" in contexts`
+    - `EntityType.TASK in contexts` instead of `"task" in contexts`
     - Invalid context strings are caught during parsing, not at entity creation
-    - IDE autocomplete shows all valid KuType/NonKuDomain values
+    - IDE autocomplete shows all valid EntityType/NonKuDomain values
 
     **Fields:**
 
@@ -98,7 +98,7 @@ class ParsedActivityLine:
 
     Attributes:
         description: Human-readable activity description
-        contexts: List of KuType/NonKuDomain values from @context() tag (type-safe)
+        contexts: List of EntityType/NonKuDomain values from @context() tag (type-safe)
         when: Optional datetime from @when() tag
         duration_minutes: Optional duration in minutes from @duration() tag
         repeat_pattern: Optional repeat configuration from @repeat() tag
@@ -115,12 +115,12 @@ class ParsedActivityLine:
         ```python
         activity = ParsedActivityLine(
             description="Call mom",
-            contexts=[KuType.TASK],
+            contexts=[EntityType.TASK],
             priority=1,
         )
 
         # Type-safe context checking
-        if KuType.TASK in activity.contexts:
+        if EntityType.TASK in activity.contexts:
             create_task(activity)
 
         # Or use helper methods
@@ -129,7 +129,7 @@ class ParsedActivityLine:
         ```
 
     See Also:
-        - KuType: Enum defining Ku-based context values
+        - EntityType: Enum defining Ku-based context values
         - NonKuDomain: Enum defining non-Ku context values (Finance, Calendar, Learning)
         - ActivityDSLParser: Parser that creates ParsedActivityLine instances
     """
@@ -137,8 +137,8 @@ class ParsedActivityLine:
     # Core content
     description: str
     contexts: list[
-        KuType | NonKuDomain
-    ]  # Type-safe: [KuType.TASK], [KuType.HABIT, NonKuDomain.LEARNING]
+        EntityType | NonKuDomain
+    ]  # Type-safe: [EntityType.TASK], [EntityType.HABIT, NonKuDomain.LEARNING]
 
     # Temporal
     when: datetime | None = None  # @when(2025-11-27T09:30)
@@ -172,36 +172,36 @@ class ParsedActivityLine:
         Check if this is a task activity.
 
         Returns:
-            True if KuType.TASK is in contexts
+            True if EntityType.TASK is in contexts
         """
-        return KuType.TASK in self.contexts
+        return EntityType.TASK in self.contexts
 
     def is_habit(self) -> bool:
         """
         Check if this is a habit activity.
 
         Returns:
-            True if KuType.HABIT is in contexts
+            True if EntityType.HABIT is in contexts
         """
-        return KuType.HABIT in self.contexts
+        return EntityType.HABIT in self.contexts
 
     def is_goal(self) -> bool:
         """
         Check if this is a goal activity.
 
         Returns:
-            True if KuType.GOAL is in contexts
+            True if EntityType.GOAL is in contexts
         """
-        return KuType.GOAL in self.contexts
+        return EntityType.GOAL in self.contexts
 
     def is_event(self) -> bool:
         """
         Check if this is an event activity.
 
         Returns:
-            True if KuType.EVENT is in contexts
+            True if EntityType.EVENT is in contexts
         """
-        return KuType.EVENT in self.contexts
+        return EntityType.EVENT in self.contexts
 
     def is_learning(self) -> bool:
         """
@@ -217,18 +217,18 @@ class ParsedActivityLine:
         Check if this is a principle activity.
 
         Returns:
-            True if KuType.PRINCIPLE is in contexts
+            True if EntityType.PRINCIPLE is in contexts
         """
-        return KuType.PRINCIPLE in self.contexts
+        return EntityType.PRINCIPLE in self.contexts
 
     def is_choice(self) -> bool:
         """
         Check if this is a choice/decision activity.
 
         Returns:
-            True if KuType.CHOICE is in contexts
+            True if EntityType.CHOICE is in contexts
         """
-        return KuType.CHOICE in self.contexts
+        return EntityType.CHOICE in self.contexts
 
     def is_finance(self) -> bool:
         """
@@ -248,27 +248,27 @@ class ParsedActivityLine:
         Check if this is a KnowledgeUnit activity.
 
         Returns:
-            True if KuType.CURRICULUM is in contexts
+            True if EntityType.CURRICULUM is in contexts
         """
-        return KuType.CURRICULUM in self.contexts
+        return EntityType.CURRICULUM in self.contexts
 
     def is_ls(self) -> bool:
         """
         Check if this is a LearningStep activity.
 
         Returns:
-            True if KuType.LEARNING_STEP is in contexts
+            True if EntityType.LEARNING_STEP is in contexts
         """
-        return KuType.LEARNING_STEP in self.contexts
+        return EntityType.LEARNING_STEP in self.contexts
 
     def is_lp(self) -> bool:
         """
         Check if this is a LearningPath activity.
 
         Returns:
-            True if KuType.LEARNING_PATH is in contexts
+            True if EntityType.LEARNING_PATH is in contexts
         """
-        return KuType.LEARNING_PATH in self.contexts
+        return EntityType.LEARNING_PATH in self.contexts
 
     # ========================================================================
     # META DOMAINS (3) - Type-Safe Checks
@@ -279,9 +279,9 @@ class ParsedActivityLine:
         Check if this is a Report activity (file uploads, processing).
 
         Returns:
-            True if KuType.SUBMISSION is in contexts
+            True if EntityType.SUBMISSION is in contexts
         """
-        return KuType.SUBMISSION in self.contexts
+        return EntityType.SUBMISSION in self.contexts
 
     def is_calendar(self) -> bool:
         """
@@ -301,17 +301,17 @@ class ParsedActivityLine:
         Check if this is a LifePath alignment activity.
 
         Returns:
-            True if KuType.LIFE_PATH is in contexts
+            True if EntityType.LIFE_PATH is in contexts
         """
-        return KuType.LIFE_PATH in self.contexts
+        return EntityType.LIFE_PATH in self.contexts
 
     @property
-    def primary_context(self) -> KuType | NonKuDomain | None:
+    def primary_context(self) -> EntityType | NonKuDomain | None:
         """
         Get the primary (first) context for this activity.
 
         Returns:
-            The first KuType or NonKuDomain in contexts, or None if contexts is empty
+            The first EntityType or NonKuDomain in contexts, or None if contexts is empty
         """
         return self.contexts[0] if self.contexts else None
 
@@ -333,11 +333,11 @@ class ParsedActivityLine:
 
     def get_linked_goals(self) -> list[str]:
         """Get goal UIDs from @link() tags."""
-        return [link["id"] for link in self.links if link.get("type") == KuType.GOAL.value]
+        return [link["id"] for link in self.links if link.get("type") == EntityType.GOAL.value]
 
     def get_linked_principles(self) -> list[str]:
         """Get principle UIDs from @link() tags."""
-        return [link["id"] for link in self.links if link.get("type") == KuType.PRINCIPLE.value]
+        return [link["id"] for link in self.links if link.get("type") == EntityType.PRINCIPLE.value]
 
     def get_linked_knowledge(self) -> list[str]:
         """Get all knowledge UIDs (primary + linked)."""
@@ -345,13 +345,13 @@ class ParsedActivityLine:
         if self.primary_ku:
             uids.append(self.primary_ku)
         uids.extend(
-            [link["id"] for link in self.links if link.get("type") == KuType.CURRICULUM.value]
+            [link["id"] for link in self.links if link.get("type") == EntityType.CURRICULUM.value]
         )
         return uids
 
     def get_linked_choices(self) -> list[str]:
         """Get choice UIDs from @link() tags."""
-        return [link["id"] for link in self.links if link.get("type") == KuType.CHOICE.value]
+        return [link["id"] for link in self.links if link.get("type") == EntityType.CHOICE.value]
 
     def get_amount(self) -> float | None:
         """
@@ -478,14 +478,14 @@ class ParsedJournal:
 
 class ActivityDSLParser:
     """
-    Parser for SKUEL Activity DSL with type-safe KuType/NonKuDomain contexts.
+    Parser for SKUEL Activity DSL with type-safe EntityType/NonKuDomain contexts.
 
     Extracts structured activity data from markdown text containing
     Activity Lines with @context(), @when(), @priority(), etc. tags.
 
     **Type Safety:**
 
-    The parser converts @context() string values to KuType or NonKuDomain enum
+    The parser converts @context() string values to EntityType or NonKuDomain enum
     values, providing compile-time verification. Invalid context strings result
     in parse errors with clear messages listing valid options.
 
@@ -499,11 +499,11 @@ class ActivityDSLParser:
     if result.is_ok:
         activity = result.value
         print(activity.description)  # "Call mom"
-        print(activity.contexts)  # [KuType.TASK]
+        print(activity.contexts)  # [EntityType.TASK]
         print(activity.priority)  # 1
 
         # Type-safe context checking
-        if KuType.TASK in activity.contexts:
+        if EntityType.TASK in activity.contexts:
             print("This is a task!")
 
     # Parse full journal
@@ -534,7 +534,7 @@ class ActivityDSLParser:
     ```
 
     See Also:
-        - KuType: Enum defining Ku-based context values
+        - EntityType: Enum defining Ku-based context values
         - NonKuDomain: Enum defining non-Ku context values
         - ParsedActivityLine: The parsed activity representation
         - ParsedJournal: Collection of parsed activities
@@ -574,7 +574,7 @@ class ActivityDSLParser:
         Parse a single Activity Line with type-safe context validation.
 
         An Activity Line MUST contain @context() to be valid. The context
-        values are validated against KuType and NonKuDomain enums - invalid
+        values are validated against EntityType and NonKuDomain enums - invalid
         values produce clear error messages.
 
         Args:
@@ -583,14 +583,14 @@ class ActivityDSLParser:
             source_line_num: Optional line number in source
 
         Returns:
-            Result containing ParsedActivityLine with KuType/NonKuDomain contexts, or error
+            Result containing ParsedActivityLine with EntityType/NonKuDomain contexts, or error
 
         Example:
             ```python
             result = parser.parse_line("- [ ] Call mom @context(task) @priority(1)")
             if result.is_ok:
                 activity = result.value
-                assert KuType.TASK in activity.contexts  # Type-safe!
+                assert EntityType.TASK in activity.contexts  # Type-safe!
             ```
         """
         if not line or not line.strip():
@@ -626,7 +626,7 @@ class ActivityDSLParser:
                     )
                 )
 
-            # Parse contexts to KuType/NonKuDomain (type-safe)
+            # Parse contexts to EntityType/NonKuDomain (type-safe)
             contexts_result = self._parse_contexts(tags["context"])
             if contexts_result.is_error:
                 return Result.fail(contexts_result.expect_error())
@@ -686,7 +686,7 @@ class ActivityDSLParser:
         Parse a full journal/document for Activity Lines.
 
         Scans all lines and extracts those containing @context().
-        Each context value is validated against KuType and NonKuDomain enums.
+        Each context value is validated against EntityType and NonKuDomain enums.
 
         Args:
             text: Full document text
@@ -781,12 +781,12 @@ class ActivityDSLParser:
     # VALUE PARSERS
     # ========================================================================
 
-    def _parse_contexts(self, value: str) -> Result[list[KuType | NonKuDomain]]:
+    def _parse_contexts(self, value: str) -> Result[list[EntityType | NonKuDomain]]:
         """
-        Parse @context() value to typed KuType/NonKuDomain list.
+        Parse @context() value to typed EntityType/NonKuDomain list.
 
-        Converts comma-separated context strings to KuType or NonKuDomain enum
-        values. KuType is tried first (covers most domains), then NonKuDomain
+        Converts comma-separated context strings to EntityType or NonKuDomain enum
+        values. EntityType is tried first (covers most domains), then NonKuDomain
         (Finance, Calendar, Learning, Group). Invalid context strings produce a
         validation error with the list of valid options.
 
@@ -794,18 +794,18 @@ class ActivityDSLParser:
             value: Raw @context() value (e.g., "task", "habit,learning")
 
         Returns:
-            Result containing list of KuType/NonKuDomain values, or validation error
+            Result containing list of EntityType/NonKuDomain values, or validation error
 
         Example:
             ```python
             result = self._parse_contexts("task,learning")
-            # Returns Result.ok([KuType.TASK, NonKuDomain.LEARNING])
+            # Returns Result.ok([EntityType.TASK, NonKuDomain.LEARNING])
 
             result = self._parse_contexts("invalid")
             # Returns Result.fail(ValidationError with valid options)
             ```
         """
-        contexts: list[KuType | NonKuDomain] = []
+        contexts: list[EntityType | NonKuDomain] = []
         invalid: list[str] = []
 
         for v in value.split(","):
@@ -819,8 +819,8 @@ class ActivityDSLParser:
                 contexts.append(dsl_alias)
                 continue
 
-            # Try KuType (covers most domains)
-            ku_type = KuType.from_string(v)
+            # Try EntityType (covers most domains)
+            ku_type = EntityType.from_string(v)
             if ku_type is not None:
                 contexts.append(ku_type)
                 continue
@@ -835,7 +835,7 @@ class ActivityDSLParser:
 
         if invalid:
             # Build helpful error message with valid options from both enums
-            all_values = sorted({e.value for e in KuType} | {e.value for e in NonKuDomain})
+            all_values = sorted({e.value for e in EntityType} | {e.value for e in NonKuDomain})
             valid_options = ", ".join(all_values)
             return Result.fail(
                 Errors.validation(
@@ -857,7 +857,7 @@ class ActivityDSLParser:
         return Result.ok(contexts)
 
     def _parse_list_value(self, value: str) -> list[str]:
-        """Parse comma-separated values into list (for non-KuType fields)."""
+        """Parse comma-separated values into list (for non-EntityType fields)."""
         if not value:
             return []
         return [v.strip().lower() for v in value.split(",") if v.strip()]
@@ -1011,9 +1011,9 @@ class ActivityDSLParser:
                     link_type = parts[0].strip().lower()
                     link_id = parts[1].strip()
 
-                    # Normalize DSL prefix to KuType value
-                    # e.g. @link(ku:...) -> type="curriculum" (KuType.CURRICULUM)
-                    normalized = KuType.from_string(link_type)
+                    # Normalize DSL prefix to EntityType value
+                    # e.g. @link(ku:...) -> type="curriculum" (EntityType.CURRICULUM)
+                    normalized = EntityType.from_string(link_type)
                     if normalized is not None:
                         link_type = normalized.value
 
@@ -1042,13 +1042,13 @@ def parse_activity_line(line: str) -> Result[ParsedActivityLine]:
         line: Raw line text containing @context() and other tags
 
     Returns:
-        Result containing ParsedActivityLine with type-safe KuType/NonKuDomain contexts
+        Result containing ParsedActivityLine with type-safe EntityType/NonKuDomain contexts
 
     Example:
         ```python
         result = parse_activity_line("- [ ] Call mom @context(task)")
         if result.is_ok:
-            assert KuType.TASK in result.value.contexts
+            assert EntityType.TASK in result.value.contexts
         ```
     """
     parser = ActivityDSLParser()
@@ -1063,7 +1063,7 @@ def parse_journal_text(text: str) -> Result[ParsedJournal]:
         text: Full journal text
 
     Returns:
-        Result containing ParsedJournal with all activities (type-safe KuType/NonKuDomain contexts)
+        Result containing ParsedJournal with all activities (type-safe EntityType/NonKuDomain contexts)
     """
     parser = ActivityDSLParser()
     return parser.parse_journal(text)

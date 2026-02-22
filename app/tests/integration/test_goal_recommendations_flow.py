@@ -32,16 +32,16 @@ from core.models.enums import (
     SELCategory,
 )
 from core.models.enums.ku_enums import (
+    EntityStatus,
     GoalType,
-    KuStatus,
     MeasurementType,
     PrincipleCategory,
 )
-from core.models.enums.ku_enums import KuStatus as HabitStatus
-from core.models.ku.ku_curriculum import CurriculumKu
-from core.models.ku.ku_goal import GoalKu
-from core.models.ku.ku_habit import HabitKu
-from core.models.ku.ku_principle import PrincipleKu
+from core.models.enums.ku_enums import EntityStatus as HabitStatus
+from core.models.ku.curriculum import Curriculum
+from core.models.ku.goal import Goal
+from core.models.ku.habit import Habit
+from core.models.ku.principle import Principle
 from core.services.goals.goals_recommendation_service import GoalsRecommendationService
 
 
@@ -57,27 +57,27 @@ class TestGoalRecommendationsFlow:
     @pytest_asyncio.fixture
     async def goal_backend(self, neo4j_driver, clean_neo4j):
         """Create Goal backend with clean database."""
-        return UniversalNeo4jBackend[GoalKu](
-            neo4j_driver, "Ku", GoalKu, default_filters={"ku_type": "goal"}
+        return UniversalNeo4jBackend[Goal](
+            neo4j_driver, "Ku", Goal, default_filters={"ku_type": "goal"}
         )
 
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
 
     @pytest_asyncio.fixture
     async def habit_backend(self, neo4j_driver, clean_neo4j):
         """Create Habit backend with clean database."""
-        return UniversalNeo4jBackend[HabitKu](
-            neo4j_driver, "Ku", HabitKu, default_filters={"ku_type": "habit"}
+        return UniversalNeo4jBackend[Habit](
+            neo4j_driver, "Ku", Habit, default_filters={"ku_type": "habit"}
         )
 
     @pytest_asyncio.fixture
     async def principle_backend(self, neo4j_driver, clean_neo4j):
         """Create Principle backend with clean database."""
-        return UniversalNeo4jBackend[PrincipleKu](
-            neo4j_driver, "Ku", PrincipleKu, default_filters={"ku_type": "principle"}
+        return UniversalNeo4jBackend[Principle](
+            neo4j_driver, "Ku", Principle, default_filters={"ku_type": "principle"}
         )
 
     @pytest_asyncio.fixture
@@ -122,7 +122,7 @@ class TestGoalRecommendationsFlow:
         # Create 2 related knowledge units
         kus = []
         for i, title in enumerate(["Python Basics", "Web Development Fundamentals"], start=1):
-            ku = CurriculumKu(
+            ku = Curriculum(
                 uid=f"ku.tech_{i}",
                 title=title,
                 domain=Domain.TECH,
@@ -137,7 +137,7 @@ class TestGoalRecommendationsFlow:
         for i, name in enumerate(["Daily Coding Practice", "Code Review Participation"], start=1):
             from core.models.enums.ku_enums import HabitCategory
 
-            habit = HabitKu(
+            habit = Habit(
                 uid=f"habit.tech_{i}",
                 user_uid=test_user_uid,
                 title=name,
@@ -150,7 +150,7 @@ class TestGoalRecommendationsFlow:
             habits.append(result.value)
 
         # Create 1 guiding principle
-        principle = PrincipleKu(
+        principle = Principle(
             uid="principle.continuous_learning",
             user_uid=test_user_uid,
             title="Continuous Learning",
@@ -162,7 +162,7 @@ class TestGoalRecommendationsFlow:
         principle = result.value
 
         # Create achieved goal
-        goal = GoalKu(
+        goal = Goal(
             uid="goal.build_web_app",
             user_uid=test_user_uid,
             title="Build First Web Application",
@@ -173,7 +173,7 @@ class TestGoalRecommendationsFlow:
             progress_percentage=100.0,
             current_value=100.0,
             target_value=100.0,
-            status=KuStatus.COMPLETED,
+            status=EntityStatus.COMPLETED,
             target_date=date(2025, 12, 31),
         )
         result = await goal_backend.create(goal)
@@ -517,7 +517,7 @@ class TestGoalRecommendationsFlow:
     ):
         """Test that recommendations are generated even without knowledge/habit/principle relationships."""
         # Create goal with no relationships
-        goal = GoalKu(
+        goal = Goal(
             uid="goal.simple",
             user_uid=test_user_uid,
             title="Simple Goal",
@@ -528,7 +528,7 @@ class TestGoalRecommendationsFlow:
             progress_percentage=100.0,
             current_value=100.0,
             target_value=100.0,
-            status=KuStatus.COMPLETED,
+            status=EntityStatus.COMPLETED,
             target_date=date(2025, 12, 31),
         )
         result = await goal_backend.create(goal)

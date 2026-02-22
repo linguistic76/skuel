@@ -10,16 +10,16 @@ Following SKUEL's three-tier type system:
 
 from typing import Any
 
-from .ku_base import KuBase
-from .ku_feedback import FeedbackKu
-from .ku_submission import SubmissionKu
+from .entity import Entity
+from .feedback import Feedback
+from .submission import Submission
 
 
-def ku_to_response(ku: KuBase) -> dict[str, Any]:
+def ku_to_response(ku: Entity) -> dict[str, Any]:
     """
-    Convert any KuBase subclass to API response format.
+    Convert any Entity subclass to API response format.
 
-    Uses isinstance checks for subclass-specific fields (SubmissionKu, FeedbackKu).
+    Uses isinstance checks for subclass-specific fields (Submission, Feedback).
     """
     response: dict[str, Any] = {
         "uid": ku.uid,
@@ -44,7 +44,7 @@ def ku_to_response(ku: KuBase) -> dict[str, Any]:
     }
 
     # Submission-specific fields (file uploads, processing)
-    if isinstance(ku, SubmissionKu):
+    if isinstance(ku, Submission):
         response.update(
             {
                 "subject_uid": ku.subject_uid,
@@ -66,7 +66,7 @@ def ku_to_response(ku: KuBase) -> dict[str, Any]:
         )
 
     # Feedback-specific fields
-    if isinstance(ku, FeedbackKu):
+    if isinstance(ku, Feedback):
         response.update(
             {
                 "feedback": ku.feedback,

@@ -29,10 +29,10 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.task_events import TaskCompleted
-from core.models.enums import Domain, KuStatus, Priority
+from core.models.enums import Domain, EntityStatus, Priority
 from core.models.enums.ku_enums import GoalType, MeasurementType
-from core.models.ku.ku_goal import GoalKu
-from core.models.ku.ku_task import TaskKu as Task
+from core.models.ku.goal import Goal
+from core.models.ku.task import Task as Task
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.services.tasks.tasks_core_service import TasksCoreService
 
@@ -56,8 +56,8 @@ class TestTaskGoalEventFlow:
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
         """Create goals backend with clean database."""
-        return UniversalNeo4jBackend[GoalKu](
-            neo4j_driver, "Ku", GoalKu, default_filters={"ku_type": "goal"}
+        return UniversalNeo4jBackend[Goal](
+            neo4j_driver, "Ku", Goal, default_filters={"ku_type": "goal"}
         )
 
     @pytest_asyncio.fixture
@@ -82,7 +82,7 @@ class TestTaskGoalEventFlow:
     @pytest_asyncio.fixture
     async def task_based_goal(self, goals_backend, test_user_uid):
         """Create a task-based goal in Neo4j."""
-        goal = GoalKu(
+        goal = Goal(
             uid="goal.finish_python_course",
             user_uid=test_user_uid,
             title="Finish Python Course",
@@ -92,7 +92,7 @@ class TestTaskGoalEventFlow:
             progress_percentage=0.0,
             current_value=0.0,
             target_value=100.0,
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
             target_date=date(2025, 12, 31),
         )
         result = await goals_backend.create(goal)
@@ -102,7 +102,7 @@ class TestTaskGoalEventFlow:
     @pytest_asyncio.fixture
     async def mixed_goal(self, goals_backend, test_user_uid):
         """Create a mixed-measurement goal in Neo4j."""
-        goal = GoalKu(
+        goal = Goal(
             uid="goal.become_python_expert",
             user_uid=test_user_uid,
             title="Become Python Expert",
@@ -112,7 +112,7 @@ class TestTaskGoalEventFlow:
             progress_percentage=0.0,
             current_value=0.0,
             target_value=100.0,
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
             target_date=date(2025, 12, 31),
         )
         result = await goals_backend.create(goal)
@@ -131,7 +131,7 @@ class TestTaskGoalEventFlow:
                 title=f"Complete Python Lesson {i}",
                 description=f"Lesson {i} exercises",
                 priority=Priority.MEDIUM,
-                status=KuStatus.SCHEDULED,
+                status=EntityStatus.SCHEDULED,
                 due_date=date(2025, 11, 30),
             )
             result = await tasks_backend.create(task)
@@ -196,7 +196,7 @@ class TestTaskGoalEventFlow:
 
         # Update task status in Neo4j to 'completed'
         result = await tasks_backend.update(
-            task_to_complete.uid, {"status": KuStatus.COMPLETED.value}
+            task_to_complete.uid, {"status": EntityStatus.COMPLETED.value}
         )
         assert result.is_ok, "Setup failed: Could not update task"
 
@@ -329,7 +329,7 @@ class TestTaskGoalEventFlow:
         assert goal_result.is_ok
         updated_goal = goal_result.value
         assert updated_goal.progress_percentage >= 100
-        assert updated_goal.status == KuStatus.COMPLETED
+        assert updated_goal.status == EntityStatus.COMPLETED
 
     async def test_multiple_goals_updated_from_single_task(
         self,
@@ -343,21 +343,21 @@ class TestTaskGoalEventFlow:
         """Test that completing one task can update multiple goals."""
 
         # Create two goals
-        goal1 = GoalKu(
+        goal1 = Goal(
             uid="goal.learn_basics",
             user_uid=test_user_uid,
             title="Learn Python Basics",
             measurement_type=MeasurementType.TASK_BASED,
             progress_percentage=0.0,
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
         )
-        goal2 = GoalKu(
+        goal2 = Goal(
             uid="goal.complete_course",
             user_uid=test_user_uid,
             title="Complete Full Course",
             measurement_type=MeasurementType.TASK_BASED,
             progress_percentage=0.0,
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
         )
         goal1_result = await goals_backend.create(goal1)
         assert goal1_result.is_ok, "Setup failed: Could not create goal1"
@@ -370,7 +370,7 @@ class TestTaskGoalEventFlow:
             user_uid=test_user_uid,
             title="Learn Variables",
             priority=Priority.MEDIUM,
-            status=KuStatus.SCHEDULED,
+            status=EntityStatus.SCHEDULED,
         )
         task_result = await tasks_backend.create(task)
         assert task_result.is_ok, "Setup failed: Could not create task"
@@ -422,7 +422,7 @@ class TestTaskGoalEventFlow:
             user_uid=test_user_uid,
             title="Standalone Task",
             priority=Priority.LOW,
-            status=KuStatus.COMPLETED,
+            status=EntityStatus.COMPLETED,
         )
         task_result = await tasks_backend.create(task)
         assert task_result.is_ok, "Setup failed: Could not create task"
@@ -453,13 +453,13 @@ class TestTaskGoalEventFlow:
         """Test that habit-based goals are NOT updated by task completion."""
 
         # Create habit-based goal
-        goal = GoalKu(
+        goal = Goal(
             uid="goal.daily_practice",
             user_uid=test_user_uid,
             title="Daily Practice Goal",
             measurement_type=MeasurementType.HABIT_BASED,  # Not task-based!
             progress_percentage=0.0,
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
         )
         goal_result = await goals_backend.create(goal)
         assert goal_result.is_ok, "Setup failed: Could not create goal"
@@ -470,7 +470,7 @@ class TestTaskGoalEventFlow:
             user_uid=test_user_uid,
             title="Practice Session",
             priority=Priority.MEDIUM,
-            status=KuStatus.SCHEDULED,
+            status=EntityStatus.SCHEDULED,
         )
         task_result = await tasks_backend.create(task)
         assert task_result.is_ok, "Setup failed: Could not create task"
@@ -524,7 +524,7 @@ class TestTaskGoalEventFlow:
                 user_uid=test_user_uid,
                 title=f"Task {i}",
                 priority=Priority.MEDIUM,
-                status=KuStatus.SCHEDULED,
+                status=EntityStatus.SCHEDULED,
             )
             result = await tasks_backend.create(task)
             tasks.append(result.value)
@@ -582,21 +582,21 @@ class TestTaskGoalEventFlow:
         """Test that update error for one goal doesn't prevent updates to other goals."""
 
         # Create two goals
-        goal1 = GoalKu(
+        goal1 = Goal(
             uid="goal.valid",
             user_uid=test_user_uid,
             title="Valid Goal",
             measurement_type=MeasurementType.TASK_BASED,
             progress_percentage=0.0,
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
         )
-        goal2 = GoalKu(
+        goal2 = Goal(
             uid="goal.invalid",
             user_uid=test_user_uid,
             title="Invalid Goal",
             measurement_type=MeasurementType.TASK_BASED,
             progress_percentage=0.0,
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
         )
         goal1_result = await goals_backend.create(goal1)
         assert goal1_result.is_ok, "Setup failed: Could not create goal1"
@@ -609,7 +609,7 @@ class TestTaskGoalEventFlow:
             user_uid=test_user_uid,
             title="Shared Task",
             priority=Priority.MEDIUM,
-            status=KuStatus.SCHEDULED,
+            status=EntityStatus.SCHEDULED,
         )
         task_result = await tasks_backend.create(task)
         assert task_result.is_ok, "Setup failed: Could not create task"
@@ -662,13 +662,13 @@ class TestTaskGoalEventFlow:
         """Test that GoalAchieved event is only published once at 100%."""
 
         # Create goal with single task
-        goal = GoalKu(
+        goal = Goal(
             uid="goal.single_task",
             user_uid=test_user_uid,
             title="Single Task Goal",
             measurement_type=MeasurementType.TASK_BASED,
             progress_percentage=0.0,
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
         )
         goal_result = await goals_backend.create(goal)
         assert goal_result.is_ok, "Setup failed: Could not create goal"
@@ -678,7 +678,7 @@ class TestTaskGoalEventFlow:
             user_uid=test_user_uid,
             title="Only Task",
             priority=Priority.HIGH,
-            status=KuStatus.SCHEDULED,
+            status=EntityStatus.SCHEDULED,
         )
         task_result = await tasks_backend.create(task)
         assert task_result.is_ok, "Setup failed: Could not create task"
@@ -732,7 +732,7 @@ class TestTaskGoalEventFlow:
         not goal_type, so PROJECT goals should work identically to OUTCOME goals.
         """
         # Create PROJECT-type goal with task-based measurement
-        project_goal = GoalKu(
+        project_goal = Goal(
             uid="goal.build_api_project",
             user_uid=test_user_uid,
             title="Build REST API Project",
@@ -743,7 +743,7 @@ class TestTaskGoalEventFlow:
             progress_percentage=0.0,
             current_value=0.0,
             target_value=100.0,
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
             target_date=date(2025, 12, 31),
         )
         project_goal_result = await goals_backend.create(project_goal)
@@ -758,7 +758,7 @@ class TestTaskGoalEventFlow:
                 title=f"Project Milestone {i}",
                 description=f"Complete milestone {i}",
                 priority=Priority.HIGH,
-                status=KuStatus.SCHEDULED,
+                status=EntityStatus.SCHEDULED,
                 due_date=date(2025, 11, 30),
             )
             result = await tasks_backend.create(task)

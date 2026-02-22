@@ -13,17 +13,17 @@ They enhance the user experience but are not required for core functionality.
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku.ku_event import EventKu
+from core.models.ku.event import Event
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.ports import BackendOperations
     from core.services.llm_service import LLMService
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
-    from core.ports import BackendOperations
 
 
-class EventsAIService(BaseAIService["BackendOperations[EventKu]", EventKu]):
+class EventsAIService(BaseAIService["BackendOperations[Event]", Event]):
     """
     AI-powered features for Events domain.
 
@@ -41,7 +41,7 @@ class EventsAIService(BaseAIService["BackendOperations[EventKu]", EventKu]):
 
     def __init__(
         self,
-        backend: "BackendOperations[EventKu]",
+        backend: "BackendOperations[Event]",
         llm_service: "LLMService",
         embeddings_service: "Neo4jGenAIEmbeddingsService",
         event_bus: Any | None = None,

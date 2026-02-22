@@ -9,8 +9,8 @@ This test shows how TYPE_CHECKING blocks catch signature mismatches.
 
 import inspect
 
-from core.services.mixins import ConversionHelpersMixin
 from core.ports.base_service_interface import ConversionOperations
+from core.services.mixins import ConversionHelpersMixin
 
 
 class TestProtocolComplianceDemonstration:

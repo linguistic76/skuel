@@ -398,7 +398,7 @@ class BaseAnalyticsService(Generic[B, T]):
             user_reflection: Optional reflection on their alignment
             system_calculator: Async fn(entity, user_uid) -> (level, score, evidence)
             level_scorer: Fn(level) -> float score (0.0-1.0)
-            entity_type: KuType value for result (e.g., "principle", "goal")
+            entity_type: EntityType value for result (e.g., "principle", "goal")
             insight_generator: Optional custom insight generation
             recommendation_generator: Optional custom recommendations
             store_callback: Optional async fn(uid, assessment_data) to persist

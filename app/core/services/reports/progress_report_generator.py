@@ -13,13 +13,13 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.insight.insight_store import InsightStore
     from core.ports import BackendOperations, QueryExecutor
+    from core.services.insight.insight_store import InsightStore
 
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
-from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType, ProgressDepth
-from core.models.ku import AiReportKu, Ku
+from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType, ProgressDepth
+from core.models.ku import AiReport, Ku
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -121,12 +121,12 @@ class ProgressKuGenerator:
 
             # 5. Create Ku node
             uid = UIDGenerator.generate_uid("ku")
-            ku = AiReportKu(
+            ku = AiReport(
                 uid=uid,
                 title=title,
-                ku_type=KuType.AI_REPORT,
+                ku_type=EntityType.AI_REPORT,
                 user_uid=user_uid,
-                status=KuStatus.COMPLETED,
+                status=EntityStatus.COMPLETED,
                 processor_type=ProcessorType.AUTOMATIC,
                 processed_content=content,
                 subject_uid=user_uid,
@@ -145,7 +145,7 @@ class ProgressKuGenerator:
             event = SubmissionCreated(
                 submission_uid=uid,
                 user_uid=user_uid,
-                ku_type=KuType.AI_REPORT.value,
+                ku_type=EntityType.AI_REPORT.value,
                 processor_type=ProcessorType.AUTOMATIC.value,
                 occurred_at=datetime.now(),
             )

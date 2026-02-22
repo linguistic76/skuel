@@ -35,12 +35,12 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 from core.constants import GraphDepth, QueryLimit
-from core.models.enums import CompletionStatus, Domain, KuStatus, Priority
+from core.models.enums import CompletionStatus, Domain, EntityStatus, Priority
 from core.models.enums.activity_enums import ProductivityLevel
 from core.models.enums.neo_labels import NeoLabel
 from core.models.graph_context import GraphContext
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_task import TaskKu
+from core.models.ku.task import Task
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -95,7 +95,7 @@ def _extract_completion_hour(task: Any) -> int | None:
     return task.completed_at.hour if task.completed_at else None
 
 
-class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[TaskKu]", TaskKu]):
+class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", Task]):
     """
     Tasks intelligence service using shared utilities (graph-based, no AI).
 
@@ -128,7 +128,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[TaskKu]",
 
     def __init__(
         self,
-        backend: BackendOperations[TaskKu],
+        backend: BackendOperations[Task],
         graph_intelligence_service: GraphIntelligenceService | None = None,
         relationship_service: TasksRelationshipOperations | None = None,
         event_bus: Any | None = None,
@@ -154,11 +154,11 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[TaskKu]",
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[TaskKu, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[Task, KuDTO](
                 service=self,
                 backend_get_method="get_task",
                 dto_class=KuDTO,
-                model_class=TaskKu,
+                model_class=Task,
                 domain=Domain.TASKS,
             )
 
@@ -170,7 +170,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[TaskKu]",
 
     async def get_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[TaskKu, GraphContext]]:
+    ) -> Result[tuple[Task, GraphContext]]:
         """
         Get task with full graph context.
 
@@ -600,22 +600,22 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[TaskKu]",
         period_tasks = [task for task in all_tasks if task.created_at >= cutoff_date]
 
         # Calculate metrics
-        # Note: Tasks use KuStatus, not CompletionStatus (which is for habits)
-        completed_tasks = [t for t in period_tasks if t.status == KuStatus.COMPLETED]
+        # Note: Tasks use EntityStatus, not CompletionStatus (which is for habits)
+        completed_tasks = [t for t in period_tasks if t.status == EntityStatus.COMPLETED]
         completion_rate = len(completed_tasks) / len(period_tasks) if period_tasks else 0.0
 
         metrics = {
             "total_tasks": len(period_tasks),
             "completed_tasks": len(completed_tasks),
             "completion_rate": round(completion_rate * 100, 1),
-            "in_progress_tasks": len([t for t in period_tasks if t.status == KuStatus.ACTIVE]),
+            "in_progress_tasks": len([t for t in period_tasks if t.status == EntityStatus.ACTIVE]),
             "overdue_tasks": len(
                 [
                     t
                     for t in period_tasks
                     if t.due_date
                     and t.due_date < datetime.now().date()
-                    and t.status != KuStatus.COMPLETED
+                    and t.status != EntityStatus.COMPLETED
                 ]
             ),
         }
@@ -1157,14 +1157,14 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[TaskKu]",
             return ProductivityLevel.MODERATELY_PRODUCTIVE, 0.5, ["No tasks in assessment period"]
 
         # Calculate metrics
-        completed_tasks = [t for t in period_tasks if t.status == KuStatus.COMPLETED]
+        completed_tasks = [t for t in period_tasks if t.status == EntityStatus.COMPLETED]
         completion_rate = len(completed_tasks) / len(period_tasks)
 
         # Calculate overdue ratio
         overdue_tasks = [
             t
             for t in period_tasks
-            if t.due_date and t.due_date < datetime.now().date() and t.status != KuStatus.COMPLETED
+            if t.due_date and t.due_date < datetime.now().date() and t.status != EntityStatus.COMPLETED
         ]
         overdue_ratio = len(overdue_tasks) / len(period_tasks) if period_tasks else 0
 
@@ -1180,7 +1180,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[TaskKu]",
         high_priority_tasks = [
             t for t in period_tasks if t.priority and Priority(t.priority).to_numeric() >= 3
         ]
-        high_priority_completed = [t for t in high_priority_tasks if t.status == KuStatus.COMPLETED]
+        high_priority_completed = [t for t in high_priority_tasks if t.status == EntityStatus.COMPLETED]
         priority_rate = (
             len(high_priority_completed) / len(high_priority_tasks) if high_priority_tasks else 1.0
         )
@@ -1432,7 +1432,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[TaskKu]",
         return Result.ok(insights)
 
     def _analyze_task_knowledge_patterns(
-        self, tasks: list[TaskKu], rels_list: list[TaskRelationships]
+        self, tasks: list[Task], rels_list: list[TaskRelationships]
     ) -> KnowledgePatternAnalysis:
         """
         Analyze knowledge patterns across tasks using unified Task model.

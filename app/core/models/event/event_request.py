@@ -12,7 +12,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from core.models.enums import KuStatus, Priority, RecurrencePattern, Visibility
+from core.models.enums import EntityStatus, Priority, RecurrencePattern, Visibility
 from core.models.validation_rules import (
     validate_email,
     validate_future_date,
@@ -119,7 +119,7 @@ class EventUpdateRequest(BaseModel):
     meeting_url: str | None = None
     tags: list[str] | None = None
     priority: Priority | None = None
-    status: KuStatus | None = None
+    status: EntityStatus | None = None
     reminder_minutes: int | None = Field(None, ge=0, le=10080)
 
     # Learning Integration Updates (OPTIONAL)
@@ -150,7 +150,7 @@ class EventResponse(BaseModel):
 
     # Type and status
     event_type: str
-    status: KuStatus
+    status: EntityStatus
     visibility: Visibility
     priority: Priority
 
@@ -212,7 +212,7 @@ class EventResponse(BaseModel):
 class EventFilterRequest(BaseModel):
     """Request model for filtering events."""
 
-    status: KuStatus | None = None
+    status: EntityStatus | None = None
     event_type: str | None = None
     date_from: date | None = None
     date_to: date | None = None
@@ -232,7 +232,7 @@ class EventStatusUpdateRequest(BaseModel):
     """Request model for updating event status."""
 
     event_uid: str = Field(description="UID of the event to update")
-    status: KuStatus = Field(description="New event status")
+    status: EntityStatus = Field(description="New event status")
     notes: str | None = Field(None, description="Status change notes")
     cancellation_reason: str | None = Field(None, description="Reason for cancellation")
 

@@ -55,9 +55,9 @@ from core.constants import GraphDepth
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import DomainRelationshipConfig
+from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
 from core.services.infrastructure import RelationshipCreationHelper, SemanticRelationshipHelper
-from core.ports.base_protocols import BackendOperations
 from core.services.relationships.planning_mixin import PlanningMixin
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
 from core.utils.result_simplified import Errors, Result

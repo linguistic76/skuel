@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums.ku_enums import KuType
-from core.models.ku import FeedbackKu
+from core.models.enums.ku_enums import EntityType
+from core.models.ku import Feedback
 from core.utils.result_simplified import Errors, Result
 
 # Helpers for mocking execute_query call sequence
@@ -85,11 +85,11 @@ class TestCreateAssessment:
         )
 
         assert not result.is_error
-        # Verify backend.create was called with a FeedbackKu
+        # Verify backend.create was called with a Feedback
         assert mock_backend.create.call_count == 1
         created_ku = mock_backend.create.call_args[0][0]
-        assert isinstance(created_ku, FeedbackKu)
-        assert created_ku.ku_type == KuType.FEEDBACK_REPORT
+        assert isinstance(created_ku, Feedback)
+        assert created_ku.ku_type == EntityType.FEEDBACK_REPORT
         assert created_ku.user_uid == "user_teacher"
         assert created_ku.subject_uid == "user_student"
         assert created_ku.title == "Midterm Assessment"

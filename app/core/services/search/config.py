@@ -14,10 +14,10 @@ Usage:
     from core.services.search.config import SEARCH_FIELD_CONFIG, SearchFieldConfig
 
     # Get search fields for an entity type
-    fields = SEARCH_FIELD_CONFIG[KuType.CURRICULUM].text_fields
+    fields = SEARCH_FIELD_CONFIG[EntityType.CURRICULUM].text_fields
 
     # Check if a field is searchable
-    if "content" in SEARCH_FIELD_CONFIG[KuType.CURRICULUM].text_fields:
+    if "content" in SEARCH_FIELD_CONFIG[EntityType.CURRICULUM].text_fields:
         # Field is text-searchable
 
 Graph-Aware Search (Phase 2):
@@ -60,7 +60,7 @@ Unified Search API (Phase 4):
 
         request = SearchRequest(
             query_text="machine learning",
-            entity_types=[KuType.CURRICULUM, KuType.TASK],
+            entity_types=[EntityType.CURRICULUM, EntityType.TASK],
             connected_to_uid="ku.python-basics",
             connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
             tags_contain=["python", "beginner"],
@@ -83,7 +83,7 @@ Architecture Notes:
 from dataclasses import dataclass
 
 from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
 
 
 @dataclass(frozen=True)
@@ -119,11 +119,11 @@ class SearchFieldConfig:
 # 2. Update this config to match
 # 3. Run tests to verify alignment
 
-SEARCH_FIELD_CONFIG: dict[KuType | NonKuDomain, SearchFieldConfig] = {
+SEARCH_FIELD_CONFIG: dict[EntityType | NonKuDomain, SearchFieldConfig] = {
     # =========================================================================
     # CURRICULUM DOMAINS (4) - Content-rich entities
     # =========================================================================
-    KuType.CURRICULUM: SearchFieldConfig(
+    EntityType.CURRICULUM: SearchFieldConfig(
         # Matches KuCoreService._search_fields = ["title", "content", "tags"]
         # Note: tags is stored as array but searched as text (JSON string match)
         text_fields=("title", "content", "tags"),
@@ -131,13 +131,13 @@ SEARCH_FIELD_CONFIG: dict[KuType | NonKuDomain, SearchFieldConfig] = {
         filter_fields=("domain", "complexity", "learning_level", "status"),
         order_by="quality_score",
     ),
-    KuType.LEARNING_STEP: SearchFieldConfig(
+    EntityType.LEARNING_STEP: SearchFieldConfig(
         text_fields=("title", "intent", "description"),
         array_fields=(),
         filter_fields=("domain", "status"),
         order_by="step_order",
     ),
-    KuType.LEARNING_PATH: SearchFieldConfig(
+    EntityType.LEARNING_PATH: SearchFieldConfig(
         text_fields=("name", "goal", "description"),
         array_fields=("tags",),
         filter_fields=("domain", "difficulty", "status"),
@@ -146,37 +146,37 @@ SEARCH_FIELD_CONFIG: dict[KuType | NonKuDomain, SearchFieldConfig] = {
     # =========================================================================
     # ACTIVITY DOMAINS (6) - User action entities
     # =========================================================================
-    KuType.TASK: SearchFieldConfig(
+    EntityType.TASK: SearchFieldConfig(
         text_fields=("title", "description"),
         array_fields=("tags",),
         filter_fields=("status", "priority", "domain"),
         order_by="due_date",
     ),
-    KuType.GOAL: SearchFieldConfig(
+    EntityType.GOAL: SearchFieldConfig(
         text_fields=("title", "description"),
         array_fields=("tags",),
         filter_fields=("status", "domain", "priority"),
         order_by="target_date",
     ),
-    KuType.HABIT: SearchFieldConfig(
+    EntityType.HABIT: SearchFieldConfig(
         text_fields=("title", "description"),
         array_fields=("tags",),
         filter_fields=("status", "domain", "frequency"),
         order_by="created_at",
     ),
-    KuType.EVENT: SearchFieldConfig(
+    EntityType.EVENT: SearchFieldConfig(
         text_fields=("title", "description"),
         array_fields=("tags",),
         filter_fields=("status", "domain", "event_type"),
         order_by="event_date",
     ),
-    KuType.CHOICE: SearchFieldConfig(
+    EntityType.CHOICE: SearchFieldConfig(
         text_fields=("title", "description", "context"),
         array_fields=("tags",),
         filter_fields=("status", "domain", "urgency"),
         order_by="decision_deadline",
     ),
-    KuType.PRINCIPLE: SearchFieldConfig(
+    EntityType.PRINCIPLE: SearchFieldConfig(
         text_fields=("name", "statement", "description", "why_important"),
         array_fields=("tags",),
         filter_fields=("domain", "strength"),
@@ -194,7 +194,7 @@ SEARCH_FIELD_CONFIG: dict[KuType | NonKuDomain, SearchFieldConfig] = {
 }
 
 
-def get_search_fields(entity_type: KuType | NonKuDomain) -> tuple[str, ...]:
+def get_search_fields(entity_type: EntityType | NonKuDomain) -> tuple[str, ...]:
     """
     Get text search fields for an entity type.
 
@@ -206,7 +206,7 @@ def get_search_fields(entity_type: KuType | NonKuDomain) -> tuple[str, ...]:
     return ("title", "description")
 
 
-def get_array_fields(entity_type: KuType | NonKuDomain) -> tuple[str, ...]:
+def get_array_fields(entity_type: EntityType | NonKuDomain) -> tuple[str, ...]:
     """
     Get array fields (like tags) for an entity type.
 
@@ -218,7 +218,7 @@ def get_array_fields(entity_type: KuType | NonKuDomain) -> tuple[str, ...]:
     return ()
 
 
-def get_filter_fields(entity_type: KuType | NonKuDomain) -> tuple[str, ...]:
+def get_filter_fields(entity_type: EntityType | NonKuDomain) -> tuple[str, ...]:
     """
     Get filter fields for an entity type.
 

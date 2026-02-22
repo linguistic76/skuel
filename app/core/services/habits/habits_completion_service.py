@@ -19,8 +19,8 @@ from core.constants import QueryLimit
 from core.events import publish_event
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.completion_dto import HabitCompletionDTO
+from core.models.ku.habit import Habit
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_habit import HabitKu
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -321,7 +321,7 @@ class HabitsCompletionService:
         self.logger.debug(f"Updated habit {habit_uid} stats: streak={new_streak}")
         return Result.ok(None)
 
-    def _calculate_new_streak(self, habit: HabitKu, completion_date: datetime) -> int:
+    def _calculate_new_streak(self, habit: Habit, completion_date: datetime) -> int:
         """Calculate new streak based on last completion."""
         if not habit.last_completed:
             return 1  # First completion
@@ -339,7 +339,7 @@ class HabitsCompletionService:
             return 1
 
     async def _check_streak_milestones(
-        self, habit: HabitKu, new_streak: int, user_uid: str
+        self, habit: Habit, new_streak: int, user_uid: str
     ) -> None:
         """
         Check if new streak reaches a milestone and publish event.
@@ -549,7 +549,7 @@ class HabitsCompletionService:
         for item in habits_result.value:
             if isinstance(item, dict):
                 habit_dto = KuDTO.from_dict(item)
-                habit = HabitKu.from_dto(habit_dto)
+                habit = Habit.from_dto(habit_dto)
             else:
                 habit = item
 

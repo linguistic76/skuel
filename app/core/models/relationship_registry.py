@@ -40,15 +40,15 @@ from typing import Any
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.enums import Domain
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
 
 # Curriculum domain imports - Phase 3 (February 2026): LS/LP unified into Ku
 # NOTE (February 2026): Habit imports removed — Habit merged into Ku
-# NOTE (February 2026): Ku is now a Union type alias; use KuBase (the actual class) for model_class
-from core.models.ku.ku_base import KuBase
+# NOTE (February 2026): Ku is now a Union type alias; use Entity (the actual class) for model_class
+from core.models.ku.entity import Entity
 from core.models.ku.ku_dto import KuDTO
 
-# NOTE (February 2026): MOC is not a separate KuType.
+# NOTE (February 2026): MOC is not a separate EntityType.
 # Any KU can organize others via ORGANIZES relationships (emergent MOC identity).
 from core.models.principle.reflection import PrincipleReflection
 from core.models.principle.reflection_dto import PrincipleReflectionDTO
@@ -56,9 +56,9 @@ from core.models.query import QueryIntent
 from core.models.relationship_names import RelationshipName
 
 # Task and Goal domains unified into Ku (February 2026)
-Task = KuBase
+Task = Entity
 TaskDTO = KuDTO
-Goal = KuBase
+Goal = Entity
 GoalDTO = KuDTO
 
 # =============================================================================
@@ -248,10 +248,10 @@ class UnifiedRelationshipDefinition:
     # YAML field path for ingestion (e.g., "connections.requires").
     # When set, this relationship is created during YAML/Markdown import.
     yaml_field_path: str | None = None
-    # Scopes yaml_field_path to a specific KuType.
+    # Scopes yaml_field_path to a specific EntityType.
     # Needed when multiple KuTypes share a Neo4j label.
-    # None means: applies to the default KuType for this label.
-    ingestion_ku_type: KuType | None = None
+    # None means: applies to the default EntityType for this label.
+    ingestion_ku_type: EntityType | None = None
 
     def to_graph_enrichment_tuple(self) -> tuple[str, str, str, str]:
         """Generate graph enrichment pattern tuple for BaseService._graph_enrichment_patterns."""
@@ -849,9 +849,9 @@ HABITS_CONFIG = DomainRelationshipConfig(
     domain=Domain.HABITS,
     entity_label="Ku",  # Phase 4: Unified into Ku with ku_type='habit'
     dto_class=KuDTO,
-    model_class=KuBase,
+    model_class=Entity,
     backend_get_method="get",
-    ownership_relationship=RelationshipName.HAS_KU,
+    ownership_relationship=RelationshipName.OWNS,
     relationships=(
         # Outgoing: Habit → Other (with context-specific fields)
         UnifiedRelationshipDefinition(
@@ -1006,7 +1006,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
     domain=Domain.EVENTS,
     entity_label="Event",
     dto_class=KuDTO,
-    model_class=KuBase,
+    model_class=Entity,
     backend_get_method="get_event",
     ownership_relationship=RelationshipName.HAS_EVENT,
     relationships=(
@@ -1147,9 +1147,9 @@ CHOICES_CONFIG = DomainRelationshipConfig(
     domain=Domain.CHOICES,
     entity_label="Ku",  # Phase 4: Unified into Ku with ku_type='choice'
     dto_class=KuDTO,
-    model_class=KuBase,
+    model_class=Entity,
     backend_get_method="get",
-    ownership_relationship=RelationshipName.HAS_KU,
+    ownership_relationship=RelationshipName.OWNS,
     relationships=(
         # Outgoing: Choice → Other
         UnifiedRelationshipDefinition(
@@ -1294,9 +1294,9 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
     domain=Domain.PRINCIPLES,
     entity_label="Ku",  # Phase 4: Unified into Ku with ku_type='principle'
     dto_class=KuDTO,
-    model_class=KuBase,
+    model_class=Entity,
     backend_get_method="get",
-    ownership_relationship=RelationshipName.HAS_KU,
+    ownership_relationship=RelationshipName.OWNS,
     relationships=(
         # Outgoing: Principle → Other
         UnifiedRelationshipDefinition(
@@ -1599,7 +1599,7 @@ KU_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,
     entity_label="Ku",
     dto_class=KuDTO,
-    model_class=KuBase,
+    model_class=Entity,
     backend_get_method="get",
     ownership_relationship=None,  # Shared content
     is_shared_content=True,
@@ -1724,7 +1724,7 @@ LS_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
     entity_label="Ku",
     dto_class=KuDTO,
-    model_class=KuBase,
+    model_class=Entity,
     backend_get_method="get",
     ownership_relationship=None,  # Shared content
     is_shared_content=True,
@@ -1820,7 +1820,7 @@ LP_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
     entity_label="Ku",
     dto_class=KuDTO,
-    model_class=KuBase,
+    model_class=Entity,
     backend_get_method="get",
     ownership_relationship=None,  # Shared content
     is_shared_content=True,
@@ -1898,14 +1898,14 @@ LP_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 EXERCISE_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,  # Curriculum tier
-    entity_label="Ku",  # ExerciseKu is a :Ku node with ku_type='exercise'
+    entity_label="Ku",  # Exercise is a :Ku node with ku_type='exercise'
     dto_class=KuDTO,
-    model_class=KuBase,
+    model_class=Entity,
     backend_get_method="get",
     ownership_relationship=RelationshipName.OWNS,
     is_shared_content=False,  # Exercises are teacher-owned
     relationships=(
-        # Outgoing: Exercise → CurriculumKu (what knowledge this exercise requires)
+        # Outgoing: Exercise → Curriculum (what knowledge this exercise requires)
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
             "Ku",
@@ -1924,7 +1924,7 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
             fields=("uid", "title"),
             single=True,
         ),
-        # Incoming: SubmissionKu → Exercise (student submissions fulfilling this exercise)
+        # Incoming: Submission → Exercise (student submissions fulfilling this exercise)
         UnifiedRelationshipDefinition(
             RelationshipName.FULFILLS_EXERCISE,
             "Ku",
@@ -1952,7 +1952,7 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
 # =============================================================================
 # NOTE (February 2026): MOC_CONFIG REMOVED
 # =============================================================================
-# MOC is not a separate KuType. Any KU can organize others via ORGANIZES.
+# MOC is not a separate EntityType. Any KU can organize others via ORGANIZES.
 # The KU config includes ORGANIZES relationship for organization functionality.
 
 
@@ -2226,35 +2226,35 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 
 # Static mappings to avoid circular imports with ingestion config.py
 # All domain entities are :Ku nodes; virtual config keys kept for lookup
-_KU_TYPE_TO_LABEL: dict[KuType, str] = {
-    KuType.CURRICULUM: "Ku",
-    KuType.TASK: "Task",
-    KuType.GOAL: "Goal",
-    KuType.HABIT: "Habit",  # Virtual key — nodes are :Ku{ku_type='habit'}
-    KuType.EVENT: "Event",
-    KuType.CHOICE: "Choice",  # Virtual key — nodes are :Ku{ku_type='choice'}
-    KuType.PRINCIPLE: "Principle",
-    KuType.LEARNING_PATH: "Lp",
-    KuType.LEARNING_STEP: "Ls",
-    KuType.EXERCISE: "Exercise",  # Virtual key — nodes are :Ku{ku_type='exercise'}
+_ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
+    EntityType.CURRICULUM: "Ku",
+    EntityType.TASK: "Task",
+    EntityType.GOAL: "Goal",
+    EntityType.HABIT: "Habit",  # Virtual key — nodes are :Ku{ku_type='habit'}
+    EntityType.EVENT: "Event",
+    EntityType.CHOICE: "Choice",  # Virtual key — nodes are :Ku{ku_type='choice'}
+    EntityType.PRINCIPLE: "Principle",
+    EntityType.LEARNING_PATH: "Lp",
+    EntityType.LEARNING_STEP: "Ls",
+    EntityType.EXERCISE: "Exercise",  # Virtual key — nodes are :Ku{ku_type='exercise'}
 }
 
-_LABEL_TO_DEFAULT_KU_TYPE: dict[str, KuType] = {
-    "Ku": KuType.CURRICULUM,
-    "Task": KuType.TASK,
-    "Goal": KuType.GOAL,
-    "Habit": KuType.HABIT,
-    "Event": KuType.EVENT,
-    "Choice": KuType.CHOICE,  # Virtual key — nodes are :Ku{ku_type='choice'}
-    "Principle": KuType.PRINCIPLE,
-    "Lp": KuType.LEARNING_PATH,
-    "Ls": KuType.LEARNING_STEP,
-    "Exercise": KuType.EXERCISE,  # Virtual key — nodes are :Ku{ku_type='exercise'}
+_LABEL_TO_DEFAULT_KU_TYPE: dict[str, EntityType] = {
+    "Ku": EntityType.CURRICULUM,
+    "Task": EntityType.TASK,
+    "Goal": EntityType.GOAL,
+    "Habit": EntityType.HABIT,
+    "Event": EntityType.EVENT,
+    "Choice": EntityType.CHOICE,  # Virtual key — nodes are :Ku{ku_type='choice'}
+    "Principle": EntityType.PRINCIPLE,
+    "Lp": EntityType.LEARNING_PATH,
+    "Ls": EntityType.LEARNING_STEP,
+    "Exercise": EntityType.EXERCISE,  # Virtual key — nodes are :Ku{ku_type='exercise'}
 }
 
 
 def generate_ingestion_relationship_config(
-    ku_type: KuType,
+    ku_type: EntityType,
 ) -> dict[str, Any] | None:
     """
     Generate ingestion relationship config from the registry (single source of truth).
@@ -2263,7 +2263,7 @@ def generate_ingestion_relationship_config(
     filtered by ku_type for disambiguation when multiple KuTypes share a label.
 
     Args:
-        ku_type: The KuType to generate config for
+        ku_type: The EntityType to generate config for
 
     Returns:
         Dict mapping yaml_field_path -> RelationshipConfig, or None if no relationships.
@@ -2273,7 +2273,7 @@ def generate_ingestion_relationship_config(
     """
     from core.ingestion.bulk_ingestion import RelationshipConfig
 
-    entity_label = _KU_TYPE_TO_LABEL.get(ku_type)
+    entity_label = _ENTITY_TYPE_TO_LABEL.get(ku_type)
     if not entity_label:
         return None
 
@@ -2289,8 +2289,8 @@ def generate_ingestion_relationship_config(
             continue
 
         # Filter by ingestion_ku_type:
-        # - If set, only include for that specific KuType
-        # - If None, only include for the default KuType for the label
+        # - If set, only include for that specific EntityType
+        # - If None, only include for the default EntityType for the label
         if rel.ingestion_ku_type is not None:
             if rel.ingestion_ku_type != ku_type:
                 continue

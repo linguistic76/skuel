@@ -18,12 +18,12 @@ from unittest.mock import AsyncMock
 import pytest
 
 from core.models.enums import Priority, RecurrencePattern
-from core.models.enums.ku_enums import KuStatus as HabitStatus
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityStatus as HabitStatus
+from core.models.enums.ku_enums import EntityType
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.completion_dto import HabitCompletionDTO
+from core.models.ku.habit import Habit as Habit
 from core.models.ku.ku_dto import KuDTO as HabitDTO
-from core.models.ku.ku_habit import HabitKu as Habit
 from core.services.habits.habits_completion_service import HabitsCompletionService
 from core.utils.result_simplified import Result
 
@@ -64,7 +64,7 @@ def sample_habit() -> Habit:
         uid="habit.test.1",
         user_uid="user.mike",  # REQUIRED - habit ownership
         title="Morning Exercise",
-        ku_type=KuType.HABIT,
+        ku_type=EntityType.HABIT,
         description="30 minutes of exercise",
         recurrence_pattern=RecurrencePattern.DAILY,
         target_days_per_week=7,

@@ -1,5 +1,5 @@
 """
-Tests for PrincipleKu.needs_review() and days_until_review_needed()
+Tests for Principle.needs_review() and days_until_review_needed()
 ===================================================================
 
 Validates principle-specific review logic: alignment drift detection,
@@ -12,17 +12,17 @@ import pytest
 
 from core.models.enums.ku_enums import (
     AlignmentLevel,
-    KuStatus,
-    KuType,
+    EntityStatus,
+    EntityType,
     PrincipleStrength,
 )
-from core.models.ku.ku_principle import PrincipleKu
+from core.models.ku.principle import Principle
 
 
-def _make_principle(**overrides) -> PrincipleKu:
-    """Create a PrincipleKu with sensible defaults, overridable by kwargs."""
+def _make_principle(**overrides) -> Principle:
+    """Create a Principle with sensible defaults, overridable by kwargs."""
     defaults = {
-        "ku_type": KuType.PRINCIPLE,
+        "ku_type": EntityType.PRINCIPLE,
         "uid": "principle_test_abc123",
         "user_uid": "user_test",
         "title": "Test Principle",
@@ -33,7 +33,7 @@ def _make_principle(**overrides) -> PrincipleKu:
         "last_review_date": date.today() - timedelta(days=5),
     }
     defaults.update(overrides)
-    return PrincipleKu(**defaults)
+    return Principle(**defaults)
 
 
 # =========================================================================
@@ -47,11 +47,11 @@ class TestDormantPrinciples:
         assert p.needs_review() is False
 
     def test_archived_principle_no_review(self):
-        p = _make_principle(status=KuStatus.ARCHIVED)
+        p = _make_principle(status=EntityStatus.ARCHIVED)
         assert p.needs_review() is False
 
     def test_paused_principle_no_review(self):
-        p = _make_principle(status=KuStatus.PAUSED)
+        p = _make_principle(status=EntityStatus.PAUSED)
         assert p.needs_review() is False
 
 
@@ -269,7 +269,7 @@ class TestDaysUntilReview:
         assert p.days_until_review_needed() is None
 
     def test_archived_returns_none(self):
-        p = _make_principle(status=KuStatus.ARCHIVED)
+        p = _make_principle(status=EntityStatus.ARCHIVED)
         assert p.days_until_review_needed() is None
 
     def test_overdue_returns_zero(self):

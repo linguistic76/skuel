@@ -20,9 +20,9 @@ rather than prerequisites and dependencies.
 from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import KuStatus, RecurrencePattern
+from core.models.enums import EntityStatus, RecurrencePattern
+from core.models.ku.event import Event
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_event import EventKu
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations
 
 
-class EventsSchedulingService(BaseService["BackendOperations[EventKu]", EventKu]):
+class EventsSchedulingService(BaseService["BackendOperations[Event]", Event]):
     """
     Smart event scheduling and calendar management.
 
@@ -59,17 +59,17 @@ class EventsSchedulingService(BaseService["BackendOperations[EventKu]", EventKu]
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=EventKu,
+        model_class=Event,
         entity_label="Ku",
         domain_name="events",
         date_field="event_date",
-        completed_statuses=(KuStatus.COMPLETED.value,),
+        completed_statuses=(EntityStatus.COMPLETED.value,),
     )
 
     # Configure BaseService
     _date_field = "event_date"
 
-    def __init__(self, backend: "BackendOperations[EventKu]", event_bus=None) -> None:
+    def __init__(self, backend: "BackendOperations[Event]", event_bus=None) -> None:
         """
         Initialize scheduling service.
 
@@ -96,7 +96,7 @@ class EventsSchedulingService(BaseService["BackendOperations[EventKu]", EventKu]
         start_time: time | None,
         end_time: time | None,
         exclude_uid: str | None = None,
-    ) -> list[EventKu]:
+    ) -> list[Event]:
         """
         Detect conflicting events on the same date/time.
 
@@ -122,7 +122,7 @@ class EventsSchedulingService(BaseService["BackendOperations[EventKu]", EventKu]
         for event in result.value:
             if exclude_uid and event.uid == exclude_uid:
                 continue
-            if event.status == KuStatus.CANCELLED.value:
+            if event.status == EntityStatus.CANCELLED.value:
                 continue
 
             # If no times specified, any same-day event is a potential conflict
@@ -145,7 +145,7 @@ class EventsSchedulingService(BaseService["BackendOperations[EventKu]", EventKu]
         start_time: time | None = None,
         end_time: time | None = None,
         exclude_uid: str | None = None,
-    ) -> Result[list[EventKu]]:
+    ) -> Result[list[Event]]:
         """
         Check for conflicting events.
 
@@ -180,7 +180,7 @@ class EventsSchedulingService(BaseService["BackendOperations[EventKu]", EventKu]
         event_data: "KuEventCreateRequest",
         user_context: UserContext,
         avoid_conflicts: bool = True,
-    ) -> Result[EventKu]:
+    ) -> Result[Event]:
         """
         Schedule an event with smart conflict avoidance.
 
@@ -239,7 +239,7 @@ class EventsSchedulingService(BaseService["BackendOperations[EventKu]", EventKu]
         if create_result.is_error:
             return Result.fail(create_result.expect_error())
 
-        event = self._to_domain_model(create_result.value, KuDTO, EventKu)
+        event = self._to_domain_model(create_result.value, KuDTO, Event)
 
         if conflicts:
             self.logger.warning(
@@ -285,7 +285,7 @@ class EventsSchedulingService(BaseService["BackendOperations[EventKu]", EventKu]
         # Build blocked time ranges
         blocked: list[tuple[time, time]] = []
         for event in existing_events:
-            if event.start_time and event.end_time and event.status != KuStatus.CANCELLED.value:
+            if event.start_time and event.end_time and event.status != EntityStatus.CANCELLED.value:
                 blocked.append((event.start_time, event.end_time))
 
         # Sort by start time
@@ -461,7 +461,7 @@ class EventsSchedulingService(BaseService["BackendOperations[EventKu]", EventKu]
         preferred_time: time | None = None,
         days_to_create: int = 30,
         reinforces_habit_uid: str | None = None,
-    ) -> Result[list[EventKu]]:
+    ) -> Result[list[Event]]:
         """
         Create optimized recurring events.
 
@@ -513,7 +513,7 @@ class EventsSchedulingService(BaseService["BackendOperations[EventKu]", EventKu]
 
             create_result = await self.backend.create(dto.to_dict())
             if create_result.is_ok:
-                event = self._to_domain_model(create_result.value, KuDTO, EventKu)
+                event = self._to_domain_model(create_result.value, KuDTO, Event)
                 created_events.append(event)
 
         self.logger.info(f"Created {len(created_events)} recurring events")
@@ -555,7 +555,7 @@ class EventsSchedulingService(BaseService["BackendOperations[EventKu]", EventKu]
         # Group by date
         busy_times: dict[str, list[dict[str, str]]] = {}
         for event in events:
-            if not event.event_date or event.status == KuStatus.CANCELLED.value:
+            if not event.event_date or event.status == EntityStatus.CANCELLED.value:
                 continue
 
             date_key = event.event_date.isoformat()
@@ -600,7 +600,7 @@ class EventsSchedulingService(BaseService["BackendOperations[EventKu]", EventKu]
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        events = [e for e in (result.value or []) if e.status != KuStatus.CANCELLED.value]
+        events = [e for e in (result.value or []) if e.status != EntityStatus.CANCELLED.value]
 
         # Calculate metrics
         events_per_day = len(events) / days_ahead if days_ahead > 0 else 0

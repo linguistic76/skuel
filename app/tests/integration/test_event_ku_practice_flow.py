@@ -31,11 +31,11 @@ from core.events.calendar_event_events import CalendarEventCompleted
 from core.events.ku_events import KnowledgePracticed
 from core.models.enums import (
     Domain,
-    KuStatus,
+    EntityStatus,
     SELCategory,
 )
-from core.models.ku.ku_curriculum import CurriculumKu
-from core.models.ku.ku_event import EventKu
+from core.models.ku.curriculum import Curriculum
+from core.models.ku.event import Event
 from core.services.ku.ku_practice_service import KuPracticeService
 
 
@@ -51,13 +51,13 @@ class TestEventKuPracticeFlow:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
 
     @pytest_asyncio.fixture
     async def event_backend(self, neo4j_driver, clean_neo4j):
         """Create Event backend with clean database."""
-        return UniversalNeo4jBackend[EventKu](
-            neo4j_driver, "Ku", EventKu, default_filters={"ku_type": "event"}
+        return UniversalNeo4jBackend[Event](
+            neo4j_driver, "Ku", Event, default_filters={"ku_type": "event"}
         )
 
     @pytest_asyncio.fixture
@@ -95,7 +95,7 @@ class TestEventKuPracticeFlow:
         # Create 2 KUs related to meditation
         kus = []
         for i, title in enumerate(["Mindfulness Breathing", "Body Scan Technique"], start=1):
-            ku = CurriculumKu(
+            ku = Curriculum(
                 uid=f"ku.meditation_{i}",
                 title=title,
                 domain=Domain.HEALTH,
@@ -106,13 +106,13 @@ class TestEventKuPracticeFlow:
             kus.append(result.value)
 
         # Create meditation event
-        event = EventKu(
+        event = Event(
             uid="event.morning_meditation",
             user_uid=test_user_uid,
             title="Morning Meditation Session",
             event_type="LEARNING",
             event_date=date.today(),
-            status=KuStatus.COMPLETED,
+            status=EntityStatus.COMPLETED,
         )
         result = await event_backend.create(event)
         assert result.is_ok
@@ -278,13 +278,13 @@ class TestEventKuPracticeFlow:
     ):
         """Test that completing an event with no KUs doesn't affect practice counts."""
         # Create event with no PRACTICES relationships
-        event = EventKu(
+        event = Event(
             uid="event.no_kus",
             user_uid=test_user_uid,
             title="Event Without KUs",
             event_type="WORK",
             event_date=date.today(),
-            status=KuStatus.COMPLETED,
+            status=EntityStatus.COMPLETED,
         )
         result = await event_backend.create(event)
         assert result.is_ok, "Setup failed: Could not create event"

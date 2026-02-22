@@ -15,9 +15,9 @@ from typing import TYPE_CHECKING
 
 from core.models.enums import Priority, RecurrencePattern
 from core.models.enums.ku_enums import HabitCategory
+from core.models.ku.habit import Habit as Habit
 from core.models.ku.ku_dto import KuDTO as EventDTO
 from core.models.ku.ku_dto import KuDTO as HabitDTO
-from core.models.ku.ku_habit import HabitKu as Habit
 
 # Import protocol interfaces
 from core.utils.dto_helpers import to_domain_model
@@ -269,12 +269,12 @@ class HabitEventScheduler:
             duration = habit.duration_minutes or self.config.default_duration_minutes
             end_time = self._calculate_end_time(start_time, duration, date.today())
 
-            from core.models.enums.ku_enums import KuType
+            from core.models.enums.ku_enums import EntityType
             from core.utils.uid_generator import UIDGenerator
 
             event = EventDTO(
                 uid=UIDGenerator.generate_random_uid("event"),
-                ku_type=KuType.EVENT,
+                ku_type=EntityType.EVENT,
                 user_uid=user_context.user_uid,
                 title=f"MAINTAIN STREAK: {habit.title}",
                 event_date=date.today(),
@@ -351,12 +351,12 @@ class HabitEventScheduler:
             event_date_val = date.today() + timedelta(days=1)  # Start tomorrow
             end_time = self._calculate_end_time(current_time, duration, event_date_val)
 
-            from core.models.enums.ku_enums import KuType
+            from core.models.enums.ku_enums import EntityType
             from core.utils.uid_generator import UIDGenerator
 
             event = EventDTO(
                 uid=UIDGenerator.generate_random_uid("event"),
-                ku_type=KuType.EVENT,
+                ku_type=EntityType.EVENT,
                 user_uid=user_context.user_uid,
                 title=f"{routine_type.title()} Routine: {habit.title}",
                 event_date=event_date_val,
@@ -418,12 +418,12 @@ class HabitEventScheduler:
                 duration = habit.duration_minutes or self.config.default_duration_minutes
                 end_time = self._calculate_end_time(start_time, duration, event_date)
 
-                from core.models.enums.ku_enums import KuType
+                from core.models.enums.ku_enums import EntityType
                 from core.utils.uid_generator import UIDGenerator
 
                 event = EventDTO(
                     uid=UIDGenerator.generate_random_uid("event"),
-                    ku_type=KuType.EVENT,
+                    ku_type=EntityType.EVENT,
                     user_uid=user_context.user_uid,
                     title=habit.title,
                     description=habit.description or f"Practice {habit.title}",
@@ -602,13 +602,13 @@ class HabitEventScheduler:
         placeholder_user = "template_user"
         today = date.today()
 
-        from core.models.enums.ku_enums import KuType
+        from core.models.enums.ku_enums import EntityType
         from core.utils.uid_generator import UIDGenerator
 
         return {
             "daily_habit": EventDTO(
                 uid=UIDGenerator.generate_random_uid("event"),
-                ku_type=KuType.EVENT,
+                ku_type=EntityType.EVENT,
                 user_uid=placeholder_user,
                 title="Daily habit practice",
                 event_date=today,
@@ -618,7 +618,7 @@ class HabitEventScheduler:
             ),
             "morning_routine": EventDTO(
                 uid=UIDGenerator.generate_random_uid("event"),
-                ku_type=KuType.EVENT,
+                ku_type=EntityType.EVENT,
                 user_uid=placeholder_user,
                 title="Morning routine",
                 event_date=today,
@@ -628,7 +628,7 @@ class HabitEventScheduler:
             ),
             "learning_session": EventDTO(
                 uid=UIDGenerator.generate_random_uid("event"),
-                ku_type=KuType.EVENT,
+                ku_type=EntityType.EVENT,
                 user_uid=placeholder_user,
                 title="Learning session",
                 event_date=today,
@@ -638,7 +638,7 @@ class HabitEventScheduler:
             ),
             "streak_maintenance": EventDTO(
                 uid=UIDGenerator.generate_random_uid("event"),
-                ku_type=KuType.EVENT,
+                ku_type=EntityType.EVENT,
                 user_uid=placeholder_user,
                 title="Maintain streak",
                 event_date=today,

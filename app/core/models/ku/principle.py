@@ -1,10 +1,10 @@
 """
-PrincipleKu - Principle Domain Model
+Principle - Principle Domain Model
 ======================================
 
-Frozen dataclass for principle entities (KuType.PRINCIPLE).
+Frozen dataclass for principle entities (EntityType.PRINCIPLE).
 
-Inherits ~48 common fields from KuBase. Adds 19 principle-specific fields:
+Inherits ~48 common fields from Entity. Adds 19 principle-specific fields:
 - Statement (1): statement
 - Classification (3): principle_category, principle_source, strength
 - Philosophical context (3): tradition, original_source, personal_interpretation
@@ -30,22 +30,22 @@ if TYPE_CHECKING:
 
 from core.models.enums.ku_enums import (
     AlignmentLevel,
-    KuStatus,
-    KuType,
+    EntityStatus,
+    EntityType,
     PrincipleCategory,
     PrincipleSource,
     PrincipleStrength,
 )
-from core.models.ku.ku_base import KuBase
+from core.models.ku.entity import Entity
 from core.models.ku.ku_nested_types import AlignmentAssessment, PrincipleExpression
 
 
 @dataclass(frozen=True)
-class PrincipleKu(KuBase):
+class Principle(Entity):
     """
-    Immutable domain model for principles (KuType.PRINCIPLE).
+    Immutable domain model for principles (EntityType.PRINCIPLE).
 
-    Inherits ~48 common fields from KuBase (identity, content, status,
+    Inherits ~48 common fields from Entity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
     Adds 19 principle-specific fields for classification, philosophical context,
@@ -53,9 +53,9 @@ class PrincipleKu(KuBase):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=PRINCIPLE, then delegate to KuBase for timestamps/status defaults."""
-        if self.ku_type != KuType.PRINCIPLE:
-            object.__setattr__(self, "ku_type", KuType.PRINCIPLE)
+        """Force ku_type=PRINCIPLE, then delegate to Entity for timestamps/status defaults."""
+        if self.ku_type != EntityType.PRINCIPLE:
+            object.__setattr__(self, "ku_type", EntityType.PRINCIPLE)
         super().__post_init__()
 
     # =========================================================================
@@ -146,7 +146,7 @@ class PrincipleKu(KuBase):
     def needs_review(self) -> bool:
         """Principle needs review based on alignment drift or time-based cadence."""
         # Dormant principles don't need review
-        if not self.is_active or self.status in (KuStatus.ARCHIVED, KuStatus.PAUSED):
+        if not self.is_active or self.status in (EntityStatus.ARCHIVED, EntityStatus.PAUSED):
             return False
 
         # Alignment issues always trigger review
@@ -184,7 +184,7 @@ class PrincipleKu(KuBase):
 
     def days_until_review_needed(self) -> int | None:
         """Days until next review, 0 if overdue, None if not applicable."""
-        if not self.is_active or self.status in (KuStatus.ARCHIVED, KuStatus.PAUSED):
+        if not self.is_active or self.status in (EntityStatus.ARCHIVED, EntityStatus.PAUSED):
             return None
 
         if self.needs_review():
@@ -220,22 +220,22 @@ class PrincipleKu(KuBase):
         )
 
     # =========================================================================
-    # CONVERSION (generic -- uses KuBase._from_dto / to_dto)
+    # CONVERSION (generic -- uses Entity._from_dto / to_dto)
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "PrincipleKu":
-        """Create PrincipleKu from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO") -> "Principle":
+        """Create Principle from a KuDTO."""
         return cls._from_dto(dto)
 
     def __str__(self) -> str:
         return (
-            f"PrincipleKu(uid={self.uid}, title='{self.title}', category={self.principle_category})"
+            f"Principle(uid={self.uid}, title='{self.title}', category={self.principle_category})"
         )
 
     def __repr__(self) -> str:
         return (
-            f"PrincipleKu(uid='{self.uid}', title='{self.title}', "
+            f"Principle(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, principle_category={self.principle_category}, "
             f"strength={self.strength}, user_uid={self.user_uid})"
         )

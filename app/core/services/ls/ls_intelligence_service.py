@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
-from core.models.ku import LearningStepKu
+from core.models.ku import LearningStep
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import GraphContextOrchestrator
@@ -44,7 +44,7 @@ logger = get_logger(__name__)
 
 
 class LsIntelligenceService(
-    BaseAnalyticsService["BackendOperations[LearningStepKu]", "LearningStepKu"]
+    BaseAnalyticsService["BackendOperations[LearningStep]", "LearningStep"]
 ):
     """
     Intelligence service for Learning Steps.
@@ -66,7 +66,7 @@ class LsIntelligenceService(
 
     def __init__(
         self,
-        backend: BackendOperations[LearningStepKu],
+        backend: BackendOperations[LearningStep],
         graph_intelligence_service: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
@@ -89,11 +89,11 @@ class LsIntelligenceService(
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[LearningStepKu, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[LearningStep, KuDTO](
                 service=self,
                 backend_get_method="get",
                 dto_class=KuDTO,
-                model_class=LearningStepKu,
+                model_class=LearningStep,
                 domain=Domain.LEARNING,
             )
 
@@ -105,7 +105,7 @@ class LsIntelligenceService(
 
     async def get_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[LearningStepKu, GraphContext]]:
+    ) -> Result[tuple[LearningStep, GraphContext]]:
         """
         Get learning step with full graph context.
 

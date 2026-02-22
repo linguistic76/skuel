@@ -16,9 +16,9 @@ from core.events.choice_events import ChoiceMade, ChoiceOutcomeRecorded
 from core.models.enums import Domain
 from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
+from core.models.ku.choice import Choice
+from core.models.ku.entity import Entity
 from core.models.ku.ku import Ku
-from core.models.ku.ku_base import KuBase
-from core.models.ku.ku_choice import ChoiceKu
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
@@ -47,9 +47,9 @@ from core.utils.sort_functions import get_aligned_count, get_domain_choice_count
 
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
-    from core.services.insight.insight_store import InsightStore
     from core.ports import BackendOperations
     from core.ports.domain_protocols import ChoicesRelationshipOperations
+    from core.services.insight.insight_store import InsightStore
 
 
 class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]):
@@ -113,11 +113,11 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
 
         # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[KuBase, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[Entity, KuDTO](
                 service=self,
                 backend_get_method="get",  # ChoicesService uses generic 'get'
                 dto_class=KuDTO,
-                model_class=KuBase,
+                model_class=Entity,
                 domain=Domain.CHOICES,
             )
 
@@ -181,7 +181,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
             return Result.fail(choices_result.expect_error())
 
         all_items = choices_result.value or []
-        choices = [c for c in all_items if isinstance(c, ChoiceKu)]
+        choices = [c for c in all_items if isinstance(c, Choice)]
 
         # Calculate analytics
         total_choices = len(choices)
@@ -367,7 +367,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
         choice = choice_result.value  # backend.get() already returns Ku domain model
-        assert isinstance(choice, ChoiceKu)
+        assert isinstance(choice, Choice)
 
         # Get cross-domain context using relationship helper (Priority 2 refactoring)
         if self.relationships is None:
@@ -1429,7 +1429,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
                 return
 
             choice = choice_result.value
-            if not choice or not isinstance(choice, ChoiceKu):
+            if not choice or not isinstance(choice, Choice):
                 self.logger.warning(f"Choice not found for decision analysis: {event.choice_uid}")
                 return
 
@@ -1660,11 +1660,11 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
             return DecisionQualityLevel.STRUGGLING, 0.0, evidence
 
         all_items = choices_result.value
-        # Filter to ChoiceKu instances and period (using created_at)
+        # Filter to Choice instances and period (using created_at)
         period_choices = [
             c
             for c in all_items
-            if isinstance(c, ChoiceKu) and c.created_at and c.created_at.date() >= start_date
+            if isinstance(c, Choice) and c.created_at and c.created_at.date() >= start_date
         ]
 
         if not period_choices:
@@ -2083,7 +2083,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
             return Result.fail(choice_result.expect_error())
 
         choice = choice_result.value
-        if not choice or not isinstance(choice, ChoiceKu):
+        if not choice or not isinstance(choice, Choice):
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
         # Fetch relationships

@@ -1,21 +1,21 @@
 """
-ExerciseKu - Curriculum Exercise Domain Model
+Exercise - Curriculum Exercise Domain Model
 ===============================================
 
-Frozen dataclass for exercise instruction templates. Inherits from CurriculumKu
+Frozen dataclass for exercise instruction templates. Inherits from Curriculum
 since exercises are curriculum-carrying entities (they contain learning metadata
 and substance tracking).
 
 Formerly 'Assignment' — renamed to Exercise for clarity:
 - Exercise = what teacher creates (instruction template)
-- Submission = what student uploads (KuType.SUBMISSION)
+- Submission = what student uploads (EntityType.SUBMISSION)
 
 Pipeline role: EXERCISE stage (Exercise → Submit → Analyze → Review)
 
 Hierarchy:
-    KuBase (~29 fields)
-    └── CurriculumKu(KuBase) +21 fields
-        └── ExerciseKu(CurriculumKu) +7 fields
+    Entity (~29 fields)
+    └── Curriculum(Entity) +21 fields
+        └── Exercise(Curriculum) +7 fields
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
@@ -24,17 +24,17 @@ from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING
 
-from core.models.enums.ku_enums import KuType, ProjectScope
-from core.models.ku.ku_curriculum import CurriculumKu
+from core.models.enums.ku_enums import EntityType, ProjectScope
+from core.models.ku.curriculum import Curriculum
 
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
 
 @dataclass(frozen=True)
-class ExerciseKu(CurriculumKu):
+class Exercise(Curriculum):
     """
-    Immutable domain model for exercise instruction templates (KuType.EXERCISE).
+    Immutable domain model for exercise instruction templates (EntityType.EXERCISE).
 
     An Exercise defines:
     1. **Instructions** — Plain text prompt for LLM feedback
@@ -57,9 +57,9 @@ class ExerciseKu(CurriculumKu):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=EXERCISE, then delegate to CurriculumKu."""
-        if self.ku_type != KuType.EXERCISE:
-            object.__setattr__(self, "ku_type", KuType.EXERCISE)
+        """Force ku_type=EXERCISE, then delegate to Curriculum."""
+        if self.ku_type != EntityType.EXERCISE:
+            object.__setattr__(self, "ku_type", EntityType.EXERCISE)
         super().__post_init__()
 
     # =========================================================================
@@ -135,15 +135,15 @@ class ExerciseKu(CurriculumKu):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "ExerciseKu":
-        """Create ExerciseKu from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO") -> "Exercise":
+        """Create Exercise from a KuDTO."""
         return cls._from_dto(dto)
 
     def __str__(self) -> str:
-        return f"ExerciseKu(uid={self.uid}, title='{self.title}')"
+        return f"Exercise(uid={self.uid}, title='{self.title}')"
 
     def __repr__(self) -> str:
         return (
-            f"ExerciseKu(uid='{self.uid}', title='{self.title}', "
+            f"Exercise(uid='{self.uid}', title='{self.title}', "
             f"scope={self.scope}, model={self.model})"
         )

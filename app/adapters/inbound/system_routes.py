@@ -10,9 +10,9 @@ This replaces the monolithic system_routes_impl.py with clean separation:
 - This file: Minimal wiring factory
 """
 
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.system_api import create_system_api_routes
 from adapters.inbound.system_ui import create_system_ui_routes
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 SYSTEM_CONFIG = DomainRouteConfig(
     domain_name="system",

@@ -1,19 +1,19 @@
 """
-SubmissionKu - Content Processing Domain Model (Intermediate Base)
+Submission - Content Processing Domain Model (Intermediate Base)
 ===================================================================
 
 Frozen dataclass for all content-processing entities:
-KuType.SUBMISSION, KuType.JOURNAL, KuType.AI_REPORT, KuType.FEEDBACK_REPORT.
+EntityType.SUBMISSION, EntityType.JOURNAL, EntityType.AI_REPORT, EntityType.FEEDBACK_REPORT.
 
-Inherits ~48 common fields from KuBase. Adds 13 submission-specific fields:
+Inherits ~48 common fields from Entity. Adds 13 submission-specific fields:
 - File (4): original_filename, file_path, file_size, file_type
 - Processing (8): processor_type, timestamps, error, content, instructions, max_retention
 - Subject (1): subject_uid — who this report is about
 
 Submission-specific methods: get_processing_duration, get_summary.
 
-Leaf subclasses (JournalKu, AiReportKu, FeedbackKu) inherit from SubmissionKu
-and force their specific ku_type. FeedbackKu adds 2 extra fields.
+Leaf subclasses (Journal, AiReport, Feedback) inherit from Submission
+and force their specific ku_type. Feedback adds 2 extra fields.
 
 See: /.claude/plans/ku-decomposition-domain-types.md (Phase 8)
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
@@ -26,27 +26,27 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
-from core.models.enums.ku_enums import KuType, ProcessorType
-from core.models.ku.ku_base import KuBase
+from core.models.enums.ku_enums import EntityType, ProcessorType
+from core.models.ku.entity import Entity
 
 _SUBMISSION_KU_TYPES = frozenset(
     {
-        KuType.SUBMISSION,
-        KuType.JOURNAL,
-        KuType.AI_REPORT,
-        KuType.FEEDBACK_REPORT,
+        EntityType.SUBMISSION,
+        EntityType.JOURNAL,
+        EntityType.AI_REPORT,
+        EntityType.FEEDBACK_REPORT,
     }
 )
 
 
 @dataclass(frozen=True)
-class SubmissionKu(KuBase):
+class Submission(Entity):
     """
     Immutable domain model for content-processing entities.
 
     Accepts 4 ku_types: SUBMISSION, JOURNAL, AI_REPORT, FEEDBACK_REPORT.
 
-    Inherits ~48 common fields from KuBase (identity, content, status,
+    Inherits ~48 common fields from Entity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
     Adds 13 submission-specific fields for file storage, content processing,
@@ -54,9 +54,9 @@ class SubmissionKu(KuBase):
     """
 
     def __post_init__(self) -> None:
-        """Validate ku_type is a submission type, then delegate to KuBase."""
+        """Validate ku_type is a submission type, then delegate to Entity."""
         if self.ku_type not in _SUBMISSION_KU_TYPES:
-            object.__setattr__(self, "ku_type", KuType.SUBMISSION)
+            object.__setattr__(self, "ku_type", EntityType.SUBMISSION)
         super().__post_init__()
 
     # =========================================================================
@@ -115,20 +115,20 @@ class SubmissionKu(KuBase):
         return self.description or self.summary or f"{self.ku_type.value}: {self.title}"
 
     # =========================================================================
-    # CONVERSION (generic — uses KuBase._from_dto / to_dto)
+    # CONVERSION (generic — uses Entity._from_dto / to_dto)
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "SubmissionKu":
-        """Create SubmissionKu from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO") -> "Submission":
+        """Create Submission from a KuDTO."""
         return cls._from_dto(dto)
 
     def __str__(self) -> str:
-        return f"SubmissionKu(uid={self.uid}, type={self.ku_type.value}, title='{self.title}')"
+        return f"Submission(uid={self.uid}, type={self.ku_type.value}, title='{self.title}')"
 
     def __repr__(self) -> str:
         return (
-            f"SubmissionKu(uid='{self.uid}', ku_type={self.ku_type}, "
+            f"Submission(uid='{self.uid}', ku_type={self.ku_type}, "
             f"title='{self.title}', status={self.status}, "
             f"processor_type={self.processor_type}, user_uid={self.user_uid})"
         )

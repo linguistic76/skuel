@@ -30,10 +30,10 @@ from core.models.query import (
     analyze_query_intent,
     create_search_request,
 )
-from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
 # Use protocol interfaces instead of ports
 from core.ports.curriculum_protocols import KuOperations
+from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 from core.services.user import UserContext
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

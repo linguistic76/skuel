@@ -27,6 +27,7 @@ Architecture:
 from typing import Any
 
 from core.events import LearningPathCompleted, publish_event
+from core.ports.content_protocols import ContentAdapter, ensure_content_protocol
 from core.services.lp_intelligence.learning_state_analyzer import LearningStateAnalyzer
 from core.services.lp_intelligence.types import (
     ContentRecommendation,
@@ -34,7 +35,6 @@ from core.services.lp_intelligence.types import (
     LearningIntervention,
     LearningReadiness,
 )
-from core.ports.content_protocols import ContentAdapter, ensure_content_protocol
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger

@@ -1,10 +1,10 @@
 """
-EventKu - Event Domain Model
+Event - Event Domain Model
 ==============================
 
-Frozen dataclass for event entities (KuType.EVENT).
+Frozen dataclass for event entities (EntityType.EVENT).
 
-Inherits ~48 common fields from KuBase. Adds 26 event-specific fields:
+Inherits ~48 common fields from Entity. Adds 26 event-specific fields:
 - Scheduling (4): event_date, start_time, end_time, duration_minutes
 - Event Logistics (4): event_type, location, is_online, meeting_url
 - Recurrence (3): recurrence_pattern, recurrence_end_date, recurrence_parent_uid
@@ -31,16 +31,16 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
-from core.models.enums.ku_enums import KuType
-from core.models.ku.ku_base import KuBase
+from core.models.enums.ku_enums import EntityType
+from core.models.ku.entity import Entity
 
 
 @dataclass(frozen=True)
-class EventKu(KuBase):
+class Event(Entity):
     """
-    Immutable domain model for events (KuType.EVENT).
+    Immutable domain model for events (EntityType.EVENT).
 
-    Inherits ~48 common fields from KuBase (identity, content, status,
+    Inherits ~48 common fields from Entity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
     Adds 26 event-specific fields for scheduling, logistics, attendees,
@@ -48,9 +48,9 @@ class EventKu(KuBase):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=EVENT, then delegate to KuBase for timestamps/status defaults."""
-        if self.ku_type != KuType.EVENT:
-            object.__setattr__(self, "ku_type", KuType.EVENT)
+        """Force ku_type=EVENT, then delegate to Entity for timestamps/status defaults."""
+        if self.ku_type != EntityType.EVENT:
+            object.__setattr__(self, "ku_type", EntityType.EVENT)
         super().__post_init__()
 
     # =========================================================================
@@ -130,7 +130,7 @@ class EventKu(KuBase):
             return start + timedelta(minutes=self.duration_minutes)
         return None
 
-    def overlaps_with(self, other: "EventKu") -> bool:
+    def overlaps_with(self, other: "Event") -> bool:
         """Check if two events overlap in time."""
         my_start = self.start_datetime()
         my_end = self.end_datetime()
@@ -173,20 +173,20 @@ class EventKu(KuBase):
         return self.description or self.summary or f"event: {self.title}"
 
     # =========================================================================
-    # CONVERSION (generic -- uses KuBase._from_dto / to_dto)
+    # CONVERSION (generic -- uses Entity._from_dto / to_dto)
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "EventKu":
-        """Create EventKu from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO") -> "Event":
+        """Create Event from a KuDTO."""
         return cls._from_dto(dto)
 
     def __str__(self) -> str:
-        return f"EventKu(uid={self.uid}, title='{self.title}', date={self.event_date})"
+        return f"Event(uid={self.uid}, title='{self.title}', date={self.event_date})"
 
     def __repr__(self) -> str:
         return (
-            f"EventKu(uid='{self.uid}', title='{self.title}', "
+            f"Event(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, event_date={self.event_date}, "
             f"event_type={self.event_type}, user_uid={self.user_uid})"
         )

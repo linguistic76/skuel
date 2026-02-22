@@ -13,15 +13,15 @@ They enhance the user experience but are not required for core functionality.
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.ku.choice import Choice
 from core.models.ku.ku import Ku
-from core.models.ku.ku_choice import ChoiceKu
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.ports import BackendOperations
     from core.services.llm_service import LLMService
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
-    from core.ports import BackendOperations
 
 
 class ChoicesAIService(BaseAIService["BackendOperations[Ku]", Ku]):
@@ -91,7 +91,7 @@ class ChoicesAIService(BaseAIService["BackendOperations[Ku]", Ku]):
             return Result.fail(choice_result.expect_error())
 
         choice = choice_result.value
-        if not choice or not isinstance(choice, ChoiceKu):
+        if not choice or not isinstance(choice, Choice):
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
         context = {
@@ -153,7 +153,7 @@ CONSIDERATION: [factor 2]"""
             return Result.fail(choice_result.expect_error())
 
         choice = choice_result.value
-        if not choice or not isinstance(choice, ChoiceKu):
+        if not choice or not isinstance(choice, Choice):
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
         context = {

@@ -13,10 +13,10 @@ They enhance the user experience but are not required for core functionality.
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku.ku_base import KuBase
-from core.models.ku.ku_principle import PrincipleKu
-from core.services.base_ai_service import BaseAIService
+from core.models.ku.entity import Entity
+from core.models.ku.principle import Principle
 from core.ports import PrinciplesOperations
+from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
 
-class PrinciplesAIService(BaseAIService[PrinciplesOperations, KuBase]):
+class PrinciplesAIService(BaseAIService[PrinciplesOperations, Entity]):
     """
     AI-powered features for Principles domain.
 
@@ -97,7 +97,7 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, KuBase]):
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
         category = "personal"
-        if isinstance(principle, PrincipleKu) and principle.category:
+        if isinstance(principle, Principle) and principle.category:
             category = principle.category
 
         context = {
@@ -156,7 +156,7 @@ Format each as KEY: [response]"""
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
         category = "personal"
-        if isinstance(principle, PrincipleKu) and principle.category:
+        if isinstance(principle, Principle) and principle.category:
             category = principle.category
 
         context = {
@@ -214,7 +214,7 @@ WHEN: [when/where to apply it]"""
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
         strength_display = "50%"
-        if isinstance(principle, PrincipleKu) and principle.strength:
+        if isinstance(principle, Principle) and principle.strength:
             strength_display = principle.strength.value
 
         context = {

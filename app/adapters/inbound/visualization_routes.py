@@ -5,8 +5,8 @@ Visualization Routes - Clean Architecture Factory
 Minimal factory that wires visualization API routes using DomainRouteConfig.
 """
 
-from adapters.inbound.visualization_api import create_visualization_api_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from adapters.inbound.visualization_api import create_visualization_api_routes
 
 VISUALIZATION_CONFIG = DomainRouteConfig(
     domain_name="visualization",

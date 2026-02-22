@@ -17,7 +17,7 @@ class TasksSearchService(BaseService):
     _model_class = Task
     _search_fields = ["title", "description"]
     _date_field = "due_date"
-    _completed_statuses = [KuStatus.COMPLETED.value]
+    _completed_statuses = [EntityStatus.COMPLETED.value]
     # ... 13 more attributes scattered across the class
 ```
 
@@ -29,7 +29,7 @@ class TasksSearchService(BaseService):
         model_class=Task,
         domain_name="tasks",
         date_field="due_date",
-        completed_statuses=(KuStatus.COMPLETED.value,),
+        completed_statuses=(EntityStatus.COMPLETED.value,),
     )
 ```
 
@@ -259,7 +259,7 @@ def create_activity_domain_config(
         search_fields: Fields for text search (default: ["title", "description"])
         search_order_by: Default sort field (default: "created_at")
         entity_label: Neo4j node label override (default: model_class.__name__).
-            Use when model_class is a domain subclass (e.g., TaskKu) but the
+            Use when model_class is a domain subclass (e.g., Task) but the
             Neo4j label remains the base type (e.g., "Ku").
 
     Returns:

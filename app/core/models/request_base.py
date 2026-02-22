@@ -13,7 +13,7 @@ Usage:
         # ... no need for model_config
 
     class TaskFilterRequest(FilterRequestBase):
-        status: KuStatus | None = None
+        status: EntityStatus | None = None
         # ... no need for model_config
 
 Benefits:
@@ -57,7 +57,7 @@ class FilterRequestBase(RequestBase):
 
     Example:
         class TaskFilterRequest(FilterRequestBase):
-            status: KuStatus | None = None
+            status: EntityStatus | None = None
             priority: Priority | None = None
             due_date_from: date | None = None
     """

@@ -23,8 +23,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.ku_service import KuService
     from core.ports import QueryExecutor
+    from core.services.ku_service import KuService
 
 logger = get_logger(__name__)
 
@@ -73,7 +73,7 @@ class KuOrganizationService:
     """
     Organization service for ORGANIZES relationships on Kus.
 
-    Any Ku can organize other Kus — not limited to a specific KuType.
+    Any Ku can organize other Kus — not limited to a specific EntityType.
     This service provides convenient access patterns for hierarchical navigation.
     """
 

@@ -1,10 +1,10 @@
 """
-ChoiceKu - Choice Domain Model
+Choice - Choice Domain Model
 ================================
 
-Frozen dataclass for choice entities (KuType.CHOICE).
+Frozen dataclass for choice entities (EntityType.CHOICE).
 
-Inherits ~48 common fields from KuBase. Adds 14 choice-specific fields:
+Inherits ~48 common fields from Entity. Adds 14 choice-specific fields:
 - Decision (7): choice_type, options, selected_option_uid, decision_rationale,
   decision_criteria, constraints, stakeholders
 - Decision Timing (2): decision_deadline, decided_at
@@ -25,17 +25,17 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
-from core.models.enums.ku_enums import ChoiceType, KuType
-from core.models.ku.ku_base import KuBase
+from core.models.enums.ku_enums import ChoiceType, EntityType
+from core.models.ku.entity import Entity
 from core.models.ku.ku_nested_types import ChoiceOption
 
 
 @dataclass(frozen=True)
-class ChoiceKu(KuBase):
+class Choice(Entity):
     """
-    Immutable domain model for choices (KuType.CHOICE).
+    Immutable domain model for choices (EntityType.CHOICE).
 
-    Inherits ~48 common fields from KuBase (identity, content, status,
+    Inherits ~48 common fields from Entity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
     Adds 14 choice-specific fields for decision context, timing, outcome
@@ -43,9 +43,9 @@ class ChoiceKu(KuBase):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=CHOICE, then delegate to KuBase for timestamps/status defaults."""
-        if self.ku_type != KuType.CHOICE:
-            object.__setattr__(self, "ku_type", KuType.CHOICE)
+        """Force ku_type=CHOICE, then delegate to Entity for timestamps/status defaults."""
+        if self.ku_type != EntityType.CHOICE:
+            object.__setattr__(self, "ku_type", EntityType.CHOICE)
         super().__post_init__()
 
     # =========================================================================
@@ -55,7 +55,7 @@ class ChoiceKu(KuBase):
     options: tuple[ChoiceOption, ...] = ()
     selected_option_uid: str | None = None
     decision_rationale: str | None = None
-    decision_criteria: tuple[str, ...] = ()  # Shared concept with PrincipleKu (Phase 6)
+    decision_criteria: tuple[str, ...] = ()  # Shared concept with Principle (Phase 6)
     constraints: tuple[str, ...] = ()
     stakeholders: tuple[str, ...] = ()
 
@@ -133,20 +133,20 @@ class ChoiceKu(KuBase):
         )
 
     # =========================================================================
-    # CONVERSION (generic -- uses KuBase._from_dto / to_dto)
+    # CONVERSION (generic -- uses Entity._from_dto / to_dto)
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "ChoiceKu":
-        """Create ChoiceKu from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO") -> "Choice":
+        """Create Choice from a KuDTO."""
         return cls._from_dto(dto)
 
     def __str__(self) -> str:
-        return f"ChoiceKu(uid={self.uid}, title='{self.title}', type={self.choice_type})"
+        return f"Choice(uid={self.uid}, title='{self.title}', type={self.choice_type})"
 
     def __repr__(self) -> str:
         return (
-            f"ChoiceKu(uid='{self.uid}', title='{self.title}', "
+            f"Choice(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, choice_type={self.choice_type}, "
             f"decided_at={self.decided_at}, user_uid={self.user_uid})"
         )

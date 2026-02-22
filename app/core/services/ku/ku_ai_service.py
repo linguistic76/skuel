@@ -26,8 +26,8 @@ NOTE: KU is a Curriculum domain - content is SHARED (no user_uid ownership).
 from typing import TYPE_CHECKING, Any
 
 from core.models.ku.ku import Ku
-from core.services.base_ai_service import BaseAIService
 from core.ports import KuOperations
+from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:

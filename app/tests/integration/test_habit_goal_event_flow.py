@@ -29,10 +29,10 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.habit_events import HabitCompleted
-from core.models.enums import Domain, KuStatus
-from core.models.enums.ku_enums import KuType, MeasurementType
-from core.models.ku.ku_goal import GoalKu
-from core.models.ku.ku_habit import HabitKu as Habit
+from core.models.enums import Domain, EntityStatus
+from core.models.enums.ku_enums import EntityType, MeasurementType
+from core.models.ku.goal import Goal
+from core.models.ku.habit import Habit as Habit
 from core.services.goals.goals_progress_service import GoalsProgressService
 
 
@@ -55,8 +55,8 @@ class TestHabitGoalEventFlow:
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
         """Create goals backend with clean database."""
-        return UniversalNeo4jBackend[GoalKu](
-            neo4j_driver, "Ku", GoalKu, default_filters={"ku_type": "goal"}
+        return UniversalNeo4jBackend[Goal](
+            neo4j_driver, "Ku", Goal, default_filters={"ku_type": "goal"}
         )
 
     @pytest_asyncio.fixture
@@ -76,7 +76,7 @@ class TestHabitGoalEventFlow:
     @pytest_asyncio.fixture
     async def habit_based_goal(self, goals_backend, test_user_uid):
         """Create a habit-based goal in Neo4j - 30-day meditation streak."""
-        goal = GoalKu(
+        goal = Goal(
             uid="goal.meditation_master",
             user_uid=test_user_uid,
             title="30-Day Meditation Streak",
@@ -86,7 +86,7 @@ class TestHabitGoalEventFlow:
             progress_percentage=0.0,
             current_value=0.0,
             target_value=30.0,  # Target 30-day streak
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
             target_date=date(2025, 12, 31),
         )
         result = await goals_backend.create(goal)
@@ -96,7 +96,7 @@ class TestHabitGoalEventFlow:
     @pytest_asyncio.fixture
     async def mixed_goal(self, goals_backend, test_user_uid):
         """Create a mixed-measurement goal in Neo4j."""
-        goal = GoalKu(
+        goal = Goal(
             uid="goal.healthy_lifestyle",
             user_uid=test_user_uid,
             title="Build Healthy Lifestyle",
@@ -106,7 +106,7 @@ class TestHabitGoalEventFlow:
             progress_percentage=0.0,
             current_value=0.0,
             target_value=100.0,
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
             target_date=date(2025, 12, 31),
         )
         result = await goals_backend.create(goal)
@@ -116,7 +116,7 @@ class TestHabitGoalEventFlow:
     @pytest_asyncio.fixture
     async def task_based_goal(self, goals_backend, test_user_uid):
         """Create a task-based goal to verify habit completions don't affect it."""
-        goal = GoalKu(
+        goal = Goal(
             uid="goal.learn_python",
             user_uid=test_user_uid,
             title="Learn Python",
@@ -126,7 +126,7 @@ class TestHabitGoalEventFlow:
             progress_percentage=0.0,
             current_value=0.0,
             target_value=100.0,
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
             target_date=date(2025, 12, 31),
         )
         result = await goals_backend.create(goal)
@@ -139,7 +139,7 @@ class TestHabitGoalEventFlow:
         habit = Habit(
             uid="habit.daily_meditation",
             user_uid=test_user_uid,
-            ku_type=KuType.HABIT,
+            ku_type=EntityType.HABIT,
             title="Daily Meditation",
             description="10 minutes of mindfulness meditation",
             current_streak=0,
@@ -282,7 +282,7 @@ class TestHabitGoalEventFlow:
         # Verify goal status updated to ACHIEVED
         goal_result = await goals_backend.get(habit_based_goal.uid)
         assert goal_result.is_ok
-        assert goal_result.value.status == KuStatus.COMPLETED
+        assert goal_result.value.status == EntityStatus.COMPLETED
 
     async def test_no_update_when_habit_not_linked_to_goal(
         self,
@@ -299,7 +299,7 @@ class TestHabitGoalEventFlow:
         unlinked_habit = Habit(
             uid="habit.unlinked_exercise",
             user_uid=test_user_uid,
-            ku_type=KuType.HABIT,
+            ku_type=EntityType.HABIT,
             title="Daily Exercise",
             description="30 minutes of exercise",
             current_streak=7,
@@ -346,7 +346,7 @@ class TestHabitGoalEventFlow:
         habit = Habit(
             uid="habit.code_daily",
             user_uid=test_user_uid,
-            ku_type=KuType.HABIT,
+            ku_type=EntityType.HABIT,
             title="Code Daily",
             description="1 hour of coding",
             current_streak=7,
@@ -406,7 +406,7 @@ class TestHabitGoalEventFlow:
         habit = Habit(
             uid="habit.healthy_eating",
             user_uid=test_user_uid,
-            ku_type=KuType.HABIT,
+            ku_type=EntityType.HABIT,
             title="Healthy Eating",
             description="Track meals",
             current_streak=50,  # 50% of target (100 days)

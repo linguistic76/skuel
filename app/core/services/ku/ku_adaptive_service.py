@@ -21,8 +21,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from core.models.enums import Domain, LearningLevel, SELCategory
+from core.models.ku.curriculum import Curriculum
 from core.models.ku.ku import Ku
-from core.models.ku.ku_curriculum import CurriculumKu
 from core.models.ku.ku_intelligence import (
     ContentPreference,
     KuMastery,
@@ -114,7 +114,7 @@ class KuAdaptiveService:
         if not prereqs_met:
             return False
 
-        if not isinstance(ku, CurriculumKu):
+        if not isinstance(ku, Curriculum):
             return True  # Non-curriculum types skip level-based filtering
 
         if ku.sel_category is None:
@@ -192,8 +192,8 @@ class KuAdaptiveService:
         enables_count = await self._count_enables(ku)
         score += enables_count * 10
 
-        # Curriculum-specific scoring requires CurriculumKu fields
-        if isinstance(ku, CurriculumKu):
+        # Curriculum-specific scoring requires Curriculum fields
+        if isinstance(ku, Curriculum):
             # Factor 2: Matches user's preferred difficulty
             user_velocity = user_intel.get_dominant_learning_velocity()
             if (

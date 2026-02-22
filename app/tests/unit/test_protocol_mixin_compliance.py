@@ -20,15 +20,6 @@ import pathlib
 
 import pytest
 
-from core.services.mixins import (
-    ContextOperationsMixin,
-    ConversionHelpersMixin,
-    CrudOperationsMixin,
-    RelationshipOperationsMixin,
-    SearchOperationsMixin,
-    TimeQueryMixin,
-    UserProgressMixin,
-)
 from core.ports.base_service_interface import (
     ContextOperations,
     ConversionOperations,
@@ -37,6 +28,15 @@ from core.ports.base_service_interface import (
     SearchOperations,
     TimeQueryOperations,
     UserProgressOperations,
+)
+from core.services.mixins import (
+    ContextOperationsMixin,
+    ConversionHelpersMixin,
+    CrudOperationsMixin,
+    RelationshipOperationsMixin,
+    SearchOperationsMixin,
+    TimeQueryMixin,
+    UserProgressMixin,
 )
 
 # ============================================================================

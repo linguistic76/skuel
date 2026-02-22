@@ -208,28 +208,38 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         validate_label: bool = True,
         prometheus_metrics: Any | None = None,
         default_filters: dict[str, Any] | None = None,
+        base_label: str | NeoLabel | None = None,
     ) -> None:
         """
         Initialize universal backend for any entity type.
 
         Args:
             driver: Neo4j async driver
-            label: Node label - can be NeoLabel enum or string (e.g., NeoLabel.KU, "Ku")
-            entity_class: Entity class for serialization (e.g., TaskPure, EventPure)
+            label: Node label - can be NeoLabel enum or string (e.g., NeoLabel.TASK, "Task")
+            entity_class: Entity class for serialization (e.g., Task, Goal)
             graph_intelligence_service: Optional GraphIntelligenceService for Phase 1-4 queries
             validate_label: If True, validates label against NeoLabel enum (default: True)
             prometheus_metrics: PrometheusMetrics instance for database instrumentation (Phase 2 - January 2026)
             default_filters: Properties automatically applied to all queries and new nodes.
-                Used for Ku-type discrimination: ``default_filters={"ku_type": "task"}``
-                ensures this backend only sees/creates task-type Ku nodes.
+                Legacy mechanism for Ku-type discrimination. Superseded by domain-specific
+                labels (e.g., NeoLabel.TASK instead of NeoLabel.KU + default_filters).
+            base_label: Universal base label for multi-label CREATE operations.
+                When set, CREATE produces ``(n:Ku:Entity:Task)`` — legacy :Ku label,
+                :Entity universal label, and domain-specific label. Used for Ku-type
+                entities; non-Ku entities (Finance, Group) don't set this.
 
         Raises:
             ValueError: If validate_label=True and label is not a valid NeoLabel
 
         Example:
-            # All domain entities use NeoLabel.KU with ku_type discrimination
-            tasks_backend = UniversalNeo4jBackend[Ku](
-                driver, NeoLabel.KU, Ku, default_filters={"ku_type": "task"}
+            # Domain-specific label with multi-label CREATE
+            tasks_backend = UniversalNeo4jBackend[Task](
+                driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
+            )
+
+            # Non-Ku backends — single label, no base_label
+            finance_backend = UniversalNeo4jBackend[ExpensePure](
+                driver, NeoLabel.EXPENSE, ExpensePure
             )
 
             # Skip validation for edge cases (e.g., tests with dynamic labels)
@@ -256,14 +266,26 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         self.default_filters = default_filters or {}
         self.logger = get_logger(f"skuel.universal.{label_str.lower()}")
 
+        # Multi-label support: base_label enables CREATE (n:Ku:Entity:Task)
+        base_label_str = base_label.value if isinstance(base_label, NeoLabel) else base_label
+        self.base_label = base_label_str
+
+        # Build the CREATE label string
+        if self.base_label:
+            # Multi-label: legacy Ku + Entity base + domain-specific
+            self._create_labels = f"Ku:{self.base_label}:{self.label}"
+        else:
+            # Single-label: non-Ku backends (Finance, Group, etc.)
+            self._create_labels = self.label
+
         # Phase 2: UnifiedQueryBuilder for all query building
         self.query_builder = UnifiedQueryBuilder(executor=self)
 
         intel_status = "with Phase 1-4" if graph_intelligence_service else "basic"
         metrics_status = "metrics-enabled" if prometheus_metrics else "no-metrics"
-        filters_status = f"filters={self.default_filters}" if self.default_filters else "no-filters"
+        labels_status = f"labels={self._create_labels}" if self.base_label else "single-label"
         self.logger.info(
-            f"{label_str} universal backend initialized ({intel_status}, {metrics_status}, {filters_status}) [UnifiedQueryBuilder]"
+            f"{label_str} universal backend initialized ({intel_status}, {metrics_status}, {labels_status}) [UnifiedQueryBuilder]"
         )
 
     def _track_db_metrics(self, operation: str, duration: float, is_error: bool = False) -> None:
@@ -339,7 +361,10 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         Create any entity type.
 
         AUTO-CREATES USER RELATIONSHIP: If entity has user_uid field,
-        automatically creates (User)-[:HAS_{LABEL}]->(Entity) relationship.
+        automatically creates (User)-[:OWNS]->(Entity) relationship.
+
+        Multi-label CREATE: When base_label is set, creates nodes with
+        triple labels: ``(n:Ku:Entity:Task)`` for backward compatibility.
         """
         start_time = time.time()
         node_data = to_neo4j_node(entity)
@@ -351,7 +376,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         user_uid = node_data.get("user_uid")
 
         query = f"""
-        CREATE (n:{self.label})
+        CREATE (n:{self._create_labels})
         SET n = $props
         RETURN n
         """
@@ -369,9 +394,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 
             # Auto-create user relationship if user_uid exists
             if user_uid:
-                relationship_type = f"HAS_{self.label.upper()}"
                 rel_result = await self.create_user_relationship(
-                    user_uid=user_uid, entity_uid=created.uid, relationship_type=relationship_type
+                    user_uid=user_uid, entity_uid=created.uid, relationship_type="OWNS"
                 )
 
                 if rel_result.is_error:
@@ -381,7 +405,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
                     # Don't fail the entire create operation - entity was created successfully
                 else:
                     self.logger.debug(
-                        f"Auto-created user relationship for {self.label} {created.uid}"
+                        f"Auto-created OWNS relationship for {self.label} {created.uid}"
                     )
 
             # Track metrics (Phase 2 - January 2026)
@@ -2834,8 +2858,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         Args:
             user_uid: User UID,
             entity_uid: Entity UID,
-            relationship_type: Neo4j relationship type (e.g., "HAS_TASK", "HAS_GOAL")
-                              If None, uses default "HAS_{LABEL}" pattern
+            relationship_type: Neo4j relationship type. Defaults to "OWNS".
             metadata: Optional edge properties (created_at, last_accessed, priority, etc.)
 
         Returns:
@@ -2846,14 +2869,14 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             await backend.create_user_relationship(
                 user_uid="user_123",
                 entity_uid="task_456",
-                relationship_type="HAS_TASK",
+                relationship_type="OWNS",
                 metadata={"priority": "high", "created_at": datetime.now().isoformat()}
             )
         """
         try:
-            # Default relationship type: HAS_{LABEL}
+            # Default relationship type: OWNS (domain-first architecture)
             if not relationship_type:
-                relationship_type = f"HAS_{self.label.upper()}"
+                relationship_type = "OWNS"
 
             # Default metadata
             default_metadata = {
@@ -2946,9 +2969,9 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             )
         """
         try:
-            # Default relationship type: HAS_{LABEL}
+            # Default relationship type: OWNS (domain-first architecture)
             if not relationship_type:
-                relationship_type = f"HAS_{self.label.upper()}"
+                relationship_type = "OWNS"
 
             # Build filter clause
             filter_clauses: builtins.list[str] = []
@@ -3034,9 +3057,9 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             )
         """
         try:
-            # Default relationship type
+            # Default relationship type: OWNS (domain-first architecture)
             if not relationship_type:
-                relationship_type = f"HAS_{self.label.upper()}"
+                relationship_type = "OWNS"
 
             # Build filter clause
             filter_clauses: builtins.list[str] = []
@@ -3096,7 +3119,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         """
         try:
             if not relationship_type:
-                relationship_type = f"HAS_{self.label.upper()}"
+                relationship_type = "OWNS"
 
             query = f"""
             MATCH (u:User {{uid: $user_uid}})-[r:{relationship_type}]->(e:{self.label} {{uid: $entity_uid}})
@@ -3159,7 +3182,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         """
         try:
             if not relationship_type:
-                relationship_type = f"HAS_{self.label.upper()}"
+                relationship_type = "OWNS"
 
             query = f"""
             MATCH (u:User {{uid: $user_uid}})-[r:{relationship_type}]->(e:{self.label} {{uid: $entity_uid}})
@@ -4161,14 +4184,14 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 
 def create_tasks_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
     """Create universal backend for tasks."""
-    from core.models.ku.ku_task import TaskKu as TaskPure
+    from core.models.ku.task import Task as TaskPure
 
     return UniversalNeo4jBackend[TaskPure](driver, "Task", TaskPure)
 
 
 def create_events_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
     """Create universal backend for events."""
-    from core.models.ku.ku_event import EventKu as EventPure
+    from core.models.ku.event import Event as EventPure
 
     return UniversalNeo4jBackend[EventPure](driver, "Event", EventPure)
 
@@ -4182,7 +4205,7 @@ def create_finance_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
 
 def create_habits_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
     """Create universal backend for habits."""
-    from core.models.ku.ku_habit import HabitKu as HabitPure
+    from core.models.ku.habit import Habit as HabitPure
 
     return UniversalNeo4jBackend[HabitPure](driver, "Habit", HabitPure)
 

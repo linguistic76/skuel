@@ -34,9 +34,9 @@ if TYPE_CHECKING:
     from datetime import date
 
     from core.models.enums import Domain
+    from core.models.ku.habit import Habit as Habit
     from core.models.ku.ku import Ku
-    from core.models.ku.ku_habit import HabitKu as Habit
-    from core.models.ku.ku_task import TaskKu as Task
+    from core.models.ku.task import Task as Task
     from core.models.search.filters import BaseSearchFilters
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest
@@ -70,7 +70,7 @@ class DomainSearchOperations(Protocol[T]):
     - search() - Text search on title/description
     - search_filtered() - Type-safe filtered search (NEW v2.1.0)
     - intelligent_search() - Natural language search with semantic filter extraction (NEW v2.1.0)
-    - get_by_status() - Filter by KuStatus
+    - get_by_status() - Filter by EntityStatus
     - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
@@ -116,7 +116,7 @@ class DomainSearchOperations(Protocol[T]):
         Example:
             from dataclasses import dataclass
             from core.models.search import BaseSearchFilters
-            from core.models.enums import KuStatus, Domain
+            from core.models.enums import EntityStatus, Domain
 
             # Define domain-specific filters locally (see MocSearchFilters pattern)
             @dataclass(frozen=True)
@@ -154,7 +154,7 @@ class DomainSearchOperations(Protocol[T]):
 
         Parses the query to extract semantic meaning using enum synonyms:
         - Priority: "urgent", "asap", "critical" → Priority.CRITICAL
-        - Status: "completed", "in progress", "active" → KuStatus values
+        - Status: "completed", "in progress", "active" → EntityStatus values
         - Domain: "health", "tech", "business" → Domain values
 
         This is the user-friendly search method that bridges natural language
@@ -175,9 +175,9 @@ class DomainSearchOperations(Protocol[T]):
 
             if result.is_ok:
                 entities, parsed = result.value
-                # entities: Tasks matching Priority.CRITICAL/HIGH + KuStatus.ACTIVE
+                # entities: Tasks matching Priority.CRITICAL/HIGH + EntityStatus.ACTIVE
                 # parsed.priorities: (Priority.CRITICAL, Priority.HIGH)
-                # parsed.statuses: (KuStatus.ACTIVE,)
+                # parsed.statuses: (EntityStatus.ACTIVE,)
                 # parsed.text_query: "tasks"  (cleaned for text search)
 
         Implementation Notes:
@@ -194,7 +194,7 @@ class DomainSearchOperations(Protocol[T]):
 
     async def get_by_status(self, status: str, limit: int = 100) -> Result[list[T]]:
         """
-        Filter entities by KuStatus.
+        Filter entities by EntityStatus.
 
         Args:
             status: Status string (e.g., "active", "completed", "paused")
@@ -314,7 +314,7 @@ class DomainSearchOperations(Protocol[T]):
 class EventsSearchOperations(DomainSearchOperations["Ku"], Protocol):
     """
     Extended search protocol for Events domain.
-    Uses unified Ku model with KuType.EVENT.
+    Uses unified Ku model with EntityType.EVENT.
 
     Inherits all methods from DomainSearchOperations[Ku]:
     - search(), search_filtered(), intelligent_search()
@@ -647,7 +647,7 @@ class ChoicesSearchOperations(DomainSearchOperations["Ku"], Protocol):
 @runtime_checkable
 class PrinciplesSearchOperations(DomainSearchOperations["Ku"], Protocol):
     """
-    Extended search protocol for Principles domain. Uses unified Ku model with KuType.PRINCIPLE.
+    Extended search protocol for Principles domain. Uses unified Ku model with EntityType.PRINCIPLE.
 
     Inherits all methods from DomainSearchOperations[Ku]:
     - search(), search_filtered(), intelligent_search()

@@ -20,9 +20,9 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.events import CalendarEventCompleted, publish_event
-from core.models.enums import KuStatus
+from core.models.enums import EntityStatus
+from core.models.ku.event import Event
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_event import EventKu
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations
 
 
-class EventsProgressService(BaseService["BackendOperations[EventKu]", EventKu]):
+class EventsProgressService(BaseService["BackendOperations[Event]", Event]):
     """
     Progress tracking and completion for events.
 
@@ -57,18 +57,18 @@ class EventsProgressService(BaseService["BackendOperations[EventKu]", EventKu]):
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=EventKu,
+        model_class=Event,
         entity_label="Ku",
         domain_name="events",
         date_field="event_date",
-        completed_statuses=(KuStatus.COMPLETED.value,),
+        completed_statuses=(EntityStatus.COMPLETED.value,),
     )
 
     # Configure BaseService
     _date_field = "event_date"
-    _completed_statuses = (KuStatus.COMPLETED.value, KuStatus.CANCELLED.value)
+    _completed_statuses = (EntityStatus.COMPLETED.value, EntityStatus.CANCELLED.value)
 
-    def __init__(self, backend: "BackendOperations[EventKu]", event_bus=None) -> None:
+    def __init__(self, backend: "BackendOperations[Event]", event_bus=None) -> None:
         """
         Initialize progress service.
 
@@ -94,7 +94,7 @@ class EventsProgressService(BaseService["BackendOperations[EventKu]", EventKu]):
 
     def _get_event_from_rich_context(
         self, event_uid: str, user_context: UserContext
-    ) -> EventKu | None:
+    ) -> Event | None:
         """Try to get Ku from UserContext.active_events_rich."""
         if not user_context.active_events_rich:
             return None
@@ -105,12 +105,12 @@ class EventsProgressService(BaseService["BackendOperations[EventKu]", EventKu]):
                 return self._dict_to_event(event_dict)
         return None
 
-    def _dict_to_event(self, event_dict: dict[str, Any]) -> EventKu | None:
-        """Convert raw Neo4j dict to EventKu domain model."""
+    def _dict_to_event(self, event_dict: dict[str, Any]) -> Event | None:
+        """Convert raw Neo4j dict to Event domain model."""
         if not event_dict or not event_dict.get("uid"):
             return None
         dto = KuDTO.from_dict(event_dict)
-        return EventKu.from_dto(dto)
+        return Event.from_dto(dto)
 
     # ========================================================================
     # EVENT COMPLETION
@@ -125,7 +125,7 @@ class EventsProgressService(BaseService["BackendOperations[EventKu]", EventKu]):
         user_context: UserContext,
         quality_score: int | None = None,
         notes: str | None = None,
-    ) -> Result[EventKu]:
+    ) -> Result[Event]:
         """
         Complete an event and cascade updates through the system.
 
@@ -154,14 +154,14 @@ class EventsProgressService(BaseService["BackendOperations[EventKu]", EventKu]):
                 return Result.fail(event_result.expect_error())
             if not event_result.value:
                 return Result.fail(Errors.not_found(resource="Event", identifier=event_uid))
-            event = self._to_domain_model(event_result.value, KuDTO, EventKu)
+            event = self._to_domain_model(event_result.value, KuDTO, Event)
             self.logger.debug(f"Event {event_uid} fetched from Neo4j")
         else:
             self.logger.debug(f"Event {event_uid} found in rich context")
 
         # Build updates
         updates: dict[str, Any] = {
-            "status": KuStatus.COMPLETED.value,
+            "status": EntityStatus.COMPLETED.value,
             "completed_at": datetime.now().isoformat(),
         }
         if quality_score is not None:
@@ -189,7 +189,7 @@ class EventsProgressService(BaseService["BackendOperations[EventKu]", EventKu]):
             f"habit={event.reinforces_habit_uid}, quality={quality_score}"
         )
 
-        completed_event = self._to_domain_model(update_result.value, KuDTO, EventKu)
+        completed_event = self._to_domain_model(update_result.value, KuDTO, Event)
         return Result.ok(completed_event)
 
     # ========================================================================
@@ -229,15 +229,15 @@ class EventsProgressService(BaseService["BackendOperations[EventKu]", EventKu]):
         events = result.value or []
 
         # Calculate metrics
-        total_scheduled = len([e for e in events if e.status != KuStatus.CANCELLED.value])
-        completed = len([e for e in events if e.status == KuStatus.COMPLETED.value])
+        total_scheduled = len([e for e in events if e.status != EntityStatus.CANCELLED.value])
+        completed = len([e for e in events if e.status == EntityStatus.COMPLETED.value])
         missed = len(
             [
                 e
                 for e in events
                 if e.event_date
                 and e.event_date < today
-                and e.status not in (KuStatus.COMPLETED.value, KuStatus.CANCELLED.value)
+                and e.status not in (EntityStatus.COMPLETED.value, EntityStatus.CANCELLED.value)
             ]
         )
 
@@ -281,7 +281,7 @@ class EventsProgressService(BaseService["BackendOperations[EventKu]", EventKu]):
         result = await self.backend.find_by(
             user_uid=user_uid,
             event_date__gte=start_date.isoformat(),
-            status=KuStatus.COMPLETED.value,
+            status=EntityStatus.COMPLETED.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -355,7 +355,7 @@ class EventsProgressService(BaseService["BackendOperations[EventKu]", EventKu]):
         result = await self.backend.find_by(
             user_uid=user_uid,
             event_date__gte=start_date.isoformat(),
-            status=KuStatus.COMPLETED.value,
+            status=EntityStatus.COMPLETED.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -425,9 +425,9 @@ class EventsProgressService(BaseService["BackendOperations[EventKu]", EventKu]):
             if week_key not in weeks:
                 weeks[week_key] = {"scheduled": 0, "completed": 0, "cancelled": 0, "missed": 0}
 
-            if event.status == KuStatus.COMPLETED.value:
+            if event.status == EntityStatus.COMPLETED.value:
                 weeks[week_key]["completed"] += 1
-            elif event.status == KuStatus.CANCELLED.value:
+            elif event.status == EntityStatus.CANCELLED.value:
                 weeks[week_key]["cancelled"] += 1
             elif event.event_date < today:
                 weeks[week_key]["missed"] += 1
@@ -488,7 +488,7 @@ class EventsProgressService(BaseService["BackendOperations[EventKu]", EventKu]):
                 }
 
             by_habit[habit_uid]["total"] += 1
-            if event.status == KuStatus.COMPLETED.value:
+            if event.status == EntityStatus.COMPLETED.value:
                 by_habit[habit_uid]["completed"] += 1
                 if event.habit_completion_quality:
                     by_habit[habit_uid]["quality_sum"] += event.habit_completion_quality

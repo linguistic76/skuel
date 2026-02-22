@@ -15,9 +15,9 @@ NOTE: LP is a Curriculum domain - content is SHARED (no user_uid ownership).
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku import LearningPathKu
-from core.services.base_ai_service import BaseAIService
+from core.models.ku import LearningPath
 from core.ports import LpOperations
+from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
 
-class LpAIService(BaseAIService[LpOperations, LearningPathKu]):
+class LpAIService(BaseAIService[LpOperations, LearningPath]):
     """
     AI-powered features for Learning Paths domain.
 
@@ -77,7 +77,7 @@ class LpAIService(BaseAIService[LpOperations, LearningPathKu]):
         if all_paths_result.is_error:
             return Result.fail(all_paths_result.expect_error())
 
-        all_paths: list[LearningPathKu] = all_paths_result.value or []
+        all_paths: list[LearningPath] = all_paths_result.value or []
         candidates = [
             (p.uid, f"{p.title} {p.description or ''}") for p in all_paths if p.uid != lp_uid
         ]

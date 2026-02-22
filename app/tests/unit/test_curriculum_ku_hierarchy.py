@@ -1,50 +1,50 @@
 """
-CurriculumKu Hierarchy Tests
+Curriculum Hierarchy Tests
 =============================
 
-Tests for the CurriculumKu intermediate class introduced in Phase 2
+Tests for the Curriculum intermediate class introduced in Phase 2
 of the Ku decomposition. Verifies:
 
-1. CurriculumKu field inheritance from KuBase
-2. LearningStepKu and LearningPathKu inherit from CurriculumKu (not KuBase)
+1. Curriculum field inheritance from Entity
+2. LearningStep and LearningPath inherit from Curriculum (not Entity)
 3. Substance methods work with real data (not stubs)
 4. Learning methods (complexity, SEL, level) work correctly
-5. DTO round-trip for CurriculumKu subclasses
+5. DTO round-trip for Curriculum subclasses
 """
 
 from datetime import datetime, timedelta
 
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
-from core.models.enums.ku_enums import KuType
-from core.models.ku.ku_base import KuBase
-from core.models.ku.ku_curriculum import CurriculumKu
+from core.models.enums.ku_enums import EntityType
+from core.models.ku.curriculum import Curriculum
+from core.models.ku.entity import Entity
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_learning_path import LearningPathKu
-from core.models.ku.ku_learning_step import LearningStepKu
+from core.models.ku.learning_path import LearningPath
+from core.models.ku.learning_step import LearningStep
 
 # =========================================================================
-# CurriculumKu creation and field defaults
+# Curriculum creation and field defaults
 # =========================================================================
 
 
 class TestCurriculumKuCreation:
-    """Test CurriculumKu instantiation and defaults."""
+    """Test Curriculum instantiation and defaults."""
 
     def test_basic_creation(self):
-        """CurriculumKu can be created with minimal fields."""
-        cu = CurriculumKu(uid="ku_test_abc", title="Test Curriculum")
+        """Curriculum can be created with minimal fields."""
+        cu = Curriculum(uid="ku_test_abc", title="Test Curriculum")
         assert cu.uid == "ku_test_abc"
         assert cu.title == "Test Curriculum"
-        assert cu.ku_type == KuType.CURRICULUM
+        assert cu.ku_type == EntityType.CURRICULUM
 
     def test_forces_ku_type_curriculum(self):
         """__post_init__ forces ku_type=CURRICULUM."""
-        cu = CurriculumKu(uid="ku_test", title="Test", ku_type=KuType.TASK)
-        assert cu.ku_type == KuType.CURRICULUM
+        cu = Curriculum(uid="ku_test", title="Test", ku_type=EntityType.TASK)
+        assert cu.ku_type == EntityType.CURRICULUM
 
     def test_learning_field_defaults(self):
         """Learning metadata fields have correct defaults."""
-        cu = CurriculumKu(uid="ku_test", title="Test")
+        cu = Curriculum(uid="ku_test", title="Test")
         assert cu.complexity == KuComplexity.MEDIUM
         assert cu.learning_level == LearningLevel.BEGINNER
         assert cu.sel_category is None
@@ -57,7 +57,7 @@ class TestCurriculumKuCreation:
 
     def test_substance_counter_defaults(self):
         """Substance counters default to 0, dates to None."""
-        cu = CurriculumKu(uid="ku_test", title="Test")
+        cu = Curriculum(uid="ku_test", title="Test")
         assert cu.times_applied_in_tasks == 0
         assert cu.times_practiced_in_events == 0
         assert cu.times_built_into_habits == 0
@@ -70,8 +70,8 @@ class TestCurriculumKuCreation:
         assert cu.last_choice_informed_date is None
 
     def test_inherits_kubase_fields(self):
-        """CurriculumKu inherits all KuBase identity/content/status fields."""
-        cu = CurriculumKu(
+        """Curriculum inherits all Entity identity/content/status fields."""
+        cu = Curriculum(
             uid="ku_test",
             title="Test",
             user_uid="user_alice",
@@ -87,28 +87,28 @@ class TestCurriculumKuCreation:
 
 
 # =========================================================================
-# Hierarchy: LearningStepKu and LearningPathKu inherit CurriculumKu
+# Hierarchy: LearningStep and LearningPath inherit Curriculum
 # =========================================================================
 
 
 class TestCurriculumKuHierarchy:
-    """Verify LearningStepKu and LearningPathKu inherit from CurriculumKu."""
+    """Verify LearningStep and LearningPath inherit from Curriculum."""
 
     def test_learning_step_is_curriculum_ku(self):
-        """LearningStepKu IS a CurriculumKu."""
-        ls = LearningStepKu(uid="ls_test", title="Step 1")
-        assert isinstance(ls, CurriculumKu)
-        assert isinstance(ls, KuBase)
+        """LearningStep IS a Curriculum."""
+        ls = LearningStep(uid="ls_test", title="Step 1")
+        assert isinstance(ls, Curriculum)
+        assert isinstance(ls, Entity)
 
     def test_learning_path_is_curriculum_ku(self):
-        """LearningPathKu IS a CurriculumKu."""
-        lp = LearningPathKu(uid="lp_test", title="Path 1")
-        assert isinstance(lp, CurriculumKu)
-        assert isinstance(lp, KuBase)
+        """LearningPath IS a Curriculum."""
+        lp = LearningPath(uid="lp_test", title="Path 1")
+        assert isinstance(lp, Curriculum)
+        assert isinstance(lp, Entity)
 
     def test_learning_step_inherits_curriculum_fields(self):
-        """LearningStepKu has all CurriculumKu fields via inheritance."""
-        ls = LearningStepKu(
+        """LearningStep has all Curriculum fields via inheritance."""
+        ls = LearningStep(
             uid="ls_test",
             title="Step",
             complexity=KuComplexity.ADVANCED,
@@ -122,8 +122,8 @@ class TestCurriculumKuHierarchy:
         assert ls.times_applied_in_tasks == 3
 
     def test_learning_path_inherits_curriculum_fields(self):
-        """LearningPathKu has all CurriculumKu fields via inheritance."""
-        lp = LearningPathKu(
+        """LearningPath has all Curriculum fields via inheritance."""
+        lp = LearningPath(
             uid="lp_test",
             title="Path",
             complexity=KuComplexity.BASIC,
@@ -135,8 +135,8 @@ class TestCurriculumKuHierarchy:
         assert lp.semantic_links == ("ku_a", "ku_b")
 
     def test_learning_step_substance_score_overrides_stub(self):
-        """LearningStepKu substance_score comes from CurriculumKu, not KuBase stub."""
-        ls = LearningStepKu(
+        """LearningStep substance_score comes from Curriculum, not Entity stub."""
+        ls = LearningStep(
             uid="ls_test",
             title="Step",
             times_applied_in_tasks=5,
@@ -145,11 +145,11 @@ class TestCurriculumKuHierarchy:
             last_practiced_date=datetime.now(),
         )
         score = ls.substance_score()
-        assert score > 0.0, "LearningStepKu should use CurriculumKu substance, not stub"
+        assert score > 0.0, "LearningStep should use Curriculum substance, not stub"
 
 
 # =========================================================================
-# CurriculumKu learning methods
+# Curriculum learning methods
 # =========================================================================
 
 
@@ -157,83 +157,83 @@ class TestCurriculumKuLearningMethods:
     """Test curriculum-specific learning methods."""
 
     def test_is_advanced(self):
-        cu = CurriculumKu(uid="ku_test", title="Test", complexity=KuComplexity.ADVANCED)
+        cu = Curriculum(uid="ku_test", title="Test", complexity=KuComplexity.ADVANCED)
         assert cu.is_advanced() is True
         assert cu.is_basic() is False
 
     def test_is_basic(self):
-        cu = CurriculumKu(uid="ku_test", title="Test", complexity=KuComplexity.BASIC)
+        cu = Curriculum(uid="ku_test", title="Test", complexity=KuComplexity.BASIC)
         assert cu.is_basic() is True
         assert cu.is_advanced() is False
 
     def test_complexity_score(self):
-        basic = CurriculumKu(uid="ku_b", title="B", complexity=KuComplexity.BASIC)
-        medium = CurriculumKu(uid="ku_m", title="M", complexity=KuComplexity.MEDIUM)
-        advanced = CurriculumKu(uid="ku_a", title="A", complexity=KuComplexity.ADVANCED)
+        basic = Curriculum(uid="ku_b", title="B", complexity=KuComplexity.BASIC)
+        medium = Curriculum(uid="ku_m", title="M", complexity=KuComplexity.MEDIUM)
+        advanced = Curriculum(uid="ku_a", title="A", complexity=KuComplexity.ADVANCED)
         assert basic.complexity_score() == 1
         assert medium.complexity_score() == 2
         assert advanced.complexity_score() == 3
 
     def test_requires_prerequisites(self):
         """Advanced TECH knowledge requires prerequisites."""
-        cu = CurriculumKu(
+        cu = Curriculum(
             uid="ku_test", title="Test", domain=Domain.TECH, complexity=KuComplexity.ADVANCED
         )
         assert cu.requires_prerequisites() is True
 
         # Non-TECH advanced doesn't require prerequisites
-        cu2 = CurriculumKu(
+        cu2 = Curriculum(
             uid="ku_test2", title="Test2", domain=Domain.HEALTH, complexity=KuComplexity.ADVANCED
         )
         assert cu2.requires_prerequisites() is False
 
     def test_is_quick_win(self):
         """Short duration + low difficulty = quick win."""
-        cu = CurriculumKu(
+        cu = Curriculum(
             uid="ku_test", title="Test", estimated_time_minutes=5, difficulty_rating=0.2
         )
         assert cu.is_quick_win() is True
 
-        cu2 = CurriculumKu(
+        cu2 = Curriculum(
             uid="ku_test2", title="Test2", estimated_time_minutes=30, difficulty_rating=0.8
         )
         assert cu2.is_quick_win() is False
 
     def test_is_challenging(self):
-        cu = CurriculumKu(uid="ku_test", title="Test", difficulty_rating=0.8)
+        cu = Curriculum(uid="ku_test", title="Test", difficulty_rating=0.8)
         assert cu.is_challenging() is True
 
     def test_matches_time_available(self):
-        cu = CurriculumKu(uid="ku_test", title="Test", estimated_time_minutes=15)
+        cu = Curriculum(uid="ku_test", title="Test", estimated_time_minutes=15)
         assert cu.matches_time_available(20) is True
         assert cu.matches_time_available(10) is False
 
     def test_is_appropriate_for_level(self):
-        beginner = CurriculumKu(uid="ku_test", title="Test", learning_level=LearningLevel.BEGINNER)
+        beginner = Curriculum(uid="ku_test", title="Test", learning_level=LearningLevel.BEGINNER)
         assert beginner.is_appropriate_for_level(LearningLevel.BEGINNER) is True
         assert beginner.is_appropriate_for_level(LearningLevel.EXPERT) is True
 
-        expert = CurriculumKu(uid="ku_test2", title="Test2", learning_level=LearningLevel.EXPERT)
+        expert = Curriculum(uid="ku_test2", title="Test2", learning_level=LearningLevel.EXPERT)
         assert expert.is_appropriate_for_level(LearningLevel.BEGINNER) is False
         assert expert.is_appropriate_for_level(LearningLevel.EXPERT) is True
 
 
 # =========================================================================
-# CurriculumKu substance tracking
+# Curriculum substance tracking
 # =========================================================================
 
 
 class TestCurriculumKuSubstance:
-    """Test substance score calculation on CurriculumKu."""
+    """Test substance score calculation on Curriculum."""
 
     def test_zero_substance_when_no_activity(self):
         """No activity means substance score = 0."""
-        cu = CurriculumKu(uid="ku_test", title="Test")
+        cu = Curriculum(uid="ku_test", title="Test")
         assert cu.substance_score() == 0.0
 
     def test_substance_increases_with_activity(self):
         """Activity counters increase substance score."""
-        cu = CurriculumKu(
+        cu = Curriculum(
             uid="ku_test",
             title="Test",
             times_applied_in_tasks=3,
@@ -248,7 +248,7 @@ class TestCurriculumKuSubstance:
 
     def test_substance_capped_at_1(self):
         """Substance score cannot exceed 1.0."""
-        cu = CurriculumKu(
+        cu = Curriculum(
             uid="ku_test",
             title="Test",
             times_applied_in_tasks=100,
@@ -267,7 +267,7 @@ class TestCurriculumKuSubstance:
     def test_needs_review_for_decayed_substance(self):
         """Once-substantiated knowledge with old dates needs review."""
         old_date = datetime.now() - timedelta(days=90)
-        cu = CurriculumKu(
+        cu = Curriculum(
             uid="ku_test",
             title="Test",
             times_applied_in_tasks=5,
@@ -281,7 +281,7 @@ class TestCurriculumKuSubstance:
 
     def test_no_review_needed_for_fresh_substance(self):
         """Recently practiced knowledge doesn't need review."""
-        cu = CurriculumKu(
+        cu = Curriculum(
             uid="ku_test",
             title="Test",
             times_applied_in_tasks=5,
@@ -295,7 +295,7 @@ class TestCurriculumKuSubstance:
 
     def test_get_substantiation_gaps(self):
         """Gaps identify missing substantiation types."""
-        cu = CurriculumKu(
+        cu = Curriculum(
             uid="ku_test",
             title="Test",
             times_applied_in_tasks=3,
@@ -310,12 +310,12 @@ class TestCurriculumKuSubstance:
 
     def test_is_theoretical_only(self):
         """Substance < 0.2 = theoretical only."""
-        cu = CurriculumKu(uid="ku_test", title="Test")
+        cu = Curriculum(uid="ku_test", title="Test")
         assert cu.is_theoretical_only() is True
 
     def test_substance_cache_used(self):
         """Substance score uses cache on second call."""
-        cu = CurriculumKu(
+        cu = Curriculum(
             uid="ku_test",
             title="Test",
             times_applied_in_tasks=3,
@@ -332,11 +332,11 @@ class TestCurriculumKuSubstance:
 
 
 class TestCurriculumKuSEL:
-    """Test SEL framework methods on CurriculumKu."""
+    """Test SEL framework methods on Curriculum."""
 
     def test_get_sel_context_with_category(self):
         """get_sel_context returns SEL category details."""
-        cu = CurriculumKu(
+        cu = Curriculum(
             uid="ku_test",
             title="Test",
             sel_category=SELCategory.SELF_AWARENESS,
@@ -349,35 +349,35 @@ class TestCurriculumKuSEL:
 
     def test_get_sel_context_without_category(self):
         """get_sel_context handles None sel_category."""
-        cu = CurriculumKu(uid="ku_test", title="Test")
+        cu = Curriculum(uid="ku_test", title="Test")
         ctx = cu.get_sel_context()
         assert ctx["sel_category"] is None
         assert ctx["sel_category_icon"] == ""
 
 
 # =========================================================================
-# DTO round-trip for CurriculumKu subclasses
+# DTO round-trip for Curriculum subclasses
 # =========================================================================
 
 
 class TestCurriculumKuSubclassDTORoundTrip:
-    """Test DTO round-trip for LearningStepKu and LearningPathKu."""
+    """Test DTO round-trip for LearningStep and LearningPath."""
 
     def test_learning_step_dto_round_trip(self):
-        """LearningStepKu DTO round-trip preserves curriculum + step fields."""
+        """LearningStep DTO round-trip preserves curriculum + step fields."""
         dto = KuDTO(
             uid="ls_test_abc",
             title="Learn Python Basics",
-            ku_type=KuType.LEARNING_STEP,
+            ku_type=EntityType.LEARNING_STEP,
             complexity="advanced",
             learning_level=LearningLevel.INTERMEDIATE,
             difficulty_rating=0.7,
             times_applied_in_tasks=3,
             semantic_links=["ku_python"],
         )
-        ku = KuBase.from_dto(dto)
-        assert isinstance(ku, LearningStepKu)
-        assert isinstance(ku, CurriculumKu)
+        ku = Entity.from_dto(dto)
+        assert isinstance(ku, LearningStep)
+        assert isinstance(ku, Curriculum)
         assert ku.complexity == KuComplexity.ADVANCED
         assert ku.learning_level == LearningLevel.INTERMEDIATE
         assert ku.difficulty_rating == 0.7
@@ -391,18 +391,18 @@ class TestCurriculumKuSubclassDTORoundTrip:
         assert dto2.semantic_links == ["ku_python"]
 
     def test_learning_path_dto_round_trip(self):
-        """LearningPathKu DTO round-trip preserves curriculum + path fields."""
+        """LearningPath DTO round-trip preserves curriculum + path fields."""
         dto = KuDTO(
             uid="lp_test_abc",
             title="Python Learning Path",
-            ku_type=KuType.LEARNING_PATH,
+            ku_type=EntityType.LEARNING_PATH,
             complexity="basic",
             estimated_time_minutes=120,
             quality_score=0.85,
         )
-        ku = KuBase.from_dto(dto)
-        assert isinstance(ku, LearningPathKu)
-        assert isinstance(ku, CurriculumKu)
+        ku = Entity.from_dto(dto)
+        assert isinstance(ku, LearningPath)
+        assert isinstance(ku, Curriculum)
         assert ku.complexity == KuComplexity.BASIC
         assert ku.estimated_time_minutes == 120
         assert ku.quality_score == 0.85

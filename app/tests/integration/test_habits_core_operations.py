@@ -27,15 +27,15 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Priority, RecurrencePattern
 from core.models.enums.ku_enums import (
+    EntityStatus as HabitStatus,
+)
+from core.models.enums.ku_enums import (
+    EntityType,
     HabitCategory,
     HabitDifficulty,
     HabitPolarity,
-    KuType,
 )
-from core.models.enums.ku_enums import (
-    KuStatus as HabitStatus,
-)
-from core.models.ku.ku_habit import HabitKu as Habit
+from core.models.ku.habit import Habit as Habit
 from core.services.habits.habits_core_service import HabitsCoreService
 
 
@@ -76,7 +76,7 @@ class TestHabitsCoreOperations:
             uid="habit.daily_meditation",
             user_uid=test_user_uid,
             title="Daily Meditation",
-            ku_type=KuType.HABIT,
+            ku_type=EntityType.HABIT,
             description="Practice mindfulness meditation every morning",
             polarity=HabitPolarity.BUILD,
             habit_category=HabitCategory.MINDFULNESS,

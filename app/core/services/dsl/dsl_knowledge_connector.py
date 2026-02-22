@@ -2,7 +2,7 @@
 DSL Knowledge Graph Connector
 =============================
 
-Connects DSL-parsed activities (with type-safe KuType/NonKuDomain contexts) to the semantic knowledge graph.
+Connects DSL-parsed activities (with type-safe EntityType/NonKuDomain contexts) to the semantic knowledge graph.
 
 This is the bridge that makes journals truly semantic:
 - @ku() tags create APPLIES_KNOWLEDGE edges
@@ -15,8 +15,8 @@ building a rich semantic network that captures how knowledge flows into action.
 
 **Type Safety:**
 
-ParsedActivityLine now uses `list[KuType | NonKuDomain]` for contexts. This module uses
-KuType/NonKuDomain enum comparisons for determining relationship types, providing
+ParsedActivityLine now uses `list[EntityType | NonKuDomain]` for contexts. This module uses
+EntityType/NonKuDomain enum comparisons for determining relationship types, providing
 compile-time verification of entity type handling.
 
 Philosophy:
@@ -32,7 +32,7 @@ from core.infrastructure.relationships.semantic_relationships import (
     SemanticRelationshipType,
 )
 from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
 from core.services.dsl.activity_dsl_parser import ParsedActivityLine, ParsedJournal
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -390,7 +390,7 @@ class DSLKnowledgeConnector:
         """
         Determine the most appropriate semantic relationship type.
 
-        Based on the activity context (using type-safe KuType/NonKuDomain), we choose
+        Based on the activity context (using type-safe EntityType/NonKuDomain), we choose
         different relationship types:
         - task -> APPLIES_KNOWLEDGE_TO (applying knowledge in action)
         - learning -> INFORMED_BY_KNOWLEDGE (learning informed by KU)
@@ -398,19 +398,19 @@ class DSLKnowledgeConnector:
         - event -> PRACTICES_VIA_EVENT (practicing at an event)
 
         Type Safety:
-            Uses KuType/NonKuDomain enum comparisons instead of string matching,
+            Uses EntityType/NonKuDomain enum comparisons instead of string matching,
             providing compile-time verification of entity type handling.
         """
-        # Type-safe KuType/NonKuDomain set for O(1) lookup
-        contexts: set[KuType | NonKuDomain] = set(activity.contexts)
+        # Type-safe EntityType/NonKuDomain set for O(1) lookup
+        contexts: set[EntityType | NonKuDomain] = set(activity.contexts)
 
         if NonKuDomain.LEARNING in contexts:
             return SemanticRelationshipType.INFORMED_BY_KNOWLEDGE
 
-        if KuType.HABIT in contexts:
+        if EntityType.HABIT in contexts:
             return SemanticRelationshipType.REINFORCES_KNOWLEDGE
 
-        if KuType.EVENT in contexts:
+        if EntityType.EVENT in contexts:
             return SemanticRelationshipType.PRACTICES_VIA_EVENT
 
         # Default for tasks

@@ -27,10 +27,10 @@ from fasthtml.common import H1, H2, H3, P
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from components.error_components import ErrorComponents
 from components.principles_views import PrinciplesViewComponents
 from core.constants import QueryLimit
-from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.ports.facade_protocols import PrinciplesFacadeProtocol
 from core.ports.query_types import PrinciplesFilterSpec
 from core.utils.logging import get_logger

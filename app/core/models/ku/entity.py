@@ -1,16 +1,16 @@
 """
-KuBase - Common Fields and Methods for All Knowledge Types
+Entity - Common Fields and Methods for All Knowledge Types
 ==========================================================
 
-Base frozen dataclass shared by all 15 KuType domain subclasses.
+Base frozen dataclass shared by all 15 EntityType domain subclasses.
 Contains ~29 fields genuinely common to every manifestation of knowledge:
 Identity (7), Content (4), Status (2), Sharing (1), Meta (6), Embedding (3).
 
 Learning metadata, substance tracking, and curriculum-specific methods live
-on CurriculumKu (the intermediate class for curriculum-carrying types).
+on Curriculum (the intermediate class for curriculum-carrying types).
 
-Domain subclasses (TaskKu, GoalKu, HabitKu, etc.) inherit from KuBase
-and add their own fields and methods. The dispatcher `KuBase.from_dto(dto)`
+Domain subclasses (Task, Goal, Habit, etc.) inherit from Entity
+and add their own fields and methods. The dispatcher `Entity.from_dto(dto)`
 routes to the correct subclass based on dto.ku_type.
 
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
@@ -26,26 +26,26 @@ if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums import Domain
-from core.models.enums.ku_enums import KuStatus, KuType
+from core.models.enums.ku_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 
 
 @dataclass(frozen=True)
-class KuBase:
+class Entity:
     """
     Base frozen dataclass for all knowledge types.
 
-    Contains ~29 fields shared by every KuType manifestation:
+    Contains ~29 fields shared by every EntityType manifestation:
     Identity (7), Content (4), Status (2), Sharing (1), Meta (6), Embedding (3).
 
     Learning metadata (7), substance tracking (10), and cache (2) fields
-    live on CurriculumKu — they only apply to curriculum-carrying types.
+    live on Curriculum — they only apply to curriculum-carrying types.
 
-    Domain-specific subclasses (TaskKu, GoalKu, HabitKu, etc.) inherit
-    from KuBase and add their own fields and methods.
+    Domain-specific subclasses (Task, Goal, Habit, etc.) inherit
+    from Entity and add their own fields and methods.
     """
 
-    # Neo4j node label — all KuType subclasses share the :Ku label
+    # Neo4j node label — all EntityType subclasses share the :Ku label
     _neo4j_label: ClassVar[str] = "Ku"
 
     # =========================================================================
@@ -53,7 +53,7 @@ class KuBase:
     # =========================================================================
     uid: str
     title: str
-    ku_type: KuType = KuType.CURRICULUM
+    ku_type: EntityType = EntityType.CURRICULUM
     user_uid: str | None = None  # None for shared types (CURRICULUM, LS, LP)
     parent_ku_uid: str | None = None  # Derivation chain — what Ku this was based on
     domain: Domain = Domain.KNOWLEDGE
@@ -70,7 +70,7 @@ class KuBase:
     # =========================================================================
     # STATUS
     # =========================================================================
-    status: KuStatus = None  # type: ignore[assignment]  # Set in __post_init__
+    status: EntityStatus = None  # type: ignore[assignment]  # Set in __post_init__
     priority: str | None = None  # Priority enum value (LOW/MEDIUM/HIGH/CRITICAL)
 
     # =========================================================================
@@ -106,17 +106,17 @@ class KuBase:
         if self.metadata is None:
             object.__setattr__(self, "metadata", {})
 
-        # Default status from KuType (type-aware)
+        # Default status from EntityType (type-aware)
         if self.status is None:
             object.__setattr__(self, "status", self.ku_type.default_status())
 
         # Default visibility: shared types are PUBLIC, others are PRIVATE
         if self.visibility is None:
             if self.ku_type in {
-                KuType.CURRICULUM,
-                KuType.LEARNING_STEP,
-                KuType.LEARNING_PATH,
-                KuType.EXERCISE,
+                EntityType.CURRICULUM,
+                EntityType.LEARNING_STEP,
+                EntityType.LEARNING_PATH,
+                EntityType.EXERCISE,
             }:
                 object.__setattr__(self, "visibility", Visibility.PUBLIC)
             else:
@@ -142,23 +142,23 @@ class KuBase:
 
     @property
     def is_completed(self) -> bool:
-        return self.status == KuStatus.COMPLETED
+        return self.status == EntityStatus.COMPLETED
 
     @property
     def is_processing(self) -> bool:
-        return self.status == KuStatus.PROCESSING
+        return self.status == EntityStatus.PROCESSING
 
     @property
     def is_failed(self) -> bool:
-        return self.status == KuStatus.FAILED
+        return self.status == EntityStatus.FAILED
 
     @property
     def is_draft(self) -> bool:
-        return self.status == KuStatus.DRAFT
+        return self.status == EntityStatus.DRAFT
 
     @property
     def is_archived(self) -> bool:
-        return self.status == KuStatus.ARCHIVED
+        return self.status == EntityStatus.ARCHIVED
 
     # =========================================================================
     # SHARING
@@ -166,7 +166,7 @@ class KuBase:
 
     def is_shareable(self) -> bool:
         """Only completed Ku can be shared (quality control)."""
-        return self.status == KuStatus.COMPLETED
+        return self.status == EntityStatus.COMPLETED
 
     def can_view(self, viewer_uid: str, shared_user_uids: set[str] | None = None) -> bool:
         """
@@ -220,11 +220,11 @@ class KuBase:
     # =========================================================================
     # SUBSTANCE / REVIEW STUBS
     # Non-curriculum types carry no substance and never need review.
-    # CurriculumKu overrides these with real implementations.
+    # Curriculum overrides these with real implementations.
     # =========================================================================
 
     def substance_score(self, _force_recalculate: bool = False) -> float:
-        """Non-curriculum types carry no substance. Override on CurriculumKu."""
+        """Non-curriculum types carry no substance. Override on Curriculum."""
         return 0.0
 
     def needs_review(self) -> bool:
@@ -250,20 +250,20 @@ class KuBase:
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "KuBase":
+    def from_dto(cls, dto: "KuDTO") -> "Entity":
         """
         Dispatch to appropriate domain subclass based on dto.ku_type.
 
-        Routes KuType.TASK → TaskKu, KuType.GOAL → GoalKu, etc.
-        Falls back to CurriculumKu for unmapped types.
+        Routes EntityType.TASK → Task, EntityType.GOAL → Goal, etc.
+        Falls back to Curriculum for unmapped types.
         """
-        from core.models.ku.ku import KU_TYPE_CLASS_MAP
+        from core.models.ku.ku import ENTITY_TYPE_CLASS_MAP
 
-        target_class = KU_TYPE_CLASS_MAP.get(dto.ku_type)
+        target_class = ENTITY_TYPE_CLASS_MAP.get(dto.ku_type)
         if target_class is None:
-            from core.models.ku.ku_curriculum import CurriculumKu
+            from core.models.ku.curriculum import Curriculum
 
-            target_class = CurriculumKu
+            target_class = Curriculum
         return target_class._from_dto(dto)
 
     @classmethod
@@ -272,7 +272,7 @@ class KuBase:
         Generic: extract only fields defined on THIS class from the unified DTO.
 
         Uses dataclasses.fields(cls) to determine which fields to extract,
-        ensuring each subclass only gets its own fields + inherited KuBase fields.
+        ensuring each subclass only gets its own fields + inherited Entity fields.
         Converts lists to tuples for frozen dataclass compatibility.
         """
         field_names = {f.name for f in dataclasses.fields(cls) if not f.name.startswith("_")}
@@ -286,7 +286,7 @@ class KuBase:
 
     def to_dto(self) -> "KuDTO":
         """
-        Generic: convert any KuBase subclass to unified KuDTO.
+        Generic: convert any Entity subclass to unified KuDTO.
 
         Creates KuDTO with fields from this instance. Fields not present on
         the subclass get KuDTO defaults (None, 0, empty list, etc.).

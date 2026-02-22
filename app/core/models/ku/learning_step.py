@@ -1,10 +1,10 @@
 """
-LearningStepKu - Learning Step Domain Model
+LearningStep - Learning Step Domain Model
 =============================================
 
-Frozen dataclass for learning step entities (KuType.LEARNING_STEP).
+Frozen dataclass for learning step entities (EntityType.LEARNING_STEP).
 
-Inherits common fields from KuBase via CurriculumKu. Adds 9 learning-step-specific fields:
+Inherits common fields from Entity via Curriculum. Adds 9 learning-step-specific fields:
 - Intent (1): intent
 - Knowledge references (2): primary_knowledge_uids, supporting_knowledge_uids
 - Path relationship (2): learning_path_uid, sequence
@@ -23,24 +23,24 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
-from core.models.enums.ku_enums import KuType, StepDifficulty
-from core.models.ku.ku_curriculum import CurriculumKu
+from core.models.enums.ku_enums import EntityType, StepDifficulty
+from core.models.ku.curriculum import Curriculum
 
 
 @dataclass(frozen=True)
-class LearningStepKu(CurriculumKu):
+class LearningStep(Curriculum):
     """
-    Immutable domain model for learning steps (KuType.LEARNING_STEP).
+    Immutable domain model for learning steps (EntityType.LEARNING_STEP).
 
-    Inherits ~50 fields from CurriculumKu (KuBase fields + learning metadata
+    Inherits ~50 fields from Curriculum (Entity fields + learning metadata
     + substance tracking). Adds 9 learning-step-specific fields for intent,
     knowledge references, path relationship, and mastery tracking.
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=LEARNING_STEP, then delegate to KuBase."""
-        if self.ku_type != KuType.LEARNING_STEP:
-            object.__setattr__(self, "ku_type", KuType.LEARNING_STEP)
+        """Force ku_type=LEARNING_STEP, then delegate to Entity."""
+        if self.ku_type != EntityType.LEARNING_STEP:
+            object.__setattr__(self, "ku_type", EntityType.LEARNING_STEP)
         super().__post_init__()
 
     # =========================================================================
@@ -117,20 +117,20 @@ class LearningStepKu(CurriculumKu):
         return text[: max_length - 3] + "..."
 
     # =========================================================================
-    # CONVERSION (generic -- uses KuBase._from_dto / to_dto)
+    # CONVERSION (generic -- uses Entity._from_dto / to_dto)
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "LearningStepKu":
-        """Create LearningStepKu from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO") -> "LearningStep":
+        """Create LearningStep from a KuDTO."""
         return cls._from_dto(dto)
 
     def __str__(self) -> str:
-        return f"LearningStepKu(uid={self.uid}, sequence={self.sequence}, title='{self.title}')"
+        return f"LearningStep(uid={self.uid}, sequence={self.sequence}, title='{self.title}')"
 
     def __repr__(self) -> str:
         return (
-            f"LearningStepKu(uid='{self.uid}', title='{self.title}', "
+            f"LearningStep(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, sequence={self.sequence}, "
             f"mastery={self.current_mastery}/{self.mastery_threshold}, "
             f"user_uid={self.user_uid})"

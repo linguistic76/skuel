@@ -1,10 +1,10 @@
 """
-HabitKu - Habit Domain Model
+Habit - Habit Domain Model
 ============================
 
-Frozen dataclass for habit entities (KuType.HABIT).
+Frozen dataclass for habit entities (EntityType.HABIT).
 
-Inherits ~48 common fields from KuBase. Adds 31 habit-specific fields:
+Inherits ~48 common fields from Entity. Adds 31 habit-specific fields:
 - Classification (3): polarity, habit_category, habit_difficulty
 - Streak Tracking (6): current_streak, best_streak, total_completions,
   total_attempts, success_rate, last_completed
@@ -34,21 +34,21 @@ if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums.ku_enums import (
+    EntityStatus,
+    EntityType,
     HabitCategory,
     HabitDifficulty,
     HabitPolarity,
-    KuStatus,
-    KuType,
 )
-from core.models.ku.ku_base import KuBase
+from core.models.ku.entity import Entity
 
 
 @dataclass(frozen=True)
-class HabitKu(KuBase):
+class Habit(Entity):
     """
-    Immutable domain model for habits (KuType.HABIT).
+    Immutable domain model for habits (EntityType.HABIT).
 
-    Inherits ~48 common fields from KuBase (identity, content, status,
+    Inherits ~48 common fields from Entity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
     Adds 31 habit-specific fields for classification, streak tracking,
@@ -56,9 +56,9 @@ class HabitKu(KuBase):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=HABIT, then delegate to KuBase for timestamps/status defaults."""
-        if self.ku_type != KuType.HABIT:
-            object.__setattr__(self, "ku_type", KuType.HABIT)
+        """Force ku_type=HABIT, then delegate to Entity for timestamps/status defaults."""
+        if self.ku_type != EntityType.HABIT:
+            object.__setattr__(self, "ku_type", EntityType.HABIT)
         super().__post_init__()
 
     # =========================================================================
@@ -91,8 +91,8 @@ class HabitKu(KuBase):
     reinforces_identity: str | None = None  # "I am the type of person who..."
     identity_votes_cast: int = 0
     is_identity_habit: bool = False
-    target_identity: str | None = None  # Shared with GoalKu
-    identity_evidence_required: int = 0  # Shared with GoalKu
+    target_identity: str | None = None  # Shared with Goal
+    identity_evidence_required: int = 0  # Shared with Goal
 
     # =========================================================================
     # LIFECYCLE
@@ -136,7 +136,7 @@ class HabitKu(KuBase):
     @property
     def is_active(self) -> bool:
         """Check if habit is active (status == ACTIVE)."""
-        return self.status == KuStatus.ACTIVE
+        return self.status == EntityStatus.ACTIVE
 
     def calculate_consistency_score(self) -> float:
         """Calculate habit consistency based on streak and success rate."""
@@ -214,20 +214,20 @@ class HabitKu(KuBase):
         return self.source_learning_step_uid is not None
 
     # =========================================================================
-    # CONVERSION (generic -- uses KuBase._from_dto / to_dto)
+    # CONVERSION (generic -- uses Entity._from_dto / to_dto)
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "HabitKu":
-        """Create HabitKu from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO") -> "Habit":
+        """Create Habit from a KuDTO."""
         return cls._from_dto(dto)
 
     def __str__(self) -> str:
-        return f"HabitKu(uid={self.uid}, title='{self.title}', streak={self.current_streak})"
+        return f"Habit(uid={self.uid}, title='{self.title}', streak={self.current_streak})"
 
     def __repr__(self) -> str:
         return (
-            f"HabitKu(uid='{self.uid}', title='{self.title}', "
+            f"Habit(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, polarity={self.polarity}, "
             f"current_streak={self.current_streak}, user_uid={self.user_uid})"
         )

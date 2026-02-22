@@ -10,7 +10,7 @@ from datetime import date
 import pytest
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-from core.models.ku.ku_task import TaskKu as Task
+from core.models.ku.task import Task as Task
 from core.models.query import UnifiedQueryBuilder, query
 
 

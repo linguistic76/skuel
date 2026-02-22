@@ -19,18 +19,10 @@ from core.models.enums import Domain
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.models.graph_context import GraphContext
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
+from core.models.ku.habit import Habit
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_habit import HabitKu
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
-from core.services.base_analytics_service import BaseAnalyticsService
-from core.services.intelligence import (
-    GraphContextOrchestrator,
-    HabitCrossContext,
-    MetricsCalculator,
-    RecommendationEngine,
-    calculate_habit_metrics,
-)
 
 # NOTE (November 2025): Removed HasConsistencyScore, HasFrequency, HasStreakCount imports
 # These protocols were used for defensive isinstance() checks, but the Habit model
@@ -39,15 +31,23 @@ from core.services.intelligence import (
 #   - habit.current_streak instead of isinstance(habit, HasStreakCount)
 #   - habit.recurrence_pattern instead of isinstance(habit, HasFrequency)
 from core.ports.domain_protocols import HabitsOperations
+from core.services.base_analytics_service import BaseAnalyticsService
+from core.services.intelligence import (
+    GraphContextOrchestrator,
+    HabitCrossContext,
+    MetricsCalculator,
+    RecommendationEngine,
+    calculate_habit_metrics,
+)
 from core.utils.decorators import requires_graph_intelligence
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.insight.insight_store import InsightStore
     from core.ports.domain_protocols import HabitsRelationshipOperations
+    from core.services.insight.insight_store import InsightStore
 
 
-class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, HabitKu]):
+class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
     """
     Pure Cypher graph intelligence service for habits.
 
@@ -116,11 +116,11 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, HabitKu])
 
         # Initialize GraphContextOrchestrator for generic get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[HabitKu, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[Habit, KuDTO](
                 service=self,
                 backend_get_method="get_habit",
                 dto_class=KuDTO,
-                model_class=HabitKu,
+                model_class=Habit,
                 domain=Domain.HABITS,
             )
 
@@ -141,7 +141,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, HabitKu])
 
     async def get_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[HabitKu, GraphContext]]:
+    ) -> Result[tuple[Habit, GraphContext]]:
         """
         Get habit with full graph context.
 
@@ -248,7 +248,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, HabitKu])
     @requires_graph_intelligence("get_habit_with_context")
     async def get_habit_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[HabitKu, GraphContext]]:
+    ) -> Result[tuple[Habit, GraphContext]]:
         """
         Get habit with full graph context using pure Cypher graph intelligence.
 
@@ -385,7 +385,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, HabitKu])
             return analysis_result
 
         analysis = analysis_result.value
-        habit = self._to_domain_model(analysis["entity"], KuDTO, HabitKu)
+        habit = self._to_domain_model(analysis["entity"], KuDTO, Habit)
         context: HabitCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
@@ -493,7 +493,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, HabitKu])
             return analysis_result
 
         analysis = analysis_result.value
-        habit = self._to_domain_model(analysis["entity"], KuDTO, HabitKu)
+        habit = self._to_domain_model(analysis["entity"], KuDTO, Habit)
         context: HabitCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
@@ -613,7 +613,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, HabitKu])
             return analysis_result
 
         analysis = analysis_result.value
-        habit = self._to_domain_model(analysis["entity"], KuDTO, HabitKu)
+        habit = self._to_domain_model(analysis["entity"], KuDTO, Habit)
         context: HabitCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
@@ -675,7 +675,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, HabitKu])
     # PRIVATE HELPER METHODS
     # ========================================================================
 
-    def _calculate_practice_effectiveness(self, habit: HabitKu, knowledge_count: int) -> float:
+    def _calculate_practice_effectiveness(self, habit: Habit, knowledge_count: int) -> float:
         """Calculate practice effectiveness score for knowledge reinforcement.
 
         Uses MetricsCalculator for consistent calculations.
@@ -1093,7 +1093,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, HabitKu])
         )
 
     async def _calculate_system_consistency(
-        self, habit: HabitKu, _user_uid: str
+        self, habit: Habit, _user_uid: str
     ) -> tuple[ConsistencyLevel, float, list[str]]:
         """
         Calculate system consistency from habit metrics.

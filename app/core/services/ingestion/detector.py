@@ -3,7 +3,7 @@ Ingestion Detector - Format and Type Detection
 ===============================================
 
 Classification logic for file formats and domain types.
-Maps file extensions and content to KuType/NonKuDomain enums.
+Maps file extensions and content to EntityType/NonKuDomain enums.
 
 Extracted from unified_ingestion_service.py for separation of concerns.
 """
@@ -12,41 +12,41 @@ from pathlib import Path
 from typing import Any
 
 from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
 
 # ============================================================================
 # TYPE MAPPING
 # ============================================================================
 
-# Map YAML type values to KuType/NonKuDomain (handles aliases)
-TYPE_MAPPING: dict[str, KuType | NonKuDomain] = {
+# Map YAML type values to EntityType/NonKuDomain (handles aliases)
+TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     # Knowledge Units
-    "ku": KuType.CURRICULUM,
-    "knowledge": KuType.CURRICULUM,
-    "knowledgeunit": KuType.CURRICULUM,
+    "ku": EntityType.CURRICULUM,
+    "knowledge": EntityType.CURRICULUM,
+    "knowledgeunit": EntityType.CURRICULUM,
     # Maps of Content (now CURRICULUM — MOC is emergent via ORGANIZES relationships)
-    "moc": KuType.CURRICULUM,
-    "mapofcontent": KuType.CURRICULUM,
+    "moc": EntityType.CURRICULUM,
+    "mapofcontent": EntityType.CURRICULUM,
     # Activity domains
-    "task": KuType.TASK,
-    "goal": KuType.GOAL,
-    "habit": KuType.HABIT,
-    "event": KuType.EVENT,
-    "choice": KuType.CHOICE,
-    "principle": KuType.PRINCIPLE,
+    "task": EntityType.TASK,
+    "goal": EntityType.GOAL,
+    "habit": EntityType.HABIT,
+    "event": EntityType.EVENT,
+    "choice": EntityType.CHOICE,
+    "principle": EntityType.PRINCIPLE,
     # Curriculum domains
-    "lp": KuType.LEARNING_PATH,
-    "learningpath": KuType.LEARNING_PATH,
-    "ls": KuType.LEARNING_STEP,
-    "learningstep": KuType.LEARNING_STEP,
+    "lp": EntityType.LEARNING_PATH,
+    "learningpath": EntityType.LEARNING_PATH,
+    "ls": EntityType.LEARNING_STEP,
+    "learningstep": EntityType.LEARNING_STEP,
     # Finance
     "expense": NonKuDomain.FINANCE,
     "finance": NonKuDomain.FINANCE,
     # Content/Processing (journal maps to SUBMISSION since Feb 2026 merge)
-    "journal": KuType.SUBMISSION,
-    "report": KuType.SUBMISSION,
+    "journal": EntityType.SUBMISSION,
+    "report": EntityType.SUBMISSION,
     # Destination
-    "lifepath": KuType.LIFE_PATH,
+    "lifepath": EntityType.LIFE_PATH,
 }
 
 
@@ -72,7 +72,7 @@ def detect_format(file_path: Path) -> str:
         raise ValueError(f"Unsupported file format: {suffix}")
 
 
-def detect_entity_type(data: dict[str, Any], file_path: Path) -> KuType | NonKuDomain:
+def detect_entity_type(data: dict[str, Any], file_path: Path) -> EntityType | NonKuDomain:
     """
     Detect domain type from file content.
 
@@ -84,7 +84,7 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> KuType | NonKuD
         file_path: Path to file (for logging)
 
     Returns:
-        KuType or NonKuDomain enum value (type-safe!)
+        EntityType or NonKuDomain enum value (type-safe!)
 
     Raises:
         ValueError: If domain type cannot be determined
@@ -95,8 +95,8 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> KuType | NonKuD
         if explicit_type in TYPE_MAPPING:
             return TYPE_MAPPING[explicit_type]
 
-        # Try KuType.from_string() as fallback (handles aliases)
-        ku_type = KuType.from_string(explicit_type)
+        # Try EntityType.from_string() as fallback (handles aliases)
+        ku_type = EntityType.from_string(explicit_type)
         if ku_type:
             return ku_type
 
@@ -107,11 +107,11 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> KuType | NonKuD
 
     # Check for MOC flag (markdown convention) — MOC is now CURRICULUM
     if data.get("moc") is True:
-        return KuType.CURRICULUM
+        return EntityType.CURRICULUM
 
     # Default to CURRICULUM for markdown files without explicit type
     if file_path.suffix.lower() == ".md":
-        return KuType.CURRICULUM
+        return EntityType.CURRICULUM
 
     raise ValueError(f"Cannot determine entity type for {file_path}")
 

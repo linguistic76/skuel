@@ -82,8 +82,8 @@ from .base_protocols import BackendOperations, GraphRelationshipOperations
 
 if TYPE_CHECKING:
     from core.models.ku.ku import Ku
-    from core.models.ku.ku_learning_path import LearningPathKu
-    from core.models.ku.ku_learning_step import LearningStepKu
+    from core.models.ku.learning_path import LearningPath
+    from core.models.ku.learning_step import LearningStep
 
     # NOTE: MapOfContent, MOCSection, MOCStats imports removed January 2026
     # MOC is now KU-based - no separate MOC models exist
@@ -480,7 +480,7 @@ class KuOperations(CurriculumOperations["Ku"], Protocol):
 
 
 @runtime_checkable
-class LsOperations(CurriculumOperations["LearningStepKu"], Protocol):
+class LsOperations(CurriculumOperations["LearningStep"], Protocol):
     """
     Learning Step (LS) specific operations.
 
@@ -497,7 +497,7 @@ class LsOperations(CurriculumOperations["LearningStepKu"], Protocol):
     # LS-SPECIFIC RETRIEVAL
     # =========================================================================
 
-    async def get_ls(self, uid: str) -> Result[LearningStepKu]:
+    async def get_ls(self, uid: str) -> Result[LearningStep]:
         """
         Get a Learning Step by UID.
 
@@ -505,11 +505,11 @@ class LsOperations(CurriculumOperations["LearningStepKu"], Protocol):
             uid: LS UID (e.g., "ls:python.basics.step1")
 
         Returns:
-            Result[LearningStepKu]: The learning step or not-found error
+            Result[LearningStep]: The learning step or not-found error
         """
         ...
 
-    async def get_user_steps(self, user_uid: str) -> Result[list[LearningStepKu]]:
+    async def get_user_steps(self, user_uid: str) -> Result[list[LearningStep]]:
         """
         Get all learning steps for a user.
 
@@ -517,13 +517,13 @@ class LsOperations(CurriculumOperations["LearningStepKu"], Protocol):
             user_uid: User UID
 
         Returns:
-            Result[list[LearningStepKu]]: User's learning steps
+            Result[list[LearningStep]]: User's learning steps
         """
         ...
 
     async def get_learning_steps_batch(
         self, uids: list[str]
-    ) -> Result[list[LearningStepKu | None]]:
+    ) -> Result[list[LearningStep | None]]:
         """
         Batch load learning steps by UIDs.
 
@@ -531,7 +531,7 @@ class LsOperations(CurriculumOperations["LearningStepKu"], Protocol):
             uids: List of LS UIDs to load
 
         Returns:
-            Result[list[LearningStepKu | None]]: Learning steps in same order as input UIDs,
+            Result[list[LearningStep | None]]: Learning steps in same order as input UIDs,
                                      None for UIDs that don't exist
         """
         ...
@@ -636,7 +636,7 @@ class LsOperations(CurriculumOperations["LearningStepKu"], Protocol):
     # PATH INTEGRATION
     # =========================================================================
 
-    async def get_path_steps(self, path_uid: str) -> Result[list[LearningStepKu]]:
+    async def get_path_steps(self, path_uid: str) -> Result[list[LearningStep]]:
         """
         Get all steps for a learning path, in sequence order.
 
@@ -644,7 +644,7 @@ class LsOperations(CurriculumOperations["LearningStepKu"], Protocol):
             path_uid: LP UID
 
         Returns:
-            Result[list[LearningStepKu]]: Ordered list of steps
+            Result[list[LearningStep]]: Ordered list of steps
         """
         ...
 
@@ -702,7 +702,7 @@ class LsOperations(CurriculumOperations["LearningStepKu"], Protocol):
 
 
 @runtime_checkable
-class LpOperations(CurriculumOperations["LearningPathKu"], Protocol):
+class LpOperations(CurriculumOperations["LearningPath"], Protocol):
     """
     Learning Path (LP) specific operations.
 
@@ -720,7 +720,7 @@ class LpOperations(CurriculumOperations["LearningPathKu"], Protocol):
     # LP-SPECIFIC RETRIEVAL
     # =========================================================================
 
-    async def get_lp(self, uid: str) -> Result[LearningPathKu]:
+    async def get_lp(self, uid: str) -> Result[LearningPath]:
         """
         Get a Learning Path by UID.
 
@@ -728,13 +728,13 @@ class LpOperations(CurriculumOperations["LearningPathKu"], Protocol):
             uid: LP UID (e.g., "lp:python.mastery")
 
         Returns:
-            Result[LearningPathKu]: The learning path or not-found error
+            Result[LearningPath]: The learning path or not-found error
         """
         ...
 
     async def get_learning_paths_batch(
         self, uids: list[str]
-    ) -> Result[list[LearningPathKu | None]]:
+    ) -> Result[list[LearningPath | None]]:
         """
         Batch load learning paths by UIDs.
 
@@ -742,7 +742,7 @@ class LpOperations(CurriculumOperations["LearningPathKu"], Protocol):
             uids: List of LP UIDs to load
 
         Returns:
-            Result[list[LearningPathKu | None]]: Learning paths in same order as input UIDs,
+            Result[list[LearningPath | None]]: Learning paths in same order as input UIDs,
                                      None for UIDs that don't exist
         """
         ...
@@ -751,7 +751,7 @@ class LpOperations(CurriculumOperations["LearningPathKu"], Protocol):
         self,
         user_uid: str,
         include_completed: bool = False,
-    ) -> Result[list[LearningPathKu]]:
+    ) -> Result[list[LearningPath]]:
         """
         Get all learning paths for a user.
 
@@ -760,7 +760,7 @@ class LpOperations(CurriculumOperations["LearningPathKu"], Protocol):
             include_completed: Include completed paths
 
         Returns:
-            Result[list[LearningPathKu]]: User's learning paths
+            Result[list[LearningPath]]: User's learning paths
         """
         ...
 
@@ -770,7 +770,7 @@ class LpOperations(CurriculumOperations["LearningPathKu"], Protocol):
         offset: int = 0,
         order_by: str | None = None,
         order_desc: bool = False,
-    ) -> Result[list[LearningPathKu]]:
+    ) -> Result[list[LearningPath]]:
         """
         List all learning paths in the system with pagination and sorting.
 
@@ -781,11 +781,11 @@ class LpOperations(CurriculumOperations["LearningPathKu"], Protocol):
             order_desc: Sort in descending order if True
 
         Returns:
-            Result[list[LearningPathKu]]: All learning paths
+            Result[list[LearningPath]]: All learning paths
         """
         ...
 
-    async def get_active_paths(self, user_uid: str) -> Result[list[LearningPathKu]]:
+    async def get_active_paths(self, user_uid: str) -> Result[list[LearningPath]]:
         """
         Get in-progress learning paths for a user.
 
@@ -801,7 +801,7 @@ class LpOperations(CurriculumOperations["LearningPathKu"], Protocol):
     # STEP NAVIGATION
     # =========================================================================
 
-    async def get_steps(self, uid: str) -> Result[list[LearningStepKu]]:
+    async def get_steps(self, uid: str) -> Result[list[LearningStep]]:
         """
         Get all steps in this path, in sequence order.
 
@@ -809,7 +809,7 @@ class LpOperations(CurriculumOperations["LearningPathKu"], Protocol):
             uid: LP UID
 
         Returns:
-            Result[list[LearningStepKu]]: Ordered steps
+            Result[list[LearningStep]]: Ordered steps
         """
         ...
 
@@ -817,7 +817,7 @@ class LpOperations(CurriculumOperations["LearningPathKu"], Protocol):
         self,
         uid: str,
         completed_step_uids: set[str],
-    ) -> Result[LearningStepKu | None]:
+    ) -> Result[LearningStep | None]:
         """
         Get the next step to complete in this path.
 
@@ -826,11 +826,11 @@ class LpOperations(CurriculumOperations["LearningPathKu"], Protocol):
             completed_step_uids: Set of already-completed step UIDs
 
         Returns:
-            Result[LearningStepKu | None]: Next step or None if path complete
+            Result[LearningStep | None]: Next step or None if path complete
         """
         ...
 
-    async def get_current_step(self, uid: str, user_uid: str) -> Result[LearningStepKu | None]:
+    async def get_current_step(self, uid: str, user_uid: str) -> Result[LearningStep | None]:
         """
         Get the current in-progress step for a user.
 
@@ -839,7 +839,7 @@ class LpOperations(CurriculumOperations["LearningPathKu"], Protocol):
             user_uid: User UID
 
         Returns:
-            Result[LearningStepKu | None]: Current step or None
+            Result[LearningStep | None]: Current step or None
         """
         ...
 

@@ -22,7 +22,7 @@ WARNING (reported, doesn't block):
   SKUEL011: hasattr() in production code - use Protocol/isinstance
   SKUEL012: Lambda expressions - use named functions
   SKUEL013: RelationshipName enum usage (not magic strings)
-  SKUEL014: KuType/NonKuDomain enum usage (not magic strings)
+  SKUEL014: EntityType/NonKuDomain enum usage (not magic strings)
   SKUEL015: print() in production code - use logger instead
 
 INFO (informational, visibility only):
@@ -252,14 +252,14 @@ await backend.add_relationship(uid1, RelationshipName.SERVES_GOAL, uid2)""",
 await backend.add_relationship(uid1, "SERVES_GOAL", uid2)""",
     },
     "SKUEL014": {
-        "title": "Use KuType/NonKuDomain Enum",
+        "title": "Use EntityType/NonKuDomain Enum",
         "severity": "WARNING",
-        "description": """Use KuType or NonKuDomain enum instead of magic strings for entity type
+        "description": """Use EntityType or NonKuDomain enum instead of magic strings for entity type
 identification. Provides type safety and compile-time verification.""",
-        "good": """from core.models.enums.ku_enums import KuType
-if entity.ku_type == KuType.TASK:
+        "good": """from core.models.enums.ku_enums import EntityType
+if entity.ku_type == EntityType.TASK:
     ...
-if KuType.TASK in activity.contexts:
+if EntityType.TASK in activity.contexts:
     ...""",
         "bad": """# String comparison - error prone
 if entity_type == "task":
@@ -1005,7 +1005,7 @@ class SkuelLinter:
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
     ) -> None:
         """
-        SKUEL014 [WARNING]: Use KuType/NonKuDomain enum instead of magic strings.
+        SKUEL014 [WARNING]: Use EntityType/NonKuDomain enum instead of magic strings.
         """
         # Entity types that should use enum
         entity_types = [
@@ -1028,11 +1028,11 @@ class SkuelLinter:
                 continue
 
             # Skip if already using enum
-            if "KuType." in line or "NonKuDomain." in line:
+            if "EntityType." in line or "NonKuDomain." in line:
                 continue
 
             # Skip imports and type hints
-            if "import" in line or "KuType" in line or "NonKuDomain" in line:
+            if "import" in line or "EntityType" in line or "NonKuDomain" in line:
                 continue
 
             for entity_type in entity_types:
@@ -1055,8 +1055,8 @@ class SkuelLinter:
                                 column=0,
                                 severity=Severity.WARNING,
                                 rule_id="SKUEL014",
-                                message=f"Magic string '{entity_type}' - use KuType/NonKuDomain enum",
-                                suggestion=f"Use KuType.{entity_type.upper()} or NonKuDomain.{entity_type.upper()}",
+                                message=f"Magic string '{entity_type}' - use EntityType/NonKuDomain enum",
+                                suggestion=f"Use EntityType.{entity_type.upper()} or NonKuDomain.{entity_type.upper()}",
                                 line_content=line.strip(),
                             )
                         )

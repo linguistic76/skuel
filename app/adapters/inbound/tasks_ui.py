@@ -25,11 +25,11 @@ from typing import Any, Protocol
 from fasthtml.common import H1, H2, Div, JSONResponse, P, Response, Span
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from components.error_components import ErrorComponents
 from components.tasks_views import TasksViewComponents
 from components.todoist_task_components import TodoistTaskComponents
-from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from core.models.enums import KuStatus, Priority
+from core.models.enums import EntityStatus, Priority
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.ku.ku_request import KuTaskCreateRequest as TaskCreateRequest
 from core.ports.facade_protocols import TasksFacadeProtocol
@@ -375,11 +375,11 @@ def create_tasks_ui_routes(
         today = date.today()
         return {
             "total": len(tasks),
-            "completed": sum(1 for t in tasks if t.status == KuStatus.COMPLETED),
+            "completed": sum(1 for t in tasks if t.status == EntityStatus.COMPLETED),
             "overdue": sum(
                 1
                 for t in tasks
-                if t.due_date and t.due_date < today and t.status != KuStatus.COMPLETED
+                if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
             ),
         }
 
@@ -427,14 +427,14 @@ def create_tasks_ui_routes(
             tasks = [
                 t
                 for t in tasks
-                if t.due_date and t.due_date < today and t.status != KuStatus.COMPLETED
+                if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
             ]
 
         # Filter: status
         if status_filter == "active":
-            tasks = [t for t in tasks if t.status != KuStatus.COMPLETED]
+            tasks = [t for t in tasks if t.status != EntityStatus.COMPLETED]
         elif status_filter == "completed":
-            tasks = [t for t in tasks if t.status == KuStatus.COMPLETED]
+            tasks = [t for t in tasks if t.status == EntityStatus.COMPLETED]
         # "all" - no filtering
 
         return tasks
@@ -785,7 +785,7 @@ def create_tasks_ui_routes(
             priority=priority,
             scheduled_date=scheduled_date,
             due_date=due_date,
-            status=KuStatus.DRAFT,
+            status=EntityStatus.DRAFT,
             parent_uid=parent_uid,
             recurrence_pattern=recurrence_pattern,
             recurrence_end_date=recurrence_end_date,
@@ -862,10 +862,10 @@ def create_tasks_ui_routes(
             task = get_result.value
 
             # Toggle status
-            if task.status == KuStatus.COMPLETED:
-                new_status = KuStatus.ACTIVE
+            if task.status == EntityStatus.COMPLETED:
+                new_status = EntityStatus.ACTIVE
             else:
-                new_status = KuStatus.COMPLETED
+                new_status = EntityStatus.COMPLETED
 
             # Update task
             update_result = await tasks_service.update_task(uid, {"status": new_status})
@@ -1021,7 +1021,7 @@ def create_tasks_ui_routes(
             status_str = form.get("status", "")
             if status_str:
                 with contextlib.suppress(ValueError):
-                    updates["status"] = KuStatus(status_str)
+                    updates["status"] = EntityStatus(status_str)
 
             # Project (can be cleared)
             project = form.get("project", "").strip()
@@ -1174,7 +1174,7 @@ def create_tasks_ui_routes(
                         "✓ Toggle Complete",
                         **{"hx-post": f"/tasks/{task.uid}/toggle", "hx-target": "body"},
                         variant=ButtonT.success
-                        if task.status != KuStatus.COMPLETED
+                        if task.status != EntityStatus.COMPLETED
                         else ButtonT.ghost,
                     ),
                     cls="flex gap-2 flex-wrap",

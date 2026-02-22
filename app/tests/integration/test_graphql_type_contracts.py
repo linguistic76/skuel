@@ -28,9 +28,9 @@ import pytest_asyncio
 from neo4j import AsyncGraphDatabase
 
 from core.models.enums.ku_enums import StepDifficulty
-from core.models.ku.ku_base import KuBase
+from core.models.ku.entity import Entity
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_learning_step import LearningStepKu
+from core.models.ku.learning_step import LearningStep
 from core.services.lp_service import LpService
 from core.services.ls_service import LsService
 from routes.graphql.types import LearningStep
@@ -278,7 +278,7 @@ async def test_learning_path_service_returns_typed_steps(lp_service, type_contra
     # Assert - Each step is properly typed
     for i, step in enumerate(steps, 1):
         # Core type check
-        assert isinstance(step, KuBase), f"Step {i} should be KuBase instance, got {type(step)}"
+        assert isinstance(step, Entity), f"Step {i} should be Entity instance, got {type(step)}"
 
         # Required string fields
         assert isinstance(step.uid, str), f"Step {i} uid should be string"
@@ -473,8 +473,8 @@ async def test_learning_step_from_domain_handles_empty_knowledge_uids(lp_service
         - Ls with empty primary_knowledge_uids tuple
         - Should return empty string for knowledge_uid (not crash)
     """
-    # Arrange - Create LearningStepKu with empty primary_knowledge_uids
-    ls_with_no_knowledge = LearningStepKu(
+    # Arrange - Create LearningStep with empty primary_knowledge_uids
+    ls_with_no_knowledge = LearningStep(
         uid="ls.test_no_knowledge",
         title="Test Step With No Knowledge",
         intent="Test intent",

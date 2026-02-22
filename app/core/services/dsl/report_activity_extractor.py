@@ -50,6 +50,7 @@ from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
 from core.models.ku import Ku
+from core.ports.base_protocols import HasUID
 from core.services.dsl.activity_dsl_parser import (
     ActivityDSLParser,
     ParsedActivityLine,
@@ -76,7 +77,6 @@ from core.services.dsl.activity_entity_converter import (
     # Activity Domains (7)
     activity_to_task_request,
 )
-from core.ports.base_protocols import HasUID
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -522,7 +522,7 @@ class ReportActivityExtractorService:
             user_uid=user_uid,
         )
 
-        # Get content to parse (processed_content only exists on SubmissionKu)
+        # Get content to parse (processed_content only exists on Submission)
         content = getattr(report, "processed_content", None) or ""
         if not content:
             self.logger.warning(f"No processed content in report {report.uid}")

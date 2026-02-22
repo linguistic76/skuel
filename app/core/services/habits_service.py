@@ -22,10 +22,12 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import KuStatus
+from core.models.enums import EntityStatus
 from core.models.habit.completion import HabitCompletion
+from core.models.ku.habit import Habit
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_habit import HabitKu
+from core.ports.base_protocols import BackendOperations
+from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 
@@ -48,8 +50,6 @@ from core.services.mixins import (
     create_relationship_delegations,
     merge_delegations,
 )
-from core.ports.base_protocols import BackendOperations
-from core.ports.domain_protocols import HabitsOperations
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.logging import get_logger
@@ -67,13 +67,13 @@ if TYPE_CHECKING:
         TrackHabitRequest,
         UntrackHabitRequest,
     )
-    from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.search_protocols import HabitsSearchOperations
+    from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
     from core.services.user import UserContext
 
 
-class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, HabitKu]):
+class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit]):
     """
     Habits service facade with specialized sub-services.
 
@@ -113,11 +113,11 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, HabitKu
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=HabitKu,
+        model_class=Habit,
         entity_label="Ku",
         domain_name="habits",
         date_field="created_at",
-        completed_statuses=(KuStatus.ARCHIVED.value,),
+        completed_statuses=(EntityStatus.ARCHIVED.value,),
     )
 
     # ========================================================================
@@ -568,7 +568,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, HabitKu
     # STATUS MANAGEMENT
     # ========================================================================
 
-    async def pause_habit(self, request: PauseHabitRequest) -> Result[HabitKu]:
+    async def pause_habit(self, request: PauseHabitRequest) -> Result[Habit]:
         """
         Pause a habit temporarily using typed request object.
 
@@ -579,7 +579,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, HabitKu
             Result with the updated habit
         """
         updates: dict[str, Any] = {
-            "status": KuStatus.PAUSED.value,
+            "status": EntityStatus.PAUSED.value,
             "notes": request.reason,
         }
         if request.until_date:
@@ -590,7 +590,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, HabitKu
 
         return await self.core.update(request.habit_uid, updates)
 
-    async def resume_habit(self, request: ResumeHabitRequest) -> Result[HabitKu]:
+    async def resume_habit(self, request: ResumeHabitRequest) -> Result[Habit]:
         """
         Resume a paused habit using typed request object.
 
@@ -601,12 +601,12 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, HabitKu
             Result with the updated habit
         """
         updates = {
-            "status": KuStatus.ACTIVE.value,
+            "status": EntityStatus.ACTIVE.value,
             "paused_until": None,
         }
         return await self.core.update(request.habit_uid, updates)
 
-    async def archive_habit(self, request: ArchiveHabitRequest) -> Result[HabitKu]:
+    async def archive_habit(self, request: ArchiveHabitRequest) -> Result[Habit]:
         """
         Archive a completed or discontinued habit using typed request object.
 
@@ -617,7 +617,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, HabitKu
             Result with the updated habit
         """
         updates = {
-            "status": KuStatus.ARCHIVED.value,
+            "status": EntityStatus.ARCHIVED.value,
             "notes": request.reason,
         }
         return await self.core.update(request.habit_uid, updates)
@@ -927,7 +927,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, HabitKu
 
     async def find_habits_developing_knowledge(
         self, knowledge_uid: str, min_confidence: float = 0.8
-    ) -> Result[list[HabitKu]]:
+    ) -> Result[list[Habit]]:
         """Find habits that develop or reinforce specific knowledge/skill."""
         return await self.relationships.find_by_semantic_filter(
             target_uid=knowledge_uid,
@@ -944,7 +944,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, HabitKu
 
     async def create_habit_with_context(
         self, habit_data: HabitCreateRequest, user_context: UserContext
-    ) -> Result[HabitKu]:
+    ) -> Result[Habit]:
         """
         Create a habit with full context awareness (orchestration method).
 
@@ -989,12 +989,12 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, HabitKu
     # These methods fetch graph relationships and create enriched views.
     # Previously inline in habits_api.py routes, now properly in service layer.
 
-    async def get_enriched_learning_summary(self, habit: HabitKu) -> Result[dict[str, Any]]:
+    async def get_enriched_learning_summary(self, habit: Habit) -> Result[dict[str, Any]]:
         """
         Get learning summary with relationship data from graph.
 
         Args:
-            habit: HabitKu domain model (ku_type='habit')
+            habit: Habit domain model (ku_type='habit')
 
         Returns:
             Result containing enriched learning summary dict
@@ -1067,12 +1067,12 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, HabitKu
 
         return Result.ok(enriched)
 
-    async def get_enriched_curriculum_metadata(self, habit: HabitKu) -> Result[dict[str, Any]]:
+    async def get_enriched_curriculum_metadata(self, habit: Habit) -> Result[dict[str, Any]]:
         """
         Get curriculum metadata with relationship data from graph.
 
         Args:
-            habit: HabitKu domain model (ku_type='habit')
+            habit: Habit domain model (ku_type='habit')
 
         Returns:
             Result containing curriculum metadata dict
@@ -1094,12 +1094,12 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, HabitKu
         }
         return Result.ok(enriched)
 
-    async def get_enriched_prerequisite_metadata(self, habit: HabitKu) -> Result[dict[str, Any]]:
+    async def get_enriched_prerequisite_metadata(self, habit: Habit) -> Result[dict[str, Any]]:
         """
         Get prerequisite chain metadata with relationship data from graph.
 
         Args:
-            habit: HabitKu domain model (ku_type='habit')
+            habit: Habit domain model (ku_type='habit')
 
         Returns:
             Result containing prerequisite metadata dict

@@ -29,7 +29,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from core.models.enums import KuStatus, Priority
+from core.models.enums import EntityStatus, Priority
 from core.utils.result_simplified import Errors, Result
 
 
@@ -66,7 +66,7 @@ class MockBackendOld:
                     "user_uid": "user:demo",
                     "title": f"Task {i}",
                     "priority": Priority.MEDIUM.value,
-                    "status": KuStatus.DRAFT.value,
+                    "status": EntityStatus.DRAFT.value,
                     "applies_knowledge_uids": applies_knowledge,  # OLD: Stored in model
                     "created_at": datetime.now().isoformat(),
                 }
@@ -107,7 +107,7 @@ class MockBackendNew:
                 "user_uid": "user:demo",
                 "title": f"Task {i}",
                 "priority": Priority.MEDIUM.value,
-                "status": KuStatus.DRAFT.value,
+                "status": EntityStatus.DRAFT.value,
                 # NEW: No applies_knowledge_uids field
                 "created_at": datetime.now().isoformat(),
             }

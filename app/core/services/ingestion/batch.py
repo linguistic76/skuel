@@ -25,7 +25,7 @@ import yaml
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
 from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -165,7 +165,7 @@ def parse_file_sync(
     file_path: Path,
     default_user_uid: str = "user:system",
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
-) -> tuple[KuType | NonKuDomain, dict[str, Any], None] | tuple[None, None, dict[str, Any]]:
+) -> tuple[EntityType | NonKuDomain, dict[str, Any], None] | tuple[None, None, dict[str, Any]]:
     """
     Synchronous file parsing for use in thread pool.
 
@@ -317,7 +317,7 @@ async def parse_file_for_batch(
     semaphore: asyncio.Semaphore,
     default_user_uid: str = "user:system",
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
-) -> tuple[KuType | NonKuDomain, dict[str, Any], None] | tuple[None, None, dict[str, Any]]:
+) -> tuple[EntityType | NonKuDomain, dict[str, Any], None] | tuple[None, None, dict[str, Any]]:
     """
     Parse and validate a single file for batch ingestion.
 
@@ -356,7 +356,7 @@ async def parse_file_for_batch(
 
 async def ingest_directory(
     directory: Path,
-    engines: dict[KuType | NonKuDomain, BulkIngestionEngine[Any]],  # noqa: ARG001 - Modified by get_engine
+    engines: dict[EntityType | NonKuDomain, BulkIngestionEngine[Any]],  # noqa: ARG001 - Modified by get_engine
     get_engine: Any,  # Callable to get/create engine
     driver: Any = None,  # Neo4j driver for raw queries (validation, existence checks)
     executor: Any = None,  # QueryExecutor for ingestion tracking
@@ -378,7 +378,7 @@ async def ingest_directory(
 
     Args:
         directory: Directory to scan
-        engines: Engine cache (keyed by KuType | NonKuDomain) - populated by get_engine as side effect
+        engines: Engine cache (keyed by EntityType | NonKuDomain) - populated by get_engine as side effect
         get_engine: Function to get/create engine for entity type (modifies engines dict)
         driver: Neo4j driver (required for ingestion_mode != "full")
         pattern: Glob pattern for files (default: "*" for all supported)
@@ -506,10 +506,10 @@ async def ingest_directory(
     ]
     parse_results = await asyncio.gather(*parse_tasks)
 
-    # Group entities by type for batch processing (keyed by KuType | NonKuDomain)
-    entities_by_type: dict[KuType | NonKuDomain, list[dict[str, Any]]] = {}
+    # Group entities by type for batch processing (keyed by EntityType | NonKuDomain)
+    entities_by_type: dict[EntityType | NonKuDomain, list[dict[str, Any]]] = {}
     file_entity_map: dict[
-        str, tuple[KuType | NonKuDomain, str]
+        str, tuple[EntityType | NonKuDomain, str]
     ] = {}  # file_path -> (entity_type, uid)
     errors: list[dict[str, str]] = []
 

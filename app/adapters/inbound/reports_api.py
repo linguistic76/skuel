@@ -40,7 +40,7 @@ from starlette.requests import Request
 from starlette.responses import FileResponse
 
 from adapters.inbound.boundary import boundary_handler
-from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
+from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType
 from core.models.ku import ku_to_response
 from core.models.ku.ku_request import (
     AddTagsRequest,
@@ -147,7 +147,7 @@ def create_reports_api_routes(
 
         # Validate report_type
         try:
-            report_type = KuType(report_type_str)
+            report_type = EntityType(report_type_str)
         except ValueError:
             return Result.fail(
                 Errors.validation(
@@ -300,7 +300,7 @@ def create_reports_api_routes(
         parsed_report_type = None
         if report_type:
             try:
-                parsed_report_type = KuType(report_type)
+                parsed_report_type = EntityType(report_type)
             except ValueError:
                 return Result.fail(
                     Errors.validation(f"Invalid report type: {report_type}", field="report_type")
@@ -309,7 +309,7 @@ def create_reports_api_routes(
         parsed_status = None
         if status:
             try:
-                parsed_status = KuStatus(status)
+                parsed_status = EntityStatus(status)
             except ValueError:
                 return Result.fail(Errors.validation(f"Invalid status: {status}", field="status"))
 

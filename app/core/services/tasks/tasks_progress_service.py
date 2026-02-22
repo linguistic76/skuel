@@ -27,9 +27,9 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations
 
 from core.events import TaskCompleted, publish_event
-from core.models.enums import Domain, KuStatus, Priority
+from core.models.enums import Domain, EntityStatus, Priority
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_task import TaskKu
+from core.models.ku.task import Task
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.tasks.task_relationships import TaskRelationships
@@ -41,7 +41,7 @@ from core.utils.result_simplified import Result
 RichTaskData = dict[str, Any]
 
 
-class TasksProgressService(BaseService["BackendOperations[TaskKu]", TaskKu]):
+class TasksProgressService(BaseService["BackendOperations[Task]", Task]):
     """
     Progress tracking and completion for tasks.
 
@@ -70,16 +70,16 @@ class TasksProgressService(BaseService["BackendOperations[TaskKu]", TaskKu]):
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=TaskKu,
+        model_class=Task,
         domain_name="tasks",
         date_field="due_date",
-        completed_statuses=(KuStatus.COMPLETED.value,),
+        completed_statuses=(EntityStatus.COMPLETED.value,),
         entity_label="Ku",
     )
 
     def __init__(
         self,
-        backend: BackendOperations[TaskKu],
+        backend: BackendOperations[Task],
         analytics_engine: Any | None = None,
         event_bus: Any | None = None,
     ) -> None:
@@ -126,7 +126,7 @@ class TasksProgressService(BaseService["BackendOperations[TaskKu]", TaskKu]):
 
     def _get_task_from_rich_context(
         self, task_uid: str, user_context: UserContext
-    ) -> TaskKu | None:
+    ) -> Task | None:
         """
         Try to get Task entity from UserContext rich data.
 
@@ -194,15 +194,15 @@ class TasksProgressService(BaseService["BackendOperations[TaskKu]", TaskKu]):
                     )
         return None
 
-    def _dict_to_task(self, task_dict: dict[str, Any]) -> TaskKu:
+    def _dict_to_task(self, task_dict: dict[str, Any]) -> Task:
         """
-        Convert a task dictionary from MEGA-QUERY to TaskKu domain model.
+        Convert a task dictionary from MEGA-QUERY to Task domain model.
 
         Args:
             task_dict: Dict with task properties from Neo4j
 
         Returns:
-            TaskKu domain model
+            Task domain model
         """
         # Parse date fields
         due_date = task_dict.get("due_date")
@@ -233,7 +233,7 @@ class TasksProgressService(BaseService["BackendOperations[TaskKu]", TaskKu]):
 
         # Parse enums
         status_val = task_dict.get("status", "pending")
-        status = KuStatus(status_val) if isinstance(status_val, str) else status_val
+        status = EntityStatus(status_val) if isinstance(status_val, str) else status_val
 
         priority_val = task_dict.get("priority", "medium")
         priority = Priority(priority_val) if isinstance(priority_val, str) else priority_val
@@ -245,7 +245,7 @@ class TasksProgressService(BaseService["BackendOperations[TaskKu]", TaskKu]):
         tags_list = task_dict.get("tags", [])
         tags_tuple = tuple(tags_list) if isinstance(tags_list, list) else tags_list
 
-        return TaskKu(
+        return Task(
             uid=task_dict.get("uid", ""),
             user_uid=task_dict.get("user_uid", ""),
             title=task_dict.get("title", ""),
@@ -331,7 +331,7 @@ class TasksProgressService(BaseService["BackendOperations[TaskKu]", TaskKu]):
         user_context: UserContext,
         actual_minutes: int | None = None,
         quality_score: int | None = None,
-    ) -> Result[TaskKu]:
+    ) -> Result[Task]:
         """
         Complete a task and cascade updates through the system.
 
@@ -368,7 +368,7 @@ class TasksProgressService(BaseService["BackendOperations[TaskKu]", TaskKu]):
             task_result = await self.backend.get(task_uid)
             if task_result.is_error:
                 return Result.fail(task_result.expect_error())
-            task = self._to_domain_model(task_result.value, KuDTO, TaskKu)
+            task = self._to_domain_model(task_result.value, KuDTO, Task)
             self.logger.debug(f"Task {task_uid} fetched from Neo4j (not in rich context)")
         else:
             self.logger.debug(f"Task {task_uid} found in rich context (no Neo4j query needed)")
@@ -424,7 +424,7 @@ class TasksProgressService(BaseService["BackendOperations[TaskKu]", TaskKu]):
 
         # Update task to completed
         updates = {
-            "status": KuStatus.COMPLETED.value,
+            "status": EntityStatus.COMPLETED.value,
             "completion_date": date.today(),
             "actual_minutes": actual_minutes,
         }
@@ -464,7 +464,7 @@ class TasksProgressService(BaseService["BackendOperations[TaskKu]", TaskKu]):
         # Event handlers in bootstrap will call user_service.invalidate_context()
 
         # Return updated task
-        completed_task = self._to_domain_model(update_result.value, KuDTO, TaskKu)
+        completed_task = self._to_domain_model(update_result.value, KuDTO, Task)
 
         self.logger.info(
             "Completed task %s with cascading effects: goal=%s, habit=%s, knowledge=%d",
@@ -627,7 +627,7 @@ class TasksProgressService(BaseService["BackendOperations[TaskKu]", TaskKu]):
     @with_error_handling("unblock_task_if_ready", error_type="database", uid_param="task_uid")
     async def unblock_task_if_ready(
         self, task_uid: str, user_context: UserContext
-    ) -> Result[TaskKu | None]:
+    ) -> Result[Task | None]:
         """
         Unblock a task if all prerequisites are met.
 
@@ -647,12 +647,12 @@ class TasksProgressService(BaseService["BackendOperations[TaskKu]", TaskKu]):
         if prereq_result.value["can_start"]:
             # Unblock the task
             update_result = await self.backend.update(
-                task_uid, {"status": KuStatus.SCHEDULED.value}
+                task_uid, {"status": EntityStatus.SCHEDULED.value}
             )
             if update_result.is_error:
                 return Result.fail(update_result.expect_error())
 
-            unblocked_task = self._to_domain_model(update_result.value, KuDTO, TaskKu)
+            unblocked_task = self._to_domain_model(update_result.value, KuDTO, Task)
 
             self.logger.info(f"Unblocked task {task_uid}")
             return Result.ok(unblocked_task)
@@ -737,7 +737,7 @@ class TasksProgressService(BaseService["BackendOperations[TaskKu]", TaskKu]):
         """Trigger a dependent task."""
         # Unblock the triggered task
         try:
-            await self.backend.update(task_uid, {"status": KuStatus.SCHEDULED.value})
+            await self.backend.update(task_uid, {"status": EntityStatus.SCHEDULED.value})
             self.logger.debug(f"Triggered task {task_uid}")
         except Exception as e:
             self.logger.warning(f"Failed to trigger task {task_uid}: {e}")

@@ -13,7 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from core.models.enums import Domain, KuStatus, Priority
+from core.models.enums import Domain, EntityStatus, Priority
 from core.models.enums.ku_enums import (
     GoalTimeframe,
     GoalType,
@@ -171,7 +171,7 @@ class GoalUpdateRequest(BaseModel):
     strategies: list[str] | None = Field(None, max_length=10)
 
     # Status and priority can change
-    status: KuStatus | None = None
+    status: EntityStatus | None = None
     priority: Priority | None = None
     tags: list[str] | None = Field(None, max_length=20)
 
@@ -253,7 +253,7 @@ class GoalFilterRequest(BaseModel):
     goal_type: GoalType | None = None
     domain: Domain | None = None
     timeframe: GoalTimeframe | None = None
-    status: KuStatus | None = None
+    status: EntityStatus | None = None
     priority: Priority | None = None
 
     # Learning filters

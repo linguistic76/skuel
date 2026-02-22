@@ -16,18 +16,18 @@ Part of the PrinciplesService decomposition.
 from operator import itemgetter
 from typing import Any
 
-from core.models.enums import Domain, KuStatus
-from core.models.ku.ku_base import KuBase
+from core.models.enums import Domain, EntityStatus
+from core.models.ku.entity import Entity
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_learning_path import LearningPathKu
-from core.models.ku.ku_learning_step import LearningStepKu
-from core.models.ku.ku_principle import PrincipleKu
 from core.models.ku.ku_request import KuPrincipleCreateRequest
+from core.models.ku.learning_path import LearningPath
+from core.models.ku.learning_step import LearningStep
 from core.models.ku.lp_position import LpPosition
+from core.models.ku.principle import Principle
+from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure.learning_alignment_helper import LearningAlignmentHelper
-from core.ports.domain_protocols import PrinciplesOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -39,7 +39,7 @@ logger = get_logger(__name__)
 # ========================================================================
 
 
-def _calculate_virtue_embodiment_score(principle: KuBase, learning_position: LpPosition) -> float:
+def _calculate_virtue_embodiment_score(principle: Entity, learning_position: LpPosition) -> float:
     """
     Custom scorer for principle virtue embodiment.
 
@@ -59,7 +59,7 @@ def _calculate_virtue_embodiment_score(principle: KuBase, learning_position: LpP
     # Calculate average progress across all paths
     total_progress = 0.0
     for path in learning_position.active_paths:
-        steps = path.steps if isinstance(path, LearningPathKu) else ()
+        steps = path.steps if isinstance(path, LearningPath) else ()
         completed_steps = len([s for s in steps if s.uid in learning_position.completed_step_uids])
         total_steps = len(steps)
         path_progress = completed_steps / total_steps if total_steps > 0 else 0.0
@@ -67,9 +67,9 @@ def _calculate_virtue_embodiment_score(principle: KuBase, learning_position: LpP
 
     avg_progress = total_progress / len(learning_position.active_paths)
 
-    # Get principle category (PrincipleKu has .category property)
+    # Get principle category (Principle has .category property)
     principle_category = ""
-    if isinstance(principle, PrincipleKu):
+    if isinstance(principle, Principle):
         principle_category = principle.category.lower() if principle.category else ""
 
     # Discipline: consistency-weighted
@@ -84,7 +84,7 @@ def _calculate_virtue_embodiment_score(principle: KuBase, learning_position: LpP
     return avg_progress * 0.7
 
 
-def _calculate_embodiment_data(principle: KuBase, learning_position: LpPosition) -> dict[str, Any]:
+def _calculate_embodiment_data(principle: Entity, learning_position: LpPosition) -> dict[str, Any]:
     """
     Calculate character development embodiment data.
 
@@ -94,7 +94,7 @@ def _calculate_embodiment_data(principle: KuBase, learning_position: LpPosition)
     embodiment_score = _calculate_virtue_embodiment_score(principle, learning_position)
 
     category = "unknown"
-    if isinstance(principle, PrincipleKu):
+    if isinstance(principle, Principle):
         category = principle.category if principle.category else "unknown"
 
     return {
@@ -110,7 +110,7 @@ def _calculate_embodiment_data(principle: KuBase, learning_position: LpPosition)
     }
 
 
-class PrinciplesLearningService(BaseService[PrinciplesOperations, KuBase]):
+class PrinciplesLearningService(BaseService[PrinciplesOperations, Entity]):
     """
     Learning path integration for principles.
 
@@ -146,10 +146,10 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, KuBase]):
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=KuBase,
+        model_class=Entity,
         domain_name="principles",
         date_field="created_at",
-        completed_statuses=(KuStatus.ARCHIVED.value,),
+        completed_statuses=(EntityStatus.ARCHIVED.value,),
     )
 
     def __init__(self, backend: PrinciplesOperations) -> None:
@@ -162,13 +162,13 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, KuBase]):
         super().__init__(backend, "principles.learning")
 
         # Initialize LearningAlignmentHelper with custom scorers (Phase 6)
-        self.learning_helper = LearningAlignmentHelper[KuBase, KuDTO, KuPrincipleCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Entity, KuDTO, KuPrincipleCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="list_user_principles",
             backend_create_method="create",
             dto_class=KuDTO,
-            model_class=KuBase,
+            model_class=Entity,
             domain=Domain.PRINCIPLES,
             entity_name="principle",
             alignment_scorer=_calculate_virtue_embodiment_score,
@@ -331,7 +331,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, KuBase]):
                 current_step = learning_position.current_steps.get(path.uid)
                 step_hours = (
                     current_step.estimated_hours
-                    if isinstance(current_step, LearningStepKu | LearningPathKu)
+                    if isinstance(current_step, LearningStep | LearningPath)
                     else None
                 )
                 if current_step and (step_hours or 0) > 5:  # Substantial learning
@@ -408,7 +408,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, KuBase]):
             path_embodiment = 0.0
 
             # Check how principle is embodied in path progression
-            steps = path.steps if isinstance(path, LearningPathKu) else ()
+            steps = path.steps if isinstance(path, LearningPath) else ()
             completed_steps = len(
                 [s for s in steps if s.uid in learning_position.completed_step_uids]
             )

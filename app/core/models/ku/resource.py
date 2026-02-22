@@ -1,17 +1,17 @@
 """
-ResourceKu - Resource Domain Model
+Resource - Resource Domain Model
 ====================================
 
-Frozen dataclass for resource entities (KuType.RESOURCE).
+Frozen dataclass for resource entities (EntityType.RESOURCE).
 
 Tier A (Raw Content): Independent curated content — books, talks, films, music.
-Inherits common fields from KuBase. Adds 7 resource-specific fields:
+Inherits common fields from Entity. Adds 7 resource-specific fields:
 - Source (3): source_url, author, publisher
 - Publication (2): publication_year, isbn
 - Media (2): media_type, resource_duration_minutes
 
 Resources are admin-curated shared content that feeds Askesis recommendations.
-They do NOT carry learning/substance fields (those belong to CurriculumKu).
+They do NOT carry learning/substance fields (those belong to Curriculum).
 
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
@@ -22,26 +22,26 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
-from core.models.enums.ku_enums import KuType
-from core.models.ku.ku_base import KuBase
+from core.models.enums.ku_enums import EntityType
+from core.models.ku.entity import Entity
 
 
 @dataclass(frozen=True)
-class ResourceKu(KuBase):
+class Resource(Entity):
     """
-    Immutable domain model for resources (KuType.RESOURCE).
+    Immutable domain model for resources (EntityType.RESOURCE).
 
     Tier A (Raw Content): Books, talks, films, music — independent curated
     content that feeds Askesis recommendations. Admin-created, publicly readable.
 
-    Inherits common fields from KuBase (identity, content, status, sharing,
+    Inherits common fields from Entity (identity, content, status, sharing,
     meta, embedding). Does NOT inherit learning/substance fields.
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=RESOURCE, then delegate to KuBase."""
-        if self.ku_type != KuType.RESOURCE:
-            object.__setattr__(self, "ku_type", KuType.RESOURCE)
+        """Force ku_type=RESOURCE, then delegate to Entity."""
+        if self.ku_type != EntityType.RESOURCE:
+            object.__setattr__(self, "ku_type", EntityType.RESOURCE)
         super().__post_init__()
 
     # =========================================================================
@@ -95,20 +95,20 @@ class ResourceKu(KuBase):
         return self.resource_duration_minutes is not None
 
     # =========================================================================
-    # CONVERSION (generic -- uses KuBase._from_dto / to_dto)
+    # CONVERSION (generic -- uses Entity._from_dto / to_dto)
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "ResourceKu":
-        """Create ResourceKu from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO") -> "Resource":
+        """Create Resource from a KuDTO."""
         return cls._from_dto(dto)
 
     def __str__(self) -> str:
-        return f"ResourceKu(uid={self.uid}, title='{self.title}', media_type={self.media_type})"
+        return f"Resource(uid={self.uid}, title='{self.title}', media_type={self.media_type})"
 
     def __repr__(self) -> str:
         return (
-            f"ResourceKu(uid='{self.uid}', title='{self.title}', "
+            f"Resource(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, media_type={self.media_type}, "
             f"author={self.author}, user_uid={self.user_uid})"
         )

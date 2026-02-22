@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.submission_events import SubmissionReviewed, SubmissionRevisionRequested
-from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
+from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -258,8 +258,8 @@ class TeacherReviewService:
                 "teacher_uid": teacher_uid,
                 "feedback": feedback,
                 "title": f"Feedback: {report_uid[:30]}",
-                "ku_type": KuType.FEEDBACK_REPORT.value,
-                "completed_status": KuStatus.COMPLETED.value,
+                "ku_type": EntityType.FEEDBACK_REPORT.value,
+                "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,
                 "now": now,
             },
@@ -371,9 +371,9 @@ class TeacherReviewService:
                 "teacher_uid": teacher_uid,
                 "notes": notes,
                 "title": f"Revision request: {report_uid[:30]}",
-                "ku_type": KuType.FEEDBACK_REPORT.value,
-                "revision_status": KuStatus.REVISION_REQUESTED.value,
-                "completed_status": KuStatus.COMPLETED.value,
+                "ku_type": EntityType.FEEDBACK_REPORT.value,
+                "revision_status": EntityStatus.REVISION_REQUESTED.value,
+                "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,
                 "now": now,
             },
@@ -450,7 +450,7 @@ class TeacherReviewService:
             {
                 "report_uid": report_uid,
                 "now": now,
-                "status": KuStatus.COMPLETED.value,
+                "status": EntityStatus.COMPLETED.value,
             },
         )
         if result.is_error:

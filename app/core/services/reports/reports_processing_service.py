@@ -20,10 +20,10 @@ When `extract_activities=True` in instructions, the processor will:
 
 from typing import Any
 
-from core.models.enums.ku_enums import KuStatus, KuType
+from core.models.enums.ku_enums import EntityStatus, EntityType
 from core.models.ku import Ku
-from core.models.ku.ku_base import KuBase
-from core.models.ku.ku_submission import SubmissionKu
+from core.models.ku.entity import Entity
+from core.models.ku.submission import Submission
 from core.services.reports.reports_submission_service import KuSubmissionService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -74,7 +74,7 @@ class KuProcessingService:
 
     async def process_ku(
         self, ku_uid: str, instructions: dict[str, Any] | None = None
-    ) -> Result[KuBase]:
+    ) -> Result[Entity]:
         """
         Process a Ku using appropriate processor.
 
@@ -98,7 +98,7 @@ class KuProcessingService:
         if not ku:
             return Result.fail(Errors.not_found("Ku", ku_uid))
 
-        if not isinstance(ku, SubmissionKu):
+        if not isinstance(ku, Submission):
             return Result.fail(
                 Errors.validation(
                     message="Only submission-type Ku can be processed",
@@ -106,7 +106,7 @@ class KuProcessingService:
                 )
             )
 
-        if ku.status in {KuStatus.COMPLETED, KuStatus.PROCESSING}:
+        if ku.status in {EntityStatus.COMPLETED, EntityStatus.PROCESSING}:
             return Result.fail(
                 Errors.validation(
                     message=f"Ku already {ku.status.value}",
@@ -116,7 +116,7 @@ class KuProcessingService:
             )
 
         # Update status to QUEUED
-        await self.ku_submission_service.update_ku_status(ku_uid, KuStatus.QUEUED)
+        await self.ku_submission_service.update_ku_status(ku_uid, EntityStatus.QUEUED)
 
         try:
             result = await self._route_to_processor(ku, instructions)
@@ -124,7 +124,7 @@ class KuProcessingService:
             if result.is_error:
                 await self.ku_submission_service.update_ku_status(
                     ku_uid,
-                    KuStatus.FAILED,
+                    EntityStatus.FAILED,
                     error_message=result.error.user_message
                     if result.error
                     else "Processing failed",
@@ -132,7 +132,7 @@ class KuProcessingService:
                 return result
 
             # Mark as completed
-            await self.ku_submission_service.update_ku_status(ku_uid, KuStatus.COMPLETED)
+            await self.ku_submission_service.update_ku_status(ku_uid, EntityStatus.COMPLETED)
 
             # Get updated Ku
             updated_result = await self.ku_submission_service.get_ku(ku_uid)
@@ -146,7 +146,7 @@ class KuProcessingService:
             self.logger.error(f"Unexpected error processing Ku {ku_uid}: {e}", exc_info=True)
 
             await self.ku_submission_service.update_ku_status(
-                ku_uid, KuStatus.FAILED, error_message=str(e)
+                ku_uid, EntityStatus.FAILED, error_message=str(e)
             )
 
             return Result.fail(
@@ -160,10 +160,10 @@ class KuProcessingService:
     # ========================================================================
 
     async def _route_to_processor(
-        self, ku: SubmissionKu, instructions: dict[str, Any] | None
-    ) -> Result[KuBase]:
+        self, ku: Submission, instructions: dict[str, Any] | None
+    ) -> Result[Entity]:
         """Route Ku to appropriate processor based on file type."""
-        await self.ku_submission_service.update_ku_status(ku.uid, KuStatus.PROCESSING)
+        await self.ku_submission_service.update_ku_status(ku.uid, EntityStatus.PROCESSING)
 
         if not ku.file_type:
             return Result.fail(Errors.validation("Cannot process Ku without file_type"))
@@ -188,8 +188,8 @@ class KuProcessingService:
     # ========================================================================
 
     async def _process_audio(
-        self, ku: SubmissionKu, instructions: dict[str, Any] | None
-    ) -> Result[KuBase]:
+        self, ku: Submission, instructions: dict[str, Any] | None
+    ) -> Result[Entity]:
         """
         Process audio file: transcribe + LLM formatting.
 
@@ -245,7 +245,7 @@ class KuProcessingService:
         updated_ku = update_result.value
 
         # Check if journal processing is needed
-        is_journal = ku.ku_type == KuType.JOURNAL
+        is_journal = ku.ku_type == EntityType.JOURNAL
 
         if is_journal:
             await self._process_journal(updated_ku, transcript_text, instructions)
@@ -267,8 +267,8 @@ class KuProcessingService:
     # ========================================================================
 
     async def _process_text(
-        self, ku: SubmissionKu, instructions: dict[str, Any] | None
-    ) -> Result[KuBase]:
+        self, ku: Submission, instructions: dict[str, Any] | None
+    ) -> Result[Entity]:
         """
         Process text file: read content and store.
 
@@ -297,7 +297,7 @@ class KuProcessingService:
         updated_ku = update_result.value
 
         # Check if journal processing is needed
-        is_journal = ku.ku_type == KuType.JOURNAL
+        is_journal = ku.ku_type == EntityType.JOURNAL
 
         if is_journal:
             await self._process_journal(updated_ku, text_content, instructions)
@@ -431,7 +431,7 @@ class KuProcessingService:
 
     async def reprocess_ku(
         self, ku_uid: str, new_instructions: dict[str, Any] | None = None
-    ) -> Result[KuBase]:
+    ) -> Result[Entity]:
         """
         Reprocess an existing Ku with new instructions.
 
@@ -444,5 +444,5 @@ class KuProcessingService:
         Returns:
             Result containing reprocessed Ku
         """
-        await self.ku_submission_service.update_ku_status(ku_uid, KuStatus.SUBMITTED)
+        await self.ku_submission_service.update_ku_status(ku_uid, EntityStatus.SUBMITTED)
         return await self.process_ku(ku_uid, new_instructions)

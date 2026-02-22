@@ -15,7 +15,7 @@ from datetime import date
 
 import pytest
 
-from core.models.enums import KuStatus
+from core.models.enums import EntityStatus
 from core.models.query import build_user_activity_query
 
 
@@ -100,15 +100,15 @@ class TestUnifiedQueryPattern:
         assert "exclude_statuses" not in params
 
     def test_activity_status_values_for_tasks(self):
-        """Verify KuStatus enum values for Tasks."""
+        """Verify EntityStatus enum values for Tasks."""
         # Tasks exclude COMPLETED when include_completed=False
-        exclude_statuses = [KuStatus.COMPLETED.value]
+        exclude_statuses = [EntityStatus.COMPLETED.value]
         assert exclude_statuses == ["completed"]
 
     def test_activity_status_values_for_events(self):
-        """Verify KuStatus enum values for Events."""
+        """Verify EntityStatus enum values for Events."""
         # Events exclude COMPLETED and CANCELLED
-        exclude_statuses = [KuStatus.COMPLETED.value, KuStatus.CANCELLED.value]
+        exclude_statuses = [EntityStatus.COMPLETED.value, EntityStatus.CANCELLED.value]
         assert exclude_statuses == ["completed", "cancelled"]
 
     def test_query_parameter_injection_safety(self):

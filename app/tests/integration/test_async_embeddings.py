@@ -25,7 +25,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.events import TaskEmbeddingRequested
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
 from core.models.ku.ku_request import KuTaskCreateRequest as TaskCreateRequest
 from core.services.background.embedding_worker import EmbeddingBackgroundWorker
 from core.utils.embedding_text_builder import build_embedding_text
@@ -214,7 +214,7 @@ class TestEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns title + description
         """
-        from core.models.ku.ku_task import TaskKu as Task
+        from core.models.ku.task import Task as Task
 
         task = Task(
             uid="task.test",
@@ -225,7 +225,7 @@ class TestEmbeddingTextExtraction:
             status="pending",
         )
 
-        text = build_embedding_text(KuType.TASK, task)
+        text = build_embedding_text(EntityType.TASK, task)
 
         assert "Learn Python" in text
         assert "Study async/await patterns" in text
@@ -236,7 +236,7 @@ class TestEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns title only
         """
-        from core.models.ku.ku_task import TaskKu as Task
+        from core.models.ku.task import Task as Task
 
         task = Task(
             uid="task.test",
@@ -247,7 +247,7 @@ class TestEmbeddingTextExtraction:
             status="pending",
         )
 
-        text = build_embedding_text(KuType.TASK, task)
+        text = build_embedding_text(EntityType.TASK, task)
 
         assert text == "Buy groceries"
 
@@ -330,9 +330,9 @@ class TestGoalEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns all three fields combined
         """
-        from core.models.ku.ku_goal import GoalKu
+        from core.models.ku.goal import Goal
 
-        goal = GoalKu(
+        goal = Goal(
             uid="goal.test",
             user_uid="user.test",
             title="Learn Machine Learning",
@@ -341,7 +341,7 @@ class TestGoalEmbeddingTextExtraction:
             status="active",
         )
 
-        text = build_embedding_text(KuType.GOAL, goal)
+        text = build_embedding_text(EntityType.GOAL, goal)
 
         assert "Learn Machine Learning" in text
         assert "Study ML algorithms" in text
@@ -353,9 +353,9 @@ class TestGoalEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns title only
         """
-        from core.models.ku.ku_goal import GoalKu
+        from core.models.ku.goal import Goal
 
-        goal = GoalKu(
+        goal = Goal(
             uid="goal.test",
             user_uid="user.test",
             title="Get fit",
@@ -364,7 +364,7 @@ class TestGoalEmbeddingTextExtraction:
             status="active",
         )
 
-        text = build_embedding_text(KuType.GOAL, goal)
+        text = build_embedding_text(EntityType.GOAL, goal)
 
         assert text == "Get fit"
 
@@ -441,9 +441,9 @@ class TestEventEmbeddingEvents:
         event_bus.subscribe(EventEmbeddingRequested, capture_event)
 
         # Create event
-        from core.models.ku.ku_event import EventKu
+        from core.models.ku.event import Event
 
-        event_entity = EventKu(
+        event_entity = Event(
             uid="event.test",
             user_uid=user_uid,
             title="Team Meeting",

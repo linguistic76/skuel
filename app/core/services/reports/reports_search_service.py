@@ -15,12 +15,12 @@ from datetime import date, timedelta
 from typing import Any
 
 from core.constants import QueryLimit
-from core.models.enums.ku_enums import KuType
-from core.models.ku import Ku, KuBase, KuDTO
+from core.models.enums.ku_enums import EntityType
+from core.models.ku import Entity, Ku, KuDTO
 from core.models.relationship_names import RelationshipName
+from core.ports import BackendOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
-from core.ports import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -28,7 +28,7 @@ from core.utils.result_simplified import Result
 logger = get_logger("skuel.services.ku_search")
 
 
-class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
+class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
     """
     Ku search service — unified interface for all Ku types.
 
@@ -50,7 +50,7 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
     # =========================================================================
     _config = DomainConfig(
         dto_class=KuDTO,
-        model_class=KuBase,
+        model_class=Entity,
         entity_label="Ku",
         search_fields=("title", "original_filename", "processed_content"),
         search_order_by="created_at",
@@ -88,8 +88,8 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
         self,
         user_uid: str,
         target_date: date,
-        ku_type: KuType | None = None,
-    ) -> Result[KuBase | None]:
+        ku_type: EntityType | None = None,
+    ) -> Result[Entity | None]:
         """
         Get Ku for a specific date.
 
@@ -124,9 +124,9 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
         user_uid: str,
         start_date: date,
         end_date: date,
-        ku_type: KuType | None = None,
+        ku_type: EntityType | None = None,
         limit: int = 100,
-    ) -> Result[list[KuBase]]:
+    ) -> Result[list[Entity]]:
         """
         List Ku within a date range.
 
@@ -164,9 +164,9 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
         self,
         user_uid: str,
         category: str,
-        ku_type: KuType | None = None,
+        ku_type: EntityType | None = None,
         limit: int = 50,
-    ) -> Result[list[KuBase]]:
+    ) -> Result[list[Entity]]:
         """
         Get Ku filtered by category (stored in metadata).
 
@@ -205,9 +205,9 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
         mood: str,
         start_date: date | None = None,
         end_date: date | None = None,
-        ku_type: KuType | None = None,
+        ku_type: EntityType | None = None,
         limit: int = 50,
-    ) -> Result[list[KuBase]]:
+    ) -> Result[list[Entity]]:
         """
         Get Ku filtered by mood (stored in metadata).
 
@@ -257,9 +257,9 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
         self,
         user_uid: str,
         query: str,
-        ku_type: KuType | None = None,
+        ku_type: EntityType | None = None,
         limit: int = 50,
-    ) -> Result[list[KuBase]]:
+    ) -> Result[list[Entity]]:
         """
         Search Ku content using text search.
 
@@ -291,7 +291,7 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
         kus = result.value
         query_lower = query.lower()
 
-        def _has_matching_content(k: KuBase) -> bool:
+        def _has_matching_content(k: Entity) -> bool:
             pc = getattr(k, "processed_content", None)
             return bool(pc and query_lower in pc.lower())
 
@@ -309,7 +309,7 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
         user_uid: str,
         start_date: date,
         end_date: date,
-        ku_type: KuType | None = None,
+        ku_type: EntityType | None = None,
     ) -> Result[dict[str, Any]]:
         """
         Calculate Ku statistics for date range.
@@ -353,7 +353,7 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
             )
 
         # Total words
-        def _word_count(k: KuBase) -> int:
+        def _word_count(k: Entity) -> int:
             pc = getattr(k, "processed_content", None)
             return len(pc.split()) if pc else 0
 
@@ -446,9 +446,9 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
     async def get_recent_kus(
         self,
         user_uid: str,
-        ku_type: KuType | None = None,
+        ku_type: EntityType | None = None,
         limit: int = 10,
-    ) -> Result[list[KuBase]]:
+    ) -> Result[list[Entity]]:
         """
         Get most recent Ku.
 

@@ -26,8 +26,8 @@ import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums import KuStatus, Priority, Visibility
-from core.models.ku.ku_event import EventKu
+from core.models.enums import EntityStatus, Priority, Visibility
+from core.models.ku.event import Event
 from core.services.events.events_core_service import EventsCoreService
 
 
@@ -43,8 +43,8 @@ class TestEventsCoreOperations:
     @pytest_asyncio.fixture
     async def events_backend(self, neo4j_driver, clean_neo4j):
         """Create events backend with clean database."""
-        return UniversalNeo4jBackend[EventKu](
-            neo4j_driver, "Ku", EventKu, default_filters={"ku_type": "event"}
+        return UniversalNeo4jBackend[Event](
+            neo4j_driver, "Ku", Event, default_filters={"ku_type": "event"}
         )
 
     @pytest_asyncio.fixture
@@ -65,7 +65,7 @@ class TestEventsCoreOperations:
         """Test creating a new event."""
         # Arrange
         today = date.today()
-        event = EventKu(
+        event = Event(
             uid="event.team_meeting",
             user_uid=test_user_uid,
             title="Weekly Team Meeting",
@@ -74,7 +74,7 @@ class TestEventsCoreOperations:
             start_time=time(14, 0),  # 2 PM
             end_time=time(15, 0),  # 3 PM
             event_type="WORK",
-            status=KuStatus.SCHEDULED,
+            status=EntityStatus.SCHEDULED,
             priority=Priority.HIGH,
             location="Conference Room A",
         )
@@ -88,19 +88,19 @@ class TestEventsCoreOperations:
         assert created.uid == "event.team_meeting"
         assert created.title == "Weekly Team Meeting"
         assert created.event_type == "WORK"
-        assert created.status == KuStatus.SCHEDULED
+        assert created.status == EntityStatus.SCHEDULED
         assert created.priority == Priority.HIGH
 
     async def test_get_event_by_uid(self, events_service, test_user_uid):
         """Test retrieving an event by UID."""
         # Arrange - Create an event first
-        event = EventKu(
+        event = Event(
             uid="event.get_test",
             user_uid=test_user_uid,
             title="Test Event for Retrieval",
             description="This event tests retrieval functionality",
             event_date=date.today(),
-            status=KuStatus.SCHEDULED,
+            status=EntityStatus.SCHEDULED,
         )
         create_result = await events_service.create(event)
         assert create_result.is_ok
@@ -128,13 +128,13 @@ class TestEventsCoreOperations:
         # Arrange - Create multiple events
         today = date.today()
         events = [
-            EventKu(
+            Event(
                 uid=f"event.list_test_{i}",
                 user_uid=test_user_uid,
                 title=f"Test Event {i}",
                 description=f"Description for event {i}",
                 event_date=today + timedelta(days=i),
-                status=KuStatus.SCHEDULED,
+                status=EntityStatus.SCHEDULED,
             )
             for i in range(3)
         ]
@@ -156,13 +156,13 @@ class TestEventsCoreOperations:
         # Arrange & Act - Create 5 events
         today = date.today()
         for i in range(5):
-            event = EventKu(
+            event = Event(
                 uid=f"event.multi_{i}",
                 user_uid=test_user_uid,
                 title=f"Multi Event {i}",
                 description=f"Multiple event {i}",
                 event_date=today + timedelta(days=i),
-                status=KuStatus.SCHEDULED,
+                status=EntityStatus.SCHEDULED,
             )
             result = await events_service.create(event)
             assert result.is_ok
@@ -180,21 +180,21 @@ class TestEventsCoreOperations:
         """Test filtering events by status."""
         # Arrange - Create events with different statuses
         today = date.today()
-        scheduled_event = EventKu(
+        scheduled_event = Event(
             uid="event.scheduled",
             user_uid=test_user_uid,
             title="Scheduled Event",
             description="Upcoming event",
             event_date=today + timedelta(days=1),
-            status=KuStatus.SCHEDULED,
+            status=EntityStatus.SCHEDULED,
         )
-        completed_event = EventKu(
+        completed_event = Event(
             uid="event.completed",
             user_uid=test_user_uid,
             title="Completed Event",
             description="Past event",
             event_date=today - timedelta(days=1),
-            status=KuStatus.COMPLETED,
+            status=EntityStatus.COMPLETED,
         )
 
         await events_service.create(scheduled_event)
@@ -202,42 +202,42 @@ class TestEventsCoreOperations:
 
         # Act - Filter by status
         scheduled_result = await events_service.backend.find_by(
-            user_uid=test_user_uid, status=KuStatus.SCHEDULED.value
+            user_uid=test_user_uid, status=EntityStatus.SCHEDULED.value
         )
         completed_result = await events_service.backend.find_by(
-            user_uid=test_user_uid, status=KuStatus.COMPLETED.value
+            user_uid=test_user_uid, status=EntityStatus.COMPLETED.value
         )
 
         # Assert
         assert scheduled_result.is_ok
         assert len(scheduled_result.value) >= 1
-        assert all(e.status == KuStatus.SCHEDULED for e in scheduled_result.value)
+        assert all(e.status == EntityStatus.SCHEDULED for e in scheduled_result.value)
 
         assert completed_result.is_ok
         assert len(completed_result.value) >= 1
-        assert all(e.status == KuStatus.COMPLETED for e in completed_result.value)
+        assert all(e.status == EntityStatus.COMPLETED for e in completed_result.value)
 
     async def test_filter_by_event_type(self, events_service, test_user_uid):
         """Test filtering events by type."""
         # Arrange - Create events with different types
         today = date.today()
-        work_event = EventKu(
+        work_event = Event(
             uid="event.work_type",
             user_uid=test_user_uid,
             title="Work Event",
             description="Work-related meeting",
             event_date=today,
             event_type="WORK",
-            status=KuStatus.SCHEDULED,
+            status=EntityStatus.SCHEDULED,
         )
-        personal_event = EventKu(
+        personal_event = Event(
             uid="event.personal_type",
             user_uid=test_user_uid,
             title="Personal Event",
             description="Personal appointment",
             event_date=today,
             event_type="PERSONAL",
-            status=KuStatus.SCHEDULED,
+            status=EntityStatus.SCHEDULED,
         )
 
         await events_service.create(work_event)
@@ -264,21 +264,21 @@ class TestEventsCoreOperations:
         """Test filtering events by date range."""
         # Arrange - Create events on different dates
         today = date.today()
-        this_week_event = EventKu(
+        this_week_event = Event(
             uid="event.this_week",
             user_uid=test_user_uid,
             title="This Week Event",
             description="Event this week",
             event_date=today + timedelta(days=3),
-            status=KuStatus.SCHEDULED,
+            status=EntityStatus.SCHEDULED,
         )
-        next_month_event = EventKu(
+        next_month_event = Event(
             uid="event.next_month",
             user_uid=test_user_uid,
             title="Next Month Event",
             description="Event next month",
             event_date=today + timedelta(days=30),
-            status=KuStatus.SCHEDULED,
+            status=EntityStatus.SCHEDULED,
         )
 
         await events_service.create(this_week_event)
@@ -307,14 +307,14 @@ class TestEventsCoreOperations:
         # Arrange & Act - Create events with each status
         today = date.today()
         statuses = [
-            KuStatus.SCHEDULED,
-            KuStatus.ACTIVE,
-            KuStatus.COMPLETED,
-            KuStatus.CANCELLED,
+            EntityStatus.SCHEDULED,
+            EntityStatus.ACTIVE,
+            EntityStatus.COMPLETED,
+            EntityStatus.CANCELLED,
         ]
 
         for status in statuses:
-            event = EventKu(
+            event = Event(
                 uid=f"event.status_{status.value}",
                 user_uid=test_user_uid,
                 title=f"Event with {status.value} status",
@@ -338,7 +338,7 @@ class TestEventsCoreOperations:
         ]
 
         for priority in priorities:
-            event = EventKu(
+            event = Event(
                 uid=f"event.priority_{priority.value}",
                 user_uid=test_user_uid,
                 title=f"{priority.value.title()} Priority Event",
@@ -361,7 +361,7 @@ class TestEventsCoreOperations:
         ]
 
         for visibility in visibility_levels:
-            event = EventKu(
+            event = Event(
                 uid=f"event.visibility_{visibility.value}",
                 user_uid=test_user_uid,
                 title=f"{visibility.value.title()} Event",
@@ -376,7 +376,7 @@ class TestEventsCoreOperations:
     async def test_event_duration_calculation(self, events_service, test_user_uid):
         """Test event duration field is stored correctly."""
         # Arrange — duration_minutes is an explicit field, not auto-calculated
-        event = EventKu(
+        event = Event(
             uid="event.with_duration",
             user_uid=test_user_uid,
             title="Event with Duration",
@@ -385,7 +385,7 @@ class TestEventsCoreOperations:
             start_time=time(14, 0),  # 2:00 PM
             end_time=time(15, 30),  # 3:30 PM
             duration_minutes=90,  # Explicitly set (1.5 hours)
-            status=KuStatus.SCHEDULED,
+            status=EntityStatus.SCHEDULED,
         )
 
         # Act
@@ -406,7 +406,7 @@ class TestEventsCoreOperations:
         """Test creating an event with optional fields populated."""
         # Arrange
         today = date.today()
-        event = EventKu(
+        event = Event(
             uid="event.full_details",
             user_uid=test_user_uid,
             title="Fully Detailed Event",
@@ -415,7 +415,7 @@ class TestEventsCoreOperations:
             start_time=time(10, 0),
             end_time=time(11, 30),
             event_type="LEARNING",
-            status=KuStatus.SCHEDULED,
+            status=EntityStatus.SCHEDULED,
             priority=Priority.HIGH,
             location="Main Conference Room",
             is_online=True,
@@ -443,8 +443,8 @@ class TestEventsCoreOperations:
 
     async def test_event_without_optional_fields(self, events_service, test_user_uid):
         """Test creating an event with minimal required fields."""
-        # Arrange - Only required fields (EventKu forces ku_type=EVENT)
-        event = EventKu(
+        # Arrange - Only required fields (Event forces ku_type=EVENT)
+        event = Event(
             uid="event.minimal",
             user_uid=test_user_uid,
             title="Minimal Event",
@@ -463,14 +463,14 @@ class TestEventsCoreOperations:
         assert created.end_time is None
         assert created.location is None
         # Check defaults are set
-        assert created.event_type is None  # event_type has no default on EventKu
-        assert created.status == KuStatus.SCHEDULED
+        assert created.event_type is None  # event_type has no default on Event
+        assert created.status == EntityStatus.SCHEDULED
         assert created.visibility == Visibility.PRIVATE
 
     async def test_online_event(self, events_service, test_user_uid):
         """Test creating an online event with meeting URL."""
         # Arrange
-        event = EventKu(
+        event = Event(
             uid="event.online_meeting",
             user_uid=test_user_uid,
             title="Online Workshop",
@@ -481,7 +481,7 @@ class TestEventsCoreOperations:
             is_online=True,
             meeting_url="https://zoom.us/j/123456789",
             event_type="LEARNING",
-            status=KuStatus.SCHEDULED,
+            status=EntityStatus.SCHEDULED,
         )
 
         # Act

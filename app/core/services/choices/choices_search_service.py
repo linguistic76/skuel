@@ -27,10 +27,10 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations
 
 from core.models.enums import Priority
-from core.models.enums.ku_enums import KuStatus
+from core.models.enums.ku_enums import EntityStatus
+from core.models.ku.choice import Choice
+from core.models.ku.entity import Entity
 from core.models.ku.ku import Ku
-from core.models.ku.ku_base import KuBase
-from core.models.ku.ku_choice import ChoiceKu
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
@@ -51,7 +51,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
 
     Universal Methods (DomainSearchOperations protocol):
     - search() - Text search on title/description (inherited from BaseService)
-    - get_by_status() - Filter by KuStatus
+    - get_by_status() - Filter by EntityStatus
     - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
@@ -92,10 +92,10 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=KuBase,
+        model_class=Entity,
         domain_name="choices",
         date_field="decision_deadline",
-        completed_statuses=(KuStatus.COMPLETED.value,),
+        completed_statuses=(EntityStatus.COMPLETED.value,),
     )
 
     def __init__(self, backend: BackendOperations[Ku]) -> None:
@@ -135,7 +135,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return result
 
-        all_choices = self._to_domain_models(result.value, KuDTO, KuBase)
+        all_choices = self._to_domain_models(result.value, KuDTO, Entity)
 
         # Filter to pending/active choices
         pending_choices = [
@@ -144,16 +144,16 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
             if not c.status
             or c.status.value
             not in {
-                KuStatus.COMPLETED.value,
-                KuStatus.CANCELLED.value,
-                KuStatus.ARCHIVED.value,
+                EntityStatus.COMPLETED.value,
+                EntityStatus.CANCELLED.value,
+                EntityStatus.ARCHIVED.value,
             }
         ]
 
         # Score and sort by priority factors
         scored_choices = []
         for choice in pending_choices:
-            if not isinstance(choice, ChoiceKu):
+            if not isinstance(choice, Choice):
                 continue
             score = self._calculate_priority_score(choice, user_context)
             scored_choices.append((choice, score))
@@ -167,7 +167,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         self.logger.info(f"Prioritized {len(prioritized)} choices for user {user_context.user_uid}")
         return Result.ok(prioritized)
 
-    def _calculate_priority_score(self, choice: ChoiceKu, user_context: UserContext) -> float:
+    def _calculate_priority_score(self, choice: Choice, user_context: UserContext) -> float:
         """
         Calculate priority score for a choice based on user context.
 
@@ -274,7 +274,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for record in result.value:
             choice_node = record["c"]
             dto = KuDTO.from_dict(dict(choice_node))
-            choices.append(ChoiceKu.from_dto(dto))
+            choices.append(Choice.from_dto(dto))
 
         self.logger.debug(f"Found {len(choices)} choices due within {days_ahead} days")
         return Result.ok(choices)
@@ -322,7 +322,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for record in result.value:
             choice_node = record["c"]
             dto = KuDTO.from_dict(dict(choice_node))
-            choices.append(ChoiceKu.from_dto(dto))
+            choices.append(Choice.from_dto(dto))
 
         self.logger.debug(f"Found {len(choices)} overdue choices")
         return Result.ok(choices)
@@ -364,7 +364,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for record in result.value:
             choice_node = record["c"]
             dto = KuDTO.from_dict(dict(choice_node))
-            choices.append(ChoiceKu.from_dto(dto))
+            choices.append(Choice.from_dto(dto))
 
         self.logger.debug(f"Found {len(choices)} pending choices for user {user_uid}")
         return Result.ok(choices)
@@ -392,7 +392,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return result
 
-        choices = self._to_domain_models(result.value, KuDTO, KuBase)
+        choices = self._to_domain_models(result.value, KuDTO, Entity)
 
         self.logger.debug(f"Found {len(choices)} choices with urgency '{urgency}'")
         return Result.ok(choices)
@@ -457,7 +457,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for record in result.value:
             choice_node = record["c"]
             dto = KuDTO.from_dict(dict(choice_node))
-            choices.append(ChoiceKu.from_dto(dto))
+            choices.append(Choice.from_dto(dto))
 
         self.logger.debug(
             f"Found {len(choices)} choices needing decision within {deadline_days} days"
@@ -502,7 +502,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for record in result.value:
             choice_node = record["c"]
             dto = KuDTO.from_dict(dict(choice_node))
-            choices.append(ChoiceKu.from_dto(dto))
+            choices.append(Choice.from_dto(dto))
 
         self.logger.debug(f"Found {len(choices)} choices aligned with principle {principle_uid}")
         return Result.ok(choices)
@@ -553,7 +553,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for record in result.value:
             choice_node = record["c"]
             dto = KuDTO.from_dict(dict(choice_node))
-            choices.append(ChoiceKu.from_dto(dto))
+            choices.append(Choice.from_dto(dto))
 
         self.logger.debug(f"Found {len(choices)} decided choices for user {user_uid}")
         return Result.ok(choices)
@@ -634,11 +634,11 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
             # Map decision state to status
             # DRAFT = undecided choice, COMPLETED = decided, PAUSED = deferred
             state_to_status = {
-                "pending": KuStatus.DRAFT.value,
-                "decided": KuStatus.COMPLETED.value,
-                "deferred": KuStatus.PAUSED.value,
+                "pending": EntityStatus.DRAFT.value,
+                "decided": EntityStatus.COMPLETED.value,
+                "deferred": EntityStatus.PAUSED.value,
             }
-            filters["status"] = state_to_status.get(decision_state, KuStatus.DRAFT.value)
+            filters["status"] = state_to_status.get(decision_state, EntityStatus.DRAFT.value)
 
         # Apply domain filter from parsed query (use first domain if multiple)
         if parsed.domains:
@@ -650,7 +650,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
             result = await self.backend.find_by(limit=limit, **filters)
             if result.is_error:
                 return Result.fail(result.expect_error())
-            choices = self._to_domain_models(result.value, KuDTO, KuBase)
+            choices = self._to_domain_models(result.value, KuDTO, Entity)
         else:
             # Fall back to text search using cleaned query
             result = await self.search(parsed.text_query, limit=limit)
@@ -664,7 +664,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
 
         # Choice-specific: High stakes filtering (post-filter)
         if "high stakes" in query_lower or "important decision" in query_lower:
-            choices = [c for c in choices if isinstance(c, ChoiceKu) and c.has_high_stakes()]
+            choices = [c for c in choices if isinstance(c, Choice) and c.has_high_stakes()]
 
         self.logger.info(
             "Intelligent search: query=%r filters=%s results=%d",

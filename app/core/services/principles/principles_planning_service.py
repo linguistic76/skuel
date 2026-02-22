@@ -26,8 +26,8 @@ from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from core.models.ku.ku import Ku
-from core.services.base_planning_service import BasePlanningService
 from core.ports.domain_protocols import PrinciplesOperations
+from core.services.base_planning_service import BasePlanningService
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 

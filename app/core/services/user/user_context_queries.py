@@ -48,7 +48,7 @@ MATCH (user:User {uid: $user_uid})
 // ====================================================================
 // TASKS - Fetch with BOTH UIDs and rich data
 // ====================================================================
-OPTIONAL MATCH (user)-[:HAS_TASK|OWNS]->(task:Task)
+OPTIONAL MATCH (user)-[:OWNS]->(task:Task)
 
 // Collect UIDs by status (for standard context)
 WITH user,
@@ -93,7 +93,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ====================================================================
 // GOALS - Fetch with BOTH UIDs and rich data
 // ====================================================================
-OPTIONAL MATCH (user)-[:HAS_GOAL]->(goal:Goal)
+OPTIONAL MATCH (user)-[:OWNS]->(goal:Goal)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      collect(CASE WHEN goal.status IN ['active', 'on_track', 'at_risk'] THEN goal.uid END) as active_goal_uids,
      collect(CASE WHEN goal.status = 'completed' THEN goal.uid END) as completed_goal_uids,
@@ -214,7 +214,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ====================================================================
 // HABITS - Fetch UIDs, metadata, AND rich data with graph neighborhoods
 // ====================================================================
-OPTIONAL MATCH (user)-[:HAS_HABIT]->(habit:Habit)
+OPTIONAL MATCH (user)-[:OWNS]->(habit:Habit)
 WHERE habit.status = 'active'
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -272,7 +272,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ====================================================================
 // EVENTS - Fetch UIDs AND rich data with graph neighborhoods
 // ====================================================================
-OPTIONAL MATCH (user)-[:HAS_EVENT|SCHEDULED]->(event:Event)
+OPTIONAL MATCH (user)-[:OWNS]->(event:Event)
 WHERE event.event_date >= date($today)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -348,7 +348,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ====================================================================
 // PRINCIPLES - Fetch UIDs AND rich data with graph neighborhoods
 // ====================================================================
-OPTIONAL MATCH (user)-[:HAS_PRINCIPLE]->(principle:Principle)
+OPTIONAL MATCH (user)-[:OWNS]->(principle:Principle)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -441,7 +441,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ====================================================================
 // CHOICES - Fetch UIDs AND rich data (pending/active only)
 // ====================================================================
-OPTIONAL MATCH (user)-[:HAS_CHOICE]->(choice:Choice)
+OPTIONAL MATCH (user)-[:OWNS]->(choice:Choice)
 WHERE choice.status IN ['pending', 'active']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -493,7 +493,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      choice, choice_informing_knowledge, choice_guiding_principles,
      collect(DISTINCT {uid: choice_goal.uid, title: choice_goal.title, status: choice_goal.status})[0..10] as choice_affected_goals
 
-OPTIONAL MATCH (choice)-[:OPENS_LEARNING_PATH]->(choice_path:Lp)
+OPTIONAL MATCH (choice)-[:OPENS_LEARNING_PATH]->(choice_path:LearningPath)
 WHERE choice IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -542,7 +542,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ====================================================================
 // LEARNING PATHS - Fetch with BOTH UIDs and rich data
 // ====================================================================
-OPTIONAL MATCH (user)-[:ENROLLED_IN|HAS_PATH]->(lp:Lp)
+OPTIONAL MATCH (user)-[:ENROLLED_IN|OWNS]->(lp:LearningPath)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -556,7 +556,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Filter learning paths for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_lp_nodes) > 0 THEN all_lp_nodes ELSE [null] END as lp
-OPTIONAL MATCH (lp)-[r_step:HAS_STEP|CONTAINS_STEP]->(step:Ls)
+OPTIONAL MATCH (lp)-[r_step:HAS_STEP|CONTAINS_STEP]->(step:LearningStep)
 WHERE lp IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -643,7 +643,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ====================================================================
 // LEARNING STEPS - Fetch active steps with rich data
 // ====================================================================
-OPTIONAL MATCH (user)-[:WORKING_ON|ENROLLED_IN]->(ls:Ls)
+OPTIONAL MATCH (user)-[:WORKING_ON|ENROLLED_IN]->(ls:LearningStep)
 WHERE ls.status IN ['not_started', 'in_progress']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -658,7 +658,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Filter learning steps for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_ls_nodes) > 0 THEN all_ls_nodes ELSE [null] END as ls
-OPTIONAL MATCH (ls)-[:REQUIRES_STEP]->(prereq_step:Ls)
+OPTIONAL MATCH (ls)-[:REQUIRES_STEP]->(prereq_step:LearningStep)
 WHERE ls IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -713,7 +713,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ls, ls_prereq_steps, ls_habits, ls_tasks,
      collect(DISTINCT {uid: ls_ku.uid, title: ls_ku.title, domain: ls_ku.domain}) as ls_knowledge
 
-OPTIONAL MATCH (lp_parent:Lp)-[:CONTAINS_STEP]->(ls)
+OPTIONAL MATCH (lp_parent:LearningPath)-[:CONTAINS_STEP]->(ls)
 WHERE ls IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -743,7 +743,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ====================================================================
 // LIFE PATH - Fetch user's designated life path
 // ====================================================================
-OPTIONAL MATCH (user)-[lp_rel:ULTIMATE_PATH]->(life_path:Lp)
+OPTIONAL MATCH (user)-[lp_rel:ULTIMATE_PATH]->(life_path:LifePath)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -759,9 +759,9 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      user.life_path_alignment_score AS life_path_alignment_score
 
 // ====================================================================
-// MOCs - Maps of Content for non-linear navigation
+// MOCs - Maps of Content (emergent — any Entity with ORGANIZES relationships)
 // ====================================================================
-OPTIONAL MATCH (user)-[:HAS_MOC]->(moc:Moc)
+OPTIONAL MATCH (user)-[:OWNS]->(moc:Entity)-[:ORGANIZES]->(:Entity)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -773,8 +773,8 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      enrolled_path_uids, paths_rich,
      steps_rich,
      life_path_uid, life_path_designated_at, life_path_alignment_score,
-     collect(moc.uid) as active_moc_uids,
-     collect({uid: moc.uid, view_count: coalesce(moc.view_count, 0), updated: moc.updated_at}) as moc_metadata
+     collect(DISTINCT moc.uid) as active_moc_uids,
+     collect(DISTINCT {uid: moc.uid, view_count: coalesce(moc.view_count, 0), updated: moc.updated_at}) as moc_metadata
 
 // ====================================================================
 // Return BOTH UIDs (standard context) AND rich data (rich context)
@@ -842,7 +842,7 @@ CONSOLIDATED_QUERY: str = """
 MATCH (user:User {uid: $user_uid})
 
 // Tasks - parallel collection with conditional aggregation
-OPTIONAL MATCH (user)-[:HAS_TASK]->(task:Task)
+OPTIONAL MATCH (user)-[:OWNS]->(task:Task)
 WITH user,
      collect(CASE WHEN task.status IN ['pending', 'in_progress'] THEN task.uid END) as active_task_uids,
      collect(CASE WHEN task.status = 'completed' THEN task.uid END) as completed_task_uids,
@@ -850,14 +850,14 @@ WITH user,
      collect(CASE WHEN task.due_date IS NOT NULL AND date(task.due_date) = date($today) THEN task.uid END) as today_task_uids
 
 // Habits - parallel collection with metrics
-OPTIONAL MATCH (user)-[:HAS_HABIT]->(habit:Habit)
+OPTIONAL MATCH (user)-[:OWNS]->(habit:Habit)
 WHERE habit.status = 'active'
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      collect(habit.uid) as active_habit_uids,
      collect({uid: habit.uid, streak: coalesce(habit.current_streak, 0), rate: coalesce(habit.completion_rate, 0.0)}) as habit_data
 
 // Goals - parallel collection with status and progress
-OPTIONAL MATCH (user)-[:HAS_GOAL]->(goal:Goal)
+OPTIONAL MATCH (user)-[:OWNS]->(goal:Goal)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      collect(CASE WHEN goal.status IN ['active', 'on_track', 'at_risk'] THEN goal.uid END) as active_goal_uids,
@@ -896,7 +896,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      collect(bookmarked_ku.uid) as ku_bookmarked_uids
 
 // Learning Paths - parallel collection
-OPTIONAL MATCH (user)-[:ENROLLED_IN]->(lp:Lp)
+OPTIONAL MATCH (user)-[:ENROLLED_IN]->(lp:LearningPath)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
@@ -904,19 +904,19 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
      collect(lp.uid) as enrolled_path_uids
 
-// MOCs - parallel collection with view counts
-OPTIONAL MATCH (user)-[:HAS_MOC]->(moc:Moc)
+// MOCs - emergent identity (any Entity with ORGANIZES relationships)
+OPTIONAL MATCH (user)-[:OWNS]->(moc:Entity)-[:ORGANIZES]->(:Entity)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
      knowledge_data,
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
      enrolled_path_uids,
-     collect(moc.uid) as active_moc_uids,
-     collect({uid: moc.uid, view_count: coalesce(moc.view_count, 0), updated: moc.updated_at}) as moc_data
+     collect(DISTINCT moc.uid) as active_moc_uids,
+     collect(DISTINCT {uid: moc.uid, view_count: coalesce(moc.view_count, 0), updated: moc.updated_at}) as moc_data
 
 // Events - parallel collection with date filtering
-OPTIONAL MATCH (user)-[:HAS_EVENT]->(event:Event)
+OPTIONAL MATCH (user)-[:OWNS]->(event:Event)
 WHERE event.event_date >= date($today)
 
 // Final aggregation - return all domain data

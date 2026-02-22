@@ -26,9 +26,9 @@ import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums import KuStatus, Priority
-from core.models.enums.ku_enums import KuType
-from core.models.ku.ku_task import TaskKu as Task
+from core.models.enums import EntityStatus, Priority
+from core.models.enums.ku_enums import EntityType
+from core.models.ku.task import Task as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
 
 
@@ -73,7 +73,7 @@ class TestTasksCoreOperations:
             description="Compile Q3 performance metrics and analysis",
             due_date=today + timedelta(days=7),
             priority=Priority.HIGH,
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
             duration_minutes=120,
         )
 
@@ -86,7 +86,7 @@ class TestTasksCoreOperations:
         assert created.uid == "task.write_report"
         assert created.title == "Write Quarterly Report"
         assert created.priority == Priority.HIGH
-        assert created.status == KuStatus.ACTIVE
+        assert created.status == EntityStatus.ACTIVE
         assert created.duration_minutes == 120
 
     async def test_get_task_by_uid(self, tasks_service, test_user_uid):
@@ -97,7 +97,7 @@ class TestTasksCoreOperations:
             user_uid=test_user_uid,
             title="Test Task for Retrieval",
             description="This task tests retrieval functionality",
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
         )
         create_result = await tasks_service.create(task)
         assert create_result.is_ok
@@ -129,7 +129,7 @@ class TestTasksCoreOperations:
                 user_uid=test_user_uid,
                 title=f"Test Task {i}",
                 description=f"Description for task {i}",
-                status=KuStatus.ACTIVE,
+                status=EntityStatus.ACTIVE,
             )
             for i in range(3)
         ]
@@ -155,7 +155,7 @@ class TestTasksCoreOperations:
                 user_uid=test_user_uid,
                 title=f"Multi Task {i}",
                 description=f"Multiple task {i}",
-                status=KuStatus.ACTIVE,
+                status=EntityStatus.ACTIVE,
             )
             result = await tasks_service.create(task)
             assert result.is_ok
@@ -177,14 +177,14 @@ class TestTasksCoreOperations:
             user_uid=test_user_uid,
             title="Active Task",
             description="Currently working on this",
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
         )
         completed_task = Task(
             uid="task.completed",
             user_uid=test_user_uid,
             title="Completed Task",
             description="Successfully finished",
-            status=KuStatus.COMPLETED,
+            status=EntityStatus.COMPLETED,
         )
 
         await tasks_service.create(active_task)
@@ -192,20 +192,20 @@ class TestTasksCoreOperations:
 
         # Act - Filter by status
         active_result = await tasks_service.backend.find_by(
-            user_uid=test_user_uid, status=KuStatus.ACTIVE.value
+            user_uid=test_user_uid, status=EntityStatus.ACTIVE.value
         )
         completed_result = await tasks_service.backend.find_by(
-            user_uid=test_user_uid, status=KuStatus.COMPLETED.value
+            user_uid=test_user_uid, status=EntityStatus.COMPLETED.value
         )
 
         # Assert
         assert active_result.is_ok
         assert len(active_result.value) >= 1
-        assert all(t.status == KuStatus.ACTIVE for t in active_result.value)
+        assert all(t.status == EntityStatus.ACTIVE for t in active_result.value)
 
         assert completed_result.is_ok
         assert len(completed_result.value) >= 1
-        assert all(t.status == KuStatus.COMPLETED for t in completed_result.value)
+        assert all(t.status == EntityStatus.COMPLETED for t in completed_result.value)
 
     async def test_filter_by_priority(self, tasks_service, test_user_uid):
         """Test filtering tasks by priority."""
@@ -218,7 +218,7 @@ class TestTasksCoreOperations:
             description="Critical task",
             priority=Priority.HIGH,
             due_date=today + timedelta(days=1),  # Required for high priority
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
         )
         low_task = Task(
             uid="task.low_priority",
@@ -226,7 +226,7 @@ class TestTasksCoreOperations:
             title="Low Priority Task",
             description="Nice to have",
             priority=Priority.LOW,
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
         )
 
         await tasks_service.create(high_task)
@@ -259,7 +259,7 @@ class TestTasksCoreOperations:
             title="Due Soon Task",
             description="Due this week",
             due_date=today + timedelta(days=3),
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
         )
         far_task = Task(
             uid="task.due_later",
@@ -267,7 +267,7 @@ class TestTasksCoreOperations:
             title="Due Later Task",
             description="Due next month",
             due_date=today + timedelta(days=30),
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
         )
 
         await tasks_service.create(near_task)
@@ -295,11 +295,11 @@ class TestTasksCoreOperations:
         """Test creating tasks with all status types."""
         # Arrange & Act - Create tasks with each status
         statuses = [
-            KuStatus.DRAFT,
-            KuStatus.ACTIVE,
-            KuStatus.ACTIVE,
-            KuStatus.COMPLETED,
-            KuStatus.CANCELLED,
+            EntityStatus.DRAFT,
+            EntityStatus.ACTIVE,
+            EntityStatus.ACTIVE,
+            EntityStatus.COMPLETED,
+            EntityStatus.CANCELLED,
         ]
 
         for status in statuses:
@@ -365,7 +365,7 @@ class TestTasksCoreOperations:
             user_uid=test_user_uid,
             title="Task with Time Tracking",
             description="Track estimated vs actual time",
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
             duration_minutes=60,  # Estimated duration
             actual_minutes=45,  # Actual time spent
         )
@@ -395,7 +395,7 @@ class TestTasksCoreOperations:
             due_date=today + timedelta(days=7),
             scheduled_date=today + timedelta(days=5),
             duration_minutes=90,
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
             priority=Priority.CRITICAL,
             project="Q3 Goals",
             tags=("urgent", "quarterly", "report"),
@@ -420,7 +420,7 @@ class TestTasksCoreOperations:
             user_uid=test_user_uid,
             title="Minimal Task",
             description=None,  # Optional
-            ku_type=KuType.TASK,
+            ku_type=EntityType.TASK,
         )
 
         # Act
@@ -433,7 +433,7 @@ class TestTasksCoreOperations:
         assert created.due_date is None
         assert created.scheduled_date is None
         # Check defaults are set
-        assert created.status == KuStatus.DRAFT
+        assert created.status == EntityStatus.DRAFT
         assert created.priority is None  # Ku default: no priority
         assert created.duration_minutes is None  # Ku default: no duration
 
@@ -459,7 +459,7 @@ class TestTasksCoreOperations:
                 user_uid=test_user_uid,
                 title=f"Task with date range {i}",
                 description=f"Due {due}, scheduled {scheduled}",
-                status=KuStatus.ACTIVE,
+                status=EntityStatus.ACTIVE,
                 due_date=due,
                 scheduled_date=scheduled,
             )

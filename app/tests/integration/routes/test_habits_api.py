@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums import KuStatus
+from core.models.enums import EntityStatus
 from core.utils.result_simplified import Errors, Result
 
 # Mark all tests in this module as async
@@ -33,7 +33,7 @@ class MockHabit:
         user_uid: str = "user.test",
         title: str = "Test Habit",
         description: str = "A test habit description",
-        status: KuStatus = KuStatus.ACTIVE,
+        status: EntityStatus = EntityStatus.ACTIVE,
         frequency: str = "daily",
         current_streak: int = 5,
         best_streak: int = 10,
@@ -255,7 +255,7 @@ class TestHabitModel:
 
     async def test_habit_has_required_fields(self):
         """Test that Habit model has required fields."""
-        from core.models.ku.ku_habit import HabitKu as Habit
+        from core.models.ku.habit import Habit as Habit
 
         required_fields = ["uid", "user_uid", "title"]
         for field in required_fields:

@@ -20,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums import KuStatus, Priority
+from core.models.enums import EntityStatus, Priority
 from core.utils.result_simplified import Errors, Result
 
 # Mark all tests in this module as async
@@ -36,7 +36,7 @@ class MockGoal:
         user_uid: str = "user.test",
         title: str = "Test Goal",
         description: str = "A test goal description",
-        status: KuStatus = KuStatus.ACTIVE,
+        status: EntityStatus = EntityStatus.ACTIVE,
         priority: Priority = Priority.HIGH,
         target_date: date | None = None,
         progress: float = 0.0,
@@ -363,8 +363,8 @@ class TestGoalModel:
 
     async def test_goal_has_required_fields(self):
         """Test that Goal model has required fields."""
-        from core.models.ku.ku_goal import GoalKu
+        from core.models.ku.goal import Goal
 
         required_fields = ["uid", "user_uid", "title"]
         for field in required_fields:
-            assert hasattr(GoalKu, "__annotations__") or field in dir(GoalKu)
+            assert hasattr(Goal, "__annotations__") or field in dir(Goal)

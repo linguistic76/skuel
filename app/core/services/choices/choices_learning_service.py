@@ -9,12 +9,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import Domain, KuStatus, Priority
+from core.models.enums import Domain, EntityStatus, Priority
+from core.models.ku.entity import Entity
 from core.models.ku.ku import Ku
-from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_learning_step import LearningStepKu
 from core.models.ku.ku_request import KuChoiceCreateRequest
+from core.models.ku.learning_step import LearningStep
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentHelper
@@ -62,10 +62,10 @@ class ChoicesLearningService(BaseService["BackendOperations[Ku]", Ku]):
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=KuBase,
+        model_class=Entity,
         domain_name="choices",
         date_field="decision_date",
-        completed_statuses=(KuStatus.COMPLETED.value,),
+        completed_statuses=(EntityStatus.COMPLETED.value,),
     )
 
     def __init__(self, backend: BackendOperations[Ku]) -> None:
@@ -79,13 +79,13 @@ class ChoicesLearningService(BaseService["BackendOperations[Ku]", Ku]):
         self.logger = get_logger("skuel.services.choices.learning")
 
         # Initialize LearningAlignmentHelper for learning operations (Phase 4)
-        self.learning_helper = LearningAlignmentHelper[KuBase, KuDTO, KuChoiceCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Entity, KuDTO, KuChoiceCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="get_user_choices",
             backend_create_method="create",
             dto_class=KuDTO,
-            model_class=KuBase,
+            model_class=Entity,
             domain=Domain.CHOICES,
             entity_name="choice",
         )
@@ -265,7 +265,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Ku]", Ku]):
 
             # Current step relevance
             current_step = learning_position.current_steps.get(path.uid)
-            if current_step and isinstance(current_step, LearningStepKu):
+            if current_step and isinstance(current_step, LearningStep):
                 # Check if any knowledge UIDs from the step appear in the option
                 step_knowledge = current_step.get_all_knowledge_uids()
                 if any(ku.lower() in option_lower for ku in step_knowledge):
@@ -349,7 +349,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Ku]", Ku]):
         if choice_result.is_error:
             return Result.fail(choice_result.expect_error())
 
-        choice = self._to_domain_model(choice_result.value, KuDTO, KuBase)
+        choice = self._to_domain_model(choice_result.value, KuDTO, Entity)
 
         # Use typed local variables for calculations
         learning_impact_score: float = 0.0
@@ -373,7 +373,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Ku]", Ku]):
 
             # Check current step relevance
             current_step = learning_position.current_steps.get(path.uid)
-            if current_step and isinstance(current_step, LearningStepKu):
+            if current_step and isinstance(current_step, LearningStep):
                 # Check if any knowledge UIDs from the step appear in the choice text
                 step_knowledge = current_step.get_all_knowledge_uids()
                 if any(ku.lower() in choice_text for ku in step_knowledge):

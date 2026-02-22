@@ -366,11 +366,11 @@ class ExerciseOperations(Protocol):
         processor_type: Any = ...,
         group_uid: str | None = None,
     ) -> Result[Any]:
-        """Create an Exercise. Returns Result[ExerciseKu]."""
+        """Create an Exercise. Returns Result[Exercise]."""
         ...
 
     async def get_exercise(self, uid: str) -> Result[Any | None]:
-        """Get exercise by UID. Returns Result[ExerciseKu | None]."""
+        """Get exercise by UID. Returns Result[Exercise | None]."""
         ...
 
     async def list_user_exercises(
@@ -378,7 +378,7 @@ class ExerciseOperations(Protocol):
         user_uid: str,
         active_only: bool = True,
     ) -> Result[list[Any]]:
-        """List user's exercises. Returns Result[list[ExerciseKu]]."""
+        """List user's exercises. Returns Result[list[Exercise]]."""
         ...
 
     async def update_exercise(
@@ -392,7 +392,7 @@ class ExerciseOperations(Protocol):
         is_active: bool | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> Result[Any]:
-        """Update an exercise. Returns Result[ExerciseKu]."""
+        """Update an exercise. Returns Result[Exercise]."""
         ...
 
     async def delete_exercise(self, uid: str) -> Result[bool]:

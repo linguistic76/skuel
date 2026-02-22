@@ -34,8 +34,8 @@ from core.events.learning_events import (
 )
 from core.models.enums import Domain, SELCategory
 from core.models.enums.ku_enums import LpType
-from core.models.ku.ku_curriculum import CurriculumKu
-from core.models.ku.ku_learning_path import LearningPathKu
+from core.models.ku.curriculum import Curriculum
+from core.models.ku.learning_path import LearningPath
 from core.services.lp.lp_progress_service import LpProgressService
 
 
@@ -51,13 +51,13 @@ class TestKuLpEventFlow:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
 
     @pytest_asyncio.fixture
     async def lp_backend(self, neo4j_driver, clean_neo4j):
         """Create LP backend with clean database (unified Ku model)."""
-        return UniversalNeo4jBackend[LearningPathKu](
-            neo4j_driver, "Ku", LearningPathKu, default_filters={"ku_type": "learning_path"}
+        return UniversalNeo4jBackend[LearningPath](
+            neo4j_driver, "Ku", LearningPath, default_filters={"ku_type": "learning_path"}
         )
 
     @pytest_asyncio.fixture
@@ -97,7 +97,7 @@ class TestKuLpEventFlow:
         for i, title in enumerate(
             ["Python Variables", "Python Functions", "Python Classes"], start=1
         ):
-            ku = CurriculumKu(
+            ku = Curriculum(
                 uid=f"ku.python_basics_{i}",
                 title=title,
                 domain=Domain.TECH,
@@ -108,7 +108,7 @@ class TestKuLpEventFlow:
             kus.append(result.value)
 
         # Create learning path
-        lp = LearningPathKu(
+        lp = LearningPath(
             uid="lp.python_basics",
             title="Python Basics",
             description="Master Python fundamentals",
@@ -294,7 +294,7 @@ class TestKuLpEventFlow:
         event_bus.subscribe(KnowledgeMastered, lp_progress_service.handle_knowledge_mastered)
 
         # Create unrelated KU
-        unrelated_ku = CurriculumKu(
+        unrelated_ku = Curriculum(
             uid="ku.advanced_algorithms",
             title="Advanced Algorithms",
             domain=Domain.TECH,
@@ -334,7 +334,7 @@ class TestKuLpEventFlow:
         lp1, kus = python_basics_path
 
         # Create second LP that also includes the first KU
-        lp2 = LearningPathKu(
+        lp2 = LearningPath(
             uid="lp.python_advanced",
             title="Python Advanced",
             description="Master advanced Python",

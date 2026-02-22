@@ -15,7 +15,7 @@ Protocol Tiers:
 3. ActivityCarrier - Activity domains with learning integration
 
 Note: SubstantiatedKnowledge protocol removed — substance_score() lives
-directly on CurriculumKu class. Use isinstance(entity, CurriculumKu) instead.
+directly on Curriculum class. Use isinstance(entity, Curriculum) instead.
 
 Architecture:
     SKUEL organizes knowledge through 10 domains that all implement

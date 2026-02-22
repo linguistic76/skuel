@@ -27,9 +27,9 @@ from core.utils.logging import get_logger
 if TYPE_CHECKING:
     import builtins
 
-    from core.models.ku.ku_learning_step import LearningStepKu
-    from core.services.ls.ls_intelligence_service import LsIntelligenceService
+    from core.models.ku.learning_step import LearningStep
     from core.ports.facade_protocols import LsFacadeProtocol
+    from core.services.ls.ls_intelligence_service import LsIntelligenceService
     from core.utils.result_simplified import Result
 
 logger = get_logger(__name__)
@@ -181,19 +181,19 @@ class LsService(FacadeDelegationMixin):
     # ============================================================================
     # These methods make LsService compatible with CRUDRouteFactory
 
-    async def create(self, entity: LearningStepKu) -> Result[LearningStepKu]:
+    async def create(self, entity: LearningStep) -> Result[LearningStep]:
         """Create method for CRUDRouteFactory compatibility."""
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
         typed_self = cast("LsFacadeProtocol", self)
         return await typed_self.create_step(entity)
 
-    async def get(self, uid: str) -> Result[LearningStepKu | None]:
+    async def get(self, uid: str) -> Result[LearningStep | None]:
         """Get method for CRUDRouteFactory compatibility."""
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
         typed_self = cast("LsFacadeProtocol", self)
         return await typed_self.get_step(uid)
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[LearningStepKu]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[LearningStep]:
         """Update method for CRUDRouteFactory compatibility."""
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
         typed_self = cast("LsFacadeProtocol", self)
@@ -212,7 +212,7 @@ class LsService(FacadeDelegationMixin):
         order_by: str | None = None,
         order_desc: bool = False,
         user_uid: str | None = None,
-    ) -> Result[builtins.list[LearningStepKu]]:
+    ) -> Result[builtins.list[LearningStep]]:
         """
         List learning steps with pagination and sorting support.
 

@@ -5,17 +5,17 @@ Single source of truth for extracting embeddable text from entities.
 
 Usage:
     # From dict (ingestion):
-    text = build_embedding_text(KuType.TASK, {"title": "Fix bug", "description": "Fix login"})
+    text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description": "Fix login"})
 
     # From model (background worker):
-    text = build_embedding_text(KuType.TASK, task_model)
+    text = build_embedding_text(EntityType.TASK, task_model)
 
 See: /docs/patterns/EMBEDDING_ARCHITECTURE.md
 """
 
 from typing import Any, Protocol, overload
 
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
 
 
 class HasAttributes(Protocol):
@@ -25,28 +25,28 @@ class HasAttributes(Protocol):
 
 
 # Single source of truth for embedding field mappings
-EMBEDDING_FIELD_MAPS: dict[KuType, tuple[str, ...]] = {
-    KuType.CURRICULUM: ("title", "content", "summary"),
-    KuType.RESOURCE: ("title", "author", "content", "summary"),
-    KuType.TASK: ("title", "description"),
-    KuType.GOAL: ("title", "description", "vision_statement"),
-    KuType.HABIT: ("name", "title", "description", "cue", "reward"),
-    KuType.EVENT: ("title", "description", "location"),
-    KuType.CHOICE: ("title", "description", "decision_context", "outcome"),
-    KuType.PRINCIPLE: ("title", "statement", "description"),
+EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
+    EntityType.CURRICULUM: ("title", "content", "summary"),
+    EntityType.RESOURCE: ("title", "author", "content", "summary"),
+    EntityType.TASK: ("title", "description"),
+    EntityType.GOAL: ("title", "description", "vision_statement"),
+    EntityType.HABIT: ("name", "title", "description", "cue", "reward"),
+    EntityType.EVENT: ("title", "description", "location"),
+    EntityType.CHOICE: ("title", "description", "decision_context", "outcome"),
+    EntityType.PRINCIPLE: ("title", "statement", "description"),
 }
 
 
 @overload
-def build_embedding_text(ku_type: KuType, source: dict[str, Any]) -> str: ...
+def build_embedding_text(ku_type: EntityType, source: dict[str, Any]) -> str: ...
 
 
 @overload
-def build_embedding_text(ku_type: KuType, source: HasAttributes) -> str: ...
+def build_embedding_text(ku_type: EntityType, source: HasAttributes) -> str: ...
 
 
 def build_embedding_text(
-    ku_type: KuType,
+    ku_type: EntityType,
     source: dict[str, Any] | HasAttributes,
 ) -> str:
     """
@@ -65,12 +65,12 @@ def build_embedding_text(
     Examples:
         >>> # From dict (ingestion)
         >>> data = {"title": "Learn Python", "description": "Master the basics"}
-        >>> build_embedding_text(KuType.TASK, data)
+        >>> build_embedding_text(EntityType.TASK, data)
         'Learn Python\\nMaster the basics'
 
         >>> # From model (background worker)
         >>> task = Task(title="Learn Python", description="Master the basics")
-        >>> build_embedding_text(KuType.TASK, task)
+        >>> build_embedding_text(EntityType.TASK, task)
         'Learn Python\\nMaster the basics'
 
         >>> # CURRICULUM uses double newlines
@@ -79,16 +79,16 @@ def build_embedding_text(
         ...     "content": "A programming language",
         ...     "summary": "High-level",
         ... }
-        >>> build_embedding_text(KuType.CURRICULUM, ku_data)
+        >>> build_embedding_text(EntityType.CURRICULUM, ku_data)
         'Python\\n\\nA programming language\\n\\nHigh-level'
 
         >>> # Missing fields handled gracefully
         >>> data = {"title": "Task without description"}
-        >>> build_embedding_text(KuType.TASK, data)
+        >>> build_embedding_text(EntityType.TASK, data)
         'Task without description'
 
         >>> # Empty dict returns empty string
-        >>> build_embedding_text(KuType.TASK, {})
+        >>> build_embedding_text(EntityType.TASK, {})
         ''
     """
     # Get field mapping for this ku type
@@ -108,7 +108,7 @@ def build_embedding_text(
 
     # CURRICULUM and RESOURCE use double newlines for better semantic separation
     # (title, content blocks, summary are distinct concepts)
-    separator = "\n\n" if ku_type in {KuType.CURRICULUM, KuType.RESOURCE} else "\n"
+    separator = "\n\n" if ku_type in {EntityType.CURRICULUM, EntityType.RESOURCE} else "\n"
     return separator.join(parts)
 
 

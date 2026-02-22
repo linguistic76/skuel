@@ -113,6 +113,7 @@ if TYPE_CHECKING:
 
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
+    from core.ports.service_protocols import LateralRelationshipOperations
     from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
         AdaptiveLpCrossDomainService,
     )
@@ -138,7 +139,6 @@ if TYPE_CHECKING:
     from core.services.principles.principles_intelligence_service import (
         PrinciplesIntelligenceService,
     )
-    from core.ports.service_protocols import LateralRelationshipOperations
     from core.services.relationships.unified_relationship_service import (
         UnifiedRelationshipService,
     )
@@ -498,8 +498,8 @@ def _create_core_services(
     """Create core productivity services.
 
     Args:
-        tasks_backend: UniversalNeo4jBackend[Task],
-        events_backend: UniversalNeo4jBackend[Ku] (with default_filters ku_type=event),
+        tasks_backend: UniversalNeo4jBackend[Task] (label=NeoLabel.TASK),
+        events_backend: UniversalNeo4jBackend[Event] (label=NeoLabel.EVENT),
         finance_backend: UniversalNeo4jBackend[ExpensePure],
         invoice_backend: UniversalNeo4jBackend[InvoicePure],
         habits_backend: UniversalNeo4jBackend[Habit],
@@ -573,10 +573,10 @@ def _create_orchestration_services(
     Note: Choices and Principles are now created in _create_activity_services().
 
     Args:
-        goals_backend: UniversalNeo4jBackend[GoalKu]
-        tasks_backend: UniversalNeo4jBackend[TaskKu]
-        habits_backend: UniversalNeo4jBackend[Habit]
-        events_backend: UniversalNeo4jBackend[Ku] (with default_filters ku_type=event)
+        goals_backend: UniversalNeo4jBackend[Goal] (label=NeoLabel.GOAL)
+        tasks_backend: UniversalNeo4jBackend[Task] (label=NeoLabel.TASK)
+        habits_backend: UniversalNeo4jBackend[Habit] (label=NeoLabel.HABIT)
+        events_backend: UniversalNeo4jBackend[Event] (label=NeoLabel.EVENT)
     """
     from core.services.goal_task_generator import GoalTaskGenerator
     from core.services.habit_event_scheduler import HabitEventScheduler
@@ -611,8 +611,8 @@ def _create_learning_services(
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-    from core.models.ku.ku_learning_path import LearningPathKu
-    from core.models.ku.ku_learning_step import LearningStepKu
+    from core.models.ku.learning_path import LearningPath
+    from core.models.ku.learning_step import LearningStep
     from core.services.ku_retrieval import KuRetrieval
     from core.services.ku_service import KuService
     from core.services.lp_service import LpService  # Intelligence created internally
@@ -682,8 +682,8 @@ def _create_learning_services(
     # Create learning step service (LS operations)
     # January 2026: graph_intel now REQUIRED for unified Curriculum architecture (ADR-030)
     # Backend created here (composition root) — core services never import adapters
-    ls_backend = UniversalNeo4jBackend[LearningStepKu](
-        driver, NeoLabel.KU, LearningStepKu, default_filters={"ku_type": "learning_step"}
+    ls_backend = UniversalNeo4jBackend[LearningStep](
+        driver, NeoLabel.LEARNING_STEP, LearningStep, base_label=NeoLabel.ENTITY
     )
     ls_service = LsService(
         backend=ls_backend,
@@ -695,8 +695,8 @@ def _create_learning_services(
     # Create path service (LP operations - delegates LS operations to LsService)
     # January 2026: Intelligence created internally (unified with other domains)
     # Backend created here (composition root) — core services never import adapters
-    lp_backend = UniversalNeo4jBackend[LearningPathKu](
-        driver, NeoLabel.KU, LearningPathKu, default_filters={"ku_type": "learning_path"}
+    lp_backend = UniversalNeo4jBackend[LearningPath](
+        driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
     )
     learning_paths = LpService(
         backend=lp_backend,
@@ -1041,11 +1041,11 @@ async def compose_services(
         # NOTE: Goal import REMOVED (February 2026) - Goal merged into Ku
         # Goal entities are now Ku nodes with ku_type="goal"
         from core.models.habit.completion import HabitCompletion
+        from core.models.ku.event import Event
+        from core.models.ku.goal import Goal
+        from core.models.ku.habit import Habit
         from core.models.ku.ku import Ku
-        from core.models.ku.ku_event import EventKu
-        from core.models.ku.ku_goal import GoalKu
-        from core.models.ku.ku_habit import HabitKu
-        from core.models.ku.ku_task import TaskKu
+        from core.models.ku.task import Task
 
         # NOTE: MapOfContent import removed (January 2026) - MOC is now KU-based
         # MOC is a KU with ORGANIZES relationships, not a separate entity
@@ -1055,28 +1055,29 @@ async def compose_services(
 
         # Create backends directly (no wrapper) - makes lattice pattern visible
         # ACTIVITY DOMAINS - Use UniversalNeo4jBackend (requires DomainModelProtocol)
-        # Labels use NeoLabel enum for type-safety and codebase self-awareness
+        # Domain-specific labels (NeoLabel.TASK, NeoLabel.GOAL, etc.) with
+        # base_label=NeoLabel.ENTITY for multi-label CREATE: (n:Ku:Entity:Task)
         # Phase 2 (January 2026): Pass prometheus_metrics for database instrumentation
-        tasks_backend = UniversalNeo4jBackend[TaskKu](
+        tasks_backend = UniversalNeo4jBackend[Task](
             driver,
-            NeoLabel.KU,
-            TaskKu,
+            NeoLabel.TASK,
+            Task,
             prometheus_metrics=prometheus_metrics,
-            default_filters={"ku_type": "task"},
+            base_label=NeoLabel.ENTITY,
         )
-        events_backend = UniversalNeo4jBackend[EventKu](
+        events_backend = UniversalNeo4jBackend[Event](
             driver,
-            NeoLabel.KU,
-            EventKu,
+            NeoLabel.EVENT,
+            Event,
             prometheus_metrics=prometheus_metrics,
-            default_filters={"ku_type": "event"},
+            base_label=NeoLabel.ENTITY,
         )
-        habits_backend = UniversalNeo4jBackend[HabitKu](
+        habits_backend = UniversalNeo4jBackend[Habit](
             driver,
-            NeoLabel.KU,
-            HabitKu,
+            NeoLabel.HABIT,
+            Habit,
             prometheus_metrics=prometheus_metrics,
-            default_filters={"ku_type": "habit"},
+            base_label=NeoLabel.ENTITY,
         )
         habit_completions_backend = UniversalNeo4jBackend[HabitCompletion](
             driver,
@@ -1084,12 +1085,12 @@ async def compose_services(
             HabitCompletion,
             prometheus_metrics=prometheus_metrics,
         )
-        goals_backend = UniversalNeo4jBackend[GoalKu](
+        goals_backend = UniversalNeo4jBackend[Goal](
             driver,
-            NeoLabel.KU,
-            GoalKu,
-            default_filters={"ku_type": "goal"},
+            NeoLabel.GOAL,
+            Goal,
             prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
         )
         finance_backend = UniversalNeo4jBackend[ExpensePure](
             driver, NeoLabel.EXPENSE, ExpensePure, prometheus_metrics=prometheus_metrics
@@ -1112,14 +1113,14 @@ async def compose_services(
         knowledge_backend = UniversalNeo4jBackend[Ku](
             driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics
         )
-        from core.models.ku.ku_principle import PrincipleKu
+        from core.models.ku.principle import Principle
 
-        principle_backend = UniversalNeo4jBackend[PrincipleKu](
+        principle_backend = UniversalNeo4jBackend[Principle](
             driver,
-            NeoLabel.KU,
-            PrincipleKu,
+            NeoLabel.PRINCIPLE,
+            Principle,
             prometheus_metrics=prometheus_metrics,
-            default_filters={"ku_type": "principle"},
+            base_label=NeoLabel.ENTITY,
         )
         reflection_backend = UniversalNeo4jBackend[PrincipleReflection](
             driver,
@@ -1127,22 +1128,20 @@ async def compose_services(
             PrincipleReflection,
             prometheus_metrics=prometheus_metrics,
         )
-        # February 2026: Unified Ku model — choice_backend uses :Ku label with ku_type filter
-        from core.models.ku.ku_choice import ChoiceKu
+        from core.models.ku.choice import Choice
 
-        choice_backend = UniversalNeo4jBackend[ChoiceKu](
+        choice_backend = UniversalNeo4jBackend[Choice](
             driver,
-            NeoLabel.KU,
-            ChoiceKu,
+            NeoLabel.CHOICE,
+            Choice,
             prometheus_metrics=prometheus_metrics,
-            default_filters={"ku_type": "choice"},
+            base_label=NeoLabel.ENTITY,
         )
         progress_backend = UniversalNeo4jBackend[UserProgress](
             driver, NeoLabel.USER_PROGRESS, UserProgress, prometheus_metrics=prometheus_metrics
         )
         # NOTE: vectors_backend REMOVED (January 2026) - was unused dead code
-        # February 2026: Unified Ku model — reports_backend uses :Ku label (same as knowledge_backend)
-        # Separate instance because report-related services were wired to reports_backend
+        # reports_backend uses :Ku label for cross-domain Ku queries (reports span multiple KuTypes)
         reports_backend = UniversalNeo4jBackend[Ku](
             driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics
         )
@@ -1574,7 +1573,7 @@ async def compose_services(
         logger.info("✅ Transcript processor service created")
 
         # Create Ku feedback and exercise services (February 2026: Unified Ku model)
-        from core.models.ku.ku_exercise import ExerciseKu
+        from core.models.ku.exercise import Exercise
         from core.services.exercises import ExerciseService
         from core.services.reports import KuFeedbackService
 
@@ -1583,11 +1582,12 @@ async def compose_services(
             anthropic_service=None,  # Only OpenAI configured for now
         )
 
-        exercise_backend = UniversalNeo4jBackend[ExerciseKu](
+        exercise_backend = UniversalNeo4jBackend[Exercise](
             driver=driver,
-            label=NeoLabel.KU,
-            entity_class=ExerciseKu,
+            label=NeoLabel.EXERCISE,
+            entity_class=Exercise,
             prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
         )
 
         exercise_service = ExerciseService(backend=exercise_backend)

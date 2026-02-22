@@ -22,19 +22,19 @@ from typing import Any
 
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
-from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
-from core.models.ku import Ku, KuBase, KuDTO, SubmissionKu
+from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType
+from core.models.ku import Entity, Ku, KuDTO, Submission
 from core.models.relationship_names import RelationshipName
+from core.ports import BackendOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
-from core.ports import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
+class KuSubmissionService(BaseService[BackendOperations[Entity], Entity]):
     """
     Service for file submission and Ku management.
 
@@ -47,7 +47,7 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
     # =========================================================================
     _config = DomainConfig(
         dto_class=KuDTO,
-        model_class=KuBase,
+        model_class=Entity,
         entity_label="Ku",
         search_fields=("title", "original_filename", "file_type"),
         search_order_by="created_at",
@@ -97,7 +97,7 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
         file_content: bytes,
         original_filename: str,
         user_uid: str,
-        ku_type: KuType = KuType.SUBMISSION,
+        ku_type: EntityType = EntityType.SUBMISSION,
         processor_type: ProcessorType = ProcessorType.AUTOMATIC,
         file_type: str | None = None,
         title: str | None = None,
@@ -105,7 +105,7 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
         metadata: dict[str, Any] | None = None,
         applies_knowledge_uids: list[str] | None = None,
         fulfills_project_uid: str | None = None,
-    ) -> Result[KuBase]:
+    ) -> Result[Entity]:
         """
         Submit a file for processing.
 
@@ -144,14 +144,14 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
 
         file_path = file_path_result.value
 
-        # Create Ku record — SubmissionKu accepts all 4 content-processing types
-        ku = SubmissionKu(
+        # Create Ku record — Submission accepts all 4 content-processing types
+        ku = Submission(
             uid=uid,
             title=title or original_filename,
             ku_type=ku_type,
             user_uid=user_uid,
             parent_ku_uid=parent_ku_uid,
-            status=KuStatus.SUBMITTED,
+            status=EntityStatus.SUBMITTED,
             original_filename=original_filename,
             file_path=str(file_path),
             file_size=len(file_content),
@@ -252,11 +252,11 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
     async def list_kus(
         self,
         user_uid: str,
-        ku_type: KuType | None = None,
-        status: KuStatus | None = None,
+        ku_type: EntityType | None = None,
+        status: EntityStatus | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Result[list[KuBase]]:
+    ) -> Result[list[Entity]]:
         """
         List Ku for a user with optional filters.
 
@@ -288,7 +288,7 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
         return Result.ok(result.value)
 
     @with_error_handling("get_ku")
-    async def get_ku(self, uid: str) -> Result[KuBase | None]:
+    async def get_ku(self, uid: str) -> Result[Entity | None]:
         """Get Ku by UID."""
         return await self.backend.get(uid)
 
@@ -296,8 +296,8 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
     async def count_kus(
         self,
         user_uid: str,
-        ku_type: KuType | None = None,
-        status: KuStatus | None = None,
+        ku_type: EntityType | None = None,
+        status: EntityStatus | None = None,
     ) -> Result[int]:
         """Count Ku for a user with optional filters."""
         filters: dict[str, Any] = {"user_uid": user_uid}
@@ -316,8 +316,8 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
 
     @with_error_handling("update_ku_status")
     async def update_ku_status(
-        self, uid: str, new_status: KuStatus, error_message: str | None = None
-    ) -> Result[KuBase]:
+        self, uid: str, new_status: EntityStatus, error_message: str | None = None
+    ) -> Result[Entity]:
         """
         Update Ku status.
 
@@ -331,12 +331,12 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
         """
         updates: dict[str, Any] = {"status": new_status.value}
 
-        if new_status == KuStatus.PROCESSING:
+        if new_status == EntityStatus.PROCESSING:
             updates["processing_started_at"] = datetime.now()
-        elif new_status in {KuStatus.COMPLETED, KuStatus.FAILED}:
+        elif new_status in {EntityStatus.COMPLETED, EntityStatus.FAILED}:
             updates["processing_completed_at"] = datetime.now()
 
-        if new_status == KuStatus.FAILED and error_message:
+        if new_status == EntityStatus.FAILED and error_message:
             updates["processing_error"] = error_message
 
         result = await self.backend.update(uid, updates)
@@ -346,7 +346,7 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
 
         return result
 
-    async def update_ku(self, uid: str, updates: dict[str, Any]) -> Result[KuBase]:
+    async def update_ku(self, uid: str, updates: dict[str, Any]) -> Result[Entity]:
         """
         Update Ku with arbitrary fields.
 
@@ -372,7 +372,7 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
     @with_error_handling("update_processed_content")
     async def update_processed_content(
         self, uid: str, processed_content: str, processed_file_path: str | None = None
-    ) -> Result[KuBase]:
+    ) -> Result[Entity]:
         """
         Update Ku with processed content.
 
@@ -553,12 +553,12 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
 
         statistics: dict[str, Any] = {"total": total_result.value, "by_type": {}, "by_status": {}}
 
-        for ku_type in KuType:
+        for ku_type in EntityType:
             count_result = await self.count_kus(user_uid, ku_type=ku_type)
             if count_result.is_ok:
                 statistics["by_type"][ku_type.value] = count_result.value
 
-        for status in KuStatus:
+        for status in EntityStatus:
             count_result = await self.count_kus(user_uid, status=status)
             if count_result.is_ok:
                 statistics["by_status"][status.value] = count_result.value

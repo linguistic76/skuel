@@ -22,19 +22,19 @@ from datetime import date, datetime
 from typing import Any
 
 from core.events import publish_event
-from core.models.enums.ku_enums import KuStatus, KuType
-from core.models.ku import Ku, KuBase, KuDTO, SubmissionKu
+from core.models.enums.ku_enums import EntityStatus, EntityType
+from core.models.ku import Entity, Ku, KuDTO, Submission
 from core.models.relationship_names import RelationshipName
+from core.ports import BackendOperations, BaseUpdatePayload
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
-from core.ports import BackendOperations, BaseUpdatePayload
 from core.services.reports.report_processing_types import KuAIInsights, KuProcessingContext
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 
-class ContentEnrichmentService(BaseService[BackendOperations[KuBase], KuBase]):
+class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
     """
     Transcript processor service - transforms raw transcripts into formatted documents.
 
@@ -83,7 +83,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[KuBase], KuBase]):
     # =========================================================================
     _config = DomainConfig(
         dto_class=KuDTO,
-        model_class=KuBase,
+        model_class=Entity,
         entity_label="Ku",
         search_fields=("title", "content", "processed_content"),
         search_order_by="created_at",
@@ -743,7 +743,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[KuBase], KuBase]):
     async def _create_thematic_relationships(self, journal: Ku, recent_topics: list[str]) -> int:
         """Create RELATED_TO relationships for journal reports sharing topics."""
 
-        # Get journal's topics (key_topics is only on SubmissionKu)
+        # Get journal's topics (key_topics is only on Submission)
         journal_topics = getattr(journal, "key_topics", None) or []
         if not journal_topics:
             return 0
@@ -1348,7 +1348,7 @@ Return ONLY Markdown in this structure:
     # BASIC CRUD (Minimal - for storing processed journals)
     # ========================================================================
 
-    async def create(self, ku: KuBase) -> Result[KuBase]:
+    async def create(self, ku: Entity) -> Result[Entity]:
         """Create Ku and publish event."""
         result = await super().create(ku)
 
@@ -1366,11 +1366,11 @@ Return ONLY Markdown in this structure:
 
         return result
 
-    async def get(self, uid: str) -> Result[KuBase]:
+    async def get(self, uid: str) -> Result[Entity]:
         """Get Ku by UID."""
         return await super().get(uid)
 
-    async def update(self, uid: str, updates: BaseUpdatePayload | dict[str, Any]) -> Result[KuBase]:
+    async def update(self, uid: str, updates: BaseUpdatePayload | dict[str, Any]) -> Result[Entity]:
         """Update Ku."""
         return await super().update(uid, updates)
 
@@ -1420,7 +1420,7 @@ Return ONLY Markdown in this structure:
         user_uid: str,
         instructions_uid: str | None = None,
         store_result: bool = True,
-    ) -> Result[KuBase]:
+    ) -> Result[Entity]:
         """
         Process raw transcript text into a formatted journal report.
 
@@ -1450,11 +1450,11 @@ Return ONLY Markdown in this structure:
 
         from core.utils.uid_generator import UIDGenerator
 
-        ku = SubmissionKu(
+        ku = Submission(
             uid=UIDGenerator.generate_uid("ku"),
             user_uid=user_uid,
-            ku_type=KuType.SUBMISSION,
-            status=KuStatus.PROCESSING,
+            ku_type=EntityType.SUBMISSION,
+            status=EntityStatus.PROCESSING,
             title=insights.title,
             content=insights.formatted_content,
             metadata={
@@ -1491,7 +1491,7 @@ Return ONLY Markdown in this structure:
             Tuple of (matching reports, total_count)
         """
         # Get journal-type reports
-        filters: dict[str, Any] = {"ku_type": KuType.SUBMISSION.value}
+        filters: dict[str, Any] = {"ku_type": EntityType.SUBMISSION.value}
         if user_uid:
             filters["user_uid"] = user_uid
 
@@ -1505,7 +1505,7 @@ Return ONLY Markdown in this structure:
         # Filter by query string (case-insensitive)
         query_lower = query.lower()
 
-        def _get_summary(r: KuBase) -> str:
+        def _get_summary(r: Entity) -> str:
             fn = getattr(r, "get_summary", None)
             return fn().lower() if fn else ""
 
@@ -1528,7 +1528,7 @@ Return ONLY Markdown in this structure:
         transcription_result: dict[str, Any],
         user_uid: str,
         instructions_uid: str | None = None,
-    ) -> Result[KuBase]:
+    ) -> Result[Entity]:
         """
         Create a journal report from a transcription result.
 

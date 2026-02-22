@@ -109,8 +109,8 @@ def parse_enum_field(data: dict, field_name: str, enum_class: type[Enum]) -> Non
 
     Example:
         data = {'status': 'active'}
-        parse_enum_field(data, 'status', KuStatus)
-        # data['status'] is now KuStatus.ACTIVE
+        parse_enum_field(data, 'status', EntityStatus)
+        # data['status'] is now EntityStatus.ACTIVE
     """
     if field_name in data and isinstance(data[field_name], str):
         data[field_name] = enum_class(data[field_name])
@@ -223,7 +223,7 @@ def serialize_enum(value: Any) -> str | Any:
         Enum value or original value if not an enum
 
     Example:
-        serialize_enum(KuStatus.ACTIVE)
+        serialize_enum(EntityStatus.ACTIVE)
         # Returns 'active'
     """
     if isinstance(value, EnumLike):
@@ -283,7 +283,7 @@ def convert_enums_to_values(data: dict, field_names: list[str]) -> None:
 
     Example:
         data = {
-            'status': KuStatus.ACTIVE,
+            'status': EntityStatus.ACTIVE,
             'priority': Priority.HIGH
         }
         convert_enums_to_values(data, ['status', 'priority'])
@@ -393,7 +393,7 @@ def update_from_dict(
         # With enum conversion (GoalDTO pattern)
         update_from_dict(self, updates, enum_mappings={
             "goal_type": GoalType,
-            "status": KuStatus,
+            "status": EntityStatus,
             "priority": Priority,
         })
 
@@ -556,7 +556,7 @@ def dto_from_dict[T](
             cls,
             data,
             enum_fields={
-                "status": KuStatus,
+                "status": EntityStatus,
                 "priority": Priority,
                 "recurrence_pattern": RecurrencePattern,
             },

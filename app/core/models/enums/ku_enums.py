@@ -5,8 +5,8 @@ Ku Enums - Unified Knowledge Unit Identity and Processing
 Enums for the unified Ku model where "Ku is the heartbeat of SKUEL."
 
 Organized in 12 sections:
-1. Core Identity: KuType (15 values — role and domain manifestation)
-2. Processing Lifecycle: KuStatus (14 values — type-aware transitions), ProcessorType
+1. Core Identity: EntityType (15 values — role and domain manifestation)
+2. Processing Lifecycle: EntityStatus (14 values — type-aware transitions), ProcessorType
 3. Project/Assignment: ProjectScope (teacher assignment workflow)
 4. LLM Processing: FormattingStyle, AnalysisDepth, ContextEnrichmentLevel
 6. Schedule: ScheduleType, ProgressDepth
@@ -30,7 +30,7 @@ from enum import Enum
 # =============================================================================
 
 
-class KuType(str, Enum):
+class EntityType(str, Enum):
     """
     Type of Knowledge Unit — 16 manifestations of knowledge in SKUEL.
 
@@ -112,7 +112,7 @@ class KuType(str, Enum):
 
     def get_display_name(self) -> str:
         """Get human-readable display name for UI."""
-        return _KU_TYPE_DISPLAY_NAMES[self]
+        return _ENTITY_TYPE_DISPLAY_NAMES[self]
 
     # -------------------------------------------------------------------------
     # Group classification
@@ -132,14 +132,14 @@ class KuType(str, Enum):
 
     def is_destination(self) -> bool:
         """Check if this is the life path destination."""
-        return self == KuType.LIFE_PATH
+        return self == EntityType.LIFE_PATH
 
     def is_content_processing(self) -> bool:
         """Check if this is in the content processing chain."""
         return self in _CONTENT_PROCESSING_TYPES
 
     def content_origin(self) -> ContentOrigin:
-        """Return the content origin tier (A-D) for this KuType."""
+        """Return the content origin tier (A-D) for this EntityType."""
         return _CONTENT_ORIGIN_BY_TYPE[self]
 
     # -------------------------------------------------------------------------
@@ -147,11 +147,11 @@ class KuType(str, Enum):
     # -------------------------------------------------------------------------
 
     def requires_user_uid(self) -> bool:
-        """Check if this KuType requires a user_uid (ownership)."""
+        """Check if this EntityType requires a user_uid (ownership)."""
         return self not in _SHARED_TYPES
 
     def is_user_owned(self) -> bool:
-        """Check if this KuType represents user-owned content."""
+        """Check if this EntityType represents user-owned content."""
         return self not in _SHARED_TYPES
 
     # -------------------------------------------------------------------------
@@ -159,23 +159,23 @@ class KuType(str, Enum):
     # -------------------------------------------------------------------------
 
     def is_derived(self) -> bool:
-        """Check if this KuType is derived from another Ku (has parent)."""
-        return self in {KuType.JOURNAL, KuType.SUBMISSION, KuType.AI_REPORT, KuType.FEEDBACK_REPORT}
+        """Check if this EntityType is derived from another Ku (has parent)."""
+        return self in {EntityType.JOURNAL, EntityType.SUBMISSION, EntityType.AI_REPORT, EntityType.FEEDBACK_REPORT}
 
     def is_processable(self) -> bool:
-        """Check if this KuType goes through a processing pipeline."""
-        return self in {KuType.JOURNAL, KuType.SUBMISSION, KuType.AI_REPORT}
+        """Check if this EntityType goes through a processing pipeline."""
+        return self in {EntityType.JOURNAL, EntityType.SUBMISSION, EntityType.AI_REPORT}
 
     # -------------------------------------------------------------------------
     # Status validation
     # -------------------------------------------------------------------------
 
-    def valid_statuses(self) -> frozenset[KuStatus]:
-        """Return the set of KuStatus values valid for this KuType."""
+    def valid_statuses(self) -> frozenset[EntityStatus]:
+        """Return the set of EntityStatus values valid for this EntityType."""
         return _VALID_STATUSES_BY_TYPE[self]
 
-    def default_status(self) -> KuStatus:
-        """Return the default status for this KuType."""
+    def default_status(self) -> EntityStatus:
+        """Return the default status for this EntityType."""
         return _DEFAULT_STATUS_BY_TYPE[self]
 
     # -------------------------------------------------------------------------
@@ -183,9 +183,9 @@ class KuType(str, Enum):
     # -------------------------------------------------------------------------
 
     @classmethod
-    def from_string(cls, text: str) -> KuType | None:
+    def from_string(cls, text: str) -> EntityType | None:
         """
-        Parse KuType from string (case-insensitive, alias-aware).
+        Parse EntityType from string (case-insensitive, alias-aware).
 
         Supports aliases for backward compatibility with DSL and ingestion:
             "knowledge" -> CURRICULUM
@@ -195,53 +195,53 @@ class KuType(str, Enum):
             "report" -> AI_REPORT
         """
         normalized = text.strip().lower().replace("-", "_").replace(" ", "_")
-        return _KU_TYPE_ALIASES.get(normalized)
+        return _ENTITY_TYPE_ALIASES.get(normalized)
 
 
-# KuType lookup tables (module-level for performance)
-_KU_TYPE_DISPLAY_NAMES: dict[KuType, str] = {
-    KuType.CURRICULUM: "Curriculum",
-    KuType.RESOURCE: "Resource",
-    KuType.LEARNING_STEP: "Learning Step",
-    KuType.LEARNING_PATH: "Learning Path",
-    KuType.JOURNAL: "Journal",
-    KuType.SUBMISSION: "Submission",
-    KuType.AI_REPORT: "AI Report",
-    KuType.FEEDBACK_REPORT: "Feedback Report",
-    KuType.TASK: "Task",
-    KuType.GOAL: "Goal",
-    KuType.HABIT: "Habit",
-    KuType.EVENT: "Event",
-    KuType.CHOICE: "Choice",
-    KuType.PRINCIPLE: "Principle",
-    KuType.EXERCISE: "Exercise",
-    KuType.LIFE_PATH: "Life Path",
+# EntityType lookup tables (module-level for performance)
+_ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
+    EntityType.CURRICULUM: "Curriculum",
+    EntityType.RESOURCE: "Resource",
+    EntityType.LEARNING_STEP: "Learning Step",
+    EntityType.LEARNING_PATH: "Learning Path",
+    EntityType.JOURNAL: "Journal",
+    EntityType.SUBMISSION: "Submission",
+    EntityType.AI_REPORT: "AI Report",
+    EntityType.FEEDBACK_REPORT: "Feedback Report",
+    EntityType.TASK: "Task",
+    EntityType.GOAL: "Goal",
+    EntityType.HABIT: "Habit",
+    EntityType.EVENT: "Event",
+    EntityType.CHOICE: "Choice",
+    EntityType.PRINCIPLE: "Principle",
+    EntityType.EXERCISE: "Exercise",
+    EntityType.LIFE_PATH: "Life Path",
 }
 
-_KNOWLEDGE_TYPES = frozenset({KuType.CURRICULUM, KuType.RESOURCE})
+_KNOWLEDGE_TYPES = frozenset({EntityType.CURRICULUM, EntityType.RESOURCE})
 _CURRICULUM_STRUCTURE_TYPES = frozenset(
-    {KuType.LEARNING_STEP, KuType.LEARNING_PATH, KuType.EXERCISE}
+    {EntityType.LEARNING_STEP, EntityType.LEARNING_PATH, EntityType.EXERCISE}
 )
 _CONTENT_PROCESSING_TYPES = frozenset(
-    {KuType.JOURNAL, KuType.SUBMISSION, KuType.AI_REPORT, KuType.FEEDBACK_REPORT}
+    {EntityType.JOURNAL, EntityType.SUBMISSION, EntityType.AI_REPORT, EntityType.FEEDBACK_REPORT}
 )
 _ACTIVITY_TYPES = frozenset(
     {
-        KuType.TASK,
-        KuType.GOAL,
-        KuType.HABIT,
-        KuType.EVENT,
-        KuType.CHOICE,
-        KuType.PRINCIPLE,
+        EntityType.TASK,
+        EntityType.GOAL,
+        EntityType.HABIT,
+        EntityType.EVENT,
+        EntityType.CHOICE,
+        EntityType.PRINCIPLE,
     }
 )
 _SHARED_TYPES = frozenset(
     {
-        KuType.CURRICULUM,
-        KuType.RESOURCE,
-        KuType.LEARNING_STEP,
-        KuType.LEARNING_PATH,
-        KuType.EXERCISE,
+        EntityType.CURRICULUM,
+        EntityType.RESOURCE,
+        EntityType.LEARNING_STEP,
+        EntityType.LEARNING_PATH,
+        EntityType.EXERCISE,
     }
 )
 
@@ -264,63 +264,63 @@ class ContentOrigin(str, Enum):
     FEEDBACK = "feedback"
 
 
-_CONTENT_ORIGIN_BY_TYPE: dict[KuType, ContentOrigin] = {
+_CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     # A — Admin-curated resources
-    KuType.RESOURCE: ContentOrigin.CURATED,
+    EntityType.RESOURCE: ContentOrigin.CURATED,
     # B — Curriculum structure and organization
-    KuType.CURRICULUM: ContentOrigin.CURRICULUM,
-    KuType.LEARNING_STEP: ContentOrigin.CURRICULUM,
-    KuType.LEARNING_PATH: ContentOrigin.CURRICULUM,
-    KuType.EXERCISE: ContentOrigin.CURRICULUM,
+    EntityType.CURRICULUM: ContentOrigin.CURRICULUM,
+    EntityType.LEARNING_STEP: ContentOrigin.CURRICULUM,
+    EntityType.LEARNING_PATH: ContentOrigin.CURRICULUM,
+    EntityType.EXERCISE: ContentOrigin.CURRICULUM,
     # C — User-generated content
-    KuType.TASK: ContentOrigin.USER_CREATED,
-    KuType.GOAL: ContentOrigin.USER_CREATED,
-    KuType.HABIT: ContentOrigin.USER_CREATED,
-    KuType.EVENT: ContentOrigin.USER_CREATED,
-    KuType.CHOICE: ContentOrigin.USER_CREATED,
-    KuType.PRINCIPLE: ContentOrigin.USER_CREATED,
-    KuType.SUBMISSION: ContentOrigin.USER_CREATED,
-    KuType.JOURNAL: ContentOrigin.USER_CREATED,
-    KuType.LIFE_PATH: ContentOrigin.USER_CREATED,
+    EntityType.TASK: ContentOrigin.USER_CREATED,
+    EntityType.GOAL: ContentOrigin.USER_CREATED,
+    EntityType.HABIT: ContentOrigin.USER_CREATED,
+    EntityType.EVENT: ContentOrigin.USER_CREATED,
+    EntityType.CHOICE: ContentOrigin.USER_CREATED,
+    EntityType.PRINCIPLE: ContentOrigin.USER_CREATED,
+    EntityType.SUBMISSION: ContentOrigin.USER_CREATED,
+    EntityType.JOURNAL: ContentOrigin.USER_CREATED,
+    EntityType.LIFE_PATH: ContentOrigin.USER_CREATED,
     # D — Feedback that acts on user content
-    KuType.AI_REPORT: ContentOrigin.FEEDBACK,
-    KuType.FEEDBACK_REPORT: ContentOrigin.FEEDBACK,
+    EntityType.AI_REPORT: ContentOrigin.FEEDBACK,
+    EntityType.FEEDBACK_REPORT: ContentOrigin.FEEDBACK,
 }
 
-_KU_TYPE_ALIASES: dict[str, KuType] = {
+_ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     # Canonical values
-    "curriculum": KuType.CURRICULUM,
-    "resource": KuType.RESOURCE,
-    "moc": KuType.CURRICULUM,
-    "learning_step": KuType.LEARNING_STEP,
-    "learning_path": KuType.LEARNING_PATH,
-    "journal": KuType.JOURNAL,
-    "submission": KuType.SUBMISSION,
-    "ai_report": KuType.AI_REPORT,
-    "feedback_report": KuType.FEEDBACK_REPORT,
-    "task": KuType.TASK,
-    "goal": KuType.GOAL,
-    "habit": KuType.HABIT,
-    "event": KuType.EVENT,
-    "choice": KuType.CHOICE,
-    "principle": KuType.PRINCIPLE,
-    "life_path": KuType.LIFE_PATH,
+    "curriculum": EntityType.CURRICULUM,
+    "resource": EntityType.RESOURCE,
+    "moc": EntityType.CURRICULUM,
+    "learning_step": EntityType.LEARNING_STEP,
+    "learning_path": EntityType.LEARNING_PATH,
+    "journal": EntityType.JOURNAL,
+    "submission": EntityType.SUBMISSION,
+    "ai_report": EntityType.AI_REPORT,
+    "feedback_report": EntityType.FEEDBACK_REPORT,
+    "task": EntityType.TASK,
+    "goal": EntityType.GOAL,
+    "habit": EntityType.HABIT,
+    "event": EntityType.EVENT,
+    "choice": EntityType.CHOICE,
+    "principle": EntityType.PRINCIPLE,
+    "life_path": EntityType.LIFE_PATH,
     # Aliases
-    "knowledge": KuType.CURRICULUM,
-    "ku": KuType.CURRICULUM,
-    "book": KuType.RESOURCE,
-    "film": KuType.RESOURCE,
-    "talk": KuType.RESOURCE,
-    "map_of_content": KuType.CURRICULUM,
-    "ls": KuType.LEARNING_STEP,
-    "step": KuType.LEARNING_STEP,
-    "lp": KuType.LEARNING_PATH,
-    "path": KuType.LEARNING_PATH,
-    "report": KuType.AI_REPORT,
-    "exercise": KuType.EXERCISE,
-    "assignment": KuType.EXERCISE,
-    "feedback": KuType.FEEDBACK_REPORT,
-    "lifepath": KuType.LIFE_PATH,
+    "knowledge": EntityType.CURRICULUM,
+    "ku": EntityType.CURRICULUM,
+    "book": EntityType.RESOURCE,
+    "film": EntityType.RESOURCE,
+    "talk": EntityType.RESOURCE,
+    "map_of_content": EntityType.CURRICULUM,
+    "ls": EntityType.LEARNING_STEP,
+    "step": EntityType.LEARNING_STEP,
+    "lp": EntityType.LEARNING_PATH,
+    "path": EntityType.LEARNING_PATH,
+    "report": EntityType.AI_REPORT,
+    "exercise": EntityType.EXERCISE,
+    "assignment": EntityType.EXERCISE,
+    "feedback": EntityType.FEEDBACK_REPORT,
+    "lifepath": EntityType.LIFE_PATH,
 }
 
 
@@ -329,7 +329,7 @@ _KU_TYPE_ALIASES: dict[str, KuType] = {
 # =============================================================================
 
 
-class KuStatus(str, Enum):
+class EntityStatus(str, Enum):
     """
     Processing lifecycle status for a Knowledge Unit.
 
@@ -369,22 +369,22 @@ class KuStatus(str, Enum):
 
     def get_display_name(self) -> str:
         """Get human-readable display name for UI."""
-        return _KU_STATUS_DISPLAY_NAMES[self]
+        return _ENTITY_STATUS_DISPLAY_NAMES[self]
 
     def get_color(self) -> str:
         """Get hex color for UI rendering."""
-        return _KU_STATUS_COLORS[self]
+        return _ENTITY_STATUS_COLORS[self]
 
     def get_search_synonyms(self) -> tuple[str, ...]:
         """Return search terms that match this status."""
-        return _KU_STATUS_SEARCH_SYNONYMS.get(self, ())
+        return _ENTITY_STATUS_SEARCH_SYNONYMS.get(self, ())
 
     def get_search_description(self) -> str:
         """Human-readable description for search UI."""
-        return _KU_STATUS_SEARCH_DESCRIPTIONS.get(self, "")
+        return _ENTITY_STATUS_SEARCH_DESCRIPTIONS.get(self, "")
 
     @classmethod
-    def from_search_text(cls, text: str) -> list[KuStatus]:
+    def from_search_text(cls, text: str) -> list[EntityStatus]:
         """Find matching statuses from search text."""
         text_lower = text.lower()
         return [
@@ -403,14 +403,14 @@ class KuStatus(str, Enum):
 
     def is_pending(self) -> bool:
         """Check if this status indicates pending/waiting state."""
-        return self in {KuStatus.DRAFT, KuStatus.SUBMITTED, KuStatus.QUEUED, KuStatus.SCHEDULED}
+        return self in {EntityStatus.DRAFT, EntityStatus.SUBMITTED, EntityStatus.QUEUED, EntityStatus.SCHEDULED}
 
-    def can_transition_to(self, target: KuStatus, ku_type: KuType | None = None) -> bool:
+    def can_transition_to(self, target: EntityStatus, ku_type: EntityType | None = None) -> bool:
         """
         Check if transition to target status is valid.
 
         When ku_type is provided, validates both:
-        1. Target is a valid status for that KuType
+        1. Target is a valid status for that EntityType
         2. The transition itself is allowed
 
         When ku_type is None, only checks the general transition map.
@@ -422,325 +422,325 @@ class KuStatus(str, Enum):
         return target in _VALID_TRANSITIONS.get(self, set())
 
 
-_KU_STATUS_DISPLAY_NAMES: dict[KuStatus, str] = {
-    KuStatus.DRAFT: "Draft",
-    KuStatus.SUBMITTED: "Submitted",
-    KuStatus.QUEUED: "Queued",
-    KuStatus.PROCESSING: "Processing",
-    KuStatus.SCHEDULED: "Scheduled",
-    KuStatus.ACTIVE: "Active",
-    KuStatus.PAUSED: "Paused",
-    KuStatus.BLOCKED: "Blocked",
-    KuStatus.COMPLETED: "Completed",
-    KuStatus.FAILED: "Failed",
-    KuStatus.CANCELLED: "Cancelled",
-    KuStatus.POSTPONED: "Postponed",
-    KuStatus.REVISION_REQUESTED: "Revision Requested",
-    KuStatus.ARCHIVED: "Archived",
+_ENTITY_STATUS_DISPLAY_NAMES: dict[EntityStatus, str] = {
+    EntityStatus.DRAFT: "Draft",
+    EntityStatus.SUBMITTED: "Submitted",
+    EntityStatus.QUEUED: "Queued",
+    EntityStatus.PROCESSING: "Processing",
+    EntityStatus.SCHEDULED: "Scheduled",
+    EntityStatus.ACTIVE: "Active",
+    EntityStatus.PAUSED: "Paused",
+    EntityStatus.BLOCKED: "Blocked",
+    EntityStatus.COMPLETED: "Completed",
+    EntityStatus.FAILED: "Failed",
+    EntityStatus.CANCELLED: "Cancelled",
+    EntityStatus.POSTPONED: "Postponed",
+    EntityStatus.REVISION_REQUESTED: "Revision Requested",
+    EntityStatus.ARCHIVED: "Archived",
 }
 
 _TERMINAL_STATUSES = frozenset(
     {
-        KuStatus.COMPLETED,
-        KuStatus.FAILED,
-        KuStatus.CANCELLED,
-        KuStatus.ARCHIVED,
+        EntityStatus.COMPLETED,
+        EntityStatus.FAILED,
+        EntityStatus.CANCELLED,
+        EntityStatus.ARCHIVED,
     }
 )
 
 _ACTIVE_STATUSES = frozenset(
     {
-        KuStatus.SUBMITTED,
-        KuStatus.QUEUED,
-        KuStatus.PROCESSING,
-        KuStatus.ACTIVE,
-        KuStatus.SCHEDULED,
+        EntityStatus.SUBMITTED,
+        EntityStatus.QUEUED,
+        EntityStatus.PROCESSING,
+        EntityStatus.ACTIVE,
+        EntityStatus.SCHEDULED,
     }
 )
 
-_KU_STATUS_COLORS: dict[KuStatus, str] = {
-    KuStatus.DRAFT: "#9CA3AF",  # Light gray
-    KuStatus.SUBMITTED: "#8B5CF6",  # Violet
-    KuStatus.QUEUED: "#A855F7",  # Purple
-    KuStatus.PROCESSING: "#F59E0B",  # Amber
-    KuStatus.SCHEDULED: "#3B82F6",  # Blue
-    KuStatus.ACTIVE: "#06B6D4",  # Cyan
-    KuStatus.PAUSED: "#F59E0B",  # Amber
-    KuStatus.BLOCKED: "#DC2626",  # Red
-    KuStatus.COMPLETED: "#10B981",  # Green
-    KuStatus.FAILED: "#EF4444",  # Red
-    KuStatus.CANCELLED: "#6B7280",  # Gray
-    KuStatus.POSTPONED: "#A855F7",  # Purple
-    KuStatus.REVISION_REQUESTED: "#F97316",  # Orange
-    KuStatus.ARCHIVED: "#9CA3AF",  # Gray
+_ENTITY_STATUS_COLORS: dict[EntityStatus, str] = {
+    EntityStatus.DRAFT: "#9CA3AF",  # Light gray
+    EntityStatus.SUBMITTED: "#8B5CF6",  # Violet
+    EntityStatus.QUEUED: "#A855F7",  # Purple
+    EntityStatus.PROCESSING: "#F59E0B",  # Amber
+    EntityStatus.SCHEDULED: "#3B82F6",  # Blue
+    EntityStatus.ACTIVE: "#06B6D4",  # Cyan
+    EntityStatus.PAUSED: "#F59E0B",  # Amber
+    EntityStatus.BLOCKED: "#DC2626",  # Red
+    EntityStatus.COMPLETED: "#10B981",  # Green
+    EntityStatus.FAILED: "#EF4444",  # Red
+    EntityStatus.CANCELLED: "#6B7280",  # Gray
+    EntityStatus.POSTPONED: "#A855F7",  # Purple
+    EntityStatus.REVISION_REQUESTED: "#F97316",  # Orange
+    EntityStatus.ARCHIVED: "#9CA3AF",  # Gray
 }
 
-_KU_STATUS_SEARCH_SYNONYMS: dict[KuStatus, tuple[str, ...]] = {
-    KuStatus.DRAFT: ("draft", "new", "planning", "unconfirmed"),
-    KuStatus.SUBMITTED: ("submitted", "sent", "turned in"),
-    KuStatus.QUEUED: ("queued", "waiting", "in queue"),
-    KuStatus.PROCESSING: ("processing", "running", "analyzing"),
-    KuStatus.SCHEDULED: ("scheduled", "planned", "upcoming", "queued"),
-    KuStatus.ACTIVE: ("active", "in progress", "working", "current", "ongoing"),
-    KuStatus.PAUSED: ("paused", "on hold", "waiting", "suspended"),
-    KuStatus.BLOCKED: ("blocked", "stuck", "waiting on", "dependent"),
-    KuStatus.COMPLETED: ("completed", "done", "finished", "complete", "achieved"),
-    KuStatus.FAILED: ("failed", "unsuccessful", "not completed"),
-    KuStatus.CANCELLED: ("cancelled", "canceled", "abandoned", "dropped"),
-    KuStatus.POSTPONED: ("postponed", "delayed", "rescheduled", "deferred"),
-    KuStatus.REVISION_REQUESTED: ("revision", "revise", "redo", "resubmit"),
-    KuStatus.ARCHIVED: ("archived", "old", "historical", "past"),
+_ENTITY_STATUS_SEARCH_SYNONYMS: dict[EntityStatus, tuple[str, ...]] = {
+    EntityStatus.DRAFT: ("draft", "new", "planning", "unconfirmed"),
+    EntityStatus.SUBMITTED: ("submitted", "sent", "turned in"),
+    EntityStatus.QUEUED: ("queued", "waiting", "in queue"),
+    EntityStatus.PROCESSING: ("processing", "running", "analyzing"),
+    EntityStatus.SCHEDULED: ("scheduled", "planned", "upcoming", "queued"),
+    EntityStatus.ACTIVE: ("active", "in progress", "working", "current", "ongoing"),
+    EntityStatus.PAUSED: ("paused", "on hold", "waiting", "suspended"),
+    EntityStatus.BLOCKED: ("blocked", "stuck", "waiting on", "dependent"),
+    EntityStatus.COMPLETED: ("completed", "done", "finished", "complete", "achieved"),
+    EntityStatus.FAILED: ("failed", "unsuccessful", "not completed"),
+    EntityStatus.CANCELLED: ("cancelled", "canceled", "abandoned", "dropped"),
+    EntityStatus.POSTPONED: ("postponed", "delayed", "rescheduled", "deferred"),
+    EntityStatus.REVISION_REQUESTED: ("revision", "revise", "redo", "resubmit"),
+    EntityStatus.ARCHIVED: ("archived", "old", "historical", "past"),
 }
 
-_KU_STATUS_SEARCH_DESCRIPTIONS: dict[KuStatus, str] = {
-    KuStatus.DRAFT: "Not yet scheduled or confirmed",
-    KuStatus.SUBMITTED: "Submitted for processing",
-    KuStatus.QUEUED: "Waiting in processing queue",
-    KuStatus.PROCESSING: "Currently being processed",
-    KuStatus.SCHEDULED: "Scheduled but not started",
-    KuStatus.ACTIVE: "Currently being worked on",
-    KuStatus.PAUSED: "Temporarily paused",
-    KuStatus.BLOCKED: "Blocked by dependency",
-    KuStatus.COMPLETED: "Successfully completed",
-    KuStatus.FAILED: "Failed to complete",
-    KuStatus.CANCELLED: "Cancelled before completion",
-    KuStatus.POSTPONED: "Moved to future time",
-    KuStatus.REVISION_REQUESTED: "Revision requested",
-    KuStatus.ARCHIVED: "No longer active",
+_ENTITY_STATUS_SEARCH_DESCRIPTIONS: dict[EntityStatus, str] = {
+    EntityStatus.DRAFT: "Not yet scheduled or confirmed",
+    EntityStatus.SUBMITTED: "Submitted for processing",
+    EntityStatus.QUEUED: "Waiting in processing queue",
+    EntityStatus.PROCESSING: "Currently being processed",
+    EntityStatus.SCHEDULED: "Scheduled but not started",
+    EntityStatus.ACTIVE: "Currently being worked on",
+    EntityStatus.PAUSED: "Temporarily paused",
+    EntityStatus.BLOCKED: "Blocked by dependency",
+    EntityStatus.COMPLETED: "Successfully completed",
+    EntityStatus.FAILED: "Failed to complete",
+    EntityStatus.CANCELLED: "Cancelled before completion",
+    EntityStatus.POSTPONED: "Moved to future time",
+    EntityStatus.REVISION_REQUESTED: "Revision requested",
+    EntityStatus.ARCHIVED: "No longer active",
 }
 
 # General transition map — union of all valid transitions across all KuTypes.
 # Type-specific validation is handled by can_transition_to() + valid_statuses().
-_VALID_TRANSITIONS: dict[KuStatus, set[KuStatus]] = {
-    KuStatus.DRAFT: {
-        KuStatus.SUBMITTED,
-        KuStatus.SCHEDULED,
-        KuStatus.ACTIVE,
-        KuStatus.COMPLETED,
-        KuStatus.CANCELLED,
-        KuStatus.ARCHIVED,
+_VALID_TRANSITIONS: dict[EntityStatus, set[EntityStatus]] = {
+    EntityStatus.DRAFT: {
+        EntityStatus.SUBMITTED,
+        EntityStatus.SCHEDULED,
+        EntityStatus.ACTIVE,
+        EntityStatus.COMPLETED,
+        EntityStatus.CANCELLED,
+        EntityStatus.ARCHIVED,
     },
-    KuStatus.SUBMITTED: {
-        KuStatus.QUEUED,
-        KuStatus.PROCESSING,
-        KuStatus.FAILED,
+    EntityStatus.SUBMITTED: {
+        EntityStatus.QUEUED,
+        EntityStatus.PROCESSING,
+        EntityStatus.FAILED,
     },
-    KuStatus.QUEUED: {
-        KuStatus.PROCESSING,
-        KuStatus.FAILED,
+    EntityStatus.QUEUED: {
+        EntityStatus.PROCESSING,
+        EntityStatus.FAILED,
     },
-    KuStatus.PROCESSING: {
-        KuStatus.COMPLETED,
-        KuStatus.FAILED,
+    EntityStatus.PROCESSING: {
+        EntityStatus.COMPLETED,
+        EntityStatus.FAILED,
     },
-    KuStatus.SCHEDULED: {
-        KuStatus.ACTIVE,
-        KuStatus.COMPLETED,
-        KuStatus.CANCELLED,
-        KuStatus.POSTPONED,
+    EntityStatus.SCHEDULED: {
+        EntityStatus.ACTIVE,
+        EntityStatus.COMPLETED,
+        EntityStatus.CANCELLED,
+        EntityStatus.POSTPONED,
     },
-    KuStatus.ACTIVE: {
-        KuStatus.PAUSED,
-        KuStatus.BLOCKED,
-        KuStatus.COMPLETED,
-        KuStatus.CANCELLED,
-        KuStatus.FAILED,
-        KuStatus.ARCHIVED,
+    EntityStatus.ACTIVE: {
+        EntityStatus.PAUSED,
+        EntityStatus.BLOCKED,
+        EntityStatus.COMPLETED,
+        EntityStatus.CANCELLED,
+        EntityStatus.FAILED,
+        EntityStatus.ARCHIVED,
     },
-    KuStatus.PAUSED: {
-        KuStatus.ACTIVE,
-        KuStatus.CANCELLED,
-        KuStatus.ARCHIVED,
+    EntityStatus.PAUSED: {
+        EntityStatus.ACTIVE,
+        EntityStatus.CANCELLED,
+        EntityStatus.ARCHIVED,
     },
-    KuStatus.BLOCKED: {
-        KuStatus.ACTIVE,
-        KuStatus.CANCELLED,
+    EntityStatus.BLOCKED: {
+        EntityStatus.ACTIVE,
+        EntityStatus.CANCELLED,
     },
-    KuStatus.COMPLETED: {
-        KuStatus.REVISION_REQUESTED,
-        KuStatus.ARCHIVED,
+    EntityStatus.COMPLETED: {
+        EntityStatus.REVISION_REQUESTED,
+        EntityStatus.ARCHIVED,
     },
-    KuStatus.FAILED: {
-        KuStatus.DRAFT,
-        KuStatus.CANCELLED,
-        KuStatus.ARCHIVED,
+    EntityStatus.FAILED: {
+        EntityStatus.DRAFT,
+        EntityStatus.CANCELLED,
+        EntityStatus.ARCHIVED,
     },
-    KuStatus.CANCELLED: {
-        KuStatus.ARCHIVED,
+    EntityStatus.CANCELLED: {
+        EntityStatus.ARCHIVED,
     },
-    KuStatus.POSTPONED: {
-        KuStatus.DRAFT,
-        KuStatus.SCHEDULED,
-        KuStatus.CANCELLED,
+    EntityStatus.POSTPONED: {
+        EntityStatus.DRAFT,
+        EntityStatus.SCHEDULED,
+        EntityStatus.CANCELLED,
     },
-    KuStatus.REVISION_REQUESTED: {
-        KuStatus.DRAFT,
-        KuStatus.ARCHIVED,
+    EntityStatus.REVISION_REQUESTED: {
+        EntityStatus.DRAFT,
+        EntityStatus.ARCHIVED,
     },
-    KuStatus.ARCHIVED: set(),
+    EntityStatus.ARCHIVED: set(),
 }
 
-# Valid statuses per KuType (from plan specification)
-_VALID_STATUSES_BY_TYPE: dict[KuType, frozenset[KuStatus]] = {
-    KuType.CURRICULUM: frozenset(
+# Valid statuses per EntityType (from plan specification)
+_VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
+    EntityType.CURRICULUM: frozenset(
         {
-            KuStatus.DRAFT,
-            KuStatus.COMPLETED,
-            KuStatus.ARCHIVED,
+            EntityStatus.DRAFT,
+            EntityStatus.COMPLETED,
+            EntityStatus.ARCHIVED,
         }
     ),
-    KuType.RESOURCE: frozenset(
+    EntityType.RESOURCE: frozenset(
         {
-            KuStatus.DRAFT,
-            KuStatus.COMPLETED,
-            KuStatus.ARCHIVED,
+            EntityStatus.DRAFT,
+            EntityStatus.COMPLETED,
+            EntityStatus.ARCHIVED,
         }
     ),
-    KuType.LEARNING_STEP: frozenset(
+    EntityType.LEARNING_STEP: frozenset(
         {
-            KuStatus.DRAFT,
-            KuStatus.ACTIVE,
-            KuStatus.COMPLETED,
-            KuStatus.ARCHIVED,
+            EntityStatus.DRAFT,
+            EntityStatus.ACTIVE,
+            EntityStatus.COMPLETED,
+            EntityStatus.ARCHIVED,
         }
     ),
-    KuType.LEARNING_PATH: frozenset(
+    EntityType.LEARNING_PATH: frozenset(
         {
-            KuStatus.DRAFT,
-            KuStatus.ACTIVE,
-            KuStatus.COMPLETED,
-            KuStatus.ARCHIVED,
+            EntityStatus.DRAFT,
+            EntityStatus.ACTIVE,
+            EntityStatus.COMPLETED,
+            EntityStatus.ARCHIVED,
         }
     ),
-    KuType.JOURNAL: frozenset(
+    EntityType.JOURNAL: frozenset(
         {
-            KuStatus.DRAFT,
-            KuStatus.SUBMITTED,
-            KuStatus.QUEUED,
-            KuStatus.PROCESSING,
-            KuStatus.COMPLETED,
-            KuStatus.FAILED,
-            KuStatus.REVISION_REQUESTED,
-            KuStatus.ARCHIVED,
+            EntityStatus.DRAFT,
+            EntityStatus.SUBMITTED,
+            EntityStatus.QUEUED,
+            EntityStatus.PROCESSING,
+            EntityStatus.COMPLETED,
+            EntityStatus.FAILED,
+            EntityStatus.REVISION_REQUESTED,
+            EntityStatus.ARCHIVED,
         }
     ),
-    KuType.SUBMISSION: frozenset(
+    EntityType.SUBMISSION: frozenset(
         {
-            KuStatus.DRAFT,
-            KuStatus.SUBMITTED,
-            KuStatus.QUEUED,
-            KuStatus.PROCESSING,
-            KuStatus.COMPLETED,
-            KuStatus.FAILED,
-            KuStatus.REVISION_REQUESTED,
-            KuStatus.ARCHIVED,
+            EntityStatus.DRAFT,
+            EntityStatus.SUBMITTED,
+            EntityStatus.QUEUED,
+            EntityStatus.PROCESSING,
+            EntityStatus.COMPLETED,
+            EntityStatus.FAILED,
+            EntityStatus.REVISION_REQUESTED,
+            EntityStatus.ARCHIVED,
         }
     ),
-    KuType.AI_REPORT: frozenset(
+    EntityType.AI_REPORT: frozenset(
         {
-            KuStatus.DRAFT,
-            KuStatus.PROCESSING,
-            KuStatus.COMPLETED,
-            KuStatus.FAILED,
-            KuStatus.ARCHIVED,
+            EntityStatus.DRAFT,
+            EntityStatus.PROCESSING,
+            EntityStatus.COMPLETED,
+            EntityStatus.FAILED,
+            EntityStatus.ARCHIVED,
         }
     ),
-    KuType.FEEDBACK_REPORT: frozenset(
+    EntityType.FEEDBACK_REPORT: frozenset(
         {
-            KuStatus.DRAFT,
-            KuStatus.COMPLETED,
-            KuStatus.ARCHIVED,
+            EntityStatus.DRAFT,
+            EntityStatus.COMPLETED,
+            EntityStatus.ARCHIVED,
         }
     ),
-    KuType.TASK: frozenset(
+    EntityType.TASK: frozenset(
         {
-            KuStatus.DRAFT,
-            KuStatus.SCHEDULED,
-            KuStatus.ACTIVE,
-            KuStatus.PAUSED,
-            KuStatus.BLOCKED,
-            KuStatus.COMPLETED,
-            KuStatus.CANCELLED,
-            KuStatus.POSTPONED,
-            KuStatus.FAILED,
+            EntityStatus.DRAFT,
+            EntityStatus.SCHEDULED,
+            EntityStatus.ACTIVE,
+            EntityStatus.PAUSED,
+            EntityStatus.BLOCKED,
+            EntityStatus.COMPLETED,
+            EntityStatus.CANCELLED,
+            EntityStatus.POSTPONED,
+            EntityStatus.FAILED,
         }
     ),
-    KuType.GOAL: frozenset(
+    EntityType.GOAL: frozenset(
         {
-            KuStatus.DRAFT,
-            KuStatus.ACTIVE,
-            KuStatus.PAUSED,
-            KuStatus.COMPLETED,
-            KuStatus.CANCELLED,
-            KuStatus.FAILED,
-            KuStatus.ARCHIVED,
+            EntityStatus.DRAFT,
+            EntityStatus.ACTIVE,
+            EntityStatus.PAUSED,
+            EntityStatus.COMPLETED,
+            EntityStatus.CANCELLED,
+            EntityStatus.FAILED,
+            EntityStatus.ARCHIVED,
         }
     ),
-    KuType.HABIT: frozenset(
+    EntityType.HABIT: frozenset(
         {
-            KuStatus.ACTIVE,
-            KuStatus.PAUSED,
-            KuStatus.COMPLETED,
-            KuStatus.CANCELLED,
-            KuStatus.ARCHIVED,
+            EntityStatus.ACTIVE,
+            EntityStatus.PAUSED,
+            EntityStatus.COMPLETED,
+            EntityStatus.CANCELLED,
+            EntityStatus.ARCHIVED,
         }
     ),
-    KuType.EVENT: frozenset(
+    EntityType.EVENT: frozenset(
         {
-            KuStatus.SCHEDULED,
-            KuStatus.ACTIVE,
-            KuStatus.COMPLETED,
-            KuStatus.CANCELLED,
+            EntityStatus.SCHEDULED,
+            EntityStatus.ACTIVE,
+            EntityStatus.COMPLETED,
+            EntityStatus.CANCELLED,
         }
     ),
-    KuType.CHOICE: frozenset(
+    EntityType.CHOICE: frozenset(
         {
-            KuStatus.DRAFT,
-            KuStatus.ACTIVE,
-            KuStatus.COMPLETED,
-            KuStatus.ARCHIVED,
+            EntityStatus.DRAFT,
+            EntityStatus.ACTIVE,
+            EntityStatus.COMPLETED,
+            EntityStatus.ARCHIVED,
         }
     ),
-    KuType.PRINCIPLE: frozenset(
+    EntityType.PRINCIPLE: frozenset(
         {
-            KuStatus.ACTIVE,
-            KuStatus.PAUSED,
-            KuStatus.ARCHIVED,
+            EntityStatus.ACTIVE,
+            EntityStatus.PAUSED,
+            EntityStatus.ARCHIVED,
         }
     ),
-    KuType.EXERCISE: frozenset(
+    EntityType.EXERCISE: frozenset(
         {
-            KuStatus.DRAFT,
-            KuStatus.ACTIVE,
-            KuStatus.COMPLETED,
-            KuStatus.ARCHIVED,
+            EntityStatus.DRAFT,
+            EntityStatus.ACTIVE,
+            EntityStatus.COMPLETED,
+            EntityStatus.ARCHIVED,
         }
     ),
-    KuType.LIFE_PATH: frozenset(
+    EntityType.LIFE_PATH: frozenset(
         {
-            KuStatus.ACTIVE,
-            KuStatus.ARCHIVED,
+            EntityStatus.ACTIVE,
+            EntityStatus.ARCHIVED,
         }
     ),
 }
 
-_DEFAULT_STATUS_BY_TYPE: dict[KuType, KuStatus] = {
-    KuType.CURRICULUM: KuStatus.COMPLETED,
-    KuType.RESOURCE: KuStatus.COMPLETED,
-    KuType.LEARNING_STEP: KuStatus.DRAFT,
-    KuType.LEARNING_PATH: KuStatus.DRAFT,
-    KuType.EXERCISE: KuStatus.DRAFT,
-    KuType.JOURNAL: KuStatus.DRAFT,
-    KuType.SUBMISSION: KuStatus.DRAFT,
-    KuType.AI_REPORT: KuStatus.DRAFT,
-    KuType.FEEDBACK_REPORT: KuStatus.DRAFT,
-    KuType.TASK: KuStatus.DRAFT,
-    KuType.GOAL: KuStatus.DRAFT,
-    KuType.HABIT: KuStatus.ACTIVE,
-    KuType.EVENT: KuStatus.SCHEDULED,
-    KuType.CHOICE: KuStatus.DRAFT,
-    KuType.PRINCIPLE: KuStatus.ACTIVE,
-    KuType.LIFE_PATH: KuStatus.ACTIVE,
+_DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
+    EntityType.CURRICULUM: EntityStatus.COMPLETED,
+    EntityType.RESOURCE: EntityStatus.COMPLETED,
+    EntityType.LEARNING_STEP: EntityStatus.DRAFT,
+    EntityType.LEARNING_PATH: EntityStatus.DRAFT,
+    EntityType.EXERCISE: EntityStatus.DRAFT,
+    EntityType.JOURNAL: EntityStatus.DRAFT,
+    EntityType.SUBMISSION: EntityStatus.DRAFT,
+    EntityType.AI_REPORT: EntityStatus.DRAFT,
+    EntityType.FEEDBACK_REPORT: EntityStatus.DRAFT,
+    EntityType.TASK: EntityStatus.DRAFT,
+    EntityType.GOAL: EntityStatus.DRAFT,
+    EntityType.HABIT: EntityStatus.ACTIVE,
+    EntityType.EVENT: EntityStatus.SCHEDULED,
+    EntityType.CHOICE: EntityStatus.DRAFT,
+    EntityType.PRINCIPLE: EntityStatus.ACTIVE,
+    EntityType.LIFE_PATH: EntityStatus.ACTIVE,
 }
 
 

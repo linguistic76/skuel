@@ -3,7 +3,7 @@ SKUEL DSL Module
 ================
 
 Domain-Specific Language for parsing Activity Lines from journal text
-with **type-safe KuType/NonKuDomain contexts**.
+with **type-safe EntityType/NonKuDomain contexts**.
 
 This module provides the bridge from freeform journal input to structured
 SKUEL entities across all SKUEL domains AND semantic knowledge graph connections.
@@ -17,17 +17,17 @@ SKUEL entities across all SKUEL domains AND semantic knowledge graph connections
 
 **Type Safety (v0.5.0):**
 
-The @context() tag values are now parsed to `KuType` or `NonKuDomain` enum values:
-- `ParsedActivityLine.contexts` is `list[KuType | NonKuDomain]` instead of `list[str]`
+The @context() tag values are now parsed to `EntityType` or `NonKuDomain` enum values:
+- `ParsedActivityLine.contexts` is `list[EntityType | NonKuDomain]` instead of `list[str]`
 - Compile-time verification of valid entity types
-- IDE autocomplete for KuType/NonKuDomain values
+- IDE autocomplete for EntityType/NonKuDomain values
 - Clear error messages for invalid context strings
 
 **Key Components:**
 
-- `KuType`: Enum defining Ku-based @context() values (re-exported from ku_enums)
+- `EntityType`: Enum defining Ku-based @context() values (re-exported from ku_enums)
 - `NonKuDomain`: Enum defining non-Ku @context() values (re-exported from entity_enums)
-- `ActivityDSLParser`: Main parser class (parses @context tags to KuType/NonKuDomain)
+- `ActivityDSLParser`: Main parser class (parses @context tags to EntityType/NonKuDomain)
 - `ParsedActivityLine`: Intermediate representation with type-safe contexts
 - `ParsedJournal`: Collection of parsed activities from a document
 - `LLMDSLBridgeService`: LLM-powered natural text to DSL converter
@@ -54,11 +54,11 @@ if result.is_ok:
     # - @context(task) Finish the report @when(Friday) @priority(high)
     # - @context(habit) Exercise @repeat(daily)
 
-# === PHASE 2: DSL Parsing (DSL -> ParsedActivities with KuType/NonKuDomain) ===
+# === PHASE 2: DSL Parsing (DSL -> ParsedActivities with EntityType/NonKuDomain) ===
 from core.services.dsl import (
     ActivityDSLParser,
     parse_activity_line,
-    KuType,
+    EntityType,
     NonKuDomain,
 )
 
@@ -67,10 +67,10 @@ result = parse_activity_line("- @context(task) Call mom @priority(high)")
 if result.is_ok:
     activity = result.value
     print(activity.description)  # "Call mom"
-    print(activity.contexts)  # [KuType.TASK] - type-safe!
+    print(activity.contexts)  # [EntityType.TASK] - type-safe!
 
     # Type-safe context checking
-    if KuType.TASK in activity.contexts:
+    if EntityType.TASK in activity.contexts:
         print("This is a task!")
 
 # Parse full journal
@@ -109,7 +109,7 @@ Text with @context() tags
         |
 ActivityDSLParser.parse_journal()
         |
-ParsedJournal with KuType/NonKuDomain contexts (type-safe!)
+ParsedJournal with EntityType/NonKuDomain contexts (type-safe!)
         |
 ReportActivityExtractorService.extract_and_create()
         |
@@ -121,9 +121,9 @@ Graph Relationships (APPLIES_KNOWLEDGE, FULFILLS_GOAL, etc.)
 ```
 """
 
-# Re-export KuType and NonKuDomain for convenient access
+# Re-export EntityType and NonKuDomain for convenient access
 from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
 from core.services.dsl.activity_dsl_parser import (
     ActivityDSLParser,
     ParsedActivityLine,
@@ -178,8 +178,8 @@ __all__ = [
     "DSLKnowledgeConnector",
     "DSLTransformResult",
     "GoalConnection",
-    # Type Safety - KuType/NonKuDomain enums for @context() values
-    "KuType",
+    # Type Safety - EntityType/NonKuDomain enums for @context() values
+    "EntityType",
     "KnowledgeConnection",
     # LLM DSL Bridge
     "LLMDSLBridgeService",

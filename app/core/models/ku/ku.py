@@ -5,58 +5,58 @@ Ku - Union Type for Domain-Specific Knowledge Types
 After Phase 10 decomposition, Ku is a Union type alias representing any of the
 15 domain-specific frozen dataclasses. The God Object is gone.
 
-For construction: Use the specific subclass (TaskKu, GoalKu, etc.)
-For dispatched deserialization: Use KuBase.from_dto(dto)
-For type annotations: Use Ku (union of all subclasses) or KuBase (common base)
+For construction: Use the specific subclass (Task, Goal, etc.)
+For dispatched deserialization: Use Entity.from_dto(dto)
+For type annotations: Use Ku (union of all subclasses) or Entity (common base)
 
-KU_TYPE_CLASS_MAP maps each KuType enum to its domain-specific subclass.
+ENTITY_TYPE_CLASS_MAP maps each EntityType enum to its domain-specific subclass.
 
 See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
-from core.models.enums.ku_enums import KuType
-from core.models.ku.ku_ai_report import AiReportKu
-from core.models.ku.ku_base import KuBase
-from core.models.ku.ku_choice import ChoiceKu
-from core.models.ku.ku_curriculum import CurriculumKu
-from core.models.ku.ku_event import EventKu
-from core.models.ku.ku_exercise import ExerciseKu
-from core.models.ku.ku_feedback import FeedbackKu
-from core.models.ku.ku_goal import GoalKu
-from core.models.ku.ku_habit import HabitKu
-from core.models.ku.ku_journal import JournalKu
-from core.models.ku.ku_learning_path import LearningPathKu
-from core.models.ku.ku_learning_step import LearningStepKu
-from core.models.ku.ku_life_path import LifePathKu
-from core.models.ku.ku_principle import PrincipleKu
-from core.models.ku.ku_resource import ResourceKu
-from core.models.ku.ku_submission import SubmissionKu
-from core.models.ku.ku_task import TaskKu
+from core.models.enums.ku_enums import EntityType
+from core.models.ku.ai_report import AiReport
+from core.models.ku.choice import Choice
+from core.models.ku.curriculum import Curriculum
+from core.models.ku.entity import Entity
+from core.models.ku.event import Event
+from core.models.ku.exercise import Exercise
+from core.models.ku.feedback import Feedback
+from core.models.ku.goal import Goal
+from core.models.ku.habit import Habit
+from core.models.ku.journal import Journal
+from core.models.ku.learning_path import LearningPath
+from core.models.ku.learning_step import LearningStep
+from core.models.ku.life_path import LifePath
+from core.models.ku.principle import Principle
+from core.models.ku.resource import Resource
+from core.models.ku.submission import Submission
+from core.models.ku.task import Task
 
 # =============================================================================
 # UNION TYPE — for type annotations
 #
-# Ku can appear in type hints wherever any KuBase subclass is acceptable.
-# For isinstance checks, use isinstance(x, KuBase).
+# Ku can appear in type hints wherever any Entity subclass is acceptable.
+# For isinstance checks, use isinstance(x, Entity).
 # =============================================================================
 Ku = (
-    TaskKu
-    | GoalKu
-    | HabitKu
-    | EventKu
-    | ChoiceKu
-    | PrincipleKu
-    | CurriculumKu
-    | ResourceKu
-    | LearningStepKu
-    | LearningPathKu
-    | ExerciseKu
-    | SubmissionKu
-    | JournalKu
-    | AiReportKu
-    | FeedbackKu
-    | LifePathKu
+    Task
+    | Goal
+    | Habit
+    | Event
+    | Choice
+    | Principle
+    | Curriculum
+    | Resource
+    | LearningStep
+    | LearningPath
+    | Exercise
+    | Submission
+    | Journal
+    | AiReport
+    | Feedback
+    | LifePath
 )
 
 # =============================================================================
@@ -67,32 +67,32 @@ Ku = (
 # =============================================================================
 
 # Curriculum entities — carry learning_level, quality_score, sel_category, etc.
-CurriculumEntity = CurriculumKu | LearningStepKu | LearningPathKu | ExerciseKu
+CurriculumEntity = Curriculum | LearningStep | LearningPath | Exercise
 
 # Submission entities — carry file_path, processed_content, file_type, etc.
-SubmissionEntity = SubmissionKu | JournalKu | AiReportKu | FeedbackKu
+SubmissionEntity = Submission | Journal | AiReport | Feedback
 
 # =============================================================================
 # TYPE CLASS MAP — dispatcher for Ku decomposition
 #
-# Maps KuType to domain-specific subclass. Used by KuBase.from_dto() dispatcher
+# Maps EntityType to domain-specific subclass. Used by Entity.from_dto() dispatcher
 # and cross-domain deserialization.
 # =============================================================================
-KU_TYPE_CLASS_MAP: dict[KuType, type[KuBase]] = {
-    KuType.TASK: TaskKu,
-    KuType.GOAL: GoalKu,
-    KuType.HABIT: HabitKu,
-    KuType.EVENT: EventKu,
-    KuType.CHOICE: ChoiceKu,
-    KuType.PRINCIPLE: PrincipleKu,
-    KuType.CURRICULUM: CurriculumKu,
-    KuType.RESOURCE: ResourceKu,
-    KuType.LEARNING_STEP: LearningStepKu,
-    KuType.LEARNING_PATH: LearningPathKu,
-    KuType.EXERCISE: ExerciseKu,
-    KuType.SUBMISSION: SubmissionKu,
-    KuType.JOURNAL: JournalKu,
-    KuType.AI_REPORT: AiReportKu,
-    KuType.FEEDBACK_REPORT: FeedbackKu,
-    KuType.LIFE_PATH: LifePathKu,
+ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
+    EntityType.TASK: Task,
+    EntityType.GOAL: Goal,
+    EntityType.HABIT: Habit,
+    EntityType.EVENT: Event,
+    EntityType.CHOICE: Choice,
+    EntityType.PRINCIPLE: Principle,
+    EntityType.CURRICULUM: Curriculum,
+    EntityType.RESOURCE: Resource,
+    EntityType.LEARNING_STEP: LearningStep,
+    EntityType.LEARNING_PATH: LearningPath,
+    EntityType.EXERCISE: Exercise,
+    EntityType.SUBMISSION: Submission,
+    EntityType.JOURNAL: Journal,
+    EntityType.AI_REPORT: AiReport,
+    EntityType.FEEDBACK_REPORT: Feedback,
+    EntityType.LIFE_PATH: LifePath,
 }

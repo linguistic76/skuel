@@ -32,7 +32,7 @@ Uses KuDTOMixin for conditional user_uid validation:
     CURRICULUM, MOC, LEARNING_STEP, LEARNING_PATH: user_uid must be None
     Others: user_uid is required
 
-Factory methods per KuType for type-safe creation:
+Factory methods per EntityType for type-safe creation:
     KuDTO.create_curriculum(title, domain, ...)
     KuDTO.create_submission(user_uid, title, ...)
     KuDTO.create_ai_report(user_uid, title, parent_ku_uid, ...)
@@ -52,13 +52,13 @@ from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
 from core.models.enums.ku_enums import (
     AlignmentLevel,
     ChoiceType,
+    EntityStatus,
+    EntityType,
     GoalTimeframe,
     GoalType,
     HabitCategory,
     HabitDifficulty,
     HabitPolarity,
-    KuStatus,
-    KuType,
     LpType,
     MeasurementType,
     PrincipleCategory,
@@ -260,7 +260,7 @@ class KuDTO(KuDTOMixin):
     # =========================================================================
     uid: str = ""
     title: str = ""
-    ku_type: KuType = KuType.CURRICULUM
+    ku_type: EntityType = EntityType.CURRICULUM
     user_uid: str | None = None
     parent_ku_uid: str | None = None
     domain: Domain = Domain.KNOWLEDGE
@@ -285,7 +285,7 @@ class KuDTO(KuDTOMixin):
     # =========================================================================
     # PROCESSING
     # =========================================================================
-    status: KuStatus = KuStatus.DRAFT
+    status: EntityStatus = EntityStatus.DRAFT
     processor_type: ProcessorType | None = None
     processing_started_at: datetime | None = None
     processing_completed_at: datetime | None = None
@@ -303,7 +303,7 @@ class KuDTO(KuDTOMixin):
     subject_uid: str | None = None
 
     # =========================================================================
-    # EXERCISE (instruction templates — CurriculumKu subclass)
+    # EXERCISE (instruction templates — Curriculum subclass)
     # =========================================================================
     model: str | None = None  # LLM model to use (e.g., "claude-3-5-sonnet-20241022")
     scope: str | None = None  # ProjectScope value ("personal" or "assigned")
@@ -618,7 +618,7 @@ class KuDTO(KuDTOMixin):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # =========================================================================
-    # FACTORY METHODS (per KuType)
+    # FACTORY METHODS (per EntityType)
     # =========================================================================
 
     @classmethod
@@ -635,10 +635,10 @@ class KuDTO(KuDTOMixin):
         Status defaults to COMPLETED, visibility to PUBLIC.
         """
         kwargs.pop("user_uid", None)  # Curriculum never has user_uid
-        kwargs.setdefault("status", KuStatus.COMPLETED)
+        kwargs.setdefault("status", EntityStatus.COMPLETED)
         kwargs.setdefault("visibility", Visibility.PUBLIC)
         return cls._create_ku_dto(
-            ku_type=KuType.CURRICULUM,
+            ku_type=EntityType.CURRICULUM,
             title=title,
             user_uid=None,
             domain=domain,
@@ -658,7 +658,7 @@ class KuDTO(KuDTOMixin):
         Requires user_uid. Status defaults to DRAFT, visibility to PRIVATE.
         """
         return cls._create_ku_dto(
-            ku_type=KuType.SUBMISSION,
+            ku_type=EntityType.SUBMISSION,
             title=title,
             user_uid=user_uid,
             **kwargs,
@@ -678,7 +678,7 @@ class KuDTO(KuDTOMixin):
         Requires user_uid and parent_ku_uid (the assignment it derives from).
         """
         return cls._create_ku_dto(
-            ku_type=KuType.AI_REPORT,
+            ku_type=EntityType.AI_REPORT,
             title=title,
             user_uid=user_uid,
             parent_ku_uid=parent_ku_uid,
@@ -699,7 +699,7 @@ class KuDTO(KuDTOMixin):
         Requires user_uid (teacher) and parent_ku_uid (the assignment reviewed).
         """
         return cls._create_ku_dto(
-            ku_type=KuType.FEEDBACK_REPORT,
+            ku_type=EntityType.FEEDBACK_REPORT,
             title=title,
             user_uid=user_uid,
             parent_ku_uid=parent_ku_uid,
@@ -939,8 +939,8 @@ class KuDTO(KuDTOMixin):
                 "metadata",
             },
             enum_mappings={
-                "ku_type": KuType,
-                "status": KuStatus,
+                "ku_type": EntityType,
+                "status": EntityStatus,
                 "processor_type": ProcessorType,
                 "domain": Domain,
                 "complexity": KuComplexity,
@@ -1336,8 +1336,8 @@ class KuDTO(KuDTOMixin):
             cls,
             data,
             enum_fields={
-                "ku_type": KuType,
-                "status": KuStatus,
+                "ku_type": EntityType,
+                "status": EntityStatus,
                 "processor_type": ProcessorType,
                 "domain": Domain,
                 "complexity": KuComplexity,

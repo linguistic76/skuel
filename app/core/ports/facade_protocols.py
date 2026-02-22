@@ -52,14 +52,16 @@ if TYPE_CHECKING:
     from core.models.enums.ku_enums import PrincipleCategory
     from core.models.goal.goal_request import GoalCreateRequest
     from core.models.habit.habit_request import HabitCreateRequest
+    from core.models.ku.goal import Goal
+    from core.models.ku.habit import Habit
     from core.models.ku.ku import Ku
-    from core.models.ku.ku_goal import GoalKu
-    from core.models.ku.ku_habit import HabitKu
-    from core.models.ku.ku_learning_path import LearningPathKu
-    from core.models.ku.ku_learning_step import LearningStepKu
     from core.models.ku.ku_request import KuChoiceCreateRequest, KuUpdateRequest
     from core.models.ku.ku_request import KuTaskCreateRequest as TaskCreateRequest
-    from core.models.ku.ku_task import TaskKu as Task
+    from core.models.ku.learning_path import LearningPath
+    from core.models.ku.learning_step import LearningStep
+    from core.models.ku.task import Task as Task
+    from core.ports.infrastructure_protocols import UserOperations
+    from core.ports.search_protocols import TasksSearchOperations
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.events.events_intelligence_service import EventsIntelligenceService
     from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
@@ -73,8 +75,6 @@ if TYPE_CHECKING:
         PrinciplesIntelligenceService,
     )
     from core.services.principles.principles_reflection_service import PrinciplesReflectionService
-    from core.ports.infrastructure_protocols import UserOperations
-    from core.ports.search_protocols import TasksSearchOperations
     from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
     from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
     from core.services.user import UserContext
@@ -122,23 +122,23 @@ class TasksCoreOperations(Protocol):
 class GoalsCoreOperations(Protocol):
     """Protocol for GoalsCoreService methods accessed via GoalsService.core"""
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[GoalKu]:
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Goal]:
         """Verify user owns the goal, return goal if owned."""
         ...
 
-    async def create_goal(self, goal_request: GoalCreateRequest, user_uid: str) -> Result[GoalKu]:
+    async def create_goal(self, goal_request: GoalCreateRequest, user_uid: str) -> Result[Goal]:
         """Create a new goal."""
         ...
 
-    async def get_goal(self, goal_uid: str) -> Result[GoalKu]:
+    async def get_goal(self, goal_uid: str) -> Result[Goal]:
         """Get a goal by UID."""
         ...
 
-    async def get_user_goals(self, user_uid: str) -> Result[list[GoalKu]]:
+    async def get_user_goals(self, user_uid: str) -> Result[list[Goal]]:
         """Get all goals for a user."""
         ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[GoalKu]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Goal]:
         """Update a goal."""
         ...
 
@@ -151,29 +151,29 @@ class GoalsCoreOperations(Protocol):
 class HabitsCoreOperations(Protocol):
     """Protocol for HabitsCoreService methods accessed via HabitsService.core"""
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[HabitKu]:
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Habit]:
         """Verify user owns the habit, return habit if owned."""
         ...
 
-    async def create(self, entity: HabitKu) -> Result[HabitKu]:
+    async def create(self, entity: Habit) -> Result[Habit]:
         """Create a new habit."""
         ...
 
     async def create_habit(
         self, habit_request: HabitCreateRequest, user_uid: str
-    ) -> Result[HabitKu]:
+    ) -> Result[Habit]:
         """Create a habit from a request with user_uid."""
         ...
 
-    async def get_habit(self, uid: str) -> Result[HabitKu]:
+    async def get_habit(self, uid: str) -> Result[Habit]:
         """Get a habit by UID."""
         ...
 
-    async def get_user_habits(self, user_uid: str) -> Result[list[HabitKu]]:
+    async def get_user_habits(self, user_uid: str) -> Result[list[Habit]]:
         """Get all habits for a user."""
         ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[HabitKu]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Habit]:
         """Update a habit."""
         ...
 
@@ -185,7 +185,7 @@ class HabitsCoreOperations(Protocol):
 @runtime_checkable
 class EventsCoreOperations(Protocol):
     """Protocol for EventsCoreService methods accessed via EventsService.core.
-    Uses unified Ku model with KuType.EVENT."""
+    Uses unified Ku model with EntityType.EVENT."""
 
     async def verify_ownership(self, uid: str, user_uid: str) -> Result[Ku]:
         """Verify user owns the event, return event if owned."""
@@ -215,7 +215,7 @@ class EventsCoreOperations(Protocol):
 @runtime_checkable
 class PrinciplesCoreOperations(Protocol):
     """Protocol for PrinciplesCoreService methods accessed via PrinciplesService.core.
-    Uses unified Ku model with KuType.PRINCIPLE."""
+    Uses unified Ku model with EntityType.PRINCIPLE."""
 
     async def verify_ownership(self, uid: str, user_uid: str) -> Result[Ku]:
         """Verify user owns the principle, return principle if owned."""
@@ -353,15 +353,15 @@ class GoalsFacadeProtocol(Protocol):
     # Explicit facade methods (not delegated)
     # ========================================================================
 
-    async def create_goal(self, request: Any, user_uid: str) -> Result[GoalKu]:
+    async def create_goal(self, request: Any, user_uid: str) -> Result[Goal]:
         """Create a new goal."""
         ...
 
-    async def get(self, uid: str) -> Result[GoalKu | None]:
+    async def get(self, uid: str) -> Result[Goal | None]:
         """Get a goal by UID (direct access)."""
         ...
 
-    async def get_for_user(self, uid: str, user_uid: str) -> Result[GoalKu | None]:
+    async def get_for_user(self, uid: str, user_uid: str) -> Result[Goal | None]:
         """Get a goal with ownership verification."""
         ...
 
@@ -410,35 +410,35 @@ class GoalsFacadeProtocol(Protocol):
     # Search delegations (→ GoalsSearchService)
     # ========================================================================
 
-    async def search_goals(self, query: str, limit: int = 50) -> Result[list[GoalKu]]:
+    async def search_goals(self, query: str, limit: int = 50) -> Result[list[Goal]]:
         """Text search on goal title/description."""
         ...
 
-    async def get_goals_by_status(self, status: str, limit: int = 100) -> Result[list[GoalKu]]:
+    async def get_goals_by_status(self, status: str, limit: int = 100) -> Result[list[Goal]]:
         """Filter goals by status."""
         ...
 
     async def get_goals_by_category(
         self, category: str, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list[GoalKu]]:
+    ) -> Result[list[Goal]]:
         """Filter goals by category."""
         ...
 
-    async def get_goals_due_soon(self, days_ahead: int = 7) -> Result[list[GoalKu]]:
+    async def get_goals_due_soon(self, days_ahead: int = 7) -> Result[list[Goal]]:
         """Get goals with target dates within specified days."""
         ...
 
-    async def get_overdue_goals(self, limit: int = 100) -> Result[list[GoalKu]]:
+    async def get_overdue_goals(self, limit: int = 100) -> Result[list[Goal]]:
         """Get goals past their target date."""
         ...
 
-    async def get_goals_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[GoalKu]]:
+    async def get_goals_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Goal]]:
         """Filter goals by domain."""
         ...
 
     async def get_prioritized_goals(
         self, user_context: UserContext | None, limit: int = 10
-    ) -> Result[list[GoalKu]]:
+    ) -> Result[list[Goal]]:
         """Get goals prioritized for user's context."""
         ...
 
@@ -454,33 +454,33 @@ class GoalsFacadeProtocol(Protocol):
     # Core delegations (→ GoalsCoreService)
     # ========================================================================
 
-    async def get_goal(self, uid: str) -> Result[GoalKu | None]:
+    async def get_goal(self, uid: str) -> Result[Goal | None]:
         """Get a goal by UID."""
         ...
 
-    async def get_user_goals(self, user_uid: str, limit: int = 100) -> Result[list[GoalKu]]:
+    async def get_user_goals(self, user_uid: str, limit: int = 100) -> Result[list[Goal]]:
         """Get goals for a specific user."""
         ...
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[GoalKu]]:
+    ) -> Result[list[Goal]]:
         """Get user goals within date range."""
         ...
 
-    async def activate_goal(self, uid: str) -> Result[GoalKu]:
+    async def activate_goal(self, uid: str) -> Result[Goal]:
         """Activate a goal."""
         ...
 
-    async def pause_goal(self, uid: str) -> Result[GoalKu]:
+    async def pause_goal(self, uid: str) -> Result[Goal]:
         """Pause a goal."""
         ...
 
-    async def complete_goal(self, uid: str) -> Result[GoalKu]:
+    async def complete_goal(self, uid: str) -> Result[Goal]:
         """Mark goal as completed."""
         ...
 
-    async def archive_goal(self, uid: str) -> Result[GoalKu]:
+    async def archive_goal(self, uid: str) -> Result[Goal]:
         """Archive a goal."""
         ...
 
@@ -488,7 +488,7 @@ class GoalsFacadeProtocol(Protocol):
     # Intelligence delegations (→ GoalsIntelligenceService)
     # ========================================================================
 
-    async def get_goal_with_context(self, uid: str, depth: int = 2) -> Result[tuple[GoalKu, Any]]:
+    async def get_goal_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Goal, Any]]:
         """Get goal with full graph context."""
         ...
 
@@ -746,9 +746,9 @@ class LpFacadeProtocol(Protocol):
         user_uid: str,
         title: str,
         description: str,
-        steps: list[LearningStepKu],
+        steps: list[LearningStep],
         domain: Domain = ...,
-    ) -> Result[LearningPathKu]:
+    ) -> Result[LearningPath]:
         """Create and persist a learning path."""
         ...
 
@@ -758,23 +758,23 @@ class LpFacadeProtocol(Protocol):
         knowledge_units: list[Any],
         title: str | None = None,
         description: str | None = None,
-    ) -> Result[LearningPathKu]:
+    ) -> Result[LearningPath]:
         """Create path from knowledge units."""
         ...
 
-    async def get_learning_path(self, path_uid: str) -> Result[LearningPathKu | None]:
+    async def get_learning_path(self, path_uid: str) -> Result[LearningPath | None]:
         """Get a single learning path by UID."""
         ...
 
     async def get_learning_paths_batch(
         self, uids: list[str]
-    ) -> Result[list[LearningPathKu | None]]:
+    ) -> Result[list[LearningPath | None]]:
         """Get multiple learning paths in one batched query."""
         ...
 
     async def list_user_paths(
         self, user_uid: str, limit: int | None = None
-    ) -> Result[list[LearningPathKu]]:
+    ) -> Result[list[LearningPath]]:
         """List all learning paths for a specific user."""
         ...
 
@@ -784,19 +784,19 @@ class LpFacadeProtocol(Protocol):
         offset: int = 0,
         order_by: str | None = None,
         order_desc: bool = False,
-    ) -> Result[list[LearningPathKu]]:
+    ) -> Result[list[LearningPath]]:
         """List all learning paths with pagination."""
         ...
 
-    async def get_path_steps(self, path_uid: str) -> Result[list[LearningStepKu]]:
+    async def get_path_steps(self, path_uid: str) -> Result[list[LearningStep]]:
         """Get all steps for a learning path."""
         ...
 
-    async def get_current_step(self, path_uid: str) -> Result[LearningStepKu | None]:
+    async def get_current_step(self, path_uid: str) -> Result[LearningStep | None]:
         """Get the current (first incomplete) step."""
         ...
 
-    async def update_path(self, path_uid: str, updates: dict[str, Any]) -> Result[LearningPathKu]:
+    async def update_path(self, path_uid: str, updates: dict[str, Any]) -> Result[LearningPath]:
         """Update learning path properties."""
         ...
 
@@ -826,7 +826,7 @@ class LpFacadeProtocol(Protocol):
 
     async def get_path_with_context(
         self, path_uid: str, depth: int = 2
-    ) -> Result[tuple[LearningPathKu, Any]]:
+    ) -> Result[tuple[LearningPath, Any]]:
         """Get path with full graph context."""
         ...
 
@@ -836,7 +836,7 @@ class LpFacadeProtocol(Protocol):
 
     async def find_learning_sequence(
         self, user_uid: str, target_knowledge_uids: list[str]
-    ) -> Result[list[LearningStepKu]]:
+    ) -> Result[list[LearningStep]]:
         """Generate optimal learning sequence for knowledge targets."""
         ...
 
@@ -1188,7 +1188,7 @@ class HabitsFacadeProtocol(Protocol):
 
     async def create_habit(
         self, habit_request: HabitCreateRequest, user_uid: str
-    ) -> Result[HabitKu]:
+    ) -> Result[Habit]:
         """Create a habit from a request with user_uid."""
         ...
 
@@ -1333,16 +1333,16 @@ class LsFacadeProtocol(Protocol):
     # ========================================================================
 
     async def create_step(
-        self, entity: LearningStepKu, path_uid: str | None = None
-    ) -> Result[LearningStepKu]:
+        self, entity: LearningStep, path_uid: str | None = None
+    ) -> Result[LearningStep]:
         """Create a new learning step."""
         ...
 
-    async def get_step(self, uid: str) -> Result[LearningStepKu | None]:
+    async def get_step(self, uid: str) -> Result[LearningStep | None]:
         """Get a learning step by UID."""
         ...
 
-    async def update_step(self, uid: str, updates: dict[str, Any]) -> Result[LearningStepKu]:
+    async def update_step(self, uid: str, updates: dict[str, Any]) -> Result[LearningStep]:
         """Update a learning step."""
         ...
 
@@ -1358,7 +1358,7 @@ class LsFacadeProtocol(Protocol):
         order_by: str | None = None,
         order_desc: bool = False,
         user_uid: str | None = None,
-    ) -> Result[list[LearningStepKu]]:
+    ) -> Result[list[LearningStep]]:
         """List learning steps with pagination."""
         ...
 

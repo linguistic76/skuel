@@ -34,7 +34,7 @@ from starlette.datastructures import UploadFile
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
-from core.models.enums.ku_enums import KuType, ProcessorType
+from core.models.enums.ku_enums import EntityType, ProcessorType
 from core.utils.logging import get_logger
 from ui.daisy_components import Button, ButtonT
 from ui.layouts.base_page import BasePage
@@ -934,7 +934,7 @@ def create_reports_ui_routes(
                 file_content=file_content,
                 original_filename=filename,
                 user_uid=user_uid,
-                ku_type=KuType.SUBMISSION,
+                ku_type=EntityType.SUBMISSION,
                 processor_type=ProcessorType.HUMAN,
                 metadata={"identifier": identifier},
                 fulfills_project_uid=fulfills_exercise_uid,

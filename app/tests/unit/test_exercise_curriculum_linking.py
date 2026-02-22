@@ -12,16 +12,16 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import (
-    _KU_TYPE_TO_LABEL,
+    _ENTITY_TYPE_TO_LABEL,
     _LABEL_TO_DEFAULT_KU_TYPE,
     EXERCISE_CONFIG,
     LABEL_CONFIGS,
 )
-from core.services.exercises.exercise_service import ExerciseService
 from core.ports.reports_protocols import ExerciseOperations
+from core.services.exercises.exercise_service import ExerciseService
 from core.utils.result_simplified import Result
 
 # =========================================================================
@@ -42,12 +42,12 @@ class TestExerciseRegistryConfig:
         assert LABEL_CONFIGS["Exercise"] is EXERCISE_CONFIG
 
     def test_exercise_in_ku_type_to_label(self):
-        """KuType.EXERCISE should map to 'Exercise' label."""
-        assert _KU_TYPE_TO_LABEL[KuType.EXERCISE] == "Exercise"
+        """EntityType.EXERCISE should map to 'Exercise' label."""
+        assert _ENTITY_TYPE_TO_LABEL[EntityType.EXERCISE] == "Exercise"
 
     def test_exercise_in_label_to_default_ku_type(self):
-        """'Exercise' label should map to KuType.EXERCISE."""
-        assert _LABEL_TO_DEFAULT_KU_TYPE["Exercise"] == KuType.EXERCISE
+        """'Exercise' label should map to EntityType.EXERCISE."""
+        assert _LABEL_TO_DEFAULT_KU_TYPE["Exercise"] == EntityType.EXERCISE
 
     def test_exercise_config_has_requires_knowledge(self):
         """EXERCISE_CONFIG should have REQUIRES_KNOWLEDGE outgoing relationship."""

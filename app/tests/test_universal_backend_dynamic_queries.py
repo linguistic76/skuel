@@ -24,7 +24,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums import KuStatus, Priority
+from core.models.enums import EntityStatus, Priority
 
 # ============================================================================
 # TEST FIXTURES - Domain Models (avoid "Test" prefix for pytest)
@@ -593,7 +593,7 @@ async def test_find_by_with_enum_values():
     await setup_mock_query_response(mock_session, [])
 
     # Using enum values directly
-    result = await backend.find_by(priority=Priority.HIGH, status=KuStatus.ACTIVE)
+    result = await backend.find_by(priority=Priority.HIGH, status=EntityStatus.ACTIVE)
 
     assert result.is_ok
     call_args = mock_session.run.call_args

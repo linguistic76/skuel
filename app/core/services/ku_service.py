@@ -35,10 +35,10 @@ if TYPE_CHECKING:
 # SemanticRelationshipType needed at runtime for enum conversion
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.ku.ku_dto import KuDTO
+from core.ports.base_protocols import HasUID
 
 # Import sub-services
 from core.services.ku.ku_ai_service import KuAIService
-from core.ports.base_protocols import HasUID
 from core.utils.decorators import with_error_handling
 from core.utils.error_boundary import safe_event_handler
 from core.utils.logging import get_logger

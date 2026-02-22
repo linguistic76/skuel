@@ -20,13 +20,13 @@ from datetime import date, datetime
 from typing import Any
 
 from core.models.enums import Domain
-from core.models.enums.ku_enums import KuType, ProcessorType, ProjectScope
+from core.models.enums.ku_enums import EntityType, ProcessorType, ProjectScope
+from core.models.ku.exercise import Exercise
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_exercise import ExerciseKu
 from core.models.relationship_names import RelationshipName
+from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
-from core.ports import get_enum_value
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -45,7 +45,7 @@ class ExerciseService(BaseService):
 
     _config = DomainConfig(
         dto_class=KuDTO,
-        model_class=ExerciseKu,
+        model_class=Exercise,
         entity_label="Ku",
         search_fields=("title", "instructions"),
         search_order_by="created_at",
@@ -57,7 +57,7 @@ class ExerciseService(BaseService):
         Initialize with backend.
 
         Args:
-            backend: UniversalNeo4jBackend[ExerciseKu] instance - REQUIRED
+            backend: UniversalNeo4jBackend[Exercise] instance - REQUIRED
         """
         super().__init__(backend, "exercises")
         self.backend = backend
@@ -86,7 +86,7 @@ class ExerciseService(BaseService):
         due_date: date | None = None,
         processor_type: ProcessorType = ProcessorType.LLM,
         group_uid: str | None = None,
-    ) -> Result[ExerciseKu]:
+    ) -> Result[Exercise]:
         """
         Create a new Exercise.
 
@@ -107,7 +107,7 @@ class ExerciseService(BaseService):
             group_uid: Target group UID for ASSIGNED scope
 
         Returns:
-            Result[ExerciseKu] - The created exercise
+            Result[Exercise] - The created exercise
         """
         if scope == ProjectScope.ASSIGNED and not group_uid:
             return Result.fail(
@@ -116,10 +116,10 @@ class ExerciseService(BaseService):
 
         uid = UIDGenerator.generate_uid("ex", name)
 
-        exercise = ExerciseKu(
+        exercise = Exercise(
             uid=uid,
             user_uid=user_uid,
-            ku_type=KuType.EXERCISE,
+            ku_type=EntityType.EXERCISE,
             title=name,
             instructions=instructions,
             model=model,
@@ -161,7 +161,7 @@ class ExerciseService(BaseService):
     # ========================================================================
 
     @with_error_handling("get_exercise", error_type="database")
-    async def get_exercise(self, uid: str) -> Result[ExerciseKu | None]:
+    async def get_exercise(self, uid: str) -> Result[Exercise | None]:
         """Get a specific Exercise by UID."""
         result = await self.backend.get(uid)
         if result.is_error:
@@ -171,7 +171,7 @@ class ExerciseService(BaseService):
     @with_error_handling("list_user_exercises", error_type="database")
     async def list_user_exercises(
         self, user_uid: str, active_only: bool = True
-    ) -> Result[list[ExerciseKu]]:
+    ) -> Result[list[Exercise]]:
         """List all exercises for a user."""
         if active_only:
             result = await self.backend.find_by(user_uid=user_uid, ku_type="exercise")
@@ -186,13 +186,13 @@ class ExerciseService(BaseService):
         return Result.ok(exercises)
 
     # Backward-compatible aliases for route consumers
-    async def get_project(self, uid: str) -> Result[ExerciseKu | None]:
+    async def get_project(self, uid: str) -> Result[Exercise | None]:
         """Alias for get_exercise (backward compatibility with route consumers)."""
         return await self.get_exercise(uid)
 
     async def list_user_projects(
         self, user_uid: str, active_only: bool = True
-    ) -> Result[list[ExerciseKu]]:
+    ) -> Result[list[Exercise]]:
         """Alias for list_user_exercises (backward compatibility with route consumers)."""
         return await self.list_user_exercises(user_uid, active_only)
 
@@ -211,7 +211,7 @@ class ExerciseService(BaseService):
         domain: Domain | None = None,
         is_active: bool | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> Result[ExerciseKu]:
+    ) -> Result[Exercise]:
         """
         Update an Exercise. Only provided fields will be updated.
         """
@@ -256,7 +256,7 @@ class ExerciseService(BaseService):
         domain: Domain | None = None,
         is_active: bool | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> Result[ExerciseKu]:
+    ) -> Result[Exercise]:
         """Alias for update_exercise (backward compatibility with route consumers)."""
         return await self.update_exercise(
             uid, name, instructions, model, context_notes, domain, is_active, metadata
@@ -267,7 +267,7 @@ class ExerciseService(BaseService):
     # ========================================================================
 
     @with_error_handling("list_group_exercises", error_type="database")
-    async def list_group_exercises(self, group_uid: str) -> Result[list[ExerciseKu]]:
+    async def list_group_exercises(self, group_uid: str) -> Result[list[Exercise]]:
         """
         Get all ASSIGNED exercises for a group.
 
@@ -288,7 +288,7 @@ class ExerciseService(BaseService):
         return Result.ok(exercises)
 
     @with_error_handling("get_student_exercises", error_type="database")
-    async def get_student_exercises(self, user_uid: str) -> Result[list[ExerciseKu]]:
+    async def get_student_exercises(self, user_uid: str) -> Result[list[Exercise]]:
         """
         Get all exercises for a student (via MEMBER_OF -> Group <- FOR_GROUP -> Exercise).
 
@@ -316,7 +316,7 @@ class ExerciseService(BaseService):
         for record in result.value or []:
             props = record["exercise"]
             try:
-                exercise = ExerciseKu(**props)
+                exercise = Exercise(**props)
                 exercises.append(exercise)
             except Exception as e:
                 self.logger.warning(f"Failed to deserialize exercise: {e}")
@@ -330,7 +330,7 @@ class ExerciseService(BaseService):
 
     async def load_project_from_file(
         self, file_path: str, user_uid: str, project_uid: str | None = None, model: str = "gpt-4o"
-    ) -> Result[ExerciseKu]:
+    ) -> Result[Exercise]:
         """
         Load or update an Exercise from a markdown instructions file.
         """
@@ -420,7 +420,7 @@ class ExerciseService(BaseService):
         """Alias for delete_exercise (backward compatibility)."""
         return await self.delete_exercise(uid)
 
-    async def deactivate_exercise(self, uid: str) -> Result[ExerciseKu]:
+    async def deactivate_exercise(self, uid: str) -> Result[Exercise]:
         """Soft-delete by archiving exercise."""
         updates: dict[str, Any] = {
             "status": "archived",
@@ -439,7 +439,7 @@ class ExerciseService(BaseService):
 
         This declares that the exercise requires understanding of the
         curriculum knowledge unit — completing the learning pipeline:
-        CurriculumKu → ExerciseKu → SubmissionKu → FeedbackKu
+        Curriculum → Exercise → Submission → Feedback
 
         Args:
             exercise_uid: Exercise UID (ku_type='exercise')

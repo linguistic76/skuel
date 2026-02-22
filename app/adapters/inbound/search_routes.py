@@ -32,13 +32,13 @@ from components.search_components import (
 from core.models.enums import (
     ContentType,
     EducationalLevel,
-    KuStatus,
+    EntityStatus,
     LearningLevel,
     Priority,
     SELCategory,
 )
 from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.search import SearchRouter
 from core.models.search_request import SearchRequest
@@ -182,10 +182,10 @@ def create_search_routes(
         enable_learning_aware_bool = _checkbox_to_bool(enable_learning_aware)
         prefer_unmastered_bool = _checkbox_to_bool(prefer_unmastered)
 
-        # Parse entity type to KuType/NonKuDomain enum
-        parsed_entity_types: list[KuType | NonKuDomain] = []
+        # Parse entity type to EntityType/NonKuDomain enum
+        parsed_entity_types: list[EntityType | NonKuDomain] = []
         if entity_type:
-            et = KuType.from_string(entity_type) or NonKuDomain.from_string(entity_type)
+            et = EntityType.from_string(entity_type) or NonKuDomain.from_string(entity_type)
             if et:
                 parsed_entity_types = [et]
 
@@ -207,7 +207,7 @@ def create_search_routes(
                 # Scope
                 entity_types=parsed_entity_types,
                 # Common filters (convert to enums)
-                status=KuStatus(status) if status else None,
+                status=EntityStatus(status) if status else None,
                 priority=Priority(priority) if priority else None,
                 # Domain-specific filters
                 extended_facets=extended_facets if extended_facets else None,
@@ -321,11 +321,11 @@ def create_search_routes(
             return {"error": "Query is required", "total_count": 0, "results_by_domain": {}}
 
         # Parse entity types
-        parsed_entity_types: list[KuType | NonKuDomain] = []
+        parsed_entity_types: list[EntityType | NonKuDomain] = []
         if entity_types.strip():
             for et_str in entity_types.split(","):
                 et_str = et_str.strip()
-                parsed = KuType.from_string(et_str) or NonKuDomain.from_string(et_str)
+                parsed = EntityType.from_string(et_str) or NonKuDomain.from_string(et_str)
                 if parsed:
                     parsed_entity_types.append(parsed)
                 else:

@@ -2,7 +2,7 @@
 KuDTOMixin - Conditional Ownership for Unified Ku DTOs
 ======================================================
 
-Handles conditional user_uid validation based on KuType:
+Handles conditional user_uid validation based on EntityType:
 
     Shared (user_uid must be None):
         CURRICULUM, LEARNING_STEP, LEARNING_PATH
@@ -11,7 +11,7 @@ Handles conditional user_uid validation based on KuType:
         SUBMISSION, AI_REPORT, FEEDBACK_REPORT,
         TASK, GOAL, HABIT, EVENT, CHOICE, PRINCIPLE, LIFE_PATH
 
-UID generation per KuType:
+UID generation per EntityType:
     CURRICULUM:         ku_{slug}_{random}  (semantic UID from title)
     LEARNING_STEP:      ls_{random}
     LEARNING_PATH:      lp_{random}
@@ -19,7 +19,7 @@ UID generation per KuType:
     Activity domains:   {type}_{slug}_{random}  (semantic UID)
     LIFE_PATH:          lp_{random}  (LP with life path designation)
 
-Factory classmethods for each KuType (9 new + original 4 on KuDTO):
+Factory classmethods for each EntityType (9 new + original 4 on KuDTO):
     create_task, create_goal, create_habit, create_event,
     create_choice, create_principle,
     create_learning_step, create_learning_path, create_life_path
@@ -30,15 +30,15 @@ See: ActivityDTOMixin for the Activity Domain equivalent (to be removed in Phase
 from datetime import datetime
 from typing import Any, ClassVar, Self
 
-from core.models.enums.ku_enums import KuStatus, KuType
+from core.models.enums.ku_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 
 # Shared types: no user_uid (admin-created or system content)
 _SHARED_KU_TYPES = frozenset(
     {
-        KuType.CURRICULUM,
-        KuType.LEARNING_STEP,
-        KuType.LEARNING_PATH,
+        EntityType.CURRICULUM,
+        EntityType.LEARNING_STEP,
+        EntityType.LEARNING_PATH,
     }
 )
 
@@ -57,15 +57,15 @@ class KuDTOMixin:
     _uid_prefix: ClassVar[str] = "ku"
 
     @classmethod
-    def _validate_ku_ownership(cls, ku_type: KuType, user_uid: str | None) -> None:
+    def _validate_ku_ownership(cls, ku_type: EntityType, user_uid: str | None) -> None:
         """
-        Validate user_uid based on KuType (fail-fast philosophy).
+        Validate user_uid based on EntityType (fail-fast philosophy).
 
         Shared types must have user_uid=None.
         All other types require user_uid.
 
         Raises:
-            ValueError: If ownership doesn't match KuType requirements.
+            ValueError: If ownership doesn't match EntityType requirements.
         """
         if ku_type in _SHARED_KU_TYPES:
             if user_uid is not None:
@@ -77,10 +77,10 @@ class KuDTOMixin:
 
     @classmethod
     def _generate_ku_uid(
-        cls, ku_type: KuType, user_uid: str | None, title: str | None = None
+        cls, ku_type: EntityType, user_uid: str | None, title: str | None = None
     ) -> str:
         """
-        Generate UID with correct format per KuType.
+        Generate UID with correct format per EntityType.
 
         CURRICULUM/MOC:  ku_{slug}_{random}  (semantic UID from title)
         LEARNING_STEP:   ls_{random}
@@ -100,25 +100,25 @@ class KuDTOMixin:
         from core.utils.uid_generator import UIDGenerator
 
         # Shared knowledge: semantic UID from title
-        if ku_type in {KuType.CURRICULUM}:
+        if ku_type in {EntityType.CURRICULUM}:
             if title:
                 return UIDGenerator.generate_knowledge_uid(title)
             return UIDGenerator.generate_random_uid("ku")
 
         # Curriculum structure: type-specific prefix
-        if ku_type == KuType.LEARNING_STEP:
+        if ku_type == EntityType.LEARNING_STEP:
             return UIDGenerator.generate_random_uid("ls")
-        if ku_type in {KuType.LEARNING_PATH, KuType.LIFE_PATH}:
+        if ku_type in {EntityType.LEARNING_PATH, EntityType.LIFE_PATH}:
             return UIDGenerator.generate_random_uid("lp")
 
         # Activity domains: {type}_{slug}_{random}
         if ku_type in {
-            KuType.TASK,
-            KuType.GOAL,
-            KuType.HABIT,
-            KuType.EVENT,
-            KuType.CHOICE,
-            KuType.PRINCIPLE,
+            EntityType.TASK,
+            EntityType.GOAL,
+            EntityType.HABIT,
+            EntityType.EVENT,
+            EntityType.CHOICE,
+            EntityType.PRINCIPLE,
         }:
             prefix = ku_type.value  # "task", "goal", "habit", etc.
             if title:
@@ -133,7 +133,7 @@ class KuDTOMixin:
     @classmethod
     def _create_ku_dto(
         cls,
-        ku_type: KuType,
+        ku_type: EntityType,
         title: str,
         user_uid: str | None = None,
         **kwargs: Any,
@@ -156,7 +156,7 @@ class KuDTOMixin:
             New DTO instance
 
         Raises:
-            ValueError: If ownership doesn't match KuType requirements
+            ValueError: If ownership doesn't match EntityType requirements
         """
         # Validate ownership
         cls._validate_ku_ownership(ku_type, user_uid)
@@ -189,9 +189,9 @@ class KuDTOMixin:
 
         Requires user_uid. Status defaults to DRAFT.
         """
-        kwargs.setdefault("status", KuStatus.DRAFT)
+        kwargs.setdefault("status", EntityStatus.DRAFT)
         return cls._create_ku_dto(
-            ku_type=KuType.TASK,
+            ku_type=EntityType.TASK,
             title=title,
             user_uid=user_uid,
             **kwargs,
@@ -203,9 +203,9 @@ class KuDTOMixin:
 
         Requires user_uid. Status defaults to DRAFT.
         """
-        kwargs.setdefault("status", KuStatus.DRAFT)
+        kwargs.setdefault("status", EntityStatus.DRAFT)
         return cls._create_ku_dto(
-            ku_type=KuType.GOAL,
+            ku_type=EntityType.GOAL,
             title=title,
             user_uid=user_uid,
             **kwargs,
@@ -217,9 +217,9 @@ class KuDTOMixin:
 
         Requires user_uid. Status defaults to ACTIVE.
         """
-        kwargs.setdefault("status", KuStatus.ACTIVE)
+        kwargs.setdefault("status", EntityStatus.ACTIVE)
         return cls._create_ku_dto(
-            ku_type=KuType.HABIT,
+            ku_type=EntityType.HABIT,
             title=title,
             user_uid=user_uid,
             **kwargs,
@@ -231,9 +231,9 @@ class KuDTOMixin:
 
         Requires user_uid. Status defaults to SCHEDULED.
         """
-        kwargs.setdefault("status", KuStatus.SCHEDULED)
+        kwargs.setdefault("status", EntityStatus.SCHEDULED)
         return cls._create_ku_dto(
-            ku_type=KuType.EVENT,
+            ku_type=EntityType.EVENT,
             title=title,
             user_uid=user_uid,
             **kwargs,
@@ -245,9 +245,9 @@ class KuDTOMixin:
 
         Requires user_uid. Status defaults to DRAFT.
         """
-        kwargs.setdefault("status", KuStatus.DRAFT)
+        kwargs.setdefault("status", EntityStatus.DRAFT)
         return cls._create_ku_dto(
-            ku_type=KuType.CHOICE,
+            ku_type=EntityType.CHOICE,
             title=title,
             user_uid=user_uid,
             **kwargs,
@@ -259,9 +259,9 @@ class KuDTOMixin:
 
         Requires user_uid. Status defaults to ACTIVE.
         """
-        kwargs.setdefault("status", KuStatus.ACTIVE)
+        kwargs.setdefault("status", EntityStatus.ACTIVE)
         return cls._create_ku_dto(
-            ku_type=KuType.PRINCIPLE,
+            ku_type=EntityType.PRINCIPLE,
             title=title,
             user_uid=user_uid,
             **kwargs,
@@ -279,10 +279,10 @@ class KuDTOMixin:
         Status defaults to DRAFT, visibility to PUBLIC.
         """
         kwargs.pop("user_uid", None)
-        kwargs.setdefault("status", KuStatus.DRAFT)
+        kwargs.setdefault("status", EntityStatus.DRAFT)
         kwargs.setdefault("visibility", Visibility.PUBLIC)
         return cls._create_ku_dto(
-            ku_type=KuType.LEARNING_STEP,
+            ku_type=EntityType.LEARNING_STEP,
             title=title,
             user_uid=None,
             **kwargs,
@@ -296,10 +296,10 @@ class KuDTOMixin:
         Status defaults to DRAFT, visibility to PUBLIC.
         """
         kwargs.pop("user_uid", None)
-        kwargs.setdefault("status", KuStatus.DRAFT)
+        kwargs.setdefault("status", EntityStatus.DRAFT)
         kwargs.setdefault("visibility", Visibility.PUBLIC)
         return cls._create_ku_dto(
-            ku_type=KuType.LEARNING_PATH,
+            ku_type=EntityType.LEARNING_PATH,
             title=title,
             user_uid=None,
             **kwargs,
@@ -315,9 +315,9 @@ class KuDTOMixin:
 
         Requires user_uid. Status defaults to ACTIVE.
         """
-        kwargs.setdefault("status", KuStatus.ACTIVE)
+        kwargs.setdefault("status", EntityStatus.ACTIVE)
         return cls._create_ku_dto(
-            ku_type=KuType.LIFE_PATH,
+            ku_type=EntityType.LIFE_PATH,
             title=title,
             user_uid=user_uid,
             **kwargs,

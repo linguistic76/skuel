@@ -34,9 +34,10 @@ from typing import TYPE_CHECKING, Any
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
-from core.models.ku import Ku, KuBase
+from core.models.ku import Entity, Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.query import QueryIntent
+from core.ports.content_protocols import ContentAdapter
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import GraphContextOrchestrator
 from core.services.lp_intelligence.content_analyzer import ContentAnalyzer
@@ -52,7 +53,6 @@ from core.services.lp_intelligence.types import (
     LearningAnalysis,
     LearningIntervention,
 )
-from core.ports.content_protocols import ContentAdapter
 from core.services.user import UserContext
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
 from core.utils.result_simplified import Errors, Result
@@ -61,7 +61,7 @@ if TYPE_CHECKING:
     from core.ports import QueryExecutor
 
 
-class LpIntelligenceService(BaseAnalyticsService[Any, KuBase]):
+class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
     """
     Unified Learning Path Intelligence Service.
 
@@ -174,11 +174,11 @@ class LpIntelligenceService(BaseAnalyticsService[Any, KuBase]):
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service and self.learning_backend:
-            self.orchestrator = GraphContextOrchestrator[KuBase, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[Entity, KuDTO](
                 service=self,
                 backend_get_method="get",
                 dto_class=KuDTO,
-                model_class=KuBase,
+                model_class=Entity,
                 domain=Domain.LEARNING,
             )
 

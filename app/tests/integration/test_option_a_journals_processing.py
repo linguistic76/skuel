@@ -29,8 +29,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import pytest_asyncio
 
-from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
-from core.models.ku import CurriculumKu, SubmissionKu
+from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType
+from core.models.ku import Curriculum, Submission
 from core.services.reports import KuProcessingService
 from core.utils.result_simplified import Errors, Result
 
@@ -49,12 +49,12 @@ class TestOptionAJournalsProcessing:
         service = AsyncMock()
 
         # Mock Ku with transcript type
-        ku = SubmissionKu(
+        ku = Submission(
             uid="report.test_transcript",
             title="Meeting Notes",
             user_uid="user.test",
-            ku_type=KuType.SUBMISSION,
-            status=KuStatus.SUBMITTED,
+            ku_type=EntityType.SUBMISSION,
+            status=EntityStatus.SUBMITTED,
             file_path="/tmp/test_audio.mp3",
             file_type="audio/mpeg",
             file_size=1024000,
@@ -73,7 +73,7 @@ class TestOptionAJournalsProcessing:
 
         # update_report_status tracks status changes
         def mock_update_status(uid, status, error_message=None):
-            updated = SubmissionKu(
+            updated = Submission(
                 uid=current_state["report"].uid,
                 title=current_state["report"].title,
                 user_uid=current_state["report"].user_uid,
@@ -93,7 +93,7 @@ class TestOptionAJournalsProcessing:
 
         # update_processed_content stores the content
         def mock_update_content(uid, processed_content):
-            updated = SubmissionKu(
+            updated = Submission(
                 uid=current_state["report"].uid,
                 title=current_state["report"].title,
                 user_uid=current_state["report"].user_uid,
@@ -224,9 +224,9 @@ class TestOptionAJournalsProcessing:
         assert len(status_calls) >= 2
         statuses = [call[0][1] for call in status_calls]
 
-        assert KuStatus.QUEUED in statuses
-        assert KuStatus.PROCESSING in statuses
-        assert KuStatus.COMPLETED in statuses
+        assert EntityStatus.QUEUED in statuses
+        assert EntityStatus.PROCESSING in statuses
+        assert EntityStatus.COMPLETED in statuses
 
     # ==========================================================================
     # TEXT PROCESSING TESTS
@@ -235,12 +235,12 @@ class TestOptionAJournalsProcessing:
     async def test_text_processing_reads_content(self, mock_report_service):
         """Test that text files are read directly from storage."""
         # Arrange - Create text file Ku
-        text_ku = SubmissionKu(
+        text_ku = Submission(
             uid="report.test_text",
             title="Notes",
             user_uid="user.test",
-            ku_type=KuType.SUBMISSION,
-            status=KuStatus.SUBMITTED,
+            ku_type=EntityType.SUBMISSION,
+            status=EntityStatus.SUBMITTED,
             file_path="/tmp/test_notes.txt",
             file_type="text/plain",
             file_size=1024,
@@ -301,17 +301,17 @@ class TestOptionAJournalsProcessing:
         # Verify status was set to FAILED
         status_calls = mock_report_service.update_ku_status.call_args_list
         final_status = status_calls[-1][0][1]
-        assert final_status == KuStatus.FAILED
+        assert final_status == EntityStatus.FAILED
 
     async def test_already_processing_report_rejected(self):
         """Test that already-processing Ku are rejected."""
         # Arrange - Ku already in PROCESSING state
-        processing_ku = SubmissionKu(
+        processing_ku = Submission(
             uid="report.processing",
             title="Processing",
             user_uid="user.test",
-            ku_type=KuType.SUBMISSION,
-            status=KuStatus.PROCESSING,  # Already processing
+            ku_type=EntityType.SUBMISSION,
+            status=EntityStatus.PROCESSING,  # Already processing
             file_path="/tmp/test.mp3",
             file_type="audio/mpeg",
             file_size=1024,
@@ -339,12 +339,12 @@ class TestOptionAJournalsProcessing:
     async def test_unsupported_file_type_rejected(self):
         """Test that unsupported file types return an error."""
         # Arrange - Ku with unsupported file type
-        pdf_ku = SubmissionKu(
+        pdf_ku = Submission(
             uid="report.pdf",
             title="PDF Report",
             user_uid="user.test",
-            ku_type=KuType.SUBMISSION,
-            status=KuStatus.SUBMITTED,
+            ku_type=EntityType.SUBMISSION,
+            status=EntityStatus.SUBMITTED,
             file_path="/tmp/test.pdf",
             file_type="application/pdf",  # Not yet supported
             file_size=1024,
@@ -376,12 +376,12 @@ class TestOptionAJournalsProcessing:
     async def test_ku_type_discriminator_works(self, mock_report_service):
         """Test that ku_type discriminator works correctly."""
         # Arrange
-        assignment_ku = SubmissionKu(
+        assignment_ku = Submission(
             uid="report.transcript_type",
             title="Transcript",
             user_uid="user.test",
-            ku_type=KuType.SUBMISSION,
-            status=KuStatus.SUBMITTED,
+            ku_type=EntityType.SUBMISSION,
+            status=EntityStatus.SUBMITTED,
             file_path="/tmp/test.mp3",
             file_type="audio/mpeg",
             file_size=1024,
@@ -392,16 +392,16 @@ class TestOptionAJournalsProcessing:
         )
 
         # Act & Assert
-        assert assignment_ku.ku_type == KuType.SUBMISSION
+        assert assignment_ku.ku_type == EntityType.SUBMISSION
 
         # Can differentiate from other ku types
-        curriculum_ku = CurriculumKu(
+        curriculum_ku = Curriculum(
             uid="ku.curriculum_type",
             title="Curriculum Content",
         )
 
-        assert curriculum_ku.ku_type != KuType.SUBMISSION
-        assert curriculum_ku.ku_type == KuType.CURRICULUM
+        assert curriculum_ku.ku_type != EntityType.SUBMISSION
+        assert curriculum_ku.ku_type == EntityType.CURRICULUM
 
     async def test_no_llm_processing_in_report_pipeline(
         self, processing_pipeline, mock_report_service
@@ -434,12 +434,12 @@ class TestOptionAJournalsProcessing:
         mock_report_service.update_ku_status.reset_mock()
 
         # Now, update the Ku to COMPLETED state for reprocessing test
-        completed_ku = SubmissionKu(
+        completed_ku = Submission(
             uid="report.test_transcript",
             title="Meeting Notes",
             user_uid="user.test",
-            ku_type=KuType.SUBMISSION,
-            status=KuStatus.COMPLETED,
+            ku_type=EntityType.SUBMISSION,
+            status=EntityStatus.COMPLETED,
             file_path="/tmp/test_audio.mp3",
             file_type="audio/mpeg",
             file_size=1024000,
@@ -460,4 +460,4 @@ class TestOptionAJournalsProcessing:
         # Verify status was reset to SUBMITTED first
         status_calls = mock_report_service.update_ku_status.call_args_list
         first_status = status_calls[0][0][1]
-        assert first_status == KuStatus.SUBMITTED
+        assert first_status == EntityStatus.SUBMITTED

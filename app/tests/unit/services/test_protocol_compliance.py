@@ -32,6 +32,19 @@ import pytest
 # Universal backend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 
+# Backend protocol
+# Facade protocols (THE contract for facade services)
+from core.ports import (
+    BackendOperations,
+    EventsFacadeProtocol,
+    GoalsFacadeProtocol,
+    HabitsFacadeProtocol,
+    LpFacadeProtocol,
+    # NOTE: MocFacadeProtocol removed (February 2026) - organization absorbed into KuService
+    PrinciplesFacadeProtocol,
+    TasksFacadeProtocol,
+)
+
 # Facade services - Activity Domains
 from core.services.choices_service import ChoicesService
 from core.services.events_service import EventsService
@@ -45,19 +58,6 @@ from core.services.ls_service import LsService
 
 # NOTE: MOCService removed (February 2026) - organization logic absorbed into KuService
 from core.services.principles_service import PrinciplesService
-
-# Backend protocol
-# Facade protocols (THE contract for facade services)
-from core.ports import (
-    BackendOperations,
-    EventsFacadeProtocol,
-    GoalsFacadeProtocol,
-    HabitsFacadeProtocol,
-    LpFacadeProtocol,
-    # NOTE: MocFacadeProtocol removed (February 2026) - organization absorbed into KuService
-    PrinciplesFacadeProtocol,
-    TasksFacadeProtocol,
-)
 from core.services.tasks_service import TasksService
 
 

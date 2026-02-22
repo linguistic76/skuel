@@ -24,7 +24,7 @@ from typing import Any
 
 from core.models.enums import Priority
 from core.models.ku.ku_dto import KuDTO as TaskDTO
-from core.models.ku.ku_task import TaskKu as Task
+from core.models.ku.task import Task as Task
 from core.models.task.task_request import TaskCreateRequest
 from core.services.tasks_service import TasksService
 from core.services.user import UserContext

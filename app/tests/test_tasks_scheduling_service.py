@@ -18,12 +18,12 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.models.enums import Domain, KuStatus, Priority
+from core.models.enums import Domain, EntityStatus, Priority
 from core.models.ku import LpPosition
 from core.models.ku.ku_dto import KuDTO as TaskDTO
-from core.models.ku.ku_learning_path import LearningPathKu
-from core.models.ku.ku_learning_step import LearningStepKu
 from core.models.ku.ku_request import KuTaskCreateRequest
+from core.models.ku.learning_path import LearningPath
+from core.models.ku.learning_step import LearningStep
 from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
 from core.services.user import UserContext
 from core.utils.result_simplified import Errors, Result
@@ -71,7 +71,7 @@ def user_context() -> UserContext:
 def learning_position() -> LpPosition:
     """Create sample learning position."""
     # Create learning steps (Ku with ku_type=LEARNING_STEP)
-    step1 = LearningStepKu(
+    step1 = LearningStep(
         uid="ls:python_fundamentals",
         title="Python Fundamentals",
         intent="Learn Python basics",
@@ -79,7 +79,7 @@ def learning_position() -> LpPosition:
         mastery_threshold=0.8,
         estimated_hours=10.0,
     )
-    step2 = LearningStepKu(
+    step2 = LearningStep(
         uid="ls:python_advanced",
         title="Python Advanced",
         intent="Master advanced Python concepts",
@@ -88,8 +88,8 @@ def learning_position() -> LpPosition:
         estimated_hours=20.0,
     )
 
-    # Create learning path (LearningPathKu)
-    path = LearningPathKu(
+    # Create learning path (LearningPath)
+    path = LearningPath(
         uid="lp:python_mastery",
         title="Python Mastery",
         description="Master Python programming",
@@ -357,7 +357,7 @@ async def test_create_task_from_learning_step(scheduling_service, mock_backend):
         title="Practice Python fundamentals",
         source_learning_step_uid="ls:python_fundamentals",
         knowledge_mastery_check=True,
-        status=KuStatus.DRAFT.value,
+        status=EntityStatus.DRAFT.value,
         priority=Priority.MEDIUM.value,
         created_at=datetime.now(),
     )
@@ -423,7 +423,7 @@ async def test_full_learning_workflow(
 async def test_multiple_active_paths_suggestions(scheduling_service):
     """Test suggestions generation with multiple active learning paths."""
     # Setup - multiple paths
-    python_step = LearningStepKu(
+    python_step = LearningStep(
         uid="ls:python_basics",
         title="Python Basics",
         intent="Learn Python basics",
@@ -431,7 +431,7 @@ async def test_multiple_active_paths_suggestions(scheduling_service):
         mastery_threshold=0.8,
         estimated_hours=10.0,
     )
-    path1 = LearningPathKu(
+    path1 = LearningPath(
         uid="lp:python",
         title="Python",
         description="Learn Python programming",
@@ -439,7 +439,7 @@ async def test_multiple_active_paths_suggestions(scheduling_service):
         metadata={"steps": [python_step]},
     )
 
-    html_step = LearningStepKu(
+    html_step = LearningStep(
         uid="ls:html_basics",
         title="HTML Basics",
         intent="Learn HTML basics",
@@ -447,7 +447,7 @@ async def test_multiple_active_paths_suggestions(scheduling_service):
         mastery_threshold=0.75,
         estimated_hours=8.0,
     )
-    path2 = LearningPathKu(
+    path2 = LearningPath(
         uid="lp:web_dev",
         title="Web Development",
         description="Learn web development",

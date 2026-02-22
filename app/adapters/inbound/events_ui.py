@@ -26,12 +26,12 @@ from fasthtml.common import H1, H2, Form, P
 from starlette.responses import RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from components.error_components import ErrorComponents
 from components.events_views import EventsViewComponents
 from components.shared_ui_components import SharedUIComponents
-from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
+from core.models.ku.event import Event
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_event import EventKu
 from core.ports.facade_protocols import EventsFacadeProtocol
 from core.ports.query_types import ActivityFilterSpec
 from core.utils.logging import get_logger
@@ -644,7 +644,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
             location=location,
         )
 
-        event = EventKu.from_dto(event_dto)
+        event = Event.from_dto(event_dto)
         return await events_service.core.create(event)
 
     async def render_event_success_view(_user_uid: str) -> Any:

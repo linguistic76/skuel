@@ -208,7 +208,7 @@ def goal_to_calendar_item(goal: Any) -> CalendarItem | None:
         tags=getattr(goal, "tags", []) or [],
         category=str(getattr(goal, "domain", "")) if getattr(goal, "domain", None) else None,
         metadata={
-            "status": str(getattr(goal, "status", "")).replace("KuStatus.", ""),
+            "status": str(getattr(goal, "status", "")).replace("EntityStatus.", ""),
             "timeframe": str(getattr(goal, "timeframe", "")),
             "progress": getattr(goal, "current_value", 0),
         },

@@ -5,65 +5,62 @@ Knowledge Models - Decomposed Ku Architecture (Phase 10 Complete)
 "Ku is the heartbeat of SKUEL."
 
 After Phase 10 decomposition, the God Object is gone. Each domain has its own
-frozen dataclass inheriting from KuBase (~48 common fields).
+frozen dataclass inheriting from Entity (~48 common fields).
 
 Architecture:
-    ku_base.py      - KuBase (~29 common fields + stubs, from_dto dispatcher)
-    ku.py           - Ku union type alias + KU_TYPE_CLASS_MAP
-    ku_task.py      - TaskKu(KuBase)          +25 task fields
-    ku_goal.py      - GoalKu(KuBase)          +24 goal fields
-    ku_habit.py     - HabitKu(KuBase)         +31 habit fields
-    ku_event.py     - EventKu(KuBase)         +37 event fields
-    ku_choice.py    - ChoiceKu(KuBase)        +13 choice fields
-    ku_principle.py - PrincipleKu(KuBase)     +19 principle fields
-    ku_curriculum.py  - CurriculumKu(KuBase)  +21 learning/substance fields
-    ku_resource.py    - ResourceKu(KuBase)    +7 resource fields
-    ku_learning_step.py - LearningStepKu(CurriculumKu) +9 fields
-    ku_learning_path.py - LearningPathKu(CurriculumKu) +4 fields
-    ku_submission.py  - SubmissionKu(KuBase)  +13 file/processing fields
-    ku_journal.py     - JournalKu(SubmissionKu)  +0
-    ku_ai_report.py   - AiReportKu(SubmissionKu) +0
-    ku_feedback.py    - FeedbackKu(SubmissionKu)  +2 feedback fields
-    ku_life_path.py   - LifePathKu(KuBase)       +12 alignment fields
+    ku_base.py      - Entity (~29 common fields + stubs, from_dto dispatcher)
+    ku.py           - Ku union type alias + ENTITY_TYPE_CLASS_MAP
+    ku_task.py      - Task(Entity)          +25 task fields
+    ku_goal.py      - Goal(Entity)          +24 goal fields
+    ku_habit.py     - Habit(Entity)         +31 habit fields
+    ku_event.py     - Event(Entity)         +37 event fields
+    ku_choice.py    - Choice(Entity)        +13 choice fields
+    ku_principle.py - Principle(Entity)     +19 principle fields
+    ku_curriculum.py  - Curriculum(Entity)  +21 learning/substance fields
+    ku_resource.py    - Resource(Entity)    +7 resource fields
+    ku_learning_step.py - LearningStep(Curriculum) +9 fields
+    ku_learning_path.py - LearningPath(Curriculum) +4 fields
+    ku_submission.py  - Submission(Entity)  +13 file/processing fields
+    ku_journal.py     - Journal(Submission)  +0
+    ku_ai_report.py   - AiReport(Submission) +0
+    ku_feedback.py    - Feedback(Submission)  +2 feedback fields
+    ku_life_path.py   - LifePath(Entity)       +12 alignment fields
 
 Support:
     ku_dto.py          - Unified KuDTO (all fields, mutable)
     ku_request.py      - Pydantic API models (14 create + 1 update + 1 response)
     ku_nested_types.py - Milestone, ChoiceOption, PrincipleExpression, AlignmentAssessment
     ku_content.py, ku_chunks.py, ku_metadata.py - Content & RAG
-    ku_exercise.py - ExerciseKu(CurriculumKu) - instruction templates
+    ku_exercise.py - Exercise(Curriculum) - instruction templates
     ku_schedule.py - Scheduling
 
 Usage:
-    from core.models.ku import TaskKu, GoalKu, HabitKu, EventKu, ChoiceKu, PrincipleKu
-    from core.models.ku import CurriculumKu, ExerciseKu, LearningStepKu, LearningPathKu
-    from core.models.ku import SubmissionKu, JournalKu, AiReportKu, FeedbackKu
-    from core.models.ku import KuBase, Ku, KuDTO, KuResponse, KuSchedule
+    from core.models.ku import Task, Goal, Habit, Event, Choice, Principle
+    from core.models.ku import Curriculum, Exercise, LearningStep, LearningPath
+    from core.models.ku import Submission, Journal, AiReport, Feedback
+    from core.models.ku import Entity, Ku, KuDTO, KuResponse, KuSchedule
 """
 
+from .ai_report import AiReport
+from .choice import Choice
+from .curriculum import Curriculum
+from .entity import Entity
+from .event import Event
+from .exercise import Exercise
 from .exercise_request import (
     ExerciseCreateRequest,
     ExerciseUpdateRequest,
     KuFeedbackGenerateRequest,
 )
-from .ku import KU_TYPE_CLASS_MAP, CurriculumEntity, Ku, SubmissionEntity
-from .ku_ai_report import AiReportKu
-from .ku_base import KuBase
-from .ku_choice import ChoiceKu
+from .feedback import Feedback
+from .goal import Goal
+from .habit import Habit
+from .journal import Journal
+from .ku import ENTITY_TYPE_CLASS_MAP, CurriculumEntity, Ku, SubmissionEntity
 from .ku_chunks import KuChunk, KuChunkType, chunk_content
 from .ku_content import KuContent
 from .ku_converters import ku_to_response
-from .ku_curriculum import CurriculumKu
 from .ku_dto import KuDTO
-from .ku_event import EventKu
-from .ku_exercise import ExerciseKu
-from .ku_feedback import FeedbackKu
-from .ku_goal import GoalKu
-from .ku_habit import HabitKu
-from .ku_journal import JournalKu
-from .ku_learning_path import LearningPathKu
-from .ku_learning_step import LearningStepKu
-from .ku_life_path import LifePathKu
 from .ku_metadata import KuMetadata
 from .ku_nested_types import (
     AlignmentAssessment,
@@ -71,7 +68,6 @@ from .ku_nested_types import (
     Milestone,
     PrincipleExpression,
 )
-from .ku_principle import PrincipleKu
 from .ku_request import (
     # Route-specific
     AddTagsRequest,
@@ -111,38 +107,42 @@ from .ku_request import (
     ProgressKuGenerateRequest,
     RemoveTagsRequest,
 )
-from .ku_resource import ResourceKu
 from .ku_schedule import (
     KuSchedule,
     KuScheduleDTO,
     ku_schedule_domain_to_dto,
     ku_schedule_dto_to_domain,
 )
-from .ku_submission import SubmissionKu
-from .ku_task import TaskKu
+from .learning_path import LearningPath
+from .learning_step import LearningStep
+from .life_path import LifePath
 from .lp_position import LpPosition, create_lp_position
+from .principle import Principle
+from .resource import Resource
+from .submission import Submission
+from .task import Task
 
 __all__ = [
     # Core domain models
     "Ku",
-    "KuBase",
-    "TaskKu",
-    "GoalKu",
-    "HabitKu",
-    "EventKu",
-    "ChoiceKu",
-    "PrincipleKu",
-    "CurriculumKu",
-    "ExerciseKu",
-    "ResourceKu",
-    "LearningStepKu",
-    "LearningPathKu",
-    "SubmissionKu",
-    "JournalKu",
-    "AiReportKu",
-    "FeedbackKu",
-    "LifePathKu",
-    "KU_TYPE_CLASS_MAP",
+    "Entity",
+    "Task",
+    "Goal",
+    "Habit",
+    "Event",
+    "Choice",
+    "Principle",
+    "Curriculum",
+    "Exercise",
+    "Resource",
+    "LearningStep",
+    "LearningPath",
+    "Submission",
+    "Journal",
+    "AiReport",
+    "Feedback",
+    "LifePath",
+    "ENTITY_TYPE_CLASS_MAP",
     "CurriculumEntity",
     "SubmissionEntity",
     "KuChunk",

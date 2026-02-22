@@ -25,6 +25,7 @@ from fasthtml.common import H1, H2, H3, P
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from components.atomic_habits_achievements import AtomicHabitsBadges
 from components.atomic_habits_analytics import AtomicHabitsAnalytics
 from components.atomic_habits_components import AtomicHabitsComponents
@@ -35,9 +36,8 @@ from components.error_components import ErrorComponents
 from components.form_generator import FormGenerator
 from components.habits_views import HabitsViewComponents
 from components.shared_ui_components import SharedUIComponents
-from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.models.enums import Priority
-from core.models.enums.ku_enums import KuStatus
+from core.models.enums.ku_enums import EntityStatus
 from core.models.habit.habit_request import HabitCreateRequest
 from core.ports.facade_protocols import GoalsFacadeProtocol, HabitsFacadeProtocol
 from core.ports.query_types import ActivityFilterSpec
@@ -1735,7 +1735,7 @@ def create_habits_ui_routes(
                 "completed_today": habit.uid in completed_habit_uids,
             }
             for habit in all_habits
-            if habit.status == KuStatus.ACTIVE
+            if habit.status == EntityStatus.ACTIVE
         ]
 
         # Calculate stats

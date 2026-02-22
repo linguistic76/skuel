@@ -10,8 +10,8 @@ Following SKUEL principles:
 - Simple: Instructions + content -> LLM -> feedback
 """
 
-from core.models.ku import ExerciseKu, Ku
-from core.models.ku.ku_submission import SubmissionKu
+from core.models.ku import Exercise, Ku
+from core.models.ku.submission import Submission
 from core.services.ai_service import AnthropicService, OpenAIService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -24,7 +24,7 @@ class KuFeedbackService:
     Generates AI feedback for Ku entries using project instructions.
 
     Supports both OpenAI and Anthropic models.
-    User selects which model to use via ExerciseKu.model field.
+    User selects which model to use via Exercise.model field.
     """
 
     def __init__(
@@ -54,8 +54,8 @@ class KuFeedbackService:
 
     async def generate_feedback(
         self,
-        entry: SubmissionKu,
-        project: ExerciseKu,
+        entry: Submission,
+        project: Exercise,
         temperature: float = 0.7,
         max_tokens: int = 4000,
     ) -> Result[str]:
@@ -64,7 +64,7 @@ class KuFeedbackService:
 
         Args:
             entry: Ku to analyze (uses content or processed_content)
-            project: ExerciseKu with instructions and model selection
+            project: Exercise with instructions and model selection
             temperature: Sampling temperature (0-1, default 0.7)
             max_tokens: Maximum tokens to generate (default 4000)
 

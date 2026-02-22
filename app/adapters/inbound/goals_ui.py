@@ -26,12 +26,12 @@ from fasthtml.common import H1, H2, H3, Form, P, Script
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from components.atomic_habits_components import AtomicHabitsComponents
 from components.error_components import ErrorComponents
 from components.form_generator import FormGenerator
 from components.goals_views import GoalsViewComponents
 from components.shared_ui_components import SharedUIComponents
-from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.models.enums import Priority
 from core.models.goal.goal_request import GoalCreateRequest
 from core.ports.facade_protocols import GoalsFacadeProtocol

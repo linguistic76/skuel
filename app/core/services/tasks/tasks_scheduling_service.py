@@ -25,11 +25,11 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.ports import BackendOperations
 
-from core.models.enums import Domain, KuStatus, Priority
+from core.models.enums import Domain, EntityStatus, Priority
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_request import KuTaskCreateRequest
-from core.models.ku.ku_task import TaskKu
 from core.models.ku.lp_position import LpPosition
+from core.models.ku.task import Task
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -70,7 +70,7 @@ def _validate_task_prerequisites(
     )
 
 
-class TasksSchedulingService(BaseService["BackendOperations[TaskKu]", TaskKu]):
+class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
     """
     Task scheduling and learning path integration.
 
@@ -99,14 +99,14 @@ class TasksSchedulingService(BaseService["BackendOperations[TaskKu]", TaskKu]):
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=TaskKu,
+        model_class=Task,
         domain_name="tasks",
         date_field="due_date",
-        completed_statuses=(KuStatus.COMPLETED.value,),
+        completed_statuses=(EntityStatus.COMPLETED.value,),
         entity_label="Ku",
     )
 
-    def __init__(self, backend: BackendOperations[TaskKu]) -> None:
+    def __init__(self, backend: BackendOperations[Task]) -> None:
         """
         Initialize scheduling service with required dependencies.
 
@@ -120,13 +120,13 @@ class TasksSchedulingService(BaseService["BackendOperations[TaskKu]", TaskKu]):
         super().__init__(backend=backend, service_name="tasks.scheduling")
 
         # Initialize LearningAlignmentHelper with prerequisite validator (Phase 6)
-        self.learning_helper = LearningAlignmentHelper[TaskKu, KuDTO, KuTaskCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Task, KuDTO, KuTaskCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="list_user_tasks",
             backend_create_method="create_task",
             dto_class=KuDTO,
-            model_class=TaskKu,
+            model_class=Task,
             domain=Domain.TECH,  # Default domain for tasks
             entity_name="task",
             prerequisite_validator=_validate_task_prerequisites,
@@ -148,7 +148,7 @@ class TasksSchedulingService(BaseService["BackendOperations[TaskKu]", TaskKu]):
     @with_error_handling("create_task_with_context", error_type="database")
     async def create_task_with_context(
         self, task_data: KuTaskCreateRequest, user_context: UserContext
-    ) -> Result[TaskKu]:
+    ) -> Result[Task]:
         """
         Create a task with full context awareness.
 
@@ -213,7 +213,7 @@ class TasksSchedulingService(BaseService["BackendOperations[TaskKu]", TaskKu]):
         if create_result.is_error:
             return Result.fail(create_result.expect_error())
 
-        task = self._to_domain_model(create_result.value, KuDTO, TaskKu)
+        task = self._to_domain_model(create_result.value, KuDTO, Task)
 
         # GRAPH-NATIVE: Create relationship edges in graph (not stored on Task/DTO)
         # Collect all relationships for batch creation (10x faster)
@@ -275,7 +275,7 @@ class TasksSchedulingService(BaseService["BackendOperations[TaskKu]", TaskKu]):
         task_request: KuTaskCreateRequest,
         learning_position: LpPosition | None = None,
         context: UserContext | None = None,
-    ) -> Result[TaskKu]:
+    ) -> Result[Task]:
         """
         Create a task enhanced with learning path position context.
 
@@ -300,7 +300,7 @@ class TasksSchedulingService(BaseService["BackendOperations[TaskKu]", TaskKu]):
 
     async def create_tasks_from_learning_path(
         self, learning_path_uid: str, _user_context: UserContext
-    ) -> Result[list[TaskKu]]:
+    ) -> Result[list[Task]]:
         """
         Create tasks from a learning path.
 
@@ -322,7 +322,7 @@ class TasksSchedulingService(BaseService["BackendOperations[TaskKu]", TaskKu]):
         return Result.ok([])
 
     @with_error_handling("get_next_learning_task", error_type="database")
-    async def get_next_learning_task(self, user_context: UserContext) -> Result[TaskKu | None]:
+    async def get_next_learning_task(self, user_context: UserContext) -> Result[Task | None]:
         """
         Get the next recommended learning task based on context.
 
@@ -444,7 +444,7 @@ class TasksSchedulingService(BaseService["BackendOperations[TaskKu]", TaskKu]):
         task_title: str,
         knowledge_uids: list[str],
         _user_uid: str,
-    ) -> Result[TaskKu]:
+    ) -> Result[Task]:
         """
         Create a practice task for a learning step.
 
@@ -481,7 +481,7 @@ class TasksSchedulingService(BaseService["BackendOperations[TaskKu]", TaskKu]):
             # DEFERRED: Knowledge relationship creation (see docstring)
             knowledge_mastery_check=True,
             scheduled_date=date.today() + timedelta(days=1),
-            status=KuStatus.DRAFT.value,
+            status=EntityStatus.DRAFT.value,
             priority=Priority.MEDIUM.value,
         )
 
@@ -490,7 +490,7 @@ class TasksSchedulingService(BaseService["BackendOperations[TaskKu]", TaskKu]):
         if create_result.is_error:
             return Result.fail(create_result.expect_error())
 
-        task = self._to_domain_model(create_result.value, KuDTO, TaskKu)
+        task = self._to_domain_model(create_result.value, KuDTO, Task)
 
         self.logger.info(f"Created curriculum task {task.uid} for step {step_uid}")
         return Result.ok(task)

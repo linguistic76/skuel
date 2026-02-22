@@ -25,9 +25,9 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, LearningLevel, SELCategory
 
 # Domain models - use domain-specific types
-from core.models.ku.ku_curriculum import CurriculumKu
-from core.models.ku.ku_learning_path import LearningPathKu
-from core.models.ku.ku_learning_step import LearningStepKu
+from core.models.ku.curriculum import Curriculum
+from core.models.ku.learning_path import LearningPath
+from core.models.ku.learning_step import LearningStep
 
 # ============================================================================
 # FIXTURES
@@ -35,36 +35,36 @@ from core.models.ku.ku_learning_step import LearningStepKu
 
 
 @pytest.fixture
-def ku_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[CurriculumKu]:
+def ku_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[Curriculum]:
     """Create KU backend with real Neo4j."""
     from neo4j import AsyncGraphDatabase
 
     uri = neo4j_container.get_connection_url()
     driver = AsyncGraphDatabase.driver(uri)
 
-    return UniversalNeo4jBackend[CurriculumKu](driver, "Ku", CurriculumKu)
+    return UniversalNeo4jBackend[Curriculum](driver, "Ku", Curriculum)
 
 
 @pytest.fixture
-def lp_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[LearningPathKu]:
+def lp_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[LearningPath]:
     """Create LP backend with real Neo4j."""
     from neo4j import AsyncGraphDatabase
 
     uri = neo4j_container.get_connection_url()
     driver = AsyncGraphDatabase.driver(uri)
 
-    return UniversalNeo4jBackend[LearningPathKu](driver, "Ku", LearningPathKu)
+    return UniversalNeo4jBackend[LearningPath](driver, "Ku", LearningPath)
 
 
 @pytest.fixture
-def ls_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[LearningStepKu]:
+def ls_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[LearningStep]:
     """Create LS backend with real Neo4j."""
     from neo4j import AsyncGraphDatabase
 
     uri = neo4j_container.get_connection_url()
     driver = AsyncGraphDatabase.driver(uri)
 
-    return UniversalNeo4jBackend[LearningStepKu](driver, "Ku", LearningStepKu)
+    return UniversalNeo4jBackend[LearningStep](driver, "Ku", LearningStep)
 
 
 @pytest.fixture
@@ -106,7 +106,7 @@ class TestKnowledgeUnitCRUD:
     @pytest.mark.asyncio
     async def test_create_knowledge_unit(self, ku_backend, clean_curriculum) -> None:
         """Should create KU in Neo4j."""
-        ku = CurriculumKu(
+        ku = Curriculum(
             uid="ku:test_python_basics",
             title="Python Basics",
             domain=Domain.TECH,
@@ -124,7 +124,7 @@ class TestKnowledgeUnitCRUD:
     async def test_get_knowledge_unit(self, ku_backend, clean_curriculum) -> None:
         """Should retrieve KU from Neo4j."""
         # Create KU
-        ku = CurriculumKu(
+        ku = Curriculum(
             uid="ku:test_get",
             title="Test Get",
             domain=Domain.TECH,
@@ -145,7 +145,7 @@ class TestKnowledgeUnitCRUD:
     async def test_update_knowledge_unit(self, ku_backend, clean_curriculum) -> None:
         """Should update KU in Neo4j."""
         # Create KU
-        ku = CurriculumKu(
+        ku = Curriculum(
             uid="ku:test_update",
             title="Original Title",
             domain=Domain.TECH,
@@ -169,7 +169,7 @@ class TestKnowledgeUnitCRUD:
     async def test_delete_knowledge_unit(self, ku_backend, clean_curriculum) -> None:
         """Should delete KU from Neo4j."""
         # Create KU
-        ku = CurriculumKu(
+        ku = Curriculum(
             uid="ku:test_delete",
             title="Test Delete",
             domain=Domain.TECH,
@@ -200,7 +200,7 @@ class TestLearningStepCRUD:
     @pytest.mark.asyncio
     async def test_create_learning_step(self, ls_backend, clean_curriculum) -> None:
         """Should create LS in Neo4j."""
-        ls = LearningStepKu(
+        ls = LearningStep(
             uid="ls:test_step_1",
             title="Step 1: Learn Python Basics",
             intent="Master Python fundamentals",
@@ -219,7 +219,7 @@ class TestLearningStepCRUD:
     async def test_get_learning_step(self, ls_backend, clean_curriculum) -> None:
         """Should retrieve LS from Neo4j."""
         # Create LS
-        ls = LearningStepKu(
+        ls = LearningStep(
             uid="ls:test_get",
             title="Test Get Step",
             intent="Test learning objective",
@@ -240,7 +240,7 @@ class TestLearningStepCRUD:
     async def test_update_learning_step(self, ls_backend, clean_curriculum) -> None:
         """Should update LS in Neo4j."""
         # Create LS
-        ls = LearningStepKu(
+        ls = LearningStep(
             uid="ls:test_update",
             title="Original Step Title",
             intent="Original learning objective",
@@ -269,7 +269,7 @@ class TestLearningStepCRUD:
     async def test_delete_learning_step(self, ls_backend, clean_curriculum) -> None:
         """Should delete LS from Neo4j."""
         # Create LS
-        ls = LearningStepKu(
+        ls = LearningStep(
             uid="ls:test_delete",
             title="Test Delete Step",
             intent="Test deletion",
@@ -300,7 +300,7 @@ class TestLearningPathCRUD:
     @pytest.mark.asyncio
     async def test_create_learning_path(self, lp_backend, clean_curriculum) -> None:
         """Should create LP in Neo4j."""
-        lp = LearningPathKu(
+        lp = LearningPath(
             uid="lp:test_python_journey",
             title="Python Learning Journey",
             description="Complete path to Python mastery",
@@ -318,7 +318,7 @@ class TestLearningPathCRUD:
     async def test_get_learning_path(self, lp_backend, clean_curriculum) -> None:
         """Should retrieve LP from Neo4j."""
         # Create LP
-        lp = LearningPathKu(
+        lp = LearningPath(
             uid="lp:test_get",
             title="Test Get Path",
             description="Test learning goal",
@@ -339,7 +339,7 @@ class TestLearningPathCRUD:
     async def test_update_learning_path(self, lp_backend, clean_curriculum) -> None:
         """Should update LP in Neo4j."""
         # Create LP
-        lp = LearningPathKu(
+        lp = LearningPath(
             uid="lp:test_update",
             title="Original Path Name",
             description="Original learning goal",
@@ -369,7 +369,7 @@ class TestLearningPathCRUD:
     async def test_delete_learning_path(self, lp_backend, clean_curriculum) -> None:
         """Should delete LP from Neo4j."""
         # Create LP
-        lp = LearningPathKu(
+        lp = LearningPath(
             uid="lp:test_delete",
             title="Test Delete Path",
             description="This path will be deleted",

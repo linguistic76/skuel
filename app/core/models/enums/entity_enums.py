@@ -11,7 +11,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
-    from .ku_enums import KuType
+    from .ku_enums import EntityType
 
 
 class Domain(str, Enum):
@@ -109,8 +109,8 @@ class NonKuDomain(str, Enum):
 
 
 # Union type for any domain identifier in SKUEL.
-# KuType covers all 14 Ku manifestations; NonKuDomain covers the 4 non-Ku domains.
-DomainIdentifier = Union["KuType", NonKuDomain]
+# EntityType covers all 14 Ku manifestations; NonKuDomain covers the 4 non-Ku domains.
+DomainIdentifier = Union["EntityType", NonKuDomain]
 
 
 class AnalyticsDomain(str, Enum):

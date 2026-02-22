@@ -1,10 +1,10 @@
 """
-GoalKu - Goal Domain Model
+Goal - Goal Domain Model
 ============================
 
-Frozen dataclass for goal entities (KuType.GOAL).
+Frozen dataclass for goal entities (EntityType.GOAL).
 
-Inherits ~48 common fields from KuBase. Adds 24 goal-specific fields:
+Inherits ~48 common fields from Entity. Adds 24 goal-specific fields:
 - Classification (3): goal_type, timeframe, measurement_type
 - Measurement (3): target_value, current_value, unit_of_measurement
 - Timeline (3): start_date, target_date, achieved_date
@@ -30,22 +30,22 @@ if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums.ku_enums import (
+    EntityStatus,
+    EntityType,
     GoalTimeframe,
     GoalType,
-    KuStatus,
-    KuType,
     MeasurementType,
 )
-from core.models.ku.ku_base import KuBase
+from core.models.ku.entity import Entity
 from core.models.ku.ku_nested_types import Milestone
 
 
 @dataclass(frozen=True)
-class GoalKu(KuBase):
+class Goal(Entity):
     """
-    Immutable domain model for goals (KuType.GOAL).
+    Immutable domain model for goals (EntityType.GOAL).
 
-    Inherits ~48 common fields from KuBase (identity, content, status,
+    Inherits ~48 common fields from Entity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
     Adds 24 goal-specific fields for classification, measurement, timeline,
@@ -53,9 +53,9 @@ class GoalKu(KuBase):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=GOAL, then delegate to KuBase for timestamps/status defaults."""
-        if self.ku_type != KuType.GOAL:
-            object.__setattr__(self, "ku_type", KuType.GOAL)
+        """Force ku_type=GOAL, then delegate to Entity for timestamps/status defaults."""
+        if self.ku_type != EntityType.GOAL:
+            object.__setattr__(self, "ku_type", EntityType.GOAL)
         super().__post_init__()
 
     # =========================================================================
@@ -163,12 +163,12 @@ class GoalKu(KuBase):
 
     def is_achieved(self) -> bool:
         """Check if goal is achieved (completed status)."""
-        return self.status == KuStatus.COMPLETED
+        return self.status == EntityStatus.COMPLETED
 
     @property
     def is_active(self) -> bool:
         """Check if goal is active (status == ACTIVE)."""
-        return self.status == KuStatus.ACTIVE
+        return self.status == EntityStatus.ACTIVE
 
     def is_past(self) -> bool:
         """Check if target date is in the past."""
@@ -227,20 +227,20 @@ class GoalKu(KuBase):
         return self.domain.value if self.domain else None
 
     # =========================================================================
-    # CONVERSION (generic — uses KuBase._from_dto / to_dto)
+    # CONVERSION (generic — uses Entity._from_dto / to_dto)
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "GoalKu":
-        """Create GoalKu from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO") -> "Goal":
+        """Create Goal from a KuDTO."""
         return cls._from_dto(dto)
 
     def __str__(self) -> str:
-        return f"GoalKu(uid={self.uid}, title='{self.title}', target={self.target_date})"
+        return f"Goal(uid={self.uid}, title='{self.title}', target={self.target_date})"
 
     def __repr__(self) -> str:
         return (
-            f"GoalKu(uid='{self.uid}', title='{self.title}', "
+            f"Goal(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, goal_type={self.goal_type}, "
             f"target_date={self.target_date}, user_uid={self.user_uid})"
         )

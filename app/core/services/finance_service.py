@@ -49,6 +49,7 @@ from core.models.finance.finance_pure import (
     ExpenseStatus,
 )
 from core.models.finance.invoice import InvoicePure
+from core.ports.domain_protocols import FinancesOperations
 from core.services.finance import (
     FinanceBudgetService,
     FinanceCoreService,
@@ -56,7 +57,6 @@ from core.services.finance import (
 )
 from core.services.finance.finance_invoice_service import FinanceInvoiceService
 from core.services.finance_types import CategoryInfo, CategorySuggestion
-from core.ports.domain_protocols import FinancesOperations
 from core.utils.finance_categories import (
     CategoryHierarchy,
     get_category,

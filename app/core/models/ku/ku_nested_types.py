@@ -4,7 +4,7 @@ Ku Nested Types — Frozen Dataclass Components for Unified Ku Model
 
 "Ku is the heartbeat of SKUEL."
 
-Nested types used within specific KuType sections:
+Nested types used within specific EntityType sections:
 
     Milestone           → GOAL progress tracking (milestones field)
     ChoiceOption        → CHOICE decision options (options field)

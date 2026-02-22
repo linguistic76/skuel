@@ -1,10 +1,10 @@
 """
-FeedbackKu - Feedback Report Domain Model
+Feedback - Feedback Report Domain Model
 ============================================
 
-Frozen dataclass for teacher feedback entities (KuType.FEEDBACK_REPORT).
+Frozen dataclass for teacher feedback entities (EntityType.FEEDBACK_REPORT).
 
-Inherits all fields from SubmissionKu (KuBase ~48 + 13 submission fields).
+Inherits all fields from Submission (Entity ~48 + 13 submission fields).
 Adds 2 feedback-specific fields:
 - feedback: str | None — the feedback text
 - feedback_generated_at: datetime | None — when feedback was generated
@@ -20,23 +20,23 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
-from core.models.enums.ku_enums import KuType
-from core.models.ku.ku_submission import SubmissionKu
+from core.models.enums.ku_enums import EntityType
+from core.models.ku.submission import Submission
 
 
 @dataclass(frozen=True)
-class FeedbackKu(SubmissionKu):
+class Feedback(Submission):
     """
-    Immutable domain model for teacher feedback (KuType.FEEDBACK_REPORT).
+    Immutable domain model for teacher feedback (EntityType.FEEDBACK_REPORT).
 
-    Inherits all fields from SubmissionKu. Adds 2 feedback-specific fields.
-    Uses subject_uid (from SubmissionKu) for "who this feedback is about".
+    Inherits all fields from Submission. Adds 2 feedback-specific fields.
+    Uses subject_uid (from Submission) for "who this feedback is about".
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=FEEDBACK_REPORT, then delegate to SubmissionKu."""
-        if self.ku_type != KuType.FEEDBACK_REPORT:
-            object.__setattr__(self, "ku_type", KuType.FEEDBACK_REPORT)
+        """Force ku_type=FEEDBACK_REPORT, then delegate to Submission."""
+        if self.ku_type != EntityType.FEEDBACK_REPORT:
+            object.__setattr__(self, "ku_type", EntityType.FEEDBACK_REPORT)
         super().__post_init__()
 
     # =========================================================================
@@ -46,20 +46,20 @@ class FeedbackKu(SubmissionKu):
     feedback_generated_at: datetime | None = None  # type: ignore[assignment]
 
     # =========================================================================
-    # CONVERSION (generic — uses KuBase._from_dto / to_dto)
+    # CONVERSION (generic — uses Entity._from_dto / to_dto)
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "FeedbackKu":
-        """Create FeedbackKu from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO") -> "Feedback":
+        """Create Feedback from a KuDTO."""
         return cls._from_dto(dto)
 
     def __str__(self) -> str:
-        return f"FeedbackKu(uid={self.uid}, title='{self.title}', subject={self.subject_uid})"
+        return f"Feedback(uid={self.uid}, title='{self.title}', subject={self.subject_uid})"
 
     def __repr__(self) -> str:
         return (
-            f"FeedbackKu(uid='{self.uid}', title='{self.title}', "
+            f"Feedback(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, subject_uid={self.subject_uid}, "
             f"feedback={'yes' if self.feedback else 'no'}, "
             f"user_uid={self.user_uid})"

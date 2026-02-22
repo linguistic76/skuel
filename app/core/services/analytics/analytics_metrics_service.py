@@ -34,7 +34,7 @@ from datetime import date
 from typing import Any, Protocol, runtime_checkable
 
 from core.constants import QueryLimit
-from core.models.enums import KuStatus
+from core.models.enums import EntityStatus
 from core.models.ku.ku_dto import KuDTO
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -182,8 +182,8 @@ class AnalyticsMetricsService:
 
         # Calculate metrics
         total = len(tasks)
-        completed = sum(1 for t in tasks if t.status == KuStatus.COMPLETED)
-        in_progress = sum(1 for t in tasks if t.status == KuStatus.ACTIVE)
+        completed = sum(1 for t in tasks if t.status == EntityStatus.COMPLETED)
+        in_progress = sum(1 for t in tasks if t.status == EntityStatus.ACTIVE)
         pending = sum(1 for t in tasks if t.status.value == "pending")
         overdue = sum(1 for t in tasks if self._is_overdue(t))
 
@@ -198,7 +198,7 @@ class AnalyticsMetricsService:
         # Average completion time (for completed tasks with dates)
         completion_times = []
         for task in tasks:
-            if task.status == KuStatus.COMPLETED and task.created_at and task.completed_at:
+            if task.status == EntityStatus.COMPLETED and task.created_at and task.completed_at:
                 delta = (task.completed_at - task.created_at).days
                 completion_times.append(delta)
 
@@ -355,10 +355,10 @@ class AnalyticsMetricsService:
         # Count completed goals
         completed_count = 0
         if completed_goals_result.is_ok and completed_goals_result.value:
-            from core.models.enums import KuStatus
+            from core.models.enums import EntityStatus
 
             completed_count = sum(
-                1 for g in completed_goals_result.value if g.status == KuStatus.COMPLETED
+                1 for g in completed_goals_result.value if g.status == EntityStatus.COMPLETED
             )
 
         # Calculate completion rate
@@ -423,8 +423,8 @@ class AnalyticsMetricsService:
 
         total = len(events)
         upcoming = sum(1 for e in events if e.start_time > datetime.now())
-        completed = sum(1 for e in events if e.status == KuStatus.COMPLETED)
-        cancelled = sum(1 for e in events if e.status == KuStatus.CANCELLED)
+        completed = sum(1 for e in events if e.status == EntityStatus.COMPLETED)
+        cancelled = sum(1 for e in events if e.status == EntityStatus.CANCELLED)
 
         # Total scheduled hours
         total_hours = 0.0
@@ -1160,4 +1160,4 @@ class AnalyticsMetricsService:
         due_date = getattr(task, "due_date", None)
         if not due_date:
             return False
-        return due_date < date.today() and task.status != KuStatus.COMPLETED
+        return due_date < date.today() and task.status != EntityStatus.COMPLETED

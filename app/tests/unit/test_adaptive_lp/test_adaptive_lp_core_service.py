@@ -66,14 +66,14 @@ def create_mock_tasks_service() -> Mock:
     """Create mock TasksService for learning style detection."""
     from datetime import date
 
-    from core.models.enums import KuStatus
+    from core.models.enums import EntityStatus
 
     # Create mock task objects with ALL attributes accessed by the service
     # See adaptive_lp_core_service.py lines 238-264 for required attributes
     task1 = Mock()
     task1.uid = "task_001"
     task1.title = "Read ML book"
-    task1.status = KuStatus.COMPLETED
+    task1.status = EntityStatus.COMPLETED
     task1.completion_date = date.today()
     task1.knowledge_uids = ["ku.python-basics"]
     # Additional attributes for learning style detection
@@ -85,7 +85,7 @@ def create_mock_tasks_service() -> Mock:
     task2 = Mock()
     task2.uid = "task_002"
     task2.title = "Practice coding"
-    task2.status = KuStatus.COMPLETED
+    task2.status = EntityStatus.COMPLETED
     task2.completion_date = date.today()
     task2.knowledge_uids = ["ku.python-basics"]
     # Additional attributes
@@ -98,7 +98,7 @@ def create_mock_tasks_service() -> Mock:
     task3 = Mock()
     task3.uid = "task_003"
     task3.title = "Build ML model"
-    task3.status = KuStatus.COMPLETED
+    task3.status = EntityStatus.COMPLETED
     task3.completion_date = date.today()
     task3.knowledge_uids = ["ku.ml-basics"]
     task3.parent_uid = None
@@ -109,7 +109,7 @@ def create_mock_tasks_service() -> Mock:
     task4 = Mock()
     task4.uid = "task_004"
     task4.title = "Review algorithms"
-    task4.status = KuStatus.COMPLETED
+    task4.status = EntityStatus.COMPLETED
     task4.completion_date = date.today()
     task4.knowledge_uids = ["ku.algorithms"]
     task4.parent_uid = None
@@ -120,7 +120,7 @@ def create_mock_tasks_service() -> Mock:
     task5 = Mock()
     task5.uid = "task_005"
     task5.title = "Team project"
-    task5.status = KuStatus.COMPLETED
+    task5.status = EntityStatus.COMPLETED
     task5.completion_date = date.today()
     task5.knowledge_uids = ["ku.python-advanced"]
     task5.parent_uid = None

@@ -27,8 +27,8 @@ from core.models.finance.finance_request import (
 )
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
+from core.models.ku.habit import Habit as Habit
 from core.models.ku.ku import Ku
-from core.models.ku.ku_habit import HabitKu as Habit
 from core.models.ku.ku_nested_types import ChoiceOption
 from core.models.ku.ku_request import (
     KuChoiceCreateRequest,

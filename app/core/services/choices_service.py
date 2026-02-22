@@ -16,10 +16,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import KuStatus
+from core.models.enums import EntityStatus
+from core.models.ku.entity import Entity
 from core.models.ku.ku import Ku
-from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
+from core.ports import BackendOperations
 from core.services.base_service import BaseService
 
 # Import sub-services and mixins
@@ -34,7 +35,6 @@ from core.services.mixins import (
     create_relationship_delegations,
     merge_delegations,
 )
-from core.ports import BackendOperations
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.logging import get_logger
@@ -43,9 +43,9 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.ku.ku_request import KuChoiceCreateRequest, KuUpdateRequest
-    from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.search_protocols import ChoicesSearchOperations
+    from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
 
 
 class ChoicesService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", Ku]):
@@ -81,10 +81,10 @@ class ChoicesService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]",
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=KuBase,
+        model_class=Entity,
         domain_name="choices",
         date_field="decision_date",
-        completed_statuses=(KuStatus.COMPLETED.value,),
+        completed_statuses=(EntityStatus.COMPLETED.value,),
     )
 
     # ========================================================================

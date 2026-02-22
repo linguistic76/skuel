@@ -7,9 +7,9 @@ Wires Teaching review API + UI routes using DomainRouteConfig.
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.teaching_api import create_teaching_api_routes
 from adapters.inbound.teaching_ui import create_teaching_ui_routes
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 TEACHING_CONFIG = DomainRouteConfig(
     domain_name="teaching",

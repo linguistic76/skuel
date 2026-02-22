@@ -7,7 +7,7 @@ the from_search_text() methods on SKUEL's enums.
 
 Design Philosophy:
 - "show me urgent tasks" → extracts Priority.CRITICAL, Priority.HIGH
-- "find completed goals" → extracts KuStatus.COMPLETED
+- "find completed goals" → extracts EntityStatus.COMPLETED
 - "health habits" → extracts Domain.HEALTH
 
 This bridges the gap between user-friendly natural language and
@@ -23,7 +23,7 @@ Usage:
     # - raw_query: "show me urgent tasks in progress"
     # - text_query: "show me tasks"  (cleaned for text search)
     # - priorities: [Priority.CRITICAL, Priority.HIGH]
-    # - statuses: [KuStatus.ACTIVE]
+    # - statuses: [EntityStatus.ACTIVE]
     # - domains: []
 
 Version: 1.0.0
@@ -35,7 +35,7 @@ from dataclasses import dataclass
 from core.models.enums import (
     ContentType,
     Domain,
-    KuStatus,
+    EntityStatus,
     LearningLevel,
     Priority,
 )
@@ -57,7 +57,7 @@ class ParsedSearchQuery:
 
     # Extracted semantic filters
     priorities: tuple[Priority, ...] = ()
-    statuses: tuple[KuStatus, ...] = ()
+    statuses: tuple[EntityStatus, ...] = ()
     domains: tuple[Domain, ...] = ()
     learning_levels: tuple[LearningLevel, ...] = ()
     content_types: tuple[ContentType, ...] = ()
@@ -126,9 +126,9 @@ class SearchQueryParser:
         result = parser.parse("show me urgent tasks")
         assert Priority.CRITICAL in result.priorities
 
-        # "completed health goals" → KuStatus.COMPLETED, Domain.HEALTH
+        # "completed health goals" → EntityStatus.COMPLETED, Domain.HEALTH
         result = parser.parse("completed health goals")
-        assert KuStatus.COMPLETED in result.statuses
+        assert EntityStatus.COMPLETED in result.statuses
         assert Domain.HEALTH in result.domains
     """
 
@@ -178,7 +178,7 @@ class SearchQueryParser:
             >>> result.priorities
             (Priority.CRITICAL, Priority.HIGH)
             >>> result.statuses
-            (KuStatus.ACTIVE,)
+            (EntityStatus.ACTIVE,)
         """
         if not query or not query.strip():
             return ParsedSearchQuery(raw_query="", text_query="")
@@ -187,7 +187,7 @@ class SearchQueryParser:
 
         # Extract semantic filters using enum methods
         priorities = tuple(Priority.from_search_text(raw_query))
-        statuses = tuple(KuStatus.from_search_text(raw_query))
+        statuses = tuple(EntityStatus.from_search_text(raw_query))
         domains = tuple(Domain.from_search_text(raw_query))
         learning_levels = tuple(LearningLevel.from_search_text(raw_query))
         content_types = tuple(ContentType.from_search_text(raw_query))
@@ -211,7 +211,7 @@ class SearchQueryParser:
         self,
         query: str,
         priorities: tuple[Priority, ...],
-        statuses: tuple[KuStatus, ...],
+        statuses: tuple[EntityStatus, ...],
         domains: tuple[Domain, ...],
         learning_levels: tuple[LearningLevel, ...],
         content_types: tuple[ContentType, ...],
@@ -306,9 +306,9 @@ class SearchQueryParser:
         """Extract just priority filters from a query."""
         return tuple(Priority.from_search_text(query))
 
-    def extract_status(self, query: str) -> tuple[KuStatus, ...]:
+    def extract_status(self, query: str) -> tuple[EntityStatus, ...]:
         """Extract just status filters from a query."""
-        return tuple(KuStatus.from_search_text(query))
+        return tuple(EntityStatus.from_search_text(query))
 
     def extract_domain(self, query: str) -> tuple[Domain, ...]:
         """Extract just domain filters from a query."""

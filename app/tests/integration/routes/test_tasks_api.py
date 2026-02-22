@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums import KuStatus, Priority
+from core.models.enums import EntityStatus, Priority
 from core.utils.result_simplified import Errors, Result
 
 # Mark all tests as async (all tests in this module are async)
@@ -34,7 +34,7 @@ class MockTask:
         user_uid: str = "user.test",
         title: str = "Test Task",
         description: str = "A test task description",
-        status: KuStatus = KuStatus.ACTIVE,
+        status: EntityStatus = EntityStatus.ACTIVE,
         priority: Priority = Priority.MEDIUM,
         due_date: date | None = None,
     ):
@@ -185,7 +185,7 @@ class TestQueryOperations:
 
     async def test_get_tasks_by_status(self, mock_tasks_service):
         """Test filtering tasks by status."""
-        result = await mock_tasks_service.get_by_status(KuStatus.ACTIVE)
+        result = await mock_tasks_service.get_by_status(EntityStatus.ACTIVE)
 
         assert result.is_ok
 
@@ -196,7 +196,7 @@ class TestCompleteTask:
     async def test_complete_task_success(self, mock_tasks_service):
         """Test completing a task."""
         mock_tasks_service.complete_task_with_cascade = AsyncMock(
-            return_value=Result.ok(MockTask(status=KuStatus.COMPLETED))
+            return_value=Result.ok(MockTask(status=EntityStatus.COMPLETED))
         )
 
         result = await mock_tasks_service.complete_task_with_cascade(
@@ -207,7 +207,7 @@ class TestCompleteTask:
         )
 
         assert result.is_ok
-        assert result.value.status == KuStatus.COMPLETED
+        assert result.value.status == EntityStatus.COMPLETED
 
     async def test_complete_task_with_optional_params(self, mock_tasks_service):
         """Test completing a task with optional parameters."""
@@ -221,13 +221,13 @@ class TestCompleteTask:
     async def test_uncomplete_task(self, mock_tasks_service):
         """Test marking a task as incomplete."""
         mock_tasks_service.update = AsyncMock(
-            return_value=Result.ok(MockTask(status=KuStatus.ACTIVE))
+            return_value=Result.ok(MockTask(status=EntityStatus.ACTIVE))
         )
 
-        result = await mock_tasks_service.update("task.test123", {"status": KuStatus.ACTIVE})
+        result = await mock_tasks_service.update("task.test123", {"status": EntityStatus.ACTIVE})
 
         assert result.is_ok
-        assert result.value.status == KuStatus.ACTIVE
+        assert result.value.status == EntityStatus.ACTIVE
 
 
 class TestTaskAssignment:
@@ -392,18 +392,18 @@ class TestTaskModel:
 
     async def test_task_has_required_fields(self):
         """Test that Task model has required fields."""
-        from core.models.ku.ku_task import TaskKu as Task
+        from core.models.ku.task import Task as Task
 
         required_fields = ["uid", "user_uid", "title"]
         for field in required_fields:
             assert hasattr(Task, "__annotations__") or field in dir(Task)
 
     async def test_activity_status_enum(self):
-        """Test KuStatus enum values."""
-        assert KuStatus.ACTIVE.value == "active"
-        assert KuStatus.COMPLETED.value == "completed"
-        assert KuStatus.SCHEDULED.value == "scheduled"
-        assert KuStatus.DRAFT.value == "draft"
+        """Test EntityStatus enum values."""
+        assert EntityStatus.ACTIVE.value == "active"
+        assert EntityStatus.COMPLETED.value == "completed"
+        assert EntityStatus.SCHEDULED.value == "scheduled"
+        assert EntityStatus.DRAFT.value == "draft"
 
     async def test_priority_enum(self):
         """Test Priority enum values."""

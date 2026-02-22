@@ -10,25 +10,25 @@ Just as RelationshipName provides a single source of truth for relationship type
 NeoLabel provides a single source of truth for node labels. This enables:
 
 1. Compile-time typo detection (MyPy catches invalid labels)
-2. KuType/NonKuDomain -> Label mapping (consistent translation)
+2. EntityType/NonKuDomain -> Label mapping (consistent translation)
 3. Self-documentation (all valid labels in one place)
 4. Backend validation (UniversalNeo4jBackend can validate labels)
 
 Usage:
     from core.models.enums import NeoLabel
 
-    # Direct usage — all domain entities are :Ku nodes
-    backend = UniversalNeo4jBackend[Ku](driver, NeoLabel.KU, Ku)
+    # Domain-specific label — each entity type has its own label
+    backend = UniversalNeo4jBackend[Task](driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
 
-    # Get label from KuType (always returns KU)
-    label = NeoLabel.from_ku_type(KuType.TASK)  # Returns NeoLabel.KU
+    # Get label from EntityType
+    label = NeoLabel.from_entity_type(EntityType.TASK)  # Returns NeoLabel.TASK
 
     # Validate a label string
-    if NeoLabel.is_valid("Ku"):  # Returns True
+    if NeoLabel.is_valid("Task"):  # Returns True
         ...
 
 See Also:
-    - KuType: Domain type enum (ku_enums.py)
+    - EntityType: Domain type enum (ku_enums.py)
     - NonKuDomain: Non-Ku domain enum (entity_enums.py)
     - RelationshipName: Relationship type enum (relationship_names.py)
     - UniversalNeo4jBackend: Generic persistence layer
@@ -41,25 +41,60 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.enums.entity_enums import NonKuDomain
-    from core.models.enums.ku_enums import KuType
+    from core.models.enums.ku_enums import EntityType
 
 
 class NeoLabel(str, Enum):
     """
     All valid Neo4j node labels in SKUEL.
 
-    After the unified Ku migration, all domain entities (tasks, goals, habits,
-    events, choices, principles, KU, LS, LP, reports, life path) are :Ku nodes
-    with a ku_type discriminator. Only non-Ku infrastructure nodes retain
-    separate labels.
+    Domain entities use multi-label architecture:
+    - :Entity (universal base label for all domain entities)
+    - :Task, :Goal, :Habit, etc. (domain-specific label for indexed queries)
+    - :Ku (legacy label, retained for backward compatibility during migration)
 
     The label value is the exact string used in Neo4j MATCH/CREATE patterns.
     """
 
     # =========================================================================
-    # Unified Domain Label — ALL domain entities
+    # Universal Base Label — ALL domain entities
     # =========================================================================
-    KU = "Ku"  # Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP, Reports, LifePath
+    ENTITY = "Entity"  # Universal label for cross-domain queries
+
+    # =========================================================================
+    # Legacy Unified Label — retained for backward compatibility
+    # =========================================================================
+    KU = "Ku"  # Legacy — will be removed in Phase 6
+
+    # =========================================================================
+    # Domain-Specific Labels — one per EntityType
+    # =========================================================================
+
+    # Activity Domains (6) — user-owned
+    TASK = "Task"
+    GOAL = "Goal"
+    HABIT = "Habit"
+    EVENT = "Event"
+    CHOICE = "Choice"
+    PRINCIPLE = "Principle"
+
+    # Curriculum Domains (4) — shared content
+    CURRICULUM = "Curriculum"
+    RESOURCE = "Resource"
+    LEARNING_STEP = "LearningStep"
+    LEARNING_PATH = "LearningPath"
+
+    # Content Processing (4) — user submissions and reports
+    SUBMISSION = "Submission"
+    JOURNAL = "Journal"
+    AI_REPORT = "AiReport"
+    FEEDBACK = "Feedback"
+
+    # Instruction Templates (1)
+    EXERCISE = "Exercise"  # Domain label for :Ku nodes with ku_type="exercise"
+
+    # Destination (1)
+    LIFE_PATH = "LifePath"
 
     # =========================================================================
     # Activity Infrastructure (sub-entity nodes)
@@ -81,8 +116,7 @@ class NeoLabel(str, Enum):
     # =========================================================================
     # Content/Processing Infrastructure
     # =========================================================================
-    ASSIGNMENT = "Assignment"  # Legacy — migrating to :Ku with ku_type="exercise"
-    EXERCISE = "Exercise"  # Secondary label on :Ku nodes with ku_type="exercise"
+    ASSIGNMENT = "Assignment"  # Legacy — ReportProject/Assignment nodes
     KU_SCHEDULE = "KuSchedule"
     TRANSCRIPTION = "Transcription"
 
@@ -104,45 +138,46 @@ class NeoLabel(str, Enum):
     # =========================================================================
 
     @classmethod
-    def from_ku_type(cls, _ku_type: KuType) -> NeoLabel:
+    def from_entity_type(cls, ku_type: EntityType) -> NeoLabel:
         """
-        Get the Neo4j label for a KuType.
+        Get the domain-specific Neo4j label for a EntityType.
 
-        All KuTypes map to NeoLabel.KU (unified Ku model).
+        Each EntityType maps to its own domain label for indexed queries.
 
         Args:
-            _ku_type: The KuType enum value (unused — all KuTypes map to KU)
+            ku_type: The EntityType enum value
 
         Returns:
-            NeoLabel.KU (always)
+            Domain-specific NeoLabel
 
         Example:
-            label = NeoLabel.from_ku_type(KuType.TASK)  # Returns NeoLabel.KU
-            label = NeoLabel.from_ku_type(KuType.CURRICULUM)  # Returns NeoLabel.KU
+            label = NeoLabel.from_entity_type(EntityType.TASK)  # Returns NeoLabel.TASK
+            label = NeoLabel.from_entity_type(EntityType.CURRICULUM)  # Returns NeoLabel.CURRICULUM
         """
-        return cls.KU
+        _ensure_mapping()
+        return _ENTITY_TYPE_TO_LABEL[ku_type]
 
     @classmethod
-    def from_domain(cls, domain: KuType | NonKuDomain) -> NeoLabel | None:
+    def from_domain(cls, domain: EntityType | NonKuDomain) -> NeoLabel | None:
         """
         Get Neo4j label for any domain identifier.
 
         Args:
-            domain: KuType or NonKuDomain value
+            domain: EntityType or NonKuDomain value
 
         Returns:
             NeoLabel if mapping exists, None for domains without Neo4j nodes
 
         Example:
-            NeoLabel.from_domain(KuType.TASK)  # Returns NeoLabel.KU
+            NeoLabel.from_domain(EntityType.TASK)  # Returns NeoLabel.TASK
             NeoLabel.from_domain(NonKuDomain.FINANCE)  # Returns NeoLabel.EXPENSE
             NeoLabel.from_domain(NonKuDomain.CALENDAR)  # Returns None
         """
         from core.models.enums.entity_enums import NonKuDomain
-        from core.models.enums.ku_enums import KuType
+        from core.models.enums.ku_enums import EntityType
 
-        if isinstance(domain, KuType):
-            return cls.KU
+        if isinstance(domain, EntityType):
+            return cls.from_entity_type(domain)
 
         _non_ku_mapping: dict[NonKuDomain, NeoLabel] = {
             NonKuDomain.FINANCE: cls.EXPENSE,
@@ -162,7 +197,7 @@ class NeoLabel(str, Enum):
             True if label is valid, False otherwise
 
         Example:
-            NeoLabel.is_valid("Ku")  # True
+            NeoLabel.is_valid("Task")  # True
             NeoLabel.is_valid("Taks")  # False (typo)
         """
         return label in cls._value2member_map_
@@ -177,10 +212,50 @@ class NeoLabel(str, Enum):
 
         Example:
             labels = NeoLabel.all_labels()
-            # frozenset({'Ku', 'HabitCompletion', 'Expense', ...})
+            # frozenset({'Entity', 'Task', 'Goal', 'Expense', ...})
         """
         return frozenset(label.value for label in cls)
 
     def __str__(self) -> str:
         """Return the label value for use in Cypher queries."""
         return self.value
+
+
+# =============================================================================
+# EntityType -> NeoLabel mapping (module-level for performance)
+# =============================================================================
+# Lazy-initialized to avoid circular imports (EntityType imports happen at runtime)
+
+_ENTITY_TYPE_TO_LABEL: dict[EntityType, NeoLabel] = {}
+
+
+def _init_ku_type_mapping() -> None:
+    """Initialize the EntityType -> NeoLabel mapping. Called on first use."""
+    from core.models.enums.ku_enums import EntityType
+
+    _ENTITY_TYPE_TO_LABEL.update(
+        {
+            EntityType.TASK: NeoLabel.TASK,
+            EntityType.GOAL: NeoLabel.GOAL,
+            EntityType.HABIT: NeoLabel.HABIT,
+            EntityType.EVENT: NeoLabel.EVENT,
+            EntityType.CHOICE: NeoLabel.CHOICE,
+            EntityType.PRINCIPLE: NeoLabel.PRINCIPLE,
+            EntityType.CURRICULUM: NeoLabel.CURRICULUM,
+            EntityType.RESOURCE: NeoLabel.RESOURCE,
+            EntityType.LEARNING_STEP: NeoLabel.LEARNING_STEP,
+            EntityType.LEARNING_PATH: NeoLabel.LEARNING_PATH,
+            EntityType.EXERCISE: NeoLabel.EXERCISE,
+            EntityType.SUBMISSION: NeoLabel.SUBMISSION,
+            EntityType.JOURNAL: NeoLabel.JOURNAL,
+            EntityType.AI_REPORT: NeoLabel.AI_REPORT,
+            EntityType.FEEDBACK_REPORT: NeoLabel.FEEDBACK,
+            EntityType.LIFE_PATH: NeoLabel.LIFE_PATH,
+        }
+    )
+
+
+def _ensure_mapping() -> None:
+    """Ensure the mapping is initialized."""
+    if not _ENTITY_TYPE_TO_LABEL:
+        _init_ku_type_mapping()

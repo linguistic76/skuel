@@ -1,11 +1,11 @@
 """
-CurriculumKu - Curriculum Domain Model (Intermediate Class)
+Curriculum - Curriculum Domain Model (Intermediate Class)
 ============================================================
 
 Frozen dataclass for curriculum-carrying entities. Intermediate class between
-KuBase and curriculum-specific subclasses (LearningStepKu, LearningPathKu).
+Entity and curriculum-specific subclasses (LearningStep, LearningPath).
 
-Adds 21 fields to KuBase:
+Adds 21 fields to Entity:
 - Learning metadata (9): complexity, learning_level, sel_category, quality_score,
   estimated_time_minutes, difficulty_rating, semantic_links, target_age_range,
   learning_objectives
@@ -13,11 +13,11 @@ Adds 21 fields to KuBase:
 - Cache (2): _cached_substance_score, _substance_cache_timestamp
 
 Hierarchy:
-    KuBase (~29 fields)
-    └── CurriculumKu(KuBase) +21 fields, ~30 methods
-        ├── LearningStepKu(CurriculumKu) +9 fields
-        ├── LearningPathKu(CurriculumKu) +4 fields
-        └── ResourceKu(KuBase) — NOT CurriculumKu (Tier A raw content)
+    Entity (~29 fields)
+    └── Curriculum(Entity) +21 fields, ~30 methods
+        ├── LearningStep(Curriculum) +9 fields
+        ├── LearningPath(Curriculum) +4 fields
+        └── Resource(Entity) — NOT Curriculum (Tier A raw content)
 
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 See: /docs/architecture/knowledge_substance_philosophy.md
@@ -32,31 +32,31 @@ if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory, SystemConstants
-from core.models.enums.ku_enums import KuType
-from core.models.ku.ku_base import KuBase
+from core.models.enums.ku_enums import EntityType
+from core.models.ku.entity import Entity
 from core.models.query import QueryIntent
 
 
 @dataclass(frozen=True)
-class CurriculumKu(KuBase):
+class Curriculum(Entity):
     """
-    Immutable domain model for curriculum knowledge (KuType.CURRICULUM).
+    Immutable domain model for curriculum knowledge (EntityType.CURRICULUM).
 
     Intermediate class adding learning metadata, substance tracking, and
-    curriculum-specific methods to KuBase. LearningStepKu and LearningPathKu
-    inherit from CurriculumKu.
+    curriculum-specific methods to Entity. LearningStep and LearningPath
+    inherit from Curriculum.
 
     Zero extra fields beyond the 21 inherited additions — CURRICULUM is the
     base knowledge carrier. All curriculum-specific structure lives in Neo4j
     graph relationships (ORGANIZES, PRIMARY_KNOWLEDGE, SUPPORTING_KNOWLEDGE).
 
-    Note: KuType.RESOURCE uses ResourceKu (Tier A raw content, inherits KuBase directly).
+    Note: EntityType.RESOURCE uses Resource (Tier A raw content, inherits Entity directly).
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=CURRICULUM if not already set, then delegate to KuBase."""
-        if self.ku_type != KuType.CURRICULUM:
-            object.__setattr__(self, "ku_type", KuType.CURRICULUM)
+        """Force ku_type=CURRICULUM if not already set, then delegate to Entity."""
+        if self.ku_type != EntityType.CURRICULUM:
+            object.__setattr__(self, "ku_type", EntityType.CURRICULUM)
         super().__post_init__()
 
     # =========================================================================
@@ -235,7 +235,7 @@ class CurriculumKu(KuBase):
     # =========================================================================
     # SUBSTANCE TRACKING
     # "Applied knowledge, not pure theory"
-    # Overrides KuBase stubs with real implementations.
+    # Overrides Entity stubs with real implementations.
     # =========================================================================
 
     def substance_score(self, force_recalculate: bool = False) -> float:
@@ -461,20 +461,20 @@ class CurriculumKu(KuBase):
         }
 
     # =========================================================================
-    # CONVERSION (generic -- uses KuBase._from_dto / to_dto)
+    # CONVERSION (generic -- uses Entity._from_dto / to_dto)
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "CurriculumKu":
-        """Create CurriculumKu from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO") -> "Curriculum":
+        """Create Curriculum from a KuDTO."""
         return cls._from_dto(dto)
 
     def __str__(self) -> str:
-        return f"CurriculumKu(uid={self.uid}, title='{self.title}')"
+        return f"Curriculum(uid={self.uid}, title='{self.title}')"
 
     def __repr__(self) -> str:
         return (
-            f"CurriculumKu(uid='{self.uid}', title='{self.title}', "
+            f"Curriculum(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, domain={self.domain}, "
             f"complexity={self.complexity}, user_uid={self.user_uid})"
         )

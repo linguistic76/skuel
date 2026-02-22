@@ -38,13 +38,13 @@ if TYPE_CHECKING:
 
 from core.events import publish_event
 from core.events.submission_events import AssessmentCreated, SubmissionDeleted
-from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
-from core.models.ku import FeedbackKu, JournalKu, Ku, KuBase, KuDTO
+from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType
+from core.models.ku import Entity, Feedback, Journal, Ku, KuDTO
 from core.models.relationship_names import RelationshipName
-from core.services.base_service import BaseService
-from core.services.domain_config import DomainConfig
 from core.ports import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
+from core.services.base_service import BaseService
+from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_report_date
@@ -107,7 +107,7 @@ class KuCategory:
         ]
 
 
-class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
+class KuCoreService(BaseService[BackendOperations[Entity], Entity]):
     """
     Core Ku service for content management operations.
 
@@ -138,7 +138,7 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
     # =========================================================================
     _config = DomainConfig(
         dto_class=KuDTO,
-        model_class=KuBase,
+        model_class=Entity,
         entity_label="Ku",
         search_fields=("title", "original_filename", "processed_content"),
         search_order_by="created_at",
@@ -279,7 +279,7 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
         self,
         limit: int = 10,
         user_uid: str | None = None,
-        ku_type: KuType | None = None,
+        ku_type: EntityType | None = None,
     ) -> Result[list[Ku]]:
         """
         Get recent Ku entities.
@@ -424,7 +424,7 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
 
     async def publish_ku(self, uid: str) -> Result[Ku]:
         """Publish a Ku (set status to completed/published)."""
-        return await self._update_ku_status(uid, KuStatus.COMPLETED)
+        return await self._update_ku_status(uid, EntityStatus.COMPLETED)
 
     async def archive_ku(self, uid: str) -> Result[Ku]:
         """Archive a Ku by updating status in metadata."""
@@ -446,9 +446,9 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
 
     async def mark_as_draft(self, uid: str) -> Result[Ku]:
         """Mark a Ku as draft."""
-        return await self._update_ku_status(uid, KuStatus.DRAFT)
+        return await self._update_ku_status(uid, EntityStatus.DRAFT)
 
-    async def _update_ku_status(self, uid: str, status: KuStatus) -> Result[Ku]:
+    async def _update_ku_status(self, uid: str, status: EntityStatus) -> Result[Ku]:
         """Update Ku status."""
         result = await self.backend.update(uid, {"status": status.value})
 
@@ -876,12 +876,12 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
         if transcription_uid:
             journal_metadata["transcription_uid"] = transcription_uid
 
-        journal = JournalKu(
+        journal = Journal(
             uid=uid,
             title=title,
-            ku_type=KuType.JOURNAL,
+            ku_type=EntityType.JOURNAL,
             user_uid=user_uid,
-            status=KuStatus.DRAFT,
+            status=EntityStatus.DRAFT,
             content=content,
             max_retention=max_retention,
             tags=tuple(tags) if tags else (),
@@ -905,7 +905,7 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
         """Get journals with FIFO retention (max_retention is set) for a user."""
         result = await self.backend.find_by(
             user_uid=user_uid,
-            ku_type=KuType.JOURNAL.value,
+            ku_type=EntityType.JOURNAL.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -919,7 +919,7 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
         """Get permanent journals (no FIFO retention) for a user."""
         result = await self.backend.find_by(
             user_uid=user_uid,
-            ku_type=KuType.JOURNAL.value,
+            ku_type=EntityType.JOURNAL.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -950,7 +950,7 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
         """
         result = await self.backend.find_by(
             user_uid=user_uid,
-            ku_type=KuType.JOURNAL.value,
+            ku_type=EntityType.JOURNAL.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -1008,7 +1008,7 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
             return Result.fail(result.expect_error())
 
         ku = result.value
-        if not ku or ku.ku_type != KuType.JOURNAL:
+        if not ku or ku.ku_type != EntityType.JOURNAL:
             return Result.ok(None)
 
         return Result.ok(ku)
@@ -1154,7 +1154,7 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
         """
         result = await self.backend.find_by(
             user_uid=user_uid,
-            ku_type=KuType.JOURNAL.value,
+            ku_type=EntityType.JOURNAL.value,
         )
 
         if result.is_error:
@@ -1243,12 +1243,12 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
 
         uid = UIDGenerator.generate_uid("ku")
 
-        assessment = FeedbackKu(
+        assessment = Feedback(
             uid=uid,
             title=title,
-            ku_type=KuType.FEEDBACK_REPORT,
+            ku_type=EntityType.FEEDBACK_REPORT,
             user_uid=teacher_uid,
-            status=KuStatus.COMPLETED,
+            status=EntityStatus.COMPLETED,
             processor_type=ProcessorType.HUMAN,
             content=content,
             subject_uid=subject_uid,
@@ -1353,7 +1353,7 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
         for record in result.value or []:
             node = record["k"]
             dto = KuDTO.from_dict(node)
-            kus.append(KuBase.from_dto(dto))
+            kus.append(Entity.from_dto(dto))
         return Result.ok(kus)
 
     @with_error_handling("get_assessments_by_teacher", error_type="database")
@@ -1372,7 +1372,7 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
         """
         result = await self.backend.find_by(
             user_uid=teacher_uid,
-            ku_type=KuType.FEEDBACK_REPORT.value,
+            ku_type=EntityType.FEEDBACK_REPORT.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())

@@ -340,9 +340,9 @@ class Query:
         # Filter and limit tasks
         filtered_tasks = result.value
         if not include_completed:
-            from core.models.enums import KuStatus
+            from core.models.enums import EntityStatus
 
-            filtered_tasks = [t for t in filtered_tasks if t.status != KuStatus.COMPLETED]
+            filtered_tasks = [t for t in filtered_tasks if t.status != EntityStatus.COMPLETED]
         filtered_tasks = filtered_tasks[:safe_limit]
 
         # Convert to GraphQL types

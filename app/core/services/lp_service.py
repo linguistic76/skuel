@@ -25,12 +25,12 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import make_attribute_sort_key
 
 if TYPE_CHECKING:
-    from core.models.ku.ku_learning_path import LearningPathKu
-    from core.models.ku.ku_learning_step import LearningStepKu
-    from core.services.ku_service import KuService
-    from core.services.ls_service import LsService
+    from core.models.ku.learning_path import LearningPath
+    from core.models.ku.learning_step import LearningStep
     from core.ports import EventBusOperations
     from core.ports.facade_protocols import LpFacadeProtocol, LsFacadeProtocol
+    from core.services.ku_service import KuService
+    from core.services.ls_service import LsService
 
 logger = get_logger(__name__)
 
@@ -223,8 +223,8 @@ class LpService(FacadeDelegationMixin):
     # Note: These require ls_service guard, kept explicit.
 
     async def create_step(
-        self, step: LearningStepKu, path_uid: str | None = None
-    ) -> Result[LearningStepKu]:
+        self, step: LearningStep, path_uid: str | None = None
+    ) -> Result[LearningStep]:
         """Create a learning step. Delegates to LsService."""
         if not self.ls_service:
             from core.utils.result_simplified import Errors
@@ -236,7 +236,7 @@ class LpService(FacadeDelegationMixin):
         typed_ls_service = cast("LsFacadeProtocol", self.ls_service)
         return await typed_ls_service.create_step(step, path_uid)
 
-    async def get_step(self, step_uid: str) -> Result[LearningStepKu | None]:
+    async def get_step(self, step_uid: str) -> Result[LearningStep | None]:
         """Get a learning step by UID. Delegates to LsService."""
         if not self.ls_service:
             from core.utils.result_simplified import Errors
@@ -248,7 +248,7 @@ class LpService(FacadeDelegationMixin):
         typed_ls_service = cast("LsFacadeProtocol", self.ls_service)
         return await typed_ls_service.get_step(step_uid)
 
-    async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[LearningStepKu]:
+    async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[LearningStep]:
         """Update a learning step. Delegates to LsService."""
         if not self.ls_service:
             from core.utils.result_simplified import Errors
@@ -274,7 +274,7 @@ class LpService(FacadeDelegationMixin):
 
     async def list_steps(
         self, path_uid: str | None = None, limit: int = 100
-    ) -> Result[list[LearningStepKu]]:
+    ) -> Result[list[LearningStep]]:
         """List learning steps. Delegates to LsService."""
         if not self.ls_service:
             from core.utils.result_simplified import Errors
@@ -290,7 +290,7 @@ class LpService(FacadeDelegationMixin):
     # CRUD OPERATIONS PROTOCOL COMPATIBILITY
     # ============================================================================
 
-    async def create(self, entity: LearningPathKu) -> Result[LearningPathKu]:
+    async def create(self, entity: LearningPath) -> Result[LearningPath]:
         """Create method for CRUDRouteFactory compatibility."""
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
         typed_self = cast("LpFacadeProtocol", self)
@@ -304,13 +304,13 @@ class LpService(FacadeDelegationMixin):
             domain=entity.domain,
         )
 
-    async def get(self, uid: str) -> Result[LearningPathKu | None]:
+    async def get(self, uid: str) -> Result[LearningPath | None]:
         """Get method for CRUDRouteFactory compatibility."""
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
         typed_self = cast("LpFacadeProtocol", self)
         return await typed_self.get_learning_path(uid)
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[LearningPathKu]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[LearningPath]:
         """Update method for CRUDRouteFactory compatibility."""
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
         typed_self = cast("LpFacadeProtocol", self)
@@ -329,7 +329,7 @@ class LpService(FacadeDelegationMixin):
         order_by: str | None = None,
         order_desc: bool = False,
         user_uid: str | None = None,
-    ) -> Result[list[LearningPathKu]]:
+    ) -> Result[list[LearningPath]]:
         """
         List learning paths with pagination and sorting support.
 

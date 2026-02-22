@@ -17,7 +17,7 @@ THE 14 DOMAINS AND THEIR PROTOCOLS
     3. HabitsOperations[Habit]         - Recurring behaviors and streaks
     4. EventsOperations[Ku]            - Calendar items and scheduling (unified Ku model)
     5. ChoicesOperations[Choice]       - Decisions and outcomes
-    6. PrinciplesOperations[KuBase]     - Values and alignment (unified Ku model)
+    6. PrinciplesOperations[Entity]     - Values and alignment (unified Ku model)
     7. FinancesOperations[ExpensePure] - Expenses and budgets
 
 **Curriculum Domain Protocols (3):**
@@ -89,18 +89,18 @@ if TYPE_CHECKING:
     # Task entities are now Ku nodes with ku_type="task"
     from core.models.finance.finance_pure import BudgetPure, ExpensePure
     from core.models.finance.invoice import InvoicePure
+    from core.models.ku.entity import Entity
+    from core.models.ku.goal import Goal
+    from core.models.ku.habit import Habit
     from core.models.ku.ku import Ku
-    from core.models.ku.ku_base import KuBase
-    from core.models.ku.ku_goal import GoalKu
-    from core.models.ku.ku_habit import HabitKu
-    from core.models.ku.ku_task import TaskKu
+    from core.models.ku.task import Task
     from core.models.type_hints import EntityUID, Metadata
     from core.utils.result_simplified import Result
 
 
 @runtime_checkable
-class TasksOperations(BackendOperations["TaskKu"], GraphRelationshipOperations, Protocol):
-    """Core task management operations. Uses TaskKu domain model (KuType.TASK).
+class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Protocol):
+    """Core task management operations. Uses Task domain model (EntityType.TASK).
 
     **Two Entry Point Patterns (by design):**
 
@@ -155,23 +155,23 @@ class TasksOperations(BackendOperations["TaskKu"], GraphRelationshipOperations, 
     # QUERY METHODS
     # ========================================================================
 
-    async def get_task(self, task_id: EntityUID) -> Result[TaskKu]:
+    async def get_task(self, task_id: EntityUID) -> Result[Task]:
         """Get task by ID. Not found is an error."""
         ...
 
-    async def get_user_tasks(self, user_uid: str) -> Result[list[TaskKu]]:
+    async def get_user_tasks(self, user_uid: str) -> Result[list[Task]]:
         """Get all tasks for a user."""
         ...
 
-    async def get_tasks_batch(self, uids: list[str]) -> Result[list[TaskKu | None]]:
+    async def get_tasks_batch(self, uids: list[str]) -> Result[list[Task | None]]:
         """Batch load multiple tasks by UIDs."""
         ...
 
-    async def get_user_assigned_tasks(self, user_uid: str) -> Result[list[TaskKu]]:
+    async def get_user_assigned_tasks(self, user_uid: str) -> Result[list[Task]]:
         """Get tasks assigned to a user."""
         ...
 
-    async def get_tasks_requiring_knowledge(self, knowledge_uid: str) -> Result[list[TaskKu]]:
+    async def get_tasks_requiring_knowledge(self, knowledge_uid: str) -> Result[list[Task]]:
         """Get tasks that require a specific knowledge unit."""
         ...
 
@@ -184,7 +184,7 @@ class TasksOperations(BackendOperations["TaskKu"], GraphRelationshipOperations, 
         offset: int = 0,
         sort_by: str | None = None,
         sort_order: str = "desc",
-    ) -> Result[tuple[list[TaskKu], int]]:
+    ) -> Result[tuple[list[Task], int]]:
         """
         Get all tasks for a user via relationship traversal.
 
@@ -201,7 +201,7 @@ class TasksOperations(BackendOperations["TaskKu"], GraphRelationshipOperations, 
             sort_order: "asc" or "desc" (default "desc")
 
         Returns:
-            Result containing (list of TaskKu, total count)
+            Result containing (list of Task, total count)
 
         Type Hint Example:
             filters: ActivityFilterSpec = {"status": "active", "priority": "high"}
@@ -213,7 +213,7 @@ class TasksOperations(BackendOperations["TaskKu"], GraphRelationshipOperations, 
     # DEPENDENCY METHODS
     # ========================================================================
 
-    async def get_task_dependencies(self, task_uid: str) -> Result[list[TaskKu]]:
+    async def get_task_dependencies(self, task_uid: str) -> Result[list[Task]]:
         """Get dependencies for a task."""
         ...
 
@@ -426,7 +426,7 @@ class EventsOperations(BackendOperations["Ku"], GraphRelationshipOperations, Pro
 
 
 @runtime_checkable
-class HabitsOperations(BackendOperations["HabitKu"], GraphRelationshipOperations, Protocol):
+class HabitsOperations(BackendOperations["Habit"], GraphRelationshipOperations, Protocol):
     """Core habit tracking operations.
 
     Inherits base CRUD operations from BackendOperations:
@@ -465,16 +465,16 @@ class HabitsOperations(BackendOperations["HabitKu"], GraphRelationshipOperations
         """Archive a habit. Returns Result[bool]."""
         ...
 
-    async def get_habit(self, habit_id: str) -> Result[HabitKu]:
+    async def get_habit(self, habit_id: str) -> Result[Habit]:
         """Get a habit by ID. Not found is an error."""
         ...
 
-    async def get(self, habit_id: str) -> Result[HabitKu | None]:
+    async def get(self, habit_id: str) -> Result[Habit | None]:
         """Get a habit by ID. Returns None if not found."""
         ...
 
-    async def get_user_habits(self, user_uid: str) -> Result[list[HabitKu]]:
-        """Get all habits for a user. Returns Result[list[HabitKu]]."""
+    async def get_user_habits(self, user_uid: str) -> Result[list[Habit]]:
+        """Get all habits for a user. Returns Result[list[Habit]]."""
         ...
 
     async def list(
@@ -484,12 +484,12 @@ class HabitsOperations(BackendOperations["HabitKu"], GraphRelationshipOperations
         filters: dict[str, Any] | None = None,
         sort_by: str | None = None,
         sort_order: str = "asc",
-    ) -> Result[tuple[builtins.list[HabitKu], int]]:
+    ) -> Result[tuple[builtins.list[Habit], int]]:
         """List habits with optional filters. Returns Result[(habits, total_count)]."""
         ...
 
-    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[builtins.list[HabitKu]]:
-        """List all habits for a user. Returns Result[list[HabitKu]]."""
+    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[builtins.list[Habit]]:
+        """List all habits for a user. Returns Result[list[Habit]]."""
         ...
 
     async def create_user_habit_relationship(self, user_uid: str, habit_uid: str) -> bool:
@@ -523,7 +523,7 @@ class HabitsOperations(BackendOperations["HabitKu"], GraphRelationshipOperations
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[builtins.list[HabitKu]]:
+    ) -> Result[builtins.list[Habit]]:
         """
         Get user's habits in date range - unified interface for meta-services.
 
@@ -534,7 +534,7 @@ class HabitsOperations(BackendOperations["HabitKu"], GraphRelationshipOperations
             include_completed: Include archived habits (default: False)
 
         Returns:
-            Result[list[HabitKu]] filtered by user and archived status
+            Result[list[Habit]] filtered by user and archived status
 
         Implementation:
             Filters by user_uid, excludes archived habits unless include_completed=True
@@ -773,7 +773,7 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
 
 
 @runtime_checkable
-class GoalsOperations(BackendOperations["GoalKu"], GraphRelationshipOperations, Protocol):
+class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Protocol):
     """Core goal management operations.
 
     Inherits base CRUD operations from BackendOperations:
@@ -1001,8 +1001,8 @@ class ChoicesOperations(BackendOperations["Ku"], GraphRelationshipOperations, Pr
 
 
 @runtime_checkable
-class PrinciplesOperations(BackendOperations["KuBase"], GraphRelationshipOperations, Protocol):
-    """Core principle management operations. Uses unified Ku model with KuType.PRINCIPLE.
+class PrinciplesOperations(BackendOperations["Entity"], GraphRelationshipOperations, Protocol):
+    """Core principle management operations. Uses unified Ku model with EntityType.PRINCIPLE.
 
     Inherits base CRUD operations from BackendOperations:
     - create, get, update, DETACH DELETE, list
@@ -1015,20 +1015,20 @@ class PrinciplesOperations(BackendOperations["KuBase"], GraphRelationshipOperati
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
 
-    async def create(self, principle: Any) -> Result[KuBase]:
-        """Create a new principle. Returns Result[KuBase]."""
+    async def create(self, principle: Any) -> Result[Entity]:
+        """Create a new principle. Returns Result[Entity]."""
         ...
 
-    async def get(self, principle_uid: str) -> Result[KuBase | None]:
-        """Get a principle by UID. Returns Result[KuBase | None]."""
+    async def get(self, principle_uid: str) -> Result[Entity | None]:
+        """Get a principle by UID. Returns Result[Entity | None]."""
         ...
 
-    async def find_by(self, limit: int = 100, **filters: Any) -> Result[builtins.list[KuBase]]:
-        """Find principles matching filters. Returns Result[list[KuBase]]."""
+    async def find_by(self, limit: int = 100, **filters: Any) -> Result[builtins.list[Entity]]:
+        """Find principles matching filters. Returns Result[list[Entity]]."""
         ...
 
-    async def update(self, principle_uid: str, updates: dict[str, Any]) -> Result[KuBase]:
-        """Update a principle. Returns Result[KuBase]."""
+    async def update(self, principle_uid: str, updates: dict[str, Any]) -> Result[Entity]:
+        """Update a principle. Returns Result[Entity]."""
         ...
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:

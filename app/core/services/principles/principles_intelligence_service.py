@@ -26,16 +26,17 @@ from core.events.principle_events import (
 from core.models.enums import Domain
 from core.models.enums.ku_enums import AlignmentLevel
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
+from core.models.ku.entity import Entity
 from core.models.ku.ku import Ku
-from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_principle import PrincipleKu
+from core.models.ku.principle import Principle
 from core.models.relationship_names import RelationshipName
 
 # NOTE (November 2025): Removed Has* protocol imports - Principle model is well-typed
 # - Principle.strength: PrincipleStrength (direct access)
 # - Principle does NOT have adherence_score - use default 0.5 where needed
 from core.models.shared.dual_track import DualTrackResult
+from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import (
     GraphContextOrchestrator,
@@ -47,20 +48,19 @@ from core.services.intelligence import (
     calculate_principle_metrics,
     determine_trend_from_rate,
 )
-from core.ports.domain_protocols import PrinciplesOperations
 from core.utils.decorators import requires_graph_intelligence
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
-    from core.services.insight.insight_store import InsightStore
     from core.ports.domain_protocols import PrinciplesRelationshipOperations
+    from core.services.insight.insight_store import InsightStore
 
 logger = get_logger(__name__)
 
 
-class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, KuBase]):
+class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, Entity]):
     """
     Pure Cypher graph intelligence for principles.
 
@@ -121,11 +121,11 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
 
         # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[KuBase, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[Entity, KuDTO](
                 service=self,
                 backend_get_method="get",  # PrinciplesService uses generic 'get'
                 dto_class=KuDTO,
-                model_class=KuBase,
+                model_class=Entity,
                 domain=Domain.PRINCIPLES,
             )
 
@@ -186,7 +186,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
             return Result.fail(principles_result.expect_error())
 
         all_principles = principles_result.value or []
-        principles: list[PrincipleKu] = [p for p in all_principles if isinstance(p, PrincipleKu)]
+        principles: list[Principle] = [p for p in all_principles if isinstance(p, Principle)]
 
         # Calculate analytics
         total_principles = len(principles)
@@ -458,7 +458,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         )
 
     async def _calculate_system_alignment_for_dual_track(
-        self, principle: KuBase, user_uid: str
+        self, principle: Entity, user_uid: str
     ) -> tuple[AlignmentLevel, float, list[str]]:
         """
         Calculate system alignment from goals and habits.
@@ -580,8 +580,8 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
             recommendations.append(
                 "Continue your current approach - your self-awareness is accurate."
             )
-            # Check if principle has expressions (PrincipleKu model has this attribute)
-            if isinstance(entity, PrincipleKu) and entity.expressions:
+            # Check if principle has expressions (Principle model has this attribute)
+            if isinstance(entity, Principle) and entity.expressions:
                 recommendations.append(
                     "Consider documenting new expressions of this principle as they arise."
                 )
@@ -626,7 +626,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         principle_data = principle_result.value
         if isinstance(principle_data, dict):
             dto = KuDTO.from_dict(principle_data)
-        elif isinstance(principle_data, KuBase):
+        elif isinstance(principle_data, Entity):
             dto = principle_data.to_dto()
         else:
             self.logger.warning(f"Unknown principle data type: {type(principle_data)}")
@@ -757,8 +757,8 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         if principles_result.is_error:
             return Result.fail(principles_result.expect_error())  # P3: Type-safe error propagation
 
-        principles: list[PrincipleKu] = [
-            p for p in (principles_result.value or []) if isinstance(p, PrincipleKu)
+        principles: list[Principle] = [
+            p for p in (principles_result.value or []) if isinstance(p, Principle)
         ]
 
         if len(principles) < 2:
@@ -932,7 +932,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         return counts["choices"] + counts["habits"]
 
     def _calculate_current_state(
-        self, principle: KuBase, recent_activities: int
+        self, principle: Entity, recent_activities: int
     ) -> dict[str, float]:
         """Calculate current state metrics."""
         # NOTE: Principle model does not have adherence_score field
@@ -1039,7 +1039,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
     # ========================================================================
 
     def _determine_conflict_severity(
-        self, p1: PrincipleKu, p2: PrincipleKu
+        self, p1: Principle, p2: Principle
     ) -> tuple[str, int, int, int]:
         """
         Determine conflict severity based on principle strengths.
@@ -1057,7 +1057,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
             return "low", 0, 0, 1
 
     def _create_conflict_record(
-        self, p1: PrincipleKu, p2: PrincipleKu, severity: str, overlapping_goals: set
+        self, p1: Principle, p2: Principle, severity: str, overlapping_goals: set
     ) -> dict[str, Any]:
         """Create a conflict record dict."""
         return {
@@ -1070,7 +1070,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         }
 
     def _calculate_harmony_score(
-        self, principles: list[PrincipleKu], conflicts: list[dict]
+        self, principles: list[Principle], conflicts: list[dict]
     ) -> float:
         """Calculate overall principle harmony score.
 
@@ -1306,7 +1306,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
                 )
                 return
 
-            principle: KuBase | None = principle_result.value
+            principle: Entity | None = principle_result.value
             if not principle:
                 self.logger.warning(
                     f"Principle not found for cascade analysis: {event.principle_uid}"
@@ -1445,7 +1445,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
                 )
                 return
 
-            principle: KuBase | None = principle_result.value
+            principle: Entity | None = principle_result.value
             if not principle:
                 self.logger.warning(
                     f"Principle not found for reflection analysis: {event.principle_uid}"
@@ -1648,8 +1648,8 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
                 )
                 return
 
-            principle1: KuBase | None = p1_result.value
-            principle2: KuBase | None = p2_result.value
+            principle1: Entity | None = p1_result.value
+            principle2: Entity | None = p2_result.value
             if not principle1 or not principle2:
                 self.logger.warning(
                     f"One or both principles not found for conflict analysis: "
@@ -1660,9 +1660,9 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
             # 2. Determine conflict severity based on principle strengths
             p1_strength = "unknown"
             p2_strength = "unknown"
-            if isinstance(principle1, PrincipleKu) and principle1.strength:
+            if isinstance(principle1, Principle) and principle1.strength:
                 p1_strength = principle1.strength.value
-            if isinstance(principle2, PrincipleKu) and principle2.strength:
+            if isinstance(principle2, Principle) and principle2.strength:
                 p2_strength = principle2.strength.value
             severity = self._determine_conflict_severity_for_event(p1_strength, p2_strength)
 
@@ -1783,8 +1783,8 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
 
     def _generate_resolution_guidance(
         self,
-        principle1: KuBase,
-        principle2: KuBase,
+        principle1: Entity,
+        principle2: Entity,
         severity: str,
         conflict_context: str | None,
     ) -> list[dict[str, str]]:

@@ -7,12 +7,12 @@ in the config.  Status and Analytics factories (runtime closures) remain in
 tasks_api.py.
 """
 
-from adapters.inbound.tasks_api import create_tasks_api_routes
-from adapters.inbound.tasks_ui import create_tasks_ui_routes
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
 )
+from adapters.inbound.tasks_api import create_tasks_api_routes
+from adapters.inbound.tasks_ui import create_tasks_ui_routes
 from core.models.ku.ku_request import (
     KuTaskCreateRequest as TaskCreateRequest,
 )

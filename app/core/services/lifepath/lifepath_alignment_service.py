@@ -28,9 +28,9 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.ports import QueryExecutor
     from core.services.ku_service import KuService
     from core.services.lp_service import LpService
-    from core.ports import QueryExecutor
     from core.services.user_service import UserService
 
 logger = get_logger(__name__)

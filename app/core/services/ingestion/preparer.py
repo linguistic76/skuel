@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
 
@@ -43,7 +43,7 @@ def normalize_uid(uid: str) -> str:
     return uid.replace(":", ".")
 
 
-def generate_uid(entity_type: KuType | NonKuDomain, file_path: Path) -> str:
+def generate_uid(entity_type: EntityType | NonKuDomain, file_path: Path) -> str:
     """
     Generate UID from entity type and file path.
 
@@ -53,7 +53,7 @@ def generate_uid(entity_type: KuType | NonKuDomain, file_path: Path) -> str:
     This preserves stable UID formats regardless of enum value changes.
 
     Args:
-        entity_type: KuType | NonKuDomain enum value
+        entity_type: EntityType | NonKuDomain enum value
         file_path: Path to the file
 
     Returns:
@@ -67,7 +67,7 @@ def generate_uid(entity_type: KuType | NonKuDomain, file_path: Path) -> str:
 
 
 async def prepare_entity_data_async(
-    entity_type: KuType | NonKuDomain,
+    entity_type: EntityType | NonKuDomain,
     data: dict[str, Any],
     body: str | None,
     file_path: Path,
@@ -86,7 +86,7 @@ async def prepare_entity_data_async(
     - Embedding generation (NEW - January 2026)
 
     Args:
-        entity_type: KuType | NonKuDomain enum value
+        entity_type: EntityType | NonKuDomain enum value
         data: Parsed frontmatter/YAML data
         body: Body content (for markdown) or None
         file_path: Source file path
@@ -117,7 +117,7 @@ async def prepare_entity_data_async(
         entity_data["uid"] = generate_uid(entity_type, file_path)
 
     # Handle content for markdown files (type-safe check)
-    if body is not None and entity_type in (KuType.CURRICULUM, KuType.SUBMISSION):
+    if body is not None and entity_type in (EntityType.CURRICULUM, EntityType.SUBMISSION):
         entity_data["content"] = body
 
     # Handle title fallback from filename
@@ -193,7 +193,7 @@ async def prepare_entity_data_async(
     return entity_data
 
 
-def _should_generate_embedding(entity_type: KuType | NonKuDomain) -> bool:
+def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> bool:
     """
     Determine if entity type should have embeddings.
 
@@ -204,18 +204,18 @@ def _should_generate_embedding(entity_type: KuType | NonKuDomain) -> bool:
     Updated January 2026 to include all activity domains for complete semantic search coverage.
     """
     activity_domains = [
-        KuType.TASK,
-        KuType.GOAL,
-        KuType.HABIT,
-        KuType.EVENT,
-        KuType.CHOICE,
-        KuType.PRINCIPLE,
+        EntityType.TASK,
+        EntityType.GOAL,
+        EntityType.HABIT,
+        EntityType.EVENT,
+        EntityType.CHOICE,
+        EntityType.PRINCIPLE,
     ]
-    return entity_type == KuType.CURRICULUM or entity_type in activity_domains
+    return entity_type == EntityType.CURRICULUM or entity_type in activity_domains
 
 
 def prepare_entity_data_sync(
-    entity_type: KuType | NonKuDomain,
+    entity_type: EntityType | NonKuDomain,
     data: dict[str, Any],
     body: str | None,
     file_path: Path,
@@ -247,7 +247,7 @@ def prepare_entity_data_sync(
         entity_data["uid"] = generate_uid(entity_type, file_path)
 
     # Handle content for markdown files
-    if body is not None and entity_type in (KuType.CURRICULUM, KuType.SUBMISSION):
+    if body is not None and entity_type in (EntityType.CURRICULUM, EntityType.SUBMISSION):
         entity_data["content"] = body
 
     # Handle title fallback from filename

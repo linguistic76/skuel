@@ -13,9 +13,9 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums import Domain, KuStatus, Priority, SELCategory
-from core.models.ku.ku_curriculum import CurriculumKu
-from core.models.ku.ku_task import TaskKu as Task
+from core.models.enums import Domain, EntityStatus, Priority, SELCategory
+from core.models.ku.curriculum import Curriculum
+from core.models.ku.task import Task as Task
 from core.models.relationship_names import RelationshipName
 from core.services.tasks.tasks_core_service import TasksCoreService
 
@@ -34,7 +34,7 @@ class TestDeleteRelationshipOperations:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver):
         """Create KU backend for creating knowledge units."""
-        return UniversalNeo4jBackend[CurriculumKu](neo4j_driver, "Ku", CurriculumKu)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
 
     @pytest_asyncio.fixture
     async def tasks_service(self, tasks_backend):
@@ -44,7 +44,7 @@ class TestDeleteRelationshipOperations:
     async def test_delete_single_relationship(self, tasks_backend, tasks_service, ku_backend):
         """Test deleting a single relationship."""
         # Create a knowledge unit first
-        ku = CurriculumKu(
+        ku = Curriculum(
             uid="ku:test-knowledge",
             title="Test Knowledge",
             domain=Domain.TECH,
@@ -60,7 +60,7 @@ class TestDeleteRelationshipOperations:
             description="Test task for delete",
             user_uid="user.test",
             priority=Priority.MEDIUM,
-            status=KuStatus.DRAFT,
+            status=EntityStatus.DRAFT,
         )
         create_result = await tasks_service.create(task)
         assert create_result.is_ok
@@ -119,7 +119,7 @@ class TestDeleteRelationshipOperations:
             ("ku:algorithms", "Algorithms"),
             ("ku:databases", "Databases"),
         ]:
-            ku = CurriculumKu(
+            ku = Curriculum(
                 uid=ku_uid,
                 title=title,
                 domain=Domain.TECH,
@@ -135,7 +135,7 @@ class TestDeleteRelationshipOperations:
             user_uid="user.test",
             priority=Priority.HIGH,
             due_date=date.today(),
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
         )
         create_result = await tasks_service.create(task)
         assert create_result.is_ok
@@ -181,7 +181,7 @@ class TestDeleteRelationshipOperations:
         """Test batch delete with mix of existing and non-existing relationships."""
         # Create knowledge units first
         for ku_uid, title in [("ku:existing1", "Existing 1"), ("ku:existing2", "Existing 2")]:
-            ku = CurriculumKu(
+            ku = Curriculum(
                 uid=ku_uid,
                 title=title,
                 domain=Domain.TECH,
@@ -196,7 +196,7 @@ class TestDeleteRelationshipOperations:
             description="Test task for partial batch delete",
             user_uid="user.test",
             priority=Priority.LOW,
-            status=KuStatus.DRAFT,
+            status=EntityStatus.DRAFT,
         )
         create_result = await tasks_service.create(task)
         assert create_result.is_ok
@@ -238,7 +238,7 @@ class TestDeleteRelationshipOperations:
             ("ku:algorithms", "Algorithms"),
             ("ku:databases", "Databases"),
         ]:
-            ku = CurriculumKu(
+            ku = Curriculum(
                 uid=ku_uid,
                 title=title,
                 domain=Domain.TECH,
@@ -253,7 +253,7 @@ class TestDeleteRelationshipOperations:
             description="Test delete with count operations",
             user_uid="user.test",
             priority=Priority.MEDIUM,
-            status=KuStatus.ACTIVE,
+            status=EntityStatus.ACTIVE,
         )
         create_result = await tasks_service.create(task)
         assert create_result.is_ok

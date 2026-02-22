@@ -23,12 +23,12 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from core.models.enums import Domain, KuStatus, Priority, RecurrencePattern
-from core.models.enums.ku_enums import KuStatus as HabitStatus
-from core.models.ku.ku_event import EventKu
-from core.models.ku.ku_goal import GoalKu
-from core.models.ku.ku_habit import HabitKu
-from core.models.ku.ku_task import TaskKu as Task
+from core.models.enums import Domain, EntityStatus, Priority, RecurrencePattern
+from core.models.enums.ku_enums import EntityStatus as HabitStatus
+from core.models.ku.event import Event
+from core.models.ku.goal import Goal
+from core.models.ku.habit import Habit
+from core.models.ku.task import Task as Task
 
 # ============================================================================
 # FIXTURES
@@ -93,7 +93,7 @@ async def test_task_relationship_auto_creation(tasks_backend, test_user_uid, cre
         user_uid=test_user_uid,
         title="Test Task Auto Relationship",
         description="Testing automatic relationship creation",
-        status=KuStatus.DRAFT,
+        status=EntityStatus.DRAFT,
         priority=Priority.MEDIUM,
         created_at=datetime.now(),
         updated_at=datetime.now(),
@@ -121,13 +121,13 @@ async def test_task_relationship_auto_creation(tasks_backend, test_user_uid, cre
 async def test_event_relationship_auto_creation(events_backend, test_user_uid, create_test_users):
     """Test automatic user relationship creation for events."""
 
-    event = EventKu(
+    event = Event(
         uid="event_test_001",
         user_uid=test_user_uid,
         title="Test Event",
         start_time=datetime.now(),
         end_time=datetime.now() + timedelta(hours=1),
-        status=KuStatus.SCHEDULED,
+        status=EntityStatus.SCHEDULED,
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
@@ -151,7 +151,7 @@ async def test_event_relationship_auto_creation(events_backend, test_user_uid, c
 @pytest.mark.asyncio
 async def test_habit_relationship_auto_creation(habits_backend, test_user_uid, create_test_users):
     """Test automatic user relationship creation for habits."""
-    habit = HabitKu(
+    habit = Habit(
         uid="habit_test_001",
         user_uid=test_user_uid,
         title="Test Habit",
@@ -182,12 +182,12 @@ async def test_habit_relationship_auto_creation(habits_backend, test_user_uid, c
 @pytest.mark.asyncio
 async def test_goal_relationship_auto_creation(goals_backend, test_user_uid, create_test_users):
     """Test automatic user relationship creation for goals."""
-    goal = GoalKu(
+    goal = Goal(
         uid="goal_test_001",
         user_uid=test_user_uid,
         title="Test Goal",
         description="Testing goal relationship",
-        status=KuStatus.ACTIVE,
+        status=EntityStatus.ACTIVE,
         domain=Domain.PERSONAL,
         current_value=0.0,
         created_at=datetime.now(),
@@ -218,7 +218,7 @@ async def test_user_entity_count(tasks_backend, test_user_uid, create_test_users
             uid=f"task_count_{i}",
             user_uid=test_user_uid,
             title=f"Test Task {i}",
-            status=KuStatus.DRAFT,
+            status=EntityStatus.DRAFT,
             priority=Priority.MEDIUM,
             created_at=datetime.now(),
             updated_at=datetime.now(),
@@ -256,7 +256,7 @@ async def test_user_isolation_tasks(
         uid="task_user1_001",
         user_uid=test_user_uid,
         title="User 1 Task",
-        status=KuStatus.DRAFT,
+        status=EntityStatus.DRAFT,
         priority=Priority.MEDIUM,
         created_at=datetime.now(),
         updated_at=datetime.now(),
@@ -269,7 +269,7 @@ async def test_user_isolation_tasks(
         uid="task_user2_001",
         user_uid=test_user_uid_2,
         title="User 2 Task",
-        status=KuStatus.DRAFT,
+        status=EntityStatus.DRAFT,
         priority=Priority.MEDIUM,
         created_at=datetime.now(),
         updated_at=datetime.now(),
@@ -310,7 +310,7 @@ async def test_user_isolation_cross_domain(
         uid="task_iso_u1",
         user_uid=test_user_uid,
         title="User 1 Task",
-        status=KuStatus.DRAFT,
+        status=EntityStatus.DRAFT,
         priority=Priority.MEDIUM,
         created_at=datetime.now(),
         updated_at=datetime.now(),
@@ -318,11 +318,11 @@ async def test_user_isolation_cross_domain(
     task_u1_result = await tasks_backend.create(task_u1)
     assert task_u1_result.is_ok, "Setup failed: Could not create user 1 task"
 
-    goal_u1 = GoalKu(
+    goal_u1 = Goal(
         uid="goal_iso_u1",
         user_uid=test_user_uid,
         title="User 1 Goal",
-        status=KuStatus.ACTIVE,
+        status=EntityStatus.ACTIVE,
         domain=Domain.PERSONAL,
         current_value=0.0,
         created_at=datetime.now(),
@@ -336,7 +336,7 @@ async def test_user_isolation_cross_domain(
         uid="task_iso_u2",
         user_uid=test_user_uid_2,
         title="User 2 Task",
-        status=KuStatus.DRAFT,
+        status=EntityStatus.DRAFT,
         priority=Priority.MEDIUM,
         created_at=datetime.now(),
         updated_at=datetime.now(),
@@ -344,11 +344,11 @@ async def test_user_isolation_cross_domain(
     task_u2_result = await tasks_backend.create(task_u2)
     assert task_u2_result.is_ok, "Setup failed: Could not create user 2 task"
 
-    goal_u2 = GoalKu(
+    goal_u2 = Goal(
         uid="goal_iso_u2",
         user_uid=test_user_uid_2,
         title="User 2 Goal",
-        status=KuStatus.ACTIVE,
+        status=EntityStatus.ACTIVE,
         domain=Domain.PERSONAL,
         current_value=0.0,
         created_at=datetime.now(),
@@ -541,7 +541,7 @@ async def test_performance_large_dataset(tasks_backend, test_user_uid, create_te
             uid=f"task_perf_{i}",
             user_uid=test_user_uid,
             title=f"Performance Test Task {i}",
-            status=KuStatus.DRAFT,
+            status=EntityStatus.DRAFT,
             priority=Priority.MEDIUM,
             created_at=datetime.now(),
             updated_at=datetime.now(),
@@ -584,7 +584,7 @@ async def test_entity_without_user_uid(tasks_backend, create_test_users):
         uid="task_no_user",
         user_uid="",  # Empty string (edge case - no valid user)
         title="Task Without User",
-        status=KuStatus.DRAFT,
+        status=EntityStatus.DRAFT,
         priority=Priority.MEDIUM,
         created_at=datetime.now(),
         updated_at=datetime.now(),
@@ -607,7 +607,7 @@ async def test_relationship_access_tracking(tasks_backend, test_user_uid, create
         uid="task_access_001",
         user_uid=test_user_uid,
         title="Access Tracking Test",
-        status=KuStatus.DRAFT,
+        status=EntityStatus.DRAFT,
         priority=Priority.MEDIUM,
         created_at=datetime.now(),
         updated_at=datetime.now(),
@@ -634,7 +634,7 @@ async def test_delete_user_relationship(tasks_backend, test_user_uid, create_tes
         uid="task_delete_rel",
         user_uid=test_user_uid,
         title="Delete Relationship Test",
-        status=KuStatus.DRAFT,
+        status=EntityStatus.DRAFT,
         priority=Priority.MEDIUM,
         created_at=datetime.now(),
         updated_at=datetime.now(),
