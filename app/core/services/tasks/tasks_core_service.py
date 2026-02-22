@@ -27,9 +27,9 @@ if TYPE_CHECKING:
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.ku_enums import EntityType
-from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_request import KuTaskCreateRequest
 from core.models.ku.task import Task
+from core.models.ku.task_dto import TaskDTO
 from core.models.relationship_names import RelationshipName
 from core.ports.query_types import TaskUpdatePayload
 from core.services.base_service import BaseService
@@ -85,7 +85,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=TaskDTO,
         model_class=Task,
         domain_name="tasks",
         date_field="due_date",
@@ -201,7 +201,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
     # ========================================================================
 
     @with_error_handling("knowledge_inference", error_type="system")
-    async def _enhance_with_knowledge_inference(self, dto: KuDTO) -> Result[KuDTO | None]:
+    async def _enhance_with_knowledge_inference(self, dto: TaskDTO) -> Result[TaskDTO | None]:
         """
         Apply automatic knowledge inference to enhance a task DTO.
 
@@ -244,7 +244,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
         # Create DTO from request with all fields
         from core.utils.uid_generator import UIDGenerator
 
-        dto = KuDTO(
+        dto = TaskDTO(
             uid=UIDGenerator.generate_random_uid("task"),
             ku_type=EntityType.TASK,
             user_uid=user_uid,
@@ -275,7 +275,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
             dto = inference_result.value
 
         # Create task via backend and convert to domain model (uses BaseService helper)
-        result = await self._create_and_convert(dto.to_dict(), KuDTO, Task)
+        result = await self._create_and_convert(dto.to_dict(), TaskDTO, Task)
         if result.is_error:
             return result
         task = result.value
@@ -410,7 +410,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
         entities, _total = result.value
 
         # Convert to enriched Task models
-        tasks = [self._to_domain_model(task_data, KuDTO, Task) for task_data in entities]
+        tasks = [self._to_domain_model(task_data, TaskDTO, Task) for task_data in entities]
 
         self.logger.debug(f"Retrieved {len(tasks)} tasks for user {user_uid}")
         return Result.ok(tasks)
@@ -462,14 +462,14 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
         if "priority" in updates:
             old_result = await self.backend.get(task_uid)
             if old_result.is_ok:
-                old_task = self._to_domain_model(old_result.value, KuDTO, Task)
+                old_task = self._to_domain_model(old_result.value, TaskDTO, Task)
 
         update_result = await self.backend.update(task_uid, updates)
         if update_result.is_error:
             return Result.fail(update_result)
 
         # Convert updated result to Task
-        task = self._to_domain_model(update_result.value, KuDTO, Task)
+        task = self._to_domain_model(update_result.value, TaskDTO, Task)
 
         # Publish TaskUpdated event
         event = TaskUpdated(
@@ -609,7 +609,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
         tasks = []
         for record in result.value:
             task_data = record["subtask"]
-            task = self._to_domain_model(task_data, KuDTO, Task)
+            task = self._to_domain_model(task_data, TaskDTO, Task)
             tasks.append(task)
 
         return Result.ok(tasks)
@@ -640,7 +640,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
             return Result.ok(None)
 
         parent_data = result.value[0]["parent"]
-        parent = self._to_domain_model(parent_data, KuDTO, Task)
+        parent = self._to_domain_model(parent_data, TaskDTO, Task)
         return Result.ok(parent)
 
     @with_error_handling("get_task_hierarchy", error_type="database", uid_param="task_uid")
@@ -697,7 +697,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
         if current_result.is_error:
             return Result.fail(current_result)
 
-        current_task = self._to_domain_model(current_result.value, KuDTO, Task)
+        current_task = self._to_domain_model(current_result.value, TaskDTO, Task)
 
         ancestors_result = await self.backend.execute_query(ancestors_query, {"task_uid": task_uid})
         siblings_result = await self.backend.execute_query(siblings_query, {"task_uid": task_uid})
@@ -712,7 +712,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
         ):
             for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
                 task_data = node
-                ancestors.append(self._to_domain_model(task_data, KuDTO, Task))
+                ancestors.append(self._to_domain_model(task_data, TaskDTO, Task))
 
         # Process siblings
         siblings = []
@@ -724,7 +724,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
             for node in siblings_result.value[0]["siblings"]:
                 if node:  # Skip None values
                     task_data = node
-                    siblings.append(self._to_domain_model(task_data, KuDTO, Task))
+                    siblings.append(self._to_domain_model(task_data, TaskDTO, Task))
 
         # Process children
         children = []
@@ -736,7 +736,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
             for node in children_result.value[0]["children"]:
                 if node:  # Skip None values
                     task_data = node
-                    children.append(self._to_domain_model(task_data, KuDTO, Task))
+                    children.append(self._to_domain_model(task_data, TaskDTO, Task))
 
         return Result.ok(
             {

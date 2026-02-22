@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.task_dto import TaskDTO
 
 from core.models.enums.ku_enums import EntityType
 from core.models.ku.user_owned_entity import UserOwnedEntity
@@ -219,13 +220,32 @@ class Task(UserOwnedEntity):
         return self.source_learning_step_uid is not None
 
     # =========================================================================
-    # CONVERSION (generic — uses Entity._from_dto / to_dto)
+    # CONVERSION
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "Task":
-        """Create Task from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO | TaskDTO") -> "Task":
+        """Create Task from a KuDTO or TaskDTO."""
         return cls._from_dto(dto)
+
+    def to_dto(self) -> "TaskDTO":
+        """Convert Task to TaskDTO (not generic KuDTO)."""
+        import dataclasses
+
+        from core.models.ku.task_dto import TaskDTO
+
+        dto_field_names = {f.name for f in dataclasses.fields(TaskDTO)}
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            if f.name not in dto_field_names:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, tuple):
+                value = list(value)
+            kwargs[f.name] = value
+        return TaskDTO(**kwargs)
 
     def __str__(self) -> str:
         return f"Task(uid={self.uid}, title='{self.title}', due={self.due_date})"

@@ -65,7 +65,10 @@ from .ku import ENTITY_TYPE_CLASS_MAP, ActivityEntity, CurriculumEntity, Ku, Sub
 from .ku_chunks import KuChunk, KuChunkType, chunk_content
 from .ku_content import KuContent
 from .ku_converters import ku_to_response
+from .entity_dto import EntityDTO
 from .ku_dto import KuDTO
+from .task_dto import TaskDTO
+from .user_owned_dto import UserOwnedDTO
 from .ku_metadata import KuMetadata
 from .ku_nested_types import (
     AlignmentAssessment,
@@ -159,7 +162,10 @@ __all__ = [
     "KuContent",
     # Converter
     "ku_to_response",
-    # DTO
+    # DTO hierarchy
+    "EntityDTO",
+    "UserOwnedDTO",
+    "TaskDTO",
     "KuDTO",
     "KuMetadata",
     # Nested types (frozen dataclasses)
