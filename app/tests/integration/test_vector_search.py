@@ -234,10 +234,10 @@ async def test_vector_search_service_initialization(neo4j_driver, mock_embedding
 
     # Create vector search service with mock embeddings
     vector_search = Neo4jVectorSearchService(
-        driver=neo4j_driver, embeddings_service=mock_embeddings_service
+        executor=neo4j_driver, embeddings_service=mock_embeddings_service
     )
 
-    assert vector_search.driver == neo4j_driver
+    assert vector_search.executor == neo4j_driver
     assert vector_search.embeddings == mock_embeddings_service
 
 
@@ -443,7 +443,7 @@ async def test_embedding_service_plugin_check(neo4j_driver):
 
     # Create real embeddings service (will check for plugin)
     embeddings_service = Neo4jGenAIEmbeddingsService(
-        driver=neo4j_driver, model="text-embedding-3-small", dimension=1536
+        executor=neo4j_driver, model="text-embedding-3-small", dimension=1536
     )
 
     # Check if plugin is available
@@ -463,7 +463,7 @@ async def test_embeddings_service_graceful_failure(neo4j_driver):
     """Test that embeddings service fails gracefully when plugin unavailable."""
 
     embeddings_service = Neo4jGenAIEmbeddingsService(
-        driver=neo4j_driver, model="text-embedding-3-small", dimension=1536
+        executor=neo4j_driver, model="text-embedding-3-small", dimension=1536
     )
 
     # Try to create embedding (will fail if plugin not available)

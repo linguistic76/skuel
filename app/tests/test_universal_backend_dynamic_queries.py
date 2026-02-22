@@ -54,6 +54,7 @@ class SampleTask:
 def create_mock_backend():
     """Create a mock universal backend for testing"""
     mock_driver = Mock()
+    mock_driver._closed = False  # Prevent _is_driver_closed() from returning truthy Mock
     mock_session = AsyncMock()
 
     # Create async context manager mock
@@ -481,11 +482,15 @@ async def test_list_with_pagination():
 
 @pytest.mark.asyncio
 async def test_count_with_filters():
-    """Test count() method with dynamic filters"""
+    """Test count() method with dynamic filters.
+
+    count() uses UnifiedQueryBuilder which calls execute_query(), and
+    execute_query() uses session.run() + result.data() (returns list of dicts).
+    """
     backend, mock_session = create_mock_backend()
 
     mock_result = AsyncMock()
-    mock_result.single.return_value = {"count": 42}
+    mock_result.data.return_value = [{"count": 42}]
     mock_session.run.return_value = mock_result
 
     result = await backend.count(priority="high", status="completed")
@@ -506,7 +511,7 @@ async def test_count_no_filters():
     backend, mock_session = create_mock_backend()
 
     mock_result = AsyncMock()
-    mock_result.single.return_value = {"count": 100}
+    mock_result.data.return_value = [{"count": 100}]
     mock_session.run.return_value = mock_result
 
     result = await backend.count()
@@ -525,7 +530,7 @@ async def test_count_with_comparison_operators():
     backend, mock_session = create_mock_backend()
 
     mock_result = AsyncMock()
-    mock_result.single.return_value = {"count": 15}
+    mock_result.data.return_value = [{"count": 15}]
     mock_session.run.return_value = mock_result
 
     result = await backend.count(estimated_hours__gte=2.0, estimated_hours__lte=8.0)
@@ -661,7 +666,7 @@ async def test_count_zero_results():
     backend, mock_session = create_mock_backend()
 
     mock_result = AsyncMock()
-    mock_result.single.return_value = {"count": 0}
+    mock_result.data.return_value = [{"count": 0}]
     mock_session.run.return_value = mock_result
 
     result = await backend.count(priority="nonexistent")

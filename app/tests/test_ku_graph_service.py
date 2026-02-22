@@ -665,7 +665,6 @@ class TestFacadeDelegation:
             neo4j_adapter=neo4j,
             query_builder=query_builder,
             graph_intelligence_service=graph_intel,
-            driver=driver,
         )
 
         # Verify graph sub-service exists

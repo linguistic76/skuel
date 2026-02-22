@@ -36,6 +36,7 @@ from core.models.enums import Domain, SELCategory
 from core.models.enums.ku_enums import LpType
 from core.models.ku.curriculum import Curriculum
 from core.models.ku.learning_path import LearningPath
+from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.lp.lp_progress_service import LpProgressService
 
 
@@ -62,9 +63,9 @@ class TestKuLpEventFlow:
 
     @pytest_asyncio.fixture
     async def lp_progress_service(self, event_bus, neo4j_driver):
-        """Create LpProgressService with event bus and driver."""
+        """Create LpProgressService with event bus and executor."""
         return LpProgressService(
-            driver=neo4j_driver,  # Phase 4: For KU→LP Cypher queries
+            executor=Neo4jQueryExecutor(neo4j_driver),  # Phase 4: For KU→LP Cypher queries
             event_bus=event_bus,
         )
 

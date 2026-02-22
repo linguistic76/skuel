@@ -15,6 +15,7 @@ import pytest
 from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
 )
+from core.utils.result_simplified import Result
 
 
 @pytest.fixture
@@ -28,7 +29,7 @@ def mock_driver():
 @pytest.fixture
 def lateral_service(mock_driver):
     """LateralRelationshipService instance with mocked driver."""
-    return LateralRelationshipService(mock_driver)
+    return LateralRelationshipService(executor=mock_driver)
 
 
 class TestGetBlockingChain:
@@ -38,9 +39,7 @@ class TestGetBlockingChain:
     async def test_empty_chain(self, lateral_service, mock_driver):
         """Test entity with no blockers returns empty chain."""
         # Mock: No blockers found
-        mock_result = MagicMock()
-        mock_result.records = []
-        mock_driver.execute_query.return_value = mock_result
+        mock_driver.execute_query.return_value = Result.ok([])
 
         result = await lateral_service.get_blocking_chain("task_xyz")
 
@@ -62,9 +61,7 @@ class TestGetBlockingChain:
             "depth": 1,
             "blocks_count": 1,
         }
-        mock_result = MagicMock()
-        mock_result.records = [mock_record]
-        mock_driver.execute_query.return_value = mock_result
+        mock_driver.execute_query.return_value = Result.ok([mock_record])
 
         result = await lateral_service.get_blocking_chain("task_deploy")
 
@@ -108,9 +105,7 @@ class TestGetBlockingChain:
                 "blocks_count": 1,
             },
         ]
-        mock_result = MagicMock()
-        mock_result.records = mock_records
-        mock_driver.execute_query.return_value = mock_result
+        mock_driver.execute_query.return_value = Result.ok(mock_records)
 
         result = await lateral_service.get_blocking_chain("task_d")
 
@@ -131,9 +126,7 @@ class TestGetAlternativesWithComparison:
     @pytest.mark.asyncio
     async def test_no_alternatives(self, lateral_service, mock_driver):
         """Test entity with no alternatives returns empty list."""
-        mock_result = MagicMock()
-        mock_result.records = []
-        mock_driver.execute_query.return_value = mock_result
+        mock_driver.execute_query.return_value = Result.ok([])
 
         result = await lateral_service.get_alternatives_with_comparison("goal_a")
 
@@ -162,9 +155,7 @@ class TestGetAlternativesWithComparison:
                 "timeframe": "3 years",
             },
         }
-        mock_result = MagicMock()
-        mock_result.records = [mock_record]
-        mock_driver.execute_query.return_value = mock_result
+        mock_driver.execute_query.return_value = Result.ok([mock_record])
 
         result = await lateral_service.get_alternatives_with_comparison("goal_a")
 
@@ -213,9 +204,7 @@ class TestGetAlternativesWithComparison:
                 "rel_properties": {"timeframe": "1 year"},
             },
         ]
-        mock_result = MagicMock()
-        mock_result.records = mock_records
-        mock_driver.execute_query.return_value = mock_result
+        mock_driver.execute_query.return_value = Result.ok(mock_records)
 
         result = await lateral_service.get_alternatives_with_comparison("goal_a")
 
@@ -230,9 +219,7 @@ class TestGetRelationshipGraph:
     @pytest.mark.asyncio
     async def test_isolated_entity(self, lateral_service, mock_driver):
         """Test entity with no relationships returns single node."""
-        mock_result = MagicMock()
-        mock_result.records = []
-        mock_driver.execute_query.return_value = mock_result
+        mock_driver.execute_query.return_value = Result.ok([])
 
         result = await lateral_service.get_relationship_graph("task_xyz", depth=2)
 
@@ -258,9 +245,7 @@ class TestGetRelationshipGraph:
             "relationships": [{"type": "BLOCKS", "from": "task_b", "to": "task_a"}],
             "depth_level": 1,
         }
-        mock_result = MagicMock()
-        mock_result.records = [mock_record]
-        mock_driver.execute_query.return_value = mock_result
+        mock_driver.execute_query.return_value = Result.ok([mock_record])
 
         result = await lateral_service.get_relationship_graph("task_a", depth=2)
 
@@ -308,9 +293,7 @@ class TestGetRelationshipGraph:
                 "depth_level": 1,
             },
         ]
-        mock_result = MagicMock()
-        mock_result.records = mock_records
-        mock_driver.execute_query.return_value = mock_result
+        mock_driver.execute_query.return_value = Result.ok(mock_records)
 
         result = await lateral_service.get_relationship_graph("goal_a", depth=2)
 

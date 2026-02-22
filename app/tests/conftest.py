@@ -53,6 +53,25 @@ async def skuel_app():
     from scripts.dev.bootstrap import bootstrap_skuel
 
     container = await bootstrap_skuel()
+
+    # Post-bootstrap fix: UserService.__init__ passes raw driver to UserContextBuilder,
+    # but UserContextBuilder expects a QueryExecutor. Rebuild the context_builder and stats
+    # with a proper Neo4jQueryExecutor wrapper.
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.services.user.user_context_builder import UserContextBuilder
+    from core.services.user.user_stats_aggregator import UserStatsAggregator
+
+    user_service = container.services.user_service
+    if user_service and getattr(user_service, "context_builder", None):
+        raw_driver = user_service.context_builder.executor
+        # If executor is a raw AsyncDriver (not already a QueryExecutor), wrap it
+        if not isinstance(raw_driver, Neo4jQueryExecutor):
+            query_executor = Neo4jQueryExecutor(raw_driver)
+            user_service.context_builder = UserContextBuilder(query_executor)
+            user_service.stats = UserStatsAggregator(
+                user_service.core, user_service.context_builder, query_executor
+            )
+
     yield container.app
 
     # Cleanup
@@ -195,24 +214,26 @@ def authenticated_client_simple(skuel_app) -> "Generator[TestClient, None, None]
 
     with TestClient(skuel_app) as client:
         # Log in with default dev user
+        # DEFAULT_DEV_USER is "user_mike" — extract username by removing "user_" prefix
+        dev_username = DEFAULT_DEV_USER.removeprefix("user_").removeprefix("user.")
         login_response = client.post(
-            "/login",
+            "/login/submit",
             data={
-                "username": DEFAULT_DEV_USER.replace("user.", ""),  # "mike"
+                "username": dev_username,  # "mike"
                 "password": "dev123",  # Standard dev password
             },
         )
 
         # If login succeeded, cookie should be set
-        if login_response.status_code == 200 and "skuel_session" in client.cookies:
+        if "skuel_session" in client.cookies:
             yield client
         else:
             # Login failed - maybe user doesn't exist yet
             # Try to register first, then login
             client.post(
-                "/register",
+                "/register/submit",
                 data={
-                    "username": DEFAULT_DEV_USER.replace("user.", ""),
+                    "username": dev_username,
                     "password": "dev123",
                     "email": "mike@test.local",
                 },
@@ -224,9 +245,9 @@ def authenticated_client_simple(skuel_app) -> "Generator[TestClient, None, None]
             else:
                 # Try login again after registration
                 login_response = client.post(
-                    "/login",
+                    "/login/submit",
                     data={
-                        "username": DEFAULT_DEV_USER.replace("user.", ""),
+                        "username": dev_username,
                         "password": "dev123",
                     },
                 )

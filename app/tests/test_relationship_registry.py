@@ -62,10 +62,11 @@ class TestUnifiedRegistry:
             "Event",
             "Choice",
             "Principle",
-            # Curriculum Domains (3) - MOC removed January 2026 (now KU-based)
+            # Curriculum Domains (4) - MOC removed January 2026 (now KU-based)
             "Ku",
             "Ls",
             "Lp",
+            "Exercise",  # Instruction templates (Phase 5)
             # Note: MapOfContent and MOCSection removed - MOC is now KU with ORGANIZES relationships
             # Other entities
             "User",  # User entity relationships

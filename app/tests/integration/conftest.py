@@ -263,7 +263,7 @@ def ku_service(ku_backend, mock_graph_intel):
     mock_content_repo = AsyncMock()
     mock_query_builder = MagicMock()
     mock_neo4j_adapter = MagicMock()
-    mock_driver = MagicMock()  # Required for KuSearchService
+    mock_executor = MagicMock()  # Required for KuSearchService
 
     # January 2026: graph_intelligence_service now REQUIRED for unified Curriculum architecture
     return KuService(
@@ -272,7 +272,7 @@ def ku_service(ku_backend, mock_graph_intel):
         graph_intelligence_service=mock_graph_intel,  # REQUIRED for cross-domain queries
         query_builder=mock_query_builder,
         neo4j_adapter=mock_neo4j_adapter,
-        driver=mock_driver,
+        executor=mock_executor,
     )
 
 
@@ -301,6 +301,7 @@ async def user_service(neo4j_container):
     """Create UserService for user-entity tracking tests."""
     from neo4j import AsyncGraphDatabase
 
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.models.user.user import User
     from core.services.user_service import UserService
 
@@ -310,8 +311,11 @@ async def user_service(neo4j_container):
     # Create user backend
     user_backend = UniversalNeo4jBackend[User](driver, "User", User)
 
-    # Create UserService with driver for aggregation queries
-    service = UserService(user_repo=user_backend, driver=driver)
+    # Create QueryExecutor wrapper for driver (UserContextBuilder expects QueryExecutor)
+    query_executor = Neo4jQueryExecutor(driver)
+
+    # Create UserService with query_executor for aggregation queries
+    service = UserService(user_repo=user_backend, driver=query_executor)
 
     yield service
 
@@ -614,13 +618,23 @@ async def services(neo4j_container):
         graph_intelligence_service=mock_graph_intel,
     )
 
+    # Create QueryExecutor adapter for services that require it
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+
+    query_executor = Neo4jQueryExecutor(driver)
+
     # Create LS service (used by LP service)
     # January 2026: graph_intel now REQUIRED for unified Curriculum architecture
-    ls_service = LsService(driver=driver, graph_intel=mock_graph_intel)
+    ls_service = LsService(
+        backend=ls_backend,
+        executor=query_executor,
+        graph_intel=mock_graph_intel,
+    )
 
     # Create LP service (January 2026: intelligence created internally)
     lp_service = LpService(
-        driver=driver,
+        backend=lp_backend,
+        executor=query_executor,
         ls_service=ls_service,
         graph_intelligence_service=mock_graph_intel,
     )
@@ -635,7 +649,7 @@ async def services(neo4j_container):
         content_repo=mock_content_repo,
         query_builder=mock_query_builder,
         neo4j_adapter=mock_neo4j_adapter,
-        driver=driver,
+        executor=query_executor,
         graph_intelligence_service=mock_graph_intel,
     )
 
@@ -654,8 +668,8 @@ async def services(neo4j_container):
         graph_intelligence_service=mock_graph_intel,
     )
 
-    # Create Users service
-    users_service = UserService(user_repo=users_backend, driver=driver)
+    # Create Users service (pass query_executor, not raw driver — UserContextBuilder expects QueryExecutor)
+    users_service = UserService(user_repo=users_backend, driver=query_executor)
 
     # PATCH: Expose backends through core services for test access
     # Tests expect services.{domain}.core.backend.driver
@@ -1005,10 +1019,10 @@ async def habits_service(habits_backend, event_bus):
 @pytest_asyncio.fixture
 async def events_backend(neo4j_driver):
     """Create events backend for testing — unified Ku model with ku_type filter."""
-    from core.models.ku.entity import Entity
+    from core.models.ku.event import Event
 
-    return UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Ku", Entity, default_filters={"ku_type": "event"}
+    return UniversalNeo4jBackend[Event](
+        neo4j_driver, "Ku", Event, default_filters={"ku_type": "event"}
     )
 
 

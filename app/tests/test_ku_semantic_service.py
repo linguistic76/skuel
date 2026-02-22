@@ -477,9 +477,8 @@ class TestFacadeDelegation:
             repo=repo,
             content_repo=content_repo,
             neo4j_adapter=neo4j,
-            query_builder=query_builder,  # Add missing query_builder
+            query_builder=query_builder,
             graph_intelligence_service=graph_intel,
-            driver=driver,
         )
 
         # Verify semantic sub-service exists

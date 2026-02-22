@@ -86,7 +86,7 @@ class TestKuSubjectUid:
         )
         assert ku.subject_uid == "user_student"
 
-    def test_is_ai_report_property(self):
+    def test_is_ai_report_by_type(self):
         ku = AiReport(
             uid="ku_test_123",
             title="Progress Summary",
@@ -94,9 +94,9 @@ class TestKuSubjectUid:
             user_uid="user_alice",
             status=EntityStatus.COMPLETED,
         )
-        assert ku.is_ai_report is True
+        assert ku.ku_type == EntityType.AI_REPORT
 
-    def test_is_feedback_report_property(self):
+    def test_is_feedback_report_by_type(self):
         ku = Feedback(
             uid="ku_test_123",
             title="Teacher Feedback",
@@ -105,7 +105,7 @@ class TestKuSubjectUid:
             status=EntityStatus.COMPLETED,
             subject_uid="user_student",
         )
-        assert ku.is_feedback_report is True
+        assert ku.ku_type == EntityType.FEEDBACK_REPORT
 
     def test_is_user_owned(self):
         ku = Submission(

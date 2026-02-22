@@ -52,16 +52,16 @@ OPTIONAL MATCH (user)-[:OWNS]->(task:Task)
 
 // Collect UIDs by status (for standard context)
 WITH user,
-     collect(CASE WHEN task.status IN ['pending', 'in_progress', 'blocked'] THEN task.uid END) as active_task_uids,
+     collect(CASE WHEN task.status IN ['draft', 'scheduled', 'active', 'blocked'] THEN task.uid END) as active_task_uids,
      collect(CASE WHEN task.status = 'completed' THEN task.uid END) as completed_task_uids,
-     collect(CASE WHEN task.status IN ['pending', 'in_progress'] AND task.due_date IS NOT NULL AND date(task.due_date) < date($today) THEN task.uid END) as overdue_task_uids,
+     collect(CASE WHEN task.status IN ['draft', 'scheduled', 'active'] AND task.due_date IS NOT NULL AND date(task.due_date) < date($today) THEN task.uid END) as overdue_task_uids,
      collect(CASE WHEN task.due_date IS NOT NULL AND date(task.due_date) = date($today) THEN task.uid END) as today_task_uids,
      collect(task) as all_tasks_nodes
 
 // Filter active tasks for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_tasks_nodes) > 0 THEN all_tasks_nodes ELSE [null] END as task
 OPTIONAL MATCH (task)-[:HAS_SUBTASK]->(subtask:Task)
-WHERE task IS NOT NULL AND task.status IN ['pending', 'in_progress', 'blocked']
+WHERE task IS NOT NULL AND task.status IN ['draft', 'scheduled', 'active', 'blocked']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      task, collect(DISTINCT {uid: subtask.uid, title: subtask.title, status: subtask.status}) as task_subtasks
 
@@ -95,7 +95,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(goal:Goal)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     collect(CASE WHEN goal.status IN ['active', 'on_track', 'at_risk'] THEN goal.uid END) as active_goal_uids,
+     collect(CASE WHEN goal.status = 'active' THEN goal.uid END) as active_goal_uids,
      collect(CASE WHEN goal.status = 'completed' THEN goal.uid END) as completed_goal_uids,
      collect({uid: goal.uid, progress: coalesce(goal.progress, 0.0)}) as goal_progress_data,
      collect(goal) as all_goals_nodes
@@ -103,7 +103,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // Filter active goals for rich data
 UNWIND CASE WHEN size(all_goals_nodes) > 0 THEN all_goals_nodes ELSE [null] END as goal
 OPTIONAL MATCH (contributing_task:Task)-[:FULFILLS_GOAL]->(goal)
-WHERE goal IS NOT NULL AND goal.status IN ['active', 'on_track', 'at_risk']
+WHERE goal IS NOT NULL AND goal.status = 'active'
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
      goal, collect(DISTINCT {uid: contributing_task.uid, title: contributing_task.title, status: contributing_task.status}) as goal_tasks
@@ -442,7 +442,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // CHOICES - Fetch UIDs AND rich data (pending/active only)
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(choice:Choice)
-WHERE choice.status IN ['pending', 'active']
+WHERE choice.status IN ['draft', 'active']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -644,7 +644,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // LEARNING STEPS - Fetch active steps with rich data
 // ====================================================================
 OPTIONAL MATCH (user)-[:WORKING_ON|ENROLLED_IN]->(ls:LearningStep)
-WHERE ls.status IN ['not_started', 'in_progress']
+WHERE ls.status IN ['draft', 'active']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -844,9 +844,9 @@ MATCH (user:User {uid: $user_uid})
 // Tasks - parallel collection with conditional aggregation
 OPTIONAL MATCH (user)-[:OWNS]->(task:Task)
 WITH user,
-     collect(CASE WHEN task.status IN ['pending', 'in_progress'] THEN task.uid END) as active_task_uids,
+     collect(CASE WHEN task.status IN ['draft', 'scheduled', 'active', 'blocked'] THEN task.uid END) as active_task_uids,
      collect(CASE WHEN task.status = 'completed' THEN task.uid END) as completed_task_uids,
-     collect(CASE WHEN task.status IN ['pending', 'in_progress'] AND task.due_date IS NOT NULL AND date(task.due_date) < date($today) THEN task.uid END) as overdue_task_uids,
+     collect(CASE WHEN task.status IN ['draft', 'scheduled', 'active'] AND task.due_date IS NOT NULL AND date(task.due_date) < date($today) THEN task.uid END) as overdue_task_uids,
      collect(CASE WHEN task.due_date IS NOT NULL AND date(task.due_date) = date($today) THEN task.uid END) as today_task_uids
 
 // Habits - parallel collection with metrics
@@ -860,7 +860,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 OPTIONAL MATCH (user)-[:OWNS]->(goal:Goal)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
-     collect(CASE WHEN goal.status IN ['active', 'on_track', 'at_risk'] THEN goal.uid END) as active_goal_uids,
+     collect(CASE WHEN goal.status = 'active' THEN goal.uid END) as active_goal_uids,
      collect(CASE WHEN goal.status = 'completed' THEN goal.uid END) as completed_goal_uids,
      collect({uid: goal.uid, progress: coalesce(goal.progress, 0.0)}) as goal_data
 

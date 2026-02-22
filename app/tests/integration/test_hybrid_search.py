@@ -15,12 +15,12 @@ import pytest
 
 from core.config.unified_config import VectorSearchConfig
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 
 @pytest.fixture
 def mock_driver():
-    """Mock Neo4j driver for testing."""
+    """Mock Neo4j executor for testing (satisfies QueryExecutor protocol)."""
     driver = MagicMock()
     driver.execute_query = AsyncMock()
     return driver
@@ -46,21 +46,19 @@ def vector_search_service(mock_driver, mock_embeddings_service):
     """Create vector search service with mocks."""
     config = VectorSearchConfig()
     return Neo4jVectorSearchService(
-        driver=mock_driver, embeddings_service=mock_embeddings_service, config=config
+        executor=mock_driver, embeddings_service=mock_embeddings_service, config=config
     )
 
 
 @pytest.mark.asyncio
 async def test_fulltext_search_returns_results(vector_search_service, mock_driver):
     """Test internal full-text search method."""
-    # Mock driver response — execute_query returns (records, summary, keys) tuple
-    mock_driver.execute_query.return_value = (
+    # Mock driver response — execute_query returns Result[list[dict]]
+    mock_driver.execute_query.return_value = Result.ok(
         [
             {"node": {"uid": "ku.python", "title": "Python Basics"}, "score": 5.2},
             {"node": {"uid": "ku.django", "title": "Django Framework"}, "score": 3.1},
-        ],
-        None,
-        None,
+        ]
     )
 
     result = await vector_search_service._fulltext_search(label="Ku", query_text="python", limit=10)
@@ -74,8 +72,10 @@ async def test_fulltext_search_returns_results(vector_search_service, mock_drive
 @pytest.mark.asyncio
 async def test_fulltext_search_handles_missing_index(vector_search_service, mock_driver):
     """Test full-text search gracefully handles missing indexes."""
-    # Mock driver to raise exception (index doesn't exist)
-    mock_driver.execute_query.side_effect = Exception("Index not found")
+    # Mock driver to return error (index doesn't exist)
+    mock_driver.execute_query.return_value = Result.fail(
+        Errors.database(operation="fulltext_search", message="Index not found")
+    )
 
     result = await vector_search_service._fulltext_search(label="Ku", query_text="python", limit=10)
 
@@ -116,15 +116,15 @@ async def test_hybrid_search_combines_results(
                 {"node": {"uid": r["node"]["uid"], **r["node"]}, "score": r["score"]}
                 for r in vector_results
             ]
-            return (records, None, None)
+            return Result.ok(records)
         # Second call: full-text search
         elif "db.index.fulltext.queryNodes" in query:
             records = [
                 {"node": {"uid": r["node"]["uid"], **r["node"]}, "score": r["score"]}
                 for r in fulltext_results
             ]
-            return (records, None, None)
-        return ([], None, None)
+            return Result.ok(records)
+        return Result.ok([])
 
     mock_driver.execute_query = mock_execute_query
 
@@ -167,14 +167,12 @@ async def test_hybrid_search_rrf_scoring(vector_search_service, mock_driver):
 
     async def mock_execute_query(query, params):
         if "db.index.vector.queryNodes" in query:
-            return ([{"node": r["node"], "score": r["score"]} for r in vector_results], None, None)
+            return Result.ok([{"node": r["node"], "score": r["score"]} for r in vector_results])
         elif "db.index.fulltext.queryNodes" in query:
-            return (
-                [{"node": r["node"], "score": r["score"]} for r in fulltext_results],
-                None,
-                None,
+            return Result.ok(
+                [{"node": r["node"], "score": r["score"]} for r in fulltext_results]
             )
-        return ([], None, None)
+        return Result.ok([])
 
     mock_driver.execute_query = mock_execute_query
 
@@ -206,7 +204,7 @@ async def test_hybrid_search_uses_config_defaults(vector_search_service, mock_dr
 
     # Mock empty results
     async def mock_execute_query(query, params):
-        return ([], None, None)
+        return Result.ok([])
 
     mock_driver.execute_query = mock_execute_query
 
@@ -228,8 +226,8 @@ async def test_hybrid_search_filters_by_min_rrf_score(vector_search_service, moc
     async def mock_execute_query(query, params):
         if "db.index.vector.queryNodes" in query:
             # Only one vector result (will have RRF score ~0.016)
-            return ([{"node": {"uid": "ku.a", "title": "A"}, "score": 0.9}], None, None)
-        return ([], None, None)
+            return Result.ok([{"node": {"uid": "ku.a", "title": "A"}, "score": 0.9}])
+        return Result.ok([])
 
     mock_driver.execute_query = mock_execute_query
 
@@ -253,7 +251,7 @@ async def test_hybrid_search_entity_specific_thresholds_for_vector(
 
     async def mock_execute_query(query, params):
         # Return empty for simplicity
-        return ([], None, None)
+        return Result.ok([])
 
     mock_driver.execute_query = mock_execute_query
 
@@ -278,10 +276,10 @@ async def test_hybrid_search_handles_vector_failure(vector_search_service, mock_
     async def mock_execute_query(query, params):
         call_count[0] += 1
         if "db.index.vector.queryNodes" in query:
-            raise Exception("Vector index error")
+            return Result.fail(Errors.database(operation="vector_search", message="Vector index error"))
         elif "db.index.fulltext.queryNodes" in query:
-            return ([{"node": {"uid": "ku.test", "title": "Test"}, "score": 3.0}], None, None)
-        return ([], None, None)
+            return Result.ok([{"node": {"uid": "ku.test", "title": "Test"}, "score": 3.0}])
+        return Result.ok([])
 
     mock_driver.execute_query = mock_execute_query
 
@@ -300,10 +298,10 @@ async def test_hybrid_search_handles_fulltext_failure(vector_search_service, moc
 
     async def mock_execute_query(query, params):
         if "db.index.vector.queryNodes" in query:
-            return ([{"node": {"uid": "ku.test", "title": "Test"}, "score": 0.8}], None, None)
+            return Result.ok([{"node": {"uid": "ku.test", "title": "Test"}, "score": 0.8}])
         elif "db.index.fulltext.queryNodes" in query:
-            raise Exception("Full-text index error")
-        return ([], None, None)
+            return Result.fail(Errors.database(operation="fulltext_search", message="Full-text index error"))
+        return Result.ok([])
 
     mock_driver.execute_query = mock_execute_query
 
@@ -323,10 +321,10 @@ async def test_hybrid_search_custom_weights(vector_search_service, mock_driver):
     # Mock results
     async def mock_execute_query(query, params):
         if "db.index.vector.queryNodes" in query:
-            return ([{"node": {"uid": "ku.a", "title": "A"}, "score": 0.9}], None, None)
+            return Result.ok([{"node": {"uid": "ku.a", "title": "A"}, "score": 0.9}])
         elif "db.index.fulltext.queryNodes" in query:
-            return ([{"node": {"uid": "ku.a", "title": "A"}, "score": 5.0}], None, None)
-        return ([], None, None)
+            return Result.ok([{"node": {"uid": "ku.a", "title": "A"}, "score": 5.0}])
+        return Result.ok([])
 
     mock_driver.execute_query = mock_execute_query
 

@@ -291,11 +291,10 @@ class TestChoicesCoreOperations:
         choice = Choice(
             uid="choice.career_pivot",
             title="Career Pivot Decision",
-            description="Considering a major career change",
+            description="Becoming a lead software architect in 5 years",
             user_uid=test_user_uid,
             inspiration_type="career_path",
             expands_possibilities=True,
-            vision_statement="Becoming a lead software architect in 5 years",
             options=sample_options,
         )
 
@@ -307,4 +306,3 @@ class TestChoicesCoreOperations:
         created_choice = result.value
         assert created_choice.inspiration_type == "career_path"
         assert created_choice.expands_possibilities is True
-        assert "architect" in created_choice.vision_statement.lower()

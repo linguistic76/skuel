@@ -48,7 +48,7 @@ def mock_driver() -> Mock:
 @pytest.fixture
 def organization_service(mock_ku_service, mock_driver) -> KuOrganizationService:
     """Create KuOrganizationService instance for testing."""
-    return KuOrganizationService(ku_service=mock_ku_service, driver=mock_driver)
+    return KuOrganizationService(ku_service=mock_ku_service, executor=mock_driver)
 
 
 @pytest.fixture
@@ -68,10 +68,8 @@ def sample_ku() -> Mock:
 @pytest.mark.asyncio
 async def test_is_organizer_true(organization_service, mock_driver):
     """Test is_organizer returns True when Ku has organized children."""
-    mock_driver.execute_query.return_value = (
-        [{"ku_exists": True, "is_organizer": True}],
-        None,
-        None,
+    mock_driver.execute_query.return_value = Result.ok(
+        [{"ku_exists": True, "is_organizer": True}]
     )
 
     result = await organization_service.is_organizer("ku.python-reference")
@@ -83,10 +81,8 @@ async def test_is_organizer_true(organization_service, mock_driver):
 @pytest.mark.asyncio
 async def test_is_organizer_false(organization_service, mock_driver):
     """Test is_organizer returns False when Ku has no children."""
-    mock_driver.execute_query.return_value = (
-        [{"ku_exists": True, "is_organizer": False}],
-        None,
-        None,
+    mock_driver.execute_query.return_value = Result.ok(
+        [{"ku_exists": True, "is_organizer": False}]
     )
 
     result = await organization_service.is_organizer("ku.standalone")
@@ -98,10 +94,8 @@ async def test_is_organizer_false(organization_service, mock_driver):
 @pytest.mark.asyncio
 async def test_is_organizer_not_found(organization_service, mock_driver):
     """Test is_organizer returns error when Ku doesn't exist."""
-    mock_driver.execute_query.return_value = (
-        [{"ku_exists": False, "is_organizer": False}],
-        None,
-        None,
+    mock_driver.execute_query.return_value = Result.ok(
+        [{"ku_exists": False, "is_organizer": False}]
     )
 
     result = await organization_service.is_organizer("ku.nonexistent")
@@ -121,13 +115,11 @@ async def test_get_organization_view_success(
     """Test get_organization_view returns hierarchy."""
     mock_ku_service.get.return_value = Result.ok(sample_ku)
 
-    mock_driver.execute_query.return_value = (
+    mock_driver.execute_query.return_value = Result.ok(
         [
             {"uid": "ku.python-basics", "title": "Python Basics", "order": 0},
             {"uid": "ku.python-advanced", "title": "Python Advanced", "order": 1},
-        ],
-        None,
-        None,
+        ]
     )
 
     result = await organization_service.get_organization_view("ku.python-reference")
@@ -166,7 +158,7 @@ async def test_organize_success(organization_service, mock_ku_service, mock_driv
         Result.ok(child_ku),
     ]
 
-    mock_driver.execute_query.return_value = ([{"success": True}], None, None)
+    mock_driver.execute_query.return_value = Result.ok([{"success": True}])
 
     result = await organization_service.organize("ku.python-reference", "ku.python-basics", order=1)
 
@@ -187,7 +179,7 @@ async def test_organize_parent_not_found(organization_service, mock_ku_service):
 @pytest.mark.asyncio
 async def test_unorganize_success(organization_service, mock_driver):
     """Test unorganize removes ORGANIZES relationship."""
-    mock_driver.execute_query.return_value = ([{"success": True}], None, None)
+    mock_driver.execute_query.return_value = Result.ok([{"success": True}])
 
     result = await organization_service.unorganize("ku.python-reference", "ku.python-basics")
 
@@ -198,7 +190,7 @@ async def test_unorganize_success(organization_service, mock_driver):
 @pytest.mark.asyncio
 async def test_reorder_success(organization_service, mock_driver):
     """Test reorder updates relationship order."""
-    mock_driver.execute_query.return_value = ([{"success": True}], None, None)
+    mock_driver.execute_query.return_value = Result.ok([{"success": True}])
 
     result = await organization_service.reorder(
         "ku.python-reference", "ku.python-basics", new_order=5
@@ -216,13 +208,11 @@ async def test_reorder_success(organization_service, mock_driver):
 @pytest.mark.asyncio
 async def test_find_organizers_success(organization_service, mock_driver):
     """Test find_organizers returns parent organizers."""
-    mock_driver.execute_query.return_value = (
+    mock_driver.execute_query.return_value = Result.ok(
         [
             {"uid": "ku.python-reference", "title": "Python Reference", "order": 0},
             {"uid": "ku.web-development", "title": "Web Development", "order": 2},
-        ],
-        None,
-        None,
+        ]
     )
 
     result = await organization_service.find_organizers("ku.python-basics")
@@ -237,13 +227,11 @@ async def test_find_organizers_success(organization_service, mock_driver):
 @pytest.mark.asyncio
 async def test_list_root_organizers_success(organization_service, mock_driver):
     """Test list_root_organizers returns top-level organizers."""
-    mock_driver.execute_query.return_value = (
+    mock_driver.execute_query.return_value = Result.ok(
         [
             {"uid": "ku.python-reference", "title": "Python Reference", "child_count": 5},
             {"uid": "ku.javascript-guide", "title": "JavaScript Guide", "child_count": 3},
-        ],
-        None,
-        None,
+        ]
     )
 
     result = await organization_service.list_root_organizers(limit=50)
@@ -257,13 +245,11 @@ async def test_list_root_organizers_success(organization_service, mock_driver):
 @pytest.mark.asyncio
 async def test_get_organized_children_success(organization_service, mock_driver):
     """Test get_organized_children returns direct children."""
-    mock_driver.execute_query.return_value = (
+    mock_driver.execute_query.return_value = Result.ok(
         [
             {"uid": "ku.python-basics", "title": "Python Basics", "order": 0},
             {"uid": "ku.python-advanced", "title": "Python Advanced", "order": 1},
-        ],
-        None,
-        None,
+        ]
     )
 
     result = await organization_service.get_organized_children("ku.python-reference")

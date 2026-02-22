@@ -11,22 +11,22 @@ import pytest
 
 from core.models.enums import Domain, SELCategory
 from core.models.enums.ku_enums import EntityType
-from core.models.ku.ku import Ku
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.curriculum import Curriculum
+from core.models.ku.curriculum_dto import CurriculumDTO
+from core.models.ku.entity import Entity
 from core.services.ku.ku_search_service import KuSearchService
 from core.utils.result_simplified import Result
 
 
 def make_ku_entity(uid="ku.test.1", title="Test Title", domain=Domain.TECH):
-    """Helper to create Ku entity for tests."""
-    return Ku(
+    """Helper to create Curriculum entity for tests."""
+    return Curriculum(
         uid=uid,
         title=title,
         ku_type=EntityType.CURRICULUM,
         domain=domain,
         sel_category=SELCategory.SELF_AWARENESS,  # Valid SELCategory value
         quality_score=0.0,
-        complexity="medium",
         semantic_links=(),
         tags=(),
         metadata={},
@@ -95,8 +95,8 @@ class TestKuSearchServiceInitialization:
 
         # KuSearchService uses _config = DomainConfig(...) pattern (Phase 3)
         # Access through _config, not legacy _dto_class attribute
-        assert service._config.dto_class == KuDTO
-        assert service._config.model_class == Ku
+        assert service._config.dto_class == CurriculumDTO
+        assert service._config.model_class == Entity
         assert "title" in service._config.search_fields
         assert "summary" in service._config.search_fields
         assert service._config.user_ownership_relationship is None  # Shared content
@@ -507,7 +507,6 @@ class TestFacadeDelegation:
         content_repo = MagicMock()
         query_builder = AsyncMock()
         neo4j_adapter = MagicMock()
-        driver = MagicMock()  # Still needed for KuPracticeService and KuInteractionService
         graph_intel = MagicMock()  # Required by fail-fast architecture (ADR-030)
 
         service = KuService(
@@ -515,7 +514,6 @@ class TestFacadeDelegation:
             content_repo=content_repo,
             query_builder=query_builder,
             neo4j_adapter=neo4j_adapter,
-            driver=driver,
             graph_intelligence_service=graph_intel,
         )
 

@@ -80,7 +80,7 @@ class TestRichUserContextPattern:
         goal_dto.status = EntityStatus.ACTIVE  # Set status after creation
         await services.goals.core.backend.create(goal_dto.to_dict())
 
-        # Create task (with in_progress status for MEGA-QUERY compatibility)
+        # Create task (ACTIVE status for MEGA-QUERY)
         task_dto = TaskDTO.create_task(
             user_uid=test_user.uid,
             title="Complete Python Tutorial",
@@ -101,26 +101,26 @@ class TestRichUserContextPattern:
         await services.events.core.backend.create(event_dto.to_dict())
 
         # Add secondary labels and MEGA-QUERY relationships
-        # MEGA-QUERY expects :Task, :Goal, :Event labels and HAS_TASK/HAS_GOAL/HAS_EVENT rels
+        # MEGA-QUERY expects :Task, :Goal, :Event labels and OWNS rels
         await services.tasks.core.backend.driver.execute_query(
             """
             MATCH (task:Ku {uid: $task_uid, ku_type: 'task'})
-            SET task:Task, task.status = 'in_progress'
+            SET task:Task
             WITH task
             MATCH (user:User {uid: $user_uid})
-            MERGE (user)-[:HAS_TASK]->(task)
+            MERGE (user)-[:OWNS]->(task)
             WITH task
             MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})
             SET goal:Goal
             WITH goal, task
             MATCH (user:User {uid: $user_uid})
-            MERGE (user)-[:HAS_GOAL]->(goal)
+            MERGE (user)-[:OWNS]->(goal)
             WITH task, goal
             MATCH (event:Ku {uid: $event_uid, ku_type: 'event'})
             SET event:Event
             WITH event
             MATCH (user:User {uid: $user_uid})
-            MERGE (user)-[:HAS_EVENT]->(event)
+            MERGE (user)-[:OWNS]->(event)
             """,
             {
                 "task_uid": task_dto.uid,
@@ -233,16 +233,16 @@ class TestRichUserContextPattern:
         await services.tasks.core.backend.driver.execute_query(
             """
             MATCH (task:Ku {uid: $task_uid, ku_type: 'task'})
-            SET task:Task, task.status = 'in_progress'
+            SET task:Task
             WITH task
             MATCH (user:User {uid: $user_uid})
-            MERGE (user)-[:HAS_TASK]->(task)
+            MERGE (user)-[:OWNS]->(task)
             WITH task
             MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})
             SET goal:Goal
             WITH goal
             MATCH (user:User {uid: $user_uid})
-            MERGE (user)-[:HAS_GOAL]->(goal)
+            MERGE (user)-[:OWNS]->(goal)
             """,
             {
                 "task_uid": task_dto.uid,

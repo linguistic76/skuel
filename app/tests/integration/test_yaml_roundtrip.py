@@ -70,7 +70,6 @@ class TestYAMLRoundTrip:
             query_builder=mock_query_builder,
             neo4j_adapter=mock_neo4j_adapter,
             graph_intelligence_service=mock_graph_intelligence,  # Required for cross-domain queries
-            driver=driver,  # Required for KuSearchService
         )
 
         try:

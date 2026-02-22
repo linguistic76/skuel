@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.services.notifications.notification_service import NotificationService
+from core.utils.result_simplified import Result
 
 
 @pytest.fixture
@@ -23,7 +24,7 @@ def mock_driver():
 @pytest.fixture
 def service(mock_driver):
     """Create NotificationService with mocked driver."""
-    return NotificationService(driver=mock_driver)
+    return NotificationService(executor=mock_driver)
 
 
 # ============================================================================
@@ -34,10 +35,8 @@ def service(mock_driver):
 @pytest.mark.asyncio
 async def test_create_notification_success(service, mock_driver):
     """Should create a notification and return its UID."""
-    mock_driver.execute_query.return_value = (
-        [{"uid": "notif_abc123"}],
-        None,
-        None,
+    mock_driver.execute_query.return_value = Result.ok(
+        [{"uid": "notif_abc123"}]
     )
 
     result = await service.create_notification(
@@ -56,14 +55,14 @@ async def test_create_notification_success(service, mock_driver):
     call_args = mock_driver.execute_query.call_args
     assert "CREATE (n:Notification" in call_args[0][0]
     assert "HAS_NOTIFICATION" in call_args[0][0]
-    assert call_args[1]["user_uid"] == "user_student"
-    assert call_args[1]["notification_type"] == "feedback_received"
+    assert call_args[0][1]["user_uid"] == "user_student"
+    assert call_args[0][1]["notification_type"] == "feedback_received"
 
 
 @pytest.mark.asyncio
 async def test_create_notification_user_not_found(service, mock_driver):
     """Should return NotFound if user doesn't exist."""
-    mock_driver.execute_query.return_value = ([], None, None)
+    mock_driver.execute_query.return_value = Result.ok([])
 
     result = await service.create_notification(
         user_uid="nonexistent_user",
@@ -85,10 +84,8 @@ async def test_create_notification_user_not_found(service, mock_driver):
 @pytest.mark.asyncio
 async def test_get_unread_count(service, mock_driver):
     """Should return count of unread notifications."""
-    mock_driver.execute_query.return_value = (
-        [{"count": 5}],
-        None,
-        None,
+    mock_driver.execute_query.return_value = Result.ok(
+        [{"count": 5}]
     )
 
     result = await service.get_unread_count("user_student")
@@ -100,10 +97,8 @@ async def test_get_unread_count(service, mock_driver):
 @pytest.mark.asyncio
 async def test_get_unread_count_zero(service, mock_driver):
     """Should return 0 when no unread notifications."""
-    mock_driver.execute_query.return_value = (
-        [{"count": 0}],
-        None,
-        None,
+    mock_driver.execute_query.return_value = Result.ok(
+        [{"count": 0}]
     )
 
     result = await service.get_unread_count("user_student")
@@ -120,7 +115,7 @@ async def test_get_unread_count_zero(service, mock_driver):
 @pytest.mark.asyncio
 async def test_get_notifications(service, mock_driver):
     """Should return list of notifications."""
-    mock_driver.execute_query.return_value = (
+    mock_driver.execute_query.return_value = Result.ok(
         [
             {
                 "uid": "notif_1",
@@ -142,9 +137,7 @@ async def test_get_notifications(service, mock_driver):
                 "read": True,
                 "created_at": "2026-02-14T10:00:00",
             },
-        ],
-        None,
-        None,
+        ]
     )
 
     result = await service.get_notifications("user_student", limit=20)
@@ -164,10 +157,8 @@ async def test_get_notifications(service, mock_driver):
 @pytest.mark.asyncio
 async def test_mark_read_success(service, mock_driver):
     """Should mark a notification as read."""
-    mock_driver.execute_query.return_value = (
-        [{"uid": "notif_1"}],
-        None,
-        None,
+    mock_driver.execute_query.return_value = Result.ok(
+        [{"uid": "notif_1"}]
     )
 
     result = await service.mark_read("notif_1", "user_student")
@@ -179,7 +170,7 @@ async def test_mark_read_success(service, mock_driver):
 @pytest.mark.asyncio
 async def test_mark_read_not_found(service, mock_driver):
     """Should return NotFound if notification doesn't belong to user."""
-    mock_driver.execute_query.return_value = ([], None, None)
+    mock_driver.execute_query.return_value = Result.ok([])
 
     result = await service.mark_read("notif_nonexistent", "user_student")
 
@@ -194,10 +185,8 @@ async def test_mark_read_not_found(service, mock_driver):
 @pytest.mark.asyncio
 async def test_mark_all_read(service, mock_driver):
     """Should mark all notifications as read and return count."""
-    mock_driver.execute_query.return_value = (
-        [{"count": 3}],
-        None,
-        None,
+    mock_driver.execute_query.return_value = Result.ok(
+        [{"count": 3}]
     )
 
     result = await service.mark_all_read("user_student")

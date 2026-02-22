@@ -27,10 +27,14 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncGraphDatabase
 
+from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.ku_enums import StepDifficulty
+from core.models.enums.neo_labels import NeoLabel
 from core.models.ku.entity import Entity
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.learning_step import LearningStep
+from core.models.ku.learning_path import LearningPath
+from core.models.ku.learning_step import LearningStep as LearningStepModel
 from core.services.lp_service import LpService
 from core.services.ls_service import LsService
 from routes.graphql.types import LearningStep
@@ -226,19 +230,28 @@ async def lp_service(neo4j_container):
 
     uri = neo4j_container.get_connection_url()
     driver = AsyncGraphDatabase.driver(uri)
+    executor = Neo4jQueryExecutor(driver)
 
     # January 2026: graph_intel is REQUIRED for unified Curriculum architecture
     mock_graph_intel = MagicMock()
 
-    # Create LsService (required by LpService)
-    ls_service = LsService(driver=driver, graph_intel=mock_graph_intel, event_bus=None)
+    # Create backends (composition root pattern)
+    ls_backend = UniversalNeo4jBackend[LearningStepModel](
+        driver, NeoLabel.LEARNING_STEP, LearningStepModel, base_label=NeoLabel.ENTITY
+    )
+    lp_backend = UniversalNeo4jBackend[LearningPath](
+        driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
+    )
 
-    # January 2026: LpIntelligenceService is now created internally by LpService
-    # (see CLAUDE.md: "LpIntelligenceService (2026-01-11): LpService now creates intelligence internally")
+    # Create LsService (required by LpService)
+    ls_service = LsService(
+        backend=ls_backend, executor=executor, graph_intel=mock_graph_intel, event_bus=None
+    )
 
     # Create LpService with REQUIRED dependencies
     service = LpService(
-        driver=driver,
+        backend=lp_backend,
+        executor=executor,
         ls_service=ls_service,
         ku_service=None,  # Optional
         progress_service=None,  # Optional
@@ -473,8 +486,8 @@ async def test_learning_step_from_domain_handles_empty_knowledge_uids(lp_service
         - Ls with empty primary_knowledge_uids tuple
         - Should return empty string for knowledge_uid (not crash)
     """
-    # Arrange - Create LearningStep with empty primary_knowledge_uids
-    ls_with_no_knowledge = LearningStep(
+    # Arrange - Create LearningStep domain model with empty primary_knowledge_uids
+    ls_with_no_knowledge = LearningStepModel(
         uid="ls.test_no_knowledge",
         title="Test Step With No Knowledge",
         intent="Test intent",

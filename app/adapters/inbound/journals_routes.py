@@ -26,7 +26,7 @@ JOURNALS_CONFIG = DomainRouteConfig(
     ui_factory=create_journals_ui_routes,
     ui_related_services={
         "processing_service": "report_processor",
-        "report_projects_service": "assignments",
+        "report_projects_service": "exercises",
         "user_service": "user_service",
         "journal_generator": "journal_generator",
     },

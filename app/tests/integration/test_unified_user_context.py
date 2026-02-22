@@ -600,7 +600,7 @@ class TestUserContextBuilder:
 
         # Setup: Create test user directly via Cypher (bypassing UserService serialization bug)
         test_user_uid = "user:context_builder_test"
-        driver = user_service.context_builder.driver
+        driver = user_service.context_builder.executor.driver
 
         # Clean up any existing test data from previous runs
         async with driver.session() as session:
@@ -663,7 +663,7 @@ class TestUserContextBuilder:
 
         # Create all test entities in a SINGLE session to avoid transaction isolation
         async with driver.session() as session:
-            # Tasks (MEGA-QUERY expects status IN ['pending', 'in_progress', 'blocked'])
+            # Tasks (MEGA-QUERY expects status IN ['draft', 'scheduled', 'active', 'blocked'])
             await session.run(
                 """
                 MATCH (u:User {uid: $user_uid})
@@ -687,13 +687,13 @@ class TestUserContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (u)-[:HAS_TASK]->(t1)
-                CREATE (u)-[:HAS_TASK]->(t2)
+                CREATE (u)-[:OWNS]->(t1)
+                CREATE (u)-[:OWNS]->(t2)
                 """,
                 uid1="task:builder_1",
                 uid2="task:builder_2",
                 user_uid=test_user_uid,
-                status="in_progress",
+                status="active",
                 priority=Priority.HIGH.value,
                 due_date=(date.today() + timedelta(days=5)).isoformat(),
                 today=date.today().isoformat(),
@@ -714,7 +714,7 @@ class TestUserContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (u)-[:HAS_HABIT]->(h)
+                CREATE (u)-[:OWNS]->(h)
                 """,
                 uid="habit:builder_1",
                 user_uid=test_user_uid,
@@ -738,7 +738,7 @@ class TestUserContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (u)-[:HAS_GOAL]->(g)
+                CREATE (u)-[:OWNS]->(g)
                 """,
                 uid="goal:builder_1",
                 user_uid=test_user_uid,
@@ -762,7 +762,7 @@ class TestUserContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (u)-[:HAS_EVENT]->(e)
+                CREATE (u)-[:OWNS]->(e)
                 """,
                 uid="event:builder_1",
                 user_uid=test_user_uid,
@@ -795,10 +795,10 @@ class TestUserContextBuilder:
             verify_result = await session.run(
                 """
                 MATCH (u:User {uid: $user_uid})
-                OPTIONAL MATCH (u)-[:HAS_TASK]->(t:Task)
-                OPTIONAL MATCH (u)-[:HAS_HABIT]->(h:Habit)
-                OPTIONAL MATCH (u)-[:HAS_GOAL]->(g:Goal)
-                OPTIONAL MATCH (u)-[:HAS_EVENT]->(e:Event)
+                OPTIONAL MATCH (u)-[:OWNS]->(t:Task)
+                OPTIONAL MATCH (u)-[:OWNS]->(h:Habit)
+                OPTIONAL MATCH (u)-[:OWNS]->(g:Goal)
+                OPTIONAL MATCH (u)-[:OWNS]->(e:Event)
                 OPTIONAL MATCH (u)-[:MASTERED]->(k:Ku)
                 RETURN
                     count(DISTINCT t) as task_count,

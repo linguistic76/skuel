@@ -50,7 +50,7 @@ class TestSemanticEnhancedSearch:
     def vector_search_service(self, mock_driver, mock_embeddings_service, vector_config):
         """Create vector search service with mocks."""
         return Neo4jVectorSearchService(
-            driver=mock_driver, embeddings_service=mock_embeddings_service, config=vector_config
+            executor=mock_driver, embeddings_service=mock_embeddings_service, config=vector_config
         )
 
     @pytest.mark.asyncio
@@ -69,16 +69,14 @@ class TestSemanticEnhancedSearch:
         ):
             # Mock semantic relationship query results
             # ku.python-advanced has high-confidence relationship to context
-            mock_driver.execute_query.return_value = (
+            mock_driver.execute_query.return_value = Result.ok(
                 [
                     {
                         "relationship_type": "REQUIRES_THEORETICAL_UNDERSTANDING",
                         "confidence": 0.9,
                         "strength": 1.0,
                     }
-                ],
-                None,
-                None,
+                ]
             )
 
             # Execute semantic-enhanced search
@@ -102,7 +100,7 @@ class TestSemanticEnhancedSearch:
         """Test semantic boost calculation with different relationship types."""
 
         # Mock relationships with different types and confidence
-        mock_driver.execute_query.return_value = (
+        mock_driver.execute_query.return_value = Result.ok(
             [
                 {
                     "relationship_type": "REQUIRES_THEORETICAL_UNDERSTANDING",  # weight: 1.0
@@ -114,9 +112,7 @@ class TestSemanticEnhancedSearch:
                     "confidence": 0.7,
                     "strength": 0.8,
                 },
-            ],
-            None,
-            None,
+            ]
         )
 
         # Calculate boost
@@ -158,7 +154,7 @@ class TestSemanticEnhancedSearch:
         # Create service with semantic boost disabled
         config = VectorSearchConfig(semantic_boost_enabled=False)
         service = Neo4jVectorSearchService(
-            driver=mock_driver, embeddings_service=mock_embeddings_service, config=config
+            executor=mock_driver, embeddings_service=mock_embeddings_service, config=config
         )
 
         standard_results = [{"node": {"uid": "ku.test", "title": "Test"}, "score": 0.8}]
@@ -178,8 +174,10 @@ class TestSemanticEnhancedSearch:
     async def test_semantic_boost_query_error(self, vector_search_service, mock_driver):
         """Test graceful handling of relationship query errors."""
 
-        # Mock driver to raise exception
-        mock_driver.execute_query.side_effect = Exception("Database error")
+        # Mock driver to return error Result
+        mock_driver.execute_query.return_value = Result.fail(
+            Errors.database("execute_query", "Database error")
+        )
 
         # Should return 0.0 boost, not crash
         boost = await vector_search_service._calculate_semantic_boost(
@@ -193,7 +191,7 @@ class TestSemanticEnhancedSearch:
         """Test boost calculation when no relationships exist."""
 
         # Mock empty relationship results
-        mock_driver.execute_query.return_value = ([], None, None)
+        mock_driver.execute_query.return_value = Result.ok([])
 
         boost = await vector_search_service._calculate_semantic_boost(
             entity_uid="ku.test", context_uids=["ku.context"]
@@ -228,7 +226,7 @@ class TestLearningAwareSearch:
     def vector_search_service(self, mock_driver, mock_embeddings_service, vector_config):
         """Create vector search service with mocks."""
         return Neo4jVectorSearchService(
-            driver=mock_driver, embeddings_service=mock_embeddings_service, config=vector_config
+            executor=mock_driver, embeddings_service=mock_embeddings_service, config=vector_config
         )
 
     @pytest.mark.asyncio
@@ -244,7 +242,7 @@ class TestLearningAwareSearch:
             vector_search_service, "find_similar_by_text", return_value=Result.ok(initial_results)
         ):
             # Mock learning state: mastered
-            mock_driver.execute_query.return_value = (
+            mock_driver.execute_query.return_value = Result.ok(
                 [
                     {
                         "ku_uid": "ku.python-basics",
@@ -252,9 +250,7 @@ class TestLearningAwareSearch:
                         "has_in_progress": True,
                         "has_mastered": True,
                     }
-                ],
-                None,
-                None,
+                ]
             )
 
             result = await vector_search_service.learning_aware_search(
@@ -282,7 +278,7 @@ class TestLearningAwareSearch:
             vector_search_service, "find_similar_by_text", return_value=Result.ok(initial_results)
         ):
             # Mock learning state: not started
-            mock_driver.execute_query.return_value = (
+            mock_driver.execute_query.return_value = Result.ok(
                 [
                     {
                         "ku_uid": "ku.advanced-python",
@@ -290,9 +286,7 @@ class TestLearningAwareSearch:
                         "has_in_progress": False,
                         "has_mastered": False,
                     }
-                ],
-                None,
-                None,
+                ]
             )
 
             result = await vector_search_service.learning_aware_search(
@@ -320,7 +314,7 @@ class TestLearningAwareSearch:
             vector_search_service, "find_similar_by_text", return_value=Result.ok(initial_results)
         ):
             # Mock learning state: mastered
-            mock_driver.execute_query.return_value = (
+            mock_driver.execute_query.return_value = Result.ok(
                 [
                     {
                         "ku_uid": "ku.test",
@@ -328,9 +322,7 @@ class TestLearningAwareSearch:
                         "has_in_progress": False,
                         "has_mastered": True,
                     }
-                ],
-                None,
-                None,
+                ]
             )
 
             result = await vector_search_service.learning_aware_search(
@@ -378,8 +370,10 @@ class TestLearningAwareSearch:
         with patch.object(
             vector_search_service, "find_similar_by_text", return_value=Result.ok(initial_results)
         ):
-            # Mock driver to raise exception
-            mock_driver.execute_query.side_effect = Exception("Database error")
+            # Mock driver to return error Result
+            mock_driver.execute_query.return_value = Result.fail(
+                Errors.database("execute_query", "Database error")
+            )
 
             result = await vector_search_service.learning_aware_search(
                 label="Ku", text="test", user_uid="user.test", limit=10
@@ -460,7 +454,7 @@ class TestGracefulDegradation:
 
         # Create service WITHOUT embeddings
         service = Neo4jVectorSearchService(
-            driver=mock_driver,
+            executor=mock_driver,
             embeddings_service=None,  # No embeddings service
             config=VectorSearchConfig(),
         )
@@ -478,7 +472,7 @@ class TestGracefulDegradation:
         """Test that vector search errors propagate correctly."""
 
         service = Neo4jVectorSearchService(
-            driver=mock_driver,
+            executor=mock_driver,
             embeddings_service=mock_embeddings_service,
             config=VectorSearchConfig(),
         )
@@ -501,7 +495,7 @@ class TestGracefulDegradation:
         """Test that empty vector search results are handled gracefully."""
 
         service = Neo4jVectorSearchService(
-            driver=mock_driver,
+            executor=mock_driver,
             embeddings_service=mock_embeddings_service,
             config=VectorSearchConfig(),
         )

@@ -21,6 +21,7 @@ import pytest
 from testcontainers.neo4j import Neo4jContainer
 
 # Backend
+from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, LearningLevel, SELCategory
 
@@ -613,7 +614,7 @@ class TestCurriculumContextBuilder:
             )
 
         # Test: Build context using UserContextBuilder (THE real pipeline)
-        builder = UserContextBuilder(driver)
+        builder = UserContextBuilder(Neo4jQueryExecutor(driver))
         test_user = User(uid=test_user_uid, title="Builder Test User", email="builder@test.com")
 
         context_result = await builder.build_user_context(test_user_uid, test_user)
@@ -687,8 +688,8 @@ class TestCurriculumContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                // Add :Lp secondary labels for MEGA-QUERY/CONSOLIDATED_QUERY compatibility
-                SET lp1:Lp, lp2:Lp
+                // Add :LearningPath secondary labels for MEGA-QUERY/CONSOLIDATED_QUERY compatibility
+                SET lp1:LearningPath, lp2:LearningPath
 
                 CREATE (u)-[:ENROLLED_IN {enrolled_at: datetime()}]->(lp1)
                 CREATE (u)-[:ENROLLED_IN {enrolled_at: datetime()}]->(lp2)
@@ -697,7 +698,7 @@ class TestCurriculumContextBuilder:
             )
 
         # Test: Build context via builder pipeline
-        builder = UserContextBuilder(driver)
+        builder = UserContextBuilder(Neo4jQueryExecutor(driver))
         test_user = User(uid=test_user_uid, title="Learning Path User", email="lp@test.com")
 
         context_result = await builder.build_user_context(test_user_uid, test_user)
@@ -749,7 +750,7 @@ class TestCurriculumContextBuilder:
             )
 
         # Test: Build context (should not fail on empty data)
-        builder = UserContextBuilder(driver)
+        builder = UserContextBuilder(Neo4jQueryExecutor(driver))
         test_user = User(uid=test_user_uid, title="Empty Curriculum User", email="empty@test.com")
 
         context_result = await builder.build_user_context(test_user_uid, test_user)
@@ -832,7 +833,7 @@ class TestCurriculumContextBuilder:
                     uid: 'task:build_api',
                     title: 'Build API',
                     user_uid: $user_uid,
-                    status: 'in_progress',
+                    status: 'active',
                     priority: 'high',
                     due_date: date($due_date),
                     created_at: datetime(),
@@ -850,8 +851,8 @@ class TestCurriculumContextBuilder:
                     updated_at: datetime()
                 })
 
-                // Add :Lp secondary label for CONSOLIDATED_QUERY compatibility
-                SET lp:Lp
+                // Add :LearningPath secondary label for CONSOLIDATED_QUERY compatibility
+                SET lp:LearningPath
 
                 // Relationships: Curriculum
                 CREATE (u)-[:MASTERED {mastery_score: 0.8}]->(ku1)
@@ -859,8 +860,8 @@ class TestCurriculumContextBuilder:
                 CREATE (u)-[:ENROLLED_IN]->(lp)
 
                 // Relationships: Activity domains
-                CREATE (u)-[:HAS_TASK]->(t)
-                CREATE (u)-[:HAS_GOAL]->(g)
+                CREATE (u)-[:OWNS]->(t)
+                CREATE (u)-[:OWNS]->(g)
 
                 // Cross-domain: Task applies knowledge
                 CREATE (t)-[:APPLIES_KNOWLEDGE]->(ku1)
@@ -871,7 +872,7 @@ class TestCurriculumContextBuilder:
             )
 
         # Test: Build context with COMPLETE domain integration
-        builder = UserContextBuilder(driver)
+        builder = UserContextBuilder(Neo4jQueryExecutor(driver))
         test_user = User(uid=test_user_uid, title="Integrated User", email="integrated@test.com")
 
         context_result = await builder.build_user_context(test_user_uid, test_user)

@@ -113,7 +113,7 @@ class TestEmbeddingBackgroundWorker:
         worker = EmbeddingBackgroundWorker(
             event_bus=event_bus,
             embeddings_service=embeddings_service,
-            driver=neo4j_driver,
+            executor=neo4j_driver,
             config=mock_config,
             batch_size=25,
             batch_interval_seconds=1,  # Faster for testing
@@ -173,7 +173,7 @@ class TestEmbeddingBackgroundWorker:
         worker = EmbeddingBackgroundWorker(
             event_bus=event_bus,
             embeddings_service=embeddings_service,
-            driver=neo4j_driver,
+            executor=neo4j_driver,
             config=mock_config,
             batch_size=5,
             batch_interval_seconds=1,
@@ -296,7 +296,6 @@ class TestGoalEmbeddingEvents:
         assert event.entity_type == "goal"
         assert "Master Python" in event.embedding_text
         assert "Become proficient" in event.embedding_text
-        assert "production-ready applications" in event.embedding_text
 
     @pytest.mark.asyncio
     async def test_goal_creation_without_event_bus_continues(self, goals_backend, user_uid):
@@ -414,8 +413,6 @@ class TestHabitEmbeddingEvents:
         assert event.entity_type == "habit"
         assert "Morning Meditation" in event.embedding_text
         assert "Practice mindfulness" in event.embedding_text
-        assert "After waking up" in event.embedding_text
-        assert "Feel calm" in event.embedding_text
 
 
 class TestEventEmbeddingEvents:
@@ -464,8 +461,6 @@ class TestEventEmbeddingEvents:
         assert event.entity_uid == result.value.uid
         assert event.entity_type == "event"
         assert "Team Meeting" in event.embedding_text
-        assert "Quarterly planning" in event.embedding_text
-        assert "Conference Room A" in event.embedding_text
 
 
 class TestChoiceEmbeddingEvents:

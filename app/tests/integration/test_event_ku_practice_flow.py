@@ -61,10 +61,10 @@ class TestEventKuPracticeFlow:
         )
 
     @pytest_asyncio.fixture
-    async def ku_practice_service(self, event_bus, neo4j_driver):
-        """Create KuPracticeService with event bus and driver."""
+    async def ku_practice_service(self, event_bus, ku_backend):
+        """Create KuPracticeService with event bus and backend."""
         return KuPracticeService(
-            driver=neo4j_driver,  # Phase 4: For Event→KU Cypher queries
+            backend=ku_backend,  # Phase 4: For Event→KU Cypher queries
             event_bus=event_bus,
         )
 

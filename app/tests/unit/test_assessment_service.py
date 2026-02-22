@@ -14,10 +14,10 @@ from core.models.enums.ku_enums import EntityType
 from core.models.ku import Feedback
 from core.utils.result_simplified import Errors, Result
 
-# Helpers for mocking execute_query call sequence
-AUTHORITY_MATCH = ([{"group_uid": "group_abc"}], None, None)
-AUTHORITY_NO_MATCH = ([], None, None)
-RELATIONSHIP_SUCCESS = ([{"success": True}], None, None)
+# Helpers for mocking execute_query call sequence (returns Result[list[dict]])
+AUTHORITY_MATCH = Result.ok([{"group_uid": "group_abc"}])
+AUTHORITY_NO_MATCH = Result.ok([])
+RELATIONSHIP_SUCCESS = Result.ok([{"success": True}])
 
 
 @pytest.fixture
@@ -26,8 +26,7 @@ def mock_backend():
     backend = MagicMock()
     backend.create = AsyncMock()
     backend.find_by = AsyncMock()
-    backend.driver = MagicMock()
-    backend.driver.execute_query = AsyncMock()
+    backend.execute_query = AsyncMock()
     return backend
 
 
@@ -71,7 +70,7 @@ class TestCreateAssessment:
         """Test successful assessment creation."""
         mock_backend.create.return_value = Result.ok(MagicMock())
         # Call sequence: 1) authority check, 2) ASSESSMENT_OF, 3) SHARES_WITH
-        mock_backend.driver.execute_query.side_effect = [
+        mock_backend.execute_query.side_effect = [
             AUTHORITY_MATCH,
             RELATIONSHIP_SUCCESS,
             RELATIONSHIP_SUCCESS,
@@ -98,7 +97,7 @@ class TestCreateAssessment:
     async def test_create_assessment_creates_relationships(self, core_service, mock_backend):
         """Test that ASSESSMENT_OF and SHARES_WITH relationships are created."""
         mock_backend.create.return_value = Result.ok(MagicMock())
-        mock_backend.driver.execute_query.side_effect = [
+        mock_backend.execute_query.side_effect = [
             AUTHORITY_MATCH,
             RELATIONSHIP_SUCCESS,
             RELATIONSHIP_SUCCESS,
@@ -112,12 +111,12 @@ class TestCreateAssessment:
         )
 
         # 3 driver calls: authority check + ASSESSMENT_OF + SHARES_WITH
-        assert mock_backend.driver.execute_query.call_count == 3
+        assert mock_backend.execute_query.call_count == 3
 
     @pytest.mark.asyncio
     async def test_create_assessment_backend_failure(self, core_service, mock_backend):
         """Test failure propagation from backend.create()."""
-        mock_backend.driver.execute_query.side_effect = [AUTHORITY_MATCH]
+        mock_backend.execute_query.side_effect = [AUTHORITY_MATCH]
         mock_backend.create.return_value = Result.fail(Errors.database("create", "Create failed"))
 
         result = await core_service.create_assessment(
@@ -133,7 +132,7 @@ class TestCreateAssessment:
     async def test_create_assessment_with_metadata(self, core_service, mock_backend):
         """Test metadata is passed through."""
         mock_backend.create.return_value = Result.ok(MagicMock())
-        mock_backend.driver.execute_query.side_effect = [
+        mock_backend.execute_query.side_effect = [
             AUTHORITY_MATCH,
             RELATIONSHIP_SUCCESS,
             RELATIONSHIP_SUCCESS,
@@ -153,7 +152,7 @@ class TestCreateAssessment:
     @pytest.mark.asyncio
     async def test_create_assessment_no_authority(self, core_service, mock_backend):
         """Test that teacher without shared group is rejected."""
-        mock_backend.driver.execute_query.side_effect = [AUTHORITY_NO_MATCH]
+        mock_backend.execute_query.side_effect = [AUTHORITY_NO_MATCH]
 
         result = await core_service.create_assessment(
             teacher_uid="user_teacher",
@@ -173,9 +172,9 @@ class TestCreateAssessment:
     ):
         """Test that relationship creation failure is propagated (not swallowed)."""
         mock_backend.create.return_value = Result.ok(MagicMock())
-        mock_backend.driver.execute_query.side_effect = [
+        mock_backend.execute_query.side_effect = [
             AUTHORITY_MATCH,
-            RuntimeError("Neo4j connection lost"),  # ASSESSMENT_OF fails
+            Result.fail(Errors.database("execute_query", "Neo4j connection lost")),
         ]
 
         result = await core_service.create_assessment(
@@ -194,10 +193,10 @@ class TestCreateAssessment:
     ):
         """Test that SHARES_WITH failure is propagated (not swallowed)."""
         mock_backend.create.return_value = Result.ok(MagicMock())
-        mock_backend.driver.execute_query.side_effect = [
+        mock_backend.execute_query.side_effect = [
             AUTHORITY_MATCH,
             RELATIONSHIP_SUCCESS,  # ASSESSMENT_OF succeeds
-            RuntimeError("Connection timeout"),  # SHARES_WITH fails
+            Result.fail(Errors.database("execute_query", "Connection timeout")),
         ]
 
         result = await core_service.create_assessment(
@@ -222,7 +221,7 @@ class TestGetAssessments:
     @pytest.mark.asyncio
     async def test_get_assessments_for_student(self, core_service, mock_backend):
         """Test querying assessments by student."""
-        mock_backend.driver.execute_query.return_value = (
+        mock_backend.execute_query.return_value = Result.ok(
             [
                 {
                     "k": {
@@ -233,9 +232,7 @@ class TestGetAssessments:
                         "subject_uid": "user_student",
                     }
                 },
-            ],
-            None,
-            None,
+            ]
         )
 
         result = await core_service.get_assessments_for_student(
@@ -244,7 +241,7 @@ class TestGetAssessments:
         )
 
         assert not result.is_error
-        assert mock_backend.driver.execute_query.call_count >= 1
+        assert mock_backend.execute_query.call_count >= 1
 
     @pytest.mark.asyncio
     async def test_get_assessments_by_teacher(self, core_service, mock_backend):

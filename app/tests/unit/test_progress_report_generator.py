@@ -17,13 +17,14 @@ from core.services.reports.progress_report_generator import (
     TIME_PERIOD_DAYS,
     ProgressKuGenerator,
 )
+from core.utils.result_simplified import Result
 
 
 @pytest.fixture
 def mock_driver():
     """Create a mock Neo4j driver."""
     driver = MagicMock()
-    driver.execute_query = AsyncMock(return_value=([], None, None))
+    driver.execute_query = AsyncMock(return_value=Result.ok([]))
     return driver
 
 
@@ -58,7 +59,7 @@ def mock_event_bus():
 def generator(mock_driver, mock_backend, mock_insight_store, mock_event_bus):
     """Create ProgressKuGenerator with mocked deps."""
     return ProgressKuGenerator(
-        driver=mock_driver,
+        executor=mock_driver,
         ku_backend=mock_backend,
         user_service=None,
         insight_store=mock_insight_store,

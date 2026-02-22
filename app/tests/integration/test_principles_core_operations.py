@@ -405,7 +405,6 @@ class TestPrinciplesCoreOperations:
             tradition="Stoicism",
             original_source="Marcus Aurelius, Meditations",
             personal_interpretation="I interpret this as finding meaning in adversity",
-            why_important="This principle helps me maintain equanimity during difficult times",
         )
 
         # Act
@@ -416,7 +415,6 @@ class TestPrinciplesCoreOperations:
         created = result.value
         assert created.tradition == "Stoicism"
         assert "Marcus Aurelius" in created.original_source
-        assert created.why_important is not None
         assert created.personal_interpretation is not None
 
     # ==========================================================================

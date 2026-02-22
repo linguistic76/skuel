@@ -18,6 +18,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
+from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.events.calendar_event_events import CalendarEventCompleted
 from core.events.habit_events import HabitCompleted
 from core.events.task_events import TaskCompleted
@@ -46,7 +47,8 @@ class TestMultiDomainAnalyticsFlow:
     @pytest_asyncio.fixture
     async def analytics_service(self, neo4j_driver, clean_neo4j):
         """Create CrossDomainAnalyticsService with clean database."""
-        return CrossDomainAnalyticsService(driver=neo4j_driver)
+        executor = Neo4jQueryExecutor(neo4j_driver)
+        return CrossDomainAnalyticsService(executor=executor)
 
     @pytest_asyncio.fixture
     async def test_user_uid(self):

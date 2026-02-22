@@ -12,11 +12,12 @@ import pytest
 
 from core.config.unified_config import VectorSearchConfig
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+from core.utils.result_simplified import Errors, Result
 
 
 @pytest.fixture
 def mock_driver():
-    """Mock Neo4j driver for testing."""
+    """Mock Neo4j executor for testing (satisfies QueryExecutor protocol)."""
     driver = MagicMock()
     driver.execute_query = AsyncMock()
     return driver
@@ -25,8 +26,6 @@ def mock_driver():
 @pytest.fixture
 def mock_embeddings_service():
     """Mock embeddings service that returns deterministic embeddings."""
-    from core.utils.result_simplified import Result
-
     service = MagicMock()
 
     async def create_embedding(text, metadata=None):
@@ -43,21 +42,19 @@ def vector_search_service(mock_driver, mock_embeddings_service):
     """Create vector search service with mocks."""
     config = VectorSearchConfig()
     return Neo4jVectorSearchService(
-        driver=mock_driver, embeddings_service=mock_embeddings_service, config=config
+        executor=mock_driver, embeddings_service=mock_embeddings_service, config=config
     )
 
 
 @pytest.mark.asyncio
 async def test_find_similar_by_text_with_metrics(vector_search_service, mock_driver):
     """Test vector search with metrics tracking."""
-    # Mock driver response — execute_query returns (records, summary, keys) tuple
-    mock_driver.execute_query.return_value = (
+    # Mock driver response — execute_query returns Result[list[dict]]
+    mock_driver.execute_query.return_value = Result.ok(
         [
             {"node": {"uid": "ku.python", "title": "Python Basics"}, "score": 0.9},
             {"node": {"uid": "ku.django", "title": "Django Framework"}, "score": 0.8},
-        ],
-        None,
-        None,
+        ]
     )
 
     result, metrics = await vector_search_service.find_similar_by_text_with_metrics(
@@ -84,8 +81,10 @@ async def test_find_similar_by_text_with_metrics(vector_search_service, mock_dri
 @pytest.mark.asyncio
 async def test_find_similar_by_text_with_metrics_error(vector_search_service, mock_driver):
     """Test metrics when search fails."""
-    # Mock driver to raise error
-    mock_driver.execute_query.side_effect = Exception("Database error")
+    # Mock driver to return error
+    mock_driver.execute_query.return_value = Result.fail(
+        Errors.database(operation="vector_search", message="Database error")
+    )
 
     result, metrics = await vector_search_service.find_similar_by_text_with_metrics(
         label="Ku", text="test query"
@@ -109,25 +108,21 @@ async def test_hybrid_search_with_metrics(vector_search_service, mock_driver):
 
         # Vector search
         if "db.index.vector.queryNodes" in query:
-            return (
+            return Result.ok(
                 [
                     {"node": {"uid": "ku.python", "title": "Python"}, "score": 0.9},
                     {"node": {"uid": "ku.javascript", "title": "JavaScript"}, "score": 0.8},
-                ],
-                None,
-                None,
+                ]
             )
         # Full-text search
         elif "db.index.fulltext.queryNodes" in query:
-            return (
+            return Result.ok(
                 [
                     {"node": {"uid": "ku.python", "title": "Python"}, "score": 5.0},
                     {"node": {"uid": "ku.django", "title": "Django"}, "score": 3.0},
-                ],
-                None,
-                None,
+                ]
             )
-        return ([], None, None)
+        return Result.ok([])
 
     mock_driver.execute_query = mock_execute_query
 
@@ -161,7 +156,7 @@ async def test_hybrid_search_with_metrics_custom_weight(vector_search_service, m
 
     # Mock empty results for simplicity
     async def mock_execute_query(query, params):
-        return ([], None, None)
+        return Result.ok([])
 
     mock_driver.execute_query = mock_execute_query
 
@@ -177,8 +172,8 @@ async def test_hybrid_search_with_metrics_custom_weight(vector_search_service, m
 @pytest.mark.asyncio
 async def test_metrics_track_empty_results(vector_search_service, mock_driver):
     """Test metrics correctly handle zero results."""
-    # Mock empty results — execute_query returns (records, summary, keys) tuple
-    mock_driver.execute_query.return_value = ([], None, None)
+    # Mock empty results — execute_query returns Result[list[dict]]
+    mock_driver.execute_query.return_value = Result.ok([])
 
     result, metrics = await vector_search_service.find_similar_by_text_with_metrics(
         label="Ku", text="nonexistent query"
@@ -198,15 +193,13 @@ async def test_metrics_track_empty_results(vector_search_service, mock_driver):
 @pytest.mark.asyncio
 async def test_metrics_similarity_statistics(vector_search_service, mock_driver):
     """Test metrics correctly calculate similarity statistics."""
-    # Mock results with known scores — execute_query returns (records, summary, keys) tuple
-    mock_driver.execute_query.return_value = (
+    # Mock results with known scores — execute_query returns Result[list[dict]]
+    mock_driver.execute_query.return_value = Result.ok(
         [
             {"node": {"uid": "ku.a", "title": "A"}, "score": 1.0},
             {"node": {"uid": "ku.b", "title": "B"}, "score": 0.8},
             {"node": {"uid": "ku.c", "title": "C"}, "score": 0.6},
-        ],
-        None,
-        None,
+        ]
     )
 
     result, metrics = await vector_search_service.find_similar_by_text_with_metrics(
@@ -228,13 +221,11 @@ async def test_metrics_latency_measurement(vector_search_service, mock_driver):
     """Test that metrics measure latency correctly."""
     import asyncio
 
-    # Mock with artificial delay — execute_query returns (records, summary, keys) tuple
+    # Mock with artificial delay — execute_query returns Result[list[dict]]
     async def slow_query(query, params):
         await asyncio.sleep(0.05)  # 50ms delay
-        return (
-            [{"node": {"uid": "ku.test", "title": "Test"}, "score": 0.9}],
-            None,
-            None,
+        return Result.ok(
+            [{"node": {"uid": "ku.test", "title": "Test"}, "score": 0.9}]
         )
 
     mock_driver.execute_query = slow_query

@@ -22,6 +22,8 @@ from unittest.mock import Mock
 import pytest
 import pytest_asyncio
 
+from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from core.services.ingestion import UnifiedIngestionService
 from core.services.ingestion.batch import ingest_directory
 from core.services.ingestion.ingestion_history import IngestionHistoryService
 from core.services.ingestion.types import DryRunPreview, IncrementalStats
@@ -32,9 +34,25 @@ from core.services.ingestion.types import DryRunPreview, IncrementalStats
 
 
 @pytest_asyncio.fixture
+async def ingestion_service(neo4j_container):
+    """Override conftest ingestion_service to include executor for incremental mode."""
+    from neo4j import AsyncGraphDatabase
+
+    uri = neo4j_container.get_connection_url()
+    driver = AsyncGraphDatabase.driver(uri)
+    executor = Neo4jQueryExecutor(driver)
+
+    service = UnifiedIngestionService(driver=driver, executor=executor)
+
+    yield service
+
+    await driver.close()
+
+
+@pytest_asyncio.fixture
 async def ingestion_history_service(neo4j_driver):
     """Create a real IngestionHistoryService connected to test Neo4j."""
-    service = IngestionHistoryService(driver=neo4j_driver)
+    service = IngestionHistoryService(executor=Neo4jQueryExecutor(neo4j_driver))
     await service.ensure_constraints()
     return service
 

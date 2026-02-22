@@ -14,11 +14,7 @@ from core.services.neo4j_genai_embeddings_service import (
     EMBEDDING_VERSION,
     Neo4jGenAIEmbeddingsService,
 )
-
-
-def _genai_result(embedding):
-    """Create a 3-tuple result matching Neo4j driver.execute_query() for GenAI calls."""
-    return ([{"embedding": embedding}], MagicMock(), ["embedding"])
+from core.utils.result_simplified import Result
 
 
 @pytest.fixture
@@ -47,7 +43,7 @@ async def test_embedding_version_constant():
 async def test_store_embedding_with_metadata(embeddings_service, mock_driver):
     """Test storing embedding with version metadata."""
     # Mock successful update
-    mock_driver.execute_query.return_value = [{"uid": "ku.python"}]
+    mock_driver.execute_query.return_value = Result.ok([{"uid": "ku.python"}])
 
     embedding = [0.1] * 1536
 
@@ -74,7 +70,7 @@ async def test_store_embedding_with_metadata(embeddings_service, mock_driver):
 async def test_store_embedding_node_not_found(embeddings_service, mock_driver):
     """Test storing embedding when node doesn't exist."""
     # Mock no results (node not found)
-    mock_driver.execute_query.return_value = []
+    mock_driver.execute_query.return_value = Result.ok([])
 
     embedding = [0.1] * 1536
 
@@ -90,14 +86,14 @@ async def test_store_embedding_node_not_found(embeddings_service, mock_driver):
 async def test_get_embedding_metadata(embeddings_service, mock_driver):
     """Test getting embedding metadata."""
     # Mock metadata response
-    mock_driver.execute_query.return_value = [
+    mock_driver.execute_query.return_value = Result.ok([
         {
             "embedding": [0.1] * 1536,
             "version": "v1",
             "model": "text-embedding-3-small",
             "updated_at": "2026-01-29T12:00:00Z",
         }
-    ]
+    ])
 
     result = await embeddings_service.get_embedding_metadata(uid="ku.python", label="Ku")
 
@@ -115,9 +111,9 @@ async def test_get_embedding_metadata(embeddings_service, mock_driver):
 async def test_get_embedding_metadata_no_embedding(embeddings_service, mock_driver):
     """Test getting metadata when node has no embedding."""
     # Mock node with no embedding
-    mock_driver.execute_query.return_value = [
+    mock_driver.execute_query.return_value = Result.ok([
         {"embedding": None, "version": None, "model": None, "updated_at": None}
-    ]
+    ])
 
     result = await embeddings_service.get_embedding_metadata(uid="ku.test", label="Ku")
 
@@ -134,14 +130,14 @@ async def test_get_embedding_metadata_no_embedding(embeddings_service, mock_driv
 async def test_check_version_compatibility_current(embeddings_service, mock_driver):
     """Test version compatibility check for current version."""
     # Mock current version
-    mock_driver.execute_query.return_value = [
+    mock_driver.execute_query.return_value = Result.ok([
         {
             "embedding": [0.1] * 1536,
             "version": EMBEDDING_VERSION,
             "model": "text-embedding-3-small",
             "updated_at": "2026-01-29T12:00:00Z",
         }
-    ]
+    ])
 
     result = await embeddings_service.check_version_compatibility(uid="ku.python", label="Ku")
 
@@ -159,14 +155,14 @@ async def test_check_version_compatibility_current(embeddings_service, mock_driv
 async def test_check_version_compatibility_stale(embeddings_service, mock_driver):
     """Test version compatibility check for stale version."""
     # Mock old version
-    mock_driver.execute_query.return_value = [
+    mock_driver.execute_query.return_value = Result.ok([
         {
             "embedding": [0.1] * 1536,
             "version": "v0",  # Old version
             "model": "text-embedding-ada-002",
             "updated_at": "2025-01-01T12:00:00Z",
         }
-    ]
+    ])
 
     result = await embeddings_service.check_version_compatibility(uid="ku.python", label="Ku")
 
@@ -184,9 +180,9 @@ async def test_check_version_compatibility_stale(embeddings_service, mock_driver
 async def test_check_version_compatibility_no_version(embeddings_service, mock_driver):
     """Test version compatibility when node has embedding but no version."""
     # Mock embedding without version metadata
-    mock_driver.execute_query.return_value = [
+    mock_driver.execute_query.return_value = Result.ok([
         {"embedding": [0.1] * 1536, "version": None, "model": None, "updated_at": None}
-    ]
+    ])
 
     result = await embeddings_service.check_version_compatibility(uid="ku.python", label="Ku")
 
@@ -210,21 +206,21 @@ async def test_get_or_create_embedding_returns_embedding(embeddings_service, moc
     async def mock_query(query, params=None):
         # Metadata query
         if "embedding_version" in query and "RETURN" in query:
-            return [
+            return Result.ok([
                 {
                     "embedding": None,
                     "version": None,
                     "model": None,
                     "updated_at": None,
                 }
-            ]
-        # Create embedding (GenAI) — unpacks as 3-tuple
+            ])
+        # Create embedding (GenAI)
         elif "genai.vector.encode" in query:
-            return _genai_result([0.1] * 1536)
+            return Result.ok([{"embedding": [0.1] * 1536}])
         # Store embedding
         elif "SET n.embedding" in query:
-            return [{"uid": "ku.python"}]
-        return []
+            return Result.ok([{"uid": "ku.python"}])
+        return Result.ok([])
 
     mock_driver.execute_query = mock_query
     embeddings_service._plugin_available = True
@@ -249,20 +245,20 @@ async def test_get_or_create_embedding_cache_miss(embeddings_service, mock_drive
 
         # First call: check compatibility (stale version)
         if call_count[0] == 1:
-            return [
+            return Result.ok([
                 {
                     "embedding": [0.1] * 1536,
                     "version": "v0",  # Old version
                     "model": "old-model",
                     "updated_at": "2025-01-01T12:00:00Z",
                 }
-            ]
-        # Second call: create new embedding (GenAI plugin) — unpacks as 3-tuple
+            ])
+        # Second call: create new embedding (GenAI plugin)
         elif "genai.vector.encode" in query:
-            return _genai_result([0.2] * 1536)
+            return Result.ok([{"embedding": [0.2] * 1536}])
         # Third call: store with metadata
         else:
-            return [{"uid": "ku.python"}]
+            return Result.ok([{"uid": "ku.python"}])
 
     mock_driver.execute_query = mock_query
 
@@ -289,13 +285,13 @@ async def test_get_or_create_embedding_no_existing(embeddings_service, mock_driv
 
         # First call: check compatibility (no embedding)
         if call_count[0] == 1:
-            return [{"embedding": None, "version": None, "model": None, "updated_at": None}]
-        # Second call: create embedding — unpacks as 3-tuple
+            return Result.ok([{"embedding": None, "version": None, "model": None, "updated_at": None}])
+        # Second call: create embedding
         elif "genai.vector.encode" in query:
-            return _genai_result([0.3] * 1536)
+            return Result.ok([{"embedding": [0.3] * 1536}])
         # Third call: store with metadata
         else:
-            return [{"uid": "ku.python"}]
+            return Result.ok([{"uid": "ku.python"}])
 
     mock_driver.execute_query = mock_query
     embeddings_service._plugin_available = True
