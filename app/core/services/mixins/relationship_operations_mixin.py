@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
-from core.services.protocols import BackendOperations
+from core.ports import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -403,6 +403,6 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 # PROTOCOL COMPLIANCE VERIFICATION (January 2026)
 # ============================================================================
 if TYPE_CHECKING:
-    from core.services.protocols.base_service_interface import RelationshipOperations
+    from core.ports.base_service_interface import RelationshipOperations
 
     _protocol_check: type[RelationshipOperations[Any]] = RelationshipOperationsMixin  # type: ignore[type-arg]

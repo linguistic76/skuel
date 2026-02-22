@@ -11,7 +11,7 @@ All 10 domain intelligence services implement the `IntelligenceOperations` proto
 ### Location
 
 ```python
-from core.services.protocols.intelligence_protocols import IntelligenceOperations
+from core.ports.intelligence_protocols import IntelligenceOperations
 ```
 
 ### Protocol Definition
@@ -304,7 +304,7 @@ Full example showing protocol, orchestrator, and routes:
 # core/services/tasks/tasks_intelligence_service.py
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence.orchestrator import GraphContextOrchestrator
-from core.services.protocols import TasksOperations, IntelligenceOperations
+from core.ports import TasksOperations, IntelligenceOperations
 from core.models.task import Task, TaskDTO
 from core.models.enums import Domain
 
@@ -436,7 +436,7 @@ All 10 domain intelligence services implement the protocol:
 
 ```python
 import pytest
-from core.services.protocols import IntelligenceOperations
+from core.ports import IntelligenceOperations
 
 
 def test_service_implements_protocol():

@@ -52,13 +52,13 @@ from core.services.lp_intelligence.types import (
     LearningAnalysis,
     LearningIntervention,
 )
-from core.services.protocols.content_protocols import ContentAdapter
+from core.ports.content_protocols import ContentAdapter
 from core.services.user import UserContext
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import QueryExecutor
+    from core.ports import QueryExecutor
 
 
 class LpIntelligenceService(BaseAnalyticsService[Any, KuBase]):

@@ -31,7 +31,7 @@ from typing import Any
 from core.models.enums import Domain, KuStatus, Priority
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_task import TaskKu as Task
-from core.services.protocols import HasMetadata, HasSummary
+from core.ports import HasMetadata, HasSummary
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result

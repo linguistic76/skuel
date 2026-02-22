@@ -421,7 +421,7 @@ poetry run mypy adapters/inbound/principles_api.py 2>&1 | grep "has no attribute
 grep -r "def create_principle_expression" core/services/principles/
 
 # 3. Check the protocol
-grep -A 5 "def create_principle_expression" core/services/protocols/facade_protocols.py
+grep -A 5 "def create_principle_expression" core/ports/facade_protocols.py
 # If not found, add it!
 ```
 
@@ -432,7 +432,7 @@ grep -A 5 "def create_principle_expression" core/services/protocols/facade_proto
 grep "service\.method_name" adapters/inbound/*.py
 
 # Step 2: Check if protocol declares them
-grep "def method_name" core/services/protocols/facade_protocols.py
+grep "def method_name" core/ports/facade_protocols.py
 
 # Step 3: Add missing methods to protocol
 class ServiceProtocol(Protocol):

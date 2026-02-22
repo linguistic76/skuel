@@ -34,7 +34,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any
 
-from core.services.protocols import Result
+from core.ports import Result
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)

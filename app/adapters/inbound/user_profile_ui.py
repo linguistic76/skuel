@@ -26,7 +26,7 @@ from typing import Any
 from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
-from core.services.protocols import get_enum_value
+from core.ports import get_enum_value
 from core.services.user.unified_user_context import UserContext
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result

@@ -105,7 +105,7 @@ class SomeOperations(Protocol):
 
 ## Facade Protocol Template
 
-**Location:** `/core/services/protocols/facade_protocols.py`
+**Location:** `/core/ports/facade_protocols.py`
 **Purpose:** Type hints for dynamically delegated facade methods
 **Use Case:** Services using `FacadeDelegationMixin` to auto-generate delegation methods
 
@@ -135,7 +135,7 @@ class TasksFacadeProtocol(Protocol):
     from typing import TYPE_CHECKING
 
     if TYPE_CHECKING:
-        from core.services.protocols.facade_protocols import TasksFacadeProtocol
+        from core.ports.facade_protocols import TasksFacadeProtocol
 
     async def analyze_tasks(service: "TasksFacadeProtocol"):
         # Type hint enables MyPy autocomplete for delegated methods
@@ -202,13 +202,13 @@ class TasksFacadeProtocol(Protocol):
 | **Return Types** | `Result[T]` | `Result[T]` (same) |
 | **Decorator** | Optional | `@runtime_checkable` required |
 | **Usage** | Backend depends on protocol | Use as parameter type hint with TYPE_CHECKING |
-| **Location** | `/core/services/protocols/domain_protocols.py` | `/core/services/protocols/facade_protocols.py` |
+| **Location** | `/core/ports/domain_protocols.py` | `/core/ports/facade_protocols.py` |
 
 **Template Usage Pattern:**
 
 ```python
 # Step 1: Define the facade protocol (one-time setup)
-# File: /core/services/protocols/facade_protocols.py
+# File: /core/ports/facade_protocols.py
 
 @runtime_checkable
 class SomeFacadeProtocol(Protocol):
@@ -222,7 +222,7 @@ class SomeFacadeProtocol(Protocol):
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.services.protocols.facade_protocols import SomeFacadeProtocol
+    from core.ports.facade_protocols import SomeFacadeProtocol
 
 async def process_something(service: "SomeFacadeProtocol"):
     # MyPy sees delegated methods, IDE provides autocomplete
@@ -284,10 +284,10 @@ async def create(self, data: Any) -> Result[Any]:
 
 ## Protocol Organization
 
-**Location:** `/core/services/protocols/`
+**Location:** `/core/ports/`
 
 ```
-core/services/protocols/
+core/ports/
 ├── domain_protocols.py      # Business domain operations
 │   ├── TaskOperations
 │   ├── EventOperations
@@ -350,6 +350,6 @@ class ConcreteBackend(SomeOperations):
 ## Examples
 
 **Real protocol definitions:**
-- `/core/services/protocols/domain_protocols.py`
-- `/core/services/protocols/knowledge_protocols.py`
-- `/core/services/protocols/search_protocols.py`
+- `/core/ports/domain_protocols.py`
+- `/core/ports/knowledge_protocols.py`
+- `/core/ports/search_protocols.py`

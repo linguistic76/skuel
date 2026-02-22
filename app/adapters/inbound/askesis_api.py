@@ -34,12 +34,12 @@ from core.models.askesis.askesis_request import (
     GuidanceRecommendationCreateRequest,
     IntelligenceUpdateRequest,
 )
-from core.services.protocols import AskesisOperations
+from core.ports import AskesisOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import AskesisCoreOperations, UserOperations
+    from core.ports import AskesisCoreOperations, UserOperations
 
 logger = get_logger("skuel.routes.askesis.api")
 

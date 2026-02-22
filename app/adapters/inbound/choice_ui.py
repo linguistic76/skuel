@@ -29,8 +29,8 @@ from adapters.inbound.auth import require_authenticated_user
 from components.choices_views import ChoicesViewComponents
 from components.error_components import ErrorComponents
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from core.services.protocols.facade_protocols import ChoicesFacadeProtocol
-from core.services.protocols.query_types import ActivityFilterSpec
+from core.ports.facade_protocols import ChoicesFacadeProtocol
+from core.ports.query_types import ActivityFilterSpec
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (

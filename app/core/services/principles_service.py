@@ -39,7 +39,7 @@ from core.services.principles import (
     PrinciplesReflectionService,
 )
 from core.services.principles.principles_ai_service import PrinciplesAIService
-from core.services.protocols.domain_protocols import (
+from core.ports.domain_protocols import (
     GoalsOperations,
     HabitsOperations,
     PrinciplesOperations,
@@ -58,7 +58,7 @@ if TYPE_CHECKING:
     from core.services.principles.principles_intelligence_service import (
         PrinciplesIntelligenceService,
     )
-    from core.services.protocols.search_protocols import PrinciplesSearchOperations
+    from core.ports.search_protocols import PrinciplesSearchOperations
 
 
 # NOTE: AlignmentAssessment and MotivationalProfile are now imported from

@@ -34,7 +34,7 @@ from abc import ABC
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 if TYPE_CHECKING:
-    from core.services.protocols.base_protocols import BackendOperations
+    from core.ports.base_protocols import BackendOperations
     from core.services.relationships import UnifiedRelationshipService
 
 # Type variables for generic backend and entity types

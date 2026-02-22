@@ -13,7 +13,7 @@ from core.models.enums.ku_enums import ScheduleType
 from core.models.ku import KuSchedule, KuScheduleDTO, ku_schedule_dto_to_domain
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator

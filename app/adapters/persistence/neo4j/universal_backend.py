@@ -66,8 +66,8 @@ Key Features:
 
 See Also:
     /core/models/shared_enums.py - Domain enum definitions
-    /core/services/protocols/domain_protocols.py - Service interfaces
-    /core/utils/services_bootstrap.py - Service composition
+    /core/ports/domain_protocols.py - Service interfaces
+    /services_bootstrap.py - Service composition
 """
 
 from __future__ import annotations
@@ -94,7 +94,7 @@ if TYPE_CHECKING:
 
     from core.models.graph_context import GraphContext
     from core.models.semantic import EdgeMetadata
-    from core.services.protocols.base_protocols import (
+    from core.ports.base_protocols import (
         Direction,
         GraphContextNode,
         RelationshipMetadata,
@@ -1286,7 +1286,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             - Raises AttributeError if method doesn't match any pattern
 
         See Also:
-            - Protocol definitions in core/services/protocols/domain_protocols.py
+            - Protocol definitions in core/ports/domain_protocols.py
             - Phase 2A documentation in /docs/improvements/
         """
         # Pattern 1: create_{domain}(entity) → create(entity)

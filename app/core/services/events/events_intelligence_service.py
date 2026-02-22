@@ -32,8 +32,8 @@ from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
-    from core.services.protocols.domain_protocols import EventsRelationshipOperations
+    from core.ports import BackendOperations
+    from core.ports.domain_protocols import EventsRelationshipOperations
 
 
 class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[EventKu]", EventKu]):

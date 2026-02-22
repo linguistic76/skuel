@@ -212,7 +212,7 @@ class SomeOperations(BackendOperations, Protocol):
 
 **Before fix:**
 ```bash
-$ poetry run mypy core/services/protocols/moc_protocols.py
+$ poetry run mypy core/ports/moc_protocols.py
 error: Argument 2 of "update" is incompatible with supertype
 error: Signature of "delete" incompatible with supertype
 Found 2 errors
@@ -220,7 +220,7 @@ Found 2 errors
 
 **After fix:**
 ```bash
-$ poetry run mypy core/services/protocols/moc_protocols.py
+$ poetry run mypy core/ports/moc_protocols.py
 ✅ No override violations found!
 ```
 
@@ -250,5 +250,5 @@ The backend IS working correctly with dicts. The issue was MOC trying to change 
 ## References
 
 - Liskov Substitution Principle: https://mypy.readthedocs.io/en/stable/common_issues.html#incompatible-overrides
-- Protocol location: `/core/services/protocols/curriculum_protocols.py`
+- Protocol location: `/core/ports/curriculum_protocols.py`
 - MOC Architecture: `/docs/domains/moc.md` (KU-based since January 2026)

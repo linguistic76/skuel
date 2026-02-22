@@ -38,13 +38,13 @@ from core.services.intelligence import (
 #   - habit.calculate_consistency_score() instead of isinstance(habit, HasConsistencyScore)
 #   - habit.current_streak instead of isinstance(habit, HasStreakCount)
 #   - habit.recurrence_pattern instead of isinstance(habit, HasFrequency)
-from core.services.protocols.domain_protocols import HabitsOperations
+from core.ports.domain_protocols import HabitsOperations
 from core.utils.decorators import requires_graph_intelligence
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.services.insight.insight_store import InsightStore
-    from core.services.protocols.domain_protocols import HabitsRelationshipOperations
+    from core.ports.domain_protocols import HabitsRelationshipOperations
 
 
 class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, HabitKu]):

@@ -30,7 +30,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
 
 @dataclass(frozen=True)
@@ -609,7 +609,7 @@ class EventsHabitIntegrationService:
 
             # Publish CalendarEventCreated event (event-driven architecture)
             from core.events import CalendarEventCreated
-            from core.services.protocols import get_enum_value
+            from core.ports import get_enum_value
 
             event_obj = CalendarEventCreated(
                 event_uid=event.uid,

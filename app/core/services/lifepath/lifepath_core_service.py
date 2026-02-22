@@ -28,7 +28,7 @@ from .lifepath_types import LifePathDesignation
 
 if TYPE_CHECKING:
     from core.services.lp_service import LpService
-    from core.services.protocols import QueryExecutor
+    from core.ports import QueryExecutor
 
 logger = get_logger(__name__)
 

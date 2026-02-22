@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Metadata
-from core.services.protocols.base_protocols import Direction
+from core.ports.base_protocols import Direction
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:

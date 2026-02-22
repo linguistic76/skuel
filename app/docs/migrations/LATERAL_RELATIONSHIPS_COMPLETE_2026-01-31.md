@@ -176,7 +176,7 @@ class {Domain}LateralService:
 
 ### Files Modified (1 file, ~80 lines)
 
-**`/core/utils/services_bootstrap.py`:**
+**`/services_bootstrap.py`:**
 
 1. **Added Service Fields** (line ~352):
 ```python
@@ -303,7 +303,7 @@ logger.info(f"✅ Registered {len(lateral_routes)} lateral relationship routes")
 ### Modified Files (2 files)
 
 **Phase 3: Service Bootstrap**
-- `/core/utils/services_bootstrap.py` (~80 lines added)
+- `/services_bootstrap.py` (~80 lines added)
 
 **Phase 4: API Routes**
 - `/scripts/dev/bootstrap.py` (~5 lines added)

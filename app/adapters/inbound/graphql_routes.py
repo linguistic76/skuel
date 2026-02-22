@@ -30,7 +30,7 @@ from fasthtml.common import (
 
 from adapters.inbound.auth.session import require_authenticated_user
 from core.utils.logging import get_logger
-from core.utils.services_bootstrap import Services
+from services_bootstrap import Services
 from routes.graphql import create_graphql_context, create_graphql_schema
 
 logger = get_logger(__name__)

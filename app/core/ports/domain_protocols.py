@@ -62,7 +62,7 @@ Architectural Note (Updated 2025-10-19):
 
 See Also:
     /core/models/shared_enums.py - Domain enum definitions
-    /core/utils/services_bootstrap.py - Service composition
+    /services_bootstrap.py - Service composition
     /adapters/persistence/neo4j/universal_backend.py - Generic backend
 """
 
@@ -71,11 +71,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.models.relationship_names import RelationshipName
-from core.services.protocols.base_protocols import (
+from core.ports.base_protocols import (
     BackendOperations,
     GraphRelationshipOperations,
 )
-from core.services.protocols.query_types import (
+from core.ports.query_types import (
     GraphContextResult,
 )
 

@@ -13,7 +13,7 @@ This document contains established patterns for SKUEL service development, moved
 ## The Standard Pattern
 
 ```python
-from core.services.protocols import get_enum_value, EnumLike
+from core.ports import get_enum_value, EnumLike
 
 # For any enum value extraction:
 value = get_enum_value(some_enum)  # Returns enum.value or object itself
@@ -127,4 +127,4 @@ if not knowledge_service:
 - `/docs/patterns/three_tier_type_system.md` - Full type system documentation
 - `/docs/patterns/ERROR_HANDLING.md` - Error handling patterns
 - `/docs/patterns/protocol_architecture.md` - Protocol architecture
-- `/core/utils/services_bootstrap.py` - Composition root implementation
+- `/services_bootstrap.py` - Composition root implementation

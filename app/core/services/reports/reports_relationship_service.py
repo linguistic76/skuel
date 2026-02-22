@@ -18,7 +18,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
 
 class KuRelationshipService:

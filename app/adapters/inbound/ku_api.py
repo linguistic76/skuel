@@ -23,7 +23,7 @@ from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRo
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
 from core.models.ku.ku_request import KuCurriculumCreateRequest, KuUpdateRequest
-from core.services.protocols.facade_protocols import KuFacadeProtocol
+from core.ports.facade_protocols import KuFacadeProtocol
 from core.utils.result_simplified import Errors, Result
 
 

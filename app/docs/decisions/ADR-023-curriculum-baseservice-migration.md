@@ -251,10 +251,10 @@ Removed category helper methods from ParsedActivityLine and ParsedJournal:
 - `core/services/moc/moc_search_service.py` - Changed inheritance to BaseService
 - `core/models/enums/entity_enums.py` - Removed categorization methods
 - `core/services/dsl/activity_dsl_parser.py` - Removed category helper methods
-- `core/services/protocols/__init__.py` - Removed deleted protocol exports (January 2026)
-- `core/services/protocols/ku_protocols.py` - Removed 4 dead protocols (January 2026)
-- `core/services/protocols/domain_protocols.py` - Removed 7 orphaned protocols (January 2026)
-- `core/utils/services_bootstrap.py` - Fixed wrong type hints (January 2026)
+- `core/ports/__init__.py` - Removed deleted protocol exports (January 2026)
+- `core/ports/ku_protocols.py` - Removed 4 dead protocols (January 2026)
+- `core/ports/domain_protocols.py` - Removed 7 orphaned protocols (January 2026)
+- `services_bootstrap.py` - Fixed wrong type hints (January 2026)
 
 ### Class Attribute Configuration
 

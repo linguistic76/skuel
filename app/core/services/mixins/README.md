@@ -343,7 +343,7 @@ Methods:
 from __future__ import annotations
 from typing import TYPE_CHECKING
 from core.models.protocols import DomainModelProtocol
-from core.services.protocols import BackendOperations
+from core.ports import BackendOperations
 
 if TYPE_CHECKING:
     from logging import Logger
@@ -407,7 +407,7 @@ class MyFeatureMixin[B: BackendOperations, T: DomainModelProtocol]:
 ## Related Documentation
 
 - **Implementation:** `/core/services/base_service.py`
-- **Protocols:** `/core/services/protocols/base_service_interface.py`
+- **Protocols:** `/core/ports/base_service_interface.py`
 - **Configuration:** `/core/services/domain_config.py`
 - **Quick Start:** `/docs/guides/BASESERVICE_QUICK_START.md`
 - **Method Index:** `/docs/reference/BASESERVICE_METHOD_INDEX.md`

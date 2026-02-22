@@ -106,7 +106,7 @@ async def create_prerequisite_relationship(
 
 ## Step 4: Add to Services Bootstrap ✅ COMPLETE
 
-**Status:** All 8 domain lateral services successfully bootstrapped in `/core/utils/services_bootstrap.py`
+**Status:** All 8 domain lateral services successfully bootstrapped in `/services_bootstrap.py`
 
 Services created (line ~1249):
 ```python

@@ -29,8 +29,8 @@ if TYPE_CHECKING:
     from core.models.ku.ku_learning_step import LearningStepKu
     from core.services.ku_service import KuService
     from core.services.ls_service import LsService
-    from core.services.protocols import EventBusOperations
-    from core.services.protocols.facade_protocols import LpFacadeProtocol, LsFacadeProtocol
+    from core.ports import EventBusOperations
+    from core.ports.facade_protocols import LpFacadeProtocol, LsFacadeProtocol
 
 logger = get_logger(__name__)
 

@@ -371,7 +371,7 @@ histogram_quantile(0.95, rate(skuel_transcription_duration_seconds_bucket[5m]))
 **Instrumentation Locations**:
 - OpenAI calls: `core/services/neo4j_genai_embeddings_service.py:138-160`
 - Embedding worker: `core/services/background/embedding_worker.py:165-180`
-- Updated in services_bootstrap: `core/utils/services_bootstrap.py:588-590`
+- Updated in services_bootstrap: `services_bootstrap.py:588-590`
 
 **Key Alerts** (see `ALERTING.md`):
 - `HighOpenAIErrorRate` - >20% API failures

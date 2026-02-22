@@ -93,7 +93,7 @@ development. Enable when production requirements demand them.
 
 See Also:
     /core/models/shared_enums.py - Domain enum definitions
-    /core/services/protocols/domain_protocols.py - Service interfaces
+    /core/ports/domain_protocols.py - Service interfaces
     /adapters/persistence/neo4j/universal_backend.py - Generic backend
     /FUTURE_SERVICES.md - Pre-wired infrastructure services explanation
 """
@@ -138,7 +138,7 @@ if TYPE_CHECKING:
     from core.services.principles.principles_intelligence_service import (
         PrinciplesIntelligenceService,
     )
-    from core.services.protocols.service_protocols import LateralRelationshipOperations
+    from core.ports.service_protocols import LateralRelationshipOperations
     from core.services.relationships.unified_relationship_service import (
         UnifiedRelationshipService,
     )
@@ -152,7 +152,7 @@ if TYPE_CHECKING:
     from core.services.user_progress_service import UserProgressService
     from core.services.user_relationship_service import UserRelationshipService
 
-from core.services.protocols import (
+from core.ports import (
     AskesisCoreOperations,
     AskesisOperations,
     AsyncCloseable,
@@ -199,7 +199,7 @@ from core.services.protocols import (
     UserOperations,
     VisualizationOperations,
 )
-from core.services.protocols.facade_protocols import LpFacadeProtocol
+from core.ports.facade_protocols import LpFacadeProtocol
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.ku.ku_habit import HabitKu
 from core.services.base_ai_service import BaseAIService
-from core.services.protocols import HabitsOperations
+from core.ports import HabitsOperations
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:

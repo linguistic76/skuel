@@ -24,7 +24,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
 from core.events import TaskCompleted, publish_event
 from core.models.enums import Domain, KuStatus, Priority

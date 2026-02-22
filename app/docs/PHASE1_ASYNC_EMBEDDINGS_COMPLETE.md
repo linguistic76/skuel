@@ -180,7 +180,7 @@ Every 30 seconds:
 
 ## Bootstrap Configuration (TODO)
 
-**File**: `core/utils/services_bootstrap.py`
+**File**: `services_bootstrap.py`
 
 Add after creating `embeddings_service` and `event_bus`:
 

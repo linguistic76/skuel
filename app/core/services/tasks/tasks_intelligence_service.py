@@ -58,8 +58,8 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_second_item
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
-    from core.services.protocols.domain_protocols import TasksRelationshipOperations
+    from core.ports import BackendOperations
+    from core.ports.domain_protocols import TasksRelationshipOperations
 
 
 # =============================================================================

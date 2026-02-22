@@ -23,7 +23,7 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
 from core.models.enums import Domain, KuStatus, Priority
 from core.models.ku.ku_dto import KuDTO

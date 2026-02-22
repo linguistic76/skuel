@@ -24,7 +24,7 @@ from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRoute
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
 from core.models.ku.ku_request import KuLearningPathCreateRequest, KuUpdateRequest
-from core.services.protocols.facade_protocols import LpFacadeProtocol
+from core.ports.facade_protocols import LpFacadeProtocol
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

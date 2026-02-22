@@ -157,7 +157,7 @@ class HasToRecurrencePattern(Protocol):
 
 ## Domain Operation Protocols
 
-Domain operation protocols define business logic interfaces. Located in `core/services/protocols/domain_protocols.py`.
+Domain operation protocols define business logic interfaces. Located in `core/ports/domain_protocols.py`.
 
 ### Example: TasksOperations
 
@@ -199,7 +199,7 @@ class TasksOperations(Protocol):
 ### Using Domain Protocols in Services
 
 ```python
-from core.services.protocols import TasksOperations
+from core.ports import TasksOperations
 
 class TasksService:
     """Tasks business logic service."""
@@ -267,7 +267,7 @@ class UserContextService:
 **Step 1**: Create minimal protocol interface
 
 ```python
-# File: core/services/protocols/domain_protocols.py
+# File: core/ports/domain_protocols.py
 from typing import Protocol
 from core.utils.result_simplified import Result
 
@@ -288,7 +288,7 @@ class UserContextOperations(Protocol):
 ```python
 # File: tasks_service.py
 from typing import Optional
-from core.services.protocols import UserContextOperations
+from core.ports import UserContextOperations
 
 class TasksService:
     def __init__(
@@ -343,7 +343,7 @@ async def compose_services(driver) -> Services:
 **Step 1**: Define the protocol
 
 ```python
-# File: core/services/protocols/domain_protocols.py
+# File: core/ports/domain_protocols.py
 from typing import Protocol
 from core.utils.result_simplified import Result
 
@@ -396,7 +396,7 @@ class NotificationBackend:
 
 ```python
 # File: core/services/notification_service.py
-from core.services.protocols import NotificationOperations
+from core.ports import NotificationOperations
 
 class NotificationService:
     """Notification business logic service."""
@@ -469,7 +469,7 @@ async def test_notify_user():
 - [BACKEND_OPERATIONS_ISP.md](../patterns/BACKEND_OPERATIONS_ISP.md) - BackendOperations protocol hierarchy
 - [PROTOCOL_REFERENCE.md](../reference/PROTOCOL_REFERENCE.md) - Complete protocol catalog
 - `core/protocols.py` - All type-checking protocols (source of truth)
-- `core/services/protocols/` - All domain operation protocols
+- `core/ports/` - All domain operation protocols
 
 ---
 

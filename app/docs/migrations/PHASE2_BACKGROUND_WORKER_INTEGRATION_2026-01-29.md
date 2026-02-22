@@ -10,7 +10,7 @@
 
 ## Changes Made
 
-### 1. Services Bootstrap (`core/utils/services_bootstrap.py`)
+### 1. Services Bootstrap (`services_bootstrap.py`)
 
 **Added embedding_worker field to Services dataclass**:
 ```python
@@ -197,7 +197,7 @@ User creates goal:
 
 | File | Lines Changed | Purpose |
 |------|---------------|---------|
-| `core/utils/services_bootstrap.py` | +35 | Worker creation and Services integration |
+| `services_bootstrap.py` | +35 | Worker creation and Services integration |
 | `scripts/dev/bootstrap.py` | +25 | Lifecycle management (startup/shutdown) |
 
 **Total**: ~60 lines of new code

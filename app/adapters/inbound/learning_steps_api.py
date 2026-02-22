@@ -30,7 +30,7 @@ from core.models.ku.ku_request import (
 from core.models.ku.ku_request import (
     KuUpdateRequest as KuStepUpdateRequest,
 )
-from core.services.protocols.facade_protocols import LsFacadeProtocol
+from core.ports.facade_protocols import LsFacadeProtocol
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 

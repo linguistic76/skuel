@@ -132,7 +132,7 @@ query, params = CypherGenerator.build_search_query(Task, filters)
 from adapters.repositories.task_repository import TaskRepository
 
 # ✅ NEW - Protocol interfaces
-from core.services.protocols.domain_protocols import TaskOperations
+from core.ports.domain_protocols import TaskOperations
 def __init__(self, backend: TaskOperations):
     self.backend = backend
 ```

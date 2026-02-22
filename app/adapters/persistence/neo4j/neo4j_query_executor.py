@@ -10,12 +10,12 @@ methods (execute with processor, execute_count, execute_exists,
 create_relationships_batch) for common query patterns.
 
 Architecture:
-    - Implements QueryExecutor protocol (core/services/protocols/)
+    - Implements QueryExecutor protocol (core/ports/)
     - Lives in adapters layer (correct hexagonal placement)
     - Core services depend on QueryExecutor protocol, not this class
 
 Usage:
-    from core.services.protocols import QueryExecutor
+    from core.ports import QueryExecutor
 
     class MyService:
         def __init__(self, executor: QueryExecutor):

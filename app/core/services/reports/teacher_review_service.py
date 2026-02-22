@@ -28,7 +28,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
-    from core.services.protocols import QueryExecutor
+    from core.ports import QueryExecutor
 
 logger = get_logger("skuel.services.teacher_review")
 

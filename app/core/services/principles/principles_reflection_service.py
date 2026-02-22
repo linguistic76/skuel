@@ -33,7 +33,7 @@ from core.models.enums.ku_enums import AlignmentLevel
 from core.models.principle.reflection import PrincipleReflection
 from core.models.principle.reflection_dto import PrincipleReflectionDTO
 from core.models.relationship_names import RelationshipName
-from core.services.protocols import BackendOperations
+from core.ports import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

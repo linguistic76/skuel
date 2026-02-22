@@ -37,13 +37,13 @@ from core.services.intelligence import (
     calculate_goal_metrics,
     compare_progress_to_expected,
 )
-from core.services.protocols.domain_protocols import GoalsOperations
+from core.ports.domain_protocols import GoalsOperations
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols.domain_protocols import (
+    from core.ports.domain_protocols import (
         GoalsRelationshipOperations,
         HabitsOperations,
     )

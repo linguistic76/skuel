@@ -24,7 +24,7 @@ from adapters.inbound.boundary import boundary_handler
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import KuOperations
+    from core.ports import KuOperations
 
 
 def create_ku_organization_api_routes(

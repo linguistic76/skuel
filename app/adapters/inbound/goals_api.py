@@ -21,7 +21,7 @@ from adapters.inbound.route_factories import (
 )
 from core.models.enums import ContentScope
 from core.models.ku.ku_goal import GoalKu
-from core.services.protocols.facade_protocols import GoalsFacadeProtocol
+from core.ports.facade_protocols import GoalsFacadeProtocol
 from core.utils.result_simplified import Result
 
 

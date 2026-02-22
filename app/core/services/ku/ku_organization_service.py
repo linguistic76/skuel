@@ -24,7 +24,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.services.ku_service import KuService
-    from core.services.protocols import QueryExecutor
+    from core.ports import QueryExecutor
 
 logger = get_logger(__name__)
 

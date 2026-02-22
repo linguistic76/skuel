@@ -388,7 +388,7 @@ result = await services.ku_lateral.create_prerequisite_relationship(
 - `/core/services/principles/principles_lateral_service.py` (NEW - 390 lines)
 
 ### Phase 3: Service Bootstrap (Previously Completed)
-- `/core/utils/services_bootstrap.py` (MODIFIED - ~80 lines added)
+- `/services_bootstrap.py` (MODIFIED - ~80 lines added)
 
 ### Phase 4: API Routes (THIS PHASE)
 - `/adapters/inbound/route_factories/lateral_route_factory.py` (NEW - 460 lines)

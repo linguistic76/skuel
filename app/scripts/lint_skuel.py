@@ -215,7 +215,7 @@ if user.preferences is not None:
     prefs = user.preferences
 
 # Use helper for enums
-from core.services.protocols import get_enum_value
+from core.ports import get_enum_value
 value = get_enum_value(obj)""",
         "bad": """# hasattr bypasses type safety
 if hasattr(obj, 'value'):

@@ -213,7 +213,7 @@ class UserDTO:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for database operations"""
-        from core.services.protocols import get_enum_value
+        from core.ports import get_enum_value
 
         def serialize_value(v) -> Any:
             if isinstance(v, datetime):

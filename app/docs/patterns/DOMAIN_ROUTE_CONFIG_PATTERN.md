@@ -986,7 +986,7 @@ TASKS_CONFIG = DomainRouteConfig(
 
 **How services container is populated:**
 
-The `services` parameter comes from `/core/utils/services_bootstrap.py`:
+The `services` parameter comes from `/services_bootstrap.py`:
 
 ```python
 # services_bootstrap.py creates the container
@@ -1326,7 +1326,7 @@ Zero runtime overhead - routes are registered once at application startup.
 ### Documentation
 
 - **Route Factories:** `/docs/patterns/ROUTE_FACTORIES.md` - Endpoint-level factories
-- **Service Bootstrap:** `/core/utils/services_bootstrap.py` - Container creation
+- **Service Bootstrap:** `/services_bootstrap.py` - Container creation
 - **Clean Architecture:** `/docs/architecture/ARCHITECTURE_OVERVIEW.md` - Layer separation
 - **Migration Summaries:**
   - `/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-01-24.md` - Phase 2 migration (6 files)

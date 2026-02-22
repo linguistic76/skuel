@@ -11,7 +11,7 @@ from typing import Any
 from strawberry.dataloader import DataLoader
 
 from core.utils.logging import get_logger
-from core.utils.services_bootstrap import Services
+from services_bootstrap import Services
 
 logger = get_logger(__name__)
 

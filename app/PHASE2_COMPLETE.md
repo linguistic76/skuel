@@ -68,7 +68,7 @@ skuel_neo4j_errors_total{operation}                          # Error count
 
 **Files**:
 - `/scripts/dev/bootstrap.py` - PrometheusMetrics initialization
-- `/core/utils/services_bootstrap.py` - Backend instantiations
+- `/services_bootstrap.py` - Backend instantiations
 - `/adapters/inbound/tasks_api.py` - Sample route wiring
 
 **Changes**:
@@ -311,7 +311,7 @@ def create_{domain}_api_routes(
 - `/adapters/inbound/route_factories/crud_route_factory.py` - Route instrumentation
 - `/adapters/persistence/neo4j/universal_backend.py` - Database instrumentation
 - `/scripts/dev/bootstrap.py` - PrometheusMetrics initialization
-- `/core/utils/services_bootstrap.py` - Backend instantiations
+- `/services_bootstrap.py` - Backend instantiations
 - `/adapters/inbound/tasks_api.py` - Sample route wiring
 
 ### Configuration Files (2)

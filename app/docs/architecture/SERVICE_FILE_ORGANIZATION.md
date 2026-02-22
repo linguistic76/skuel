@@ -121,7 +121,7 @@ from core.services.tasks.tasks_intelligence_service import TasksIntelligenceServ
 
 **Import from package or specific module:**
 ```python
-from core.services.protocols import BackendOperations, TasksOperations
+from core.ports import BackendOperations, TasksOperations
 from core.services.relationships import UnifiedRelationshipService
 from core.services.search.search_router import SearchRouter
 ```
@@ -137,7 +137,7 @@ from core.services.embeddings_service import OpenAIEmbeddingsService
 
 ## Service Bootstrap
 
-All services are composed in `/core/utils/services_bootstrap.py` (2,106 lines). This file:
+All services are composed in `/services_bootstrap.py` (2,106 lines). This file:
 - Imports all facades and utilities
 - Creates dependency graph
 - Instantiates services with proper dependencies
@@ -164,8 +164,8 @@ The following ROOT-ONLY services COULD move into domain folders. They remain at 
 
 | Purpose | Location |
 |---------|----------|
-| Service bootstrap | `/core/utils/services_bootstrap.py` |
-| Protocol definitions | `/core/services/protocols/` |
+| Service bootstrap | `/services_bootstrap.py` |
+| Protocol definitions | `/core/ports/` |
 | Base service | `/core/services/base_service.py` |
 | Example facade | `/core/services/tasks_service.py` |
 | Example sub-services | `/core/services/tasks/` |

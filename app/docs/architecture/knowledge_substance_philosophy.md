@@ -354,7 +354,7 @@ Div(
 | **Decay Algorithm** | `/core/models/ku/ku.py` | Exponential decay, spaced repetition |
 | **Domain Events** | `/core/events/ku_events.py` | 5 substance events |
 | **Event Listeners** | `/core/services/ku_service.py` | Atomic substance updates |
-| **Event Wiring** | `/core/utils/services_bootstrap.py` | Subscribe KuService to events |
+| **Event Wiring** | `/services_bootstrap.py` | Subscribe KuService to events |
 | **Dashboard UI** | `/ui/substance_dashboard.py` | Substance visualization |
 | **Life Path Fields** | `/core/services/user/unified_user_context.py` | Life alignment tracking |
 

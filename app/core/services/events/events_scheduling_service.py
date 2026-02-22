@@ -32,7 +32,7 @@ from core.utils.sort_functions import get_tuple_first
 
 if TYPE_CHECKING:
     from core.models.ku.ku_request import KuEventCreateRequest
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
 
 class EventsSchedulingService(BaseService["BackendOperations[EventKu]", EventKu]):

@@ -142,7 +142,7 @@ curl http://localhost:8000/api/monitoring/system
 - Average entity text size
 - Desired processing latency
 
-**Change in**: `core/utils/services_bootstrap.py:1227`
+**Change in**: `services_bootstrap.py:1227`
 ```python
 embedding_worker = EmbeddingBackgroundWorker(
     ...
@@ -160,7 +160,7 @@ embedding_worker = EmbeddingBackgroundWorker(
 - API cost considerations
 - Acceptable embedding latency
 
-**Change in**: `core/utils/services_bootstrap.py:1228`
+**Change in**: `services_bootstrap.py:1228`
 ```python
 embedding_worker = EmbeddingBackgroundWorker(
     ...

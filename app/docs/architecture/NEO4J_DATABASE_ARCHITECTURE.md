@@ -27,7 +27,7 @@ SKUEL uses Neo4j as its primary graph database, built with a clean architecture 
 
 ### 1. Core Protocol Definition
 
-**Location**: `/core/utils/services_bootstrap.py`
+**Location**: `/services_bootstrap.py`
 
 ```python
 class GraphPort(Protocol):
@@ -177,7 +177,7 @@ class KnowledgeSearchService:
 
 ### 2. Service Bootstrap Integration
 
-**Location**: `/core/utils/services_bootstrap.py`
+**Location**: `/services_bootstrap.py`
 
 ```python
 @dataclass

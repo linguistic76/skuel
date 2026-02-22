@@ -34,7 +34,7 @@ from core.services.mixins import (
     create_relationship_delegations,
     merge_delegations,
 )
-from core.services.protocols import BackendOperations
+from core.ports import BackendOperations
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.logging import get_logger
@@ -44,8 +44,8 @@ if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.ku.ku_request import KuChoiceCreateRequest, KuUpdateRequest
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
-    from core.services.protocols.infrastructure_protocols import EventBusOperations
-    from core.services.protocols.search_protocols import ChoicesSearchOperations
+    from core.ports.infrastructure_protocols import EventBusOperations
+    from core.ports.search_protocols import ChoicesSearchOperations
 
 
 class ChoicesService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", Ku]):

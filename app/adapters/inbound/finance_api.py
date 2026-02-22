@@ -12,7 +12,7 @@ from datetime import date
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.protocols import FinancesOperations
+    from core.ports import FinancesOperations
 
 # Pydantic schemas for boundary
 from adapters.inbound.auth import require_admin

@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.ku.ku import Ku
 from core.services.base_ai_service import BaseAIService
-from core.services.protocols import KuOperations
+from core.ports import KuOperations
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:

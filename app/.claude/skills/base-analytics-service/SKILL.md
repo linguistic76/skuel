@@ -502,7 +502,7 @@ async def analyze(self, uid: str) -> Result[dict]:
 ```python
 # core/services/new_domain/new_domain_intelligence_service.py
 from core.services.base_analytics_service import BaseAnalyticsService
-from core.services.protocols import NewDomainOperations
+from core.ports import NewDomainOperations
 from core.models.new_domain import NewDomainModel, NewDomainDTO
 
 class NewDomainIntelligenceService(
@@ -594,7 +594,7 @@ Create `/docs/intelligence/NEW_DOMAIN_INTELLIGENCE.md` following existing format
 |------|---------|
 | `/core/services/base_analytics_service.py` | Base class definition |
 | `/core/services/base_ai_service.py` | AI features (separate - see base-ai-service skill) |
-| `/core/services/protocols/intelligence_protocols.py` | IntelligenceOperations protocol |
+| `/core/ports/intelligence_protocols.py` | IntelligenceOperations protocol |
 | `/core/services/intelligence/orchestrator.py` | GraphContextOrchestrator |
 | `/core/services/{domain}/{domain}_intelligence_service.py` | Domain implementations |
 | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` | Master documentation |

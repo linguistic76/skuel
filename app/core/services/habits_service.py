@@ -48,8 +48,8 @@ from core.services.mixins import (
     create_relationship_delegations,
     merge_delegations,
 )
-from core.services.protocols.base_protocols import BackendOperations
-from core.services.protocols.domain_protocols import HabitsOperations
+from core.ports.base_protocols import BackendOperations
+from core.ports.domain_protocols import HabitsOperations
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.logging import get_logger
@@ -68,8 +68,8 @@ if TYPE_CHECKING:
         UntrackHabitRequest,
     )
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
-    from core.services.protocols.infrastructure_protocols import EventBusOperations
-    from core.services.protocols.search_protocols import HabitsSearchOperations
+    from core.ports.infrastructure_protocols import EventBusOperations
+    from core.ports.search_protocols import HabitsSearchOperations
     from core.services.user import UserContext
 
 

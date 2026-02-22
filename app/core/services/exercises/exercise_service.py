@@ -26,7 +26,7 @@ from core.models.ku.ku_exercise import ExerciseKu
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
-from core.services.protocols import get_enum_value
+from core.ports import get_enum_value
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

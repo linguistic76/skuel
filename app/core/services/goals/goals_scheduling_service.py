@@ -49,7 +49,7 @@ from core.models.ku.ku_goal import GoalKu
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentHelper
-from core.services.protocols.domain_protocols import GoalsOperations
+from core.ports.domain_protocols import GoalsOperations
 from core.utils.decorators import with_error_handling
 from core.utils.dto_helpers import to_domain_model
 from core.utils.result_simplified import Errors, Result
@@ -58,7 +58,7 @@ from core.utils.sort_functions import make_dict_value_getter
 if TYPE_CHECKING:
     from core.models.ku.lp_position import LpPosition
     from core.services.goals.goals_progress_service import GoalsProgressService
-    from core.services.protocols.infrastructure_protocols import EventBusOperations
+    from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.user.unified_user_context import UserContext
 
 

@@ -43,8 +43,8 @@ from core.models.ku import FeedbackKu, JournalKu, Ku, KuBase, KuDTO
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
-from core.services.protocols import BackendOperations
-from core.services.protocols.infrastructure_protocols import EventBusOperations
+from core.ports import BackendOperations
+from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_report_date

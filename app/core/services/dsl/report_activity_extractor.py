@@ -76,7 +76,7 @@ from core.services.dsl.activity_entity_converter import (
     # Activity Domains (7)
     activity_to_task_request,
 )
-from core.services.protocols.base_protocols import HasUID
+from core.ports.base_protocols import HasUID
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

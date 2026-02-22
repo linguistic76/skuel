@@ -39,7 +39,7 @@ from core.models.ku.ku_request import (
     KuCurriculumCreateRequest as KuCreateRequest,
 )
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
-from core.services.protocols import HasUpdated, HasUpdatedAt, PydanticModel
+from core.ports import HasUpdated, HasUpdatedAt, PydanticModel
 
 # Create aliases for Pure models (backward compatibility)
 Task = Ku  # Task domain unified into Ku (February 2026)
@@ -575,7 +575,7 @@ class ConversionServiceV2:
             Dict representation for service layer consumption
         """
         from core.models.enums.ku_enums import AlignmentLevel
-        from core.services.protocols.base_protocols import EnumLike
+        from core.ports.base_protocols import EnumLike
 
         # Extract fields from Pydantic model
         if isinstance(data, PydanticModel):

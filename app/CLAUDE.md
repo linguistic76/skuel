@@ -21,7 +21,7 @@ from core.services.ingestion import UnifiedIngestionService  # THE path
 from core.models.enums.finance_enums import ExpenseStatus  # Not defined in multiple files
 
 # Curriculum protocols - unified location
-from core.services.protocols import LpOperations  # Not ku_protocols.py
+from core.ports import LpOperations  # Not ku_protocols.py
 ```
 
 **Design Philosophy:** Type errors are teachers, showing us where components don't flow together properly. When errors appear, investigate the fundamental design first rather than working around with quick fixes. Deal with fundamentals. Deal with the core.
@@ -324,7 +324,7 @@ LifePath <--> All Domains
 | Base Service | `/core/services/base_service.py` |
 | Base Analytics | `/core/services/base_analytics_service.py` |
 | Domain Config | `/core/services/domain_config.py` |
-| Service Composition | `/core/utils/services_bootstrap.py` |
+| Service Composition | `/services_bootstrap.py` |
 | Generic Backend | `/adapters/persistence/neo4j/universal_backend.py` |
 
 **See:** `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`, `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md`
@@ -498,7 +498,7 @@ KuType.from_string("ku")         # -> KuType.CURRICULUM (alias support)
 - Full type safety across 27+ services
 - **Services dataclass: zero `Any` fields** — all ~72 fields typed (protocols + TYPE_CHECKING)
 
-**Protocol Location:** `core/services/protocols/` - 11 protocol files covering all domains
+**Protocol Location:** `core/ports/` - 11 protocol files covering all domains
 
 **Key Protocol Categories:**
 
@@ -548,7 +548,7 @@ BackendOperations[T]  <- THE protocol (UniversalNeo4jBackend implements this)
 # Route-facing: ISP protocol (captures only methods routes call)
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from core.services.protocols import GroupOperations
+    from core.ports import GroupOperations
 
 def create_groups_api_routes(
     app: Any, rt: Any, group_service: "GroupOperations", ...
@@ -1100,7 +1100,7 @@ core = TasksCoreService(backend=mock_backend)
 
 **Implementation Files:**
 - `/core/services/base_service.py` - Foundation with 7 mixins
-- `/core/services/protocols/base_service_interface.py` - Protocol for type checking & IDE autocomplete
+- `/core/ports/base_service_interface.py` - Protocol for type checking & IDE autocomplete
 - `/core/services/mixins/facade_delegation_mixin.py` - Auto-delegation pattern
 - `/core/utils/activity_domain_config.py` - Factory for common sub-services
 - `/core/utils/service_introspection.py` - Generic service utilities (type-safe examples)
@@ -1108,7 +1108,7 @@ core = TasksCoreService(backend=mock_backend)
 **Type Safety with BaseServiceInterface:**
 Use `BaseServiceInterface[Any, Any]` for type hints when passing services generically:
 ```python
-from core.services.protocols.base_service_interface import BaseServiceInterface
+from core.ports.base_service_interface import BaseServiceInterface
 from core.utils.service_introspection import get_service_capabilities
 
 # IDE autocompletes all BaseService methods (search, get_by_status, etc.)
@@ -1562,11 +1562,11 @@ text = build_embedding_text(KuType.TASK, task_model)
 
 | Purpose | Location |
 |---------|----------|
-| Service composition | `/core/utils/services_bootstrap.py` |
+| Service composition | `/services_bootstrap.py` |
 | Base service | `/core/services/base_service.py` |
 | Base analytics | `/core/services/base_analytics_service.py` |
 | Domain enums | `/core/models/enums/` |
-| Protocols | `/core/services/protocols/` |
+| Protocols | `/core/ports/` |
 | Generic backend | `/adapters/persistence/neo4j/universal_backend.py` |
 | Event bus | `/core/events/event_bus.py` |
 | Route factories | `/adapters/inbound/route_factories.py` |

@@ -74,9 +74,9 @@ Documentation:
     /docs/architecture/SERVICE_TOPOLOGY.md - Architecture diagrams
 
 See Also:
-    /core/services/protocols/base_service_interface.py - Complete interface (all mixins)
+    /core/ports/base_service_interface.py - Complete interface (all mixins)
     /core/models/shared_enums.py - Domain enum definitions
-    /core/services/protocols/domain_protocols.py - Service interfaces
+    /core/ports/domain_protocols.py - Service interfaces
     /adapters/persistence/neo4j/universal_backend.py - Generic backend
     /core/models/query/cypher/ - CypherGenerator methods (modular package)
     /core/services/mixins/ - Decomposed mixin implementations
@@ -99,7 +99,7 @@ from core.services.mixins import (
     TimeQueryMixin,
     UserProgressMixin,
 )
-from core.services.protocols import BackendOperations
+from core.ports import BackendOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

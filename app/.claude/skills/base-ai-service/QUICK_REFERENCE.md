@@ -39,7 +39,7 @@ from core.utils.errors_simplified import Errors
 ### Protocols
 
 ```python
-from core.services.protocols import TasksOperations, GoalsOperations  # etc.
+from core.ports import TasksOperations, GoalsOperations  # etc.
 ```
 
 ---

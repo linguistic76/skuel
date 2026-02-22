@@ -30,7 +30,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
 
 class EventsProgressService(BaseService["BackendOperations[EventKu]", EventKu]):

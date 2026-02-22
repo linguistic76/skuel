@@ -497,7 +497,7 @@ class CRUDRouteFactory[T]:
             updates = schema.model_dump(exclude_unset=True)
 
             # Convert enum values to strings for storage
-            from core.services.protocols import get_enum_value
+            from core.ports import get_enum_value
 
             for key, value in updates.items():
                 updates[key] = get_enum_value(value)

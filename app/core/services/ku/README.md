@@ -393,7 +393,7 @@ The graph service is ~2,000 lines, making it the largest file. A split was evalu
 ## References
 
 - **CLAUDE.md**: Project architectural patterns and conventions
-- **Protocol definitions**: `/core/services/protocols/ku_protocols.py`
+- **Protocol definitions**: `/core/ports/ku_protocols.py`
 - **Domain models**: `/core/models/ku/`
-- **Bootstrap**: `/core/utils/services_bootstrap.py` (composition root)
+- **Bootstrap**: `/services_bootstrap.py` (composition root)
 - **ADR-030**: Intelligence services architecture (graph analytics vs AI)

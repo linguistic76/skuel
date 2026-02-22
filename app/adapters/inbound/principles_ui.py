@@ -31,8 +31,8 @@ from components.error_components import ErrorComponents
 from components.principles_views import PrinciplesViewComponents
 from core.constants import QueryLimit
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from core.services.protocols.facade_protocols import PrinciplesFacadeProtocol
-from core.services.protocols.query_types import PrinciplesFilterSpec
+from core.ports.facade_protocols import PrinciplesFacadeProtocol
+from core.ports.query_types import PrinciplesFilterSpec
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_or_name_lower

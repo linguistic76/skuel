@@ -33,7 +33,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import SystemServiceOperations
+    from core.ports import SystemServiceOperations
 
 logger = get_logger("skuel.routes.system.api")
 

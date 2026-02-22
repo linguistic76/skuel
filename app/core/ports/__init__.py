@@ -30,14 +30,14 @@ Protocol Categories
 Usage
 -----
     # Full backend protocol
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
     class MyService:
         def __init__(self, backend: BackendOperations[Task]) -> None:
             self.backend = backend
 
     # Focused dependency (ISP)
-    from core.services.protocols import CrudOperations
+    from core.ports import CrudOperations
 
     class SimpleReadService:
         def __init__(self, backend: CrudOperations[Task]) -> None:
@@ -47,7 +47,7 @@ Context Awareness Protocols
 ---------------------------
 For UserContext slices (Interface Segregation):
 
-    from core.services.protocols import TaskAwareness, KnowledgeAwareness
+    from core.ports import TaskAwareness, KnowledgeAwareness
 
     async def analyze_tasks(self, context: TaskAwareness) -> Result[...]:
         # context.active_task_uids, context.blocked_task_uids available

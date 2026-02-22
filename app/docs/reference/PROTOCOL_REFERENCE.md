@@ -11,7 +11,7 @@ related: [ADR-025, ADR-027]
 
 **Last Updated:** February 8, 2026
 **Purpose:** Complete reference for all Protocol interfaces in SKUEL codebase
-**Location:** `/core/services/protocols/` (service protocols) and `/core/models/protocols/` (domain model protocols)
+**Location:** `/core/ports/` (service protocols) and `/core/models/protocols/` (domain model protocols)
 
 ---
 
@@ -33,18 +33,18 @@ related: [ADR-025, ADR-027]
 
 | Category | Location | Purpose |
 |----------|----------|---------|
-| **Base Protocols** | `/core/services/protocols/base_protocols.py` | Core types, backend operations |
-| **Domain Protocols** | `/core/services/protocols/domain_protocols.py` | Domain service operations |
-| **Curriculum Protocols** | `/core/services/protocols/curriculum_protocols.py` | KU, LS, LP, MOC operations |
-| **Askesis Protocols** | `/core/services/protocols/askesis_protocols.py` | Cross-cutting intelligence + CRUD |
-| **Reports Protocols** | `/core/services/protocols/reports_protocols.py` | Submission, sharing, processing, feedback |
-| **Group Protocols** | `/core/services/protocols/group_protocols.py` | Group CRUD, teacher review queue |
-| **Service Protocols** | `/core/services/protocols/service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration |
-| **Search Protocols** | `/core/services/protocols/search_protocols.py` | Search operations |
-| **Infrastructure Protocols** | `/core/services/protocols/infrastructure_protocols.py` | EventBus, Schema, User, Ingestion |
-| **Intelligence Protocols** | `/core/services/protocols/intelligence_protocols.py` | Analytics operations |
-| **Facade Protocols** | `/core/services/protocols/facade_protocols.py` | Type hints for delegated methods |
-| **Context Awareness** | `/core/services/protocols/context_awareness_protocols.py` | UserContext slices (ISP) |
+| **Base Protocols** | `/core/ports/base_protocols.py` | Core types, backend operations |
+| **Domain Protocols** | `/core/ports/domain_protocols.py` | Domain service operations |
+| **Curriculum Protocols** | `/core/ports/curriculum_protocols.py` | KU, LS, LP, MOC operations |
+| **Askesis Protocols** | `/core/ports/askesis_protocols.py` | Cross-cutting intelligence + CRUD |
+| **Reports Protocols** | `/core/ports/reports_protocols.py` | Submission, sharing, processing, feedback |
+| **Group Protocols** | `/core/ports/group_protocols.py` | Group CRUD, teacher review queue |
+| **Service Protocols** | `/core/ports/service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration |
+| **Search Protocols** | `/core/ports/search_protocols.py` | Search operations |
+| **Infrastructure Protocols** | `/core/ports/infrastructure_protocols.py` | EventBus, Schema, User, Ingestion |
+| **Intelligence Protocols** | `/core/ports/intelligence_protocols.py` | Analytics operations |
+| **Facade Protocols** | `/core/ports/facade_protocols.py` | Type hints for delegated methods |
+| **Context Awareness** | `/core/ports/context_awareness_protocols.py` | UserContext slices (ISP) |
 | **Knowledge Carrier** | `/core/models/protocols/knowledge_carrier_protocol.py` | Knowledge integration |
 
 ---
@@ -55,7 +55,7 @@ related: [ADR-025, ADR-027]
 **Purpose:** Objects with a `.value` attribute (Enum members)
 
 ```python
-from core.services.protocols import EnumLike
+from core.ports import EnumLike
 
 @runtime_checkable
 class EnumLike(Protocol):
@@ -72,7 +72,7 @@ if isinstance(priority, EnumLike):
 
 **Helper Function:**
 ```python
-from core.services.protocols import get_enum_value
+from core.ports import get_enum_value
 
 # Handles both enums and plain values
 value = get_enum_value(priority)  # Works for Priority.HIGH or "high"
@@ -108,7 +108,7 @@ class HasToDict(Protocol):
 
 **Helper Function:**
 ```python
-from core.services.protocols import to_dict
+from core.ports import to_dict
 
 # Universal conversion - tries model_dump(), dict(), to_dict(), serialize()
 data = to_dict(any_object)
@@ -202,7 +202,7 @@ class LtConstraint(Protocol):
 **Usage Example:**
 ```python
 from pydantic import BaseModel, Field
-from core.services.protocols import PydanticFieldInfo, MinLenConstraint, MaxLenConstraint
+from core.ports import PydanticFieldInfo, MinLenConstraint, MaxLenConstraint
 
 class User(BaseModel):
     username: str = Field(min_length=3, max_length=20)
@@ -234,7 +234,7 @@ class UserContextOperations(Protocol):
 
 **Usage:**
 ```python
-from core.services.protocols import UserContextOperations
+from core.ports import UserContextOperations
 
 class TasksService:
     def __init__(
@@ -320,7 +320,7 @@ class SupportsHealthCheck(Protocol):
 
 ## Domain Operations Protocols
 
-**Location:** `/core/services/protocols/domain_protocols.py`
+**Location:** `/core/ports/domain_protocols.py`
 **Purpose:** Service operation interfaces for all 14 domains
 **Core Principle:** "Results internally, exceptions at boundaries"
 
@@ -361,7 +361,7 @@ class TasksOperations(Protocol):
 
 **Usage:**
 ```python
-from core.services.protocols import TasksOperations
+from core.ports import TasksOperations
 
 async def process_task(service: TasksOperations, task_uid: str):
     result = await service.get_task(task_uid)
@@ -419,7 +419,7 @@ class HasStreaks(Protocol):
 
 ## Facade Protocols (January 2026)
 
-**Location:** `/core/services/protocols/facade_protocols.py`
+**Location:** `/core/ports/facade_protocols.py`
 **Purpose:** Type hints for dynamically delegated facade methods
 **See:** ADR-025 (Service Consolidation Patterns)
 
@@ -487,7 +487,7 @@ When you use `TasksFacadeProtocol` as a type hint, MyPy enables autocomplete and
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.services.protocols.facade_protocols import GoalsFacadeProtocol
+    from core.ports.facade_protocols import GoalsFacadeProtocol
 
 async def analyze_goals(goals_service: "GoalsFacadeProtocol") -> dict:
     # MyPy sees the protocol's method declarations
@@ -514,7 +514,7 @@ class TasksService(TasksFacadeProtocol, FacadeDelegationMixin):
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.services.protocols.facade_protocols import TasksFacadeProtocol
+    from core.ports.facade_protocols import TasksFacadeProtocol
 
 def process_tasks(service: "TasksFacadeProtocol"):
     # Type hint for parameter, NOT inheritance
@@ -624,7 +624,7 @@ class VisualizationOperations(Protocol):
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.protocols import KuSharingOperations, KuContentOperations
+    from core.ports import KuSharingOperations, KuContentOperations
 
 def create_reports_sharing_api_routes(
     _app: Any,
@@ -641,7 +641,7 @@ def create_reports_sharing_api_routes(
 Every field on the `Services` dataclass is typed — zero `Any` fields remain. Two strategies:
 
 ```python
-# core/utils/services_bootstrap.py
+# services_bootstrap.py
 @dataclass
 class Services:
     # Route-facing: ISP protocols (19 fields)
@@ -758,7 +758,7 @@ class ActivityCarrier(KnowledgeCarrier, Protocol):
 
 ## Context Awareness Protocols
 
-**Location:** `/core/services/protocols/context_awareness_protocols.py`
+**Location:** `/core/ports/context_awareness_protocols.py`
 **Purpose:** ISP-compliant slices of UserContext (~240 fields → focused protocols)
 **Status:** Designed and tested, available for service adoption
 
@@ -792,7 +792,7 @@ async def get_ready_to_learn(self, context: KnowledgeAwareness) -> ...:
 
 **Usage:**
 ```python
-from core.services.protocols import TaskAwareness, KnowledgeAwareness
+from core.ports import TaskAwareness, KnowledgeAwareness
 
 async def analyze_blocked_tasks(ctx: TaskAwareness) -> int:
     return len(ctx.blocked_task_uids)
@@ -819,7 +819,7 @@ task_priority = Priority.HIGH
 priority_str = task_priority.value if hasattr(task_priority, 'value') else "medium"
 
 # RIGHT - using get_enum_value()
-from core.services.protocols import get_enum_value
+from core.ports import get_enum_value
 
 priority_str = get_enum_value(task_priority)  # "high"
 ```
@@ -836,7 +836,7 @@ else:
     total = 0
 
 # RIGHT - using isinstance() with Protocol
-from core.services.protocols import SupportsCount
+from core.ports import SupportsCount
 
 if isinstance(backend, SupportsCount):
     total = await backend.count()
@@ -876,7 +876,7 @@ def process_entity(entity: KnowledgeCarrier) -> dict:
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.services.protocols.facade_protocols import TasksFacadeProtocol
+    from core.ports.facade_protocols import TasksFacadeProtocol
 
 async def analyze_task_knowledge(
     tasks_service: TasksFacadeProtocol,
@@ -899,7 +899,7 @@ When replacing `hasattr()` with Protocols:
 
 - [ ] **Identify the pattern:** Is it enum extraction, backend capability, Pydantic field?
 - [ ] **Choose the right Protocol:** See table below
-- [ ] **Import the Protocol:** `from core.services.protocols import ProtocolName`
+- [ ] **Import the Protocol:** `from core.ports import ProtocolName`
 - [ ] **Replace hasattr() with isinstance():** `isinstance(obj, Protocol)`
 - [ ] **Consider fail-fast:** Per CLAUDE.md, prefer letting errors surface
 - [ ] **Test:** Ensure behavioral equivalence
@@ -912,12 +912,12 @@ Quick reference for common hasattr() patterns:
 
 | hasattr() Pattern | Replace With | Location |
 |------------------|--------------|----------|
-| `hasattr(enum, 'value')` | `get_enum_value(enum)` | `core.services.protocols` |
-| `hasattr(backend, 'count')` | `isinstance(backend, SupportsCount)` | `core.services.protocols` |
-| `hasattr(backend, 'search')` | `isinstance(backend, SupportsSearch)` | `core.services.protocols` |
-| `hasattr(field_info, 'metadata')` | `isinstance(field_info, PydanticFieldInfo)` | `core.services.protocols` |
-| `hasattr(constraint, 'min_length')` | `isinstance(constraint, MinLenConstraint)` | `core.services.protocols` |
-| `hasattr(obj, 'domain')` | `isinstance(obj, HasDomain)` | `core.services.protocols` |
+| `hasattr(enum, 'value')` | `get_enum_value(enum)` | `core.ports` |
+| `hasattr(backend, 'count')` | `isinstance(backend, SupportsCount)` | `core.ports` |
+| `hasattr(backend, 'search')` | `isinstance(backend, SupportsSearch)` | `core.ports` |
+| `hasattr(field_info, 'metadata')` | `isinstance(field_info, PydanticFieldInfo)` | `core.ports` |
+| `hasattr(constraint, 'min_length')` | `isinstance(constraint, MinLenConstraint)` | `core.ports` |
+| `hasattr(obj, 'domain')` | `isinstance(obj, HasDomain)` | `core.ports` |
 | `hasattr(pydantic_model, 'field')` | Just access `model.field` (always defined) | N/A |
 | `hasattr(entity, 'knowledge_relevance')` | `isinstance(entity, KnowledgeCarrier)` | `core.models.protocols` |
 

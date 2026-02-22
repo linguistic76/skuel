@@ -44,7 +44,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     # Verify mixin satisfies protocol at type-check time
-    from core.services.protocols.base_service_interface import ConversionOperations
+    from core.ports.base_service_interface import ConversionOperations
 
     # This assignment will fail type-checking if signatures don't match
     _check_protocol: type[ConversionOperations[Any]] = ConversionHelpersMixin
@@ -202,7 +202,7 @@ import inspect
 def test_conversion_mixin_satisfies_protocol():
     """Verify ConversionHelpersMixin satisfies ConversionOperations."""
     from core.services.mixins import ConversionHelpersMixin
-    from core.services.protocols.base_service_interface import ConversionOperations
+    from core.ports.base_service_interface import ConversionOperations
 
     # Get protocol methods
     protocol_methods = [m for m in dir(ConversionOperations) if not m.startswith('_')]
@@ -294,7 +294,7 @@ class ConversionHelpersMixin[B, T]:
 # ===== PROTOCOL COMPLIANCE VERIFICATION =====
 # This block ensures signatures stay in sync with ConversionOperations protocol
 if TYPE_CHECKING:
-    from core.services.protocols.base_service_interface import ConversionOperations
+    from core.ports.base_service_interface import ConversionOperations
 
     # Type checker verifies structural compatibility
     _: type[ConversionOperations[Any]] = ConversionHelpersMixin
@@ -531,7 +531,7 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
 # To verify: poetry run mypy core/services/mixins/conversion_helpers_mixin.py
 # =====================================================================
 if TYPE_CHECKING:
-    from core.services.protocols.base_service_interface import ConversionOperations
+    from core.ports.base_service_interface import ConversionOperations
 
     # Verify structural compatibility
     # MyPy will fail if signatures don't match
@@ -556,7 +556,7 @@ from core.services.mixins import (
     UserProgressMixin,
     ContextOperationsMixin,
 )
-from core.services.protocols.base_service_interface import (
+from core.ports.base_service_interface import (
     ConversionOperations,
     CrudOperations,
     SearchOperations,
@@ -658,7 +658,7 @@ def test_all_mixins_have_verification_blocks():
         )
 
         # Verify imports protocol
-        assert "from core.services.protocols.base_service_interface import" in content, (
+        assert "from core.ports.base_service_interface import" in content, (
             f"{mixin_file} doesn't import corresponding protocol"
         )
 ```

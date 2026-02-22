@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.ku import LearningPathKu
 from core.services.base_ai_service import BaseAIService
-from core.services.protocols import LpOperations
+from core.ports import LpOperations
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:

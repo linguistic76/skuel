@@ -26,7 +26,7 @@ from core.models.event.event_request import (
     EventStatusUpdateRequest,
     GetRecurringEventsRequest,
 )
-from core.services.protocols.facade_protocols import EventsFacadeProtocol
+from core.ports.facade_protocols import EventsFacadeProtocol
 from core.utils.result_simplified import Result
 
 

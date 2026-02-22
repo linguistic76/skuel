@@ -79,7 +79,7 @@ poetry run python scripts/migrations/backfill_activity_embedding_versions.py
 - Added `EMBEDDING_VERSION` environment variable support
 - Defaults to "v1" for backward compatibility
 
-**File:** `/core/utils/services_bootstrap.py`
+**File:** `/services_bootstrap.py`
 
 **Changes:**
 - Added `config` parameter to `compose_services()` function
@@ -237,7 +237,7 @@ RETURN t.embedding_version
 ### Core Implementation (4 files)
 1. `/core/services/background/embedding_worker.py` - Version storage
 2. `/core/config/unified_config.py` - Config field
-3. `/core/utils/services_bootstrap.py` - Config wiring
+3. `/services_bootstrap.py` - Config wiring
 4. `/scripts/dev/bootstrap.py` - Config passing
 
 ### Documentation (2 files)

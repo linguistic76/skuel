@@ -23,8 +23,8 @@ from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_habit import HabitKu
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.protocols import get_enum_value
-from core.services.protocols.domain_protocols import HabitsOperations
+from core.ports import get_enum_value
+from core.ports.domain_protocols import HabitsOperations
 from core.utils.decorators import with_error_handling
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result

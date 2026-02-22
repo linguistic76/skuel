@@ -139,7 +139,7 @@ if entity_type == EntityType.KU and self.chunking:
 
 #### 4. Wired Chunking Service in Bootstrap
 
-**File**: `/core/utils/services_bootstrap.py`
+**File**: `/services_bootstrap.py`
 
 **Reordering** (lines 1106-1127):
 ```python
@@ -387,7 +387,7 @@ User Question
 |------|---------------|-------------|
 | `/core/services/ku_chunking_service.py` | +56 | Added `process_content_for_ingestion()` |
 | `/core/services/ingestion/unified_ingestion_service.py` | +40 | Added chunking to `__init__` and `ingest_file()` |
-| `/core/utils/services_bootstrap.py` | ~20 (reorder) | Moved chunking service creation before ingestion |
+| `/services_bootstrap.py` | ~20 (reorder) | Moved chunking service creation before ingestion |
 
 ### Tests
 

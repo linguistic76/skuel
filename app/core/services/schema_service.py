@@ -34,7 +34,7 @@ from core.models.query.schema_ddl import (
 )
 
 # Import protocol interface
-from core.services.protocols.infrastructure_protocols import SchemaOperations
+from core.ports.infrastructure_protocols import SchemaOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result

@@ -29,7 +29,7 @@ from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.models.type_hints import Metadata
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.protocols.domain_protocols import HabitsOperations
+from core.ports.domain_protocols import HabitsOperations
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
@@ -441,7 +441,7 @@ class HabitSearchService(BaseService[HabitsOperations, HabitKu]):
         Returns:
             Result containing habits with matching frequency
         """
-        from core.services.protocols import get_enum_value
+        from core.ports import get_enum_value
 
         frequency_value = get_enum_value(frequency)
         result = await self.backend.find_by(frequency=frequency_value, limit=limit)

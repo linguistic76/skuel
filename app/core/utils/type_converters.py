@@ -22,13 +22,13 @@ Usage:
     value = get_enum_value(some_enum_or_value)
 
 Note:
-    These functions are also available from core.services.protocols for
+    These functions are also available from core.ports for
     backward compatibility with existing code. Both locations use the
     same implementation.
 
 Architecture Note:
     The protocols (EnumLike, PydanticModel, etc.) are defined in
-    core.services.protocols.base_protocols. This module imports them
+    core.ports.base_protocols. This module imports them
     to provide protocol-based type checking without hasattr().
 """
 

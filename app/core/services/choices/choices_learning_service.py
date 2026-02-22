@@ -23,7 +23,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.ku.lp_position import LpPosition
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
 
 class ChoicesLearningService(BaseService["BackendOperations[Ku]", Ku]):

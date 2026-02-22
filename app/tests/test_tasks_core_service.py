@@ -23,7 +23,7 @@ from core.models.enums import KuStatus, Priority
 from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.models.ku.ku_request import KuTaskCreateRequest
 from core.models.ku.ku_task import TaskKu as Task
-from core.services.protocols.query_types import TaskUpdatePayload
+from core.ports.query_types import TaskUpdatePayload
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.result_simplified import Errors, Result
 

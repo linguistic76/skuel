@@ -59,7 +59,7 @@ RETURN assignment
 ### 4. **Service Integration** ✅
 **Files Modified:**
 - `/core/services/assignments/assignments_core_service.py`
-- `/core/utils/services_bootstrap.py`
+- `/services_bootstrap.py`
 - `/scripts/dev/bootstrap.py`
 
 **Changes:**
@@ -183,7 +183,7 @@ PUBLIC           → Anyone (portfolio showcase)
 2. `/core/models/relationship_names.py` - Added SHARES_WITH relationship
 3. `/core/services/assignments/assignments_core_service.py` - Added get_with_access_check()
 4. `/core/services/assignments/__init__.py` - Export AssignmentSharingService
-5. `/core/utils/services_bootstrap.py` - Bootstrap sharing service
+5. `/services_bootstrap.py` - Bootstrap sharing service
 6. `/scripts/dev/bootstrap.py` - Register sharing routes
 7. `/adapters/inbound/assignments_ui.py` - Sharing UI components + route
 8. `/adapters/inbound/user_profile_ui.py` - "Shared With Me" tab

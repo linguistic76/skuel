@@ -21,7 +21,7 @@ from typing import Any
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_habit import HabitKu
-from core.services.protocols.domain_protocols import HabitsOperations
+from core.ports.domain_protocols import HabitsOperations
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
 from core.utils.logging import get_logger

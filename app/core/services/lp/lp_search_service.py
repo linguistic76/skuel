@@ -32,7 +32,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
     from core.services.user import UserContext
 
 logger = get_logger(__name__)
@@ -122,7 +122,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPathKu]", LearningP
         Returns:
             Result containing Learning Paths of the specified type
         """
-        from core.services.protocols import get_enum_value
+        from core.ports import get_enum_value
 
         return await self.backend.find_by(
             limit=limit,
@@ -365,7 +365,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPathKu]", LearningP
             difficulty = "advanced"
 
         # Build filters dict for find_by
-        from core.services.protocols import get_enum_value
+        from core.ports import get_enum_value
 
         filters: dict[str, object] = {}
         if parsed.domains:

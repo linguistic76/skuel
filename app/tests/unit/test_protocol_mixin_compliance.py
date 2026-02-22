@@ -29,7 +29,7 @@ from core.services.mixins import (
     TimeQueryMixin,
     UserProgressMixin,
 )
-from core.services.protocols.base_service_interface import (
+from core.ports.base_service_interface import (
     ContextOperations,
     ConversionOperations,
     CrudOperations,
@@ -141,7 +141,7 @@ def test_mixin_method_signatures_match_protocol(name, mixin, protocol, filename)
         + "\n".join(mismatches)
         + f"\n\nFix by updating signatures in:\n"
         f"  - core/services/mixins/{filename}\n"
-        f"  - core/services/protocols/base_service_interface.py"
+        f"  - core/ports/base_service_interface.py"
     )
 
 
@@ -161,15 +161,15 @@ def test_mixin_has_type_checking_verification_block(name, mixin, protocol, filen
         f"{name}: {filename} missing TYPE_CHECKING verification block\n\n"
         f"Add this block at the end of the file:\n\n"
         f"if TYPE_CHECKING:\n"
-        f"    from core.services.protocols.base_service_interface import {protocol.__name__}\n\n"
+        f"    from core.ports.base_service_interface import {protocol.__name__}\n\n"
         f"    _protocol_check: type[{protocol.__name__}[Any]] = {mixin.__name__}  # type: ignore[type-arg]"
     )
 
     # Verify imports protocol
-    assert "from core.services.protocols.base_service_interface import" in content, (
+    assert "from core.ports.base_service_interface import" in content, (
         f"{name}: {filename} doesn't import from base_service_interface\n\n"
         f"Add this import inside the TYPE_CHECKING block:\n"
-        f"    from core.services.protocols.base_service_interface import {protocol.__name__}"
+        f"    from core.ports.base_service_interface import {protocol.__name__}"
     )
 
     # Verify has protocol check assignment
@@ -227,7 +227,7 @@ def test_type_checking_blocks_use_correct_syntax():
 
     The syntax must be:
         if TYPE_CHECKING:
-            from core.services.protocols.base_service_interface import ProtocolName
+            from core.ports.base_service_interface import ProtocolName
             _protocol_check: type[ProtocolName[Any]] = MixinClass  # type: ignore[type-arg]
 
     This allows MyPy to verify structural compatibility.
@@ -319,7 +319,7 @@ class TestProtocolComplianceExamples:
 
         ```python
         if TYPE_CHECKING:
-            from core.services.protocols.base_service_interface import (
+            from core.ports.base_service_interface import (
                 ConversionOperations,
             )
 

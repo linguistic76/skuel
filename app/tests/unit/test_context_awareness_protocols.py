@@ -12,7 +12,7 @@ These tests ensure the protocol-based slices work as designed.
 
 import pytest
 
-from core.services.protocols.context_awareness_protocols import (
+from core.ports.context_awareness_protocols import (
     ChoiceAwareness,
     CoreIdentity,
     CrossDomainAwareness,

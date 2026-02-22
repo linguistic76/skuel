@@ -12,7 +12,7 @@
 All lateral relationship services have been successfully integrated into SKUEL's service composition layer.
 
 **Files Modified:** 1
-- `/core/utils/services_bootstrap.py`
+- `/services_bootstrap.py`
 
 **Changes Made:**
 
@@ -199,7 +199,7 @@ Neo4j Driver → Creates [:BLOCKS], [:PREREQUISITE_FOR], etc.
 - `/core/services/principles/principles_lateral_service.py` (NEW - 390 lines)
 
 ### Phase 3: Service Bootstrap (THIS PHASE)
-- `/core/utils/services_bootstrap.py` (MODIFIED)
+- `/services_bootstrap.py` (MODIFIED)
   - Added 10 lateral service fields to Services dataclass
   - Added lateral service creation section (~70 lines)
   - Added lateral services to container assembly (~10 lines)

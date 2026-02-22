@@ -20,7 +20,7 @@ Protocol Categories
 
 Usage
 -----
-    from core.services.protocols import AskesisOperations
+    from core.ports import AskesisOperations
 
     def get_recommendations(askesis: AskesisOperations) -> Result[...]:
         return await askesis.get_next_best_action(user_context)

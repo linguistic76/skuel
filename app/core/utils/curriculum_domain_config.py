@@ -58,7 +58,7 @@ if TYPE_CHECKING:
     from core.services.lp.lp_search_service import LpSearchService
     from core.services.lp_intelligence_service import LpIntelligenceService
     from core.services.ls_service import LsService
-    from core.services.protocols import EventBusOperations, KuOperations, QueryBuilderOperations
+    from core.ports import EventBusOperations, KuOperations, QueryBuilderOperations
 
 # Type vars for generics
 T = TypeVar("T")  # Domain model type

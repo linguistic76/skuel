@@ -48,8 +48,8 @@ from core.utils.sort_functions import get_aligned_count, get_domain_choice_count
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.services.insight.insight_store import InsightStore
-    from core.services.protocols import BackendOperations
-    from core.services.protocols.domain_protocols import ChoicesRelationshipOperations
+    from core.ports import BackendOperations
+    from core.ports.domain_protocols import ChoicesRelationshipOperations
 
 
 class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]):

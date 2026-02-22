@@ -17,7 +17,7 @@ tags: [migration, protocols, ports, history]
 
 SKUEL successfully migrated from a traditional ports-based architecture to Python's Protocol typing (PEP 544), achieving:
 - **100% hasattr elimination** - All attribute checks now type-safe
-- **Zero port dependencies** - Complete migration to `core/services/protocols/*`
+- **Zero port dependencies** - Complete migration to `core/ports/*`
 - **Zero circular dependencies** - Protocol-based dependency injection
 - **75% code reduction** - Generic programming patterns
 - **No breaking changes** - Seamless transition
@@ -45,7 +45,7 @@ class TasksService:
 
 ```python
 # AFTER (Protocol-Based)
-from core.services.protocols.domain_protocols import TasksOperations
+from core.ports.domain_protocols import TasksOperations
 
 class TasksService:
     def __init__(self, backend: TasksOperations):
@@ -69,7 +69,7 @@ Python's Protocol feature provides the same contract/interface capability as tra
 
 **Your architecture evolution**:
 - `ports/` directory = Old approach (abstract base classes/interfaces)
-- `core/services/protocols/` = New approach (Python Protocols)
+- `core/ports/` = New approach (Python Protocols)
 - **Both serve the same purpose**: defining contracts between core and infrastructure
 
 ### 3. Technical Benefits
@@ -132,8 +132,8 @@ Python's Protocol feature provides the same contract/interface capability as tra
 **Solution**: Created `UserContextOperations` protocol interface
 
 **Files Updated**:
-1. `core/services/protocols/domain_protocols.py` - Added `UserContextOperations` protocol
-2. `core/services/protocols/__init__.py` - Exported `UserContextOperations`
+1. `core/ports/domain_protocols.py` - Added `UserContextOperations` protocol
+2. `core/ports/__init__.py` - Exported `UserContextOperations`
 3. `core/services/tasks/tasks_progress_service.py` - Uses `Optional[UserContextOperations]`
 4. `core/services/tasks/tasks_scheduling_service.py` - Uses `Optional[UserContextOperations]`
 5. `core/services/goal_task_generator.py` - Uses `Optional[UserContextOperations]`
@@ -190,7 +190,7 @@ TaskPure.get_color = _get_color
 
 ### Core Protocol Updates
 - `core/protocols.py` - Added 30+ new protocols for attribute checking
-- `core/services/protocols/domain_protocols.py` - Added `UserContextOperations` (Oct 2025)
+- `core/ports/domain_protocols.py` - Added `UserContextOperations` (Oct 2025)
 - `core/models/graph_yaml_models.py` - Uses `HasCreatedAt`, `HasUpdatedAt`, etc.
 - `core/models/event_pure_ext.py` - Uses `HasToPriority`, `HasToVisibility`, etc.
 - `core/models/task_pure.py` - Replaced lambdas with proper methods

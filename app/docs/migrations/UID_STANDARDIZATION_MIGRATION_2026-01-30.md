@@ -172,7 +172,7 @@ uid=UIDGenerator.generate_random_uid("principle"),
 Update all docstring examples that reference UIDs:
 
 **Files to update:**
-- `/core/services/protocols/query_types.py` - Change `"user.mike"` to `"user_mike"`
+- `/core/ports/query_types.py` - Change `"user.mike"` to `"user_mike"`
 - `/core/services/user/debounced_invalidator.py` - Update examples
 - `/core/services/habits/habits_intelligence_service.py` - Update examples
 - `/core/services/tasks/tasks_intelligence_service.py` - Update examples

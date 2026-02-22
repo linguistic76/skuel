@@ -21,7 +21,7 @@ if TYPE_CHECKING:
         AskesisCreateRequest,
         AskesisUpdateRequest,
     )
-    from core.services.protocols.base_protocols import BackendOperations
+    from core.ports.base_protocols import BackendOperations
 
 
 logger = get_logger("skuel.services.askesis.core")

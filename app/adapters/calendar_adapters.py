@@ -24,7 +24,7 @@ from core.models.ku.ku_habit import HabitKu as HabitPure
 from core.models.ku.ku_task import TaskKu as TaskPure
 
 # Protocols
-from core.services.protocols.calendar_protocol import CalendarTrackable, TimeWindow, WindowKind
+from core.ports.calendar_protocol import CalendarTrackable, TimeWindow, WindowKind
 
 
 class EventAdapter:

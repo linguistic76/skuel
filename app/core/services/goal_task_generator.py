@@ -25,7 +25,7 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_task_urgency
 
 if TYPE_CHECKING:
-    from core.services.protocols import GoalsOperations, TasksOperations
+    from core.ports import GoalsOperations, TasksOperations
     from core.services.user import UserContext
 
 

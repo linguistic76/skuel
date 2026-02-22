@@ -24,7 +24,7 @@ from core.constants import GraphDepth, QueryLimit
 from core.services.mixins import FacadeDelegationMixin, merge_delegations
 
 if TYPE_CHECKING:
-    from core.services.protocols import (
+    from core.ports import (
         EventBusOperations,
         KuOperations,
         QueryBuilderOperations,
@@ -38,7 +38,7 @@ from core.models.ku.ku_dto import KuDTO
 
 # Import sub-services
 from core.services.ku.ku_ai_service import KuAIService
-from core.services.protocols.base_protocols import HasUID
+from core.ports.base_protocols import HasUID
 from core.utils.decorators import with_error_handling
 from core.utils.error_boundary import safe_event_handler
 from core.utils.logging import get_logger

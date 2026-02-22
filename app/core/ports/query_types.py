@@ -20,7 +20,7 @@ Coverage Areas
 
 Usage
 -----
-    from core.services.protocols.query_types import (
+    from core.ports.query_types import (
         CypherParams, ActivityFilterSpec, TaskUpdatePayload
     )
 
@@ -43,7 +43,7 @@ Incremental Adoption
 See Also
 --------
     /docs/patterns/three_tier_type_system.md - Three-tier architecture
-    /core/services/protocols/base_protocols.py - Related TypedDicts
+    /core/ports/base_protocols.py - Related TypedDicts
     /core/models/query/cypher/_types.py - Cypher query types
 
 Date Added: January 2026 (Type Safety Improvements)

@@ -22,7 +22,7 @@ from adapters.inbound.route_factories import (
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
-from core.services.protocols.facade_protocols import TasksFacadeProtocol
+from core.ports.facade_protocols import TasksFacadeProtocol
 from core.utils.result_simplified import Result
 
 

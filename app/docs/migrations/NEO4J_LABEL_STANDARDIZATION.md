@@ -54,7 +54,7 @@ Standardize Neo4j node labels to match Python class names, aligning with CLAUDE.
 ### Key Files to Update
 
 **Production Code:**
-1. `core/utils/services_bootstrap.py` - Backend instantiation
+1. `services_bootstrap.py` - Backend instantiation
 2. `core/models/query/_cypher_generator.py` - Query generation
 3. `core/services/lp/lp_*.py` - Learning path services
 4. `core/services/ls/ls_*.py` - Learning step services

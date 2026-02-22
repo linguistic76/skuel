@@ -23,7 +23,7 @@ This service is part of the refactored UserService architecture:
 - UserService: Facade coordinating all sub-services
 """
 
-from core.services.protocols.infrastructure_protocols import UserOperations
+from core.ports.infrastructure_protocols import UserOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

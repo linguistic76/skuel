@@ -93,7 +93,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
 
 **Code Locations:**
 - `/core/services/base_service.py` - 7 focused mixins (~490 lines)
-- `/core/services/protocols/base_service_interface.py` - BaseServiceInterface protocol
+- `/core/ports/base_service_interface.py` - BaseServiceInterface protocol
 - `/core/services/mixins/` - Individual mixin files
 
 ---
@@ -288,7 +288,7 @@ poetry run pytest tests/unit/test_protocol_mixin_compliance.py -v
 ```python
 # In service that extends BaseService
 from core.services.base_service import BaseService
-from core.services.protocols import TasksOperations
+from core.ports import TasksOperations
 from core.models.task import Task
 
 class TasksCoreService(BaseService[TasksOperations, Task]):

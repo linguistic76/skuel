@@ -270,7 +270,7 @@ async def get_task_route(request, uid: str):
 - [ ] **Protocols define clear contracts**
   - Protocol has `async def method(...) -> Result[T]:`
   - Protocol documents behavior in docstring
-  - Protocol is in `core/services/protocols/`
+  - Protocol is in `core/ports/`
 
 **Example:**
 ```python

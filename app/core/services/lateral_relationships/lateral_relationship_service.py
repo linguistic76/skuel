@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.relationship_names import RelationshipName
 
 if TYPE_CHECKING:
-    from core.services.protocols import QueryExecutor
+    from core.ports import QueryExecutor
 from core.models.relationship_registry import get_lateral_spec
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

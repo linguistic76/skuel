@@ -30,7 +30,7 @@ Total: 29/29 PASSED (100%)
 ## Protocols Updated (7 of 7)
 
 ### 1. ✅ ConversionOperations (COMPLETE)
-**File:** `core/services/protocols/base_service_interface.py` (lines 103-236)
+**File:** `core/ports/base_service_interface.py` (lines 103-236)
 
 **Updates:**
 - `_ensure_exists()`: Added `resource_name` and `identifier` parameters
@@ -44,7 +44,7 @@ Total: 29/29 PASSED (100%)
 **Result:** ✅ All tests pass
 
 ### 2. ✅ CrudOperations (COMPLETE)
-**File:** `core/services/protocols/base_service_interface.py` (lines 238-417)
+**File:** `core/ports/base_service_interface.py` (lines 238-417)
 
 **Updates:**
 - `create()`: Changed `**kwargs` → `entity: T`
@@ -57,7 +57,7 @@ Total: 29/29 PASSED (100%)
 **Result:** ✅ All tests pass
 
 ### 3. ✅ SearchOperations (COMPLETE)
-**File:** `core/services/protocols/base_service_interface.py` (lines 418-517)
+**File:** `core/ports/base_service_interface.py` (lines 418-517)
 
 **Updates:**
 - `search()`: Removed `user_uid` parameter, updated default `limit=50`
@@ -72,7 +72,7 @@ Total: 29/29 PASSED (100%)
 **Result:** ✅ All tests pass
 
 ### 4. ✅ RelationshipOperations (COMPLETE)
-**File:** `core/services/protocols/base_service_interface.py` (lines 518-653)
+**File:** `core/ports/base_service_interface.py` (lines 518-653)
 
 **Updates:**
 - `add_relationship()`: Fixed parameter order to `from_uid, rel_type, to_uid, properties`
@@ -86,7 +86,7 @@ Total: 29/29 PASSED (100%)
 **Result:** ✅ All tests pass
 
 ### 5. ✅ TimeQueryOperations (COMPLETE)
-**File:** `core/services/protocols/base_service_interface.py` (lines 654-707)
+**File:** `core/ports/base_service_interface.py` (lines 654-707)
 
 **Updates:**
 - `get_user_items_in_range()`: Added `include_completed: bool = False` parameter
@@ -96,7 +96,7 @@ Total: 29/29 PASSED (100%)
 **Result:** ✅ All tests pass
 
 ### 6. ✅ UserProgressOperations (COMPLETE)
-**File:** `core/services/protocols/base_service_interface.py` (lines 710-768)
+**File:** `core/ports/base_service_interface.py` (lines 710-768)
 
 **Updates:**
 - `get_user_progress()`: Reordered to `user_uid, entity_uid` (was `uid, user_uid`)
@@ -106,7 +106,7 @@ Total: 29/29 PASSED (100%)
 **Result:** ✅ All tests pass
 
 ### 7. ✅ ContextOperations (COMPLETE)
-**File:** `core/services/protocols/base_service_interface.py` (lines 769-789)
+**File:** `core/ports/base_service_interface.py` (lines 769-789)
 
 **Updates:**
 - `get_with_context()`: Added `min_confidence`, `include_relationships`, `exclude_relationships`
@@ -124,7 +124,7 @@ All 7 mixins now have verification blocks for automatic MyPy compliance checking
 ```python
 # Pattern used in all 7 mixins:
 if TYPE_CHECKING:
-    from core.services.protocols.base_service_interface import ProtocolName
+    from core.ports.base_service_interface import ProtocolName
 
     _protocol_check: type[ProtocolName[Any]] = MixinClass  # type: ignore[type-arg]
 ```
@@ -222,7 +222,7 @@ poetry run pytest tests/unit/test_protocol_mixin_compliance.py -k "Conversion" -
 ## Files Modified Summary
 
 ### Protocols (1 file)
-- ✅ `core/services/protocols/base_service_interface.py` - Updated all 7 protocols
+- ✅ `core/ports/base_service_interface.py` - Updated all 7 protocols
 
 ### Mixins (7 files)
 - ✅ `core/services/mixins/conversion_helpers_mixin.py` - Added TYPE_CHECKING block

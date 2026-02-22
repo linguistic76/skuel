@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
     from core.models.ku.ku_learning_step import LearningStepKu
     from core.services.ls.ls_intelligence_service import LsIntelligenceService
-    from core.services.protocols.facade_protocols import LsFacadeProtocol
+    from core.ports.facade_protocols import LsFacadeProtocol
     from core.utils.result_simplified import Result
 
 logger = get_logger(__name__)

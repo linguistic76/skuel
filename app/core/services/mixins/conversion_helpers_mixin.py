@@ -34,7 +34,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol, DTOProtocol
-from core.services.protocols import BackendOperations
+from core.ports import BackendOperations
 from core.utils.dto_converters import (
     from_domain_model as _from_domain_model_fn,
 )
@@ -251,7 +251,7 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
 # See: /docs/investigations/PROTOCOL_MIXIN_ALIGNMENT_SOLUTIONS.md
 # ============================================================================
 if TYPE_CHECKING:
-    from core.services.protocols.base_service_interface import ConversionOperations
+    from core.ports.base_service_interface import ConversionOperations
 
     # Structural subtyping check - verifies method signatures match
     # If this line fails type-checking, the mixin and protocol are out of sync

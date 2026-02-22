@@ -50,7 +50,7 @@ Implemented async background embedding generation for all activity domains to ac
 | Background Worker | ✅ Done | `core/services/background/embedding_worker.py` |
 | Tasks Core Service | ✅ Done | `core/services/tasks/tasks_core_service.py` |
 | Ingestion Preparer | ✅ Done | `core/services/ingestion/preparer.py` |
-| Bootstrap Wiring | ⏳ TODO | `core/utils/services_bootstrap.py` |
+| Bootstrap Wiring | ⏳ TODO | `services_bootstrap.py` |
 | Goals Core Service | ⏳ TODO | `core/services/goals/goals_core_service.py` |
 | Habits Core Service | ⏳ TODO | `core/services/habits/habits_core_service.py` |
 | Events Core Service | ⏳ TODO | `core/services/events/events_core_service.py` |
@@ -78,7 +78,7 @@ Implemented async background embedding generation for all activity domains to ac
 
 ### Background Worker Startup
 
-**File**: `core/utils/services_bootstrap.py`
+**File**: `services_bootstrap.py`
 
 ```python
 from core.services.background import EmbeddingBackgroundWorker

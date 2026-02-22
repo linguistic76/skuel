@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.protocols.reports_protocols import (
+    from core.ports.reports_protocols import (
         KuContentOperations,
         KuContentSearchOperations,
         KuProcessingOperations,

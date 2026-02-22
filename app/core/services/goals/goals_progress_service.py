@@ -26,8 +26,8 @@ from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.goals.goal_relationships import GoalRelationships
 from core.services.infrastructure import ProgressCalculationHelper
-from core.services.protocols.domain_protocols import GoalsOperations
-from core.services.protocols.query_types import GoalUpdatePayload
+from core.ports.domain_protocols import GoalsOperations
+from core.ports.query_types import GoalUpdatePayload
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
 from core.utils.result_simplified import Errors, Result

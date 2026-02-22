@@ -76,7 +76,7 @@ Files updated:
 - `core/services/habits/habits_learning_service.py`
 - `core/services/tasks/tasks_core_service.py`
 - `core/services/events_service.py`
-- `core/utils/services_bootstrap.py`
+- `services_bootstrap.py`
 - `tests/integration/test_event_ku_practice_flow.py`
 
 ### Documentation Updates

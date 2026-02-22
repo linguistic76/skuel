@@ -33,8 +33,8 @@ from core.infrastructure.relationships.semantic_relationships import (
 from core.models.enums import ActivityType, KuStatus, RelationshipType, SystemConstants
 
 # Protocols
-from core.services.protocols import HasMetrics, HasStreaks, HasUID, MetricsLike, StreaksLike
-from core.services.protocols.calendar_protocol import CalendarTrackable
+from core.ports import HasMetrics, HasStreaks, HasUID, MetricsLike, StreaksLike
+from core.ports.calendar_protocol import CalendarTrackable
 
 if TYPE_CHECKING:
     from core.models.progress_unified import UnifiedProgress  # type: ignore[import-not-found]

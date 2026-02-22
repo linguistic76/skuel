@@ -172,7 +172,7 @@ All services use **Protocol interfaces exclusively** - no concrete dependencies,
 #### Protocol Organization
 
 ```
-core/services/protocols/
+core/ports/
 ├── domain_protocols.py          # Business domain operations
 ├── knowledge_protocols.py       # Knowledge management
 ├── search_protocols.py          # Search operations
@@ -183,7 +183,7 @@ core/services/protocols/
 
 ```python
 # Modern Protocol-Based Approach
-from core.services.protocols.domain_protocols import TaskOperations
+from core.ports.domain_protocols import TaskOperations
 
 class TasksService:
     def __init__(self, backend: Optional[TaskOperations] = None):
@@ -444,7 +444,7 @@ SKUEL's architecture represents human experience as **14 interconnected domains*
 
 ```python
 from typing import Generic, TypeVar, Optional
-from core.services.protocols.domain_protocols import TaskOperations
+from core.ports.domain_protocols import TaskOperations
 
 class TasksService:
     """Service for task management with protocol-based dependency injection"""

@@ -92,7 +92,7 @@ from core.services.user.intelligence import UserContextIntelligence
 ```
 
 **All 5 import sites were updated immediately:**
-- `core/utils/services_bootstrap.py`
+- `services_bootstrap.py`
 - `core/services/askesis_service.py`
 - `core/services/user/user_context_service.py`
 - `core/services/user/__init__.py`
@@ -157,7 +157,7 @@ from core.services.user.intelligence import UserContextIntelligence
 - `/core/services/user/user_context_intelligence.py` (2,703 lines)
 
 ### Files Updated (imports)
-- `core/utils/services_bootstrap.py`
+- `services_bootstrap.py`
 - `core/services/askesis_service.py`
 - `core/services/user/user_context_service.py`
 - `core/services/user/__init__.py`

@@ -31,7 +31,7 @@ from adapters.inbound.boundary import boundary_handler
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from core.services.protocols import CalendarServiceOperations, VisualizationOperations
+    from core.ports import CalendarServiceOperations, VisualizationOperations
 
 logger = get_logger("skuel.routes.visualization_api")
 

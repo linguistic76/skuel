@@ -22,7 +22,7 @@ Template for creating new services in SKUEL following the Protocol-Based Archite
 
 ```python
 from typing import Optional
-from core.services.protocols.domain_protocols import SomeOperations
+from core.ports.domain_protocols import SomeOperations
 from core.utils.result import Result
 from core.utils.errors import Errors
 from core.utils.logging_utils import get_logger

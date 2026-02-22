@@ -11,7 +11,7 @@ from typing import ClassVar
 
 from core.models.task import Task
 from core.services.base_ai_service import BaseAIService
-from core.services.protocols import TasksOperations
+from core.ports import TasksOperations
 from core.utils.result_simplified import Result
 
 
@@ -90,7 +90,7 @@ from typing import Any, ClassVar
 
 from core.models.goal import Goal
 from core.services.base_ai_service import BaseAIService
-from core.services.protocols import GoalsOperations
+from core.ports import GoalsOperations
 from core.utils.result_simplified import Result
 
 
@@ -180,7 +180,7 @@ from typing import Any, ClassVar
 
 from core.models.ku import KnowledgeUnit
 from core.services.base_ai_service import BaseAIService
-from core.services.protocols import KuOperations
+from core.ports import KuOperations
 from core.utils.result_simplified import Result
 
 
@@ -257,7 +257,7 @@ from typing import ClassVar
 
 from core.models.ku import KnowledgeUnit
 from core.services.base_ai_service import BaseAIService
-from core.services.protocols import KuOperations
+from core.ports import KuOperations
 from core.utils.result_simplified import Errors, Result
 
 
@@ -326,7 +326,7 @@ from typing import Any, ClassVar
 
 from core.models.task import Task
 from core.services.base_ai_service import BaseAIService
-from core.services.protocols import TasksOperations
+from core.ports import TasksOperations
 from core.utils.result_simplified import Result
 
 
@@ -397,7 +397,7 @@ from typing import Any, ClassVar
 
 from core.models.task import Task
 from core.services.base_ai_service import BaseAIService
-from core.services.protocols import TasksOperations
+from core.ports import TasksOperations
 from core.utils.result_simplified import Result
 
 

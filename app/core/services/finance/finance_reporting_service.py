@@ -25,7 +25,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.finance.finance_pure import ExpenseCategory, ExpensePure
-    from core.services.protocols.domain_protocols import FinancesOperations
+    from core.ports.domain_protocols import FinancesOperations
 
 
 class FinanceReportingService:

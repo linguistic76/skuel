@@ -38,7 +38,7 @@ if TYPE_CHECKING:
         KuChoiceEvaluationRequest,
         KuUpdateRequest,
     )
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
 
 class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):

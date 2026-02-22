@@ -122,7 +122,7 @@ skuel_transcription_duration_seconds
    - Instrumented `create_embedding()` (lines 138-160)
    - Instrumented `create_batch_embeddings()` (lines 211-235)
 
-4. **`/core/utils/services_bootstrap.py`**
+4. **`/services_bootstrap.py`**
    - Pass `prometheus_metrics` to embeddings service (line 588)
    - Pass `prometheus_metrics` to embedding worker (line 1268)
 

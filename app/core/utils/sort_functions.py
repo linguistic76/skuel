@@ -8,7 +8,7 @@ Following clean code principle: no lambdas, only named functions.
 
 from typing import Any
 
-from core.services.protocols.base_protocols import (
+from core.ports.base_protocols import (
     HasPriority,
     HasRelevanceScore,
     HasScore,

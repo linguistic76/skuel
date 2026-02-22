@@ -42,7 +42,7 @@ from core.services.mixins import (
     create_relationship_delegations,
     merge_delegations,
 )
-from core.services.protocols.domain_protocols import GoalsOperations
+from core.ports.domain_protocols import GoalsOperations
 
 # Unified relationship service (replaces GoalsRelationshipService)
 from core.services.relationships import UnifiedRelationshipService
@@ -54,8 +54,8 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.goal.goal_request import GoalCreateRequest
-    from core.services.protocols.infrastructure_protocols import EventBusOperations
-    from core.services.protocols.search_protocols import GoalsSearchOperations
+    from core.ports.infrastructure_protocols import EventBusOperations
+    from core.ports.search_protocols import GoalsSearchOperations
     from core.services.user import UserContext
 
 

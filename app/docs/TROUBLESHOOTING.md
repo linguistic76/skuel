@@ -209,7 +209,7 @@ grep -i "tasks.*service" /tmp/server.log
 ```
 
 **Solution**:
-1. Verify service is created in `core/utils/services_bootstrap.py`
+1. Verify service is created in `services_bootstrap.py`
 2. Check for errors during service initialization
 3. Ensure all dependencies of the service are available
 

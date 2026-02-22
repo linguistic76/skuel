@@ -13,7 +13,7 @@ for parameters that accept facade instances, not as base classes.
 Usage Pattern - Type hints at call sites:
     from typing import TYPE_CHECKING
     if TYPE_CHECKING:
-        from core.services.protocols.facade_protocols import GoalsFacadeProtocol
+        from core.ports.facade_protocols import GoalsFacadeProtocol
 
     async def analyze_goals(goals_service: GoalsFacadeProtocol) -> dict:
         # MyPy sees the protocol's method declarations
@@ -40,7 +40,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from core.services.protocols.query_types import (
+from core.ports.query_types import (
     IntelligenceResult,
     ProgressResult,
 )
@@ -73,8 +73,8 @@ if TYPE_CHECKING:
         PrinciplesIntelligenceService,
     )
     from core.services.principles.principles_reflection_service import PrinciplesReflectionService
-    from core.services.protocols.infrastructure_protocols import UserOperations
-    from core.services.protocols.search_protocols import TasksSearchOperations
+    from core.ports.infrastructure_protocols import UserOperations
+    from core.ports.search_protocols import TasksSearchOperations
     from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
     from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
     from core.services.user import UserContext

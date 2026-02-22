@@ -38,9 +38,9 @@ from core.models.ku.ku_goal import GoalKu
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.protocols import get_enum_value
-from core.services.protocols.domain_protocols import GoalsOperations
-from core.services.protocols.query_types import GoalUpdatePayload
+from core.ports import get_enum_value
+from core.ports.domain_protocols import GoalsOperations
+from core.ports.query_types import GoalUpdatePayload
 from core.utils.decorators import with_error_handling
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger

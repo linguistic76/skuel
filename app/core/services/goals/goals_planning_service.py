@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING
 
 from core.models.ku.ku_goal import GoalKu
 from core.services.base_planning_service import BasePlanningService
-from core.services.protocols.domain_protocols import GoalsOperations
+from core.ports.domain_protocols import GoalsOperations
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 

@@ -70,7 +70,7 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
 from core.models.enums.entity_enums import NonKuDomain
 from core.models.enums.ku_enums import KuType
-from core.services.protocols.search_protocols import (
+from core.ports.search_protocols import (
     SupportsGraphAwareSearch,
     SupportsGraphTraversalSearch,
     SupportsTagSearch,
@@ -83,7 +83,7 @@ if TYPE_CHECKING:
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest, SearchResponse
     from core.services.user import UserContext
-    from core.utils.services_bootstrap import Services
+    from services_bootstrap import Services
 
 T = TypeVar("T")
 
@@ -1197,7 +1197,7 @@ class SearchRouter:
             if parsed.priorities:
                 entity_priority = getattr(entity, "priority", None)
                 if entity_priority:
-                    from core.services.protocols import get_enum_value
+                    from core.ports import get_enum_value
 
                     priority_value = get_enum_value(entity_priority)
                     if priority_value not in [p.value for p in parsed.priorities]:
@@ -1207,7 +1207,7 @@ class SearchRouter:
             if parsed.statuses:
                 entity_status = getattr(entity, "status", None)
                 if entity_status:
-                    from core.services.protocols import get_enum_value
+                    from core.ports import get_enum_value
 
                     status_value = get_enum_value(entity_status)
                     if status_value not in [s.value for s in parsed.statuses]:

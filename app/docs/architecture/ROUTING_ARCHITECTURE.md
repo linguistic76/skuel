@@ -229,7 +229,7 @@ async def create_task_route(request):
 ```python
 # File: /core/services/tasks_service.py
 
-from core.services.protocols.domain_protocols import TaskOperations
+from core.ports.domain_protocols import TaskOperations
 from core.models.task.task import Task
 from core.utils.result_simplified import Result, Errors
 
@@ -278,7 +278,7 @@ class TasksService:
 # File: /adapters/persistence/neo4j/universal_backend.py
 
 from adapters.persistence.neo4j.universal_neo4j_backend import UniversalNeo4jBackend
-from core.services.protocols.domain_protocols import TaskOperations
+from core.ports.domain_protocols import TaskOperations
 from core.utils.backend_decorators import safe_backend_operation
 
 class TasksUniversalBackend(UniversalNeo4jBackend, TaskOperations):
@@ -597,15 +597,15 @@ SKUEL uses two distinct protocol categories:
 
 | Protocol Type | Location | Purpose | Usage |
 |--------------|----------|---------|-------|
-| **Domain Protocols** | `/core/services/protocols/domain_protocols.py` | Service operation interfaces | Dependency injection (backends implement, services depend on) |
-| **Facade Protocols** | `/core/services/protocols/facade_protocols.py` | Type hints for dynamic methods | Type safety at call sites (NOT for inheritance) |
+| **Domain Protocols** | `/core/ports/domain_protocols.py` | Service operation interfaces | Dependency injection (backends implement, services depend on) |
+| **Facade Protocols** | `/core/ports/facade_protocols.py` | Type hints for dynamic methods | Type safety at call sites (NOT for inheritance) |
 
 ### Domain Protocols: Service Operation Interfaces
 
 **Purpose:** Define what operations a domain service must support, with Result[T] return types.
 
 ```python
-# File: /core/services/protocols/domain_protocols.py
+# File: /core/ports/domain_protocols.py
 
 from typing import Protocol
 from core.models.task.task import Task
@@ -655,7 +655,7 @@ class TasksService:
 **CRITICAL:** These are for TYPE HINTS only, NOT for inheritance. Facade methods are created dynamically at class definition time - MyPy can't see them, so protocols enable structural subtyping.
 
 ```python
-# File: /core/services/protocols/facade_protocols.py
+# File: /core/ports/facade_protocols.py
 
 from typing import TYPE_CHECKING, Protocol
 
@@ -686,7 +686,7 @@ class GoalsFacadeProtocol(Protocol):
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
-    from core.services.protocols.facade_protocols import GoalsFacadeProtocol
+    from core.ports.facade_protocols import GoalsFacadeProtocol
 
 async def analyze_goals(goals_service: "GoalsFacadeProtocol") -> dict:
     """
@@ -740,7 +740,7 @@ class TasksService:
 **With Domain Protocols** (current way):
 ```python
 # ✅ Service depends on protocol interface
-from core.services.protocols.domain_protocols import TasksOperations
+from core.ports.domain_protocols import TasksOperations
 
 class TasksService:
     def __init__(self, backend: TasksOperations):
@@ -768,7 +768,7 @@ class TasksService:
 - Neo4j GenAI embeddings and vector search services enabled via Neo4j GenAI Plugin (Docker/AuraDB)
 
 ```python
-# File: /core/utils/services_bootstrap.py
+# File: /services_bootstrap.py
 
 async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
     """

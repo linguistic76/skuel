@@ -41,7 +41,7 @@ UserContextIntelligenceFactory (13-Domain Synthesis)
 - Facade: `/core/services/askesis_service.py` (~1,050 lines)
 - Sub-services: `/core/services/askesis/` (9 files)
 - Pure functions: `/core/services/askesis/state_scoring.py`
-- Protocol: `/core/services/protocols/askesis_protocols.py`
+- Protocol: `/core/ports/askesis_protocols.py`
 
 ### Key Difference from Domain Intelligence
 
@@ -311,7 +311,7 @@ if result.is_ok:
 ## Protocol Interface
 
 ```python
-from core.services.protocols import AskesisOperations
+from core.ports import AskesisOperations
 
 # Type-safe dependency
 def process_user(askesis: AskesisOperations) -> Result[...]:
@@ -351,7 +351,7 @@ poetry run pytest tests/integration/askesis/ -v
 
 # Protocol compliance
 poetry run python -c "
-from core.services.protocols import AskesisOperations
+from core.ports import AskesisOperations
 from core.services.askesis_service import AskesisService
 print('Protocol defined correctly')
 "
@@ -408,6 +408,6 @@ print('Protocol defined correctly')
 
 - **Architecture:** [ASKESIS_ARCHITECTURE.md](../architecture/ASKESIS_ARCHITECTURE.md)
 - **Search Integration:** [ASKESIS_SEARCH_ARCHITECTURE.md](../guides/ASKESIS_SEARCH_ARCHITECTURE.md)
-- **Protocol Definition:** `/core/services/protocols/askesis_protocols.py`
+- **Protocol Definition:** `/core/ports/askesis_protocols.py`
 - **ADR-021:** UserContext Intelligence Modularization
 - **ADR-029:** GraphNative Service Removal

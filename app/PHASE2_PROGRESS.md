@@ -67,7 +67,7 @@ async def create(self, entity: T) -> Result[T]:
 ### Task #4: Wire PrometheusMetrics into Bootstrap (COMPLETE)
 **Files Modified**:
 - `/scripts/dev/bootstrap.py`
-- `/core/utils/services_bootstrap.py` (signature updated)
+- `/services_bootstrap.py` (signature updated)
 
 **What Was Done**:
 - Added PrometheusMetrics initialization in `_build_infrastructure()`
@@ -104,7 +104,7 @@ To complete Phase 2, the following mechanical changes are needed:
 
 ### 1. Pass prometheus_metrics to Backend Instantiations
 
-In `/core/utils/services_bootstrap.py` around lines 988-1024, update backend creations:
+In `/services_bootstrap.py` around lines 988-1024, update backend creations:
 
 ```python
 # BEFORE
@@ -306,7 +306,7 @@ open http://localhost:3000
 - `/adapters/inbound/route_factories/crud_route_factory.py` - Added instrumentation
 - `/adapters/persistence/neo4j/universal_backend.py` - Added instrumentation
 - `/scripts/dev/bootstrap.py` - Added PrometheusMetrics initialization
-- `/core/utils/services_bootstrap.py` - Updated signature
+- `/services_bootstrap.py` - Updated signature
 
 **Files Needing Updates** (~25):
 - Backend instantiations in services_bootstrap.py (~17 backends)

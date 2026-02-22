@@ -237,10 +237,10 @@ def _build_direction_pattern(
 
 | File | Purpose |
 |------|---------|
-| `/core/services/protocols/base_protocols.py` | Protocol definitions |
+| `/core/ports/base_protocols.py` | Protocol definitions |
 | `/adapters/persistence/neo4j/universal_backend.py` | UniversalNeo4jBackend implementation |
 | `/core/services/base_service.py` | BaseService using BackendOperations |
-| `/core/services/protocols/domain_protocols.py` | Domain-specific protocols |
+| `/core/ports/domain_protocols.py` | Domain-specific protocols |
 
 ## Cascade Deletion Pattern
 *Last updated: 2026-01-07*

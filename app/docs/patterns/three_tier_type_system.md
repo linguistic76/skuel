@@ -512,7 +512,7 @@ SKUEL uses TypedDicts to provide type safety for update payloads and filter spec
 
 ### Location
 
-All TypedDicts are defined in `/core/services/protocols/query_types.py`.
+All TypedDicts are defined in `/core/ports/query_types.py`.
 
 ### Update Payload TypedDicts
 
@@ -547,7 +547,7 @@ TypedDicts for query filtering:
 ### Usage Pattern
 
 ```python
-from core.services.protocols.query_types import (
+from core.ports.query_types import (
     GoalUpdatePayload,
     ActivityFilterSpec,
 )
@@ -612,7 +612,7 @@ The `total=False` makes all fields optional, matching the partial update semanti
 | `/adapters/persistence/neo4j/universal_backend.py` | Generic backend |
 | `/adapters/persistence/neo4j/user_backend.py` | User backend |
 | `/core/services/base_service.py` | Base service |
-| `/core/services/protocols/query_types.py` | TypedDict definitions |
+| `/core/ports/query_types.py` | TypedDict definitions |
 | `/scripts/add_frozen_dataclass_type_ignores.py` | Migration script |
 | `/core/models/task/task.py` | Example implementation |
 

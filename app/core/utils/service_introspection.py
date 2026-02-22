@@ -49,13 +49,13 @@ share (search, CRUD, relationships, etc.). These functions use only those common
 methods, so they work with ANY domain service.
 
 See Also:
-- /core/services/protocols/base_service_interface.py - The protocol definition
-- /core/utils/services_bootstrap.py - Services dataclass (SKUEL's service container)
+- /core/ports/base_service_interface.py - The protocol definition
+- /services_bootstrap.py - Services dataclass (SKUEL's service container)
 """
 
 from typing import Any
 
-from core.services.protocols.base_service_interface import BaseServiceInterface
+from core.ports.base_service_interface import BaseServiceInterface
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)

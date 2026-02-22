@@ -113,7 +113,7 @@ from core.utils.curriculum_domain_config import (
 
 ## Bootstrap Location
 
-Services wired in: `core/utils/services_bootstrap.py`
+Services wired in: `services_bootstrap.py`
 
 ```python
 async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:

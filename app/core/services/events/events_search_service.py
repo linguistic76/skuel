@@ -25,7 +25,7 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
 from core.models.enums import KuStatus
 from core.models.ku.ku_dto import KuDTO
@@ -218,7 +218,7 @@ class EventsSearchService(BaseService["BackendOperations[EventKu]", EventKu]):
 
         # Event type priority (0-10 points)
         if event.event_type:
-            from core.services.protocols import get_enum_value
+            from core.ports import get_enum_value
 
             event_type = get_enum_value(event.event_type)
             # Learning events get slight priority

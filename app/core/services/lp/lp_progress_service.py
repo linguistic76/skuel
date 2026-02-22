@@ -19,7 +19,7 @@ from core.events.learning_events import KnowledgeMastered
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from core.services.protocols import QueryExecutor
+    from core.ports import QueryExecutor
 
 
 class LpProgressService:

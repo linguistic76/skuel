@@ -27,7 +27,7 @@ from core.models.ku.lp_position import LpPosition
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure.learning_alignment_helper import LearningAlignmentHelper
-from core.services.protocols.domain_protocols import PrinciplesOperations
+from core.ports.domain_protocols import PrinciplesOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 

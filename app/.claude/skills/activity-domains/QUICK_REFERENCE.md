@@ -97,7 +97,7 @@ from core.services.relationships import UnifiedRelationshipService
 
 ## Bootstrap Location
 
-All services wired in: `core/utils/services_bootstrap.py`
+All services wired in: `services_bootstrap.py`
 
 ```python
 async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:

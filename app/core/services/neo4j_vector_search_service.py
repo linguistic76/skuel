@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 from core.config.unified_config import VectorSearchConfig
 
 if TYPE_CHECKING:
-    from core.services.protocols import QueryExecutor
+    from core.ports import QueryExecutor
 from core.models.semantic import SearchMetrics
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

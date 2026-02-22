@@ -23,7 +23,7 @@ from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_principle import PrincipleKu
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.protocols.domain_protocols import PrinciplesOperations
+from core.ports.domain_protocols import PrinciplesOperations
 from core.utils.decorators import with_error_handling
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger

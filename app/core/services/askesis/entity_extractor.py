@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from core.services.protocols import (
+    from core.ports import (
         EventsOperations,
         GoalsOperations,
         HabitsOperations,

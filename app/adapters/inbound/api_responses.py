@@ -27,7 +27,7 @@ from typing import Any
 
 from starlette.responses import JSONResponse
 
-from core.services.protocols import PydanticModel
+from core.ports import PydanticModel
 
 
 def success_response(

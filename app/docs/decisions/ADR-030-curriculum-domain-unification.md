@@ -167,7 +167,7 @@ class MocIntelligenceService(BaseAnalyticsService[...]):
 | `/core/services/lp_service.py` | Add `intelligence_service` param, require `graph_intel` |
 | `/core/services/ku_service.py` | Require `graph_intel` |
 | `/core/services/moc_service.py` | Add intelligence, require `graph_intel` |
-| `/core/utils/services_bootstrap.py` | Pass `graph_intel` to all curriculum domains |
+| `/services_bootstrap.py` | Pass `graph_intel` to all curriculum domains |
 
 ### Domain Summary After Unification
 

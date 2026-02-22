@@ -29,7 +29,7 @@ Breakdown:
 
 ### 1. Updated ConversionOperations Protocol ✅
 
-**File:** `/core/services/protocols/base_service_interface.py`
+**File:** `/core/ports/base_service_interface.py`
 
 **Changed:** Updated all 7 method signatures in `ConversionOperations` to match actual `ConversionHelpersMixin` implementation.
 
@@ -68,7 +68,7 @@ Added verification blocks to:
 # PROTOCOL COMPLIANCE VERIFICATION (January 2026)
 # ============================================================================
 if TYPE_CHECKING:
-    from core.services.protocols.base_service_interface import ConversionOperations
+    from core.ports.base_service_interface import ConversionOperations
 
     # Structural subtyping check - verifies method signatures match
     # If this line fails type-checking, the mixin and protocol are out of sync
@@ -269,7 +269,7 @@ For each of the 6 remaining protocols:
    ```
 
 3. **Update the protocol with matching signatures:**
-   - Open `core/services/protocols/base_service_interface.py`
+   - Open `core/ports/base_service_interface.py`
    - Find the `CrudOperations` protocol
    - Update method signatures to match mixin
 
@@ -295,7 +295,7 @@ For each of the 6 remaining protocols:
 ## Files Modified
 
 ### Core Implementation
-- ✅ `/core/services/protocols/base_service_interface.py` - Updated `ConversionOperations`
+- ✅ `/core/ports/base_service_interface.py` - Updated `ConversionOperations`
 - ✅ `/core/services/mixins/conversion_helpers_mixin.py` - Added TYPE_CHECKING block
 - ✅ `/core/services/mixins/crud_operations_mixin.py` - Added TYPE_CHECKING block
 - ✅ `/core/services/mixins/search_operations_mixin.py` - Added TYPE_CHECKING block

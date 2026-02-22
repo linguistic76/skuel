@@ -120,9 +120,9 @@ class FreshnessReport:
 PATTERNS = [
     # **File:** `/path/to/file.py`
     r"\*\*File:\*\*\s*`([^`]+)`",
-    # **Directory:** `/core/services/protocols/` (*.py only)
+    # **Directory:** `/core/ports/` (*.py only)
     r"\*\*Directory:\*\*\s*`([^`]+)`(?:\s*\(([^)]+)\))?",
-    # **Package:** `/core/services/protocols/`
+    # **Package:** `/core/ports/`
     r"\*\*Package:\*\*\s*`([^`]+)`",
     # **Location:** `/path/to/file.py` (legacy)
     r"\*\*Location:\*\*\s*`([^`]+)`",

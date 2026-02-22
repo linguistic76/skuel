@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.ku.ku_base import KuBase
 from core.models.ku.ku_principle import PrincipleKu
 from core.services.base_ai_service import BaseAIService
-from core.services.protocols import PrinciplesOperations
+from core.ports import PrinciplesOperations
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:

@@ -48,8 +48,8 @@ from core.events.finance_events import (
     ExpenseUpdated,
 )
 from core.models.finance.finance_pure import ExpensePure, ExpenseStatus
-from core.services.protocols.domain_protocols import FinancesOperations
-from core.services.protocols.query_types import FinanceUpdatePayload
+from core.ports.domain_protocols import FinancesOperations
+from core.ports.query_types import FinanceUpdatePayload
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

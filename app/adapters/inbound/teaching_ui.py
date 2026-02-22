@@ -35,7 +35,7 @@ from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 if TYPE_CHECKING:
-    from core.services.protocols import TeacherReviewOperations
+    from core.ports import TeacherReviewOperations
 
 logger = get_logger("skuel.routes.teaching.ui")
 

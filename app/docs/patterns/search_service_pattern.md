@@ -61,7 +61,7 @@ Search is recognized as a **separation of concerns** issue. All activity domains
 
 ## DomainSearchOperations Protocol
 
-All SearchServices implement `DomainSearchOperations[T]` from `/core/services/protocols/search_protocols.py`:
+All SearchServices implement `DomainSearchOperations[T]` from `/core/ports/search_protocols.py`:
 
 ```python
 @runtime_checkable
@@ -701,7 +701,7 @@ class LpService:
 ### Related Documentation
 
 - `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` - Domain overview
-- `/core/services/protocols/search_protocols.py` - Protocol definition
+- `/core/ports/search_protocols.py` - Protocol definition
 - `/core/services/base_service.py` - BaseService with generic filter methods
 - `/core/services/search/config.py` - Centralized search field configuration
 - `/core/models/search/search_router.py` - THE search orchestrator (One Path Forward)

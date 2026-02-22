@@ -56,7 +56,7 @@ from core.services.finance import (
 )
 from core.services.finance.finance_invoice_service import FinanceInvoiceService
 from core.services.finance_types import CategoryInfo, CategorySuggestion
-from core.services.protocols.domain_protocols import FinancesOperations
+from core.ports.domain_protocols import FinancesOperations
 from core.utils.finance_categories import (
     CategoryHierarchy,
     get_category,
@@ -68,7 +68,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols.infrastructure_protocols import EventBusOperations
+    from core.ports.infrastructure_protocols import EventBusOperations
 
 
 class FinanceService:

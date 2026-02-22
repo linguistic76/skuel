@@ -34,8 +34,8 @@ from components.shared_ui_components import SharedUIComponents
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.models.enums import Priority
 from core.models.goal.goal_request import GoalCreateRequest
-from core.services.protocols.facade_protocols import GoalsFacadeProtocol
-from core.services.protocols.query_types import ActivityFilterSpec
+from core.ports.facade_protocols import GoalsFacadeProtocol
+from core.ports.query_types import ActivityFilterSpec
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (

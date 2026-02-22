@@ -33,7 +33,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import QueryExecutor
+    from core.ports import QueryExecutor
 
 logger = get_logger("skuel.services.ingestion.ingestion_tracker")
 

@@ -36,7 +36,7 @@ from core.models.ku import LearningPathKu, LearningStepKu
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
-from core.services.protocols import HasUID, get_enum_value
+from core.ports import HasUID, get_enum_value
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import from_neo4j_node
@@ -46,7 +46,7 @@ from core.utils.sort_functions import get_sequence
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
 logger = get_logger(__name__)
 

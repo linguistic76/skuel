@@ -32,7 +32,7 @@ from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactor
 from core.models.enums import KuStatus, Priority
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.ku.ku_request import KuTaskCreateRequest as TaskCreateRequest
-from core.services.protocols.facade_protocols import TasksFacadeProtocol
+from core.ports.facade_protocols import TasksFacadeProtocol
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (

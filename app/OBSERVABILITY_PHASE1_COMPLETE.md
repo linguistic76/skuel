@@ -53,7 +53,7 @@ Phase 1 of the Prometheus + Grafana observability stack improvements is **comple
 **Integration Points**:
 - OpenAI calls tracked in: `core/services/neo4j_genai_embeddings_service.py` (lines 138-210)
 - Embedding worker metrics in: `core/services/background/embedding_worker.py` (lines 165-240)
-- Services bootstrap updated: `core/utils/services_bootstrap.py` (lines 588, 1268)
+- Services bootstrap updated: `services_bootstrap.py` (lines 588, 1268)
 
 ---
 
@@ -324,7 +324,7 @@ Alertmanager (optional - future)
 1. `/core/infrastructure/monitoring/prometheus_metrics.py` - Added AiMetrics class
 2. `/core/services/background/embedding_worker.py` - Added Prometheus instrumentation
 3. `/core/services/neo4j_genai_embeddings_service.py` - Added OpenAI call tracking
-4. `/core/utils/services_bootstrap.py` - Pass prometheus_metrics to services
+4. `/services_bootstrap.py` - Pass prometheus_metrics to services
 5. `/monitoring/prometheus/prometheus.yml` - Fixed IP, added alerts
 6. `/docker-compose.yml` - Mount alerts.yml
 7. `/.claude/skills/prometheus-grafana/SKILL.md` - Updated metrics count + AI section

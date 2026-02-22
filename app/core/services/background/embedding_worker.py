@@ -37,7 +37,7 @@ from core.events import (
     publish_event,
 )
 from core.events.embedding_events import EmbeddingRequested
-from core.services.protocols.infrastructure_protocols import EventBusOperations
+from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 

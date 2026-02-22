@@ -22,8 +22,8 @@ from core.models.habit.completion import HabitCompletion
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_habit import HabitKu
 from core.services.habits.habit_relationships import HabitRelationships
-from core.services.protocols.domain_protocols import HabitsOperations
-from core.services.protocols.query_types import HabitUpdatePayload
+from core.ports.domain_protocols import HabitsOperations
+from core.ports.query_types import HabitUpdatePayload
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
 from core.utils.logging import get_logger

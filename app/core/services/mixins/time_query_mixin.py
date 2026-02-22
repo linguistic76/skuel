@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.query import build_user_activity_query
-from core.services.protocols import BackendOperations
+from core.ports import BackendOperations
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -369,6 +369,6 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
 # PROTOCOL COMPLIANCE VERIFICATION (January 2026)
 # ============================================================================
 if TYPE_CHECKING:
-    from core.services.protocols.base_service_interface import TimeQueryOperations
+    from core.ports.base_service_interface import TimeQueryOperations
 
     _protocol_check: type[TimeQueryOperations[Any]] = TimeQueryMixin  # type: ignore[type-arg]

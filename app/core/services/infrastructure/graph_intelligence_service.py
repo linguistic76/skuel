@@ -22,13 +22,13 @@ Date: October 26, 2025
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
-from core.services.protocols import get_enum_value
+from core.ports import get_enum_value
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import QueryExecutor
+    from core.ports import QueryExecutor
 
 logger = get_logger(__name__)
 

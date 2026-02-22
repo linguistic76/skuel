@@ -75,7 +75,7 @@ from core.models.ku.ku_nested_types import (
     PrincipleExpression,
 )
 from core.models.ku_dto_mixin import KuDTOMixin
-from core.services.protocols import get_enum_value
+from core.ports import get_enum_value
 
 # =============================================================================
 # NESTED TYPE SERIALIZATION HELPERS

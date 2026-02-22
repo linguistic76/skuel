@@ -32,7 +32,7 @@ from core.models.relationship_names import RelationshipName
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.intelligence import GraphContextOrchestrator
-from core.services.protocols import KuOperations
+from core.ports import KuOperations
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:

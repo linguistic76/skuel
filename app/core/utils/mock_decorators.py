@@ -25,7 +25,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
-from core.services.protocols.base_protocols import HasBody, IsMockEndpoint, IsStubEndpoint
+from core.ports.base_protocols import HasBody, IsMockEndpoint, IsStubEndpoint
 
 logger = logging.getLogger(__name__)
 

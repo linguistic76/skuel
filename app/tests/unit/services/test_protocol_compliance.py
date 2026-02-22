@@ -48,7 +48,7 @@ from core.services.principles_service import PrinciplesService
 
 # Backend protocol
 # Facade protocols (THE contract for facade services)
-from core.services.protocols import (
+from core.ports import (
     BackendOperations,
     EventsFacadeProtocol,
     GoalsFacadeProtocol,

@@ -33,7 +33,7 @@ from core.models.query import (
 from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
 # Use protocol interfaces instead of ports
-from core.services.protocols.curriculum_protocols import KuOperations
+from core.ports.curriculum_protocols import KuOperations
 from core.services.user import UserContext
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

@@ -19,7 +19,7 @@ from core.events.goal_events import GoalAchieved, GoalRecommendationsGenerated
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
 
 class GoalsRecommendationService:

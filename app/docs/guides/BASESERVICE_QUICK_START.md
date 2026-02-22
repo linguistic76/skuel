@@ -604,7 +604,7 @@ Each BaseService mixin has a corresponding protocol:
 ```python
 # All 7 mixins include this verification pattern
 if TYPE_CHECKING:
-    from core.services.protocols.base_service_interface import ConversionOperations
+    from core.ports.base_service_interface import ConversionOperations
 
     # MyPy verifies signatures match - fails at compile time if they don't
     _protocol_check: type[ConversionOperations[Any]] = ConversionHelpersMixin

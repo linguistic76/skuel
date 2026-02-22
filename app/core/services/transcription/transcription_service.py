@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     import builtins
 
     from adapters.external.deepgram.adapter import DeepgramAdapter
-    from core.services.protocols.base_protocols import BackendOperations
+    from core.ports.base_protocols import BackendOperations
 
 logger = get_logger(__name__)
 

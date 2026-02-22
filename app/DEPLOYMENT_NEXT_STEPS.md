@@ -195,7 +195,7 @@ curl http://localhost:8000/api/monitoring/embedding-worker
 
 **Solutions**:
 1. Check OpenAI API status/limits
-2. Reduce batch size in `core/utils/services_bootstrap.py`:
+2. Reduce batch size in `services_bootstrap.py`:
    ```python
    embedding_worker = EmbeddingBackgroundWorker(
        batch_size=10,  # Reduce from 25

@@ -35,7 +35,7 @@ SKUEL uses Python's Protocol typing (PEP 544) for dependency injection without f
 **Core Achievements** (January–February 2026):
 - **100% protocol compliance** - All services, routes, and containers use protocol types
 - **100% hasattr elimination** - All attribute checks now use Protocol-based type checking
-- **Zero port dependencies** - All services use `core/services/protocols/*` exclusively
+- **Zero port dependencies** - All services use `core/ports/*` exclusively
 - **Zero concrete type dependencies** - All route signatures use facade or ISP protocols
 - **9 facade protocols** - Complete MyPy visibility for delegated methods
 - **19 route-facing ISP protocols** - Services container fields typed (February 2026)
@@ -155,7 +155,7 @@ Services using the facade pattern auto-generate 30-50+ delegation methods at cla
 # ✅ Good - Protocol type (MyPy can verify all method calls)
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from core.services.protocols.facade_protocols import TasksFacadeProtocol
+    from core.ports.facade_protocols import TasksFacadeProtocol
 
 def create_tasks_api_routes(
     app: Any,
@@ -170,7 +170,7 @@ def create_tasks_api_routes(
 **Usage in Service Container:**
 
 ```python
-from core.services.protocols.facade_protocols import LpFacadeProtocol
+from core.ports.facade_protocols import LpFacadeProtocol
 
 @dataclass
 class Services:
@@ -189,7 +189,7 @@ class Services:
 ```
 Core Domain (Business Logic)
     ↓ depends on
-Protocols (in core/services/protocols/)
+Protocols (in core/ports/)
     ↑ implemented by
 Adapters (in adapters/)
 ```
@@ -206,7 +206,7 @@ SKUEL achieved **100% protocol compliance** across the entire codebase through s
 - ✅ Added `UserOperations` to infrastructure protocol exports
 
 ### Phase 2: Services Container (12 fields updated)
-Updated `Services` dataclass in `core/utils/services_bootstrap.py`:
+Updated `Services` dataclass in `services_bootstrap.py`:
 
 ```python
 @dataclass
@@ -410,7 +410,7 @@ class TasksService:
         # Now TasksService → UserContextService → TasksService ❌
 
 # ✅ Good - Protocol breaks the cycle
-from core.services.protocols import UserContextOperations
+from core.ports import UserContextOperations
 
 class TasksService:
     def __init__(
@@ -495,7 +495,7 @@ class ConversionHelpersMixin[B, T]:
 # PROTOCOL COMPLIANCE VERIFICATION
 # ============================================================================
 if TYPE_CHECKING:
-    from core.services.protocols.base_service_interface import ConversionOperations
+    from core.ports.base_service_interface import ConversionOperations
 
     # MyPy verifies structural compatibility - fails if signatures don't match
     _protocol_check: type[ConversionOperations[Any]] = ConversionHelpersMixin  # type: ignore[type-arg]

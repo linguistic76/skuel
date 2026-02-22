@@ -10,7 +10,7 @@ This test shows how TYPE_CHECKING blocks catch signature mismatches.
 import inspect
 
 from core.services.mixins import ConversionHelpersMixin
-from core.services.protocols.base_service_interface import ConversionOperations
+from core.ports.base_service_interface import ConversionOperations
 
 
 class TestProtocolComplianceDemonstration:
@@ -90,7 +90,7 @@ class TestProtocolComplianceDemonstration:
         )
 
         # Verify imports protocol
-        assert "from core.services.protocols.base_service_interface import" in content, (
+        assert "from core.ports.base_service_interface import" in content, (
             "ConversionHelpersMixin doesn't import ConversionOperations protocol"
         )
 
@@ -113,7 +113,7 @@ class TestProtocolComplianceExplanation:
 
     ```python
     if TYPE_CHECKING:
-        from core.services.protocols.base_service_interface import (
+        from core.ports.base_service_interface import (
             ConversionOperations,
         )
 

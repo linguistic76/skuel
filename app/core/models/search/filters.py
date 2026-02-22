@@ -40,7 +40,7 @@ from typing import Any
 
 from core.models.enums import Domain, KuStatus
 from core.models.relationship_names import RelationshipName
-from core.services.protocols.base_protocols import Direction
+from core.ports.base_protocols import Direction
 
 # =============================================================================
 # DATE RANGE FILTERS - Temporal query support

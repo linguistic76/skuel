@@ -44,7 +44,7 @@ from typing import Any
 from core.models.choice.choice import Choice
 from core.models.choice.choice_relationships import ChoiceRelationships
 from core.services.base_service import BaseService
-from core.services.protocols.domain_protocols import (
+from core.ports.domain_protocols import (
     ChoicesOperations,
     ChoicesRelationshipOperations,
 )

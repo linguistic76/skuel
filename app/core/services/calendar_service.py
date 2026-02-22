@@ -49,10 +49,10 @@ from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.models.ku.ku_event import EventKu as EventPure
 from core.models.ku.ku_habit import HabitKu as HabitPure
 from core.models.ku.ku_task import TaskKu as TaskPure
-from core.services.protocols import get_enum_value
+from core.ports import get_enum_value
 
 # Import protocol interfaces for dependency injection
-from core.services.protocols.domain_protocols import (
+from core.ports.domain_protocols import (
     EventsOperations,
     HabitsOperations,
     TasksOperations,

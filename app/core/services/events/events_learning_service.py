@@ -23,11 +23,11 @@ from core.models.ku.lp_position import LpPosition
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure.learning_alignment_helper import LearningAlignmentHelper
-from core.services.protocols import get_enum_value
+from core.ports import get_enum_value
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
     from core.services.relationships import UnifiedRelationshipService
 
 

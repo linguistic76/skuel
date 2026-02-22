@@ -19,7 +19,7 @@ from core.models.query import (
     QueryOptimizationResult,
     QueryPlan,
 )
-from core.services.protocols import HasStrategy
+from core.ports import HasStrategy
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_query_plan_priority

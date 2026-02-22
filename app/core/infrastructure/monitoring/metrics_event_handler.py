@@ -23,7 +23,7 @@ from core.events.goal_events import GoalCreated
 from core.events.habit_events import HabitCompleted, HabitCreated
 from core.events.principle_events import PrincipleCreated
 from core.events.task_events import TaskCompleted, TaskCreated, TasksBulkCompleted
-from core.services.protocols.infrastructure_protocols import EventBusOperations
+from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)

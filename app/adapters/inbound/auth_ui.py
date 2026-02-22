@@ -41,7 +41,7 @@ from components.auth_components import AuthComponents
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from core.services.protocols import GraphAuthOperations
+    from core.ports import GraphAuthOperations
 
 logger = get_logger("skuel.routes.auth_ui")
 

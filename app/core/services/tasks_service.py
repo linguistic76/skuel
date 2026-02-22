@@ -17,9 +17,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
-    from core.services.protocols.facade_protocols import TasksFacadeProtocol
-    from core.services.protocols.search_protocols import TasksSearchOperations
+    from core.ports import BackendOperations
+    from core.ports.facade_protocols import TasksFacadeProtocol
+    from core.ports.search_protocols import TasksSearchOperations
 
 # Knowledge generation service (Phase 4.1)
 # Protocol interfaces

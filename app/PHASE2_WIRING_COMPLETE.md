@@ -8,7 +8,7 @@
 
 ### ✅ 1. Backend Instrumentation (100% Complete)
 
-**All 17 UniversalNeo4jBackend instances updated** in `/core/utils/services_bootstrap.py`:
+**All 17 UniversalNeo4jBackend instances updated** in `/services_bootstrap.py`:
 
 - tasks_backend ✅
 - events_backend ✅
@@ -40,7 +40,7 @@
   - `_wire_all_routes()` accepts prometheus_metrics ✅
   - `AppContainer` includes prometheus_metrics field ✅
 
-- `/core/utils/services_bootstrap.py`
+- `/services_bootstrap.py`
   - `compose_services()` signature updated ✅
   - All backend instantiations pass prometheus_metrics ✅
 
@@ -293,7 +293,7 @@ open http://localhost:3000
 
 **Bootstrap** (Critical Path):
 - `/scripts/dev/bootstrap.py` (PrometheusMetrics initialization + wiring)
-- `/core/utils/services_bootstrap.py` (Backend instantiations + signature)
+- `/services_bootstrap.py` (Backend instantiations + signature)
 
 **Routes** (Sample - Repeat Pattern):
 - `/adapters/inbound/tasks_api.py` (✅ Complete example)

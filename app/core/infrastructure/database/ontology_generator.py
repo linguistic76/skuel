@@ -20,7 +20,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-from core.services.protocols import (
+from core.ports import (
     GeConstraint,
     GtConstraint,
     LeConstraint,

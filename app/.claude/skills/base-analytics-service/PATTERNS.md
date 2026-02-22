@@ -20,7 +20,7 @@ from core.models.ku.ku_dto import KuDTO as HabitDTO
 from core.models.enums import Domain
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence.orchestrator import GraphContextOrchestrator
-from core.services.protocols import HabitsOperations
+from core.ports import HabitsOperations
 from core.utils.result_simplified import Result
 from core.utils.errors_simplified import Errors
 

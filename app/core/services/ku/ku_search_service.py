@@ -34,7 +34,7 @@ from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
-from core.services.protocols import KuOperations
+from core.ports import KuOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.metrics import track_query_metrics
@@ -42,7 +42,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-    from core.services.protocols import (
+    from core.ports import (
         IntelligenceOperations,
         QueryBuilderOperations,
     )

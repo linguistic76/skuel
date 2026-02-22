@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import UserRole
 from core.models.user import User
-from core.services.protocols.infrastructure_protocols import (
+from core.ports.infrastructure_protocols import (
     EventBusOperations,
     UserOperations,
 )

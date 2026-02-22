@@ -16,7 +16,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_ownership_query
 from adapters.inbound.boundary import boundary_handler
-from core.services.protocols.facade_protocols import ChoicesFacadeProtocol
+from core.ports.facade_protocols import ChoicesFacadeProtocol
 from core.utils.result_simplified import Result
 
 

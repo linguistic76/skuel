@@ -27,8 +27,8 @@ from adapters.inbound.boundary import boundary_handler
 from core.models.goal.goal_request import ContextualGoalTaskGenerationRequest
 from core.models.habit.habit_request import ContextualHabitCompletionRequest
 from core.models.task.task_request import ContextualTaskCompletionRequest
-from core.services.protocols import UserContextOperations
-from core.services.protocols.query_types import ContextDashboard
+from core.ports import UserContextOperations
+from core.ports.query_types import ContextDashboard
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

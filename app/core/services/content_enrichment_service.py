@@ -27,7 +27,7 @@ from core.models.ku import Ku, KuBase, KuDTO, SubmissionKu
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
-from core.services.protocols import BackendOperations, BaseUpdatePayload
+from core.ports import BackendOperations, BaseUpdatePayload
 from core.services.reports.report_processing_types import KuAIInsights, KuProcessingContext
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger

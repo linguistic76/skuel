@@ -548,12 +548,12 @@ All query builders support consistent filter operators:
 
 **Core Principle:** "Replace `dict[str, Any]` with typed filter specs and update payloads"
 
-SKUEL provides TypedDicts in `/core/services/protocols/query_types.py` for type-safe query construction:
+SKUEL provides TypedDicts in `/core/ports/query_types.py` for type-safe query construction:
 
 ### Filter Specifications
 
 ```python
-from core.services.protocols.query_types import ActivityFilterSpec, PropertyFilterSpec
+from core.ports.query_types import ActivityFilterSpec, PropertyFilterSpec
 
 # Activity domain filters with IDE autocomplete
 filters: ActivityFilterSpec = {
@@ -573,7 +573,7 @@ property_filters: PropertyFilterSpec = {
 ### Update Payloads
 
 ```python
-from core.services.protocols.query_types import TaskUpdatePayload, GoalUpdatePayload
+from core.ports.query_types import TaskUpdatePayload, GoalUpdatePayload
 
 # Task update with type-checked fields
 updates: TaskUpdatePayload = {

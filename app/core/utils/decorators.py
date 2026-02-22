@@ -27,7 +27,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any, Literal, TypeVar
 
-from core.services.protocols import HasLogger
+from core.ports import HasLogger
 from core.utils.result_simplified import Errors, Result
 
 # Type variable for preserving return types through decorators

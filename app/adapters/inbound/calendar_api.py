@@ -21,7 +21,7 @@ from components.calendar_components import calendar_item_to_dict
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import CalendarServiceOperations
+    from core.ports import CalendarServiceOperations
 
 
 def create_calendar_api_routes(

@@ -30,8 +30,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.ku.ku_task import TaskKu as Task
-from core.services.protocols.domain_protocols import TasksOperations
-from core.services.protocols.query_types import ContextDashboard, ContextSummary
+from core.ports.domain_protocols import TasksOperations
+from core.ports.query_types import ContextDashboard, ContextSummary
 from core.services.user.intelligence import (
     UserContextIntelligenceFactory,
 )
@@ -535,7 +535,7 @@ class UserContextService:
 
         # Get user from goal
         # First, get the goal to find the user
-        from core.services.protocols.domain_protocols import GoalsOperations
+        from core.ports.domain_protocols import GoalsOperations
 
         try:
             goal_backend: GoalsOperations = self.goal_task_generator.goals_backend

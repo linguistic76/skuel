@@ -22,7 +22,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
 from core.models.enums import KuStatus, Priority
@@ -33,7 +33,7 @@ from core.models.ku.ku_task import TaskKu
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.protocols.query_types import TaskUpdatePayload
+from core.ports.query_types import TaskUpdatePayload
 from core.utils.decorators import with_error_handling
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result

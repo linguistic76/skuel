@@ -9,7 +9,7 @@ Following clean code principle: no lambdas, only named functions.
 from datetime import date, datetime, time
 from typing import Any
 
-from core.services.protocols import get_enum_value
+from core.ports import get_enum_value
 
 
 def encode_enum_value(v: Any) -> Any:
@@ -44,7 +44,7 @@ def encode_optional_datetime_isoformat(v: datetime | None) -> str | None:
 
 def encode_activity_type_value(v: Any) -> str:
     """Encode ActivityType enum to its string value."""
-    from core.services.protocols import EnumLike
+    from core.ports import EnumLike
 
     return str(v.value) if isinstance(v, EnumLike) else str(v)
 

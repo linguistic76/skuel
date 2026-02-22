@@ -47,7 +47,7 @@ from core.services.intelligence import (
     calculate_principle_metrics,
     determine_trend_from_rate,
 )
-from core.services.protocols.domain_protocols import PrinciplesOperations
+from core.ports.domain_protocols import PrinciplesOperations
 from core.utils.decorators import requires_graph_intelligence
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -55,7 +55,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.services.insight.insight_store import InsightStore
-    from core.services.protocols.domain_protocols import PrinciplesRelationshipOperations
+    from core.ports.domain_protocols import PrinciplesRelationshipOperations
 
 logger = get_logger(__name__)
 

@@ -23,7 +23,7 @@ from typing import Any
 
 from core.models.query import ProvenanceQueries
 from core.models.relationship_names import RelationshipName
-from core.services.protocols.base_protocols import BackendOperations
+from core.ports.base_protocols import BackendOperations
 from core.utils.result_simplified import Errors, Result
 
 

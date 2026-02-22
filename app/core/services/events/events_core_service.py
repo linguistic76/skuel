@@ -33,13 +33,13 @@ from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_event import EventKu
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.protocols import get_enum_value
+from core.ports import get_enum_value
 from core.utils.decorators import with_error_handling
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
 
 class EventsCoreService(BaseService["BackendOperations[EventKu]", EventKu]):

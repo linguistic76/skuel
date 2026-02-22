@@ -24,7 +24,7 @@ from typing import Any
 
 from core.events import publish_event
 from core.models.user import User
-from core.services.protocols.infrastructure_protocols import UserOperations
+from core.ports.infrastructure_protocols import UserOperations
 from core.services.user.debounced_invalidator import DebouncedContextInvalidator
 from core.services.user.user_context_cache import UserContextCache
 from core.utils.decorators import with_error_handling

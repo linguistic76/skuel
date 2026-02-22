@@ -42,7 +42,7 @@ Successfully removed the legacy `PerformanceMonitor` class (~600 lines) and full
    - Updated `create_user_service()` factory to pass `metrics_cache`
    - Wired through to `UserActivityService`
 
-3. **`/core/utils/services_bootstrap.py`**
+3. **`/services_bootstrap.py`**
    - Updated `compose_services()` to accept `metrics_cache` parameter
    - Passed `metrics_cache` to `create_user_service()` call
 
@@ -313,7 +313,7 @@ def metrics_cache(prometheus_metrics):
 **Code:**
 - `core/services/user/user_activity_service.py`
 - `core/services/user_service.py`
-- `core/utils/services_bootstrap.py`
+- `services_bootstrap.py`
 - `scripts/dev/bootstrap.py`
 - `core/infrastructure/monitoring/__init__.py`
 - `adapters/infrastructure/event_bus.py` (fixed leftover reference)

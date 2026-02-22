@@ -22,7 +22,7 @@ from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from core.services.protocols import LifePathOperations
+    from core.ports import LifePathOperations
 
 logger = get_logger("skuel.routes.lifepath.api")
 

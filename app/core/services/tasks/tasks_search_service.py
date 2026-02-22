@@ -26,7 +26,7 @@ from operator import attrgetter, itemgetter, methodcaller
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
 from core.constants import QueryLimit
 from core.models.enums import KuStatus

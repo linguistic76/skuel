@@ -26,7 +26,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.protocols import DomainModelProtocol
-from core.services.protocols import BackendOperations
+from core.ports import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -259,6 +259,6 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
 # PROTOCOL COMPLIANCE VERIFICATION (January 2026)
 # ============================================================================
 if TYPE_CHECKING:
-    from core.services.protocols.base_service_interface import UserProgressOperations
+    from core.ports.base_service_interface import UserProgressOperations
 
     _protocol_check: type[UserProgressOperations[Any]] = UserProgressMixin  # type: ignore[type-arg]

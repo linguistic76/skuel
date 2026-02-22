@@ -44,7 +44,7 @@ from core.models.search import SearchRouter
 from core.models.search_request import SearchRequest
 
 if TYPE_CHECKING:
-    from core.utils.services_bootstrap import Services
+    from services_bootstrap import Services
 from adapters.inbound.boundary import boundary_handler
 from core.utils.logging import get_logger
 

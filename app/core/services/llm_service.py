@@ -17,7 +17,7 @@ from typing import Any
 
 from core.config import get_openai_key
 from core.errors import ConfigurationError
-from core.services.protocols.base_protocols import EnumLike
+from core.ports.base_protocols import EnumLike
 
 logger = logging.getLogger(__name__)
 

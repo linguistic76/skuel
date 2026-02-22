@@ -271,7 +271,7 @@ from typing import Any, ClassVar
 from core.events import TaskCompleted
 from core.models.task import Task
 from core.services.base_ai_service import BaseAIService
-from core.services.protocols import TasksOperations
+from core.ports import TasksOperations
 from core.utils.result_simplified import Result
 
 

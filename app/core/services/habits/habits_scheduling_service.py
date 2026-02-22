@@ -45,7 +45,7 @@ from core.models.ku.ku_habit import HabitKu
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentHelper
-from core.services.protocols.domain_protocols import HabitsOperations
+from core.ports.domain_protocols import HabitsOperations
 from core.utils.decorators import with_error_handling
 from core.utils.dto_helpers import to_domain_model
 from core.utils.result_simplified import Errors, Result
@@ -54,7 +54,7 @@ from core.utils.sort_functions import make_dict_count_getter
 if TYPE_CHECKING:
     from core.models.ku.lp_position import LpPosition
     from core.services.habits.habits_completion_service import HabitsCompletionService
-    from core.services.protocols.infrastructure_protocols import EventBusOperations
+    from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.user.unified_user_context import UserContext
 
 

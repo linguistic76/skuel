@@ -38,8 +38,8 @@ from core.services.events import (
 from core.services.events.events_ai_service import EventsAIService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.mixins import FacadeDelegationMixin, merge_delegations
-from core.services.protocols import get_enum_value
-from core.services.protocols.query_types import EventUpdatePayload
+from core.ports import get_enum_value
+from core.ports.query_types import EventUpdatePayload
 
 # Unified relationship service (replaces EventsRelationshipService)
 from core.services.relationships import UnifiedRelationshipService
@@ -59,10 +59,10 @@ if TYPE_CHECKING:
     )
     from core.models.ku.ku_request import KuEventCreateRequest
     from core.services.events.events_intelligence_service import EventsIntelligenceService
-    from core.services.protocols import BackendOperations
-    from core.services.protocols.facade_protocols import EventsFacadeProtocol
-    from core.services.protocols.infrastructure_protocols import EventBusOperations
-    from core.services.protocols.search_protocols import EventsSearchOperations
+    from core.ports import BackendOperations
+    from core.ports.facade_protocols import EventsFacadeProtocol
+    from core.ports.infrastructure_protocols import EventBusOperations
+    from core.ports.search_protocols import EventsSearchOperations
     from core.services.user import UserContext
 
 

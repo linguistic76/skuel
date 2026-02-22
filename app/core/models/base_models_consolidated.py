@@ -46,7 +46,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from core.models.graph_models import Relationship
 
 # Import protocols to replace hasattr usage
-from core.services.protocols import (
+from core.ports import (
     EnumLike,
     HasCreatedAt,
     HasUID,

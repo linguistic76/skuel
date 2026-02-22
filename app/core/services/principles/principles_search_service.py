@@ -28,7 +28,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.protocols.domain_protocols import PrinciplesOperations
+from core.ports.domain_protocols import PrinciplesOperations
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
@@ -136,7 +136,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
         Returns:
             Result containing principles in mapped category
         """
-        from core.services.protocols import get_enum_value
+        from core.ports import get_enum_value
 
         # Map Domain to PrincipleCategory
         domain_value = get_enum_value(domain)
@@ -382,7 +382,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
         Returns:
             Result containing principles with matching strength
         """
-        from core.services.protocols import get_enum_value
+        from core.ports import get_enum_value
 
         strength_value = get_enum_value(strength)
         result = await self.backend.find_by(strength=strength_value, limit=limit)
@@ -408,7 +408,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
         Returns:
             Result containing list of Principles
         """
-        from core.services.protocols import get_enum_value
+        from core.ports import get_enum_value
 
         category_value = get_enum_value(category) if not isinstance(category, str) else category
         result = await self.backend.find_by(category=category_value, limit=limit)
@@ -676,7 +676,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
         LIMIT $limit
         """
 
-        from core.services.protocols import get_enum_value
+        from core.ports import get_enum_value
 
         category_value = get_enum_value(principle.category)
 
@@ -782,7 +782,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, KuBase]):
 
         # Apply domain filter from parsed query (map to category if applicable)
         if parsed.domains and "category" not in filters:
-            from core.services.protocols import get_enum_value
+            from core.ports import get_enum_value
 
             domain_value = get_enum_value(parsed.domains[0])
             domain_to_category = {

@@ -14,7 +14,7 @@ Real-World Usage Examples
 -------------------------
 
 1. Generic Service Handlers (Type Safety + Autocomplete):
-    from core.services.protocols.base_service_interface import BaseServiceInterface
+    from core.ports.base_service_interface import BaseServiceInterface
     from typing import Any
 
     def validate_service_health(
@@ -28,7 +28,7 @@ Real-World Usage Examples
         return {"healthy": True, "categories": categories.value}
 
 2. SKUEL's Service Container (Production):
-    from core.utils.services_bootstrap import Services
+    from services_bootstrap import Services
 
     # THE service container - all 58 services with compile-time type safety
     services = Services(
@@ -44,7 +44,7 @@ Real-World Usage Examples
         await services.tasks.create_task(...)  # Full autocomplete!
 
 3. Cross-Domain Analytics (Generic Operations):
-    from core.services.protocols.base_service_interface import BaseServiceInterface
+    from core.ports.base_service_interface import BaseServiceInterface
 
     async def analyze_domain_health(
         services: list[tuple[str, BaseServiceInterface[Any, Any]]]
@@ -71,7 +71,7 @@ For domain-specific operations, use concrete types or domain protocols:
 Production Examples
 -------------------
 SKUEL's Service Registry (Production):
-- /core/utils/services_bootstrap.py - Services dataclass (THE registry)
+- /services_bootstrap.py - Services dataclass (THE registry)
   - Compile-time type safety with 58 typed fields
   - Frozen dataclass prevents runtime modification
   - Protocol-typed for zero concrete dependencies

@@ -21,7 +21,7 @@ from core.models.relationship_registry import (
     LABEL_CONFIGS,
 )
 from core.services.exercises.exercise_service import ExerciseService
-from core.services.protocols.reports_protocols import ExerciseOperations
+from core.ports.reports_protocols import ExerciseOperations
 from core.utils.result_simplified import Result
 
 # =========================================================================

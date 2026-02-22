@@ -35,7 +35,7 @@ from core.models.principle.principle_types import (
 )
 
 # Protocol interfaces - Use main Operations protocols (not QueryOperations aliases)
-from core.services.protocols.domain_protocols import GoalsOperations, HabitsOperations
+from core.ports.domain_protocols import GoalsOperations, HabitsOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

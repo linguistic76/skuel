@@ -384,7 +384,7 @@ Before enabling APOC, ask:
 | `core/config/unified_config.py` | Service configuration classes (Redis, Cache, MessageQueue) |
 | `docker-compose.production.yml` | Docker service definitions (Redis, Ollama, Nginx, Monitoring) |
 | `core/config/settings.py` | Helper functions (`redis_url()`, etc.) |
-| `core/utils/services_bootstrap.py` | Service initialization logic |
+| `services_bootstrap.py` | Service initialization logic |
 
 ### Environment Variables for Future Services
 

@@ -21,7 +21,7 @@ from core.models.query import (
     ValidationResult,
     analyze_query_intent,
 )
-from core.services.protocols import HasSeverity, HasUsage
+from core.ports import HasSeverity, HasUsage
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

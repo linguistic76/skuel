@@ -25,7 +25,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import EventsOperations, HabitsOperations
+    from core.ports import EventsOperations, HabitsOperations
     from core.services.user import UserContext
 
 

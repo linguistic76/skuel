@@ -34,7 +34,7 @@ from core.services.lp_intelligence.types import (
     LearningIntervention,
     LearningReadiness,
 )
-from core.services.protocols.content_protocols import ContentAdapter, ensure_content_protocol
+from core.ports.content_protocols import ContentAdapter, ensure_content_protocol
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger

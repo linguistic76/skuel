@@ -14,13 +14,13 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.services.insight.insight_store import InsightStore
-    from core.services.protocols import BackendOperations, QueryExecutor
+    from core.ports import BackendOperations, QueryExecutor
 
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType, ProgressDepth
 from core.models.ku import AiReportKu, Ku
-from core.services.protocols.infrastructure_protocols import EventBusOperations
+from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator

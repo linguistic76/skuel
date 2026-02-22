@@ -68,7 +68,7 @@ VISUALIZATION_CONFIG = DomainRouteConfig(
 - `/adapters/inbound/visualization_api.py` (NEW)
 
 **Infrastructure Update:**
-- Added `VisualizationService` to `/core/utils/services_bootstrap.py`
+- Added `VisualizationService` to `/services_bootstrap.py`
 
 ---
 
@@ -318,7 +318,7 @@ if config.api_factory:
 
 ### 2. services_bootstrap.py - VisualizationService
 
-**File:** `/core/utils/services_bootstrap.py`
+**File:** `/services_bootstrap.py`
 **Lines:** 227, 1539-1542, 2265
 
 **Changes:**
@@ -634,7 +634,7 @@ Phase 3 migration complete. DomainRouteConfig pattern now proven across 22 domai
 ### Implementation
 
 - **Core Infrastructure:** `/adapters/inbound/route_factories/domain_route_factory.py`
-- **Service Bootstrap:** `/core/utils/services_bootstrap.py`
+- **Service Bootstrap:** `/services_bootstrap.py`
 - **Route Registration:** `/scripts/dev/bootstrap.py`
 
 ### Related ADRs
@@ -1238,7 +1238,7 @@ Infrastructure fields like `event_bus` and `graph_adapter` already lived on `Ser
 
 ### Changes (3 files)
 
-#### 1. `core/utils/services_bootstrap.py`
+#### 1. `services_bootstrap.py`
 
 - Added `prometheus_metrics: Any = None` to the `Services` dataclass (Infrastructure section, alongside `event_bus`)
 - Added `prometheus_metrics=prometheus_metrics` to the `Services(...)` instantiation

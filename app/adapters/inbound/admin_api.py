@@ -33,7 +33,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import GraphAuthOperations
+    from core.ports import GraphAuthOperations
 
 logger = get_logger("skuel.routes.admin_api")
 

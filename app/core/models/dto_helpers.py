@@ -21,7 +21,7 @@ from datetime import date, datetime, time
 from enum import Enum
 from typing import Any
 
-from core.services.protocols import EnumLike
+from core.ports import EnumLike
 
 
 def filter_deprecated_fields(data: dict, deprecated_fields: list[str]) -> None:

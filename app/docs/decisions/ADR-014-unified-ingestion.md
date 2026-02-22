@@ -212,7 +212,7 @@ from core.services.ingestion import UnifiedIngestionService
 |-----------|------|
 | Package | `/core/services/ingestion/` |
 | Routes | `/adapters/inbound/ingestion_routes.py` |
-| Bootstrap | `/core/utils/services_bootstrap.py` |
+| Bootstrap | `/services_bootstrap.py` |
 
 ### Entity Configuration
 

@@ -23,7 +23,7 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_updated_timestamp
 
 if TYPE_CHECKING:
-    from core.services.protocols import QueryExecutor
+    from core.ports import QueryExecutor
 
 logger = get_logger(__name__)
 

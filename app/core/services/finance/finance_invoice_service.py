@@ -35,7 +35,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols.base_protocols import BackendOperations
+    from core.ports.base_protocols import BackendOperations
 
 logger = get_logger("finance.invoice")
 

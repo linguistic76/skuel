@@ -211,7 +211,7 @@ Set up monitoring alerts for:
 
 ### Batch Configuration
 
-**Location**: `/core/utils/services_bootstrap.py`
+**Location**: `/services_bootstrap.py`
 
 ```python
 embedding_worker = EmbeddingBackgroundWorker(

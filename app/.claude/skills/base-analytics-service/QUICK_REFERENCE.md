@@ -8,7 +8,7 @@
 |------|---------|
 | `/core/services/base_analytics_service.py` | Base class (~608 lines) |
 | `/core/services/base_ai_service.py` | AI base class (separate skill) |
-| `/core/services/protocols/intelligence_protocols.py` | IntelligenceOperations protocol |
+| `/core/ports/intelligence_protocols.py` | IntelligenceOperations protocol |
 | `/core/services/intelligence/orchestrator.py` | GraphContextOrchestrator |
 | `/core/services/intelligence/recommendation_engine.py` | RecommendationEngine utility |
 | `/core/services/intelligence/metrics_calculator.py` | MetricsCalculator utility |
@@ -50,7 +50,7 @@ from core.services.base_analytics_service import BaseAnalyticsService
 
 ### Protocol
 ```python
-from core.services.protocols.intelligence_protocols import IntelligenceOperations
+from core.ports.intelligence_protocols import IntelligenceOperations
 ```
 
 ### Orchestrator

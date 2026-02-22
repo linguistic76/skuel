@@ -156,7 +156,7 @@ Askesis is fundamentally different:
 Askesis is created in `compose_services()` AFTER the intelligence factory:
 
 ```python
-# /core/utils/services_bootstrap.py (PHASE 4)
+# /services_bootstrap.py (PHASE 4)
 
 # First: Create factory with all 13 domain services
 context_intelligence_factory = UserContextIntelligenceFactory(
@@ -245,7 +245,7 @@ The `UserContextIntelligenceFactory` requires all domain relationship services. 
 | `/core/services/askesis/context_retriever.py` | Context retrieval |
 | `/core/services/askesis/askesis_core_service.py` | CRUD + `build_user_context()` (owns Neo4j driver) |
 | `/core/services/askesis/types.py` | Shared data classes |
-| `/core/services/protocols/askesis_protocols.py` | Protocol definitions |
+| `/core/ports/askesis_protocols.py` | Protocol definitions |
 | `/adapters/inbound/askesis_routes.py` | Route wiring (DomainRouteConfig) |
 | `/adapters/inbound/askesis_api.py` | JSON API endpoints |
 | `/adapters/inbound/askesis_ui.py` | UI components |
@@ -272,7 +272,7 @@ class AskesisOperations(
 ### Usage
 
 ```python
-from core.services.protocols import AskesisOperations
+from core.ports import AskesisOperations
 
 def process(askesis: AskesisOperations) -> Result[...]:
     return await askesis.get_daily_work_plan(context)

@@ -29,7 +29,7 @@ from core.models.habit.habit_request import (
     TrackHabitRequest,
     UntrackHabitRequest,
 )
-from core.services.protocols.facade_protocols import HabitsFacadeProtocol
+from core.ports.facade_protocols import HabitsFacadeProtocol
 from core.utils.result_simplified import Result
 
 # ============================================================================

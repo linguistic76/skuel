@@ -498,7 +498,7 @@ ContentMetadata(
 **Example:**
 ```python
 # Wrap content in ContentAdapter
-from core.services.protocols.content_protocols import ContentAdapter
+from core.ports.content_protocols import ContentAdapter
 
 class KuContentAdapter(ContentAdapter):
     def __init__(self, ku):
@@ -904,7 +904,7 @@ LearningRecommendationEngine provides intelligent guidance:
 
 All content analysis methods use `ContentAdapter` protocol for flexibility:
 ```python
-from core.services.protocols.content_protocols import ContentAdapter
+from core.ports.content_protocols import ContentAdapter
 
 class MyContentAdapter(ContentAdapter):
     @property
@@ -987,5 +987,5 @@ result = await service.analyze_learning_state(mock_user_context)
 - `/core/services/base_intelligence_service.py` - Base implementation
 - `/core/services/lp/lp_service.py` - LpService facade
 - `/core/services/lp_intelligence/` - Sub-service implementations
-- `/core/services/protocols/content_protocols.py` - ContentAdapter protocol
+- `/core/ports/content_protocols.py` - ContentAdapter protocol
 - `/core/services/lp_intelligence/types.py` - Shared types and dataclasses

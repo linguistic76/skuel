@@ -50,7 +50,7 @@ Type Safety (January 2026)
 Filter parameters accept BaseFilterSpec (or domain-specific TypedDicts like
 ActivityFilterSpec) for type safety while remaining backward compatible.
 
-    from core.services.protocols import ActivityFilterSpec
+    from core.ports import ActivityFilterSpec
 
     filters: ActivityFilterSpec = {"status": "active", "priority": "high"}
     result = await service.get_by_category("work", filters=filters)
@@ -66,7 +66,7 @@ from core.models.query import (
     build_text_search_query,
 )
 from core.models.relationship_names import RelationshipName
-from core.services.protocols import BackendOperations
+from core.ports import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -75,7 +75,7 @@ if TYPE_CHECKING:
     from logging import Logger
 
     from core.models.search_request import SearchRequest
-    from core.services.protocols.base_protocols import Direction
+    from core.ports.base_protocols import Direction
 
 
 class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
@@ -647,7 +647,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if config_result.is_error:
             return Result.fail(config_result)
 
-        from core.services.protocols import get_enum_value
+        from core.ports import get_enum_value
 
         domain_value = get_enum_value(domain)
         result = await self.backend.find_by(domain=domain_value, limit=limit)
@@ -765,6 +765,6 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 # PROTOCOL COMPLIANCE VERIFICATION (January 2026)
 # ============================================================================
 if TYPE_CHECKING:
-    from core.services.protocols.base_service_interface import SearchOperations
+    from core.ports.base_service_interface import SearchOperations
 
     _protocol_check: type[SearchOperations[Any]] = SearchOperationsMixin  # type: ignore[type-arg]

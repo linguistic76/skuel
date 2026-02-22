@@ -59,7 +59,7 @@ This aligns with Activity domain patterns per CLAUDE.md.
 
 Usage
 -----
-    from core.services.protocols import CurriculumOperations, KuOperations
+    from core.ports import CurriculumOperations, KuOperations
 
     class KuCoreService(BaseService[KuOperations, Ku]):
         @property
@@ -68,8 +68,8 @@ Usage
 
 See Also
 --------
-- /core/services/protocols/base_protocols.py - BackendOperations hierarchy
-- /core/services/protocols/domain_protocols.py - Activity domain protocols
+- /core/ports/base_protocols.py - BackendOperations hierarchy
+- /core/ports/domain_protocols.py - Activity domain protocols
 - /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md - Curriculum architecture
 - /docs/domains/moc.md - MOC architecture (KU-based since January 2026)
 """

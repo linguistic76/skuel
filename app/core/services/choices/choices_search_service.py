@@ -24,7 +24,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.ports import BackendOperations
 
 from core.models.enums import Priority
 from core.models.enums.ku_enums import KuStatus
@@ -199,7 +199,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
                 score += 10
 
         # Priority level (0-25 points) - use existing priority field
-        from core.services.protocols import get_enum_value
+        from core.ports import get_enum_value
 
         priority_value = get_enum_value(choice.priority)
         if priority_value == "critical":

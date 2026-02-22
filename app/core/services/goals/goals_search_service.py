@@ -27,7 +27,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.protocols.domain_protocols import GoalsOperations
+from core.ports.domain_protocols import GoalsOperations
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
@@ -190,7 +190,7 @@ class GoalsSearchService(BaseService[GoalsOperations, GoalKu]):
         # Priority level (0-20 points)
         if goal.priority:
             from core.models.enums import Priority
-            from core.services.protocols import get_enum_value
+            from core.ports import get_enum_value
 
             priority_value = get_enum_value(goal.priority)
             if priority_value == Priority.CRITICAL.value:
@@ -329,7 +329,7 @@ class GoalsSearchService(BaseService[GoalsOperations, GoalKu]):
         Returns:
             Result containing goals with matching timeframe
         """
-        from core.services.protocols import get_enum_value
+        from core.ports import get_enum_value
 
         timeframe_value = get_enum_value(timeframe)
         result = await self.backend.find_by(timeframe=timeframe_value, limit=limit)

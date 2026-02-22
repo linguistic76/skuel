@@ -37,8 +37,8 @@ from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.services.metadata_manager_mixin import MetadataManagerMixin
-from core.services.protocols.content_protocols import ensure_content_protocol
-from core.services.protocols.curriculum_protocols import CurriculumOperations
+from core.ports.content_protocols import ensure_content_protocol
+from core.ports.curriculum_protocols import CurriculumOperations
 from core.utils.decorators import with_error_handling
 from core.utils.metrics import track_query_metrics
 from core.utils.result_simplified import Errors, Result

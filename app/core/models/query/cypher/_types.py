@@ -13,7 +13,7 @@ Type Categories
 
 See Also
 --------
-    /core/services/protocols/query_types.py - Higher-level service TypedDicts
+    /core/ports/query_types.py - Higher-level service TypedDicts
     /docs/patterns/query_architecture.md - Query architecture documentation
 
 Date Updated: January 2026 (Type Safety Improvements)

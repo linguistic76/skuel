@@ -40,7 +40,7 @@ Type Safety (January 2026)
 Update methods accept BaseUpdatePayload or domain-specific TypedDicts for type safety.
 TypedDicts are structural subtypes of dict[str, Any], so this is backward compatible.
 
-    from core.services.protocols import TaskUpdatePayload
+    from core.ports import TaskUpdatePayload
 
     updates: TaskUpdatePayload = {"status": "completed", "progress": 1.0}
     await service.update(uid, updates)  # IDE autocomplete works!
@@ -51,7 +51,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol
-from core.services.protocols import BackendOperations
+from core.ports import BackendOperations
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -138,7 +138,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             Result[T]: Updated entity or error
 
         Type Hint Example:
-            from core.services.protocols import TaskUpdatePayload
+            from core.ports import TaskUpdatePayload
             updates: TaskUpdatePayload = {"status": "completed", "progress": 1.0}
             await service.update(uid, updates)  # IDE autocomplete works!
         """
@@ -266,7 +266,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             Result[T]: The updated entity if owned by user, error otherwise
 
         Example:
-            from core.services.protocols import TaskUpdatePayload
+            from core.ports import TaskUpdatePayload
 
             user_uid = require_authenticated_user(request)
             updates: TaskUpdatePayload = {"status": "completed", "progress": 1.0}
@@ -384,6 +384,6 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 # PROTOCOL COMPLIANCE VERIFICATION (January 2026)
 # ============================================================================
 if TYPE_CHECKING:
-    from core.services.protocols.base_service_interface import CrudOperations
+    from core.ports.base_service_interface import CrudOperations
 
     _protocol_check: type[CrudOperations[Any]] = CrudOperationsMixin  # type: ignore[type-arg]

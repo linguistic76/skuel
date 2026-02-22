@@ -27,7 +27,7 @@ Architecture:
 
 from core.services.lp_intelligence.content_analyzer import ContentAnalyzer
 from core.services.lp_intelligence.types import ContentAnalysisResult, ContentMetadata
-from core.services.protocols.content_protocols import ContentAdapter
+from core.ports.content_protocols import ContentAdapter
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result

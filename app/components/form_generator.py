@@ -31,7 +31,7 @@ from fasthtml.common import Div, Form, Label, Option
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from core.services.protocols import (
+from core.ports import (
     GeConstraint,
     GtConstraint,
     LeConstraint,

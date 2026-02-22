@@ -80,7 +80,7 @@ Reports is the primary user-facing interface for all content submissions and sys
 | Assignments API | `assignments_api.py` |
 | Assignments Routes | `assignments_routes.py` |
 | Journals UI | `journals_ui.py` |
-| **Protocols** | `/core/services/protocols/reports_protocols.py` (9 protocols) |
+| **Protocols** | `/core/ports/reports_protocols.py` (9 protocols) |
 
 ## Model Fields
 

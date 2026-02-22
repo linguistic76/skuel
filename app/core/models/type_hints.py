@@ -29,7 +29,7 @@ from typing import (
 
 if TYPE_CHECKING:
     from core.models.base_models_consolidated import BaseEntity
-    from core.services.protocols.calendar_protocol import CalendarTrackable
+    from core.ports.calendar_protocol import CalendarTrackable
     from core.utils.result_simplified import Result as _Result
 
     # Type alias for Result used at boundaries (avoids circular import)

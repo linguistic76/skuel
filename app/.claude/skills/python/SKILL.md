@@ -17,7 +17,7 @@ SKUEL uses modern Python (3.11+) with strict typing, protocol-based architecture
 | Pattern | Location | Purpose |
 |---------|----------|---------|
 | **Result[T]** | `core/result.py` | Error handling without exceptions |
-| **Protocols** | `core/services/protocols/` | Interface contracts |
+| **Protocols** | `core/ports/` | Interface contracts |
 | **Frozen Dataclasses** | Domain models | Immutable business entities |
 | **Pydantic Models** | API boundaries | Validation & serialization |
 | **DTOs** | Transfer layer | Mutable data movement |
@@ -179,7 +179,7 @@ class TasksService:
 Use focused sub-protocols when you don't need all operations:
 
 ```python
-from core.services.protocols import (
+from core.ports import (
     CrudOperations,        # create, get, update, delete, list
     EntitySearchOperations, # search, find_by, count
     RelationshipOperations, # add/delete relationships

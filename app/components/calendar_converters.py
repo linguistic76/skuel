@@ -24,7 +24,7 @@ from typing import Any
 
 from core.models.enums import Priority
 from core.models.event.calendar_models import CalendarItem, CalendarItemType
-from core.services.protocols import get_enum_value
+from core.ports import get_enum_value
 from core.utils.neo4j_temporal import convert_neo4j_date, convert_neo4j_time
 
 # =============================================================================
