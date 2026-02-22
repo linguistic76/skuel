@@ -20,7 +20,7 @@ from core.events import publish_event
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.completion_dto import HabitCompletionDTO
 from core.models.ku.habit import Habit
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.habit_dto import HabitDTO
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -548,7 +548,7 @@ class HabitsCompletionService:
 
         for item in habits_result.value:
             if isinstance(item, dict):
-                habit_dto = KuDTO.from_dict(item)
+                habit_dto = HabitDTO.from_dict(item)
                 habit = Habit.from_dto(habit_dto)
             else:
                 habit = item

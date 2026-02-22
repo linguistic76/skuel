@@ -26,7 +26,7 @@ from core.infrastructure.relationships.semantic_relationships import (
     SemanticRelationshipType,
     SemanticTriple,
 )
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.curriculum_dto import CurriculumDTO
 from core.models.query import build_semantic_context
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -83,7 +83,7 @@ class KuSemanticService:
     @with_error_handling("create_with_semantic_relationships", error_type="database")
     async def create_with_semantic_relationships(
         self, ku_data: dict[str, Any], relationships: list[SemanticTriple]
-    ) -> Result[KuDTO]:
+    ) -> Result[CurriculumDTO]:
         """
         Create a knowledge unit with semantic relationships.
 
@@ -92,7 +92,7 @@ class KuSemanticService:
             relationships: List of semantic triples to create
 
         Returns:
-            Result containing created KuDTO with relationships
+            Result containing created CurriculumDTO with relationships
         """
         # First, create the knowledge unit
         create_result = await self.repo.create(ku_data)

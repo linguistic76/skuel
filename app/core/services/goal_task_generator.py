@@ -14,8 +14,8 @@ from typing import TYPE_CHECKING
 
 from core.models.enums import EntityStatus, Priority, RecurrencePattern
 from core.models.ku.goal import Goal
-from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.ku.goal_dto import GoalDTO
+from core.models.ku.task_dto import TaskDTO
 from core.services.goals.goal_relationships import GoalRelationships
 
 # Import protocol interfaces
@@ -112,7 +112,7 @@ class GoalTaskGenerator:
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, KuDTO, Goal)
+        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
 
         # GRAPH-NATIVE: Fetch goal relationships from graph
         rels = (
@@ -228,7 +228,7 @@ class GoalTaskGenerator:
             if goal_result.is_error:
                 continue
 
-            goal = to_domain_model(goal_result.value, KuDTO, Goal)
+            goal = to_domain_model(goal_result.value, GoalDTO, Goal)
 
             # Check if goal is at risk
             if goal.days_remaining() and goal.days_remaining() < 30:

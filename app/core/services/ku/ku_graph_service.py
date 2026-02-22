@@ -27,7 +27,7 @@ from core.utils.decorators import with_error_handling
 if TYPE_CHECKING:
     from core.models.context_types import ContextualKnowledge
     from core.services.user.unified_user_context import UserContext
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.curriculum_dto import CurriculumDTO
 from core.models.query import (
     build_metadata_aware_path_query,
     build_relationship_traversal_query,
@@ -115,7 +115,7 @@ class KuGraphService:
         depth: int = 3,
         _include_optional: bool = False,
         min_confidence: float = 0.7,
-    ) -> Result[list[KuDTO]]:
+    ) -> Result[list[CurriculumDTO]]:
         """
         Find all prerequisites for a knowledge unit.
 
@@ -131,7 +131,7 @@ class KuGraphService:
             min_confidence: Minimum relationship confidence threshold (default 0.7)
 
         Returns:
-            Result containing list of prerequisite KuDTOs in dependency order
+            Result containing list of prerequisite CurriculumDTOs in dependency order
 
         Examples:
             # Get prerequisites with default confidence filtering
@@ -192,7 +192,7 @@ class KuGraphService:
         return Result.ok(prerequisites)
 
     @with_error_handling("find_next_steps", error_type="database", uid_param="uid")
-    async def find_next_steps(self, uid: str, limit: int = 10) -> Result[list[KuDTO]]:
+    async def find_next_steps(self, uid: str, limit: int = 10) -> Result[list[CurriculumDTO]]:
         """
         Find knowledge units that build on this one.
 
@@ -203,7 +203,7 @@ class KuGraphService:
             limit: Maximum results to return
 
         Returns:
-            Result containing list of next step KuDTOs
+            Result containing list of next step CurriculumDTOs
         """
         # Verify source unit exists
         source_result = await self.repo.get(uid)
@@ -713,7 +713,7 @@ class KuGraphService:
             - total_time: Cumulative reading time (minutes)
             - avg_complexity: Average complexity score (1.0-3.0)
             - path_length: Number of knowledge units
-            - units: List of KuDTO objects with full details
+            - units: List of CurriculumDTO objects with full details
 
         Examples:
             # Find 2-hour learning path (intermediate or easier)
@@ -902,7 +902,7 @@ class KuGraphService:
     @with_error_handling("get_foundational_knowledge", error_type="database")
     async def get_foundational_knowledge(
         self, domain: str | None = None, min_hub_score: int = 10, limit: int = 20
-    ) -> Result[list[KuDTO]]:
+    ) -> Result[list[CurriculumDTO]]:
         """
         Get high-hub Knowledge Units (foundational concepts).
 

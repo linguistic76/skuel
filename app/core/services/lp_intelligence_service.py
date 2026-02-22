@@ -35,7 +35,7 @@ from core.infrastructure.relationships.semantic_relationships import SemanticRel
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
 from core.models.ku import Entity, Ku
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.learning_path_dto import LearningPathDTO
 from core.models.query import QueryIntent
 from core.ports.content_protocols import ContentAdapter
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -174,10 +174,10 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service and self.learning_backend:
-            self.orchestrator = GraphContextOrchestrator[Entity, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[Entity, LearningPathDTO](
                 service=self,
                 backend_get_method="get",
-                dto_class=KuDTO,
+                dto_class=LearningPathDTO,
                 model_class=Entity,
                 domain=Domain.LEARNING,
             )

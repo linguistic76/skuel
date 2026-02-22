@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 from core.events import publish_event
 from core.models.enums import RecurrencePattern
 from core.models.ku.event import Event
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.event_dto import EventDTO
 from core.services.context_first_mixin import parse_date_field
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
@@ -189,7 +189,7 @@ class EventsHabitIntegrationService:
         if not event_dict or not event_dict.get("uid"):
             return None
 
-        return Event.from_dto(KuDTO.from_dict(event_dict))
+        return Event.from_dto(EventDTO.from_dict(event_dict))
 
     def _filter_events_by_criteria(
         self,
@@ -466,7 +466,7 @@ class EventsHabitIntegrationService:
         if not result.value:
             return Result.fail(Errors.not_found(resource="Event", identifier=event_uid))
 
-        event = to_domain_model(result.value, KuDTO, Event)
+        event = to_domain_model(result.value, EventDTO, Event)
 
         # Update event
         updates = {
@@ -504,7 +504,7 @@ class EventsHabitIntegrationService:
         if updated_result.is_error:
             return Result.fail(updated_result.expect_error())
 
-        updated_event = to_domain_model(updated_result.value, KuDTO, Event)
+        updated_event = to_domain_model(updated_result.value, EventDTO, Event)
         return Result.ok(updated_event)
 
     async def miss_habit_event(
@@ -545,7 +545,7 @@ class EventsHabitIntegrationService:
         if updated_result.is_error:
             return Result.fail(updated_result.expect_error())
 
-        updated_event = to_domain_model(updated_result.value, KuDTO, Event)
+        updated_event = to_domain_model(updated_result.value, EventDTO, Event)
         return Result.ok(updated_event)
 
     # ========================================================================
@@ -604,7 +604,7 @@ class EventsHabitIntegrationService:
                 self.logger.error(f"Failed to create recurring event: {result.error}")
                 continue
 
-            event = to_domain_model(result.value, KuDTO, Event)
+            event = to_domain_model(result.value, EventDTO, Event)
             events.append(event)
 
             # Publish CalendarEventCreated event (event-driven architecture)

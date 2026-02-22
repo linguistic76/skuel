@@ -28,8 +28,8 @@ if TYPE_CHECKING:
 
 from core.events import TaskCompleted, publish_event
 from core.models.enums import Domain, EntityStatus, Priority
-from core.models.ku.ku_dto import KuDTO
 from core.models.ku.task import Task
+from core.models.ku.task_dto import TaskDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.tasks.task_relationships import TaskRelationships
@@ -69,7 +69,7 @@ class TasksProgressService(BaseService["BackendOperations[Task]", Task]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=TaskDTO,
         model_class=Task,
         domain_name="tasks",
         date_field="due_date",
@@ -368,7 +368,7 @@ class TasksProgressService(BaseService["BackendOperations[Task]", Task]):
             task_result = await self.backend.get(task_uid)
             if task_result.is_error:
                 return Result.fail(task_result.expect_error())
-            task = self._to_domain_model(task_result.value, KuDTO, Task)
+            task = self._to_domain_model(task_result.value, TaskDTO, Task)
             self.logger.debug(f"Task {task_uid} fetched from Neo4j (not in rich context)")
         else:
             self.logger.debug(f"Task {task_uid} found in rich context (no Neo4j query needed)")
@@ -464,7 +464,7 @@ class TasksProgressService(BaseService["BackendOperations[Task]", Task]):
         # Event handlers in bootstrap will call user_service.invalidate_context()
 
         # Return updated task
-        completed_task = self._to_domain_model(update_result.value, KuDTO, Task)
+        completed_task = self._to_domain_model(update_result.value, TaskDTO, Task)
 
         self.logger.info(
             "Completed task %s with cascading effects: goal=%s, habit=%s, knowledge=%d",
@@ -652,7 +652,7 @@ class TasksProgressService(BaseService["BackendOperations[Task]", Task]):
             if update_result.is_error:
                 return Result.fail(update_result.expect_error())
 
-            unblocked_task = self._to_domain_model(update_result.value, KuDTO, Task)
+            unblocked_task = self._to_domain_model(update_result.value, TaskDTO, Task)
 
             self.logger.info(f"Unblocked task {task_uid}")
             return Result.ok(unblocked_task)

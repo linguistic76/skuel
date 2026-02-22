@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus, RecurrencePattern
 from core.models.ku.event import Event
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.event_dto import EventDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
@@ -58,7 +58,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Event]", Event]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=EventDTO,
         model_class=Event,
         entity_label="Ku",
         domain_name="events",
@@ -216,7 +216,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Event]", Event]):
             )
 
         # Create DTO from request
-        dto = KuDTO.create_event(
+        dto = EventDTO.create_event(
             user_uid=user_context.user_uid,
             title=event_data.title,
             event_date=event_data.event_date,
@@ -239,7 +239,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Event]", Event]):
         if create_result.is_error:
             return Result.fail(create_result.expect_error())
 
-        event = self._to_domain_model(create_result.value, KuDTO, Event)
+        event = self._to_domain_model(create_result.value, EventDTO, Event)
 
         if conflicts:
             self.logger.warning(
@@ -499,7 +499,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Event]", Event]):
         # Create events
         created_events = []
         for event_date in recommended_dates:
-            dto = KuDTO.create_event(
+            dto = EventDTO.create_event(
                 user_uid=user_uid,
                 title=title,
                 event_date=event_date,
@@ -513,7 +513,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Event]", Event]):
 
             create_result = await self.backend.create(dto.to_dict())
             if create_result.is_ok:
-                event = self._to_domain_model(create_result.value, KuDTO, Event)
+                event = self._to_domain_model(create_result.value, EventDTO, Event)
                 created_events.append(event)
 
         self.logger.info(f"Created {len(created_events)} recurring events")

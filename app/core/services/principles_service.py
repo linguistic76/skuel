@@ -21,8 +21,8 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums.ku_enums import PrincipleCategory
 from core.models.ku.entity import Entity
 from core.models.ku.ku import Ku
-from core.models.ku.ku_dto import KuDTO
 from core.models.ku.principle import Principle
+from core.models.ku.principle_dto import PrincipleDTO
 from core.ports.domain_protocols import (
     GoalsOperations,
     HabitsOperations,
@@ -106,7 +106,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
     # ========================================================================
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=PrincipleDTO,
         model_class=Entity,
         domain_name="principles",
         date_field="created_at",
@@ -463,7 +463,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         """
         Create a principle expression (how principle was lived out).
 
-        Stores expression on principle's inline expressions list via KuDTO.
+        Stores expression on principle's inline expressions list via PrincipleDTO.
 
         Args:
             dto: Dict with principle_uid, context, behavior, and optional example
@@ -501,7 +501,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         if isinstance(principle_data, Entity):
             ku_dto = principle_data.to_dto()
         elif isinstance(principle_data, dict):
-            ku_dto = KuDTO.from_dict(principle_data)
+            ku_dto = PrincipleDTO.from_dict(principle_data)
         else:
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
@@ -538,7 +538,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         if isinstance(principle_data, Entity):
             ku_dto = principle_data.to_dto()
         elif isinstance(principle_data, dict):
-            ku_dto = KuDTO.from_dict(principle_data)
+            ku_dto = PrincipleDTO.from_dict(principle_data)
         else:
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
@@ -583,7 +583,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         if isinstance(principle_data, Entity):
             ku_dto = principle_data.to_dto()
         elif isinstance(principle_data, dict):
-            ku_dto = KuDTO.from_dict(principle_data)
+            ku_dto = PrincipleDTO.from_dict(principle_data)
         else:
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 

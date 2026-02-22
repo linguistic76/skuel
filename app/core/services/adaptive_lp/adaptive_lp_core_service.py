@@ -13,7 +13,7 @@ from operator import itemgetter
 from typing import TYPE_CHECKING
 
 from core.models.enums import EntityStatus
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.goal_dto import GoalDTO
 from core.services.adaptive_lp.adaptive_lp_models import AdaptiveLp, LearningStyle
 from core.services.adaptive_lp_types import KnowledgeState
 
@@ -371,7 +371,7 @@ class AdaptiveLpCoreService:
 
     @with_error_handling(error_type="system")
     async def _identify_goal_knowledge_gaps(
-        self, goal: KuDTO, knowledge_state: KnowledgeState
+        self, goal: GoalDTO, knowledge_state: KnowledgeState
     ) -> Result[list[str]]:
         """Identify knowledge gaps preventing goal achievement."""
         gaps = []
@@ -416,7 +416,7 @@ class AdaptiveLpCoreService:
     @with_error_handling(error_type="system")
     async def _generate_learning_sequence(
         self,
-        _goal: KuDTO,
+        _goal: GoalDTO,
         knowledge_gaps: list[str],
         learning_style: str,
         knowledge_state: KnowledgeState,
@@ -578,7 +578,7 @@ class AdaptiveLpCoreService:
         return [item for chunk in chunks for item in chunk]
 
     async def _calculate_adaptation_factors(
-        self, user_uid: str, goal: KuDTO, knowledge_steps: list[str]
+        self, user_uid: str, goal: GoalDTO, knowledge_steps: list[str]
     ) -> dict[str, float]:
         """Calculate factors that influence path adaptation."""
         factors = {
@@ -638,7 +638,7 @@ class AdaptiveLpCoreService:
 
         return factors
 
-    async def _derive_learning_outcomes(self, goal: KuDTO, knowledge_steps: list[str]) -> list[str]:
+    async def _derive_learning_outcomes(self, goal: GoalDTO, knowledge_steps: list[str]) -> list[str]:
         """Derive specific learning outcomes from goal and knowledge steps."""
         outcomes = []
 
@@ -789,7 +789,7 @@ class AdaptiveLpCoreService:
         return min(1.0, match_score)
 
     async def _calculate_path_confidence(
-        self, goal: KuDTO, knowledge_steps: list[str], knowledge_gaps: list[str]
+        self, goal: GoalDTO, knowledge_steps: list[str], knowledge_gaps: list[str]
     ) -> float:
         """Calculate confidence in the path's effectiveness."""
         confidence = 0.5

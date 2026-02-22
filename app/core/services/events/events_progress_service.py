@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 from core.events import CalendarEventCompleted, publish_event
 from core.models.enums import EntityStatus
 from core.models.ku.event import Event
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.event_dto import EventDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
@@ -56,7 +56,7 @@ class EventsProgressService(BaseService["BackendOperations[Event]", Event]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=EventDTO,
         model_class=Event,
         entity_label="Ku",
         domain_name="events",
@@ -109,7 +109,7 @@ class EventsProgressService(BaseService["BackendOperations[Event]", Event]):
         """Convert raw Neo4j dict to Event domain model."""
         if not event_dict or not event_dict.get("uid"):
             return None
-        dto = KuDTO.from_dict(event_dict)
+        dto = EventDTO.from_dict(event_dict)
         return Event.from_dto(dto)
 
     # ========================================================================
@@ -154,7 +154,7 @@ class EventsProgressService(BaseService["BackendOperations[Event]", Event]):
                 return Result.fail(event_result.expect_error())
             if not event_result.value:
                 return Result.fail(Errors.not_found(resource="Event", identifier=event_uid))
-            event = self._to_domain_model(event_result.value, KuDTO, Event)
+            event = self._to_domain_model(event_result.value, EventDTO, Event)
             self.logger.debug(f"Event {event_uid} fetched from Neo4j")
         else:
             self.logger.debug(f"Event {event_uid} found in rich context")
@@ -189,7 +189,7 @@ class EventsProgressService(BaseService["BackendOperations[Event]", Event]):
             f"habit={event.reinforces_habit_uid}, quality={quality_score}"
         )
 
-        completed_event = self._to_domain_model(update_result.value, KuDTO, Event)
+        completed_event = self._to_domain_model(update_result.value, EventDTO, Event)
         return Result.ok(completed_event)
 
     # ========================================================================

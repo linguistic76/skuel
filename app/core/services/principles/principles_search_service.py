@@ -21,9 +21,8 @@ from datetime import date, timedelta
 
 from core.models.enums import Domain
 from core.models.enums.ku_enums import PrincipleCategory, PrincipleStrength
-from core.models.ku.entity import Entity
-from core.models.ku.ku_dto import KuDTO
 from core.models.ku.principle import Principle
+from core.models.ku.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.ports.domain_protocols import PrinciplesOperations
@@ -34,7 +33,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 
 
-class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
+class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     """
     Principle search and discovery operations.
 
@@ -86,8 +85,8 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     # Note: Principles use name instead of title, plus statement and why_important
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
-        model_class=Entity,
+        dto_class=PrincipleDTO,
+        model_class=Principle,
         domain_name="principles",
         date_field="created_at",
         completed_statuses=(),  # Principles don't have completion status
@@ -100,7 +99,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
     # search() - inherited from BaseService using _dto_class, _model_class, _search_fields
 
     @with_error_handling("get_by_status", error_type="database")
-    async def get_by_status(self, status: str, limit: int = 100) -> Result[list[Entity]]:
+    async def get_by_status(self, status: str, limit: int = 100) -> Result[list[Principle]]:
         """
         Filter principles by active/inactive status.
 
@@ -114,15 +113,15 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         is_active = status.lower() in ("active", "true", "1")
         result = await self.backend.find_by(is_active=is_active, limit=limit)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
-        principles = self._to_domain_models(result.value, KuDTO, Entity)
+        principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
         self.logger.debug(f"Found {len(principles)} principles with status '{status}'")
         return Result.ok(principles)
 
     @with_error_handling("get_by_domain", error_type="database")
-    async def get_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Entity]]:
+    async def get_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Principle]]:
         """
         Filter principles by category (mapped from Domain concept).
 
@@ -156,9 +155,9 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
 
         result = await self.backend.find_by(category=category_value, limit=limit)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
-        principles = self._to_domain_models(result.value, KuDTO, Entity)
+        principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
         self.logger.debug(
             f"Found {len(principles)} principles in domain '{domain_value}' (category: {category_value})"
@@ -168,7 +167,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
     @with_error_handling("get_prioritized", error_type="database")
     async def get_prioritized(
         self, user_context: UserContext, limit: int = 10
-    ) -> Result[list[Entity]]:
+    ) -> Result[list[Principle]]:
         """
         Get principles prioritized for the user's current context.
 
@@ -188,9 +187,9 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         # Get user's active principles
         result = await self.backend.find_by(user_uid=user_context.user_uid, is_active=True)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
-        principles = self._to_domain_models(result.value, KuDTO, Entity)
+        principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
         # Score and sort by priority factors
         scored_principles = []
@@ -211,7 +210,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         )
         return Result.ok(prioritized)
 
-    def _calculate_priority_score(self, principle: Entity, user_context: UserContext) -> float:
+    def _calculate_priority_score(self, principle: Principle, user_context: UserContext) -> float:
         """
         Calculate priority score for a principle based on user context.
 
@@ -261,7 +260,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         days_ahead: int = 30,
         user_uid: str | None = None,
         limit: int = 100,
-    ) -> Result[list[Entity]]:
+    ) -> Result[list[Principle]]:
         """
         Get principles needing review within specified number of days.
 
@@ -305,7 +304,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         principles = []
         for record in result.value:
             principle_node = record["p"]
-            dto = KuDTO.from_dict(dict(principle_node))
+            dto = PrincipleDTO.from_dict(dict(principle_node))
             principles.append(Principle.from_dto(dto))
 
         self.logger.debug(
@@ -318,7 +317,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         self,
         user_uid: str | None = None,
         limit: int = 100,
-    ) -> Result[list[Entity]]:
+    ) -> Result[list[Principle]]:
         """
         Get principles past their review date (default 90-day threshold).
 
@@ -358,7 +357,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         principles = []
         for record in result.value:
             principle_node = record["p"]
-            dto = KuDTO.from_dict(dict(principle_node))
+            dto = PrincipleDTO.from_dict(dict(principle_node))
             principles.append(Principle.from_dto(dto))
 
         self.logger.debug(f"Found {len(principles)} overdue principles")
@@ -371,7 +370,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
     @with_error_handling("get_by_strength", error_type="database")
     async def get_by_strength(
         self, strength: PrincipleStrength, limit: int = 100
-    ) -> Result[list[Entity]]:
+    ) -> Result[list[Principle]]:
         """
         Get principles filtered by strength level.
 
@@ -387,9 +386,9 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         strength_value = get_enum_value(strength)
         result = await self.backend.find_by(strength=strength_value, limit=limit)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
-        principles = self._to_domain_models(result.value, KuDTO, Entity)
+        principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
         self.logger.debug(f"Found {len(principles)} {strength_value} principles")
         return Result.ok(principles)
@@ -397,7 +396,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
     @with_error_handling("get_by_category", error_type="database")
     async def get_by_category(
         self, category: PrincipleCategory | str, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list[Entity]]:
+    ) -> Result[list[Principle]]:
         """
         Get principles in a specific category.
 
@@ -413,9 +412,9 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         category_value = get_enum_value(category) if not isinstance(category, str) else category
         result = await self.backend.find_by(category=category_value, limit=limit)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
-        principles = self._to_domain_models(result.value, KuDTO, Entity)
+        principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
         self.logger.debug(f"Found {len(principles)} principles in category '{category_value}'")
         return Result.ok(principles)
@@ -473,7 +472,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         return result
 
     @with_error_handling("get_for_choice", error_type="database")
-    async def get_for_choice(self, choice_uid: str, limit: int = 10) -> Result[list[Entity]]:
+    async def get_for_choice(self, choice_uid: str, limit: int = 10) -> Result[list[Principle]]:
         """
         Get principles relevant to a choice/decision.
 
@@ -493,7 +492,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         )
 
     @with_error_handling("get_for_goal", error_type="database")
-    async def get_for_goal(self, goal_uid: str, limit: int = 10) -> Result[list[Entity]]:
+    async def get_for_goal(self, goal_uid: str, limit: int = 10) -> Result[list[Principle]]:
         """
         Get principles that guide a specific goal.
 
@@ -513,7 +512,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         )
 
     @with_error_handling("get_active_principles", error_type="database")
-    async def get_active_principles(self, user_uid: str, limit: int = 100) -> Result[list[Entity]]:
+    async def get_active_principles(self, user_uid: str, limit: int = 100) -> Result[list[Principle]]:
         """
         Get all active principles for a user.
 
@@ -526,9 +525,9 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         """
         result = await self.backend.find_by(user_uid=user_uid, is_active=True, limit=limit)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
-        principles = self._to_domain_models(result.value, KuDTO, Entity)
+        principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
         # Sort by strength (core first)
         from core.utils.sort_functions import get_principle_strength_order
@@ -555,7 +554,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
     @with_error_handling("get_needing_review", error_type="database")
     async def get_needing_review(
         self, days_threshold: int = 90, limit: int = 20
-    ) -> Result[list[Entity]]:
+    ) -> Result[list[Principle]]:
         """
         Get principles that need alignment review.
 
@@ -591,7 +590,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         principles = []
         for record in result.value:
             principle_node = record["p"]
-            dto = KuDTO.from_dict(dict(principle_node))
+            dto = PrincipleDTO.from_dict(dict(principle_node))
             principles.append(Principle.from_dto(dto))
 
         self.logger.debug(
@@ -602,7 +601,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
     @with_error_handling("get_related_principles", error_type="database")
     async def get_related_principles(
         self, principle_uid: str, depth: int = 2, limit: int = 10
-    ) -> Result[list[Entity]]:
+    ) -> Result[list[Principle]]:
         """
         Get principles related to a given principle.
 
@@ -646,7 +645,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
             principles = []
             for record in result.value:
                 if record.get("related"):
-                    dto = KuDTO.from_dict(dict(record["related"]))
+                    dto = PrincipleDTO.from_dict(dict(record["related"]))
                     principles.append(Principle.from_dto(dto))
             if principles:
                 self.logger.debug(
@@ -662,7 +661,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         if not principle_result.value:
             return Result.ok([])
 
-        principle = self._to_domain_model(principle_result.value, KuDTO, Entity)
+        principle = self._to_domain_model(principle_result.value, PrincipleDTO, Principle)
         assert isinstance(principle, Principle)
 
         # Get principles in same category (excluding self)
@@ -691,7 +690,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
         principles = []
         for record in result.value:
             principle_node = record["p"]
-            dto = KuDTO.from_dict(dict(principle_node))
+            dto = PrincipleDTO.from_dict(dict(principle_node))
             principles.append(Principle.from_dto(dto))
 
         self.logger.debug(f"Found {len(principles)} principles related to {principle_uid}")
@@ -711,7 +710,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
     @with_error_handling("intelligent_search", error_type="database")
     async def intelligent_search(
         self, query: str, user_uid: str | None = None, limit: int = 50
-    ) -> Result[tuple[list[Entity], ParsedSearchQuery]]:
+    ) -> Result[tuple[list[Principle], ParsedSearchQuery]]:
         """
         Natural language search with semantic filter extraction.
 
@@ -803,7 +802,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Entity]):
             result = await self.backend.find_by(limit=limit, **filters)
             if result.is_error:
                 return Result.fail(result.expect_error())
-            principles = self._to_domain_models(result.value, KuDTO, Entity)
+            principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
         else:
             # Fall back to text search using cleaned query
             result = await self.search(parsed.text_query, limit=limit)

@@ -16,8 +16,8 @@ from operator import attrgetter
 from typing import Any
 
 from core.models.enums import EntityStatus
-from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.ku.goal_dto import GoalDTO
+from core.models.ku.task_dto import TaskDTO
 
 # Import dataclasses from shared models module (breaks circular dependency)
 from core.services.adaptive_lp.adaptive_lp_models import (
@@ -189,7 +189,7 @@ class AdaptiveLpRecommendationsService:
 
     @with_error_handling(error_type="system")
     async def _identify_goal_knowledge_gaps(
-        self, goal: KuDTO, knowledge_state: KnowledgeState
+        self, goal: GoalDTO, knowledge_state: KnowledgeState
     ) -> Result[list[str]]:
         """Identify knowledge gaps preventing goal achievement."""
         gaps = []

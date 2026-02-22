@@ -16,7 +16,7 @@ from typing import Any
 
 from core.constants import QueryLimit
 from core.models.enums.ku_enums import EntityType
-from core.models.ku import Entity, Ku, KuDTO
+from core.models.ku import Entity, Ku, SubmissionDTO
 from core.models.relationship_names import RelationshipName
 from core.ports import BackendOperations
 from core.services.base_service import BaseService
@@ -49,7 +49,7 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
     # DomainConfig
     # =========================================================================
     _config = DomainConfig(
-        dto_class=KuDTO,
+        dto_class=SubmissionDTO,
         model_class=Entity,
         entity_label="Ku",
         search_fields=("title", "original_filename", "processed_content"),

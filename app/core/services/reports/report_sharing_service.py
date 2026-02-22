@@ -23,7 +23,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.metadata_enums import Visibility
-from core.models.ku import KuDTO
+from core.models.ku import SubmissionDTO
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -196,7 +196,7 @@ class KuSharingService:
         self,
         user_uid: str,
         limit: int = 50,
-    ) -> Result[list[KuDTO]]:
+    ) -> Result[list[SubmissionDTO]]:
         """
         Get Ku shared with a specific user.
 
@@ -207,7 +207,7 @@ class KuSharingService:
             limit: Maximum Ku to return
 
         Returns:
-            Result[list[KuDTO]]: Shared Ku
+            Result[list[SubmissionDTO]]: Shared Ku
         """
         query = """
         MATCH (user:User {uid: $user_uid})-[r:SHARES_WITH]->(ku:Ku)
@@ -228,7 +228,7 @@ class KuSharingService:
         kus = []
         for record in result.value:
             props = record["ku"]
-            dto = KuDTO.from_dict(props)
+            dto = SubmissionDTO.from_dict(props)
             kus.append(dto)
 
         return Result.ok(kus)

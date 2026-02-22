@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import EntityStatus
 from core.models.habit.completion import HabitCompletion
 from core.models.ku.habit import Habit
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.habit_dto import HabitDTO
 from core.ports.base_protocols import BackendOperations
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
@@ -112,7 +112,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
     # ========================================================================
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=HabitDTO,
         model_class=Habit,
         entity_label="Ku",
         domain_name="habits",

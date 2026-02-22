@@ -25,9 +25,9 @@ from core.constants import GraphDepth
 from core.events.curriculum_events import LearningStepCompleted
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
+from core.models.ku.curriculum_dto import CurriculumDTO
 from core.models.ku.entity import Entity
 from core.models.ku.ku import Ku
-from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 from core.ports import KuOperations
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -91,10 +91,10 @@ class KuIntelligenceService(BaseAnalyticsService[KuOperations, Entity]):
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Entity, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[Entity, CurriculumDTO](
                 service=self,
                 backend_get_method="get",  # KuService uses generic 'get'
-                dto_class=KuDTO,
+                dto_class=CurriculumDTO,
                 model_class=Entity,
                 domain=Domain.KNOWLEDGE,
             )

@@ -17,9 +17,7 @@ from core.models.enums import Domain
 from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.ku.choice import Choice
-from core.models.ku.entity import Entity
-from core.models.ku.ku import Ku
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.choice_dto import ChoiceDTO
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -52,7 +50,7 @@ if TYPE_CHECKING:
     from core.services.insight.insight_store import InsightStore
 
 
-class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]):
+class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]", Choice]):
     """
     Pure Cypher graph intelligence queries for choices.
 
@@ -90,7 +88,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
 
     def __init__(
         self,
-        backend: BackendOperations[Ku],
+        backend: BackendOperations[Choice],
         graph_intelligence_service=None,
         relationship_service: ChoicesRelationshipOperations | None = None,
         insight_store: InsightStore | None = None,
@@ -99,7 +97,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
         Initialize choices intelligence service.
 
         Args:
-            backend: Protocol-based backend for choice operations (Ku model)
+            backend: Protocol-based backend for choice operations (Choice model)
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics,
             relationship_service: ChoicesRelationshipOperations protocol for specialized relationship queries
             insight_store: InsightStore for persisting event-driven insights (optional)
@@ -113,11 +111,11 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
 
         # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Entity, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[Choice, ChoiceDTO](
                 service=self,
                 backend_get_method="get",  # ChoicesService uses generic 'get'
-                dto_class=KuDTO,
-                model_class=Entity,
+                dto_class=ChoiceDTO,
+                model_class=Choice,
                 domain=Domain.CHOICES,
             )
 
@@ -139,7 +137,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Choice, GraphContext]]:
         """
         Get choice with full graph context.
 
@@ -237,7 +235,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
     @requires_graph_intelligence("get_choice_with_context")
     async def get_choice_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[Ku, GraphContext]]:
+    ) -> Result[tuple[Choice, GraphContext]]:
         """
         Get choice with full graph context using pure Cypher graph intelligence.
 
@@ -1242,7 +1240,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
             )
 
         # Group choices by domain
-        domain_choices: dict[str, list[Ku]] = defaultdict(list)
+        domain_choices: dict[str, list[Choice]] = defaultdict(list)
         for choice in choices:
             domain = getattr(choice, "domain", None)
             if domain:

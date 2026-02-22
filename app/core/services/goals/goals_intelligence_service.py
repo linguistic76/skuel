@@ -25,8 +25,8 @@ from core.models.enums import Domain, EntityStatus
 from core.models.enums.activity_enums import ProgressLevel
 from core.models.graph_context import GraphContext
 from core.models.ku.goal import Goal
+from core.models.ku.goal_dto import GoalDTO
 from core.models.ku.habit import Habit as Habit
-from core.models.ku.ku_dto import KuDTO
 from core.models.shared.dual_track import DualTrackResult
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -149,10 +149,10 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
 
         # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Goal, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[Goal, GoalDTO](
                 service=self,
                 backend_get_method="get_goal",
-                dto_class=KuDTO,
+                dto_class=GoalDTO,
                 model_class=Goal,
                 domain=Domain.GOALS,
             )
@@ -353,7 +353,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
             return analysis_result
 
         analysis = analysis_result.value
-        goal = self._to_domain_model(analysis["entity"], KuDTO, Goal)
+        goal = self._to_domain_model(analysis["entity"], GoalDTO, Goal)
         context: GoalCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
@@ -495,7 +495,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
             )
 
         analysis = analysis_result.value
-        goal = self._to_domain_model(analysis["entity"], KuDTO, Goal)
+        goal = self._to_domain_model(analysis["entity"], GoalDTO, Goal)
         context: GoalCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
@@ -589,7 +589,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
             return analysis_result
 
         analysis = analysis_result.value
-        goal = self._to_domain_model(analysis["entity"], KuDTO, Goal)
+        goal = self._to_domain_model(analysis["entity"], GoalDTO, Goal)
         context: GoalCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 

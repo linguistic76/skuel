@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 from core.events import publish_event
 from core.models.enums import Domain, EntityStatus
 from core.models.ku.event import Event
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.event_dto import EventDTO
 from core.models.ku.ku_request import KuEventCreateRequest
 from core.models.ku.lp_position import LpPosition
 from core.ports import get_enum_value
@@ -65,7 +65,7 @@ class EventsLearningService(BaseService["BackendOperations[Event]", Event]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=EventDTO,
         model_class=Event,
         entity_label="Ku",
         domain_name="events",
@@ -96,12 +96,12 @@ class EventsLearningService(BaseService["BackendOperations[Event]", Event]):
         self.event_bus = event_bus
 
         # Initialize LearningAlignmentHelper for Events (Phase 6)
-        self.learning_helper = LearningAlignmentHelper[Event, KuDTO, KuEventCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Event, EventDTO, KuEventCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="list_user_events",
             backend_create_method="create_event",
-            dto_class=KuDTO,
+            dto_class=EventDTO,
             model_class=Event,
             domain=Domain.LEARNING,  # Events default to learning domain
             entity_name="event",

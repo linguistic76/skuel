@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus, Priority
 from core.models.ku.goal import Goal
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.goal_dto import GoalDTO
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -94,7 +94,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
     # ========================================================================
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=GoalDTO,
         model_class=Goal,
         domain_name="goals",
         entity_label="Ku",
@@ -450,7 +450,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, KuDTO, Goal)
+        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
 
         # GRAPH-NATIVE: Fetch relationships from graph
         rels = await GoalRelationships.fetch(goal_uid, self.relationships)

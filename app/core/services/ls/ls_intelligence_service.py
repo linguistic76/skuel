@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
 from core.models.ku import LearningStep
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.learning_step_dto import LearningStepDTO
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import GraphContextOrchestrator
 from core.utils.decorators import with_error_handling
@@ -89,10 +89,10 @@ class LsIntelligenceService(
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[LearningStep, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[LearningStep, LearningStepDTO](
                 service=self,
                 backend_get_method="get",
-                dto_class=KuDTO,
+                dto_class=LearningStepDTO,
                 model_class=LearningStep,
                 domain=Domain.LEARNING,
             )

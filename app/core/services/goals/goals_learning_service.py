@@ -19,7 +19,7 @@ from core.events import GoalCreated, publish_event
 from core.models.enums import Domain, EntityStatus
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.ku.goal import Goal
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.goal_dto import GoalDTO
 from core.models.ku.lp_position import LpPosition
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
@@ -69,7 +69,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=GoalDTO,
         model_class=Goal,
         domain_name="goals",
         date_field="target_date",
@@ -100,12 +100,12 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         self.relationships = relationships_service  # GRAPH-NATIVE: For fetching goal relationships
 
         # Initialize LearningAlignmentHelper for learning operations (Phase 4)
-        self.learning_helper = LearningAlignmentHelper[Goal, KuDTO, GoalCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Goal, GoalDTO, GoalCreateRequest](
             service=self,
             backend_get_method="get_goal",
             backend_get_user_method="get_user_goals",
             backend_create_method="create_goal",
-            dto_class=KuDTO,
+            dto_class=GoalDTO,
             model_class=Goal,
             domain=Domain.GOALS,
             entity_name="goal",
@@ -248,7 +248,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, KuDTO, Goal)
+        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
 
         # Mutable accumulation variables
         supporting_paths_list: list[PathProgressData] = []
@@ -335,7 +335,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         # Convert to Goal domain models
         goals = []
         for goal_data in goals_result.value:
-            goal = to_domain_model(goal_data, KuDTO, Goal)
+            goal = to_domain_model(goal_data, GoalDTO, Goal)
             goals.append(goal)
 
         # GRAPH-NATIVE: Check each goal's supporting habits from relationships
@@ -373,7 +373,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         # Convert to Goal domain models
         goals = []
         for goal_data in goals_result.value:
-            goal = to_domain_model(goal_data, KuDTO, Goal)
+            goal = to_domain_model(goal_data, GoalDTO, Goal)
             goals.append(goal)
 
         # GRAPH-NATIVE: Check each goal's required knowledge from relationships

@@ -20,7 +20,7 @@ from core.models.enums.activity_enums import ConsistencyLevel
 from core.models.graph_context import GraphContext
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.ku.habit import Habit
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.habit_dto import HabitDTO
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 
@@ -116,10 +116,10 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
 
         # Initialize GraphContextOrchestrator for generic get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Habit, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[Habit, HabitDTO](
                 service=self,
                 backend_get_method="get_habit",
-                dto_class=KuDTO,
+                dto_class=HabitDTO,
                 model_class=Habit,
                 domain=Domain.HABITS,
             )
@@ -385,7 +385,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             return analysis_result
 
         analysis = analysis_result.value
-        habit = self._to_domain_model(analysis["entity"], KuDTO, Habit)
+        habit = self._to_domain_model(analysis["entity"], HabitDTO, Habit)
         context: HabitCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
@@ -493,7 +493,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             return analysis_result
 
         analysis = analysis_result.value
-        habit = self._to_domain_model(analysis["entity"], KuDTO, Habit)
+        habit = self._to_domain_model(analysis["entity"], HabitDTO, Habit)
         context: HabitCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
@@ -613,7 +613,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             return analysis_result
 
         analysis = analysis_result.value
-        habit = self._to_domain_model(analysis["entity"], KuDTO, Habit)
+        habit = self._to_domain_model(analysis["entity"], HabitDTO, Habit)
         context: HabitCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 

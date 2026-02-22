@@ -17,9 +17,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus
+from core.models.ku.choice_dto import ChoiceDTO
 from core.models.ku.entity import Entity
 from core.models.ku.ku import Ku
-from core.models.ku.ku_dto import KuDTO
 from core.ports import BackendOperations
 from core.services.base_service import BaseService
 
@@ -80,7 +80,7 @@ class ChoicesService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]",
     # ========================================================================
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=ChoiceDTO,
         model_class=Entity,
         domain_name="choices",
         date_field="decision_date",

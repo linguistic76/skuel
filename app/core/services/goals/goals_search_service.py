@@ -22,7 +22,7 @@ from datetime import date, timedelta
 from core.models.enums import EntityStatus
 from core.models.enums.ku_enums import GoalTimeframe
 from core.models.ku.goal import Goal
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.goal_dto import GoalDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.ports.domain_protocols import GoalsOperations
@@ -83,7 +83,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     # All configuration in one place, using centralized relationship registry
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=GoalDTO,
         model_class=Goal,
         domain_name="goals",
         date_field="target_date",
@@ -133,7 +133,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         if result.is_error:
             return result
 
-        goals = self._to_domain_models(result.value, KuDTO, Goal)
+        goals = self._to_domain_models(result.value, GoalDTO, Goal)
 
         # Score and sort by priority factors
         scored_goals = []
@@ -259,7 +259,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         goals = []
         for record in result.value:
             goal_node = record["g"]
-            dto = KuDTO.from_dict(dict(goal_node))
+            dto = GoalDTO.from_dict(dict(goal_node))
             goals.append(Goal.from_dto(dto))
 
         self.logger.debug(f"Found {len(goals)} goals due within {days_ahead} days")
@@ -305,7 +305,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         goals = []
         for record in result.value:
             goal_node = record["g"]
-            dto = KuDTO.from_dict(dict(goal_node))
+            dto = GoalDTO.from_dict(dict(goal_node))
             goals.append(Goal.from_dto(dto))
 
         self.logger.debug(f"Found {len(goals)} overdue goals")
@@ -336,7 +336,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         if result.is_error:
             return result
 
-        goals = self._to_domain_models(result.value, KuDTO, Goal)
+        goals = self._to_domain_models(result.value, GoalDTO, Goal)
 
         self.logger.debug(f"Found {len(goals)} {timeframe_value} goals")
         return Result.ok(goals)
@@ -369,7 +369,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         if result.is_error:
             return result
 
-        all_goals = self._to_domain_models(result.value, KuDTO, Goal)
+        all_goals = self._to_domain_models(result.value, GoalDTO, Goal)
 
         # Check each goal for habit support
         goals_needing_habits = []
@@ -425,7 +425,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         if result.is_error:
             return result
 
-        all_goals = self._to_domain_models(result.value, KuDTO, Goal)
+        all_goals = self._to_domain_models(result.value, GoalDTO, Goal)
 
         # Check each goal for knowledge prerequisites
         blocked_goals = []
@@ -569,7 +569,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         goals = []
         for record in result.value:
             goal_node = record["g"]
-            dto = KuDTO.from_dict(dict(goal_node))
+            dto = GoalDTO.from_dict(dict(goal_node))
             goal = Goal.from_dto(dto)
             # Store shared count in metadata
             goal.metadata["shared_count"] = record.get("shared_count", 0)
@@ -678,7 +678,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
             result = await self.backend.find_by(limit=limit, **filters)
             if result.is_error:
                 return Result.fail(result.expect_error())
-            goals = self._to_domain_models(result.value, KuDTO, Goal)
+            goals = self._to_domain_models(result.value, GoalDTO, Goal)
         else:
             # Fall back to text search using cleaned query
             result = await self.search(parsed.text_query, limit=limit)

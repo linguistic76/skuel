@@ -29,7 +29,7 @@ from operator import attrgetter
 from typing import Any
 
 from core.models.enums import Domain, EntityStatus, Priority
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.curriculum_dto import CurriculumDTO
 from core.models.ku.task import Task as Task
 from core.ports import HasMetadata, HasSummary
 from core.utils.decorators import with_error_handling
@@ -193,7 +193,7 @@ class KuGenerationService:
     @with_error_handling("extract_knowledge_from_completed_tasks", error_type="system")
     async def extract_knowledge_from_completed_tasks(
         self, user_uid: str, days_back: int = 30, min_tasks: int = 5
-    ) -> Result[list[KuDTO]]:
+    ) -> Result[list[CurriculumDTO]]:
         """
         Extract knowledge from user's completed tasks over a time period.
 
@@ -203,7 +203,7 @@ class KuGenerationService:
             min_tasks: Minimum completed tasks needed for analysis
 
         Returns:
-            Result containing list of generated KuDTO objects
+            Result containing list of generated CurriculumDTO objects
         """
         # Get completed tasks for analysis
         since_date = datetime.now() - timedelta(days=days_back)
@@ -787,7 +787,7 @@ class KuGenerationService:
 
     @with_error_handling("score_knowledge_quality", error_type="system")
     async def score_knowledge_quality(
-        self, knowledge_dto: KuDTO, supporting_evidence: list[str] | None = None
+        self, knowledge_dto: CurriculumDTO, supporting_evidence: list[str] | None = None
     ) -> Result[KuQualityMetrics]:
         """
         Score the quality of generated knowledge using multiple metrics.
@@ -817,7 +817,7 @@ class KuGenerationService:
 
         return Result.ok(metrics)
 
-    def _score_completeness(self, knowledge_dto: KuDTO) -> float:
+    def _score_completeness(self, knowledge_dto: CurriculumDTO) -> float:
         """Score how complete the knowledge content is."""
         score = 0.0
 
@@ -844,7 +844,7 @@ class KuGenerationService:
 
         return min(score, 1.0)
 
-    def _score_accuracy(self, knowledge_dto: KuDTO, evidence: list[str] | None = None) -> float:
+    def _score_accuracy(self, knowledge_dto: CurriculumDTO, evidence: list[str] | None = None) -> float:
         """Score the accuracy of the knowledge content."""
         # Since this is generated from actual task completion data, base accuracy is high
         base_score = 0.8
@@ -864,7 +864,7 @@ class KuGenerationService:
 
         return min(base_score, 1.0)
 
-    def _score_relevance(self, knowledge_dto: KuDTO) -> float:
+    def _score_relevance(self, knowledge_dto: CurriculumDTO) -> float:
         """Score how relevant the knowledge is to users."""
         score = 0.7  # Base relevance for task-derived knowledge
 
@@ -890,7 +890,7 @@ class KuGenerationService:
 
         return min(score, 1.0)
 
-    def _score_timeliness(self, knowledge_dto: KuDTO) -> float:
+    def _score_timeliness(self, knowledge_dto: CurriculumDTO) -> float:
         """Score how timely/current the knowledge is."""
         # Generated knowledge is inherently timely (based on recent tasks)
         base_score = 0.9
@@ -904,7 +904,7 @@ class KuGenerationService:
 
         return min(base_score, 1.0)
 
-    def _score_actionability(self, knowledge_dto: KuDTO) -> float:
+    def _score_actionability(self, knowledge_dto: CurriculumDTO) -> float:
         """Score how actionable the knowledge is."""
         score = 0.0
 
@@ -960,8 +960,8 @@ class KuGenerationService:
 
     @with_error_handling("curate_generated_knowledge", error_type="system")
     async def curate_generated_knowledge(
-        self, knowledge_units: list[KuDTO], auto_publish_threshold: float | None = None
-    ) -> Result[dict[str, list[KuDTO]]]:
+        self, knowledge_units: list[CurriculumDTO], auto_publish_threshold: float | None = None
+    ) -> Result[dict[str, list[CurriculumDTO]]]:
         """
         Curate generated knowledge by quality, organizing into publication categories.
 
@@ -1017,14 +1017,14 @@ class KuGenerationService:
 
     async def _convert_insight_to_knowledge(
         self, insight: GeneratedInsight, user_uid: str
-    ) -> KuDTO | None:
+    ) -> CurriculumDTO | None:
         """Convert a generated insight into a knowledge unit."""
         try:
             # Generate knowledge content from insight
             content = self._format_insight_as_ku_content(insight)
 
             # Create knowledge DTO
-            return KuDTO(
+            return CurriculumDTO(
                 uid=UIDGenerator.generate_knowledge_uid(title=insight.title),
                 title=insight.title,
                 content=content,

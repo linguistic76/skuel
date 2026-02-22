@@ -26,10 +26,10 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations
 
 from core.models.enums import Domain, EntityStatus, Priority
-from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_request import KuTaskCreateRequest
 from core.models.ku.lp_position import LpPosition
 from core.models.ku.task import Task
+from core.models.ku.task_dto import TaskDTO
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -98,7 +98,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=TaskDTO,
         model_class=Task,
         domain_name="tasks",
         date_field="due_date",
@@ -120,12 +120,12 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
         super().__init__(backend=backend, service_name="tasks.scheduling")
 
         # Initialize LearningAlignmentHelper with prerequisite validator (Phase 6)
-        self.learning_helper = LearningAlignmentHelper[Task, KuDTO, KuTaskCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Task, TaskDTO, KuTaskCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="list_user_tasks",
             backend_create_method="create_task",
-            dto_class=KuDTO,
+            dto_class=TaskDTO,
             model_class=Task,
             domain=Domain.TECH,  # Default domain for tasks
             entity_name="task",
@@ -191,7 +191,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
                 )
 
         # Create DTO from request
-        dto = KuDTO.create_task(
+        dto = TaskDTO.create_task(
             user_uid=user_context.user_uid,
             title=task_data.title,
             priority=task_data.priority,
@@ -213,7 +213,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
         if create_result.is_error:
             return Result.fail(create_result.expect_error())
 
-        task = self._to_domain_model(create_result.value, KuDTO, Task)
+        task = self._to_domain_model(create_result.value, TaskDTO, Task)
 
         # GRAPH-NATIVE: Create relationship edges in graph (not stored on Task/DTO)
         # Collect all relationships for batch creation (10x faster)
@@ -474,7 +474,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
             Result containing created task (without knowledge relationships yet)
         """
         # Create task with curriculum linkage
-        task_dto = KuDTO.create_task(
+        task_dto = TaskDTO.create_task(
             user_uid=_user_uid,
             title=task_title,
             source_learning_step_uid=step_uid,
@@ -490,7 +490,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
         if create_result.is_error:
             return Result.fail(create_result.expect_error())
 
-        task = self._to_domain_model(create_result.value, KuDTO, Task)
+        task = self._to_domain_model(create_result.value, TaskDTO, Task)
 
         self.logger.info(f"Created curriculum task {task.uid} for step {step_uid}")
         return Result.ok(task)

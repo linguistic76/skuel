@@ -20,7 +20,7 @@ from core.models.enums import Domain, EntityStatus
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.ku.habit import Habit
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.habit_dto import HabitDTO
 from core.models.ku.lp_position import LpPosition
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
@@ -65,7 +65,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=HabitDTO,
         model_class=Habit,
         entity_label="Ku",
         domain_name="habits",
@@ -89,12 +89,12 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         self.event_bus = event_bus
 
         # Initialize LearningAlignmentHelper for learning operations (Phase 4)
-        self.learning_helper = LearningAlignmentHelper[Habit, KuDTO, HabitCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Habit, HabitDTO, HabitCreateRequest](
             service=self,
             backend_get_method="get_habit",
             backend_get_user_method="get_user_habits",
             backend_create_method="create_habit",
-            dto_class=KuDTO,
+            dto_class=HabitDTO,
             model_class=Habit,
             domain=Domain.HABITS,
             entity_name="habit",
@@ -122,7 +122,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         for habit_uid in user_context.active_habit_uids:
             habit_result = await self.backend.get_habit(habit_uid)
             if habit_result.is_ok:
-                habit = to_domain_model(habit_result.value, KuDTO, Habit)
+                habit = to_domain_model(habit_result.value, HabitDTO, Habit)
 
                 # GRAPH-NATIVE: Check if habit is learning-related
                 # Check category and source fields (learning step/path linkage)

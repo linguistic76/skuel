@@ -15,9 +15,9 @@ from typing import TYPE_CHECKING
 
 from core.models.enums import Priority, RecurrencePattern
 from core.models.enums.ku_enums import HabitCategory
+from core.models.ku.event_dto import EventDTO
 from core.models.ku.habit import Habit as Habit
-from core.models.ku.ku_dto import KuDTO as EventDTO
-from core.models.ku.ku_dto import KuDTO as HabitDTO
+from core.models.ku.habit_dto import HabitDTO
 
 # Import protocol interfaces
 from core.utils.dto_helpers import to_domain_model
@@ -448,7 +448,7 @@ class HabitEventScheduler:
                 # Add goal support if applicable
                 if rels.linked_goal_uids:
                     # Use fulfills_goal_uid for the first goal (singular field exists)
-                    event.fulfills_goal_uid = next(iter(rels.linked_goal_uids))
+                    event.fulfills_goal_uid = next(iter(rels.linked_goal_uids))  # type: ignore[attr-defined]
                     # Store all goals in metadata
                     event.metadata["supports_goals"] = list(rels.linked_goal_uids)
 

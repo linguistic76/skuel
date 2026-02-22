@@ -29,9 +29,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from core.constants import QueryLimit
 from core.models.enums import KuComplexity
 from core.models.enums.neo_labels import NeoLabel
+from core.models.ku.curriculum_dto import CurriculumDTO
 from core.models.ku.entity import Entity
 from core.models.ku.ku import Ku
-from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 from core.ports import KuOperations
 from core.services.base_service import BaseService
@@ -92,7 +92,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
     # All configuration in one place, using centralized relationship registry
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     _config = create_curriculum_domain_config(
-        dto_class=KuDTO,
+        dto_class=CurriculumDTO,
         model_class=Entity,
         domain_name="ku",
         search_fields=("title", "summary", "tags"),  # Content lives on :Content node, not :Ku
@@ -192,7 +192,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
     @with_error_handling("search_by_title", error_type="database")
     async def search_by_title_template(
         self, search_term: str, limit: int = 25
-    ) -> Result[list[KuDTO]]:
+    ) -> Result[list[CurriculumDTO]]:
         """
         Search knowledge units by title.
 
@@ -204,7 +204,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
             limit: Maximum results to return
 
         Returns:
-            Result containing list of matching KuDTOs
+            Result containing list of matching CurriculumDTOs
         """
         if not search_term or not search_term.strip():
             return Result.fail(Errors.validation("Search term is required", field="search_term"))
@@ -214,7 +214,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        # Convert Ku models to KuDTOs for API compatibility
+        # Convert Ku models to CurriculumDTOs for API compatibility
         dtos = self._convert_to_dtos(result.value)
 
         self.logger.debug(f"Title search for '{search_term}' returned {len(dtos)} results")
@@ -228,7 +228,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
     @with_error_handling("search_by_tags", error_type="database")
     async def search_by_tags(
         self, tags: list[str], match_all: bool = False, limit: int = 25
-    ) -> Result[list[KuDTO]]:
+    ) -> Result[list[CurriculumDTO]]:
         """
         Search knowledge units by tags.
 
@@ -238,7 +238,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
             limit: Maximum results to return
 
         Returns:
-            Result containing list of matching KuDTOs
+            Result containing list of matching CurriculumDTOs
         """
         if not tags:
             return Result.fail(Errors.validation("At least one tag is required", field="tags"))
@@ -265,7 +265,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
         complexity: str | None = None,
         status: str | None = None,
         limit: int = 25,
-    ) -> Result[list[KuDTO]]:
+    ) -> Result[list[CurriculumDTO]]:
         """
         Multi-dimensional faceted search.
 
@@ -279,7 +279,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
             limit: Maximum results to return
 
         Returns:
-            Result containing list of matching KuDTOs
+            Result containing list of matching CurriculumDTOs
         """
         # Build filters dict for backend.find_by()
         filters: dict[str, Any] = {}
@@ -421,7 +421,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
     @with_error_handling("find_similar_content", error_type="database", uid_param="uid")
     async def find_similar_content(
         self, uid: str, limit: int = 5, prefer_vector_search: bool = True
-    ) -> Result[list[KuDTO]]:
+    ) -> Result[list[CurriculumDTO]]:
         """
         Find knowledge units similar to the given unit.
 
@@ -438,7 +438,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
             prefer_vector_search: If True, use vector search when available
 
         Returns:
-            Result containing list of similar KuDTOs
+            Result containing list of similar CurriculumDTOs
         """
         # Get the source unit to verify it exists
         source_result = await self.backend.get(uid)
@@ -466,7 +466,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
         self.logger.info(f"Using keyword search fallback for {uid}")
         return await self._find_similar_by_keywords(uid, limit)
 
-    async def _find_similar_by_keywords(self, uid: str, limit: int) -> Result[list[KuDTO]]:
+    async def _find_similar_by_keywords(self, uid: str, limit: int) -> Result[list[CurriculumDTO]]:
         """
         Fallback: Find similar KUs using keyword matching and structural similarity.
 
@@ -528,7 +528,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
     @with_error_handling("search_by_features", error_type="database")
     async def search_by_features(
         self, features: dict[str, Any], limit: int = 25
-    ) -> Result[list[KuDTO]]:
+    ) -> Result[list[CurriculumDTO]]:
         """
         Search by content features (complexity, readability, etc.).
 
@@ -539,7 +539,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
             limit: Maximum results to return
 
         Returns:
-            Result containing list of matching KuDTOs
+            Result containing list of matching CurriculumDTOs
         """
         if not self.intelligence:
             return Result.fail(
@@ -578,7 +578,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
     @with_error_handling("search_with_user_context", error_type="database")
     async def search_with_user_context(
         self, query: str, user_context: dict[str, Any] | None = None, limit: int = 25
-    ) -> Result[list[KuDTO]]:
+    ) -> Result[list[CurriculumDTO]]:
         """
         Search with user context for personalized results.
 
@@ -590,7 +590,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
             limit: Maximum results to return
 
         Returns:
-            Result containing list of personalized KuDTOs
+            Result containing list of personalized CurriculumDTOs
         """
         if not query or not query.strip():
             return Result.fail(Errors.validation("Search query is required", field="query"))
@@ -620,7 +620,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
         intent: str | None = None,
         _context: dict[str, Any] | None = None,
         limit: int = 25,
-    ) -> Result[list[KuDTO]]:
+    ) -> Result[list[CurriculumDTO]]:
         """
         Search with semantic intent understanding.
 
@@ -634,7 +634,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
             limit: Maximum results to return
 
         Returns:
-            Result containing list of intent-matched KuDTOs
+            Result containing list of intent-matched CurriculumDTOs
         """
         if not query or not query.strip():
             return Result.fail(Errors.validation("Search query is required", field="query"))
@@ -670,7 +670,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
     @with_error_handling("search_by_semantic_query", error_type="database")
     async def search_by_semantic_query(
         self, query_text: str, limit: int = 10, min_score: float = 0.7
-    ) -> Result[list[KuDTO]]:
+    ) -> Result[list[CurriculumDTO]]:
         """
         Search Knowledge Units by natural language query using vector search.
 
@@ -685,7 +685,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
             min_score: Minimum similarity score (0.0-1.0)
 
         Returns:
-            Result containing list of semantically similar KuDTOs
+            Result containing list of semantically similar CurriculumDTOs
         """
         if not query_text or not query_text.strip():
             return Result.fail(Errors.validation("Search query is required", field="query_text"))
@@ -710,7 +710,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
         self.logger.info(f"Using keyword search fallback for '{query_text}'")
         return await self._search_by_keywords(query_text, limit)
 
-    async def _search_by_keywords(self, query_text: str, limit: int) -> Result[list[KuDTO]]:
+    async def _search_by_keywords(self, query_text: str, limit: int) -> Result[list[CurriculumDTO]]:
         """
         Fallback: Keyword-based search using CONTAINS.
 
@@ -750,15 +750,15 @@ class KuSearchService(BaseService[KuOperations, Entity]):
     # HELPER METHODS
     # =========================================================================
 
-    def _to_dto(self, entity: Ku) -> KuDTO:
-        """Convert a Ku entity to KuDTO."""
-        if isinstance(entity, KuDTO):
+    def _to_dto(self, entity: Ku) -> CurriculumDTO:
+        """Convert a Ku entity to CurriculumDTO."""
+        if isinstance(entity, CurriculumDTO):
             return entity
         if isinstance(entity, dict):
-            return KuDTO.from_dict(entity)
-        # Convert frozen Ku to mutable KuDTO — use getattr for curriculum-specific fields
+            return CurriculumDTO.from_dict(entity)
+        # Convert frozen Ku to mutable CurriculumDTO — use getattr for curriculum-specific fields
         semantic_links = getattr(entity, "semantic_links", ())
-        return KuDTO(
+        return CurriculumDTO(
             uid=entity.uid,
             title=entity.title,
             domain=entity.domain,
@@ -772,14 +772,14 @@ class KuSearchService(BaseService[KuOperations, Entity]):
             metadata=dict(entity.metadata) if entity.metadata else {},
         )
 
-    def _node_dict_to_dto(self, node_dict: dict[str, Any]) -> KuDTO:
+    def _node_dict_to_dto(self, node_dict: dict[str, Any]) -> CurriculumDTO:
         """
-        Convert Neo4j node dict to KuDTO.
+        Convert Neo4j node dict to CurriculumDTO.
 
         Used for vector search results where nodes are returned as dicts.
         """
-        return KuDTO.from_dict(node_dict)
+        return CurriculumDTO.from_dict(node_dict)
 
-    def _convert_to_dtos(self, entities: list[Any]) -> list[KuDTO]:
-        """Convert a list of entities to KuDTOs."""
+    def _convert_to_dtos(self, entities: list[Any]) -> list[CurriculumDTO]:
+        """Convert a list of entities to CurriculumDTOs."""
         return [self._to_dto(e) for e in entities]

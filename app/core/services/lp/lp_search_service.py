@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 from core.models.enums import Domain
 from core.models.enums.ku_enums import LpType
 from core.models.ku import LearningPath
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.learning_path_dto import LearningPathDTO
 from core.models.search.query_parser import ParsedSearchQuery
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
@@ -78,7 +78,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     # Note: LP uses name instead of title, and stores main content in goal field
     _config = create_curriculum_domain_config(
-        dto_class=KuDTO,
+        dto_class=LearningPathDTO,
         model_class=LearningPath,
         entity_label="Ku",
         domain_name="lp",

@@ -20,7 +20,7 @@ from core.models.enums import Domain
 from core.models.enums.activity_enums import EngagementLevel
 from core.models.graph_context import GraphContext
 from core.models.ku.event import Event
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.event_dto import EventDTO
 from core.models.shared.dual_track import DualTrackResult
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.events.event_relationships import EventRelationships
@@ -92,10 +92,10 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Event]",
         )
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Event, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[Event, EventDTO](
                 service=self,
                 backend_get_method="get",  # EventsService uses generic 'get'
-                dto_class=KuDTO,
+                dto_class=EventDTO,
                 model_class=Event,
                 domain=Domain.EVENTS,
             )

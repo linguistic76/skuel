@@ -49,8 +49,8 @@ class MotivationalProfile:
     """A user's complete motivational profile based on principles"""
 
     user_uid: str
-    core_principles: list[Ku]
-    developing_principles: list[Ku]
+    core_principles: list[Principle]
+    developing_principles: list[Principle]
     goal_alignment_score: float
     habit_alignment_score: float
     primary_motivators: list[str]
@@ -69,7 +69,7 @@ class AlignmentAssessment:
     entity_name: str
     principle_alignments: list[PrincipleAlignment]
     overall_alignment: float
-    primary_principle: Ku | None
+    primary_principle: Principle | None
     strengths: list[str]
     gaps: list[str]
     recommendations: list[str]
@@ -363,8 +363,8 @@ class PrinciplesAlignmentService:
         """
         from datetime import date
 
-        from core.models.ku.ku_dto import KuDTO
         from core.models.ku.ku_request import PrincipleAlignmentAssessmentResult
+        from core.models.ku.principle_dto import PrincipleDTO
 
         # 1. Get the principle
         principle_result = await self.backend.get(principle_uid)
@@ -373,7 +373,7 @@ class PrinciplesAlignmentService:
 
         principle_dict = principle_result.value
         if isinstance(principle_dict, dict):
-            principle_dto = KuDTO.from_dict(principle_dict)
+            principle_dto = PrincipleDTO.from_dict(principle_dict)
             principle = Principle.from_dto(principle_dto)
         else:
             principle = principle_dict
@@ -438,7 +438,7 @@ class PrinciplesAlignmentService:
         self, principle_uid: str, assessment: UserAlignmentAssessment
     ) -> None:
         """Store user's self-assessment in principle's alignment_history."""
-        from core.models.ku.ku_dto import KuDTO
+        from core.models.ku.principle_dto import PrincipleDTO
 
         # Get current principle
         principle_result = await self.backend.get(principle_uid)
@@ -448,11 +448,11 @@ class PrinciplesAlignmentService:
 
         principle_dict = principle_result.value
         if isinstance(principle_dict, dict):
-            dto = KuDTO.from_dict(principle_dict)
+            dto = PrincipleDTO.from_dict(principle_dict)
         else:
             dto = principle_dict.to_dto()
 
-        # Add assessment to history (append pattern — no assess_alignment method on KuDTO)
+        # Add assessment to history (append pattern — no assess_alignment method on PrincipleDTO)
         from datetime import date
 
         from core.models.ku.ku_nested_types import AlignmentAssessment as KuAlignmentAssessment
@@ -468,7 +468,7 @@ class PrinciplesAlignmentService:
         # Update in backend
         await self.backend.update(principle_uid, dto.to_dict())
 
-    async def _calculate_system_alignment(self, principle: Ku, user_uid: str) -> dict[str, Any]:
+    async def _calculate_system_alignment(self, principle: Principle, user_uid: str) -> dict[str, Any]:
         """
         Calculate system alignment from goals, habits, and choices.
 
@@ -612,7 +612,7 @@ class PrinciplesAlignmentService:
         self,
         direction: str,
         gap: float,
-        principle: Ku,
+        principle: Principle,
         evidence: list[str],
     ) -> list[str]:
         """Generate recommendations to close the gap."""
@@ -854,7 +854,7 @@ class PrinciplesAlignmentService:
         ]
 
     def _generate_alignment_recommendations(
-        self, goal: Ku, alignments: list[PrincipleAlignment], principles: list[Ku]
+        self, goal: Ku, alignments: list[PrincipleAlignment], principles: list[Principle]
     ) -> list[str]:
         """Generate recommendations for improving goal alignment"""
         recommendations = []
@@ -875,7 +875,7 @@ class PrinciplesAlignmentService:
         return recommendations[:5]  # Top 5 recommendations
 
     def _generate_habit_recommendations(
-        self, habit: Habit, alignments: list[PrincipleAlignment], principles: list[Ku]
+        self, habit: Habit, alignments: list[PrincipleAlignment], principles: list[Principle]
     ) -> list[str]:
         """Generate recommendations for improving habit alignment"""
         recommendations = []
@@ -888,7 +888,7 @@ class PrinciplesAlignmentService:
 
         return recommendations[:5]
 
-    def _score_option_against_principle(self, option: str, principle: Ku, _context: str) -> float:
+    def _score_option_against_principle(self, option: str, principle: Principle, _context: str) -> float:
         """Score how well an option aligns with a principle"""
         # Simple keyword matching - would be more sophisticated in practice
         score = 0.5  # Neutral baseline
@@ -905,7 +905,7 @@ class PrinciplesAlignmentService:
         # Cap at 1.0
         return min(score, 1.0)
 
-    def _creates_conflict(self, scores: dict[str, dict[str, float]], p1: Ku, p2: Ku) -> bool:
+    def _creates_conflict(self, scores: dict[str, dict[str, float]], p1: Principle, p2: Principle) -> bool:
         """Check if option scores create conflict between principles"""
         # Check if principles disagree strongly on best option
         for option1, scores1 in scores.items():
@@ -951,9 +951,9 @@ class PrinciplesAlignmentService:
 
         for item in principles_result.value:
             if isinstance(item, dict):
-                from core.models.ku.ku_dto import KuDTO
+                from core.models.ku.principle_dto import PrincipleDTO
 
-                principle_dto = KuDTO.from_dict(item)
+                principle_dto = PrincipleDTO.from_dict(item)
                 principle = Principle.from_dto(principle_dto)
             else:
                 principle = item
@@ -1012,9 +1012,9 @@ class PrinciplesAlignmentService:
             return principle_result
 
         principle_dict = principle_result.value
-        from core.models.ku.ku_dto import KuDTO
+        from core.models.ku.principle_dto import PrincipleDTO
 
-        principle_dto = KuDTO.from_dict(principle_dict)
+        principle_dto = PrincipleDTO.from_dict(principle_dict)
         principle = Principle.from_dto(principle_dto)
 
         # Extract expressions
@@ -1085,9 +1085,9 @@ class PrinciplesAlignmentService:
 
         for item in principles_result.value:
             if isinstance(item, dict):
-                from core.models.ku.ku_dto import KuDTO
+                from core.models.ku.principle_dto import PrincipleDTO
 
-                principle_dto = KuDTO.from_dict(item)
+                principle_dto = PrincipleDTO.from_dict(item)
                 principle = Principle.from_dto(principle_dto)
             else:
                 principle = item

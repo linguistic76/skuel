@@ -25,8 +25,8 @@ if TYPE_CHECKING:
 # Protocol interfaces
 # Domain models
 from core.models.enums import EntityStatus
-from core.models.ku.ku_dto import KuDTO
 from core.models.ku.task import Task
+from core.models.ku.task_dto import TaskDTO
 
 # Base service
 from core.services.base_service import BaseService
@@ -166,7 +166,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Task]",
     # ========================================================================
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=TaskDTO,
         model_class=Task,
         domain_name="tasks",
         date_field="due_date",

@@ -39,8 +39,8 @@ from core.models.enums import CompletionStatus, Domain, EntityStatus, Priority
 from core.models.enums.activity_enums import ProductivityLevel
 from core.models.enums.neo_labels import NeoLabel
 from core.models.graph_context import GraphContext
-from core.models.ku.ku_dto import KuDTO
 from core.models.ku.task import Task
+from core.models.ku.task_dto import TaskDTO
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -154,10 +154,10 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Task, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[Task, TaskDTO](
                 service=self,
                 backend_get_method="get_task",
-                dto_class=KuDTO,
+                dto_class=TaskDTO,
                 model_class=Task,
                 domain=Domain.TASKS,
             )

@@ -45,7 +45,7 @@ from core.models.enums import Domain, EntityStatus, Priority
 from core.models.enums.ku_enums import GoalTimeframe, GoalType
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.ku.goal import Goal
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.goal_dto import GoalDTO
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -193,7 +193,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=GoalDTO,
         model_class=Goal,
         domain_name="goals",
         date_field="target_date",
@@ -222,12 +222,12 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         self.event_bus = event_bus
 
         # Initialize LearningAlignmentHelper for curriculum integration
-        self.learning_helper = LearningAlignmentHelper[Goal, KuDTO, GoalCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Goal, GoalDTO, GoalCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="get_user_goals",
             backend_create_method="create_goal",
-            dto_class=KuDTO,
+            dto_class=GoalDTO,
             model_class=Goal,
             domain=Domain.KNOWLEDGE,  # Default domain for goals
             entity_name="goal",
@@ -486,7 +486,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         if create_result.is_error:
             return Result.fail(create_result.expect_error())
 
-        goal = self._to_domain_model(create_result.value, KuDTO, Goal)
+        goal = self._to_domain_model(create_result.value, GoalDTO, Goal)
 
         # Step 5: Publish event
         event = GoalCreated(
@@ -734,7 +734,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         if not goal_result.value:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
 
-        goal = to_domain_model(goal_result.value, KuDTO, Goal)
+        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
 
         # Calculate velocity
         current_progress = goal.progress_percentage
@@ -946,7 +946,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         for uid in goal_uids:
             result = await self.backend.get_goal(uid)
             if result.is_ok and result.value:
-                goals_dict[uid] = to_domain_model(result.value, KuDTO, Goal)
+                goals_dict[uid] = to_domain_model(result.value, GoalDTO, Goal)
 
         if not goals_dict:
             return Result.fail(Errors.not_found(resource="Goals", identifier=str(goal_uids)))

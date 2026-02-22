@@ -41,7 +41,7 @@ from core.models.enums import Domain, EntityStatus, Priority, RecurrencePattern
 from core.models.enums.ku_enums import HabitCategory, HabitDifficulty
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.ku.habit import Habit
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.habit_dto import HabitDTO
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -109,7 +109,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=HabitDTO,
         model_class=Habit,
         entity_label="Ku",
         domain_name="habits",
@@ -138,12 +138,12 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         self.event_bus = event_bus
 
         # Initialize LearningAlignmentHelper for curriculum integration
-        self.learning_helper = LearningAlignmentHelper[Habit, KuDTO, HabitCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Habit, HabitDTO, HabitCreateRequest](
             service=self,
             backend_get_method="get_habit",
             backend_get_user_method="get_user_habits",
             backend_create_method="create_habit",
-            dto_class=KuDTO,
+            dto_class=HabitDTO,
             model_class=Habit,
             domain=Domain.HABITS,
             entity_name="habit",
@@ -373,7 +373,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         if create_result.is_error:
             return Result.fail(create_result.expect_error())
 
-        habit = self._to_domain_model(create_result.value, KuDTO, Habit)
+        habit = self._to_domain_model(create_result.value, HabitDTO, Habit)
 
         # Step 4: Publish event
         event = HabitCreated(
@@ -573,7 +573,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         if not habit_result.value:
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
 
-        habit = to_domain_model(habit_result.value, KuDTO, Habit)
+        habit = to_domain_model(habit_result.value, HabitDTO, Habit)
 
         # Get completion history if available
         completion_patterns: dict[str, Any] = {
@@ -835,7 +835,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         if create_result.is_error:
             return Result.fail(create_result.expect_error())
 
-        habit = self._to_domain_model(create_result.value, KuDTO, Habit)
+        habit = self._to_domain_model(create_result.value, HabitDTO, Habit)
 
         # Publish event
         event = HabitCreated(

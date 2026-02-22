@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 from core.models.enums import EntityStatus
 from core.models.ku.event import Event
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.event_dto import EventDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.services.base_service import BaseService
@@ -90,7 +90,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
     # All configuration in one place, using centralized relationship registry
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=EventDTO,
         model_class=Event,
         entity_label="Ku",
         domain_name="events",
@@ -145,7 +145,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
         if result.is_error:
             return result
 
-        all_events = self._to_domain_models(result.value, KuDTO, Event)
+        all_events = self._to_domain_models(result.value, EventDTO, Event)
 
         # Filter out completed/cancelled
         active_events = [
@@ -276,7 +276,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
             return Result.fail(result.expect_error())
 
         # Convert to Events using inherited helper
-        events = self._to_domain_models([record["e"] for record in result.value], KuDTO, Event)
+        events = self._to_domain_models([record["e"] for record in result.value], EventDTO, Event)
 
         self.logger.debug(f"Found {len(events)} events within {days_ahead} days")
         return Result.ok(events)
@@ -320,7 +320,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
             return Result.fail(result.expect_error())
 
         # Convert to Events using inherited helper
-        events = self._to_domain_models([record["e"] for record in result.value], KuDTO, Event)
+        events = self._to_domain_models([record["e"] for record in result.value], EventDTO, Event)
 
         self.logger.debug(f"Found {len(events)} overdue events")
         return Result.ok(events)
@@ -386,7 +386,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
             return Result.fail(result.expect_error())
 
         # Convert to Events using inherited helper
-        events = self._to_domain_models([record["e"] for record in result.value], KuDTO, Event)
+        events = self._to_domain_models([record["e"] for record in result.value], EventDTO, Event)
 
         self.logger.debug(f"Found {len(events)} events between {start_date} and {end_date}")
         return Result.ok(events)
@@ -431,7 +431,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
             return Result.fail(result.expect_error())
 
         # Convert to Events using inherited helper
-        events = self._to_domain_models([record["e"] for record in result.value], KuDTO, Event)
+        events = self._to_domain_models([record["e"] for record in result.value], EventDTO, Event)
 
         self.logger.debug(f"Found {len(events)} recurring events")
         return Result.ok(events)
@@ -487,7 +487,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
         if event_result.is_error:
             return Result.fail(event_result.expect_error())
 
-        event = self._to_domain_model(event_result.value, KuDTO, Event)
+        event = self._to_domain_model(event_result.value, EventDTO, Event)
 
         if not event.event_date:
             return Result.ok([])  # No date = no conflicts
@@ -517,7 +517,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
         conflicts = []
         for record in result.value:
             event_node = record["e"]
-            dto = KuDTO.from_dict(dict(event_node))
+            dto = EventDTO.from_dict(dict(event_node))
             other_event = Event.from_dto(dto)
 
             # Check time overlap if both have times
@@ -565,7 +565,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
         if result.is_error:
             return result
 
-        events = self._to_domain_models(result.value, KuDTO, Event)
+        events = self._to_domain_models(result.value, EventDTO, Event)
 
         self.logger.debug(f"Found {len(events)} events of type '{event_type}'")
         return Result.ok(events)
@@ -641,7 +641,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
         events = []
         for record in result.value:
             event_node = record["e"]
-            dto = KuDTO.from_dict(dict(event_node))
+            dto = EventDTO.from_dict(dict(event_node))
             events.append(Event.from_dto(dto))
 
         self.logger.debug(f"Found {len(events)} events in history for user {user_uid}")
@@ -829,7 +829,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
                 result = await self.backend.find_by(limit=limit, **filters)
                 if result.is_error:
                     return Result.fail(result.expect_error())
-                events = self._to_domain_models(result.value, KuDTO, Event)
+                events = self._to_domain_models(result.value, EventDTO, Event)
             else:
                 result = await self.search(parsed.text_query, limit=limit)
                 if result.is_error:

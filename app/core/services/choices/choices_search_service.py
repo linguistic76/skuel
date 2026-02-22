@@ -3,7 +3,7 @@ Choice Search Service - Search and Discovery Operations
 ========================================================
 
 Handles search and discovery operations for choices/decisions.
-Implements DomainSearchOperations[Ku] protocol plus choice-specific methods.
+Implements DomainSearchOperations[Choice] protocol plus choice-specific methods.
 
 **Responsibilities:**
 - Text search on title/description
@@ -29,9 +29,7 @@ if TYPE_CHECKING:
 from core.models.enums import Priority
 from core.models.enums.ku_enums import EntityStatus
 from core.models.ku.choice import Choice
-from core.models.ku.entity import Entity
-from core.models.ku.ku import Ku
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.choice_dto import ChoiceDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.services.base_service import BaseService
@@ -42,11 +40,11 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
 
 
-class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
+class ChoicesSearchService(BaseService["BackendOperations[Choice]", Choice]):
     """
     Choice search and discovery operations.
 
-    Implements DomainSearchOperations[Ku] protocol for consistent
+    Implements DomainSearchOperations[Choice] protocol for consistent
     search interface across all activity domains.
 
     Universal Methods (DomainSearchOperations protocol):
@@ -91,14 +89,14 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # All configuration in one place, using centralized relationship registry
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
-        model_class=Entity,
+        dto_class=ChoiceDTO,
+        model_class=Choice,
         domain_name="choices",
         date_field="decision_deadline",
         completed_statuses=(EntityStatus.COMPLETED.value,),
     )
 
-    def __init__(self, backend: BackendOperations[Ku]) -> None:
+    def __init__(self, backend: BackendOperations[Choice]) -> None:
         """Initialize service with required backend."""
         super().__init__(backend=backend, service_name="choices.search")
 
@@ -113,7 +111,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # get_by_category(), list_categories(), get_by_relationship()
 
     @with_error_handling("get_prioritized", error_type="database")
-    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Ku]]:
+    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Choice]]:
         """
         Get choices prioritized for the user's current context.
 
@@ -135,7 +133,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return result
 
-        all_choices = self._to_domain_models(result.value, KuDTO, Entity)
+        all_choices = self._to_domain_models(result.value, ChoiceDTO, Choice)
 
         # Filter to pending/active choices
         pending_choices = [
@@ -229,7 +227,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         days_ahead: int = 7,
         user_uid: str | None = None,
         limit: int = 100,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Choice]]:
         """
         Get choices with deadlines within specified number of days.
 
@@ -269,11 +267,11 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        # Convert to Ku (choice type)
+        # Convert to Choice
         choices = []
         for record in result.value:
             choice_node = record["c"]
-            dto = KuDTO.from_dict(dict(choice_node))
+            dto = ChoiceDTO.from_dict(dict(choice_node))
             choices.append(Choice.from_dto(dto))
 
         self.logger.debug(f"Found {len(choices)} choices due within {days_ahead} days")
@@ -284,7 +282,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         self,
         user_uid: str | None = None,
         limit: int = 100,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Choice]]:
         """
         Get choices past their deadline and not decided.
 
@@ -317,11 +315,11 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        # Convert to Ku (choice type)
+        # Convert to Choice
         choices = []
         for record in result.value:
             choice_node = record["c"]
-            dto = KuDTO.from_dict(dict(choice_node))
+            dto = ChoiceDTO.from_dict(dict(choice_node))
             choices.append(Choice.from_dto(dto))
 
         self.logger.debug(f"Found {len(choices)} overdue choices")
@@ -332,7 +330,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # ========================================================================
 
     @with_error_handling("get_pending", error_type="database", uid_param="user_uid")
-    async def get_pending(self, user_uid: str, limit: int = 100) -> Result[list[Ku]]:
+    async def get_pending(self, user_uid: str, limit: int = 100) -> Result[list[Choice]]:
         """
         Get pending/undecided choices for a user.
 
@@ -359,11 +357,11 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        # Convert to Ku (choice type)
+        # Convert to Choice
         choices = []
         for record in result.value:
             choice_node = record["c"]
-            dto = KuDTO.from_dict(dict(choice_node))
+            dto = ChoiceDTO.from_dict(dict(choice_node))
             choices.append(Choice.from_dto(dto))
 
         self.logger.debug(f"Found {len(choices)} pending choices for user {user_uid}")
@@ -372,7 +370,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
     @with_error_handling("get_by_urgency", error_type="database")
     async def get_by_urgency(
         self, urgency: str, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Choice]]:
         """
         Get choices by urgency level.
 
@@ -392,13 +390,13 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return result
 
-        choices = self._to_domain_models(result.value, KuDTO, Entity)
+        choices = self._to_domain_models(result.value, ChoiceDTO, Choice)
 
         self.logger.debug(f"Found {len(choices)} choices with urgency '{urgency}'")
         return Result.ok(choices)
 
     @with_error_handling("get_affecting_goal", error_type="database", uid_param="goal_uid")
-    async def get_affecting_goal(self, goal_uid: str) -> Result[list[Ku]]:
+    async def get_affecting_goal(self, goal_uid: str) -> Result[list[Choice]]:
         """
         Get choices that affect a specific goal.
 
@@ -417,7 +415,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         )
 
     @with_error_handling("get_needing_decision", error_type="database", uid_param="user_uid")
-    async def get_needing_decision(self, user_uid: str, deadline_days: int = 7) -> Result[list[Ku]]:
+    async def get_needing_decision(self, user_uid: str, deadline_days: int = 7) -> Result[list[Choice]]:
         """
         Get choices that need a decision within N days.
 
@@ -452,11 +450,11 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        # Convert to Ku (choice type)
+        # Convert to Choice
         choices = []
         for record in result.value:
             choice_node = record["c"]
-            dto = KuDTO.from_dict(dict(choice_node))
+            dto = ChoiceDTO.from_dict(dict(choice_node))
             choices.append(Choice.from_dto(dto))
 
         self.logger.debug(
@@ -469,7 +467,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
     )
     async def get_aligned_with_principle(
         self, principle_uid: str, min_confidence: float = 0.7
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Choice]]:
         """
         Get choices aligned with a specific principle.
 
@@ -497,11 +495,11 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        # Convert to Ku (choice type)
+        # Convert to Choice
         choices = []
         for record in result.value:
             choice_node = record["c"]
-            dto = KuDTO.from_dict(dict(choice_node))
+            dto = ChoiceDTO.from_dict(dict(choice_node))
             choices.append(Choice.from_dto(dto))
 
         self.logger.debug(f"Found {len(choices)} choices aligned with principle {principle_uid}")
@@ -512,7 +510,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
     @with_error_handling("get_decided", error_type="database", uid_param="user_uid")
     async def get_decided(
         self, user_uid: str, days_back: int = 90, limit: int = 100
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Choice]]:
         """
         Get decided/completed choices for a user.
 
@@ -548,11 +546,11 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        # Convert to Ku (choice type)
+        # Convert to Choice
         choices = []
         for record in result.value:
             choice_node = record["c"]
-            dto = KuDTO.from_dict(dict(choice_node))
+            dto = ChoiceDTO.from_dict(dict(choice_node))
             choices.append(Choice.from_dto(dto))
 
         self.logger.debug(f"Found {len(choices)} decided choices for user {user_uid}")
@@ -572,7 +570,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
     @with_error_handling("intelligent_search", error_type="database")
     async def intelligent_search(
         self, query: str, user_uid: str | None = None, limit: int = 50
-    ) -> Result[tuple[list[Ku], ParsedSearchQuery]]:
+    ) -> Result[tuple[list[Choice], ParsedSearchQuery]]:
         """
         Natural language search with semantic filter extraction.
 
@@ -650,7 +648,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
             result = await self.backend.find_by(limit=limit, **filters)
             if result.is_error:
                 return Result.fail(result.expect_error())
-            choices = self._to_domain_models(result.value, KuDTO, Entity)
+            choices = self._to_domain_models(result.value, ChoiceDTO, Choice)
         else:
             # Fall back to text search using cleaned query
             result = await self.search(parsed.text_query, limit=limit)

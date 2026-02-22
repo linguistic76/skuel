@@ -18,7 +18,7 @@ from operator import attrgetter
 from typing import Any, TypedDict
 
 from core.constants import ConfidenceLevel
-from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.ku.task_dto import TaskDTO
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -665,8 +665,8 @@ class AdvancedKuInferenceEngine:
                 self.logger.warning("Cross-domain discovery failed: %s", relationships_result.error)
 
             # Update TaskDTO with enhanced inference
-            task_dto.primary_knowledge_uids = list(
-                set(task_dto.primary_knowledge_uids + inferred_uids)
+            task_dto.primary_knowledge_uids = list(  # type: ignore[attr-defined]
+                set(task_dto.primary_knowledge_uids + inferred_uids)  # type: ignore[attr-defined]
             )
             task_dto.knowledge_confidence_scores = {
                 **(task_dto.knowledge_confidence_scores or {}),

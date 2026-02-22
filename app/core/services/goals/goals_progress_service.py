@@ -21,7 +21,7 @@ from core.models.enums import Domain, EntityStatus
 from core.models.enums.ku_enums import MeasurementType
 from core.models.graph_context import GraphContext
 from core.models.ku.goal import Goal
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.goal_dto import GoalDTO
 from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import GoalUpdatePayload
 from core.services.base_service import BaseService
@@ -74,7 +74,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=GoalDTO,
         model_class=Goal,
         domain_name="goals",
         date_field="target_date",
@@ -326,7 +326,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             goal_result = await self.backend.get_goal(goal_uid)
             if goal_result.is_error:
                 return Result.fail(goal_result.expect_error())
-            goal = to_domain_model(goal_result.value, KuDTO, Goal)
+            goal = to_domain_model(goal_result.value, GoalDTO, Goal)
             self.logger.debug(f"Goal {goal_uid} fetched from Neo4j (not in rich context)")
         else:
             self.logger.debug(f"Goal {goal_uid} found in rich context (no Neo4j query needed)")
@@ -406,7 +406,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, KuDTO, Goal)
+        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
 
         if not goal.milestones or milestone_index >= len(goal.milestones):
             return Result.fail(
@@ -449,7 +449,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # Context invalidation happens via GoalMilestoneReached/GoalAchieved events (event-driven architecture)
         # Event handlers in bootstrap will call user_service.invalidate_context()
 
-        updated_goal = to_domain_model(update_result.value, KuDTO, Goal)
+        updated_goal = to_domain_model(update_result.value, GoalDTO, Goal)
 
         self.logger.info(f"Completed milestone {milestone_index} for goal {goal_uid}")
 
@@ -503,7 +503,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, KuDTO, Goal)
+        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
 
         # GRAPH-NATIVE: Fetch relationships from graph
         rels = None
@@ -548,7 +548,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             if update_result.is_error:
                 return Result.fail(update_result.expect_error())
 
-            updated_goal = to_domain_model(update_result.value, KuDTO, Goal)
+            updated_goal = to_domain_model(update_result.value, GoalDTO, Goal)
 
             self.logger.info(
                 f"Updated goal {goal_uid} progress from habit {habit_uid} to {new_progress:.1f}%"
@@ -819,7 +819,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         if not goal_dto:
             return Result.fail(Errors.not_found(resource="Goal", identifier=uid))
 
-        goal = to_domain_model(goal_dto, KuDTO, Goal)
+        goal = to_domain_model(goal_dto, GoalDTO, Goal)
         old_progress = goal.progress_percentage or 0.0
 
         # Update progress
@@ -883,7 +883,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         if not goal_dto:
             return Result.fail(Errors.not_found(resource="Goal", identifier=uid))
 
-        goal = to_domain_model(goal_dto, KuDTO, Goal)
+        goal = to_domain_model(goal_dto, GoalDTO, Goal)
 
         # Extract progress notes from DTO metadata
         metadata: dict[str, Any] = goal_dto.metadata or {}
@@ -944,7 +944,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, KuDTO, Goal)
+        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
 
         # Create new milestone with UID
         import uuid
@@ -986,7 +986,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, KuDTO, Goal)
+        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
 
         # Convert milestones to dicts
         milestones = []

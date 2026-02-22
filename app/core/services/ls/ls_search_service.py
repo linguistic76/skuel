@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 from core.models.enums import Domain
 from core.models.enums.ku_enums import EntityStatus, StepDifficulty
 from core.models.ku import LearningStep
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.learning_step_dto import LearningStepDTO
 from core.models.search.query_parser import ParsedSearchQuery
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
@@ -76,7 +76,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
     # All configuration in one place, using centralized relationship registry
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     _config = create_curriculum_domain_config(
-        dto_class=KuDTO,
+        dto_class=LearningStepDTO,
         model_class=LearningStep,
         entity_label="Ku",
         domain_name="ls",

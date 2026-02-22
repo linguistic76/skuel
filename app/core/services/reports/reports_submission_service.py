@@ -23,7 +23,7 @@ from typing import Any
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType
-from core.models.ku import Entity, Ku, KuDTO, Submission
+from core.models.ku import Entity, Ku, Submission, SubmissionDTO
 from core.models.relationship_names import RelationshipName
 from core.ports import BackendOperations
 from core.services.base_service import BaseService
@@ -46,7 +46,7 @@ class KuSubmissionService(BaseService[BackendOperations[Entity], Entity]):
     # DomainConfig
     # =========================================================================
     _config = DomainConfig(
-        dto_class=KuDTO,
+        dto_class=SubmissionDTO,
         model_class=Entity,
         entity_label="Ku",
         search_fields=("title", "original_filename", "file_type"),

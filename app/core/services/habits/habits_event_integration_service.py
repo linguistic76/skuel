@@ -20,7 +20,7 @@ from typing import Any
 
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.ku.habit import Habit
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.habit_dto import HabitDTO
 from core.ports.domain_protocols import HabitsOperations
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
@@ -147,7 +147,7 @@ class HabitsEventIntegrationService:
         if habit_result.is_error:
             return Result.fail(habit_result.expect_error())
 
-        habit = to_domain_model(habit_result.value, KuDTO, Habit)
+        habit = to_domain_model(habit_result.value, HabitDTO, Habit)
 
         event_suggestions = []
         start_date = date.today()

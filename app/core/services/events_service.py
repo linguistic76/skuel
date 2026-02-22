@@ -21,7 +21,7 @@ from core.events import publish_event
 from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeRemoved
 from core.models.enums import EntityStatus, RecurrencePattern
 from core.models.ku.event import Event
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.event_dto import EventDTO
 from core.ports import get_enum_value
 from core.ports.query_types import EventUpdatePayload
 from core.services.base_service import BaseService
@@ -113,7 +113,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
     # ========================================================================
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=EventDTO,
         model_class=Event,
         entity_label="Ku",
         domain_name="events",
@@ -694,9 +694,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
             new_date = base_date + timedelta(days=interval_days * i)
 
             # Create new event instance
-            from core.models.ku.ku_dto import KuDTO
-
-            dto = KuDTO.create_event(
+            dto = EventDTO.create_event(
                 user_uid=event.user_uid,
                 title=event.title,
                 event_date=new_date,
@@ -711,7 +709,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
 
             create_result = await self.backend.create(dto.to_dict())
             if create_result.is_ok:
-                new_event = self._to_domain_model(create_result.value, KuDTO, Event)
+                new_event = self._to_domain_model(create_result.value, EventDTO, Event)
                 created_events.append(new_event)
 
         return Result.ok(created_events)
@@ -732,9 +730,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
         3. Updates context after creation
         """
         # Create DTO from request
-        from core.models.ku.ku_dto import KuDTO
-
-        dto = KuDTO.create_event(
+        dto = EventDTO.create_event(
             user_uid=user_context.user_uid,
             title=event_data.title,
             event_date=event_data.event_date,
@@ -751,8 +747,8 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
         # PHASE 3B: practices_knowledge_uids is a graph relationship, not a DTO field
         # Services create graph edges after event creation via relationship services
         # NOTE: supports_goal_uid and learning_path_uid use getattr for forward compatibility
-        dto.fulfills_goal_uid = getattr(event_data, "supports_goal_uid", None)
-        dto.learning_path_uid = getattr(event_data, "learning_path_uid", None)
+        dto.fulfills_goal_uid = getattr(event_data, "supports_goal_uid", None)  # type: ignore[attr-defined]
+        dto.learning_path_uid = getattr(event_data, "learning_path_uid", None)  # type: ignore[attr-defined]
 
         # Set recurrence for habit events
         if dto.reinforces_habit_uid and dto.reinforces_habit_uid in user_context.active_habit_uids:
@@ -764,7 +760,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
         if create_result.is_error:
             return Result.fail(create_result)
 
-        event = self._to_domain_model(create_result.value, KuDTO, Event)
+        event = self._to_domain_model(create_result.value, EventDTO, Event)
 
         # Publish CalendarEventCreated event (event-driven architecture)
         from datetime import datetime

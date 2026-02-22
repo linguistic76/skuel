@@ -23,7 +23,7 @@ from typing import ClassVar
 from core.models.enums import EntityStatus
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.ku.habit import Habit
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.habit_dto import HabitDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.models.type_hints import Metadata
@@ -86,7 +86,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
     # All configuration in one place, using centralized relationship registry
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=HabitDTO,
         model_class=Habit,
         entity_label="Ku",
         domain_name="habits",
@@ -187,7 +187,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         # Convert to domain models
         habits = []
         for record in result.value:
-            dto = KuDTO.from_dict(record["h"])
+            dto = HabitDTO.from_dict(record["h"])
             habits.append(Habit.from_dto(dto))
 
         # Apply fine-grained scoring that uses UserContext
@@ -306,7 +306,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        habits = self._to_domain_models(result.value, KuDTO, Habit)
+        habits = self._to_domain_models(result.value, HabitDTO, Habit)
 
         # Filter to active habits due within window
         due_soon = []
@@ -378,7 +378,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        habits = self._to_domain_models(result.value, KuDTO, Habit)
+        habits = self._to_domain_models(result.value, HabitDTO, Habit)
 
         # Filter to active overdue habits
         overdue = []
@@ -448,7 +448,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         if result.is_error:
             return result
 
-        habits = self._to_domain_models(result.value, KuDTO, Habit)
+        habits = self._to_domain_models(result.value, HabitDTO, Habit)
 
         self.logger.debug(f"Found {len(habits)} {frequency_value} habits")
         return Result.ok(habits)
@@ -477,7 +477,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        habits = self._to_domain_models(result.value, KuDTO, Habit)
+        habits = self._to_domain_models(result.value, HabitDTO, Habit)
 
         # Filter to active habits needing attention (include_paused=True to check paused habits too)
         needing_attention = []
@@ -550,7 +550,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         if result.is_error:
             return result
 
-        habits = self._to_domain_models(result.value, KuDTO, Habit)
+        habits = self._to_domain_models(result.value, HabitDTO, Habit)
 
         # Filter to active habits at risk
         at_risk = []
@@ -628,7 +628,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        habits = self._to_domain_models(result.value, KuDTO, Habit)
+        habits = self._to_domain_models(result.value, HabitDTO, Habit)
         today = date.today()
 
         # Filter to active habits not completed today
@@ -715,7 +715,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         if result.is_error:
             return result
 
-        habits = self._to_domain_models(result.value, KuDTO, Habit)
+        habits = self._to_domain_models(result.value, HabitDTO, Habit)
 
         # Filter to active habits (exclude archived, completed, cancelled but include paused)
         active_habits = [h for h in habits if self._is_active(h, include_paused=True)]
@@ -796,7 +796,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
             result = await self.backend.find_by(limit=limit, **filters)
             if result.is_error:
                 return Result.fail(result.expect_error())
-            habits = self._to_domain_models(result.value, KuDTO, Habit)
+            habits = self._to_domain_models(result.value, HabitDTO, Habit)
         else:
             # Fall back to text search using cleaned query
             result = await self.search(parsed.text_query, limit=limit)

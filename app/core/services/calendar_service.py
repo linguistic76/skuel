@@ -44,11 +44,11 @@ from core.models.event.calendar_models import (
     CalendarView,
 )
 from core.models.ku.event import Event as EventPure
+from core.models.ku.event_dto import EventDTO
 from core.models.ku.habit import Habit as HabitPure
-from core.models.ku.ku_dto import KuDTO as EventDTO
-from core.models.ku.ku_dto import KuDTO as HabitDTO
-from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.ku.habit_dto import HabitDTO
 from core.models.ku.task import Task as TaskPure
+from core.models.ku.task_dto import TaskDTO
 from core.ports import get_enum_value
 
 # Import protocol interfaces for dependency injection
