@@ -60,6 +60,19 @@ Ku = (
 )
 
 # =============================================================================
+# NARROWER TYPE ALIASES — for services that handle a subset of Ku types
+#
+# Use these instead of the full 16-member Ku union when a service only handles
+# curriculum entities or submission entities.
+# =============================================================================
+
+# Curriculum entities — carry learning_level, quality_score, sel_category, etc.
+CurriculumEntity = CurriculumKu | LearningStepKu | LearningPathKu | ExerciseKu
+
+# Submission entities — carry file_path, processed_content, file_type, etc.
+SubmissionEntity = SubmissionKu | JournalKu | AiReportKu | FeedbackKu
+
+# =============================================================================
 # TYPE CLASS MAP — dispatcher for Ku decomposition
 #
 # Maps KuType to domain-specific subclass. Used by KuBase.from_dto() dispatcher

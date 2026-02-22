@@ -11,6 +11,7 @@ Following SKUEL principles:
 """
 
 from core.models.ku import ExerciseKu, Ku
+from core.models.ku.ku_submission import SubmissionKu
 from core.services.ai_service import AnthropicService, OpenAIService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -53,7 +54,7 @@ class KuFeedbackService:
 
     async def generate_feedback(
         self,
-        entry: Ku,
+        entry: SubmissionKu,
         project: ExerciseKu,
         temperature: float = 0.7,
         max_tokens: int = 4000,

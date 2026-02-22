@@ -153,16 +153,19 @@ class KuIntelligenceService(BaseAnalyticsService[KuOperations, KuBase]):
         if not ku:
             return Result.fail(Errors.not_found(resource="KnowledgeUnit", identifier=uid))
 
-        # Build insights response
+        # Build insights response — curriculum fields may not exist on all Ku types
+        learning_level = getattr(ku, "learning_level", None)
+        quality_score = getattr(ku, "quality_score", 0.0)
+        semantic_links = getattr(ku, "semantic_links", ())
         insights = {
             "ku_uid": uid,
             "ku_title": ku.title,
             "domain": ku.domain.value if ku.domain else None,
-            "learning_level": ku.learning_level.value if ku.learning_level else None,
-            "quality_score": ku.quality_score,
+            "learning_level": learning_level.value if learning_level else None,
+            "quality_score": quality_score,
             "insights": {
                 # Prerequisites are GRAPH-NATIVE - would need service query
-                "has_semantic_links": len(ku.semantic_links) > 0 if ku.semantic_links else False,
+                "has_semantic_links": len(semantic_links) > 0,
             },
             "min_confidence": min_confidence,
         }

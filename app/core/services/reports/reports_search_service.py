@@ -89,7 +89,7 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
         user_uid: str,
         target_date: date,
         ku_type: KuType | None = None,
-    ) -> Result[Ku | None]:
+    ) -> Result[KuBase | None]:
         """
         Get Ku for a specific date.
 
@@ -126,7 +126,7 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
         end_date: date,
         ku_type: KuType | None = None,
         limit: int = 100,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[KuBase]]:
         """
         List Ku within a date range.
 
@@ -166,7 +166,7 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
         category: str,
         ku_type: KuType | None = None,
         limit: int = 50,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[KuBase]]:
         """
         Get Ku filtered by category (stored in metadata).
 
@@ -207,7 +207,7 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
         end_date: date | None = None,
         ku_type: KuType | None = None,
         limit: int = 50,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[KuBase]]:
         """
         Get Ku filtered by mood (stored in metadata).
 
@@ -259,7 +259,7 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
         query: str,
         ku_type: KuType | None = None,
         limit: int = 50,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[KuBase]]:
         """
         Search Ku content using text search.
 
@@ -290,9 +290,12 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
 
         kus = result.value
         query_lower = query.lower()
-        filtered = [
-            k for k in kus if k.processed_content and query_lower in k.processed_content.lower()
-        ][:limit]
+
+        def _has_matching_content(k: KuBase) -> bool:
+            pc = getattr(k, "processed_content", None)
+            return bool(pc and query_lower in pc.lower())
+
+        filtered = [k for k in kus if _has_matching_content(k)][:limit]
 
         return Result.ok(filtered)
 
@@ -350,9 +353,11 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
             )
 
         # Total words
-        total_words = sum(
-            len(k.processed_content.split()) if k.processed_content else 0 for k in kus
-        )
+        def _word_count(k: KuBase) -> int:
+            pc = getattr(k, "processed_content", None)
+            return len(pc.split()) if pc else 0
+
+        total_words = sum(_word_count(k) for k in kus)
         average_words = total_words / total_kus if total_kus > 0 else 0
 
         # Streak calculation
@@ -443,7 +448,7 @@ class KuSearchService(BaseService[BackendOperations[KuBase], KuBase]):
         user_uid: str,
         ku_type: KuType | None = None,
         limit: int = 10,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[KuBase]]:
         """
         Get most recent Ku.
 

@@ -157,7 +157,7 @@ Format each section with its label."""
         context = {
             "name": lp.title,
             "estimated_hours": lp.estimated_hours or "Unknown",
-            "difficulty": lp.step_difficulty or "intermediate",
+            "difficulty": getattr(lp, "step_difficulty", None) or "intermediate",
         }
 
         prompt = """Create a completion strategy for this learning path.

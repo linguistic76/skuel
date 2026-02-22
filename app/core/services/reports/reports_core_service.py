@@ -786,7 +786,7 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
             f"# {ku.title}",
             f"*{ku.created_at.strftime('%Y-%m-%d')}*" if ku.created_at else "",
             "",
-            ku.processed_content or ku.content or "",
+            getattr(ku, "processed_content", None) or ku.content or "",
             "",
             f"**Type:** {ku.ku_type.value}" if ku.ku_type else "",
             f"**Category:** {category}" if category else "",
@@ -910,7 +910,7 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
         if result.is_error:
             return Result.fail(result.expect_error())
         kus = result.value or []
-        journals = [k for k in kus if k.max_retention is not None]
+        journals = [k for k in kus if getattr(k, "max_retention", None) is not None]
         journals.sort(key=_get_entry_date_key, reverse=True)
         return Result.ok(journals[:limit])
 
@@ -924,7 +924,7 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
         if result.is_error:
             return Result.fail(result.expect_error())
         kus = result.value or []
-        journals = [k for k in kus if k.max_retention is None]
+        journals = [k for k in kus if getattr(k, "max_retention", None) is None]
         journals.sort(key=_get_entry_date_key, reverse=True)
         return Result.ok(journals[:limit])
 
@@ -1163,7 +1163,7 @@ class KuCoreService(BaseService[BackendOperations[KuBase], KuBase]):
 
         kus = result.value or []
         # Filter to journals with FIFO retention
-        journals = [k for k in kus if k.max_retention is not None]
+        journals = [k for k in kus if getattr(k, "max_retention", None) is not None]
 
         if len(journals) <= max_retention:
             return Result.ok(0)

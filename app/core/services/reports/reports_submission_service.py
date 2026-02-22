@@ -105,7 +105,7 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
         metadata: dict[str, Any] | None = None,
         applies_knowledge_uids: list[str] | None = None,
         fulfills_project_uid: str | None = None,
-    ) -> Result[Ku]:
+    ) -> Result[KuBase]:
         """
         Submit a file for processing.
 
@@ -256,7 +256,7 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
         status: KuStatus | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[KuBase]]:
         """
         List Ku for a user with optional filters.
 
@@ -288,7 +288,7 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
         return Result.ok(result.value)
 
     @with_error_handling("get_ku")
-    async def get_ku(self, uid: str) -> Result[Ku | None]:
+    async def get_ku(self, uid: str) -> Result[KuBase | None]:
         """Get Ku by UID."""
         return await self.backend.get(uid)
 
@@ -317,7 +317,7 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
     @with_error_handling("update_ku_status")
     async def update_ku_status(
         self, uid: str, new_status: KuStatus, error_message: str | None = None
-    ) -> Result[Ku]:
+    ) -> Result[KuBase]:
         """
         Update Ku status.
 
@@ -346,7 +346,7 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
 
         return result
 
-    async def update_ku(self, uid: str, updates: dict[str, Any]) -> Result[Ku]:
+    async def update_ku(self, uid: str, updates: dict[str, Any]) -> Result[KuBase]:
         """
         Update Ku with arbitrary fields.
 
@@ -372,7 +372,7 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
     @with_error_handling("update_processed_content")
     async def update_processed_content(
         self, uid: str, processed_content: str, processed_file_path: str | None = None
-    ) -> Result[Ku]:
+    ) -> Result[KuBase]:
         """
         Update Ku with processed content.
 
@@ -421,7 +421,8 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
         if not ku:
             return Result.fail(Errors.not_found("Ku", uid))
 
-        file_path = Path(ku.file_path) if ku.file_path else None
+        ku_file_path = getattr(ku, "file_path", None)
+        file_path = Path(ku_file_path) if ku_file_path else None
         ku_dir = file_path.parent if file_path else None
 
         # Delete Neo4j record first
@@ -470,7 +471,10 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
             return Result.fail(Errors.not_found("Ku", ku_uid))
 
         try:
-            file_path = Path(ku.file_path)
+            ku_file_path = getattr(ku, "file_path", None)
+            if not ku_file_path:
+                return Result.fail(Errors.not_found(resource="File", identifier="no file_path"))
+            file_path = Path(ku_file_path)
             if not file_path.exists():
                 return Result.fail(Errors.not_found(resource="File", identifier=str(file_path)))
 
@@ -504,7 +508,8 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
         if not ku:
             return Result.fail(Errors.not_found("Ku", ku_uid))
 
-        if not ku.processed_file_path:
+        processed_path = getattr(ku, "processed_file_path", None)
+        if not processed_path:
             return Result.fail(
                 Errors.validation(
                     message="No processed file available for this Ku",
@@ -513,7 +518,7 @@ class KuSubmissionService(BaseService[BackendOperations[KuBase], KuBase]):
             )
 
         try:
-            file_path = Path(ku.processed_file_path)
+            file_path = Path(processed_path)
             if not file_path.exists():
                 return Result.fail(
                     Errors.not_found(resource="ProcessedFile", identifier=str(file_path))

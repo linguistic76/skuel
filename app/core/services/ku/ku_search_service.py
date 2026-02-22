@@ -27,6 +27,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.constants import QueryLimit
+from core.models.enums import KuComplexity
 from core.models.enums.neo_labels import NeoLabel
 from core.models.ku.ku import Ku
 from core.models.ku.ku_base import KuBase
@@ -755,15 +756,16 @@ class KuSearchService(BaseService[KuOperations, KuBase]):
             return entity
         if isinstance(entity, dict):
             return KuDTO.from_dict(entity)
-        # Convert frozen Ku to mutable KuDTO
+        # Convert frozen Ku to mutable KuDTO — use getattr for curriculum-specific fields
+        semantic_links = getattr(entity, "semantic_links", ())
         return KuDTO(
             uid=entity.uid,
             title=entity.title,
             domain=entity.domain,
             word_count=entity.word_count,
-            quality_score=entity.quality_score,
-            complexity=entity.complexity,
-            semantic_links=list(entity.semantic_links) if entity.semantic_links else [],
+            quality_score=getattr(entity, "quality_score", 0.0),
+            complexity=getattr(entity, "complexity", KuComplexity.MEDIUM),
+            semantic_links=list(semantic_links) if semantic_links else [],
             created_at=entity.created_at,
             updated_at=entity.updated_at,
             tags=list(entity.tags) if entity.tags else [],

@@ -522,8 +522,8 @@ class ReportActivityExtractorService:
             user_uid=user_uid,
         )
 
-        # Get content to parse
-        content = report.processed_content or ""
+        # Get content to parse (processed_content only exists on SubmissionKu)
+        content = getattr(report, "processed_content", None) or ""
         if not content:
             self.logger.warning(f"No processed content in report {report.uid}")
             extraction.extraction_completed_at = datetime.now()

@@ -311,10 +311,11 @@ class KuAIService(BaseAIService[KuOperations, Ku]):
             return Result.fail(Errors.not_found(resource="KnowledgeUnit", identifier=ku_uid))
 
         content = await self._fetch_content(ku_uid)
+        learning_level = getattr(ku, "learning_level", None)
         context = {
             "title": ku.title,
             "domain": ku.domain.value,
-            "learning_level": ku.learning_level.value,
+            "learning_level": learning_level.value if learning_level else "unknown",
             "content": content[:2000] if content else "No content",
         }
 
@@ -361,11 +362,12 @@ Be concise and educational."""
         }
 
         content = await self._fetch_content(ku_uid)
+        learning_level = getattr(ku, "learning_level", None)
         context = {
             "title": ku.title,
             "domain": ku.domain.value,
             "content": content[:2000] if content else "No content",
-            "current_level": ku.learning_level.value,
+            "current_level": learning_level.value if learning_level else "unknown",
         }
 
         guidance = level_guidance.get(target_level.lower(), level_guidance["intermediate"])
@@ -405,10 +407,11 @@ Keep the explanation under 200 words. Make it engaging and memorable."""
         if not ku:
             return Result.fail(Errors.not_found(resource="KnowledgeUnit", identifier=ku_uid))
 
+        learning_level = getattr(ku, "learning_level", None)
         context = {
             "title": ku.title,
             "domain": ku.domain.value,
-            "learning_level": ku.learning_level.value,
+            "learning_level": learning_level.value if learning_level else "unknown",
             "summary": ku.summary or "No summary",
             "tags": ", ".join(ku.tags) if ku.tags else "None",
         }

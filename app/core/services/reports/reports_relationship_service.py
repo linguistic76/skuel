@@ -76,9 +76,10 @@ class KuRelationshipService:
                 relationships_created["thematic"] = thematic_result
 
             # 3. Goal Support Relationships: SUPPORTS_GOAL
-            if active_goals and ku.processed_content:
+            processed_content = getattr(ku, "processed_content", None)
+            if active_goals and processed_content:
                 goal_result = await self._create_goal_relationships(
-                    ku.uid, ku.processed_content, active_goals
+                    ku.uid, processed_content, active_goals
                 )
                 relationships_created["goal_support"] = goal_result
 

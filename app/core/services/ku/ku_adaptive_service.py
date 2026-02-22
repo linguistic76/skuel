@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 
 from core.models.enums import Domain, LearningLevel, SELCategory
 from core.models.ku.ku import Ku
+from core.models.ku.ku_curriculum import CurriculumKu
 from core.models.ku.ku_intelligence import (
     ContentPreference,
     KuMastery,
@@ -113,6 +114,9 @@ class KuAdaptiveService:
         if not prereqs_met:
             return False
 
+        if not isinstance(ku, CurriculumKu):
+            return True  # Non-curriculum types skip level-based filtering
+
         if ku.sel_category is None:
             return True  # No SEL category = no level-based filtering
         user_level = self._determine_user_level(user_intel, ku.sel_category)
@@ -188,28 +192,33 @@ class KuAdaptiveService:
         enables_count = await self._count_enables(ku)
         score += enables_count * 10
 
-        # Factor 2: Matches user's preferred difficulty
-        user_velocity = user_intel.get_dominant_learning_velocity()
-        if (
-            (user_velocity == LearningVelocity.FAST and ku.difficulty_rating > 0.7)
-            or (user_velocity == LearningVelocity.MODERATE and 0.4 <= ku.difficulty_rating <= 0.7)
-            or (user_velocity == LearningVelocity.SLOW and ku.difficulty_rating < 0.4)
-        ):
-            score += 20
+        # Curriculum-specific scoring requires CurriculumKu fields
+        if isinstance(ku, CurriculumKu):
+            # Factor 2: Matches user's preferred difficulty
+            user_velocity = user_intel.get_dominant_learning_velocity()
+            if (
+                (user_velocity == LearningVelocity.FAST and ku.difficulty_rating > 0.7)
+                or (
+                    user_velocity == LearningVelocity.MODERATE
+                    and 0.4 <= ku.difficulty_rating <= 0.7
+                )
+                or (user_velocity == LearningVelocity.SLOW and ku.difficulty_rating < 0.4)
+            ):
+                score += 20
 
-        # Factor 3: Time investment matches availability
-        available_minutes = getattr(user_intel, "available_minutes", 30)
-        if ku.estimated_time_minutes <= available_minutes:
-            score += 15
+            # Factor 3: Time investment matches availability
+            available_minutes = getattr(user_intel, "available_minutes", 30)
+            if ku.estimated_time_minutes <= available_minutes:
+                score += 15
+
+            # Factor 5: Quick wins
+            if ku.is_quick_win():
+                score += 10
 
         # Factor 4: Foundational KUs (no prerequisites)
         prereq_count = await self._count_prerequisites(ku)
         if prereq_count == 0:
             score += 5
-
-        # Factor 5: Quick wins
-        if ku.is_quick_win():
-            score += 10
 
         return score
 

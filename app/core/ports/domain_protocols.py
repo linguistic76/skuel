@@ -91,6 +91,7 @@ if TYPE_CHECKING:
     from core.models.finance.invoice import InvoicePure
     from core.models.ku.ku import Ku
     from core.models.ku.ku_base import KuBase
+    from core.models.ku.ku_goal import GoalKu
     from core.models.ku.ku_habit import HabitKu
     from core.models.ku.ku_task import TaskKu
     from core.models.type_hints import EntityUID, Metadata

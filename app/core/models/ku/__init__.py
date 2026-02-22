@@ -46,7 +46,7 @@ from .exercise_request import (
     ExerciseUpdateRequest,
     KuFeedbackGenerateRequest,
 )
-from .ku import KU_TYPE_CLASS_MAP, Ku
+from .ku import KU_TYPE_CLASS_MAP, CurriculumEntity, Ku, SubmissionEntity
 from .ku_ai_report import AiReportKu
 from .ku_base import KuBase
 from .ku_choice import ChoiceKu
@@ -143,6 +143,8 @@ __all__ = [
     "FeedbackKu",
     "LifePathKu",
     "KU_TYPE_CLASS_MAP",
+    "CurriculumEntity",
+    "SubmissionEntity",
     "KuChunk",
     "KuChunkType",
     # Content models

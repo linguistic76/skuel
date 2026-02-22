@@ -492,11 +492,12 @@ class KuRetrieval:
         # Note: current_domain_uid removed from UserContext
         # Could use primary_goal_focus or learning_velocity_by_domain in future
 
-        # Boost based on user's learning level match
+        # Boost based on user's learning level match (curriculum entities only)
+        unit_learning_level = getattr(result.unit, "learning_level", None)
         if (
             context.learning_level
-            and result.unit.learning_level
-            and context.learning_level == result.unit.learning_level
+            and unit_learning_level
+            and context.learning_level == unit_learning_level
         ):
             boost *= 1.1
 

@@ -1057,8 +1057,9 @@ class KuService(FacadeDelegationMixin):
         kus, _ = result.value
         categories = set()
         for ku in kus:
-            if ku.sel_category:
-                categories.add(ku.sel_category)
+            sel_category = getattr(ku, "sel_category", None)
+            if sel_category:
+                categories.add(sel_category)
 
         return Result.ok(sorted(list(categories)))
 

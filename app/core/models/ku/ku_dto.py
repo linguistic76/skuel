@@ -307,7 +307,6 @@ class KuDTO(KuDTOMixin):
     # =========================================================================
     model: str | None = None  # LLM model to use (e.g., "claude-3-5-sonnet-20241022")
     scope: str | None = None  # ProjectScope value ("personal" or "assigned")
-    due_date: date | None = None
     group_uid: str | None = None  # Target group for ASSIGNED scope
     enrichment_mode: str | None = None  # Processing strategy
     context_notes: list[str] = field(default_factory=list)  # Reference materials

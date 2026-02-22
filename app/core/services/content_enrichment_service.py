@@ -743,8 +743,8 @@ class ContentEnrichmentService(BaseService[BackendOperations[KuBase], KuBase]):
     async def _create_thematic_relationships(self, journal: Ku, recent_topics: list[str]) -> int:
         """Create RELATED_TO relationships for journal reports sharing topics."""
 
-        # Get journal's topics
-        journal_topics = journal.key_topics or []
+        # Get journal's topics (key_topics is only on SubmissionKu)
+        journal_topics = getattr(journal, "key_topics", None) or []
         if not journal_topics:
             return 0
 
@@ -785,7 +785,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[KuBase], KuBase]):
     ) -> int:
         """Create SUPPORTS_GOAL relationships for mentioned goals."""
         # Extract goal mentions from journal content
-        content_text = journal.content or journal.processed_content or ""
+        content_text = journal.content or getattr(journal, "processed_content", None) or ""
         if not content_text:
             return 0
         content_lower = content_text.lower()
@@ -1348,7 +1348,7 @@ Return ONLY Markdown in this structure:
     # BASIC CRUD (Minimal - for storing processed journals)
     # ========================================================================
 
-    async def create(self, ku: Ku) -> Result[Ku]:
+    async def create(self, ku: KuBase) -> Result[KuBase]:
         """Create Ku and publish event."""
         result = await super().create(ku)
 
@@ -1366,11 +1366,11 @@ Return ONLY Markdown in this structure:
 
         return result
 
-    async def get(self, uid: str) -> Result[Ku]:
+    async def get(self, uid: str) -> Result[KuBase]:
         """Get Ku by UID."""
         return await super().get(uid)
 
-    async def update(self, uid: str, updates: BaseUpdatePayload | dict[str, Any]) -> Result[Ku]:
+    async def update(self, uid: str, updates: BaseUpdatePayload | dict[str, Any]) -> Result[KuBase]:
         """Update Ku."""
         return await super().update(uid, updates)
 
@@ -1420,7 +1420,7 @@ Return ONLY Markdown in this structure:
         user_uid: str,
         instructions_uid: str | None = None,
         store_result: bool = True,
-    ) -> Result[Ku]:
+    ) -> Result[KuBase]:
         """
         Process raw transcript text into a formatted journal report.
 
@@ -1504,12 +1504,17 @@ Return ONLY Markdown in this structure:
 
         # Filter by query string (case-insensitive)
         query_lower = query.lower()
+
+        def _get_summary(r: KuBase) -> str:
+            fn = getattr(r, "get_summary", None)
+            return fn().lower() if fn else ""
+
         matching = [
             r
             for r in reports
             if query_lower in (r.title or "").lower()
             or query_lower in (r.content or "").lower()
-            or query_lower in r.get_summary().lower()
+            or query_lower in _get_summary(r)
         ]
 
         # Apply pagination
@@ -1523,7 +1528,7 @@ Return ONLY Markdown in this structure:
         transcription_result: dict[str, Any],
         user_uid: str,
         instructions_uid: str | None = None,
-    ) -> Result[Ku]:
+    ) -> Result[KuBase]:
         """
         Create a journal report from a transcription result.
 

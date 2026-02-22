@@ -1100,7 +1100,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPathKu]", LearningPat
                 "description": path.description,
                 "domain": get_enum_value(path.domain),
                 "path_type": get_enum_value(path.path_type),
-                "step_difficulty": get_enum_value(path.step_difficulty),
+                "step_difficulty": get_enum_value(getattr(path, "step_difficulty", None)),
                 "created_by": path.created_by,
                 "estimated_hours": path.estimated_hours,
                 "outcomes": list(path.outcomes),

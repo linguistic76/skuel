@@ -22,6 +22,8 @@ from typing import Any
 
 from core.models.enums.ku_enums import KuStatus, KuType
 from core.models.ku import Ku
+from core.models.ku.ku_base import KuBase
+from core.models.ku.ku_submission import SubmissionKu
 from core.services.reports.reports_submission_service import KuSubmissionService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -72,7 +74,7 @@ class KuProcessingService:
 
     async def process_ku(
         self, ku_uid: str, instructions: dict[str, Any] | None = None
-    ) -> Result[Ku]:
+    ) -> Result[KuBase]:
         """
         Process a Ku using appropriate processor.
 
@@ -95,6 +97,14 @@ class KuProcessingService:
         ku = ku_result.value
         if not ku:
             return Result.fail(Errors.not_found("Ku", ku_uid))
+
+        if not isinstance(ku, SubmissionKu):
+            return Result.fail(
+                Errors.validation(
+                    message="Only submission-type Ku can be processed",
+                    field="ku_type",
+                )
+            )
 
         if ku.status in {KuStatus.COMPLETED, KuStatus.PROCESSING}:
             return Result.fail(
@@ -149,7 +159,9 @@ class KuProcessingService:
     # PROCESSOR ROUTING
     # ========================================================================
 
-    async def _route_to_processor(self, ku: Ku, instructions: dict[str, Any] | None) -> Result[Ku]:
+    async def _route_to_processor(
+        self, ku: SubmissionKu, instructions: dict[str, Any] | None
+    ) -> Result[KuBase]:
         """Route Ku to appropriate processor based on file type."""
         await self.ku_submission_service.update_ku_status(ku.uid, KuStatus.PROCESSING)
 
@@ -175,7 +187,9 @@ class KuProcessingService:
     # AUDIO PROCESSING
     # ========================================================================
 
-    async def _process_audio(self, ku: Ku, instructions: dict[str, Any] | None) -> Result[Ku]:
+    async def _process_audio(
+        self, ku: SubmissionKu, instructions: dict[str, Any] | None
+    ) -> Result[KuBase]:
         """
         Process audio file: transcribe + LLM formatting.
 
@@ -252,7 +266,9 @@ class KuProcessingService:
     # TEXT PROCESSING
     # ========================================================================
 
-    async def _process_text(self, ku: Ku, instructions: dict[str, Any] | None) -> Result[Ku]:
+    async def _process_text(
+        self, ku: SubmissionKu, instructions: dict[str, Any] | None
+    ) -> Result[KuBase]:
         """
         Process text file: read content and store.
 
@@ -415,7 +431,7 @@ class KuProcessingService:
 
     async def reprocess_ku(
         self, ku_uid: str, new_instructions: dict[str, Any] | None = None
-    ) -> Result[Ku]:
+    ) -> Result[KuBase]:
         """
         Reprocess an existing Ku with new instructions.
 
