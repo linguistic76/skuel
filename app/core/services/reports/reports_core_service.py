@@ -39,7 +39,8 @@ if TYPE_CHECKING:
 from core.events import publish_event
 from core.events.submission_events import AssessmentCreated, SubmissionDeleted
 from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType
-from core.models.ku import Entity, Feedback, Journal, Ku, KuDTO
+from core.models.ku import Entity, Feedback, Journal, Ku
+from core.models.ku.submission_dto import SubmissionDTO
 from core.models.relationship_names import RelationshipName
 from core.ports import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
@@ -137,7 +138,7 @@ class KuCoreService(BaseService[BackendOperations[Entity], Entity]):
     # DomainConfig
     # =========================================================================
     _config = DomainConfig(
-        dto_class=KuDTO,
+        dto_class=SubmissionDTO,
         model_class=Entity,
         entity_label="Ku",
         search_fields=("title", "original_filename", "processed_content"),
@@ -1354,7 +1355,7 @@ class KuCoreService(BaseService[BackendOperations[Entity], Entity]):
         kus = []
         for record in result.value or []:
             node = record["k"]
-            dto = KuDTO.from_dict(node)
+            dto = SubmissionDTO.from_dict(node)
             kus.append(Entity.from_dto(dto))
         return Result.ok(kus)
 

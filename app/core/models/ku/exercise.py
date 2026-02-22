@@ -28,6 +28,7 @@ from core.models.enums.ku_enums import EntityType, ProjectScope
 from core.models.ku.curriculum import Curriculum
 
 if TYPE_CHECKING:
+    from core.models.ku.exercise_dto import ExerciseDTO
     from core.models.ku.ku_dto import KuDTO
 
 
@@ -135,9 +136,29 @@ class Exercise(Curriculum):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "Exercise":
-        """Create Exercise from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO | ExerciseDTO") -> "Exercise":  # type: ignore[override]
+        """Create Exercise from a KuDTO or ExerciseDTO."""
         return cls._from_dto(dto)
+
+    def to_dto(self) -> "ExerciseDTO":  # type: ignore[override]
+        """Convert Exercise to ExerciseDTO (not generic KuDTO)."""
+        import dataclasses
+        from typing import Any
+
+        from core.models.ku.exercise_dto import ExerciseDTO
+
+        dto_field_names = {f.name for f in dataclasses.fields(ExerciseDTO)}
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            if f.name not in dto_field_names:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, tuple):
+                value = list(value)
+            kwargs[f.name] = value
+        return ExerciseDTO(**kwargs)
 
     def __str__(self) -> str:
         return f"Exercise(uid={self.uid}, title='{self.title}')"

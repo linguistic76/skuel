@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.learning_path_dto import LearningPathDTO
 
 from core.models.enums.ku_enums import EntityType, LpType
 from core.models.ku.curriculum import Curriculum
@@ -83,9 +84,29 @@ class LearningPath(Curriculum):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "LearningPath":
-        """Create LearningPath from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO | LearningPathDTO") -> "LearningPath":  # type: ignore[override]
+        """Create LearningPath from a KuDTO or LearningPathDTO."""
         return cls._from_dto(dto)
+
+    def to_dto(self) -> "LearningPathDTO":  # type: ignore[override]
+        """Convert LearningPath to LearningPathDTO (not generic KuDTO)."""
+        import dataclasses
+        from typing import Any
+
+        from core.models.ku.learning_path_dto import LearningPathDTO
+
+        dto_field_names = {f.name for f in dataclasses.fields(LearningPathDTO)}
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            if f.name not in dto_field_names:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, tuple):
+                value = list(value)
+            kwargs[f.name] = value
+        return LearningPathDTO(**kwargs)
 
     def __str__(self) -> str:
         return f"LearningPath(uid={self.uid}, path_type={self.path_type}, title='{self.title}')"

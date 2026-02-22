@@ -20,7 +20,7 @@ from core.events import HabitCompleted, HabitStreakBroken, HabitStreakMilestone,
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.completion import HabitCompletion
 from core.models.ku.habit import Habit
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.habit_dto import HabitDTO
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.query_types import HabitUpdatePayload
 from core.services.habits.habit_relationships import HabitRelationships
@@ -187,7 +187,7 @@ class HabitsProgressService:
         """
         # Create DTO first, then convert to domain model
         # Map old field names to new HabitDTO field names
-        dto = KuDTO(
+        dto = HabitDTO(
             uid=habit_dict.get("uid", ""),
             user_uid=habit_dict.get("user_uid", ""),
             title=habit_dict.get("title", habit_dict.get("name", "")),
@@ -213,7 +213,7 @@ class HabitsProgressService:
             created_at=habit_dict.get("created_at"),
             updated_at=habit_dict.get("updated_at"),
         )
-        return to_domain_model(dto, KuDTO, Habit)
+        return to_domain_model(dto, HabitDTO, Habit)
 
     def _get_streak_from_context(self, habit_uid: str, user_context: UserContext) -> int | None:
         """
@@ -277,7 +277,7 @@ class HabitsProgressService:
             habit_result = await self.backend.get_habit(habit_uid)
             if habit_result.is_error:
                 return Result.fail(habit_result.expect_error())
-            habit = to_domain_model(habit_result.value, KuDTO, Habit)
+            habit = to_domain_model(habit_result.value, HabitDTO, Habit)
 
         if context_hit:
             self.logger.debug(f"Context-first HIT: habit {habit_uid} from rich context")
@@ -367,7 +367,7 @@ class HabitsProgressService:
         # Context invalidation happens via HabitCompleted/HabitStreakBroken/HabitStreakMilestone events (event-driven architecture)
         # Event handlers in bootstrap will call user_service.invalidate_context()
 
-        completed_habit = to_domain_model(update_result.value, KuDTO, Habit)
+        completed_habit = to_domain_model(update_result.value, HabitDTO, Habit)
 
         # PUBLISH EVENTS
 
@@ -443,7 +443,7 @@ class HabitsProgressService:
                 habit_result = await self.backend.get_habit(habit_uid)
                 if habit_result.is_ok:
                     context_misses += 1
-                    habit = to_domain_model(habit_result.value, KuDTO, Habit)
+                    habit = to_domain_model(habit_result.value, HabitDTO, Habit)
                     at_risk.append(habit)
 
         if context_hits > 0 or context_misses > 0:
@@ -475,7 +475,7 @@ class HabitsProgressService:
             habit_result = await self.backend.get_habit(habit_uid)
             if habit_result.is_error:
                 return Result.fail(habit_result.expect_error())
-            habit = to_domain_model(habit_result.value, KuDTO, Habit)
+            habit = to_domain_model(habit_result.value, HabitDTO, Habit)
             self.logger.debug(f"Context-first MISS: habit {habit_uid} queried for analysis")
         else:
             self.logger.debug(
@@ -581,7 +581,7 @@ class HabitsProgressService:
         for habit_uid in user_context.keystone_habits:
             habit_result = await self.backend.get_habit(habit_uid)
             if habit_result.is_ok:
-                habit = to_domain_model(habit_result.value, KuDTO, Habit)
+                habit = to_domain_model(habit_result.value, HabitDTO, Habit)
                 keystone_habits.append(habit)
 
         return Result.ok(keystone_habits)
@@ -598,7 +598,7 @@ class HabitsProgressService:
             if habit_uid not in user_context.keystone_habits:
                 habit_result = await self.backend.get_habit(habit_uid)
                 if habit_result.is_ok:
-                    habit = to_domain_model(habit_result.value, KuDTO, Habit)
+                    habit = to_domain_model(habit_result.value, HabitDTO, Habit)
 
                     # GRAPH-NATIVE: Fetch relationships to check impact
                     rels = await HabitRelationships.fetch(habit_uid, self.relationships)

@@ -22,7 +22,7 @@ Handles basic create, read, update, DETACH DELETE operations for knowledge units
 **Architecture (January 2026 Unified):**
 - Inherits from BaseService for unified Activity/Curriculum patterns
 - Uses CurriculumOperations[Ku] protocol hierarchy
-- Returns Result[KuDTO] for backward compatibility with facade
+- Returns Result[CurriculumDTO] for backward compatibility with facade
 """
 
 from datetime import UTC, datetime
@@ -30,9 +30,9 @@ from typing import Any
 
 from core.events import publish_event
 from core.models.enums import Domain, KnowledgeStatus
+from core.models.ku.curriculum_dto import CurriculumDTO
 from core.models.ku.entity import Entity
 from core.models.ku.ku import Ku
-from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 from core.ports.content_protocols import ensure_content_protocol
 from core.ports.curriculum_protocols import CurriculumOperations
@@ -82,7 +82,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
 
     # BaseService configuration (January 2026 - DomainConfig)
     _config = create_curriculum_domain_config(
-        dto_class=KuDTO,
+        dto_class=CurriculumDTO,
         model_class=Entity,
         domain_name="ku",
         search_fields=("title", "summary", "tags"),
@@ -154,7 +154,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         summary: str = "",
         tags: list[str] | None = None,
         **metadata: Any,
-    ) -> Result[KuDTO]:
+    ) -> Result[CurriculumDTO]:
         """
         Create a new knowledge unit with content.
 
@@ -164,7 +164,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         3. Store unit metadata
         4. Process and store content (with chunking if available)
         5. Analyze content quality
-        6. Return KuDTO
+        6. Return CurriculumDTO
 
         Args:
             title: Knowledge unit title,
@@ -174,7 +174,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
             **metadata: Additional fields (domain, complexity, etc.)
 
         Returns:
-            Result containing created KuDTO
+            Result containing created CurriculumDTO
         """
         # Validation
         if not title or not body:
@@ -222,7 +222,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         await self._store_content(uid, body, title, tags, metadata)
 
         # Build DTO
-        dto = KuDTO(
+        dto = CurriculumDTO(
             uid=uid,
             title=title.strip(),
             domain=Domain[metadata.get("domain", "KNOWLEDGE")],
@@ -301,7 +301,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         # Fallback: simple content storage
         await self.content_repo.create_content(unit_uid=uid, body=body.strip())
 
-    async def _analyze_content_async(self, dto: KuDTO) -> None:
+    async def _analyze_content_async(self, dto: CurriculumDTO) -> None:
         """
         Analyze content quality asynchronously.
 
@@ -343,7 +343,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
 
     @track_query_metrics("ku_get_with_context")
     @with_error_handling("get_with_context", error_type="database", uid_param="uid")
-    async def get_with_context(self, uid: str, min_confidence: float = 0.7) -> Result[KuDTO]:
+    async def get_with_context(self, uid: str, min_confidence: float = 0.7) -> Result[CurriculumDTO]:
         """
         Get knowledge unit WITH graph neighborhood context in single query.
 
@@ -363,7 +363,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
             min_confidence: Minimum relationship confidence (default: 0.7)
 
         Returns:
-            Result containing KuDTO with graph context in metadata field:
+            Result containing CurriculumDTO with graph context in metadata field:
             {
                 "graph_context": {
                     "prerequisites": [{uid, title, confidence}, ...],
@@ -452,8 +452,8 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         record = result.value[0]
         ku_node = record["ku"]
 
-        # Build KuDTO from node
-        dto = KuDTO.from_dict(ku_node)
+        # Build CurriculumDTO from node
+        dto = CurriculumDTO.from_dict(ku_node)
 
         # Enrich metadata with graph context
         dto.metadata["graph_context"] = {
@@ -510,7 +510,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
 
     @track_query_metrics("ku_update")
     @with_error_handling("update", error_type="database", uid_param="uid")
-    async def update(self, uid: str, **updates: Any) -> Result[KuDTO]:
+    async def update(self, uid: str, **updates: Any) -> Result[CurriculumDTO]:
         """
         Update a knowledge unit.
 
@@ -525,7 +525,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
             **updates: Fields to update (title, body, tags, etc.)
 
         Returns:
-            Result containing updated KuDTO
+            Result containing updated CurriculumDTO
         """
         # Verify existence
         existing_result = await self.get(uid)
@@ -617,7 +617,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
     # STATUS TRANSITIONS
     # ========================================================================
 
-    async def publish(self, uid: str) -> Result[KuDTO]:
+    async def publish(self, uid: str) -> Result[CurriculumDTO]:
         """
         Publish a knowledge unit (DRAFT → PUBLISHED).
 
@@ -625,11 +625,11 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
             uid: Knowledge unit UID
 
         Returns:
-            Result containing updated KuDTO with PUBLISHED status
+            Result containing updated CurriculumDTO with PUBLISHED status
         """
         return await self.update(uid, status=KnowledgeStatus.PUBLISHED.value)
 
-    async def archive(self, uid: str) -> Result[KuDTO]:
+    async def archive(self, uid: str) -> Result[CurriculumDTO]:
         """
         Archive a knowledge unit (any status → ARCHIVED).
 
@@ -637,7 +637,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
             uid: Knowledge unit UID
 
         Returns:
-            Result containing updated KuDTO with ARCHIVED status
+            Result containing updated CurriculumDTO with ARCHIVED status
         """
         return await self.update(uid, status=KnowledgeStatus.ARCHIVED.value)
 

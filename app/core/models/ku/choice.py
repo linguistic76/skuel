@@ -23,6 +23,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from core.models.ku.choice_dto import ChoiceDTO
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums.ku_enums import ChoiceType, EntityType
@@ -137,9 +138,29 @@ class Choice(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "Choice":
-        """Create Choice from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO | ChoiceDTO") -> "Choice":
+        """Create Choice from a KuDTO or ChoiceDTO."""
         return cls._from_dto(dto)
+
+    def to_dto(self) -> "ChoiceDTO":  # type: ignore[override]
+        """Convert Choice to ChoiceDTO (not generic KuDTO)."""
+        import dataclasses
+        from typing import Any
+
+        from core.models.ku.choice_dto import ChoiceDTO
+
+        dto_field_names = {f.name for f in dataclasses.fields(ChoiceDTO)}
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            if f.name not in dto_field_names:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, tuple):
+                value = list(value)
+            kwargs[f.name] = value
+        return ChoiceDTO(**kwargs)
 
     def __str__(self) -> str:
         return f"Choice(uid={self.uid}, title='{self.title}', type={self.choice_type})"

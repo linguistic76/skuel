@@ -33,7 +33,7 @@ from core.events import publish_event
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.enums import Domain
 from core.models.ku import LearningPath, LearningStep
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.learning_path_dto import LearningPathDTO
 from core.ports import HasUID, get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
@@ -91,7 +91,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
     # All configuration in one place, using centralized relationship registry
     # See: /docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md
     _config = create_curriculum_domain_config(
-        dto_class=KuDTO,
+        dto_class=LearningPathDTO,
         model_class=LearningPath,
         entity_label="Ku",
         domain_name="lp",
@@ -870,7 +870,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             return Result.ok(None)
 
         lp_data = result.value[0]["lp"]
-        lp = self._to_domain_model(lp_data, KuDTO, LearningPath)
+        lp = self._to_domain_model(lp_data, LearningPathDTO, LearningPath)
         return Result.ok(lp)
 
     @with_error_handling("get_path_hierarchy", error_type="database", uid_param="path_uid")
@@ -892,7 +892,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         if current_result.is_error:
             return Result.fail(current_result)
 
-        current_lp = self._to_domain_model(current_result.value, KuDTO, LearningPath)
+        current_lp = self._to_domain_model(current_result.value, LearningPathDTO, LearningPath)
 
         # Get steps
         steps_result = await self.get_steps(path_uid)

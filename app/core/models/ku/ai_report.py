@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from core.models.ku.ai_report_dto import AiReportDTO
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums.ku_enums import EntityType
@@ -43,9 +44,29 @@ class AiReport(Submission):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "AiReport":
-        """Create AiReport from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO | AiReportDTO") -> "AiReport":  # type: ignore[override]
+        """Create AiReport from a KuDTO or AiReportDTO."""
         return cls._from_dto(dto)
+
+    def to_dto(self) -> "AiReportDTO":  # type: ignore[override]
+        """Convert AiReport to AiReportDTO (not generic KuDTO)."""
+        import dataclasses
+        from typing import Any
+
+        from core.models.ku.ai_report_dto import AiReportDTO
+
+        dto_field_names = {f.name for f in dataclasses.fields(AiReportDTO)}
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            if f.name not in dto_field_names:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, tuple):
+                value = list(value)
+            kwargs[f.name] = value
+        return AiReportDTO(**kwargs)
 
     def __str__(self) -> str:
         return f"AiReport(uid={self.uid}, title='{self.title}')"

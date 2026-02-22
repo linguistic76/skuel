@@ -30,7 +30,7 @@ from core.events.calendar_event_events import (
 from core.models.enums import EntityStatus
 from core.models.enums.ku_enums import EntityType
 from core.models.ku.event import Event
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.event_dto import EventDTO
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -112,7 +112,7 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=EventDTO,
         model_class=Event,
         entity_label="Ku",
         domain_name="events",
@@ -286,7 +286,7 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
         events_data, _ = result.value
 
         # Use BaseService helper for batch DTO conversion
-        events = self._to_domain_models(events_data, KuDTO, Event)
+        events = self._to_domain_models(events_data, EventDTO, Event)
 
         # Sort if requested
         if order_by and events:
@@ -526,7 +526,7 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
         events = []
         for record in result.value:
             event_data = record["subevent"]
-            event = self._to_domain_model(event_data, KuDTO, Event)
+            event = self._to_domain_model(event_data, EventDTO, Event)
             events.append(event)
 
         return Result.ok(events)
@@ -557,7 +557,7 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
             return Result.ok(None)
 
         parent_data = result.value[0]["parent"]
-        parent = self._to_domain_model(parent_data, KuDTO, Event)
+        parent = self._to_domain_model(parent_data, EventDTO, Event)
         return Result.ok(parent)
 
     @with_error_handling("get_event_hierarchy", error_type="database", uid_param="event_uid")
@@ -614,7 +614,7 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
         if current_result.is_error:
             return Result.fail(current_result)
 
-        current_event = self._to_domain_model(current_result.value, KuDTO, Event)
+        current_event = self._to_domain_model(current_result.value, EventDTO, Event)
 
         ancestors_result = await self.backend.execute_query(
             ancestors_query, {"event_uid": event_uid}
@@ -631,7 +631,7 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
         ):
             for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
                 event_data = node
-                ancestors.append(self._to_domain_model(event_data, KuDTO, Event))
+                ancestors.append(self._to_domain_model(event_data, EventDTO, Event))
 
         # Process siblings
         siblings = []
@@ -643,7 +643,7 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
             for node in siblings_result.value[0]["siblings"]:
                 if node:  # Skip None values
                     event_data = node
-                    siblings.append(self._to_domain_model(event_data, KuDTO, Event))
+                    siblings.append(self._to_domain_model(event_data, EventDTO, Event))
 
         # Process children
         children = []
@@ -655,7 +655,7 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
             for node in children_result.value[0]["children"]:
                 if node:  # Skip None values
                     event_data = node
-                    children.append(self._to_domain_model(event_data, KuDTO, Event))
+                    children.append(self._to_domain_model(event_data, EventDTO, Event))
 
         return Result.ok(
             {

@@ -24,8 +24,8 @@ from core.models.enums.ku_enums import (
     PrincipleStrength,
 )
 from core.models.ku.entity import Entity
-from core.models.ku.ku_dto import KuDTO
 from core.models.ku.principle import Principle
+from core.models.ku.principle_dto import PrincipleDTO
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -71,7 +71,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=PrincipleDTO,
         model_class=Entity,
         domain_name="principles",
         date_field="created_at",
@@ -591,7 +591,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
         for record in results.value:
             principle_data = record.get("n")
             if principle_data:
-                dto = KuDTO.from_dict(principle_data)
+                dto = PrincipleDTO.from_dict(principle_data)
                 principle = Principle.from_dto(dto)
                 principles.append(principle)
 
@@ -677,7 +677,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
         principles = []
         for record in result.value:
             principle_data = record["subprinciple"]
-            principle = self._to_domain_model(principle_data, KuDTO, Entity)
+            principle = self._to_domain_model(principle_data, PrincipleDTO, Entity)
             principles.append(principle)
 
         return Result.ok(principles)
@@ -710,7 +710,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
             return Result.ok(None)
 
         parent_data = result.value[0]["parent"]
-        parent = self._to_domain_model(parent_data, KuDTO, Entity)
+        parent = self._to_domain_model(parent_data, PrincipleDTO, Entity)
         return Result.ok(parent)
 
     @with_error_handling(
@@ -769,7 +769,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
         if current_result.is_error:
             return Result.fail(current_result.expect_error())
 
-        current_principle = self._to_domain_model(current_result.value, KuDTO, Entity)
+        current_principle = self._to_domain_model(current_result.value, PrincipleDTO, Entity)
 
         ancestors_result = await self.backend.execute_query(
             ancestors_query, {"principle_uid": principle_uid}
@@ -790,7 +790,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
         ):
             for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
                 principle_data = node
-                ancestors.append(self._to_domain_model(principle_data, KuDTO, Entity))
+                ancestors.append(self._to_domain_model(principle_data, PrincipleDTO, Entity))
 
         # Process siblings
         siblings = []
@@ -802,7 +802,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
             for node in siblings_result.value[0]["siblings"]:
                 if node:  # Skip None values
                     principle_data = node
-                    siblings.append(self._to_domain_model(principle_data, KuDTO, Entity))
+                    siblings.append(self._to_domain_model(principle_data, PrincipleDTO, Entity))
 
         # Process children
         children = []
@@ -814,7 +814,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
             for node in children_result.value[0]["children"]:
                 if node:  # Skip None values
                     principle_data = node
-                    children.append(self._to_domain_model(principle_data, KuDTO, Entity))
+                    children.append(self._to_domain_model(principle_data, PrincipleDTO, Entity))
 
         return Result.ok(
             {

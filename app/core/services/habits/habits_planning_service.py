@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import RecurrencePattern
 from core.models.enums.ku_enums import HabitCategory
 from core.models.ku.habit import Habit
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.habit_dto import HabitDTO
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_planning_service import BasePlanningService
 from core.utils.decorators import with_error_handling
@@ -123,7 +123,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
         Returns:
             Habit domain model instance
         """
-        dto = KuDTO(
+        dto = HabitDTO(
             uid=habit_dict.get("uid", ""),
             user_uid=habit_dict.get("user_uid", ""),
             title=habit_dict.get("title", habit_dict.get("name", "")),
@@ -146,7 +146,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
             created_at=habit_dict.get("created_at") or datetime.now(),
             updated_at=habit_dict.get("updated_at") or datetime.now(),
         )
-        return to_domain_model(dto, KuDTO, Habit)
+        return to_domain_model(dto, HabitDTO, Habit)
 
     # ========================================================================
     # CONTEXT-FIRST METHODS
@@ -201,7 +201,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 habit_result = await self.backend.get_habit(habit_uid)
                 if habit_result.is_error or not habit_result.value:
                     continue
-                habit = to_domain_model(habit_result.value, KuDTO, Habit)
+                habit = to_domain_model(habit_result.value, HabitDTO, Habit)
             else:
                 # Extract graph context if available
                 for habit_data in context.active_habits_rich:
@@ -281,7 +281,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 habit_result = await self.backend.get_habit(habit_uid)
                 if habit_result.is_error or not habit_result.value:
                     continue
-                habit = to_domain_model(habit_result.value, KuDTO, Habit)
+                habit = to_domain_model(habit_result.value, HabitDTO, Habit)
             else:
                 for habit_data in context.active_habits_rich:
                     if habit_data.get("habit", {}).get("uid") == habit_uid:
@@ -389,7 +389,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 habit_result = await self.backend.get_habit(habit_uid)
                 if habit_result.is_error or not habit_result.value:
                     continue
-                habit = to_domain_model(habit_result.value, KuDTO, Habit)
+                habit = to_domain_model(habit_result.value, HabitDTO, Habit)
             else:
                 for habit_data in context.active_habits_rich:
                     if habit_data.get("habit", {}).get("uid") == habit_uid:
@@ -476,7 +476,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 habit_result = await self.backend.get_habit(habit_uid)
                 if habit_result.is_error or not habit_result.value:
                     continue
-                habit = to_domain_model(habit_result.value, KuDTO, Habit)
+                habit = to_domain_model(habit_result.value, HabitDTO, Habit)
             else:
                 for habit_data in context.active_habits_rich:
                     if habit_data.get("habit", {}).get("uid") == habit_uid:
@@ -560,7 +560,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 return Result.fail(habit_result.expect_error())
             if not habit_result.value:
                 return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
-            habit = to_domain_model(habit_result.value, KuDTO, Habit)
+            habit = to_domain_model(habit_result.value, HabitDTO, Habit)
 
         # Get prerequisite habit UIDs
         prereq_uids = await self._get_related_uids("prerequisite_habits", habit_uid)
@@ -578,7 +578,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 prereq_result = await self.backend.get_habit(prereq_uid)
                 if prereq_result.is_error or not prereq_result.value:
                     continue
-                prereq_habit = to_domain_model(prereq_result.value, KuDTO, Habit)
+                prereq_habit = to_domain_model(prereq_result.value, HabitDTO, Habit)
 
             is_established = prereq_streak >= ESTABLISHED_STREAK_THRESHOLD
 

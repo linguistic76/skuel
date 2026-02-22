@@ -228,7 +228,7 @@ class Task(UserOwnedEntity):
         """Create Task from a KuDTO or TaskDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "TaskDTO":
+    def to_dto(self) -> "TaskDTO":  # type: ignore[override]
         """Convert Task to TaskDTO (not generic KuDTO)."""
         import dataclasses
 

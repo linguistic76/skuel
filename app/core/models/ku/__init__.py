@@ -47,28 +47,35 @@ Usage:
 """
 
 from .ai_report import AiReport
+from .ai_report_dto import AiReportDTO
 from .choice import Choice
+from .choice_dto import ChoiceDTO
 from .curriculum import Curriculum
+from .curriculum_dto import CurriculumDTO
 from .entity import Entity
+from .entity_dto import EntityDTO
 from .event import Event
+from .event_dto import EventDTO
 from .exercise import Exercise
+from .exercise_dto import ExerciseDTO
 from .exercise_request import (
     ExerciseCreateRequest,
     ExerciseUpdateRequest,
     KuFeedbackGenerateRequest,
 )
 from .feedback import Feedback
+from .feedback_dto import FeedbackDTO
 from .goal import Goal
+from .goal_dto import GoalDTO
 from .habit import Habit
+from .habit_dto import HabitDTO
 from .journal import Journal
+from .journal_dto import JournalDTO
 from .ku import ENTITY_TYPE_CLASS_MAP, ActivityEntity, CurriculumEntity, Ku, SubmissionEntity
 from .ku_chunks import KuChunk, KuChunkType, chunk_content
 from .ku_content import KuContent
 from .ku_converters import ku_to_response
-from .entity_dto import EntityDTO
 from .ku_dto import KuDTO
-from .task_dto import TaskDTO
-from .user_owned_dto import UserOwnedDTO
 from .ku_metadata import KuMetadata
 from .ku_nested_types import (
     AlignmentAssessment,
@@ -122,13 +129,21 @@ from .ku_schedule import (
     ku_schedule_dto_to_domain,
 )
 from .learning_path import LearningPath
+from .learning_path_dto import LearningPathDTO
 from .learning_step import LearningStep
+from .learning_step_dto import LearningStepDTO
 from .life_path import LifePath
+from .life_path_dto import LifePathDTO
 from .lp_position import LpPosition, create_lp_position
 from .principle import Principle
+from .principle_dto import PrincipleDTO
 from .resource import Resource
+from .resource_dto import ResourceDTO
 from .submission import Submission
+from .submission_dto import SubmissionDTO
 from .task import Task
+from .task_dto import TaskDTO
+from .user_owned_dto import UserOwnedDTO
 from .user_owned_entity import UserOwnedEntity
 
 __all__ = [
@@ -166,6 +181,21 @@ __all__ = [
     "EntityDTO",
     "UserOwnedDTO",
     "TaskDTO",
+    "GoalDTO",
+    "HabitDTO",
+    "EventDTO",
+    "ChoiceDTO",
+    "PrincipleDTO",
+    "SubmissionDTO",
+    "JournalDTO",
+    "AiReportDTO",
+    "FeedbackDTO",
+    "LifePathDTO",
+    "CurriculumDTO",
+    "LearningStepDTO",
+    "LearningPathDTO",
+    "ExerciseDTO",
+    "ResourceDTO",
     "KuDTO",
     "KuMetadata",
     # Nested types (frozen dataclasses)

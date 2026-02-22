@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.principle_dto import PrincipleDTO
 
 from core.models.enums.ku_enums import (
     AlignmentLevel,
@@ -224,9 +225,28 @@ class Principle(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "Principle":
-        """Create Principle from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO | PrincipleDTO") -> "Principle":
+        """Create Principle from a KuDTO or PrincipleDTO."""
         return cls._from_dto(dto)
+
+    def to_dto(self) -> "PrincipleDTO":  # type: ignore[override]
+        """Convert Principle to PrincipleDTO (not generic KuDTO)."""
+        import dataclasses
+
+        from core.models.ku.principle_dto import PrincipleDTO
+
+        dto_field_names = {f.name for f in dataclasses.fields(PrincipleDTO)}
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            if f.name not in dto_field_names:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, tuple):
+                value = list(value)
+            kwargs[f.name] = value
+        return PrincipleDTO(**kwargs)
 
     def __str__(self) -> str:
         return (

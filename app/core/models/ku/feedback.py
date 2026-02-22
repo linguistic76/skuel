@@ -18,6 +18,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from core.models.ku.feedback_dto import FeedbackDTO
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums.ku_enums import EntityType
@@ -50,9 +51,29 @@ class Feedback(Submission):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "Feedback":
-        """Create Feedback from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO | FeedbackDTO") -> "Feedback":  # type: ignore[override]
+        """Create Feedback from a KuDTO or FeedbackDTO."""
         return cls._from_dto(dto)
+
+    def to_dto(self) -> "FeedbackDTO":  # type: ignore[override]
+        """Convert Feedback to FeedbackDTO (not generic KuDTO)."""
+        import dataclasses
+        from typing import Any
+
+        from core.models.ku.feedback_dto import FeedbackDTO
+
+        dto_field_names = {f.name for f in dataclasses.fields(FeedbackDTO)}
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            if f.name not in dto_field_names:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, tuple):
+                value = list(value)
+            kwargs[f.name] = value
+        return FeedbackDTO(**kwargs)
 
     def __str__(self) -> str:
         return f"Feedback(uid={self.uid}, title='{self.title}', subject={self.subject_uid})"

@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.learning_step_dto import LearningStepDTO
 
 from core.models.enums.ku_enums import EntityType, StepDifficulty
 from core.models.ku.curriculum import Curriculum
@@ -121,9 +122,29 @@ class LearningStep(Curriculum):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "LearningStep":
-        """Create LearningStep from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO | LearningStepDTO") -> "LearningStep":  # type: ignore[override]
+        """Create LearningStep from a KuDTO or LearningStepDTO."""
         return cls._from_dto(dto)
+
+    def to_dto(self) -> "LearningStepDTO":  # type: ignore[override]
+        """Convert LearningStep to LearningStepDTO (not generic KuDTO)."""
+        import dataclasses
+        from typing import Any
+
+        from core.models.ku.learning_step_dto import LearningStepDTO
+
+        dto_field_names = {f.name for f in dataclasses.fields(LearningStepDTO)}
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            if f.name not in dto_field_names:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, tuple):
+                value = list(value)
+            kwargs[f.name] = value
+        return LearningStepDTO(**kwargs)
 
     def __str__(self) -> str:
         return f"LearningStep(uid={self.uid}, sequence={self.sequence}, title='{self.title}')"

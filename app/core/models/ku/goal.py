@@ -27,6 +27,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from core.models.ku.goal_dto import GoalDTO
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums.ku_enums import (
@@ -231,9 +232,28 @@ class Goal(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "Goal":
-        """Create Goal from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO | GoalDTO") -> "Goal":
+        """Create Goal from a KuDTO or GoalDTO."""
         return cls._from_dto(dto)
+
+    def to_dto(self) -> "GoalDTO":  # type: ignore[override]
+        """Convert Goal to GoalDTO (not generic KuDTO)."""
+        import dataclasses
+
+        from core.models.ku.goal_dto import GoalDTO
+
+        dto_field_names = {f.name for f in dataclasses.fields(GoalDTO)}
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            if f.name not in dto_field_names:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, tuple):
+                value = list(value)
+            kwargs[f.name] = value
+        return GoalDTO(**kwargs)
 
     def __str__(self) -> str:
         return f"Goal(uid={self.uid}, title='{self.title}', target={self.target_date})"

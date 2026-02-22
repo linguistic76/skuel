@@ -29,6 +29,7 @@ from math import exp, log
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from core.models.ku.curriculum_dto import CurriculumDTO
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory, SystemConstants
@@ -465,9 +466,28 @@ class Curriculum(Entity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "Curriculum":
-        """Create Curriculum from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO | CurriculumDTO") -> "Curriculum":
+        """Create Curriculum from a KuDTO or CurriculumDTO."""
         return cls._from_dto(dto)
+
+    def to_dto(self) -> "CurriculumDTO":  # type: ignore[override]
+        """Convert Curriculum to CurriculumDTO (not generic KuDTO)."""
+        import dataclasses
+
+        from core.models.ku.curriculum_dto import CurriculumDTO
+
+        dto_field_names = {f.name for f in dataclasses.fields(CurriculumDTO)}
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            if f.name not in dto_field_names:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, tuple):
+                value = list(value)
+            kwargs[f.name] = value
+        return CurriculumDTO(**kwargs)
 
     def __str__(self) -> str:
         return f"Curriculum(uid={self.uid}, title='{self.title}')"

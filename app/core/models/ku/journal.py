@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from core.models.ku.journal_dto import JournalDTO
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums.ku_enums import EntityType
@@ -44,9 +45,29 @@ class Journal(Submission):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "Journal":
-        """Create Journal from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO | JournalDTO") -> "Journal":  # type: ignore[override]
+        """Create Journal from a KuDTO or JournalDTO."""
         return cls._from_dto(dto)
+
+    def to_dto(self) -> "JournalDTO":  # type: ignore[override]
+        """Convert Journal to JournalDTO (not generic KuDTO)."""
+        import dataclasses
+        from typing import Any
+
+        from core.models.ku.journal_dto import JournalDTO
+
+        dto_field_names = {f.name for f in dataclasses.fields(JournalDTO)}
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            if f.name not in dto_field_names:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, tuple):
+                value = list(value)
+            kwargs[f.name] = value
+        return JournalDTO(**kwargs)
 
     def __str__(self) -> str:
         return f"Journal(uid={self.uid}, title='{self.title}')"

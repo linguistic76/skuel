@@ -35,7 +35,7 @@ from core.events.curriculum_events import (
     LearningStepUpdated,
 )
 from core.models.ku import LearningStep
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.learning_step_dto import LearningStepDTO
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
@@ -93,7 +93,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
     # All configuration in one place, using centralized relationship registry
     # See: /docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md
     _config = create_curriculum_domain_config(
-        dto_class=KuDTO,
+        dto_class=LearningStepDTO,
         model_class=LearningStep,
         entity_label="Ku",
         domain_name="ls",

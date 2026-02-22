@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.life_path_dto import LifePathDTO
 
 from core.models.enums.ku_enums import AlignmentLevel, EntityType
 from core.models.ku.user_owned_entity import UserOwnedEntity
@@ -124,9 +125,29 @@ class LifePath(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "LifePath":
-        """Create LifePath from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO | LifePathDTO") -> "LifePath":
+        """Create LifePath from a KuDTO or LifePathDTO."""
         return cls._from_dto(dto)
+
+    def to_dto(self) -> "LifePathDTO":  # type: ignore[override]
+        """Convert LifePath to LifePathDTO (not generic KuDTO)."""
+        import dataclasses
+        from typing import Any
+
+        from core.models.ku.life_path_dto import LifePathDTO
+
+        dto_field_names = {f.name for f in dataclasses.fields(LifePathDTO)}
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            if f.name not in dto_field_names:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, tuple):
+                value = list(value)
+            kwargs[f.name] = value
+        return LifePathDTO(**kwargs)
 
     def __str__(self) -> str:
         return f"LifePath(uid={self.uid}, title='{self.title}')"

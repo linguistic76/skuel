@@ -29,6 +29,7 @@ from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from core.models.ku.event_dto import EventDTO
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums.ku_enums import EntityType
@@ -177,9 +178,29 @@ class Event(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "Event":
-        """Create Event from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO | EventDTO") -> "Event":
+        """Create Event from a KuDTO or EventDTO."""
         return cls._from_dto(dto)
+
+    def to_dto(self) -> "EventDTO":  # type: ignore[override]
+        """Convert Event to EventDTO (not generic KuDTO)."""
+        import dataclasses
+        from typing import Any
+
+        from core.models.ku.event_dto import EventDTO
+
+        dto_field_names = {f.name for f in dataclasses.fields(EventDTO)}
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            if f.name not in dto_field_names:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, tuple):
+                value = list(value)
+            kwargs[f.name] = value
+        return EventDTO(**kwargs)
 
     def __str__(self) -> str:
         return f"Event(uid={self.uid}, title='{self.title}', date={self.event_date})"

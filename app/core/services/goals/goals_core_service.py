@@ -34,7 +34,7 @@ from core.events.goal_events import (
 from core.models.enums import EntityStatus
 from core.models.enums.ku_enums import EntityType
 from core.models.ku.goal import Goal
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.goal_dto import GoalDTO
 from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
 from core.ports.domain_protocols import GoalsOperations
@@ -112,7 +112,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=KuDTO,
+        dto_class=GoalDTO,
         model_class=Goal,
         domain_name="goals",
         date_field="target_date",
@@ -258,7 +258,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             return result
 
         # Convert to enriched Goal models using helper
-        goals = self._to_domain_models(result.value, KuDTO, Goal)
+        goals = self._to_domain_models(result.value, GoalDTO, Goal)
 
         self.logger.info(f"Retrieved {len(goals)} goals for user {user_uid}")
         return Result.ok(goals)
@@ -320,7 +320,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         # Create DTO from request with all fields
         # Set status to ACTIVE so goal appears in default list view
-        dto = KuDTO(
+        dto = GoalDTO(
             uid=UIDGenerator.generate_random_uid("goal"),
             user_uid=user_uid,
             title=goal_request.title,
@@ -339,7 +339,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         )
 
         # Create goal via backend and convert to domain model (uses BaseService helper)
-        result = await self._create_and_convert(dto.to_dict(), KuDTO, Goal)
+        result = await self._create_and_convert(dto.to_dict(), GoalDTO, Goal)
         if result.is_error:
             return result
         goal = result.value
@@ -680,7 +680,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         if result.is_error:
             return result
 
-        goals = self._to_domain_models(result.value, KuDTO, Goal)
+        goals = self._to_domain_models(result.value, GoalDTO, Goal)
         return Result.ok(goals)
 
     async def get_goals_by_status(self, status: str, limit: int = 100) -> Result[list[Goal]]:
@@ -698,7 +698,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         if result.is_error:
             return result
 
-        goals = self._to_domain_models(result.value, KuDTO, Goal)
+        goals = self._to_domain_models(result.value, GoalDTO, Goal)
         return Result.ok(goals)
 
     async def search_goals(self, query: str, limit: int = 50) -> Result[list[Goal]]:
@@ -730,7 +730,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         goals = []
         for record in result.value:
             goal_node = record["g"]
-            dto = KuDTO.from_dict(goal_node)
+            dto = GoalDTO.from_dict(goal_node)
             goals.append(Goal.from_dto(dto))
 
         return Result.ok(goals)
@@ -851,7 +851,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         goals = []
         for record in result.value:
             goal_data = record["subgoal"]
-            goal = self._to_domain_model(goal_data, KuDTO, Goal)
+            goal = self._to_domain_model(goal_data, GoalDTO, Goal)
             goals.append(goal)
 
         return Result.ok(goals)
@@ -882,7 +882,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             return Result.ok(None)
 
         parent_data = result.value[0]["parent"]
-        parent = self._to_domain_model(parent_data, KuDTO, Goal)
+        parent = self._to_domain_model(parent_data, GoalDTO, Goal)
         return Result.ok(parent)
 
     @with_error_handling("get_goal_hierarchy", error_type="database", uid_param="goal_uid")
@@ -939,7 +939,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         if current_result.is_error:
             return Result.fail(current_result)
 
-        current_goal = self._to_domain_model(current_result.value, KuDTO, Goal)
+        current_goal = self._to_domain_model(current_result.value, GoalDTO, Goal)
 
         ancestors_result = await self.backend.execute_query(ancestors_query, {"goal_uid": goal_uid})
         siblings_result = await self.backend.execute_query(siblings_query, {"goal_uid": goal_uid})
@@ -954,7 +954,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         ):
             for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
                 goal_data = node
-                ancestors.append(self._to_domain_model(goal_data, KuDTO, Goal))
+                ancestors.append(self._to_domain_model(goal_data, GoalDTO, Goal))
 
         # Process siblings
         siblings = []
@@ -966,7 +966,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             for node in siblings_result.value[0]["siblings"]:
                 if node:  # Skip None values
                     goal_data = node
-                    siblings.append(self._to_domain_model(goal_data, KuDTO, Goal))
+                    siblings.append(self._to_domain_model(goal_data, GoalDTO, Goal))
 
         # Process children
         children = []
@@ -978,7 +978,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             for node in children_result.value[0]["children"]:
                 if node:  # Skip None values
                     goal_data = node
-                    children.append(self._to_domain_model(goal_data, KuDTO, Goal))
+                    children.append(self._to_domain_model(goal_data, GoalDTO, Goal))
 
         return Result.ok(
             {

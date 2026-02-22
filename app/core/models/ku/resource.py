@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.resource_dto import ResourceDTO
 
 from core.models.enums.ku_enums import EntityType
 from core.models.ku.entity import Entity
@@ -99,9 +100,29 @@ class Resource(Entity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "Resource":
-        """Create Resource from a KuDTO."""
+    def from_dto(cls, dto: "KuDTO | ResourceDTO") -> "Resource":
+        """Create Resource from a KuDTO or ResourceDTO."""
         return cls._from_dto(dto)
+
+    def to_dto(self) -> "ResourceDTO":  # type: ignore[override]
+        """Convert Resource to ResourceDTO (not generic KuDTO)."""
+        import dataclasses
+        from typing import Any
+
+        from core.models.ku.resource_dto import ResourceDTO
+
+        dto_field_names = {f.name for f in dataclasses.fields(ResourceDTO)}
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            if f.name not in dto_field_names:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, tuple):
+                value = list(value)
+            kwargs[f.name] = value
+        return ResourceDTO(**kwargs)
 
     def __str__(self) -> str:
         return f"Resource(uid={self.uid}, title='{self.title}', media_type={self.media_type})"
