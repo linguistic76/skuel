@@ -639,7 +639,7 @@ shared_context.content_metadata = analyze_result  # Service adds data
 ## 📚 Related Documentation
 
 - [THREE_TIER_ARCHITECTURE.md](./THREE_TIER_ARCHITECTURE.md) - Overall pattern
-- [MODEL_ARCHITECTURE.md](./MODEL_ARCHITECTURE.md) - Model organization
+- [ENUM_ARCHITECTURE.md](./ENUM_ARCHITECTURE.md) - Enum-to-model wiring
 - [BASE_MODELS_MIGRATION.md](./BASE_MODELS_MIGRATION.md) - Migration guide
 - [LEARNING_API_DOCUMENTATION.md](./LEARNING_API_DOCUMENTATION.md) - Learning coordinator APIs
 
