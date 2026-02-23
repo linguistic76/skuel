@@ -907,8 +907,8 @@ def setup_user_profile_routes(rt, services):
                 logger.warning(f"Failed to fetch KUs: {e}")
 
         # Build KU cards
-        def ku_card(ku: dict) -> Any:
-            """Render a KU card with status badges."""
+        def entity_card(ku: dict) -> Any:
+            """Render a knowledge entity card with status badges."""
             ku_title = ku.get("title") or ku.get("uid") or "Untitled"
             ku_domain = ku.get("domain", "")
             is_viewed = ku.get("viewed", False)
@@ -947,7 +947,7 @@ def setup_user_profile_routes(rt, services):
                     cls="badge badge-ghost mb-4",
                 ),
                 Div(
-                    *[ku_card(ku) for ku in all_kus],
+                    *[entity_card(ku) for ku in all_kus],
                     cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
                 ),
             )

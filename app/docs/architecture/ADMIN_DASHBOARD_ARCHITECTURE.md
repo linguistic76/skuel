@@ -221,9 +221,9 @@ KU learning progression monitoring:
 |----------|---------|
 | `_get_user_detail_stats(services, uid)` | 14-field user stats: activity counts, learning, sessions |
 | `_get_users_with_activity_counts(services, role, active)` | All users with task/goal/habit/KU counts for list table |
-| `_get_ku_system_metrics(services)` | Aggregate KU counts, VIEWED/IN_PROGRESS/MASTERED totals |
-| `_get_all_users_ku_progress(services)` | Per-user KU progress (mastered, in_progress, viewed counts) |
-| `_get_user_ku_detail(services, uid)` | Detailed KU list for a user with relationship data |
+| `_get_entity_system_metrics(services)` | Aggregate KU counts, VIEWED/IN_PROGRESS/MASTERED totals |
+| `_get_all_users_progress(services)` | Per-user KU progress (mastered, in_progress, viewed counts) |
+| `_get_user_detail(services, uid)` | Detailed KU list for a user with relationship data |
 
 **`_get_user_detail_stats` returns:**
 
@@ -412,7 +412,7 @@ The admin user detail page uses direct Neo4j queries rather than `UserContext` b
 - **UserContext** is designed for the logged-in user's intelligence ("What should I work on?")
 - **Admin inspection** needs simple counts ("What has this user done?")
 - Direct queries are lighter (14 fields vs ~240 in UserContext)
-- Follows the existing Learning Dashboard pattern (`_get_ku_system_metrics`, etc.)
+- Follows the existing Learning Dashboard pattern (`_get_entity_system_metrics`, etc.)
 
 ---
 

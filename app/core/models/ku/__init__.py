@@ -33,7 +33,11 @@ Architecture:
         resource.py       - Resource      +7 resource fields
 
 Support:
-    ku_request.py      - Pydantic API models
+    ku_request.py      - Re-export shim (imports from split files below)
+    activity_requests.py    - Activity domain creates (Tasks, Goals, etc.)
+    curriculum_requests.py  - Curriculum creates (KU, LS, LP)
+    report_requests.py      - Report creates + LifePath + Assessment
+    entity_requests.py      - Shared types (update, response, bulk ops)
     ku_nested_types.py - Milestone, ChoiceOption, PrincipleExpression, AlignmentAssessment
     ku_content.py, ku_chunks.py, ku_metadata.py - Content & RAG
     ku_schedule.py     - Scheduling
@@ -81,44 +85,43 @@ from .ku_nested_types import (
     Milestone,
     PrincipleExpression,
 )
-from .ku_request import (
-    # Route-specific
+from .activity_requests import (
+    ChoiceCreateRequest,
+    ChoiceOptionRequest,
+    EventCreateRequest,
+    GoalCreateRequest,
+    HabitCreateRequest,
+    MilestoneRequest,
+    PrincipleCreateRequest,
+    PrincipleExpressionRequest,
+    TaskCreateRequest,
+)
+from .curriculum_requests import (
+    CurriculumCreateRequest,
+    LearningPathCreateRequest,
+    LearningStepCreateRequest,
+    MocCreateRequest,
+)
+from .entity_requests import (
     AddTagsRequest,
-    AssessmentCreateRequest,
     BulkCategorizeRequest,
     BulkDeleteRequest,
     BulkTagRequest,
     CategorizeEntityRequest,
-    # Nested request models
-    ChoiceOptionRequest,
-    # Content processing create requests
-    AiReportCreateRequest,
-    SubmissionCreateRequest,
-    # Activity domain create requests
-    ChoiceCreateRequest,
-    CurriculumCreateRequest,
-    EventCreateRequest,
-    FeedbackCreateRequest,
-    GoalCreateRequest,
-    HabitCreateRequest,
-    # Shared/curriculum create requests
-    LearningPathCreateRequest,
-    LearningStepCreateRequest,
-    # Destination create request
-    LifePathCreateRequest,
-    # Response models
     EntityListResponse,
-    MocCreateRequest,
-    PrincipleCreateRequest,
     EntityResponse,
-    ScheduleCreateRequest,
-    ScheduleUpdateRequest,
-    TaskCreateRequest,
     EntityUpdateRequest,
-    MilestoneRequest,
-    PrincipleExpressionRequest,
     ProgressReportGenerateRequest,
     RemoveTagsRequest,
+    ScheduleCreateRequest,
+    ScheduleUpdateRequest,
+)
+from .report_requests import (
+    AiReportCreateRequest,
+    AssessmentCreateRequest,
+    FeedbackCreateRequest,
+    LifePathCreateRequest,
+    SubmissionCreateRequest,
 )
 from .ku_schedule import (
     KuSchedule,

@@ -69,8 +69,8 @@ def _status_badge(status: str) -> Span:
     return Span(label, cls=f"badge {cls}")
 
 
-def _ku_type_badge(ku_type: str | None) -> Span:
-    """Render a DaisyUI badge for Ku type."""
+def _entity_type_badge(ku_type: str | None) -> Span:
+    """Render a DaisyUI badge for entity type."""
     if not ku_type:
         return Span()
     label = ku_type.replace("_", " ").title()
@@ -108,7 +108,7 @@ def _render_queue_item(item: dict[str, Any]) -> Div:
                 ),
                 Div(
                     feedback_indicator,
-                    _ku_type_badge(ku_type),
+                    _entity_type_badge(ku_type),
                     _status_badge(status),
                     cls="flex gap-2 items-center",
                 ),

@@ -609,8 +609,8 @@ def create_admin_dashboard_routes(_app, rt, services):
         Shows system-wide KU metrics and per-user progress table.
         """
         system_status = await _get_system_status(services)
-        ku_metrics = await _get_ku_system_metrics(services)
-        user_progress = await _get_all_users_ku_progress(services)
+        ku_metrics = await _get_entity_system_metrics(services)
+        user_progress = await _get_all_users_progress(services)
 
         content = Div(
             # Page header
@@ -674,7 +674,7 @@ def create_admin_dashboard_routes(_app, rt, services):
             )
 
         user = user_result.value
-        user_ku_detail = await _get_user_ku_detail(services, uid)
+        user_ku_detail = await _get_user_detail(services, uid)
 
         content = Div(
             # Back button
@@ -833,7 +833,7 @@ def _detail_row(label: str, value: str) -> Div:
 # ============================================================================
 
 
-async def _get_ku_system_metrics(services) -> dict:
+async def _get_entity_system_metrics(services) -> dict:
     """Get system-wide KU metrics via Cypher."""
     metrics = {
         "total_kus": 0,
@@ -881,7 +881,7 @@ async def _get_ku_system_metrics(services) -> dict:
     return metrics
 
 
-async def _get_all_users_ku_progress(services) -> list[dict]:
+async def _get_all_users_progress(services) -> list[dict]:
     """Get KU progress summary for all users."""
     if not services.neo4j_driver:
         return []
@@ -918,7 +918,7 @@ async def _get_all_users_ku_progress(services) -> list[dict]:
         return []
 
 
-async def _get_user_ku_detail(services, user_uid: str) -> dict:
+async def _get_user_detail(services, user_uid: str) -> dict:
     """Get detailed KU progress for a specific user."""
     detail: dict = {
         "viewed": [],

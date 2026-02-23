@@ -377,7 +377,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
     # KU-specific: ENABLES relationship
     @rt("/api/ku/{uid}/lateral/enables", methods=["POST"])
     @boundary_handler(success_status=201)
-    async def create_ku_enables(
+    async def create_entity_enables(
         request: Request,
         uid: str,
         target_uid: str,
@@ -411,7 +411,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
 
     @rt("/api/ku/{uid}/lateral/enables", methods=["GET"])
     @boundary_handler()
-    async def get_ku_enables(request: Request, uid: str) -> Result[dict[str, Any]]:
+    async def get_entity_enables(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get knowledge units that this KU enables."""
         require_authenticated_user(request)
 
@@ -433,7 +433,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
 
     @rt("/api/ku/{uid}/lateral/enabled-by", methods=["GET"])
     @boundary_handler()
-    async def get_ku_enabled_by(request: Request, uid: str) -> Result[dict[str, Any]]:
+    async def get_entity_enabled_by(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get knowledge units that enable this KU."""
         require_authenticated_user(request)
 
@@ -453,7 +453,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
             }
         )
 
-    all_routes.extend([create_ku_enables, get_ku_enables, get_ku_enabled_by])
+    all_routes.extend([create_entity_enables, get_entity_enables, get_entity_enabled_by])
     logger.info("✅ KU lateral routes registered (including ENABLES relationships)")
 
     # LS lateral routes
