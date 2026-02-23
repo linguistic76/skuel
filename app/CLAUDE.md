@@ -28,6 +28,27 @@ from core.ports import LpOperations  # Not ku_protocols.py
 
 **See:** `/docs/architecture/ARCHITECTURE_OVERVIEW.md`
 
+## Ku Philosophy
+
+**Core Principle:** "Every entity is a Knowledge Unit — the name is the philosophy"
+
+In SKUEL, every entity represents a form of knowledge. Tasks are knowledge about what needs doing, Habits about behavioral patterns, Goals about desired outcomes. The `ku_type` field on Entity says "I am a Knowledge Unit, and my type is task/goal/habit/etc." This is coherent and intentional.
+
+**What `Ku` prefix means:** Knowledge-Unit-level concepts that span all entity types:
+- `ku_type` field — the Knowledge Unit type discriminator (stays)
+- `parent_ku_uid` field — derivation chain between Knowledge Units (stays)
+- `Ku` union type — represents the full KU concept (stays)
+- `core/models/ku/` directory — the KU model package (stays)
+- `ku_enums.py` — enums for KU types: `EntityType`, `EntityStatus` (stays)
+- `KuContent`, `KuMetadata`, `KuChunk` — content/metadata FOR Knowledge Units (stays)
+- `core/services/ku/` — legitimate KU/Curriculum domain services (stays)
+- `:Ku` Neo4j label — universal label on all entities (stays)
+
+**What `Ku` prefix does NOT mean:** Domain-specific services use domain names, not `Ku`:
+- Reports services: `KuCoreService` (in `reports/`), not ~~`ReportsCoreService`~~ — class names retain `Ku` prefix, methods use domain names (`get_report()`, `share_report()`)
+- Request classes: `TaskCreateRequest`, not ~~`KuTaskCreateRequest`~~ (renamed Feb 2026)
+- Cross-domain services: `AnalyticsEngine`, not ~~`KuAnalyticsEngine`~~ (renamed Feb 2026)
+
 ## Naming Conventions
 
 **File Naming:** File names must reflect function. When Claude Code provides a randomly-generated plan file name (e.g., `radiant-shimmying-map.md`), immediately rename it to a descriptive name.
@@ -743,7 +764,7 @@ PUBLIC            → Anyone (portfolio showcase)
 from core.services.reports import KuSharingService
 
 # Manual share
-await sharing_service.share_ku(
+await sharing_service.share_report(
     ku_uid="ku_assignment_123",
     owner_uid="user_student",
     recipient_uid="user_teacher",

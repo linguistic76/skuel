@@ -20,13 +20,13 @@ This directory contains modular sub-services for Knowledge Unit operations follo
 │                                    # → Delegates to sub-services above
 │
 └── Utilities (injected dependencies):
-    ├── ku_analytics_engine.py       # Advanced learning analytics (1,347 lines)
-    ├── ku_generation_service.py     # AI knowledge generation (1,074 lines)
+    ├── analytics_engine.py          # Advanced learning analytics (1,347 lines)
+    ├── insight_generation_service.py # AI knowledge generation (1,074 lines)
     ├── ku_intelligence_service.py   # BaseAnalyticsService extension (727 lines)
-    ├── ku_retrieval.py              # Vector search + graph retrieval (641 lines)
-    ├── advanced_ku_inference_engine.py  # Sophisticated inference (710 lines)
-    ├── ku_chunking_service.py       # Content chunking for RAG (489 lines)
-    └── ku_inference_service.py      # Knowledge inference algorithms (479 lines)
+    ├── entity_retrieval.py          # Vector search + graph retrieval (641 lines)
+    ├── advanced_inference_engine.py  # Sophisticated inference (710 lines)
+    ├── entity_chunking_service.py   # Content chunking for RAG (489 lines)
+    └── entity_inference_service.py  # Knowledge inference algorithms (479 lines)
 ```
 
 ## Core Sub-Services (Used by KuService facade)
@@ -175,7 +175,7 @@ NONE -> VIEWED -> IN_PROGRESS -> MASTERED
 
 These services live at `/core/services/` level and are **used BY** the sub-services, not duplicates:
 
-### `ku_analytics_engine.py` - Advanced Analytics
+### `analytics_engine.py` - Advanced Analytics
 **Purpose:** Learning pattern recognition, knowledge-aware priority scoring, insight generation
 
 **Use cases:**
@@ -188,7 +188,7 @@ These services live at `/core/services/` level and are **used BY** the sub-servi
 
 ---
 
-### `ku_generation_service.py` - AI Knowledge Generation
+### `insight_generation_service.py` - AI Knowledge Generation
 **Purpose:** AI-powered automatic knowledge extraction from completed tasks
 
 **Use cases:**
@@ -217,7 +217,7 @@ These services live at `/core/services/` level and are **used BY** the sub-servi
 
 ---
 
-### `ku_retrieval.py` - Unified Retrieval
+### `entity_retrieval.py` - Unified Retrieval
 **Purpose:** THE single retrieval service for SKUEL combining vector search, graph traversal, and intelligent ranking
 
 **Use cases:**
@@ -230,8 +230,8 @@ These services live at `/core/services/` level and are **used BY** the sub-servi
 
 ---
 
-### `advanced_ku_inference_engine.py` - Sophisticated Inference
-**Purpose:** Advanced knowledge detection algorithms building on `KuInferenceService`
+### `advanced_inference_engine.py` - Sophisticated Inference
+**Purpose:** Advanced knowledge detection algorithms building on `EntityInferenceService`
 
 **Use cases:**
 - Multi-algorithm content analysis
@@ -239,11 +239,11 @@ These services live at `/core/services/` level and are **used BY** the sub-servi
 - Advanced confidence scoring
 - Knowledge validation feedback loops
 
-**Relationship:** `ku_inference_service.py` imports and delegates to this engine
+**Relationship:** `entity_inference_service.py` imports and delegates to this engine
 
 ---
 
-### `ku_chunking_service.py` - Content Chunking
+### `entity_chunking_service.py` - Content Chunking
 **Purpose:** RAG (Retrieval-Augmented Generation) content chunking for embeddings
 
 **Use cases:**
@@ -256,7 +256,7 @@ These services live at `/core/services/` level and are **used BY** the sub-servi
 
 ---
 
-### `ku_inference_service.py` - Knowledge Inference
+### `entity_inference_service.py` - Knowledge Inference
 **Purpose:** Automatic knowledge inference algorithms for enhanced task models
 
 **Use cases:**

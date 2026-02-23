@@ -267,9 +267,9 @@ class JournalsCoreService(BaseService[JournalsOperations, Report]):
 - `JournalsCoreService` → `JournalsOperations`
 - `ContentEnrichmentService` → `JournalsOperations`
 - `KuSearchService` → `KuOperations`
-- `KuCoreService` → `BackendOperations[Ku]`
-- `KuSearchService` → `BackendOperations[Ku]`
-- `KuSubmissionService` → `BackendOperations[Ku]`
+- `KuCoreService` → `BackendOperations[Entity]`
+- `KuSearchService` → `BackendOperations[Entity]`
+- `KuSubmissionService` → `BackendOperations[Entity]`
 
 ### Results
 - **Zero concrete type dependencies** in route signatures

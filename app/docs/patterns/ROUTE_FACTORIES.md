@@ -56,7 +56,7 @@ crud_factory.register_routes(app, rt)
 crud_factory = CRUDRouteFactory(
     service=ku_service,
     domain_name="ku",
-    create_schema=KuCreateRequest,
+    create_schema=CurriculumCreateRequest,
     update_schema=EntityUpdateRequest,
     uid_prefix="ku",
     scope=ContentScope.SHARED,  # Curriculum content is shared

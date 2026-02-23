@@ -20,7 +20,7 @@ SKUEL's content processing domain implements a learning loop where **students cr
 **SUBMISSION** (not "assignment") because:
 - "Assignment" in plain English is what a **teacher gives** — that's `Assignment` with `scope=ASSIGNED`
 - "Submission" is what a **student uploads** — file content going through a processing pipeline
-- Matches existing service names: `KuSubmissionService`, `KuSubmissionOperations`
+- Matches existing service names: `KuSubmissionService`, `KuSubmissionOperations` (class names retain `Ku` prefix; methods use domain names like `submit_file()`, `get_report()`)
 - Matches existing route language: `/reports/submit`
 
 ## The Assignment
@@ -47,7 +47,7 @@ Assignment (scope=ASSIGNED)
        |
        v
 2. Student submits file → KuSubmissionService.submit_file()
-       |                   Creates Ku with ku_type=SUBMISSION
+       |                   Creates Entity with ku_type=SUBMISSION
        v
 3. Processing routes by MIME type (not KuType):
        audio/* → TranscriptionService → text
@@ -102,7 +102,7 @@ Only `COMPLETED` Ku can be shared (prevents sharing incomplete/failed work).
 
 | Service | Responsibility |
 |---------|---------------|
-| `KuSubmissionService` | File upload, storage, Ku record creation |
+| `KuSubmissionService` | File upload, storage, report record creation |
 | `KuProcessingService` | Routes files to processors, manages status transitions |
 | `KuSharingService` | Visibility control, SHARES_WITH management |
 | `TeacherReviewService` | Review queue, feedback, revision requests, approval |

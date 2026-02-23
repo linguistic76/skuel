@@ -146,7 +146,7 @@ YAML File
     ↓
 Python Dict
     ↓
-KuCreateRequest (Pydantic) ← Validation happens here
+CurriculumCreateRequest (Pydantic) ← Validation happens here
     ↓
 CurriculumDTO (per-domain DTO)
     ↓
@@ -155,7 +155,7 @@ Curriculum (frozen domain model)
 Neo4j Database
 ```
 
-Validation errors will reference `KuCreateRequest` fields.
+Validation errors will reference `CurriculumCreateRequest` fields.
 
 ---
 

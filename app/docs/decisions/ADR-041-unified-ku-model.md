@@ -76,7 +76,7 @@ The "Everything is a Ku" architecture was evolved to a domain-first model hierar
 - 17 class renames: `KuBase` → `Entity`, `TaskKu` → `Task`, `GoalKu` → `Goal`, etc.
 - 17 file renames via git mv: `ku_task.py` → `task.py`, etc.
 - 2 enum renames: `KuType` → `EntityType`, `KuStatus` → `EntityStatus` (still in `ku_enums.py`)
-- NOT renamed: `ku_enums.py` file, `Ku` union type, `KuDTO`, `ku_type` DB field
+- NOT renamed: `ku_enums.py` file, `Ku` union type, `ku_type` DB field (KuDTO was later deleted in Phase 5b, 2026-02-23)
 - 278 Python files changed, zero new mypy errors
 
 **Phase 2: UserOwnedEntity Intermediate Class**
