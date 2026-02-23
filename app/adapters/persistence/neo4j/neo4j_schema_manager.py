@@ -264,7 +264,7 @@ class Neo4jSchemaManager:
         Requires Neo4j 5.x+ with GenAI plugin installed.
 
         Args:
-            label: Neo4j label (e.g., "Ku", "Task", "Goal", "ContentChunk")
+            label: Neo4j label (e.g., "Entity", "Task", "Goal", "ContentChunk")
             field_name: Field containing embedding vector (default: "embedding")
             dimension: Vector dimension (default 1536 for text-embedding-3-small)
             similarity: Similarity function - "cosine" (default), "euclidean", or "dot"
@@ -274,7 +274,7 @@ class Neo4jSchemaManager:
 
         Example:
             # Create vector index for Knowledge Units
-            await schema_manager.create_vector_index("Ku", dimension=1536)
+            await schema_manager.create_vector_index("Entity", dimension=1536)
 
             # Create vector index for ContentChunk nodes
             await schema_manager.create_vector_index("ContentChunk", dimension=1536)
@@ -444,7 +444,7 @@ class Neo4jSchemaManager:
         Only run this after enabling GenAI plugin in Neo4j/AuraDB.
 
         Args:
-            entity_labels: List of Neo4j labels with embedding fields (e.g., ["Ku", "Task", "Goal"])
+            entity_labels: List of Neo4j labels with embedding fields (e.g., ["Entity", "Task", "Goal"])
             dimension: Vector dimension (default 1536 for text-embedding-3-small)
             similarity: Similarity function (default "cosine")
 
@@ -454,7 +454,7 @@ class Neo4jSchemaManager:
         Example:
             # Create vector indexes for all priority entities
             await schema_manager.sync_vector_indexes(
-                entity_labels=["Ku", "Task", "Goal", "LpStep"],
+                entity_labels=["Entity", "Task", "Goal", "LpStep"],
                 dimension=1536,
                 similarity="cosine"
             )

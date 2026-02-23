@@ -426,7 +426,7 @@ def build_array_contains_query(
     Ideal for searching tags, categories, or other array properties.
 
     Args:
-        label: Neo4j node label (e.g., "Ku", "Task")
+        label: Neo4j node label (e.g., "Entity", "Task")
         field: Array field name (e.g., "tags")
         value: Value to search for (case-insensitive)
         limit: Maximum results (default 50)
@@ -439,7 +439,7 @@ def build_array_contains_query(
     Example:
         # Find KUs tagged with "python"
         query, params = build_array_contains_query(
-            label="Ku",
+            label="Entity",
             field="tags",
             value="python",
             limit=20
@@ -501,7 +501,7 @@ def build_array_any_match_query(
     Example:
         # Find KUs with ANY of these tags
         query, params = build_array_any_match_query(
-            label="Ku",
+            label="Entity",
             field="tags",
             values=["python", "ml", "data-science"],
             match_all=False
@@ -509,7 +509,7 @@ def build_array_any_match_query(
 
         # Find KUs with ALL of these tags
         query, params = build_array_any_match_query(
-            label="Ku",
+            label="Entity",
             field="tags",
             values=["python", "beginner"],
             match_all=True
@@ -825,12 +825,12 @@ def build_prerequisite_traversal_query(
     Example:
         # Get prerequisites
         query, params = build_prerequisite_traversal_query(
-            "Ku", "ku:python-advanced", ["REQUIRES_KNOWLEDGE"], direction="outgoing"
+            "Entity", "ku:python-advanced", ["REQUIRES_KNOWLEDGE"], direction="outgoing"
         )
 
         # Get what this enables
         query, params = build_prerequisite_traversal_query(
-            "Ku", "ku:python-basics", ["REQUIRES_KNOWLEDGE"], direction="incoming"
+            "Entity", "ku:python-basics", ["REQUIRES_KNOWLEDGE"], direction="incoming"
         )
     """
     rel_pattern = "|".join(relationship_types)
@@ -878,7 +878,7 @@ def build_user_progress_query(
         Tuple of (cypher_query, parameters)
 
     Example:
-        query, params = build_user_progress_query("Ku", "user:123", "ku:python-basics")
+        query, params = build_user_progress_query("Entity", "user:123", "ku:python-basics")
     """
     query = f"""
     MATCH (u:User {{uid: $user_uid}})-[r:MASTERED|STUDYING|COMPLETED]->(e:{label} {{uid: $entity_uid}})
@@ -920,7 +920,7 @@ def build_user_curriculum_query(
         Tuple of (cypher_query, parameters)
 
     Example:
-        query, params = build_user_curriculum_query("Ku", "user:123", include_completed=False)
+        query, params = build_user_curriculum_query("Entity", "user:123", include_completed=False)
     """
     rel_filter = "" if include_completed else "WHERE NOT type(r) = 'MASTERED'"
 

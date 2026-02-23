@@ -201,7 +201,7 @@ def get_domain_from_label(label: str) -> Domain | None:
     Get Domain enum from Neo4j node label.
 
     Args:
-        label: Neo4j node label (e.g., "Task", "Goal", "Ku")
+        label: Neo4j node label (e.g., "Task", "Goal", "Entity")
 
     Returns:
         Domain enum or None if not found
@@ -213,7 +213,7 @@ def get_domain_from_label(label: str) -> Domain | None:
         "Event": Domain.EVENTS,
         "Choice": Domain.CHOICES,
         "Principle": Domain.PRINCIPLES,
-        "Ku": Domain.KNOWLEDGE,
+        "Entity": Domain.KNOWLEDGE,
         "KnowledgeUnit": Domain.KNOWLEDGE,
     }
     return label_to_domain.get(label)

@@ -346,7 +346,9 @@ class SearchRouter:
             self.logger.error(f"Search failed for {entity_type.value}: {e}")
             return Result.fail(Errors.database(operation="search", message=str(e)))
 
-    def _get_search_service(self, service: Any, entity_type: EntityType | NonKuDomain) -> Any | None:
+    def _get_search_service(
+        self, service: Any, entity_type: EntityType | NonKuDomain
+    ) -> Any | None:
         """
         Get the search sub-service from a domain service.
 
@@ -976,7 +978,7 @@ class SearchRouter:
             return []
 
         # Get label from entity type
-        label = entity_type.value.capitalize()  # Task -> "Task", ku -> "Ku"
+        label = entity_type.value.capitalize()  # Task -> "Task", ku -> "Entity"
 
         try:
             # Choose search method based on flags

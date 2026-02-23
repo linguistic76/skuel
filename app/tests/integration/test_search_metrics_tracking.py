@@ -58,7 +58,7 @@ async def test_find_similar_by_text_with_metrics(vector_search_service, mock_dri
     )
 
     result, metrics = await vector_search_service.find_similar_by_text_with_metrics(
-        label="Ku", text="python programming", limit=10
+        label="Entity", text="python programming", limit=10
     )
 
     # Verify result
@@ -69,7 +69,7 @@ async def test_find_similar_by_text_with_metrics(vector_search_service, mock_dri
     assert metrics is not None
     assert metrics.query == "python programming"
     assert metrics.search_type == "vector"
-    assert metrics.label == "Ku"
+    assert metrics.label == "Entity"
     assert metrics.num_results == 2
     assert metrics.avg_similarity == pytest.approx(0.85)  # (0.9 + 0.8) / 2
     assert metrics.min_similarity == pytest.approx(0.8)
@@ -87,7 +87,7 @@ async def test_find_similar_by_text_with_metrics_error(vector_search_service, mo
     )
 
     result, metrics = await vector_search_service.find_similar_by_text_with_metrics(
-        label="Ku", text="test query"
+        label="Entity", text="test query"
     )
 
     # Verify error result
@@ -127,7 +127,7 @@ async def test_hybrid_search_with_metrics(vector_search_service, mock_driver):
     mock_driver.execute_query = mock_execute_query
 
     result, metrics = await vector_search_service.hybrid_search_with_metrics(
-        label="Ku", query_text="python", limit=10, min_rrf_score=0.0
+        label="Entity", query_text="python", limit=10, min_rrf_score=0.0
     )
 
     # Verify result
@@ -138,7 +138,7 @@ async def test_hybrid_search_with_metrics(vector_search_service, mock_driver):
     assert metrics is not None
     assert metrics.query == "python"
     assert metrics.search_type == "hybrid"
-    assert metrics.label == "Ku"
+    assert metrics.label == "Entity"
     assert metrics.num_results == 3
     assert metrics.latency_ms > 0
     assert metrics.vector_weight == 0.5  # Default config value
@@ -161,7 +161,7 @@ async def test_hybrid_search_with_metrics_custom_weight(vector_search_service, m
     mock_driver.execute_query = mock_execute_query
 
     result, metrics = await vector_search_service.hybrid_search_with_metrics(
-        label="Ku", query_text="test", vector_weight=0.7, min_rrf_score=0.0
+        label="Entity", query_text="test", vector_weight=0.7, min_rrf_score=0.0
     )
 
     assert result.is_ok
@@ -176,7 +176,7 @@ async def test_metrics_track_empty_results(vector_search_service, mock_driver):
     mock_driver.execute_query.return_value = Result.ok([])
 
     result, metrics = await vector_search_service.find_similar_by_text_with_metrics(
-        label="Ku", text="nonexistent query"
+        label="Entity", text="nonexistent query"
     )
 
     assert result.is_ok
@@ -203,7 +203,7 @@ async def test_metrics_similarity_statistics(vector_search_service, mock_driver)
     )
 
     result, metrics = await vector_search_service.find_similar_by_text_with_metrics(
-        label="Ku", text="test"
+        label="Entity", text="test"
     )
 
     assert result.is_ok
@@ -224,14 +224,12 @@ async def test_metrics_latency_measurement(vector_search_service, mock_driver):
     # Mock with artificial delay — execute_query returns Result[list[dict]]
     async def slow_query(query, params):
         await asyncio.sleep(0.05)  # 50ms delay
-        return Result.ok(
-            [{"node": {"uid": "ku.test", "title": "Test"}, "score": 0.9}]
-        )
+        return Result.ok([{"node": {"uid": "ku.test", "title": "Test"}, "score": 0.9}])
 
     mock_driver.execute_query = slow_query
 
     result, metrics = await vector_search_service.find_similar_by_text_with_metrics(
-        label="Ku", text="test"
+        label="Entity", text="test"
     )
 
     assert result.is_ok

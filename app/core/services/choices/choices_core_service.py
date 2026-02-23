@@ -95,7 +95,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Choice entities (now Ku with ku_type filter)."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
@@ -219,9 +219,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
         return None  # All validations passed
 
-    async def create_choice(
-        self, choice_request: ChoiceCreateRequest, user_uid: str
-    ) -> Result[Ku]:
+    async def create_choice(self, choice_request: ChoiceCreateRequest, user_uid: str) -> Result[Ku]:
         """
         Create a basic choice.
 
@@ -380,7 +378,9 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         self.logger.debug(f"Found {len(choices)} choices for goal {goal_uid}")
         return Result.ok(choices)
 
-    async def update_choice(self, choice_uid: str, choice_update: EntityUpdateRequest) -> Result[Ku]:
+    async def update_choice(
+        self, choice_uid: str, choice_update: EntityUpdateRequest
+    ) -> Result[Ku]:
         """
         Update a choice.
 
@@ -1022,8 +1022,8 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             all_subchoices = await service.get_subchoices("choice_abc123", depth=99)
         """
         query = f"""
-        MATCH (parent:Ku {{uid: $parent_uid, ku_type: 'choice'}})
-        MATCH (parent)-[:HAS_SUBCHOICE*1..{depth}]->(subchoice:Ku {{ku_type: 'choice'}})
+        MATCH (parent:Entity {{uid: $parent_uid, ku_type: 'choice'}})
+        MATCH (parent)-[:HAS_SUBCHOICE*1..{depth}]->(subchoice:Entity {{ku_type: 'choice'}})
         RETURN subchoice
         ORDER BY subchoice.created_at
         """
@@ -1056,8 +1056,8 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             Result containing parent Choice or None if root-level choice
         """
         query = """
-        MATCH (subchoice:Ku {uid: $subchoice_uid, ku_type: 'choice'})
-        MATCH (parent:Ku {ku_type: 'choice'})-[:HAS_SUBCHOICE]->(subchoice)
+        MATCH (subchoice:Entity {uid: $subchoice_uid, ku_type: 'choice'})
+        MATCH (parent:Entity {ku_type: 'choice'})-[:HAS_SUBCHOICE]->(subchoice)
         RETURN parent
         LIMIT 1
         """
@@ -1101,24 +1101,24 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         """
         # Get ancestors
         ancestors_query = """
-        MATCH path = (root:Ku {ku_type: 'choice'})-[:HAS_SUBCHOICE*]->(current:Ku {uid: $choice_uid, ku_type: 'choice'})
+        MATCH path = (root:Entity {ku_type: 'choice'})-[:HAS_SUBCHOICE*]->(current:Entity {uid: $choice_uid, ku_type: 'choice'})
         WHERE NOT EXISTS((root)<-[:HAS_SUBCHOICE]-())
         RETURN nodes(path) as ancestors
         """
 
         # Get siblings
         siblings_query = """
-        MATCH (current:Ku {uid: $choice_uid, ku_type: 'choice'})
-        OPTIONAL MATCH (parent:Ku {ku_type: 'choice'})-[:HAS_SUBCHOICE]->(current)
-        OPTIONAL MATCH (parent)-[:HAS_SUBCHOICE]->(sibling:Ku {ku_type: 'choice'})
+        MATCH (current:Entity {uid: $choice_uid, ku_type: 'choice'})
+        OPTIONAL MATCH (parent:Entity {ku_type: 'choice'})-[:HAS_SUBCHOICE]->(current)
+        OPTIONAL MATCH (parent)-[:HAS_SUBCHOICE]->(sibling:Entity {ku_type: 'choice'})
         WHERE sibling.uid <> $choice_uid
         RETURN collect(sibling) as siblings
         """
 
         # Get children
         children_query = """
-        MATCH (current:Ku {uid: $choice_uid, ku_type: 'choice'})
-        OPTIONAL MATCH (current)-[:HAS_SUBCHOICE]->(child:Ku {ku_type: 'choice'})
+        MATCH (current:Entity {uid: $choice_uid, ku_type: 'choice'})
+        OPTIONAL MATCH (current)-[:HAS_SUBCHOICE]->(child:Entity {ku_type: 'choice'})
         RETURN collect(child) as children
         """
 
@@ -1228,8 +1228,8 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         prop_assignments = ", ".join([f"{k}: ${k}" for k in rel_props])
 
         query = f"""
-        MATCH (parent:Ku {{uid: $parent_uid, ku_type: 'choice'}})
-        MATCH (subchoice:Ku {{uid: $subchoice_uid, ku_type: 'choice'}})
+        MATCH (parent:Entity {{uid: $parent_uid, ku_type: 'choice'}})
+        MATCH (subchoice:Entity {{uid: $subchoice_uid, ku_type: 'choice'}})
 
         CREATE (parent)-[:HAS_SUBCHOICE {{
             {prop_assignments},
@@ -1277,7 +1277,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             Result containing True if relationships were deleted
         """
         query = """
-        MATCH (parent:Ku {uid: $parent_uid, ku_type: 'choice'})-[r1:HAS_SUBCHOICE]->(subchoice:Ku {uid: $subchoice_uid, ku_type: 'choice'})
+        MATCH (parent:Entity {uid: $parent_uid, ku_type: 'choice'})-[r1:HAS_SUBCHOICE]->(subchoice:Entity {uid: $subchoice_uid, ku_type: 'choice'})
         MATCH (subchoice)-[r2:SUBCHOICE_OF]->(parent)
         DELETE r1, r2
         RETURN count(r1) + count(r2) as deleted_count
@@ -1298,8 +1298,8 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
     async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
         """Check if adding parent->child relationship would create a cycle."""
         query = """
-        MATCH (child:Ku {uid: $child_uid, ku_type: 'choice'})
-        MATCH path = (child)-[:HAS_SUBCHOICE*]->(parent:Ku {uid: $parent_uid, ku_type: 'choice'})
+        MATCH (child:Entity {uid: $child_uid, ku_type: 'choice'})
+        MATCH path = (child)-[:HAS_SUBCHOICE*]->(parent:Entity {uid: $parent_uid, ku_type: 'choice'})
         RETURN count(path) > 0 as would_create_cycle
         """
 

@@ -52,7 +52,7 @@ class TestHabitAchievementsFlow:
     async def habit_backend(self, neo4j_driver, clean_neo4j):
         """Create Habit backend with clean database."""
         return UniversalNeo4jBackend[Habit](
-            neo4j_driver, "Ku", Habit, default_filters={"ku_type": "habit"}
+            neo4j_driver, "Entity", Habit, default_filters={"ku_type": "habit"}
         )
 
     @pytest_asyncio.fixture
@@ -98,7 +98,7 @@ class TestHabitAchievementsFlow:
         # Add :Habit secondary label so production Cypher MATCH (habit:Habit ...) works
         async with neo4j_driver.session() as session:
             await session.run(
-                "MATCH (h:Ku {uid: $uid}) SET h:Habit",
+                "MATCH (h:Entity {uid: $uid}) SET h:Habit",
                 uid=habit.uid,
             )
 
@@ -348,7 +348,7 @@ class TestHabitAchievementsFlow:
 
         # Verify Habit→UNLOCKED_ACHIEVEMENT→Achievement relationship
         query2 = """
-        MATCH (habit:Ku {uid: $habit_uid})-[:UNLOCKED_ACHIEVEMENT]->(badge:Achievement {badge_id: $badge_id})
+        MATCH (habit:Entity {uid: $habit_uid})-[:UNLOCKED_ACHIEVEMENT]->(badge:Achievement {badge_id: $badge_id})
         RETURN badge.name as badge_name
         """
         async with neo4j_driver.session() as session:
@@ -418,7 +418,7 @@ class TestHabitAchievementsFlow:
         # Add :Habit secondary label so production Cypher MATCH (habit:Habit ...) works
         async with neo4j_driver.session() as session:
             await session.run(
-                "MATCH (h:Ku {uid: $uid}) SET h:Habit",
+                "MATCH (h:Entity {uid: $uid}) SET h:Habit",
                 uid=habit2.uid,
             )
 

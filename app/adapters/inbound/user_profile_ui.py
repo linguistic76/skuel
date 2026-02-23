@@ -890,7 +890,7 @@ def setup_user_profile_routes(rt, services):
             try:
                 records, _, _ = await services.neo4j_driver.execute_query(
                     """
-                    MATCH (ku:Ku)
+                    MATCH (ku:Entity)
                     OPTIONAL MATCH (u:User {uid: $user_uid})-[v:VIEWED]->(ku)
                     OPTIONAL MATCH (u2:User {uid: $user_uid})-[b:BOOKMARKED]->(ku)
                     OPTIONAL MATCH (u3:User {uid: $user_uid})-[m:MASTERED]->(ku)

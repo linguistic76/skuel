@@ -60,7 +60,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Event]", Event]):
     _config = create_activity_domain_config(
         dto_class=EventDTO,
         model_class=Event,
-        entity_label="Ku",
+        entity_label="Entity",
         domain_name="events",
         date_field="event_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
@@ -83,7 +83,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Event]", Event]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Ku entities."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # CONFLICT DETECTION

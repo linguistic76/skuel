@@ -284,7 +284,7 @@ class UnifiedIngestionService:
         if validation_result.is_error:
             return Result.fail(validation_result.expect_error())
 
-        # For KU: pop content before Neo4j storage — content lives on :Content node, not :Ku node
+        # For KU: pop content before Neo4j storage — content lives on :Content node, not :Entity node
         ku_content_body = ""
         if entity_type == EntityType.CURRICULUM:
             ku_content_body = entity_data.pop("content", "")

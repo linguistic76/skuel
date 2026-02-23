@@ -51,8 +51,10 @@ class JournalDTO(SubmissionDTO):
                 "processor_type": ProcessorType,
             },
             datetime_fields=[
-                "created_at", "updated_at",
-                "processing_started_at", "processing_completed_at",
+                "created_at",
+                "updated_at",
+                "processing_started_at",
+                "processing_completed_at",
             ],
             list_fields=["tags"],
             dict_fields=["metadata"],

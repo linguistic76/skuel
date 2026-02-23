@@ -1,6 +1,6 @@
 // Bulk upsert template for KnowledgeUnits with relationships
 UNWIND $items AS i
-MERGE (ku:Ku {uid: i.uid})
+MERGE (ku:Entity {uid: i.uid})
   ON CREATE SET
     ku.title = i.title,
     ku.type = coalesce(i.type, "concept"),
@@ -28,25 +28,25 @@ FOREACH (dom IN coalesce(i.domains, []) |
 // Handle relationships
 WITH ku, i
 FOREACH (rid IN coalesce(i.connections.related, []) |
-  MERGE (r:Ku {uid: rid})
+  MERGE (r:Entity {uid: rid})
   MERGE (ku)-[:RELATED_TO]->(r)
 )
 
 WITH ku, i
 FOREACH (sid IN coalesce(i.connections.supports, []) |
-  MERGE (s:Ku {uid: sid})
+  MERGE (s:Entity {uid: sid})
   MERGE (ku)-[:SUPPORTS]->(s)
 )
 
 WITH ku, i
 FOREACH (eid IN coalesce(i.connections.enables, []) |
-  MERGE (e:Ku {uid: eid})
+  MERGE (e:Entity {uid: eid})
   MERGE (ku)-[:ENABLES_KNOWLEDGE]->(e)
 )
 
 WITH ku, i
 FOREACH (rid IN coalesce(i.connections.requires, []) |
-  MERGE (r:Ku {uid: rid})
+  MERGE (r:Entity {uid: rid})
   MERGE (ku)-[:REQUIRES_KNOWLEDGE]->(r)
 )
 

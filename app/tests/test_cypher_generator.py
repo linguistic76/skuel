@@ -277,14 +277,14 @@ class TestCypherGeneratorSemantic:
         mock_type.to_neo4j_name.return_value = "REQUIRES_THEORETICAL_UNDERSTANDING"
 
         query, params = build_semantic_filter_query(
-            label="Ku",
+            label="Entity",
             semantic_type=mock_type,
             min_confidence=0.8,
             direction="outgoing",
             limit=50,
         )
 
-        assert "MATCH (n:Ku)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(target)" in query
+        assert "MATCH (n:Entity)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(target)" in query
         assert "r.confidence >= $min_confidence" in query
         assert "LIMIT $limit" in query
         assert params["min_confidence"] == 0.8

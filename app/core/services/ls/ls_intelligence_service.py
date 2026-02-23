@@ -266,7 +266,7 @@ class LsIntelligenceService(
 
         return await executor_result.value.execute(
             query="""
-                MATCH (ls:Ku {uid: $ls_uid})-[:REQUIRES_STEP]->(prereq:Ku {ku_type: 'learning_step'})
+                MATCH (ls:Entity {uid: $ls_uid})-[:REQUIRES_STEP]->(prereq:Entity {ku_type: 'learning_step'})
                 RETURN collect(prereq.uid) as prereq_uids
             """,
             params={"ls_uid": ls_uid},
@@ -315,7 +315,7 @@ class LsIntelligenceService(
 
         return await executor_result.value.execute(
             query="""
-                MATCH (ls:Ku {uid: $ls_uid})
+                MATCH (ls:Entity {uid: $ls_uid})
                 OPTIONAL MATCH (ls)-[:BUILDS_HABIT]->(h)
                 OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(t)
                 OPTIONAL MATCH (ls)-[:SCHEDULES_EVENT]->(e)
@@ -408,7 +408,7 @@ class LsIntelligenceService(
 
         return await executor_result.value.execute(
             query="""
-                MATCH (ls:Ku {uid: $ls_uid})
+                MATCH (ls:Entity {uid: $ls_uid})
                 OPTIONAL MATCH (ls)-[:GUIDED_BY_PRINCIPLE]->(p)
                 OPTIONAL MATCH (ls)-[:OFFERS_CHOICE]->(c)
                 RETURN count(DISTINCT p) as principle_count,
@@ -450,7 +450,7 @@ class LsIntelligenceService(
 
         return await self.executor.execute_exists(
             query="""
-                MATCH (ls:Ku {uid: $ls_uid})
+                MATCH (ls:Entity {uid: $ls_uid})
                 WHERE exists((ls)-[:REQUIRES_STEP]->()) OR exists((ls)-[:REQUIRES_KNOWLEDGE]->())
                 RETURN ls
             """,
@@ -481,7 +481,7 @@ class LsIntelligenceService(
 
         return await self.executor.execute_exists(
             query="""
-                MATCH (ls:Ku {uid: $ls_uid})
+                MATCH (ls:Entity {uid: $ls_uid})
                 WHERE exists((ls)-[:GUIDED_BY_PRINCIPLE]->()) OR exists((ls)-[:OFFERS_CHOICE]->())
                 RETURN ls
             """,
@@ -520,7 +520,7 @@ class LsIntelligenceService(
 
         return await self.executor.execute_exists(
             query="""
-                MATCH (ls:Ku {uid: $ls_uid})
+                MATCH (ls:Entity {uid: $ls_uid})
                 WHERE exists((ls)-[:BUILDS_HABIT]->())
                    OR exists((ls)-[:ASSIGNS_TASK]->())
                    OR exists((ls)-[:SCHEDULES_EVENT]->())

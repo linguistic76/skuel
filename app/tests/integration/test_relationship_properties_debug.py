@@ -17,7 +17,7 @@ class TestRelationshipPropertiesDebug:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
 
     async def test_relationship_properties_are_stored(self, ku_backend):
         """Verify that relationship properties are actually persisted."""
@@ -58,7 +58,7 @@ class TestRelationshipPropertiesDebug:
 
         # Query the relationship directly to check properties
         query = """
-        MATCH (a:Ku {uid: $from_uid})-[r:REQUIRES_KNOWLEDGE]->(b:Ku {uid: $to_uid})
+        MATCH (a:Entity {uid: $from_uid})-[r:REQUIRES_KNOWLEDGE]->(b:Entity {uid: $to_uid})
         RETURN r.strength as strength, r.prerequisite_type as prereq_type
         """
 

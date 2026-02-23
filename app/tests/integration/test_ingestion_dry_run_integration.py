@@ -164,7 +164,7 @@ async def pre_existing_ku(neo4j_driver):
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MERGE (k:Ku {uid: $uid})
+            MERGE (k:Entity {uid: $uid})
             ON CREATE SET k.title = $title, k.created_at = datetime()
             """,
             uid="ku.existing-topic-dry-run",
@@ -176,7 +176,7 @@ async def pre_existing_ku(neo4j_driver):
     # Cleanup
     async with neo4j_driver.session() as session:
         await session.run(
-            "MATCH (k:Ku {uid: $uid}) DETACH DELETE k",
+            "MATCH (k:Entity {uid: $uid}) DETACH DELETE k",
             uid="ku.existing-topic-dry-run",
         )
 

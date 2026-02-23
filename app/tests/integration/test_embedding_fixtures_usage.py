@@ -83,7 +83,7 @@ async def test_vector_search_by_vector_with_mock(mock_vector_search_service):
     query_embedding = [0.001 * i for i in range(1, 1537)]
 
     result = await mock_vector_search_service.find_similar_by_vector(
-        label="Ku", embedding=query_embedding, limit=5, min_score=0.7
+        label="Entity", embedding=query_embedding, limit=5, min_score=0.7
     )
 
     assert result.is_ok
@@ -138,13 +138,16 @@ async def test_cross_domain_search_with_mock(mock_vector_search_service):
     query_embedding = [0.001 * i for i in range(1, 1537)]
 
     result = await mock_vector_search_service.find_cross_domain_similar(
-        embedding=query_embedding, labels=["Ku", "Task", "Goal"], limit_per_label=3, min_score=0.7
+        embedding=query_embedding,
+        labels=["Entity", "Task", "Goal"],
+        limit_per_label=3,
+        min_score=0.7,
     )
 
     assert result.is_ok
     results = result.value
     assert isinstance(results, dict)
-    assert "Ku" in results
+    assert "Entity" in results
     assert "Task" in results
     assert "Goal" in results
 
@@ -173,7 +176,7 @@ async def test_services_with_embeddings_fixture(services_with_embeddings):
 
     # Use embedding for search
     search_result = await vector_search.find_similar_by_vector(
-        label="Ku", embedding=emb_result.value, limit=3
+        label="Entity", embedding=emb_result.value, limit=3
     )
     assert search_result.is_ok
 
@@ -195,7 +198,7 @@ async def test_vector_search_unavailable_scenario(mock_vector_search_unavailable
     """Test graceful degradation when vector search unavailable."""
 
     result = await mock_vector_search_unavailable.find_similar_by_vector(
-        label="Ku", embedding=[0.1] * 1536, limit=5
+        label="Entity", embedding=[0.1] * 1536, limit=5
     )
 
     assert result.is_error

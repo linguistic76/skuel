@@ -85,7 +85,7 @@ def generate_context_query(
     Cypher queries using the generic build_entity_with_context() engine.
 
     Args:
-        entity_label: Neo4j label (e.g., "Task", "Goal", "Ku")
+        entity_label: Neo4j label (e.g., "Task", "Goal", "Entity")
         include_relationships: Only include these relationship context_field_names
                               (None = all relationships)
         exclude_relationships: Exclude these relationship context_field_names

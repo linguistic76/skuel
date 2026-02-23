@@ -225,7 +225,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Choice]", Choice]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Choice entities."""
-        return "Ku"
+        return "Entity"
 
     def _analyze_option_learning_impact(
         self, option: str, learning_position: LpPosition

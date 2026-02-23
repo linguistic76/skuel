@@ -171,7 +171,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Task]",
         domain_name="tasks",
         date_field="due_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        entity_label="Ku",
+        entity_label="Entity",
     )
 
     # ========================================================================
@@ -338,7 +338,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Task]",
     @property
     def entity_label(self) -> str:
         """Return the graph label for Task entities (unified Ku model)."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # AUTO-GENERATED DELEGATIONS (via FacadeDelegationMixin)

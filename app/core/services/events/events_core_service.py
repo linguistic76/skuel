@@ -101,7 +101,7 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Event entities."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
@@ -114,7 +114,7 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
     _config = create_activity_domain_config(
         dto_class=EventDTO,
         model_class=Event,
-        entity_label="Ku",
+        entity_label="Entity",
         domain_name="events",
         date_field="event_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
@@ -509,8 +509,8 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
             all_subevents = await service.get_subevents("event_abc123", depth=99)
         """
         query = f"""
-        MATCH (parent:Ku {{uid: $parent_uid}})
-        MATCH (parent)-[:HAS_SUBEVENT*1..{depth}]->(subevent:Ku)
+        MATCH (parent:Entity {{uid: $parent_uid}})
+        MATCH (parent)-[:HAS_SUBEVENT*1..{depth}]->(subevent:Entity)
         RETURN subevent
         ORDER BY subevent.created_at
         """
@@ -543,8 +543,8 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
             Result containing parent Ku or None if root-level event
         """
         query = """
-        MATCH (subevent:Ku {uid: $subevent_uid})
-        MATCH (parent:Ku)-[:HAS_SUBEVENT]->(subevent)
+        MATCH (subevent:Entity {uid: $subevent_uid})
+        MATCH (parent:Entity)-[:HAS_SUBEVENT]->(subevent)
         RETURN parent
         LIMIT 1
         """
@@ -588,24 +588,24 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
         """
         # Get ancestors
         ancestors_query = """
-        MATCH path = (root:Ku)-[:HAS_SUBEVENT*]->(current:Ku {uid: $event_uid})
+        MATCH path = (root:Entity)-[:HAS_SUBEVENT*]->(current:Entity {uid: $event_uid})
         WHERE NOT EXISTS((root)<-[:HAS_SUBEVENT]-())
         RETURN nodes(path) as ancestors
         """
 
         # Get siblings
         siblings_query = """
-        MATCH (current:Ku {uid: $event_uid})
-        OPTIONAL MATCH (parent:Ku)-[:HAS_SUBEVENT]->(current)
-        OPTIONAL MATCH (parent)-[:HAS_SUBEVENT]->(sibling:Ku)
+        MATCH (current:Entity {uid: $event_uid})
+        OPTIONAL MATCH (parent:Entity)-[:HAS_SUBEVENT]->(current)
+        OPTIONAL MATCH (parent)-[:HAS_SUBEVENT]->(sibling:Entity)
         WHERE sibling.uid <> $event_uid
         RETURN collect(sibling) as siblings
         """
 
         # Get children
         children_query = """
-        MATCH (current:Ku {uid: $event_uid})
-        OPTIONAL MATCH (current)-[:HAS_SUBEVENT]->(child:Ku)
+        MATCH (current:Entity {uid: $event_uid})
+        OPTIONAL MATCH (current)-[:HAS_SUBEVENT]->(child:Entity)
         RETURN collect(child) as children
         """
 
@@ -710,8 +710,8 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
         prop_assignments = ", ".join([f"{k}: ${k}" for k in rel_props])
 
         query = f"""
-        MATCH (parent:Ku {{uid: $parent_uid}})
-        MATCH (subevent:Ku {{uid: $subevent_uid}})
+        MATCH (parent:Entity {{uid: $parent_uid}})
+        MATCH (subevent:Entity {{uid: $subevent_uid}})
 
         CREATE (parent)-[:HAS_SUBEVENT {{
             {prop_assignments},
@@ -759,7 +759,7 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
             Result containing True if relationships were deleted
         """
         query = """
-        MATCH (parent:Ku {uid: $parent_uid})-[r1:HAS_SUBEVENT]->(subevent:Ku {uid: $subevent_uid})
+        MATCH (parent:Entity {uid: $parent_uid})-[r1:HAS_SUBEVENT]->(subevent:Entity {uid: $subevent_uid})
         MATCH (subevent)-[r2:SUBEVENT_OF]->(parent)
         DELETE r1, r2
         RETURN count(r1) + count(r2) as deleted_count
@@ -780,8 +780,8 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
     async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
         """Check if adding parent->child relationship would create a cycle."""
         query = """
-        MATCH (child:Ku {uid: $child_uid})
-        MATCH path = (child)-[:HAS_SUBEVENT*]->(parent:Ku {uid: $parent_uid})
+        MATCH (child:Entity {uid: $child_uid})
+        MATCH path = (child)-[:HAS_SUBEVENT*]->(parent:Entity {uid: $parent_uid})
         RETURN count(path) > 0 as would_create_cycle
         """
 

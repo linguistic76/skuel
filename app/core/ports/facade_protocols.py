@@ -160,9 +160,7 @@ class HabitsCoreOperations(Protocol):
         """Create a new habit."""
         ...
 
-    async def create_habit(
-        self, habit_request: HabitCreateRequest, user_uid: str
-    ) -> Result[Habit]:
+    async def create_habit(self, habit_request: HabitCreateRequest, user_uid: str) -> Result[Habit]:
         """Create a habit from a request with user_uid."""
         ...
 
@@ -259,9 +257,7 @@ class ChoicesCoreOperations(Protocol):
         """Verify user owns the choice, return choice if owned."""
         ...
 
-    async def create_choice(
-        self, choice_request: ChoiceCreateRequest, user_uid: str
-    ) -> Result[Ku]:
+    async def create_choice(self, choice_request: ChoiceCreateRequest, user_uid: str) -> Result[Ku]:
         """Create a new choice."""
         ...
 
@@ -273,7 +269,9 @@ class ChoicesCoreOperations(Protocol):
         """Get all choices for a user."""
         ...
 
-    async def update_choice(self, choice_uid: str, choice_update: EntityUpdateRequest) -> Result[Ku]:
+    async def update_choice(
+        self, choice_uid: str, choice_update: EntityUpdateRequest
+    ) -> Result[Ku]:
         """Update a choice."""
         ...
 
@@ -767,9 +765,7 @@ class LpFacadeProtocol(Protocol):
         """Get a single learning path by UID."""
         ...
 
-    async def get_learning_paths_batch(
-        self, uids: list[str]
-    ) -> Result[list[LearningPath | None]]:
+    async def get_learning_paths_batch(self, uids: list[str]) -> Result[list[LearningPath | None]]:
         """Get multiple learning paths in one batched query."""
         ...
 
@@ -1187,9 +1183,7 @@ class HabitsFacadeProtocol(Protocol):
     # Explicit facade methods (not delegated)
     # ========================================================================
 
-    async def create_habit(
-        self, habit_request: HabitCreateRequest, user_uid: str
-    ) -> Result[Habit]:
+    async def create_habit(self, habit_request: HabitCreateRequest, user_uid: str) -> Result[Habit]:
         """Create a habit from a request with user_uid."""
         ...
 

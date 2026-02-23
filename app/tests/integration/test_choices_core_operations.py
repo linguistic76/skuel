@@ -42,7 +42,7 @@ class TestChoicesCoreOperations:
     async def choices_backend(self, neo4j_driver, clean_neo4j):
         """Create choices backend with clean database."""
         return UniversalNeo4jBackend[Choice](
-            neo4j_driver, "Ku", Choice, default_filters={"ku_type": "choice"}
+            neo4j_driver, "Entity", Choice, default_filters={"ku_type": "choice"}
         )
 
     @pytest_asyncio.fixture

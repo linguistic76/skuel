@@ -47,7 +47,7 @@ class Neo4jContentAdapter:
             Dictionary with content data or None if not found
         """
         query = """
-        MATCH (unit:Ku {uid: $uid})-[:HAS_CONTENT]->(content:Content)
+        MATCH (unit:Entity {uid: $uid})-[:HAS_CONTENT]->(content:Content)
         RETURN content {
             .body,
             .format,
@@ -92,7 +92,7 @@ class Neo4jContentAdapter:
         source_path = metadata.get("source_path")
 
         query = """
-        MATCH (unit:Ku {uid: $uid})
+        MATCH (unit:Entity {uid: $uid})
         CREATE (content:Content {
             unit_uid: $uid
             body: $body
@@ -152,7 +152,7 @@ class Neo4jContentAdapter:
         now = datetime.now(UTC).isoformat()
 
         query = """
-        MATCH (unit:Ku {uid: $uid})-[:HAS_CONTENT]->(content:Content)
+        MATCH (unit:Entity {uid: $uid})-[:HAS_CONTENT]->(content:Content)
         SET content.body = $body,
             content.body_sha256 = $body_sha256,
             content.updated_at = $updated_at
@@ -192,7 +192,7 @@ class Neo4jContentAdapter:
             True if deleted, False if not found
         """
         query = """
-        MATCH (unit:Ku {uid: $uid})-[:HAS_CONTENT]->(content:Content)
+        MATCH (unit:Entity {uid: $uid})-[:HAS_CONTENT]->(content:Content)
         DETACH DELETE content
         RETURN count(content) as deleted
         """
@@ -236,7 +236,7 @@ class Neo4jContentAdapter:
             # Start transaction for atomic storage
             query = """
             // Match the knowledge unit
-            MATCH (ku:Ku {uid: $uid})
+            MATCH (ku:Entity {uid: $uid})
 
             // Create or merge Content node
             MERGE (c:Content {uid: $uid})

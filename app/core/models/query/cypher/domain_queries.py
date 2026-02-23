@@ -46,7 +46,7 @@ def build_simple_prerequisite_chain(
 
     Args:
         node_uid: Target node UID
-        node_label: Node label (e.g., "Ku", "Task", "Goal")
+        node_label: Node label (e.g., "Entity", "Task", "Goal")
         relationship_type: Relationship type (e.g., "REQUIRES_KNOWLEDGE", "DEPENDS_ON")
         depth: Maximum chain depth (default 3)
         order: "ASC" (shallowest first) or "DESC" (deepest first)
@@ -105,7 +105,7 @@ def build_simple_prerequisite_chain(
 def build_unmastered_prerequisite_chain(
     node_uid: str,
     user_uid: str,
-    node_label: str = "Ku",
+    node_label: str = "Entity",
     relationship_type: str = "REQUIRES_KNOWLEDGE",
     mastery_relationship: str = "MASTERED_BY",
     depth: int = 3,
@@ -118,7 +118,7 @@ def build_unmastered_prerequisite_chain(
     Args:
         node_uid: Target node UID
         user_uid: User UID to check mastery
-        node_label: Node label (default "Ku")
+        node_label: Node label (default "Entity")
         relationship_type: Prerequisite relationship type (default "REQUIRES_KNOWLEDGE")
         mastery_relationship: User mastery relationship (default "MASTERED_BY")
         depth: Maximum chain depth (default 3)
@@ -152,7 +152,7 @@ def build_multi_domain_context(
 
     Args:
         start_uid: Starting node UID
-        start_label: Starting node label (e.g., "User", "Task", "Ku")
+        start_label: Starting node label (e.g., "User", "Task", "Entity")
         relationship_types: List of relationship types to traverse
         depth: Maximum traversal depth (default 3)
         bidirectional: Include both directions (default True)
@@ -210,7 +210,7 @@ def build_knowledge_prerequisites(
         return build_unmastered_prerequisite_chain(
             node_uid=ku_uid,
             user_uid=user_uid,
-            node_label="Ku",
+            node_label="Entity",
             relationship_type="REQUIRES_KNOWLEDGE",
             mastery_relationship="MASTERED_BY",
             depth=depth,
@@ -218,7 +218,7 @@ def build_knowledge_prerequisites(
     else:
         return build_simple_prerequisite_chain(
             node_uid=ku_uid,
-            node_label="Ku",
+            node_label="Entity",
             relationship_type="REQUIRES_KNOWLEDGE",
             depth=depth,
             order="DESC",
@@ -718,7 +718,7 @@ def build_task_with_context(
         relationships.append(
             {
                 "rel_types": "APPLIES_KNOWLEDGE",
-                "target_label": "Ku",
+                "target_label": "Entity",
                 "alias": "applied_knowledge",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -728,7 +728,7 @@ def build_task_with_context(
         relationships.append(
             {
                 "rel_types": "REQUIRES_KNOWLEDGE",
-                "target_label": "Ku",
+                "target_label": "Entity",
                 "alias": "required_knowledge",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -827,7 +827,7 @@ def build_goal_with_context(
         relationships.append(
             {
                 "rel_types": "REQUIRES_KNOWLEDGE",
-                "target_label": "Ku",
+                "target_label": "Entity",
                 "alias": "required_knowledge",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -903,7 +903,7 @@ def build_ku_with_context(
         relationships.append(
             {
                 "rel_types": "REQUIRES_KNOWLEDGE",
-                "target_label": "Ku",
+                "target_label": "Entity",
                 "alias": "prerequisites",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -915,7 +915,7 @@ def build_ku_with_context(
         relationships.append(
             {
                 "rel_types": "ENABLES_KNOWLEDGE",
-                "target_label": "Ku",
+                "target_label": "Entity",
                 "alias": "enables_learning",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -926,7 +926,7 @@ def build_ku_with_context(
         relationships.append(
             {
                 "rel_types": "RELATED_TO",
-                "target_label": "Ku",
+                "target_label": "Entity",
                 "alias": "related",
                 "direction": "both",
                 "fields": ["uid", "title"],
@@ -967,7 +967,7 @@ def build_ku_with_context(
         )
 
     return build_entity_with_context(
-        entity_label="Ku",
+        entity_label="Entity",
         relationships=relationships,
     )
 
@@ -998,7 +998,7 @@ def build_habit_with_context(
         relationships.append(
             {
                 "rel_types": "REINFORCES_KNOWLEDGE",
-                "target_label": "Ku",
+                "target_label": "Entity",
                 "alias": "reinforced_knowledge",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -1083,7 +1083,7 @@ def build_event_with_context(
         relationships.append(
             {
                 "rel_types": "APPLIES_KNOWLEDGE",
-                "target_label": "Ku",
+                "target_label": "Entity",
                 "alias": "applied_knowledge",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -1181,7 +1181,7 @@ def build_choice_with_context(
         relationships.append(
             {
                 "rel_types": "INFORMED_BY_KNOWLEDGE",
-                "target_label": "Ku",
+                "target_label": "Entity",
                 "alias": "informed_by_knowledge",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -1292,7 +1292,7 @@ def build_principle_with_context(
         relationships.append(
             {
                 "rel_types": "GROUNDED_IN_KNOWLEDGE",
-                "target_label": "Ku",
+                "target_label": "Entity",
                 "alias": "grounding_knowledge",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],

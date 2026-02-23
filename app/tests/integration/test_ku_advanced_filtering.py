@@ -27,7 +27,7 @@ class TestKuConfidenceFiltering:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
 
     @pytest_asyncio.fixture
     async def sample_kus_with_relationships(self, ku_backend):
@@ -248,7 +248,7 @@ class TestKuTypeFiltering:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
 
     @pytest_asyncio.fixture
     async def sample_kus_with_types(self, ku_backend):
@@ -342,7 +342,7 @@ class TestBatchPerformance:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
 
     @pytest_asyncio.fixture
     async def many_kus_with_relationships(self, ku_backend):

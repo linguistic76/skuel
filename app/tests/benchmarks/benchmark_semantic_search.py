@@ -109,7 +109,7 @@ async def setup_benchmark_data(driver):
         for i in range(100):
             await session.run(
                 """
-                CREATE (k:Ku {
+                CREATE (k:Entity {
                     uid: $uid,
                     title: $title,
                     description: $description,
@@ -129,8 +129,8 @@ async def setup_benchmark_data(driver):
             source = (i + 1) % 100
             await session.run(
                 """
-                MATCH (k1:Ku {uid: $target_uid})
-                MATCH (k2:Ku {uid: $source_uid})
+                MATCH (k1:Entity {uid: $target_uid})
+                MATCH (k2:Entity {uid: $source_uid})
                 CREATE (k1)-[:REQUIRES_THEORETICAL_UNDERSTANDING {
                     confidence: 0.8,
                     strength: 1.0,
@@ -152,7 +152,7 @@ async def setup_benchmark_data(driver):
             await session.run(
                 """
                 MATCH (u:User {uid: 'user.benchmark'})
-                MATCH (k:Ku {uid: $uid})
+                MATCH (k:Entity {uid: $uid})
                 CREATE (u)-[:MASTERED {mastered_at: datetime()}]->(k)
             """,
                 uid=f"ku.bench-{i}",
@@ -163,7 +163,7 @@ async def setup_benchmark_data(driver):
             await session.run(
                 """
                 MATCH (u:User {uid: 'user.benchmark'})
-                MATCH (k:Ku {uid: $uid})
+                MATCH (k:Entity {uid: $uid})
                 CREATE (u)-[:IN_PROGRESS {started_at: datetime()}]->(k)
             """,
                 uid=f"ku.bench-{i}",
@@ -176,7 +176,7 @@ async def cleanup_benchmark_data(driver):
     async with driver.session() as session:
         # Delete test KUs and user
         await session.run("""
-            MATCH (k:Ku)
+            MATCH (k:Entity)
             WHERE k.uid STARTS WITH 'ku.bench-'
             DETACH DELETE k
         """)
@@ -222,7 +222,9 @@ async def run_benchmarks():
         print("1/4: Benchmarking standard vector search...")
 
         async def standard_search():
-            await vector_search.find_similar_by_text(label="Ku", text="benchmark test", limit=10)
+            await vector_search.find_similar_by_text(
+                label="Entity", text="benchmark test", limit=10
+            )
 
         latencies = await benchmark_function(standard_search, iterations)
         results.append(calculate_stats("Standard vector search", latencies, iterations))
@@ -232,7 +234,7 @@ async def run_benchmarks():
 
         async def semantic_search():
             await vector_search.semantic_enhanced_search(
-                label="Ku",
+                label="Entity",
                 text="benchmark test",
                 context_uids=[f"ku.bench-{i}" for i in range(10)],
                 limit=10,
@@ -246,7 +248,7 @@ async def run_benchmarks():
 
         async def learning_search():
             await vector_search.learning_aware_search(
-                label="Ku",
+                label="Entity",
                 text="benchmark test",
                 user_uid="user.benchmark",
                 prefer_unmastered=True,
@@ -260,7 +262,7 @@ async def run_benchmarks():
         print("4/4: Benchmarking hybrid search...")
 
         async def hybrid_search_func():
-            await vector_search.hybrid_search(label="Ku", query_text="benchmark test", limit=10)
+            await vector_search.hybrid_search(label="Entity", query_text="benchmark test", limit=10)
 
         latencies = await benchmark_function(hybrid_search_func, iterations)
         results.append(calculate_stats("Hybrid search (RRF)", latencies, iterations))

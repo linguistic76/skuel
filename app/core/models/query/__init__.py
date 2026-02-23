@@ -27,7 +27,7 @@ Usage Examples:
 
     # Get user's mastered knowledge
     query, params = QueryPatterns.get_user_entities(
-        "Ku", user_uid,
+        "Entity", user_uid,
         relationship="MASTERED",
         order_by="r.achieved_at DESC"
     )

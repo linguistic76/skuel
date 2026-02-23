@@ -115,7 +115,7 @@ async def type_contract_test_data(neo4j_container, clean_neo4j, ensure_test_user
 
             await session.run(
                 """
-                MERGE (k:Ku {uid: $uid})
+                MERGE (k:Entity {uid: $uid})
                 SET k.title = $title,
                     k.summary = $summary,
                     k.content = $content,
@@ -132,8 +132,8 @@ async def type_contract_test_data(neo4j_container, clean_neo4j, ensure_test_user
         # Create prerequisite relationship
         await session.run(
             """
-            MATCH (basic:Ku {uid: 'ku.type_test_basics'})
-            MATCH (advanced:Ku {uid: 'ku.type_test_advanced'})
+            MATCH (basic:Entity {uid: 'ku.type_test_basics'})
+            MATCH (advanced:Entity {uid: 'ku.type_test_advanced'})
             MERGE (advanced)-[:REQUIRES_KNOWLEDGE]->(basic)
             """
         )
@@ -173,7 +173,7 @@ async def type_contract_test_data(neo4j_container, clean_neo4j, ensure_test_user
         for step in learning_steps:
             await session.run(
                 """
-                MERGE (s:Ku {uid: $uid})
+                MERGE (s:Entity {uid: $uid})
                 SET s.title = $title,
                     s.intent = $intent,
                     s.primary_knowledge_uids = $primary_knowledge_uids,
@@ -190,7 +190,7 @@ async def type_contract_test_data(neo4j_container, clean_neo4j, ensure_test_user
         # Create learning path
         await session.run(
             """
-            MERGE (p:Ku {uid: 'lp.type_test_path'})
+            MERGE (p:Entity {uid: 'lp.type_test_path'})
             SET p.title = 'Type Testing Mastery',
                 p.description = 'Comprehensive type testing learning path',
                 p.total_steps = 3,
@@ -208,8 +208,8 @@ async def type_contract_test_data(neo4j_container, clean_neo4j, ensure_test_user
         for i in range(1, 4):
             await session.run(
                 """
-                MATCH (p:Ku {uid: 'lp.type_test_path'})
-                MATCH (s:Ku {uid: $step_uid})
+                MATCH (p:Entity {uid: 'lp.type_test_path'})
+                MATCH (s:Entity {uid: $step_uid})
                 MERGE (p)-[r:HAS_STEP]->(s)
                 SET r.sequence = $sequence
                 """,

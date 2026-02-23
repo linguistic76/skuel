@@ -69,7 +69,7 @@ def build_hybrid_knowledge_search(
         - Graph traversal on filtered set (10-100x smaller)
         - Overall: O(log n) + O(filtered_edges) vs O(all_edges)
     """
-    cypher_parts = ["MATCH (ku:Ku)"]
+    cypher_parts = ["MATCH (ku:Entity)"]
     params: dict[str, Any] = {
         "user_uid": user_uid,
         "limit": limit,
@@ -164,7 +164,7 @@ def build_optimized_ready_to_learn(
 
     cypher = f"""
     // Phase 1: Property filters (FAST - indexed)
-    MATCH (ku:Ku)
+    MATCH (ku:Entity)
     WHERE {property_where}
 
     // Phase 2: WITH to pass filtered results
@@ -173,7 +173,7 @@ def build_optimized_ready_to_learn(
     // Phase 3: Graph patterns on filtered set
     WHERE NOT EXISTS {{
         // Check prerequisites (relationship traversal)
-        MATCH (ku)-[r:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+        MATCH (ku)-[r:REQUIRES_KNOWLEDGE]->(prereq:Entity)
         WHERE r.confidence >= $min_confidence
           AND NOT EXISTS {{
             MATCH (user:User {{uid: $user_uid}})-[:MASTERED]->(prereq)
@@ -185,7 +185,7 @@ def build_optimized_ready_to_learn(
     }}
 
     // Count what this unlocks (useful for prioritization)
-    OPTIONAL MATCH (ku)-[:ENABLES_LEARNING]->(unlocked:Ku)
+    OPTIONAL MATCH (ku)-[:ENABLES_LEARNING]->(unlocked:Entity)
     WHERE NOT EXISTS {{
         MATCH (user:User {{uid: $user_uid}})-[:MASTERED]->(unlocked)
     }}
@@ -250,7 +250,7 @@ def build_goal_aligned_hybrid(
     WHERE {goal_status_filter}
 
     // Find knowledge required by goals
-    MATCH (goal)-[:REQUIRES_KNOWLEDGE]->(ku:Ku)
+    MATCH (goal)-[:REQUIRES_KNOWLEDGE]->(ku:Entity)
 
     // Apply property filters (indexed)
     WHERE {property_where}
@@ -301,7 +301,7 @@ def build_registry_validated_query(
 
     Args:
         source_label: Source node label (e.g., "Task", "Goal")
-        target_label: Target node label (e.g., "Ku", "Habit")
+        target_label: Target node label (e.g., "Entity", "Habit")
         relationship_type: Relationship type to query (e.g., "APPLIES_KNOWLEDGE")
         source_uid: Optional source node UID filter
         target_uid: Optional target node UID filter
@@ -426,7 +426,7 @@ def build_impact_chain_query(
     Args:
         start_uid: Starting entity UID
         start_label: Starting entity label (e.g., "Task", "Choice")
-        end_label: Target domain label (e.g., "Goal", "Ku")
+        end_label: Target domain label (e.g., "Goal", "Entity")
         max_depth: Maximum path length (default 4)
         relationship_filter: Optional list of specific relationships to traverse
 
@@ -699,7 +699,7 @@ def build_normalized_centrality_query(
     - Normalized to 0.0-1.0 scale
 
     Args:
-        label: Node label to analyze (e.g., "Ku", "Goal")
+        label: Node label to analyze (e.g., "Entity", "Goal")
         relationship_types: Optional filter for specific relationship types
         weight_property: Property to use as edge weight (default "confidence")
         min_weight: Minimum weight threshold (default 0.0)
@@ -786,7 +786,7 @@ def build_relationship_weight_stats_query(
     and for detecting anomalies in relationship properties.
 
     Args:
-        source_label: Source node label (e.g., "Task", "Ku")
+        source_label: Source node label (e.g., "Task", "Entity")
         relationship_type: Relationship type to analyze
         weight_properties: Properties to analyze (default: common weight props)
 

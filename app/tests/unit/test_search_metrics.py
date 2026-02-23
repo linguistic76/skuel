@@ -18,7 +18,7 @@ def test_search_metrics_creation():
     metrics = SearchMetrics(
         query="python programming",
         search_type="hybrid",
-        label="Ku",
+        label="Entity",
         num_results=10,
         avg_similarity=0.82,
         min_similarity=0.71,
@@ -31,7 +31,7 @@ def test_search_metrics_creation():
 
     assert metrics.query == "python programming"
     assert metrics.search_type == "hybrid"
-    assert metrics.label == "Ku"
+    assert metrics.label == "Entity"
     assert metrics.num_results == 10
     assert metrics.avg_similarity == 0.82
     assert metrics.min_similarity == 0.71
@@ -72,7 +72,7 @@ def test_search_metrics_to_log_string():
     metrics = SearchMetrics(
         query="test query",
         search_type="hybrid",
-        label="Ku",
+        label="Entity",
         num_results=8,
         avg_similarity=0.876,
         min_similarity=0.75,
@@ -85,7 +85,7 @@ def test_search_metrics_to_log_string():
 
     assert "query='test query'" in log_str
     assert "type=hybrid" in log_str
-    assert "label=Ku" in log_str
+    assert "label=Entity" in log_str
     assert "results=8" in log_str
     assert "avg_score=0.876" in log_str
     assert "latency=34.5ms" in log_str
@@ -98,7 +98,7 @@ def test_search_metrics_long_query_truncated():
     metrics = SearchMetrics(
         query=long_query,
         search_type="vector",
-        label="Ku",
+        label="Entity",
         num_results=10,
         avg_similarity=0.8,
         min_similarity=0.7,
@@ -142,7 +142,7 @@ def test_search_metrics_aggregate_creation():
         avg_results_per_query=8.2,
         avg_similarity=0.82,
         queries_by_type={"vector": 60, "hybrid": 40},
-        queries_by_label={"Ku": 70, "Task": 30},
+        queries_by_label={"Entity": 70, "Task": 30},
         p50_latency_ms=40.0,
         p95_latency_ms=85.0,
         p99_latency_ms=120.0,
@@ -153,7 +153,7 @@ def test_search_metrics_aggregate_creation():
     assert aggregate.avg_results_per_query == 8.2
     assert aggregate.avg_similarity == 0.82
     assert aggregate.queries_by_type == {"vector": 60, "hybrid": 40}
-    assert aggregate.queries_by_label == {"Ku": 70, "Task": 30}
+    assert aggregate.queries_by_label == {"Entity": 70, "Task": 30}
     assert aggregate.p50_latency_ms == 40.0
     assert aggregate.p95_latency_ms == 85.0
     assert aggregate.p99_latency_ms == 120.0
@@ -167,7 +167,7 @@ def test_search_metrics_aggregate_to_dict():
         avg_results_per_query=7.5,
         avg_similarity=0.8523,
         queries_by_type={"vector": 30, "hybrid": 20},
-        queries_by_label={"Ku": 40, "Task": 10},
+        queries_by_label={"Entity": 40, "Task": 10},
         p50_latency_ms=30.0,
         p95_latency_ms=70.0,
         p99_latency_ms=95.0,
@@ -180,7 +180,7 @@ def test_search_metrics_aggregate_to_dict():
     assert result["avg_results_per_query"] == 7.5
     assert result["avg_similarity"] == 0.8523  # 4 decimals
     assert result["queries_by_type"] == {"vector": 30, "hybrid": 20}
-    assert result["queries_by_label"] == {"Ku": 40, "Task": 10}
+    assert result["queries_by_label"] == {"Entity": 40, "Task": 10}
 
 
 def test_search_metrics_aggregate_summary():
@@ -191,7 +191,7 @@ def test_search_metrics_aggregate_summary():
         avg_results_per_query=8.2,
         avg_similarity=0.82,
         queries_by_type={"vector": 60, "hybrid": 40},
-        queries_by_label={"Ku": 70, "Task": 30},
+        queries_by_label={"Entity": 70, "Task": 30},
         p50_latency_ms=40.0,
         p95_latency_ms=85.0,
         p99_latency_ms=120.0,
@@ -215,7 +215,7 @@ def test_search_metrics_frozen():
     metrics = SearchMetrics(
         query="test",
         search_type="vector",
-        label="Ku",
+        label="Entity",
         num_results=5,
         avg_similarity=0.8,
         min_similarity=0.7,

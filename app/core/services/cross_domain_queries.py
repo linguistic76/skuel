@@ -89,7 +89,7 @@ class CrossDomainQueries:
                 # PHASE 5: Use CypherGenerator for prerequisite traversal
                 # Step 1: Get directly related knowledge
                 direct_cypher = """
-                MATCH (t:Task {uid: $task_uid})-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+                MATCH (t:Task {uid: $task_uid})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
                 RETURN collect(ku.uid) as direct_knowledge_uids, collect(ku) as direct_knowledge_nodes
                 """
 
@@ -157,7 +157,7 @@ class CrossDomainQueries:
             else:
                 # Direct relationships only (no change needed)
                 cypher = """
-                MATCH (t:Task {uid: $task_uid})-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+                MATCH (t:Task {uid: $task_uid})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
                 RETURN ku AS knowledge_unit
                 ORDER BY ku.title
                 """
@@ -208,7 +208,7 @@ class CrossDomainQueries:
         """
         if user_uid:
             cypher = """
-            MATCH (ku:Ku {uid: $ku_uid})<-[:APPLIES_KNOWLEDGE]-(t:Task)
+            MATCH (ku:Entity {uid: $ku_uid})<-[:APPLIES_KNOWLEDGE]-(t:Task)
             WHERE t.user_uid = $user_uid
             RETURN t AS task
             ORDER BY t.created_at DESC
@@ -216,7 +216,7 @@ class CrossDomainQueries:
             params = {"ku_uid": ku_uid, "user_uid": user_uid}
         else:
             cypher = """
-            MATCH (ku:Ku {uid: $ku_uid})<-[:APPLIES_KNOWLEDGE]-(t:Task)
+            MATCH (ku:Entity {uid: $ku_uid})<-[:APPLIES_KNOWLEDGE]-(t:Task)
             RETURN t AS task
             ORDER BY t.created_at DESC
             """
@@ -347,7 +347,7 @@ class CrossDomainQueries:
             Result containing list of Knowledge objects
         """
         cypher = """
-        MATCH (e:Event {uid: $event_uid})-[:REINFORCES_CONCEPT]->(ku:Ku)
+        MATCH (e:Event {uid: $event_uid})-[:REINFORCES_CONCEPT]->(ku:Entity)
         RETURN ku AS knowledge_unit
         ORDER BY ku.title
         """
@@ -398,7 +398,7 @@ class CrossDomainQueries:
         where_clause = " AND ".join(conditions)
 
         cypher = f"""
-        MATCH (ku:Ku)<-[:REINFORCES_CONCEPT]-(e:Event)
+        MATCH (ku:Entity)<-[:REINFORCES_CONCEPT]-(e:Event)
         WHERE {where_clause}
         RETURN e AS event
         ORDER BY e.start_time
@@ -638,7 +638,7 @@ class CrossDomainQueries:
         OPTIONAL MATCH (g)<-[:CONTRIBUTES_TO]-(e:Expense)
 
         // Get related knowledge (via tasks)
-        OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+        OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Entity)
 
         RETURN
             g AS goal,
@@ -667,9 +667,7 @@ class CrossDomainQueries:
         habits = [self._neo4j_node_to_habit(n) for n in record["habits"] if n]
         budgets = [self._neo4j_node_to_budget(n) for n in record["budgets"] if n]
         expenses = [self._neo4j_node_to_expense(n) for n in record["expenses"] if n]
-        knowledge_units = [
-            self._neo4j_node_to_entity(n) for n in record["knowledge_units"] if n
-        ]
+        knowledge_units = [self._neo4j_node_to_entity(n) for n in record["knowledge_units"] if n]
 
         context = {
             "goal": self._neo4j_node_to_goal(record["goal"]),

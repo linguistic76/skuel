@@ -29,7 +29,7 @@ class SearchMetrics:
     Attributes:
         query: Original search query text
         search_type: Type of search ("vector", "fulltext", "hybrid")
-        label: Entity type searched (e.g., "Ku", "Task", "Goal")
+        label: Entity type searched (e.g., "Entity", "Task", "Goal")
         num_results: Number of results returned
         avg_similarity: Average similarity score (0.0-1.0 for vector, varies for others)
         min_similarity: Minimum similarity score in results
@@ -44,7 +44,7 @@ class SearchMetrics:
         >>> metrics = SearchMetrics(
         ...     query="python programming",
         ...     search_type="hybrid",
-        ...     label="Ku",
+        ...     label="Entity",
         ...     num_results=10,
         ...     avg_similarity=0.82,
         ...     min_similarity=0.71,

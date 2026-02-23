@@ -338,9 +338,7 @@ class HabitsCompletionService:
             # Streak broken
             return 1
 
-    async def _check_streak_milestones(
-        self, habit: Habit, new_streak: int, user_uid: str
-    ) -> None:
+    async def _check_streak_milestones(self, habit: Habit, new_streak: int, user_uid: str) -> None:
         """
         Check if new streak reaches a milestone and publish event.
 

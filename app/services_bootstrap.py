@@ -1111,7 +1111,7 @@ async def compose_services(
 
         users_backend = UserBackend(driver)
         knowledge_backend = UniversalNeo4jBackend[Ku](
-            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics
+            driver, NeoLabel.ENTITY, Ku, prometheus_metrics=prometheus_metrics
         )
         from core.models.principle.principle import Principle
 
@@ -1141,9 +1141,9 @@ async def compose_services(
             driver, NeoLabel.USER_PROGRESS, UserProgress, prometheus_metrics=prometheus_metrics
         )
         # NOTE: vectors_backend REMOVED (January 2026) - was unused dead code
-        # reports_backend uses :Ku label for cross-domain Ku queries (reports span multiple KuTypes)
+        # reports_backend uses :Entity label for cross-domain queries (reports span multiple EntityTypes)
         reports_backend = UniversalNeo4jBackend[Ku](
-            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics
+            driver, NeoLabel.ENTITY, Ku, prometheus_metrics=prometheus_metrics
         )
         askesis_backend = UniversalNeo4jBackend[Askesis](
             driver, NeoLabel.ASKESIS, Askesis, prometheus_metrics=prometheus_metrics
@@ -1738,7 +1738,9 @@ async def compose_services(
         )
 
         # Create Ku search service (unified query interface)
-        reports_query_service = ReportsSearchService(ku_backend=reports_backend, event_bus=event_bus)
+        reports_query_service = ReportsSearchService(
+            ku_backend=reports_backend, event_bus=event_bus
+        )
 
         logger.info("✅ Ku submission and processing pipeline services created (unified model)")
         logger.info("✅ Ku core service created (content management: categories, tags, bulk ops)")

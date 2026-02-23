@@ -46,7 +46,7 @@ class TestPrinciplesCoreOperations:
     @pytest_asyncio.fixture
     async def principles_backend(self, neo4j_driver, clean_neo4j):
         """Create principles backend with clean database."""
-        return UniversalNeo4jBackend[Principle](neo4j_driver, "Ku", Principle)
+        return UniversalNeo4jBackend[Principle](neo4j_driver, "Entity", Principle)
 
     @pytest_asyncio.fixture
     async def principles_service(self, principles_backend, event_bus):

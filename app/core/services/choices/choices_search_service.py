@@ -111,7 +111,9 @@ class ChoicesSearchService(BaseService["BackendOperations[Choice]", Choice]):
     # get_by_category(), list_categories(), get_by_relationship()
 
     @with_error_handling("get_prioritized", error_type="database")
-    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Choice]]:
+    async def get_prioritized(
+        self, user_context: UserContext, limit: int = 10
+    ) -> Result[list[Choice]]:
         """
         Get choices prioritized for the user's current context.
 
@@ -245,7 +247,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Choice]", Choice]):
         # Build query with optional user filter
         user_clause = "AND c.user_uid = $user_uid" if user_uid else ""
         cypher_query = f"""
-        MATCH (c:Ku {{ku_type: 'choice'}})
+        MATCH (c:Entity {{ku_type: 'choice'}})
         WHERE c.deadline >= date($today)
           AND c.deadline <= date($end_date)
           AND c.status NOT IN ['completed', 'decided', 'cancelled', 'archived']
@@ -298,7 +300,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Choice]", Choice]):
         # Build query with optional user filter
         user_clause = "AND c.user_uid = $user_uid" if user_uid else ""
         cypher_query = f"""
-        MATCH (c:Ku {{ku_type: 'choice'}})
+        MATCH (c:Entity {{ku_type: 'choice'}})
         WHERE c.deadline < date($today)
           AND c.status NOT IN ['completed', 'decided', 'cancelled', 'archived']
           {user_clause}
@@ -343,7 +345,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Choice]", Choice]):
         """
         # Query for pending choices
         cypher_query = """
-        MATCH (c:Ku {ku_type: 'choice'})
+        MATCH (c:Entity {ku_type: 'choice'})
         WHERE c.user_uid = $user_uid
           AND c.status IN ['draft', 'active', 'scheduled']
         RETURN c
@@ -415,7 +417,9 @@ class ChoicesSearchService(BaseService["BackendOperations[Choice]", Choice]):
         )
 
     @with_error_handling("get_needing_decision", error_type="database", uid_param="user_uid")
-    async def get_needing_decision(self, user_uid: str, deadline_days: int = 7) -> Result[list[Choice]]:
+    async def get_needing_decision(
+        self, user_uid: str, deadline_days: int = 7
+    ) -> Result[list[Choice]]:
         """
         Get choices that need a decision within N days.
 
@@ -436,7 +440,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Choice]", Choice]):
 
         # Query for choices needing decision
         cypher_query = """
-        MATCH (c:Ku {ku_type: 'choice'})
+        MATCH (c:Entity {ku_type: 'choice'})
         WHERE c.user_uid = $user_uid
           AND c.deadline <= date($end_date)
           AND c.status NOT IN ['completed', 'decided', 'cancelled', 'archived']
@@ -482,7 +486,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Choice]", Choice]):
         """
         # Query for choices aligned with principle
         cypher_query = """
-        MATCH (c:Ku {ku_type: 'choice'})-[r:ALIGNED_WITH_PRINCIPLE]->(p:Ku {uid: $principle_uid, ku_type: 'principle'})
+        MATCH (c:Entity {ku_type: 'choice'})-[r:ALIGNED_WITH_PRINCIPLE]->(p:Entity {uid: $principle_uid, ku_type: 'principle'})
         WHERE r.confidence >= $min_confidence
         RETURN c
         ORDER BY r.confidence DESC
@@ -526,7 +530,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Choice]", Choice]):
 
         # Query for decided choices
         cypher_query = """
-        MATCH (c:Ku {ku_type: 'choice'})
+        MATCH (c:Entity {ku_type: 'choice'})
         WHERE c.user_uid = $user_uid
           AND c.status IN ['active', 'completed']
           AND c.decided_at >= date($lookback_date)

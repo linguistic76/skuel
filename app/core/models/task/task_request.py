@@ -50,9 +50,7 @@ class TaskCreateRequest(CreateRequestBase):
     tags: list[str] = Field(default_factory=list, description="Task tags")
 
     # Hierarchical Relationships (2026-01-30 - Hierarchical Pattern)
-    parent_uid: str | None = Field(
-        None, description="Parent task UID for subtask decomposition"
-    )
+    parent_uid: str | None = Field(None, description="Parent task UID for subtask decomposition")
     progress_weight: float = Field(
         default=1.0,
         ge=0.0,

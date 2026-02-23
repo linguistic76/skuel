@@ -100,9 +100,7 @@ class SubmissionDTO(UserOwnedDTO):
             }
         )
 
-        convert_datetimes_to_iso(
-            data, ["processing_started_at", "processing_completed_at"]
-        )
+        convert_datetimes_to_iso(data, ["processing_started_at", "processing_completed_at"])
 
         return data
 
@@ -126,8 +124,10 @@ class SubmissionDTO(UserOwnedDTO):
                 "processor_type": ProcessorType,
             },
             datetime_fields=[
-                "created_at", "updated_at",
-                "processing_started_at", "processing_completed_at",
+                "created_at",
+                "updated_at",
+                "processing_started_at",
+                "processing_completed_at",
             ],
             list_fields=["tags"],
             dict_fields=["metadata"],
@@ -147,16 +147,31 @@ class SubmissionDTO(UserOwnedDTO):
             updates,
             allowed_fields={
                 # EntityDTO fields
-                "title", "content", "summary", "description", "word_count",
-                "domain", "status", "tags", "metadata",
+                "title",
+                "content",
+                "summary",
+                "description",
+                "word_count",
+                "domain",
+                "status",
+                "tags",
+                "metadata",
                 # UserOwnedDTO fields
-                "priority", "visibility",
+                "priority",
+                "visibility",
                 # Submission-specific fields
-                "original_filename", "file_path", "file_size", "file_type",
+                "original_filename",
+                "file_path",
+                "file_size",
+                "file_type",
                 "processor_type",
-                "processing_started_at", "processing_completed_at",
-                "processing_error", "processed_content", "processed_file_path",
-                "instructions", "max_retention",
+                "processing_started_at",
+                "processing_completed_at",
+                "processing_error",
+                "processed_content",
+                "processed_file_path",
+                "instructions",
+                "max_retention",
                 "subject_uid",
             },
             enum_mappings={

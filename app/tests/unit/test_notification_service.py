@@ -35,9 +35,7 @@ def service(mock_driver):
 @pytest.mark.asyncio
 async def test_create_notification_success(service, mock_driver):
     """Should create a notification and return its UID."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [{"uid": "notif_abc123"}]
-    )
+    mock_driver.execute_query.return_value = Result.ok([{"uid": "notif_abc123"}])
 
     result = await service.create_notification(
         user_uid="user_student",
@@ -84,9 +82,7 @@ async def test_create_notification_user_not_found(service, mock_driver):
 @pytest.mark.asyncio
 async def test_get_unread_count(service, mock_driver):
     """Should return count of unread notifications."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [{"count": 5}]
-    )
+    mock_driver.execute_query.return_value = Result.ok([{"count": 5}])
 
     result = await service.get_unread_count("user_student")
 
@@ -97,9 +93,7 @@ async def test_get_unread_count(service, mock_driver):
 @pytest.mark.asyncio
 async def test_get_unread_count_zero(service, mock_driver):
     """Should return 0 when no unread notifications."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [{"count": 0}]
-    )
+    mock_driver.execute_query.return_value = Result.ok([{"count": 0}])
 
     result = await service.get_unread_count("user_student")
 
@@ -157,9 +151,7 @@ async def test_get_notifications(service, mock_driver):
 @pytest.mark.asyncio
 async def test_mark_read_success(service, mock_driver):
     """Should mark a notification as read."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [{"uid": "notif_1"}]
-    )
+    mock_driver.execute_query.return_value = Result.ok([{"uid": "notif_1"}])
 
     result = await service.mark_read("notif_1", "user_student")
 
@@ -185,9 +177,7 @@ async def test_mark_read_not_found(service, mock_driver):
 @pytest.mark.asyncio
 async def test_mark_all_read(service, mock_driver):
     """Should mark all notifications as read and return count."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [{"count": 3}]
-    )
+    mock_driver.execute_query.return_value = Result.ok([{"count": 3}])
 
     result = await service.mark_all_read("user_student")
 

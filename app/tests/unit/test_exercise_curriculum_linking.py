@@ -74,8 +74,8 @@ class TestExerciseRegistryConfig:
         )
 
     def test_exercise_config_entity_label(self):
-        """Exercise entity label should be Ku (all Ku types share :Ku label)."""
-        assert EXERCISE_CONFIG.entity_label == "Ku"
+        """Exercise entity label should be Ku (all Ku types share :Entity label)."""
+        assert EXERCISE_CONFIG.entity_label == "Entity"
 
     def test_exercise_config_method_keys(self):
         """EXERCISE_CONFIG should expose expected method keys."""

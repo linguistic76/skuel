@@ -58,26 +58,26 @@ class TestGoalRecommendationsFlow:
     async def goal_backend(self, neo4j_driver, clean_neo4j):
         """Create Goal backend with clean database."""
         return UniversalNeo4jBackend[Goal](
-            neo4j_driver, "Ku", Goal, default_filters={"ku_type": "goal"}
+            neo4j_driver, "Entity", Goal, default_filters={"ku_type": "goal"}
         )
 
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
 
     @pytest_asyncio.fixture
     async def habit_backend(self, neo4j_driver, clean_neo4j):
         """Create Habit backend with clean database."""
         return UniversalNeo4jBackend[Habit](
-            neo4j_driver, "Ku", Habit, default_filters={"ku_type": "habit"}
+            neo4j_driver, "Entity", Habit, default_filters={"ku_type": "habit"}
         )
 
     @pytest_asyncio.fixture
     async def principle_backend(self, neo4j_driver, clean_neo4j):
         """Create Principle backend with clean database."""
         return UniversalNeo4jBackend[Principle](
-            neo4j_driver, "Ku", Principle, default_filters={"ku_type": "principle"}
+            neo4j_driver, "Entity", Principle, default_filters={"ku_type": "principle"}
         )
 
     @pytest_asyncio.fixture
@@ -185,7 +185,7 @@ class TestGoalRecommendationsFlow:
         async with neo4j_driver.session() as session:
             for ku in kus:
                 await session.run(
-                    "MATCH (ku:Ku {uid: $uid}) SET ku.ku_type = 'knowledge_unit'",
+                    "MATCH (ku:Entity {uid: $uid}) SET ku.ku_type = 'knowledge_unit'",
                     uid=ku.uid,
                 )
 
@@ -195,8 +195,8 @@ class TestGoalRecommendationsFlow:
             for ku in kus:
                 await session.run(
                     """
-                    MATCH (goal:Ku {uid: $goal_uid})
-                    MATCH (ku:Ku {uid: $ku_uid})
+                    MATCH (goal:Entity {uid: $goal_uid})
+                    MATCH (ku:Entity {uid: $ku_uid})
                     MERGE (goal)-[:REQUIRES_KNOWLEDGE]->(ku)
                     """,
                     goal_uid=goal.uid,
@@ -207,8 +207,8 @@ class TestGoalRecommendationsFlow:
             for habit in habits:
                 await session.run(
                     """
-                    MATCH (goal:Ku {uid: $goal_uid})
-                    MATCH (habit:Ku {uid: $habit_uid})
+                    MATCH (goal:Entity {uid: $goal_uid})
+                    MATCH (habit:Entity {uid: $habit_uid})
                     MERGE (goal)-[:SUPPORTS_GOAL]->(habit)
                     """,
                     goal_uid=goal.uid,
@@ -218,8 +218,8 @@ class TestGoalRecommendationsFlow:
             # Link goal to principle
             await session.run(
                 """
-                MATCH (goal:Ku {uid: $goal_uid})
-                MATCH (principle:Ku {uid: $principle_uid})
+                MATCH (goal:Entity {uid: $goal_uid})
+                MATCH (principle:Entity {uid: $principle_uid})
                 MERGE (goal)-[:GUIDED_BY_PRINCIPLE]->(principle)
                 """,
                 goal_uid=goal.uid,

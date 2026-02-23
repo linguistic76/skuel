@@ -247,7 +247,7 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Event]",
 
         # Use pure Cypher graph intelligence
         context_result = await self.graph_intel.get_entity_context(
-            entity_uid=uid, entity_type="Ku", depth=depth
+            entity_uid=uid, entity_type="Entity", depth=depth
         )
 
         if context_result.is_error:

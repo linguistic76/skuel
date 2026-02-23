@@ -67,7 +67,7 @@ class EventsLearningService(BaseService["BackendOperations[Event]", Event]):
     _config = create_activity_domain_config(
         dto_class=EventDTO,
         model_class=Event,
-        entity_label="Ku",
+        entity_label="Entity",
         domain_name="events",
         date_field="event_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
@@ -130,7 +130,7 @@ class EventsLearningService(BaseService["BackendOperations[Event]", Event]):
         from core.utils.neo4j_mapper import from_neo4j_node
 
         query = """
-        MATCH (e:Ku)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(ku:Ku {uid: $knowledge_uid})
+        MATCH (e:Entity)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(ku:Entity {uid: $knowledge_uid})
         WHERE e.user_uid = $user_uid
         RETURN e
         """
@@ -150,15 +150,13 @@ class EventsLearningService(BaseService["BackendOperations[Event]", Event]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Ku entities."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # LEARNING-RELATED EVENT QUERIES
     # ========================================================================
 
-    async def get_learning_events(
-        self, user_uid: str, days_ahead: int = 7
-    ) -> Result[list[Event]]:
+    async def get_learning_events(self, user_uid: str, days_ahead: int = 7) -> Result[list[Event]]:
         """
         Get all upcoming learning-related events.
 

@@ -512,7 +512,9 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         )
 
     @with_error_handling("get_active_principles", error_type="database")
-    async def get_active_principles(self, user_uid: str, limit: int = 100) -> Result[list[Principle]]:
+    async def get_active_principles(
+        self, user_uid: str, limit: int = 100
+    ) -> Result[list[Principle]]:
         """
         Get all active principles for a user.
 
@@ -818,9 +820,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         if "review" in query_lower or "reviewing" in query_lower:
             principles = [p for p in principles if isinstance(p, Principle) and p.needs_review()]
         elif "well-aligned" in query_lower or "aligned" in query_lower:
-            principles = [
-                p for p in principles if isinstance(p, Principle) and p.is_well_aligned()
-            ]
+            principles = [p for p in principles if isinstance(p, Principle) and p.is_well_aligned()]
 
         self.logger.info(
             "Intelligent search: query=%r filters=%s results=%d",

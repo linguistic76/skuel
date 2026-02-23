@@ -157,7 +157,7 @@ class KuGraphService:
         # REQUIRES_KNOWLEDGE relationship means uid requires the prerequisite
         query, params = build_simple_prerequisite_chain(
             node_uid=uid,
-            node_label="Ku",
+            node_label="Entity",
             relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
             depth=depth,
             order="DESC",
@@ -215,7 +215,7 @@ class KuGraphService:
         query, params = build_relationship_traversal_query(
             source_uid=uid,
             relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
-            target_label="Ku",
+            target_label="Entity",
             direction="incoming",  # KUs that point TO this KU via REQUIRES_KNOWLEDGE
             limit=limit,
         )
@@ -312,8 +312,8 @@ class KuGraphService:
 
         # Create REQUIRES relationship (unit REQUIRES prerequisite)
         query = """
-        MATCH (unit:Ku {uid: $unit_uid})
-        MATCH (prereq:Ku {uid: $prereq_uid})
+        MATCH (unit:Entity {uid: $unit_uid})
+        MATCH (prereq:Entity {uid: $prereq_uid})
         MERGE (unit)-[r:REQUIRES_KNOWLEDGE]->(prereq)
         SET r.is_mandatory = $is_mandatory
         SET r.created_at = datetime()
@@ -357,8 +357,8 @@ class KuGraphService:
 
         # Create HAS_NARROWER relationship (parent HAS_NARROWER child)
         query = """
-        MATCH (parent:Ku {uid: $parent_uid})
-        MATCH (child:Ku {uid: $child_uid})
+        MATCH (parent:Entity {uid: $parent_uid})
+        MATCH (child:Entity {uid: $child_uid})
         MERGE (parent)-[r:HAS_NARROWER]->(child)
         SET r.created_at = datetime()
         RETURN r
@@ -411,7 +411,7 @@ class KuGraphService:
             # Query user mastery for each prerequisite
             mastery_query = """
             MATCH (u:User {uid: $user_uid})
-            OPTIONAL MATCH (u)-[m:MASTERED]->(k:Ku)
+            OPTIONAL MATCH (u)-[m:MASTERED]->(k:Entity)
             WHERE k.uid IN $prereq_uids
             RETURN k.uid as ku_uid,
                    m.mastery_score as score,
@@ -419,7 +419,7 @@ class KuGraphService:
                    m.last_practiced as last_practiced
             UNION
             MATCH (u:User {uid: $user_uid})
-            OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(k:Ku)
+            OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(k:Entity)
             WHERE k.uid IN $prereq_uids
             RETURN k.uid as ku_uid,
                    ip.progress as score,
@@ -587,16 +587,16 @@ class KuGraphService:
         # - Most of its prerequisites are completed
         ready_query = """
         // Get user's mastered knowledge
-        MATCH (u:User {uid: $user_uid})-[:MASTERED]->(mastered:Ku)
+        MATCH (u:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
         WITH u, collect(mastered.uid) as mastered_uids
 
         // Find knowledge units not yet mastered
-        MATCH (candidate:Ku)
+        MATCH (candidate:Entity)
         WHERE NOT candidate.uid IN mastered_uids
           AND ($domain IS NULL OR candidate.domain = $domain)
 
         // Count prerequisites and how many are satisfied
-        OPTIONAL MATCH (candidate)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+        OPTIONAL MATCH (candidate)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
         WITH candidate, mastered_uids,
              count(prereq) as total_prereqs,
              sum(CASE WHEN prereq.uid IN mastered_uids THEN 1 ELSE 0 END) as satisfied_prereqs
@@ -614,7 +614,7 @@ class KuGraphService:
         WHERE readiness >= 0.7
 
         // Get next steps info (what this enables)
-        OPTIONAL MATCH (candidate)<-[:REQUIRES_KNOWLEDGE]-(enables:Ku)
+        OPTIONAL MATCH (candidate)<-[:REQUIRES_KNOWLEDGE]-(enables:Entity)
         WITH candidate, readiness, total_prereqs, satisfied_prereqs,
              count(enables) as enables_count
 
@@ -756,7 +756,7 @@ class KuGraphService:
         # Generate metadata-aware path query
         query, params = build_metadata_aware_path_query(
             target_uid=target_uid,
-            node_label="Ku",
+            node_label="Entity",
             relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
             user_time_budget=user_time_budget,
             max_complexity_level=max_complexity,
@@ -880,7 +880,7 @@ class KuGraphService:
         - Recommended: Run nightly via scheduled job
         """
         query = """
-        MATCH (ku:Ku)-[r]-(neighbor)
+        MATCH (ku:Entity)-[r]-(neighbor)
         WITH ku, count(r) as degree_centrality
         SET ku.hub_score = degree_centrality
         RETURN count(ku) as updated_count
@@ -951,7 +951,7 @@ class KuGraphService:
         where_clause = " AND ".join(where_clauses)
 
         query = f"""
-        MATCH (ku:Ku)
+        MATCH (ku:Entity)
         WHERE {where_clause}
         RETURN ku
         ORDER BY ku.hub_score DESC
@@ -1044,12 +1044,12 @@ class KuGraphService:
         # Query for knowledge units where user hasn't mastered
         # and prerequisites are mostly met
         query = """
-        MATCH (ku:Ku)
+        MATCH (ku:Entity)
         WHERE NOT ku.uid IN $mastered_uids
           AND ($domain IS NULL OR ku.domain = $domain)
 
         // Count prerequisites and how many user has mastered
-        OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+        OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
         WITH ku,
              collect(prereq.uid) as prereq_uids,
              count(prereq) as total_prereqs
@@ -1068,7 +1068,7 @@ class KuGraphService:
         WHERE readiness >= 0.7
 
         // Get what this enables (dependents)
-        OPTIONAL MATCH (ku)<-[:REQUIRES_KNOWLEDGE]-(dependent:Ku)
+        OPTIONAL MATCH (ku)<-[:REQUIRES_KNOWLEDGE]-(dependent:Entity)
 
         RETURN ku.uid as uid,
                ku.title as title,
@@ -1162,7 +1162,7 @@ class KuGraphService:
 
         # Query for knowledge required by goals but not mastered
         query = """
-        MATCH (goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku:Ku)
+        MATCH (goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku:Entity)
         WHERE goal.uid IN $goal_uids
           AND NOT ku.uid IN $mastered_uids
 
@@ -1171,7 +1171,7 @@ class KuGraphService:
              collect(DISTINCT goal.uid) as blocking_goal_uids
 
         // Get prerequisite info
-        OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+        OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
         WITH ku, goals_blocked, blocking_goal_uids,
              count(prereq) as prereq_count,
              collect(prereq.uid) as prereq_uids
@@ -1288,7 +1288,7 @@ class KuGraphService:
 
         query = """
         UNWIND $uids as uid
-        MATCH (ku:Ku {uid: uid})
+        MATCH (ku:Entity {uid: uid})
 
         // Check if this knowledge is used by active goals
         OPTIONAL MATCH (goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku)
@@ -1297,7 +1297,7 @@ class KuGraphService:
         WITH ku, count(goal) as goal_relevance
 
         // Check what depends on this knowledge
-        OPTIONAL MATCH (ku)<-[:REQUIRES_KNOWLEDGE]-(dependent:Ku)
+        OPTIONAL MATCH (ku)<-[:REQUIRES_KNOWLEDGE]-(dependent:Entity)
 
         RETURN ku.uid as uid,
                ku.title as title,
@@ -1400,7 +1400,7 @@ class KuGraphService:
         where_clause = " AND ".join(conditions)
 
         query = f"""
-        MATCH (e:Event)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(ku:Ku)
+        MATCH (e:Event)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(ku:Entity)
         WHERE {where_clause}
         RETURN e.uid as event_uid
         ORDER BY e.start_time ASC
@@ -1468,7 +1468,7 @@ class KuGraphService:
         where_clause = " AND ".join(conditions)
 
         query = f"""
-        MATCH (h:Habit)-[:REINFORCES_KNOWLEDGE]->(ku:Ku)
+        MATCH (h:Habit)-[:REINFORCES_KNOWLEDGE]->(ku:Entity)
         WHERE {where_clause}
         RETURN h.uid as habit_uid
         ORDER BY h.created_at DESC
@@ -1528,7 +1528,7 @@ class KuGraphService:
             return Result.fail(Errors.not_found(f"Knowledge unit {ku_uid} not found"))
 
         query = """
-        MATCH (ku:Ku {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Ls)
+        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Ls)
         RETURN ls.uid as step_uid
         ORDER BY ls.sequence_number ASC
         LIMIT $limit
@@ -1577,7 +1577,7 @@ class KuGraphService:
             return Result.fail(Errors.not_found(f"Knowledge unit {ku_uid} not found"))
 
         query = """
-        MATCH (ku:Ku {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Ls)<-[:HAS_STEP]-(lp:Lp)
+        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Ls)<-[:HAS_STEP]-(lp:Lp)
         RETURN DISTINCT lp.uid as path_uid
         ORDER BY lp.created_at DESC
         LIMIT $limit
@@ -1639,7 +1639,7 @@ class KuGraphService:
         where_clause = " AND ".join(conditions)
 
         query = f"""
-        MATCH (t:Task)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+        MATCH (t:Task)-[:APPLIES_KNOWLEDGE]->(ku:Entity)
         WHERE {where_clause}
         RETURN t.uid as task_uid
         ORDER BY t.due_date ASC
@@ -1708,7 +1708,7 @@ class KuGraphService:
         where_clause = " AND ".join(conditions)
 
         query = f"""
-        MATCH (g:Goal)-[:REQUIRES_KNOWLEDGE]->(ku:Ku)
+        MATCH (g:Goal)-[:REQUIRES_KNOWLEDGE]->(ku:Entity)
         WHERE {where_clause}
         RETURN g.uid as goal_uid
         ORDER BY g.target_date ASC
@@ -1774,7 +1774,7 @@ class KuGraphService:
         where_clause = " AND ".join(conditions)
 
         query = f"""
-        MATCH (c:Choice)-[:INFORMS_CHOICE]<-(ku:Ku)
+        MATCH (c:Choice)-[:INFORMS_CHOICE]<-(ku:Entity)
         WHERE {where_clause}
         RETURN c.uid as choice_uid
         ORDER BY c.created_at DESC
@@ -1842,7 +1842,7 @@ class KuGraphService:
         where_clause = " AND ".join(conditions)
 
         query = f"""
-        MATCH (p:Principle)-[:REINFORCES_KNOWLEDGE]->(ku:Ku)
+        MATCH (p:Principle)-[:REINFORCES_KNOWLEDGE]->(ku:Entity)
         WHERE {where_clause}
         RETURN p.uid as principle_uid
         ORDER BY p.strength DESC

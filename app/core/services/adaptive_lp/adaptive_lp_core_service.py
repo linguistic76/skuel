@@ -638,7 +638,9 @@ class AdaptiveLpCoreService:
 
         return factors
 
-    async def _derive_learning_outcomes(self, goal: GoalDTO, knowledge_steps: list[str]) -> list[str]:
+    async def _derive_learning_outcomes(
+        self, goal: GoalDTO, knowledge_steps: list[str]
+    ) -> list[str]:
         """Derive specific learning outcomes from goal and knowledge steps."""
         outcomes = []
 

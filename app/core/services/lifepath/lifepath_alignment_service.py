@@ -155,7 +155,7 @@ class LifePathAlignmentService:
             return None
 
         query = """
-        MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Ku {ku_type: 'life_path'})
+        MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Entity {ku_type: 'life_path'})
         RETURN lp.uid AS life_path_uid
         """
 
@@ -197,14 +197,14 @@ class LifePathAlignmentService:
             return 0.0
 
         query = """
-        MATCH (lp:Ku {uid: $life_path_uid, ku_type: 'life_path'})-[:HAS_STEP]->(ls:Ku {ku_type: 'learning_step'})-[:CONTAINS]->(ku:Ku {ku_type: 'curriculum'})
+        MATCH (lp:Entity {uid: $life_path_uid, ku_type: 'life_path'})-[:HAS_STEP]->(ls:Entity {ku_type: 'learning_step'})-[:CONTAINS]->(ku:Entity {ku_type: 'curriculum'})
         OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
         WITH ku, m,
              CASE WHEN m IS NOT NULL THEN m.mastery_level ELSE 0 END AS mastery
 
         // Get substance from knowledge applications
-        OPTIONAL MATCH (ku)<-[:APPLIES_KNOWLEDGE]-(task:Ku {ku_type: 'task', user_uid: $user_uid})
-        OPTIONAL MATCH (ku)<-[:APPLIES_KNOWLEDGE]-(habit:Ku {ku_type: 'habit', user_uid: $user_uid})
+        OPTIONAL MATCH (ku)<-[:APPLIES_KNOWLEDGE]-(task:Entity {ku_type: 'task', user_uid: $user_uid})
+        OPTIONAL MATCH (ku)<-[:APPLIES_KNOWLEDGE]-(habit:Entity {ku_type: 'habit', user_uid: $user_uid})
 
         WITH ku, mastery,
              count(DISTINCT task) AS task_count,
@@ -249,24 +249,24 @@ class LifePathAlignmentService:
 
         query = """
         // Get life path knowledge
-        MATCH (lp:Ku {uid: $life_path_uid, ku_type: 'life_path'})-[:HAS_STEP]->(ls:Ku {ku_type: 'learning_step'})-[:CONTAINS]->(ku:Ku {ku_type: 'curriculum'})
+        MATCH (lp:Entity {uid: $life_path_uid, ku_type: 'life_path'})-[:HAS_STEP]->(ls:Entity {ku_type: 'learning_step'})-[:CONTAINS]->(ku:Entity {ku_type: 'curriculum'})
         WITH collect(ku.uid) AS lp_knowledge
 
         // Count aligned activities
         MATCH (u:User {uid: $user_uid})
-        OPTIONAL MATCH (u)-[:OWNS]->(task:Ku {ku_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+        OPTIONAL MATCH (u)-[:OWNS]->(task:Entity {ku_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
         WHERE ku.uid IN lp_knowledge
         WITH lp_knowledge, count(DISTINCT task) AS aligned_tasks
 
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(habit:Ku {ku_type: 'habit'})-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(habit:Entity {ku_type: 'habit'})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
         WHERE ku.uid IN lp_knowledge
         WITH aligned_tasks, count(DISTINCT habit) AS aligned_habits
 
         // Also count total activities
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(all_task:Ku {ku_type: 'task'})
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(all_task:Entity {ku_type: 'task'})
         WITH aligned_tasks, aligned_habits, count(DISTINCT all_task) AS total_tasks
 
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(all_habit:Ku {ku_type: 'habit'})
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(all_habit:Entity {ku_type: 'habit'})
         WITH aligned_tasks, aligned_habits, total_tasks, count(DISTINCT all_habit) AS total_habits
 
         WITH aligned_tasks, aligned_habits, total_tasks, total_habits,
@@ -310,11 +310,11 @@ class LifePathAlignmentService:
             return 0.0
 
         query = """
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(g:Ku {ku_type: 'goal'})
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(g:Entity {ku_type: 'goal'})
         WHERE g.status IN ['active', 'in_progress']
 
         // Check for SERVES_LIFE_PATH relationship
-        OPTIONAL MATCH (g)-[:SERVES_LIFE_PATH]->(lp:Ku {uid: $life_path_uid, ku_type: 'life_path'})
+        OPTIONAL MATCH (g)-[:SERVES_LIFE_PATH]->(lp:Entity {uid: $life_path_uid, ku_type: 'life_path'})
 
         WITH count(g) AS total_goals, count(lp) AS aligned_goals
 
@@ -353,11 +353,11 @@ class LifePathAlignmentService:
             return 0.0
 
         query = """
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(p:Ku {ku_type: 'principle'})
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(p:Entity {ku_type: 'principle'})
         WHERE p.status = 'active'
 
         // Check for alignment with life path
-        OPTIONAL MATCH (p)-[:SERVES_LIFE_PATH]->(lp:Ku {uid: $life_path_uid, ku_type: 'life_path'})
+        OPTIONAL MATCH (p)-[:SERVES_LIFE_PATH]->(lp:Entity {uid: $life_path_uid, ku_type: 'life_path'})
 
         WITH count(p) AS total_principles, count(lp) AS aligned_principles
 
@@ -401,17 +401,17 @@ class LifePathAlignmentService:
         fourteen_days_ago = now - timedelta(days=14)
 
         query = """
-        MATCH (lp:Ku {uid: $life_path_uid, ku_type: 'life_path'})-[:HAS_STEP]->(ls:Ku {ku_type: 'learning_step'})-[:CONTAINS]->(ku:Ku {ku_type: 'curriculum'})
+        MATCH (lp:Entity {uid: $life_path_uid, ku_type: 'life_path'})-[:HAS_STEP]->(ls:Entity {ku_type: 'learning_step'})-[:CONTAINS]->(ku:Entity {ku_type: 'curriculum'})
         WITH collect(ku.uid) AS lp_knowledge
 
         // Recent week activities
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(task:Ku {ku_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(task:Entity {ku_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
         WHERE ku.uid IN lp_knowledge
           AND task.created_at >= $seven_days_ago
         WITH lp_knowledge, count(task) AS recent_tasks
 
         // Previous week activities
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(task:Ku {ku_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(task:Entity {ku_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
         WHERE ku.uid IN lp_knowledge
           AND task.created_at >= $fourteen_days_ago
           AND task.created_at < $seven_days_ago
@@ -463,7 +463,7 @@ class LifePathAlignmentService:
             return {"total": 0, "embodied": 0, "theoretical": 0}
 
         query = """
-        MATCH (lp:Ku {uid: $life_path_uid, ku_type: 'life_path'})-[:HAS_STEP]->(ls:Ku {ku_type: 'learning_step'})-[:CONTAINS]->(ku:Ku {ku_type: 'curriculum'})
+        MATCH (lp:Entity {uid: $life_path_uid, ku_type: 'life_path'})-[:HAS_STEP]->(ls:Entity {ku_type: 'learning_step'})-[:CONTAINS]->(ku:Entity {ku_type: 'curriculum'})
         OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
 
         WITH ku, COALESCE(m.substance_score, 0) AS substance

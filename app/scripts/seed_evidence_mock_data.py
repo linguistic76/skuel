@@ -334,7 +334,7 @@ async def create_knowledge_units(driver, kus: list[dict], dry_run: bool = True):
     async with driver.session() as session:
         for ku in kus:
             query = """
-            MERGE (ku:Ku {uid: $uid})
+            MERGE (ku:Entity {uid: $uid})
             SET ku.title = $title,
                 ku.domain = $domain,
                 ku.description = $description,
@@ -372,8 +372,8 @@ async def create_relationships(driver, relationships: list[dict], dry_run: bool 
             props = metadata.to_neo4j_properties()
 
             query = """
-            MATCH (from:Ku {uid: $from_uid})
-            MATCH (to:Ku {uid: $to_uid})
+            MATCH (from:Entity {uid: $from_uid})
+            MATCH (to:Entity {uid: $to_uid})
             MERGE (from)-[r:REQUIRES]->(to)
             SET r += $props
             RETURN from.uid as from_uid, to.uid as to_uid
@@ -394,7 +394,7 @@ async def verify_data(driver):
     """Verify the created data."""
     async with driver.session() as session:
         # Count KUs
-        result = await session.run("MATCH (ku:Ku) RETURN count(ku) as total")
+        result = await session.run("MATCH (ku:Entity) RETURN count(ku) as total")
         ku_count = (await result.single())["total"]
 
         # Count relationships with evidence

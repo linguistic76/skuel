@@ -168,9 +168,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Task, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Task, GraphContext]]:
         """
         Get task with full graph context.
 
@@ -463,7 +461,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
                     knowledge_nodes = [
                         node
                         for node in context.nodes
-                        if node.labels and NeoLabel.KU.value in node.labels
+                        if node.labels and NeoLabel.ENTITY.value in node.labels
                     ]
 
                     if knowledge_nodes:
@@ -692,7 +690,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
 
             # Task dependencies (bidirectional DEPENDS_ON)
             # Use directional markers (->DEPENDS_ON / <-DEPENDS_ON) to distinguish
-            if NeoLabel.KU.value in labels and (
+            if NeoLabel.ENTITY.value in labels and (
                 "->DEPENDS_ON" in via_rels or "DEPENDS_ON" in via_rels or "<-DEPENDS_ON" in via_rels
             ):
                 task_entity = PathAwareTask(
@@ -712,7 +710,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
                     dependents.append(task_entity)
 
             # Knowledge requirements (REQUIRES_KNOWLEDGE, APPLIES_KNOWLEDGE)
-            elif NeoLabel.KU.value in labels and (
+            elif NeoLabel.ENTITY.value in labels and (
                 RelationshipName.REQUIRES_KNOWLEDGE.value in via_rels
                 or RelationshipName.APPLIES_KNOWLEDGE.value in via_rels
             ):
@@ -729,7 +727,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
                     applied_knowledge.append(knowledge_entity)
 
             # Goals this task contributes to/fulfills
-            elif NeoLabel.KU.value in labels and (
+            elif NeoLabel.ENTITY.value in labels and (
                 RelationshipName.CONTRIBUTES_TO_GOAL.value in via_rels
                 or RelationshipName.FULFILLS_GOAL.value in via_rels
             ):
@@ -1164,7 +1162,9 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
         overdue_tasks = [
             t
             for t in period_tasks
-            if t.due_date and t.due_date < datetime.now().date() and t.status != EntityStatus.COMPLETED
+            if t.due_date
+            and t.due_date < datetime.now().date()
+            and t.status != EntityStatus.COMPLETED
         ]
         overdue_ratio = len(overdue_tasks) / len(period_tasks) if period_tasks else 0
 
@@ -1180,7 +1180,9 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
         high_priority_tasks = [
             t for t in period_tasks if t.priority and Priority(t.priority).to_numeric() >= 3
         ]
-        high_priority_completed = [t for t in high_priority_tasks if t.status == EntityStatus.COMPLETED]
+        high_priority_completed = [
+            t for t in high_priority_tasks if t.status == EntityStatus.COMPLETED
+        ]
         priority_rate = (
             len(high_priority_completed) / len(high_priority_tasks) if high_priority_tasks else 1.0
         )

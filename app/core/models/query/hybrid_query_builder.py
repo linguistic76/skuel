@@ -11,7 +11,7 @@ This module provides utilities for building optimized Neo4j queries that combine
 **The Optimization Pattern:**
 ```cypher
 // ✅ EFFICIENT - Filter first, then traverse
-MATCH (ku:Ku)
+MATCH (ku:Entity)
 WHERE ku.sel_category = 'self_awareness'  -- Fast indexed property filter
   AND ku.learning_level = 'beginner'       -- Fast indexed property filter
 WITH ku
@@ -21,7 +21,7 @@ WHERE EXISTS {                              -- Graph traversal on filtered set
 RETURN ku
 
 // ❌ INEFFICIENT - Traverse first, then filter
-MATCH (ku:Ku)
+MATCH (ku:Entity)
 WHERE EXISTS {                              -- Graph traversal on ALL nodes
   MATCH (user)-[:MASTERED]->()-[:ENABLES_KNOWLEDGE]->(ku)
 }
@@ -119,7 +119,7 @@ class HybridQueryBuilder:
             ```
         """
         # Start with MATCH clause
-        cypher_parts = ["MATCH (ku:Ku)"]
+        cypher_parts = ["MATCH (ku:Entity)"]
 
         # Build parameters dict
         params: dict[str, Any] = {
@@ -166,9 +166,9 @@ class HybridQueryBuilder:
                 [
                     "",
                     "// Fetch relationship context for each result",
-                    "OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)",
+                    "OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)",
                     "OPTIONAL MATCH (user:User {uid: $user_uid})-[mastery:MASTERED]->(prereq)",
-                    "OPTIONAL MATCH (ku)-[:ENABLES_LEARNING]->(next:Ku)",
+                    "OPTIONAL MATCH (ku)-[:ENABLES_LEARNING]->(next:Entity)",
                     "OPTIONAL MATCH (user)-[:PURSUING_GOAL]->(goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku)",
                     "WHERE goal.status IN ['active', 'in_progress']",
                     "",
@@ -217,7 +217,7 @@ class HybridQueryBuilder:
         **Use Case:** Search across Knowledge, Tasks, Habits, etc. with unified filters
 
         Args:
-            domains: List of domain labels (e.g., ["Ku", "Task", "Habit"])
+            domains: List of domain labels (e.g., ["Entity", "Task", "Habit"])
             property_filters: Shared property filters
             graph_patterns: Domain-agnostic graph patterns
             user_uid: User identifier
@@ -229,7 +229,7 @@ class HybridQueryBuilder:
         Example:
             ```python
             query, params = HybridQueryBuilder.build_hybrid_multi_domain_query(
-                domains=["Ku", "Task", "Event"],
+                domains=["Entity", "Task", "Event"],
                 property_filters={"status": "active"},
                 graph_patterns={"user_owned": "EXISTS { MATCH (user)-[:OWNS]->(item) }"},
                 user_uid="user.mike",
@@ -318,10 +318,10 @@ class HybridQueryBuilder:
         # Start with knowledge unit
         cypher = """
         // Find starting knowledge unit
-        MATCH (end:Ku {uid: $knowledge_uid})
+        MATCH (end:Entity {uid: $knowledge_uid})
 
         // Traverse prerequisite chain
-        MATCH path = (end)<-[:REQUIRES_KNOWLEDGE*1..${max_depth}]-(start:Ku)
+        MATCH path = (end)<-[:REQUIRES_KNOWLEDGE*1..${max_depth}]-(start:Entity)
         """
 
         # Add property filters for prerequisites
@@ -381,12 +381,12 @@ class QueryOptimizationPatterns:
         """
         return """
         // ✅ EFFICIENT PATTERN
-        MATCH (ku:Ku)
+        MATCH (ku:Entity)
         WHERE ku.sel_category = $category          -- Indexed property filter
           AND ku.learning_level = $level            -- Indexed property filter
         WITH ku
         WHERE NOT EXISTS {                          -- Graph pattern on filtered set
-            MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+            MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
             WHERE NOT EXISTS {
                 MATCH (user:User {uid: $user_uid})-[:MASTERED]->(prereq)
             }
@@ -407,9 +407,9 @@ class QueryOptimizationPatterns:
         """
         return """
         // ❌ INEFFICIENT ANTI-PATTERN
-        MATCH (ku:Ku)
+        MATCH (ku:Entity)
         WHERE NOT EXISTS {                          -- Graph traversal on ALL nodes
-            MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+            MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
             WHERE NOT EXISTS {
                 MATCH (user:User {uid: $user_uid})-[:MASTERED]->(prereq)
             }
@@ -434,7 +434,7 @@ class QueryOptimizationPatterns:
         WHERE goal.status IN ['active', 'in_progress']  -- Filter goals first
         WITH user, collect(goal) as active_goals
 
-        MATCH (goal)-[:REQUIRES_KNOWLEDGE]->(ku:Ku)
+        MATCH (goal)-[:REQUIRES_KNOWLEDGE]->(ku:Entity)
         WHERE goal IN active_goals
           AND ku.learning_level = $level                 -- Property filter
           AND NOT EXISTS {                                -- Graph pattern
@@ -452,7 +452,7 @@ class QueryOptimizationPatterns:
         """
         return """
         // ✅ EFFICIENT MULTI-PATTERN
-        MATCH (ku:Ku)
+        MATCH (ku:Entity)
         WHERE ku.sel_category = $category          -- Property filter (indexed)
           AND ku.learning_level = $level            -- Property filter (indexed)
           AND ku.content_type = $content_type       -- Property filter (indexed)

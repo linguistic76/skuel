@@ -197,7 +197,7 @@ class SemanticSimilarityQueries:
         domain_filter = "AND ku.domain = $domain" if domain else ""
 
         cypher = f"""
-        MATCH (ku1:Ku)-[r:RELATED_TO|SIMILAR_TO]-(ku2:Ku)
+        MATCH (ku1:Entity)-[r:RELATED_TO|SIMILAR_TO]-(ku2:Entity)
         WHERE r.semantic_distance IS NOT NULL
           AND r.semantic_distance <= $max_distance
           AND id(ku1) < id(ku2)  // Avoid duplicate pairs

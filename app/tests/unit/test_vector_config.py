@@ -24,8 +24,8 @@ def test_entity_specific_thresholds():
     config = VectorSearchConfig()
 
     # High precision entities (knowledge-focused)
-    assert config.get_min_score_for_entity("Ku") == 0.75
-    assert config.get_min_score_for_entity("ku") == 0.75  # Case insensitive
+    assert config.get_min_score_for_entity("Entity") == 0.75
+    assert config.get_min_score_for_entity("entity") == 0.75  # Case insensitive
     assert config.get_min_score_for_entity("Lpstep") == 0.75
 
     # Medium precision entities
@@ -56,7 +56,7 @@ def test_custom_config():
 
     assert config.default_limit == 20
     assert config.default_min_score == 0.8
-    assert config.get_min_score_for_entity("Ku") == 0.85
+    assert config.get_min_score_for_entity("Entity") == 0.85
     assert config.get_min_score_for_entity("Task") == 0.6
 
 

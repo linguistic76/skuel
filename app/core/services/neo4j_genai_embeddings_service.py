@@ -414,7 +414,7 @@ class Neo4jGenAIEmbeddingsService:
 
         Args:
             uid: Node UID
-            label: Node label (e.g., "Ku", "Task")
+            label: Node label (e.g., "Entity", "Task")
             embedding: Embedding vector to store
             text: Optional source text that was embedded
 
@@ -424,7 +424,7 @@ class Neo4jGenAIEmbeddingsService:
         Example:
             >>> result = await service.store_embedding_with_metadata(
             ...     uid="ku.python",
-            ...     label="Ku",
+            ...     label="Entity",
             ...     embedding=[0.1, 0.2, ...],
             ...     text="Python programming language",
             ... )
@@ -476,7 +476,7 @@ class Neo4jGenAIEmbeddingsService:
             - dimension: Embedding dimension or None
 
         Example:
-            >>> result = await service.get_embedding_metadata("ku.python", "Ku")
+            >>> result = await service.get_embedding_metadata("ku.python", "Entity")
             >>> if result.is_ok:
             ...     print(f"Version: {result.value['version']}")
         """
@@ -526,7 +526,7 @@ class Neo4jGenAIEmbeddingsService:
             - needs_update: Whether embedding should be regenerated
 
         Example:
-            >>> result = await service.check_version_compatibility("ku.python", "Ku")
+            >>> result = await service.check_version_compatibility("ku.python", "Entity")
             >>> if result.is_ok and result.value["needs_update"]:
             ...     # Regenerate embedding
         """
@@ -572,7 +572,7 @@ class Neo4jGenAIEmbeddingsService:
 
         Example:
             >>> result = await service.get_or_create_embedding(
-            ...     uid="ku.python", label="Ku", text="Python programming language"
+            ...     uid="ku.python", label="Entity", text="Python programming language"
             ... )
         """
         # Check if node has current-version embedding

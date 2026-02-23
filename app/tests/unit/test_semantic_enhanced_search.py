@@ -81,7 +81,10 @@ class TestSemanticEnhancedSearch:
 
             # Execute semantic-enhanced search
             result = await vector_search_service.semantic_enhanced_search(
-                label="Ku", text="python programming", context_uids=["ku.python-basics"], limit=2
+                label="Entity",
+                text="python programming",
+                context_uids=["ku.python-basics"],
+                limit=2,
             )
 
             assert result.is_ok
@@ -137,7 +140,7 @@ class TestSemanticEnhancedSearch:
             vector_search_service, "find_similar_by_text", return_value=Result.ok(standard_results)
         ) as mock_search:
             result = await vector_search_service.semantic_enhanced_search(
-                label="Ku",
+                label="Entity",
                 text="test query",
                 context_uids=[],  # Empty context
                 limit=10,
@@ -163,7 +166,7 @@ class TestSemanticEnhancedSearch:
             service, "find_similar_by_text", return_value=Result.ok(standard_results)
         ) as mock_search:
             result = await service.semantic_enhanced_search(
-                label="Ku", text="test query", context_uids=["ku.context"], limit=10
+                label="Entity", text="test query", context_uids=["ku.context"], limit=10
             )
 
             assert result.is_ok
@@ -254,7 +257,11 @@ class TestLearningAwareSearch:
             )
 
             result = await vector_search_service.learning_aware_search(
-                label="Ku", text="python", user_uid="user.test", prefer_unmastered=True, limit=10
+                label="Entity",
+                text="python",
+                user_uid="user.test",
+                prefer_unmastered=True,
+                limit=10,
             )
 
             assert result.is_ok
@@ -290,7 +297,11 @@ class TestLearningAwareSearch:
             )
 
             result = await vector_search_service.learning_aware_search(
-                label="Ku", text="python", user_uid="user.test", prefer_unmastered=True, limit=10
+                label="Entity",
+                text="python",
+                user_uid="user.test",
+                prefer_unmastered=True,
+                limit=10,
             )
 
             assert result.is_ok
@@ -326,7 +337,7 @@ class TestLearningAwareSearch:
             )
 
             result = await vector_search_service.learning_aware_search(
-                label="Ku",
+                label="Entity",
                 text="test",
                 user_uid="user.test",
                 prefer_unmastered=False,  # Review mode - prefer mastered
@@ -349,7 +360,7 @@ class TestLearningAwareSearch:
             vector_search_service, "find_similar_by_text", return_value=Result.ok(standard_results)
         ) as mock_search:
             result = await vector_search_service.learning_aware_search(
-                label="Task",  # Not "Ku"
+                label="Task",  # Not "Entity"
                 text="test",
                 user_uid="user.test",
                 limit=10,
@@ -376,7 +387,7 @@ class TestLearningAwareSearch:
             )
 
             result = await vector_search_service.learning_aware_search(
-                label="Ku", text="test", user_uid="user.test", limit=10
+                label="Entity", text="test", user_uid="user.test", limit=10
             )
 
             # Should still return results (graceful degradation)
@@ -460,7 +471,7 @@ class TestGracefulDegradation:
         )
 
         result = await service.semantic_enhanced_search(
-            label="Ku", text="test", context_uids=["ku.context"], limit=10
+            label="Entity", text="test", context_uids=["ku.context"], limit=10
         )
 
         # Should return error (not crash)
@@ -484,7 +495,7 @@ class TestGracefulDegradation:
             return_value=Result.fail(Errors.database("vector_search", "Search failed")),
         ):
             result = await service.semantic_enhanced_search(
-                label="Ku", text="test", context_uids=["ku.context"], limit=10
+                label="Entity", text="test", context_uids=["ku.context"], limit=10
             )
 
             # Error should propagate
@@ -507,7 +518,7 @@ class TestGracefulDegradation:
             return_value=Result.ok([]),  # Empty results
         ):
             result = await service.semantic_enhanced_search(
-                label="Ku", text="test", context_uids=["ku.context"], limit=10
+                label="Entity", text="test", context_uids=["ku.context"], limit=10
             )
 
             # Should return empty list (not error)

@@ -282,7 +282,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
     @property
     def entity_label(self) -> str:
         """Return the graph label for Principle (Ku) entities."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # CORE CRUD OPERATIONS - Delegate to PrinciplesCoreService
@@ -402,9 +402,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
                 matching = [
                     p
                     for p in matching
-                    if isinstance(p, Principle)
-                    and p.category
-                    and p.category == filters["category"]
+                    if isinstance(p, Principle) and p.category and p.category == filters["category"]
                 ]
             if "strength" in filters:
                 matching = [

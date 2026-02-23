@@ -48,7 +48,7 @@ Example Flow:
     #   MERGE (n)-[:ENABLES_KNOWLEDGE]->(target {uid: "ku:B"})
 
     # Final Result:
-    # - Node: (:Ku {uid: "ku:test", title: "Test"})
+    # - Node: (:Entity {uid: "ku:test", title: "Test"})
     # - Edges: (ku:test)-[:REQUIRES_KNOWLEDGE]->(ku:A)
     #          (ku:test)-[:ENABLES_KNOWLEDGE]->(ku:B)
 

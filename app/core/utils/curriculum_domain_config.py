@@ -97,7 +97,7 @@ CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
         intelligence_class="KuIntelligenceService",
         relationship_config=KU_CONFIG,
         domain_name="ku",
-        entity_label="Ku",
+        entity_label="Entity",
     ),
     "ls": CurriculumDomainConfig(
         core_module="core.services.ls.ls_core_service",
@@ -108,7 +108,7 @@ CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
         intelligence_class="LsIntelligenceService",
         relationship_config=LS_CONFIG,
         domain_name="ls",
-        entity_label="Ku",  # Phase 3: LS nodes are :Ku{ku_type='learning_step'}
+        entity_label="Entity",
     ),
     "lp": CurriculumDomainConfig(
         core_module="core.services.lp.lp_core_service",
@@ -119,7 +119,7 @@ CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
         intelligence_class="LpIntelligenceService",
         relationship_config=LP_CONFIG,
         domain_name="lp",
-        entity_label="Ku",  # Phase 3: LP nodes are :Ku{ku_type='learning_path'}
+        entity_label="Entity",
     ),
 }
 

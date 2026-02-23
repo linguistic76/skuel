@@ -73,31 +73,31 @@ async def create_test_data(driver):
         logger.info("🧠 Creating Knowledge nodes...")
         await session.run("""
             // Create knowledge units
-            CREATE (k1:Ku {
+            CREATE (k1:Entity {
                 uid: 'ku.python.variables',
                 title: 'Python Variables',
                 level: 'beginner',
                 created_at: datetime()
             })
-            CREATE (k2:Ku {
+            CREATE (k2:Entity {
                 uid: 'ku.python.functions',
                 title: 'Python Functions',
                 level: 'intermediate',
                 created_at: datetime()
             })
-            CREATE (k3:Ku {
+            CREATE (k3:Entity {
                 uid: 'ku.python.decorators',
                 title: 'Python Decorators',
                 level: 'advanced',
                 created_at: datetime()
             })
-            CREATE (k4:Ku {
+            CREATE (k4:Entity {
                 uid: 'ku.javascript.async',
                 title: 'JavaScript Async/Await',
                 level: 'intermediate',
                 created_at: datetime()
             })
-            CREATE (k5:Ku {
+            CREATE (k5:Entity {
                 uid: 'ku.sql.queries',
                 title: 'SQL Queries',
                 level: 'intermediate',
@@ -233,7 +233,7 @@ async def cleanup_test_data(driver):
 
         # Delete test knowledge
         await session.run("""
-            MATCH (k:Ku)
+            MATCH (k:Entity)
             WHERE k.uid STARTS WITH 'ku.'
             DETACH DELETE k
         """)

@@ -74,9 +74,7 @@ async def test_share_ku_success(sharing_service, mock_driver):
 async def test_share_ku_not_owner(sharing_service, mock_driver):
     """Test sharing fails if user is not owner."""
     # Mock ownership check (failure)
-    mock_driver.execute_query.return_value = Result.ok(
-        [{"actual_owner": "user_other"}]
-    )
+    mock_driver.execute_query.return_value = Result.ok([{"actual_owner": "user_other"}])
 
     result = await sharing_service.share_report(
         ku_uid="report_123",
@@ -175,9 +173,7 @@ async def test_unshare_ku_not_shared(sharing_service, mock_driver):
 @pytest.mark.asyncio
 async def test_unshare_ku_not_owner(sharing_service, mock_driver):
     """Test unsharing fails if user is not owner."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [{"actual_owner": "user_other"}]
-    )
+    mock_driver.execute_query.return_value = Result.ok([{"actual_owner": "user_other"}])
 
     result = await sharing_service.unshare_report(
         ku_uid="report_123",
@@ -341,9 +337,7 @@ async def test_set_visibility_to_private_no_shareable_check(sharing_service, moc
 @pytest.mark.asyncio
 async def test_set_visibility_not_owner(sharing_service, mock_driver):
     """Test setting visibility fails if user is not owner."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [{"actual_owner": "user_other"}]
-    )
+    mock_driver.execute_query.return_value = Result.ok([{"actual_owner": "user_other"}])
 
     result = await sharing_service.set_visibility(
         ku_uid="report_123",
@@ -517,9 +511,7 @@ async def test_check_access_report_not_found(sharing_service, mock_driver):
 @pytest.mark.asyncio
 async def test_verify_ownership_success(sharing_service, mock_driver):
     """Test _verify_ownership succeeds when user is owner."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [{"actual_owner": "user_owner"}]
-    )
+    mock_driver.execute_query.return_value = Result.ok([{"actual_owner": "user_owner"}])
 
     result = await sharing_service._verify_ownership(
         ku_uid="report_123",
@@ -533,9 +525,7 @@ async def test_verify_ownership_success(sharing_service, mock_driver):
 @pytest.mark.asyncio
 async def test_verify_ownership_failure(sharing_service, mock_driver):
     """Test _verify_ownership fails when user is not owner."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [{"actual_owner": "user_other"}]
-    )
+    mock_driver.execute_query.return_value = Result.ok([{"actual_owner": "user_other"}])
 
     result = await sharing_service._verify_ownership(
         ku_uid="report_123",

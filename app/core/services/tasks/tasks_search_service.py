@@ -73,7 +73,7 @@ class TasksSearchService(BaseService["BackendOperations[Task]", Task]):
         domain_name="tasks",
         date_field="due_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        entity_label="Ku",
+        entity_label="Entity",
     )
 
     def __init__(self, backend: BackendOperations[Task]) -> None:
@@ -411,7 +411,7 @@ class TasksSearchService(BaseService["BackendOperations[Task]", Task]):
         # This is an incoming relationship from Task's perspective
         status_filter = "" if include_completed else "AND t.status <> 'completed'"
         query = f"""
-            MATCH (t:Ku)-[:ASSIGNED_TO]->(u:User {{uid: $user_uid}})
+            MATCH (t:Entity)-[:ASSIGNED_TO]->(u:User {{uid: $user_uid}})
             WHERE t.uid IS NOT NULL {status_filter}
             RETURN t
             ORDER BY t.created_at DESC

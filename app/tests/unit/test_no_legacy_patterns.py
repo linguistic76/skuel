@@ -135,7 +135,7 @@ class TestNoLegacyEnumValues:
         """NeoLabel.JOURNAL_PROJECT was migrated to Report — must not exist.
 
         Note: NeoLabel.JOURNAL is legitimate — it's the domain-specific label
-        for :Ku nodes with ku_type='journal' (content processing domain).
+        for :Entity nodes with ku_type='journal' (content processing domain).
         """
         from core.models.enums.neo_labels import NeoLabel
 
@@ -144,6 +144,13 @@ class TestNoLegacyEnumValues:
         assert "JOURNAL_PROJECT" not in members, (
             "NeoLabel.JOURNAL_PROJECT is legacy — use REPORT_PROJECT"
         )
+
+    def test_no_legacy_ku_neo_label(self) -> None:
+        """NeoLabel.KU was removed — all code uses NeoLabel.ENTITY now."""
+        from core.models.enums.neo_labels import NeoLabel
+
+        members = [m.name for m in NeoLabel]
+        assert "KU" not in members, "NeoLabel.KU is legacy — use ENTITY"
 
     def test_no_legacy_relationship_name_learning(self) -> None:
         """RelationshipName.LEARNING was replaced by IN_PROGRESS — must not exist."""

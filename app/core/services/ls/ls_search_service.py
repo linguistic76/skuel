@@ -78,7 +78,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
     _config = create_curriculum_domain_config(
         dto_class=LearningStepDTO,
         model_class=LearningStep,
-        entity_label="Ku",
+        entity_label="Entity",
         domain_name="ls",
         search_fields=("title", "intent", "description"),  # LS-specific fields
         search_order_by="updated_at",
@@ -135,7 +135,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
         from core.utils.neo4j_mapper import from_neo4j_node
 
         cypher = """
-            MATCH (lp:Ku {uid: $path_uid})-[:HAS_STEP]->(ls:Ku {ku_type: 'learning_step'})
+            MATCH (lp:Entity {uid: $path_uid})-[:HAS_STEP]->(ls:Entity {ku_type: 'learning_step'})
             RETURN ls
             ORDER BY ls.sequence ASC
             LIMIT $limit
@@ -163,8 +163,8 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
         from core.utils.neo4j_mapper import from_neo4j_node
 
         cypher = """
-            MATCH (ls:Ku {ku_type: 'learning_step'})
-            WHERE NOT (ls)<-[:HAS_STEP]-(:Ku {ku_type: 'learning_path'})
+            MATCH (ls:Entity {ku_type: 'learning_step'})
+            WHERE NOT (ls)<-[:HAS_STEP]-(:Entity {ku_type: 'learning_path'})
             RETURN ls
             ORDER BY ls.updated_at DESC
             LIMIT $limit
@@ -201,7 +201,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
         from core.utils.neo4j_mapper import from_neo4j_node
 
         cypher = """
-            MATCH (ku:Ku {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Ku {ku_type: 'learning_step'})
+            MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Entity {ku_type: 'learning_step'})
             RETURN ls
             ORDER BY ls.sequence ASC
             LIMIT $limit
@@ -240,7 +240,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
 
         # Build prioritization query
         cypher = """
-            MATCH (ls:Ku {ku_type: 'learning_step'})
+            MATCH (ls:Entity {ku_type: 'learning_step'})
             OPTIONAL MATCH (u:User {uid: $user_uid})-[progress:STUDYING]->(ls)
             RETURN ls, progress
             ORDER BY

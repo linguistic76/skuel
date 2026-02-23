@@ -119,7 +119,7 @@ class KuInteractionService:
 
         query = """
         MATCH (u:User {uid: $user_uid})
-        MATCH (ku:Ku {uid: $ku_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
         MERGE (u)-[r:VIEWED]->(ku)
         ON CREATE SET
             r.first_viewed_at = datetime($now),
@@ -183,7 +183,7 @@ class KuInteractionService:
 
         query = """
         MATCH (u:User {uid: $user_uid})
-        MATCH (ku:Ku {uid: $ku_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
         MERGE (u)-[r:IN_PROGRESS]->(ku)
         ON CREATE SET
             r.started_at = datetime($now),
@@ -234,7 +234,7 @@ class KuInteractionService:
             return Result.fail(Errors.database("get_learning_state", "Backend not available"))
 
         query = """
-        MATCH (ku:Ku {uid: $ku_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
         OPTIONAL MATCH (u:User {uid: $user_uid})-[v:VIEWED]->(ku)
         OPTIONAL MATCH (u:User {uid: $user_uid})-[p:IN_PROGRESS]->(ku)
         OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
@@ -336,7 +336,7 @@ class KuInteractionService:
 
         query = """
         UNWIND $ku_uids as ku_uid
-        MATCH (ku:Ku {uid: ku_uid})
+        MATCH (ku:Entity {uid: ku_uid})
         OPTIONAL MATCH (u:User {uid: $user_uid})-[v:VIEWED]->(ku)
         OPTIONAL MATCH (u:User {uid: $user_uid})-[p:IN_PROGRESS]->(ku)
         OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
@@ -396,7 +396,7 @@ class KuInteractionService:
 
         query = """
         MATCH (user:User {uid: $user_uid})
-        MATCH (ku:Ku {uid: $ku_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
         MERGE (user)-[r:MARKED_AS_READ]->(ku)
         ON CREATE SET r.marked_at = datetime()
         RETURN r
@@ -432,7 +432,7 @@ class KuInteractionService:
 
         # Check if bookmark exists
         check_query = """
-        MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Ku {uid: $ku_uid})
+        MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Entity {uid: $ku_uid})
         RETURN r IS NOT NULL as is_bookmarked
         """
 
@@ -448,7 +448,7 @@ class KuInteractionService:
         if is_bookmarked:
             # Remove bookmark
             delete_query = """
-            MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Ku {uid: $ku_uid})
+            MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Entity {uid: $ku_uid})
             DELETE r
             """
             del_result = await self.backend.execute_query(
@@ -462,7 +462,7 @@ class KuInteractionService:
             # Add bookmark
             create_query = """
             MATCH (user:User {uid: $user_uid})
-            MATCH (ku:Ku {uid: $ku_uid})
+            MATCH (ku:Entity {uid: $ku_uid})
             MERGE (user)-[r:BOOKMARKED]->(ku)
             ON CREATE SET r.bookmarked_at = datetime()
             """
@@ -503,7 +503,7 @@ class KuInteractionService:
 
         query = """
         MATCH (user:User {uid: $user_uid})
-        MATCH (ku:Ku {uid: $ku_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
         MERGE (user)-[r:MASTERED]->(ku)
         ON CREATE SET
             r.mastered_at = datetime($now),
@@ -564,7 +564,7 @@ class KuInteractionService:
             return Result.fail(Errors.system("Backend required", service="KuInteractionService"))
 
         query = """
-        MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Ku)
+        MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Entity)
         RETURN ku.uid as ku_uid
         ORDER BY r.bookmarked_at DESC
         """

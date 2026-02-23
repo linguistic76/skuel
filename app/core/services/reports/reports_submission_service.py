@@ -51,7 +51,7 @@ class ReportsSubmissionService(BaseService[BackendOperations[Entity], Entity]):
     _config = DomainConfig(
         dto_class=SubmissionDTO,
         model_class=Entity,
-        entity_label="Ku",
+        entity_label="Entity",
         search_fields=("title", "original_filename", "file_type"),
         search_order_by="created_at",
         category_field="ku_type",
@@ -88,7 +88,7 @@ class ReportsSubmissionService(BaseService[BackendOperations[Entity], Entity]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for report entities."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # FILE SUBMISSION

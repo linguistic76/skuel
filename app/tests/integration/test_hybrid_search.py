@@ -61,7 +61,9 @@ async def test_fulltext_search_returns_results(vector_search_service, mock_drive
         ]
     )
 
-    result = await vector_search_service._fulltext_search(label="Ku", query_text="python", limit=10)
+    result = await vector_search_service._fulltext_search(
+        label="Entity", query_text="python", limit=10
+    )
 
     assert result.is_ok
     assert len(result.value) == 2
@@ -77,7 +79,9 @@ async def test_fulltext_search_handles_missing_index(vector_search_service, mock
         Errors.database(operation="fulltext_search", message="Index not found")
     )
 
-    result = await vector_search_service._fulltext_search(label="Ku", query_text="python", limit=10)
+    result = await vector_search_service._fulltext_search(
+        label="Entity", query_text="python", limit=10
+    )
 
     # Should return empty list instead of error (graceful degradation)
     assert result.is_ok
@@ -130,7 +134,7 @@ async def test_hybrid_search_combines_results(
 
     # Execute hybrid search with min_rrf_score=0.0 to include all results
     result = await vector_search_service.hybrid_search(
-        label="Ku", query_text="python programming", limit=10, min_rrf_score=0.0
+        label="Entity", query_text="python programming", limit=10, min_rrf_score=0.0
     )
 
     assert result.is_ok
@@ -169,16 +173,14 @@ async def test_hybrid_search_rrf_scoring(vector_search_service, mock_driver):
         if "db.index.vector.queryNodes" in query:
             return Result.ok([{"node": r["node"], "score": r["score"]} for r in vector_results])
         elif "db.index.fulltext.queryNodes" in query:
-            return Result.ok(
-                [{"node": r["node"], "score": r["score"]} for r in fulltext_results]
-            )
+            return Result.ok([{"node": r["node"], "score": r["score"]} for r in fulltext_results])
         return Result.ok([])
 
     mock_driver.execute_query = mock_execute_query
 
     # Execute with 50/50 weighting
     result = await vector_search_service.hybrid_search(
-        label="Ku", query_text="test", vector_weight=0.5, limit=10, min_rrf_score=0.0
+        label="Entity", query_text="test", vector_weight=0.5, limit=10, min_rrf_score=0.0
     )
 
     assert result.is_ok
@@ -209,7 +211,7 @@ async def test_hybrid_search_uses_config_defaults(vector_search_service, mock_dr
     mock_driver.execute_query = mock_execute_query
 
     # Call without explicit parameters
-    result = await vector_search_service.hybrid_search(label="Ku", query_text="test")
+    result = await vector_search_service.hybrid_search(label="Entity", query_text="test")
 
     assert result.is_ok
 
@@ -233,7 +235,7 @@ async def test_hybrid_search_filters_by_min_rrf_score(vector_search_service, moc
 
     # Set high min_rrf_score threshold (higher than typical RRF score)
     result = await vector_search_service.hybrid_search(
-        label="Ku",
+        label="Entity",
         query_text="test",
         min_rrf_score=0.1,  # Higher than RRF score (~0.016)
     )
@@ -256,14 +258,14 @@ async def test_hybrid_search_entity_specific_thresholds_for_vector(
     mock_driver.execute_query = mock_execute_query
 
     # Test with different entity types
-    result_ku = await vector_search_service.hybrid_search(label="Ku", query_text="test")
+    result_ku = await vector_search_service.hybrid_search(label="Entity", query_text="test")
     result_task = await vector_search_service.hybrid_search(label="Task", query_text="test")
 
     assert result_ku.is_ok
     assert result_task.is_ok
 
     # Verify entity-specific thresholds from config (used for vector search input)
-    assert vector_search_service.config.get_min_score_for_entity("Ku") == 0.75
+    assert vector_search_service.config.get_min_score_for_entity("Entity") == 0.75
     assert vector_search_service.config.get_min_score_for_entity("Task") == 0.65
 
 
@@ -276,7 +278,9 @@ async def test_hybrid_search_handles_vector_failure(vector_search_service, mock_
     async def mock_execute_query(query, params):
         call_count[0] += 1
         if "db.index.vector.queryNodes" in query:
-            return Result.fail(Errors.database(operation="vector_search", message="Vector index error"))
+            return Result.fail(
+                Errors.database(operation="vector_search", message="Vector index error")
+            )
         elif "db.index.fulltext.queryNodes" in query:
             return Result.ok([{"node": {"uid": "ku.test", "title": "Test"}, "score": 3.0}])
         return Result.ok([])
@@ -284,7 +288,7 @@ async def test_hybrid_search_handles_vector_failure(vector_search_service, mock_
     mock_driver.execute_query = mock_execute_query
 
     result = await vector_search_service.hybrid_search(
-        label="Ku", query_text="test", min_rrf_score=0.0
+        label="Entity", query_text="test", min_rrf_score=0.0
     )
 
     assert result.is_ok
@@ -300,13 +304,15 @@ async def test_hybrid_search_handles_fulltext_failure(vector_search_service, moc
         if "db.index.vector.queryNodes" in query:
             return Result.ok([{"node": {"uid": "ku.test", "title": "Test"}, "score": 0.8}])
         elif "db.index.fulltext.queryNodes" in query:
-            return Result.fail(Errors.database(operation="fulltext_search", message="Full-text index error"))
+            return Result.fail(
+                Errors.database(operation="fulltext_search", message="Full-text index error")
+            )
         return Result.ok([])
 
     mock_driver.execute_query = mock_execute_query
 
     result = await vector_search_service.hybrid_search(
-        label="Ku", query_text="test", min_rrf_score=0.0
+        label="Entity", query_text="test", min_rrf_score=0.0
     )
 
     assert result.is_ok
@@ -330,7 +336,7 @@ async def test_hybrid_search_custom_weights(vector_search_service, mock_driver):
 
     # Test with 70% vector, 30% text weighting
     result = await vector_search_service.hybrid_search(
-        label="Ku", query_text="test", vector_weight=0.7, min_rrf_score=0.0
+        label="Entity", query_text="test", vector_weight=0.7, min_rrf_score=0.0
     )
 
     assert result.is_ok

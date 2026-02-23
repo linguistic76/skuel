@@ -103,7 +103,7 @@ class JupyterNeo4jSync:
             Content formatted for Jupyter editing
         """
         query = """
-        MATCH (ku:Ku {uid: $uid})
+        MATCH (ku:Entity {uid: $uid})
         OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
         OPTIONAL MATCH (ku)-[:ENABLES_KNOWLEDGE]->(enabled)
         OPTIONAL MATCH (ku)-[:RELATED_TO]->(related)
@@ -131,7 +131,7 @@ class JupyterNeo4jSync:
         # Format for Jupyter editing (current schema)
         jupyter_content = {
             "version": ku_data.get("version", "1.0"),
-            "type": ku_data.get("type", "Ku"),
+            "type": ku_data.get("type", "Entity"),
             "uid": ku_data.get("uid"),
             "title": ku_data.get("title"),
             "content": ku_data.get("content", ""),
@@ -180,7 +180,7 @@ class JupyterNeo4jSync:
 
             # Update Neo4j (current schema)
             update_query = """
-            MATCH (ku:Ku {uid: $uid})
+            MATCH (ku:Entity {uid: $uid})
             SET ku.title = $title,
                 ku.word_count = $word_count,
                 ku.domain = $domain,
@@ -264,11 +264,11 @@ class JupyterNeo4jSync:
         try:
             # Find items needing sync
             if uid:
-                query = "MATCH (ku:Ku {uid: $uid}) RETURN ku"
+                query = "MATCH (ku:Entity {uid: $uid}) RETURN ku"
                 params: dict[str, Any] = {"uid": uid}
             else:
                 query = """
-                MATCH (ku:Ku)
+                MATCH (ku:Entity)
                 WHERE ku.needs_obsidian_sync = true OR $force = true
                 RETURN ku
                 LIMIT 100
@@ -343,7 +343,7 @@ class JupyterNeo4jSync:
                     Errors.validation(message="Knowledge unit UID is required", field="uid")
                 )
             rel_query = """
-            MATCH (ku:Ku {uid: $uid})
+            MATCH (ku:Entity {uid: $uid})
             OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
             OPTIONAL MATCH (ku)-[:ENABLES_KNOWLEDGE]->(enabled)
             OPTIONAL MATCH (ku)-[:RELATED_TO]->(related)
@@ -412,7 +412,7 @@ class JupyterNeo4jSync:
         # Build YAML structure matching current schema
         yaml_data = {
             "version": ku_data.get("version", "1.0"),
-            "type": ku_data.get("type", "Ku"),
+            "type": ku_data.get("type", "Entity"),
             "uid": ku_data.get("uid"),
             "title": ku_data.get("title"),
             "content": ku_data.get("content", ""),
@@ -440,7 +440,7 @@ class JupyterNeo4jSync:
             True if no conflicts, error if conflicts exist
         """
         query = """
-        MATCH (ku:Ku {uid: $uid})
+        MATCH (ku:Entity {uid: $uid})
         RETURN ku.content_hash as current_hash,
                ku.needs_obsidian_sync as pending_sync
         """
@@ -537,7 +537,7 @@ class JupyterNeo4jSync:
         # Clear existing relationships
         await self.executor.execute_query(
             """
-            MATCH (ku:Ku {uid: $uid})-[r:REQUIRES_KNOWLEDGE|ENABLES_KNOWLEDGE|RELATED_TO]->()
+            MATCH (ku:Entity {uid: $uid})-[r:REQUIRES_KNOWLEDGE|ENABLES_KNOWLEDGE|RELATED_TO]->()
             DETACH DELETE r
             """,
             {"uid": uid},
@@ -547,8 +547,8 @@ class JupyterNeo4jSync:
         for prereq_uid in prerequisites:
             await self.executor.execute_query(
                 """
-                MATCH (ku:Ku {uid: $uid})
-                MATCH (prereq:Ku {uid: $prereq_uid})
+                MATCH (ku:Entity {uid: $uid})
+                MATCH (prereq:Entity {uid: $prereq_uid})
                 CREATE (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
                 """,
                 {"uid": uid, "prereq_uid": prereq_uid},
@@ -558,8 +558,8 @@ class JupyterNeo4jSync:
         for enable_uid in enables:
             await self.executor.execute_query(
                 """
-                MATCH (ku:Ku {uid: $uid})
-                MATCH (enabled:Ku {uid: $enable_uid})
+                MATCH (ku:Entity {uid: $uid})
+                MATCH (enabled:Entity {uid: $enable_uid})
                 CREATE (ku)-[:ENABLES_KNOWLEDGE]->(enabled)
                 """,
                 {"uid": uid, "enable_uid": enable_uid},
@@ -569,8 +569,8 @@ class JupyterNeo4jSync:
         for related_uid in related_to:
             await self.executor.execute_query(
                 """
-                MATCH (ku:Ku {uid: $uid})
-                MATCH (related:Ku {uid: $related_uid})
+                MATCH (ku:Entity {uid: $uid})
+                MATCH (related:Entity {uid: $related_uid})
                 CREATE (ku)-[:RELATED_TO]->(related)
                 """,
                 {"uid": uid, "related_uid": related_uid},
@@ -595,7 +595,7 @@ class JupyterNeo4jSync:
     async def _mark_synced(self, uid: str) -> None:
         """Mark a knowledge unit as synced."""
         query = """
-        MATCH (ku:Ku {uid: $uid})
+        MATCH (ku:Entity {uid: $uid})
         SET ku.needs_obsidian_sync = false,
             ku.last_synced = datetime()
         """
@@ -606,7 +606,7 @@ class JupyterNeo4jSync:
     async def _update_obsidian_hash(self, uid: str, hash_value: str) -> None:
         """Update the Obsidian content hash for tracking."""
         query = """
-        MATCH (ku:Ku {uid: $uid})
+        MATCH (ku:Entity {uid: $uid})
         SET ku.last_obsidian_hash = $hash
         """
         result = await self.executor.execute_query(query, {"uid": uid, "hash": hash_value})

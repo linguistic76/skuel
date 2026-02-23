@@ -206,7 +206,7 @@ class Neo4jAdapter:
 
             # Define essential constraints
             constraints = [
-                "CREATE CONSTRAINT knowledge_unit_id_unique IF NOT EXISTS FOR (ku:Ku) REQUIRE ku.id IS UNIQUE",
+                "CREATE CONSTRAINT knowledge_unit_id_unique IF NOT EXISTS FOR (ku:Entity) REQUIRE ku.id IS UNIQUE",
                 "CREATE CONSTRAINT task_id_unique IF NOT EXISTS FOR (t:Task) REQUIRE t.id IS UNIQUE",
                 "CREATE CONSTRAINT document_id_unique IF NOT EXISTS FOR (d:Document) REQUIRE d.id IS UNIQUE",
                 "CREATE CONSTRAINT conversation_id_unique IF NOT EXISTS FOR (c:Conversation) REQUIRE c.id IS UNIQUE",
@@ -215,26 +215,26 @@ class Neo4jAdapter:
             # Define essential indexes for performance
             indexes = [
                 # Full-text search indexes
-                "CREATE FULLTEXT INDEX knowledge_fulltext IF NOT EXISTS FOR (ku:Ku) ON EACH [ku.title, ku.description, ku.summary]",
+                "CREATE FULLTEXT INDEX knowledge_fulltext IF NOT EXISTS FOR (ku:Entity) ON EACH [ku.title, ku.description, ku.summary]",
                 "CREATE FULLTEXT INDEX tasks_fulltext IF NOT EXISTS FOR (t:Task) ON EACH [t.title, t.description, t.notes]",
                 "CREATE FULLTEXT INDEX journals_fulltext IF NOT EXISTS FOR (d:Document) ON EACH [d.title, d.description, d.content]",
                 # Legacy property indexes for filtering and sorting
-                "CREATE INDEX knowledge_type_idx IF NOT EXISTS FOR (ku:Ku) ON (ku.type)",
-                "CREATE INDEX knowledge_created_idx IF NOT EXISTS FOR (ku:Ku) ON (ku.created_at)",
-                "CREATE INDEX knowledge_updated_idx IF NOT EXISTS FOR (ku:Ku) ON (ku.updated_at)",
+                "CREATE INDEX knowledge_type_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.type)",
+                "CREATE INDEX knowledge_created_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.created_at)",
+                "CREATE INDEX knowledge_updated_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.updated_at)",
                 # Hierarchical KnowledgeUnit indexes
-                "CREATE INDEX ku_knowledge_domain_idx IF NOT EXISTS FOR (ku:Ku) ON (ku.knowledge_domain)",
-                "CREATE INDEX ku_knowledge_subdomain_idx IF NOT EXISTS FOR (ku:Ku) ON (ku.knowledge_subdomain)",
-                "CREATE INDEX ku_md_heading_level_idx IF NOT EXISTS FOR (ku:Ku) ON (ku.md_heading_level)",
-                "CREATE INDEX ku_parent_id_idx IF NOT EXISTS FOR (ku:Ku) ON (ku.parent_knowledge_unit_id)",
-                "CREATE INDEX ku_depth_level_idx IF NOT EXISTS FOR (ku:Ku) ON (ku.depth_level)",
-                "CREATE INDEX ku_root_domain_idx IF NOT EXISTS FOR (ku:Ku) ON (ku.root_domain_id)",
-                "CREATE INDEX ku_knowledge_path_idx IF NOT EXISTS FOR (ku:Ku) ON (ku.knowledge_path)",
-                "CREATE INDEX ku_source_file_idx IF NOT EXISTS FOR (ku:Ku) ON (ku.source_md_file)",
-                "CREATE INDEX ku_schema_version_idx IF NOT EXISTS FOR (ku:Ku) ON (ku.schema_version)",
+                "CREATE INDEX ku_knowledge_domain_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.knowledge_domain)",
+                "CREATE INDEX ku_knowledge_subdomain_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.knowledge_subdomain)",
+                "CREATE INDEX ku_md_heading_level_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.md_heading_level)",
+                "CREATE INDEX ku_parent_id_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.parent_knowledge_unit_id)",
+                "CREATE INDEX ku_depth_level_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.depth_level)",
+                "CREATE INDEX ku_root_domain_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.root_domain_id)",
+                "CREATE INDEX ku_knowledge_path_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.knowledge_path)",
+                "CREATE INDEX ku_source_file_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.source_md_file)",
+                "CREATE INDEX ku_schema_version_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.schema_version)",
                 # Combined indexes for common hierarchical query patterns
-                "CREATE INDEX ku_domain_level_idx IF NOT EXISTS FOR (ku:Ku) ON (ku.knowledge_domain, ku.md_heading_level)",
-                "CREATE INDEX ku_parent_level_idx IF NOT EXISTS FOR (ku:Ku) ON (ku.parent_knowledge_unit_id, ku.depth_level)",
+                "CREATE INDEX ku_domain_level_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.knowledge_domain, ku.md_heading_level)",
+                "CREATE INDEX ku_parent_level_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.parent_knowledge_unit_id, ku.depth_level)",
                 # Task management indexes
                 "CREATE INDEX task_status_idx IF NOT EXISTS FOR (t:Task) ON (t.status)",
                 "CREATE INDEX task_priority_idx IF NOT EXISTS FOR (t:Task) ON (t.priority)",

@@ -86,7 +86,7 @@ class TestKuSearchServiceInitialization:
         backend = MagicMock()
         service = KuSearchService(backend=backend)
 
-        assert service.entity_label == "Ku"
+        assert service.entity_label == "Entity"
 
     def test_class_attributes_configured_correctly(self):
         """Test that class attributes are configured for KU domain via DomainConfig."""

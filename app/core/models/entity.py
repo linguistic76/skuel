@@ -52,8 +52,8 @@ class Entity:
     UserOwnedEntity (user-owned types) and add their own fields.
     """
 
-    # Neo4j node label — all EntityType subclasses share the :Ku label
-    _neo4j_label: ClassVar[str] = "Ku"
+    # Neo4j node label — all EntityType subclasses share the :Entity label
+    _neo4j_label: ClassVar[str] = "Entity"
 
     # =========================================================================
     # IDENTITY

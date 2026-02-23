@@ -22,7 +22,7 @@ class TestTraverseOperations:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
 
     @pytest_asyncio.fixture
     async def traversal_graph(self, ku_backend):
@@ -337,7 +337,7 @@ class TestGetDomainContextRaw:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
 
     @pytest_asyncio.fixture
     async def context_graph(self, ku_backend):
@@ -409,7 +409,7 @@ class TestGetDomainContextRaw:
         """Test basic context retrieval returns GraphContextNode list."""
         result = await ku_backend.get_domain_context_raw(
             entity_uid="ku:context-center",
-            entity_label="Ku",
+            entity_label="Entity",
             relationship_types=["REQUIRES_KNOWLEDGE", "ENABLES_KNOWLEDGE"],
             depth=2,
         )
@@ -423,7 +423,7 @@ class TestGetDomainContextRaw:
         # Only PREREQUISITE, not ENABLES
         result = await ku_backend.get_domain_context_raw(
             entity_uid="ku:context-center",
-            entity_label="Ku",
+            entity_label="Entity",
             relationship_types=["REQUIRES_KNOWLEDGE"],
             depth=2,
         )
@@ -440,7 +440,7 @@ class TestGetDomainContextRaw:
         """Test that depth parameter is respected."""
         result = await ku_backend.get_domain_context_raw(
             entity_uid="ku:context-center",
-            entity_label="Ku",
+            entity_label="Entity",
             relationship_types=["REQUIRES_KNOWLEDGE"],
             depth=1,
         )
@@ -468,7 +468,7 @@ class TestGetDomainContextRaw:
 
         result = await ku_backend.get_domain_context_raw(
             entity_uid="ku:isolated",
-            entity_label="Ku",
+            entity_label="Entity",
             relationship_types=["REQUIRES_KNOWLEDGE"],
             depth=2,
         )
@@ -480,7 +480,7 @@ class TestGetDomainContextRaw:
         """Test context for non-existent entity returns empty list."""
         result = await ku_backend.get_domain_context_raw(
             entity_uid="ku:nonexistent",
-            entity_label="Ku",
+            entity_label="Entity",
             relationship_types=["REQUIRES_KNOWLEDGE"],
             depth=2,
         )
@@ -496,7 +496,7 @@ class TestFindPath:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
 
     @pytest_asyncio.fixture
     async def path_graph(self, ku_backend):

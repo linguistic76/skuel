@@ -271,12 +271,14 @@ async def test_get_history_success(
 ):
     """Test successful retrieval of ingestion history."""
     # Mock query result as list of dicts (Result[list[dict]])
-    mock_neo4j_driver.execute_query.return_value = Result.ok([
-        {
-            "ih": mock_ingestion_history_data,
-            "errors": [],
-        }
-    ])
+    mock_neo4j_driver.execute_query.return_value = Result.ok(
+        [
+            {
+                "ih": mock_ingestion_history_data,
+                "errors": [],
+            }
+        ]
+    )
 
     result = await ingestion_history_service.get_history(limit=50, offset=0)
 
@@ -320,12 +322,14 @@ async def test_get_history_with_errors(
         "suggestion": "Add title",
     }
 
-    mock_neo4j_driver.execute_query.return_value = Result.ok([
-        {
-            "ih": mock_ingestion_history_data,
-            "errors": [error_node],
-        }
-    ])
+    mock_neo4j_driver.execute_query.return_value = Result.ok(
+        [
+            {
+                "ih": mock_ingestion_history_data,
+                "errors": [error_node],
+            }
+        ]
+    )
 
     result = await ingestion_history_service.get_history()
 
@@ -359,12 +363,14 @@ async def test_get_entry_found(
     ingestion_history_service, mock_neo4j_driver, mock_ingestion_history_data
 ):
     """Test successful retrieval of specific entry."""
-    mock_neo4j_driver.execute_query.return_value = Result.ok([
-        {
-            "ih": mock_ingestion_history_data,
-            "errors": [],
-        }
-    ])
+    mock_neo4j_driver.execute_query.return_value = Result.ok(
+        [
+            {
+                "ih": mock_ingestion_history_data,
+                "errors": [],
+            }
+        ]
+    )
 
     result = await ingestion_history_service.get_entry("test-uuid-123")
 
@@ -488,12 +494,14 @@ async def test_complete_ingestion_workflow(ingestion_history_service, mock_neo4j
         **stats,
     }
 
-    mock_neo4j_driver.execute_query.return_value = Result.ok([
-        {
-            "ih": ih_data,
-            "errors": [],
-        }
-    ])
+    mock_neo4j_driver.execute_query.return_value = Result.ok(
+        [
+            {
+                "ih": ih_data,
+                "errors": [],
+            }
+        ]
+    )
 
     get_result = await ingestion_history_service.get_entry(operation_id)
     assert get_result.is_ok

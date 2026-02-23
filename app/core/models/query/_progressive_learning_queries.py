@@ -392,7 +392,7 @@ class ProgressiveLearningQueries:
         MATCH (user:User {uid: $user_uid})
 
         // Find concepts mastered in time window
-        MATCH (user)-[m:MASTERED]->(ku:Ku)
+        MATCH (user)-[m:MASTERED]->(ku:Entity)
         WHERE m.achieved_at >= datetime() - duration({days: $time_window_days})
 
         // Get the difficulty gaps from prerequisites

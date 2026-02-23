@@ -71,7 +71,7 @@ async def test_complete_semantic_search_flow(
 
     # 2. Store in Neo4j
     create_query = """
-    CREATE (ku:Ku)
+    CREATE (ku:Entity)
     SET ku = $props
     RETURN ku.uid as uid
     """
@@ -85,7 +85,7 @@ async def test_complete_semantic_search_flow(
 
     # 3. Verify stored with embedding
     verify_query = """
-    MATCH (ku:Ku {uid: $uid})
+    MATCH (ku:Entity {uid: $uid})
     RETURN ku.uid as uid,
            ku.title as title,
            ku.embedding as embedding,
@@ -106,7 +106,7 @@ async def test_complete_semantic_search_flow(
     vector_search = services_with_embeddings["vector_search"]
 
     search_result = await vector_search.find_similar_by_text(
-        label="Ku", text="How to use list comprehensions in Python", limit=5, min_score=0.7
+        label="Entity", text="How to use list comprehensions in Python", limit=5, min_score=0.7
     )
 
     assert search_result.is_ok
@@ -153,7 +153,7 @@ async def test_batch_embedding_generation_e2e(neo4j_driver, clean_neo4j, mock_em
     # Create KUs in Neo4j without embeddings
     for ku in kus:
         create_query = """
-        CREATE (ku:Ku {
+        CREATE (ku:Entity {
             uid: $uid,
             title: $title,
             content: $content,
@@ -166,7 +166,7 @@ async def test_batch_embedding_generation_e2e(neo4j_driver, clean_neo4j, mock_em
 
     # Verify KUs created without embeddings
     count_query = """
-    MATCH (ku:Ku)
+    MATCH (ku:Entity)
     WHERE ku.uid STARTS WITH 'ku.batch_e2e_'
     RETURN count(ku) as total,
            count(ku.embedding) as with_embedding
@@ -182,7 +182,7 @@ async def test_batch_embedding_generation_e2e(neo4j_driver, clean_neo4j, mock_em
     # 2. Manually process batch embeddings (simulating batch script logic)
     # Find nodes without embeddings
     find_query = """
-    MATCH (ku:Ku)
+    MATCH (ku:Entity)
     WHERE ku.uid STARTS WITH 'ku.batch_e2e_' AND ku.embedding IS NULL
     RETURN ku.uid as uid, ku.title as title, ku.content as content
     """
@@ -204,7 +204,7 @@ async def test_batch_embedding_generation_e2e(neo4j_driver, clean_neo4j, mock_em
     # Update nodes with embeddings
     for node, embedding in zip(nodes, embeddings, strict=False):
         update_query = """
-        MATCH (ku:Ku {uid: $uid})
+        MATCH (ku:Entity {uid: $uid})
         SET ku.embedding = $embedding,
             ku.embedding_model = $model,
             ku.embedding_updated_at = datetime()
@@ -217,7 +217,7 @@ async def test_batch_embedding_generation_e2e(neo4j_driver, clean_neo4j, mock_em
 
     # 3. Verify all KUs now have embeddings
     verify_query = """
-    MATCH (ku:Ku)
+    MATCH (ku:Entity)
     WHERE ku.uid STARTS WITH 'ku.batch_e2e_'
       AND ku.embedding IS NOT NULL
     RETURN count(ku) as count,
@@ -282,7 +282,7 @@ async def test_ingestion_to_search_pipeline(neo4j_driver, clean_neo4j, services_
 
         # Store in Neo4j
         create_query = """
-        CREATE (ku:Ku {
+        CREATE (ku:Entity {
             uid: $uid,
             title: $title,
             content: $content,
@@ -297,7 +297,7 @@ async def test_ingestion_to_search_pipeline(neo4j_driver, clean_neo4j, services_
 
     # 2. Verify all stored
     verify_query = """
-    MATCH (ku:Ku)
+    MATCH (ku:Entity)
     WHERE ku.uid IN ['ku.python_loops', 'ku.python_comprehensions', 'ku.javascript_arrays']
     RETURN count(ku) as count
     """
@@ -313,7 +313,7 @@ async def test_ingestion_to_search_pipeline(neo4j_driver, clean_neo4j, services_
 
     # Search for Python-related content
     search_result = await vector_search.find_similar_by_text(
-        label="Ku", text="Python list creation techniques", limit=10, min_score=0.5
+        label="Entity", text="Python list creation techniques", limit=10, min_score=0.5
     )
 
     assert search_result.is_ok
@@ -350,7 +350,7 @@ async def test_semantic_search_with_fallback(neo4j_driver, clean_neo4j):
 
     for ku in kus:
         create_query = """
-        CREATE (ku:Ku {
+        CREATE (ku:Entity {
             uid: $uid,
             title: $title,
             content: $content,
@@ -363,7 +363,7 @@ async def test_semantic_search_with_fallback(neo4j_driver, clean_neo4j):
 
     # Verify KUs exist without embeddings
     verify_query = """
-    MATCH (ku:Ku)
+    MATCH (ku:Entity)
     WHERE ku.uid STARTS WITH 'ku.fallback_'
     RETURN count(ku) as total,
            count(ku.embedding) as with_embedding
@@ -395,7 +395,7 @@ async def test_cross_domain_semantic_search(neo4j_driver, clean_neo4j, services_
     # Create entities in different domains with embeddings
     entities = [
         {
-            "label": "Ku",
+            "label": "Entity",
             "uid": "ku.async_programming",
             "title": "Async Programming in Python",
             "content": "Asynchronous programming with async/await syntax",
@@ -424,7 +424,7 @@ async def test_cross_domain_semantic_search(neo4j_driver, clean_neo4j, services_
         embedding = embedding_result.value
 
         # Store in Neo4j
-        if entity["label"] == "Ku":
+        if entity["label"] == "Entity":
             create_query = f"""
             CREATE (n:{entity["label"]} {{
                 uid: $uid,
@@ -469,7 +469,7 @@ async def test_cross_domain_semantic_search(neo4j_driver, clean_neo4j, services_
 
     cross_domain_result = await vector_search.find_cross_domain_similar(
         embedding=[0.001 * i for i in range(1, 1537)],  # Query embedding
-        labels=["Ku", "Task", "Goal"],
+        labels=["Entity", "Task", "Goal"],
         limit_per_label=5,
         min_score=0.5,
     )
@@ -478,7 +478,7 @@ async def test_cross_domain_semantic_search(neo4j_driver, clean_neo4j, services_
     results_by_domain = cross_domain_result.value
 
     # Verify results for each domain
-    assert "Ku" in results_by_domain
+    assert "Entity" in results_by_domain
     assert "Task" in results_by_domain
     assert "Goal" in results_by_domain
 
@@ -509,7 +509,7 @@ async def test_embedding_update_workflow(neo4j_driver, clean_neo4j, services_wit
     embedding_v1 = embedding_v1_result.value
 
     create_query = """
-    CREATE (ku:Ku {
+    CREATE (ku:Entity {
         uid: 'ku.test_update',
         title: 'Python Functions',
         content: $content,
@@ -535,7 +535,7 @@ async def test_embedding_update_workflow(neo4j_driver, clean_neo4j, services_wit
 
     # 3. Update KU with new embedding
     update_query = """
-    MATCH (ku:Ku {uid: 'ku.test_update'})
+    MATCH (ku:Entity {uid: 'ku.test_update'})
     SET ku.content = $content,
         ku.embedding = $embedding,
         ku.embedding_updated_at = datetime(),
@@ -551,7 +551,7 @@ async def test_embedding_update_workflow(neo4j_driver, clean_neo4j, services_wit
 
     # 4. Verify updated embedding
     verify_query = """
-    MATCH (ku:Ku {uid: 'ku.test_update'})
+    MATCH (ku:Entity {uid: 'ku.test_update'})
     RETURN ku.content as content,
            size(ku.embedding) as embedding_dim
     """
@@ -585,7 +585,7 @@ async def test_partial_batch_failure_handling(neo4j_driver, clean_neo4j, mock_em
 
     for ku in kus:
         create_query = """
-        CREATE (ku:Ku {
+        CREATE (ku:Entity {
             uid: $uid,
             title: $title,
             content: $content,
@@ -598,7 +598,7 @@ async def test_partial_batch_failure_handling(neo4j_driver, clean_neo4j, mock_em
 
     # Manually process embeddings (simulating batch script logic)
     find_query = """
-    MATCH (ku:Ku)
+    MATCH (ku:Entity)
     WHERE ku.uid STARTS WITH 'ku.partial_' AND ku.embedding IS NULL
     RETURN ku.uid as uid, ku.title as title, ku.content as content
     """
@@ -621,7 +621,7 @@ async def test_partial_batch_failure_handling(neo4j_driver, clean_neo4j, mock_em
     for node, embedding in zip(nodes, embeddings, strict=False):
         try:
             update_query = """
-            MATCH (ku:Ku {uid: $uid})
+            MATCH (ku:Entity {uid: $uid})
             SET ku.embedding = $embedding,
                 ku.embedding_model = $model,
                 ku.embedding_updated_at = datetime()
@@ -641,7 +641,7 @@ async def test_partial_batch_failure_handling(neo4j_driver, clean_neo4j, mock_em
 
     # Verify embeddings created
     verify_query = """
-    MATCH (ku:Ku)
+    MATCH (ku:Entity)
     WHERE ku.uid STARTS WITH 'ku.partial_'
       AND ku.embedding IS NOT NULL
     RETURN count(ku) as count

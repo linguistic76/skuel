@@ -29,7 +29,7 @@ class RelationshipSpec(TypedDict, total=False):
 
     Required fields:
         rel_types: Relationship type(s), pipe-separated (e.g., "BLOCKS|DEPENDS_ON")
-        target_label: Target node label (e.g., "Task", "Ku")
+        target_label: Target node label (e.g., "Task", "Entity")
         alias: Result alias (e.g., "dependencies", "applied_knowledge")
 
     Optional fields:

@@ -90,7 +90,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
         domain_name="tasks",
         date_field="due_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        entity_label="Ku",
+        entity_label="Entity",
     )
 
     # ========================================================================
@@ -100,7 +100,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Task entities."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
@@ -415,9 +415,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
         self.logger.debug(f"Retrieved {len(tasks)} tasks for user {user_uid}")
         return Result.ok(tasks)
 
-    async def list_tasks(
-        self, filters: dict | None = None, limit: int = 100
-    ) -> Result[list[Task]]:
+    async def list_tasks(self, filters: dict | None = None, limit: int = 100) -> Result[list[Task]]:
         """
         List tasks with optional filters.
 
@@ -592,8 +590,8 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
             all = await service.get_subtasks("task_abc123", depth=99)
         """
         query = f"""
-        MATCH (parent:Ku {{uid: $parent_uid}})
-        MATCH (parent)-[:HAS_SUBTASK*1..{depth}]->(subtask:Ku)
+        MATCH (parent:Entity {{uid: $parent_uid}})
+        MATCH (parent)-[:HAS_SUBTASK*1..{depth}]->(subtask:Entity)
         RETURN subtask
         ORDER BY subtask.created_at
         """
@@ -626,8 +624,8 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
             Result containing parent Task or None if root-level task
         """
         query = """
-        MATCH (subtask:Ku {uid: $subtask_uid})
-        MATCH (parent:Ku)-[:HAS_SUBTASK]->(subtask)
+        MATCH (subtask:Entity {uid: $subtask_uid})
+        MATCH (parent:Entity)-[:HAS_SUBTASK]->(subtask)
         RETURN parent
         LIMIT 1
         """
@@ -671,24 +669,24 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
         """
         # Get ancestors
         ancestors_query = """
-        MATCH path = (root:Ku)-[:HAS_SUBTASK*]->(current:Ku {uid: $task_uid})
+        MATCH path = (root:Entity)-[:HAS_SUBTASK*]->(current:Entity {uid: $task_uid})
         WHERE NOT EXISTS((root)<-[:HAS_SUBTASK]-())
         RETURN nodes(path) as ancestors
         """
 
         # Get siblings
         siblings_query = """
-        MATCH (current:Ku {uid: $task_uid})
-        OPTIONAL MATCH (parent:Ku)-[:HAS_SUBTASK]->(current)
-        OPTIONAL MATCH (parent)-[:HAS_SUBTASK]->(sibling:Ku)
+        MATCH (current:Entity {uid: $task_uid})
+        OPTIONAL MATCH (parent:Entity)-[:HAS_SUBTASK]->(current)
+        OPTIONAL MATCH (parent)-[:HAS_SUBTASK]->(sibling:Entity)
         WHERE sibling.uid <> $task_uid
         RETURN collect(sibling) as siblings
         """
 
         # Get children
         children_query = """
-        MATCH (current:Ku {uid: $task_uid})
-        OPTIONAL MATCH (current)-[:HAS_SUBTASK]->(child:Ku)
+        MATCH (current:Entity {uid: $task_uid})
+        OPTIONAL MATCH (current)-[:HAS_SUBTASK]->(child:Entity)
         RETURN collect(child) as children
         """
 
@@ -777,8 +775,8 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
             )
 
         query = """
-        MATCH (parent:Ku {uid: $parent_uid})
-        MATCH (subtask:Ku {uid: $subtask_uid})
+        MATCH (parent:Entity {uid: $parent_uid})
+        MATCH (subtask:Entity {uid: $subtask_uid})
 
         CREATE (parent)-[:HAS_SUBTASK {
             progress_weight: $weight,
@@ -813,8 +811,8 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
     async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
         """Check if adding parent->child relationship would create a cycle."""
         query = """
-        MATCH (child:Ku {uid: $child_uid})
-        MATCH path = (child)-[:HAS_SUBTASK*]->(parent:Ku {uid: $parent_uid})
+        MATCH (child:Entity {uid: $child_uid})
+        MATCH path = (child)-[:HAS_SUBTASK*]->(parent:Entity {uid: $parent_uid})
         RETURN count(path) > 0 as would_create_cycle
         """
 
@@ -857,11 +855,11 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
         auto_completed_uids = []
 
         query = """
-        MATCH (completed:Ku {uid: $task_uid})
-        MATCH (parent:Ku)-[:HAS_SUBTASK]->(completed)
+        MATCH (completed:Entity {uid: $task_uid})
+        MATCH (parent:Entity)-[:HAS_SUBTASK]->(completed)
 
         // Get all subtasks of this parent
-        MATCH (parent)-[:HAS_SUBTASK]->(sibling:Ku)
+        MATCH (parent)-[:HAS_SUBTASK]->(sibling:Entity)
 
         // Check if all siblings are complete
         WITH parent,
@@ -925,8 +923,8 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
             # }
         """
         query = """
-        MATCH (parent:Ku {uid: $parent_uid})
-        MATCH (parent)-[r:HAS_SUBTASK]->(child:Ku)
+        MATCH (parent:Entity {uid: $parent_uid})
+        MATCH (parent)-[r:HAS_SUBTASK]->(child:Entity)
 
         WITH parent,
              count(child) as total_subtasks,

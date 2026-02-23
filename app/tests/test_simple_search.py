@@ -80,7 +80,7 @@ class TestSearchRequestModels:
         """Test Neo4j label mapping"""
         # Knowledge domain
         request = SearchRequest(query_text="test", domain=Domain.KNOWLEDGE)
-        assert request.get_neo4j_label() == "Ku"
+        assert request.get_neo4j_label() == "Entity"
 
         # Tasks domain
         request = SearchRequest(query_text="test", domain=Domain.TASKS)

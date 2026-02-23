@@ -141,7 +141,7 @@ class GraphIntelligenceService:
             params["domain"] = domain.value
 
         query = f"""
-        MATCH (ku:Ku)
+        MATCH (ku:Entity)
         {domain_filter}
         OPTIONAL MATCH (ku)-[r WHERE coalesce(r.confidence, 1.0) >= $min_confidence]-()
         WITH ku, count(r) as total_connections
@@ -233,7 +233,7 @@ class GraphIntelligenceService:
 
         query = """
         // Find shared neighbors (any relationship direction)
-        MATCH (ku1:Ku {uid: $uid})-[]-(shared)-[]-(ku2:Ku)
+        MATCH (ku1:Entity {uid: $uid})-[]-(shared)-[]-(ku2:Entity)
         WHERE ku1 <> ku2
         WITH ku1, ku2, count(DISTINCT shared) as shared_count
 
@@ -327,7 +327,7 @@ class GraphIntelligenceService:
 
         query = """
         // Find all prerequisite paths
-        MATCH path = (end:Ku {uid: $uid})<-[:REQUIRES_KNOWLEDGE*]-(start)
+        MATCH path = (end:Entity {uid: $uid})<-[:REQUIRES_KNOWLEDGE*]-(start)
         WHERE NOT (start)<-[:REQUIRES_KNOWLEDGE]-()
 
         WITH path,
@@ -436,14 +436,14 @@ class GraphIntelligenceService:
 
         query = f"""
         // Find knowledge units with neighbors
-        MATCH (ku:Ku)
+        MATCH (ku:Entity)
         {domain_filter}
-        MATCH (ku)-[r]-(neighbor:Ku)
+        MATCH (ku)-[r]-(neighbor:Entity)
         WITH ku, count(DISTINCT neighbor) as neighbor_count
         WHERE neighbor_count >= 2
 
         // Count triangles (ku-n1-n2-ku closed patterns)
-        MATCH (ku)-[]-(n1:Ku)-[]-(n2:Ku)-[]-(ku)
+        MATCH (ku)-[]-(n1:Entity)-[]-(n2:Entity)-[]-(ku)
         WHERE n1 <> n2 AND id(n1) < id(n2)
         WITH ku, neighbor_count, count(*) as triangles
 
@@ -522,7 +522,7 @@ class GraphIntelligenceService:
         self.logger.info(f"Calculating importance for {ku_uid}")
 
         query = """
-        MATCH (ku:Ku {uid: $uid})
+        MATCH (ku:Entity {uid: $uid})
 
         // Metric 1: Degree centrality
         OPTIONAL MATCH (ku)-[r]-()
@@ -988,7 +988,7 @@ class GraphIntelligenceService:
             "Habit": Domain.HABITS,
             "Goal": Domain.GOALS,
             "Event": Domain.EVENTS,
-            "Ku": Domain.KNOWLEDGE,
+            "Entity": Domain.KNOWLEDGE,
             "Lp": Domain.LEARNING,
             "Finance": Domain.FINANCE,
             "Choice": Domain.CHOICES,

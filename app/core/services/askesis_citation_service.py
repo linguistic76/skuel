@@ -228,7 +228,7 @@ class AskesisCitationService:
         # Build citation export query
         query, params = ProvenanceQueries.build_citation_export_query(
             node_uid=knowledge_uid,
-            node_label="Ku",
+            node_label="Entity",
             relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
             depth=depth,
         )

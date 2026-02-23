@@ -421,9 +421,7 @@ class GoalTaskGenerator:
 
         return tasks
 
-    async def _generate_urgent_tasks(
-        self, goal: Goal, _user_context: UserContext
-    ) -> list[TaskDTO]:
+    async def _generate_urgent_tasks(self, goal: Goal, _user_context: UserContext) -> list[TaskDTO]:
         """Generate urgent tasks for at-risk goals."""
         tasks = []
 

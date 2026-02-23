@@ -49,7 +49,7 @@ def relationship(
 
     Usage:
         @relationship(RelationshipType.CONTRIBUTES_TO_GOAL, "Goal")
-        @relationship(RelationshipType.REQUIRES_KNOWLEDGE, "Ku")
+        @relationship(RelationshipType.REQUIRES_KNOWLEDGE, "Entity")
         class TasksUniversalBackend(UniversalNeo4jBackend[Task]):
             pass
 
@@ -236,7 +236,7 @@ def relationships(*rel_configs: Any):
     Usage:
         @relationships(
             (RelationshipType.CONTRIBUTES_TO_GOAL, "Goal", False, None),
-            (RelationshipType.REQUIRES_KNOWLEDGE, "Ku", False, None),
+            (RelationshipType.REQUIRES_KNOWLEDGE, "Entity", False, None),
             (RelationshipType.BLOCKED_BY, "Task", True, RelationshipType.BLOCKS)
         )
         class TasksUniversalBackend(UniversalNeo4jBackend[Task]):
@@ -290,7 +290,7 @@ def add_relationships(backend_instance, *rel_configs: Any):
         tasks_backend = add_relationships(
             tasks_backend,
             (RelationshipType.CONTRIBUTES_TO_GOAL, "Goal", False, None),
-            (RelationshipType.REQUIRES_KNOWLEDGE, "Ku", False, None)
+            (RelationshipType.REQUIRES_KNOWLEDGE, "Entity", False, None)
         )
 
         # Now you can use auto-generated methods:

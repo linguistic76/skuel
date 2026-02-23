@@ -40,13 +40,13 @@ class ExerciseService(BaseService):
     Simple CRUD service for Exercises (instruction templates).
 
     No complex logic - just create, read, update, delete operations.
-    Exercises are stored as :Ku nodes with ku_type="exercise" in Neo4j.
+    Exercises are stored as :Entity nodes with ku_type="exercise" in Neo4j.
     """
 
     _config = DomainConfig(
         dto_class=ExerciseDTO,
         model_class=Exercise,
-        entity_label="Ku",
+        entity_label="Entity",
         search_fields=("title", "instructions"),
         search_order_by="created_at",
         user_ownership_relationship=RelationshipName.OWNS,
@@ -67,7 +67,7 @@ class ExerciseService(BaseService):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Exercise entities."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # CREATE
@@ -141,7 +141,7 @@ class ExerciseService(BaseService):
         if scope == ProjectScope.ASSIGNED and group_uid:
             rel_result = await self.backend.execute_query(
                 f"""
-                MATCH (exercise:Ku {{uid: $exercise_uid, ku_type: 'exercise'}})
+                MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
                 MATCH (group:Group {{uid: $group_uid}})
                 MERGE (exercise)-[:{RelationshipName.FOR_GROUP}]->(group)
                 RETURN true as success
@@ -301,7 +301,7 @@ class ExerciseService(BaseService):
         result = await self.backend.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
-            MATCH (exercise:Ku {{ku_type: 'exercise'}})-[:{RelationshipName.FOR_GROUP}]->(group)
+            MATCH (exercise:Entity {{ku_type: 'exercise'}})-[:{RelationshipName.FOR_GROUP}]->(group)
             WHERE exercise.scope = 'assigned'
             RETURN exercise
             ORDER BY exercise.due_date ASC, exercise.created_at DESC
@@ -450,8 +450,8 @@ class ExerciseService(BaseService):
         """
         result = await self.backend.execute_query(
             f"""
-            MATCH (exercise:Ku {{uid: $exercise_uid, ku_type: 'exercise'}})
-            MATCH (curriculum:Ku {{uid: $curriculum_uid}})
+            MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
+            MATCH (curriculum:Entity {{uid: $curriculum_uid}})
             WHERE curriculum.ku_type IN ['curriculum', 'resource']
             MERGE (exercise)-[r:{RelationshipName.REQUIRES_KNOWLEDGE}]->(curriculum)
             ON CREATE SET r.created_at = datetime()
@@ -489,9 +489,9 @@ class ExerciseService(BaseService):
         """
         result = await self.backend.execute_query(
             f"""
-            MATCH (exercise:Ku {{uid: $exercise_uid, ku_type: 'exercise'}})
+            MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
                   -[r:{RelationshipName.REQUIRES_KNOWLEDGE}]->
-                  (curriculum:Ku {{uid: $curriculum_uid}})
+                  (curriculum:Entity {{uid: $curriculum_uid}})
             DELETE r
             RETURN true as success
             """,
@@ -526,9 +526,9 @@ class ExerciseService(BaseService):
         """
         result = await self.backend.execute_query(
             f"""
-            MATCH (exercise:Ku {{uid: $exercise_uid, ku_type: 'exercise'}})
+            MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
                   -[:{RelationshipName.REQUIRES_KNOWLEDGE}]->
-                  (curriculum:Ku)
+                  (curriculum:Entity)
             RETURN curriculum.uid as uid,
                    curriculum.title as title,
                    curriculum.ku_type as ku_type,
@@ -565,9 +565,9 @@ class ExerciseService(BaseService):
         """
         result = await self.backend.execute_query(
             f"""
-            MATCH (exercise:Ku {{ku_type: 'exercise'}})
+            MATCH (exercise:Entity {{ku_type: 'exercise'}})
                   -[:{RelationshipName.REQUIRES_KNOWLEDGE}]->
-                  (curriculum:Ku {{uid: $curriculum_uid}})
+                  (curriculum:Entity {{uid: $curriculum_uid}})
             RETURN exercise.uid as uid,
                    exercise.title as title,
                    exercise.scope as scope,

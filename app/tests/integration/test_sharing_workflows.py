@@ -43,7 +43,7 @@ async def test_report(neo4j_driver):
     query = """
     MERGE (u:User {uid: $user_uid})
     SET u.name = 'Test Owner'
-    CREATE (a:Ku {
+    CREATE (a:Entity {
         uid: $uid,
         user_uid: $user_uid,
         original_filename: "test_report.pdf",
@@ -89,7 +89,7 @@ async def test_report(neo4j_driver):
 
     # Cleanup
     cleanup_query = """
-    MATCH (a:Ku {uid: $uid})
+    MATCH (a:Entity {uid: $uid})
     OPTIONAL MATCH (a)<-[r:SHARES_WITH]-()
     DELETE r, a
     """
@@ -368,7 +368,7 @@ async def test_only_completed_reports_can_be_shared(neo4j_driver, sharing_servic
     owner_uid = "test_user_owner"
 
     query = """
-    CREATE (a:Ku {
+    CREATE (a:Entity {
         uid: $uid,
         user_uid: $user_uid,
         original_filename: "processing.pdf",
@@ -402,7 +402,7 @@ async def test_only_completed_reports_can_be_shared(neo4j_driver, sharing_servic
     finally:
         # Cleanup
         await neo4j_driver.execute_query(
-            "MATCH (a:Ku {uid: $uid}) DELETE a",
+            "MATCH (a:Entity {uid: $uid}) DELETE a",
             uid=report_uid,
         )
 

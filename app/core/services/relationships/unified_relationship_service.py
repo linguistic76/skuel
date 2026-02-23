@@ -854,7 +854,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
         Args:
             entity_uid: Root entity UID
             relationship_chain: List of (relationship_key, target_label) tuples
-                Example: [("steps", "Ls"), ("knowledge", "Ku")]
+                Example: [("steps", "Ls"), ("knowledge", "Entity")]
             max_depth: Maximum traversal depth (default: 3)
 
         Returns:
@@ -864,7 +864,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
             # Get LP with steps and their knowledge units
             result = await lp_rel.get_hierarchical_children(
                 "lp:python-basics",
-                [("steps", "Ls"), ("knowledge", "Ku")],
+                [("steps", "Ls"), ("knowledge", "Entity")],
             )
             # Returns: [
             #     {
@@ -2404,7 +2404,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
         # Query for knowledge alignment with LP KUs
         knowledge_query = """
         MATCH (entity {uid: $entity_uid})
-        OPTIONAL MATCH (entity)-[:REQUIRES_KNOWLEDGE|APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(ku:Ku)
+        OPTIONAL MATCH (entity)-[:REQUIRES_KNOWLEDGE|APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(ku:Entity)
                        <-[:HAS_STEP*1..3]-(lp:Lp {uid: $life_path_uid})
         RETURN count(DISTINCT ku) AS aligned_ku_count
         """

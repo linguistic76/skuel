@@ -101,7 +101,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Goal entities."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
@@ -117,7 +117,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         domain_name="goals",
         date_field="target_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        entity_label="Ku",
+        entity_label="Entity",
     )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
@@ -653,7 +653,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         """
         # Query Neo4j for distinct domain values
         query = """
-        MATCH (g:Ku {ku_type: 'goal'})
+        MATCH (g:Entity {ku_type: 'goal'})
         RETURN DISTINCT g.domain as category
         ORDER BY category
         """
@@ -714,7 +714,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         """
         # Use Neo4j text search on title and description
         cypher_query = """
-        MATCH (g:Ku {ku_type: 'goal'})
+        MATCH (g:Entity {ku_type: 'goal'})
         WHERE toLower(g.title) CONTAINS toLower($query)
            OR toLower(g.description) CONTAINS toLower($query)
         RETURN g
@@ -834,8 +834,8 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             all_subgoals = await service.get_subgoals("goal_abc123", depth=99)
         """
         query = f"""
-        MATCH (parent:Ku {{uid: $parent_uid}})
-        MATCH (parent)-[:HAS_SUBGOAL*1..{depth}]->(subgoal:Ku)
+        MATCH (parent:Entity {{uid: $parent_uid}})
+        MATCH (parent)-[:HAS_SUBGOAL*1..{depth}]->(subgoal:Entity)
         RETURN subgoal
         ORDER BY subgoal.created_at
         """
@@ -868,8 +868,8 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             Result containing parent Goal or None if root-level goal
         """
         query = """
-        MATCH (subgoal:Ku {uid: $subgoal_uid})
-        MATCH (parent:Ku)-[:HAS_SUBGOAL]->(subgoal)
+        MATCH (subgoal:Entity {uid: $subgoal_uid})
+        MATCH (parent:Entity)-[:HAS_SUBGOAL]->(subgoal)
         RETURN parent
         LIMIT 1
         """
@@ -913,24 +913,24 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         """
         # Get ancestors
         ancestors_query = """
-        MATCH path = (root:Ku)-[:HAS_SUBGOAL*]->(current:Ku {uid: $goal_uid})
+        MATCH path = (root:Entity)-[:HAS_SUBGOAL*]->(current:Entity {uid: $goal_uid})
         WHERE NOT EXISTS((root)<-[:HAS_SUBGOAL]-())
         RETURN nodes(path) as ancestors
         """
 
         # Get siblings
         siblings_query = """
-        MATCH (current:Ku {uid: $goal_uid})
-        OPTIONAL MATCH (parent:Ku)-[:HAS_SUBGOAL]->(current)
-        OPTIONAL MATCH (parent)-[:HAS_SUBGOAL]->(sibling:Ku)
+        MATCH (current:Entity {uid: $goal_uid})
+        OPTIONAL MATCH (parent:Entity)-[:HAS_SUBGOAL]->(current)
+        OPTIONAL MATCH (parent)-[:HAS_SUBGOAL]->(sibling:Entity)
         WHERE sibling.uid <> $goal_uid
         RETURN collect(sibling) as siblings
         """
 
         # Get children
         children_query = """
-        MATCH (current:Ku {uid: $goal_uid})
-        OPTIONAL MATCH (current)-[:HAS_SUBGOAL]->(child:Ku)
+        MATCH (current:Entity {uid: $goal_uid})
+        OPTIONAL MATCH (current)-[:HAS_SUBGOAL]->(child:Entity)
         RETURN collect(child) as children
         """
 
@@ -1020,8 +1020,8 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             )
 
         query = """
-        MATCH (parent:Ku {uid: $parent_uid})
-        MATCH (subgoal:Ku {uid: $subgoal_uid})
+        MATCH (parent:Entity {uid: $parent_uid})
+        MATCH (subgoal:Entity {uid: $subgoal_uid})
 
         CREATE (parent)-[:HAS_SUBGOAL {
             progress_weight: $weight,
@@ -1066,7 +1066,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             Result containing True if relationships were deleted
         """
         query = """
-        MATCH (parent:Ku {uid: $parent_uid})-[r1:HAS_SUBGOAL]->(subgoal:Ku {uid: $subgoal_uid})
+        MATCH (parent:Entity {uid: $parent_uid})-[r1:HAS_SUBGOAL]->(subgoal:Entity {uid: $subgoal_uid})
         MATCH (subgoal)-[r2:SUBGOAL_OF]->(parent)
         DELETE r1, r2
         RETURN count(r1) + count(r2) as deleted_count
@@ -1087,8 +1087,8 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
         """Check if adding parent->child relationship would create a cycle."""
         query = """
-        MATCH (child:Ku {uid: $child_uid})
-        MATCH path = (child)-[:HAS_SUBGOAL*]->(parent:Ku {uid: $parent_uid})
+        MATCH (child:Entity {uid: $child_uid})
+        MATCH path = (child)-[:HAS_SUBGOAL*]->(parent:Entity {uid: $parent_uid})
         RETURN count(path) > 0 as would_create_cycle
         """
 

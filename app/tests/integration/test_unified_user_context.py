@@ -776,7 +776,7 @@ class TestUserContextBuilder:
             await session.run(
                 """
                 MATCH (u:User {uid: $user_uid})
-                CREATE (k:Ku {
+                CREATE (k:Entity {
                     uid: $uid,
                     title: 'Test Knowledge',
                     content: 'Test content',
@@ -799,7 +799,7 @@ class TestUserContextBuilder:
                 OPTIONAL MATCH (u)-[:OWNS]->(h:Habit)
                 OPTIONAL MATCH (u)-[:OWNS]->(g:Goal)
                 OPTIONAL MATCH (u)-[:OWNS]->(e:Event)
-                OPTIONAL MATCH (u)-[:MASTERED]->(k:Ku)
+                OPTIONAL MATCH (u)-[:MASTERED]->(k:Entity)
                 RETURN
                     count(DISTINCT t) as task_count,
                     count(DISTINCT h) as habit_count,

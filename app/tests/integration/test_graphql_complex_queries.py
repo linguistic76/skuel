@@ -92,7 +92,7 @@ async def graphql_test_data(neo4j_container, clean_neo4j):
         for ku in knowledge_units:
             await session.run(
                 """
-                MERGE (k:Ku {uid: $uid})
+                MERGE (k:Entity {uid: $uid})
                 SET k.title = $title,
                     k.summary = $summary,
                     k.content = $content,
@@ -108,8 +108,8 @@ async def graphql_test_data(neo4j_container, clean_neo4j):
         # Create prerequisite relationships
         await session.run(
             """
-            MATCH (basic:Ku {uid: 'ku.python_basics'})
-            MATCH (ds:Ku {uid: 'ku.data_structures'})
+            MATCH (basic:Entity {uid: 'ku.python_basics'})
+            MATCH (ds:Entity {uid: 'ku.data_structures'})
             MERGE (ds)-[:REQUIRES_KNOWLEDGE]->(basic)
             """
         )
@@ -176,8 +176,8 @@ async def graphql_test_data(neo4j_container, clean_neo4j):
         await session.run(
             """
             MATCH (lp:Lp {uid: 'lp.python_mastery'})
-            MATCH (ku1:Ku {uid: 'ku.python_basics'})
-            MATCH (ku2:Ku {uid: 'ku.data_structures'})
+            MATCH (ku1:Entity {uid: 'ku.python_basics'})
+            MATCH (ku2:Entity {uid: 'ku.data_structures'})
             MERGE (lp)-[:HAS_STEP {step_number: 1}]->(ku1)
             MERGE (lp)-[:HAS_STEP {step_number: 2}]->(ku2)
             """
@@ -207,7 +207,7 @@ async def knowledge_backend(neo4j_container):
     uri = neo4j_container.get_connection_url()
     driver = AsyncGraphDatabase.driver(uri)
 
-    backend = UniversalNeo4jBackend[EntityDTO](driver, "Ku", EntityDTO)
+    backend = UniversalNeo4jBackend[EntityDTO](driver, "Entity", EntityDTO)
 
     yield backend
 
@@ -399,7 +399,7 @@ async def test_discover_cross_domain_data_setup(graphql_test_data, neo4j_contain
             # Verify we have knowledge units across different domains
             result = await session.run(
                 """
-                MATCH (k:Ku)
+                MATCH (k:Entity)
                 RETURN DISTINCT k.domain as domain, count(k) as count
                 ORDER BY domain
                 """
@@ -446,7 +446,7 @@ async def test_user_dashboard_data_aggregation(graphql_test_data, neo4j_containe
             # Test knowledge unit access
             ku_result = await session.run(
                 """
-                MATCH (k:Ku)
+                MATCH (k:Entity)
                 RETURN count(k) as total_knowledge
                 """
             )
@@ -529,7 +529,7 @@ async def test_tasks_with_knowledge_nested(graphql_test_data, neo4j_container):
                 """
                 MATCH (t:Task {user_uid: $user_uid})
                 WHERE t.knowledge_uid IS NOT NULL
-                OPTIONAL MATCH (k:Ku {uid: t.knowledge_uid})
+                OPTIONAL MATCH (k:Entity {uid: t.knowledge_uid})
                 RETURN t, k
                 LIMIT 10
                 """,
@@ -563,7 +563,7 @@ async def test_learning_path_with_steps_nested(graphql_test_data, neo4j_containe
             result = await session.run(
                 """
                 MATCH (lp:Lp {uid: $lp_uid})
-                OPTIONAL MATCH (lp)-[r:HAS_STEP]->(k:Ku)
+                OPTIONAL MATCH (lp)-[r:HAS_STEP]->(k:Entity)
                 WITH lp, r, k
                 ORDER BY r.step_number
                 RETURN lp, collect({step: r.step_number, knowledge: k}) as steps

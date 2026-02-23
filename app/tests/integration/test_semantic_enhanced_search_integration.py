@@ -32,7 +32,7 @@ async def test_semantic_enhanced_search_with_relationships(
         # Create base KU
         result = await session.run(
             """
-            CREATE (k1:Ku {
+            CREATE (k1:Entity {
                 uid: 'ku.python-basics',
                 title: 'Python Basics',
                 description: 'Introduction to Python programming',
@@ -47,7 +47,7 @@ async def test_semantic_enhanced_search_with_relationships(
         # Create advanced KU with relationship to basics
         result = await session.run(
             """
-            CREATE (k2:Ku {
+            CREATE (k2:Entity {
                 uid: 'ku.python-advanced',
                 title: 'Advanced Python',
                 description: 'Advanced Python programming concepts',
@@ -61,8 +61,8 @@ async def test_semantic_enhanced_search_with_relationships(
 
         # Create semantic relationship
         result = await session.run("""
-            MATCH (advanced:Ku {uid: 'ku.python-advanced'})
-            MATCH (basics:Ku {uid: 'ku.python-basics'})
+            MATCH (advanced:Entity {uid: 'ku.python-advanced'})
+            MATCH (basics:Entity {uid: 'ku.python-basics'})
             CREATE (advanced)-[r:REQUIRES_THEORETICAL_UNDERSTANDING {
                 confidence: 0.9,
                 strength: 1.0,
@@ -84,7 +84,7 @@ async def test_semantic_enhanced_search_with_relationships(
 
     # Execute semantic-enhanced search
     result = await vector_search.semantic_enhanced_search(
-        label="Ku",
+        label="Entity",
         text="python programming",
         context_uids=["ku.python-basics"],  # Context: basics
         limit=10,
@@ -132,7 +132,7 @@ async def test_learning_aware_search_with_states(
         # Create mastered KU
         result = await session.run(
             """
-            CREATE (k1:Ku {
+            CREATE (k1:Entity {
                 uid: 'ku.mastered-topic',
                 title: 'Mastered Topic',
                 description: 'A topic the user has mastered',
@@ -147,7 +147,7 @@ async def test_learning_aware_search_with_states(
         # Create not-started KU
         result = await session.run(
             """
-            CREATE (k2:Ku {
+            CREATE (k2:Entity {
                 uid: 'ku.new-topic',
                 title: 'New Topic',
                 description: 'A topic the user has not started',
@@ -162,7 +162,7 @@ async def test_learning_aware_search_with_states(
         # Create MASTERED relationship
         result = await session.run("""
             MATCH (u:User {uid: 'user.test_learning'})
-            MATCH (k:Ku {uid: 'ku.mastered-topic'})
+            MATCH (k:Entity {uid: 'ku.mastered-topic'})
             CREATE (u)-[:MASTERED {
                 mastered_at: datetime(),
                 confidence: 1.0
@@ -180,7 +180,11 @@ async def test_learning_aware_search_with_states(
 
     # Execute learning-aware search (prefer unmastered)
     result = await vector_search.learning_aware_search(
-        label="Ku", text="topic", user_uid="user.test_learning", prefer_unmastered=True, limit=10
+        label="Entity",
+        text="topic",
+        user_uid="user.test_learning",
+        prefer_unmastered=True,
+        limit=10,
     )
 
     assert result.is_ok
@@ -214,7 +218,7 @@ async def test_semantic_boost_multiple_relationships(
         # Create context KUs
         result = await session.run(
             """
-            CREATE (k1:Ku {
+            CREATE (k1:Entity {
                 uid: 'ku.context1',
                 title: 'Context 1',
                 embedding: $embedding
@@ -226,7 +230,7 @@ async def test_semantic_boost_multiple_relationships(
 
         result = await session.run(
             """
-            CREATE (k2:Ku {
+            CREATE (k2:Entity {
                 uid: 'ku.context2',
                 title: 'Context 2',
                 embedding: $embedding
@@ -239,7 +243,7 @@ async def test_semantic_boost_multiple_relationships(
         # Create target KU
         result = await session.run(
             """
-            CREATE (k3:Ku {
+            CREATE (k3:Entity {
                 uid: 'ku.target',
                 title: 'Target KU',
                 description: 'Has multiple relationships',
@@ -252,9 +256,9 @@ async def test_semantic_boost_multiple_relationships(
 
         # Create multiple semantic relationships
         result = await session.run("""
-            MATCH (target:Ku {uid: 'ku.target'})
-            MATCH (c1:Ku {uid: 'ku.context1'})
-            MATCH (c2:Ku {uid: 'ku.context2'})
+            MATCH (target:Entity {uid: 'ku.target'})
+            MATCH (c1:Entity {uid: 'ku.context1'})
+            MATCH (c2:Entity {uid: 'ku.context2'})
             CREATE (target)-[:REQUIRES_THEORETICAL_UNDERSTANDING {
                 confidence: 0.9,
                 strength: 1.0
@@ -274,7 +278,7 @@ async def test_semantic_boost_multiple_relationships(
     )
 
     result = await vector_search.semantic_enhanced_search(
-        label="Ku", text="target", context_uids=["ku.context1", "ku.context2"], limit=10
+        label="Entity", text="target", context_uids=["ku.context1", "ku.context2"], limit=10
     )
 
     assert result.is_ok
@@ -305,7 +309,7 @@ async def test_performance_semantic_enhanced_search(
         for i in range(10):
             result = await session.run(
                 f"""
-                CREATE (k:Ku {{
+                CREATE (k:Entity {{
                     uid: 'ku.test-{i}',
                     title: 'Test KU {i}',
                     description: 'Test knowledge unit {i}',
@@ -319,8 +323,8 @@ async def test_performance_semantic_enhanced_search(
         # Create relationships
         for i in range(5):
             result = await session.run(f"""
-                MATCH (k1:Ku {{uid: 'ku.test-{i}'}})
-                MATCH (k2:Ku {{uid: 'ku.test-{i + 5}'}})
+                MATCH (k1:Entity {{uid: 'ku.test-{i}'}})
+                MATCH (k2:Entity {{uid: 'ku.test-{i + 5}'}})
                 CREATE (k1)-[:REQUIRES_THEORETICAL_UNDERSTANDING {{
                     confidence: 0.8,
                     strength: 1.0
@@ -339,7 +343,7 @@ async def test_performance_semantic_enhanced_search(
     start_time = time.perf_counter()
 
     result = await vector_search.semantic_enhanced_search(
-        label="Ku",
+        label="Entity",
         text="test knowledge",
         context_uids=[f"ku.test-{i}" for i in range(5, 10)],
         limit=10,
@@ -370,7 +374,7 @@ async def test_performance_learning_aware_search(
         for i in range(10):
             result = await session.run(
                 f"""
-                CREATE (k:Ku {{
+                CREATE (k:Entity {{
                     uid: 'ku.perf-{i}',
                     title: 'Performance Test KU {i}',
                     embedding: $embedding
@@ -385,7 +389,7 @@ async def test_performance_learning_aware_search(
             # MASTERED
             result = await session.run(f"""
                 MATCH (u:User {{uid: 'user.test_perf'}})
-                MATCH (k:Ku {{uid: 'ku.perf-{i}'}})
+                MATCH (k:Entity {{uid: 'ku.perf-{i}'}})
                 CREATE (u)-[:MASTERED {{mastered_at: datetime()}}]->(k)
             """)
             await result.consume()  # Ensure transaction commits
@@ -394,7 +398,7 @@ async def test_performance_learning_aware_search(
             # IN_PROGRESS
             result = await session.run(f"""
                 MATCH (u:User {{uid: 'user.test_perf'}})
-                MATCH (k:Ku {{uid: 'ku.perf-{i}'}})
+                MATCH (k:Entity {{uid: 'ku.perf-{i}'}})
                 CREATE (u)-[:IN_PROGRESS {{started_at: datetime()}}]->(k)
             """)
             await result.consume()  # Ensure transaction commits
@@ -410,7 +414,7 @@ async def test_performance_learning_aware_search(
     start_time = time.perf_counter()
 
     result = await vector_search.learning_aware_search(
-        label="Ku",
+        label="Entity",
         text="performance test",
         user_uid="user.test_perf",
         prefer_unmastered=True,
@@ -434,7 +438,7 @@ async def test_graceful_degradation_no_vector_index(
     # Create KU without vector index
     async with neo4j_driver.session() as session:
         result = await session.run("""
-            CREATE (k:Ku {
+            CREATE (k:Entity {
                 uid: 'ku.no-index',
                 title: 'No Vector Index',
                 description: 'KU without embedding'
@@ -449,7 +453,7 @@ async def test_graceful_degradation_no_vector_index(
 
     # Should handle gracefully (error or empty results, not crash)
     result = await vector_search.semantic_enhanced_search(
-        label="Ku", text="test", context_uids=["ku.context"], limit=10
+        label="Entity", text="test", context_uids=["ku.context"], limit=10
     )
 
     # Either returns error or empty results (both acceptable)
@@ -475,17 +479,17 @@ async def test_end_to_end_semantic_discovery_workflow(
         # Create learning path: basics -> intermediate -> advanced
         result = await session.run(
             """
-            CREATE (k1:Ku {
+            CREATE (k1:Entity {
                 uid: 'ku.python-basics',
                 title: 'Python Basics',
                 embedding: $emb1
             })
-            CREATE (k2:Ku {
+            CREATE (k2:Entity {
                 uid: 'ku.python-intermediate',
                 title: 'Python Intermediate',
                 embedding: $emb2
             })
-            CREATE (k3:Ku {
+            CREATE (k3:Entity {
                 uid: 'ku.python-advanced',
                 title: 'Python Advanced',
                 embedding: $emb3
@@ -499,14 +503,14 @@ async def test_end_to_end_semantic_discovery_workflow(
 
         # Create semantic relationships
         result = await session.run("""
-            MATCH (intermediate:Ku {uid: 'ku.python-intermediate'})
-            MATCH (basics:Ku {uid: 'ku.python-basics'})
+            MATCH (intermediate:Entity {uid: 'ku.python-intermediate'})
+            MATCH (basics:Entity {uid: 'ku.python-basics'})
             CREATE (intermediate)-[:REQUIRES_THEORETICAL_UNDERSTANDING {
                 confidence: 0.9,
                 strength: 1.0
             }]->(basics)
             WITH intermediate
-            MATCH (advanced:Ku {uid: 'ku.python-advanced'})
+            MATCH (advanced:Entity {uid: 'ku.python-advanced'})
             CREATE (advanced)-[:BUILDS_MENTAL_MODEL {
                 confidence: 0.85,
                 strength: 0.9
@@ -517,8 +521,8 @@ async def test_end_to_end_semantic_discovery_workflow(
         # User has mastered basics, viewing intermediate
         result = await session.run("""
             MATCH (u:User {uid: 'user.discovery'})
-            MATCH (basics:Ku {uid: 'ku.python-basics'})
-            MATCH (inter:Ku {uid: 'ku.python-intermediate'})
+            MATCH (basics:Entity {uid: 'ku.python-basics'})
+            MATCH (inter:Entity {uid: 'ku.python-intermediate'})
             CREATE (u)-[:MASTERED {mastered_at: datetime()}]->(basics)
             CREATE (u)-[:VIEWED {last_viewed_at: datetime()}]->(inter)
         """)
@@ -533,7 +537,7 @@ async def test_end_to_end_semantic_discovery_workflow(
 
     # Execute discovery search: find content related to what user is viewing
     result = await vector_search.semantic_enhanced_search(
-        label="Ku",
+        label="Entity",
         text="python programming",
         context_uids=["ku.python-intermediate"],  # User's current focus
         limit=10,
@@ -551,7 +555,7 @@ async def test_end_to_end_semantic_discovery_workflow(
 
     # Now test learning-aware search to prioritize unlearned content
     learning_result = await vector_search.learning_aware_search(
-        label="Ku",
+        label="Entity",
         text="python programming",
         user_uid="user.discovery",
         prefer_unmastered=True,

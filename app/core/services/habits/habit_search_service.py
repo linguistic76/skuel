@@ -88,7 +88,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
     _config = create_activity_domain_config(
         dto_class=HabitDTO,
         model_class=Habit,
-        entity_label="Ku",
+        entity_label="Entity",
         domain_name="habits",
         date_field="created_at",  # Habits don't have due_date, use created_at
         completed_statuses=(EntityStatus.COMPLETED.value,),

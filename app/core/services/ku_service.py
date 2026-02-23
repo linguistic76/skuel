@@ -359,7 +359,7 @@ class KuService(FacadeDelegationMixin):
         knowledge base approach), as Knowledge Units in SKUEL are not user-scoped.
 
         Future Enhancement: Could scope to user's learning path via:
-            MATCH (user:User {uid: $user_uid})-[:LEARNING]->(ku:Ku)
+            MATCH (user:User {uid: $user_uid})-[:LEARNING]->(ku:Entity)
 
         Args:
             user_uid: User identifier (currently unused, reserved for future scoping)
@@ -513,7 +513,9 @@ class KuService(FacadeDelegationMixin):
 
         return await self.semantic.get_relationships_by_type(uid=uid, predicate=predicate)
 
-    async def get_knowledge_dependencies(self, uid: str, limit: int = 10) -> Result[list[CurriculumDTO]]:
+    async def get_knowledge_dependencies(
+        self, uid: str, limit: int = 10
+    ) -> Result[list[CurriculumDTO]]:
         """
         Get knowledge units that depend on this one.
 
@@ -605,7 +607,9 @@ class KuService(FacadeDelegationMixin):
     # SEARCH AND FILTERING
     # ========================================================================
 
-    async def search_knowledge_units(self, query: str, limit: int = 50) -> Result[list[CurriculumDTO]]:
+    async def search_knowledge_units(
+        self, query: str, limit: int = 50
+    ) -> Result[list[CurriculumDTO]]:
         """
         Search knowledge units by text query.
 
@@ -863,7 +867,7 @@ class KuService(FacadeDelegationMixin):
         # Batch atomic increment query using UNWIND
         query = f"""
         UNWIND $ku_uids AS ku_uid
-        MATCH (ku:Ku {{uid: ku_uid}})
+        MATCH (ku:Entity {{uid: ku_uid}})
         SET ku.{metric} = COALESCE(ku.{metric}, 0) + 1,
             ku.{timestamp_field} = datetime($timestamp),
             ku._substance_cache_timestamp = NULL
@@ -910,7 +914,7 @@ class KuService(FacadeDelegationMixin):
 
         # Atomic increment query
         query = f"""
-        MATCH (ku:Ku {{uid: $ku_uid}})
+        MATCH (ku:Entity {{uid: $ku_uid}})
         SET ku.{metric} = COALESCE(ku.{metric}, 0) + 1,
             ku.{timestamp_field} = datetime($timestamp),
             ku._substance_cache_timestamp = NULL

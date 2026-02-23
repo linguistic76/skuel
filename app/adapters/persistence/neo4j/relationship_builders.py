@@ -83,7 +83,7 @@ class RelationshipBuilder:
 
         Args:
             uid: UID of the target node
-            labels: Optional node labels for optimization (e.g., ["Ku"])
+            labels: Optional node labels for optimization (e.g., ["Entity"])
 
         Returns:
             Self for chaining

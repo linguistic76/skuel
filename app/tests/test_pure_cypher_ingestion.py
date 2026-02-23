@@ -49,12 +49,12 @@ def test_connection_property_filtering():
     rel_config = {
         "connections.requires": {
             "rel_type": "PREREQUISITE",
-            "target_label": "Ku",
+            "target_label": "Entity",
             "direction": "incoming",
         },
         "connections.enables": {
             "rel_type": "ENABLES",
-            "target_label": "Ku",
+            "target_label": "Entity",
             "direction": "outgoing",
         },
     }
@@ -102,14 +102,14 @@ def test_cypher_template_generation():
     engine = BulkIngestionEngine(
         driver=MockDriver(),  # type: ignore[arg-type]
         entity_type=MockEntity,
-        entity_label="Ku",
+        entity_label="Entity",
     )
 
     # Define relationship config
     rel_config: dict[str, RelationshipConfig] = {
         "connections.requires": {
             "rel_type": "PREREQUISITE",
-            "target_label": "Ku",
+            "target_label": "Entity",
             "direction": "incoming",
         }
     }
@@ -161,7 +161,9 @@ def test_required_field_validation():
 
     # Test 2: Missing required field for principle (needs 'statement')
     invalid_principle_data = {"name": "Test Principle"}  # Missing 'statement'
-    result = service.validate_required_fields(EntityType.PRINCIPLE, invalid_principle_data, mock_path)
+    result = service.validate_required_fields(
+        EntityType.PRINCIPLE, invalid_principle_data, mock_path
+    )
     assert result.is_error, "Expected error for principle missing 'statement'"
     error = result.expect_error()
     assert "statement" in error.message, f"Expected 'statement' in error: {error.message}"
@@ -293,7 +295,9 @@ def test_entity_type_detection():
     data_with_type = {"type": "task", "title": "Test"}
     result = service.detect_entity_type(data_with_type, Path("/tmp/test.yaml"))
     assert result == EntityType.TASK, f"Expected EntityType.TASK, got {result}"
-    assert isinstance(result, EntityType | NonKuDomain), "Result should be EntityType or NonKuDomain enum"
+    assert isinstance(result, EntityType | NonKuDomain), (
+        "Result should be EntityType or NonKuDomain enum"
+    )
 
     # Test 2: Type aliases are normalized
     data_with_alias = {"type": "knowledge", "title": "Test KU"}
@@ -305,7 +309,9 @@ def test_entity_type_detection():
     # Test 3: MOC flag detection (now maps to CURRICULUM)
     data_with_moc_flag = {"moc": True, "title": "Map of Content"}
     result = service.detect_entity_type(data_with_moc_flag, Path("/tmp/test.md"))
-    assert result == EntityType.CURRICULUM, f"Expected EntityType.CURRICULUM (MOC flag), got {result}"
+    assert result == EntityType.CURRICULUM, (
+        f"Expected EntityType.CURRICULUM (MOC flag), got {result}"
+    )
 
     # Test 4: Default to CURRICULUM for markdown without type
     data_no_type = {"title": "Some Knowledge"}

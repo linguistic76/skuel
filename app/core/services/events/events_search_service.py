@@ -92,7 +92,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
     _config = create_activity_domain_config(
         dto_class=EventDTO,
         model_class=Event,
-        entity_label="Ku",
+        entity_label="Entity",
         domain_name="events",
         date_field="event_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
@@ -253,7 +253,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
         # Build query with optional user filter
         user_clause = "AND e.user_uid = $user_uid" if user_uid else ""
         cypher_query = f"""
-        MATCH (e:Ku)
+        MATCH (e:Entity)
         WHERE e.event_date >= date($today)
           AND e.event_date <= date($end_date)
           AND e.status NOT IN ['completed', 'cancelled']
@@ -302,7 +302,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
         # Build query with optional user filter
         user_clause = "AND e.user_uid = $user_uid" if user_uid else ""
         cypher_query = f"""
-        MATCH (e:Ku)
+        MATCH (e:Entity)
         WHERE e.event_date < date($today)
           AND e.status NOT IN ['completed', 'cancelled']
           {user_clause}
@@ -352,7 +352,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
         # Build query with optional user filter
         if user_uid:
             cypher_query = """
-            MATCH (e:Ku)
+            MATCH (e:Entity)
             WHERE e.event_date >= date($start_date)
               AND e.event_date <= date($end_date)
               AND e.user_uid = $user_uid
@@ -368,7 +368,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
             }
         else:
             cypher_query = """
-            MATCH (e:Ku)
+            MATCH (e:Entity)
             WHERE e.event_date >= date($start_date)
               AND e.event_date <= date($end_date)
             RETURN e
@@ -408,7 +408,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
         # Build query with optional user filter
         if user_uid:
             cypher_query = """
-            MATCH (e:Ku)
+            MATCH (e:Entity)
             WHERE e.recurrence_pattern IS NOT NULL
               AND e.user_uid = $user_uid
             RETURN e
@@ -418,7 +418,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
             params = {"user_uid": user_uid, "limit": limit}
         else:
             cypher_query = """
-            MATCH (e:Ku)
+            MATCH (e:Entity)
             WHERE e.recurrence_pattern IS NOT NULL
             RETURN e
             ORDER BY e.event_date ASC
@@ -437,9 +437,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
         return Result.ok(events)
 
     @with_error_handling("get_for_goal", error_type="database", uid_param="goal_uid")
-    async def get_for_goal(
-        self, goal_uid: str, user_uid: str | None = None
-    ) -> Result[list[Event]]:
+    async def get_for_goal(self, goal_uid: str, user_uid: str | None = None) -> Result[list[Event]]:
         """
         Get events that support a specific goal.
 
@@ -494,7 +492,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
 
         # Query for events on same date for same user
         cypher_query = """
-        MATCH (e:Ku)
+        MATCH (e:Entity)
         WHERE e.event_date = date($event_date)
           AND e.user_uid = $user_uid
           AND e.uid <> $event_uid
@@ -615,7 +613,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
 
         # Query for completed events in date range
         cypher_query = """
-        MATCH (e:Ku)
+        MATCH (e:Entity)
         WHERE e.user_uid = $user_uid
           AND e.event_date >= date($start_date)
           AND e.event_date <= date($today)

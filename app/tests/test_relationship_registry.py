@@ -63,7 +63,7 @@ class TestUnifiedRegistry:
             "Choice",
             "Principle",
             # Curriculum Domains (4) - MOC removed January 2026 (now KU-based)
-            "Ku",
+            "Entity",
             "Ls",
             "Lp",
             "Exercise",  # Instruction templates (Phase 5)
@@ -78,9 +78,9 @@ class TestUnifiedRegistry:
         """Verify all configs are DomainRelationshipConfig instances."""
         for label, config in LABEL_CONFIGS.items():
             assert isinstance(config, DomainRelationshipConfig)
-            # entity_label may be "Ku" for unified domains while dict key keeps
+            # entity_label may be "Entity" for unified domains while dict key keeps
             # the logical name (e.g. "Habit") for lookup purposes
-            assert config.entity_label in (label, "Ku")
+            assert config.entity_label in (label, "Entity")
 
 
 class TestUnifiedRelationshipDefinition:
@@ -102,13 +102,13 @@ class TestUnifiedRelationshipDefinition:
         """Verify relationship definition converts to graph enrichment tuple."""
         definition = UnifiedRelationshipDefinition(
             relationship=RelationshipName.APPLIES_KNOWLEDGE,
-            target_label="Ku",
+            target_label="Entity",
             direction="outgoing",
             context_field_name="applied_knowledge",
             method_key="knowledge",
         )
         result = definition.to_graph_enrichment_tuple()
-        assert result == ("APPLIES_KNOWLEDGE", "Ku", "applied_knowledge", "outgoing")
+        assert result == ("APPLIES_KNOWLEDGE", "Entity", "applied_knowledge", "outgoing")
 
 
 class TestGenerateGraphEnrichment:
@@ -212,8 +212,8 @@ class TestHelperFunctions:
         """Verify get_config_by_label returns correct config."""
         config = get_config_by_label("Goal")
         assert config is not None
-        # entity_label may be "Goal" or "Ku" (unified model)
-        assert config.entity_label in ("Goal", "Ku")
+        # entity_label may be "Goal" or "Entity" (unified model)
+        assert config.entity_label in ("Goal", "Entity")
 
 
 class TestCurriculumDomains:
@@ -221,7 +221,7 @@ class TestCurriculumDomains:
 
     def test_ku_config_is_shared_content(self):
         """Verify KU config has shared content settings."""
-        config = get_config_by_label("Ku")
+        config = get_config_by_label("Entity")
         assert config is not None
         assert config.is_shared_content is True
         assert config.ownership_relationship is None
@@ -246,7 +246,7 @@ class TestCurriculumDomains:
         January 2026: MOC is now KU-based. A KU "is" a MOC when it has
         outgoing ORGANIZES relationships (emergent identity).
         """
-        config = get_config_by_label("Ku")
+        config = get_config_by_label("Entity")
         rel_names = {r.relationship for r in config.relationships}
         assert RelationshipName.ORGANIZES in rel_names
 
@@ -265,7 +265,7 @@ class TestNamedUnifiedConfigs:
 
     def test_curriculum_unified_configs_match_label_registry(self):
         """Verify curriculum *_CONFIG configs match LABEL_CONFIGS entries."""
-        assert KU_CONFIG is LABEL_CONFIGS["Ku"]
+        assert KU_CONFIG is LABEL_CONFIGS["Entity"]
         assert LS_CONFIG is LABEL_CONFIGS["Ls"]
         assert LP_CONFIG is LABEL_CONFIGS["Lp"]
 
@@ -296,9 +296,9 @@ class TestRegistryIntegration:
         assert len(generate_enables_relationships("Task")) > 0
 
         # Curriculum domains should also have generated patterns
-        assert len(generate_graph_enrichment("Ku")) > 0
-        assert len(generate_prerequisite_relationships("Ku")) > 0
-        assert len(generate_enables_relationships("Ku")) > 0
+        assert len(generate_graph_enrichment("Entity")) > 0
+        assert len(generate_prerequisite_relationships("Entity")) > 0
+        assert len(generate_enables_relationships("Entity")) > 0
 
         # All 9 domains should have enrichment patterns
         all_labels = [
@@ -308,7 +308,7 @@ class TestRegistryIntegration:
             "Event",
             "Choice",
             "Principle",
-            "Ku",
+            "Entity",
             "Ls",
             "Lp",
         ]

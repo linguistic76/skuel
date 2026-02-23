@@ -27,13 +27,13 @@ class TestCascadeDeleteTrue:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
 
     @pytest_asyncio.fixture
     async def task_backend(self, neo4j_driver, clean_neo4j):
         """Create Task backend with clean database."""
         return UniversalNeo4jBackend[Curriculum](
-            neo4j_driver, "Ku", Curriculum, default_filters={"ku_type": "task"}
+            neo4j_driver, "Entity", Curriculum, default_filters={"ku_type": "task"}
         )
 
     @pytest_asyncio.fixture
@@ -239,7 +239,7 @@ class TestCascadeDeleteFalse:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
 
     async def test_non_cascade_delete_no_relationships(self, ku_backend):
         """Test cascade=False deletes entity with no relationships."""
@@ -394,7 +394,7 @@ class TestDeleteEdgeCases:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
 
     async def test_delete_nonexistent_entity(self, ku_backend):
         """Test deleting non-existent entity returns Ok(False)."""

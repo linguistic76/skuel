@@ -591,7 +591,7 @@ async def _get_related_knowledge(graph_service: KuGraphService, ku_uid: str) -> 
     try:
         # Use neo4j adapter directly for RELATED_TO query
         query = """
-            MATCH (ku:Ku {uid: $ku_uid})-[:RELATED_TO]-(related:Ku)
+            MATCH (ku:Entity {uid: $ku_uid})-[:RELATED_TO]-(related:Entity)
             RETURN related.uid as uid
             LIMIT 50
         """
@@ -612,7 +612,7 @@ async def _get_broader_concepts(graph_service: KuGraphService, ku_uid: str) -> R
     """Get broader concepts (HAS_BROADER relationship)."""
     try:
         query = """
-            MATCH (ku:Ku {uid: $ku_uid})-[:HAS_BROADER]->(broader:Ku)
+            MATCH (ku:Entity {uid: $ku_uid})-[:HAS_BROADER]->(broader:Entity)
             RETURN broader.uid as uid
             LIMIT 20
         """
@@ -633,7 +633,7 @@ async def _get_narrower_concepts(graph_service: KuGraphService, ku_uid: str) -> 
     """Get narrower concepts (HAS_NARROWER relationship)."""
     try:
         query = """
-            MATCH (ku:Ku {uid: $ku_uid})-[:HAS_NARROWER]->(narrower:Ku)
+            MATCH (ku:Entity {uid: $ku_uid})-[:HAS_NARROWER]->(narrower:Entity)
             RETURN narrower.uid as uid
             LIMIT 50
         """
@@ -654,7 +654,7 @@ async def _get_learning_paths(graph_service: KuGraphService, ku_uid: str) -> Res
     """Get learning paths containing this KU."""
     try:
         query = """
-            MATCH (lp:Lp)-[:CONTAINS_KNOWLEDGE|INCLUDES_KNOWLEDGE]->(ku:Ku {uid: $ku_uid})
+            MATCH (lp:Lp)-[:CONTAINS_KNOWLEDGE|INCLUDES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
             RETURN lp.uid as uid
             LIMIT 50
         """
@@ -675,7 +675,7 @@ async def _get_applying_tasks(graph_service: KuGraphService, ku_uid: str) -> Res
     """Get tasks applying this knowledge."""
     try:
         query = """
-            MATCH (task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Ku {uid: $ku_uid})
+            MATCH (task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
             RETURN task.uid as uid
             LIMIT 100
         """
@@ -696,7 +696,7 @@ async def _get_practicing_events(graph_service: KuGraphService, ku_uid: str) -> 
     """Get events practicing this knowledge."""
     try:
         query = """
-            MATCH (event:Event)-[:PRACTICES_KNOWLEDGE]->(ku:Ku {uid: $ku_uid})
+            MATCH (event:Event)-[:PRACTICES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
             RETURN event.uid as uid
             LIMIT 100
         """
@@ -717,7 +717,7 @@ async def _get_reinforcing_habits(graph_service: KuGraphService, ku_uid: str) ->
     """Get habits reinforcing this knowledge."""
     try:
         query = """
-            MATCH (habit:Habit)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(ku:Ku {uid: $ku_uid})
+            MATCH (habit:Habit)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
             RETURN habit.uid as uid
             LIMIT 100
         """

@@ -74,7 +74,7 @@ class TasksProgressService(BaseService["BackendOperations[Task]", Task]):
         domain_name="tasks",
         date_field="due_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        entity_label="Ku",
+        entity_label="Entity",
     )
 
     def __init__(
@@ -106,7 +106,7 @@ class TasksProgressService(BaseService["BackendOperations[Task]", Task]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Task entities."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # CONTEXT-FIRST PATTERN HELPERS (November 26, 2025)
@@ -124,9 +124,7 @@ class TasksProgressService(BaseService["BackendOperations[Task]", Task]):
     #
     # ========================================================================
 
-    def _get_task_from_rich_context(
-        self, task_uid: str, user_context: UserContext
-    ) -> Task | None:
+    def _get_task_from_rich_context(self, task_uid: str, user_context: UserContext) -> Task | None:
         """
         Try to get Task entity from UserContext rich data.
 

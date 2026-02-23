@@ -844,7 +844,9 @@ class InsightGenerationService:
 
         return min(score, 1.0)
 
-    def _score_accuracy(self, knowledge_dto: CurriculumDTO, evidence: list[str] | None = None) -> float:
+    def _score_accuracy(
+        self, knowledge_dto: CurriculumDTO, evidence: list[str] | None = None
+    ) -> float:
         """Score the accuracy of the knowledge content."""
         # Since this is generated from actual task completion data, base accuracy is high
         base_score = 0.8

@@ -70,7 +70,7 @@ class Neo4jVectorSearchService:
         Find similar nodes using vector index.
 
         Args:
-            label: Node label (e.g., "Ku", "Task", "Goal")
+            label: Node label (e.g., "Entity", "Task", "Goal")
             embedding: Query embedding vector
             limit: Max results to return (uses config default if None)
             min_score: Minimum similarity score 0-1 (uses entity-specific threshold if None)
@@ -133,7 +133,7 @@ class Neo4jVectorSearchService:
         Convenience method that combines embedding generation + vector search.
 
         Args:
-            label: Node label (e.g., "Ku", "Task", "Goal")
+            label: Node label (e.g., "Entity", "Task", "Goal")
             text: Query text to embed and search
             limit: Max results to return
             min_score: Minimum similarity score (0-1)
@@ -174,7 +174,7 @@ class Neo4jVectorSearchService:
         Find nodes similar to a specific node.
 
         Args:
-            label: Node label (e.g., "Ku", "Task", "Goal")
+            label: Node label (e.g., "Entity", "Task", "Goal")
             uid: UID of source node
             limit: Max results to return (uses config default if None)
             min_score: Minimum similarity score (uses entity-specific threshold if None)
@@ -249,7 +249,7 @@ class Neo4jVectorSearchService:
 
         Args:
             embedding: Query embedding vector
-            labels: List of node labels to search (e.g., ["Ku", "Task", "Goal"])
+            labels: List of node labels to search (e.g., ["Entity", "Task", "Goal"])
             limit_per_label: Max results per label (uses config default if None)
             min_score: Minimum similarity score - overrides entity-specific if provided
 
@@ -303,7 +303,7 @@ class Neo4jVectorSearchService:
         The min_rrf_score threshold should be set accordingly (default: 0.001).
 
         Args:
-            label: Node label (e.g., "Ku", "Task", "Goal")
+            label: Node label (e.g., "Entity", "Task", "Goal")
             query_text: Search query
             vector_weight: Weight for vector results (uses config default if None)
             limit: Max results to return (uses config default if None)
@@ -313,7 +313,7 @@ class Neo4jVectorSearchService:
             Result containing list of {node, score} dicts sorted by RRF score
 
         Example:
-            >>> result = await service.hybrid_search("Ku", "python programming", limit=10)
+            >>> result = await service.hybrid_search("Entity", "python programming", limit=10)
             >>> if result.is_ok:
             ...     for item in result.value:
             ...         print(f"{item['node']['title']}: {item['score']}")
@@ -405,7 +405,7 @@ class Neo4jVectorSearchService:
         Internal method used by hybrid_search.
 
         Args:
-            label: Node label (e.g., "Ku", "Task", "Goal")
+            label: Node label (e.g., "Entity", "Task", "Goal")
             query_text: Search query
             limit: Max results to return
 
@@ -508,7 +508,7 @@ class Neo4jVectorSearchService:
         Wrapper around find_similar_by_text that collects performance metrics.
 
         Args:
-            label: Node label (e.g., "Ku", "Task", "Goal")
+            label: Node label (e.g., "Entity", "Task", "Goal")
             text: Query text to embed and search
             limit: Max results to return
             min_score: Minimum similarity score (0-1)
@@ -558,7 +558,7 @@ class Neo4jVectorSearchService:
         Wrapper around hybrid_search that collects performance metrics.
 
         Args:
-            label: Node label (e.g., "Ku", "Task", "Goal")
+            label: Node label (e.g., "Entity", "Task", "Goal")
             query_text: Search query
             vector_weight: Weight for vector results
             limit: Max results to return
@@ -626,7 +626,7 @@ class Neo4jVectorSearchService:
         5. Re-rank by enhanced score
 
         Args:
-            label: Node label (e.g., "Ku", "Task", "Goal")
+            label: Node label (e.g., "Entity", "Task", "Goal")
             text: Query text to embed and search
             context_uids: Optional list of UIDs representing user's current context
                          (e.g., current learning path KUs, active tasks)
@@ -639,7 +639,7 @@ class Neo4jVectorSearchService:
         Example:
             >>> # Search for Python content in context of current learning
             >>> result = await service.semantic_enhanced_search(
-            ...     label="Ku",
+            ...     label="Entity",
             ...     text="python programming",
             ...     context_uids=["ku.python-basics", "ku.functions"],
             ...     limit=10,
@@ -813,7 +813,7 @@ class Neo4jVectorSearchService:
         - NOT_STARTED: +15% boost (new content, prioritize discovery)
 
         Args:
-            label: Node label (currently only "Ku" supported)
+            label: Node label (currently only "Entity" supported)
             text: Query text to embed and search
             user_uid: User's UID for learning state lookup
             prefer_unmastered: If True, applies boosts as above. If False, inverts
@@ -827,7 +827,7 @@ class Neo4jVectorSearchService:
         Example:
             >>> # Search for Python content, prioritizing unlearned material
             >>> result = await service.learning_aware_search(
-            ...     label="Ku",
+            ...     label="Entity",
             ...     text="python programming",
             ...     user_uid="user_alice",
             ...     prefer_unmastered=True,
@@ -843,7 +843,7 @@ class Neo4jVectorSearchService:
             - Recommended for interactive "next steps" recommendations
         """
         # Only supported for Knowledge Units currently
-        if label != "Ku":
+        if label != "Entity":
             self.logger.warning(
                 f"Learning-aware search only supports Ku, got {label}. Falling back."
             )
@@ -950,7 +950,7 @@ class Neo4jVectorSearchService:
 
         query = """
         UNWIND $ku_uids as ku_uid
-        MATCH (ku:Ku {uid: ku_uid})
+        MATCH (ku:Entity {uid: ku_uid})
         MATCH (u:User {uid: $user_uid})
         OPTIONAL MATCH (u)-[v:VIEWED]->(ku)
         OPTIONAL MATCH (u)-[p:IN_PROGRESS]->(ku)

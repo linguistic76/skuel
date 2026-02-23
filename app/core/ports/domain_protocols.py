@@ -305,7 +305,7 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
 
 
 @runtime_checkable
-class EventsOperations(BackendOperations["Ku"], GraphRelationshipOperations, Protocol):
+class EventsOperations(BackendOperations["Entity"], GraphRelationshipOperations, Protocol):
     """Core event management operations.
 
     Inherits base CRUD operations from BackendOperations:
@@ -878,7 +878,7 @@ class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Pr
 
 
 @runtime_checkable
-class ChoicesOperations(BackendOperations["Ku"], GraphRelationshipOperations, Protocol):
+class ChoicesOperations(BackendOperations["Entity"], GraphRelationshipOperations, Protocol):
     """Core choice management operations.
 
     Inherits base CRUD operations from BackendOperations:

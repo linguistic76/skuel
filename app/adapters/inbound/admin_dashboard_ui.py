@@ -850,18 +850,18 @@ async def _get_entity_system_metrics(services) -> dict:
     try:
         records, _, _ = await services.neo4j_driver.execute_query(
             """
-            OPTIONAL MATCH (ku:Ku)
+            OPTIONAL MATCH (ku:Entity)
             WITH count(DISTINCT ku) AS total_kus
-            OPTIONAL MATCH (:User)-[v:VIEWED]->(:Ku)
+            OPTIONAL MATCH (:User)-[v:VIEWED]->(:Entity)
             WITH total_kus, count(v) AS total_viewed
-            OPTIONAL MATCH (:User)-[:IN_PROGRESS]->(:Ku)
+            OPTIONAL MATCH (:User)-[:IN_PROGRESS]->(:Entity)
             WITH total_kus, total_viewed, count(*) AS total_in_progress
-            OPTIONAL MATCH (:User)-[:MASTERED]->(:Ku)
+            OPTIONAL MATCH (:User)-[:MASTERED]->(:Entity)
             WITH total_kus, total_viewed, total_in_progress, count(*) AS total_mastered
-            OPTIONAL MATCH (:User)-[:BOOKMARKED]->(:Ku)
+            OPTIONAL MATCH (:User)-[:BOOKMARKED]->(:Entity)
             WITH total_kus, total_viewed, total_in_progress, total_mastered, count(*) AS total_bookmarked
             OPTIONAL MATCH (u:User)
-                WHERE EXISTS { (u)-[:VIEWED|IN_PROGRESS|MASTERED|BOOKMARKED]->(:Ku) }
+                WHERE EXISTS { (u)-[:VIEWED|IN_PROGRESS|MASTERED|BOOKMARKED]->(:Entity) }
             RETURN total_kus, total_viewed, total_in_progress, total_mastered, total_bookmarked,
                    count(DISTINCT u) AS users_with_progress
             """
@@ -891,13 +891,13 @@ async def _get_all_users_progress(services) -> list[dict]:
             """
             MATCH (u:User)
             WHERE u.uid <> 'user_system'
-            OPTIONAL MATCH (u)-[:VIEWED]->(ku1:Ku)
+            OPTIONAL MATCH (u)-[:VIEWED]->(ku1:Entity)
             WITH u, count(DISTINCT ku1) AS viewed_count
-            OPTIONAL MATCH (u)-[:IN_PROGRESS]->(ku2:Ku)
+            OPTIONAL MATCH (u)-[:IN_PROGRESS]->(ku2:Entity)
             WITH u, viewed_count, count(DISTINCT ku2) AS in_progress_count
-            OPTIONAL MATCH (u)-[:MASTERED]->(ku3:Ku)
+            OPTIONAL MATCH (u)-[:MASTERED]->(ku3:Entity)
             WITH u, viewed_count, in_progress_count, count(DISTINCT ku3) AS mastered_count
-            OPTIONAL MATCH (u)-[:BOOKMARKED]->(ku4:Ku)
+            OPTIONAL MATCH (u)-[:BOOKMARKED]->(ku4:Entity)
             WITH u, viewed_count, in_progress_count, mastered_count, count(DISTINCT ku4) AS bookmarked_count
             RETURN u.uid AS uid,
                    u.display_name AS display_name,
@@ -941,7 +941,7 @@ async def _get_user_detail(services, user_uid: str) -> dict:
             """
             MATCH (u:User {uid: $user_uid})
 
-            OPTIONAL MATCH (u)-[v:VIEWED]->(vku:Ku)
+            OPTIONAL MATCH (u)-[v:VIEWED]->(vku:Entity)
             WITH u, collect(DISTINCT {
                 uid: vku.uid, title: vku.title,
                 view_count: v.view_count,
@@ -949,14 +949,14 @@ async def _get_user_detail(services, user_uid: str) -> dict:
                 last_viewed_at: toString(v.last_viewed_at)
             }) AS viewed_kus
 
-            OPTIONAL MATCH (u)-[p:IN_PROGRESS]->(pku:Ku)
+            OPTIONAL MATCH (u)-[p:IN_PROGRESS]->(pku:Entity)
             WITH u, viewed_kus, collect(DISTINCT {
                 uid: pku.uid, title: pku.title,
                 started_at: toString(p.started_at),
                 progress_score: p.progress_score
             }) AS progress_kus
 
-            OPTIONAL MATCH (u)-[m:MASTERED]->(mku:Ku)
+            OPTIONAL MATCH (u)-[m:MASTERED]->(mku:Entity)
             WITH u, viewed_kus, progress_kus, collect(DISTINCT {
                 uid: mku.uid, title: mku.title,
                 mastered_at: toString(m.mastered_at),
@@ -964,7 +964,7 @@ async def _get_user_detail(services, user_uid: str) -> dict:
                 method: m.method
             }) AS mastered_kus
 
-            OPTIONAL MATCH (u)-[b:BOOKMARKED]->(bku:Ku)
+            OPTIONAL MATCH (u)-[b:BOOKMARKED]->(bku:Entity)
             WITH viewed_kus, progress_kus, mastered_kus, collect(DISTINCT {
                 uid: bku.uid, title: bku.title,
                 bookmarked_at: toString(b.bookmarked_at)
@@ -1063,16 +1063,16 @@ async def _get_user_detail_stats(services, user_uid: str) -> dict:
                  habits_total, habits_active, events_total, choices_total,
                  count(DISTINCT p) AS principles_total
 
-            OPTIONAL MATCH (u)-[:VIEWED]->(kv:Ku)
+            OPTIONAL MATCH (u)-[:VIEWED]->(kv:Entity)
             WITH u, tasks_total, tasks_completed, goals_total, goals_active,
                  habits_total, habits_active, events_total, choices_total,
                  principles_total, count(DISTINCT kv) AS ku_viewed
-            OPTIONAL MATCH (u)-[:IN_PROGRESS]->(kp:Ku)
+            OPTIONAL MATCH (u)-[:IN_PROGRESS]->(kp:Entity)
             WITH u, tasks_total, tasks_completed, goals_total, goals_active,
                  habits_total, habits_active, events_total, choices_total,
                  principles_total, ku_viewed,
                  count(DISTINCT kp) AS ku_in_progress
-            OPTIONAL MATCH (u)-[:MASTERED]->(km:Ku)
+            OPTIONAL MATCH (u)-[:MASTERED]->(km:Entity)
             WITH u, tasks_total, tasks_completed, goals_total, goals_active,
                  habits_total, habits_active, events_total, choices_total,
                  principles_total, ku_viewed, ku_in_progress,
@@ -1138,7 +1138,7 @@ async def _get_users_with_activity_counts(
             WITH u, task_count, count(DISTINCT g) AS goal_count
             OPTIONAL MATCH (u)-[:OWNS]->(h:Habit)
             WITH u, task_count, goal_count, count(DISTINCT h) AS habit_count
-            OPTIONAL MATCH (u)-[:MASTERED]->(km:Ku)
+            OPTIONAL MATCH (u)-[:MASTERED]->(km:Entity)
             WITH u, task_count, goal_count, habit_count,
                  count(DISTINCT km) AS ku_mastered
 

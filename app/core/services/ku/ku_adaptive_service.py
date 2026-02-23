@@ -310,7 +310,7 @@ class KuAdaptiveService:
         """Track when user completes a KU — creates/updates MASTERED relationship."""
         try:
             query = """
-            MATCH (u:User {uid: $user_uid}), (k:Ku {uid: $ku_uid})
+            MATCH (u:User {uid: $user_uid}), (k:Entity {uid: $ku_uid})
             MERGE (u)-[m:MASTERED]->(k)
             ON CREATE SET
                 m.mastery_level = 'introduced',
@@ -414,7 +414,7 @@ class KuAdaptiveService:
         """Query user's MASTERED relationships from graph."""
         try:
             query = """
-            MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(k:Ku)
+            MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(k:Entity)
             RETURN
                 k.uid as ku_uid,
                 m.mastery_level as mastery_level,

@@ -93,8 +93,8 @@ class KuOrganizationService:
     async def is_organizer(self, ku_uid: str) -> Result[bool]:
         """Check if a Ku has organized children (outgoing ORGANIZES relationships)."""
         query = """
-        MATCH (ku:Ku {uid: $ku_uid})
-        OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Ku)
+        MATCH (ku:Entity {uid: $ku_uid})
+        OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Entity)
         RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_organizer
         """
 
@@ -143,7 +143,7 @@ class KuOrganizationService:
             return [], 0
 
         query = """
-        MATCH (parent:Ku {uid: $parent_uid})-[r:ORGANIZES]->(child:Ku)
+        MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity)
         RETURN child.uid AS uid, child.title AS title, r.order AS order
         ORDER BY r.order ASC
         """
@@ -209,8 +209,8 @@ class KuOrganizationService:
             return Result.fail(Errors.not_found(resource="Ku (child)", identifier=child_uid))
 
         query = """
-        MATCH (parent:Ku {uid: $parent_uid})
-        MATCH (child:Ku {uid: $child_uid})
+        MATCH (parent:Entity {uid: $parent_uid})
+        MATCH (child:Entity {uid: $child_uid})
         MERGE (parent)-[r:ORGANIZES]->(child)
         SET r.order = $order
         RETURN true AS success
@@ -233,7 +233,7 @@ class KuOrganizationService:
     async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
         """Remove organization relationship between Kus."""
         query = """
-        MATCH (parent:Ku {uid: $parent_uid})-[r:ORGANIZES]->(child:Ku {uid: $child_uid})
+        MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
         DELETE r
         RETURN true AS success
         """
@@ -255,7 +255,7 @@ class KuOrganizationService:
     async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
         """Change the order of a child Ku within its parent."""
         query = """
-        MATCH (parent:Ku {uid: $parent_uid})-[r:ORGANIZES]->(child:Ku {uid: $child_uid})
+        MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
         SET r.order = $new_order
         RETURN true AS success
         """
@@ -277,7 +277,7 @@ class KuOrganizationService:
     async def find_organizers(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
         """Find all parent Kus that organize the given Ku."""
         query = """
-        MATCH (parent:Ku)-[r:ORGANIZES]->(ku:Ku {uid: $ku_uid})
+        MATCH (parent:Entity)-[r:ORGANIZES]->(ku:Entity {uid: $ku_uid})
         RETURN parent.uid AS uid, parent.title AS title, r.order AS order
         ORDER BY parent.title
         """
@@ -295,10 +295,10 @@ class KuOrganizationService:
     async def list_root_organizers(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
         """List Kus that organize others but are not themselves organized (root organizers)."""
         query = """
-        MATCH (root:Ku)-[:ORGANIZES]->(:Ku)
-        WHERE NOT EXISTS((:Ku)-[:ORGANIZES]->(root))
+        MATCH (root:Entity)-[:ORGANIZES]->(:Entity)
+        WHERE NOT EXISTS((:Entity)-[:ORGANIZES]->(root))
         WITH DISTINCT root
-        OPTIONAL MATCH (root)-[:ORGANIZES]->(child:Ku)
+        OPTIONAL MATCH (root)-[:ORGANIZES]->(child:Entity)
         RETURN root.uid AS uid, root.title AS title, count(child) AS child_count
         ORDER BY root.title
         LIMIT $limit
@@ -318,7 +318,7 @@ class KuOrganizationService:
     async def get_organized_children(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
         """Get direct children of a Ku organized by ORGANIZES relationship."""
         query = """
-        MATCH (parent:Ku {uid: $ku_uid})-[r:ORGANIZES]->(child:Ku)
+        MATCH (parent:Entity {uid: $ku_uid})-[r:ORGANIZES]->(child:Entity)
         RETURN child.uid AS uid, child.title AS title, r.order AS order
         ORDER BY r.order ASC
         """

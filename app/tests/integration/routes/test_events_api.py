@@ -91,8 +91,12 @@ def mock_events_service():
 
     # Status operations
     service.start_event = AsyncMock(return_value=Result.ok(MockEvent(status=EntityStatus.ACTIVE)))
-    service.complete_event = AsyncMock(return_value=Result.ok(MockEvent(status=EntityStatus.COMPLETED)))
-    service.cancel_event = AsyncMock(return_value=Result.ok(MockEvent(status=EntityStatus.CANCELLED)))
+    service.complete_event = AsyncMock(
+        return_value=Result.ok(MockEvent(status=EntityStatus.COMPLETED))
+    )
+    service.cancel_event = AsyncMock(
+        return_value=Result.ok(MockEvent(status=EntityStatus.CANCELLED))
+    )
     service.reschedule_event = AsyncMock(return_value=Result.ok(MockEvent()))
 
     # Recurring events

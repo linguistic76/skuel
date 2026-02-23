@@ -78,7 +78,7 @@ class ReportsSharingService:
 
         query = """
         MATCH (recipient:User {uid: $recipient_uid})
-        MATCH (ku:Ku {uid: $ku_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
         MERGE (recipient)-[r:SHARES_WITH]->(ku)
         SET r.shared_at = datetime($shared_at),
             r.role = $role
@@ -128,7 +128,7 @@ class ReportsSharingService:
             return ownership_check
 
         query = """
-        MATCH (recipient:User {uid: $recipient_uid})-[r:SHARES_WITH]->(ku:Ku {uid: $ku_uid})
+        MATCH (recipient:User {uid: $recipient_uid})-[r:SHARES_WITH]->(ku:Entity {uid: $ku_uid})
         DELETE r
         RETURN count(r) as deleted_count
         """
@@ -168,7 +168,7 @@ class ReportsSharingService:
             Result[list[dict]]: List of users with access
         """
         query = """
-        MATCH (user:User)-[r:SHARES_WITH]->(ku:Ku {uid: $ku_uid})
+        MATCH (user:User)-[r:SHARES_WITH]->(ku:Entity {uid: $ku_uid})
         RETURN user.uid as user_uid,
                user.name as user_name,
                r.role as role,
@@ -210,7 +210,7 @@ class ReportsSharingService:
             Result[list[SubmissionDTO]]: Shared Ku
         """
         query = """
-        MATCH (user:User {uid: $user_uid})-[r:SHARES_WITH]->(ku:Ku)
+        MATCH (user:User {uid: $user_uid})-[r:SHARES_WITH]->(ku:Entity)
         RETURN ku,
                r.role as role,
                r.shared_at as shared_at
@@ -263,7 +263,7 @@ class ReportsSharingService:
                 return shareable_check
 
         query = """
-        MATCH (ku:Ku {uid: $ku_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
         WHERE ku.user_uid = $owner_uid
         SET ku.visibility = $visibility,
             ku.updated_at = datetime()
@@ -311,7 +311,7 @@ class ReportsSharingService:
             Result[bool]: True if access granted, False otherwise
         """
         query = """
-        MATCH (ku:Ku {uid: $ku_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
         OPTIONAL MATCH (user:User {uid: $user_uid})-[:SHARES_WITH]->(ku)
         RETURN ku.user_uid as owner_uid,
                ku.visibility as visibility,
@@ -360,7 +360,7 @@ class ReportsSharingService:
     ) -> Result[bool]:
         """Verify that a user owns a Ku."""
         query = """
-        MATCH (ku:Ku {uid: $ku_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
         RETURN ku.user_uid as actual_owner
         """
 
@@ -401,7 +401,7 @@ class ReportsSharingService:
         Draft Ku can never be shared.
         """
         query = """
-        MATCH (ku:Ku {uid: $ku_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
         RETURN ku.status as status, ku.ku_type as ku_type
         """
 

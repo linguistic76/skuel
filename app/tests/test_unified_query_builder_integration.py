@@ -176,7 +176,7 @@ def test_explain_query_bridge():
     builder = UnifiedQueryBuilder(executor=None)
 
     # Simple query to explain
-    cypher = "MATCH (t:Task)-[:APPLIES_KNOWLEDGE]->(ku:Ku) RETURN t, ku"
+    cypher = "MATCH (t:Task)-[:APPLIES_KNOWLEDGE]->(ku:Entity) RETURN t, ku"
 
     # Should auto-initialize QueryBuilder and call get_query_explanation()
     explanation = builder.explain_query(cypher)

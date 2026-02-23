@@ -52,13 +52,13 @@ class TestKuLpEventFlow:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
 
     @pytest_asyncio.fixture
     async def lp_backend(self, neo4j_driver, clean_neo4j):
         """Create LP backend with clean database (unified Ku model)."""
         return UniversalNeo4jBackend[LearningPath](
-            neo4j_driver, "Ku", LearningPath, default_filters={"ku_type": "learning_path"}
+            neo4j_driver, "Entity", LearningPath, default_filters={"ku_type": "learning_path"}
         )
 
     @pytest_asyncio.fixture
@@ -125,8 +125,8 @@ class TestKuLpEventFlow:
             for ku in kus:
                 await session.run(
                     """
-                    MATCH (lp:Ku {uid: $lp_uid})
-                    MATCH (ku:Ku {uid: $ku_uid})
+                    MATCH (lp:Entity {uid: $lp_uid})
+                    MATCH (ku:Entity {uid: $ku_uid})
                     MERGE (lp)-[:INCLUDES_KU]->(ku)
                     RETURN lp.uid, ku.uid
                     """,
@@ -159,7 +159,7 @@ class TestKuLpEventFlow:
             await session.run(
                 """
                 MATCH (user:User {uid: $user_uid})
-                MATCH (ku:Ku {uid: $ku_uid})
+                MATCH (ku:Entity {uid: $ku_uid})
                 MERGE (user)-[:MASTERED]->(ku)
                 """,
                 user_uid=test_user_uid,
@@ -207,7 +207,7 @@ class TestKuLpEventFlow:
                 await session.run(
                     """
                     MATCH (user:User {uid: $user_uid})
-                    MATCH (ku:Ku {uid: $ku_uid})
+                    MATCH (ku:Entity {uid: $ku_uid})
                     MERGE (user)-[:MASTERED]->(ku)
                     """,
                     user_uid=test_user_uid,
@@ -254,7 +254,7 @@ class TestKuLpEventFlow:
                 await session.run(
                     """
                     MATCH (user:User {uid: $user_uid})
-                    MATCH (ku:Ku {uid: $ku_uid})
+                    MATCH (ku:Entity {uid: $ku_uid})
                     MERGE (user)-[:MASTERED]->(ku)
                     """,
                     user_uid=test_user_uid,
@@ -349,8 +349,8 @@ class TestKuLpEventFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (lp:Ku {uid: $lp_uid})
-                MATCH (ku:Ku {uid: $ku_uid})
+                MATCH (lp:Entity {uid: $lp_uid})
+                MATCH (ku:Entity {uid: $ku_uid})
                 MERGE (lp)-[:INCLUDES_KU]->(ku)
                 """,
                 lp_uid=lp2.uid,
@@ -364,7 +364,7 @@ class TestKuLpEventFlow:
             await session.run(
                 """
                 MATCH (user:User {uid: $user_uid})
-                MATCH (ku:Ku {uid: $ku_uid})
+                MATCH (ku:Entity {uid: $ku_uid})
                 MERGE (user)-[:MASTERED]->(ku)
                 """,
                 user_uid=test_user_uid,

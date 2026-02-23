@@ -160,7 +160,12 @@ class EntityType(str, Enum):
 
     def is_derived(self) -> bool:
         """Check if this EntityType is derived from another Ku (has parent)."""
-        return self in {EntityType.JOURNAL, EntityType.SUBMISSION, EntityType.AI_REPORT, EntityType.FEEDBACK_REPORT}
+        return self in {
+            EntityType.JOURNAL,
+            EntityType.SUBMISSION,
+            EntityType.AI_REPORT,
+            EntityType.FEEDBACK_REPORT,
+        }
 
     def is_processable(self) -> bool:
         """Check if this EntityType goes through a processing pipeline."""
@@ -403,7 +408,12 @@ class EntityStatus(str, Enum):
 
     def is_pending(self) -> bool:
         """Check if this status indicates pending/waiting state."""
-        return self in {EntityStatus.DRAFT, EntityStatus.SUBMITTED, EntityStatus.QUEUED, EntityStatus.SCHEDULED}
+        return self in {
+            EntityStatus.DRAFT,
+            EntityStatus.SUBMITTED,
+            EntityStatus.QUEUED,
+            EntityStatus.SCHEDULED,
+        }
 
     def can_transition_to(self, target: EntityStatus, ku_type: EntityType | None = None) -> bool:
         """

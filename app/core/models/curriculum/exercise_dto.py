@@ -69,9 +69,7 @@ class ExerciseDTO(CurriculumDTO):
                 "due_date": self.due_date,
                 "group_uid": self.group_uid,
                 "enrichment_mode": self.enrichment_mode,
-                "context_notes": list(self.context_notes)
-                if self.context_notes
-                else [],
+                "context_notes": list(self.context_notes) if self.context_notes else [],
             }
         )
 
@@ -102,13 +100,18 @@ class ExerciseDTO(CurriculumDTO):
             },
             date_fields=["due_date"],
             datetime_fields=[
-                "created_at", "updated_at",
-                "last_applied_date", "last_practiced_date",
-                "last_built_into_habit_date", "last_reflected_date",
+                "created_at",
+                "updated_at",
+                "last_applied_date",
+                "last_practiced_date",
+                "last_built_into_habit_date",
+                "last_reflected_date",
                 "last_choice_informed_date",
             ],
             list_fields=[
-                "tags", "semantic_links", "learning_objectives",
+                "tags",
+                "semantic_links",
+                "learning_objectives",
                 "context_notes",
             ],
             dict_fields=["metadata"],
@@ -128,15 +131,33 @@ class ExerciseDTO(CurriculumDTO):
             updates,
             allowed_fields={
                 # EntityDTO fields
-                "title", "content", "summary", "description", "word_count",
-                "domain", "status", "tags", "metadata",
+                "title",
+                "content",
+                "summary",
+                "description",
+                "word_count",
+                "domain",
+                "status",
+                "tags",
+                "metadata",
                 # CurriculumDTO fields
-                "complexity", "learning_level", "sel_category",
-                "quality_score", "estimated_time_minutes", "difficulty_rating",
-                "semantic_links", "target_age_range", "learning_objectives",
+                "complexity",
+                "learning_level",
+                "sel_category",
+                "quality_score",
+                "estimated_time_minutes",
+                "difficulty_rating",
+                "semantic_links",
+                "target_age_range",
+                "learning_objectives",
                 # Exercise-specific fields
-                "instructions", "model", "scope", "due_date",
-                "group_uid", "enrichment_mode", "context_notes",
+                "instructions",
+                "model",
+                "scope",
+                "due_date",
+                "group_uid",
+                "enrichment_mode",
+                "context_notes",
             },
             enum_mappings={
                 "ku_type": EntityType,

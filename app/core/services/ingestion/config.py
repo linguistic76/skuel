@@ -55,7 +55,7 @@ DEFAULT_USER_UID = os.environ.get("SKUEL_DEFAULT_USER_UID", "user:system")
 class EntityIngestionConfig:
     """Configuration for ingesting a specific entity type."""
 
-    entity_label: str  # Neo4j label (e.g., "Ku", "Task")
+    entity_label: str  # Neo4j label (e.g., "Entity", "Task")
     uid_prefix: str  # UID prefix (e.g., "ku", "task")
     relationship_config: dict[str, RelationshipConfig] | None = None
     required_fields: tuple[str, ...] = ()
@@ -76,7 +76,7 @@ class EntityIngestionConfig:
 # See: /docs/decisions/ADR-026-unified-relationship-registry.md
 ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
     EntityType.CURRICULUM: EntityIngestionConfig(
-        entity_label="Ku",
+        entity_label="Entity",
         uid_prefix="ku",
         required_fields=("title", "content"),
         relationship_config=generate_ingestion_relationship_config(EntityType.CURRICULUM),

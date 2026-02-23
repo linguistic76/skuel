@@ -174,7 +174,7 @@ async def clean_neo4j(neo4j_container, create_moc_test_user, ensure_test_users):
             # Required by semantic search integration tests
             result = await session.run("""
                 CREATE VECTOR INDEX ku_embedding_idx IF NOT EXISTS
-                FOR (n:Ku)
+                FOR (n:Entity)
                 ON (n.embedding)
                 OPTIONS {
                     indexConfig: {
@@ -218,9 +218,9 @@ async def ku_backend(neo4j_container):
     # No auth needed when auth is disabled
     driver = AsyncGraphDatabase.driver(uri)
 
-    # Use "Ku" to match what UnifiedIngestionService creates
+    # Use "Entity" to match what UnifiedIngestionService creates
     # IMPORTANT: Must use CurriculumDTO (not EntityDTO) to include quality_score, complexity, etc.
-    backend = UniversalNeo4jBackend[CurriculumDTO](driver, "Ku", CurriculumDTO)
+    backend = UniversalNeo4jBackend[CurriculumDTO](driver, "Entity", CurriculumDTO)
 
     yield backend
 
@@ -564,38 +564,38 @@ async def services(neo4j_container):
             return getattr(self.backend, name)
 
     # Create backends with test wrappers
-    raw_ku_backend = UniversalNeo4jBackend[EntityDTO](driver, "Ku", EntityDTO)
+    raw_ku_backend = UniversalNeo4jBackend[EntityDTO](driver, "Entity", EntityDTO)
     ku_backend = TestBackendWrapper(raw_ku_backend, EntityDTO)
 
     raw_tasks_backend = UniversalNeo4jBackend[Entity](
-        driver, "Ku", Entity, default_filters={"ku_type": "task"}
+        driver, "Entity", Entity, default_filters={"ku_type": "task"}
     )
     tasks_backend = TestBackendWrapper(raw_tasks_backend, Entity)
 
     raw_goals_backend = UniversalNeo4jBackend[Entity](
-        driver, "Ku", Entity, default_filters={"ku_type": "goal"}
+        driver, "Entity", Entity, default_filters={"ku_type": "goal"}
     )
     goals_backend = TestBackendWrapper(raw_goals_backend, Entity)
 
     raw_events_backend = UniversalNeo4jBackend[Entity](
-        driver, "Ku", Entity, default_filters={"ku_type": "event"}
+        driver, "Entity", Entity, default_filters={"ku_type": "event"}
     )
     events_backend = TestBackendWrapper(raw_events_backend, Entity)
 
-    raw_ls_backend = UniversalNeo4jBackend[Entity](driver, "Ku", Entity)
+    raw_ls_backend = UniversalNeo4jBackend[Entity](driver, "Entity", Entity)
     ls_backend = TestBackendWrapper(raw_ls_backend, Entity)
 
-    raw_lp_backend = UniversalNeo4jBackend[Entity](driver, "Ku", Entity)
+    raw_lp_backend = UniversalNeo4jBackend[Entity](driver, "Entity", Entity)
     lp_backend = TestBackendWrapper(raw_lp_backend, Entity)
 
     raw_principles_backend = UniversalNeo4jBackend[Entity](
-        driver, "Ku", Entity, default_filters={"ku_type": "principle"}
+        driver, "Entity", Entity, default_filters={"ku_type": "principle"}
     )
     principles_backend = TestBackendWrapper(raw_principles_backend, Entity)
 
     # These backends aren't used by tests, create without wrapper
     choices_backend = UniversalNeo4jBackend[Entity](
-        driver, "Ku", Entity, default_filters={"ku_type": "choice"}
+        driver, "Entity", Entity, default_filters={"ku_type": "choice"}
     )
     users_backend = UniversalNeo4jBackend[User](driver, "User", User)
 
@@ -872,7 +872,7 @@ async def populated_test_data(skuel_app):
         for ku in test_kus:
             await session.run(
                 """
-                MERGE (k:Ku {uid: $uid})
+                MERGE (k:Entity {uid: $uid})
                 ON CREATE SET
                     k.title = $title,
                     k.summary = $summary,
@@ -889,8 +889,8 @@ async def populated_test_data(skuel_app):
         # Create prerequisite relationship: async_programming REQUIRES python_basics
         await session.run(
             """
-            MATCH (a:Ku {uid: 'ku.async_programming'})
-            MATCH (b:Ku {uid: 'ku.python_basics'})
+            MATCH (a:Entity {uid: 'ku.async_programming'})
+            MATCH (b:Entity {uid: 'ku.python_basics'})
             MERGE (a)-[:REQUIRES]->(b)
             """
         )
@@ -905,7 +905,7 @@ async def populated_test_data(skuel_app):
         # Delete test KUs
         await session.run(
             """
-            MATCH (k:Ku)
+            MATCH (k:Entity)
             WHERE k.uid IN $uids
             DETACH DELETE k
             """,
@@ -964,7 +964,7 @@ async def tasks_backend(neo4j_driver):
     from core.models.entity import Entity
 
     return UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Ku", Entity, default_filters={"ku_type": "task"}
+        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "task"}
     )
 
 
@@ -982,7 +982,7 @@ async def goals_backend(neo4j_driver):
     from core.models.entity import Entity
 
     return UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Ku", Entity, default_filters={"ku_type": "goal"}
+        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "goal"}
     )
 
 
@@ -1000,7 +1000,7 @@ async def habits_backend(neo4j_driver):
     from core.models.entity import Entity
 
     return UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Ku", Entity, default_filters={"ku_type": "habit"}
+        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "habit"}
     )
 
 
@@ -1018,7 +1018,7 @@ async def events_backend(neo4j_driver):
     from core.models.event.event import Event
 
     return UniversalNeo4jBackend[Event](
-        neo4j_driver, "Ku", Event, default_filters={"ku_type": "event"}
+        neo4j_driver, "Entity", Event, default_filters={"ku_type": "event"}
     )
 
 
@@ -1036,7 +1036,7 @@ async def choices_backend(neo4j_driver):
     from core.models.entity import Entity
 
     return UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Ku", Entity, default_filters={"ku_type": "choice"}
+        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "choice"}
     )
 
 
@@ -1054,7 +1054,7 @@ async def principles_backend(neo4j_driver):
     from core.models.entity import Entity
 
     return UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Ku", Entity, default_filters={"ku_type": "principle"}
+        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "principle"}
     )
 
 

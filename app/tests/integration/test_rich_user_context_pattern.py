@@ -63,8 +63,8 @@ class TestRichUserContextPattern:
         # Create prerequisite relationship
         await services.ku.core.backend.driver.execute_query(
             """
-            MATCH (ku:Ku {uid: $ku_uid})
-            MATCH (prereq:Ku {uid: $prereq_uid})
+            MATCH (ku:Entity {uid: $ku_uid})
+            MATCH (prereq:Entity {uid: $prereq_uid})
             CREATE (ku)-[:REQUIRES_KNOWLEDGE {confidence: 0.9}]->(prereq)
             """,
             {"ku_uid": ku_dto.uid, "prereq_uid": prereq_dto.uid},
@@ -111,19 +111,19 @@ class TestRichUserContextPattern:
         # MEGA-QUERY expects :Task, :Goal, :Event labels and OWNS rels
         await services.tasks.core.backend.driver.execute_query(
             """
-            MATCH (task:Ku {uid: $task_uid, ku_type: 'task'})
+            MATCH (task:Entity {uid: $task_uid, ku_type: 'task'})
             SET task:Task
             WITH task
             MATCH (user:User {uid: $user_uid})
             MERGE (user)-[:OWNS]->(task)
             WITH task
-            MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})
+            MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})
             SET goal:Goal
             WITH goal, task
             MATCH (user:User {uid: $user_uid})
             MERGE (user)-[:OWNS]->(goal)
             WITH task, goal
-            MATCH (event:Ku {uid: $event_uid, ku_type: 'event'})
+            MATCH (event:Entity {uid: $event_uid, ku_type: 'event'})
             SET event:Event
             WITH event
             MATCH (user:User {uid: $user_uid})
@@ -141,7 +141,7 @@ class TestRichUserContextPattern:
         await services.tasks.core.backend.driver.execute_query(
             """
             MATCH (task:Task {uid: $task_uid})
-            MATCH (ku:Ku {uid: $ku_uid})
+            MATCH (ku:Entity {uid: $ku_uid})
             MATCH (goal:Goal {uid: $goal_uid})
             CREATE (task)-[:APPLIES_KNOWLEDGE {confidence: 0.85}]->(ku)
             CREATE (task)-[:FULFILLS_GOAL]->(goal)
@@ -153,7 +153,7 @@ class TestRichUserContextPattern:
         await services.events.core.backend.driver.execute_query(
             """
             MATCH (event:Event {uid: $event_uid})
-            MATCH (ku:Ku {uid: $ku_uid})
+            MATCH (ku:Entity {uid: $ku_uid})
             CREATE (event)-[:APPLIES_KNOWLEDGE {confidence: 0.8}]->(ku)
             """,
             {"event_uid": event_dto.uid, "ku_uid": ku_dto.uid},
@@ -241,13 +241,13 @@ class TestRichUserContextPattern:
         # Add secondary labels and relationships for MEGA-QUERY compatibility
         await services.tasks.core.backend.driver.execute_query(
             """
-            MATCH (task:Ku {uid: $task_uid, ku_type: 'task'})
+            MATCH (task:Entity {uid: $task_uid, ku_type: 'task'})
             SET task:Task
             WITH task
             MATCH (user:User {uid: $user_uid})
             MERGE (user)-[:OWNS]->(task)
             WITH task
-            MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})
+            MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})
             SET goal:Goal
             WITH goal
             MATCH (user:User {uid: $user_uid})
@@ -366,9 +366,9 @@ class TestRichUserContextPattern:
         # Create cross-domain relationships
         await services.tasks.core.backend.driver.execute_query(
             """
-            MATCH (task:Ku {uid: $task_uid, ku_type: 'task'})
-            MATCH (ku:Ku {uid: $ku_uid})
-            MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})
+            MATCH (task:Entity {uid: $task_uid, ku_type: 'task'})
+            MATCH (ku:Entity {uid: $ku_uid})
+            MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})
             CREATE (task)-[:APPLIES_KNOWLEDGE]->(ku)
             CREATE (task)-[:FULFILLS_GOAL]->(goal)
             CREATE (goal)-[:REQUIRES_KNOWLEDGE]->(ku)

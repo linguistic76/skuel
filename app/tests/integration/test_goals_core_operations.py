@@ -45,7 +45,7 @@ class TestGoalsCoreOperations:
     async def goals_backend(self, neo4j_driver, clean_neo4j):
         """Create goals backend with clean database."""
         return UniversalNeo4jBackend[Goal](
-            neo4j_driver, "Ku", Goal, default_filters={"ku_type": "goal"}
+            neo4j_driver, "Entity", Goal, default_filters={"ku_type": "goal"}
         )
 
     @pytest_asyncio.fixture

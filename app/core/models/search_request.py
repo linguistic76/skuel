@@ -452,7 +452,7 @@ class SearchRequest(BaseModel):
         # Domain string to Neo4j label mapping
         # (domain is already a string due to use_enum_values=True)
         label_mapping = {
-            "knowledge": "Ku",
+            "knowledge": "Entity",
             "tasks": "Task",
             "events": "Event",
             "habits": "Habit",
@@ -483,7 +483,7 @@ class SearchRequest(BaseModel):
             >>> request = SearchRequest(ready_to_learn=True, domain="knowledge")
             >>> patterns = request.to_graph_patterns()
             >>> patterns["ready_to_learn"]
-            'NOT EXISTS { MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku) ... }'
+            'NOT EXISTS { MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity) ... }'
 
             >>> # Later, at query execution:
             >>> params = {"user_uid": "user_123"}  # $user_uid gets filled here
@@ -495,7 +495,7 @@ class SearchRequest(BaseModel):
         if self.ready_to_learn:
             patterns["ready_to_learn"] = """
             NOT EXISTS {
-                MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+                MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
                 WHERE NOT EXISTS {
                     MATCH (user:User {uid: $user_uid})-[:MASTERED]->(prereq)
                 }
@@ -506,7 +506,7 @@ class SearchRequest(BaseModel):
         if self.builds_on_mastered:
             patterns["builds_on_mastered"] = """
             EXISTS {
-                MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Ku)
+                MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
                 WHERE (mastered)-[:ENABLES_LEARNING|RELATED_TO]-(ku)
             }
             """
@@ -569,13 +569,13 @@ class SearchRequest(BaseModel):
         if self.next_logical_step:
             patterns["next_logical_step"] = """
             EXISTS {
-                MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Ku)
+                MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
                       -[:ENABLES_LEARNING]->(ku)
                 WHERE NOT EXISTS {
                     MATCH (user)-[:MASTERED]->(ku)
                 }
                 AND NOT EXISTS {
-                    MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+                    MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
                     WHERE NOT EXISTS {
                         MATCH (user)-[:MASTERED]->(prereq)
                     }

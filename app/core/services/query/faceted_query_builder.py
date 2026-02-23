@@ -90,7 +90,7 @@ class FacetedQueryBuilder:
             if facet_set.domain:
                 # Add domain-specific label (e.g., KnowledgeUnit for knowledge domain)
                 if facet_set.domain == "knowledge":
-                    request.labels.add("Ku")
+                    request.labels.add("Entity")
                 elif facet_set.domain == "habits":
                     request.labels.add("Habit")
                 elif facet_set.domain == "tasks":
@@ -272,7 +272,7 @@ class FacetedQueryBuilder:
                 name="faceted_knowledge_search",
                 description="Search knowledge with facets",
                 base_template="""
-                    MATCH (n:Ku)
+                    MATCH (n:Entity)
                     WHERE ($domain IS NULL OR EXISTS((n)-[:IN_DOMAIN]->(:Domain {name: $domain})))
                     AND ($level IS NULL OR n.level = $level)
                     AND ($search_text IS NULL OR
@@ -327,13 +327,13 @@ class FacetedQueryBuilder:
                 name="progressive_learning_search",
                 description="Search with progressive difficulty filtering",
                 base_template="""
-                    MATCH (n:Ku)
+                    MATCH (n:Entity)
                     WHERE n.level <= $user_level
                     AND NOT EXISTS((n)<-[:COMPLETED]-(:User {uid: $user_uid}))
                     AND ($search_text IS NULL OR n.title CONTAINS $search_text)
                     OPTIONAL MATCH (n)<-[:PREREQUISITE_FOR]-(prereq)
                     WITH n, collect(prereq.uid) as prerequisites
-                    WHERE ALL(p IN prerequisites WHERE EXISTS((:User {uid: $user_uid})-[:COMPLETED]->(:Ku {uid: p})))
+                    WHERE ALL(p IN prerequisites WHERE EXISTS((:User {uid: $user_uid})-[:COMPLETED]->(:Entity {uid: p})))
                     RETURN n
                     ORDER BY n.level ASC, n.created_at DESC
                     LIMIT $limit

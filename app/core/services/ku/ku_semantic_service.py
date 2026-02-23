@@ -324,9 +324,9 @@ class KuSemanticService:
 
         # Delete relationship query
         query = f"""
-        MATCH (s:Ku {{uid: $subject_uid}})
+        MATCH (s:Entity {{uid: $subject_uid}})
               -[r:{rel_name}]->
-              (o:Ku {{uid: $object_uid}})
+              (o:Entity {{uid: $object_uid}})
         DETACH DELETE r
         RETURN count(r) as deleted
         """
@@ -448,9 +448,9 @@ class KuSemanticService:
         # Query for cross-domain bridges
         # Look for shared semantic relationships
         query = """
-        MATCH (source:Ku {uid: $uid})
+        MATCH (source:Entity {uid: $uid})
         MATCH (source)-[r1]->(shared)
-        MATCH (target:Ku)-[r2]->(shared)
+        MATCH (target:Entity)-[r2]->(shared)
         WHERE source.domain <> target.domain
         AND ($target_domain IS NULL OR target.domain = $target_domain)
         AND type(r1) = type(r2)
@@ -514,8 +514,8 @@ class KuSemanticService:
         # Transitive closure: if A->B and B->C, infer A->C
         # This is a simple pattern - could be enhanced with ML
         query = """
-        MATCH (source:Ku {uid: $uid})-[r1]->(intermediate)
-              -[r2]->(target:Ku)
+        MATCH (source:Entity {uid: $uid})-[r1]->(intermediate)
+              -[r2]->(target:Entity)
         WHERE NOT (source)-[]->(target)
         AND type(r1) = type(r2)
         RETURN DISTINCT target,

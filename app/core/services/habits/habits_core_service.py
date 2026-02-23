@@ -96,7 +96,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
     _config = create_activity_domain_config(
         dto_class=HabitDTO,
         model_class=Habit,
-        entity_label="Ku",
+        entity_label="Entity",
         domain_name="habits",
         date_field="created_at",
         completed_statuses=(EntityStatus.ARCHIVED.value,),
@@ -285,9 +285,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
         return result
 
-    async def create_habit(
-        self, habit_request: HabitCreateRequest, user_uid: str
-    ) -> Result[Habit]:
+    async def create_habit(self, habit_request: HabitCreateRequest, user_uid: str) -> Result[Habit]:
         """
         Create a habit from a request with user_uid.
 

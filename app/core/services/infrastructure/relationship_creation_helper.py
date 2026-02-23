@@ -408,7 +408,7 @@ class RelationshipCreationHelper[T, DTO]:
 
         // Get cross-domain relationships
         OPTIONAL MATCH (entity)-[:SUPPORTS_GOAL]->(goal:Goal)
-        OPTIONAL MATCH (entity)-[:ENABLES_KNOWLEDGE|:APPLIES_KNOWLEDGE]->(ku:Ku)
+        OPTIONAL MATCH (entity)-[:ENABLES_KNOWLEDGE|:APPLIES_KNOWLEDGE]->(ku:Entity)
         OPTIONAL MATCH (entity)-[:FUNDS_HABIT]->(habit:Habit)
         OPTIONAL MATCH (entity)-[:FUNDS_TASK|:ENABLES_TASK]->(task:Task)
         OPTIONAL MATCH (entity)-[:INFORMED_BY_PRINCIPLE]->(principle:Principle)

@@ -627,7 +627,9 @@ def create_reports_api_routes(
             if report is None or report.user_uid != user_uid:
                 return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
 
-            return await reports_core_service.categorize_report(uid=report_uid, category=req.category)
+            return await reports_core_service.categorize_report(
+                uid=report_uid, category=req.category
+            )
 
         @rt("/api/reports/tags/add")
         @boundary_handler()

@@ -97,7 +97,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
         dto_class=GoalDTO,
         model_class=Goal,
         domain_name="goals",
-        entity_label="Ku",
+        entity_label="Entity",
         date_field="target_date",
         completed_statuses=(EntityStatus.COMPLETED.value, EntityStatus.CANCELLED.value),
         category_field="domain",  # Goals use 'domain' field for categorization
@@ -275,7 +275,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Goal entities."""
-        return "Ku"
+        return "Entity"
 
     # Note: Backend access uses inherited BaseService._backend property
     # Custom backend property removed November 2025 - was unnecessary indirection

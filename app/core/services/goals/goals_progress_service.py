@@ -79,7 +79,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         domain_name="goals",
         date_field="target_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        entity_label="Ku",
+        entity_label="Entity",
     )
 
     # Service name for hierarchical logging
@@ -88,7 +88,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Ku entities."""
-        return "Ku"
+        return "Entity"
 
     def __init__(
         self,
@@ -128,9 +128,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
     #
     # ========================================================================
 
-    def _get_goal_from_rich_context(
-        self, goal_uid: str, user_context: UserContext
-    ) -> Goal | None:
+    def _get_goal_from_rich_context(self, goal_uid: str, user_context: UserContext) -> Goal | None:
         """
         Try to get Goal entity from UserContext rich data.
 
@@ -1040,7 +1038,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             )
 
             query = """
-            MATCH (goal:Ku {ku_type: 'goal'})-[:SUPPORTS_GOAL]->(task:Ku {uid: $task_uid, ku_type: 'task'})
+            MATCH (goal:Entity {ku_type: 'goal'})-[:SUPPORTS_GOAL]->(task:Entity {uid: $task_uid, ku_type: 'task'})
             WHERE goal.user_uid = $user_uid
             RETURN goal.uid as goal_uid
             """
@@ -1106,10 +1104,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         # Query all tasks linked to this goal and count completed
         query = """
-        MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(task:Ku {ku_type: 'task'})
+        MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(task:Entity {ku_type: 'task'})
         WHERE task.user_uid = $user_uid
         WITH count(task) as total_tasks
-        MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(completed:Ku {ku_type: 'task'})
+        MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(completed:Entity {ku_type: 'task'})
         WHERE completed.user_uid = $user_uid
           AND completed.status = 'completed'
         RETURN total_tasks, count(completed) as completed_tasks
@@ -1222,7 +1220,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             )
 
             query = """
-            MATCH (goal:Ku {ku_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Ku {uid: $habit_uid, ku_type: 'habit'})
+            MATCH (goal:Entity {ku_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Entity {uid: $habit_uid, ku_type: 'habit'})
             WHERE goal.user_uid = $user_uid
             RETURN goal.uid as goal_uid
             """
@@ -1295,10 +1293,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         # Query all habits linked to this goal and their average streak
         query = """
-        MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Ku {ku_type: 'habit'})
+        MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Entity {ku_type: 'habit'})
         WHERE habit.user_uid = $user_uid
         WITH count(habit) as total_habits
-        MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Ku {ku_type: 'habit'})
+        MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Entity {ku_type: 'habit'})
         WHERE habit.user_uid = $user_uid
         RETURN total_habits, avg(COALESCE(habit.current_streak, 0)) as avg_streak
         """

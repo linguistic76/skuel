@@ -115,7 +115,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
     _config = create_activity_domain_config(
         dto_class=EventDTO,
         model_class=Event,
-        entity_label="Ku",
+        entity_label="Entity",
         domain_name="events",
         date_field="event_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
@@ -278,7 +278,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
     @property
     def entity_label(self) -> str:
         """Return the graph label for Event entities."""
-        return "Ku"
+        return "Entity"
 
     # Note: Backend access uses inherited BaseService._backend property
     # Custom backend property removed November 2025 - was unnecessary indirection
@@ -340,9 +340,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
             return Result.fail(result)
         return Result.ok(result.value > 0)
 
-    async def get_events_supporting_goal(
-        self, goal_uid: str, user_uid: str
-    ) -> Result[list[Event]]:
+    async def get_events_supporting_goal(self, goal_uid: str, user_uid: str) -> Result[list[Event]]:
         """Get all events that support a specific goal."""
         # Get event UIDs linked to the goal
         event_uids_result = await self.relationships.get_related_uids("goals", goal_uid)
@@ -478,9 +476,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
     # Note: Most search methods auto-generated via _delegations.
     # Only methods that unwrap typed requests remain explicit.
 
-    async def get_recurring_events(
-        self, request: GetRecurringEventsRequest
-    ) -> Result[list[Event]]:
+    async def get_recurring_events(self, request: GetRecurringEventsRequest) -> Result[list[Event]]:
         """
         Get all recurring events for a user using typed request.
 

@@ -31,7 +31,10 @@ from core.models.relationship_names import RelationshipName
 from core.ports import BackendOperations, BaseUpdatePayload
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
-from core.services.reports.report_processing_types import ReportsAIInsights, ReportsProcessingContext
+from core.services.reports.report_processing_types import (
+    ReportsAIInsights,
+    ReportsProcessingContext,
+)
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -87,7 +90,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
     _config = DomainConfig(
         dto_class=SubmissionDTO,
         model_class=Entity,
-        entity_label="Ku",
+        entity_label="Entity",
         search_fields=("title", "content", "processed_content"),
         search_order_by="created_at",
         user_ownership_relationship=RelationshipName.OWNS,  # User-owned content
@@ -122,7 +125,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Ku entities."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # CORE PURPOSE: TRANSCRIPT PROCESSING
@@ -272,7 +275,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         MATCH (u:User {uid: $user_uid})
 
         // Recent journal-type reports (last 7 days)
-        OPTIONAL MATCH (u)-[:OWNS]->(recent:Ku)
+        OPTIONAL MATCH (u)-[:OWNS]->(recent:Entity)
         WHERE recent.ku_type = 'submission'
           AND recent.created_at >= datetime() - duration('P7D')
         WITH u, collect({
@@ -295,7 +298,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         }) as active_goals
 
         // Recent topics (from last 30 days) - journal-type reports
-        OPTIONAL MATCH (u)-[:OWNS]->(j:Ku)
+        OPTIONAL MATCH (u)-[:OWNS]->(j:Entity)
         WHERE j.ku_type = 'submission'
           AND j.created_at >= datetime() - duration('P30D')
           AND j.key_topics IS NOT NULL
@@ -724,8 +727,8 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
     async def _create_temporal_relationship(self, journal_uid: str, user_uid: str) -> int:
         """Create FOLLOWS relationship to most recent previous journal-type report."""
         cypher = """
-        MATCH (new:Ku {uid: $journal_uid})
-        MATCH (prev:Ku {user_uid: $user_uid, report_type: 'journal'})
+        MATCH (new:Entity {uid: $journal_uid})
+        MATCH (prev:Entity {user_uid: $user_uid, report_type: 'journal'})
         WHERE prev.uid <> $journal_uid
           AND prev.entry_date <= new.entry_date
         WITH new, prev
@@ -757,8 +760,8 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             return 0
 
         cypher = """
-        MATCH (new:Ku {uid: $journal_uid})
-        MATCH (other:Ku {user_uid: $user_uid, report_type: 'journal'})
+        MATCH (new:Entity {uid: $journal_uid})
+        MATCH (other:Entity {user_uid: $user_uid, report_type: 'journal'})
         WHERE other.uid <> $journal_uid
           AND other.key_topics IS NOT NULL
         WITH new, other, other.key_topics as other_topics_json
@@ -841,7 +844,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         # Load from Neo4j (instructions stored as Exercise Ku nodes)
         query = """
-        MATCH (i:Ku {uid: $uid, ku_type: 'exercise'})
+        MATCH (i:Entity {uid: $uid, ku_type: 'exercise'})
         RETURN i.instructions as instructions, i.name as name
         """
 
@@ -916,7 +919,7 @@ Preserve the author's voice and authenticity while improving readability.
             uid = f"instructions:{name.lower().replace(' ', '-')}"
 
         query = """
-        CREATE (i:Ku:Exercise {
+        CREATE (i:Entity:Exercise {
             uid: $uid,
             name: $name,
             ku_type: 'exercise',
@@ -940,7 +943,7 @@ Preserve the author's voice and authenticity while improving readability.
     async def list_instruction_sets(self) -> Result[list[dict[str, Any]]]:
         """List all available exercise instruction sets."""
         query = """
-        MATCH (i:Ku {ku_type: 'exercise'})
+        MATCH (i:Entity {ku_type: 'exercise'})
         RETURN i.uid as uid, i.name as name, i.char_count as char_count
         ORDER BY i.name
         """

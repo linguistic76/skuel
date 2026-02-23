@@ -56,9 +56,9 @@ class TestYAMLRoundTrip:
         from unittest.mock import MagicMock
 
         ingestion_service = UnifiedIngestionService(driver=driver)
-        # Use "Ku" to match what UnifiedIngestionService creates
+        # Use "Entity" to match what UnifiedIngestionService creates
         # IMPORTANT: Backend must use CurriculumDTO (mutable), not Curriculum (immutable)
-        ku_backend = UniversalNeo4jBackend[CurriculumDTO](driver, "Ku", CurriculumDTO)
+        ku_backend = UniversalNeo4jBackend[CurriculumDTO](driver, "Entity", CurriculumDTO)
         # Create mock dependencies (required by fail-fast pattern)
         mock_content_repo = AsyncMock()
         mock_query_builder = MagicMock()

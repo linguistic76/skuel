@@ -114,12 +114,23 @@ class ResourceDTO(EntityDTO):
             updates,
             allowed_fields={
                 # EntityDTO fields
-                "title", "content", "summary", "description", "word_count",
-                "domain", "status", "tags", "metadata",
+                "title",
+                "content",
+                "summary",
+                "description",
+                "word_count",
+                "domain",
+                "status",
+                "tags",
+                "metadata",
                 # Resource-specific fields
-                "source_url", "author", "publisher",
-                "publication_year", "isbn",
-                "media_type", "resource_duration_minutes",
+                "source_url",
+                "author",
+                "publisher",
+                "publication_year",
+                "isbn",
+                "media_type",
+                "resource_duration_minutes",
             },
             enum_mappings={
                 "ku_type": EntityType,

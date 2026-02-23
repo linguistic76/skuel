@@ -54,7 +54,7 @@ async def test_create_vector_index_manually(neo4j_driver, clean_neo4j):
 
     create_index_query = """
     CREATE VECTOR INDEX $index_name IF NOT EXISTS
-    FOR (n:Ku)
+    FOR (n:Entity)
     ON n.embedding
     OPTIONS {indexConfig: {
         `vector.dimensions`: 1536,
@@ -84,7 +84,7 @@ async def test_create_vector_index_manually(neo4j_driver, clean_neo4j):
             ku_index = vector_indexes[0]
             assert ku_index["name"] == index_name
             assert ku_index["type"] == "VECTOR"
-            assert "Ku" in ku_index["labelsOrTypes"]
+            assert "Entity" in ku_index["labelsOrTypes"]
             assert "embedding" in ku_index["properties"]
 
     except Exception as e:
@@ -99,7 +99,7 @@ async def test_embedding_generation_and_storage(neo4j_driver, clean_neo4j, mock_
 
     # Create test Ku without embedding
     create_query = """
-    CREATE (ku:Ku {
+    CREATE (ku:Entity {
         uid: 'ku.test_embedding',
         title: 'Test Embedding Generation',
         content: 'This is test content for embedding generation.',
@@ -128,7 +128,7 @@ async def test_embedding_generation_and_storage(neo4j_driver, clean_neo4j, mock_
 
     # Store embedding in Neo4j
     update_query = """
-    MATCH (ku:Ku {uid: $uid})
+    MATCH (ku:Entity {uid: $uid})
     SET ku.embedding = $embedding,
         ku.embedding_model = $model,
         ku.embedding_updated_at = datetime()
@@ -143,7 +143,7 @@ async def test_embedding_generation_and_storage(neo4j_driver, clean_neo4j, mock_
 
     # Verify stored embedding
     verify_query = """
-    MATCH (ku:Ku {uid: $uid})
+    MATCH (ku:Entity {uid: $uid})
     RETURN ku.embedding as embedding,
            size(ku.embedding) as dimension,
            ku.embedding_model as model
@@ -176,7 +176,7 @@ async def test_batch_embedding_generation(neo4j_driver, clean_neo4j, mock_embedd
     # Create KUs in Neo4j
     for ku in kus:
         create_query = """
-        CREATE (ku:Ku {
+        CREATE (ku:Entity {
             uid: $uid,
             title: $title,
             content: $content,
@@ -200,7 +200,7 @@ async def test_batch_embedding_generation(neo4j_driver, clean_neo4j, mock_embedd
     # Store embeddings
     for ku, embedding in zip(kus, embeddings, strict=False):
         update_query = """
-        MATCH (ku:Ku {uid: $uid})
+        MATCH (ku:Entity {uid: $uid})
         SET ku.embedding = $embedding,
             ku.embedding_model = $model,
             ku.embedding_updated_at = datetime()
@@ -213,7 +213,7 @@ async def test_batch_embedding_generation(neo4j_driver, clean_neo4j, mock_embedd
 
     # Verify all stored
     verify_query = """
-    MATCH (ku:Ku)
+    MATCH (ku:Entity)
     WHERE ku.uid STARTS WITH 'ku.test_batch_'
     RETURN count(ku) as count,
            count(ku.embedding) as with_embedding
@@ -273,7 +273,7 @@ async def test_vector_search_by_text_mock(neo4j_driver, clean_neo4j, services_wi
     # Create KUs in Neo4j
     for ku in kus:
         create_query = """
-        CREATE (ku:Ku {
+        CREATE (ku:Entity {
             uid: $uid,
             title: $title,
             content: $content,
@@ -290,7 +290,7 @@ async def test_vector_search_by_text_mock(neo4j_driver, clean_neo4j, services_wi
 
     # Search for similar to "Python"
     result = await vector_search.find_similar_by_text(
-        label="Ku", text="Python programming basics", limit=5, min_score=0.7
+        label="Entity", text="Python programming basics", limit=5, min_score=0.7
     )
 
     assert result.is_ok
@@ -318,7 +318,7 @@ async def test_vector_search_by_vector_mock(neo4j_driver, clean_neo4j, mock_vect
 
     # Search using mock service
     result = await mock_vector_search_service.find_similar_by_vector(
-        label="Ku", embedding=query_embedding, limit=5, min_score=0.8
+        label="Entity", embedding=query_embedding, limit=5, min_score=0.8
     )
 
     assert result.is_ok
@@ -348,7 +348,7 @@ async def test_vector_search_find_similar_to_node_mock(
 
     for ku in kus:
         create_query = """
-        CREATE (ku:Ku {
+        CREATE (ku:Entity {
             uid: $uid,
             title: $title,
             embedding: $embedding,
@@ -360,7 +360,7 @@ async def test_vector_search_find_similar_to_node_mock(
 
     # Find similar to source node
     result = await mock_vector_search_service.find_similar_to_node(
-        label="Ku", uid="ku.source", limit=5, min_score=0.7, exclude_self=True
+        label="Entity", uid="ku.source", limit=5, min_score=0.7, exclude_self=True
     )
 
     assert result.is_ok
@@ -379,7 +379,10 @@ async def test_cross_domain_search_mock(neo4j_driver, clean_neo4j, mock_vector_s
 
     # Search across multiple domains
     result = await mock_vector_search_service.find_cross_domain_similar(
-        embedding=query_embedding, labels=["Ku", "Task", "Goal"], limit_per_label=3, min_score=0.7
+        embedding=query_embedding,
+        labels=["Entity", "Task", "Goal"],
+        limit_per_label=3,
+        min_score=0.7,
     )
 
     assert result.is_ok
@@ -387,7 +390,7 @@ async def test_cross_domain_search_mock(neo4j_driver, clean_neo4j, mock_vector_s
 
     # Should have results for each domain
     assert isinstance(results, dict)
-    assert "Ku" in results
+    assert "Entity" in results
     assert "Task" in results
     assert "Goal" in results
 
@@ -494,7 +497,7 @@ async def test_vector_search_empty_results(mock_vector_search_service):
 
     # Search with very high min_score (no results should match)
     result = await mock_vector_search_service.find_similar_by_vector(
-        label="Ku",
+        label="Entity",
         embedding=query_embedding,
         limit=10,
         min_score=0.99,  # Very high threshold

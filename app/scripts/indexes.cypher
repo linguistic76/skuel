@@ -20,9 +20,9 @@ CREATE INDEX goal_target_date IF NOT EXISTS FOR (g:Goal) ON (g.target_date);
 CREATE INDEX expense_expense_date IF NOT EXISTS FOR (e:Expense) ON (e.expense_date);
 
 // Priority 3: Knowledge indexes (5-10x faster)
-CREATE INDEX ku_sel_category IF NOT EXISTS FOR (ku:Ku) ON (ku.sel_category);
-CREATE INDEX ku_learning_level IF NOT EXISTS FOR (ku:Ku) ON (ku.learning_level);
-CREATE INDEX ku_content_type IF NOT EXISTS FOR (ku:Ku) ON (ku.content_type);
+CREATE INDEX ku_sel_category IF NOT EXISTS FOR (ku:Entity) ON (ku.sel_category);
+CREATE INDEX ku_learning_level IF NOT EXISTS FOR (ku:Entity) ON (ku.learning_level);
+CREATE INDEX ku_content_type IF NOT EXISTS FOR (ku:Entity) ON (ku.content_type);
 
 // Priority 4: Combined indexes (maximum performance)
 CREATE INDEX task_user_status IF NOT EXISTS FOR (t:Task) ON (t.user_uid, t.status);

@@ -39,7 +39,9 @@ def test_ask_endpoint_validation(skuel_app):
 
         # Test missing question also returns 401 (auth check happens first)
         response = unauthenticated_client.get("/api/askesis/ask")
-        assert response.status_code == 401, "Should reject unauthenticated access even without question"
+        assert response.status_code == 401, (
+            "Should reject unauthenticated access even without question"
+        )
 
 
 @pytest.mark.asyncio

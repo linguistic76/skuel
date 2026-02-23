@@ -89,11 +89,11 @@ class TeacherReviewService:
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[r:SHARES_WITH {{role: 'teacher'}}]->(ku:Ku)
+        MATCH (teacher:User {{uid: $teacher_uid}})-[r:SHARES_WITH {{role: 'teacher'}}]->(ku:Entity)
         {where_clause}
         OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
-        OPTIONAL MATCH (ku)-[:FULFILLS_EXERCISE]->(project:Ku {{ku_type: 'exercise'}})
-        OPTIONAL MATCH (fb:Ku {{ku_type: 'feedback_report'}})-[:FEEDBACK_FOR]->(ku)
+        OPTIONAL MATCH (ku)-[:FULFILLS_EXERCISE]->(project:Entity {{ku_type: 'exercise'}})
+        OPTIONAL MATCH (fb:Entity {{ku_type: 'feedback_report'}})-[:FEEDBACK_FOR]->(ku)
         WITH ku, student, project, r, count(fb) as feedback_count
         RETURN ku.uid as ku_uid,
                ku.title as title,
@@ -148,7 +148,7 @@ class TeacherReviewService:
             Result containing list of feedback items ordered by creation date
         """
         query = """
-        MATCH (fb:Ku {ku_type: 'feedback_report'})-[:FEEDBACK_FOR]->(submission:Ku {uid: $submission_uid})
+        MATCH (fb:Entity {ku_type: 'feedback_report'})-[:FEEDBACK_FOR]->(submission:Entity {uid: $submission_uid})
         OPTIONAL MATCH (teacher:User)-[:OWNS]->(fb)
         RETURN fb.uid as uid,
                fb.title as title,
@@ -210,7 +210,7 @@ class TeacherReviewService:
         # Create FEEDBACK_REPORT node, link via FEEDBACK_FOR, share with student,
         # and update submission status — all in one transaction
         query = """
-        MATCH (submission:Ku {uid: $report_uid})
+        MATCH (submission:Entity {uid: $report_uid})
         OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
 
         // Update submission with denormalized feedback
@@ -220,7 +220,7 @@ class TeacherReviewService:
             submission.updated_at = datetime($now)
 
         // Create FEEDBACK_REPORT Ku node
-        CREATE (fb:Ku {
+        CREATE (fb:Entity {
             uid: $feedback_uid,
             title: $title,
             ku_type: $ku_type,
@@ -323,7 +323,7 @@ class TeacherReviewService:
         now = datetime.now().isoformat()
 
         query = """
-        MATCH (submission:Ku {uid: $report_uid})
+        MATCH (submission:Entity {uid: $report_uid})
         OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
 
         // Update submission with revision status
@@ -333,7 +333,7 @@ class TeacherReviewService:
             submission.updated_at = datetime($now)
 
         // Create FEEDBACK_REPORT Ku node for revision request
-        CREATE (fb:Ku {
+        CREATE (fb:Entity {
             uid: $feedback_uid,
             title: $title,
             ku_type: $ku_type,
@@ -432,12 +432,12 @@ class TeacherReviewService:
             return Result.fail(access_check.expect_error())
 
         query = """
-        MATCH (ku:Ku {uid: $report_uid})
+        MATCH (ku:Entity {uid: $report_uid})
         SET ku.status = $status,
             ku.updated_at = datetime($now)
         WITH ku
         OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
-        OPTIONAL MATCH (ku)-[:APPLIES_KNOWLEDGE]->(curriculum:Ku {ku_type: 'curriculum'})
+        OPTIONAL MATCH (ku)-[:APPLIES_KNOWLEDGE]->(curriculum:Entity {ku_type: 'curriculum'})
         RETURN ku.uid as uid,
                ku.status as status,
                student.uid as student_uid,
@@ -517,7 +517,7 @@ class TeacherReviewService:
     ) -> Result[bool]:
         """Verify teacher has SHARES_WITH access to the Ku."""
         query = """
-        MATCH (teacher:User {uid: $teacher_uid})-[r:SHARES_WITH {role: 'teacher'}]->(ku:Ku {uid: $report_uid})
+        MATCH (teacher:User {uid: $teacher_uid})-[r:SHARES_WITH {role: 'teacher'}]->(ku:Entity {uid: $report_uid})
         RETURN true as has_access
         """
 

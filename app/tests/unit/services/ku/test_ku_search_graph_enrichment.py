@@ -85,7 +85,7 @@ class TestGraphEnrichmentPatternsConfiguration:
             "Habit",
             "Choice",
             "Principle",
-            "Ku",
+            "Entity",
             "Ls",
             "Lp",
         }

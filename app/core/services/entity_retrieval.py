@@ -173,7 +173,7 @@ class EntityRetrieval:
             start_time = time.time()
 
             # Step 1: Build optimized query request using unified builder
-            create_search_request(labels=["Ku"], search_text=query, limit=limit * 2)
+            create_search_request(labels=["Entity"], search_text=query, limit=limit * 2)
 
             # Step 2: Analyze query intent (no branching - always done)
             query_analysis = self._analyze_query_intent(query)
@@ -608,7 +608,9 @@ class EntityRetrieval:
             time.time()
 
             # Build optimized query request
-            search_req = create_search_request(labels=["Ku"], search_text=query, limit=limit * 2)
+            search_req = create_search_request(
+                labels=["Entity"], search_text=query, limit=limit * 2
+            )
 
             # Use unified query builder to get optimized query plan
             optimization_result = await self.query_builder.build_optimized_query(search_req)

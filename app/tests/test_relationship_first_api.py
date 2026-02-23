@@ -26,7 +26,7 @@ class TestRelationshipFirstAPI:
 
     async def test_relate_returns_builder(self, mock_driver):
         """Test that relate() returns a RelationshipBuilder instance."""
-        backend = UniversalNeo4jBackend[TaskPure](mock_driver, "Ku", TaskPure)
+        backend = UniversalNeo4jBackend[TaskPure](mock_driver, "Entity", TaskPure)
 
         builder = backend.relate()
 
@@ -35,7 +35,7 @@ class TestRelationshipFirstAPI:
 
     async def test_fluent_relationship_creation_syntax(self, mock_driver):
         """Test that the fluent API syntax matches the expected pattern."""
-        backend = UniversalNeo4jBackend[TaskPure](mock_driver, "Ku", TaskPure)
+        backend = UniversalNeo4jBackend[TaskPure](mock_driver, "Entity", TaskPure)
 
         # Verify the syntax compiles and creates the expected chain
         builder = (
@@ -55,17 +55,17 @@ class TestRelationshipFirstAPI:
 
     async def test_relationship_builder_with_labels(self, mock_driver):
         """Test relationship builder with node label optimization."""
-        backend = UniversalNeo4jBackend[TaskPure](mock_driver, "Ku", TaskPure)
+        backend = UniversalNeo4jBackend[TaskPure](mock_driver, "Entity", TaskPure)
 
         builder = (
             backend.relate()
-            .from_node("task.123", labels=["Ku"])
+            .from_node("task.123", labels=["Entity"])
             .via("APPLIES_KNOWLEDGE")
-            .to_node("ku.456", labels=["Ku"])
+            .to_node("ku.456", labels=["Entity"])
         )
 
-        assert builder._from_labels == ["Ku"]
-        assert builder._to_labels == ["Ku"]
+        assert builder._from_labels == ["Entity"]
+        assert builder._to_labels == ["Entity"]
 
 
 # ============================================================================

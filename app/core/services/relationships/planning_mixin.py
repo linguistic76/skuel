@@ -238,7 +238,7 @@ class PlanningMixin:
         entity_label = self.config.entity_label
         query = f"""
         MATCH (u:User {{uid: $user_uid}})-[:HAS_{domain_name.upper()}]->(e:{entity_label})
-        MATCH (e)-[:APPLIES_KNOWLEDGE|REQUIRES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(k:Ku)
+        MATCH (e)-[:APPLIES_KNOWLEDGE|REQUIRES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(k:Entity)
         {"WHERE k.uid = $knowledge_focus" if knowledge_focus else ""}
         RETURN DISTINCT e, collect(k.uid) as knowledge_uids
         LIMIT $limit

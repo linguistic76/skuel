@@ -47,9 +47,9 @@ def build_create_index_ddl(
 
         # Fulltext index (text search)
         >>> build_create_index_ddl(
-        ...     "ku_search_idx", ["Ku"], ["title", "content"], "FULLTEXT"
+        ...     "ku_search_idx", ["Entity"], ["title", "content"], "FULLTEXT"
         ... )
-        "CREATE FULLTEXT INDEX ku_search_idx IF NOT EXISTS FOR (n:Ku) ON EACH [n.title, n.content]"
+        "CREATE FULLTEXT INDEX ku_search_idx IF NOT EXISTS FOR (n:Entity) ON EACH [n.title, n.content]"
     """
     label = labels[0] if labels else "Node"
 

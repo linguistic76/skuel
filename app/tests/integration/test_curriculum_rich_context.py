@@ -125,23 +125,23 @@ class TestCurriculumRichContext:
         await services.ls.core.backend.driver.execute_query(
             """
             // Primary knowledge
-            MATCH (ls:Ku {uid: $step_uid})
-            MATCH (ku:Ku {uid: $primary_ku})
+            MATCH (ls:Entity {uid: $step_uid})
+            MATCH (ku:Entity {uid: $primary_ku})
             CREATE (ls)-[:REQUIRES_KNOWLEDGE {type: 'primary', confidence: 0.95}]->(ku)
 
             // Supporting knowledge
             WITH ls
-            MATCH (supporting:Ku {uid: $supporting_ku})
+            MATCH (supporting:Entity {uid: $supporting_ku})
             CREATE (ls)-[:REQUIRES_KNOWLEDGE {type: 'supporting', confidence: 0.8}]->(supporting)
 
             // Prerequisite knowledge
             WITH ls
-            MATCH (prereq:Ku {uid: $prereq_ku})
+            MATCH (prereq:Entity {uid: $prereq_ku})
             CREATE (ls)-[:REQUIRES_KNOWLEDGE {type: 'prerequisite'}]->(prereq)
 
             // Prerequisite step
             WITH ls
-            MATCH (prereq_step:Ku {uid: $prereq_step})
+            MATCH (prereq_step:Entity {uid: $prereq_step})
             CREATE (ls)-[:REQUIRES_STEP]->(prereq_step)
 
             // Guiding principle
@@ -156,7 +156,7 @@ class TestCurriculumRichContext:
 
             // Learning path
             WITH ls
-            MATCH (lp:Ku {uid: $lp_uid})
+            MATCH (lp:Entity {uid: $lp_uid})
             CREATE (lp)-[:CONTAINS_STEP {sequence: 2}]->(ls)
             """,
             {
@@ -174,8 +174,8 @@ class TestCurriculumRichContext:
         # Debug: Verify learning path exists and has relationship
         check_result = await services.ls.core.backend.driver.execute_query(
             """
-            MATCH (lp:Ku {uid: $lp_uid})
-            OPTIONAL MATCH (lp)-[r:HAS_STEP|CONTAINS_STEP]->(ls:Ku {uid: $ls_uid})
+            MATCH (lp:Entity {uid: $lp_uid})
+            OPTIONAL MATCH (lp)-[r:HAS_STEP|CONTAINS_STEP]->(ls:Entity {uid: $ls_uid})
             RETURN lp.uid as lp_uid, lp.title as lp_name, type(r) as rel_type, r.sequence as sequence, ls.uid as ls_uid
             """,
             {"lp_uid": learning_path.uid, "ls_uid": main_step.uid},
@@ -282,8 +282,8 @@ class TestCurriculumRichContext:
         await services.lp.core.backend.driver.execute_query(
             """
             // Prerequisite knowledge
-            MATCH (lp:Ku {uid: $lp_uid})
-            MATCH (ku:Ku {uid: $prereq_ku})
+            MATCH (lp:Entity {uid: $lp_uid})
+            MATCH (ku:Entity {uid: $prereq_ku})
             CREATE (lp)-[:REQUIRES_KNOWLEDGE]->(ku)
 
             // Aligned goal
@@ -298,12 +298,12 @@ class TestCurriculumRichContext:
 
             // Steps (with sequence and completion)
             WITH lp
-            MATCH (step1:Ku {uid: $step1_uid})
+            MATCH (step1:Entity {uid: $step1_uid})
             CREATE (lp)-[:CONTAINS_STEP {sequence: 1}]->(step1)
             SET step1.completed = true
 
             WITH lp
-            MATCH (step2:Ku {uid: $step2_uid})
+            MATCH (step2:Entity {uid: $step2_uid})
             CREATE (lp)-[:CONTAINS_STEP {sequence: 2}]->(step2)
             SET step2.completed = false
 
@@ -398,11 +398,11 @@ class TestCurriculumRichContext:
         # MEGA-QUERY expects :LearningPath, :LearningStep, :Goal labels
         await services.lp.core.backend.driver.execute_query(
             """
-            MATCH (lp:Ku {uid: $lp_uid}) SET lp:LearningPath
+            MATCH (lp:Entity {uid: $lp_uid}) SET lp:LearningPath
             WITH lp
-            MATCH (ls:Ku {uid: $ls_uid}) SET ls:LearningStep
+            MATCH (ls:Entity {uid: $ls_uid}) SET ls:LearningStep
             WITH ls
-            MATCH (goal:Ku {uid: $goal_uid}) SET goal:Goal
+            MATCH (goal:Entity {uid: $goal_uid}) SET goal:Goal
             """,
             {
                 "lp_uid": learning_path.uid,
@@ -431,7 +431,7 @@ class TestCurriculumRichContext:
 
             // Step teaches knowledge
             WITH ls
-            MATCH (ku:Ku {uid: $ku_uid})
+            MATCH (ku:Entity {uid: $ku_uid})
             CREATE (ls)-[:REQUIRES_KNOWLEDGE {type: 'primary'}]->(ku)
 
             // User working on step

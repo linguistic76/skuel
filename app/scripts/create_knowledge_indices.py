@@ -29,7 +29,7 @@ async def create_constraint_indices(connection):
         (
             "Ku",
             "uid",
-            "CREATE CONSTRAINT ku_uid_unique IF NOT EXISTS FOR (n:Ku) REQUIRE n.uid IS UNIQUE",
+            "CREATE CONSTRAINT ku_uid_unique IF NOT EXISTS FOR (n:Entity) REQUIRE n.uid IS UNIQUE",
         ),
         (
             "Content",
@@ -62,37 +62,37 @@ async def create_lookup_indices(connection):
         (
             "Ku",
             "title",
-            "CREATE INDEX ku_title IF NOT EXISTS FOR (n:Ku) ON (n.title)",
+            "CREATE INDEX ku_title IF NOT EXISTS FOR (n:Entity) ON (n.title)",
         ),
         (
             "Ku",
             "status",
-            "CREATE INDEX ku_status IF NOT EXISTS FOR (n:Ku) ON (n.status)",
+            "CREATE INDEX ku_status IF NOT EXISTS FOR (n:Entity) ON (n.status)",
         ),
         (
             "Ku",
             "parent_uid",
-            "CREATE INDEX ku_parent IF NOT EXISTS FOR (n:Ku) ON (n.parent_uid)",
+            "CREATE INDEX ku_parent IF NOT EXISTS FOR (n:Entity) ON (n.parent_uid)",
         ),
         (
             "Ku",
             "content_type",
-            "CREATE INDEX ku_content_type IF NOT EXISTS FOR (n:Ku) ON (n.content_type)",
+            "CREATE INDEX ku_content_type IF NOT EXISTS FOR (n:Entity) ON (n.content_type)",
         ),
         (
             "Ku",
             "practice_level",
-            "CREATE INDEX ku_practice_level IF NOT EXISTS FOR (n:Ku) ON (n.practice_level)",
+            "CREATE INDEX ku_practice_level IF NOT EXISTS FOR (n:Entity) ON (n.practice_level)",
         ),
         (
             "Ku",
             "category",
-            "CREATE INDEX ku_category IF NOT EXISTS FOR (n:Ku) ON (n.category)",
+            "CREATE INDEX ku_category IF NOT EXISTS FOR (n:Entity) ON (n.category)",
         ),
         (
             "Ku",
             "domain_uid",
-            "CREATE INDEX ku_domain_uid IF NOT EXISTS FOR (n:Ku) ON (n.domain_uid)",
+            "CREATE INDEX ku_domain_uid IF NOT EXISTS FOR (n:Entity) ON (n.domain_uid)",
         ),
         (
             "Content",
@@ -148,7 +148,7 @@ async def create_fulltext_indices(connection):
             "name": "ku_title_fulltext",
             "query": """
             CREATE TEXT INDEX ku_title_fulltext IF NOT EXISTS
-            FOR (n:Ku)
+            FOR (n:Entity)
             ON (n.title)
             """,
             "description": "KnowledgeUnit title",
@@ -157,7 +157,7 @@ async def create_fulltext_indices(connection):
             "name": "ku_summary_fulltext",
             "query": """
             CREATE TEXT INDEX ku_summary_fulltext IF NOT EXISTS
-            FOR (n:Ku)
+            FOR (n:Entity)
             ON (n.summary)
             """,
             "description": "KnowledgeUnit summary",
@@ -175,7 +175,7 @@ async def create_fulltext_indices(connection):
             "name": "ku_tags_fulltext",
             "query": """
             CREATE TEXT INDEX ku_tags_fulltext IF NOT EXISTS
-            FOR (n:Ku)
+            FOR (n:Entity)
             ON (n.tags)
             """,
             "description": "KnowledgeUnit tags",
@@ -209,17 +209,17 @@ async def create_composite_indices(connection):
     composite_indices = [
         {
             "name": "ku_domain_status",
-            "query": "CREATE INDEX ku_domain_status IF NOT EXISTS FOR (n:Ku) ON (n.domain_uid, n.status)",
+            "query": "CREATE INDEX ku_domain_status IF NOT EXISTS FOR (n:Entity) ON (n.domain_uid, n.status)",
             "description": "Domain + Status lookups",
         },
         {
             "name": "ku_practice_status",
-            "query": "CREATE INDEX ku_practice_status IF NOT EXISTS FOR (n:Ku) ON (n.practice_level, n.status)",
+            "query": "CREATE INDEX ku_practice_status IF NOT EXISTS FOR (n:Entity) ON (n.practice_level, n.status)",
             "description": "Practice Level + Status lookups",
         },
         {
             "name": "ku_type_category",
-            "query": "CREATE INDEX ku_type_category IF NOT EXISTS FOR (n:Ku) ON (n.content_type, n.category)",
+            "query": "CREATE INDEX ku_type_category IF NOT EXISTS FOR (n:Entity) ON (n.content_type, n.category)",
             "description": "Content Type + Category lookups",
         },
         {

@@ -67,10 +67,10 @@ NEXT_KNOWLEDGE_IN_PATH = SkuelQueryTemplate(
     WHERE lp.uid = $current_path_uid
 
     // Get available knowledge units
-    MATCH (lp)-[:CONTAINS]->(ku:Ku)
+    MATCH (lp)-[:CONTAINS]->(ku:Entity)
 
     // Filter by prerequisites (all must be mastered)
-    OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+    OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
     WITH ku, lp, user,
          collect(prereq.uid) AS prereq_uids,
          $mastered_uids AS mastered
@@ -120,7 +120,7 @@ LIFE_PATH_ALIGNMENT = SkuelQueryTemplate(
     MATCH (user:User {uid: $user_uid})-[:ULTIMATE_PATH]->(life_path:Lp)
 
     // Get all knowledge in life path
-    MATCH (life_path)-[:CONTAINS]->(ku:Ku)
+    MATCH (life_path)-[:CONTAINS]->(ku:Entity)
 
     // Get substance score (real-world application)
     OPTIONAL MATCH (user)-[r:APPLIED]->(ku)
@@ -176,7 +176,7 @@ REQUIRES_KNOWLEDGE_CHAIN = SkuelQueryTemplate(
     description="Find complete requires-knowledge chain (recursive) for a target knowledge unit",
     cypher="""
     // Find complete requires-knowledge chain for target knowledge
-    MATCH path = (target:Ku {uid: $target_uid})-[:REQUIRES_KNOWLEDGE*0..5]->(prereq:Ku)
+    MATCH path = (target:Entity {uid: $target_uid})-[:REQUIRES_KNOWLEDGE*0..5]->(prereq:Entity)
 
     // Get user's mastery state
     MATCH (user:User {uid: $user_uid})
@@ -207,7 +207,7 @@ CROSS_DOMAIN_APPLICATIONS = SkuelQueryTemplate(
     description="Show how knowledge is applied across supporting domains",
     cypher="""
     // Find all applications of specific knowledge across domains
-    MATCH (ku:Ku {uid: $knowledge_uid})
+    MATCH (ku:Entity {uid: $knowledge_uid})
 
     // Tasks applying this knowledge
     OPTIONAL MATCH (ku)<-[:APPLIES_KNOWLEDGE]-(task:Task {user_uid: $user_uid})
@@ -267,10 +267,10 @@ USER_PROGRESS_SNAPSHOT = SkuelQueryTemplate(
 
     // Get all enrolled learning paths
     OPTIONAL MATCH (user)-[:ENROLLED_IN]->(lp:Lp)
-    OPTIONAL MATCH (lp)-[:CONTAINS]->(ku:Ku)
+    OPTIONAL MATCH (lp)-[:CONTAINS]->(ku:Entity)
 
     // Get mastery state
-    OPTIONAL MATCH (user)-[m:MASTERED]->(mastered_ku:Ku)
+    OPTIONAL MATCH (user)-[m:MASTERED]->(mastered_ku:Entity)
     WHERE mastered_ku.uid = ku.uid
 
     // Calculate progress per path
@@ -330,10 +330,10 @@ ADAPTIVE_RECOMMENDATIONS = SkuelQueryTemplate(
     WHERE current_path.uid = $current_path_uid
 
     // Get available knowledge units
-    MATCH (current_path)-[:CONTAINS]->(ku:Ku)
+    MATCH (current_path)-[:CONTAINS]->(ku:Entity)
 
     // Filter by prerequisites (all must be mastered)
-    OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+    OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
     WITH ku, current_path, user,
          collect(prereq.uid) AS prereq_uids,
          $mastered_uids AS mastered
@@ -369,7 +369,7 @@ ADAPTIVE_RECOMMENDATIONS = SkuelQueryTemplate(
            ELSE 1.0
          END AS difficulty_match,
 
-         size((ku)-[:ENABLES_KNOWLEDGE]->(:Ku)) AS enablement_score
+         size((ku)-[:ENABLES_KNOWLEDGE]->(:Entity)) AS enablement_score
 
     WITH ku, current_path,
          (section_priority + difficulty_match + (enablement_score * 0.5)) AS recommendation_score
@@ -402,7 +402,7 @@ KNOWLEDGE_SUBSTANCE_UPDATE = SkuelQueryTemplate(
     cypher="""
     // Update knowledge substance based on domain events
     MATCH (user:User {uid: $user_uid})
-    MATCH (ku:Ku {uid: $knowledge_uid})
+    MATCH (ku:Entity {uid: $knowledge_uid})
 
     // Get application counts over last 30 days
     OPTIONAL MATCH (ku)<-[app:APPLIES_KNOWLEDGE]-(entity)
@@ -500,7 +500,7 @@ BULK_LEARNING_PATH_INGESTION = SkuelQueryTemplate(
     // Phase 2: Create KnowledgeUnits
     UNWIND lp_data.knowledge_units AS ku_data
 
-    MERGE (ku:Ku {uid: ku_data.uid})
+    MERGE (ku:Entity {uid: ku_data.uid})
     SET
       ku.title = ku_data.title,
       ku.word_count = coalesce(ku_data.word_count, 0),
@@ -518,13 +518,13 @@ BULK_LEARNING_PATH_INGESTION = SkuelQueryTemplate(
 
     // Phase 4: Create prerequisite relationships
     FOREACH (prereq_uid IN coalesce(ku_data.prerequisites, []) |
-      MERGE (prereq:Ku {uid: prereq_uid})
+      MERGE (prereq:Entity {uid: prereq_uid})
       MERGE (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
     )
 
     // Phase 5: Create enables relationships
     FOREACH (enabled_uid IN coalesce(ku_data.enables, []) |
-      MERGE (enabled:Ku {uid: enabled_uid})
+      MERGE (enabled:Entity {uid: enabled_uid})
       MERGE (ku)-[:ENABLES_KNOWLEDGE]->(enabled)
     )
 
@@ -547,7 +547,7 @@ CREATE_CONSTRAINTS = SkuelQueryTemplate(
     cypher="""
     // Core entity constraints
     CREATE CONSTRAINT lp_uid IF NOT EXISTS FOR (lp:Lp) REQUIRE lp.uid IS UNIQUE;
-    CREATE CONSTRAINT ku_uid IF NOT EXISTS FOR (ku:Ku) REQUIRE ku.uid IS UNIQUE;
+    CREATE CONSTRAINT ku_uid IF NOT EXISTS FOR (ku:Entity) REQUIRE ku.uid IS UNIQUE;
     CREATE CONSTRAINT user_uid IF NOT EXISTS FOR (u:User) REQUIRE u.uid IS UNIQUE;
 
     // Supporting domain constraints
@@ -565,14 +565,14 @@ CREATE_INDEXES = SkuelQueryTemplate(
     description="Create indexes for common query patterns (idempotent)",
     cypher="""
     // Section-based queries (foundation/practice/integration)
-    CREATE INDEX ku_section IF NOT EXISTS FOR (ku:Ku) ON (ku.section);
+    CREATE INDEX ku_section IF NOT EXISTS FOR (ku:Entity) ON (ku.section);
     CREATE INDEX lp_section IF NOT EXISTS FOR (lp:Lp) ON (lp.section);
 
     // User lookup
     CREATE INDEX user_lookup IF NOT EXISTS FOR (u:User) ON (u.username);
 
     // Domain filtering
-    CREATE INDEX ku_domain IF NOT EXISTS FOR (ku:Ku) ON (ku.domain);
+    CREATE INDEX ku_domain IF NOT EXISTS FOR (ku:Entity) ON (ku.domain);
     """,
     parameters={},
 )

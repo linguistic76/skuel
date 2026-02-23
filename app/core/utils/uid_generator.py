@@ -191,7 +191,7 @@ class UIDGenerator:
     # - get_domain_from_uid() - No longer needed (domain not encoded in UID)
     #
     # Hierarchy is now stored in graph relationships:
-    # - (parent:Ku)-[:ORGANIZES {order}]->(child:Ku)
+    # - (parent:Entity)-[:ORGANIZES {order}]->(child:Entity)
     # - Use KuCoreService.get_parent_kus() to find parents
     # - Use KuCoreService.get_ku_hierarchy() for full hierarchy context
     #

@@ -68,9 +68,7 @@ def sample_ku() -> Mock:
 @pytest.mark.asyncio
 async def test_is_organizer_true(organization_service, mock_driver):
     """Test is_organizer returns True when Ku has organized children."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [{"ku_exists": True, "is_organizer": True}]
-    )
+    mock_driver.execute_query.return_value = Result.ok([{"ku_exists": True, "is_organizer": True}])
 
     result = await organization_service.is_organizer("ku.python-reference")
 
@@ -81,9 +79,7 @@ async def test_is_organizer_true(organization_service, mock_driver):
 @pytest.mark.asyncio
 async def test_is_organizer_false(organization_service, mock_driver):
     """Test is_organizer returns False when Ku has no children."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [{"ku_exists": True, "is_organizer": False}]
-    )
+    mock_driver.execute_query.return_value = Result.ok([{"ku_exists": True, "is_organizer": False}])
 
     result = await organization_service.is_organizer("ku.standalone")
 

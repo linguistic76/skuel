@@ -51,13 +51,13 @@ class TestEventKuPracticeFlow:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Ku", Curriculum)
+        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
 
     @pytest_asyncio.fixture
     async def event_backend(self, neo4j_driver, clean_neo4j):
         """Create Event backend with clean database."""
         return UniversalNeo4jBackend[Event](
-            neo4j_driver, "Ku", Event, default_filters={"ku_type": "event"}
+            neo4j_driver, "Entity", Event, default_filters={"ku_type": "event"}
         )
 
     @pytest_asyncio.fixture
@@ -122,7 +122,7 @@ class TestEventKuPracticeFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (e:Ku {uid: $event_uid, ku_type: 'event'})
+                MATCH (e:Entity {uid: $event_uid, ku_type: 'event'})
                 SET e:Event
                 """,
                 event_uid=event.uid,
@@ -134,7 +134,7 @@ class TestEventKuPracticeFlow:
                 await session.run(
                     """
                     MATCH (event:Event {uid: $event_uid})
-                    MATCH (ku:Ku {uid: $ku_uid})
+                    MATCH (ku:Entity {uid: $ku_uid})
                     MERGE (event)-[:PRACTICES]->(ku)
                     RETURN event.uid, ku.uid
                     """,
@@ -182,7 +182,7 @@ class TestEventKuPracticeFlow:
             for ku in kus:
                 result = await session.run(
                     """
-                    MATCH (ku:Ku {uid: $ku_uid})
+                    MATCH (ku:Entity {uid: $ku_uid})
                     RETURN ku.times_practiced_in_events as count
                     """,
                     ku_uid=ku.uid,
@@ -223,7 +223,7 @@ class TestEventKuPracticeFlow:
             for ku in kus:
                 result = await session.run(
                     """
-                    MATCH (ku:Ku {uid: $ku_uid})
+                    MATCH (ku:Entity {uid: $ku_uid})
                     RETURN ku.times_practiced_in_events as count
                     """,
                     ku_uid=ku.uid,
@@ -341,7 +341,7 @@ class TestEventKuPracticeFlow:
         async with neo4j_driver.session() as session:
             result = await session.run(
                 """
-                MATCH (ku:Ku)
+                MATCH (ku:Entity)
                 WHERE ku.times_practiced_in_events > 0
                 RETURN count(ku) as updated_count
                 """
@@ -393,7 +393,7 @@ class TestEventKuPracticeFlow:
             for ku in kus:
                 result = await session.run(
                     """
-                    MATCH (ku:Ku {uid: $ku_uid})
+                    MATCH (ku:Entity {uid: $ku_uid})
                     RETURN ku.last_practiced_date as last_date
                     """,
                     ku_uid=ku.uid,

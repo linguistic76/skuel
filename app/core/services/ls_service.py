@@ -259,7 +259,7 @@ class LsService(FacadeDelegationMixin):
         # If sequence not provided, get max sequence + 1 via direct query
         if sequence is None:
             seq_query = """
-            MATCH (p:Ku {uid: $path_uid})-[r:HAS_STEP]->()
+            MATCH (p:Entity {uid: $path_uid})-[r:HAS_STEP]->()
             RETURN coalesce(max(r.sequence), -1) + 1 as next_sequence
             """
             seq_result = await self.executor.execute_query(seq_query, {"path_uid": path_uid})

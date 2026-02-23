@@ -362,7 +362,7 @@ class UserBackend(UserOperations):
         try:
             query = """
             MATCH (u:User {uid: $user_uid})
-            MATCH (k:Ku {uid: $knowledge_uid})
+            MATCH (k:Entity {uid: $knowledge_uid})
             MERGE (u)-[r:MASTERED]->(k)
             SET r.mastery_score = $mastery_score,
                 r.practice_count = $practice_count,
@@ -429,7 +429,7 @@ class UserBackend(UserOperations):
         try:
             query = """
             MATCH (u:User {uid: $user_uid})
-            MATCH (k:Ku {uid: $knowledge_uid})
+            MATCH (k:Entity {uid: $knowledge_uid})
             MERGE (u)-[r:LEARNING]->(k)
             SET r.progress = $progress,
                 r.time_invested_minutes = coalesce(r.time_invested_minutes, 0) + $time_invested_minutes,
@@ -485,7 +485,7 @@ class UserBackend(UserOperations):
         """
         try:
             query = """
-            MATCH (u:User {uid: $user_uid})-[r:MASTERED]->(k:Ku {uid: $concept_uid})
+            MATCH (u:User {uid: $user_uid})-[r:MASTERED]->(k:Entity {uid: $concept_uid})
             RETURN r.mastery_score as mastery_score
             """
 
@@ -661,7 +661,7 @@ class UserBackend(UserOperations):
         try:
             query = """
             MATCH (u:User {uid: $user_uid})
-            MATCH (k:Ku {uid: $knowledge_uid})
+            MATCH (k:Entity {uid: $knowledge_uid})
             MERGE (u)-[r:INTERESTED_IN]->(k)
             SET r.interest_score = $interest_score,
                 r.interest_source = $interest_source,
@@ -730,7 +730,7 @@ class UserBackend(UserOperations):
         try:
             query = """
             MATCH (u:User {uid: $user_uid})
-            MATCH (k:Ku {uid: $knowledge_uid})
+            MATCH (k:Entity {uid: $knowledge_uid})
             MERGE (u)-[r:BOOKMARKED]->(k)
             SET r.bookmarked_at = datetime(),
                 r.bookmark_reason = $bookmark_reason,
@@ -929,7 +929,7 @@ class UserBackend(UserOperations):
         """
         try:
             query = """
-            MATCH (u:User)-[r:LEARNING|MASTERED]->(k:Ku)
+            MATCH (u:User)-[r:LEARNING|MASTERED]->(k:Entity)
             WHERE r.last_updated >= datetime() - duration({hours: $hours})
                OR r.last_practiced >= datetime() - duration({hours: $hours})
             WITH DISTINCT u

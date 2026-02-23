@@ -375,7 +375,7 @@ async def increment_substance_metric(
 ) -> None:
     '''Atomically increment a substance metric in Neo4j.'''
     query = f'''
-    MATCH (ku:Ku {{uid: $ku_uid}})
+    MATCH (ku:Entity {{uid: $ku_uid}})
     SET ku.{metric} = COALESCE(ku.{metric}, 0) + 1,
         ku.{timestamp_field} = $timestamp,
         ku._substance_cache_timestamp = NULL  # Invalidate cache

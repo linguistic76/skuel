@@ -62,7 +62,7 @@ def parse_markdown_file(file_path: Path) -> dict | None:
 async def create_ku_node(session, data: dict) -> bool:
     """Create a KU node in Neo4j."""
     query = """
-    MERGE (k:Ku {uid: $uid})
+    MERGE (k:Entity {uid: $uid})
     SET k.title = $title,
         k.description = $description,
         k.icon = $icon,
@@ -103,9 +103,9 @@ async def create_ku_node(session, data: dict) -> bool:
 async def create_parent_relationships(session) -> int:
     """Create HAS_NARROWER relationships based on parent_uid."""
     query = """
-    MATCH (child:Ku)
+    MATCH (child:Entity)
     WHERE child.parent_uid IS NOT NULL
-    MATCH (parent:Ku {uid: child.parent_uid})
+    MATCH (parent:Entity {uid: child.parent_uid})
     MERGE (parent)-[r:HAS_NARROWER]->(child)
     RETURN count(r) as count
     """

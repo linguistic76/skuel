@@ -162,7 +162,7 @@ class DailyPlanningMixin:
             if self.vector_search and getattr(self.vector_search, "learning_aware_search", None):
                 search_query = self._generate_daily_learning_query(goals_uids, tasks_uids)
                 vector_result = await self.vector_search.learning_aware_search(
-                    label="Ku",
+                    label="Entity",
                     text=search_query,
                     user_uid=self.context.user_uid,
                     prefer_unmastered=True,

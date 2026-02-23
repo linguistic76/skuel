@@ -201,7 +201,7 @@ class VectorSearchConfig:
         """
         entity_lower = entity_type.lower()
         mapping = {
-            "ku": self.ku_min_score,
+            "entity": self.ku_min_score,
             "task": self.task_min_score,
             "goal": self.goal_min_score,
             "habit": self.habit_min_score,

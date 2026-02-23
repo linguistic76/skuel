@@ -95,13 +95,13 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
     @property
     def entity_label(self) -> str:
         """Entity label for Neo4j queries."""
-        return "Ku"
+        return "Entity"
 
     def _get_content_query(self) -> str:
         """
         Return Cypher query fragment for fetching KU metadata.
 
-        Content lives on the :Content node (via HAS_CONTENT), not on the :Ku node.
+        Content lives on the :Content node (via HAS_CONTENT), not on the :Entity node.
         """
         return """
         RETURN n
@@ -343,7 +343,9 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
 
     @track_query_metrics("ku_get_with_context")
     @with_error_handling("get_with_context", error_type="database", uid_param="uid")
-    async def get_with_context(self, uid: str, min_confidence: float = 0.7) -> Result[CurriculumDTO]:
+    async def get_with_context(
+        self, uid: str, min_confidence: float = 0.7
+    ) -> Result[CurriculumDTO]:
         """
         Get knowledge unit WITH graph neighborhood context in single query.
 
@@ -384,10 +386,10 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         """
         # Build graph-native query - fetches everything in ONE round-trip
         query = """
-        MATCH (ku:Ku {uid: $uid})
+        MATCH (ku:Entity {uid: $uid})
 
         // Fetch prerequisites (1-hop incoming REQUIRES_KNOWLEDGE)
-        OPTIONAL MATCH (ku)-[r1:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+        OPTIONAL MATCH (ku)-[r1:REQUIRES_KNOWLEDGE]->(prereq:Entity)
         WHERE coalesce(r1.confidence, 1.0) >= $min_confidence
         WITH ku, collect(DISTINCT {
             uid: prereq.uid,
@@ -396,7 +398,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         }) as prerequisites
 
         // Fetch dependents (who needs this KU - outgoing REQUIRES_KNOWLEDGE)
-        OPTIONAL MATCH (dependent:Ku)-[r2:REQUIRES_KNOWLEDGE]->(ku)
+        OPTIONAL MATCH (dependent:Entity)-[r2:REQUIRES_KNOWLEDGE]->(ku)
         WHERE coalesce(r2.confidence, 1.0) >= $min_confidence
         WITH ku, prerequisites, collect(DISTINCT {
             uid: dependent.uid,
@@ -405,7 +407,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         }) as dependents
 
         // Fetch related knowledge (lateral connections)
-        OPTIONAL MATCH (ku)-[r3:RELATED_TO|EXTENDS_PATTERN|DEEPENS_UNDERSTANDING]-(related:Ku)
+        OPTIONAL MATCH (ku)-[r3:RELATED_TO|EXTENDS_PATTERN|DEEPENS_UNDERSTANDING]-(related:Entity)
         WHERE coalesce(r3.confidence, 1.0) >= $min_confidence * 0.85
         WITH ku, prerequisites, dependents, collect(DISTINCT {
             uid: related.uid,
@@ -419,7 +421,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         WITH ku, prerequisites, dependents, related, count(DISTINCT user) as mastery_count
 
         // Fetch similar knowledge (shared neighbors - Jaccard similarity)
-        OPTIONAL MATCH (ku)-[]-(shared)-[]-(similar:Ku)
+        OPTIONAL MATCH (ku)-[]-(shared)-[]-(similar:Entity)
         WHERE similar <> ku
         WITH ku, prerequisites, dependents, related, mastery_count,
              similar, count(DISTINCT shared) as shared_count
@@ -481,7 +483,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         """
         Get a knowledge unit with its full content body.
 
-        Content lives on the :Content node (via HAS_CONTENT), not on the :Ku node.
+        Content lives on the :Content node (via HAS_CONTENT), not on the :Entity node.
         Use this method for detail views that need to render markdown.
 
         Args:
@@ -726,7 +728,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         """
         # Query graph for mastery relationship
         query = """
-        MATCH (user:User {uid: $user_uid})-[r:MASTERED]->(ku:Ku {uid: $ku_uid})
+        MATCH (user:User {uid: $user_uid})-[r:MASTERED]->(ku:Entity {uid: $ku_uid})
         RETURN r.level as mastery
         """
         params = {"user_uid": user_uid, "ku_uid": ku_uid}
@@ -779,7 +781,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
         query = f"""
-        MATCH (parent:Ku {{uid: $parent_uid}})-[r:ORGANIZES*1..{depth}]->(child:Ku)
+        MATCH (parent:Entity {{uid: $parent_uid}})-[r:ORGANIZES*1..{depth}]->(child:Entity)
         RETURN child, r
         ORDER BY r[0].order ASC
         """
@@ -819,7 +821,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
         query = """
-        MATCH (parent:Ku)-[:ORGANIZES]->(child:Ku {uid: $ku_uid})
+        MATCH (parent:Entity)-[:ORGANIZES]->(child:Entity {uid: $ku_uid})
         RETURN parent
         ORDER BY parent.title
         """
@@ -867,22 +869,22 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         """
         # Get ancestors
         ancestors_query = """
-        MATCH path = (ancestor:Ku)-[:ORGANIZES*]->(ku:Ku {uid: $ku_uid})
+        MATCH path = (ancestor:Entity)-[:ORGANIZES*]->(ku:Entity {uid: $ku_uid})
         RETURN ancestor, length(path) as depth
         ORDER BY depth DESC
         """
 
         # Get children
         children_query = """
-        MATCH (ku:Ku {uid: $ku_uid})-[:ORGANIZES]->(child:Ku)
+        MATCH (ku:Entity {uid: $ku_uid})-[:ORGANIZES]->(child:Entity)
         RETURN child
         ORDER BY child.title
         """
 
         # Get siblings (KUs with same parents)
         siblings_query = """
-        MATCH (parent:Ku)-[:ORGANIZES]->(sibling:Ku)
-        WHERE (parent)-[:ORGANIZES]->(:Ku {uid: $ku_uid})
+        MATCH (parent:Entity)-[:ORGANIZES]->(sibling:Entity)
+        WHERE (parent)-[:ORGANIZES]->(:Entity {uid: $ku_uid})
         AND sibling.uid <> $ku_uid
         RETURN DISTINCT sibling
         ORDER BY sibling.title
@@ -967,7 +969,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
 
         # Check for cycle prevention
         cycle_query = """
-        MATCH path = (child:Ku {uid: $child_uid})-[:ORGANIZES*]->(parent:Ku {uid: $parent_uid})
+        MATCH path = (child:Entity {uid: $child_uid})-[:ORGANIZES*]->(parent:Entity {uid: $parent_uid})
         RETURN length(path) as cycle_length
         LIMIT 1
         """
@@ -987,8 +989,8 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
 
         # Create ORGANIZES relationship
         query = """
-        MATCH (parent:Ku {uid: $parent_uid})
-        MATCH (child:Ku {uid: $child_uid})
+        MATCH (parent:Entity {uid: $parent_uid})
+        MATCH (child:Entity {uid: $child_uid})
         MERGE (parent)-[r:ORGANIZES]->(child)
         SET r.order = $order,
             r.importance = $importance,
@@ -1046,7 +1048,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
         query = """
-        MATCH (parent:Ku {uid: $parent_uid})-[r:ORGANIZES]->(child:Ku {uid: $child_uid})
+        MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
         DELETE r
         RETURN count(r) as deleted
         """

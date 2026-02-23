@@ -51,7 +51,7 @@ class TestBuildRelationshipExistsQuery:
     def test_both_direction(self):
         """Test building exists query for both directions."""
         result = BatchOperationHelper.build_relationship_exists_query(
-            node_label="Ku",
+            node_label="Entity",
             relationship_types=["RELATED_TO"],
             direction="both",
         )

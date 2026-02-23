@@ -50,7 +50,7 @@ def _backend_with_filters(
 ) -> UniversalNeo4jBackend[SampleKu]:
     return UniversalNeo4jBackend[SampleKu](
         driver=driver,
-        label="Ku",
+        label="Entity",
         entity_class=SampleKu,
         validate_label=False,
         default_filters=filters,
@@ -78,7 +78,7 @@ class TestDefaultFiltersConstructor:
     def test_default_filters_omitted_becomes_empty(self):
         driver, _ = _mock_driver()
         backend = UniversalNeo4jBackend[SampleKu](
-            driver=driver, label="Ku", entity_class=SampleKu, validate_label=False
+            driver=driver, label="Entity", entity_class=SampleKu, validate_label=False
         )
         assert backend.default_filters == {}
 
@@ -406,7 +406,7 @@ class TestBackwardCompatibility:
 
         query = session.run.call_args[0][0]
         # Should have the basic MATCH without any WHERE
-        assert "MATCH (n:Ku {uid: $uid})" in query
+        assert "MATCH (n:Entity {uid: $uid})" in query
         assert "WHERE" not in query
 
     @pytest.mark.asyncio

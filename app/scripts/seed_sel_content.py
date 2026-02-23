@@ -712,8 +712,8 @@ async def create_enables_relationships(driver):
                 try:
                     # Create ENABLES relationship
                     query = """
-                    MATCH (source:Ku {uid: $source_uid})
-                    MATCH (target:Ku {uid: $target_uid})
+                    MATCH (source:Entity {uid: $source_uid})
+                    MATCH (target:Entity {uid: $target_uid})
                     MERGE (source)-[r:ENABLES]->(target)
                     RETURN r
                     """

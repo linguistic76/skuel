@@ -49,7 +49,7 @@ Example Usage:
     }
 
     # Execute bulk ingestion
-    engine = BulkIngestionEngine(driver, Knowledge, "Ku")
+    engine = BulkIngestionEngine(driver, Knowledge, "Entity")
     result = await engine.upsert_with_relationships(
         entities=[knowledge_units],
         relationship_config=rel_config
@@ -61,7 +61,7 @@ Example Usage:
     (ku:current)-[:ENABLES_KNOWLEDGE]->(ku:next)
 
     # Result: Node properties (connections.* removed)
-    (:Ku {
+    (:Entity {
         uid: "ku:current",
         title: "...",
         content: "..."
@@ -111,7 +111,7 @@ class RelationshipConfig(TypedDict, total=False):
 
     Fields:
         rel_type: Neo4j relationship type (e.g., "REQUIRES_KNOWLEDGE", "ENABLES_KNOWLEDGE")
-        target_label: Neo4j label for target nodes (e.g., "Ku")
+        target_label: Neo4j label for target nodes (e.g., "Entity")
         direction: Edge direction - "incoming", "outgoing", or "both"
             - "incoming": Creates (n)<-[:TYPE]-(target)
             - "outgoing": Creates (n)-[:TYPE]->(target) [default]
@@ -120,7 +120,7 @@ class RelationshipConfig(TypedDict, total=False):
     Example:
         config: RelationshipConfig = {
             "rel_type": "REQUIRES_KNOWLEDGE",
-            "target_label": "Ku",
+            "target_label": "Entity",
             "direction": "outgoing"
         }
 
@@ -339,12 +339,12 @@ RETURN count(n) as processed
                     {
                         "connections.requires": RelationshipConfig(
                             rel_type="REQUIRES_KNOWLEDGE",
-                            target_label="Ku",
+                            target_label="Entity",
                             direction="outgoing"
                         ),
                         "connections.enables": RelationshipConfig(
                             rel_type="ENABLES_KNOWLEDGE",
-                            target_label="Ku",
+                            target_label="Entity",
                             direction="outgoing"
                         )
                     }
@@ -365,13 +365,13 @@ RETURN count(n) as processed
             5. Execute batch transaction creating nodes + edges (Pure Cypher)
 
         Example:
-            engine = BulkIngestionEngine(driver, Knowledge, "Ku")
+            engine = BulkIngestionEngine(driver, Knowledge, "Entity")
             result = await engine.upsert_with_relationships(
                 entities=[ku1, ku2, ku3],
                 relationship_config={
                     "connections.requires": {
                         "rel_type": "REQUIRES_KNOWLEDGE",
-                        "target_label": "Ku",
+                        "target_label": "Entity",
                         "direction": "outgoing"
                     }
                 },
@@ -429,12 +429,12 @@ RETURN count(n) as processed
                     {
                         "connections.requires": {
                             "rel_type": "REQUIRES_KNOWLEDGE",
-                            "target_label": "Ku",
+                            "target_label": "Entity",
                             "direction": "outgoing"
                         },
                         "connections.enables": {
                             "rel_type": "ENABLES_KNOWLEDGE",
-                            "target_label": "Ku",
+                            "target_label": "Entity",
                             "direction": "outgoing"
                         }
                     }
@@ -445,12 +445,12 @@ RETURN count(n) as processed
         Generated Cypher Pattern (Pure Cypher - No APOC):
             UNWIND $items AS item
             WITH item, item._node_props AS props
-            MERGE (n:Ku {uid: item.uid})
+            MERGE (n:Entity {uid: item.uid})
               ON CREATE SET n = props
               ON MATCH SET n += props
             WITH n, item
             FOREACH (target_uid IN coalesce(item.`connections.requires`, []) |
-              MERGE (target:Ku {uid: target_uid})
+              MERGE (target:Entity {uid: target_uid})
               MERGE (n)-[:REQUIRES_KNOWLEDGE]->(target)
             )
 

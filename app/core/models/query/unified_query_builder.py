@@ -743,7 +743,7 @@ class UnifiedQueryBuilder:
 
         Example:
             explanation = builder.explain_query(
-                "MATCH (t:Task)-[:APPLIES_KNOWLEDGE]->(ku:Ku) "
+                "MATCH (t:Task)-[:APPLIES_KNOWLEDGE]->(ku:Entity) "
                 "WHERE t.status = 'active' RETURN t, ku"
             )
             print(explanation)

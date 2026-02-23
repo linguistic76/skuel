@@ -408,7 +408,7 @@ class BatchOperationHelper:
         filtering relationships by their properties (e.g., confidence, strength).
 
         Args:
-            node_label: Neo4j node label (e.g., "Ku", "Task")
+            node_label: Neo4j node label (e.g., "Entity", "Task")
             relationship_types: List of relationship types to check
             direction: Traversal direction ("outgoing", "incoming", or "both")
             property_filters: Optional filters for relationship properties
@@ -426,7 +426,7 @@ class BatchOperationHelper:
         Examples:
             # Find knowledge units with high-confidence prerequisites
             result = BatchOperationHelper.build_relationship_exists_with_filters_query(
-                node_label="Ku",
+                node_label="Entity",
                 relationship_types=["REQUIRES_KNOWLEDGE"],
                 direction="outgoing",
                 property_filters={"strength__gte": 0.8}
@@ -496,7 +496,7 @@ class BatchOperationHelper:
         with optional filtering by relationship properties.
 
         Args:
-            node_label: Neo4j node label (e.g., "Ku", "Task")
+            node_label: Neo4j node label (e.g., "Entity", "Task")
             relationship_types: List of relationship types to traverse
             direction: Traversal direction ("outgoing", "incoming", or "both")
             property_filters: Optional filters for relationship properties
@@ -512,7 +512,7 @@ class BatchOperationHelper:
         Examples:
             # Get high-strength prerequisites for multiple knowledge units
             result = BatchOperationHelper.build_get_related_with_filters_query(
-                node_label="Ku",
+                node_label="Entity",
                 relationship_types=["REQUIRES_KNOWLEDGE"],
                 direction="outgoing",
                 property_filters={"strength__gte": 0.8},

@@ -49,14 +49,14 @@ class TestHabitGoalEventFlow:
     async def habits_backend(self, neo4j_driver, clean_neo4j):
         """Create habits backend with clean database."""
         return UniversalNeo4jBackend[Habit](
-            neo4j_driver, "Ku", Habit, default_filters={"ku_type": "habit"}
+            neo4j_driver, "Entity", Habit, default_filters={"ku_type": "habit"}
         )
 
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
         """Create goals backend with clean database."""
         return UniversalNeo4jBackend[Goal](
-            neo4j_driver, "Ku", Goal, default_filters={"ku_type": "goal"}
+            neo4j_driver, "Entity", Goal, default_filters={"ku_type": "goal"}
         )
 
     @pytest_asyncio.fixture
@@ -153,8 +153,8 @@ class TestHabitGoalEventFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (goal:Ku {uid: $goal_uid})
-                MATCH (habit:Ku {uid: $habit_uid})
+                MATCH (goal:Entity {uid: $goal_uid})
+                MATCH (habit:Entity {uid: $habit_uid})
                 MERGE (goal)-[:SUPPORTS_GOAL]->(habit)
                 RETURN goal.uid as goal_uid, habit.uid as habit_uid
                 """,
@@ -359,8 +359,8 @@ class TestHabitGoalEventFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (goal:Ku {uid: $goal_uid})
-                MATCH (habit:Ku {uid: $habit_uid})
+                MATCH (goal:Entity {uid: $goal_uid})
+                MATCH (habit:Entity {uid: $habit_uid})
                 MERGE (goal)-[:SUPPORTS_GOAL]->(habit)
                 """,
                 goal_uid=task_based_goal.uid,
@@ -419,8 +419,8 @@ class TestHabitGoalEventFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (goal:Ku {uid: $goal_uid})
-                MATCH (habit:Ku {uid: $habit_uid})
+                MATCH (goal:Entity {uid: $goal_uid})
+                MATCH (habit:Entity {uid: $habit_uid})
                 MERGE (goal)-[:SUPPORTS_GOAL]->(habit)
                 """,
                 goal_uid=mixed_goal.uid,

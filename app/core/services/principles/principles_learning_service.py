@@ -38,7 +38,9 @@ logger = get_logger(__name__)
 # ========================================================================
 
 
-def _calculate_virtue_embodiment_score(principle: Principle, learning_position: LpPosition) -> float:
+def _calculate_virtue_embodiment_score(
+    principle: Principle, learning_position: LpPosition
+) -> float:
     """
     Custom scorer for principle virtue embodiment.
 
@@ -83,7 +85,9 @@ def _calculate_virtue_embodiment_score(principle: Principle, learning_position: 
     return avg_progress * 0.7
 
 
-def _calculate_embodiment_data(principle: Principle, learning_position: LpPosition) -> dict[str, Any]:
+def _calculate_embodiment_data(
+    principle: Principle, learning_position: LpPosition
+) -> dict[str, Any]:
     """
     Calculate character development embodiment data.
 
@@ -161,7 +165,9 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
         super().__init__(backend, "principles.learning")
 
         # Initialize LearningAlignmentHelper with custom scorers (Phase 6)
-        self.learning_helper = LearningAlignmentHelper[Principle, PrincipleDTO, PrincipleCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[
+            Principle, PrincipleDTO, PrincipleCreateRequest
+        ](
             service=self,
             backend_get_method="get",
             backend_get_user_method="list_user_principles",

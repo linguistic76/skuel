@@ -279,8 +279,8 @@ class UserProgressService:
         # Check prerequisites
         prereq_result = await self.executor.execute_query(
             """
-            MATCH (target:Ku {uid: $target_uid})
-            OPTIONAL MATCH (target)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+            MATCH (target:Entity {uid: $target_uid})
+            OPTIONAL MATCH (target)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
             WITH target, collect(prereq.uid) as prereq_uids
             RETURN
                 size(prereq_uids) as total_prereqs,
@@ -353,7 +353,7 @@ class UserProgressService:
 
         result = await self.executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid}), (k:Ku {uid: $knowledge_uid})
+            MATCH (u:User {uid: $user_uid}), (k:Entity {uid: $knowledge_uid})
             MERGE (u)-[r:MASTERED]->(k)
             ON CREATE SET
                 r.mastery_score = $mastery_score,
@@ -420,7 +420,7 @@ class UserProgressService:
 
         result = await self.executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid}), (k:Ku {uid: $knowledge_uid})
+            MATCH (u:User {uid: $user_uid}), (k:Entity {uid: $knowledge_uid})
             MERGE (u)-[r:IN_PROGRESS]->(k)
             ON CREATE SET
                 r.progress = $progress,
@@ -456,7 +456,7 @@ class UserProgressService:
         """Get all mastered knowledge for user."""
         result = await self.executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[r:MASTERED]->(k:Ku)
+            MATCH (u:User {uid: $user_uid})-[r:MASTERED]->(k:Entity)
             RETURN
                 k.uid as knowledge_uid,
                 r.mastery_score as mastery_score,
@@ -489,7 +489,7 @@ class UserProgressService:
         """Get all in-progress knowledge for user."""
         result = await self.executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[r:IN_PROGRESS]->(k:Ku)
+            MATCH (u:User {uid: $user_uid})-[r:IN_PROGRESS]->(k:Entity)
             RETURN
                 k.uid as knowledge_uid,
                 r.progress as progress,
@@ -528,8 +528,8 @@ class UserProgressService:
         """
         result = await self.executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[:MASTERED]->(mastered:Ku)
-            MATCH (target:Ku)-[:REQUIRES_KNOWLEDGE]->(mastered)
+            MATCH (u:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
+            MATCH (target:Entity)-[:REQUIRES_KNOWLEDGE]->(mastered)
             RETURN DISTINCT mastered.uid as prereq_uid
             """,
             {"user_uid": user_uid},
@@ -543,7 +543,7 @@ class UserProgressService:
         """Build map of knowledge units to their prerequisites."""
         result = await self.executor.execute_query(
             """
-            MATCH (k:Ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+            MATCH (k:Entity)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
             RETURN k.uid as knowledge_uid, collect(prereq.uid) as prereq_uids
             """,
             {"user_uid": user_uid},
@@ -586,7 +586,7 @@ class UserProgressService:
         """Get knowledge units user is interested in."""
         result = await self.executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[:INTERESTED_IN]->(k:Ku)
+            MATCH (u:User {uid: $user_uid})-[:INTERESTED_IN]->(k:Entity)
             RETURN collect(k.uid) as interested_uids
             """,
             {"user_uid": user_uid},
@@ -602,7 +602,7 @@ class UserProgressService:
         """Get bookmarked knowledge units."""
         result = await self.executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[:BOOKMARKED]->(k:Ku)
+            MATCH (u:User {uid: $user_uid})-[:BOOKMARKED]->(k:Entity)
             RETURN collect(k.uid) as bookmarked_uids
             """,
             {"user_uid": user_uid},
@@ -618,7 +618,7 @@ class UserProgressService:
         """Get knowledge units user is struggling with."""
         result = await self.executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[:STRUGGLING_WITH]->(k:Ku)
+            MATCH (u:User {uid: $user_uid})-[:STRUGGLING_WITH]->(k:Entity)
             RETURN collect(k.uid) as struggling_uids
             """,
             {"user_uid": user_uid},
@@ -634,7 +634,7 @@ class UserProgressService:
         """Get knowledge units that need review."""
         result = await self.executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[r:NEEDS_REVIEW]->(k:Ku)
+            MATCH (u:User {uid: $user_uid})-[r:NEEDS_REVIEW]->(k:Entity)
             WHERE r.next_review_due <= date()
             RETURN collect(k.uid) as review_uids
             """,
@@ -673,17 +673,17 @@ class UserProgressService:
         query = """
         // Get learned knowledge UIDs
         MATCH (user:User {uid: $user_uid})-[:HAS_PROGRESS]->(up:UserProgress)
-            -[:FOR_KNOWLEDGE]->(learned:Ku)
+            -[:FOR_KNOWLEDGE]->(learned:Entity)
         WHERE up.mastery_level >= 0.7
         WITH collect(learned.uid) as learned_uids
 
         // Get unlearned knowledge
-        MATCH (unlearned:Ku)
+        MATCH (unlearned:Entity)
         WHERE NOT unlearned.uid IN learned_uids
           AND ($domain IS NULL OR unlearned.domain = $domain)
 
         // Calculate coverage for each unlearned topic
-        OPTIONAL MATCH (unlearned)-[r:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+        OPTIONAL MATCH (unlearned)-[r:REQUIRES_KNOWLEDGE]->(prereq:Entity)
         WHERE prereq.uid IN learned_uids  // Only count learned prerequisites
 
         WITH unlearned,
@@ -692,7 +692,7 @@ class UserProgressService:
              avg(coalesce(r.confidence, 1.0)) as avg_prerequisite_confidence
 
         // Count total prerequisites (learned or not)
-        OPTIONAL MATCH (unlearned)-[:REQUIRES_KNOWLEDGE]->(any_prereq:Ku)
+        OPTIONAL MATCH (unlearned)-[:REQUIRES_KNOWLEDGE]->(any_prereq:Entity)
         WITH unlearned,
              satisfied_prereqs,
              avg_prerequisite_confidence,

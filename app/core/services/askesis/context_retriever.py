@@ -341,7 +341,7 @@ class ContextRetriever:
                 return []
 
             ku_query = """
-            MATCH (ku:Ku)
+            MATCH (ku:Entity)
             WHERE ku.embedding IS NOT NULL
             RETURN ku.uid AS uid, ku.title AS title, ku.embedding AS embedding
             LIMIT 100
@@ -401,11 +401,11 @@ class ContextRetriever:
         MATCH (u:User {uid: $user_uid})
 
         // Knowledge state
-        OPTIONAL MATCH (u)-[:MASTERED]->(mastered:Ku)
-        OPTIONAL MATCH (u)-[:LEARNING]->(learning:Ku)
+        OPTIONAL MATCH (u)-[:MASTERED]->(mastered:Entity)
+        OPTIONAL MATCH (u)-[:LEARNING]->(learning:Entity)
 
         // Blocked knowledge - KUs required by tasks but not mastered
-        OPTIONAL MATCH (u)-[:HAS_TASK]->(t:Task)-[:APPLIES_KNOWLEDGE]->(blocked_ku:Ku)
+        OPTIONAL MATCH (u)-[:HAS_TASK]->(t:Task)-[:APPLIES_KNOWLEDGE]->(blocked_ku:Entity)
         WHERE NOT (u)-[:MASTERED]->(blocked_ku)
 
         // Learning paths
@@ -420,7 +420,7 @@ class ContextRetriever:
         WHERE goal.status = 'active'
 
         // Prerequisites for blocked knowledge (limited depth)
-        OPTIONAL MATCH (blocked_ku)-[:REQUIRES_KNOWLEDGE*1..3]->(prereq:Ku)
+        OPTIONAL MATCH (blocked_ku)-[:REQUIRES_KNOWLEDGE*1..3]->(prereq:Entity)
         WHERE NOT (u)-[:MASTERED]->(prereq)
 
         WITH u,
@@ -480,8 +480,8 @@ class ContextRetriever:
 
             # Step 1: Get unmastered prerequisites
             prereq_query = """
-            MATCH (ku:Ku {uid: $ku_uid})
-            OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE*1..3]->(prereq:Ku)
+            MATCH (ku:Entity {uid: $ku_uid})
+            OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE*1..3]->(prereq:Entity)
             WHERE NOT EXISTS {
                 MATCH (u:User {uid: $user_uid})-[:MASTERED]->(prereq)
             }
@@ -498,7 +498,7 @@ class ContextRetriever:
 
             # Step 2: Calculate impact (how many things does mastering this unlock?)
             impact_query = """
-            MATCH (ku:Ku {uid: $ku_uid})<-[:REQUIRES_KNOWLEDGE]-(dependent:Ku)
+            MATCH (ku:Entity {uid: $ku_uid})<-[:REQUIRES_KNOWLEDGE]-(dependent:Entity)
             RETURN count(DISTINCT dependent) AS unlocks_count
             """
             impact_result = await self.graph_intel.execute_query(

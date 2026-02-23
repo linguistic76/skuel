@@ -64,7 +64,7 @@ Usage
     class KuCoreService(BaseService[KuOperations, Ku]):
         @property
         def entity_label(self) -> str:
-            return "Ku"
+            return "Entity"
 
 See Also
 --------
@@ -291,7 +291,7 @@ class KuInteractionOperations(Protocol):
 
 
 @runtime_checkable
-class KuOperations(CurriculumOperations["Ku"], Protocol):
+class KuOperations(CurriculumOperations["Entity"], Protocol):
     """
     Knowledge Unit (KU) specific operations.
 
@@ -300,7 +300,7 @@ class KuOperations(CurriculumOperations["Ku"], Protocol):
     - Substance tracking (applied knowledge measurement)
     - Domain-specific queries
 
-    Graph Label: "Ku" (or "KnowledgeUnit" for backward compatibility)
+    Graph Label: "Entity" (or "KnowledgeUnit" for backward compatibility)
     UID Prefix: "ku:"
     """
 
@@ -489,7 +489,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
     - Practice integration (habits, tasks, events)
     - Path integration (LS can be standalone or part of LP)
 
-    Phase 3 Unified Ku Model: LS nodes are :Ku{ku_type='learning_step'}
+    Phase 3 Unified Ku Model: LS nodes are :Entity{ku_type='learning_step'}
     UID Prefix: "ls:"
     """
 
@@ -521,9 +521,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
         """
         ...
 
-    async def get_learning_steps_batch(
-        self, uids: list[str]
-    ) -> Result[list[LearningStep | None]]:
+    async def get_learning_steps_batch(self, uids: list[str]) -> Result[list[LearningStep | None]]:
         """
         Batch load learning steps by UIDs.
 
@@ -712,7 +710,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
     - Motivational alignment (goals, principles)
     - Milestone and checkpoint management
 
-    Phase 3 Unified Ku Model: LP nodes are :Ku{ku_type='learning_path'}
+    Phase 3 Unified Ku Model: LP nodes are :Entity{ku_type='learning_path'}
     UID Prefix: "lp:"
     """
 
@@ -732,9 +730,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         """
         ...
 
-    async def get_learning_paths_batch(
-        self, uids: list[str]
-    ) -> Result[list[LearningPath | None]]:
+    async def get_learning_paths_batch(self, uids: list[str]) -> Result[list[LearningPath | None]]:
         """
         Batch load learning paths by UIDs.
 

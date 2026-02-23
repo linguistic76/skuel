@@ -52,7 +52,7 @@ class TestHabitsCoreOperations:
     async def habits_backend(self, neo4j_driver, clean_neo4j):
         """Create habits backend with clean database."""
         return UniversalNeo4jBackend[Habit](
-            neo4j_driver, "Ku", Habit, default_filters={"ku_type": "habit"}
+            neo4j_driver, "Entity", Habit, default_filters={"ku_type": "habit"}
         )
 
     @pytest_asyncio.fixture

@@ -191,7 +191,7 @@ class ProgressReportGenerator:
                 WHERE t.updated_at >= datetime($start) AND t.updated_at <= datetime($end)
                 WITH t, t.status = 'completed' AS is_completed
                 OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
-                OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+                OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Entity)
                 RETURN t.uid AS uid, t.title AS title, t.status AS status,
                        is_completed,
                        collect(DISTINCT g.title) AS goal_titles,
@@ -426,7 +426,7 @@ class ProgressReportGenerator:
                 continue
             result = await self.executor.execute_query(
                 """
-                MATCH (k:Ku {uid: $ku_uid})
+                MATCH (k:Entity {uid: $ku_uid})
                 MATCH (i:Insight {uid: $insight_uid})
                 MERGE (k)-[:BASED_ON_INSIGHT]->(i)
                 """,

@@ -27,13 +27,13 @@ FOREACH (dom IN coalesce(i.domains, []) |
 // Handle connections
 WITH lp, i
 FOREACH (rid IN coalesce(i.connections.related, []) |
-  MERGE (rku:Ku {uid: rid})
+  MERGE (rku:Entity {uid: rid})
   MERGE (lp)-[:RELATED_TO]->(rku)
 )
 
 WITH lp, i
 FOREACH (sid IN coalesce(i.connections.supports, []) |
-  MERGE (sku:Ku {uid: sid})
+  MERGE (sku:Entity {uid: sid})
   MERGE (lp)-[:SUPPORTS]->(sku)
 )
 

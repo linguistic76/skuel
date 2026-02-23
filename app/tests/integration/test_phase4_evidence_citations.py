@@ -230,7 +230,7 @@ class TestProvenanceQueries:
     def test_build_provenance_distribution_query(self):
         """Test provenance distribution analysis query."""
         query, params = ProvenanceQueries.build_provenance_distribution_query(
-            node_label="Ku",
+            node_label="Entity",
             relationship_type="REQUIRES",
         )
 
@@ -238,7 +238,7 @@ class TestProvenanceQueries:
         assert isinstance(params, dict)
 
         # Verify query structure
-        assert "MATCH (start:Ku)-[r:REQUIRES]->(end:Ku)" in query
+        assert "MATCH (start:Entity)-[r:REQUIRES]->(end:Entity)" in query
         assert "r.source as source" in query
         assert "count(r) as relationship_count" in query
         assert "avg(coalesce(r.confidence, 1.0))" in query
@@ -299,7 +299,7 @@ class TestProvenanceQueries:
         assert isinstance(params, dict)
 
         # Verify query structure
-        assert "MATCH (end:Ku {uid: $node_uid})" in query
+        assert "MATCH (end:Entity {uid: $node_uid})" in query
         assert "WHERE size(coalesce(r[0].evidence, [])) > 0" in query
         assert "rel.evidence as evidence" in query
         assert "'Source: ' + rel.source" in query

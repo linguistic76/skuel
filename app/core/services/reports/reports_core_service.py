@@ -143,7 +143,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
     _config = DomainConfig(
         dto_class=SubmissionDTO,
         model_class=Entity,
-        entity_label="Ku",
+        entity_label="Entity",
         search_fields=("title", "original_filename", "processed_content"),
         search_order_by="created_at",
         category_field="ku_type",
@@ -178,7 +178,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Ku entities."""
-        return "Ku"
+        return "Entity"
 
     def _validate_report_exists(self, report: Ku | None) -> Result[Ku]:
         """Validate Ku exists."""
@@ -717,7 +717,9 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if errors:
             self.logger.warning(f"Bulk tagging completed with {len(errors)} errors")
 
-        self.logger.info(f"Bulk tagging completed: {updated_count}/{len(uids)} report entities updated")
+        self.logger.info(
+            f"Bulk tagging completed: {updated_count}/{len(uids)} report entities updated"
+        )
         return Result.ok(updated_count)
 
     async def bulk_delete(self, uids: list[str], soft_delete: bool = True) -> Result[int]:
@@ -1051,7 +1053,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         # Check if the exercise is ASSIGNED scope and get group info
         exercise_result = await self.backend.execute_query(
             """
-            MATCH (exercise:Ku {uid: $exercise_uid, ku_type: 'exercise'})
+            MATCH (exercise:Entity {uid: $exercise_uid, ku_type: 'exercise'})
             OPTIONAL MATCH (exercise)-[:FOR_GROUP]->(g:Group)
             RETURN exercise.scope as scope,
                    exercise.user_uid as teacher_uid,
@@ -1080,7 +1082,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if group_uid:
             student_result = await self.backend.execute_query(
                 """
-                MATCH (student:User)-[:OWNS]->(ku:Ku {uid: $ku_uid})
+                MATCH (student:User)-[:OWNS]->(ku:Entity {uid: $ku_uid})
                 OPTIONAL MATCH (student)-[:MEMBER_OF]->(g:Group {uid: $group_uid})
                 RETURN student.uid as student_uid, g.uid as member_of_group
                 """,
@@ -1103,8 +1105,8 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         # 1. Create FULFILLS_EXERCISE relationship
         fulfills_result = await self.backend.execute_query(
             f"""
-            MATCH (ku:Ku {{uid: $ku_uid}})
-            MATCH (exercise:Ku {{uid: $exercise_uid, ku_type: 'exercise'}})
+            MATCH (ku:Entity {{uid: $ku_uid}})
+            MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
             MERGE (ku)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
             RETURN true as success
             """,
@@ -1118,7 +1120,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         share_result = await self.backend.execute_query(
             """
             MATCH (teacher:User {uid: $teacher_uid})
-            MATCH (ku:Ku {uid: $ku_uid})
+            MATCH (ku:Entity {uid: $ku_uid})
             MERGE (teacher)-[r:SHARES_WITH]->(ku)
             SET r.shared_at = datetime($now),
                 r.role = 'teacher'
@@ -1270,7 +1272,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         # Create ASSESSMENT_OF relationship
         assess_result = await self.backend.execute_query(
             """
-            MATCH (k:Ku {uid: $ku_uid})
+            MATCH (k:Entity {uid: $ku_uid})
             MATCH (u:User {uid: $subject_uid})
             MERGE (k)-[:ASSESSMENT_OF]->(u)
             RETURN true AS success
@@ -1292,7 +1294,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         share_result = await self.backend.execute_query(
             """
             MATCH (student:User {uid: $subject_uid})
-            MATCH (k:Ku {uid: $ku_uid})
+            MATCH (k:Entity {uid: $ku_uid})
             MERGE (student)-[rel:SHARES_WITH]->(k)
             SET rel.shared_at = datetime($now),
                 rel.role = 'student'
@@ -1343,7 +1345,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         result = await self.backend.execute_query(
             """
-            MATCH (k:Ku)-[:ASSESSMENT_OF]->(u:User {uid: $student_uid})
+            MATCH (k:Entity)-[:ASSESSMENT_OF]->(u:User {uid: $student_uid})
             WHERE k.ku_type = 'feedback_report'
             RETURN k
             ORDER BY k.created_at DESC

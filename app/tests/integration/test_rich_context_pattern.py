@@ -65,7 +65,7 @@ class TestRichContextPattern:
         await asyncio.sleep(0.1)
 
         # DEBUG: Verify nodes exist in database
-        verify_query = "MATCH (ku:Ku) RETURN count(ku) as count, collect(ku.uid) as uids"
+        verify_query = "MATCH (ku:Entity) RETURN count(ku) as count, collect(ku.uid) as uids"
         verify_result = await services.ku.core.backend.driver.execute_query(verify_query, {})
         verify_records = verify_result.records
         if verify_records:
@@ -78,8 +78,8 @@ class TestRichContextPattern:
         # Create prerequisite relationship
         await services.ku.core.backend.driver.execute_query(
             """
-            MATCH (ku:Ku {uid: $ku_uid})
-            MATCH (prereq:Ku {uid: $prereq_uid})
+            MATCH (ku:Entity {uid: $ku_uid})
+            MATCH (prereq:Entity {uid: $prereq_uid})
             CREATE (ku)-[:REQUIRES_KNOWLEDGE {confidence: 0.9}]->(prereq)
             """,
             {"ku_uid": ku_dto.uid, "prereq_uid": prereq_dto.uid},
@@ -89,7 +89,7 @@ class TestRichContextPattern:
         print(f"🔍 Attempting to get KU with UID: {ku_dto.uid}")
 
         # DEBUG: Try a simple direct query first
-        simple_query = "MATCH (ku:Ku {uid: $uid}) RETURN ku, ku.uid as uid, ku.title as title"
+        simple_query = "MATCH (ku:Entity {uid: $uid}) RETURN ku, ku.uid as uid, ku.title as title"
         simple_result = await services.ku.core.backend.driver.execute_query(
             simple_query, {"uid": ku_dto.uid}
         )
@@ -159,9 +159,9 @@ class TestRichContextPattern:
         # Create relationships
         await services.tasks.core.backend.driver.execute_query(
             """
-            MATCH (task:Ku {uid: $task_uid, ku_type: 'task'})
-            MATCH (ku:Ku {uid: $ku_uid})
-            MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})
+            MATCH (task:Entity {uid: $task_uid, ku_type: 'task'})
+            MATCH (ku:Entity {uid: $ku_uid})
+            MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})
             CREATE (task)-[:APPLIES_KNOWLEDGE {confidence: 0.85}]->(ku)
             CREATE (task)-[:FULFILLS_GOAL]->(goal)
             """,
@@ -180,7 +180,7 @@ class TestRichContextPattern:
         assert "graph_context" in task.metadata
         context = task.metadata["graph_context"]
 
-        # Post Unified-Ku-Model: entity_label="Ku" means LABEL_CONFIGS resolves to
+        # Post Unified-Ku-Model: entity_label="Entity" means LABEL_CONFIGS resolves to
         # KU_CONFIG (curriculum), so context keys are curriculum-generic, not task-specific.
         # Verify that context was populated (structure depends on registry resolution).
         assert isinstance(context, dict)
@@ -217,8 +217,8 @@ class TestRichContextPattern:
         # Create relationship
         await services.goals.core.backend.driver.execute_query(
             """
-            MATCH (task:Ku {uid: $task_uid, ku_type: 'task'})
-            MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})
+            MATCH (task:Entity {uid: $task_uid, ku_type: 'task'})
+            MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})
             CREATE (task)-[:FULFILLS_GOAL]->(goal)
             """,
             {"task_uid": task_dto.uid, "goal_uid": goal_dto.uid},
@@ -236,7 +236,7 @@ class TestRichContextPattern:
         assert "graph_context" in goal.metadata
         context = goal.metadata["graph_context"]
 
-        # Post Unified-Ku-Model: entity_label="Ku" means LABEL_CONFIGS resolves to
+        # Post Unified-Ku-Model: entity_label="Entity" means LABEL_CONFIGS resolves to
         # KU_CONFIG (curriculum), so context keys are curriculum-generic, not goal-specific.
         # Verify that context was populated (structure depends on registry resolution).
         assert isinstance(context, dict)
@@ -268,21 +268,21 @@ class TestRichContextPattern:
 
         # Query 2: Get prerequisites (separate query)
         prereq_query = """
-        MATCH (ku:Ku {uid: $uid})-[:REQUIRES_KNOWLEDGE]->(prereq)
+        MATCH (ku:Entity {uid: $uid})-[:REQUIRES_KNOWLEDGE]->(prereq)
         RETURN prereq
         """
         await services.ku.core.backend.driver.execute_query(prereq_query, {"uid": ku_dto.uid})
 
         # Query 3: Get dependents (separate query)
         dep_query = """
-        MATCH (dependent)-[:REQUIRES_KNOWLEDGE]->(ku:Ku {uid: $uid})
+        MATCH (dependent)-[:REQUIRES_KNOWLEDGE]->(ku:Entity {uid: $uid})
         RETURN dependent
         """
         await services.ku.core.backend.driver.execute_query(dep_query, {"uid": ku_dto.uid})
 
         # Query 4: Get related (separate query)
         related_query = """
-        MATCH (ku:Ku {uid: $uid})-[:RELATED_TO]-(related)
+        MATCH (ku:Entity {uid: $uid})-[:RELATED_TO]-(related)
         RETURN related
         """
         await services.ku.core.backend.driver.execute_query(related_query, {"uid": ku_dto.uid})

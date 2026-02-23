@@ -44,26 +44,28 @@ class TestFindKnowledgeHubs:
         """Test finding knowledge hubs with basic parameters"""
         # Mock database response
         mock_driver.execute_query = AsyncMock(
-            return_value=Result.ok([
-                {
-                    "uid": "ku.math.algebra",
-                    "title": "Algebra Fundamentals",
-                    "domain": "tech",
-                    "total_connections": 15,
-                    "incoming_count": 10,
-                    "outgoing_count": 5,
-                    "centrality_score": 15.0,
-                },
-                {
-                    "uid": "ku.programming.python",
-                    "title": "Python Programming",
-                    "domain": "tech",
-                    "total_connections": 12,
-                    "incoming_count": 8,
-                    "outgoing_count": 4,
-                    "centrality_score": 12.0,
-                },
-            ])
+            return_value=Result.ok(
+                [
+                    {
+                        "uid": "ku.math.algebra",
+                        "title": "Algebra Fundamentals",
+                        "domain": "tech",
+                        "total_connections": 15,
+                        "incoming_count": 10,
+                        "outgoing_count": 5,
+                        "centrality_score": 15.0,
+                    },
+                    {
+                        "uid": "ku.programming.python",
+                        "title": "Python Programming",
+                        "domain": "tech",
+                        "total_connections": 12,
+                        "incoming_count": 8,
+                        "outgoing_count": 4,
+                        "centrality_score": 12.0,
+                    },
+                ]
+            )
         )
 
         # Execute
@@ -92,17 +94,19 @@ class TestFindKnowledgeHubs:
     async def test_find_hubs_high_confidence(self, service, mock_driver):
         """Test finding hubs with high confidence threshold"""
         mock_driver.execute_query = AsyncMock(
-            return_value=Result.ok([
-                {
-                    "uid": "ku.high.quality",
-                    "title": "High Quality Knowledge",
-                    "domain": "tech",
-                    "total_connections": 20,
-                    "incoming_count": 15,
-                    "outgoing_count": 5,
-                    "centrality_score": 20.0,
-                }
-            ])
+            return_value=Result.ok(
+                [
+                    {
+                        "uid": "ku.high.quality",
+                        "title": "High Quality Knowledge",
+                        "domain": "tech",
+                        "total_connections": 20,
+                        "incoming_count": 15,
+                        "outgoing_count": 5,
+                        "centrality_score": 20.0,
+                    }
+                ]
+            )
         )
 
         # Execute with high confidence
@@ -116,9 +120,7 @@ class TestFindKnowledgeHubs:
     @pytest.mark.asyncio
     async def test_find_hubs_database_error(self, service, mock_driver):
         """Test error handling when database fails"""
-        mock_driver.execute_query = AsyncMock(
-            side_effect=Exception("Database connection failed")
-        )
+        mock_driver.execute_query = AsyncMock(side_effect=Exception("Database connection failed"))
 
         # Execute
         result = await service.find_knowledge_hubs()
@@ -135,24 +137,26 @@ class TestFindSimilarKnowledge:
     async def test_find_similar_basic(self, service, mock_driver):
         """Test finding similar knowledge with basic parameters"""
         mock_driver.execute_query = AsyncMock(
-            return_value=Result.ok([
-                {
-                    "uid": "ku.programming.javascript",
-                    "title": "JavaScript Programming",
-                    "domain": "tech",
-                    "similarity": 0.67,
-                    "shared_count": 12,
-                    "total_neighbors": 18,
-                },
-                {
-                    "uid": "ku.programming.ruby",
-                    "title": "Ruby Programming",
-                    "domain": "tech",
-                    "similarity": 0.54,
-                    "shared_count": 10,
-                    "total_neighbors": 15,
-                },
-            ])
+            return_value=Result.ok(
+                [
+                    {
+                        "uid": "ku.programming.javascript",
+                        "title": "JavaScript Programming",
+                        "domain": "tech",
+                        "similarity": 0.67,
+                        "shared_count": 12,
+                        "total_neighbors": 18,
+                    },
+                    {
+                        "uid": "ku.programming.ruby",
+                        "title": "Ruby Programming",
+                        "domain": "tech",
+                        "similarity": 0.54,
+                        "shared_count": 10,
+                        "total_neighbors": 15,
+                    },
+                ]
+            )
         )
 
         # Execute
@@ -170,16 +174,18 @@ class TestFindSimilarKnowledge:
     async def test_find_similar_high_threshold(self, service, mock_driver):
         """Test finding similar knowledge with high similarity threshold"""
         mock_driver.execute_query = AsyncMock(
-            return_value=Result.ok([
-                {
-                    "uid": "ku.very.similar",
-                    "title": "Very Similar Knowledge",
-                    "domain": "tech",
-                    "similarity": 0.85,
-                    "shared_count": 20,
-                    "total_neighbors": 24,
-                }
-            ])
+            return_value=Result.ok(
+                [
+                    {
+                        "uid": "ku.very.similar",
+                        "title": "Very Similar Knowledge",
+                        "domain": "tech",
+                        "similarity": 0.85,
+                        "shared_count": 20,
+                        "total_neighbors": 24,
+                    }
+                ]
+            )
         )
 
         # Execute
@@ -212,15 +218,17 @@ class TestAnalyzePrerequisiteDepth:
     async def test_analyze_depth_basic(self, service, mock_driver):
         """Test analyzing prerequisite depth with basic chain"""
         mock_driver.execute_query = AsyncMock(
-            return_value=Result.ok([
-                {
-                    "max_depth": 5,
-                    "avg_depth": 3.2,
-                    "total_paths": 8,
-                    "root_uids": ["ku.math.algebra", "ku.programming.basics"],
-                    "complexity_score": 40,
-                }
-            ])
+            return_value=Result.ok(
+                [
+                    {
+                        "max_depth": 5,
+                        "avg_depth": 3.2,
+                        "total_paths": 8,
+                        "root_uids": ["ku.math.algebra", "ku.programming.basics"],
+                        "complexity_score": 40,
+                    }
+                ]
+            )
         )
 
         # Execute
@@ -238,15 +246,17 @@ class TestAnalyzePrerequisiteDepth:
     async def test_analyze_depth_no_prerequisites(self, service, mock_driver):
         """Test analyzing depth when no prerequisites exist"""
         mock_driver.execute_query = AsyncMock(
-            return_value=Result.ok([
-                {
-                    "max_depth": None,
-                    "avg_depth": None,
-                    "total_paths": 0,
-                    "root_uids": [],
-                    "complexity_score": 0,
-                }
-            ])
+            return_value=Result.ok(
+                [
+                    {
+                        "max_depth": None,
+                        "avg_depth": None,
+                        "total_paths": 0,
+                        "root_uids": [],
+                        "complexity_score": 0,
+                    }
+                ]
+            )
         )
 
         # Execute
@@ -264,15 +274,17 @@ class TestAnalyzePrerequisiteDepth:
     async def test_analyze_depth_shallow_chain(self, service, mock_driver):
         """Test analyzing depth with shallow prerequisite chain"""
         mock_driver.execute_query = AsyncMock(
-            return_value=Result.ok([
-                {
-                    "max_depth": 1,
-                    "avg_depth": 1.0,
-                    "total_paths": 2,
-                    "root_uids": ["ku.basic.concept"],
-                    "complexity_score": 2,
-                }
-            ])
+            return_value=Result.ok(
+                [
+                    {
+                        "max_depth": 1,
+                        "avg_depth": 1.0,
+                        "total_paths": 2,
+                        "root_uids": ["ku.basic.concept"],
+                        "complexity_score": 2,
+                    }
+                ]
+            )
         )
 
         # Execute
@@ -291,24 +303,26 @@ class TestFindLearningClusters:
     async def test_find_clusters_basic(self, service, mock_driver):
         """Test finding learning clusters with basic parameters"""
         mock_driver.execute_query = AsyncMock(
-            return_value=Result.ok([
-                {
-                    "uid": "ku.web.html",
-                    "title": "HTML Fundamentals",
-                    "domain": "tech",
-                    "neighbor_count": 8,
-                    "triangles": 12,
-                    "density": 0.71,
-                },
-                {
-                    "uid": "ku.web.css",
-                    "title": "CSS Styling",
-                    "domain": "tech",
-                    "neighbor_count": 7,
-                    "triangles": 10,
-                    "density": 0.65,
-                },
-            ])
+            return_value=Result.ok(
+                [
+                    {
+                        "uid": "ku.web.html",
+                        "title": "HTML Fundamentals",
+                        "domain": "tech",
+                        "neighbor_count": 8,
+                        "triangles": 12,
+                        "density": 0.71,
+                    },
+                    {
+                        "uid": "ku.web.css",
+                        "title": "CSS Styling",
+                        "domain": "tech",
+                        "neighbor_count": 7,
+                        "triangles": 10,
+                        "density": 0.65,
+                    },
+                ]
+            )
         )
 
         # Execute
@@ -324,16 +338,18 @@ class TestFindLearningClusters:
     async def test_find_clusters_high_density(self, service, mock_driver):
         """Test finding clusters with high density threshold"""
         mock_driver.execute_query = AsyncMock(
-            return_value=Result.ok([
-                {
-                    "uid": "ku.tight.cluster",
-                    "title": "Tightly Connected Module",
-                    "domain": "tech",
-                    "neighbor_count": 10,
-                    "triangles": 20,
-                    "density": 0.85,
-                }
-            ])
+            return_value=Result.ok(
+                [
+                    {
+                        "uid": "ku.tight.cluster",
+                        "title": "Tightly Connected Module",
+                        "domain": "tech",
+                        "neighbor_count": 10,
+                        "triangles": 20,
+                        "density": 0.85,
+                    }
+                ]
+            )
         )
 
         # Execute
@@ -364,15 +380,17 @@ class TestCalculateKnowledgeImportance:
     async def test_calculate_importance_basic(self, service, mock_driver):
         """Test calculating importance with basic metrics"""
         mock_driver.execute_query = AsyncMock(
-            return_value=Result.ok([
-                {
-                    "importance_score": 42.5,
-                    "degree_centrality": 24.0,
-                    "prerequisite_importance": 15.0,
-                    "cluster_coefficient": 0.45,
-                    "avg_confidence": 0.82,
-                }
-            ])
+            return_value=Result.ok(
+                [
+                    {
+                        "importance_score": 42.5,
+                        "degree_centrality": 24.0,
+                        "prerequisite_importance": 15.0,
+                        "cluster_coefficient": 0.45,
+                        "avg_confidence": 0.82,
+                    }
+                ]
+            )
         )
 
         # Execute
@@ -390,15 +408,17 @@ class TestCalculateKnowledgeImportance:
     async def test_calculate_importance_high_score(self, service, mock_driver):
         """Test calculating importance for highly important knowledge"""
         mock_driver.execute_query = AsyncMock(
-            return_value=Result.ok([
-                {
-                    "importance_score": 85.0,
-                    "degree_centrality": 50.0,
-                    "prerequisite_importance": 30.0,
-                    "cluster_coefficient": 0.75,
-                    "avg_confidence": 0.95,
-                }
-            ])
+            return_value=Result.ok(
+                [
+                    {
+                        "importance_score": 85.0,
+                        "degree_centrality": 50.0,
+                        "prerequisite_importance": 30.0,
+                        "cluster_coefficient": 0.75,
+                        "avg_confidence": 0.95,
+                    }
+                ]
+            )
         )
 
         # Execute
@@ -413,15 +433,17 @@ class TestCalculateKnowledgeImportance:
     async def test_calculate_importance_low_score(self, service, mock_driver):
         """Test calculating importance for peripheral knowledge"""
         mock_driver.execute_query = AsyncMock(
-            return_value=Result.ok([
-                {
-                    "importance_score": 5.0,
-                    "degree_centrality": 2.0,
-                    "prerequisite_importance": 1.0,
-                    "cluster_coefficient": 0.1,
-                    "avg_confidence": 0.6,
-                }
-            ])
+            return_value=Result.ok(
+                [
+                    {
+                        "importance_score": 5.0,
+                        "degree_centrality": 2.0,
+                        "prerequisite_importance": 1.0,
+                        "cluster_coefficient": 0.1,
+                        "avg_confidence": 0.6,
+                    }
+                ]
+            )
         )
 
         # Execute
@@ -441,5 +463,5 @@ class TestCalculateKnowledgeImportance:
 
         # Verify error
         assert result.is_error
-        assert "Ku" in str(result.error)
+        assert "Entity" in str(result.error)
         assert "ku.nonexistent" in str(result.error)

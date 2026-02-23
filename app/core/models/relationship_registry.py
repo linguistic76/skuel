@@ -198,7 +198,7 @@ class UnifiedRelationshipDefinition:
 
     **Core Fields:**
     - relationship: The RelationshipName enum (type-safe)
-    - target_label: Neo4j label of related nodes (e.g., "Ku", "Goal")
+    - target_label: Neo4j label of related nodes (e.g., "Entity", "Goal")
     - direction: "outgoing", "incoming", or "both"
     - context_field_name: Field name in _graph_context (for search enrichment)
     - method_key: Key for RelationshipConfig methods (e.g., "knowledge")
@@ -452,7 +452,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Task → Knowledge (with confidence filtering)
         UnifiedRelationshipDefinition(
             RelationshipName.APPLIES_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "outgoing",
             "applied_knowledge",
             "knowledge",
@@ -461,7 +461,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "outgoing",
             "required_knowledge",  # Renamed from prerequisite_knowledge for context consistency
             "prerequisite_knowledge",
@@ -490,7 +490,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.UNLOCKS_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "outgoing",
             "unlocked_knowledge",
             "unlocks_knowledge",
@@ -516,7 +516,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
         # Task → Habit: single result for context
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_HABIT,
-            "Ku",
+            "Entity",
             "outgoing",
             "habit_context",  # Renamed for context view
             "supports_habit",
@@ -566,7 +566,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.INFERRED_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "outgoing",
             "inferred_knowledge",
             "inferred_knowledge",
@@ -583,7 +583,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Task → Choice (choices implemented by this task)
         UnifiedRelationshipDefinition(
             RelationshipName.IMPLEMENTS_CHOICE,
-            "Ku",
+            "Entity",
             "outgoing",
             "implemented_choices",
             "implements_choices",
@@ -592,7 +592,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Task → LifePath (task serves user's life path)
         UnifiedRelationshipDefinition(
             RelationshipName.SERVES_LIFE_PATH,
-            "Ku",
+            "Entity",
             "outgoing",
             "life_path",
             "life_path",
@@ -660,7 +660,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Goal → Knowledge (with confidence filtering)
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "outgoing",
             "required_knowledge",
             "knowledge",
@@ -677,14 +677,14 @@ GOALS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ALIGNED_WITH_PATH,
-            "Ku",
+            "Entity",
             "outgoing",
             "aligned_paths",
             "aligned_paths",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_PATH_COMPLETION,
-            "Ku",
+            "Entity",
             "outgoing",
             "required_paths",
             "required_paths",
@@ -701,7 +701,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
         # Choice that inspired this goal
         UnifiedRelationshipDefinition(
             RelationshipName.INSPIRED_BY_CHOICE,
-            "Ku",
+            "Entity",
             "outgoing",
             "inspired_by_choice",
             "inspired_by_choice",
@@ -724,7 +724,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
-            "Ku",
+            "Entity",
             "incoming",
             "contributing_habits",  # Context name: contributing_habits
             "supporting_habits",
@@ -762,7 +762,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
         # Essentiality-filtered habits
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
-            "Ku",
+            "Entity",
             "incoming",
             "essential_habits",
             "essential_habits",
@@ -771,7 +771,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
-            "Ku",
+            "Entity",
             "incoming",
             "critical_habits",
             "critical_habits",
@@ -780,7 +780,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
-            "Ku",
+            "Entity",
             "incoming",
             "optional_habits",
             "optional_habits",
@@ -790,7 +790,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Goal → LifePath (goal serves user's life path)
         UnifiedRelationshipDefinition(
             RelationshipName.SERVES_LIFE_PATH,
-            "Ku",
+            "Entity",
             "outgoing",
             "life_path",
             "life_path",
@@ -854,7 +854,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 HABITS_CONFIG = DomainRelationshipConfig(
     domain=Domain.HABITS,
-    entity_label="Ku",  # Phase 4: Unified into Ku with ku_type='habit'
+    entity_label="Entity",  # Phase 4: Unified into Ku with ku_type='habit'
     dto_class=HabitDTO,
     model_class=Entity,
     backend_get_method="get",
@@ -863,7 +863,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Habit → Other (with context-specific fields)
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "outgoing",
             "reinforced_knowledge",
             "knowledge",
@@ -888,21 +888,21 @@ HABITS_CONFIG = DomainRelationshipConfig(
         # Incoming: Other → Habit
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_PREREQUISITE_HABIT,
-            "Ku",
+            "Entity",
             "outgoing",
             "prerequisite_habits",
             "prerequisite_habits",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_HABIT,
-            "Ku",
+            "Entity",
             "incoming",
             "reinforcing_habits",
             "reinforcing_habits",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ENABLES_HABIT,
-            "Ku",
+            "Entity",
             "incoming",
             "enabling_habits",
             "enabling_habits",
@@ -933,7 +933,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
         # Related habits (bidirectional)
         UnifiedRelationshipDefinition(
             RelationshipName.RELATED_TO,
-            "Ku",
+            "Entity",
             "both",
             "related_habits",
             "related_habits",
@@ -942,7 +942,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Habit → LifePath (habit serves user's life path)
         UnifiedRelationshipDefinition(
             RelationshipName.SERVES_LIFE_PATH,
-            "Ku",
+            "Entity",
             "outgoing",
             "life_path",
             "life_path",
@@ -953,7 +953,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Habit informs choices
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMS_CHOICE,
-            "Ku",
+            "Entity",
             "outgoing",
             "informed_choices",
             "informed_choices",
@@ -962,7 +962,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
         # Incoming: Choice impacts habit
         UnifiedRelationshipDefinition(
             RelationshipName.IMPACTS_HABIT,
-            "Ku",
+            "Entity",
             "incoming",
             "impacting_choices",
             "impacting_choices",
@@ -971,7 +971,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
         # Shared-neighbor pattern: Related habits via shared knowledge or goals
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_KNOWLEDGE,  # Placeholder - uses shared_neighbor_config
-            "Ku",
+            "Entity",
             "both",
             "related_habits_shared",
             "related_habits_shared",
@@ -1020,7 +1020,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Event → Other
         UnifiedRelationshipDefinition(
             RelationshipName.APPLIES_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "outgoing",
             "applied_knowledge",
             "knowledge",
@@ -1035,7 +1035,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_HABIT,
-            "Ku",
+            "Entity",
             "outgoing",
             "reinforced_habits",
             "habits",
@@ -1052,7 +1052,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
         # Incoming: Other → Event
         UnifiedRelationshipDefinition(
             RelationshipName.PRACTICED_AT_EVENT,
-            "Ku",
+            "Entity",
             "incoming",
             "practiced_habits",
             "practiced_habits",
@@ -1075,7 +1075,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Event → LifePath (event serves user's life path)
         UnifiedRelationshipDefinition(
             RelationshipName.SERVES_LIFE_PATH,
-            "Ku",
+            "Entity",
             "outgoing",
             "life_path",
             "life_path",
@@ -1086,7 +1086,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Event triggers choice
         UnifiedRelationshipDefinition(
             RelationshipName.TRIGGERS_CHOICE,
-            "Ku",
+            "Entity",
             "outgoing",
             "triggered_choices",
             "triggered_choices",
@@ -1095,7 +1095,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
         # Incoming: Choice schedules event
         UnifiedRelationshipDefinition(
             RelationshipName.SCHEDULES_EVENT,
-            "Ku",
+            "Entity",
             "incoming",
             "scheduled_by_choices",
             "scheduled_by_choices",
@@ -1152,7 +1152,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 CHOICES_CONFIG = DomainRelationshipConfig(
     domain=Domain.CHOICES,
-    entity_label="Ku",  # Phase 4: Unified into Ku with ku_type='choice'
+    entity_label="Entity",  # Phase 4: Unified into Ku with ku_type='choice'
     dto_class=ChoiceDTO,
     model_class=Entity,
     backend_get_method="get",
@@ -1161,7 +1161,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
         # Outgoing: Choice → Other
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMED_BY_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "outgoing",
             "informed_by_knowledge",
             "knowledge",
@@ -1183,7 +1183,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.OPENS_LEARNING_PATH,
-            "Ku",
+            "Entity",
             "outgoing",
             "opened_paths",
             "learning_paths",
@@ -1191,7 +1191,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
         # Incoming: Other → Choice
         UnifiedRelationshipDefinition(
             RelationshipName.INSPIRED_BY_CHOICE,
-            "Ku",
+            "Entity",
             "incoming",
             "inspired_choices",
             "inspired_choices",
@@ -1213,7 +1213,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
         # Outgoing: Choice → LifePath (choice serves user's life path)
         UnifiedRelationshipDefinition(
             RelationshipName.SERVES_LIFE_PATH,
-            "Ku",
+            "Entity",
             "outgoing",
             "life_path",
             "life_path",
@@ -1224,7 +1224,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
         # Outgoing: Choice impacts habit
         UnifiedRelationshipDefinition(
             RelationshipName.IMPACTS_HABIT,
-            "Ku",
+            "Entity",
             "outgoing",
             "impacted_habits",
             "impacted_habits",
@@ -1233,7 +1233,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
         # Incoming: Habit informs choice
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMS_CHOICE,
-            "Ku",
+            "Entity",
             "incoming",
             "informing_habits",
             "informing_habits",
@@ -1261,7 +1261,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
         # Shared-neighbor pattern: Related choices via shared principles or goals
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMED_BY_PRINCIPLE,  # Placeholder - uses shared_neighbor_config
-            "Ku",
+            "Entity",
             "both",
             "related_choices",
             "related_choices",
@@ -1272,7 +1272,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
                     RelationshipName.INFORMED_BY_PRINCIPLE,
                     RelationshipName.AFFECTS_GOAL,
                 ),
-                target_label="Ku",
+                target_label="Entity",
                 result_alias="related_choices",
                 result_fields=("uid", "title", "status", "shared_count"),
                 limit=5,
@@ -1299,7 +1299,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 PRINCIPLES_CONFIG = DomainRelationshipConfig(
     domain=Domain.PRINCIPLES,
-    entity_label="Ku",  # Phase 4: Unified into Ku with ku_type='principle'
+    entity_label="Entity",  # Phase 4: Unified into Ku with ku_type='principle'
     dto_class=PrincipleDTO,
     model_class=Entity,
     backend_get_method="get",
@@ -1308,7 +1308,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
         # Outgoing: Principle → Other
         UnifiedRelationshipDefinition(
             RelationshipName.GROUNDED_IN_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "outgoing",
             "grounding_knowledge",
             "knowledge",
@@ -1323,14 +1323,14 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.GUIDES_CHOICE,
-            "Ku",
+            "Entity",
             "outgoing",
             "guided_choices",
             "guided_choices",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.INSPIRES_HABIT,
-            "Ku",
+            "Entity",
             "outgoing",
             "inspired_habits",
             "inspired_habits",
@@ -1339,7 +1339,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
         # Incoming: Other → Principle
         UnifiedRelationshipDefinition(
             RelationshipName.EMBODIES_PRINCIPLE,
-            "Ku",
+            "Entity",
             "incoming",
             "embodying_habits",
             "embodying_habits",
@@ -1395,7 +1395,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
         # Outgoing: Principle → LifePath (principle serves user's life path)
         UnifiedRelationshipDefinition(
             RelationshipName.SERVES_LIFE_PATH,
-            "Ku",
+            "Entity",
             "outgoing",
             "life_path",
             "life_path",
@@ -1484,7 +1484,7 @@ USER_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.HAS_HABIT,
-            "Ku",
+            "Entity",
             "outgoing",
             "habits",
             "habits",
@@ -1498,7 +1498,7 @@ USER_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.HAS_CHOICE,
-            "Ku",
+            "Entity",
             "outgoing",
             "choices",
             "choices",
@@ -1551,7 +1551,7 @@ PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.TRIGGERED_BY,
-            "Ku",
+            "Entity",
             "outgoing",
             "trigger_habit",
             "trigger",
@@ -1565,7 +1565,7 @@ PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.TRIGGERED_BY,
-            "Ku",
+            "Entity",
             "outgoing",
             "trigger_choice",
             "trigger",
@@ -1604,7 +1604,7 @@ PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
 # KU (Knowledge Unit)
 KU_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,
-    entity_label="Ku",
+    entity_label="Entity",
     dto_class=CurriculumDTO,
     model_class=Entity,
     backend_get_method="get",
@@ -1614,7 +1614,7 @@ KU_CONFIG = DomainRelationshipConfig(
         # Outgoing: Ku → Ku (prerequisites with confidence)
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "outgoing",
             "prerequisites",
             "requires",
@@ -1623,7 +1623,7 @@ KU_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ENABLES_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "outgoing",
             "enables_learning",
             "enables",
@@ -1632,7 +1632,7 @@ KU_CONFIG = DomainRelationshipConfig(
         # Incoming: Other Ku → This Ku (dependents)
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "incoming",
             "dependents",
             "required_by",
@@ -1640,7 +1640,7 @@ KU_CONFIG = DomainRelationshipConfig(
         # Related KUs (bidirectional)
         UnifiedRelationshipDefinition(
             RelationshipName.RELATED_TO,
-            "Ku",
+            "Entity",
             "both",
             "related",
             "related",
@@ -1656,7 +1656,7 @@ KU_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "incoming",
             "reinforced_by_habits",
             "reinforced_by_habits",
@@ -1670,15 +1670,15 @@ KU_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMED_BY_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "incoming",
             "informs_choices",
             "informs_choices",
         ),
-        # Curriculum relationships (LS is now :Ku with ku_type='learning_step')
+        # Curriculum relationships (LS is now :Entity with ku_type='learning_step')
         UnifiedRelationshipDefinition(
             RelationshipName.CONTAINS_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "incoming",
             "in_learning_steps",
             "in_steps",
@@ -1686,7 +1686,7 @@ KU_CONFIG = DomainRelationshipConfig(
         # Incoming: enables (other KU enables this KU)
         UnifiedRelationshipDefinition(
             RelationshipName.ENABLES_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "incoming",
             "enabled_by_kus",
             "enabled_by",
@@ -1694,7 +1694,7 @@ KU_CONFIG = DomainRelationshipConfig(
         # Organization (any KU can organize others via ORGANIZES relationships)
         UnifiedRelationshipDefinition(
             RelationshipName.ORGANIZES,
-            "Ku",
+            "Entity",
             "outgoing",
             "organized_children",
             "organizes",
@@ -1705,7 +1705,7 @@ KU_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ORGANIZES,
-            "Ku",
+            "Entity",
             "incoming",
             "organized_by",
             "organized_by",
@@ -1729,7 +1729,7 @@ KU_CONFIG = DomainRelationshipConfig(
 # LS (Learning Step) — Phase 3: Unified into Ku with ku_type='learning_step'
 LS_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
-    entity_label="Ku",
+    entity_label="Entity",
     dto_class=LearningStepDTO,
     model_class=Entity,
     backend_get_method="get",
@@ -1739,7 +1739,7 @@ LS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Ls → Other
         UnifiedRelationshipDefinition(
             RelationshipName.CONTAINS_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "outgoing",
             "knowledge_units",
             "knowledge",
@@ -1747,14 +1747,14 @@ LS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_STEP,
-            "Ku",
+            "Entity",
             "outgoing",
             "prerequisites",
             "prerequisite_steps",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "outgoing",
             "prerequisite_knowledge_units",
             "prerequisite_knowledge",
@@ -1768,7 +1768,7 @@ LS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMS_CHOICE,
-            "Ku",
+            "Entity",
             "outgoing",
             "informed_choices",
             "choices",
@@ -1776,7 +1776,7 @@ LS_CONFIG = DomainRelationshipConfig(
         # Practice patterns
         UnifiedRelationshipDefinition(
             RelationshipName.BUILDS_HABIT,
-            "Ku",
+            "Entity",
             "outgoing",
             "builds_habits",
             "practice_habits",
@@ -1795,10 +1795,10 @@ LS_CONFIG = DomainRelationshipConfig(
             "scheduled_events",
             "practice_events",
         ),
-        # Incoming: Other → Ls (LP is now also :Ku)
+        # Incoming: Other → Ls (LP is now also :Entity)
         UnifiedRelationshipDefinition(
             RelationshipName.HAS_STEP,
-            "Ku",
+            "Entity",
             "incoming",
             "learning_paths",
             "in_paths",
@@ -1825,17 +1825,17 @@ LS_CONFIG = DomainRelationshipConfig(
 # LP (Learning Path) — Phase 3: Unified into Ku with ku_type='learning_path'
 LP_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
-    entity_label="Ku",
+    entity_label="Entity",
     dto_class=LearningPathDTO,
     model_class=Entity,
     backend_get_method="get",
     ownership_relationship=None,  # Shared content
     is_shared_content=True,
     relationships=(
-        # Outgoing: Lp → Other (LS is now also :Ku)
+        # Outgoing: Lp → Other (LS is now also :Entity)
         UnifiedRelationshipDefinition(
             RelationshipName.HAS_STEP,
-            "Ku",
+            "Entity",
             "outgoing",
             "learning_steps",
             "steps",
@@ -1846,7 +1846,7 @@ LP_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "outgoing",
             "required_knowledge",
             "prerequisites",
@@ -1875,7 +1875,7 @@ LP_CONFIG = DomainRelationshipConfig(
         # Incoming: Other → Lp
         UnifiedRelationshipDefinition(
             RelationshipName.OPENS_LEARNING_PATH,
-            "Ku",
+            "Entity",
             "incoming",
             "opened_by_choices",
             "opened_by",
@@ -1905,7 +1905,7 @@ LP_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 EXERCISE_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,  # Curriculum tier
-    entity_label="Ku",  # Exercise is a :Ku node with ku_type='exercise'
+    entity_label="Entity",  # Exercise is a :Entity node with ku_type='exercise'
     dto_class=ExerciseDTO,
     model_class=Entity,
     backend_get_method="get",
@@ -1915,7 +1915,7 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
         # Outgoing: Exercise → Curriculum (what knowledge this exercise requires)
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
-            "Ku",
+            "Entity",
             "outgoing",
             "required_knowledge",
             "required_knowledge",
@@ -1934,7 +1934,7 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
         # Incoming: Submission → Exercise (student submissions fulfilling this exercise)
         UnifiedRelationshipDefinition(
             RelationshipName.FULFILLS_EXERCISE,
-            "Ku",
+            "Entity",
             "incoming",
             "submissions",
             "submissions",
@@ -1987,25 +1987,25 @@ DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
 
 # Label-based lookup (THE authoritative way to get curriculum configs)
 # Phase 3 (February 2026): "Ls" and "Lp" kept as virtual config keys.
-# Their entity_label is now "Ku" (all curriculum nodes are :Ku in Neo4j).
+# Their entity_label is now "Entity" (all curriculum nodes are :Entity in Neo4j).
 LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     # Activity Domains (6)
     "Task": TASKS_CONFIG,
     "Goal": GOALS_CONFIG,
     "Habit": HABITS_CONFIG,
     "Event": EVENTS_CONFIG,
-    "Choice": CHOICES_CONFIG,  # Virtual key — nodes are :Ku{ku_type='choice'}
+    "Choice": CHOICES_CONFIG,  # Virtual key — config lookup key for 'choice'}
     "Principle": PRINCIPLES_CONFIG,
     # Note: Finance/Expense is standalone (not in registry)
     # User (Identity Layer - January 2026)
     "User": USER_CONFIG,
     # Principle Reflection (January 2026)
     "PrincipleReflection": PRINCIPLE_REFLECTION_CONFIG,
-    # Curriculum Domains — all :Ku in Neo4j, virtual keys for config lookup
-    "Ku": KU_CONFIG,
-    "Ls": LS_CONFIG,  # Virtual key — nodes are :Ku{ku_type='learning_step'}
-    "Lp": LP_CONFIG,  # Virtual key — nodes are :Ku{ku_type='learning_path'}
-    "Exercise": EXERCISE_CONFIG,  # Virtual key — nodes are :Ku{ku_type='exercise'}
+    # Curriculum Domains — all :Entity in Neo4j, virtual keys for config lookup
+    "Entity": KU_CONFIG,
+    "Ls": LS_CONFIG,  # Virtual key — config lookup key for 'learning_step'}
+    "Lp": LP_CONFIG,  # Virtual key — config lookup key for 'learning_path'}
+    "Exercise": EXERCISE_CONFIG,  # Virtual key — config lookup key for 'exercise'}
 }
 
 
@@ -2155,7 +2155,7 @@ def generate_graph_enrichment(entity_label: str) -> list[tuple[str, str, str, st
     Generate graph enrichment patterns for BaseService._graph_enrichment_patterns.
 
     Args:
-        entity_label: Neo4j node label (e.g., "Task", "Ku", "Lp")
+        entity_label: Neo4j node label (e.g., "Task", "Entity", "Lp")
 
     Returns:
         List of tuples: (relationship_type, target_label, context_field, direction)
@@ -2219,7 +2219,7 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
     Get the relationship config by Neo4j label.
 
     Args:
-        entity_label: Neo4j node label (e.g., "Task", "Ku")
+        entity_label: Neo4j node label (e.g., "Task", "Entity")
 
     Returns:
         DomainRelationshipConfig or None
@@ -2232,31 +2232,31 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 # =============================================================================
 
 # Static mappings to avoid circular imports with ingestion config.py
-# All domain entities are :Ku nodes; virtual config keys kept for lookup
+# All domain entities are :Entity nodes; virtual config keys kept for lookup
 _ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
-    EntityType.CURRICULUM: "Ku",
+    EntityType.CURRICULUM: "Entity",
     EntityType.TASK: "Task",
     EntityType.GOAL: "Goal",
-    EntityType.HABIT: "Habit",  # Virtual key — nodes are :Ku{ku_type='habit'}
+    EntityType.HABIT: "Habit",  # Virtual key — config lookup key for 'habit'}
     EntityType.EVENT: "Event",
-    EntityType.CHOICE: "Choice",  # Virtual key — nodes are :Ku{ku_type='choice'}
+    EntityType.CHOICE: "Choice",  # Virtual key — config lookup key for 'choice'}
     EntityType.PRINCIPLE: "Principle",
     EntityType.LEARNING_PATH: "Lp",
     EntityType.LEARNING_STEP: "Ls",
-    EntityType.EXERCISE: "Exercise",  # Virtual key — nodes are :Ku{ku_type='exercise'}
+    EntityType.EXERCISE: "Exercise",  # Virtual key — config lookup key for 'exercise'}
 }
 
 _LABEL_TO_DEFAULT_KU_TYPE: dict[str, EntityType] = {
-    "Ku": EntityType.CURRICULUM,
+    "Entity": EntityType.CURRICULUM,
     "Task": EntityType.TASK,
     "Goal": EntityType.GOAL,
     "Habit": EntityType.HABIT,
     "Event": EntityType.EVENT,
-    "Choice": EntityType.CHOICE,  # Virtual key — nodes are :Ku{ku_type='choice'}
+    "Choice": EntityType.CHOICE,  # Virtual key — config lookup key for 'choice'}
     "Principle": EntityType.PRINCIPLE,
     "Lp": EntityType.LEARNING_PATH,
     "Ls": EntityType.LEARNING_STEP,
-    "Exercise": EntityType.EXERCISE,  # Virtual key — nodes are :Ku{ku_type='exercise'}
+    "Exercise": EntityType.EXERCISE,  # Virtual key — config lookup key for 'exercise'}
 }
 
 
@@ -2323,7 +2323,7 @@ def validate_relationship(source_label: str, relationship_type: str) -> bool:
     Validate that a relationship type is valid for a given source label.
 
     Args:
-        source_label: Neo4j node label (e.g., "Task", "Ku")
+        source_label: Neo4j node label (e.g., "Task", "Entity")
         relationship_type: Relationship type string (e.g., "APPLIES_KNOWLEDGE")
 
     Returns:

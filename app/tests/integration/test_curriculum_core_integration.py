@@ -43,7 +43,7 @@ def ku_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[Curricu
     uri = neo4j_container.get_connection_url()
     driver = AsyncGraphDatabase.driver(uri)
 
-    return UniversalNeo4jBackend[Curriculum](driver, "Ku", Curriculum)
+    return UniversalNeo4jBackend[Curriculum](driver, "Entity", Curriculum)
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def lp_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[Learnin
     uri = neo4j_container.get_connection_url()
     driver = AsyncGraphDatabase.driver(uri)
 
-    return UniversalNeo4jBackend[LearningPath](driver, "Ku", LearningPath)
+    return UniversalNeo4jBackend[LearningPath](driver, "Entity", LearningPath)
 
 
 @pytest.fixture
@@ -65,7 +65,7 @@ def ls_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[Learnin
     uri = neo4j_container.get_connection_url()
     driver = AsyncGraphDatabase.driver(uri)
 
-    return UniversalNeo4jBackend[LearningStep](driver, "Ku", LearningStep)
+    return UniversalNeo4jBackend[LearningStep](driver, "Entity", LearningStep)
 
 
 @pytest.fixture
@@ -83,7 +83,7 @@ def clean_curriculum(
             # Delete all curriculum entities and relationships
             await session.run("""
                 MATCH (n)
-                WHERE n:Ku
+                WHERE n:Entity
                 OPTIONAL MATCH (n)-[r]-()
                 DETACH DELETE r, n
             """)
@@ -409,7 +409,7 @@ class TestCurriculumRelationships:
         # Create two KUs with prerequisite relationship
         async with driver.session() as session:
             await session.run("""
-                CREATE (ku1:Ku {
+                CREATE (ku1:Entity {
                     uid: 'ku:python_basics',
                     title: 'Python Basics',
                     content: 'Basic Python',
@@ -417,7 +417,7 @@ class TestCurriculumRelationships:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (ku2:Ku {
+                CREATE (ku2:Entity {
                     uid: 'ku:python_advanced',
                     title: 'Advanced Python',
                     content: 'Advanced Python',
@@ -431,7 +431,7 @@ class TestCurriculumRelationships:
         # Verify relationship exists
         async with driver.session() as session:
             result = await session.run("""
-                MATCH (ku2:Ku {uid: 'ku:python_advanced'})-[:REQUIRES]->(ku1:Ku {uid: 'ku:python_basics'})
+                MATCH (ku2:Entity {uid: 'ku:python_advanced'})-[:REQUIRES]->(ku1:Entity {uid: 'ku:python_basics'})
                 RETURN ku1.uid as prereq_uid, ku2.uid as dependent_uid
             """)
             record = await result.single()
@@ -453,7 +453,7 @@ class TestCurriculumRelationships:
         # Create LP and LS with CONTAINS relationship (both are Ku nodes)
         async with driver.session() as session:
             await session.run("""
-                CREATE (lp:Ku {
+                CREATE (lp:Entity {
                     uid: 'lp:python_journey',
                     title: 'Python Journey',
                     description: 'Learn Python',
@@ -462,7 +462,7 @@ class TestCurriculumRelationships:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (ls:Ku {
+                CREATE (ls:Entity {
                     uid: 'ls:step_1',
                     title: 'Step 1',
                     description: 'First step',
@@ -477,7 +477,7 @@ class TestCurriculumRelationships:
         # Verify relationship exists
         async with driver.session() as session:
             result = await session.run("""
-                MATCH (lp:Ku {uid: 'lp:python_journey'})-[r:CONTAINS]->(ls:Ku {uid: 'ls:step_1'})
+                MATCH (lp:Entity {uid: 'lp:python_journey'})-[r:CONTAINS]->(ls:Entity {uid: 'ls:step_1'})
                 RETURN lp.uid as lp_uid, ls.uid as ls_uid, r.order as step_order
             """)
             record = await result.single()
@@ -516,7 +516,7 @@ class TestCurriculumUserIntegration:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (ku:Ku {
+                CREATE (ku:Entity {
                     uid: 'ku:python_basics',
                     title: 'Python Basics',
                     content: 'Basic Python',
@@ -530,7 +530,7 @@ class TestCurriculumUserIntegration:
         # Verify mastery relationship
         async with driver.session() as session:
             result = await session.run("""
-                MATCH (u:User {uid: 'user:test_learner'})-[m:MASTERED]->(ku:Ku {uid: 'ku:python_basics'})
+                MATCH (u:User {uid: 'user:test_learner'})-[m:MASTERED]->(ku:Entity {uid: 'ku:python_basics'})
                 RETURN u.uid as user_uid, ku.uid as ku_uid, m.mastery_score as score
             """)
             record = await result.single()
@@ -582,7 +582,7 @@ class TestCurriculumContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (ku1:Ku {
+                CREATE (ku1:Entity {
                     uid: 'ku:python_basics',
                     title: 'Python Basics',
                     content: 'Basic Python',
@@ -590,7 +590,7 @@ class TestCurriculumContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (ku2:Ku {
+                CREATE (ku2:Entity {
                     uid: 'ku:advanced_python',
                     title: 'Advanced Python',
                     content: 'Advanced Python',
@@ -598,7 +598,7 @@ class TestCurriculumContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (ku3:Ku {
+                CREATE (ku3:Entity {
                     uid: 'ku:testing',
                     title: 'Testing',
                     content: 'Testing knowledge',
@@ -672,7 +672,7 @@ class TestCurriculumContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (lp1:Ku {
+                CREATE (lp1:Entity {
                     uid: 'lp:python_journey',
                     title: 'Python Journey',
                     description: 'Complete Python learning',
@@ -680,7 +680,7 @@ class TestCurriculumContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (lp2:Ku {
+                CREATE (lp2:Entity {
                     uid: 'lp:web_development',
                     title: 'Web Development',
                     description: 'Web dev path',
@@ -803,14 +803,14 @@ class TestCurriculumContextBuilder:
                 })
 
                 // Curriculum: Knowledge units
-                CREATE (ku1:Ku {
+                CREATE (ku1:Entity {
                     uid: 'ku:python',
                     title: 'Python',
                     content: 'Python programming',
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (ku2:Ku {
+                CREATE (ku2:Entity {
                     uid: 'ku:testing',
                     title: 'Testing',
                     content: 'Testing knowledge',
@@ -819,7 +819,7 @@ class TestCurriculumContextBuilder:
                 })
 
                 // Curriculum: Learning path
-                CREATE (lp:Ku {
+                CREATE (lp:Entity {
                     uid: 'lp:python_mastery',
                     title: 'Python Mastery',
                     description: 'Complete Python path',

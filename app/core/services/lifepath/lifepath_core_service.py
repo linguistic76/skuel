@@ -75,7 +75,7 @@ class LifePathCoreService:
 
         query = """
         MATCH (u:User {uid: $user_uid})
-        OPTIONAL MATCH (u)-[r:ULTIMATE_PATH]->(lp:Ku {ku_type: 'life_path'})
+        OPTIONAL MATCH (u)-[r:ULTIMATE_PATH]->(lp:Entity {ku_type: 'life_path'})
         RETURN u.vision_statement AS vision_statement,
                u.vision_themes AS vision_themes,
                u.vision_captured_at AS vision_captured_at,
@@ -226,10 +226,10 @@ class LifePathCoreService:
         # then create new designation
         query = """
         MATCH (u:User {uid: $user_uid})
-        MATCH (lp:Ku {uid: $life_path_uid, ku_type: 'learning_path'})
+        MATCH (lp:Entity {uid: $life_path_uid, ku_type: 'learning_path'})
 
         // Revert previous designation's ku_type back to learning_path
-        OPTIONAL MATCH (u)-[old:ULTIMATE_PATH]->(old_lp:Ku {ku_type: 'life_path'})
+        OPTIONAL MATCH (u)-[old:ULTIMATE_PATH]->(old_lp:Entity {ku_type: 'life_path'})
         SET old_lp.ku_type = 'learning_path'
         DELETE old
 
@@ -305,7 +305,7 @@ class LifePathCoreService:
             )
 
         query = """
-        MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(lp:Ku {ku_type: 'life_path'})
+        MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(lp:Entity {ku_type: 'life_path'})
         SET lp.ku_type = 'learning_path'
         DELETE r
         RETURN count(r) > 0 AS removed
@@ -364,7 +364,7 @@ class LifePathCoreService:
 
         # Store alignment scores on the ULTIMATE_PATH relationship
         query = """
-        MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(lp:Ku {ku_type: 'life_path'})
+        MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(lp:Entity {ku_type: 'life_path'})
         SET r.alignment_score = $alignment_score,
             r.alignment_level = $alignment_level,
             r.alignment_updated_at = datetime()

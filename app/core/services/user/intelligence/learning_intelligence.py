@@ -79,7 +79,7 @@ class LearningIntelligenceMixin:
             # This personalizes based on mastery state (MASTERED, IN_PROGRESS, etc.)
             search_query = self._generate_learning_query()
             vector_result = await self.vector_search.learning_aware_search(
-                label="Ku",
+                label="Entity",
                 text=search_query,
                 user_uid=self.context.user_uid,
                 prefer_unmastered=True,

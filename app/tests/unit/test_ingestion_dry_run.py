@@ -184,10 +184,14 @@ async def test_dry_run_includes_relationships(
         mock_config.relationship_config = {
             "prerequisite_uids": {
                 "rel_type": "PREREQUISITE",
-                "target_label": "Ku",
+                "target_label": "Entity",
                 "direction": "incoming",
             },
-            "enables_uids": {"rel_type": "ENABLES", "target_label": "Ku", "direction": "outgoing"},
+            "enables_uids": {
+                "rel_type": "ENABLES",
+                "target_label": "Entity",
+                "direction": "outgoing",
+            },
         }
         mock_configs.get.return_value = mock_config
 

@@ -266,7 +266,7 @@ class UserStatsAggregator:
         })[0..5] as task_activities
 
         // Recent mastered knowledge
-        OPTIONAL MATCH (u)-[m:MASTERED]->(ku:Ku)
+        OPTIONAL MATCH (u)-[m:MASTERED]->(ku:Entity)
         WHERE m.mastered_at IS NOT NULL
         WITH u, task_activities, collect({
             type: 'knowledge',

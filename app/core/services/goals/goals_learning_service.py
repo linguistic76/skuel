@@ -74,7 +74,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         domain_name="goals",
         date_field="target_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        entity_label="Ku",
+        entity_label="Entity",
     )
 
     def __init__(
@@ -118,7 +118,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Goal entities."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # LEARNING-AWARE GOAL CREATION
@@ -354,9 +354,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
 
         return Result.ok(needing_habits)
 
-    async def get_goals_blocked_by_knowledge(
-        self, user_context: UserContext
-    ) -> Result[list[Goal]]:
+    async def get_goals_blocked_by_knowledge(self, user_context: UserContext) -> Result[list[Goal]]:
         """
         Get goals blocked by missing knowledge prerequisites.
 

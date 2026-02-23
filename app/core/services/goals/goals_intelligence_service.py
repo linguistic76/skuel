@@ -164,7 +164,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Ku entities."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
@@ -172,9 +172,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Goal, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Goal, GraphContext]]:
         """
         Get goal with full graph context.
 

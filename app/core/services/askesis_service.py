@@ -983,7 +983,7 @@ class AskesisService(FacadeDelegationMixin):
             nodes = context.get("nodes", [])
 
             for node in nodes:
-                if node.get("label") in ["Ku", "KnowledgeUnit"]:
+                if node.get("label") in ["Entity", "KnowledgeUnit"]:
                     knowledge_units.append(
                         {
                             "uid": node.get("uid", ""),
@@ -1018,8 +1018,8 @@ class AskesisService(FacadeDelegationMixin):
             # Step 1: Build dependency graph from Neo4j
             query = """
             UNWIND $ku_uids AS ku_uid
-            MATCH (ku:Ku {uid: ku_uid})
-            OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+            MATCH (ku:Entity {uid: ku_uid})
+            OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
             WHERE prereq.uid IN $ku_uids
             RETURN ku.uid AS uid, collect(prereq.uid) AS prerequisites
             """

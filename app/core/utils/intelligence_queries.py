@@ -79,7 +79,7 @@ async def get_knowledge_prerequisites(
             "domain": node.properties.get("domain", "unknown"),
         }
         for node in context.nodes
-        if node.labels and "Ku" in node.labels
+        if node.labels and "Entity" in node.labels
     ]
 
     return Result.ok(
@@ -120,7 +120,7 @@ async def get_learning_state(
         # Query graph for user's learning relationships
         query = """
         MATCH (u:User {uid: $user_uid})
-        OPTIONAL MATCH (u)-[:MASTERED]->(ku:Ku)
+        OPTIONAL MATCH (u)-[:MASTERED]->(ku:Entity)
         OPTIONAL MATCH (u)-[:ENROLLED_IN]->(lp:Lp)
         OPTIONAL MATCH (lp)-[:CONTAINS]->(step:Ls)
         WITH u,
@@ -216,7 +216,7 @@ async def analyze_knowledge_patterns(
         query = """
         MATCH (e)
         WHERE e.uid IN $entity_uids
-        OPTIONAL MATCH (e)-[:APPLIES_KNOWLEDGE|REQUIRES_KNOWLEDGE]->(ku:Ku)
+        OPTIONAL MATCH (e)-[:APPLIES_KNOWLEDGE|REQUIRES_KNOWLEDGE]->(ku:Entity)
         WITH ku, count(DISTINCT e) as usage_count
         WHERE ku IS NOT NULL
         RETURN
@@ -384,7 +384,7 @@ async def find_cross_domain_connections(
 
     Example:
         >>> result = await find_cross_domain_connections(
-        ...     graph, "task:study-python", target_domains=["Ku", "Goal"]
+        ...     graph, "task:study-python", target_domains=["Entity", "Goal"]
         ... )
     """
     try:

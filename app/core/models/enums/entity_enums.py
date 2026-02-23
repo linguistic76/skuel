@@ -86,7 +86,7 @@ class NonKuDomain(str, Enum):
     """
     Non-knowledge-unit domains outside the unified Ku model.
 
-    These 4 domains exist in SKUEL but are NOT represented as :Ku nodes:
+    These 4 domains exist in SKUEL but are NOT represented as :Entity nodes:
     - FINANCE: Admin-only bookkeeping (:Expense nodes)
     - GROUP: Teacher-student class management (:Group nodes, ADR-040)
     - CALENDAR: Aggregation meta-service (no dedicated nodes)

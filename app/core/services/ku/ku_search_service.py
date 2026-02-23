@@ -95,7 +95,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
         dto_class=CurriculumDTO,
         model_class=Entity,
         domain_name="ku",
-        search_fields=("title", "summary", "tags"),  # Content lives on :Content node, not :Ku
+        search_fields=("title", "summary", "tags"),  # Content lives on :Content node, not :Entity
         search_order_by="updated_at",
     )
 
@@ -119,16 +119,20 @@ class KuSearchService(BaseService[KuOperations, Entity]):
     #   }
     # }
     _graph_enrichment_patterns: ClassVar[list[tuple[str, str, str]]] = [
-        # All entities are :Ku nodes (unified Ku model) — target label is always "Ku"
-        ("taught_in_steps", RelationshipName.CONTAINS_KNOWLEDGE.value, NeoLabel.KU.value),
-        ("prerequisites", RelationshipName.REQUIRES_KNOWLEDGE.value, NeoLabel.KU.value),
-        ("enables", RelationshipName.ENABLES_KNOWLEDGE.value, NeoLabel.KU.value),
-        ("applied_in_tasks", RelationshipName.APPLIES_KNOWLEDGE.value, NeoLabel.KU.value),
-        ("required_by_goals", RelationshipName.REQUIRES_KNOWLEDGE.value, NeoLabel.KU.value),
-        ("practiced_in_events", RelationshipName.APPLIES_KNOWLEDGE.value, NeoLabel.KU.value),
-        ("reinforced_by_habits", RelationshipName.REINFORCES_KNOWLEDGE.value, NeoLabel.KU.value),
-        ("informs_choices", RelationshipName.INFORMED_BY_KNOWLEDGE.value, NeoLabel.KU.value),
-        ("grounds_principles", RelationshipName.GROUNDED_IN_KNOWLEDGE.value, NeoLabel.KU.value),
+        # All entities are :Entity nodes — target label is always "Entity"
+        ("taught_in_steps", RelationshipName.CONTAINS_KNOWLEDGE.value, NeoLabel.ENTITY.value),
+        ("prerequisites", RelationshipName.REQUIRES_KNOWLEDGE.value, NeoLabel.ENTITY.value),
+        ("enables", RelationshipName.ENABLES_KNOWLEDGE.value, NeoLabel.ENTITY.value),
+        ("applied_in_tasks", RelationshipName.APPLIES_KNOWLEDGE.value, NeoLabel.ENTITY.value),
+        ("required_by_goals", RelationshipName.REQUIRES_KNOWLEDGE.value, NeoLabel.ENTITY.value),
+        ("practiced_in_events", RelationshipName.APPLIES_KNOWLEDGE.value, NeoLabel.ENTITY.value),
+        (
+            "reinforced_by_habits",
+            RelationshipName.REINFORCES_KNOWLEDGE.value,
+            NeoLabel.ENTITY.value,
+        ),
+        ("informs_choices", RelationshipName.INFORMED_BY_KNOWLEDGE.value, NeoLabel.ENTITY.value),
+        ("grounds_principles", RelationshipName.GROUNDED_IN_KNOWLEDGE.value, NeoLabel.ENTITY.value),
     ]
 
     def __init__(
@@ -177,7 +181,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
         """
         Return Cypher query fragment for fetching KU metadata.
 
-        Content lives on the :Content node (via HAS_CONTENT), not on the :Ku node.
+        Content lives on the :Content node (via HAS_CONTENT), not on the :Entity node.
         """
         return """
         RETURN n
@@ -448,7 +452,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
         # Try AI-enhanced vector search if available and preferred
         if self.vector_search and prefer_vector_search:
             vector_result = await self.vector_search.find_similar_to_node(
-                label="Ku", uid=uid, limit=limit, min_score=0.7
+                label="Entity", uid=uid, limit=limit, min_score=0.7
             )
 
             if vector_result.is_ok:
@@ -478,8 +482,8 @@ class KuSearchService(BaseService[KuOperations, Entity]):
         This is the graph-semantic foundation layer - always available.
         """
         query = """
-        MATCH (source:Ku {uid: $uid})
-        MATCH (similar:Ku)
+        MATCH (source:Entity {uid: $uid})
+        MATCH (similar:Entity)
         WHERE similar.uid <> source.uid
 
         // Calculate similarity based on:
@@ -693,7 +697,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
         # Try semantic search with vector embeddings
         if self.vector_search and self.embeddings:
             semantic_result = await self.vector_search.find_similar_by_text(
-                label="Ku", text=query_text, limit=limit, min_score=min_score
+                label="Entity", text=query_text, limit=limit, min_score=min_score
             )
 
             if semantic_result.is_ok:
@@ -717,7 +721,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
         This is the graph-semantic foundation - always available.
         """
         query = """
-        MATCH (ku:Ku)
+        MATCH (ku:Entity)
         WHERE toLower(ku.title) CONTAINS toLower($query_text)
            OR toLower(ku.summary) CONTAINS toLower($query_text)
            OR any(tag IN ku.tags WHERE toLower(tag) CONTAINS toLower($query_text))

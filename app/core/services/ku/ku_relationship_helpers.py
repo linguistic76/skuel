@@ -76,7 +76,7 @@ class KuRelationshipFilters:
         from core.models.relationship_names import RelationshipName
 
         return build_batch_relationship_exists_with_filters(
-            node_label="Ku",
+            node_label="Entity",
             relationship_types=[RelationshipName.REQUIRES_KNOWLEDGE.value],
             direction="outgoing",
             property_filters={"strength__gte": min_strength},
@@ -110,7 +110,7 @@ class KuRelationshipFilters:
         from core.models.relationship_names import RelationshipName
 
         return build_batch_relationship_exists_with_filters(
-            node_label="Ku",
+            node_label="Entity",
             relationship_types=[RelationshipName.ENABLES_KNOWLEDGE.value],
             direction="outgoing",
             property_filters={"enablement_strength__gte": min_enablement_strength},
@@ -143,7 +143,7 @@ class KuRelationshipFilters:
         )
 
         return build_batch_relationship_exists_with_filters(
-            node_label="Ku",
+            node_label="Entity",
             relationship_types=[RelationshipName.RELATED_TO.value],
             direction="both",
             property_filters={"strength__gte": min_strength},
@@ -187,7 +187,7 @@ class KuRelationshipFilters:
         from core.models.relationship_names import RelationshipName
 
         return build_batch_get_related_with_filters(
-            node_label="Ku",
+            node_label="Entity",
             relationship_types=[RelationshipName.REQUIRES_KNOWLEDGE.value],
             direction="outgoing",
             property_filters={"strength__gte": min_strength},
@@ -219,7 +219,7 @@ class KuRelationshipFilters:
         from core.models.relationship_names import RelationshipName
 
         return build_batch_get_related_with_filters(
-            node_label="Ku",
+            node_label="Entity",
             relationship_types=[RelationshipName.ENABLES_KNOWLEDGE.value],
             direction="outgoing",
             property_filters={"enablement_strength__gte": min_enablement_strength},
@@ -250,7 +250,7 @@ class KuRelationshipFilters:
         )
 
         return build_batch_get_related_with_filters(
-            node_label="Ku",
+            node_label="Entity",
             relationship_types=[RelationshipName.RELATED_TO.value],
             direction="both",
             property_filters={"strength__gte": min_strength},
@@ -291,7 +291,7 @@ class KuRelationshipTypeFilters:
         from core.models.relationship_names import RelationshipName
 
         return build_batch_relationship_exists_with_filters(
-            node_label="Ku",
+            node_label="Entity",
             relationship_types=[RelationshipName.REQUIRES_KNOWLEDGE.value],
             direction="outgoing",
             property_filters={"prerequisite_type": "foundational"},
@@ -315,7 +315,7 @@ class KuRelationshipTypeFilters:
         from core.models.relationship_names import RelationshipName
 
         return build_batch_relationship_exists_with_filters(
-            node_label="Ku",
+            node_label="Entity",
             relationship_types=[RelationshipName.REQUIRES_KNOWLEDGE.value],
             direction="outgoing",
             property_filters={"prerequisite_type": "advanced"},
@@ -348,7 +348,7 @@ class KuRelationshipTypeFilters:
         )
 
         return build_batch_relationship_exists_with_filters(
-            node_label="Ku",
+            node_label="Entity",
             relationship_types=[RelationshipName.HAS_NARROWER.value],
             direction="outgoing",
             property_filters={"specificity_level__gte": min_specificity_level},
@@ -376,7 +376,7 @@ class KuRelationshipTypeFilters:
         )
 
         return build_batch_relationship_exists_with_filters(
-            node_label="Ku",
+            node_label="Entity",
             relationship_types=[RelationshipName.HAS_BROADER.value],
             direction="outgoing",
             property_filters={"abstraction_level__gte": min_abstraction_level},

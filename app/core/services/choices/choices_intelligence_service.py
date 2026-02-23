@@ -129,7 +129,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
     @property
     def entity_label(self) -> str:
         """Return the graph label for Choice entities (now Ku with ku_type filter)."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
@@ -137,7 +137,9 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Choice, GraphContext]]:
+    async def get_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[Choice, GraphContext]]:
         """
         Get choice with full graph context.
 
@@ -1813,10 +1815,10 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
         """
         # Query for choices with principle alignment in the period
         query = """
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Ku {ku_type: 'choice'})
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Entity {ku_type: 'choice'})
         WHERE c.created_at >= datetime() - duration({days: $period_days})
 
-        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Ku {ku_type: 'principle'})
+        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Entity {ku_type: 'principle'})
 
         WITH c,
              collect(DISTINCT p.uid) AS principle_uids,
@@ -1961,16 +1963,16 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
         """
         # Query for choice and its principle relationships
         query = """
-        MATCH (c:Ku {uid: $choice_uid, ku_type: 'choice'})
+        MATCH (c:Entity {uid: $choice_uid, ku_type: 'choice'})
 
         // Get aligned principles
-        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(aligned:Ku {ku_type: 'principle'})
+        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(aligned:Entity {ku_type: 'principle'})
 
         // Get any conflicting principles
-        OPTIONAL MATCH (c)-[:CONFLICTS_WITH_PRINCIPLE]->(conflicting:Ku {ku_type: 'principle'})
+        OPTIONAL MATCH (c)-[:CONFLICTS_WITH_PRINCIPLE]->(conflicting:Entity {ku_type: 'principle'})
 
         // Get user's core principles for comparison
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(core:Ku {ku_type: 'principle'})
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(core:Entity {ku_type: 'principle'})
         WHERE core.strength IN ['CORE', 'STRONG']
 
         RETURN
@@ -2106,9 +2108,9 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
         # Factor 3: Historical correlation (25% weight)
         # Query past decisions with similar patterns
         historical_query = """
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Ku {ku_type: 'choice'})
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Entity {ku_type: 'choice'})
         WHERE c.satisfaction_score IS NOT NULL
-        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Ku {ku_type: 'principle'})
+        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Entity {ku_type: 'principle'})
         WITH c, count(p) AS principle_count
         RETURN
             avg(CASE WHEN principle_count > 0 THEN c.satisfaction_score ELSE null END) AS aligned_avg,
@@ -2224,16 +2226,16 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
         """
         # Query for life path contribution via principles
         query = """
-        MATCH (c:Ku {uid: $choice_uid, ku_type: 'choice'})
+        MATCH (c:Entity {uid: $choice_uid, ku_type: 'choice'})
 
         // Get user's life path
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Ku {ku_type: 'learning_path'})
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Entity {ku_type: 'learning_path'})
 
         // Direct contribution (if any)
         OPTIONAL MATCH (c)-[direct:SERVES_LIFE_PATH]->(lp)
 
         // Principle-mediated contribution
-        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Ku {ku_type: 'principle'})
+        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Entity {ku_type: 'principle'})
                        -[pserve:SERVES_LIFE_PATH]->(lp)
 
         RETURN

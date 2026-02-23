@@ -51,7 +51,6 @@ class NeoLabel(str, Enum):
     Domain entities use multi-label architecture:
     - :Entity (universal base label for all domain entities)
     - :Task, :Goal, :Habit, etc. (domain-specific label for indexed queries)
-    - :Ku (legacy label, retained for backward compatibility during migration)
 
     The label value is the exact string used in Neo4j MATCH/CREATE patterns.
     """
@@ -60,11 +59,6 @@ class NeoLabel(str, Enum):
     # Universal Base Label — ALL domain entities
     # =========================================================================
     ENTITY = "Entity"  # Universal label for cross-domain queries
-
-    # =========================================================================
-    # Legacy Unified Label — retained for backward compatibility
-    # =========================================================================
-    KU = "Ku"  # Legacy — will be removed in Phase 6
 
     # =========================================================================
     # Domain-Specific Labels — one per EntityType
@@ -91,7 +85,7 @@ class NeoLabel(str, Enum):
     FEEDBACK = "Feedback"
 
     # Instruction Templates (1)
-    EXERCISE = "Exercise"  # Domain label for :Ku nodes with ku_type="exercise"
+    EXERCISE = "Exercise"  # Domain label for :Entity nodes with ku_type="exercise"
 
     # Destination (1)
     LIFE_PATH = "LifePath"

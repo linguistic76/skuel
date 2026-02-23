@@ -95,7 +95,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
     _config = create_curriculum_domain_config(
         dto_class=LearningStepDTO,
         model_class=LearningStep,
-        entity_label="Ku",
+        entity_label="Entity",
         domain_name="ls",
         search_fields=("title", "intent", "description"),  # LS-specific fields
         search_order_by="updated_at",
@@ -105,7 +105,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
     @property
     def entity_label(self) -> str:
         """Entity label for Neo4j queries."""
-        return "Ku"
+        return "Entity"
 
     def __init__(self, backend: BackendOperations[LearningStep], event_bus: Any = None) -> None:
         """
@@ -140,7 +140,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         # GRAPH-NATIVE: Create step node with scalar properties only
         # Relationships (knowledge, prerequisites, etc.) stored as edges
         query = """
-        CREATE (s:Ku {
+        CREATE (s:Entity {
             uid: $uid,
             ku_type: 'learning_step',
             title: $title,
@@ -163,7 +163,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             query += """
             WITH s
             UNWIND $primary_knowledge_uids AS ku_uid
-            MATCH (ku:Ku {uid: ku_uid})
+            MATCH (ku:Entity {uid: ku_uid})
             CREATE (s)-[:REQUIRES_KNOWLEDGE {type: 'primary'}]->(ku)
             """
 
@@ -172,7 +172,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             query += """
             WITH s
             UNWIND $supporting_knowledge_uids AS ku_uid
-            MATCH (ku:Ku {uid: ku_uid})
+            MATCH (ku:Entity {uid: ku_uid})
             CREATE (s)-[:REQUIRES_KNOWLEDGE {type: 'supporting'}]->(ku)
             """
 
@@ -180,7 +180,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         if path_uid:
             query += """
             WITH s
-            MATCH (p:Ku {uid: $path_uid})
+            MATCH (p:Entity {uid: $path_uid})
             CREATE (p)-[:HAS_STEP {sequence: $sequence}]->(s)
             """
 
@@ -253,8 +253,8 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         # GRAPH-NATIVE: Query node + knowledge relationships
         result = await self.backend.execute_query(
             """
-            MATCH (s:Ku {uid: $uid})
-            OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
+            MATCH (s:Entity {uid: $uid})
+            OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Entity)
             RETURN s, collect({uid: ku.uid, type: r.type}) as knowledge_rels
             """,
             {"uid": step_uid},
@@ -340,10 +340,10 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         step_uid = uid  # Alias for backward compatibility in query
         query_result = await self.backend.execute_query(
             """
-            MATCH (ls:Ku {uid: $uid})
+            MATCH (ls:Entity {uid: $uid})
 
             // 1. Primary and supporting knowledge
-            OPTIONAL MATCH (ls)-[r_ku:REQUIRES_KNOWLEDGE]->(ku:Ku)
+            OPTIONAL MATCH (ls)-[r_ku:REQUIRES_KNOWLEDGE]->(ku:Entity)
             WITH ls, collect({
                 uid: ku.uid,
                 title: ku.title,
@@ -352,7 +352,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             }) as knowledge_rels
 
             // 2. Prerequisite steps
-            OPTIONAL MATCH (ls)-[:REQUIRES_STEP]->(prereq_step:Ku {ku_type: 'learning_step'})
+            OPTIONAL MATCH (ls)-[:REQUIRES_STEP]->(prereq_step:Entity {ku_type: 'learning_step'})
             WITH ls, knowledge_rels, collect({
                 uid: prereq_step.uid,
                 title: prereq_step.title,
@@ -360,7 +360,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             }) as prereq_steps
 
             // 3. Prerequisite knowledge (separate from content knowledge)
-            OPTIONAL MATCH (ls)-[:REQUIRES_KNOWLEDGE {type: 'prerequisite'}]->(prereq_ku:Ku)
+            OPTIONAL MATCH (ls)-[:REQUIRES_KNOWLEDGE {type: 'prerequisite'}]->(prereq_ku:Entity)
             WITH ls, knowledge_rels, prereq_steps, collect({
                 uid: prereq_ku.uid,
                 title: prereq_ku.title
@@ -405,7 +405,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             }) as events
 
             // 9. Learning path context (if part of sequence)
-            OPTIONAL MATCH (lp:Ku {ku_type: 'learning_path'})-[r_path:HAS_STEP|CONTAINS_STEP]->(ls)
+            OPTIONAL MATCH (lp:Entity {ku_type: 'learning_path'})-[r_path:HAS_STEP|CONTAINS_STEP]->(ls)
             WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, {
                 uid: lp.uid,
                 name: lp.title,
@@ -414,7 +414,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             } as path_context
 
             // 10. Dependent steps (steps that require this one)
-            OPTIONAL MATCH (dependent:Ku {ku_type: 'learning_step'})-[:REQUIRES_STEP]->(ls)
+            OPTIONAL MATCH (dependent:Entity {ku_type: 'learning_step'})-[:REQUIRES_STEP]->(ls)
             WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, path_context, collect({
                 uid: dependent.uid,
                 title: dependent.title,
@@ -568,10 +568,10 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
 
         # GRAPH-NATIVE: Query includes knowledge relationships
         query = f"""
-        MATCH (s:Ku {{uid: $uid}})
+        MATCH (s:Entity {{uid: $uid}})
         SET {", ".join(set_clauses)}
         WITH s
-        OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
+        OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Entity)
         RETURN s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
         """
 
@@ -662,7 +662,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         # Delete step and its relationships
         result = await self.backend.execute_query(
             """
-            MATCH (s:Ku {uid: $uid})
+            MATCH (s:Entity {uid: $uid})
             DETACH DELETE s
             RETURN count(s) as deleted_count
             """,
@@ -736,9 +736,9 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         if path_uid:
             # Get steps for specific path
             query = f"""
-            MATCH (p:Ku {{uid: $path_uid}})-[:HAS_STEP]->(s:Ku {{ku_type: 'learning_step'}})
+            MATCH (p:Entity {{uid: $path_uid}})-[:HAS_STEP]->(s:Entity {{ku_type: 'learning_step'}})
             {where_clause}
-            OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
+            OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Entity)
             WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
             RETURN s, knowledge_rels
             ORDER BY {order_field} {order_direction}
@@ -749,9 +749,9 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         else:
             # Get all steps
             query = f"""
-            MATCH (s:Ku {{ku_type: 'learning_step'}})
+            MATCH (s:Entity {{ku_type: 'learning_step'}})
             {where_clause}
-            OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
+            OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Entity)
             WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
             RETURN s, knowledge_rels
             ORDER BY {order_field} {order_direction}
@@ -858,8 +858,8 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             )
 
         query = """
-        MATCH (ls:Ku {uid: $ls_uid})
-        MATCH (ku:Ku {uid: $ku_uid})
+        MATCH (ls:Entity {uid: $ls_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
         MERGE (ls)-[r:CONTAINS_KNOWLEDGE]->(ku)
         SET r.type = $knowledge_type,
             r.created_at = COALESCE(r.created_at, datetime()),
@@ -934,7 +934,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         # Build query based on filter
         if knowledge_type:
             query = """
-            MATCH (ls:Ku {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE {type: $knowledge_type}]->(ku:Ku)
+            MATCH (ls:Entity {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE {type: $knowledge_type}]->(ku:Entity)
             RETURN ku.uid as uid,
                    ku.title as title,
                    ku.domain as domain,
@@ -945,7 +945,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             params = {"ls_uid": ls_uid, "knowledge_type": knowledge_type}
         else:
             query = """
-            MATCH (ls:Ku {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Ku)
+            MATCH (ls:Entity {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
             RETURN ku.uid as uid,
                    ku.title as title,
                    ku.domain as domain,
@@ -1002,7 +1002,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
         query = """
-        MATCH (ls:Ku {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Ku {uid: $ku_uid})
+        MATCH (ls:Entity {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
         DELETE r
         RETURN count(r) as deleted
         """
@@ -1053,8 +1053,8 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             # }
         """
         query = """
-        MATCH (ls:Ku {uid: $ls_uid})
-        OPTIONAL MATCH (ls)-[r:CONTAINS_KNOWLEDGE]->(ku:Ku)
+        MATCH (ls:Entity {uid: $ls_uid})
+        OPTIONAL MATCH (ls)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
         WITH ls, r, ku
         RETURN
             count(CASE WHEN r.type = 'primary' THEN 1 END) as primary_count,

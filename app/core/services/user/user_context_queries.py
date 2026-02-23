@@ -71,7 +71,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      task, task_subtasks,
      collect(DISTINCT {uid: dependency.uid, title: dependency.title, confidence: dep_rel.confidence}) as task_dependencies
 
-OPTIONAL MATCH (task)-[app_rel:APPLIES_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (task)-[app_rel:APPLIES_KNOWLEDGE]->(ku:Entity)
 WHERE task IS NOT NULL AND coalesce(app_rel.confidence, 1.0) >= $min_confidence
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      task, task_subtasks, task_dependencies,
@@ -115,7 +115,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      goal, goal_tasks,
      collect(DISTINCT {uid: subgoal.uid, title: subgoal.title, progress: subgoal.progress}) as goal_subgoals
 
-OPTIONAL MATCH (goal)-[req_rel:REQUIRES_KNOWLEDGE]->(req_ku:Ku)
+OPTIONAL MATCH (goal)-[req_rel:REQUIRES_KNOWLEDGE]->(req_ku:Entity)
 WHERE goal IS NOT NULL AND coalesce(req_rel.confidence, 1.0) >= $min_confidence
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
@@ -140,7 +140,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ====================================================================
 // KNOWLEDGE - Fetch with BOTH UIDs and rich data
 // ====================================================================
-OPTIONAL MATCH (user)-[mastered:MASTERED|LEARNING]->(ku:Ku)
+OPTIONAL MATCH (user)-[mastered:MASTERED|LEARNING]->(ku:Entity)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      collect({
@@ -153,14 +153,14 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Filter knowledge for rich data (with prerequisites/dependents)
 UNWIND CASE WHEN size(all_knowledge_nodes) > 0 THEN all_knowledge_nodes ELSE [null] END as ku
-OPTIONAL MATCH (ku)-[prereq_rel:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+OPTIONAL MATCH (ku)-[prereq_rel:REQUIRES_KNOWLEDGE]->(prereq:Entity)
 WHERE ku IS NOT NULL AND coalesce(prereq_rel.confidence, 1.0) >= $min_confidence
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data,
      ku, collect(DISTINCT {uid: prereq.uid, title: prereq.title, confidence: prereq_rel.confidence}) as ku_prerequisites
 
-OPTIONAL MATCH (dependent:Ku)-[dep_rel:REQUIRES_KNOWLEDGE]->(ku)
+OPTIONAL MATCH (dependent:Entity)-[dep_rel:REQUIRES_KNOWLEDGE]->(ku)
 WHERE ku IS NOT NULL AND coalesce(dep_rel.confidence, 1.0) >= $min_confidence
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -184,7 +184,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // KU INTERACTION TRACKING (MVP - Phase B)
 // ====================================================================
 // Track view counts, time spent, and recently viewed KUs from VIEWED relationships
-OPTIONAL MATCH (user)-[viewed:VIEWED]->(viewed_ku:Ku)
+OPTIONAL MATCH (user)-[viewed:VIEWED]->(viewed_ku:Entity)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -196,7 +196,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      }) as ku_view_data
 
 // Track marked as read KUs
-OPTIONAL MATCH (user)-[:MARKED_AS_READ]->(read_ku:Ku)
+OPTIONAL MATCH (user)-[:MARKED_AS_READ]->(read_ku:Entity)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -204,7 +204,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      collect(read_ku.uid) as ku_marked_as_read_uids
 
 // Track bookmarked KUs
-OPTIONAL MATCH (user)-[:BOOKMARKED]->(bookmarked_ku:Ku)
+OPTIONAL MATCH (user)-[:BOOKMARKED]->(bookmarked_ku:Entity)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -235,7 +235,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_habit_uids, habit_metadata,
      habit, collect(DISTINCT {uid: linked_goal.uid, title: linked_goal.title, status: linked_goal.status}) as habit_linked_goals
 
-OPTIONAL MATCH (habit)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(habit_ku:Ku)
+OPTIONAL MATCH (habit)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(habit_ku:Entity)
 WHERE habit IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -285,7 +285,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Filter events for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_event_nodes) > 0 THEN all_event_nodes ELSE [null] END as event
-OPTIONAL MATCH (event)-[:APPLIES_KNOWLEDGE]->(event_ku:Ku)
+OPTIONAL MATCH (event)-[:APPLIES_KNOWLEDGE]->(event_ku:Entity)
 WHERE event IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -360,7 +360,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Filter principles for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_principle_nodes) > 0 THEN all_principle_nodes ELSE [null] END as principle
-OPTIONAL MATCH (principle)-[:GROUNDED_IN_KNOWLEDGE]->(principle_ku:Ku)
+OPTIONAL MATCH (principle)-[:GROUNDED_IN_KNOWLEDGE]->(principle_ku:Entity)
 WHERE principle IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -455,7 +455,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Filter choices for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_choice_nodes) > 0 THEN all_choice_nodes ELSE [null] END as choice
-OPTIONAL MATCH (choice)-[:INFORMED_BY_KNOWLEDGE]->(choice_ku:Ku)
+OPTIONAL MATCH (choice)-[:INFORMED_BY_KNOWLEDGE]->(choice_ku:Entity)
 WHERE choice IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -574,7 +574,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
          sequence: coalesce(r_step.sequence, step.sequence)
      }) as lp_steps
 
-OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(prereq_ku:Ku)
+OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(prereq_ku:Entity)
 WHERE lp IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -699,7 +699,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ls, ls_prereq_steps, ls_habits,
      collect(DISTINCT {uid: ls_task.uid, title: ls_task.title, status: ls_task.status}) as ls_tasks
 
-OPTIONAL MATCH (ls)-[:REQUIRES_KNOWLEDGE|TEACHES]->(ls_ku:Ku)
+OPTIONAL MATCH (ls)-[:REQUIRES_KNOWLEDGE|TEACHES]->(ls_ku:Entity)
 WHERE ls IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -865,21 +865,21 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      collect({uid: goal.uid, progress: coalesce(goal.progress, 0.0)}) as goal_data
 
 // Knowledge - parallel collection with mastery scores
-OPTIONAL MATCH (user)-[mastered:MASTERED]->(ku:Ku)
+OPTIONAL MATCH (user)-[mastered:MASTERED]->(ku:Entity)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
      collect({uid: ku.uid, score: coalesce(mastered.mastery_score, 1.0)}) as knowledge_data
 
 // KU Tracking - view counts, time spent, marked as read, bookmarked (Phase B)
-OPTIONAL MATCH (user)-[viewed:VIEWED]->(viewed_ku:Ku)
+OPTIONAL MATCH (user)-[viewed:VIEWED]->(viewed_ku:Entity)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
      knowledge_data,
      collect({uid: viewed_ku.uid, view_count: coalesce(viewed.view_count, 1), time_spent_seconds: coalesce(viewed.time_spent_seconds, 0), last_viewed_at: viewed.last_viewed_at}) as ku_view_data
 
-OPTIONAL MATCH (user)-[:MARKED_AS_READ]->(read_ku:Ku)
+OPTIONAL MATCH (user)-[:MARKED_AS_READ]->(read_ku:Entity)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
@@ -887,7 +887,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ku_view_data,
      collect(read_ku.uid) as ku_marked_as_read_uids
 
-OPTIONAL MATCH (user)-[:BOOKMARKED]->(bookmarked_ku:Ku)
+OPTIONAL MATCH (user)-[:BOOKMARKED]->(bookmarked_ku:Entity)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,

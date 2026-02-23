@@ -66,7 +66,7 @@ async def verify_chunks():
 
     # Check for test knowledge
     query4 = """
-    MATCH (k:Ku)
+    MATCH (k:Entity)
     WHERE k.uid CONTAINS 'test'
     RETURN k.uid as uid, k.title as title
     LIMIT 5

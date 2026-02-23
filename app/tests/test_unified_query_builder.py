@@ -23,7 +23,7 @@ class TestModelQueryBuilder:
             query().for_model(Task).filter(priority="high", status="in_progress").build()
         )
 
-        assert "MATCH (n:Ku)" in cypher
+        assert "MATCH (n:Entity)" in cypher
         assert "WHERE" in cypher
         assert "priority" in params
         assert "status" in params
@@ -87,7 +87,7 @@ class TestModelQueryBuilder:
         """Test building list query without filters."""
         cypher, params = query().for_model(Task).limit(100).build()
 
-        assert "MATCH (n:Ku)" in cypher
+        assert "MATCH (n:Entity)" in cypher
         assert "RETURN n" in cypher
         assert params.get("limit") == 100
 

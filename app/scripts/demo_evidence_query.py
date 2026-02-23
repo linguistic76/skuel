@@ -35,7 +35,7 @@ async def demo_evidence_query():
         async with driver.session() as session:
             # Query a high-quality relationship with evidence
             query = """
-            MATCH (from:Ku)-[r:REQUIRES]->(to:Ku)
+            MATCH (from:Entity)-[r:REQUIRES]->(to:Entity)
             WHERE size(r.evidence) > 0
             RETURN
                 from.uid as from_uid,

@@ -260,7 +260,7 @@ def create_activity_domain_config(
         search_order_by: Default sort field (default: "created_at")
         entity_label: Neo4j node label override (default: model_class.__name__).
             Use when model_class is a domain subclass (e.g., Task) but the
-            Neo4j label remains the base type (e.g., "Ku").
+            Neo4j label remains the base type (e.g., "Entity").
 
     Returns:
         Configured DomainConfig for the activity domain

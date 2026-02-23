@@ -455,7 +455,9 @@ class PrinciplesAlignmentService:
         # Add assessment to history (append pattern — no assess_alignment method on PrincipleDTO)
         from datetime import date
 
-        from core.models.principle.principle_types import AlignmentAssessment as KuAlignmentAssessment
+        from core.models.principle.principle_types import (
+            AlignmentAssessment as KuAlignmentAssessment,
+        )
 
         ku_assessment = KuAlignmentAssessment(
             assessed_date=date.today(),
@@ -468,7 +470,9 @@ class PrinciplesAlignmentService:
         # Update in backend
         await self.backend.update(principle_uid, dto.to_dict())
 
-    async def _calculate_system_alignment(self, principle: Principle, user_uid: str) -> dict[str, Any]:
+    async def _calculate_system_alignment(
+        self, principle: Principle, user_uid: str
+    ) -> dict[str, Any]:
         """
         Calculate system alignment from goals, habits, and choices.
 
@@ -888,7 +892,9 @@ class PrinciplesAlignmentService:
 
         return recommendations[:5]
 
-    def _score_option_against_principle(self, option: str, principle: Principle, _context: str) -> float:
+    def _score_option_against_principle(
+        self, option: str, principle: Principle, _context: str
+    ) -> float:
         """Score how well an option aligns with a principle"""
         # Simple keyword matching - would be more sophisticated in practice
         score = 0.5  # Neutral baseline
@@ -905,7 +911,9 @@ class PrinciplesAlignmentService:
         # Cap at 1.0
         return min(score, 1.0)
 
-    def _creates_conflict(self, scores: dict[str, dict[str, float]], p1: Principle, p2: Principle) -> bool:
+    def _creates_conflict(
+        self, scores: dict[str, dict[str, float]], p1: Principle, p2: Principle
+    ) -> bool:
         """Check if option scores create conflict between principles"""
         # Check if principles disagree strongly on best option
         for option1, scores1 in scores.items():

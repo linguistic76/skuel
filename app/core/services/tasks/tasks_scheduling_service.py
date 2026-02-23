@@ -103,7 +103,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
         domain_name="tasks",
         date_field="due_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        entity_label="Ku",
+        entity_label="Entity",
     )
 
     def __init__(self, backend: BackendOperations[Task]) -> None:
@@ -139,7 +139,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Task entities."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # CONTEXT-AWARE CREATION

@@ -250,7 +250,7 @@ class KuAIService(BaseAIService[KuOperations, Ku]):
 
         # Get parent KU information
         cypher += """
-        MATCH (chunk)<-[:HAS_CHUNK]-(content:Content)<-[:HAS_CONTENT]-(ku:Ku)
+        MATCH (chunk)<-[:HAS_CHUNK]-(content:Content)<-[:HAS_CONTENT]-(ku:Entity)
         RETURN
             chunk.uid as chunk_uid,
             chunk.chunk_type as chunk_type,

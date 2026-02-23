@@ -211,7 +211,7 @@ class Phase3BIntegrationTest:
 
             async with self.driver.session() as session:
                 await session.run(
-                    "MERGE (ku:Ku {uid: $uid}) SET ku.title = 'Integration Test Python'",
+                    "MERGE (ku:Entity {uid: $uid}) SET ku.title = 'Integration Test Python'",
                     {"uid": ku_uid},
                 )
 
@@ -234,7 +234,7 @@ class Phase3BIntegrationTest:
             # Verify relationship exists in Neo4j
             async with self.driver.session() as session:
                 check_result = await session.run(
-                    "MATCH (t:Task {uid: $task_uid})-[r:APPLIES_KNOWLEDGE]->(ku:Ku {uid: $ku_uid}) "
+                    "MATCH (t:Task {uid: $task_uid})-[r:APPLIES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid}) "
                     "RETURN r, properties(r) as props",
                     {"task_uid": task.uid, "ku_uid": ku_uid},
                 )
@@ -362,7 +362,7 @@ class Phase3BIntegrationTest:
 
             async with self.driver.session() as session:
                 for ku_uid in ku_uids:
-                    await session.run("MERGE (ku:Ku {uid: $uid})", {"uid": ku_uid})
+                    await session.run("MERGE (ku:Entity {uid: $uid})", {"uid": ku_uid})
 
             print(f"✅ Created {len(ku_uids)} test KUs")
 

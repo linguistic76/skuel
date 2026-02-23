@@ -102,7 +102,7 @@ class KuPracticeService:
             # Query Neo4j to find KUs that this event practices
             # Pattern: (Event)-[:PRACTICES]->(KnowledgeUnit)
             query = """
-            MATCH (event:Event {uid: $event_uid})-[:PRACTICES]->(ku:Ku)
+            MATCH (event:Event {uid: $event_uid})-[:PRACTICES]->(ku:Entity)
             RETURN DISTINCT ku.uid as ku_uid
             """
 
@@ -163,7 +163,7 @@ class KuPracticeService:
         # Update KU practice fields directly in Neo4j
         # This is more efficient than fetching, modifying, and saving back
         query = """
-        MATCH (ku:Ku {uid: $ku_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
         SET ku.times_practiced_in_events = COALESCE(ku.times_practiced_in_events, 0) + 1,
             ku.last_practiced_date = datetime($occurred_at)
         RETURN ku.times_practiced_in_events as new_count

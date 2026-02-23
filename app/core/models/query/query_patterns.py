@@ -61,7 +61,7 @@ class QueryPatterns:
         2. Relationship-based: (User {uid: $user_uid})-[relationship]->(Entity)
 
         Args:
-            entity_label: Neo4j label (e.g., "Task", "Habit", "Ku")
+            entity_label: Neo4j label (e.g., "Task", "Habit", "Entity")
             user_uid: User identifier
             relationship: Optional relationship type (e.g., "MASTERED", "IN_PROGRESS")
                          If None, uses Entity.user_uid property instead
@@ -83,7 +83,7 @@ class QueryPatterns:
 
             # Get user's mastered knowledge via relationship
             query, params = QueryPatterns.get_user_entities(
-                "Ku", user_uid,
+                "Entity", user_uid,
                 relationship="MASTERED",
                 order_by="r.achieved_at DESC"
             )
@@ -156,7 +156,7 @@ class QueryPatterns:
         Example:
             # Get UIDs of mastered knowledge
             query, params = QueryPatterns.get_user_entity_uids(
-                "Ku", user_uid, relationship="MASTERED"
+                "Entity", user_uid, relationship="MASTERED"
             )
             # Returns: ["ku.123", "ku.456", ...]
         """
@@ -260,7 +260,7 @@ class QueryPatterns:
         Get complete prerequisite/dependency chain for an entity.
 
         Args:
-            entity_label: Entity label (e.g., "Ku", "Task")
+            entity_label: Entity label (e.g., "Entity", "Task")
             entity_uid: Target entity UID
             relationship_type: Prerequisite relationship (e.g., "REQUIRES_KNOWLEDGE", "DEPENDS_ON")
             max_depth: Maximum traversal depth
@@ -272,7 +272,7 @@ class QueryPatterns:
         Example:
             # Get knowledge prerequisites with user mastery status
             query, params = QueryPatterns.get_prerequisite_chain(
-                "Ku", ku_uid,
+                "Entity", ku_uid,
                 relationship_type="REQUIRES_KNOWLEDGE",
                 user_uid=user_uid
             )
@@ -325,7 +325,7 @@ class QueryPatterns:
         Critical for readiness/eligibility calculations.
 
         Args:
-            entity_label: Entity label (e.g., "Ku")
+            entity_label: Entity label (e.g., "Entity")
             user_uid: User identifier
             mastery_relationship: Relationship indicating completion (e.g., "MASTERED", "COMPLETED")
             prerequisite_relationship: Prerequisite relationship type
@@ -373,7 +373,7 @@ class QueryPatterns:
         Example:
             # Record knowledge mastery
             query, params = QueryPatterns.create_user_entity_relationship(
-                "Ku", user_uid, ku_uid,
+                "Entity", user_uid, ku_uid,
                 relationship_type="MASTERED",
                 properties={
                     "mastery_score": 0.95,
@@ -432,7 +432,7 @@ class QueryPatterns:
         Example:
             # Link task to knowledge
             query, params = QueryPatterns.create_entity_relationship(
-                "Task", "Ku",
+                "Task", "Entity",
                 task_uid, ku_uid,
                 relationship_type="APPLIES_KNOWLEDGE",
                 properties={"confidence": 0.8}

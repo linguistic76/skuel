@@ -635,7 +635,9 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         user_reflection = assessment_data.get("user_reflection")
 
         # Add assessment to history
-        from core.models.principle.principle_types import AlignmentAssessment as KuAlignmentAssessment
+        from core.models.principle.principle_types import (
+            AlignmentAssessment as KuAlignmentAssessment,
+        )
 
         assessment = KuAlignmentAssessment(
             assessed_date=date.today(),
@@ -1066,9 +1068,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
             "description": f"{p1.title} and {p2.title} both guide the same goals",
         }
 
-    def _calculate_harmony_score(
-        self, principles: list[Principle], conflicts: list[dict]
-    ) -> float:
+    def _calculate_harmony_score(self, principles: list[Principle], conflicts: list[dict]) -> float:
         """Calculate overall principle harmony score.
 
         Uses MetricsCalculator.calculate_harmony_score for consistent calculation.

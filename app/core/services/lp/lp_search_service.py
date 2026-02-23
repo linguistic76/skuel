@@ -80,7 +80,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
     _config = create_curriculum_domain_config(
         dto_class=LearningPathDTO,
         model_class=LearningPath,
-        entity_label="Ku",
+        entity_label="Entity",
         domain_name="lp",
         search_fields=("title", "description"),  # LP: name→title, goal→description
         search_order_by="updated_at",
@@ -176,7 +176,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
         from core.utils.neo4j_mapper import from_neo4j_node
 
         cypher = """
-            MATCH (lp:Ku {ku_type: 'learning_path'})-[:ALIGNED_WITH_GOAL]->(g:Goal {uid: $goal_uid})
+            MATCH (lp:Entity {ku_type: 'learning_path'})-[:ALIGNED_WITH_GOAL]->(g:Goal {uid: $goal_uid})
             RETURN lp
             ORDER BY lp.updated_at DESC
             LIMIT $limit
@@ -216,7 +216,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
         from core.utils.neo4j_mapper import from_neo4j_node
 
         cypher = """
-            MATCH (ku:Ku {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Ku {ku_type: 'learning_step'})<-[:HAS_STEP]-(lp:Ku {ku_type: 'learning_path'})
+            MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Entity {ku_type: 'learning_step'})<-[:HAS_STEP]-(lp:Entity {ku_type: 'learning_path'})
             RETURN DISTINCT lp
             ORDER BY lp.created_at DESC
             LIMIT $limit
@@ -231,9 +231,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
         self.logger.debug(f"Found {len(paths)} learning paths for knowledge {ku_uid}")
         return Result.ok(paths)
 
-    async def get_with_steps(
-        self, uid: str, limit: int = 100
-    ) -> Result[tuple[LearningPath, list]]:
+    async def get_with_steps(self, uid: str, limit: int = 100) -> Result[tuple[LearningPath, list]]:
         """
         Get Learning Path with its steps loaded.
 
@@ -287,7 +285,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
 
         # Build prioritization query
         cypher = """
-            MATCH (lp:Ku {ku_type: 'learning_path'})
+            MATCH (lp:Entity {ku_type: 'learning_path'})
             OPTIONAL MATCH (u:User {uid: $user_uid})-[enrolled:ENROLLED_IN]->(lp)
             OPTIONAL MATCH (lp)-[:ALIGNED_WITH_GOAL]->(g:Goal)<-[:OWNS]-(u2:User {uid: $user_uid})
             WITH lp, enrolled, count(g) as goal_alignment

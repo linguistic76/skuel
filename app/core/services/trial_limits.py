@@ -304,7 +304,7 @@ class TrialLimitsService:
                 RETURN count(c) as count
             """,
             "ku_access": """
-                MATCH (u:User {uid: $uid})-[:LEARNING|MASTERED]->(k:Ku)
+                MATCH (u:User {uid: $uid})-[:LEARNING|MASTERED]->(k:Entity)
                 RETURN count(DISTINCT k) as count
             """,
             "ls_access": """

@@ -120,8 +120,8 @@ class ReportsRelationshipService:
             return 0  # CURRICULUM Ku don't have temporal chains per user
 
         cypher = """
-        MATCH (new:Ku {uid: $ku_uid})
-        MATCH (prev:Ku {user_uid: $user_uid, ku_type: $ku_type})
+        MATCH (new:Entity {uid: $ku_uid})
+        MATCH (prev:Entity {user_uid: $user_uid, ku_type: $ku_type})
         WHERE prev.uid <> $ku_uid
           AND prev.created_at <= new.created_at
         WITH new, prev
@@ -169,8 +169,8 @@ class ReportsRelationshipService:
             return 0
 
         cypher = """
-        MATCH (new:Ku {uid: $ku_uid})
-        MATCH (other:Ku {user_uid: $user_uid})
+        MATCH (new:Entity {uid: $ku_uid})
+        MATCH (other:Entity {user_uid: $user_uid})
         WHERE other.uid <> $ku_uid
           AND other.metadata IS NOT NULL
         WITH new, other, other.metadata.themes as other_themes
@@ -264,7 +264,7 @@ class ReportsRelationshipService:
             Result containing list of related Ku UIDs
         """
         cypher = """
-        MATCH (a:Ku {uid: $ku_uid})-[:RELATED_TO]->(related:Ku)
+        MATCH (a:Entity {uid: $ku_uid})-[:RELATED_TO]->(related:Entity)
         RETURN related.uid as uid
         ORDER BY related.uid
         """
@@ -288,7 +288,7 @@ class ReportsRelationshipService:
             Result containing list of supported goal UIDs
         """
         cypher = """
-        MATCH (a:Ku {uid: $ku_uid})-[:SUPPORTS_GOAL]->(goal:Goal)
+        MATCH (a:Entity {uid: $ku_uid})-[:SUPPORTS_GOAL]->(goal:Goal)
         RETURN goal.uid as uid
         ORDER BY goal.uid
         """
@@ -312,7 +312,7 @@ class ReportsRelationshipService:
             Result containing dict with relationship counts
         """
         cypher = """
-        MATCH (a:Ku {uid: $ku_uid})
+        MATCH (a:Entity {uid: $ku_uid})
         OPTIONAL MATCH (a)-[:RELATED_TO]->(related)
         OPTIONAL MATCH (a)-[:SUPPORTS_GOAL]->(goal)
         OPTIONAL MATCH (a)-[:FOLLOWS]->(prev)

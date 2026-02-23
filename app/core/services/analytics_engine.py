@@ -26,7 +26,6 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
 from core.models.enums import EntityStatus
-from core.models.enums.neo_labels import NeoLabel
 from core.models.task.task import Task as Task
 from core.services.tasks.task_relationships import TaskRelationships
 from core.utils.logging import get_logger
@@ -806,7 +805,7 @@ class AnalyticsEngine:
         for ku_uid in knowledge_uids:
             # Extract domain from ku.domain.specific format
             parts = ku_uid.split(".")
-            if len(parts) >= 2 and parts[0] == NeoLabel.KU.value.lower():
+            if len(parts) >= 2 and parts[0] == "ku":  # UID prefix, not Neo4j label
                 domains.append(parts[1])
         return domains
 

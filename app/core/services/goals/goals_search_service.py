@@ -89,7 +89,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         date_field="target_date",
         completed_statuses=(EntityStatus.COMPLETED.value, EntityStatus.CANCELLED.value),
         category_field="domain",  # Goals use 'domain' field for categorization
-        entity_label="Ku",
+        entity_label="Entity",
     )
 
     # Inherited from BaseService (December 2025):
@@ -233,7 +233,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         # Build query with optional user filter
         user_clause = "AND g.user_uid = $user_uid" if user_uid else ""
         cypher_query = f"""
-        MATCH (g:Ku {{ku_type: 'goal'}})
+        MATCH (g:Entity {{ku_type: 'goal'}})
         WHERE g.target_date >= date($today)
           AND g.target_date <= date($end_date)
           AND g.status IN ['active', 'in_progress', 'on_track']
@@ -284,7 +284,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         # Build query with optional user filter
         user_clause = "AND g.user_uid = $user_uid" if user_uid else ""
         cypher_query = f"""
-        MATCH (g:Ku {{ku_type: 'goal'}})
+        MATCH (g:Entity {{ku_type: 'goal'}})
         WHERE g.target_date < date($today)
           AND g.status NOT IN ['completed', 'achieved', 'abandoned', 'archived', 'cancelled']
           {user_clause}
@@ -554,7 +554,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         """
         # Query for goals sharing tasks or habits
         cypher_query = """
-        MATCH (g:Ku {uid: $uid, ku_type: 'goal'})<-[:FULFILLS_GOAL|SUPPORTS_GOAL]-(shared)-[:FULFILLS_GOAL|SUPPORTS_GOAL]->(related:Ku {ku_type: 'goal'})
+        MATCH (g:Entity {uid: $uid, ku_type: 'goal'})<-[:FULFILLS_GOAL|SUPPORTS_GOAL]-(shared)-[:FULFILLS_GOAL|SUPPORTS_GOAL]->(related:Entity {ku_type: 'goal'})
         WHERE related <> g
         RETURN DISTINCT related as g, count(shared) as shared_count
         ORDER BY shared_count DESC

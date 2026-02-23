@@ -198,7 +198,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         domain_name="goals",
         date_field="target_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        entity_label="Ku",
+        entity_label="Entity",
     )
 
     # Configure BaseService
@@ -236,7 +236,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Ku entities."""
-        return "Ku"
+        return "Entity"
 
     # ========================================================================
     # CAPACITY MANAGEMENT

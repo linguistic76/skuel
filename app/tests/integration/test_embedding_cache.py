@@ -54,14 +54,16 @@ async def test_cache_hit_avoids_api_call(embeddings_service, mock_driver):
             return _genai_result([0.5] * 1536)
         elif "embedding_version" in query:
             # Return current version (cache hit)
-            return Result.ok([
-                {
-                    "embedding": [0.1] * 1536,
-                    "version": EMBEDDING_VERSION,
-                    "model": "text-embedding-3-small",
-                    "updated_at": "2026-01-29T12:00:00Z",
-                }
-            ])
+            return Result.ok(
+                [
+                    {
+                        "embedding": [0.1] * 1536,
+                        "version": EMBEDDING_VERSION,
+                        "model": "text-embedding-3-small",
+                        "updated_at": "2026-01-29T12:00:00Z",
+                    }
+                ]
+            )
         elif "RETURN n.embedding" in query:
             # Return cached embedding
             return Result.ok([{"embedding": [0.1] * 1536}])
@@ -70,7 +72,7 @@ async def test_cache_hit_avoids_api_call(embeddings_service, mock_driver):
     mock_driver.execute_query = track_calls
 
     result = await embeddings_service.get_or_create_embedding(
-        uid="ku.python", label="Ku", text="Python programming"
+        uid="ku.python", label="Entity", text="Python programming"
     )
 
     # Should succeed
@@ -92,14 +94,16 @@ async def test_cache_miss_makes_api_call(embeddings_service, mock_driver):
             return _genai_result([0.5] * 1536)
         elif "embedding_version" in query:
             # Return stale version (cache miss)
-            return Result.ok([
-                {
-                    "embedding": [0.1] * 1536,
-                    "version": "v0",  # Old version
-                    "model": "old-model",
-                    "updated_at": "2025-01-01T12:00:00Z",
-                }
-            ])
+            return Result.ok(
+                [
+                    {
+                        "embedding": [0.1] * 1536,
+                        "version": "v0",  # Old version
+                        "model": "old-model",
+                        "updated_at": "2025-01-01T12:00:00Z",
+                    }
+                ]
+            )
         elif "SET n.embedding" in query:
             # Store new embedding
             return Result.ok([{"uid": "ku.python"}])
@@ -108,7 +112,7 @@ async def test_cache_miss_makes_api_call(embeddings_service, mock_driver):
     mock_driver.execute_query = track_calls
 
     result = await embeddings_service.get_or_create_embedding(
-        uid="ku.python", label="Ku", text="Python programming"
+        uid="ku.python", label="Entity", text="Python programming"
     )
 
     # Should succeed
@@ -130,14 +134,16 @@ async def test_cache_miss_no_embedding(embeddings_service, mock_driver):
             return _genai_result([0.3] * 1536)
         elif "embedding_version" in query:
             # No embedding on node
-            return Result.ok([
-                {
-                    "embedding": None,
-                    "version": None,
-                    "model": None,
-                    "updated_at": None,
-                }
-            ])
+            return Result.ok(
+                [
+                    {
+                        "embedding": None,
+                        "version": None,
+                        "model": None,
+                        "updated_at": None,
+                    }
+                ]
+            )
         elif "SET n.embedding" in query:
             return Result.ok([{"uid": "ku.new"}])
         return Result.ok([])
@@ -145,7 +151,7 @@ async def test_cache_miss_no_embedding(embeddings_service, mock_driver):
     mock_driver.execute_query = track_calls
 
     result = await embeddings_service.get_or_create_embedding(
-        uid="ku.new", label="Ku", text="New knowledge unit"
+        uid="ku.new", label="Entity", text="New knowledge unit"
     )
 
     assert result.is_ok
@@ -166,7 +172,7 @@ async def test_cache_stores_metadata_on_miss(embeddings_service, mock_driver):
     ]
 
     result = await embeddings_service.get_or_create_embedding(
-        uid="ku.test", label="Ku", text="Test content"
+        uid="ku.test", label="Entity", text="Test content"
     )
 
     # Should succeed
@@ -188,14 +194,16 @@ async def test_multiple_calls_use_cache(embeddings_service, mock_driver):
             return _genai_result([0.6] * 1536)
         elif "embedding_version" in query:
             # Current version
-            return Result.ok([
-                {
-                    "embedding": [0.2] * 1536,
-                    "version": EMBEDDING_VERSION,
-                    "model": "text-embedding-3-small",
-                    "updated_at": "2026-01-29T12:00:00Z",
-                }
-            ])
+            return Result.ok(
+                [
+                    {
+                        "embedding": [0.2] * 1536,
+                        "version": EMBEDDING_VERSION,
+                        "model": "text-embedding-3-small",
+                        "updated_at": "2026-01-29T12:00:00Z",
+                    }
+                ]
+            )
         elif "RETURN n.embedding" in query:
             return Result.ok([{"embedding": [0.2] * 1536}])
         return Result.ok([])
@@ -205,7 +213,7 @@ async def test_multiple_calls_use_cache(embeddings_service, mock_driver):
     # Call 3 times
     for _ in range(3):
         result = await embeddings_service.get_or_create_embedding(
-            uid="ku.cached", label="Ku", text="Cached content"
+            uid="ku.cached", label="Entity", text="Cached content"
         )
         assert result.is_ok
 
@@ -226,16 +234,20 @@ async def test_different_nodes_independent_cache(embeddings_service, mock_driver
         elif "embedding_version" in query:
             # First node: cached, Second node: not cached
             if "python" in str(params.get("uid", "")):
-                return Result.ok([
-                    {
-                        "embedding": [0.1] * 1536,
-                        "version": EMBEDDING_VERSION,
-                        "model": "text-embedding-3-small",
-                        "updated_at": "2026-01-29T12:00:00Z",
-                    }
-                ])
+                return Result.ok(
+                    [
+                        {
+                            "embedding": [0.1] * 1536,
+                            "version": EMBEDDING_VERSION,
+                            "model": "text-embedding-3-small",
+                            "updated_at": "2026-01-29T12:00:00Z",
+                        }
+                    ]
+                )
             else:
-                return Result.ok([{"embedding": None, "version": None, "model": None, "updated_at": None}])
+                return Result.ok(
+                    [{"embedding": None, "version": None, "model": None, "updated_at": None}]
+                )
         elif "RETURN n.embedding" in query:
             return Result.ok([{"embedding": [0.1] * 1536}])
         elif "SET n.embedding" in query:
@@ -246,13 +258,13 @@ async def test_different_nodes_independent_cache(embeddings_service, mock_driver
 
     # First node: cache hit
     result1 = await embeddings_service.get_or_create_embedding(
-        uid="ku.python", label="Ku", text="Python"
+        uid="ku.python", label="Entity", text="Python"
     )
     assert result1.is_ok
 
     # Second node: cache miss
     result2 = await embeddings_service.get_or_create_embedding(
-        uid="ku.javascript", label="Ku", text="JavaScript"
+        uid="ku.javascript", label="Entity", text="JavaScript"
     )
     assert result2.is_ok
 
@@ -265,17 +277,22 @@ async def test_cache_failure_returns_embedding_anyway(embeddings_service, mock_d
         if "genai.vector.encode" in query:
             return _genai_result([0.8] * 1536)
         elif "embedding_version" in query:
-            return Result.ok([{"embedding": None, "version": None, "model": None, "updated_at": None}])
+            return Result.ok(
+                [{"embedding": None, "version": None, "model": None, "updated_at": None}]
+            )
         elif "SET n.embedding" in query:
             # Simulate storage failure via Result.fail
             from core.utils.errors import Errors
-            return Result.fail(Errors.database(operation="store_embedding", message="Database write failed"))
+
+            return Result.fail(
+                Errors.database(operation="store_embedding", message="Database write failed")
+            )
         return Result.ok([])
 
     mock_driver.execute_query = track_calls
 
     result = await embeddings_service.get_or_create_embedding(
-        uid="ku.test", label="Ku", text="Test"
+        uid="ku.test", label="Entity", text="Test"
     )
 
     # Should still return the embedding even though storage failed
@@ -294,14 +311,16 @@ async def test_stale_version_regenerates(embeddings_service, mock_driver):
             return _genai_result([0.9] * 1536)
         elif "embedding_version" in query:
             # Return old version
-            return Result.ok([
-                {
-                    "embedding": [0.1] * 1536,
-                    "version": "v0",  # Stale
-                    "model": "old-model",
-                    "updated_at": "2025-01-01T12:00:00Z",
-                }
-            ])
+            return Result.ok(
+                [
+                    {
+                        "embedding": [0.1] * 1536,
+                        "version": "v0",  # Stale
+                        "model": "old-model",
+                        "updated_at": "2025-01-01T12:00:00Z",
+                    }
+                ]
+            )
         elif "SET n.embedding" in query:
             return Result.ok([{"uid": "ku.stale"}])
         return Result.ok([])
@@ -309,7 +328,7 @@ async def test_stale_version_regenerates(embeddings_service, mock_driver):
     mock_driver.execute_query = track_calls
 
     result = await embeddings_service.get_or_create_embedding(
-        uid="ku.stale", label="Ku", text="Stale content"
+        uid="ku.stale", label="Entity", text="Stale content"
     )
 
     assert result.is_ok

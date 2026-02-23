@@ -104,7 +104,7 @@ class TasksPlanningService(BasePlanningService["BackendOperations[Task]", Task])
         from core.utils.neo4j_mapper import from_neo4j_node
 
         query = """
-        MATCH (t:Ku)-[:APPLIES_KNOWLEDGE|REQUIRES_KNOWLEDGE]->(ku:Ku {uid: $knowledge_uid})
+        MATCH (t:Entity)-[:APPLIES_KNOWLEDGE|REQUIRES_KNOWLEDGE]->(ku:Entity {uid: $knowledge_uid})
         WHERE t.user_uid = $user_uid
         RETURN t
         LIMIT $limit

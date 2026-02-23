@@ -144,9 +144,9 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         from core.models.enums import NeoLabel
         from core.models.entity_types import Ku
 
-        # All domain entities use NeoLabel.KU (unified Ku model)
+        # All domain entities use NeoLabel.ENTITY (universal label)
         tasks_backend = UniversalNeo4jBackend[Ku](
-            driver=neo4j_driver, label=NeoLabel.KU, entity_class=Ku,
+            driver=neo4j_driver, label=NeoLabel.ENTITY, entity_class=Ku,
             default_filters={"ku_type": "task"},
         )
 
@@ -222,11 +222,11 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             prometheus_metrics: PrometheusMetrics instance for database instrumentation (Phase 2 - January 2026)
             default_filters: Properties automatically applied to all queries and new nodes.
                 Legacy mechanism for Ku-type discrimination. Superseded by domain-specific
-                labels (e.g., NeoLabel.TASK instead of NeoLabel.KU + default_filters).
+                labels (e.g., NeoLabel.TASK instead of NeoLabel.ENTITY + default_filters).
             base_label: Universal base label for multi-label CREATE operations.
-                When set, CREATE produces ``(n:Ku:Entity:Task)`` — legacy :Ku label,
-                :Entity universal label, and domain-specific label. Used for Ku-type
-                entities; non-Ku entities (Finance, Group) don't set this.
+                When set, CREATE produces ``(n:Entity:Task)`` — :Entity universal
+                label and domain-specific label. Used for domain entities;
+                non-Entity backends (Finance, Group) don't set this.
 
         Raises:
             ValueError: If validate_label=True and label is not a valid NeoLabel
@@ -237,7 +237,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
                 driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
             )
 
-            # Non-Ku backends — single label, no base_label
+            # Non-Entity backends — single label, no base_label
             finance_backend = UniversalNeo4jBackend[ExpensePure](
                 driver, NeoLabel.EXPENSE, ExpensePure
             )
@@ -266,16 +266,16 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         self.default_filters = default_filters or {}
         self.logger = get_logger(f"skuel.universal.{label_str.lower()}")
 
-        # Multi-label support: base_label enables CREATE (n:Ku:Entity:Task)
+        # Multi-label support: base_label enables CREATE (n:Entity:Task)
         base_label_str = base_label.value if isinstance(base_label, NeoLabel) else base_label
         self.base_label = base_label_str
 
         # Build the CREATE label string
         if self.base_label:
-            # Multi-label: legacy Ku + Entity base + domain-specific
-            self._create_labels = f"Ku:{self.base_label}:{self.label}"
+            # Multi-label: Entity base + domain-specific
+            self._create_labels = f"{self.base_label}:{self.label}"
         else:
-            # Single-label: non-Ku backends (Finance, Group, etc.)
+            # Single-label: non-Entity backends (Finance, Group, etc.)
             self._create_labels = self.label
 
         # Phase 2: UnifiedQueryBuilder for all query building
@@ -364,7 +364,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         automatically creates (User)-[:OWNS]->(Entity) relationship.
 
         Multi-label CREATE: When base_label is set, creates nodes with
-        triple labels: ``(n:Ku:Entity:Task)`` for backward compatibility.
+        dual labels: ``(n:Entity:Task)``.
         """
         start_time = time.time()
         node_data = to_neo4j_node(entity)
@@ -1960,7 +1960,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             >>> backend._extract_label_from_uid("task:123")
             "Task"
             >>> backend._extract_label_from_uid("ku.python-basics")
-            "Ku"
+            "Entity"
             >>> backend._extract_label_from_uid("unknown:xyz")
             None
         """
@@ -1972,7 +1972,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             "goal:": "Goal",
             "principle:": "Principle",
             "choice:": "Choice",
-            "ku.": "Ku",  # Knowledge uses dots
+            "ku.": "Entity",  # Knowledge uses dots
             "user.": "User",
             "expense:": "Expense",
         }
@@ -2065,7 +2065,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             >>> result = await backend._get_node_labels("task:123", "ku.python")
             >>> source_labels, target_labels = result.value
             >>> print(source_labels)  # ["Task"]
-            >>> print(target_labels)  # ["Ku", "Ku"]
+            >>> print(target_labels)  # ["Entity", "Entity"]
         """
         try:
             query = """
@@ -3281,7 +3281,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         try:
             query = """
             MATCH (u:User {uid: $user_uid})
-            MATCH (k:Ku {uid: $knowledge_uid})
+            MATCH (k:Entity {uid: $knowledge_uid})
             MERGE (u)-[r:MASTERED]->(k)
             SET r.mastery_score = $mastery_score,
                 r.practice_count = $practice_count,
@@ -3330,7 +3330,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         try:
             query = """
             MATCH (u:User {uid: $user_uid})
-            MATCH (k:Ku {uid: $knowledge_uid})
+            MATCH (k:Entity {uid: $knowledge_uid})
             MERGE (u)-[r:IN_PROGRESS]->(k)
             SET r.progress = $progress,
                 r.time_invested_minutes = coalesce(r.time_invested_minutes, 0) + $time_invested_minutes,
@@ -3474,7 +3474,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         try:
             query = """
             MATCH (u:User {uid: $user_uid})
-            MATCH (k:Ku {uid: $knowledge_uid})
+            MATCH (k:Entity {uid: $knowledge_uid})
             MERGE (u)-[r:INTERESTED_IN]->(k)
             SET r.interest_score = $interest_score,
                 r.interest_source = $interest_source,
@@ -3524,7 +3524,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         try:
             query = """
             MATCH (u:User {uid: $user_uid})
-            MATCH (k:Ku {uid: $knowledge_uid})
+            MATCH (k:Entity {uid: $knowledge_uid})
             MERGE (u)-[r:BOOKMARKED]->(k)
             SET r.bookmark_reason = $bookmark_reason,
                 r.tags = $tags,
@@ -3633,7 +3633,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         try:
             query = """
             MATCH (t:Task {uid: $task_uid})
-            MATCH (k:Ku {uid: $knowledge_uid})
+            MATCH (k:Entity {uid: $knowledge_uid})
             MERGE (t)-[r:REQUIRES_KNOWLEDGE]->(k)
             SET r.knowledge_score_required = $knowledge_score_required,
                 r.is_learning_opportunity = $is_learning_opportunity
@@ -3764,7 +3764,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             query = """
             MATCH (e:Event {uid: $event_uid})
             UNWIND $knowledge_uids AS ku_uid
-            MATCH (k:Ku {uid: ku_uid})
+            MATCH (k:Entity {uid: ku_uid})
             MERGE (e)-[r:REINFORCES_KNOWLEDGE]->(k)
             RETURN count(r) as relationship_count
             """
@@ -3828,7 +3828,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         try:
             query = """
             MATCH (e:Expense {uid: $expense_uid})
-            MATCH (k:Ku {uid: $knowledge_uid})
+            MATCH (k:Entity {uid: $knowledge_uid})
             MERGE (e)-[r:INVESTS_IN_KNOWLEDGE]->(k)
             SET r.learning_investment = $learning_investment
             RETURN r
@@ -3905,7 +3905,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             query = f"""
             MATCH (e:Expense {{uid: $expense_uid}})
             OPTIONAL MATCH (e)-[sg:SUPPORTS_GOAL*1..{max_depth}]->(g:Goal)
-            OPTIONAL MATCH (e)-[ik:INVESTS_IN_KNOWLEDGE*1..{max_depth}]->(k:Ku)
+            OPTIONAL MATCH (e)-[ik:INVESTS_IN_KNOWLEDGE*1..{max_depth}]->(k:Entity)
             OPTIONAL MATCH (e)-[fp:FUNDS_PROJECT*1..{max_depth}]->(t:Task)
             RETURN
                 e,

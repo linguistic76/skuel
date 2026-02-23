@@ -71,13 +71,13 @@ class QueryBenchmark:
         Benchmark property-only query (baseline).
 
         Pattern:
-            MATCH (ku:Ku)
+            MATCH (ku:Entity)
             WHERE ku.sel_category = $category
               AND ku.learning_level = $level
             RETURN ku
         """
         query = """
-        MATCH (ku:Ku)
+        MATCH (ku:Entity)
         WHERE ku.sel_category = $category
           AND ku.learning_level = $level
         RETURN ku
@@ -97,7 +97,7 @@ class QueryBenchmark:
         Benchmark graph-only query (worst case).
 
         Pattern:
-            MATCH (ku:Ku)
+            MATCH (ku:Entity)
             WHERE EXISTS {
               MATCH (user)-[:MASTERED]->()-[:ENABLES_LEARNING]->(ku)
             }
@@ -106,9 +106,9 @@ class QueryBenchmark:
         This is inefficient because it checks graph patterns on ALL knowledge units.
         """
         query = """
-        MATCH (ku:Ku)
+        MATCH (ku:Entity)
         WHERE EXISTS {
-            MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Ku)
+            MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
                   -[:ENABLES_LEARNING]->(ku)
         }
         AND NOT EXISTS {
@@ -136,7 +136,7 @@ class QueryBenchmark:
         Benchmark hybrid query (optimized - filter first).
 
         Pattern:
-            MATCH (ku:Ku)
+            MATCH (ku:Entity)
             WHERE ku.sel_category = $category
               AND ku.learning_level = $level
             WITH ku
@@ -166,7 +166,7 @@ class QueryBenchmark:
         Benchmark hybrid query (inefficient - traverse first).
 
         Pattern:
-            MATCH (ku:Ku)
+            MATCH (ku:Entity)
             WHERE EXISTS {
               MATCH (user)-[:MASTERED]->()-[:ENABLES_LEARNING]->(ku)
             }
@@ -178,9 +178,9 @@ class QueryBenchmark:
         This is inefficient: graph traversal on ALL nodes, then property filtering.
         """
         query = """
-        MATCH (ku:Ku)
+        MATCH (ku:Entity)
         WHERE EXISTS {
-            MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Ku)
+            MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
                   -[:ENABLES_LEARNING]->(ku)
         }
         AND NOT EXISTS {
@@ -190,7 +190,7 @@ class QueryBenchmark:
         WHERE ku.sel_category = $category
           AND ku.learning_level = $level
 
-        OPTIONAL MATCH (ku)-[:ENABLES_LEARNING]->(unlocked:Ku)
+        OPTIONAL MATCH (ku)-[:ENABLES_LEARNING]->(unlocked:Entity)
         WHERE NOT EXISTS {
             MATCH (user:User {uid: $user_uid})-[:MASTERED]->(unlocked)
         }
