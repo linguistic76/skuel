@@ -25,7 +25,7 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
-from components.drawer_layout import create_drawer_layout
+from ui.patterns.drawer_layout import create_drawer_layout
 from core.utils.logging import get_logger
 from ui.daisy_components import Button, Card, Div, Label, Progress, Span, Textarea
 from ui.tokens import Container

@@ -23,8 +23,8 @@ from fasthtml.common import A
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_admin
-from components.card_generator import CardGenerator
-from components.form_generator import FormGenerator
+from ui.patterns.card_generator import CardGenerator
+from ui.patterns.form_generator import FormGenerator
 from core.constants import QueryLimit
 from core.models.finance.finance_request import BudgetCreateRequest, ExpenseCreateRequest
 from core.utils.logging import get_logger

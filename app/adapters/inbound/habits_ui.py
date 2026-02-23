@@ -31,11 +31,11 @@ from components.atomic_habits_analytics import AtomicHabitsAnalytics
 from components.atomic_habits_components import AtomicHabitsComponents
 from components.atomic_habits_intelligence import AtomicHabitsIntelligence
 from components.atomic_habits_mobile import AtomicHabitsMobile
-from components.card_generator import CardGenerator
-from components.error_components import ErrorComponents
-from components.form_generator import FormGenerator
+from ui.patterns.card_generator import CardGenerator
+from ui.patterns.error_banner import render_error_banner
+from ui.patterns.form_generator import FormGenerator
 from components.habits_views import HabitsViewComponents
-from components.shared_ui_components import SharedUIComponents
+from ui.patterns.entity_dashboard import SharedUIComponents
 from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityStatus
 from core.models.habit.habit_request import HabitCreateRequest
@@ -697,7 +697,7 @@ def create_habits_ui_routes(
         if filtered_result.is_error:
             error_content = Div(
                 HabitsViewComponents.render_view_tabs(active_view=view),
-                ErrorComponents.render_error_banner("Failed to load habits"),
+                render_error_banner("Failed to load habits"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
             return await create_habits_page(error_content, request=request)
@@ -705,7 +705,7 @@ def create_habits_ui_routes(
         if categories_result.is_error:
             error_content = Div(
                 HabitsViewComponents.render_view_tabs(active_view=view),
-                ErrorComponents.render_error_banner("Failed to load categories"),
+                render_error_banner("Failed to load categories"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
             return await create_habits_page(error_content, request=request)
@@ -725,7 +725,7 @@ def create_habits_ui_routes(
 
             # Check for errors
             if all_habits_result.is_error:
-                view_content = ErrorComponents.render_error_banner(
+                view_content = render_error_banner(
                     f"Failed to load calendar: {all_habits_result.error}"
                 )
             else:
@@ -770,10 +770,10 @@ def create_habits_ui_routes(
 
         # Handle errors (return banner directly for HTMX swap)
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load habits")
+            return render_error_banner("Failed to load habits")
 
         if categories_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load categories")
+            return render_error_banner("Failed to load categories")
 
         habits, stats = filtered_result.value
         categories = categories_result.value
@@ -795,7 +795,7 @@ def create_habits_ui_routes(
 
         # Handle errors
         if categories_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load categories")
+            return render_error_banner("Failed to load categories")
 
         return HabitsViewComponents.render_create_view(
             categories=categories_result.value,
@@ -812,7 +812,7 @@ def create_habits_ui_routes(
 
         # Handle errors
         if habits_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load calendar")
+            return render_error_banner("Failed to load calendar")
 
         return HabitsViewComponents.render_calendar_view(
             habits=habits_result.value,
@@ -834,7 +834,7 @@ def create_habits_ui_routes(
 
         # Handle errors
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load habits")
+            return render_error_banner("Failed to load habits")
 
         habits, _stats = filtered_result.value
 

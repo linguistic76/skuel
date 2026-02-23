@@ -26,7 +26,7 @@ from fasthtml.common import H1, H2, Div, JSONResponse, P, Response, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from components.error_components import ErrorComponents
+from ui.patterns.error_banner import render_error_banner
 from components.tasks_views import TasksViewComponents
 from components.todoist_task_components import TodoistTaskComponents
 from core.models.enums import EntityStatus, Priority
@@ -549,7 +549,7 @@ def create_tasks_ui_routes(
         if filtered_result.is_error:
             error_content = Div(
                 TasksViewComponents.render_view_tabs(active_view=view),
-                ErrorComponents.render_error_banner("Failed to load tasks"),
+                render_error_banner("Failed to load tasks"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
             return await create_tasks_page(error_content, user_uid)
@@ -569,7 +569,7 @@ def create_tasks_ui_routes(
             # Get all user's tasks (not filtered by status) for calendar
             all_tasks_result = await get_all_tasks(user_uid)
             if all_tasks_result.is_error:
-                view_content = ErrorComponents.render_error_banner(
+                view_content = render_error_banner(
                     f"Unable to load calendar: {all_tasks_result.error}"
                 )
             else:
@@ -629,7 +629,7 @@ def create_tasks_ui_routes(
 
         # Handle errors
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load tasks")
+            return render_error_banner("Failed to load tasks")
 
         tasks, stats = filtered_result.value
         projects = projects_result.value if not projects_result.is_error else []
@@ -660,7 +660,7 @@ def create_tasks_ui_routes(
 
         # Handle errors
         if tasks_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load tasks")
+            return render_error_banner("Failed to load tasks")
 
         tasks = tasks_result.value
         projects = projects_result.value if not projects_result.is_error else []
@@ -684,7 +684,7 @@ def create_tasks_ui_routes(
 
         # Handle errors
         if tasks_result.is_error:
-            return ErrorComponents.render_error_banner("Unable to load calendar")
+            return render_error_banner("Unable to load calendar")
 
         return TasksViewComponents.render_calendar_view(
             tasks=tasks_result.value,
@@ -716,7 +716,7 @@ def create_tasks_ui_routes(
 
         # Handle errors
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load tasks")
+            return render_error_banner("Failed to load tasks")
 
         tasks, _stats = filtered_result.value
         return TodoistTaskComponents.render_task_list(tasks, user_uid)
@@ -801,7 +801,7 @@ def create_tasks_ui_routes(
 
         # Handle errors
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load tasks")
+            return render_error_banner("Failed to load tasks")
 
         all_tasks, stats = filtered_result.value
         projects = projects_result.value if not projects_result.is_error else []
@@ -823,7 +823,7 @@ def create_tasks_ui_routes(
 
         # Handle errors
         if tasks_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load tasks")
+            return render_error_banner("Failed to load tasks")
 
         tasks = tasks_result.value
         projects = projects_result.value if not projects_result.is_error else []

@@ -30,7 +30,7 @@ from fasthtml.common import (
     P,
 )
 
-from components.activity_views_base import (
+from ui.patterns.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,
     ActivityViewTabs,

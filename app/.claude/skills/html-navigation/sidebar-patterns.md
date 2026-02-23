@@ -310,7 +310,7 @@ def create_drawer_layout(
 > **Note:** SKUEL sidebar pages (including SEL) now use `SidebarPage()` from `ui/patterns/sidebar.py` (Tailwind + Alpine.js). See `@custom-sidebar-patterns` for the current implementation. The DaisyUI drawer pattern below remains valid for other use cases.
 
 ```python
-from components.drawer_layout import create_drawer_layout
+from ui.patterns.drawer_layout import create_drawer_layout
 
 @rt("/docs")
 async def docs_page(request):

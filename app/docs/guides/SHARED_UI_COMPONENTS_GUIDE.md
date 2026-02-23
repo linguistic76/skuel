@@ -76,7 +76,7 @@ Instead of copying these patterns 15 times, we implement them once in `SharedUIC
 
 **Import Pattern (January 2026):**
 ```python
-from components.shared_ui_components import SharedUIComponents
+from ui.patterns.entity_dashboard import SharedUIComponents
 
 # DaisyUI components are imported internally by SharedUIComponents
 # You don't need to import them directly unless building custom renderers:
@@ -86,7 +86,7 @@ from ui.daisy_components import Button, ButtonT, Card, Input, InputT, Select, Si
 ### 1. Basic Dashboard
 
 ```python
-from components.shared_ui_components import SharedUIComponents
+from ui.patterns.entity_dashboard import SharedUIComponents
 
 def render_habits_dashboard(habits, stats):
     return SharedUIComponents.render_entity_dashboard(

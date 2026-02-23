@@ -28,10 +28,10 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from components.atomic_habits_components import AtomicHabitsComponents
-from components.error_components import ErrorComponents
-from components.form_generator import FormGenerator
+from ui.patterns.error_banner import render_error_banner
+from ui.patterns.form_generator import FormGenerator
 from components.goals_views import GoalsViewComponents
-from components.shared_ui_components import SharedUIComponents
+from ui.patterns.entity_dashboard import SharedUIComponents
 from core.models.enums import Priority
 from core.models.goal.goal_request import GoalCreateRequest
 from core.ports.facade_protocols import GoalsFacadeProtocol
@@ -871,7 +871,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
         if filtered_result.is_error:
             error_content = Div(
                 GoalsViewComponents.render_view_tabs(active_view=view),
-                ErrorComponents.render_error_banner("Failed to load goals"),
+                render_error_banner("Failed to load goals"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
             return await create_goals_page(error_content, request=request)
@@ -879,7 +879,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
         if categories_result.is_error:
             error_content = Div(
                 GoalsViewComponents.render_view_tabs(active_view=view),
-                ErrorComponents.render_error_banner("Failed to load categories"),
+                render_error_banner("Failed to load categories"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
             return await create_goals_page(error_content, request=request)
@@ -899,7 +899,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
 
             # Check for errors
             if all_goals_result.is_error:
-                view_content = ErrorComponents.render_error_banner(
+                view_content = render_error_banner(
                     f"Failed to load calendar: {all_goals_result.error}"
                 )
             else:
@@ -944,10 +944,10 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
 
         # Handle errors (return banner directly for HTMX swap)
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load goals")
+            return render_error_banner("Failed to load goals")
 
         if categories_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load categories")
+            return render_error_banner("Failed to load categories")
 
         goals, stats = filtered_result.value
         categories = categories_result.value
@@ -969,7 +969,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
 
         # Handle errors
         if categories_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load categories")
+            return render_error_banner("Failed to load categories")
 
         return GoalsViewComponents.render_create_view(
             categories=categories_result.value,
@@ -986,7 +986,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
 
         # Handle errors
         if goals_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load calendar")
+            return render_error_banner("Failed to load calendar")
 
         return GoalsViewComponents.render_calendar_view(
             goals=goals_result.value,
@@ -1008,7 +1008,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
 
         # Handle errors
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load goals")
+            return render_error_banner("Failed to load goals")
 
         goals, _stats = filtered_result.value
 

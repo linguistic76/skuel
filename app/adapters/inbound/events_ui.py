@@ -27,9 +27,9 @@ from starlette.responses import RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from components.error_components import ErrorComponents
+from ui.patterns.error_banner import render_error_banner
 from components.events_views import EventsViewComponents
-from components.shared_ui_components import SharedUIComponents
+from ui.patterns.entity_dashboard import SharedUIComponents
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.ports.facade_protocols import EventsFacadeProtocol
@@ -441,7 +441,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
         if filtered_result.is_error:
             error_content = Div(
                 EventsViewComponents.render_view_tabs(active_view=view),
-                ErrorComponents.render_error_banner("Failed to load events"),
+                render_error_banner("Failed to load events"),
                 cls="p-4 lg:p-8 max-w-7xl mx-auto",
             )
             return await create_events_page(error_content, request=request)
@@ -449,7 +449,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
         if event_types_result.is_error:
             error_content = Div(
                 EventsViewComponents.render_view_tabs(active_view=view),
-                ErrorComponents.render_error_banner("Failed to load event types"),
+                render_error_banner("Failed to load event types"),
                 cls="p-4 lg:p-8 max-w-7xl mx-auto",
             )
             return await create_events_page(error_content, request=request)
@@ -479,7 +479,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
 
             # Check for errors
             if all_events_result.is_error:
-                view_content = ErrorComponents.render_error_banner(
+                view_content = render_error_banner(
                     f"Failed to load calendar: {all_events_result.error}"
                 )
             else:
@@ -512,7 +512,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
 
         # Handle errors
         if events_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load calendar")
+            return render_error_banner("Failed to load calendar")
 
         return EventsViewComponents.render_calendar_view(
             events=events_result.value,
@@ -530,7 +530,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
 
         # Handle errors
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load events")
+            return render_error_banner("Failed to load events")
 
         events, stats = filtered_result.value
 
@@ -550,7 +550,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
 
         # Handle errors
         if event_types_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load event types")
+            return render_error_banner("Failed to load event types")
 
         return EventsViewComponents.render_create_view(
             event_types=event_types_result.value,
@@ -571,7 +571,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
 
         # Handle errors
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load events")
+            return render_error_banner("Failed to load events")
 
         events, _stats = filtered_result.value
 

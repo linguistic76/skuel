@@ -28,7 +28,7 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from components.choices_views import ChoicesViewComponents
-from components.error_components import ErrorComponents
+from ui.patterns.error_banner import render_error_banner
 from core.ports.facade_protocols import ChoicesFacadeProtocol
 from core.ports.query_types import ActivityFilterSpec
 from core.utils.logging import get_logger
@@ -469,7 +469,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
         if filtered_result.is_error:
             error_content = Div(
                 ChoicesViewComponents.render_view_tabs(active_view=view),
-                ErrorComponents.render_error_banner("Failed to load choices"),
+                render_error_banner("Failed to load choices"),
                 cls="p-4 lg:p-8 max-w-7xl mx-auto",
             )
             return await create_choices_page(error_content, request=request)
@@ -477,7 +477,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
         if choice_types_result.is_error:
             error_content = Div(
                 ChoicesViewComponents.render_view_tabs(active_view=view),
-                ErrorComponents.render_error_banner("Failed to load choice types"),
+                render_error_banner("Failed to load choice types"),
                 cls="p-4 lg:p-8 max-w-7xl mx-auto",
             )
             return await create_choices_page(error_content, request=request)
@@ -485,7 +485,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
         if domains_result.is_error:
             error_content = Div(
                 ChoicesViewComponents.render_view_tabs(active_view=view),
-                ErrorComponents.render_error_banner("Failed to load domains"),
+                render_error_banner("Failed to load domains"),
                 cls="p-4 lg:p-8 max-w-7xl mx-auto",
             )
             return await create_choices_page(error_content, request=request)
@@ -507,7 +507,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
 
             # Check for errors
             if analytics_result.is_error:
-                view_content = ErrorComponents.render_error_banner(
+                view_content = render_error_banner(
                     f"Failed to load analytics: {analytics_result.error}"
                 )
             else:
@@ -549,7 +549,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
 
         # Handle errors
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load choices")
+            return render_error_banner("Failed to load choices")
 
         choices, stats = filtered_result.value
 
@@ -570,10 +570,10 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
 
         # Handle errors
         if choice_types_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load choice types")
+            return render_error_banner("Failed to load choice types")
 
         if domains_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load domains")
+            return render_error_banner("Failed to load domains")
 
         return ChoicesViewComponents.render_create_view(
             choice_types=choice_types_result.value,
@@ -589,7 +589,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
 
         # Handle errors
         if analytics_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load analytics")
+            return render_error_banner("Failed to load analytics")
 
         return ChoicesViewComponents.render_analytics_view(
             analytics_data=analytics_result.value,
@@ -610,7 +610,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
 
         # Handle errors
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load choices")
+            return render_error_banner("Failed to load choices")
 
         choices, _stats = filtered_result.value
 
@@ -702,7 +702,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
         """Render list view after successful choice creation."""
         result = await get_filtered_choices(user_uid, "pending", "deadline")
         if result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load choices")
+            return render_error_banner("Failed to load choices")
         choices, stats = result.value
         filters: ActivityFilterSpec = {"status": "pending", "sort_by": "deadline"}
         return ChoicesViewComponents.render_list_view(

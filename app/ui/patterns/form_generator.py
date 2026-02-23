@@ -11,7 +11,7 @@ Following the 100% dynamic architecture vision:
 
 Usage:
     from core.models.task.task_request import TaskCreateRequest
-    from components.form_generator import FormGenerator
+    from ui.patterns.form_generator import FormGenerator
 
     # Auto-generate form from model
     form = FormGenerator.from_model(

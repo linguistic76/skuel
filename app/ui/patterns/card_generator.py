@@ -11,7 +11,7 @@ Following the 100% dynamic architecture vision:
 
 Usage:
     from core.models.task.task import Task
-    from components.card_generator import CardGenerator
+    from ui.patterns.card_generator import CardGenerator
 
     # Auto-generate display card from domain model
     card = CardGenerator.from_dataclass(

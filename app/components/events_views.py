@@ -22,7 +22,7 @@ from typing import Any
 
 from fasthtml.common import H2, H3, A, Form, P
 
-from components.activity_views_base import (
+from ui.patterns.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,
     ActivityViewTabs,

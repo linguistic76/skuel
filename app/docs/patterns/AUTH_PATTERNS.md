@@ -250,7 +250,7 @@ async def habits_dashboard(request):
 
 **SharedUIComponents:**
 ```python
-from components.shared_ui_components import SharedUIComponents
+from ui.patterns.entity_dashboard import SharedUIComponents
 
 dashboard = SharedUIComponents.render_entity_dashboard(
     title="🎯 Habits",

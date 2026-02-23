@@ -232,7 +232,7 @@ Form(
 ### Testing
 
 ```python
-from components.form_generator import FormGenerator
+from ui.patterns.form_generator import FormGenerator
 from pydantic import BaseModel, Field
 
 class TestModel(BaseModel):
@@ -457,7 +457,7 @@ return Result.ok({
 ### Using FormGenerator
 
 ```python
-from components.form_generator import FormGenerator
+from ui.patterns.form_generator import FormGenerator
 
 # Forms automatically get validation
 form = FormGenerator.from_model(

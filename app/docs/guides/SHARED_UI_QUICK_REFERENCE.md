@@ -16,7 +16,7 @@ related: []
 ## The One Pattern You Need
 
 ```python
-from components.shared_ui_components import SharedUIComponents
+from ui.patterns.entity_dashboard import SharedUIComponents
 
 # This replaces 80+ lines of manual composition
 dashboard = SharedUIComponents.render_entity_dashboard(

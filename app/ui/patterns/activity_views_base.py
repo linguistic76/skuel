@@ -6,7 +6,7 @@ Shared components for Activity Domain three-view interfaces.
 Provides reusable tab navigation, calendar navigation, and view switchers.
 
 Usage:
-    from components.activity_views_base import ActivityViewTabs, ActivityCalendarNav
+    from ui.patterns.activity_views_base import ActivityViewTabs, ActivityCalendarNav
 
     tabs = ActivityViewTabs.render("goals", "list", [
         ("list", "List", "List"),

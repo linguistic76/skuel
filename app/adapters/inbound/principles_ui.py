@@ -28,7 +28,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from components.error_components import ErrorComponents
+from ui.patterns.error_banner import render_error_banner
 from components.principles_views import PrinciplesViewComponents
 from core.constants import QueryLimit
 from core.ports.facade_protocols import PrinciplesFacadeProtocol
@@ -501,7 +501,7 @@ def create_principles_ui_routes(
             if categories_result.is_error:
                 error_content = Div(
                     PrinciplesViewComponents.render_view_tabs(active_view=view),
-                    ErrorComponents.render_error_banner("Failed to load categories"),
+                    render_error_banner("Failed to load categories"),
                     cls=f"{Spacing.PAGE} {Container.WIDE}",
                 )
                 return await create_principles_page(error_content, request=request)
@@ -517,7 +517,7 @@ def create_principles_ui_routes(
             if analytics_result.is_error:
                 error_content = Div(
                     PrinciplesViewComponents.render_view_tabs(active_view=view),
-                    ErrorComponents.render_error_banner("Failed to load analytics"),
+                    render_error_banner("Failed to load analytics"),
                     cls=f"{Spacing.PAGE} {Container.WIDE}",
                 )
                 return await create_principles_page(error_content, request=request)
@@ -535,7 +535,7 @@ def create_principles_ui_routes(
             if filtered_result.is_error:
                 error_content = Div(
                     PrinciplesViewComponents.render_view_tabs(active_view=view),
-                    ErrorComponents.render_error_banner("Failed to load principles"),
+                    render_error_banner("Failed to load principles"),
                     cls=f"{Spacing.PAGE} {Container.WIDE}",
                 )
                 return await create_principles_page(error_content, request=request)
@@ -547,7 +547,7 @@ def create_principles_ui_routes(
             if categories_result.is_error:
                 error_content = Div(
                     PrinciplesViewComponents.render_view_tabs(active_view=view),
-                    ErrorComponents.render_error_banner("Failed to load categories"),
+                    render_error_banner("Failed to load categories"),
                     cls=f"{Spacing.PAGE} {Container.WIDE}",
                 )
                 return await create_principles_page(error_content, request=request)
@@ -591,14 +591,14 @@ def create_principles_ui_routes(
 
         # Handle errors (return banner directly for HTMX swap)
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load principles")
+            return render_error_banner("Failed to load principles")
 
         principles, stats = filtered_result.value
         categories_result = await get_categories()
 
         # Handle categories error
         if categories_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load categories")
+            return render_error_banner("Failed to load categories")
 
         filter_spec: PrinciplesFilterSpec = {
             "category": filters.category,
@@ -621,7 +621,7 @@ def create_principles_ui_routes(
 
         # Handle errors (return banner directly for HTMX swap)
         if categories_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load categories")
+            return render_error_banner("Failed to load categories")
 
         return PrinciplesViewComponents.render_create_view(
             categories=categories_result.value,
@@ -636,7 +636,7 @@ def create_principles_ui_routes(
 
         # Handle errors (return banner directly for HTMX swap)
         if analytics_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load analytics")
+            return render_error_banner("Failed to load analytics")
 
         return PrinciplesViewComponents.render_analytics_view(
             analytics_data=analytics_result.value,
@@ -661,7 +661,7 @@ def create_principles_ui_routes(
 
         # Handle errors (return banner directly for HTMX swap)
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load principles")
+            return render_error_banner("Failed to load principles")
 
         principles, _stats = filtered_result.value
 
@@ -741,14 +741,14 @@ def create_principles_ui_routes(
 
         # Handle errors
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load principles")
+            return render_error_banner("Failed to load principles")
 
         principles, stats = filtered_result.value
         categories_result = await get_categories()
 
         # Handle categories error
         if categories_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load categories")
+            return render_error_banner("Failed to load categories")
 
         filters: PrinciplesFilterSpec = {
             "category": "all",
@@ -769,7 +769,7 @@ def create_principles_ui_routes(
 
         # Handle errors
         if categories_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load categories")
+            return render_error_banner("Failed to load categories")
 
         return PrinciplesViewComponents.render_create_view(
             categories=categories_result.value,
@@ -982,7 +982,7 @@ def create_principles_ui_routes(
 
         # Handle categories error
         if categories_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load categories")
+            return render_error_banner("Failed to load categories")
 
         return PrinciplesViewComponents.render_edit_form(
             principle, categories_result.value, user_uid
@@ -1034,14 +1034,14 @@ def create_principles_ui_routes(
 
         # Handle errors
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load principles")
+            return render_error_banner("Failed to load principles")
 
         principles, stats = filtered_result.value
         categories_result = await get_categories()
 
         # Handle categories error
         if categories_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load categories")
+            return render_error_banner("Failed to load categories")
 
         filters: PrinciplesFilterSpec = {
             "category": "all",
@@ -1207,14 +1207,14 @@ def create_principles_ui_routes(
 
         # Handle errors
         if filtered_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load principles")
+            return render_error_banner("Failed to load principles")
 
         principles, stats = filtered_result.value
         categories_result = await get_categories()
 
         # Handle categories error
         if categories_result.is_error:
-            return ErrorComponents.render_error_banner("Failed to load categories")
+            return render_error_banner("Failed to load categories")
 
         filters: PrinciplesFilterSpec = {
             "category": "all",

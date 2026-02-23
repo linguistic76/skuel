@@ -11,7 +11,7 @@ Following 100% Dynamic Architecture:
 - DaisyUI component library with type-safe enums
 
 Usage:
-    from components.shared_ui_components import SharedUIComponents
+    from ui.patterns.entity_dashboard import SharedUIComponents
 
     # Render complete dashboard
     dashboard = SharedUIComponents.render_entity_dashboard(
@@ -766,7 +766,7 @@ class SharedUIComponentsExamples:
     @staticmethod
     def goals_dashboard_example(goals) -> Any:
         """Example: Goals dashboard using grid layout"""
-        from components.shared_ui_components import SharedUIComponents
+        from ui.patterns.entity_dashboard import SharedUIComponents
 
         stats_cards = SharedUIComponents.render_stats_cards(
             {

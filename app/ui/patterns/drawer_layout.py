@@ -7,7 +7,7 @@ Provides a responsive sidebar that is open on desktop (lg:drawer-open) and
 overlay-based on mobile.
 
 Usage:
-    from components.drawer_layout import DrawerLayout, MenuItem
+    from ui.patterns.drawer_layout import DrawerLayout, MenuItem
 
     menu_items = [
         MenuItem("Overview", "/sel", "overview", "Introduction to SEL"),

@@ -17,9 +17,9 @@ from fasthtml.common import A as Anchor
 from starlette.requests import Request
 from starlette.responses import Response
 
-from components.card_generator import CardGenerator
-from components.form_generator import FormGenerator
-from components.shared_ui_components import SharedUIComponents
+from ui.patterns.card_generator import CardGenerator
+from ui.patterns.form_generator import FormGenerator
+from ui.patterns.entity_dashboard import SharedUIComponents
 from core.models.curriculum.curriculum_requests import CurriculumCreateRequest as KuCreateRequest
 from core.models.enums import SELCategory
 from core.utils.logging import get_logger
