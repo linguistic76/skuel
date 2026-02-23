@@ -85,6 +85,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Alpine.js Architecture](architecture/ALPINE_JS_ARCHITECTURE.md) | 2026-01-05 | 280 |
 | [Assignments PIPELINE](architecture/assignments_PIPELINE.md) | 2025-11-27 | 343 |
 | [Curriculum Grouping Patterns: KU, LS, LP + MOC Organization](architecture/CURRICULUM_GROUPING_PATTERNS.md) | 2026-01-20 | 410 |
+| **[Enum Architecture](architecture/ENUM_ARCHITECTURE.md)** | **2026-02-23** | **280** |
 | [Finance Categories System](architecture/FINANCE_CATEGORIES_GUIDE.md) | 2025-11-27 | 562 |
 | [Knowledge Substance Philosophy](architecture/knowledge_substance_philosophy.md) | 2025-10-17 | 371 |
 | **[Lateral Relationships Core Architecture](architecture/LATERAL_RELATIONSHIPS_CORE.md)** | **2026-01-31** | **1200** |
