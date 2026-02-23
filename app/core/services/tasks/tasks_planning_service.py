@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku.task import Task
+from core.models.task.task import Task
 from core.services.base_planning_service import BasePlanningService
 from core.services.infrastructure import PrerequisiteHelper
 from core.utils.decorators import with_error_handling
@@ -100,7 +100,7 @@ class TasksPlanningService(BasePlanningService["BackendOperations[Task]", Task])
         Returns:
             Result containing list of Tasks that apply the knowledge unit
         """
-        from core.models.ku.task import Task
+        from core.models.task.task import Task
         from core.utils.neo4j_mapper import from_neo4j_node
 
         query = """

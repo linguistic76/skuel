@@ -18,7 +18,7 @@ from operator import attrgetter
 from typing import Any, TypedDict
 
 from core.constants import ConfidenceLevel
-from core.models.ku.task_dto import TaskDTO
+from core.models.task.task_dto import TaskDTO
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

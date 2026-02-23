@@ -34,8 +34,8 @@ from core.models.enums import (
     EntityStatus,
     SELCategory,
 )
-from core.models.ku.curriculum import Curriculum
-from core.models.ku.event import Event
+from core.models.curriculum.curriculum import Curriculum
+from core.models.event.event import Event
 from core.services.ku.ku_practice_service import KuPracticeService
 
 

@@ -30,8 +30,8 @@ from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactor
 from components.error_components import ErrorComponents
 from components.events_views import EventsViewComponents
 from components.shared_ui_components import SharedUIComponents
-from core.models.ku.event import Event
-from core.models.ku.event_dto import EventDTO
+from core.models.event.event import Event
+from core.models.event.event_dto import EventDTO
 from core.ports.facade_protocols import EventsFacadeProtocol
 from core.ports.query_types import ActivityFilterSpec
 from core.utils.logging import get_logger

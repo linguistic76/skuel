@@ -17,8 +17,8 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import CRUDRouteFactory
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
-from core.models.ku import FeedbackGenerateRequest
-from core.models.ku.exercise_request import (
+from core.models.curriculum.exercise_request import FeedbackGenerateRequest
+from core.models.curriculum.exercise_request import (
     ExerciseCreateRequest,
     ExerciseUpdateRequest,
 )

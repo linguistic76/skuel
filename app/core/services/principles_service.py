@@ -19,10 +19,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.ku_enums import PrincipleCategory
-from core.models.ku.entity import Entity
-from core.models.ku.ku import Ku
-from core.models.ku.principle import Principle
-from core.models.ku.principle_dto import PrincipleDTO
+from core.models.entity import Entity
+from core.models.entity_types import Ku
+from core.models.principle.principle import Principle
+from core.models.principle.principle_dto import PrincipleDTO
 from core.ports.domain_protocols import (
     GoalsOperations,
     HabitsOperations,
@@ -471,7 +471,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         Returns:
             Result with the created expression dict
         """
-        from core.models.ku.ku_nested_types import PrincipleExpression
+        from core.models.principle.principle_types import PrincipleExpression
 
         principle_uid = (
             dto.get("principle_uid")

@@ -20,8 +20,8 @@ from core.events.task_events import TaskCompleted
 from core.models.enums import Domain, EntityStatus
 from core.models.enums.ku_enums import MeasurementType
 from core.models.graph_context import GraphContext
-from core.models.ku.goal import Goal
-from core.models.ku.goal_dto import GoalDTO
+from core.models.goal.goal import Goal
+from core.models.goal.goal_dto import GoalDTO
 from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import GoalUpdatePayload
 from core.services.base_service import BaseService
@@ -937,7 +937,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing True if milestone was created
         """
-        from core.models.ku.ku_nested_types import Milestone
+        from core.models.goal.milestone import Milestone
 
         # Get current goal
         goal_result = await self.backend.get_goal(uid)

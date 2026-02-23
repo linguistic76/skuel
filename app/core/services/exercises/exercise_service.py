@@ -21,8 +21,8 @@ from typing import Any
 
 from core.models.enums import Domain
 from core.models.enums.ku_enums import EntityType, ProcessorType, ProjectScope
-from core.models.ku.exercise import Exercise
-from core.models.ku.exercise_dto import ExerciseDTO
+from core.models.curriculum.exercise import Exercise
+from core.models.curriculum.exercise_dto import ExerciseDTO
 from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
 from core.services.base_service import BaseService

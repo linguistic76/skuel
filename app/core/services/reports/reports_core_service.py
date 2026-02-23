@@ -39,8 +39,11 @@ if TYPE_CHECKING:
 from core.events import publish_event
 from core.events.submission_events import AssessmentCreated, SubmissionDeleted
 from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType
-from core.models.ku import Entity, Feedback, Journal, Ku
-from core.models.ku.submission_dto import SubmissionDTO
+from core.models.entity import Entity
+from core.models.entity_types import Ku
+from core.models.reports.feedback import Feedback
+from core.models.reports.journal import Journal
+from core.models.reports.submission_dto import SubmissionDTO
 from core.models.relationship_names import RelationshipName
 from core.ports import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
@@ -407,7 +410,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
             return Result.fail(delete_result.expect_error())
 
         if delete_result.value:
-            from core.models.ku.user_owned_entity import UserOwnedEntity
+            from core.models.user_owned_entity import UserOwnedEntity
 
             event = SubmissionDeleted(
                 submission_uid=uid,

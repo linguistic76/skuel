@@ -41,8 +41,8 @@ from starlette.responses import FileResponse
 
 from adapters.inbound.boundary import boundary_handler
 from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType
-from core.models.ku import ku_to_response
-from core.models.ku.ku_request import (
+from core.models.entity_converters import ku_to_response
+from core.models.entity_requests import (
     AddTagsRequest,
     BulkCategorizeRequest,
     BulkDeleteRequest,

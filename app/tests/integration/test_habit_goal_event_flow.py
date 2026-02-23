@@ -31,8 +31,8 @@ from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.habit_events import HabitCompleted
 from core.models.enums import Domain, EntityStatus
 from core.models.enums.ku_enums import EntityType, MeasurementType
-from core.models.ku.goal import Goal
-from core.models.ku.habit import Habit as Habit
+from core.models.goal.goal import Goal
+from core.models.habit.habit import Habit as Habit
 from core.services.goals.goals_progress_service import GoalsProgressService
 
 

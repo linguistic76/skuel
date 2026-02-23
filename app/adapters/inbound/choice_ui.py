@@ -647,7 +647,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
         from core.models.enums import Domain as DomainEnum
         from core.models.enums import Priority as PriorityEnum
         from core.models.enums.ku_enums import ChoiceType
-        from core.models.ku.ku_request import (
+        from core.models.activity_requests import (
             ChoiceCreateRequest,
             ChoiceOptionCreateRequest,
         )
@@ -774,7 +774,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
             )
 
         # Build option selection
-        from core.models.ku.ku_nested_types import ChoiceOption
+        from core.models.choice.choice_option import ChoiceOption
 
         option_buttons = []
         for opt in options:
@@ -1004,7 +1004,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
 
         from core.models.enums import Domain as DomainEnum
         from core.models.enums import Priority as PriorityEnum
-        from core.models.ku.ku_request import EntityUpdateRequest
+        from core.models.entity_requests import EntityUpdateRequest
 
         title = form.get("title", "").strip()
         description = form.get("description", "").strip() or None

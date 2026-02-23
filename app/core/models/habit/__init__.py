@@ -1,14 +1,5 @@
 """
-Habit Models - Preserved Types
-==============================
-
-Habit domain now uses the unified Ku model (core.models.ku).
-This package preserves habit-specific types that have no Ku equivalent:
-- habit_request.py - Habit API request/response models (Pydantic)
-- habit_completion_request.py - Completion request models (Pydantic)
-- habit_intelligence.py - Habit intelligence dataclasses
-- completion.py - HabitCompletion domain model (separate entity, not a Ku)
-- completion_dto.py - HabitCompletionDTO for data transfer
+Habit domain models — Habit, HabitDTO, requests, intelligence, completions.
 """
 
 from .completion import HabitCompletion

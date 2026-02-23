@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType
-from core.models.ku import Submission
+from core.models.reports.submission import Submission
 from core.services.dsl import (
     ActivityExtractionResult,
     ReportActivityExtractorService,

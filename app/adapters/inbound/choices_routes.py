@@ -12,7 +12,8 @@ from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
 )
-from core.models.ku.ku_request import ChoiceCreateRequest, EntityUpdateRequest
+from core.models.activity_requests import ChoiceCreateRequest
+from core.models.entity_requests import EntityUpdateRequest
 
 CHOICES_CONFIG = create_activity_domain_route_config(
     domain_name="choices",

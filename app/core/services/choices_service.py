@@ -17,9 +17,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus
-from core.models.ku.choice_dto import ChoiceDTO
-from core.models.ku.entity import Entity
-from core.models.ku.ku import Ku
+from core.models.choice.choice_dto import ChoiceDTO
+from core.models.entity import Entity
+from core.models.entity_types import Ku
 from core.ports import BackendOperations
 from core.services.base_service import BaseService
 
@@ -42,7 +42,8 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-    from core.models.ku.ku_request import ChoiceCreateRequest, EntityUpdateRequest
+    from core.models.activity_requests import ChoiceCreateRequest
+    from core.models.entity_requests import EntityUpdateRequest
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.search_protocols import ChoicesSearchOperations
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService

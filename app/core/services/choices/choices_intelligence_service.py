@@ -16,8 +16,8 @@ from core.events.choice_events import ChoiceMade, ChoiceOutcomeRecorded
 from core.models.enums import Domain
 from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
-from core.models.ku.choice import Choice
-from core.models.ku.choice_dto import ChoiceDTO
+from core.models.choice.choice import Choice
+from core.models.choice.choice_dto import ChoiceDTO
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 from core.services.base_analytics_service import BaseAnalyticsService

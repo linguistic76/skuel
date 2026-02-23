@@ -13,7 +13,7 @@ They enhance the user experience but are not required for core functionality.
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku.event import Event
+from core.models.event.event import Event
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 

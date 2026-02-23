@@ -20,8 +20,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus, Priority
-from core.models.ku.goal import Goal
-from core.models.ku.goal_dto import GoalDTO
+from core.models.goal.goal import Goal
+from core.models.goal.goal_dto import GoalDTO
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config

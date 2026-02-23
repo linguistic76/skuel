@@ -25,8 +25,8 @@ if TYPE_CHECKING:
 # Protocol interfaces
 # Domain models
 from core.models.enums import EntityStatus
-from core.models.ku.task import Task
-from core.models.ku.task_dto import TaskDTO
+from core.models.task.task import Task
+from core.models.task.task_dto import TaskDTO
 
 # Base service
 from core.services.base_service import BaseService
@@ -57,7 +57,7 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.graph_context import GraphContext
-    from core.models.ku.ku_request import TaskCreateRequest
+    from core.models.task.task_request import TaskCreateRequest
     from core.services.user import UserContext
 
 

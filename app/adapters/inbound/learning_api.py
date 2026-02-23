@@ -23,7 +23,8 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRouteFactory
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
-from core.models.ku.ku_request import LearningPathCreateRequest, EntityUpdateRequest
+from core.models.curriculum.curriculum_requests import LearningPathCreateRequest
+from core.models.entity_requests import EntityUpdateRequest
 from core.ports.facade_protocols import LpFacadeProtocol
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -128,7 +129,7 @@ def create_learning_api_routes(
         """Update progress for a learning step."""
         body = await request.json()
 
-        from core.models.ku.ku_request import LearningPathProgressRequest
+        from core.models.curriculum.curriculum_requests import LearningPathProgressRequest
 
         LearningPathProgressRequest.model_validate(body)
 

@@ -392,7 +392,7 @@ class TestTaskModel:
 
     async def test_task_has_required_fields(self):
         """Test that Task model has required fields."""
-        from core.models.ku.task import Task as Task
+        from core.models.task.task import Task as Task
 
         required_fields = ["uid", "user_uid", "title"]
         for field in required_fields:

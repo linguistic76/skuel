@@ -27,7 +27,7 @@ from core.utils.logging import get_logger
 if TYPE_CHECKING:
     import builtins
 
-    from core.models.ku.learning_step import LearningStep
+    from core.models.curriculum.learning_step import LearningStep
     from core.ports.facade_protocols import LsFacadeProtocol
     from core.services.ls.ls_intelligence_service import LsIntelligenceService
     from core.utils.result_simplified import Result

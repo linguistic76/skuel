@@ -23,7 +23,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.metadata_enums import Visibility
-from core.models.ku import SubmissionDTO
+from core.models.reports.submission_dto import SubmissionDTO
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

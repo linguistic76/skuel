@@ -19,8 +19,8 @@ from typing import Any
 from core.events import HabitCompleted, HabitStreakBroken, HabitStreakMilestone, publish_event
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.completion import HabitCompletion
-from core.models.ku.habit import Habit
-from core.models.ku.habit_dto import HabitDTO
+from core.models.habit.habit import Habit
+from core.models.habit.habit_dto import HabitDTO
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.query_types import HabitUpdatePayload
 from core.services.habits.habit_relationships import HabitRelationships

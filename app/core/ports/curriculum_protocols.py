@@ -81,9 +81,9 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from .base_protocols import BackendOperations, GraphRelationshipOperations
 
 if TYPE_CHECKING:
-    from core.models.ku.ku import Ku
-    from core.models.ku.learning_path import LearningPath
-    from core.models.ku.learning_step import LearningStep
+    from core.models.entity_types import Ku
+    from core.models.curriculum.learning_path import LearningPath
+    from core.models.curriculum.learning_step import LearningStep
 
     # NOTE: MapOfContent, MOCSection, MOCStats imports removed January 2026
     # MOC is now KU-based - no separate MOC models exist

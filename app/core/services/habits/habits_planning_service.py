@@ -36,8 +36,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import RecurrencePattern
 from core.models.enums.ku_enums import HabitCategory
-from core.models.ku.habit import Habit
-from core.models.ku.habit_dto import HabitDTO
+from core.models.habit.habit import Habit
+from core.models.habit.habit_dto import HabitDTO
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_planning_service import BasePlanningService
 from core.utils.decorators import with_error_handling

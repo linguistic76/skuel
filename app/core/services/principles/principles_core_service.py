@@ -23,9 +23,9 @@ from core.models.enums.ku_enums import (
     PrincipleCategory,
     PrincipleStrength,
 )
-from core.models.ku.entity import Entity
-from core.models.ku.principle import Principle
-from core.models.ku.principle_dto import PrincipleDTO
+from core.models.entity import Entity
+from core.models.principle.principle import Principle
+from core.models.principle.principle_dto import PrincipleDTO
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config

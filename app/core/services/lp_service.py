@@ -25,8 +25,8 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import make_attribute_sort_key
 
 if TYPE_CHECKING:
-    from core.models.ku.learning_path import LearningPath
-    from core.models.ku.learning_step import LearningStep
+    from core.models.curriculum.learning_path import LearningPath
+    from core.models.curriculum.learning_step import LearningStep
     from core.ports import EventBusOperations
     from core.ports.facade_protocols import LpFacadeProtocol, LsFacadeProtocol
     from core.services.ku_service import KuService

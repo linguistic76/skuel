@@ -35,7 +35,7 @@ from core.models.enums.ku_enums import (
     HabitDifficulty,
     HabitPolarity,
 )
-from core.models.ku.habit import Habit as Habit
+from core.models.habit.habit import Habit as Habit
 from core.services.habits.habits_core_service import HabitsCoreService
 
 

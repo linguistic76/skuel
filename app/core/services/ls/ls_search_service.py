@@ -23,8 +23,8 @@ from typing import TYPE_CHECKING
 
 from core.models.enums import Domain
 from core.models.enums.ku_enums import EntityStatus, StepDifficulty
-from core.models.ku import LearningStep
-from core.models.ku.learning_step_dto import LearningStepDTO
+from core.models.curriculum.learning_step import LearningStep
+from core.models.curriculum.learning_step_dto import LearningStepDTO
 from core.models.search.query_parser import ParsedSearchQuery
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config

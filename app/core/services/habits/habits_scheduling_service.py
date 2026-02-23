@@ -40,8 +40,8 @@ from core.events import HabitCreated, publish_event
 from core.models.enums import Domain, EntityStatus, Priority, RecurrencePattern
 from core.models.enums.ku_enums import HabitCategory, HabitDifficulty
 from core.models.habit.habit_request import HabitCreateRequest
-from core.models.ku.habit import Habit
-from core.models.ku.habit_dto import HabitDTO
+from core.models.habit.habit import Habit
+from core.models.habit.habit_dto import HabitDTO
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -52,7 +52,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_dict_count_getter
 
 if TYPE_CHECKING:
-    from core.models.ku.lp_position import LpPosition
+    from core.models.curriculum.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.habits.habits_completion_service import HabitsCompletionService
     from core.services.user.unified_user_context import UserContext

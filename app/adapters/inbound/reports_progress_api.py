@@ -26,11 +26,11 @@ from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from core.models.ku import ku_to_response
-from core.models.ku.ku_request import (
+from core.models.entity_converters import ku_to_response
+from core.models.entity_requests import (
+    ProgressReportGenerateRequest,
     ScheduleCreateRequest,
     ScheduleUpdateRequest,
-    ProgressReportGenerateRequest,
 )
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result

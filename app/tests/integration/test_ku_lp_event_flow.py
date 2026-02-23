@@ -34,8 +34,8 @@ from core.events.learning_events import (
 )
 from core.models.enums import Domain, SELCategory
 from core.models.enums.ku_enums import LpType
-from core.models.ku.curriculum import Curriculum
-from core.models.ku.learning_path import LearningPath
+from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum.learning_path import LearningPath
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.lp.lp_progress_service import LpProgressService
 

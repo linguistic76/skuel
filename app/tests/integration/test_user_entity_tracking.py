@@ -25,10 +25,10 @@ import pytest
 
 from core.models.enums import Domain, EntityStatus, Priority, RecurrencePattern
 from core.models.enums.ku_enums import EntityStatus as HabitStatus
-from core.models.ku.event import Event
-from core.models.ku.goal import Goal
-from core.models.ku.habit import Habit
-from core.models.ku.task import Task as Task
+from core.models.event.event import Event
+from core.models.goal.goal import Goal
+from core.models.habit.habit import Habit
+from core.models.task.task import Task as Task
 
 # ============================================================================
 # FIXTURES

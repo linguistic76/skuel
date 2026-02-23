@@ -9,10 +9,10 @@ and dispatch from Entity.from_dto().
 from core.models.enums import Domain
 from core.models.enums.ku_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
-from core.models.ku.curriculum import Curriculum
-from core.models.ku.entity import Entity
-from core.models.ku.resource import Resource
-from core.models.ku.resource_dto import ResourceDTO
+from core.models.curriculum.curriculum import Curriculum
+from core.models.entity import Entity
+from core.models.resource.resource import Resource
+from core.models.resource.resource_dto import ResourceDTO
 
 
 class TestResourceKuCreation:

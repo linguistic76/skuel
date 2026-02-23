@@ -16,7 +16,9 @@ from typing import Any
 
 from core.constants import QueryLimit
 from core.models.enums.ku_enums import EntityType
-from core.models.ku import Entity, Ku, SubmissionDTO
+from core.models.entity import Entity
+from core.models.entity_types import Ku
+from core.models.reports.submission_dto import SubmissionDTO
 from core.models.relationship_names import RelationshipName
 from core.ports import BackendOperations
 from core.services.base_service import BaseService

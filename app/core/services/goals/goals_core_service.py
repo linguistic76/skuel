@@ -33,8 +33,8 @@ from core.events.goal_events import (
 )
 from core.models.enums import EntityStatus
 from core.models.enums.ku_enums import EntityType
-from core.models.ku.goal import Goal
-from core.models.ku.goal_dto import GoalDTO
+from core.models.goal.goal import Goal
+from core.models.goal.goal_dto import GoalDTO
 from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
 from core.ports.domain_protocols import GoalsOperations

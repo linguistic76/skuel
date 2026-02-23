@@ -16,7 +16,7 @@ from core.models.enums.ku_enums import (
     EntityType,
     PrincipleStrength,
 )
-from core.models.ku.principle import Principle
+from core.models.principle.principle import Principle
 
 
 def _make_principle(**overrides) -> Principle:

@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.models.enums import Priority
-from core.models.ku.ku_request import TaskCreateRequest
+from core.models.task.task_request import TaskCreateRequest
 from core.services.tasks_service import TasksService
 from core.utils.result_simplified import Result
 

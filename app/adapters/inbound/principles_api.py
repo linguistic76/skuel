@@ -16,7 +16,7 @@ from fasthtml.common import Request
 from adapters.inbound.auth import require_authenticated_user, require_ownership_query
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
-from core.models.ku.ku_request import (
+from core.models.activity_requests import (
     AlignmentAssessmentRequest,
     PrincipleExpressionRequest,
     PrincipleLinkRequest,

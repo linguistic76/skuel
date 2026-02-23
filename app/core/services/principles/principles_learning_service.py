@@ -17,12 +17,12 @@ from operator import itemgetter
 from typing import Any
 
 from core.models.enums import Domain, EntityStatus
-from core.models.ku.ku_request import PrincipleCreateRequest
-from core.models.ku.learning_path import LearningPath
-from core.models.ku.learning_step import LearningStep
-from core.models.ku.lp_position import LpPosition
-from core.models.ku.principle import Principle
-from core.models.ku.principle_dto import PrincipleDTO
+from core.models.activity_requests import PrincipleCreateRequest
+from core.models.curriculum.learning_path import LearningPath
+from core.models.curriculum.learning_step import LearningStep
+from core.models.curriculum.lp_position import LpPosition
+from core.models.principle.principle import Principle
+from core.models.principle.principle_dto import PrincipleDTO
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config

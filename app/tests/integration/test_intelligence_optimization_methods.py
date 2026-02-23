@@ -11,7 +11,7 @@ from datetime import date
 import pytest
 
 from core.models.enums.ku_enums import PrincipleCategory
-from core.models.ku.ku_request import ChoiceCreateRequest
+from core.models.activity_requests import ChoiceCreateRequest
 
 
 @pytest.mark.asyncio

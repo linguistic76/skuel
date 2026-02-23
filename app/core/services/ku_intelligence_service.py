@@ -25,9 +25,9 @@ from core.constants import GraphDepth
 from core.events.curriculum_events import LearningStepCompleted
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
-from core.models.ku.curriculum_dto import CurriculumDTO
-from core.models.ku.entity import Entity
-from core.models.ku.ku import Ku
+from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.entity import Entity
+from core.models.entity_types import Ku
 from core.models.relationship_names import RelationshipName
 from core.ports import KuOperations
 from core.services.base_analytics_service import BaseAnalyticsService

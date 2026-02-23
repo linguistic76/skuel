@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku.task import Task
+from core.models.task.task import Task
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 

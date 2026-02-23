@@ -34,9 +34,9 @@ from core.models.enums import (
     SELCategory,
 )
 from core.models.enums.ku_enums import EntityType
-from core.models.ku.habit import Habit as Habit
-from core.models.ku.ku import Ku
-from core.models.ku.task import Task as Task
+from core.models.habit.habit import Habit as Habit
+from core.models.entity_types import Ku
+from core.models.task.task import Task as Task
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)

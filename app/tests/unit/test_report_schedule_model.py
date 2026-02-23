@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from core.models.enums.ku_enums import ProgressDepth, ScheduleType
-from core.models.ku.ku_schedule import (
+from core.models.reports.ku_schedule import (
     KuSchedule,
     KuScheduleDTO,
     ku_schedule_domain_to_dto,

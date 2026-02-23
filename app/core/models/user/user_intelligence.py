@@ -23,15 +23,15 @@ from operator import itemgetter
 from typing import Any
 
 from core.models.enums import Domain
-from core.models.ku.ku import Ku
-from core.models.ku.ku_intelligence import (
+from core.models.entity_types import Ku
+from core.models.curriculum.ku_intelligence import (
     ContentPreference,
     LearningPreference,
     LearningVelocity,
     MasteryLevel,
 )
-from core.models.ku.ku_intelligence import KuMastery as KnowledgeMastery
-from core.models.ku.ku_intelligence import KuRecommendation as KnowledgeRecommendation
+from core.models.curriculum.ku_intelligence import KuMastery as KnowledgeMastery
+from core.models.curriculum.ku_intelligence import KuRecommendation as KnowledgeRecommendation
 from core.services.user import UserContext
 
 # NOTE: SearchIntent and SearchQuery removed - deprecated search_archive dependency

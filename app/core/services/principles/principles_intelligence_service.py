@@ -26,9 +26,9 @@ from core.events.principle_events import (
 from core.models.enums import Domain
 from core.models.enums.ku_enums import AlignmentLevel
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
-from core.models.ku.ku import Ku
-from core.models.ku.principle import Principle
-from core.models.ku.principle_dto import PrincipleDTO
+from core.models.entity_types import Ku
+from core.models.principle.principle import Principle
+from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
 
 # NOTE (November 2025): Removed Has* protocol imports - Principle model is well-typed
@@ -635,7 +635,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         user_reflection = assessment_data.get("user_reflection")
 
         # Add assessment to history
-        from core.models.ku.ku_nested_types import AlignmentAssessment as KuAlignmentAssessment
+        from core.models.principle.principle_types import AlignmentAssessment as KuAlignmentAssessment
 
         assessment = KuAlignmentAssessment(
             assessed_date=date.today(),

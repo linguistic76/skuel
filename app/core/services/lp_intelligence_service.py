@@ -34,8 +34,9 @@ from typing import TYPE_CHECKING, Any
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
-from core.models.ku import Entity, Ku
-from core.models.ku.learning_path_dto import LearningPathDTO
+from core.models.entity import Entity
+from core.models.entity_types import Ku
+from core.models.curriculum.learning_path_dto import LearningPathDTO
 from core.models.query import QueryIntent
 from core.ports.content_protocols import ContentAdapter
 from core.services.base_analytics_service import BaseAnalyticsService

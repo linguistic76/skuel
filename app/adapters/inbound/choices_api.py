@@ -61,7 +61,7 @@ def create_choices_api_routes(
         confidence_level = body.get("confidence_level", 0.8)
 
         # Validate request
-        from core.models.ku.ku_request import ChoiceDecisionRequest
+        from core.models.activity_requests import ChoiceDecisionRequest
 
         ChoiceDecisionRequest.model_validate(
             {"selected_option_uid": selected_option_uid, "decision_rationale": decision_rationale}
@@ -83,7 +83,7 @@ def create_choices_api_routes(
     ) -> Result[Any]:
         """Create a new option for a choice (requires ownership)."""
         body = await request.json()
-        from core.models.ku.ku_request import ChoiceOptionCreateRequest
+        from core.models.activity_requests import ChoiceOptionCreateRequest
 
         option_request = ChoiceOptionCreateRequest.model_validate(body)
 
@@ -110,7 +110,7 @@ def create_choices_api_routes(
         """Update a choice option (requires ownership)."""
         body = await request.json()
 
-        from core.models.ku.ku_request import ChoiceOptionUpdateRequest
+        from core.models.activity_requests import ChoiceOptionUpdateRequest
 
         option_update = ChoiceOptionUpdateRequest.model_validate(body)
 
@@ -137,7 +137,7 @@ def create_choices_api_routes(
     ) -> Result[Any]:
         """Evaluate the outcome of a decided choice (requires ownership)."""
         body = await request.json()
-        from core.models.ku.ku_request import ChoiceEvaluationRequest
+        from core.models.activity_requests import ChoiceEvaluationRequest
 
         evaluation_request = ChoiceEvaluationRequest.model_validate(body)
 

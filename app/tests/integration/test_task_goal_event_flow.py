@@ -31,8 +31,8 @@ from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.task_events import TaskCompleted
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.enums.ku_enums import GoalType, MeasurementType
-from core.models.ku.goal import Goal
-from core.models.ku.task import Task as Task
+from core.models.goal.goal import Goal
+from core.models.task.task import Task as Task
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.services.tasks.tasks_core_service import TasksCoreService
 

@@ -19,8 +19,8 @@ from core.events import publish_event
 from core.events.habit_events import HabitCreated
 from core.models.enums.ku_enums import EntityStatus, EntityType
 from core.models.habit.habit_request import HabitCreateRequest
-from core.models.ku.habit import Habit
-from core.models.ku.habit_dto import HabitDTO
+from core.models.habit.habit import Habit
+from core.models.habit.habit_dto import HabitDTO
 from core.ports import get_enum_value
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService

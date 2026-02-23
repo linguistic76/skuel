@@ -26,7 +26,7 @@ import pytest
 
 from core.events import TaskEmbeddingRequested
 from core.models.enums.ku_enums import EntityType
-from core.models.ku.ku_request import TaskCreateRequest as TaskCreateRequest
+from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest
 from core.services.background.embedding_worker import EmbeddingBackgroundWorker
 from core.utils.embedding_text_builder import build_embedding_text
 
@@ -214,7 +214,7 @@ class TestEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns title + description
         """
-        from core.models.ku.task import Task as Task
+        from core.models.task.task import Task as Task
 
         task = Task(
             uid="task.test",
@@ -236,7 +236,7 @@ class TestEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns title only
         """
-        from core.models.ku.task import Task as Task
+        from core.models.task.task import Task as Task
 
         task = Task(
             uid="task.test",
@@ -329,7 +329,7 @@ class TestGoalEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns all three fields combined
         """
-        from core.models.ku.goal import Goal
+        from core.models.goal.goal import Goal
 
         goal = Goal(
             uid="goal.test",
@@ -352,7 +352,7 @@ class TestGoalEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns title only
         """
-        from core.models.ku.goal import Goal
+        from core.models.goal.goal import Goal
 
         goal = Goal(
             uid="goal.test",
@@ -438,7 +438,7 @@ class TestEventEmbeddingEvents:
         event_bus.subscribe(EventEmbeddingRequested, capture_event)
 
         # Create event
-        from core.models.ku.event import Event
+        from core.models.event.event import Event
 
         event_entity = Event(
             uid="event.test",
@@ -486,7 +486,7 @@ class TestChoiceEmbeddingEvents:
         event_bus.subscribe(ChoiceEmbeddingRequested, capture_event)
 
         # Create choice
-        from core.models.ku.ku_request import ChoiceCreateRequest
+        from core.models.activity_requests import ChoiceCreateRequest
 
         request = ChoiceCreateRequest(
             title="Career Path Decision",

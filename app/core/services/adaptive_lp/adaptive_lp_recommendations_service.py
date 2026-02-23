@@ -16,8 +16,8 @@ from operator import attrgetter
 from typing import Any
 
 from core.models.enums import EntityStatus
-from core.models.ku.goal_dto import GoalDTO
-from core.models.ku.task_dto import TaskDTO
+from core.models.goal.goal_dto import GoalDTO
+from core.models.task.task_dto import TaskDTO
 
 # Import dataclasses from shared models module (breaks circular dependency)
 from core.services.adaptive_lp.adaptive_lp_models import (

@@ -20,7 +20,7 @@ from adapters.inbound.route_factories import (
     StatusTransition,
 )
 from core.models.enums import ContentScope
-from core.models.ku.goal import Goal
+from core.models.goal.goal import Goal
 from core.ports.facade_protocols import GoalsFacadeProtocol
 from core.utils.result_simplified import Result
 

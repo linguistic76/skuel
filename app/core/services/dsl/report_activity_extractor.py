@@ -49,7 +49,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
-from core.models.ku import Ku
+from core.models.entity_types import Ku
 from core.ports.base_protocols import HasUID
 from core.services.dsl.activity_dsl_parser import (
     ActivityDSLParser,

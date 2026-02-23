@@ -10,8 +10,8 @@ Following SKUEL principles:
 - Simple: Instructions + content -> LLM -> feedback
 """
 
-from core.models.ku import Exercise
-from core.models.ku.submission import Submission
+from core.models.curriculum.exercise import Exercise
+from core.models.reports.submission import Submission
 from core.services.ai_service import AnthropicService, OpenAIService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

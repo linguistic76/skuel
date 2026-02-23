@@ -21,8 +21,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import CalendarEventCompleted, publish_event
 from core.models.enums import EntityStatus
-from core.models.ku.event import Event
-from core.models.ku.event_dto import EventDTO
+from core.models.event.event import Event
+from core.models.event.event_dto import EventDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext

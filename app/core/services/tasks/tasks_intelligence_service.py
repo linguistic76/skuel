@@ -39,8 +39,8 @@ from core.models.enums import CompletionStatus, Domain, EntityStatus, Priority
 from core.models.enums.activity_enums import ProductivityLevel
 from core.models.enums.neo_labels import NeoLabel
 from core.models.graph_context import GraphContext
-from core.models.ku.task import Task
-from core.models.ku.task_dto import TaskDTO
+from core.models.task.task import Task
+from core.models.task.task_dto import TaskDTO
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 from core.services.base_analytics_service import BaseAnalyticsService

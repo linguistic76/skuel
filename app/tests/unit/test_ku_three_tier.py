@@ -14,13 +14,13 @@ from datetime import datetime, timedelta
 
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
 from core.models.enums.ku_enums import EntityType
-from core.models.ku.curriculum import Curriculum
-from core.models.ku.entity import Entity
-from core.models.ku.curriculum_dto import CurriculumDTO
-from core.models.ku.resource_dto import ResourceDTO
-from core.models.ku.task_dto import TaskDTO
-from core.models.ku.resource import Resource
-from core.models.ku.task import Task
+from core.models.curriculum.curriculum import Curriculum
+from core.models.entity import Entity
+from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.resource.resource_dto import ResourceDTO
+from core.models.task.task_dto import TaskDTO
+from core.models.resource.resource import Resource
+from core.models.task.task import Task
 
 # =========================================================================
 # Round-trip: DTO → Entity.from_dto() → Ku.to_dto() → all fields preserved

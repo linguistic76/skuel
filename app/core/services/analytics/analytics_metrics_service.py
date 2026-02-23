@@ -35,7 +35,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from core.constants import QueryLimit
 from core.models.enums import EntityStatus
-from core.models.ku.entity import Entity
+from core.models.entity import Entity
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_days_until_review, get_theme_count

@@ -34,9 +34,9 @@ if TYPE_CHECKING:
     from datetime import date
 
     from core.models.enums import Domain
-    from core.models.ku.habit import Habit as Habit
-    from core.models.ku.ku import Ku
-    from core.models.ku.task import Task as Task
+    from core.models.habit.habit import Habit as Habit
+    from core.models.entity_types import Ku
+    from core.models.task.task import Task as Task
     from core.models.search.filters import BaseSearchFilters
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest

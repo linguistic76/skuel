@@ -13,7 +13,7 @@ from operator import itemgetter
 from typing import TYPE_CHECKING
 
 from core.models.enums import EntityStatus
-from core.models.ku.goal_dto import GoalDTO
+from core.models.goal.goal_dto import GoalDTO
 from core.services.adaptive_lp.adaptive_lp_models import AdaptiveLp, LearningStyle
 from core.services.adaptive_lp_types import KnowledgeState
 

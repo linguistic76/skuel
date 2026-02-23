@@ -44,8 +44,8 @@ from core.events import GoalCreated, publish_event
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.enums.ku_enums import GoalTimeframe, GoalType
 from core.models.goal.goal_request import GoalCreateRequest
-from core.models.ku.goal import Goal
-from core.models.ku.goal_dto import GoalDTO
+from core.models.goal.goal import Goal
+from core.models.goal.goal_dto import GoalDTO
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -56,7 +56,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_dict_value_getter
 
 if TYPE_CHECKING:
-    from core.models.ku.lp_position import LpPosition
+    from core.models.curriculum.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.goals.goals_progress_service import GoalsProgressService
     from core.services.user.unified_user_context import UserContext

@@ -21,8 +21,8 @@ from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus, RecurrencePattern
-from core.models.ku.event import Event
-from core.models.ku.event_dto import EventDTO
+from core.models.event.event import Event
+from core.models.event.event_dto import EventDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
@@ -31,7 +31,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_tuple_first
 
 if TYPE_CHECKING:
-    from core.models.ku.ku_request import EventCreateRequest
+    from core.models.event.event_request import EventCreateRequest
     from core.ports import BackendOperations
 
 

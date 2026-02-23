@@ -46,12 +46,12 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from core.models.enums import Priority
-    from core.models.ku.choice import Choice
-    from core.models.ku.event import Event
-    from core.models.ku.goal import Goal as Goal
-    from core.models.ku.habit import Habit as Habit
-    from core.models.ku.principle import Principle
-    from core.models.ku.task import Task as Task
+    from core.models.choice.choice import Choice
+    from core.models.event.event import Event
+    from core.models.goal.goal import Goal as Goal
+    from core.models.habit.habit import Habit as Habit
+    from core.models.principle.principle import Principle
+    from core.models.task.task import Task as Task
     from core.services.user import UserContext
 
 

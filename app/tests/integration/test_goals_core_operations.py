@@ -28,7 +28,7 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.enums.ku_enums import GoalTimeframe, GoalType, MeasurementType
-from core.models.ku.goal import Goal
+from core.models.goal.goal import Goal
 from core.services.goals.goals_core_service import GoalsCoreService
 
 

@@ -28,8 +28,8 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations
 
 from core.models.enums import EntityStatus
-from core.models.ku.event import Event
-from core.models.ku.event_dto import EventDTO
+from core.models.event.event import Event
+from core.models.event.event_dto import EventDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.services.base_service import BaseService

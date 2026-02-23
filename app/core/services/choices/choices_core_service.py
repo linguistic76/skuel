@@ -18,10 +18,10 @@ from core.events.choice_events import (
     ChoiceUpdated,
 )
 from core.models.enums.ku_enums import ChoiceType, EntityStatus, EntityType
-from core.models.ku.choice import Choice
-from core.models.ku.choice_dto import ChoiceDTO
-from core.models.ku.ku import Ku
-from core.models.ku.ku_nested_types import ChoiceOption
+from core.models.choice.choice import Choice
+from core.models.choice.choice_dto import ChoiceDTO
+from core.models.entity_types import Ku
+from core.models.choice.choice_option import ChoiceOption
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -32,11 +32,11 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_attribute_sort_key
 
 if TYPE_CHECKING:
-    from core.models.ku.ku_request import (
+    from core.models.activity_requests import (
         ChoiceCreateRequest,
         ChoiceEvaluationRequest,
-        EntityUpdateRequest,
     )
+    from core.models.entity_requests import EntityUpdateRequest
     from core.ports import BackendOperations
 
 

@@ -35,7 +35,7 @@ class TestYAMLRoundTrip:
         from neo4j import AsyncGraphDatabase
 
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-        from core.models.ku.curriculum_dto import CurriculumDTO
+        from core.models.curriculum.curriculum_dto import CurriculumDTO
         from core.services.ingestion import UnifiedIngestionService
         from core.services.ku_service import KuService
 

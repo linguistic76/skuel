@@ -10,7 +10,11 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.ku_enums import ScheduleType
-from core.models.ku import KuSchedule, KuScheduleDTO, ku_schedule_dto_to_domain
+from core.models.reports.ku_schedule import (
+    KuSchedule,
+    KuScheduleDTO,
+    ku_schedule_dto_to_domain,
+)
 
 if TYPE_CHECKING:
     from core.ports import BackendOperations

@@ -21,9 +21,9 @@ When `extract_activities=True` in instructions, the processor will:
 from typing import Any
 
 from core.models.enums.ku_enums import EntityStatus, EntityType
-from core.models.ku import Ku
-from core.models.ku.entity import Entity
-from core.models.ku.submission import Submission
+from core.models.entity_types import Ku
+from core.models.entity import Entity
+from core.models.reports.submission import Submission
 from core.services.reports.reports_submission_service import ReportsSubmissionService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

@@ -52,14 +52,15 @@ if TYPE_CHECKING:
     from core.models.enums.ku_enums import PrincipleCategory
     from core.models.goal.goal_request import GoalCreateRequest
     from core.models.habit.habit_request import HabitCreateRequest
-    from core.models.ku.goal import Goal
-    from core.models.ku.habit import Habit
-    from core.models.ku.ku import Ku
-    from core.models.ku.ku_request import ChoiceCreateRequest, EntityUpdateRequest
-    from core.models.ku.ku_request import TaskCreateRequest as TaskCreateRequest
-    from core.models.ku.learning_path import LearningPath
-    from core.models.ku.learning_step import LearningStep
-    from core.models.ku.task import Task as Task
+    from core.models.goal.goal import Goal
+    from core.models.habit.habit import Habit
+    from core.models.entity_types import Ku
+    from core.models.activity_requests import ChoiceCreateRequest
+    from core.models.entity_requests import EntityUpdateRequest
+    from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest
+    from core.models.curriculum.learning_path import LearningPath
+    from core.models.curriculum.learning_step import LearningStep
+    from core.models.task.task import Task as Task
     from core.ports.infrastructure_protocols import UserOperations
     from core.ports.search_protocols import TasksSearchOperations
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService

@@ -22,9 +22,9 @@ from typing import Any
 from core.constants import QueryLimit
 from core.events import publish_event
 from core.models.enums.ku_enums import AlignmentLevel, PrincipleStrength
-from core.models.ku.habit import Habit
-from core.models.ku.ku import Ku
-from core.models.ku.principle import Principle
+from core.models.habit.habit import Habit
+from core.models.entity_types import Ku
+from core.models.principle.principle import Principle
 from core.models.principle.principle_types import (
     AlignmentAssessment as UserAlignmentAssessment,
 )
@@ -363,8 +363,8 @@ class PrinciplesAlignmentService:
         """
         from datetime import date
 
-        from core.models.ku.ku_request import PrincipleAlignmentAssessmentResult
-        from core.models.ku.principle_dto import PrincipleDTO
+        from core.models.activity_requests import PrincipleAlignmentAssessmentResult
+        from core.models.principle.principle_dto import PrincipleDTO
 
         # 1. Get the principle
         principle_result = await self.backend.get(principle_uid)
@@ -438,7 +438,7 @@ class PrinciplesAlignmentService:
         self, principle_uid: str, assessment: UserAlignmentAssessment
     ) -> None:
         """Store user's self-assessment in principle's alignment_history."""
-        from core.models.ku.principle_dto import PrincipleDTO
+        from core.models.principle.principle_dto import PrincipleDTO
 
         # Get current principle
         principle_result = await self.backend.get(principle_uid)
@@ -455,7 +455,7 @@ class PrinciplesAlignmentService:
         # Add assessment to history (append pattern — no assess_alignment method on PrincipleDTO)
         from datetime import date
 
-        from core.models.ku.ku_nested_types import AlignmentAssessment as KuAlignmentAssessment
+        from core.models.principle.principle_types import AlignmentAssessment as KuAlignmentAssessment
 
         ku_assessment = KuAlignmentAssessment(
             assessed_date=date.today(),
@@ -951,7 +951,7 @@ class PrinciplesAlignmentService:
 
         for item in principles_result.value:
             if isinstance(item, dict):
-                from core.models.ku.principle_dto import PrincipleDTO
+                from core.models.principle.principle_dto import PrincipleDTO
 
                 principle_dto = PrincipleDTO.from_dict(item)
                 principle = Principle.from_dto(principle_dto)
@@ -1012,7 +1012,7 @@ class PrinciplesAlignmentService:
             return principle_result
 
         principle_dict = principle_result.value
-        from core.models.ku.principle_dto import PrincipleDTO
+        from core.models.principle.principle_dto import PrincipleDTO
 
         principle_dto = PrincipleDTO.from_dict(principle_dict)
         principle = Principle.from_dto(principle_dto)
@@ -1085,7 +1085,7 @@ class PrinciplesAlignmentService:
 
         for item in principles_result.value:
             if isinstance(item, dict):
-                from core.models.ku.principle_dto import PrincipleDTO
+                from core.models.principle.principle_dto import PrincipleDTO
 
                 principle_dto = PrincipleDTO.from_dict(item)
                 principle = Principle.from_dto(principle_dto)
@@ -1133,7 +1133,7 @@ class PrinciplesAlignmentService:
             if principle.expressions:
                 for expression in principle.expressions:
                     # Handle PrincipleExpression objects and strings
-                    from core.models.ku.ku_nested_types import PrincipleExpression
+                    from core.models.principle.principle_types import PrincipleExpression
 
                     expr_text = (
                         expression.behavior

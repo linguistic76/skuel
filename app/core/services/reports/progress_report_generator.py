@@ -19,7 +19,8 @@ if TYPE_CHECKING:
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType, ProgressDepth
-from core.models.ku import AiReport, Ku
+from core.models.entity_types import Ku
+from core.models.reports.ai_report import AiReport
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

@@ -27,9 +27,9 @@ if TYPE_CHECKING:
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.ku_enums import EntityType
-from core.models.ku.ku_request import TaskCreateRequest
-from core.models.ku.task import Task
-from core.models.ku.task_dto import TaskDTO
+from core.models.task.task_request import TaskCreateRequest
+from core.models.task.task import Task
+from core.models.task.task_dto import TaskDTO
 from core.models.relationship_names import RelationshipName
 from core.ports.query_types import TaskUpdatePayload
 from core.services.base_service import BaseService

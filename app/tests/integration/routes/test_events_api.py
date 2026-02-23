@@ -285,7 +285,7 @@ class TestEventModel:
 
     async def test_event_has_required_fields(self):
         """Test that Event model has required fields."""
-        from core.models.ku.event import Event
+        from core.models.event.event import Event
 
         required_fields = ["uid", "user_uid", "title"]
         for field in required_fields:

@@ -30,7 +30,7 @@ from core.models.enums.ku_enums import (
     PrincipleSource,
     PrincipleStrength,
 )
-from core.models.ku.principle import Principle
+from core.models.principle.principle import Principle
 from core.services.principles.principles_core_service import PrinciplesCoreService
 
 

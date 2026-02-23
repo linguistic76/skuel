@@ -611,8 +611,8 @@ def _create_learning_services(
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-    from core.models.ku.learning_path import LearningPath
-    from core.models.ku.learning_step import LearningStep
+    from core.models.curriculum.learning_path import LearningPath
+    from core.models.curriculum.learning_step import LearningStep
     from core.services.entity_retrieval import EntityRetrieval
     from core.services.ku_service import KuService
     from core.services.lp_service import LpService  # Intelligence created internally
@@ -1041,11 +1041,11 @@ async def compose_services(
         # NOTE: Goal import REMOVED (February 2026) - Goal merged into Ku
         # Goal entities are now Ku nodes with ku_type="goal"
         from core.models.habit.completion import HabitCompletion
-        from core.models.ku.event import Event
-        from core.models.ku.goal import Goal
-        from core.models.ku.habit import Habit
-        from core.models.ku.ku import Ku
-        from core.models.ku.task import Task
+        from core.models.event.event import Event
+        from core.models.goal.goal import Goal
+        from core.models.habit.habit import Habit
+        from core.models.entity_types import Ku
+        from core.models.task.task import Task
 
         # NOTE: MapOfContent import removed (January 2026) - MOC is now KU-based
         # MOC is a KU with ORGANIZES relationships, not a separate entity
@@ -1113,7 +1113,7 @@ async def compose_services(
         knowledge_backend = UniversalNeo4jBackend[Ku](
             driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics
         )
-        from core.models.ku.principle import Principle
+        from core.models.principle.principle import Principle
 
         principle_backend = UniversalNeo4jBackend[Principle](
             driver,
@@ -1128,7 +1128,7 @@ async def compose_services(
             PrincipleReflection,
             prometheus_metrics=prometheus_metrics,
         )
-        from core.models.ku.choice import Choice
+        from core.models.choice.choice import Choice
 
         choice_backend = UniversalNeo4jBackend[Choice](
             driver,
@@ -1573,7 +1573,7 @@ async def compose_services(
         logger.info("✅ Transcript processor service created")
 
         # Create Ku feedback and exercise services (February 2026: Unified Ku model)
-        from core.models.ku.exercise import Exercise
+        from core.models.curriculum.exercise import Exercise
         from core.services.exercises import ExerciseService
         from core.services.reports import ReportsFeedbackService
 
@@ -1745,7 +1745,7 @@ async def compose_services(
         logger.info("✅ Ku search service created (unified query interface for all Ku types)")
 
         # Create progress Ku generator and schedule service (February 2026: Unified Ku model)
-        from core.models.ku.ku_schedule import KuSchedule
+        from core.models.reports.ku_schedule import KuSchedule
         from core.services.reports.progress_report_generator import ProgressReportGenerator
         from core.services.reports.report_schedule_service import ReportsScheduleService
 

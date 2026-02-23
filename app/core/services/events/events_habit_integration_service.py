@@ -21,8 +21,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.models.enums import RecurrencePattern
-from core.models.ku.event import Event
-from core.models.ku.event_dto import EventDTO
+from core.models.event.event import Event
+from core.models.event.event_dto import EventDTO
 from core.services.context_first_mixin import parse_date_field
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model

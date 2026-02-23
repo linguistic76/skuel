@@ -15,9 +15,9 @@ from typing import TYPE_CHECKING
 
 from core.models.enums import Priority, RecurrencePattern
 from core.models.enums.ku_enums import HabitCategory
-from core.models.ku.event_dto import EventDTO
-from core.models.ku.habit import Habit as Habit
-from core.models.ku.habit_dto import HabitDTO
+from core.models.event.event_dto import EventDTO
+from core.models.habit.habit import Habit as Habit
+from core.models.habit.habit_dto import HabitDTO
 
 # Import protocol interfaces
 from core.utils.dto_helpers import to_domain_model

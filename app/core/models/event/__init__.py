@@ -1,12 +1,5 @@
 """
-Event Models - Preserved Types
-==============================
-
-Event domain now uses the unified Ku model (core.models.ku).
-This package preserves event-specific types that have no Ku equivalent:
-- event_request.py - Event API request/response models (Pydantic)
-- event_intelligence.py - Event intelligence dataclasses
-- calendar_models.py - Calendar display models
+Event domain models — Event, EventDTO, requests, intelligence, calendar models.
 """
 
 # Intelligence models

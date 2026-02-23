@@ -27,7 +27,7 @@ from typing import Any, TypeVar
 from pydantic import BaseModel
 
 from core.models.enums import Domain, Priority
-from core.models.ku.lp_position import LpPosition
+from core.models.curriculum.lp_position import LpPosition
 from core.services.base_service import BaseService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

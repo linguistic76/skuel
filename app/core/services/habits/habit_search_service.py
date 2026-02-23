@@ -22,8 +22,8 @@ from typing import ClassVar
 
 from core.models.enums import EntityStatus
 from core.models.enums import RecurrencePattern as HabitFrequency
-from core.models.ku.habit import Habit
-from core.models.ku.habit_dto import HabitDTO
+from core.models.habit.habit import Habit
+from core.models.habit.habit_dto import HabitDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.models.type_hints import Metadata

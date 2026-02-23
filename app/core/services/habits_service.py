@@ -24,8 +24,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus
 from core.models.habit.completion import HabitCompletion
-from core.models.ku.habit import Habit
-from core.models.ku.habit_dto import HabitDTO
+from core.models.habit.habit import Habit
+from core.models.habit.habit_dto import HabitDTO
 from core.ports.base_protocols import BackendOperations
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService

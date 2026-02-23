@@ -363,7 +363,7 @@ class TestGoalModel:
 
     async def test_goal_has_required_fields(self):
         """Test that Goal model has required fields."""
-        from core.models.ku.goal import Goal
+        from core.models.goal.goal import Goal
 
         required_fields = ["uid", "user_uid", "title"]
         for field in required_fields:

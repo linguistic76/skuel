@@ -29,8 +29,8 @@ from core.events.calendar_event_events import (
 )
 from core.models.enums import EntityStatus
 from core.models.enums.ku_enums import EntityType
-from core.models.ku.event import Event
-from core.models.ku.event_dto import EventDTO
+from core.models.event.event import Event
+from core.models.event.event_dto import EventDTO
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config

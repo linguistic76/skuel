@@ -24,9 +24,9 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import Domain, EntityStatus
 from core.models.enums.activity_enums import ProgressLevel
 from core.models.graph_context import GraphContext
-from core.models.ku.goal import Goal
-from core.models.ku.goal_dto import GoalDTO
-from core.models.ku.habit import Habit as Habit
+from core.models.goal.goal import Goal
+from core.models.goal.goal_dto import GoalDTO
+from core.models.habit.habit import Habit as Habit
 from core.models.shared.dual_track import DualTrackResult
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_analytics_service import BaseAnalyticsService

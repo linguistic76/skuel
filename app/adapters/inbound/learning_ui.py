@@ -40,7 +40,7 @@ from fasthtml.common import (
 from starlette.responses import HTMLResponse
 
 from components.form_generator import FormGenerator
-from core.models.ku.ku_request import LearningPathFilterRequest
+from core.models.curriculum.curriculum_requests import LearningPathFilterRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator

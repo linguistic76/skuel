@@ -21,7 +21,7 @@ from neo4j import AsyncGraphDatabase
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain
-from core.models.ku.entity_dto import EntityDTO
+from core.models.entity_dto import EntityDTO
 
 # ============================================================================
 # FIXTURES

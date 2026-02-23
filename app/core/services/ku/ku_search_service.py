@@ -29,9 +29,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from core.constants import QueryLimit
 from core.models.enums import KuComplexity
 from core.models.enums.neo_labels import NeoLabel
-from core.models.ku.curriculum_dto import CurriculumDTO
-from core.models.ku.entity import Entity
-from core.models.ku.ku import Ku
+from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.entity import Entity
+from core.models.entity_types import Ku
 from core.models.relationship_names import RelationshipName
 from core.ports import KuOperations
 from core.services.base_service import BaseService

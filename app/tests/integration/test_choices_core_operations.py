@@ -24,8 +24,8 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, Priority
 from core.models.enums.ku_enums import ChoiceType, EntityStatus
-from core.models.ku.choice import Choice
-from core.models.ku.ku_nested_types import ChoiceOption
+from core.models.choice.choice import Choice
+from core.models.choice.choice_option import ChoiceOption
 from core.services.choices.choices_core_service import ChoicesCoreService
 
 

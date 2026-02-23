@@ -22,12 +22,12 @@ import pytest
 
 from core.models.enums import Domain, Priority
 from core.models.enums.ku_enums import EntityType, PrincipleCategory
-from core.models.ku.curriculum_dto import CurriculumDTO
-from core.models.ku.goal_dto import GoalDTO
-from core.models.ku.learning_path_dto import LearningPathDTO
-from core.models.ku.learning_step_dto import LearningStepDTO
-from core.models.ku.principle_dto import PrincipleDTO
-from core.models.ku.task_dto import TaskDTO
+from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.goal.goal_dto import GoalDTO
+from core.models.curriculum.learning_path_dto import LearningPathDTO
+from core.models.curriculum.learning_step_dto import LearningStepDTO
+from core.models.principle.principle_dto import PrincipleDTO
+from core.models.task.task_dto import TaskDTO
 from core.utils.uid_generator import UIDGenerator
 
 

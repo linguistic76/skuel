@@ -89,11 +89,11 @@ if TYPE_CHECKING:
     # Task entities are now Ku nodes with ku_type="task"
     from core.models.finance.finance_pure import BudgetPure, ExpensePure
     from core.models.finance.invoice import InvoicePure
-    from core.models.ku.entity import Entity
-    from core.models.ku.goal import Goal
-    from core.models.ku.habit import Habit
-    from core.models.ku.ku import Ku
-    from core.models.ku.task import Task
+    from core.models.entity import Entity
+    from core.models.goal.goal import Goal
+    from core.models.habit.habit import Habit
+    from core.models.entity_types import Ku
+    from core.models.task.task import Task
     from core.models.type_hints import EntityUID, Metadata
     from core.utils.result_simplified import Result
 

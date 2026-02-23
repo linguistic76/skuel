@@ -27,17 +27,15 @@ from core.models.finance.finance_request import (
 )
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
-from core.models.ku.habit import Habit as Habit
-from core.models.ku.ku import Ku
-from core.models.ku.ku_nested_types import ChoiceOption
-from core.models.ku.ku_request import (
+from core.models.habit.habit import Habit as Habit
+from core.models.entity_types import Ku
+from core.models.choice.choice_option import ChoiceOption
+from core.models.activity_requests import (
     ChoiceCreateRequest,
     PrincipleCreateRequest,
-    EntityUpdateRequest,
 )
-from core.models.ku.ku_request import (
-    CurriculumCreateRequest as KuCreateRequest,
-)
+from core.models.entity_requests import EntityUpdateRequest
+from core.models.curriculum.curriculum_requests import CurriculumCreateRequest as KuCreateRequest
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.ports import HasUpdated, HasUpdatedAt, PydanticModel
 

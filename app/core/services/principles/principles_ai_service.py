@@ -13,8 +13,8 @@ They enhance the user experience but are not required for core functionality.
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku.entity import Entity
-from core.models.ku.principle import Principle
+from core.models.entity import Entity
+from core.models.principle.principle import Principle
 from core.ports import PrinciplesOperations
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result

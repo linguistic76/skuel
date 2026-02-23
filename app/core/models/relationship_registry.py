@@ -41,21 +41,21 @@ from typing import Any
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.enums import Domain
 from core.models.enums.ku_enums import EntityType
-from core.models.ku.choice_dto import ChoiceDTO
-from core.models.ku.curriculum_dto import CurriculumDTO
+from core.models.choice.choice_dto import ChoiceDTO
+from core.models.curriculum.curriculum_dto import CurriculumDTO
 
 # Curriculum domain imports - Phase 3 (February 2026): LS/LP unified into Ku
 # NOTE (February 2026): Habit imports removed — Habit merged into Ku
 # NOTE (February 2026): Ku is now a Union type alias; use Entity (the actual class) for model_class
-from core.models.ku.entity import Entity
-from core.models.ku.event_dto import EventDTO
-from core.models.ku.exercise_dto import ExerciseDTO
-from core.models.ku.goal_dto import GoalDTO
-from core.models.ku.habit_dto import HabitDTO
-from core.models.ku.learning_path_dto import LearningPathDTO
-from core.models.ku.learning_step_dto import LearningStepDTO
-from core.models.ku.principle_dto import PrincipleDTO
-from core.models.ku.task_dto import TaskDTO
+from core.models.entity import Entity
+from core.models.event.event_dto import EventDTO
+from core.models.curriculum.exercise_dto import ExerciseDTO
+from core.models.goal.goal_dto import GoalDTO
+from core.models.habit.habit_dto import HabitDTO
+from core.models.curriculum.learning_path_dto import LearningPathDTO
+from core.models.curriculum.learning_step_dto import LearningStepDTO
+from core.models.principle.principle_dto import PrincipleDTO
+from core.models.task.task_dto import TaskDTO
 
 # NOTE (February 2026): MOC is not a separate EntityType.
 # Any KU can organize others via ORGANIZES relationships (emergent MOC identity).

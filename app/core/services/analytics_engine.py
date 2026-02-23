@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 from core.constants import ConfidenceLevel
 from core.models.enums import EntityStatus
 from core.models.enums.neo_labels import NeoLabel
-from core.models.ku.task import Task as Task
+from core.models.task.task import Task as Task
 from core.services.tasks.task_relationships import TaskRelationships
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

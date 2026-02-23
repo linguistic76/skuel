@@ -30,7 +30,7 @@ from core.models.askesis.askesis_intelligence import (
     QueryComplexity,
 )
 from core.models.enums import GuidanceMode, Intent, Personality, ResponseTone
-from core.models.ku import EntityDTO as KnowledgeUnitDTO
+from core.models.entity_dto import EntityDTO as KnowledgeUnitDTO
 from core.models.query import QueryIntent
 from core.models.query.search_models import FacetSetRequest as FacetSetSchema
 from core.models.query.search_models import SearchQueryRequest as SearchQuerySchema

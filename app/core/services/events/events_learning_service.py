@@ -16,10 +16,10 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.models.enums import Domain, EntityStatus
-from core.models.ku.event import Event
-from core.models.ku.event_dto import EventDTO
-from core.models.ku.ku_request import EventCreateRequest
-from core.models.ku.lp_position import LpPosition
+from core.models.event.event import Event
+from core.models.event.event_dto import EventDTO
+from core.models.event.event_request import EventCreateRequest
+from core.models.curriculum.lp_position import LpPosition
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config

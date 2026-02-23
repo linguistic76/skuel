@@ -19,9 +19,9 @@ from core.events import HabitCreated, publish_event
 from core.models.enums import Domain, EntityStatus
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.habit_request import HabitCreateRequest
-from core.models.ku.habit import Habit
-from core.models.ku.habit_dto import HabitDTO
-from core.models.ku.lp_position import LpPosition
+from core.models.habit.habit import Habit
+from core.models.habit.habit_dto import HabitDTO
+from core.models.curriculum.lp_position import LpPosition
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config

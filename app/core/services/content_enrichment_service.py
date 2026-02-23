@@ -23,7 +23,10 @@ from typing import Any
 
 from core.events import publish_event
 from core.models.enums.ku_enums import EntityStatus, EntityType
-from core.models.ku import Entity, Ku, Submission, SubmissionDTO
+from core.models.entity import Entity
+from core.models.entity_types import Ku
+from core.models.reports.submission import Submission
+from core.models.reports.submission_dto import SubmissionDTO
 from core.models.relationship_names import RelationshipName
 from core.ports import BackendOperations, BaseUpdatePayload
 from core.services.base_service import BaseService
@@ -1382,7 +1385,7 @@ Return ONLY Markdown in this structure:
 
         if ku_result.is_ok:
             ku = ku_result.value
-            from core.models.ku.user_owned_entity import UserOwnedEntity
+            from core.models.user_owned_entity import UserOwnedEntity
 
             ku_user_uid = ku.user_uid if isinstance(ku, UserOwnedEntity) else "unknown"
 

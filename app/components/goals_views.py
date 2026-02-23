@@ -37,7 +37,7 @@ from core.models.event.calendar_models import (
     CalendarData,
     CalendarView,
 )
-from core.models.ku.ku import Ku
+from core.models.entity_types import Ku
 from core.utils.logging import get_logger
 from ui.daisy_components import (
     Button,

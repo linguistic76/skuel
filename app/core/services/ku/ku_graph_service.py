@@ -27,7 +27,7 @@ from core.utils.decorators import with_error_handling
 if TYPE_CHECKING:
     from core.models.context_types import ContextualKnowledge
     from core.services.user.unified_user_context import UserContext
-from core.models.ku.curriculum_dto import CurriculumDTO
+from core.models.curriculum.curriculum_dto import CurriculumDTO
 from core.models.query import (
     build_metadata_aware_path_query,
     build_relationship_traversal_query,

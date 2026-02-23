@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums.ku_enums import EntityType
-from core.models.ku import Feedback
+from core.models.reports.feedback import Feedback
 from core.utils.result_simplified import Errors, Result
 
 # Helpers for mocking execute_query call sequence (returns Result[list[dict]])

@@ -13,9 +13,9 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 from core.models.enums import EntityStatus, Priority, RecurrencePattern
-from core.models.ku.goal import Goal
-from core.models.ku.goal_dto import GoalDTO
-from core.models.ku.task_dto import TaskDTO
+from core.models.goal.goal import Goal
+from core.models.goal.goal_dto import GoalDTO
+from core.models.task.task_dto import TaskDTO
 from core.services.goals.goal_relationships import GoalRelationships
 
 # Import protocol interfaces

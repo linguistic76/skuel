@@ -13,8 +13,8 @@ They enhance the user experience but are not required for core functionality.
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku.choice import Choice
-from core.models.ku.ku import Ku
+from core.models.choice.choice import Choice
+from core.models.entity_types import Ku
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 

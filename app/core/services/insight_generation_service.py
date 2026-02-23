@@ -29,8 +29,8 @@ from operator import attrgetter
 from typing import Any
 
 from core.models.enums import Domain, EntityStatus, Priority
-from core.models.ku.curriculum_dto import CurriculumDTO
-from core.models.ku.task import Task as Task
+from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.task.task import Task as Task
 from core.ports import HasMetadata, HasSummary
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger

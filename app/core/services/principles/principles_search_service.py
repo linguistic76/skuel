@@ -21,8 +21,8 @@ from datetime import date, timedelta
 
 from core.models.enums import Domain
 from core.models.enums.ku_enums import PrincipleCategory, PrincipleStrength
-from core.models.ku.principle import Principle
-from core.models.ku.principle_dto import PrincipleDTO
+from core.models.principle.principle import Principle
+from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.ports.domain_protocols import PrinciplesOperations

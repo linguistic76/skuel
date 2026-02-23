@@ -26,9 +26,9 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, LearningLevel, SELCategory
 
 # Domain models - use domain-specific types
-from core.models.ku.curriculum import Curriculum
-from core.models.ku.learning_path import LearningPath
-from core.models.ku.learning_step import LearningStep
+from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum.learning_path import LearningPath
+from core.models.curriculum.learning_step import LearningStep
 
 # ============================================================================
 # FIXTURES

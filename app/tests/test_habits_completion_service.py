@@ -22,8 +22,8 @@ from core.models.enums.ku_enums import EntityStatus as HabitStatus
 from core.models.enums.ku_enums import EntityType
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.completion_dto import HabitCompletionDTO
-from core.models.ku.habit import Habit as Habit
-from core.models.ku.habit_dto import HabitDTO
+from core.models.habit.habit import Habit as Habit
+from core.models.habit.habit_dto import HabitDTO
 from core.services.habits.habits_completion_service import HabitsCompletionService
 from core.utils.result_simplified import Result
 

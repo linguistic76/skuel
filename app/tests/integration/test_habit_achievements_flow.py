@@ -25,7 +25,7 @@ from core.events.habit_events import AchievementEarned, HabitStreakMilestone
 from core.models.enums import RecurrencePattern
 from core.models.enums.ku_enums import EntityStatus as HabitStatus
 from core.models.enums.ku_enums import EntityType, HabitCategory
-from core.models.ku.habit import Habit as Habit
+from core.models.habit.habit import Habit as Habit
 from core.services.habits.habit_achievement_service import HabitAchievementService
 
 

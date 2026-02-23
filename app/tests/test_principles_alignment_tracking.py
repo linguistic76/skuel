@@ -22,7 +22,7 @@ from core.models.enums.ku_enums import (
     PrincipleSource,
     PrincipleStrength,
 )
-from core.models.ku.principle import Principle
+from core.models.principle.principle import Principle
 from core.models.principle.principle_types import AlignmentAssessment, PrincipleExpression
 from core.services.principles.principles_alignment_service import PrinciplesAlignmentService
 from core.utils.result_simplified import Result

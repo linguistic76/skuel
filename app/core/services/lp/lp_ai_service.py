@@ -15,7 +15,7 @@ NOTE: LP is a Curriculum domain - content is SHARED (no user_uid ownership).
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku import LearningPath
+from core.models.curriculum.learning_path import LearningPath
 from core.ports import LpOperations
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result

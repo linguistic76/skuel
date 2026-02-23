@@ -20,8 +20,8 @@ from typing import TYPE_CHECKING, Any, cast
 from core.events import publish_event
 from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeRemoved
 from core.models.enums import EntityStatus, RecurrencePattern
-from core.models.ku.event import Event
-from core.models.ku.event_dto import EventDTO
+from core.models.event.event import Event
+from core.models.event.event_dto import EventDTO
 from core.ports import get_enum_value
 from core.ports.query_types import EventUpdatePayload
 from core.services.base_service import BaseService
@@ -57,7 +57,7 @@ if TYPE_CHECKING:
         RecurringInstancesRequest,
         RemoveAttendeeRequest,
     )
-    from core.models.ku.ku_request import EventCreateRequest
+    from core.models.event.event_request import EventCreateRequest
     from core.ports import BackendOperations
     from core.ports.facade_protocols import EventsFacadeProtocol
     from core.ports.infrastructure_protocols import EventBusOperations

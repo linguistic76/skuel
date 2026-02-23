@@ -38,10 +38,10 @@ from core.models.enums.ku_enums import (
     PrincipleCategory,
 )
 from core.models.enums.ku_enums import EntityStatus as HabitStatus
-from core.models.ku.curriculum import Curriculum
-from core.models.ku.goal import Goal
-from core.models.ku.habit import Habit
-from core.models.ku.principle import Principle
+from core.models.curriculum.curriculum import Curriculum
+from core.models.goal.goal import Goal
+from core.models.habit.habit import Habit
+from core.models.principle.principle import Principle
 from core.services.goals.goals_recommendation_service import GoalsRecommendationService
 
 

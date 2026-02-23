@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from core.models.ku.goal import Goal
+from core.models.goal.goal import Goal
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_planning_service import BasePlanningService
 from core.utils.decorators import with_error_handling

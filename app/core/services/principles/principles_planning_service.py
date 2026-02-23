@@ -25,7 +25,7 @@ from __future__ import annotations
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku.ku import Ku
+from core.models.entity_types import Ku
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_planning_service import BasePlanningService
 from core.utils.decorators import with_error_handling

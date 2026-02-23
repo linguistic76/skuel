@@ -12,7 +12,7 @@ Relationships Created:
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku import Ku
+from core.models.entity_types import Ku
 from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

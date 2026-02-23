@@ -16,8 +16,8 @@ from typing import Any
 from fasthtml.common import H1, H2, P
 
 from core.models.enums import SELCategory
-from core.models.ku.ku import Ku
-from core.models.ku.ku_progress import ReportCategoryProgress, KuLearningJourney
+from core.models.entity_types import Ku
+from core.models.curriculum.ku_progress import ReportCategoryProgress, KuLearningJourney
 from ui.daisy_components import Div, Progress
 from ui.enum_helpers import get_sel_icon
 from ui.patterns.entity_card import CardConfig, EntityCard

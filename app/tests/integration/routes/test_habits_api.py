@@ -255,7 +255,7 @@ class TestHabitModel:
 
     async def test_habit_has_required_fields(self):
         """Test that Habit model has required fields."""
-        from core.models.ku.habit import Habit as Habit
+        from core.models.habit.habit import Habit as Habit
 
         required_fields = ["uid", "user_uid", "title"]
         for field in required_fields:
