@@ -196,9 +196,9 @@ patterns = request.to_graph_patterns()
 
 # Builds domain-specific graph query
 cypher = """
-MATCH (ku:Ku)
+MATCH (ku:Curriculum)
 WHERE {property_filters} AND {graph_patterns}
-OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
 ...
 """
 ```

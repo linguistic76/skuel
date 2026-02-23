@@ -896,7 +896,7 @@ nodes.forEach(node => {
   const shapeMap = {
     'Task': 'box',
     'Goal': 'ellipse',
-    'KU': 'diamond',
+    'Curriculum': 'diamond',
     'Habit': 'star',
   };
 
@@ -1184,9 +1184,9 @@ def ku_detail(request, uid: str, ku: KnowledgeUnit, ...):
 
 ```cypher
 // Find prerequisites and what this enables
-MATCH (center:Ku {uid: $uid})
-OPTIONAL MATCH path1 = (prereq:Ku)-[:PREREQUISITE_FOR*1..2]->(center)
-OPTIONAL MATCH path2 = (center)-[:PREREQUISITE_FOR*1..2]->(enables:Ku)
+MATCH (center:Curriculum {uid: $uid})
+OPTIONAL MATCH path1 = (prereq:Curriculum)-[:PREREQUISITE_FOR*1..2]->(center)
+OPTIONAL MATCH path2 = (center)-[:PREREQUISITE_FOR*1..2]->(enables:Curriculum)
 
 WITH center, collect(DISTINCT prereq) AS prerequisites,
      collect(DISTINCT enables) AS enables_list

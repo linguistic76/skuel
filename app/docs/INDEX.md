@@ -90,7 +90,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Knowledge Substance Philosophy](architecture/knowledge_substance_philosophy.md) | 2025-10-17 | 371 |
 | **[Lateral Relationships Core Architecture](architecture/LATERAL_RELATIONSHIPS_CORE.md)** | **2026-01-31** | **1200** |
 | **[Model Architecture](architecture/MODEL_ARCHITECTURE.md)** | **2026-02-23** | **290** |
-| [Neo4j Database Architecture in SKUEL](architecture/NEO4J_DATABASE_ARCHITECTURE.md) | 2025-11-27 | 1519 |
 | [Relationships Architecture](architecture/RELATIONSHIPS_ARCHITECTURE.md) | 2025-11-27 | 630 |
 | [Reports Architecture - Statistical Aggregation Met...](architecture/REPORTS_ARCHITECTURE.md) | 2025-11-27 | 522 |
 | [SKUEL 15-Domain Architecture](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) | 2026-02-06 | 1560 |

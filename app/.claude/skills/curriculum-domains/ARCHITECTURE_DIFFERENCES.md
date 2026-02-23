@@ -119,7 +119,7 @@ self.relationships = UnifiedRelationshipService(backend, KU_CONFIG, graph_intel)
 # When UnifiedRelationshipService doesn't fit
 async def get_semantic_neighborhood(self, ku_uid: str) -> Result[dict]:
     query = """
-    MATCH (ku:Ku {uid: $uid})-[r]-(related)
+    MATCH (ku:Curriculum {uid: $uid})-[r]-(related)
     WHERE type(r) IN ['REQUIRES_KNOWLEDGE', 'ENABLES', 'HAS_NARROWER', 'RELATED_TO']
     RETURN related.uid, type(r), labels(related)
     """
@@ -149,7 +149,7 @@ Even though content is shared, Curriculum Domains track per-user data:
 
 | Data Type | Storage | Example |
 |-----------|---------|---------|
-| **Mastery level** | User→KU relationship | `(User)-[:MASTERED {level: 0.8}]->(Ku)` |
+| **Mastery level** | User→KU relationship | `(User)-[:MASTERED {level: 0.8}]->(Curriculum)` |
 | **Completion** | User→LS relationship | `(User)-[:COMPLETED]->(Ls)` |
 | **Progress** | User→LP relationship | `(User)-[:ENROLLED {progress: 0.6}]->(Lp)` |
 | **Bookmarks** | User→MOC relationship | `(User)-[:BOOKMARKED]->(Moc)` |

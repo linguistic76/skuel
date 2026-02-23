@@ -182,11 +182,11 @@ poetry run python scripts/generate_embeddings_batch.py --label LpStep
 poetry run python scripts/create_vector_indexes.py
 
 # 2. Test with limited batches (5 batches = 125 items)
-poetry run python scripts/generate_embeddings_batch.py --label Ku --max-batches 5
+poetry run python scripts/generate_embeddings_batch.py --label Curriculum --max-batches 5
 
 # 3. Verify embeddings created
 # In Neo4j Browser:
-# MATCH (ku:Ku) WHERE ku.embedding IS NOT NULL RETURN count(ku)
+# MATCH (ku:Curriculum) WHERE ku.embedding IS NOT NULL RETURN count(ku)
 
 # 4. Test vector search
 # POST /api/search/unified
@@ -200,10 +200,10 @@ poetry run python scripts/generate_embeddings_batch.py --label Ku --max-batches 
 ```bash
 # 1. Check for entities without embeddings
 # In Neo4j Browser:
-# MATCH (ku:Ku) WHERE ku.embedding IS NULL RETURN count(ku)
+# MATCH (ku:Curriculum) WHERE ku.embedding IS NULL RETURN count(ku)
 
 # 2. Regenerate for new/modified content
-poetry run python scripts/generate_embeddings_batch.py --label Ku
+poetry run python scripts/generate_embeddings_batch.py --label Curriculum
 
 # 3. Verify all have embeddings
 poetry run python scripts/create_vector_indexes.py --verify
@@ -360,13 +360,13 @@ poetry run python scripts/create_vector_indexes.py --labels Ku Task   # Specific
 
 # GENERATE EMBEDDINGS
 poetry run python scripts/generate_embeddings_batch.py --label Ku              # All KUs
-poetry run python scripts/generate_embeddings_batch.py --label Ku --max-batches 5  # Test (125 items)
+poetry run python scripts/generate_embeddings_batch.py --label Curriculum --max-batches 5  # Test (125 items)
 poetry run python scripts/generate_embeddings_batch.py --label Task            # All Tasks
 
 # VERIFY IN NEO4J
 SHOW INDEXES                                           # Show all indexes
-MATCH (ku:Ku) WHERE ku.embedding IS NOT NULL RETURN count(ku)  # Count with embeddings
-MATCH (ku:Ku) WHERE ku.embedding IS NULL RETURN count(ku)      # Count without embeddings
+MATCH (ku:Curriculum) WHERE ku.embedding IS NOT NULL RETURN count(ku)  # Count with embeddings
+MATCH (ku:Curriculum) WHERE ku.embedding IS NULL RETURN count(ku)      # Count without embeddings
 ```
 
 ---

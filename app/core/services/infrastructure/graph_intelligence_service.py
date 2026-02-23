@@ -566,7 +566,7 @@ class GraphIntelligenceService:
         record = records[0] if records else None
 
         if not record:
-            return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
+            return Result.fail(Errors.not_found(resource="Entity", identifier=ku_uid))
 
         importance = {
             "importance_score": record["importance_score"],

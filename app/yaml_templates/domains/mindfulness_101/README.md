@@ -186,7 +186,7 @@ RETURN ls ORDER BY ls.sequence
 ### Find knowledge for a step
 ```cypher
 MATCH (ls:Ls {uid: 'ls:mindfulness-101:step-1'})
-MATCH (ls)-[:PRIMARY_KNOWLEDGE]->(ku:Ku)
+MATCH (ls)-[:PRIMARY_KNOWLEDGE]->(ku:Curriculum)
 RETURN ku
 ```
 

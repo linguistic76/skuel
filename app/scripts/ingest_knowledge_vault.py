@@ -145,7 +145,7 @@ class VaultIngester:
 
         # Create bulk ingestion engine
         engine = BulkIngestionEngine(
-            driver=self.driver, entity_type=KnowledgeUnitPure, entity_label="Ku"
+            driver=self.driver, entity_type=KnowledgeUnitPure, entity_label="Curriculum"
         )
 
         # Ensure constraints exist
@@ -154,10 +154,10 @@ class VaultIngester:
         # Define relationship configuration
         rel_config = {
             "domains": {"rel_type": "IN_DOMAIN", "target_label": "KnowledgeDomain"},
-            "related": {"rel_type": "RELATED_TO", "target_label": "Ku"},
-            "supports": {"rel_type": "SUPPORTS", "target_label": "Ku"},
-            "enables": {"rel_type": "ENABLES", "target_label": "Ku"},
-            "requires": {"rel_type": "REQUIRES", "target_label": "Ku"},
+            "related": {"rel_type": "RELATED_TO", "target_label": "Curriculum"},
+            "supports": {"rel_type": "SUPPORTS", "target_label": "Curriculum"},
+            "enables": {"rel_type": "ENABLES", "target_label": "Curriculum"},
+            "requires": {"rel_type": "REQUIRES", "target_label": "Curriculum"},
             "mentions_in": {"rel_type": "MENTIONS_IN", "target_label": "JournalEntry"},
         }
 

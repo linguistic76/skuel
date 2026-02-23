@@ -81,7 +81,7 @@ Use **single complex query** with:
 MATCH (u:User {uid: $user_uid})
 
 // STEP 2: Collect user's mastered knowledge
-OPTIONAL MATCH (u)-[m:MASTERED]->(mastered:Ku)
+OPTIONAL MATCH (u)-[m:MASTERED]->(mastered:Curriculum)
 WITH u, collect(mastered.uid) as mastered_uids
 
 // STEP 3: Find available paths (not completed)
@@ -91,14 +91,14 @@ WHERE NOT (u)-[:COMPLETED]->(path)
 
 // STEP 4: Get path steps and knowledge
 MATCH (path)-[:HAS_STEP]->(step:Ls)
-MATCH (k:Ku {uid: step.knowledge_uid})
+MATCH (k:Curriculum {uid: step.knowledge_uid})
 
 // STEP 5: Find prerequisites using semantic relationships (helper subquery)
 // Uses _build_prerequisite_query("k", 2) which generates:
 OPTIONAL MATCH (k)<-[:REQUIRES_THEORETICAL_UNDERSTANDING|
                        REQUIRES_PRACTICAL_APPLICATION|
                        REQUIRES_CONCEPTUAL_FOUNDATION|
-                       BUILDS_ON_FOUNDATION*1..2]-(prereq:Ku)
+                       BUILDS_ON_FOUNDATION*1..2]-(prereq:Curriculum)
 WITH k, collect(DISTINCT prereq) as prereqs
 
 // STEP 6: Calculate prerequisites met

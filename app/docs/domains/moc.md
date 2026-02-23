@@ -56,7 +56,7 @@ Sequential learning                   /    |    \
 |---------|------------|
 | MOC | A KU that organizes other KUs via ORGANIZES relationships |
 | Section | A KU within a MOC that organizes child KUs (nested MOC) |
-| ORGANIZES | Relationship type: `(parent:Ku)-[:ORGANIZES {order: int}]->(child:Ku)` |
+| ORGANIZES | Relationship type: `(parent:Curriculum)-[:ORGANIZES {order: int}]->(child:Curriculum)` |
 | Root MOC | A KU that organizes others but is not itself organized |
 
 ## Service Architecture
@@ -101,18 +101,18 @@ The ORGANIZES relationship connects KUs in a MOC hierarchy:
 
 ```cypher
 // Create organization
-MATCH (parent:Ku {uid: $parent_uid})
-MATCH (child:Ku {uid: $child_uid})
+MATCH (parent:Curriculum {uid: $parent_uid})
+MATCH (child:Curriculum {uid: $child_uid})
 MERGE (parent)-[r:ORGANIZES]->(child)
 SET r.order = $order
 
 // Check if KU is a MOC
-MATCH (ku:Ku {uid: $ku_uid})
-OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Ku)
+MATCH (ku:Curriculum {uid: $ku_uid})
+OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Curriculum)
 RETURN count(child) > 0 AS is_moc
 
 // Get organized children
-MATCH (parent:Ku {uid: $ku_uid})-[r:ORGANIZES]->(child:Ku)
+MATCH (parent:Curriculum {uid: $ku_uid})-[r:ORGANIZES]->(child:Curriculum)
 RETURN child.uid, child.title, r.order
 ORDER BY r.order ASC
 ```

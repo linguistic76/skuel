@@ -399,7 +399,7 @@ class SearchRequest(BaseModel):
         if self.ready_to_learn:
             patterns["ready_to_learn"] = """
             NOT EXISTS {
-                MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+                MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
                 WHERE NOT EXISTS {
                     MATCH (user:User {uid: $user_uid})-[:MASTERED]->(prereq)
                 }

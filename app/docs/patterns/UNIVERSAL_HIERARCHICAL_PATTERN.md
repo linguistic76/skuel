@@ -147,7 +147,7 @@ ku_machine-learning-101_def45678
 
 ```cypher
 // ORGANIZES - MOC Pattern
-(parent:Ku)-[:ORGANIZES {order, importance}]->(child:Ku)
+(parent:Curriculum)-[:ORGANIZES {order, importance}]->(child:Curriculum)
 ```
 
 **Properties:**
@@ -173,26 +173,26 @@ A KU "is" a MOC when it has outgoing ORGANIZES relationships. MOC is NOT a separ
 
 ```cypher
 // Yoga Fundamentals MOC organizing 3 KUs
-(ku_yoga_fundamentals:Ku)
+(ku_yoga_fundamentals:Curriculum)
   -[:ORGANIZES {order: 1, importance: "core"}]->
-  (ku_meditation:Ku)
+  (ku_meditation:Curriculum)
 
-(ku_yoga_fundamentals:Ku)
+(ku_yoga_fundamentals:Curriculum)
   -[:ORGANIZES {order: 2, importance: "core"}]->
-  (ku_breathing:Ku)
+  (ku_breathing:Curriculum)
 
-(ku_yoga_fundamentals:Ku)
+(ku_yoga_fundamentals:Curriculum)
   -[:ORGANIZES {order: 3, importance: "supplemental"}]->
-  (ku_history:Ku)
+  (ku_history:Curriculum)
 ```
 
 **Multiple Parents (DAG):**
 
 ```cypher
 // Machine Learning in 3 different MOCs
-(ku_ai_fundamentals:Ku)-[:ORGANIZES]->(ku_machine_learning:Ku)
-(ku_data_science:Ku)-[:ORGANIZES]->(ku_machine_learning:Ku)
-(ku_python_advanced:Ku)-[:ORGANIZES]->(ku_machine_learning:Ku)
+(ku_ai_fundamentals:Curriculum)-[:ORGANIZES]->(ku_machine_learning:Curriculum)
+(ku_data_science:Curriculum)-[:ORGANIZES]->(ku_machine_learning:Curriculum)
+(ku_python_advanced:Curriculum)-[:ORGANIZES]->(ku_machine_learning:Curriculum)
 
 // Same KU, three different organizational contexts!
 ```
@@ -233,8 +233,8 @@ class LS:
 **After (Relationships):**
 ```cypher
 // NEW - Graph relationships
-(ls:Ls)-[:CONTAINS_KNOWLEDGE {type: "primary"}]->(ku:Ku)
-(ls:Ls)-[:CONTAINS_KNOWLEDGE {type: "supporting"}]->(ku:Ku)
+(ls:Ls)-[:CONTAINS_KNOWLEDGE {type: "primary"}]->(ku:Curriculum)
+(ls:Ls)-[:CONTAINS_KNOWLEDGE {type: "supporting"}]->(ku:Curriculum)
 ```
 
 **Service Methods:**
@@ -320,12 +320,12 @@ await ku_service.organize_ku(new_parent_uid, ku_uid, order=1)
 **Example:**
 ```cypher
 // Machine Learning KU in 3 MOCs simultaneously
-(ku_ai:Ku)-[:ORGANIZES]->(ku_ml:Ku)
-(ku_data_science:Ku)-[:ORGANIZES]->(ku_ml:Ku)
-(ku_python:Ku)-[:ORGANIZES]->(ku_ml:Ku)
+(ku_ai:Curriculum)-[:ORGANIZES]->(ku_ml:Curriculum)
+(ku_data_science:Curriculum)-[:ORGANIZES]->(ku_ml:Curriculum)
+(ku_python:Curriculum)-[:ORGANIZES]->(ku_ml:Curriculum)
 
 // Query all parents
-MATCH (parent:Ku)-[:ORGANIZES]->(ku:Ku {uid: "ku_ml_abc"})
+MATCH (parent:Curriculum)-[:ORGANIZES]->(ku:Curriculum {uid: "ku_ml_abc"})
 RETURN parent
 // Returns: AI Fundamentals, Data Science, Python Advanced
 ```
@@ -596,7 +596,7 @@ await ku_service.organize_ku("ku_python_ghi", "ku_ml_xyz", order=3)
 **Find All Descendants:**
 ```cypher
 // Get all KUs under a MOC (any depth)
-MATCH (moc:Ku {uid: "ku_yoga_abc"})-[:ORGANIZES*]->(descendant:Ku)
+MATCH (moc:Curriculum {uid: "ku_yoga_abc"})-[:ORGANIZES*]->(descendant:Curriculum)
 RETURN descendant.uid, descendant.title
 ORDER BY descendant.title
 ```
@@ -604,7 +604,7 @@ ORDER BY descendant.title
 **Find All Ancestors:**
 ```cypher
 // Get all MOCs containing a KU
-MATCH (ancestor:Ku)-[:ORGANIZES*]->(ku:Ku {uid: "ku_meditation_xyz"})
+MATCH (ancestor:Curriculum)-[:ORGANIZES*]->(ku:Curriculum {uid: "ku_meditation_xyz"})
 RETURN ancestor.uid, ancestor.title, length(path) as depth
 ORDER BY depth
 ```
@@ -612,7 +612,7 @@ ORDER BY depth
 **Check for Cycles:**
 ```cypher
 // Verify no circular references exist
-MATCH path = (ku:Ku)-[:ORGANIZES*]->(ku)
+MATCH path = (ku:Curriculum)-[:ORGANIZES*]->(ku)
 RETURN ku.uid, length(path) as cycle_length
 // Should return empty (no cycles)
 ```

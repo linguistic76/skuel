@@ -96,7 +96,7 @@ We will use a **single complex Cypher query** with nested EXISTS patterns and st
 MATCH (user:User {uid: $user_uid})
 
 // ✅ STEP 1: Filter knowledge units by PROPERTIES FIRST (indexed, fast)
-MATCH (ku:Ku)
+MATCH (ku:Curriculum)
 WHERE ($category IS NULL OR ku.sel_category = $category)
   AND ($level IS NULL OR ku.learning_level = $level)
 
@@ -108,7 +108,7 @@ WHERE NOT EXISTS { MATCH (user)-[:MASTERED]->(ku) }
 WITH user, ku
 WHERE NOT EXISTS {
     // Find prerequisites...
-    MATCH (ku)-[r:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+    MATCH (ku)-[r:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
     WHERE r.confidence >= $min_confidence
       // ...that are NOT mastered
       AND NOT EXISTS {
@@ -117,12 +117,12 @@ WHERE NOT EXISTS {
 }
 
 // Count prerequisites (all met)
-OPTIONAL MATCH (ku)-[r:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+OPTIONAL MATCH (ku)-[r:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
 WHERE r.confidence >= $min_confidence
 WITH user, ku, count(DISTINCT prereq) as prerequisite_count
 
 // Count what this unlocks
-OPTIONAL MATCH (ku)-[:ENABLES_LEARNING]->(unlocked:Ku)
+OPTIONAL MATCH (ku)-[:ENABLES_LEARNING]->(unlocked:Curriculum)
 WHERE NOT EXISTS { MATCH (user)-[:MASTERED]->(unlocked) }
 WITH user, ku, prerequisite_count, count(DISTINCT unlocked) as unlocks_count
 
@@ -512,7 +512,7 @@ Large graph (1000 KUs, 5000 prerequisites, 7-level chains):
 MATCH (user:User {uid: $user_uid})
 
 // ⚡ OPTIMIZATION: Filter by indexed properties FIRST (10-20x speedup)
-MATCH (ku:Ku)
+MATCH (ku:Curriculum)
 WHERE ($category IS NULL OR ku.sel_category = $category)
   AND ($level IS NULL OR ku.learning_level = $level)
 
@@ -525,7 +525,7 @@ WHERE NOT EXISTS { MATCH (user)-[:MASTERED]->(ku) }
 // Translation: "ALL prerequisites ARE mastered"
 WITH user, ku
 WHERE NOT EXISTS {
-    MATCH (ku)-[r:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+    MATCH (ku)-[r:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
     WHERE r.confidence >= $min_confidence
       AND NOT EXISTS {
         MATCH (user)-[:MASTERED]->(prereq)
@@ -533,12 +533,12 @@ WHERE NOT EXISTS {
 }
 
 // Count prerequisites (for readiness scoring)
-OPTIONAL MATCH (ku)-[r:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+OPTIONAL MATCH (ku)-[r:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
 WHERE r.confidence >= $min_confidence
 WITH user, ku, count(DISTINCT prereq) as prerequisite_count
 
 // Count unlocks (what learning this enables)
-OPTIONAL MATCH (ku)-[:ENABLES_LEARNING]->(unlocked:Ku)
+OPTIONAL MATCH (ku)-[:ENABLES_LEARNING]->(unlocked:Curriculum)
 WHERE NOT EXISTS { MATCH (user)-[:MASTERED]->(unlocked) }
 WITH user, ku, prerequisite_count, count(DISTINCT unlocked) as unlocks_count
 

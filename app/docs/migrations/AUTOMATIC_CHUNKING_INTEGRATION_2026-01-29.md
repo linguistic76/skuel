@@ -215,7 +215,7 @@ poetry run pytest tests/integration/test_ingestion_chunking.py::test_ingest_file
 
 2. **Check Neo4j for chunks** (if stored):
    ```cypher
-   MATCH (ku:Ku {uid: 'ku.python_basics'})-[:HAS_CHUNK]->(chunk:ContentChunk)
+   MATCH (ku:Curriculum {uid: 'ku.python_basics'})-[:HAS_CHUNK]->(chunk:ContentChunk)
    RETURN chunk.chunk_type, chunk.word_count, chunk.sequence
    ORDER BY chunk.sequence
    ```

@@ -164,15 +164,15 @@ outcomes:
 **Example:**
 ```cypher
 // A KU acting as a MOC root
-(:Ku {uid: "ku.python-fundamentals", title: "Python Fundamentals"})
+(:Curriculum {uid: "ku.python-fundamentals", title: "Python Fundamentals"})
 
 // Organizing other KUs (making it a MOC)
-(root:Ku {uid: "ku.python-fundamentals"})-[:ORGANIZES {order: 1}]->(section:Ku {uid: "ku.python-basics"})
-(root)-[:ORGANIZES {order: 2}]->(section2:Ku {uid: "ku.python-advanced"})
+(root:Curriculum {uid: "ku.python-fundamentals"})-[:ORGANIZES {order: 1}]->(section:Curriculum {uid: "ku.python-basics"})
+(root)-[:ORGANIZES {order: 2}]->(section2:Curriculum {uid: "ku.python-advanced"})
 
 // Sections organizing child KUs
-(section:Ku {uid: "ku.python-basics"})-[:ORGANIZES {order: 1}]->(child:Ku {uid: "ku.python-functions"})
-(section)-[:ORGANIZES {order: 2}]->(child2:Ku {uid: "ku.python-classes"})
+(section:Curriculum {uid: "ku.python-basics"})-[:ORGANIZES {order: 1}]->(child:Curriculum {uid: "ku.python-functions"})
+(section)-[:ORGANIZES {order: 2}]->(child2:Curriculum {uid: "ku.python-classes"})
 ```
 
 **Graph Role:** MOC provides non-linear navigation by organizing KUs into a graph structure parallel to the linear LS/LP structure.

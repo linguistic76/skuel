@@ -22,7 +22,7 @@ DOMAIN_MAPPINGS = {
         "import": "core.models.finance.finance_pure",
     },
     "progress": {"class": "Progress", "label": "Progress", "import": "core.models.progress"},
-    "knowledge": {"class": "Ku", "label": "Ku", "import": "core.models.knowledge"},
+    "knowledge": {"class": "Curriculum", "label": "Curriculum", "import": "core.models.curriculum.curriculum"},
     "habit": {"class": "Habit", "label": "Habit", "import": "core.models.habit"},
     "user": {"class": "UserPreferences", "label": "UserPreferences", "import": "core.models.user"},
     "relationships": {

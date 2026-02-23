@@ -74,8 +74,8 @@ One Path Forward — `:Team` label replaced with `:Group`. No backward compatibi
 (teacher:User)-[:OWNS]->(group:Group)
 (student:User)-[:MEMBER_OF {joined_at, role}]->(group:Group)
 (project:Assignment)-[:FOR_GROUP]->(group:Group)
-(submission:Ku)-[:FULFILLS_PROJECT]->(project:Assignment)
-(teacher:User)-[:SHARES_WITH {role: "teacher"}]->(submission:Ku)  // Auto on submission
+(submission:Submission)-[:FULFILLS_PROJECT]->(project:Assignment)
+(teacher:User)-[:SHARES_WITH {role: "teacher"}]->(submission:Submission)  // Auto on submission
 ```
 
 ## Consequences

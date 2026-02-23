@@ -1,6 +1,6 @@
 // SKUEL.app — Mindfulness 101 seed (pure Cypher, idempotent)
 // Constraints & Indexes
-CREATE CONSTRAINT IF NOT EXISTS FOR (n:Ku) REQUIRE n.uid IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (n:Curriculum) REQUIRE n.uid IS UNIQUE;
 CREATE CONSTRAINT IF NOT EXISTS FOR (n:KnowledgeCluster) REQUIRE n.uid IS UNIQUE;
 CREATE CONSTRAINT IF NOT EXISTS FOR (n:Lp) REQUIRE n.uid IS UNIQUE;
 CREATE CONSTRAINT IF NOT EXISTS FOR (n:PathStep) REQUIRE n.uid IS UNIQUE;
@@ -13,7 +13,7 @@ CREATE CONSTRAINT IF NOT EXISTS FOR (n:EventTemplate) REQUIRE n.uid IS UNIQUE;
 CREATE CONSTRAINT IF NOT EXISTS FOR (n:Conversation) REQUIRE n.uid IS UNIQUE;
 
 // Knowledge Units (articles)
-MERGE (ku1:Ku {uid:'ku:breath-awareness-basics'})
+MERGE (ku1:Curriculum {uid:'ku:breath-awareness-basics'})
   ON CREATE SET ku1.title='Breath Awareness — Basics',
                 ku1.summary='A light, conversational intro to breath awareness practice.',
                 ku1.tags=['breath','meditation','beginner'],
@@ -22,7 +22,7 @@ MERGE (ku1:Ku {uid:'ku:breath-awareness-basics'})
                 ku1.createdAt=datetime()
   ON MATCH  SET ku1.updatedAt=datetime();
 
-MERGE (ku2:Ku {uid:'ku:posture-basics'})
+MERGE (ku2:Curriculum {uid:'ku:posture-basics'})
   ON CREATE SET ku2.title='Posture — Basics',
                 ku2.summary='Simple posture guidelines that don’t get in the way.',
                 ku2.tags=['posture','beginner'],
@@ -30,7 +30,7 @@ MERGE (ku2:Ku {uid:'ku:posture-basics'})
                 ku2.createdAt=datetime()
   ON MATCH  SET ku2.updatedAt=datetime();
 
-MERGE (ku3:Ku {uid:'ku:mind-wandering-happens'})
+MERGE (ku3:Curriculum {uid:'ku:mind-wandering-happens'})
   ON CREATE SET ku3.title='Mind Wandering Happens',
                 ku3.summary='Wandering is normal; gently label it and return.',
                 ku3.tags=['attention','mindfulness'],
@@ -46,9 +46,9 @@ MERGE (kc:KnowledgeCluster {uid:'kc:mindfulness-foundations'})
                 kc.createdAt=datetime()
   ON MATCH  SET kc.updatedAt=datetime();
 
-MERGE (ku1:Ku {uid:'ku:breath-awareness-basics'})
-MERGE (ku2:Ku {uid:'ku:posture-basics'})
-MERGE (ku3:Ku {uid:'ku:mind-wandering-happens'})
+MERGE (ku1:Curriculum {uid:'ku:breath-awareness-basics'})
+MERGE (ku2:Curriculum {uid:'ku:posture-basics'})
+MERGE (ku3:Curriculum {uid:'ku:mind-wandering-happens'})
 
 MERGE (ku1)-[:IN_CLUSTER]->(kc)
 MERGE (ku2)-[:IN_CLUSTER]->(kc)
@@ -172,8 +172,8 @@ MERGE (lp)-[:HAS_STEP {order:1}]->(ps1)
 MERGE (lp)-[:HAS_STEP {order:2}]->(ps2);
 
 // Step 1 links
-MERGE (ps1)-[:PRIMARY_KNOWLEDGE]->(:Ku {uid:'ku:breath-awareness-basics'})
-MERGE (ps1)-[:SUPPORTING_KNOWLEDGE]->(:Ku {uid:'ku:posture-basics'})
+MERGE (ps1)-[:PRIMARY_KNOWLEDGE]->(:Curriculum {uid:'ku:breath-awareness-basics'})
+MERGE (ps1)-[:SUPPORTING_KNOWLEDGE]->(:Curriculum {uid:'ku:posture-basics'})
 MERGE (ps1)-[:HAS_PRINCIPLE]->(:Principle {uid:'pr:small-steps'})
 MERGE (ps1)-[:OFFERS_CHOICE]->(:Choice {uid:'ch:2-minutes-right-now'})
 MERGE (ps1)-[:OFFERS_CHOICE]->(:Choice {uid:'ch:2-minutes-before-bed'})
@@ -182,7 +182,7 @@ MERGE (ps1)-[:ASSIGNS_TASK]->(:Task {uid:'tk:log-first-5-sessions'})
 MERGE (ps1)-[:APPEARS_AS {frequency_hint:'daily'}]->(:EventTemplate {uid:'ev:practice-block-2min'})
 
 // Step 2 links
-MERGE (ps2)-[:PRIMARY_KNOWLEDGE]->(:Ku {uid:'ku:mind-wandering-happens'})
+MERGE (ps2)-[:PRIMARY_KNOWLEDGE]->(:Curriculum {uid:'ku:mind-wandering-happens'})
 MERGE (ps2)-[:HAS_PRINCIPLE]->(:Principle {uid:'pr:attention-over-intensity'})
 MERGE (ps2)-[:OFFERS_CHOICE]->(:Choice {uid:'ch:label-one-wander'})
 MERGE (ps2)-[:SUGGESTS_HABIT]->(:Habit {uid:'hb:label-wander-daily'})
@@ -190,7 +190,7 @@ MERGE (ps2)-[:ASSIGNS_TASK]->(:Task {uid:'tk:reflect-on-first-week'})
 
 // Cross-links
 MERGE (hb1:Habit {uid:'hb:daily-2min-breath'})
-MERGE (ku1:Ku {uid:'ku:breath-awareness-basics'})
+MERGE (ku1:Curriculum {uid:'ku:breath-awareness-basics'})
 MERGE (hb1)-[:REINFORCES]->(ku1)
 MERGE (hb1)-[:APPEARS_IN_PATH]->(:Lp {uid:'lp:mindfulness-101'})
 
@@ -213,7 +213,7 @@ MERGE (cv:Conversation {uid:'cv:2025-10-04:breath-starter'})
                 cv.createdAt=datetime()
   ON MATCH  SET cv.updatedAt=datetime();
 
-MERGE (cv)-[:REFERENCES]->(:Ku {uid:'ku:breath-awareness-basics'})
+MERGE (cv)-[:REFERENCES]->(:Curriculum {uid:'ku:breath-awareness-basics'})
 MERGE (cv)-[:INVITES]->(:Choice {uid:'ch:2-minutes-right-now'})
 MERGE (cv)-[:INVITES]->(:Choice {uid:'ch:2-minutes-before-bed'})
 MERGE (cv)-[:ANCHORS]->(:PathStep {uid:'ps:lp:mindfulness-101:step-1'});

@@ -26,7 +26,7 @@ These guardrails ensure the GraphQL API is secure, performant, and aligned with 
 @strawberry.field
 async def knowledge_units(self, info: Info) -> list[KnowledgeNode]:
     # BAD: Cypher query directly in GraphQL resolver
-    query = "MATCH (ku:Ku) RETURN ku LIMIT 50"
+    query = "MATCH (ku:Entity) RETURN ku LIMIT 50"
     result = await driver.execute_query(query)
     return [...]
 
@@ -110,14 +110,14 @@ async def knowledge_units(
 ```python
 # ❌ WRONG - No projection (returns everything)
 query = """
-MATCH (ku:Ku)
+MATCH (ku:Entity)
 RETURN ku          # Bad: Returns ALL properties
 LIMIT 50
 """
 
 # ✅ CORRECT - Project only needed fields
 query = """
-MATCH (ku:Ku)
+MATCH (ku:Entity)
 RETURN {
     uid: ku.uid,
     title: ku.title,

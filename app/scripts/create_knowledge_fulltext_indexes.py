@@ -35,10 +35,10 @@ logger = get_logger(__name__)
 # Index specifications
 INDEXES = [
     {
-        "name": "ku_fulltext",
-        "label": "Ku",
+        "name": "curriculum_fulltext",
+        "label": "Curriculum",
         "properties": ["title", "content", "tags"],
-        "description": "Knowledge Units - searchable content, title, and tags",
+        "description": "Curriculum - searchable content, title, and tags",
     },
     {
         "name": "learningpath_fulltext",
@@ -219,7 +219,7 @@ async def main():
         logger.info("=" * 60)
         logger.info("\nUsage examples:")
         logger.info("  # Search knowledge units")
-        logger.info("  CALL db.index.fulltext.queryNodes('ku_fulltext', 'python async')")
+        logger.info("  CALL db.index.fulltext.queryNodes('curriculum_fulltext', 'python async')")
         logger.info("\n  # Search learning paths")
         logger.info(
             "  CALL db.index.fulltext.queryNodes('learningpath_fulltext', 'backend development')"

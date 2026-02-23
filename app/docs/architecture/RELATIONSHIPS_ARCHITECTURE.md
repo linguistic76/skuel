@@ -287,7 +287,7 @@ Different relationship types have specific directionality patterns:
 When a relationship references an entity that doesn't exist yet, a stub node is created:
 
 ```cypher
-CREATE (n:Ku {
+CREATE (n:Curriculum {
   uid: "ku.referenced_concept",
   title: "Referenced Concept",
   is_stub: true,
@@ -334,7 +334,7 @@ Enhanced relationship storage with semantic metadata:
 
 ```cypher
 // Find high-confidence prerequisites
-MATCH (ku:Ku)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(prereq)
+MATCH (ku:Curriculum)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(prereq)
 WHERE r.confidence > 0.9
 RETURN ku.title, prereq.title, r.confidence
 ORDER BY r.confidence DESC
@@ -512,21 +512,21 @@ analysis = await path_service.analyze_path_semantics(optimal_path)
 
 ### Find Prerequisites for a Concept
 ```cypher
-MATCH (ku:Ku {uid: "ku.python_classes"})
+MATCH (ku:Curriculum {uid: "ku.python_classes"})
 MATCH (ku)-[:REQUIRES]->(prereq)
 RETURN prereq.title, prereq.uid
 ```
 
 ### Find Learning Path
 ```cypher
-MATCH path = (start:Ku)-[:ENABLES*]->(end:Ku)
+MATCH path = (start:Curriculum)-[:ENABLES*]->(end:Curriculum)
 WHERE start.uid = "ku.python_basics"
 RETURN path
 ```
 
 ### Find Related Concepts
 ```cypher
-MATCH (ku:Ku {uid: "ku.recursion"})
+MATCH (ku:Curriculum {uid: "ku.recursion"})
 MATCH (ku)-[:RELATED_TO]-(related)
 RETURN related.title, related.uid
 ```

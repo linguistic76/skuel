@@ -119,7 +119,7 @@ async def example_prerequisite_chain(backend: UniversalNeo4jBackend):
     # For prerequisite chains, use depth=5
     result = (
         await backend.traverse()
-        .from_node(ku_uid, labels=["Ku"])
+        .from_node(ku_uid, labels=["Curriculum"])
         .via("REQUIRES_KNOWLEDGE")
         .depth(5)
         .direction("incoming")
@@ -156,7 +156,7 @@ async def example_bidirectional_traversal(backend: UniversalNeo4jBackend):
     # depth=3 by default - provides rich bi-directional context!
     result = (
         await backend.traverse()
-        .from_node(ku_uid, labels=["Ku"])
+        .from_node(ku_uid, labels=["Curriculum"])
         .via_any(["REQUIRES_KNOWLEDGE", "ENABLES_KNOWLEDGE"])
         .direction("both")
         .get_context()
@@ -261,7 +261,7 @@ async def comparison_traverse_graph():
     # OLD WAY - Manual Cypher query
     """
     query = '''
-        MATCH path=(start:Ku {uid: $uid})-[r:REQUIRES_KNOWLEDGE*1..3]->(end)
+        MATCH path=(start:Curriculum {uid: $uid})-[r:REQUIRES_KNOWLEDGE*1..3]->(end)
         WHERE all(rel in relationships(path) WHERE rel.confidence >= 0.7)
         RETURN nodes(path), relationships(path)
     '''

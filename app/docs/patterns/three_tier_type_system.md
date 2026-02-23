@@ -590,7 +590,7 @@ User is **NOT an activity domain** and does NOT implement DomainModelProtocol. U
 
 ```python
 # Domain backends use multi-label CREATE with base_label=NeoLabel.ENTITY
-# Creates nodes with triple labels: (n:Ku:Entity:Task)
+# Creates nodes with dual labels: (n:Entity:Task)
 from adapters.persistence.neo4j.neo_label import NeoLabel
 
 tasks_backend = UniversalNeo4jBackend[Task](

@@ -44,7 +44,7 @@ WITH t, subtasks, collect(DISTINCT {
 }) as dependencies
 
 // Get applied knowledge
-OPTIONAL MATCH (t)-[app_rel:APPLIES_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (t)-[app_rel:APPLIES_KNOWLEDGE]->(ku:Curriculum)
 WHERE coalesce(app_rel.confidence, 1.0) >= 0.7
 WITH t, subtasks, dependencies, collect(DISTINCT {
     uid: ku.uid,
@@ -111,7 +111,7 @@ RETURN g as goal,
 MATCH (g:Goal {uid: $uid})
 
 // Required knowledge
-OPTIONAL MATCH (g)-[req:REQUIRES_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (g)-[req:REQUIRES_KNOWLEDGE]->(ku:Curriculum)
 WITH g, collect({
     uid: ku.uid,
     title: ku.title,
@@ -143,10 +143,10 @@ RETURN g as goal,
 
 ### Get Knowledge Unit with Prerequisites
 ```cypher
-MATCH (ku:Ku {uid: $uid})
+MATCH (ku:Curriculum {uid: $uid})
 
 // Direct prerequisites
-OPTIONAL MATCH (ku)-[prereq:REQUIRES_KNOWLEDGE]->(p:Ku)
+OPTIONAL MATCH (ku)-[prereq:REQUIRES_KNOWLEDGE]->(p:Curriculum)
 WHERE coalesce(prereq.confidence, 1.0) >= 0.7
 WITH ku, collect(DISTINCT {
     uid: p.uid,
@@ -155,14 +155,14 @@ WITH ku, collect(DISTINCT {
 }) as prerequisites
 
 // What this enables
-OPTIONAL MATCH (ku)-[:ENABLES]->(enabled:Ku)
+OPTIONAL MATCH (ku)-[:ENABLES]->(enabled:Curriculum)
 WITH ku, prerequisites, collect(DISTINCT {
     uid: enabled.uid,
     title: enabled.title
 }) as enables
 
 // Related knowledge
-OPTIONAL MATCH (ku)-[:RELATED_TO]-(related:Ku)
+OPTIONAL MATCH (ku)-[:RELATED_TO]-(related:Curriculum)
 WITH ku, prerequisites, enables, collect(DISTINCT {
     uid: related.uid,
     title: related.title
@@ -176,7 +176,7 @@ RETURN ku,
 
 ### Get User's Knowledge Mastery State
 ```cypher
-MATCH (u:User {uid: $user_uid})-[r:MASTERED|IN_PROGRESS|VIEWED]->(ku:Ku)
+MATCH (u:User {uid: $user_uid})-[r:MASTERED|IN_PROGRESS|VIEWED]->(ku:Curriculum)
 RETURN ku.uid as uid,
        ku.title as title,
        type(r) as status,
@@ -195,11 +195,11 @@ ORDER BY mastery_score DESC
 ```cypher
 // Knowledge where all prerequisites are mastered
 MATCH (u:User {uid: $user_uid})
-MATCH (ku:Ku)
+MATCH (ku:Curriculum)
 WHERE NOT (u)-[:MASTERED]->(ku)  // Not already mastered
 
 // Check prerequisites
-OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
 WITH u, ku, collect(prereq) as prereqs
 
 // All prerequisites must be mastered
@@ -235,7 +235,7 @@ WITH h, collect({
 }) as linked_goals
 
 // Reinforced knowledge
-OPTIONAL MATCH (h)-[:REINFORCES_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (h)-[:REINFORCES_KNOWLEDGE]->(ku:Curriculum)
 WITH h, linked_goals, collect({
     uid: ku.uid,
     title: ku.title
@@ -279,7 +279,7 @@ WITH p, guided_goals, aligned_choices, collect({
 }) as embodying_habits
 
 // Grounding knowledge
-OPTIONAL MATCH (p)-[:GROUNDED_IN_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (p)-[:GROUNDED_IN_KNOWLEDGE]->(ku:Curriculum)
 RETURN p as principle,
        guided_goals,
        aligned_choices,
@@ -298,7 +298,7 @@ OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Principle)
 WITH c, collect({uid: p.uid, title: p.title}) as guiding_principles
 
 // Informing knowledge
-OPTIONAL MATCH (c)-[:INFORMED_BY_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (c)-[:INFORMED_BY_KNOWLEDGE]->(ku:Curriculum)
 WITH c, guiding_principles, collect({
     uid: ku.uid,
     title: ku.title
@@ -350,7 +350,7 @@ WITH user, active_tasks, completed_tasks, overdue_tasks, active_goals, completed
      collect(habit.uid) as active_habits
 
 // Knowledge mastery
-OPTIONAL MATCH (user)-[m:MASTERED]->(ku:Ku)
+OPTIONAL MATCH (user)-[m:MASTERED]->(ku:Curriculum)
 WITH user, active_tasks, completed_tasks, overdue_tasks,
      active_goals, completed_goals, active_habits,
      collect({uid: ku.uid, score: m.mastery_score}) as mastered_knowledge
@@ -370,7 +370,7 @@ RETURN user,
 MATCH (u:User {uid: $user_uid})
 
 // Knowledge user is learning
-MATCH (u)-[:IN_PROGRESS|MASTERED]->(ku:Ku)
+MATCH (u)-[:IN_PROGRESS|MASTERED]->(ku:Curriculum)
 
 // Goals that require this knowledge
 OPTIONAL MATCH (goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku)
@@ -407,7 +407,7 @@ WHERE t.title CONTAINS $query OR t.description CONTAINS $query
 MATCH (u:User {uid: $user_uid})-[:HAS_TASK]->(t)
 
 // Get graph context
-OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
 OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
 
 WITH t,

@@ -299,7 +299,7 @@ States:
   time_to_mastery_hours: 0.5,
   created_at: datetime,
   updated_at: datetime
-}]->(:Ku)
+}]->(:Curriculum)
 ```
 
 ### Tracking Methods
@@ -333,14 +333,14 @@ RETURN {
 } as views
 
 // Curriculum completions by category
-MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(k:Ku)
+MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(k:Curriculum)
 WHERE m.source = 'sel_curriculum'
 AND k.sel_category = $category
 RETURN count(m) as completions,
        avg(m.time_to_mastery_hours) as avg_time_hours
 
 // Completion rate over time
-MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(k:Ku)
+MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(k:Curriculum)
 WHERE m.source = 'sel_curriculum'
 WITH date(m.created_at) as completion_date, count(m) as completions
 RETURN completion_date, completions

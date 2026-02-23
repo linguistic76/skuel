@@ -68,7 +68,7 @@ The "Everything is a Ku" architecture was evolved to a domain-first model hierar
 **Phase 0: Neo4j Multi-Label + Backend Infrastructure**
 - Added domain-specific Neo4j labels: every entity gets `:Entity` (universal) + domain label (`:Task`, `:Goal`, etc.)
 - `NeoLabel` enum gained 16 domain labels with `from_entity_type()` mapper
-- Backend `base_label=NeoLabel.ENTITY` for CREATE: `(n:Ku:Entity:Task)` triple labels
+- Backend `base_label=NeoLabel.ENTITY` for CREATE: `(n:Entity:Task)` dual labels
 - User relationships standardized to `:OWNS` (was `:HAS_KU`)
 - MEGA-QUERY fixed: now uses domain labels + OWNS relationships
 

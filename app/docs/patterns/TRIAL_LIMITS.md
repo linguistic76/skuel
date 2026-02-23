@@ -109,7 +109,7 @@ WHERE t.status <> 'archived'
 RETURN count(t) as count
 
 # KU access count
-MATCH (u:User {uid: $uid})-[:LEARNING|MASTERED]->(k:Ku)
+MATCH (u:User {uid: $uid})-[:LEARNING|MASTERED]->(k:Entity)
 RETURN count(DISTINCT k) as count
 
 # LP enrollment count

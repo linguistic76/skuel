@@ -30,10 +30,10 @@ logger = get_logger("skuel.scripts.fulltext_indexes")
 # Full-text index definitions
 # Format: {label: {index_name, fields_to_index}}
 FULLTEXT_INDEX_DEFINITIONS = {
-    "Ku": {
-        "index_name": "ku_fulltext_idx",
+    "Curriculum": {
+        "index_name": "curriculum_fulltext_idx",
         "fields": ["title", "content", "tags"],
-        "description": "Knowledge Units - title, content, and tags",
+        "description": "Curriculum - title, content, and tags",
     },
     "Task": {
         "index_name": "task_fulltext_idx",
@@ -102,7 +102,7 @@ async def create_fulltext_index(
 
     Args:
         driver: Neo4j driver instance
-        label: Node label (e.g., "Ku", "Task")
+        label: Node label (e.g., "Curriculum", "Task")
         index_name: Name for the index
         fields: List of fields to index (e.g., ["title", "content"])
 

@@ -75,19 +75,19 @@ MATCH (u:User {uid: $user_uid})
 MATCH (path:Lp {uid: $path_uid})
 
 // STEP 2: Collect user's mastered knowledge
-OPTIONAL MATCH (u)-[m:MASTERED]->(mastered:Ku)
+OPTIONAL MATCH (u)-[m:MASTERED]->(mastered:Curriculum)
 WITH u, path, collect(mastered.uid) as mastered_uids
 
 // STEP 3: Get path steps and knowledge
 MATCH (path)-[r:HAS_STEP]->(step:Ls)
-MATCH (k:Ku {uid: step.knowledge_uid})
+MATCH (k:Curriculum {uid: step.knowledge_uid})
 
 // STEP 4: Find prerequisites using semantic relationships (helper subquery)
 // Uses _build_prerequisite_query("k", 2) which generates:
 OPTIONAL MATCH (k)<-[:REQUIRES_THEORETICAL_UNDERSTANDING|
                        REQUIRES_PRACTICAL_APPLICATION|
                        REQUIRES_CONCEPTUAL_FOUNDATION|
-                       BUILDS_ON_FOUNDATION*1..2]-(prereq:Ku)
+                       BUILDS_ON_FOUNDATION*1..2]-(prereq:Curriculum)
 WITH k, collect(DISTINCT prereq) as prereqs
 
 // STEP 5: Identify blocking prerequisites (unmastered)
@@ -152,7 +152,7 @@ def _build_prerequisite_query(self, knowledge_var: str = "k", depth: int = 3) ->
     rel_pattern = "|".join([st.to_neo4j_name() for st in prerequisite_types])
 
     return f"""
-    OPTIONAL MATCH ({knowledge_var})<-[:{rel_pattern}*1..{depth}]-(prereq:Ku)
+    OPTIONAL MATCH ({knowledge_var})<-[:{rel_pattern}*1..{depth}]-(prereq:Curriculum)
     WITH {knowledge_var}, collect(DISTINCT prereq) as prereqs
     """
 ```

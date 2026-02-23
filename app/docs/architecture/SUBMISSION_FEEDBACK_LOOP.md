@@ -75,14 +75,14 @@ Assignment (scope=ASSIGNED)
 (student:User)-[:MEMBER_OF]->(group)
 
 // The submission
-(student)-[:OWNS]->(submission:Ku {ku_type: "submission"})
+(student)-[:OWNS]->(submission:Entity {ku_type: "submission"})
 (submission)-[:FULFILLS_PROJECT]->(project)
 
 // Sharing for review
 (student)-[:SHARES_WITH {role: "teacher"}]->(submission)
 
 // Teacher feedback
-(teacher)-[:OWNS]->(feedback:Ku {ku_type: "feedback_report"})
+(teacher)-[:OWNS]->(feedback:Entity {ku_type: "feedback_report"})
 (feedback)-[:FEEDBACK_FOR]->(submission)
 ```
 

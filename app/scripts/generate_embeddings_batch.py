@@ -9,7 +9,7 @@ Usage:
     poetry run python scripts/generate_embeddings_batch.py
 
     # Generate for specific entity type
-    poetry run python scripts/generate_embeddings_batch.py --label Ku
+    poetry run python scripts/generate_embeddings_batch.py --label Curriculum
 
     # Limit batches (for testing)
     poetry run python scripts/generate_embeddings_batch.py --label Ku --max-batches 2
@@ -50,7 +50,7 @@ async def generate_embeddings_batch(
     Args:
         driver: Neo4j driver instance
         embeddings_service: Neo4jGenAIEmbeddingsService instance
-        label: Node label (e.g., "Ku", "Task", "Goal")
+        label: Node label (e.g., "Curriculum", "Task", "Goal")
         batch_size: Number of nodes per batch (default: 25)
         max_batches: Limit number of batches for testing (default: None = all)
 
@@ -152,7 +152,7 @@ async def main():
     parser.add_argument(
         "--label",
         type=str,
-        help="Specific entity label to process (e.g., Ku, Task, Goal)",
+        help="Specific entity label to process (e.g., Curriculum, Task, Goal)",
         default=None,
     )
     parser.add_argument(
@@ -185,7 +185,7 @@ async def main():
     if args.label:
         entity_labels = [args.label]
     else:
-        entity_labels = ["Ku", "Task", "Goal", "LpStep"]
+        entity_labels = ["Curriculum", "Task", "Goal", "LpStep"]
 
     logger.info(f"\n{'=' * 60}")
     logger.info("Batch Embedding Generation")

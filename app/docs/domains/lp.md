@@ -249,7 +249,7 @@ await ls_intelligence.has_practice_opportunities("ls:functions")  # → True
 The Cypher that powers this:
 
 ```cypher
-MATCH (ls:Ku {uid: $ls_uid})
+MATCH (ls:LearningStep {uid: $ls_uid})
 OPTIONAL MATCH (ls)-[:BUILDS_HABIT]->(h)
 OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(t)
 OPTIONAL MATCH (ls)-[:SCHEDULES_EVENT]->(e)

@@ -389,7 +389,7 @@ poetry run python scripts/create_vector_indexes.py
 
 // Create vector index for KU entities
 CREATE VECTOR INDEX ku_embedding_idx IF NOT EXISTS
-FOR (n:Ku)
+FOR (n:Entity)
 ON n.embedding
 OPTIONS {
   indexConfig: {
@@ -640,7 +640,7 @@ time poetry run python scripts/generate_embeddings_batch.py --batch-size 50
 **Default (good for most cases):**
 ```cypher
 CREATE VECTOR INDEX ku_embedding_idx
-FOR (n:Ku) ON n.embedding
+FOR (n:Entity) ON n.embedding
 OPTIONS {
   indexConfig: {
     `vector.dimensions`: 1536,

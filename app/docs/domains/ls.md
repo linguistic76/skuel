@@ -136,7 +136,7 @@ LS (Learning Step)
 These methods query the graph directly:
 
 ```cypher
-MATCH (ls:Ku {uid: $ls_uid})
+MATCH (ls:LearningStep {uid: $ls_uid})
 OPTIONAL MATCH (ls)-[:BUILDS_HABIT]->(h)
 OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(t)
 OPTIONAL MATCH (ls)-[:SCHEDULES_EVENT]->(e)

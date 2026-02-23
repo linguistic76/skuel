@@ -48,7 +48,7 @@ ORDER BY count DESC
 // View the learning path structure
 MATCH (lp:Lp {uid: 'lp:mindfulness-101'})
 OPTIONAL MATCH (lp)-[:HAS_STEP]->(ls:Ls)
-OPTIONAL MATCH (ls)-[:PRIMARY_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (ls)-[:PRIMARY_KNOWLEDGE]->(ku:Curriculum)
 RETURN lp, ls, ku
 ```
 
@@ -146,7 +146,7 @@ After ingestion, you can adjust entities directly in Neo4j Browser:
 
 ```cypher
 // Update a knowledge unit
-MATCH (ku:Ku {uid: 'ku:breath-awareness-basics'})
+MATCH (ku:Curriculum {uid: 'ku:breath-awareness-basics'})
 SET ku.content = 'Your updated content here'
 RETURN ku
 

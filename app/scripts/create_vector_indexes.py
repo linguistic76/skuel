@@ -49,7 +49,7 @@ logger = get_logger("skuel.scripts.create_vector_indexes")
 
 # Priority entities with embedding fields (as of Phase 8 - January 2026)
 PRIORITY_ENTITIES = [
-    "Ku",  # Knowledge Units - CRITICAL
+    "Curriculum",  # Curriculum (Knowledge Units) - CRITICAL
     "ContentChunk",  # KU Content Chunks - CRITICAL (for RAG)
     "Task",  # Tasks - HIGH
     "Goal",  # Goals - HIGH
@@ -217,11 +217,11 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Create indexes for all priority entities (Ku, Task, Goal, LpStep)
+  # Create indexes for all priority entities (Curriculum, Task, Goal, LpStep)
   poetry run python scripts/create_vector_indexes.py
 
   # Create indexes for specific entities only
-  poetry run python scripts/create_vector_indexes.py --labels Ku Task
+  poetry run python scripts/create_vector_indexes.py --labels Curriculum Task
 
   # Use different embedding dimensions (for text-embedding-3-large)
   poetry run python scripts/create_vector_indexes.py --dimension 3072

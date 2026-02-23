@@ -159,7 +159,7 @@ async def get_subkus(
                 print(f"  - {child_ku.title}")
     """
     query = """
-    MATCH (parent:Ku {uid: $parent_uid})-[r:ORGANIZES*1..%d]->(child:Ku)
+    MATCH (parent:Curriculum {uid: $parent_uid})-[r:ORGANIZES*1..%d]->(child:Curriculum)
     RETURN child, r
     ORDER BY r.order ASC
     """ % depth
@@ -191,7 +191,7 @@ async def get_parent_kus(self, ku_uid: str) -> Result[list[KnowledgeUnit]]:
         # Returns: ["AI Fundamentals", "Data Science", "Python Advanced"]
     """
     query = """
-    MATCH (parent:Ku)-[:ORGANIZES]->(child:Ku {uid: $ku_uid})
+    MATCH (parent:Curriculum)-[:ORGANIZES]->(child:Curriculum {uid: $ku_uid})
     RETURN parent
     """
 
@@ -229,21 +229,21 @@ async def get_ku_hierarchy(self, ku_uid: str) -> Result[dict]:
     """
     # Get ancestors
     ancestors_query = """
-    MATCH path = (ancestor:Ku)-[:ORGANIZES*]->(ku:Ku {uid: $ku_uid})
+    MATCH path = (ancestor:Curriculum)-[:ORGANIZES*]->(ku:Curriculum {uid: $ku_uid})
     RETURN ancestor, length(path) as depth
     ORDER BY depth DESC
     """
 
     # Get children
     children_query = """
-    MATCH (ku:Ku {uid: $ku_uid})-[:ORGANIZES]->(child:Ku)
+    MATCH (ku:Curriculum {uid: $ku_uid})-[:ORGANIZES]->(child:Curriculum)
     RETURN child
     """
 
     # Get siblings (KUs with same parents)
     siblings_query = """
-    MATCH (parent:Ku)-[:ORGANIZES]->(sibling:Ku)
-    WHERE (parent)-[:ORGANIZES]->(:Ku {uid: $ku_uid})
+    MATCH (parent:Curriculum)-[:ORGANIZES]->(sibling:Curriculum)
+    WHERE (parent)-[:ORGANIZES]->(:Curriculum {uid: $ku_uid})
     AND sibling.uid <> $ku_uid
     RETURN DISTINCT sibling
     """
@@ -299,8 +299,8 @@ async def organize_ku(
         )
     """
     query = """
-    MATCH (parent:Ku {uid: $parent_uid})
-    MATCH (child:Ku {uid: $child_uid})
+    MATCH (parent:Curriculum {uid: $parent_uid})
+    MATCH (child:Curriculum {uid: $child_uid})
     MERGE (parent)-[r:ORGANIZES]->(child)
     SET r.order = $order,
         r.importance = $importance,
@@ -331,7 +331,7 @@ async def unorganize_ku(self, parent_uid: str, child_uid: str) -> Result[bool]:
         Result[bool] - True if removed
     """
     query = """
-    MATCH (parent:Ku {uid: $parent_uid})-[r:ORGANIZES]->(child:Ku {uid: $child_uid})
+    MATCH (parent:Curriculum {uid: $parent_uid})-[r:ORGANIZES]->(child:Curriculum {uid: $child_uid})
     DELETE r
     RETURN count(r) as deleted
     """
@@ -402,7 +402,7 @@ logger = get_logger("skuel.migrations.flatten_ku_uids")
 async def analyze_hierarchical_kus(driver):
     """Find all KUs with hierarchical UIDs."""
     query = """
-    MATCH (ku:Ku)
+    MATCH (ku:Curriculum)
     WHERE ku.uid CONTAINS '.'
     AND size(split(ku.uid, '.')) > 2
     RETURN ku.uid as old_uid, ku.title as title, size(split(ku.uid, '.')) as depth
@@ -431,7 +431,7 @@ async def generate_new_uid(title: str, existing_uids: set[str]) -> str:
 async def flatten_ku_uid(driver, old_uid: str, new_uid: str):
     """Flatten a single KU UID, preserving all relationships."""
     query = """
-    MATCH (ku:Ku {uid: $old_uid})
+    MATCH (ku:Curriculum {uid: $old_uid})
     SET ku.uid = $new_uid,
         ku.old_uid = $old_uid,
         ku.migrated_at = datetime()
@@ -605,7 +605,7 @@ async def add_knowledge_relationship(
 
     query = """
     MATCH (ls:Ls {uid: $ls_uid})
-    MATCH (ku:Ku {uid: $ku_uid})
+    MATCH (ku:Curriculum {uid: $ku_uid})
     MERGE (ls)-[r:CONTAINS_KNOWLEDGE]->(ku)
     SET r.type = $knowledge_type,
         r.created_at = datetime()
@@ -639,14 +639,14 @@ async def get_contained_knowledge(
     """
     if knowledge_type:
         query = """
-        MATCH (ls:Ls {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE {type: $knowledge_type}]->(ku:Ku)
+        MATCH (ls:Ls {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE {type: $knowledge_type}]->(ku:Curriculum)
         RETURN ku, r.type as type
         ORDER BY ku.title
         """
         params = {"ls_uid": ls_uid, "knowledge_type": knowledge_type}
     else:
         query = """
-        MATCH (ls:Ls {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Ku)
+        MATCH (ls:Ls {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Curriculum)
         RETURN ku, r.type as type
         ORDER BY r.type, ku.title
         """
@@ -719,7 +719,7 @@ async def migrate_ls_knowledge(driver):
             await driver.execute_query(
                 """
                 MATCH (ls:Ls {uid: $ls_uid})
-                MATCH (ku:Ku {uid: $ku_uid})
+                MATCH (ku:Curriculum {uid: $ku_uid})
                 MERGE (ls)-[r:CONTAINS_KNOWLEDGE]->(ku)
                 SET r.type = 'primary', r.created_at = datetime()
                 """,
@@ -732,7 +732,7 @@ async def migrate_ls_knowledge(driver):
             await driver.execute_query(
                 """
                 MATCH (ls:Ls {uid: $ls_uid})
-                MATCH (ku:Ku {uid: $ku_uid})
+                MATCH (ku:Curriculum {uid: $ku_uid})
                 MERGE (ls)-[r:CONTAINS_KNOWLEDGE]->(ku)
                 SET r.type = 'supporting', r.created_at = datetime()
                 """,
@@ -807,8 +807,8 @@ def generate_knowledge_uid(cls, title: str) -> str:
 
 ```cypher
 // MOC Pattern - KU organizing KUs
-MATCH (moc:Ku {uid: "ku_yoga-fundamentals_abc123"})
-MATCH (child:Ku {uid: "ku_meditation_xyz789"})
+MATCH (moc:Curriculum {uid: "ku_yoga-fundamentals_abc123"})
+MATCH (child:Curriculum {uid: "ku_meditation_xyz789"})
 MERGE (moc)-[:ORGANIZES {order: 1}]->(child)
 ```
 
@@ -876,7 +876,7 @@ Migration completed: 2026-01-30
 
 **Relationships:**
 ```cypher
-(moc:Ku)-[:ORGANIZES {order: 1, importance: "core"}]->(child:Ku)
+(moc:Curriculum)-[:ORGANIZES {order: 1, importance: "core"}]->(child:Curriculum)
 ```
 
 **Service Methods:**
@@ -893,7 +893,7 @@ Migration completed: 2026-01-30
 ```cypher
 (lp:Lp)-[:HAS_STEP {order: 1}]->(ls:Ls)
 (ls:Ls)-[:REQUIRES_STEP]->(prerequisite:Ls)
-(ls:Ls)-[:CONTAINS_KNOWLEDGE {type: "primary"}]->(ku:Ku)
+(ls:Ls)-[:CONTAINS_KNOWLEDGE {type: "primary"}]->(ku:Curriculum)
 ```
 
 **LP - Learning Paths**

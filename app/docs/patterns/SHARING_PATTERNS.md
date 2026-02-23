@@ -158,7 +158,7 @@ await teacher_review.approve_report(report_uid, teacher_uid)
 (project:Assignment {scope: "assigned"})-[:FOR_GROUP]->(group:Group)
 
 // On student submission (auto-created)
-(report:Ku)-[:FULFILLS_PROJECT]->(project:Assignment)
+(report:Entity)-[:FULFILLS_PROJECT]->(project:Assignment)
 (teacher:User)-[:SHARES_WITH {role: "teacher"}]->(report:Report)
 ```
 

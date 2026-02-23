@@ -87,7 +87,7 @@ await service.remove_subtask(parent_uid, child_uid)
 
 **Organizational Relationship:**
 ```cypher
-(parent:Ku)-[:ORGANIZES {order, importance}]->(child:Ku)
+(parent:Curriculum)-[:ORGANIZES {order, importance}]->(child:Curriculum)
 ```
 
 **Service Methods:**
@@ -109,7 +109,7 @@ await ku_service.unorganize_ku(parent_uid, child_uid)
 
 **Knowledge Relationship:**
 ```cypher
-(ls:Ls)-[:CONTAINS_KNOWLEDGE {type}]->(ku:Ku)
+(ls:Ls)-[:CONTAINS_KNOWLEDGE {type}]->(ku:Curriculum)
 ```
 
 **Service Methods:**

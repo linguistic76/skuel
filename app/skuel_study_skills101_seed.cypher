@@ -1,6 +1,6 @@
 // SKUEL.app — Study Skills 101 seed (pure Cypher, idempotent)
 // Constraints & Indexes
-CREATE CONSTRAINT IF NOT EXISTS FOR (n:Ku) REQUIRE n.uid IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (n:Curriculum) REQUIRE n.uid IS UNIQUE;
 CREATE CONSTRAINT IF NOT EXISTS FOR (n:KnowledgeCluster) REQUIRE n.uid IS UNIQUE;
 CREATE CONSTRAINT IF NOT EXISTS FOR (n:Lp) REQUIRE n.uid IS UNIQUE;
 CREATE CONSTRAINT IF NOT EXISTS FOR (n:PathStep) REQUIRE n.uid IS UNIQUE;
@@ -13,7 +13,7 @@ CREATE CONSTRAINT IF NOT EXISTS FOR (n:EventTemplate) REQUIRE n.uid IS UNIQUE;
 CREATE CONSTRAINT IF NOT EXISTS FOR (n:Conversation) REQUIRE n.uid IS UNIQUE;
 
 // Knowledge Units (articles)
-MERGE (ku1:Ku {uid:'ku:note-taking-basics'})
+MERGE (ku1:Curriculum {uid:'ku:note-taking-basics'})
   ON CREATE SET ku1.title='Note‑Taking Basics',
                 ku1.summary='Simple, readable notes: headers, bullets, and keywords.',
                 ku1.tags=['study','notes','beginner'],
@@ -22,7 +22,7 @@ MERGE (ku1:Ku {uid:'ku:note-taking-basics'})
                 ku1.createdAt=datetime()
   ON MATCH  SET ku1.updatedAt=datetime();
 
-MERGE (ku2:Ku {uid:'ku:spaced-repetition-basics'})
+MERGE (ku2:Curriculum {uid:'ku:spaced-repetition-basics'})
   ON CREATE SET ku2.title='Spaced Repetition — Basics',
                 ku2.summary='Why short reviews beat cramming, and how to start.',
                 ku2.tags=['memory','review','beginner'],
@@ -31,7 +31,7 @@ MERGE (ku2:Ku {uid:'ku:spaced-repetition-basics'})
                 ku2.createdAt=datetime()
   ON MATCH  SET ku2.updatedAt=datetime();
 
-MERGE (ku3:Ku {uid:'ku:distraction-handling'})
+MERGE (ku3:Curriculum {uid:'ku:distraction-handling'})
   ON CREATE SET ku3.title='Handling Distractions',
                 ku3.summary='A quick checklist to keep your focus clean.',
                 ku3.tags=['focus','environment'],
@@ -48,9 +48,9 @@ MERGE (kc:KnowledgeCluster {uid:'kc:study-skills-foundations'})
                 kc.createdAt=datetime()
   ON MATCH  SET kc.updatedAt=datetime();
 
-MERGE (ku1:Ku {uid:'ku:note-taking-basics'})
-MERGE (ku2:Ku {uid:'ku:spaced-repetition-basics'})
-MERGE (ku3:Ku {uid:'ku:distraction-handling'})
+MERGE (ku1:Curriculum {uid:'ku:note-taking-basics'})
+MERGE (ku2:Curriculum {uid:'ku:spaced-repetition-basics'})
+MERGE (ku3:Curriculum {uid:'ku:distraction-handling'})
 
 MERGE (ku1)-[:IN_CLUSTER]->(kc)
 MERGE (ku2)-[:IN_CLUSTER]->(kc)
@@ -183,8 +183,8 @@ MERGE (lp)-[:HAS_STEP {order:1}]->(ps1)
 MERGE (lp)-[:HAS_STEP {order:2}]->(ps2);
 
 // Step 1 links
-MERGE (ps1)-[:PRIMARY_KNOWLEDGE]->(:Ku {uid:'ku:note-taking-basics'})
-MERGE (ps1)-[:SUPPORTING_KNOWLEDGE]->(:Ku {uid:'ku:distraction-handling'})
+MERGE (ps1)-[:PRIMARY_KNOWLEDGE]->(:Curriculum {uid:'ku:note-taking-basics'})
+MERGE (ps1)-[:SUPPORTING_KNOWLEDGE]->(:Curriculum {uid:'ku:distraction-handling'})
 MERGE (ps1)-[:HAS_PRINCIPLE]->(:Principle {uid:'pr:plan-then-execute'})
 MERGE (ps1)-[:HAS_PRINCIPLE]->(:Principle {uid:'pr:small-wins'})
 MERGE (ps1)-[:OFFERS_CHOICE]->(:Choice {uid:'ch:start-25min-now'})
@@ -194,7 +194,7 @@ MERGE (ps1)-[:ASSIGNS_TASK]->(:Task {uid:'tk:log-first-3-blocks'})
 MERGE (ps1)-[:APPEARS_AS {frequency_hint:'daily'}]->(:EventTemplate {uid:'ev:study-block-25min'})
 
 // Step 2 links
-MERGE (ps2)-[:PRIMARY_KNOWLEDGE]->(:Ku {uid:'ku:spaced-repetition-basics'})
+MERGE (ps2)-[:PRIMARY_KNOWLEDGE]->(:Curriculum {uid:'ku:spaced-repetition-basics'})
 MERGE (ps2)-[:HAS_PRINCIPLE]->(:Principle {uid:'pr:small-wins'})
 MERGE (ps2)-[:OFFERS_CHOICE]->(:Choice {uid:'ch:create-5-flashcards'})
 MERGE (ps2)-[:SUGGESTS_HABIT]->(:Habit {uid:'hb:weekly-review-30min'})
@@ -203,18 +203,18 @@ MERGE (ps2)-[:ASSIGNS_TASK]->(:Task {uid:'tk:weekly-review'})
 
 // Cross-links
 MERGE (hb1:Habit {uid:'hb:daily-25min-focus'})
-MERGE (ku3:Ku {uid:'ku:distraction-handling'})
+MERGE (ku3:Curriculum {uid:'ku:distraction-handling'})
 MERGE (hb1)-[:REINFORCES]->(ku3)
 MERGE (hb1)-[:APPEARS_IN_PATH]->(:Lp {uid:'lp:study-skills-101'})
 
 MERGE (hb2:Habit {uid:'hb:weekly-review-30min'})
-MERGE (ku2:Ku {uid:'ku:spaced-repetition-basics'})
+MERGE (ku2:Curriculum {uid:'ku:spaced-repetition-basics'})
 MERGE (hb2)-[:REINFORCES]->(ku2)
 MERGE (hb2)-[:APPEARS_IN_PATH]->(:Lp {uid:'lp:study-skills-101'})
 
 MERGE (tk1:Task {uid:'tk:log-first-3-blocks'})
 MERGE (gl:Goal {uid:'gl:study-sprint-beginner'})
-MERGE (ku1:Ku {uid:'ku:note-taking-basics'})
+MERGE (ku1:Curriculum {uid:'ku:note-taking-basics'})
 MERGE (tk1)-[:SUPPORTS_GOAL]->(gl)
 MERGE (tk1)-[:ABOUT]->(ku1)
 
@@ -239,7 +239,7 @@ MERGE (cv:Conversation {uid:'cv:2025-10-04:study-starter'})
                 cv.createdAt=datetime()
   ON MATCH  SET cv.updatedAt=datetime();
 
-MERGE (cv)-[:REFERENCES]->(:Ku {uid:'ku:note-taking-basics'})
+MERGE (cv)-[:REFERENCES]->(:Curriculum {uid:'ku:note-taking-basics'})
 MERGE (cv)-[:INVITES]->(:Choice {uid:'ch:start-25min-now'})
 MERGE (cv)-[:INVITES]->(:Choice {uid:'ch:create-5-flashcards'})
 MERGE (cv)-[:ANCHORS]->(:PathStep {uid:'ps:lp:study-skills-101:step-1'});

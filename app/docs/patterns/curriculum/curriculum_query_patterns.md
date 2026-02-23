@@ -95,7 +95,7 @@ WITH user,
      $available_minutes AS time_budget
 
 // Step 3: Query curriculum with context filters
-MATCH (lp:Lp)-[:CONTAINS]->(ku:Ku)
+MATCH (lp:Lp)-[:CONTAINS]->(ku:Curriculum)
 WHERE
   // Context-driven filtering
   lp.uid = current_path
@@ -121,10 +121,10 @@ MATCH (user:User {uid: $user_uid})-[:ENROLLED_IN]->(lp:Lp)
 WHERE lp.uid = $current_path_uid
 
 // Get all knowledge units in this path
-MATCH (lp)-[:CONTAINS]->(ku:Ku)
+MATCH (lp)-[:CONTAINS]->(ku:Curriculum)
 
 // Filter by prerequisites
-OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
 WITH ku, lp,
      collect(prereq.uid) AS prereq_uids,
      $mastered_knowledge_uids AS mastered
@@ -165,7 +165,7 @@ LIMIT $limit
 MATCH (user:User {uid: $user_uid})-[:ULTIMATE_PATH]->(life_path:Lp)
 
 // Get all knowledge in life path
-MATCH (life_path)-[:CONTAINS]->(ku:Ku)
+MATCH (life_path)-[:CONTAINS]->(ku:Curriculum)
 
 // Get substance score (real-world application)
 OPTIONAL MATCH (user)-[r:APPLIED]->(ku)
@@ -226,7 +226,7 @@ RETURN
 
 ```cypher
 // Find complete prerequisite chain for target knowledge
-MATCH path = (target:Ku {uid: $target_uid})-[:REQUIRES_KNOWLEDGE*0..5]->(prereq:Ku)
+MATCH path = (target:Curriculum {uid: $target_uid})-[:REQUIRES_KNOWLEDGE*0..5]->(prereq:Curriculum)
 
 // Get user's mastery state
 MATCH (user:User {uid: $user_uid})
@@ -265,7 +265,7 @@ ORDER BY depth, prereq.sequence_order
 
 ```cypher
 // Find all applications of specific knowledge across domains
-MATCH (ku:Ku {uid: $knowledge_uid})
+MATCH (ku:Curriculum {uid: $knowledge_uid})
 
 // Tasks applying this knowledge
 OPTIONAL MATCH (ku)<-[:APPLIES_KNOWLEDGE]-(task:Task {user_uid: $user_uid})
@@ -336,7 +336,7 @@ WITH lp, lp_data
 // Phase 2: Create KnowledgeUnits
 UNWIND lp_data.knowledge_units AS ku_data
 
-MERGE (ku:Ku {uid: ku_data.uid})
+MERGE (ku:Curriculum {uid: ku_data.uid})
 SET
   ku.title = ku_data.title,
   ku.content = ku_data.content,
@@ -354,13 +354,13 @@ WITH ku, ku_data
 
 // Phase 4: Create prerequisite relationships
 FOREACH (prereq_uid IN coalesce(ku_data.prerequisites, []) |
-  MERGE (prereq:Ku {uid: prereq_uid})
+  MERGE (prereq:Curriculum {uid: prereq_uid})
   MERGE (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
 )
 
 // Phase 5: Create enables relationships
 FOREACH (enabled_uid IN coalesce(ku_data.enables, []) |
-  MERGE (enabled:Ku {uid: enabled_uid})
+  MERGE (enabled:Curriculum {uid: enabled_uid})
   MERGE (ku)-[:ENABLES_KNOWLEDGE]->(enabled)
 )
 
@@ -379,10 +379,10 @@ MATCH (user:User {uid: $user_uid})
 
 // Get all enrolled learning paths
 OPTIONAL MATCH (user)-[:ENROLLED_IN]->(lp:Lp)
-OPTIONAL MATCH (lp)-[:CONTAINS]->(ku:Ku)
+OPTIONAL MATCH (lp)-[:CONTAINS]->(ku:Curriculum)
 
 // Get mastery state
-OPTIONAL MATCH (user)-[m:MASTERED]->(mastered_ku:Ku)
+OPTIONAL MATCH (user)-[m:MASTERED]->(mastered_ku:Curriculum)
 
 // Calculate progress per path
 WITH user, lp,
@@ -440,10 +440,10 @@ MATCH (user)-[:ENROLLED_IN]->(current_path:Lp)
 WHERE current_path.uid = $current_path_uid
 
 // Get available knowledge units
-MATCH (current_path)-[:CONTAINS]->(ku:Ku)
+MATCH (current_path)-[:CONTAINS]->(ku:Curriculum)
 
 // Filter by prerequisites (all must be mastered)
-OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
 WITH ku, current_path, user,
      collect(prereq.uid) AS prereq_uids,
      $mastered_uids AS mastered
@@ -480,7 +480,7 @@ WITH ku, current_path,
      END AS difficulty_match,
 
      // Prefer knowledge that enables more downstream knowledge
-     size((ku)-[:ENABLES_KNOWLEDGE]->(:Ku)) AS enablement_score
+     size((ku)-[:ENABLES_KNOWLEDGE]->(:Curriculum)) AS enablement_score
 
 WITH ku, current_path,
      (section_priority + difficulty_match + (enablement_score * 0.5)) AS recommendation_score
@@ -504,7 +504,7 @@ LIMIT $limit
 
 ```cypher
 // Update knowledge substance based on domain events
-MATCH (user:User {uid: $user_uid})-[:APPLIED]->(ku:Ku {uid: $knowledge_uid})
+MATCH (user:User {uid: $user_uid})-[:APPLIED]->(ku:Curriculum {uid: $knowledge_uid})
 
 // Get application counts over last 30 days
 MATCH (ku)<-[app:APPLIES_KNOWLEDGE]-(entity)
@@ -600,7 +600,7 @@ RETURN
 ```cypher
 // Core entity constraints (unique identifiers)
 CREATE CONSTRAINT lp_uid IF NOT EXISTS FOR (lp:Lp) REQUIRE lp.uid IS UNIQUE;
-CREATE CONSTRAINT ku_uid IF NOT EXISTS FOR (ku:Ku) REQUIRE ku.uid IS UNIQUE;
+CREATE CONSTRAINT ku_uid IF NOT EXISTS FOR (ku:Curriculum) REQUIRE ku.uid IS UNIQUE;
 CREATE CONSTRAINT user_uid IF NOT EXISTS FOR (u:User) REQUIRE u.uid IS UNIQUE;
 
 // Supporting domain constraints
@@ -611,7 +611,7 @@ CREATE CONSTRAINT event_uid IF NOT EXISTS FOR (e:Event) REQUIRE e.uid IS UNIQUE;
 CREATE CONSTRAINT journal_uid IF NOT EXISTS FOR (j:Journal) REQUIRE j.uid IS UNIQUE;
 
 // Indexes for common query patterns
-CREATE INDEX ku_section IF NOT EXISTS FOR (ku:Ku) ON (ku.section);
+CREATE INDEX ku_section IF NOT EXISTS FOR (ku:Curriculum) ON (ku.section);
 CREATE INDEX lp_section IF NOT EXISTS FOR (lp:Lp) ON (lp.section);
 CREATE INDEX user_lookup IF NOT EXISTS FOR (u:User) ON (u.username);
 ```
@@ -651,7 +651,7 @@ While SKUEL runs Pure Cypher by default, APOC can enhance metadata operations wh
 ```cypher
 // Enhanced metadata collection using APOC (optional)
 MATCH (user:User {uid: $user_uid})
-MATCH (ku:Ku {uid: $knowledge_uid})
+MATCH (ku:Curriculum {uid: $knowledge_uid})
 
 // Collect all metadata using APOC (if available)
 WITH ku, user,

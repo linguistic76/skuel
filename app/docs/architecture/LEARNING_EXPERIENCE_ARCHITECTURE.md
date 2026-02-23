@@ -56,7 +56,7 @@ KUs originate as Markdown files with YAML frontmatter in the Obsidian vault (`/h
 ```
 yoga-fundamentals.md          core/services/ingestion/        Neo4j
 ┌──────────────────┐           ┌──────────────┐           ┌──────────────┐
-│ ---              │           │              │           │ (:Ku {       │
+│ ---              │           │              │           │ (:Curriculum {       │
 │ sel_category:    │  parse    │  Unified     │  create   │   uid: "ku.  │
 │   self_awareness │ ───────>  │  Ingestion   │ ───────>  │     yoga-    │
 │ learning_level:  │           │  Service     │           │     fund..", │
@@ -71,10 +71,10 @@ yoga-fundamentals.md          core/services/ingestion/        Neo4j
 Once in Neo4j, KUs connect through graph relationships:
 
 ```cypher
-(ku1:Ku)-[:REQUIRES_KNOWLEDGE]->(ku2:Ku)   // Prerequisites
-(ku1:Ku)-[:ENABLES_KNOWLEDGE]->(ku2:Ku)    // What mastering this unlocks
-(moc:Ku)-[:ORGANIZES]->(ku:Ku)             // MOC grouping (non-linear)
-(ku:Ku)-[:USED_IN_STEP]->(ls:Ls)           // Linear curriculum
+(ku1:Curriculum)-[:REQUIRES_KNOWLEDGE]->(ku2:Curriculum)   // Prerequisites
+(ku1:Curriculum)-[:ENABLES_KNOWLEDGE]->(ku2:Curriculum)    // What mastering this unlocks
+(moc:Curriculum)-[:ORGANIZES]->(ku:Curriculum)             // MOC grouping (non-linear)
+(ku:Curriculum)-[:USED_IN_STEP]->(ls:Ls)           // Linear curriculum
 ```
 
 ---
@@ -85,7 +85,7 @@ Once in Neo4j, KUs connect through graph relationships:
 
 **File:** `core/models/ku/ku_intelligence.py:58-149`
 
-When a user interacts with a KU, a `MASTERED` relationship is created in the graph between `:User` and `:Ku`. The `KuMastery` dataclass models what that relationship means:
+When a user interacts with a KU, a `MASTERED` relationship is created in the graph between `:User` and `:Curriculum`. The `KuMastery` dataclass models what that relationship means:
 
 ```
 KuMastery (frozen dataclass)
@@ -270,7 +270,7 @@ AUTHORING                     STORAGE                    INTELLIGENCE
 │ Markdown │  Ingestion      │  Neo4j   │  MEGA-QUERY   │  UserContext      │
 │ + YAML   │ ────────────>   │  Graph   │ ───────────>  │  (~240 fields)   │
 │ files    │                 │          │               │                  │
-└─────────┘                  │ :Ku      │               └────────┬─────────┘
+└─────────┘                  │ :Entity  │               └────────┬─────────┘
                              │ :User    │                        │
 USER BEHAVIOR                │ :MASTERED│               ┌────────v─────────┐
 ┌─────────┐  Events          │ :VIEWED  │               │ KuAdaptiveService│

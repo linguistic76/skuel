@@ -106,7 +106,7 @@ We will use a **single complex Cypher query** with multiple OPTIONAL MATCH claus
 MATCH (user:User {uid: $user_uid})-[:ULTIMATE_PATH]->(life_path:Lp)
 
 // Get all knowledge in life path
-MATCH (life_path)-[:CONTAINS]->(ku:Ku)
+MATCH (life_path)-[:CONTAINS]->(ku:Entity)
 
 // Get substance score (real-world application)
 OPTIONAL MATCH (user)-[r:APPLIED]->(ku)
@@ -538,7 +538,7 @@ Comparison to multi-query approach (5 queries):
 MATCH (user:User {uid: $user_uid})-[:ULTIMATE_PATH]->(life_path:Lp)
 
 // Get all knowledge in life path
-MATCH (life_path)-[:CONTAINS]->(ku:Ku)
+MATCH (life_path)-[:CONTAINS]->(ku:Entity)
 
 // Option 1: Get recorded substance (if exists)
 OPTIONAL MATCH (user)-[r:APPLIED]->(ku)

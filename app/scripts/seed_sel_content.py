@@ -757,7 +757,7 @@ async def main():
         driver = adapter.get_driver()
 
         # Create backend for Knowledge
-        ku_backend = UniversalNeo4jBackend[Entity](driver, "Ku", Entity)
+        ku_backend = UniversalNeo4jBackend[Entity](driver, "Curriculum", Entity)
 
         # Seed KUs
         ku_count = await seed_sel_content(ku_backend)

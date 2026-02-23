@@ -174,7 +174,7 @@ class ModelQueryBuilder[T]:
 
         Note:
             Requires full-text index to exist. Create via:
-            db.index.fulltext.createNodeIndex('ku_search', ['Ku'], ['title', 'description', 'tags'])
+            db.index.fulltext.createNodeIndex('ku_search', ['Entity'], ['title', 'description', 'tags'])
         """
         self._fulltext_query = query_text
         if index_name:

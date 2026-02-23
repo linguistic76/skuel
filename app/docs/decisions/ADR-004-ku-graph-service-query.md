@@ -78,16 +78,16 @@ Use **single complex query** with:
 
 ```cypher
 // STEP 1: Collect user's mastered knowledge
-MATCH (u:User {uid: $user_uid})-[:MASTERED]->(mastered:Ku)
+MATCH (u:User {uid: $user_uid})-[:MASTERED]->(mastered:Curriculum)
 WITH u, collect(mastered.uid) as mastered_uids
 
 // STEP 2: Find candidates (not yet mastered)
-MATCH (candidate:Ku)
+MATCH (candidate:Curriculum)
 WHERE NOT candidate.uid IN mastered_uids
   AND ($domain IS NULL OR candidate.domain = $domain)
 
 // STEP 3: Count prerequisites and calculate satisfaction
-OPTIONAL MATCH (candidate)-[:REQUIRES]->(prereq:Ku)
+OPTIONAL MATCH (candidate)-[:REQUIRES]->(prereq:Curriculum)
 WITH candidate, mastered_uids,
      count(prereq) as total_prereqs,
      sum(CASE WHEN prereq.uid IN mastered_uids THEN 1 ELSE 0 END) as satisfied_prereqs
@@ -105,7 +105,7 @@ WITH candidate,
 WHERE readiness >= 0.7  // Only recommend if 70%+ prerequisites met
 
 // STEP 6: Calculate strategic value (what this enables)
-OPTIONAL MATCH (candidate)<-[:REQUIRES]-(enables:Ku)
+OPTIONAL MATCH (candidate)<-[:REQUIRES]-(enables:Curriculum)
 WITH candidate, readiness, total_prereqs, satisfied_prereqs,
      count(enables) as enables_count
 
@@ -131,7 +131,7 @@ LIMIT $limit
 Uses Cypher sum() with CASE to count satisfied prerequisites:
 
 ```cypher
-OPTIONAL MATCH (candidate)-[:REQUIRES]->(prereq:Ku)
+OPTIONAL MATCH (candidate)-[:REQUIRES]->(prereq:Curriculum)
 WITH candidate, mastered_uids,
      count(prereq) as total_prereqs,
      sum(CASE WHEN prereq.uid IN mastered_uids THEN 1 ELSE 0 END) as satisfied_prereqs
@@ -173,7 +173,7 @@ WHERE readiness >= 0.7  // Only recommend if 70%+ prerequisites met
 Calculates how many advanced topics this knowledge unlocks:
 
 ```cypher
-OPTIONAL MATCH (candidate)<-[:REQUIRES]-(enables:Ku)
+OPTIONAL MATCH (candidate)<-[:REQUIRES]-(enables:Curriculum)
 WITH candidate, readiness, total_prereqs, satisfied_prereqs,
      count(enables) as enables_count
 ```

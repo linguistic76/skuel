@@ -94,7 +94,7 @@ OPTIONAL MATCH (task)-[:FULFILLS_GOAL]->(goal:Goal)
 WITH user, task, collect(DISTINCT goal.uid) as goal_uids
 
 # Task-Knowledge relationships
-OPTIONAL MATCH (task)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (task)-[:APPLIES_KNOWLEDGE]->(ku:Entity)
 WITH user, task, goal_uids, count(DISTINCT ku) as ku_count
 
 # Events and habits (similar patterns)
@@ -394,7 +394,7 @@ OPTIONAL MATCH (task)-[:FULFILLS_GOAL]->(goal:Goal)
 WITH user, task, collect(DISTINCT goal.uid) as task_goal_uids
 
 # Task-Knowledge relationships
-OPTIONAL MATCH (task)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (task)-[:APPLIES_KNOWLEDGE]->(ku:Entity)
 WITH user, task, task_goal_uids, count(DISTINCT ku) as task_ku_count
 
 # Similar patterns for Events, Habits, Goals, etc.

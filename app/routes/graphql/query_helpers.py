@@ -74,7 +74,7 @@ class GraphQLQueryHelpers:
         # Step 1: Get prerequisite UIDs using QueryPatterns
         # Only direct prerequisites (GraphDepth.DIRECT) - GraphQL nesting handles deeper levels
         query, params = QueryPatterns.get_prerequisite_chain(
-            entity_label="Ku",
+            entity_label="Entity",
             entity_uid=ku_uid,
             relationship_type="REQUIRES",
             max_depth=GraphDepth.DIRECT,  # Direct prerequisites only
@@ -137,7 +137,7 @@ class GraphQLQueryHelpers:
         """
         # Get entities that require this knowledge (reverse relationship)
         query, params = QueryPatterns.get_entity_with_relationships(
-            entity_label="Ku",
+            entity_label="Entity",
             entity_uid=ku_uid,
             rel_types=["REQUIRES"],
             rel_direction="incoming",  # Entities that point TO this one
@@ -217,7 +217,7 @@ class GraphQLQueryHelpers:
 
         # Get mastered knowledge via relationship
         query, params = QueryPatterns.get_user_entities(
-            entity_label="Ku",
+            entity_label="Entity",
             user_uid=context.user_uid,
             relationship="MASTERED",
             order_by="r.achieved_at DESC",
@@ -268,7 +268,7 @@ class GraphQLQueryHelpers:
             return []
 
         query, params = QueryPatterns.get_user_entities(
-            entity_label="Ku",
+            entity_label="Entity",
             user_uid=context.user_uid,
             relationship="IN_PROGRESS",
             order_by="r.last_accessed DESC",

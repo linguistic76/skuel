@@ -266,7 +266,7 @@ PRINCIPLES = [
 
 async def seed_knowledge_units(driver):
     """Seed knowledge units with SEL categories"""
-    backend = UniversalNeo4jBackend(driver, "Ku", Ku)
+    backend = UniversalNeo4jBackend(driver, "Curriculum", Ku)
 
     logger.info("Seeding knowledge units...")
     for ku_data in KNOWLEDGE_UNITS:
@@ -346,7 +346,7 @@ async def seed_goals(driver):
 
 async def seed_choices(driver):
     """Seed sample choices"""
-    backend = UniversalNeo4jBackend(driver, "Ku", Ku, default_filters={"ku_type": "choice"})
+    backend = UniversalNeo4jBackend(driver, "Choice", Ku, default_filters={"ku_type": "choice"})
 
     logger.info("Seeding choices...")
     for choice_data in CHOICES:
@@ -363,7 +363,7 @@ async def seed_choices(driver):
 
 async def seed_principles(driver):
     """Seed sample principles"""
-    backend = UniversalNeo4jBackend(driver, "Ku", Ku, default_filters={"ku_type": "principle"})
+    backend = UniversalNeo4jBackend(driver, "Principle", Ku, default_filters={"ku_type": "principle"})
 
     logger.info("Seeding principles...")
     for principle_data in PRINCIPLES:

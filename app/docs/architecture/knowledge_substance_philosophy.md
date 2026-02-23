@@ -453,7 +453,7 @@ event = KnowledgeAppliedInTask(
 
 ### 3. KuService Updates Substance
 ```cypher
-MATCH (ku:Ku {uid: "ku.python.type_hints"})
+MATCH (ku:Curriculum {uid: "ku.python.type_hints"})
 SET ku.times_applied_in_tasks = COALESCE(ku.times_applied_in_tasks, 0) + 1,
     ku.last_applied_date = $timestamp,
     ku._substance_cache_timestamp = NULL

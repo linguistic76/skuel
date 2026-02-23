@@ -38,11 +38,9 @@ In SKUEL, every entity represents a form of knowledge. Tasks are knowledge about
 - `ku_type` field — the Knowledge Unit type discriminator (stays)
 - `parent_ku_uid` field — derivation chain between Knowledge Units (stays)
 - `Ku` union type — represents the full KU concept (stays)
-- `core/models/ku/` directory — the KU model package (stays)
 - `entity_enums.py` — core enums: `EntityType`, `EntityStatus`, `ContentOrigin`, `ProcessorType`
 - `KuContent`, `KuMetadata`, `KuChunk` — content/metadata FOR Knowledge Units (stays)
 - `core/services/ku/` — legitimate KU/Curriculum domain services (stays)
-- `:Ku` Neo4j label — universal label on all entities (stays)
 
 **What `Ku` prefix does NOT mean:** Domain-specific services use domain names, not `Ku`:
 - Reports services: `ReportsCoreService`, `ReportsSubmissionService`, etc. (renamed Feb 2026)
@@ -806,7 +804,7 @@ await teacher_review.approve_report(report_uid, teacher_uid)
 
 **Graph Pattern:**
 ```cypher
-(user:User)-[:SHARES_WITH {shared_at, role}]->(ku:Ku)
+(user:User)-[:SHARES_WITH {shared_at, role}]->(entity:Entity)
 ```
 
 **Phase 2:** Extend to Events (same infrastructure, different entity type).
@@ -1214,9 +1212,9 @@ ku.meditation-basics              (Markdown ingestion - legacy)
 **Hierarchy via Relationships:**
 ```cypher
 // Organization Pattern - any KU can organize other KUs
-(moc:Ku {uid: "ku_yoga-fundamentals_abc123"})
+(moc:Curriculum {uid: "ku_yoga-fundamentals_abc123"})
   -[:ORGANIZES {order: 1, importance: "core"}]->
-(child:Ku {uid: "ku_meditation-basics_xyz789"})
+(child:Curriculum {uid: "ku_meditation-basics_xyz789"})
 ```
 
 **Service Methods:**

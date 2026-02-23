@@ -379,7 +379,7 @@ async def _find_similar_knowledge(self, query: str, _user_uid: str) -> list[tupl
 
     # 2. Fetch KUs with embeddings from Neo4j
     ku_query = """
-    MATCH (ku:Ku) WHERE ku.embedding IS NOT NULL
+    MATCH (ku:Curriculum) WHERE ku.embedding IS NOT NULL
     RETURN ku.uid, ku.title, ku.embedding LIMIT 100
     """
 
@@ -422,8 +422,8 @@ async def _order_by_prerequisites(self, ku_uids: list[str]) -> list[str]:
     # Query prerequisite relationships
     query = """
     UNWIND $ku_uids AS ku_uid
-    MATCH (ku:Ku {uid: ku_uid})
-    OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+    MATCH (ku:Curriculum {uid: ku_uid})
+    OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
     WHERE prereq.uid IN $ku_uids
     RETURN ku.uid AS uid, collect(prereq.uid) AS prerequisites
     """

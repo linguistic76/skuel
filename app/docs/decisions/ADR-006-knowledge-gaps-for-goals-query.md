@@ -77,13 +77,13 @@ WHERE goal.user_uid = $user_uid
 WITH goal
 
 // STEP 2: Find knowledge required by goals but not mastered
-MATCH (goal)-[:REQUIRES_KNOWLEDGE]->(ku:Ku)
+MATCH (goal)-[:REQUIRES_KNOWLEDGE]->(ku:Curriculum)
 WHERE NOT EXISTS {
     MATCH (user:User {uid: $user_uid})-[:MASTERED]->(ku)
 }
 
 // STEP 3: Calculate prerequisite depth
-OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE*]->(deep_prereq:Ku)
+OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE*]->(deep_prereq:Curriculum)
 WHERE NOT EXISTS {
     MATCH (user:User {uid: $user_uid})-[:MASTERED]->(deep_prereq)
 }

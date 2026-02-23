@@ -98,7 +98,7 @@ domain: tech
 Current behavior: **MERGE (upsert)** - last sync wins.
 
 ```cypher
-MERGE (n:Ku {uid: item.uid})
+MERGE (n:Curriculum {uid: item.uid})
   ON CREATE SET n = item, n.created_at = datetime()
   ON MATCH SET n = item, n.updated_at = datetime()
 ```
@@ -124,9 +124,9 @@ If two files produce the same UID, the second sync overwrites the first. This is
 
 ```cypher
 // Parent-child organization (MOC pattern)
-(parent:Ku {uid: "ku_yoga-fundamentals_abc123"})
+(parent:Curriculum {uid: "ku_yoga-fundamentals_abc123"})
   -[:ORGANIZES {order: 1, importance: "core"}]->
-(child:Ku {uid: "ku_meditation-basics_xyz789"})
+(child:Curriculum {uid: "ku_meditation-basics_xyz789"})
 ```
 
 **Benefits:**
@@ -288,8 +288,8 @@ await ku_service.unorganize_ku(parent, child)     # Remove relationship
 
 ```cypher
 // Cypher pattern
-MATCH (parent:Ku {uid: "ku_yoga_abc"})
-MATCH (child:Ku {uid: "ku_meditation_xyz"})
+MATCH (parent:Curriculum {uid: "ku_yoga_abc"})
+MATCH (child:Curriculum {uid: "ku_meditation_xyz"})
 MERGE (parent)-[r:ORGANIZES]->(child)
 SET r.order = 1,
     r.importance = 'core',
@@ -391,7 +391,7 @@ result = await ku_service.create(
 
 4. Result in Neo4j (legacy dot format):
    ```
-   (:Ku {uid: "ku.meditation-basics", title: "Meditation Basics", ...})
+   (:Curriculum {uid: "ku.meditation-basics", title: "Meditation Basics", ...})
    ```
 
 **Note:** Markdown ingestion still uses `ku.{filename}` format for backward compatibility. New service-created KUs use `ku_{slug}_{random}` format.

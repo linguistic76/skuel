@@ -211,7 +211,7 @@ async def _find_similar_knowledge(self, query: str, _user_uid: str) -> list[tupl
 
     # 2. Fetch KUs with stored embeddings
     ku_query = """
-    MATCH (ku:Ku) WHERE ku.embedding IS NOT NULL
+    MATCH (ku:Curriculum) WHERE ku.embedding IS NOT NULL
     RETURN ku.uid, ku.title, ku.embedding LIMIT 100
     """
 

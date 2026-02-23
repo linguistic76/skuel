@@ -74,17 +74,17 @@ Use **single complex query** with:
 ```cypher
 // STEP 1: Collect learned knowledge (mastery_level ≥ 0.7)
 MATCH (user:User {uid: $user_uid})-[:HAS_PROGRESS]->(up:UserProgress)
-    -[:FOR_KNOWLEDGE]->(learned:Ku)
+    -[:FOR_KNOWLEDGE]->(learned:Curriculum)
 WHERE up.mastery_level >= 0.7
 WITH collect(learned.uid) as learned_uids
 
 // STEP 2: Find unlearned knowledge (not in learned set)
-MATCH (unlearned:Ku)
+MATCH (unlearned:Curriculum)
 WHERE NOT unlearned.uid IN learned_uids
   AND ($domain IS NULL OR unlearned.domain = $domain)
 
 // STEP 3: Calculate satisfied prerequisites (only learned ones)
-OPTIONAL MATCH (unlearned)-[r:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+OPTIONAL MATCH (unlearned)-[r:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
 WHERE prereq.uid IN learned_uids
 
 WITH unlearned,
@@ -93,7 +93,7 @@ WITH unlearned,
      avg(coalesce(r.confidence, 1.0)) as avg_prerequisite_confidence
 
 // STEP 4: Count total prerequisites (learned or not)
-OPTIONAL MATCH (unlearned)-[:REQUIRES_KNOWLEDGE]->(any_prereq:Ku)
+OPTIONAL MATCH (unlearned)-[:REQUIRES_KNOWLEDGE]->(any_prereq:Curriculum)
 WITH unlearned,
      satisfied_prereqs,
      avg_prerequisite_confidence,
@@ -133,13 +133,13 @@ The query uses two separate OPTIONAL MATCH clauses for prerequisites:
 
 **First pass - Satisfied prerequisites only:**
 ```cypher
-OPTIONAL MATCH (unlearned)-[r:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+OPTIONAL MATCH (unlearned)-[r:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
 WHERE prereq.uid IN learned_uids
 ```
 
 **Second pass - All prerequisites:**
 ```cypher
-OPTIONAL MATCH (unlearned)-[:REQUIRES_KNOWLEDGE]->(any_prereq:Ku)
+OPTIONAL MATCH (unlearned)-[:REQUIRES_KNOWLEDGE]->(any_prereq:Curriculum)
 ```
 
 **Why Two Passes:**

@@ -124,9 +124,9 @@ UIDGenerator.get_domain_from_uid(uid)  # Extract domain from UID
 
 ```cypher
 # MOC is NOT a separate entity - it's a KU with ORGANIZES relationships
-CREATE (moc:Ku {uid: "ku.yoga-fundamentals", title: "Yoga Fundamentals"})
-CREATE (ku1:Ku {uid: "ku.meditation", title: "Meditation"})
-CREATE (ku2:Ku {uid: "ku.breathing", title: "Breathing Techniques"})
+CREATE (moc:Curriculum {uid: "ku.yoga-fundamentals", title: "Yoga Fundamentals"})
+CREATE (ku1:Curriculum {uid: "ku.meditation", title: "Meditation"})
+CREATE (ku2:Curriculum {uid: "ku.breathing", title: "Breathing Techniques"})
 
 # A KU "is" a MOC when it has ORGANIZES relationships
 CREATE (moc)-[:ORGANIZES {order: 1}]->(ku1)
@@ -594,9 +594,9 @@ primary_kus = await ku_service.get_batch(ls.primary_knowledge_uids)
 ```cypher
 # Relationships store connections
 CREATE (ls:Ls {uid: "ls:abc123"})
-CREATE (ls)-[:CONTAINS_KNOWLEDGE {type: "primary"}]->(ku1:Ku {uid: "ku.python"})
-CREATE (ls)-[:CONTAINS_KNOWLEDGE {type: "primary"}]->(ku2:Ku {uid: "ku.functions"})
-CREATE (ls)-[:CONTAINS_KNOWLEDGE {type: "supporting"}]->(ku3:Ku {uid: "ku.variables"})
+CREATE (ls)-[:CONTAINS_KNOWLEDGE {type: "primary"}]->(ku1:Curriculum {uid: "ku.python"})
+CREATE (ls)-[:CONTAINS_KNOWLEDGE {type: "primary"}]->(ku2:Curriculum {uid: "ku.functions"})
+CREATE (ls)-[:CONTAINS_KNOWLEDGE {type: "supporting"}]->(ku3:Curriculum {uid: "ku.variables"})
 ```
 
 ```python

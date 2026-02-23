@@ -74,7 +74,7 @@ Neo4j Graph (digital)
 // Knowledge application
 (task:Task {uid: "task_finish-report_123"})
   -[:APPLIES_KNOWLEDGE]->
-(ku:Ku {uid: "ku_report-writing_456"})
+(ku:Curriculum {uid: "ku_report-writing_456"})
 
 // Goal fulfillment
 (task:Task {uid: "task_finish-report_123"})
@@ -439,7 +439,7 @@ RETURN path
 })
 
 // Entities created
-(sh)-[:CREATED]->(ku:Ku {uid: "ku_new-content_456"})
+(sh)-[:CREATED]->(ku:Curriculum {uid: "ku_new-content_456"})
 ```
 
 ---

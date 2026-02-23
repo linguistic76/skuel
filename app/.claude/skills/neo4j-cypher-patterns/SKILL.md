@@ -14,18 +14,17 @@ SKUEL uses Neo4j as its graph database with a 14-domain architecture. All domain
 
 | Domain | Label | UID Format | Example |
 |--------|-------|------------|---------|
-| Tasks | `Task` | `task:{uuid}` | `task:550e8400-e29b-41d4-a716-446655440000` |
-| Goals | `Goal` | `goal:{uuid}` | `goal:123e4567-e89b-12d3-a456-426614174000` |
-| Habits | `Habit` | `habit:{uuid}` | `habit:...` |
-| Events | `Event` | `event:{uuid}` | `event:...` |
-| Choices | `Choice` | `choice:{uuid}` | `choice:...` |
-| Principles | `Principle` | `principle:{uuid}` | `principle:...` |
-| Knowledge Units | `Ku` | `ku.{filename}` | `ku.python-basics` |
-| Learning Steps | `Ls` | `ls.{name}` | `ls.intro-to-python` |
-| Learning Paths | `Lp` | `lp.{name}` | `lp.become-python-developer` |
-| Maps of Content | `Moc` | `moc.{name}` | `moc.programming-languages` |
-| Users | `User` | `user:{uuid}` | `user:...` |
-| Finance | `Expense` | `expense:{uuid}` | `expense:...` |
+| Tasks | `Task` | `task_{slug}_{random}` | `task_fix-bug_abc123` |
+| Goals | `Goal` | `goal_{slug}_{random}` | `goal_launch-product_def456` |
+| Habits | `Habit` | `habit_{slug}_{random}` | `habit_daily-run_xyz789` |
+| Events | `Event` | `event_{slug}_{random}` | `event_team-standup_ghi012` |
+| Choices | `Choice` | `choice_{slug}_{random}` | `choice_accept-offer_jkl345` |
+| Principles | `Principle` | `principle_{slug}_{random}` | `principle_small-steps_mno678` |
+| Knowledge Units | `Curriculum` | `ku_{slug}_{random}` | `ku_python-basics_abc123` |
+| Learning Steps | `LearningStep` | `ls:{random}` | `ls:intro-to-python` |
+| Learning Paths | `LearningPath` | `lp:{random}` | `lp:become-python-developer` |
+| Users | `User` | `user_{name}` | `user_mike` |
+| Finance | `Expense` | `expense_{random}` | `expense_abc123` |
 
 ### Core Relationships (Most Common)
 
@@ -36,9 +35,9 @@ SKUEL uses Neo4j as its graph database with a 14-domain architecture. All domain
 (user:User)-[:HAS_HABIT]->(habit:Habit)
 
 // Knowledge application
-(task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
-(goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku:Ku)
-(habit:Habit)-[:REINFORCES_KNOWLEDGE]->(ku:Ku)
+(task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
+(goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku:Curriculum)
+(habit:Habit)-[:REINFORCES_KNOWLEDGE]->(ku:Curriculum)
 
 // Goal hierarchy
 (task:Task)-[:FULFILLS_GOAL]->(goal:Goal)
@@ -46,9 +45,9 @@ SKUEL uses Neo4j as its graph database with a 14-domain architecture. All domain
 (goal:Goal)-[:SUBGOAL_OF]->(parent:Goal)
 
 // Knowledge structure
-(ku:Ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
-(ku:Ku)-[:ENABLES]->(enabled:Ku)
-(ku:Ku)-[:RELATED_TO]->(related:Ku)
+(ku:Curriculum)-[:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
+(ku:Curriculum)-[:ENABLES]->(enabled:Curriculum)
+(ku:Curriculum)-[:RELATED_TO]->(related:Curriculum)
 
 // Principles guidance
 (goal:Goal)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
@@ -72,7 +71,7 @@ ORDER BY t.priority DESC, t.due_date ASC
 ```cypher
 // Get task with its full neighborhood
 MATCH (t:Task {uid: $uid})
-OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
 OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
 OPTIONAL MATCH (t)-[:DEPENDS_ON]->(dep:Task)
 RETURN t,
@@ -86,7 +85,7 @@ RETURN t,
 ```cypher
 // Find all knowledge required for a goal (including transitive)
 MATCH (g:Goal {uid: $goal_uid})
-MATCH path = (g)-[:REQUIRES_KNOWLEDGE*1..3]->(ku:Ku)
+MATCH path = (g)-[:REQUIRES_KNOWLEDGE*1..3]->(ku:Curriculum)
 RETURN DISTINCT ku
 ORDER BY length(path)
 ```
@@ -97,7 +96,7 @@ ORDER BY length(path)
 // Search tasks with relationship filter
 MATCH (t:Task)
 WHERE t.title CONTAINS $query OR t.description CONTAINS $query
-OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
 WITH t, collect(ku) as knowledge
 WHERE size(knowledge) > 0  // Only tasks that apply knowledge
 RETURN t, knowledge
@@ -107,7 +106,7 @@ RETURN t, knowledge
 
 ```cypher
 // Get user's mastery state for knowledge units
-MATCH (u:User {uid: $user_uid})-[r:MASTERED|IN_PROGRESS|VIEWED]->(ku:Ku)
+MATCH (u:User {uid: $user_uid})-[r:MASTERED|IN_PROGRESS|VIEWED]->(ku:Curriculum)
 RETURN ku.uid,
        type(r) as status,
        r.mastery_score as score,
@@ -180,10 +179,10 @@ MATCH (t:Task {uid: '${uid}'})
 ```cypher
 // GOOD - returns task even without knowledge
 MATCH (t:Task {uid: $uid})
-OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
 
 // RISKY - returns nothing if no knowledge relationship
-MATCH (t:Task {uid: $uid})-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+MATCH (t:Task {uid: $uid})-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
 ```
 
 ### 3. Use COLLECT to Prevent Cartesian Products
@@ -191,13 +190,13 @@ MATCH (t:Task {uid: $uid})-[:APPLIES_KNOWLEDGE]->(ku:Ku)
 ```cypher
 // GOOD - one row per task
 MATCH (t:Task {uid: $uid})
-OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
 OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
 RETURN t, collect(DISTINCT ku) as knowledge, collect(DISTINCT g) as goals
 
 // BAD - cartesian product of knowledge × goals
 MATCH (t:Task {uid: $uid})
-OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
 OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
 RETURN t, ku, g
 ```

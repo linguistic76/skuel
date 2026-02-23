@@ -105,7 +105,7 @@ MATCH (n:Knowledge) SET n:Ku;
 // Verify
 MATCH (n:Lp) RETURN count(n);
 MATCH (n:Ls) RETURN count(n);
-MATCH (n:Ku) RETURN count(n);
+MATCH (n:Curriculum) RETURN count(n);
 ```
 
 **Option B: Rename Labels (Destructive)**
@@ -122,7 +122,7 @@ MATCH (n:Ku:Knowledge) REMOVE n:Knowledge;
 // Create new indexes
 CREATE INDEX lp_uid IF NOT EXISTS FOR (n:Lp) ON (n.uid);
 CREATE INDEX ls_uid IF NOT EXISTS FOR (n:Ls) ON (n.uid);
-CREATE INDEX ku_uid IF NOT EXISTS FOR (n:Ku) ON (n.uid);
+CREATE INDEX ku_uid IF NOT EXISTS FOR (n:Curriculum) ON (n.uid);
 
 // Drop old indexes (after verification)
 DROP INDEX learning_path_uid IF EXISTS;

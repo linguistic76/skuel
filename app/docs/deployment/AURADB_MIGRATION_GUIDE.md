@@ -489,7 +489,7 @@ CREATE CONSTRAINT choice_uid_unique IF NOT EXISTS FOR (c:Choice) REQUIRE c.uid I
 CREATE CONSTRAINT principle_uid_unique IF NOT EXISTS FOR (p:Principle) REQUIRE p.uid IS UNIQUE;
 
 // Curriculum domain constraints (3 domains)
-CREATE CONSTRAINT ku_uid_unique IF NOT EXISTS FOR (k:Ku) REQUIRE k.uid IS UNIQUE;
+CREATE CONSTRAINT ku_uid_unique IF NOT EXISTS FOR (k:Entity) REQUIRE k.uid IS UNIQUE;
 CREATE CONSTRAINT ls_uid_unique IF NOT EXISTS FOR (l:Ls) REQUIRE l.uid IS UNIQUE;
 CREATE CONSTRAINT lp_uid_unique IF NOT EXISTS FOR (lp:Lp) REQUIRE lp.uid IS UNIQUE;
 
@@ -515,7 +515,7 @@ poetry run python scripts/create_vector_indexes.py
 ```cypher
 // KU vector index
 CREATE VECTOR INDEX ku_embedding_idx IF NOT EXISTS
-FOR (n:Ku)
+FOR (n:Entity)
 ON n.embedding
 OPTIONS {
   indexConfig: {

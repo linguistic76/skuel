@@ -1056,7 +1056,7 @@ async def compose_services(
         # Create backends directly (no wrapper) - makes lattice pattern visible
         # ACTIVITY DOMAINS - Use UniversalNeo4jBackend (requires DomainModelProtocol)
         # Domain-specific labels (NeoLabel.TASK, NeoLabel.GOAL, etc.) with
-        # base_label=NeoLabel.ENTITY for multi-label CREATE: (n:Ku:Entity:Task)
+        # base_label=NeoLabel.ENTITY for multi-label CREATE: (n:Entity:Task)
         # Phase 2 (January 2026): Pass prometheus_metrics for database instrumentation
         tasks_backend = UniversalNeo4jBackend[Task](
             driver,

@@ -288,7 +288,7 @@ async def sel_self_awareness(request: Request) -> Any:
   source: 'sel_curriculum',
   mastery_level: 'proficient',
   time_to_mastery_hours: 0.5
-}]->(:Ku)
+}]->(:Curriculum)
 ```
 
 **Files Modified:**
@@ -303,7 +303,7 @@ RETURN u.sel_self_awareness_views,
        // ...
 
 // Completion rates
-MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(k:Ku)
+MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(k:Curriculum)
 WHERE m.source = 'sel_curriculum'
 RETURN k.sel_category, count(m) as completions
 ```

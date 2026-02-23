@@ -27,9 +27,9 @@ async def create_constraint_indices(connection):
     logger.info("Creating constraint indices...")
     constraints = [
         (
-            "Ku",
+            "Entity",
             "uid",
-            "CREATE CONSTRAINT ku_uid_unique IF NOT EXISTS FOR (n:Entity) REQUIRE n.uid IS UNIQUE",
+            "CREATE CONSTRAINT entity_uid_unique IF NOT EXISTS FOR (n:Entity) REQUIRE n.uid IS UNIQUE",
         ),
         (
             "Content",
@@ -60,39 +60,39 @@ async def create_lookup_indices(connection):
     logger.info("Creating lookup indices...")
     indices = [
         (
-            "Ku",
+            "Entity",
             "title",
-            "CREATE INDEX ku_title IF NOT EXISTS FOR (n:Entity) ON (n.title)",
+            "CREATE INDEX entity_title IF NOT EXISTS FOR (n:Entity) ON (n.title)",
         ),
         (
-            "Ku",
+            "Entity",
             "status",
-            "CREATE INDEX ku_status IF NOT EXISTS FOR (n:Entity) ON (n.status)",
+            "CREATE INDEX entity_status IF NOT EXISTS FOR (n:Entity) ON (n.status)",
         ),
         (
-            "Ku",
+            "Entity",
             "parent_uid",
-            "CREATE INDEX ku_parent IF NOT EXISTS FOR (n:Entity) ON (n.parent_uid)",
+            "CREATE INDEX entity_parent IF NOT EXISTS FOR (n:Entity) ON (n.parent_uid)",
         ),
         (
-            "Ku",
+            "Entity",
             "content_type",
-            "CREATE INDEX ku_content_type IF NOT EXISTS FOR (n:Entity) ON (n.content_type)",
+            "CREATE INDEX entity_content_type IF NOT EXISTS FOR (n:Entity) ON (n.content_type)",
         ),
         (
-            "Ku",
+            "Entity",
             "practice_level",
-            "CREATE INDEX ku_practice_level IF NOT EXISTS FOR (n:Entity) ON (n.practice_level)",
+            "CREATE INDEX entity_practice_level IF NOT EXISTS FOR (n:Entity) ON (n.practice_level)",
         ),
         (
-            "Ku",
+            "Entity",
             "category",
-            "CREATE INDEX ku_category IF NOT EXISTS FOR (n:Entity) ON (n.category)",
+            "CREATE INDEX entity_category IF NOT EXISTS FOR (n:Entity) ON (n.category)",
         ),
         (
-            "Ku",
+            "Entity",
             "domain_uid",
-            "CREATE INDEX ku_domain_uid IF NOT EXISTS FOR (n:Entity) ON (n.domain_uid)",
+            "CREATE INDEX entity_domain_uid IF NOT EXISTS FOR (n:Entity) ON (n.domain_uid)",
         ),
         (
             "Content",
@@ -145,22 +145,22 @@ async def create_fulltext_indices(connection):
     logger.info("Creating fulltext indices...")
     fulltext_indices = [
         {
-            "name": "ku_title_fulltext",
+            "name": "entity_title_fulltext",
             "query": """
-            CREATE TEXT INDEX ku_title_fulltext IF NOT EXISTS
+            CREATE TEXT INDEX entity_title_fulltext IF NOT EXISTS
             FOR (n:Entity)
             ON (n.title)
             """,
-            "description": "KnowledgeUnit title",
+            "description": "Entity title",
         },
         {
-            "name": "ku_summary_fulltext",
+            "name": "entity_summary_fulltext",
             "query": """
-            CREATE TEXT INDEX ku_summary_fulltext IF NOT EXISTS
+            CREATE TEXT INDEX entity_summary_fulltext IF NOT EXISTS
             FOR (n:Entity)
             ON (n.summary)
             """,
-            "description": "KnowledgeUnit summary",
+            "description": "Entity summary",
         },
         {
             "name": "content_fulltext",
@@ -172,13 +172,13 @@ async def create_fulltext_indices(connection):
             "description": "Content body text",
         },
         {
-            "name": "ku_tags_fulltext",
+            "name": "entity_tags_fulltext",
             "query": """
-            CREATE TEXT INDEX ku_tags_fulltext IF NOT EXISTS
+            CREATE TEXT INDEX entity_tags_fulltext IF NOT EXISTS
             FOR (n:Entity)
             ON (n.tags)
             """,
-            "description": "KnowledgeUnit tags",
+            "description": "Entity tags",
         },
         {
             "name": "domain_aliases_fulltext",
@@ -208,18 +208,18 @@ async def create_composite_indices(connection):
     logger.info("Creating composite indices...")
     composite_indices = [
         {
-            "name": "ku_domain_status",
-            "query": "CREATE INDEX ku_domain_status IF NOT EXISTS FOR (n:Entity) ON (n.domain_uid, n.status)",
+            "name": "entity_domain_status",
+            "query": "CREATE INDEX entity_domain_status IF NOT EXISTS FOR (n:Entity) ON (n.domain_uid, n.status)",
             "description": "Domain + Status lookups",
         },
         {
-            "name": "ku_practice_status",
-            "query": "CREATE INDEX ku_practice_status IF NOT EXISTS FOR (n:Entity) ON (n.practice_level, n.status)",
+            "name": "entity_practice_status",
+            "query": "CREATE INDEX entity_practice_status IF NOT EXISTS FOR (n:Entity) ON (n.practice_level, n.status)",
             "description": "Practice Level + Status lookups",
         },
         {
-            "name": "ku_type_category",
-            "query": "CREATE INDEX ku_type_category IF NOT EXISTS FOR (n:Entity) ON (n.content_type, n.category)",
+            "name": "entity_type_category",
+            "query": "CREATE INDEX entity_type_category IF NOT EXISTS FOR (n:Entity) ON (n.content_type, n.category)",
             "description": "Content Type + Category lookups",
         },
         {

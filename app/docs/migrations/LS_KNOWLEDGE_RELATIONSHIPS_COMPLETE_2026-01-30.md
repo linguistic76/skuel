@@ -90,7 +90,7 @@ supporting_knowledge_uids: tuple[str, ...] = ()  # Supporting knowledge (transit
     type: "primary" | "supporting",  // Required: Knowledge importance
     created_at: datetime(),           // When relationship created
     updated_at: datetime()            // Last updated
-}]->(ku:Ku)
+}]->(ku:Curriculum)
 ```
 
 **Properties:**

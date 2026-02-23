@@ -8,32 +8,32 @@ Complete catalog of all relationship types in SKUEL's graph database.
 
 ### Knowledge Relationships
 
-Relationships involving KnowledgeUnits (`Ku` nodes).
+Relationships involving Knowledge Units (`Curriculum` nodes).
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
-| `PREREQUISITE` | Ku | Ku | Direct prerequisite dependency |
-| `REQUIRES_PREREQUISITE` | Ku | Ku | Requires as prerequisite |
-| `ENABLES` | Ku | Ku | This knowledge enables learning another |
-| `RELATED_TO` | Ku | Ku | General semantic relationship |
-| `HAS_NARROWER` | Ku | Ku | Parent → child concept hierarchy |
-| `HAS_BROADER` | Ku | Ku | Child → parent concept hierarchy |
-| `REQUIRES_KNOWLEDGE` | Goal/Task | Ku | Entity requires this knowledge |
-| `APPLIES_KNOWLEDGE` | Task/Event | Ku | Entity applies this knowledge |
-| `REINFORCES_KNOWLEDGE` | Habit | Ku | Habit reinforces this knowledge |
-| `PRACTICES_KNOWLEDGE` | Event | Ku | Event practices this knowledge |
-| `GROUNDED_IN_KNOWLEDGE` | Principle | Ku | Principle grounded in knowledge |
-| `GROUNDS_PRINCIPLE` | Ku | Principle | Knowledge grounds this principle |
-| `ENABLES_KNOWLEDGE` | Ku | Ku | Enables learning this knowledge |
-| `ENABLES_GOAL` | Ku | Goal | Knowledge enables goal achievement |
-| `ENABLES_TASK` | Ku | Task | Knowledge enables task completion |
-| `INFORMS_CHOICE` | Ku | Choice | Knowledge informs this choice |
-| `SUPPORTS_HABIT` | Ku | Habit | Knowledge supports habit formation |
-| `COMPLETES_KNOWLEDGE` | Task | Ku | Task completion demonstrates mastery |
-| `INFERRED_KNOWLEDGE` | * | Ku | Inferred (not explicit) knowledge link |
-| `GUIDED_BY_KNOWLEDGE` | Goal | Ku | Goal guided by knowledge |
-| `REINFORCED_BY_KNOWLEDGE` | Habit | Ku | Habit reinforced by knowledge |
-| `BLOCKED_BY_KNOWLEDGE` | Task | Ku | Task blocked by lack of knowledge |
+| `PREREQUISITE` | Curriculum | Curriculum | Direct prerequisite dependency |
+| `REQUIRES_PREREQUISITE` | Curriculum | Curriculum | Requires as prerequisite |
+| `ENABLES` | Curriculum | Curriculum | This knowledge enables learning another |
+| `RELATED_TO` | Curriculum | Curriculum | General semantic relationship |
+| `HAS_NARROWER` | Curriculum | Curriculum | Parent → child concept hierarchy |
+| `HAS_BROADER` | Curriculum | Curriculum | Child → parent concept hierarchy |
+| `REQUIRES_KNOWLEDGE` | Goal/Task | Curriculum | Entity requires this knowledge |
+| `APPLIES_KNOWLEDGE` | Task/Event | Curriculum | Entity applies this knowledge |
+| `REINFORCES_KNOWLEDGE` | Habit | Curriculum | Habit reinforces this knowledge |
+| `PRACTICES_KNOWLEDGE` | Event | Curriculum | Event practices this knowledge |
+| `GROUNDED_IN_KNOWLEDGE` | Principle | Curriculum | Principle grounded in knowledge |
+| `GROUNDS_PRINCIPLE` | Curriculum | Principle | Knowledge grounds this principle |
+| `ENABLES_KNOWLEDGE` | Curriculum | Curriculum | Enables learning this knowledge |
+| `ENABLES_GOAL` | Curriculum | Goal | Knowledge enables goal achievement |
+| `ENABLES_TASK` | Curriculum | Task | Knowledge enables task completion |
+| `INFORMS_CHOICE` | Curriculum | Choice | Knowledge informs this choice |
+| `SUPPORTS_HABIT` | Curriculum | Habit | Knowledge supports habit formation |
+| `COMPLETES_KNOWLEDGE` | Task | Curriculum | Task completion demonstrates mastery |
+| `INFERRED_KNOWLEDGE` | * | Curriculum | Inferred (not explicit) knowledge link |
+| `GUIDED_BY_KNOWLEDGE` | Goal | Curriculum | Goal guided by knowledge |
+| `REINFORCED_BY_KNOWLEDGE` | Habit | Curriculum | Habit reinforced by knowledge |
+| `BLOCKED_BY_KNOWLEDGE` | Task | Curriculum | Task blocked by lack of knowledge |
 
 ### Task Relationships
 
@@ -51,7 +51,7 @@ Task dependencies, contributions, and cross-domain links.
 | `REQUIRES_TASK` | * | Task | Requires this task |
 | `FUNDS_TASK` | Expense | Task | Expense funds this task |
 | `TRIGGERS_ON_COMPLETION` | Task | Task | Completing triggers another |
-| `UNLOCKS_KNOWLEDGE` | Task | Ku | Completing unlocks knowledge |
+| `UNLOCKS_KNOWLEDGE` | Task | Curriculum | Completing unlocks knowledge |
 | `COMPLETED_TASK` | User | Task | User completed this task |
 | `ASSIGNED_TO` | Task | User | Task assigned to user |
 
@@ -119,10 +119,10 @@ Choice influences and outcomes.
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
 | `INFORMED_BY_PRINCIPLE` | Choice | Principle | Choice informed by principle |
-| `INFORMED_BY_KNOWLEDGE` | Choice | Ku | Choice informed by knowledge |
+| `INFORMED_BY_KNOWLEDGE` | Choice | Curriculum | Choice informed by knowledge |
 | `INSPIRED_BY_CHOICE` | * | Choice | Inspired by this choice |
 | `IMPLEMENTS_CHOICE` | Task | Choice | Task implements choice |
-| `REQUIRES_KNOWLEDGE_FOR_DECISION` | Choice | Ku | Choice requires knowledge |
+| `REQUIRES_KNOWLEDGE_FOR_DECISION` | Choice | Curriculum | Choice requires knowledge |
 | `OPENS_LEARNING_PATH` | Choice | Lp | Choice opens learning path |
 | `AFFECTS_GOAL` | Choice | Goal | Choice affects goal |
 
@@ -147,10 +147,10 @@ State progression: `NONE` → `VIEWED` → `IN_PROGRESS` → `MASTERED`
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
-| `VIEWED` | User | Ku | User has seen/read this content |
-| `IN_PROGRESS` | User | Ku | User is actively learning |
-| `MASTERED` | User | Ku | User has acquired this knowledge |
-| `LEARNING` | User | Ku | Legacy - use IN_PROGRESS |
+| `VIEWED` | User | Curriculum | User has seen/read this content |
+| `IN_PROGRESS` | User | Curriculum | User is actively learning |
+| `MASTERED` | User | Curriculum | User has acquired this knowledge |
+| `LEARNING` | User | Curriculum | Legacy - use IN_PROGRESS |
 
 ### Finance Relationships
 
@@ -217,7 +217,7 @@ Some relationships carry metadata on the edge:
 (task)-[:APPLIES_KNOWLEDGE {confidence: 0.85}]->(ku)
 
 // Filter by confidence
-MATCH (t:Task)-[r:APPLIES_KNOWLEDGE]->(ku:Ku)
+MATCH (t:Task)-[r:APPLIES_KNOWLEDGE]->(ku:Curriculum)
 WHERE r.confidence >= 0.8
 ```
 

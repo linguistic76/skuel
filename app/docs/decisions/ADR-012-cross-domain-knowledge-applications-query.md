@@ -94,7 +94,7 @@ We will use a **single complex Cypher query** with multiple OPTIONAL MATCH claus
 
 **Query Structure:**
 ```cypher
-MATCH (ku:Ku {uid: $knowledge_uid})
+MATCH (ku:Curriculum {uid: $knowledge_uid})
 
 // Tasks applying this knowledge
 OPTIONAL MATCH (ku)<-[:APPLIES_KNOWLEDGE]-(task:Task {user_uid: $user_uid})
@@ -464,7 +464,7 @@ Comparison to naive approach (7 separate queries):
 // Purpose: Show how knowledge is applied across all 7 activity domains
 // Complexity: 52 points (EXTREME - highest in codebase)
 
-MATCH (ku:Ku {uid: $knowledge_uid})
+MATCH (ku:Curriculum {uid: $knowledge_uid})
 
 // Domain 1: Tasks applying this knowledge
 OPTIONAL MATCH (ku)<-[:APPLIES_KNOWLEDGE]-(task:Task {user_uid: $user_uid})

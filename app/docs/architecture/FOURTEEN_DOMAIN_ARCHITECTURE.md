@@ -50,7 +50,7 @@ SKUEL is built on a **15-domain + 5 cross-cutting systems architecture** that re
 
 The codebase underwent a 6-phase domain-first migration (Phases 0-5) that introduced:
 
-1. **Neo4j multi-label architecture** -- every entity gets `:Entity` (universal) + domain-specific labels (`:Task`, `:Goal`, etc.), with `:Ku` retained for backward compatibility
+1. **Neo4j multi-label architecture** -- every entity gets `:Entity` (universal) + domain-specific labels (`:Task`, `:Goal`, etc.)
 2. **Renamed model classes** -- all `*Ku` suffixes removed (e.g., `TaskKu` to `Task`, `GoalKu` to `Goal`, `KuBase` to `Entity`), with `KuType` to `EntityType` and `KuStatus` to `EntityStatus`
 3. **`UserOwnedEntity` intermediate class** -- separates user-owned fields (`user_uid`, `priority`) from the base `Entity`
 4. **Per-domain DTOs** -- `TaskDTO`, `GoalDTO`, `HabitDTO`, etc. replace monolithic `KuDTO` for all services (KuDTO deleted February 2026)
@@ -90,10 +90,10 @@ EntityDTO (~18 fields)
 Every entity node gets two or more labels:
 
 ```cypher
-// CREATE produces triple labels (domain-specific + :Entity + :Ku for backward compat)
-CREATE (n:Ku:Entity:Task {uid: $uid, ...})
-CREATE (n:Ku:Entity:Goal {uid: $uid, ...})
-CREATE (n:Ku:Entity:LearningStep {uid: $uid, ...})
+// CREATE produces dual labels (:Entity + domain-specific)
+CREATE (n:Entity:Task {uid: $uid, ...})
+CREATE (n:Entity:Goal {uid: $uid, ...})
+CREATE (n:Entity:LearningStep {uid: $uid, ...})
 ```
 
 **`NeoLabel` enum** (`/core/models/enums/neo_labels.py`) has 16 domain labels + `from_entity_type()` method:
@@ -101,7 +101,6 @@ CREATE (n:Ku:Entity:LearningStep {uid: $uid, ...})
 | Category | Labels |
 |----------|--------|
 | **Universal** | `:Entity` (all domain entities) |
-| **Legacy** | `:Ku` (retained for backward compat) |
 | **Activity (6)** | `:Task`, `:Goal`, `:Habit`, `:Event`, `:Choice`, `:Principle` |
 | **Curriculum (4)** | `:Curriculum`, `:Resource`, `:LearningStep`, `:LearningPath` |
 | **Content (4)** | `:Submission`, `:Journal`, `:AiReport`, `:Feedback` |
@@ -537,7 +536,7 @@ Sequential learning                   /    |    \
 **ORGANIZES Relationship:**
 ```cypher
 // Create organization (Entity organizing Entity)
-(parent:Ku:Entity)-[:ORGANIZES {order: int}]->(child:Ku:Entity)
+(parent:Entity)-[:ORGANIZES {order: int}]->(child:Entity)
 
 // Check if Entity is a MOC
 MATCH (e:Entity {uid: $uid})
@@ -873,11 +872,11 @@ All backends use the multi-label architecture. The `base_label=NeoLabel.ENTITY` 
 | **Activity** | Direct `UniversalNeo4jBackend[Task]` etc. | `UniversalNeo4jBackend(driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)` |
 | **MOC** | No backend - MOC uses KuService (MOC IS an Entity with ORGANIZES) | -- |
 
-**CREATE produces triple labels:**
+**CREATE produces dual labels:**
 ```cypher
-CREATE (n:Ku:Entity:Task {uid: $uid, ...})     // :Ku retained for backward compat
-CREATE (n:Ku:Entity:Goal {uid: $uid, ...})
-CREATE (n:Ku:Entity:LearningStep {uid: $uid, ...})
+CREATE (n:Entity:Task {uid: $uid, ...})
+CREATE (n:Entity:Goal {uid: $uid, ...})
+CREATE (n:Entity:LearningStep {uid: $uid, ...})
 ```
 
 ### Search Service Pattern
@@ -1247,35 +1246,35 @@ class ParsedActivityLine:
 
 ### Neo4j Multi-Label Node Types (15 domains)
 
-Every entity node has TWO+ labels: `:Entity` (universal) + domain-specific + `:Ku` (legacy compat).
+Every entity node has TWO+ labels: `:Entity` (universal) + domain-specific (`:Task`, `:Goal`, etc.).
 
 ```cypher
 // Activity Domains (6) — inherit from UserOwnedEntity
-(:Ku:Entity:Task {uid, ku_type, title, due_date, status, priority, user_uid, ...})
-(:Ku:Entity:Habit {uid, ku_type, title, recurrence_pattern, streak, user_uid, ...})
-(:Ku:Entity:Goal {uid, ku_type, title, target_date, progress, user_uid, ...})
-(:Ku:Entity:Event {uid, ku_type, title, event_date, duration, user_uid, ...})
-(:Ku:Entity:Principle {uid, ku_type, name, statement, category, user_uid, ...})
-(:Ku:Entity:Choice {uid, ku_type, title, decision_deadline, user_uid, ...})
+(:Entity:Task {uid, ku_type, title, due_date, status, priority, user_uid, ...})
+(:Entity:Habit {uid, ku_type, title, recurrence_pattern, streak, user_uid, ...})
+(:Entity:Goal {uid, ku_type, title, target_date, progress, user_uid, ...})
+(:Entity:Event {uid, ku_type, title, event_date, duration, user_uid, ...})
+(:Entity:Principle {uid, ku_type, name, statement, category, user_uid, ...})
+(:Entity:Choice {uid, ku_type, title, decision_deadline, user_uid, ...})
 
 // Finance Domain (1) — non-Entity, standalone
 (:Expense {uid, amount, category, expense_date, ...})
 
 // Curriculum Domains (3) — inherit from Curriculum(Entity) or Resource(Entity)
-(:Ku:Entity:Curriculum {uid, ku_type, title, content, domain, complexity, ...})
-(:Ku:Entity:Resource {uid, ku_type, title, content, source_url, ...})
-(:Ku:Entity:LearningStep {uid, ku_type, title, intent, estimated_hours, ...})
-(:Ku:Entity:LearningPath {uid, ku_type, name, goal, difficulty, ...})
+(:Entity:Curriculum {uid, ku_type, title, content, domain, complexity, ...})
+(:Entity:Resource {uid, ku_type, title, content, source_url, ...})
+(:Entity:LearningStep {uid, ku_type, title, intent, estimated_hours, ...})
+(:Entity:LearningPath {uid, ku_type, name, goal, difficulty, ...})
 
 // Content/Processing Domains — inherit from Submission(UserOwnedEntity)
-(:Ku:Entity:Submission {uid, ku_type, status, user_uid, ...})
-(:Ku:Entity:Journal {uid, ku_type, content, processed_at, user_uid, ...})
-(:Ku:Entity:AiReport {uid, ku_type, user_uid, ...})
-(:Ku:Entity:Feedback {uid, ku_type, subject_uid, user_uid, ...})
+(:Entity:Submission {uid, ku_type, status, user_uid, ...})
+(:Entity:Journal {uid, ku_type, content, processed_at, user_uid, ...})
+(:Entity:AiReport {uid, ku_type, user_uid, ...})
+(:Entity:Feedback {uid, ku_type, subject_uid, user_uid, ...})
 
 // Organizational Domains (2) — Groups + MOC
 (:Group {uid, name, description, owner_uid, is_active, max_members, created_at, ...})
-(:Ku:Entity:Exercise {uid, ku_type, name, instructions, scope, due_date, processor_type, group_uid, ...})
+(:Entity:Exercise {uid, ku_type, name, instructions, scope, due_date, processor_type, group_uid, ...})
 // MOC is NOT a separate node type — it IS an :Entity with ORGANIZES relationships
 // An Entity "is" a MOC when: EXISTS((e:Entity)-[:ORGANIZES]->(:Entity))
 
@@ -1288,7 +1287,7 @@ Every entity node has TWO+ labels: `:Entity` (universal) + domain-specific + `:K
 (:User {uid, email, name, ...})
 ```
 
-**Note:** The `ku_type` property is NOT renamed in the database -- it stores the `EntityType` enum value (e.g., `"task"`, `"goal"`, `"curriculum"`). The `:Ku` label is retained on all entity nodes for backward compatibility.
+**Note:** The `ku_type` property is NOT renamed in the database -- it stores the `EntityType` enum value (e.g., `"task"`, `"goal"`, `"curriculum"`). The `:Entity` is the universal base label on all entity nodes.
 
 ### Relationship Types
 
