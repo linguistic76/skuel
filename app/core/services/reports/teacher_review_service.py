@@ -79,11 +79,11 @@ class TeacherReviewService:
         params: dict[str, Any] = {"teacher_uid": teacher_uid}
 
         if status_filter:
-            where_clauses.append("ku.status = $status_filter")
+            where_clauses.append("report.status = $status_filter")
             params["status_filter"] = status_filter
 
         if ku_type_filter:
-            where_clauses.append("ku.ku_type = $ku_type_filter")
+            where_clauses.append("report.ku_type = $ku_type_filter")
             params["ku_type_filter"] = ku_type_filter
 
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""

@@ -201,7 +201,7 @@ Use `@safe_event_handler` for:
 
 ## Handling Optional Services (Fail-Fast Pattern)
 
-When a service is optional (e.g., `ku_inference_service` may or may not be configured), use the following pattern:
+When a service is optional (e.g., `entity_inference_service` may or may not be configured), use the following pattern:
 
 ```python
 @with_error_handling("knowledge_inference", error_type="system")
@@ -210,12 +210,12 @@ async def _enhance_with_knowledge_inference(self, dto: TaskDTO) -> Result[TaskDT
     Returns Result.ok(None) if inference service not configured (feature disabled).
     Fails fast if inference service IS configured but fails.
     """
-    if not self.ku_inference_service:
+    if not self.entity_inference_service:
         # Feature not configured - this is OK, return None
         return Result.ok(None)
 
     # If service IS configured, it must work - fail fast on errors
-    enhanced_dto = await self.ku_inference_service.enhance_task_dto_with_inference(dto)
+    enhanced_dto = await self.entity_inference_service.enhance_task_dto_with_inference(dto)
     return Result.ok(enhanced_dto)
 
 # Caller handles the Result
@@ -322,8 +322,8 @@ Keep manual try-except for:
 | user_progress_service | ✅ Complete | 5 methods |
 | unified_progress_service | ✅ Complete | 2 methods |
 | semantic_analytics_service | ✅ Complete | 5 methods |
-| ku_generation_service | ✅ Complete | 5 methods |
-| ku_inference_service | ✅ Complete | 4 methods |
+| insight_generation_service | ✅ Complete | 5 methods |
+| entity_inference_service | ✅ Complete | 4 methods |
 | event_logger_service | ✅ Complete | 5 methods |
 | **Schema Services** | | |
 | schema_service | ✅ Complete | 11 methods |

@@ -26,7 +26,7 @@ import pytest
 
 from core.events import TaskEmbeddingRequested
 from core.models.enums.ku_enums import EntityType
-from core.models.ku.ku_request import KuTaskCreateRequest as TaskCreateRequest
+from core.models.ku.ku_request import TaskCreateRequest as TaskCreateRequest
 from core.services.background.embedding_worker import EmbeddingBackgroundWorker
 from core.utils.embedding_text_builder import build_embedding_text
 
@@ -486,9 +486,9 @@ class TestChoiceEmbeddingEvents:
         event_bus.subscribe(ChoiceEmbeddingRequested, capture_event)
 
         # Create choice
-        from core.models.ku.ku_request import KuChoiceCreateRequest
+        from core.models.ku.ku_request import ChoiceCreateRequest
 
-        request = KuChoiceCreateRequest(
+        request = ChoiceCreateRequest(
             title="Career Path Decision",
             description="Choose between staying at current company or joining startup",
             decision_context="Looking for growth opportunities",

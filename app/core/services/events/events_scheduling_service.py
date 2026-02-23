@@ -31,7 +31,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_tuple_first
 
 if TYPE_CHECKING:
-    from core.models.ku.ku_request import KuEventCreateRequest
+    from core.models.ku.ku_request import EventCreateRequest
     from core.ports import BackendOperations
 
 
@@ -177,7 +177,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Event]", Event]):
     @with_error_handling("schedule_event_smart", error_type="database")
     async def schedule_event_smart(
         self,
-        event_data: "KuEventCreateRequest",
+        event_data: "EventCreateRequest",
         user_context: UserContext,
         avoid_conflicts: bool = True,
     ) -> Result[Event]:

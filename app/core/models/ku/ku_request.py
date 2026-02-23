@@ -8,26 +8,26 @@ Pydantic models for API boundaries — validation and serialization.
 14 create requests (one per EntityType), one update, one response.
 
 Create requests (Content Processing):
-    KuCurriculumCreateRequest    → Admin creates shared knowledge
-    KuAssignmentCreateRequest    → Student submits work
-    KuAiReportCreateRequest      → System creates AI-derived analysis
-    KuFeedbackCreateRequest      → Teacher provides feedback
+    CurriculumCreateRequest    → Admin creates shared knowledge
+    SubmissionCreateRequest    → Student submits work
+    AiReportCreateRequest      → System creates AI-derived analysis
+    FeedbackCreateRequest      → Teacher provides feedback
 
 Create requests (Activity Domains):
-    KuTaskCreateRequest          → User creates task knowledge
-    KuGoalCreateRequest          → User creates goal knowledge
-    KuHabitCreateRequest         → User creates habit knowledge
-    KuEventCreateRequest         → User creates event knowledge
-    KuChoiceCreateRequest        → User creates choice knowledge
-    KuPrincipleCreateRequest     → User creates principle knowledge
+    TaskCreateRequest          → User creates task knowledge
+    GoalCreateRequest          → User creates goal knowledge
+    HabitCreateRequest         → User creates habit knowledge
+    EventCreateRequest         → User creates event knowledge
+    ChoiceCreateRequest        → User creates choice knowledge
+    PrincipleCreateRequest     → User creates principle knowledge
 
 Create requests (Shared/Curriculum):
-    KuMocCreateRequest           → Admin creates MOC (shared)
-    KuLearningStepCreateRequest  → Admin creates learning step (shared)
-    KuLearningPathCreateRequest  → Admin creates learning path (shared)
+    MocCreateRequest           → Admin creates MOC (shared)
+    LearningStepCreateRequest  → Admin creates learning step (shared)
+    LearningPathCreateRequest  → Admin creates learning path (shared)
 
 Create requests (Destination):
-    KuLifePathCreateRequest      → User creates life path knowledge
+    LifePathCreateRequest      → User creates life path knowledge
 
 Nested request models (used in create requests):
     MilestoneRequest             → Goal milestones
@@ -125,7 +125,7 @@ class PrincipleExpressionRequest(BaseModel):
 # =============================================================================
 
 
-class KuCurriculumCreateRequest(CreateRequestBase):
+class CurriculumCreateRequest(CreateRequestBase):
     """Create admin-authored curriculum knowledge (CURRICULUM type)."""
 
     title: str = Field(min_length=1, max_length=200, description="Title of the knowledge unit")
@@ -146,7 +146,7 @@ class KuCurriculumCreateRequest(CreateRequestBase):
     difficulty_rating: float = Field(default=0.5, ge=0.0, le=1.0, description="Difficulty 0.0-1.0")
 
 
-class KuAssignmentCreateRequest(CreateRequestBase):
+class SubmissionCreateRequest(CreateRequestBase):
     """Create a student submission (SUBMISSION type)."""
 
     title: str = Field(min_length=1, max_length=200, description="Submission title")
@@ -174,7 +174,7 @@ class KuAssignmentCreateRequest(CreateRequestBase):
     file_type: str | None = Field(None, description="MIME type")
 
 
-class KuAiReportCreateRequest(CreateRequestBase):
+class AiReportCreateRequest(CreateRequestBase):
     """Create an AI-derived report (AI_REPORT type). System-initiated."""
 
     title: str = Field(min_length=1, max_length=200, description="Report title")
@@ -191,7 +191,7 @@ class KuAiReportCreateRequest(CreateRequestBase):
     instructions: str | None = Field(None, description="Instructions used for generation")
 
 
-class KuFeedbackCreateRequest(CreateRequestBase):
+class FeedbackCreateRequest(CreateRequestBase):
     """Create teacher feedback on an assignment (FEEDBACK_REPORT type)."""
 
     title: str = Field(min_length=1, max_length=200, description="Feedback title")
@@ -209,7 +209,7 @@ class KuFeedbackCreateRequest(CreateRequestBase):
 # =============================================================================
 
 
-class KuTaskCreateRequest(CreateRequestBase):
+class TaskCreateRequest(CreateRequestBase):
     """Create a TASK Ku (knowledge about what needs doing)."""
 
     title: str = Field(min_length=1, max_length=200, description="Task title")
@@ -245,7 +245,7 @@ class KuTaskCreateRequest(CreateRequestBase):
     )
 
 
-class KuGoalCreateRequest(CreateRequestBase):
+class GoalCreateRequest(CreateRequestBase):
     """Create a GOAL Ku (knowledge about where you're heading)."""
 
     title: str = Field(min_length=1, max_length=200, description="Goal title")
@@ -299,7 +299,7 @@ class KuGoalCreateRequest(CreateRequestBase):
     )
 
 
-class KuHabitCreateRequest(CreateRequestBase):
+class HabitCreateRequest(CreateRequestBase):
     """Create a HABIT Ku (knowledge about what you practice)."""
 
     title: str = Field(min_length=1, max_length=200, description="Habit title")
@@ -341,7 +341,7 @@ class KuHabitCreateRequest(CreateRequestBase):
     )
 
 
-class KuEventCreateRequest(CreateRequestBase):
+class EventCreateRequest(CreateRequestBase):
     """Create an EVENT Ku (knowledge about what you attend)."""
 
     title: str = Field(min_length=1, max_length=200, description="Event title")
@@ -382,7 +382,7 @@ class KuEventCreateRequest(CreateRequestBase):
     reinforces_habit_uid: str | None = Field(None, description="Habit UID reinforced")
 
 
-class KuChoiceCreateRequest(CreateRequestBase):
+class ChoiceCreateRequest(CreateRequestBase):
     """Create a CHOICE Ku (knowledge about decisions you make)."""
 
     title: str = Field(min_length=1, max_length=200, description="Choice title")
@@ -411,7 +411,7 @@ class KuChoiceCreateRequest(CreateRequestBase):
     )
 
 
-class KuChoiceEvaluationRequest(BaseModel):
+class ChoiceEvaluationRequest(BaseModel):
     """Request model for evaluating choice outcomes."""
 
     satisfaction_score: int = Field(..., ge=1, le=5, description="Satisfaction score (1-5)")
@@ -421,7 +421,7 @@ class KuChoiceEvaluationRequest(BaseModel):
     lessons_learned: list[str] = Field(default_factory=list, description="Lessons learned")
 
 
-class KuChoiceDecisionRequest(BaseModel):
+class ChoiceDecisionRequest(BaseModel):
     """Request model for making a decision on a choice."""
 
     selected_option_uid: str = Field(..., description="UID of selected option")
@@ -431,7 +431,7 @@ class KuChoiceDecisionRequest(BaseModel):
     decided_at: datetime | None = Field(None, description="Decision timestamp")
 
 
-class KuChoiceOptionCreateRequest(BaseModel):
+class ChoiceOptionCreateRequest(BaseModel):
     """Request model for creating a choice option (standalone API endpoint)."""
 
     title: str = Field(..., min_length=1, max_length=200, description="Option title")
@@ -447,7 +447,7 @@ class KuChoiceOptionCreateRequest(BaseModel):
     tags: list[str] = Field(default_factory=list, description="Tags for categorization")
 
 
-class KuChoiceOptionUpdateRequest(BaseModel):
+class ChoiceOptionUpdateRequest(BaseModel):
     """Request model for updating a choice option."""
 
     title: str | None = Field(None, min_length=1, max_length=200)
@@ -461,7 +461,7 @@ class KuChoiceOptionUpdateRequest(BaseModel):
     tags: list[str] | None = None
 
 
-class KuPrincipleCreateRequest(CreateRequestBase):
+class PrincipleCreateRequest(CreateRequestBase):
     """Create a PRINCIPLE Ku (knowledge about what you believe)."""
 
     title: str = Field(min_length=1, max_length=100, description="Principle title")
@@ -600,7 +600,7 @@ class PrincipleAlignmentAssessmentResult:
 # =============================================================================
 
 
-class KuMocCreateRequest(CreateRequestBase):
+class MocCreateRequest(CreateRequestBase):
     """Create a MOC Ku (Map of Content — KU organizing KUs). Admin-only, shared."""
 
     title: str = Field(min_length=1, max_length=200, description="MOC title")
@@ -610,7 +610,7 @@ class KuMocCreateRequest(CreateRequestBase):
     tags: list[str] = Field(default_factory=list, description="Tags")
 
 
-class KuLearningStepCreateRequest(CreateRequestBase):
+class LearningStepCreateRequest(CreateRequestBase):
     """Create a LEARNING_STEP Ku (step in a learning path). Admin-only, shared."""
 
     title: str = Field(min_length=1, max_length=200, description="Step title")
@@ -647,7 +647,7 @@ class KuLearningStepCreateRequest(CreateRequestBase):
     )
 
 
-class KuLearningPathCreateRequest(CreateRequestBase):
+class LearningPathCreateRequest(CreateRequestBase):
     """Create a LEARNING_PATH Ku (ordered sequence of steps). Admin-only, shared."""
 
     title: str = Field(min_length=1, max_length=200, description="Learning path title")
@@ -671,7 +671,7 @@ class KuLearningPathCreateRequest(CreateRequestBase):
 # =============================================================================
 
 
-class KuLifePathCreateRequest(CreateRequestBase):
+class LifePathCreateRequest(CreateRequestBase):
     """Create a LIFE_PATH Ku (knowledge about your life direction)."""
 
     title: str = Field(min_length=1, max_length=200, description="Life path title")
@@ -686,7 +686,7 @@ class KuLifePathCreateRequest(CreateRequestBase):
 # =============================================================================
 
 
-class KuUpdateRequest(UpdateRequestBase):
+class EntityUpdateRequest(UpdateRequestBase):
     """Update any Ku type. All fields optional.
 
     Services validate which fields are appropriate per EntityType.
@@ -823,7 +823,7 @@ class KuUpdateRequest(UpdateRequestBase):
 # =============================================================================
 
 
-class KuResponse(ResponseBase):
+class EntityResponse(ResponseBase):
     """API response for any Ku type.
 
     Contains all fields needed to display any EntityType. Fields that don't apply
@@ -958,7 +958,7 @@ class KuResponse(ResponseBase):
     estimated_reading_time: int = 0
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO") -> "KuResponse":
+    def from_dto(cls, dto: "EntityDTO") -> "EntityResponse":
         """Create response from DTO."""
         estimated_reading_time = max(1, dto.word_count // 200) if dto.word_count > 0 else 0
 
@@ -1074,10 +1074,10 @@ class KuResponse(ResponseBase):
         )
 
 
-class KuListResponse(ListResponseBase):
+class EntityListResponse(ListResponseBase):
     """Response for listing multiple Ku items."""
 
-    items: list[KuResponse]
+    items: list[EntityResponse]
 
 
 # =============================================================================
@@ -1085,7 +1085,7 @@ class KuListResponse(ListResponseBase):
 # =============================================================================
 
 
-class CategorizeKuRequest(BaseModel):
+class CategorizeEntityRequest(BaseModel):
     """Request to categorize a Ku."""
 
     category: str = Field(
@@ -1136,7 +1136,7 @@ class BulkDeleteRequest(BaseModel):
     )
 
 
-class ProgressKuGenerateRequest(BaseModel):
+class ProgressReportGenerateRequest(BaseModel):
     """Request model for on-demand progress Ku generation."""
 
     time_period: str = Field(
@@ -1159,7 +1159,7 @@ class ProgressKuGenerateRequest(BaseModel):
     )
 
 
-class KuScheduleCreateRequest(BaseModel):
+class ScheduleCreateRequest(BaseModel):
     """Request model for creating a Ku generation schedule."""
 
     schedule_type: str = Field(
@@ -1184,7 +1184,7 @@ class KuScheduleCreateRequest(BaseModel):
     )
 
 
-class KuScheduleUpdateRequest(BaseModel):
+class ScheduleUpdateRequest(BaseModel):
     """Request model for updating a Ku schedule. All fields optional."""
 
     schedule_type: str | None = Field(
@@ -1216,7 +1216,7 @@ class AssessmentCreateRequest(BaseModel):
 # =============================================================================
 
 
-class KuLearningPathFilterRequest(BaseModel):
+class LearningPathFilterRequest(BaseModel):
     """Filter request for learning path browsing UI.
 
     Used by FormGenerator for filter form generation.
@@ -1228,7 +1228,7 @@ class KuLearningPathFilterRequest(BaseModel):
     duration: str | None = Field(None, description="Filter by time commitment")
 
 
-class KuLearningPathProgressRequest(BaseModel):
+class LearningPathProgressRequest(BaseModel):
     """Request model for updating learning progress on a step.
 
     Migrated from LpProgressRequest in the old lp_request.py.

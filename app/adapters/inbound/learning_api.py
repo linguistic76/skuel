@@ -23,7 +23,7 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRouteFactory
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
-from core.models.ku.ku_request import KuLearningPathCreateRequest, KuUpdateRequest
+from core.models.ku.ku_request import LearningPathCreateRequest, EntityUpdateRequest
 from core.ports.facade_protocols import LpFacadeProtocol
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -57,8 +57,8 @@ def create_learning_api_routes(
     crud_factory = CRUDRouteFactory(
         service=learning_service,
         domain_name="learning",
-        create_schema=KuLearningPathCreateRequest,
-        update_schema=KuUpdateRequest,
+        create_schema=LearningPathCreateRequest,
+        update_schema=EntityUpdateRequest,
         uid_prefix="lp",
         scope=ContentScope.SHARED,
         require_role=UserRole.ADMIN,
@@ -128,9 +128,9 @@ def create_learning_api_routes(
         """Update progress for a learning step."""
         body = await request.json()
 
-        from core.models.ku.ku_request import KuLearningPathProgressRequest
+        from core.models.ku.ku_request import LearningPathProgressRequest
 
-        KuLearningPathProgressRequest.model_validate(body)
+        LearningPathProgressRequest.model_validate(body)
 
         return Result.fail(
             Errors.system(

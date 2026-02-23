@@ -45,7 +45,7 @@ class KuSharingService:
         """
         self.executor = executor
 
-    async def share_ku(
+    async def share_report(
         self,
         ku_uid: str,
         owner_uid: str,
@@ -103,7 +103,7 @@ class KuSharingService:
         logger.info(f"Ku {ku_uid} shared with {recipient_uid} as {role}")
         return Result.ok(True)
 
-    async def unshare_ku(
+    async def unshare_report(
         self,
         ku_uid: str,
         owner_uid: str,
@@ -192,7 +192,7 @@ class KuSharingService:
 
         return Result.ok(users)
 
-    async def get_kus_shared_with_me(
+    async def get_reports_shared_with_me(
         self,
         user_uid: str,
         limit: int = 50,
@@ -225,13 +225,13 @@ class KuSharingService:
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        kus = []
+        reports = []
         for record in result.value:
             props = record["ku"]
             dto = SubmissionDTO.from_dict(props)
-            kus.append(dto)
+            reports.append(dto)
 
-        return Result.ok(kus)
+        return Result.ok(reports)
 
     async def set_visibility(
         self,
@@ -379,7 +379,7 @@ class KuSharingService:
         return Result.ok(True)
 
     # Activity ku_types that can be shared when active (not just completed)
-    _ACTIVITY_KU_TYPES = frozenset(
+    _ACTIVITY_ENTITY_TYPES = frozenset(
         {
             "task",
             "goal",
@@ -417,7 +417,7 @@ class KuSharingService:
         ku_type = records[0]["ku_type"]
 
         # Activity types can be shared when active or completed
-        if ku_type in self._ACTIVITY_KU_TYPES:
+        if ku_type in self._ACTIVITY_ENTITY_TYPES:
             if status in ("active", "completed"):
                 return Result.ok(True)
             return Result.fail(

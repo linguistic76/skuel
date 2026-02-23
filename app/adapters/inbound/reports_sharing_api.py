@@ -110,7 +110,7 @@ def create_reports_sharing_api_routes(
         """
         user_uid: UserUID = require_authenticated_user(request)
 
-        result = await sharing_service.share_ku(
+        result = await sharing_service.share_report(
             ku_uid=body.report_uid,
             owner_uid=user_uid,
             recipient_uid=body.recipient_uid,
@@ -149,7 +149,7 @@ def create_reports_sharing_api_routes(
         """
         user_uid: UserUID = require_authenticated_user(request)
 
-        result = await sharing_service.unshare_ku(
+        result = await sharing_service.unshare_report(
             ku_uid=body.report_uid,
             owner_uid=user_uid,
             recipient_uid=body.recipient_uid,
@@ -235,7 +235,7 @@ def create_reports_sharing_api_routes(
         params = dict(request.query_params)
         limit = int(params.get("limit", 50))
 
-        result = await sharing_service.get_kus_shared_with_me(
+        result = await sharing_service.get_reports_shared_with_me(
             user_uid=user_uid,
             limit=limit,
         )
@@ -306,7 +306,7 @@ def create_reports_sharing_api_routes(
 
         # Verify ownership (only owner can see who report is shared with)
         if core_service:
-            report_result = await core_service.get_ku(report_uid)
+            report_result = await core_service.get_report(report_uid)
             if report_result.is_error:
                 return Result.fail(report_result)
 

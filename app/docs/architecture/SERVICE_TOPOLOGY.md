@@ -218,10 +218,10 @@ Route Layer
 TasksService Sub-Services
 │
 ├─ TasksCoreService
-│   └─ Depends on: ku_inference_service (optional), event_bus (optional)
+│   └─ Depends on: entity_inference_service (optional), event_bus (optional)
 │
 ├─ TasksProgressService
-│   └─ Depends on: analytics_engine (KuAnalyticsEngine), event_bus (optional)
+│   └─ Depends on: analytics_engine (AnalyticsEngine), event_bus (optional)
 │       └─ Calls: relationships service internally
 │
 ├─ TasksSchedulingService
@@ -270,7 +270,7 @@ TasksService Sub-Services
 4. Core Service
    TasksCoreService.create_task()
        ├─ Validates request
-       ├─ Infers knowledge (ku_inference_service)
+       ├─ Infers knowledge (entity_inference_service)
        ├─ Converts to domain model (Task)
        ├─ Calls backend.create()
        └─ Publishes TaskCreated event
@@ -332,13 +332,13 @@ TasksService Sub-Services
    update_task()         TaskCompleted
        │                     └─> Listeners:
        ▼                         - UserContextService (update stats)
-   Neo4j UPDATE              - KuAnalyticsEngine (track mastery)
+   Neo4j UPDATE              - AnalyticsEngine (track mastery)
                                  - AchievementService (check badges)
    │
    ▼
 6. Knowledge Generation (Async)
    TasksService._trigger_knowledge_generation()
-       └─ ku_generation_service.extract_knowledge_from_completed_tasks()
+       └─ insight_generation_service.extract_knowledge_from_completed_tasks()
            └─ Analyzes last 30 days → generates KUs
 ```
 
@@ -429,7 +429,7 @@ Routes / Application Code
         │  - UniversalNeo4jBackend       │
         │  - UnifiedRelationshipService  │
         │  - GraphIntelligenceService    │
-        │  - KuAnalyticsEngine           │
+        │  - AnalyticsEngine           │
         │  - EventBus                    │
         └────────────────────────────────┘
 ```

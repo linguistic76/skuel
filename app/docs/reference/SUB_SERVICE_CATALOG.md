@@ -47,7 +47,7 @@ These sub-services exist across **all 6 Activity Domains** (Tasks, Goals, Habits
 **Dependencies:**
 - `backend: UniversalNeo4jBackend[T]`
 - `event_bus: EventBus` (optional)
-- Domain-specific services (e.g., `ku_inference_service` for TasksCoreService)
+- Domain-specific services (e.g., `entity_inference_service` for TasksCoreService)
 
 **Example:**
 ```python

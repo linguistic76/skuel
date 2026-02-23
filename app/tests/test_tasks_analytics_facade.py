@@ -29,7 +29,7 @@ def test_analytics_methods_exist():
     """
     from core.services.tasks_service import TasksService
 
-    # Methods that remain on TasksService (now direct calls to KuAnalyticsEngine)
+    # Methods that remain on TasksService (now direct calls to AnalyticsEngine)
     ku_analytics_methods = [
         "analyze_learning_patterns",
         "calculate_knowledge_aware_priorities",

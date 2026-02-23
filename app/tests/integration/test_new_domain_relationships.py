@@ -25,7 +25,7 @@ from datetime import date
 import pytest
 
 from core.models.ku.ku_relationships import KuRelationships
-from core.models.ku.ku_request import KuChoiceCreateRequest
+from core.models.ku.ku_request import ChoiceCreateRequest
 from core.models.ku.lp_relationships import LpRelationships
 from core.models.principle.principle_relationships import PrincipleRelationships
 from core.services.choices.choice_relationships import ChoiceRelationships
@@ -78,7 +78,7 @@ class TestChoiceRelationships:
     async def test_choice_relationships_fetch(self, services):
         """Test fetch() method with real services."""
         # Create a test choice
-        choice_request = KuChoiceCreateRequest(
+        choice_request = ChoiceCreateRequest(
             title="Test Choice for Relationships",
             description="Testing relationship fetching",
             decision_date=date.today(),
@@ -455,7 +455,7 @@ class TestParallelFetching:
         # Create multiple test choices
         choices = []
         for i in range(3):
-            choice_request = KuChoiceCreateRequest(
+            choice_request = ChoiceCreateRequest(
                 title=f"Test Choice {i}",
                 description=f"Testing parallel fetch {i}",
                 decision_date=date.today(),
@@ -484,7 +484,7 @@ class TestParallelFetching:
         from core.models.enums.ku_enums import PrincipleCategory
 
         # Create test entities in different domains using core services
-        choice_request = KuChoiceCreateRequest(
+        choice_request = ChoiceCreateRequest(
             title="Test Choice",
             description="Test choice for relationship fetching",
             decision_date=date.today(),

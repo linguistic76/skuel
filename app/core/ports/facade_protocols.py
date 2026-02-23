@@ -55,8 +55,8 @@ if TYPE_CHECKING:
     from core.models.ku.goal import Goal
     from core.models.ku.habit import Habit
     from core.models.ku.ku import Ku
-    from core.models.ku.ku_request import KuChoiceCreateRequest, KuUpdateRequest
-    from core.models.ku.ku_request import KuTaskCreateRequest as TaskCreateRequest
+    from core.models.ku.ku_request import ChoiceCreateRequest, EntityUpdateRequest
+    from core.models.ku.ku_request import TaskCreateRequest as TaskCreateRequest
     from core.models.ku.learning_path import LearningPath
     from core.models.ku.learning_step import LearningStep
     from core.models.ku.task import Task as Task
@@ -259,7 +259,7 @@ class ChoicesCoreOperations(Protocol):
         ...
 
     async def create_choice(
-        self, choice_request: KuChoiceCreateRequest, user_uid: str
+        self, choice_request: ChoiceCreateRequest, user_uid: str
     ) -> Result[Ku]:
         """Create a new choice."""
         ...
@@ -272,7 +272,7 @@ class ChoicesCoreOperations(Protocol):
         """Get all choices for a user."""
         ...
 
-    async def update_choice(self, choice_uid: str, choice_update: KuUpdateRequest) -> Result[Ku]:
+    async def update_choice(self, choice_uid: str, choice_update: EntityUpdateRequest) -> Result[Ku]:
         """Update a choice."""
         ...
 

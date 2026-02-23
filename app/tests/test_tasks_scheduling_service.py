@@ -21,7 +21,7 @@ import pytest
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.ku import LpPosition
 from core.models.ku.task_dto import TaskDTO
-from core.models.ku.ku_request import KuTaskCreateRequest
+from core.models.ku.ku_request import TaskCreateRequest
 from core.models.ku.learning_path import LearningPath
 from core.models.ku.learning_step import LearningStep
 from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
@@ -109,9 +109,9 @@ def learning_position() -> LpPosition:
 
 
 @pytest.fixture
-def task_request() -> KuTaskCreateRequest:
+def task_request() -> TaskCreateRequest:
     """Create sample task creation request."""
-    return KuTaskCreateRequest(
+    return TaskCreateRequest(
         title="Practice async programming",
         priority=Priority.MEDIUM,
         due_date=date.today() + timedelta(days=7),

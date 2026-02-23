@@ -13,7 +13,7 @@ Handles basic task lifecycle management.
 
 **Dependencies:**
 - BackendOperations[Task] (backend protocol)
-- KuInferenceService (optional - automatic knowledge inference)
+- EntityInferenceService (optional - automatic knowledge inference)
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.ku_enums import EntityType
-from core.models.ku.ku_request import KuTaskCreateRequest
+from core.models.ku.ku_request import TaskCreateRequest
 from core.models.ku.task import Task
 from core.models.ku.task_dto import TaskDTO
 from core.models.relationship_names import RelationshipName
@@ -73,7 +73,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
 
         Args:
             backend: TasksOperations backend (required)
-            ku_inference_service: KuInferenceService for knowledge inference (optional)
+            ku_inference_service: EntityInferenceService for knowledge inference (optional)
             event_bus: Event bus for publishing domain events (optional)
         """
         super().__init__(backend=backend, service_name="tasks.core")
@@ -225,7 +225,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
         return Result.ok(enhanced_dto)
 
     @with_error_handling("create_task", error_type="database")
-    async def create_task(self, task_request: KuTaskCreateRequest, user_uid: str) -> Result[Task]:
+    async def create_task(self, task_request: TaskCreateRequest, user_uid: str) -> Result[Task]:
         """
         Create a task with automatic knowledge inference.
 

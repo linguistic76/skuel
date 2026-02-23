@@ -33,8 +33,8 @@ from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 
 # Analytics engine (Phase 2.5)
-from core.services.ku_analytics_engine import (
-    KuAnalyticsEngine,
+from core.services.analytics_engine import (
+    AnalyticsEngine,
 )
 from core.services.mixins import FacadeDelegationMixin, merge_delegations
 
@@ -57,7 +57,7 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.graph_context import GraphContext
-    from core.models.ku.ku_request import KuTaskCreateRequest
+    from core.models.ku.ku_request import TaskCreateRequest
     from core.services.user import UserContext
 
 
@@ -269,8 +269,8 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Task]",
         Args:
             backend: Protocol-based backend for task operations,
             ku_inference_service: Service for automatic knowledge inference,
-            analytics_engine: KuAnalyticsEngine for advanced analytics (Phase 2.5),
-            ku_generation_service: KuGenerationService for automatic knowledge generation (Phase 4.1),
+            analytics_engine: AnalyticsEngine for advanced analytics (Phase 2.5),
+            ku_generation_service: InsightGenerationService for automatic knowledge generation (Phase 4.1),
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics,
             event_bus: Event bus for publishing domain events (optional)
             ai_service: Optional AI service for LLM/embeddings features (January 2026)
@@ -320,8 +320,8 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Task]",
         )
 
         # KU analytics engine for direct calls (simplified from TasksAnalyticsService)
-        # January 2026: TasksAnalyticsService removed - KuAnalyticsEngine called directly
-        self.analytics_engine = analytics_engine or KuAnalyticsEngine(
+        # January 2026: TasksAnalyticsService removed - AnalyticsEngine called directly
+        self.analytics_engine = analytics_engine or AnalyticsEngine(
             relationship_service=self.relationships
         )
         self.ku_generation_service = ku_generation_service
@@ -365,7 +365,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Task]",
     # EXPLICIT CORE METHODS (custom logic)
     # ========================================================================
 
-    async def create_task(self, task_request: KuTaskCreateRequest, user_uid: str) -> Result[Task]:
+    async def create_task(self, task_request: TaskCreateRequest, user_uid: str) -> Result[Task]:
         """
         Create a task with automatic knowledge inference.
 
@@ -626,7 +626,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Task]",
 
     # ========================================================================
     # KU ANALYTICS ENGINE - Direct calls (January 2026)
-    # These methods call KuAnalyticsEngine directly, replacing TasksAnalyticsService.
+    # These methods call AnalyticsEngine directly, replacing TasksAnalyticsService.
     # ========================================================================
 
     async def analyze_learning_patterns(

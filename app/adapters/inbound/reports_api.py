@@ -47,7 +47,7 @@ from core.models.ku.ku_request import (
     BulkCategorizeRequest,
     BulkDeleteRequest,
     BulkTagRequest,
-    CategorizeKuRequest,
+    CategorizeEntityRequest,
     RemoveTagsRequest,
 )
 from core.utils.logging import get_logger
@@ -239,7 +239,7 @@ def create_reports_api_routes(
         # Auto-process if requested
         if auto_process:
             logger.info(f"Auto-processing report: {report.uid}")
-            process_result = await processing_service.process_ku(report.uid)
+            process_result = await processing_service.process_report(report.uid)
 
             if process_result.is_error:
                 # Return report anyway, but note processing failed
@@ -314,7 +314,7 @@ def create_reports_api_routes(
                 return Result.fail(Errors.validation(f"Invalid status: {status}", field="status"))
 
         # List reports
-        result = await report_service.list_kus(
+        result = await report_service.list_reports(
             user_uid=user_uid,
             ku_type=parsed_report_type,
             status=parsed_status,
@@ -352,7 +352,7 @@ def create_reports_api_routes(
         Returns:
         - Report details
         """
-        result = await report_service.get_ku(uid)
+        result = await report_service.get_report(uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -380,7 +380,7 @@ def create_reports_api_routes(
         - Processed content (transcript text)
         """
         # Get report
-        report_result = await report_service.get_ku(uid)
+        report_result = await report_service.get_report(uid)
         if report_result.is_error or not report_result.value:
             return Result.fail(Errors.not_found(resource="Report", identifier=uid))
 
@@ -435,7 +435,7 @@ def create_reports_api_routes(
             except Exception:
                 pass  # No body provided
 
-        result = await processing_service.process_ku(uid, instructions)
+        result = await processing_service.process_report(uid, instructions)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -467,7 +467,7 @@ def create_reports_api_routes(
         from starlette.responses import Response
 
         # Get report
-        report_result = await report_service.get_ku(uid)
+        report_result = await report_service.get_report(uid)
         if report_result.is_error:
             return Response(
                 content=f"Error: {report_result.error.user_message if report_result.error else 'Report not found'}",
@@ -521,7 +521,7 @@ def create_reports_api_routes(
         from starlette.responses import Response
 
         # Get report
-        report_result = await report_service.get_ku(uid)
+        report_result = await report_service.get_report(uid)
         if report_result.is_error:
             return Response(
                 content=f"Error: {report_result.error.user_message if report_result.error else 'Report not found'}",
@@ -587,7 +587,7 @@ def create_reports_api_routes(
         if not user_uid:
             return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
 
-        result = await report_service.get_ku_statistics(user_uid)
+        result = await report_service.get_report_statistics(user_uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -616,10 +616,10 @@ def create_reports_api_routes(
             - category: Category string
             """
             body = await request.json()
-            req = CategorizeKuRequest.model_validate(body)
+            req = CategorizeEntityRequest.model_validate(body)
 
             # Verify ownership through get_report
-            report_result = await report_service.get_ku(report_uid)
+            report_result = await report_service.get_report(report_uid)
             if report_result.is_error:
                 return Result.fail(report_result.expect_error())
 
@@ -627,7 +627,7 @@ def create_reports_api_routes(
             if report is None or report.user_uid != user_uid:
                 return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
 
-            return await reports_core_service.categorize_ku(uid=report_uid, category=req.category)
+            return await reports_core_service.categorize_report(uid=report_uid, category=req.category)
 
         @rt("/api/reports/tags/add")
         @boundary_handler()
@@ -646,7 +646,7 @@ def create_reports_api_routes(
             req = AddTagsRequest.model_validate(body)
 
             # Verify ownership
-            report_result = await report_service.get_ku(report_uid)
+            report_result = await report_service.get_report(report_uid)
             if report_result.is_error:
                 return Result.fail(report_result.expect_error())
 
@@ -675,7 +675,7 @@ def create_reports_api_routes(
             req = RemoveTagsRequest.model_validate(body)
 
             # Verify ownership
-            report_result = await report_service.get_ku(report_uid)
+            report_result = await report_service.get_report(report_uid)
             if report_result.is_error:
                 return Result.fail(report_result.expect_error())
 
@@ -698,7 +698,7 @@ def create_reports_api_routes(
             - user_uid: User UID
             """
             # Verify ownership
-            report_result = await report_service.get_ku(report_uid)
+            report_result = await report_service.get_report(report_uid)
             if report_result.is_error:
                 return Result.fail(report_result.expect_error())
 
@@ -706,7 +706,7 @@ def create_reports_api_routes(
             if report is None or report.user_uid != user_uid:
                 return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
 
-            return await reports_core_service.publish_ku(uid=report_uid)
+            return await reports_core_service.publish_report(uid=report_uid)
 
         @rt("/api/reports/archive")
         @boundary_handler()
@@ -721,7 +721,7 @@ def create_reports_api_routes(
             - user_uid: User UID
             """
             # Verify ownership
-            report_result = await report_service.get_ku(report_uid)
+            report_result = await report_service.get_report(report_uid)
             if report_result.is_error:
                 return Result.fail(report_result.expect_error())
 
@@ -729,7 +729,7 @@ def create_reports_api_routes(
             if report is None or report.user_uid != user_uid:
                 return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
 
-            return await reports_core_service.archive_ku(uid=report_uid)
+            return await reports_core_service.archive_report(uid=report_uid)
 
         @rt("/api/reports/draft")
         @boundary_handler()
@@ -744,7 +744,7 @@ def create_reports_api_routes(
             - user_uid: User UID
             """
             # Verify ownership
-            report_result = await report_service.get_ku(report_uid)
+            report_result = await report_service.get_report(report_uid)
             if report_result.is_error:
                 return Result.fail(report_result.expect_error())
 
@@ -772,7 +772,7 @@ def create_reports_api_routes(
 
             # Verify user owns all reports
             for uid in req.ku_uids:
-                report_result = await report_service.get_ku(uid)
+                report_result = await report_service.get_report(uid)
                 if report_result.is_error:
                     return Result.fail(report_result.expect_error())
 
@@ -804,7 +804,7 @@ def create_reports_api_routes(
 
             # Verify ownership
             for uid in req.ku_uids:
-                report_result = await report_service.get_ku(uid)
+                report_result = await report_service.get_report(uid)
                 if report_result.is_error:
                     return Result.fail(report_result.expect_error())
 
@@ -834,7 +834,7 @@ def create_reports_api_routes(
 
             # Verify ownership
             for uid in req.ku_uids:
-                report_result = await report_service.get_ku(uid)
+                report_result = await report_service.get_report(uid)
                 if report_result.is_error:
                     return Result.fail(report_result.expect_error())
 
@@ -861,7 +861,7 @@ def create_reports_api_routes(
             - category: Category string
             - limit: Max results (default 50)
             """
-            return await reports_core_service.get_kus_by_category(
+            return await reports_core_service.get_reports_by_category(
                 category=category, limit=limit, user_uid=user_uid
             )
 
@@ -875,7 +875,7 @@ def create_reports_api_routes(
             - user_uid: User UID
             - limit: Max results (default 10)
             """
-            return await reports_core_service.get_recent_kus(limit=limit, user_uid=user_uid)
+            return await reports_core_service.get_recent_reports(limit=limit, user_uid=user_uid)
 
         logger.info("Report content management routes registered (12 new routes)")
 

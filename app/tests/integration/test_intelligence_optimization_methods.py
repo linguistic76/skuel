@@ -11,7 +11,7 @@ from datetime import date
 import pytest
 
 from core.models.enums.ku_enums import PrincipleCategory
-from core.models.ku.ku_request import KuChoiceCreateRequest
+from core.models.ku.ku_request import ChoiceCreateRequest
 
 
 @pytest.mark.asyncio
@@ -21,7 +21,7 @@ class TestChoicesIntelligenceOptimization:
     async def test_quick_decision_metrics_basic(self, services):
         """Test get_quick_decision_metrics() with basic choice."""
         # Create choice
-        choice_request = KuChoiceCreateRequest(
+        choice_request = ChoiceCreateRequest(
             title="Test Decision",
             description="Test choice for quick metrics",
             decision_date=date.today(),
@@ -64,7 +64,7 @@ class TestChoicesIntelligenceOptimization:
         # Create 3 simple choices
         choice_uids = []
         for i in range(3):
-            choice_request = KuChoiceCreateRequest(
+            choice_request = ChoiceCreateRequest(
                 title=f"Test Choice {i}",
                 description=f"Test choice {i}",
                 decision_date=date.today(),

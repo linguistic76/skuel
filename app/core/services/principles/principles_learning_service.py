@@ -17,7 +17,7 @@ from operator import itemgetter
 from typing import Any
 
 from core.models.enums import Domain, EntityStatus
-from core.models.ku.ku_request import KuPrincipleCreateRequest
+from core.models.ku.ku_request import PrincipleCreateRequest
 from core.models.ku.learning_path import LearningPath
 from core.models.ku.learning_step import LearningStep
 from core.models.ku.lp_position import LpPosition
@@ -161,7 +161,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
         super().__init__(backend, "principles.learning")
 
         # Initialize LearningAlignmentHelper with custom scorers (Phase 6)
-        self.learning_helper = LearningAlignmentHelper[Principle, PrincipleDTO, KuPrincipleCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Principle, PrincipleDTO, PrincipleCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="list_user_principles",

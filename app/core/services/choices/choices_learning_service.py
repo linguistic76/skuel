@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.ku.choice import Choice
 from core.models.ku.choice_dto import ChoiceDTO
-from core.models.ku.ku_request import KuChoiceCreateRequest
+from core.models.ku.ku_request import ChoiceCreateRequest
 from core.models.ku.learning_step import LearningStep
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -78,7 +78,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Choice]", Choice]):
         self.logger = get_logger("skuel.services.choices.learning")
 
         # Initialize LearningAlignmentHelper for learning operations (Phase 4)
-        self.learning_helper = LearningAlignmentHelper[Choice, ChoiceDTO, KuChoiceCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Choice, ChoiceDTO, ChoiceCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="get_user_choices",
@@ -91,7 +91,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Choice]", Choice]):
 
     async def create_choice_with_learning_guidance(
         self,
-        choice_request: KuChoiceCreateRequest,
+        choice_request: ChoiceCreateRequest,
         user_uid: str,
         learning_position: LpPosition | None = None,
     ) -> Result[Choice]:

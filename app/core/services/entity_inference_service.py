@@ -24,7 +24,7 @@ from core.models.ku.ku_inference import KnowledgeConnection
 from core.models.ku.task_dto import TaskDTO
 
 # Import the advanced inference engine
-from core.services.advanced_ku_inference_engine import AdvancedKuInferenceEngine
+from core.services.advanced_inference_engine import AdvancedInferenceEngine
 from core.services.tasks.task_relationships import TaskRelationships
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -47,7 +47,7 @@ class InferenceConfig:
     advanced_confidence_scoring: bool = True
 
 
-class KuInferenceService:
+class EntityInferenceService:
     """
     Service for automatic knowledge inference and enhancement.
 
@@ -82,7 +82,7 @@ class KuInferenceService:
 
         # Initialize advanced inference engine (Phase 2.4)
         if self.config.enable_advanced_engine:
-            self.advanced_engine = AdvancedKuInferenceEngine()
+            self.advanced_engine = AdvancedInferenceEngine()
             self.logger.info("Advanced knowledge inference engine enabled")
         else:
             self.advanced_engine = None

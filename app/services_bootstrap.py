@@ -508,9 +508,9 @@ def _create_core_services(
         user_service: UserService for context operations (REQUIRED),
         event_bus: Event bus for publishing domain events (optional),
         graph_intelligence: GraphIntelligenceService for Phase 1-4 queries (optional),
-        ku_inference_service: KuInferenceService for knowledge inference (optional),
-        analytics_engine: KuAnalyticsEngine for advanced analytics (optional),
-        ku_generation_service: KuGenerationService for knowledge generation (optional),
+        ku_inference_service: EntityInferenceService for knowledge inference (optional),
+        analytics_engine: AnalyticsEngine for advanced analytics (optional),
+        ku_generation_service: InsightGenerationService for knowledge generation (optional),
         deepgram_api_key: Deepgram API key for audio transcription (REQUIRED)
     """
     from adapters.external.deepgram import DeepgramAdapter
@@ -613,7 +613,7 @@ def _create_learning_services(
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.models.ku.learning_path import LearningPath
     from core.models.ku.learning_step import LearningStep
-    from core.services.ku_retrieval import KuRetrieval
+    from core.services.entity_retrieval import EntityRetrieval
     from core.services.ku_service import KuService
     from core.services.lp_service import LpService  # Intelligence created internally
     from core.services.ls_service import LsService
@@ -711,7 +711,7 @@ def _create_learning_services(
     )
 
     # Create retrieval service (embeddings_service is OPTIONAL - graceful degradation)
-    ku_retrieval = KuRetrieval(
+    ku_retrieval = EntityRetrieval(
         knowledge_repo=knowledge_backend,
         embeddings_service=embeddings_service,  # Can be None - will use keyword search fallback
         unified_query_builder=unified_query_builder,
@@ -1204,13 +1204,13 @@ async def compose_services(
         logger.info("✅ GraphIntelligenceService created")
 
         # Create analytics services (needed by tasks service)
-        from core.services.ku_analytics_engine import KuAnalyticsEngine
-        from core.services.ku_generation_service import KuGenerationService
-        from core.services.ku_inference_service import KuInferenceService
+        from core.services.analytics_engine import AnalyticsEngine
+        from core.services.insight_generation_service import InsightGenerationService
+        from core.services.entity_inference_service import EntityInferenceService
 
-        analytics_engine = KuAnalyticsEngine()
-        ku_inference_service = KuInferenceService()
-        ku_generation_service = KuGenerationService()
+        analytics_engine = AnalyticsEngine()
+        ku_inference_service = EntityInferenceService()
+        ku_generation_service = InsightGenerationService()
         logger.info("✅ Analytics and inference services created")
 
         # Create InsightStore (Phase 1: Event-Driven Architecture - January 2026)
@@ -1268,7 +1268,7 @@ async def compose_services(
         # tasks_service comes from activity_services (unified Activity Domain creation)
         tasks_service = activity_services["tasks"]
         analytics_engine.relationship_service = tasks_service.relationships
-        logger.info("✅ KuAnalyticsEngine wired with TasksRelationshipService")
+        logger.info("✅ AnalyticsEngine wired with TasksRelationshipService")
 
         # Wire tasks_service into context_service for context-aware operations
         context_service.tasks_service = tasks_service
@@ -1281,10 +1281,10 @@ async def compose_services(
         # IMPORTANT: chunking_service must be created BEFORE UnifiedIngestionService (January 2026)
         from adapters.persistence.neo4j.neo4j_connection import get_connection
         from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
-        from core.services.ku_chunking_service import KuChunkingService
+        from core.services.entity_chunking_service import EntityChunkingService
 
-        chunking_service = KuChunkingService()
-        logger.info("✅ KuChunkingService created for automatic chunk generation")
+        chunking_service = EntityChunkingService()
+        logger.info("✅ EntityChunkingService created for automatic chunk generation")
 
         # Create UnifiedIngestionService (ADR-014: Merged MD + YAML ingestion)
         # January 2026 - Automatic Chunking: Pass chunking service for RAG-ready ingestion

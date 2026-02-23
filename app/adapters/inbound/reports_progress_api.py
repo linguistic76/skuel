@@ -28,9 +28,9 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from core.models.ku import ku_to_response
 from core.models.ku.ku_request import (
-    KuScheduleCreateRequest,
-    KuScheduleUpdateRequest,
-    ProgressKuGenerateRequest,
+    ScheduleCreateRequest,
+    ScheduleUpdateRequest,
+    ProgressReportGenerateRequest,
 )
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -69,7 +69,7 @@ def create_reports_progress_api_routes(
         user_uid = require_authenticated_user(request)
 
         body = await request.json()
-        req = ProgressKuGenerateRequest.model_validate(body)
+        req = ProgressReportGenerateRequest.model_validate(body)
 
         result = await progress_generator.generate(
             user_uid=user_uid,
@@ -96,7 +96,7 @@ def create_reports_progress_api_routes(
         user_uid = require_authenticated_user(request)
         limit = int(request.query_params.get("limit", "20"))
 
-        result = await report_service.list_kus(
+        result = await report_service.list_reports(
             user_uid=user_uid,
             ku_type="ai_report",
             limit=limit,
@@ -127,7 +127,7 @@ def create_reports_progress_api_routes(
             """Create or update a report generation schedule."""
             user_uid = require_authenticated_user(request)
             body = await request.json()
-            req = KuScheduleCreateRequest.model_validate(body)
+            req = ScheduleCreateRequest.model_validate(body)
 
             result = await schedule_service.create_schedule(
                 user_uid=user_uid,
@@ -165,7 +165,7 @@ def create_reports_progress_api_routes(
             """Update a report schedule."""
             _user_uid = require_authenticated_user(request)
             body = await request.json()
-            req = KuScheduleUpdateRequest.model_validate(body)
+            req = ScheduleUpdateRequest.model_validate(body)
 
             updates = {k: v for k, v in req.model_dump().items() if v is not None}
             result = await schedule_service.update_schedule(uid, updates)

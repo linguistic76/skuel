@@ -207,7 +207,7 @@ knowledge_uids = await tasks_service.get_related_uids("knowledge", task_uid)
   - `core/services/user/intelligence/factory.py`
   - `core/services/tasks/tasks_planning_service.py`
   - `core/services/tasks/tasks_analytics_service.py`
-  - `core/services/ku_analytics_engine.py`
+  - `core/services/analytics_engine.py`
   - `core/services/goals/goals_learning_service.py`
   - `core/services/goals/goals_progress_service.py`
   - `core/services/events/events_learning_service.py`

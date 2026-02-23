@@ -14,7 +14,7 @@ from tempfile import NamedTemporaryFile
 import pytest
 
 from core.services.ingestion import UnifiedIngestionService
-from core.services.ku_chunking_service import KuChunkingService
+from core.services.entity_chunking_service import EntityChunkingService
 
 
 @pytest.mark.asyncio
@@ -60,7 +60,7 @@ Python is easy to learn and powerful.
 
     try:
         # Given: UnifiedIngestionService with chunking enabled
-        chunking_service = KuChunkingService()
+        chunking_service = EntityChunkingService()
         ingestion_service = UnifiedIngestionService(
             driver=neo4j_driver,
             chunking_service=chunking_service,
@@ -158,7 +158,7 @@ This is a task description.
 
     try:
         # Given: UnifiedIngestionService with chunking enabled
-        chunking_service = KuChunkingService()
+        chunking_service = EntityChunkingService()
         ingestion_service = UnifiedIngestionService(
             driver=neo4j_driver,
             chunking_service=chunking_service,
@@ -199,7 +199,7 @@ Python is a programming language.
 
     try:
         # Given: UnifiedIngestionService with chunking enabled
-        chunking_service = KuChunkingService()
+        chunking_service = EntityChunkingService()
         ingestion_service = UnifiedIngestionService(
             driver=neo4j_driver,
             chunking_service=chunking_service,

@@ -25,10 +25,10 @@ from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRoute
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
 from core.models.ku.ku_request import (
-    KuLearningStepCreateRequest,
+    LearningStepCreateRequest,
 )
 from core.models.ku.ku_request import (
-    KuUpdateRequest as KuStepUpdateRequest,
+    EntityUpdateRequest as KuStepUpdateRequest,
 )
 from core.ports.facade_protocols import LsFacadeProtocol
 from core.utils.logging import get_logger
@@ -63,7 +63,7 @@ def create_learning_steps_api_routes(
     crud_factory = CRUDRouteFactory(
         service=ls_service,
         domain_name="learning-steps",
-        create_schema=KuLearningStepCreateRequest,
+        create_schema=LearningStepCreateRequest,
         update_schema=KuStepUpdateRequest,
         uid_prefix="ls",
         scope=ContentScope.SHARED,

@@ -108,7 +108,7 @@ class UnifiedIngestionService:
                                  Files larger than this will be rejected to prevent OOM.
             embeddings_service: Optional Neo4jGenAIEmbeddingsService for embedding generation.
                                 If not provided, ingestion works without embeddings (graceful degradation).
-            chunking_service: Optional KuChunkingService for automatic chunk generation.
+            chunking_service: Optional EntityChunkingService for automatic chunk generation.
                               If not provided, ingestion works without chunking (graceful degradation).
             executor: QueryExecutor for ingestion tracking (optional).
         """

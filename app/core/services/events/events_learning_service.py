@@ -18,7 +18,7 @@ from core.events import publish_event
 from core.models.enums import Domain, EntityStatus
 from core.models.ku.event import Event
 from core.models.ku.event_dto import EventDTO
-from core.models.ku.ku_request import KuEventCreateRequest
+from core.models.ku.ku_request import EventCreateRequest
 from core.models.ku.lp_position import LpPosition
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
@@ -96,7 +96,7 @@ class EventsLearningService(BaseService["BackendOperations[Event]", Event]):
         self.event_bus = event_bus
 
         # Initialize LearningAlignmentHelper for Events (Phase 6)
-        self.learning_helper = LearningAlignmentHelper[Event, EventDTO, KuEventCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Event, EventDTO, EventCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="list_user_events",
@@ -295,8 +295,8 @@ class EventsLearningService(BaseService["BackendOperations[Event]", Event]):
         start_datetime = datetime.combine(event_date, default_start)
         end_datetime = start_datetime + timedelta(minutes=duration_minutes)
 
-        # Build KuEventCreateRequest with required time fields
-        request = KuEventCreateRequest(
+        # Build EventCreateRequest with required time fields
+        request = EventCreateRequest(
             title=title or f"Study Session: {len(knowledge_uids)} topics",
             event_date=event_date,
             start_time=default_start,
@@ -450,7 +450,7 @@ class EventsLearningService(BaseService["BackendOperations[Event]", Event]):
                 end_dt = start_dt + timedelta(hours=1)
 
                 # Build request with required time fields
-                request = KuEventCreateRequest(
+                request = EventCreateRequest(
                     title=f"Learning Path Study - Week {week + 1}",
                     event_date=event_date_for_session,
                     start_time=session_start,

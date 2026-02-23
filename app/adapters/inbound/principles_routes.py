@@ -12,15 +12,15 @@ from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
 )
-from core.models.ku.ku_request import KuPrincipleCreateRequest, KuUpdateRequest
+from core.models.ku.ku_request import PrincipleCreateRequest, EntityUpdateRequest
 
 PRINCIPLES_CONFIG = create_activity_domain_route_config(
     domain_name="principles",
     primary_service_attr="principles",
     api_factory=create_principles_api_routes,
     ui_factory=create_principles_ui_routes,
-    create_schema=KuPrincipleCreateRequest,
-    update_schema=KuUpdateRequest,
+    create_schema=PrincipleCreateRequest,
+    update_schema=EntityUpdateRequest,
     uid_prefix="principle",
     supports_goal_filter=True,
     supports_habit_filter=True,

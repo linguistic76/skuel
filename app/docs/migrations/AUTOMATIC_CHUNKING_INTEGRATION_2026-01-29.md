@@ -28,7 +28,7 @@ UnifiedIngestionService.ingest_file()
 
 Separate manual operation required:
   ↓
-KuChunkingService (explicit call needed)
+EntityChunkingService (explicit call needed)
   └─ Creates chunks
 ```
 
@@ -46,7 +46,7 @@ markdown file
 UnifiedIngestionService.ingest_file()
   ├─ Parse MD/YAML
   ├─ Create KnowledgeUnit node in Neo4j
-  └─ AUTOMATIC: Generate chunks via KuChunkingService ✅
+  └─ AUTOMATIC: Generate chunks via EntityChunkingService ✅
       ├─ 7 chunk types detected (DEFINITION, EXPLANATION, EXAMPLE, etc.)
       ├─ 50-500 words per chunk
       ├─ 100-word context windows for RAG
@@ -65,9 +65,9 @@ UnifiedIngestionService.ingest_file()
 
 ### Phase 1: Core Integration (Completed)
 
-#### 1. Added `process_content_for_ingestion` to KuChunkingService
+#### 1. Added `process_content_for_ingestion` to EntityChunkingService
 
-**File**: `/core/services/ku_chunking_service.py`
+**File**: `/core/services/entity_chunking_service.py`
 
 **New Method**:
 ```python
@@ -147,8 +147,8 @@ if entity_type == EntityType.KU and self.chunking:
 # AFTER: chunking_service created first (line 1126)
 
 # Create chunking service FIRST
-chunking_service = KuChunkingService()
-logger.info("✅ KuChunkingService created")
+chunking_service = EntityChunkingService()
+logger.info("✅ EntityChunkingService created")
 
 # Then create UnifiedIngestionService with chunking
 unified_ingestion = UnifiedIngestionService(
@@ -232,9 +232,9 @@ poetry run pytest tests/integration/test_ingestion_chunking.py::test_ingest_file
 4. **Check chunking service cache**:
    ```python
    # In Python shell or test
-   from core.services.ku_chunking_service import KuChunkingService
+   from core.services.entity_chunking_service import EntityChunkingService
 
-   service = KuChunkingService()
+   service = EntityChunkingService()
    stats = service.get_cache_stats()
    # {'cached_content': N, 'cached_metadata': N, 'total_chunks': X, 'total_words': Y}
    ```
@@ -252,7 +252,7 @@ poetry run pytest tests/integration/test_ingestion_chunking.py::test_ingest_file
 
 #### 1. Why Not Store Chunks in Neo4j During Ingestion?
 
-**Current**: Chunks stored in `KuChunkingService` in-memory cache only
+**Current**: Chunks stored in `EntityChunkingService` in-memory cache only
 
 **Rationale**:
 - Chunking service manages its own persistence strategy
@@ -289,7 +289,7 @@ UnifiedIngestionService (orchestrator)
   ├─ driver (required)
   ├─ embeddings_service (optional - GenAI features)
   └─ chunking_service (optional - RAG features)
-      └─ KuChunkingService (utility service)
+      └─ EntityChunkingService (utility service)
           ├─ _content_cache: dict[str, KuContent]
           ├─ _metadata_cache: dict[str, KuMetadata]
           └─ Methods:
@@ -349,7 +349,7 @@ User Question
 4. CONTEXT RETRIEVAL ← Chunks retrieved here
    ├─ Graph-based: Cypher queries (prerequisites, mastery)
    ├─ Semantic: Vector similarity (cosine 0.6 threshold, top_k=5)
-   └─ Uses chunks from KuChunkingService cache
+   └─ Uses chunks from EntityChunkingService cache
 5. LLM Context Building
 6. LLM Answer Generation
 7. Citations Retrieval (Phase 4C)
@@ -385,7 +385,7 @@ User Question
 
 | File | Lines Changed | Description |
 |------|---------------|-------------|
-| `/core/services/ku_chunking_service.py` | +56 | Added `process_content_for_ingestion()` |
+| `/core/services/entity_chunking_service.py` | +56 | Added `process_content_for_ingestion()` |
 | `/core/services/ingestion/unified_ingestion_service.py` | +40 | Added chunking to `__init__` and `ingest_file()` |
 | `/services_bootstrap.py` | ~20 (reorder) | Moved chunking service creation before ingestion |
 
@@ -498,7 +498,7 @@ User Question
 - Smart sync minimizes repeated processing
 
 **Memory Usage**:
-- Chunks cached in `KuChunkingService._content_cache`
+- Chunks cached in `EntityChunkingService._content_cache`
 - ~1KB per chunk (50-500 words)
 - 100 KUs × 5 chunks avg = 500KB (~negligible)
 

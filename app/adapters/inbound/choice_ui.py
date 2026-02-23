@@ -648,8 +648,8 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
         from core.models.enums import Priority as PriorityEnum
         from core.models.enums.ku_enums import ChoiceType
         from core.models.ku.ku_request import (
-            KuChoiceCreateRequest,
-            KuChoiceOptionCreateRequest,
+            ChoiceCreateRequest,
+            ChoiceOptionCreateRequest,
         )
 
         # VALIDATE EARLY
@@ -679,14 +679,14 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
         domain_enum = DomainEnum(domain) if domain else DomainEnum.PERSONAL
         priority_enum = PriorityEnum(priority) if priority else PriorityEnum.MEDIUM
 
-        # Convert options to KuChoiceOptionCreateRequest objects
+        # Convert options to ChoiceOptionCreateRequest objects
         option_requests = [
-            KuChoiceOptionCreateRequest(title=opt["title"], description=opt["description"])
+            ChoiceOptionCreateRequest(title=opt["title"], description=opt["description"])
             for opt in options
         ]
 
         # Build request and call service
-        choice_request = KuChoiceCreateRequest(
+        choice_request = ChoiceCreateRequest(
             title=title,
             description=description or title,
             choice_type=choice_type_enum,
@@ -1004,7 +1004,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
 
         from core.models.enums import Domain as DomainEnum
         from core.models.enums import Priority as PriorityEnum
-        from core.models.ku.ku_request import KuUpdateRequest
+        from core.models.ku.ku_request import EntityUpdateRequest
 
         title = form.get("title", "").strip()
         description = form.get("description", "").strip() or None
@@ -1012,7 +1012,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
         domain_str = form.get("domain", "personal")
 
         try:
-            update_request = KuUpdateRequest(
+            update_request = EntityUpdateRequest(
                 title=title if title else None,
                 description=description,
                 priority=PriorityEnum(priority_str),

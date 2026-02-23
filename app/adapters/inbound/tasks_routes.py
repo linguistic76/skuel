@@ -14,10 +14,10 @@ from adapters.inbound.route_factories import (
 from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
 from core.models.ku.ku_request import (
-    KuTaskCreateRequest as TaskCreateRequest,
+    TaskCreateRequest as TaskCreateRequest,
 )
 from core.models.ku.ku_request import (
-    KuUpdateRequest as TaskUpdateRequest,
+    EntityUpdateRequest as TaskUpdateRequest,
 )
 
 TASKS_CONFIG = create_activity_domain_route_config(

@@ -33,9 +33,9 @@ from core.utils.sort_functions import make_attribute_sort_key
 
 if TYPE_CHECKING:
     from core.models.ku.ku_request import (
-        KuChoiceCreateRequest,
-        KuChoiceEvaluationRequest,
-        KuUpdateRequest,
+        ChoiceCreateRequest,
+        ChoiceEvaluationRequest,
+        EntityUpdateRequest,
     )
     from core.ports import BackendOperations
 
@@ -220,7 +220,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         return None  # All validations passed
 
     async def create_choice(
-        self, choice_request: KuChoiceCreateRequest, user_uid: str
+        self, choice_request: ChoiceCreateRequest, user_uid: str
     ) -> Result[Ku]:
         """
         Create a basic choice.
@@ -380,7 +380,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         self.logger.debug(f"Found {len(choices)} choices for goal {goal_uid}")
         return Result.ok(choices)
 
-    async def update_choice(self, choice_uid: str, choice_update: KuUpdateRequest) -> Result[Ku]:
+    async def update_choice(self, choice_uid: str, choice_update: EntityUpdateRequest) -> Result[Ku]:
         """
         Update a choice.
 
@@ -480,7 +480,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         return Result.ok(True)
 
     async def evaluate_choice_outcome(
-        self, choice_uid: str, evaluation: KuChoiceEvaluationRequest
+        self, choice_uid: str, evaluation: ChoiceEvaluationRequest
     ) -> Result[Ku]:
         """
         Record the outcome evaluation for a choice.

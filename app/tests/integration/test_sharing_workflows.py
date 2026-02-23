@@ -136,7 +136,7 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
     assert visibility_result.value is True
 
     # Step 2: Share with recipient
-    share_result = await sharing_service.share_ku(
+    share_result = await sharing_service.share_report(
         ku_uid=report_uid,
         owner_uid=owner_uid,
         recipient_uid=recipient_uid,
@@ -146,7 +146,7 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
     assert share_result.value is True
 
     # Step 3: Recipient can see it in "shared with me"
-    _shared_result = await sharing_service.get_kus_shared_with_me(
+    _shared_result = await sharing_service.get_reports_shared_with_me(
         user_uid=recipient_uid,
         limit=50,
     )
@@ -162,7 +162,7 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
     assert access_result.value is True
 
     # Step 5: Owner unshares
-    unshare_result = await sharing_service.unshare_ku(
+    unshare_result = await sharing_service.unshare_report(
         ku_uid=report_uid,
         owner_uid=owner_uid,
         recipient_uid=recipient_uid,
@@ -253,7 +253,7 @@ async def test_shared_visibility_requires_relationship(sharing_service, test_rep
     assert not visibility_result.is_error
 
     # Share with authorized user
-    share_result = await sharing_service.share_ku(
+    share_result = await sharing_service.share_report(
         ku_uid=report_uid,
         owner_uid=owner_uid,
         recipient_uid=authorized_user,
@@ -292,7 +292,7 @@ async def test_only_owner_can_share(sharing_service, test_report):
     recipient = "test_user_recipient"
 
     # Non-owner tries to share
-    share_result = await sharing_service.share_ku(
+    share_result = await sharing_service.share_report(
         ku_uid=report_uid,
         owner_uid=not_owner,  # Not the actual owner
         recipient_uid=recipient,
@@ -318,7 +318,7 @@ async def test_only_owner_can_unshare(sharing_service, test_report):
         owner_uid=owner_uid,
         visibility=Visibility.SHARED,
     )
-    await sharing_service.share_ku(
+    await sharing_service.share_report(
         ku_uid=report_uid,
         owner_uid=owner_uid,
         recipient_uid=recipient,
@@ -326,7 +326,7 @@ async def test_only_owner_can_unshare(sharing_service, test_report):
     )
 
     # Non-owner tries to unshare
-    unshare_result = await sharing_service.unshare_ku(
+    unshare_result = await sharing_service.unshare_report(
         ku_uid=report_uid,
         owner_uid=not_owner,  # Not the actual owner
         recipient_uid=recipient,
@@ -389,7 +389,7 @@ async def test_only_completed_reports_can_be_shared(neo4j_driver, sharing_servic
 
     try:
         # Try to share processing Ku
-        share_result = await sharing_service.share_ku(
+        share_result = await sharing_service.share_report(
             ku_uid=report_uid,
             owner_uid=owner_uid,
             recipient_uid="test_user_teacher",
@@ -433,7 +433,7 @@ async def test_get_shared_users_list(sharing_service, test_report):
     )
 
     for recipient_uid, role in users:
-        await sharing_service.share_ku(
+        await sharing_service.share_report(
             ku_uid=report_uid,
             owner_uid=owner_uid,
             recipient_uid=recipient_uid,
@@ -461,7 +461,7 @@ async def test_get_shared_users_list(sharing_service, test_report):
 @pytest.mark.integration
 async def test_share_nonexistent_report(sharing_service):
     """Test sharing a nonexistent Ku returns appropriate error."""
-    share_result = await sharing_service.share_ku(
+    share_result = await sharing_service.share_report(
         ku_uid="nonexistent_report",
         owner_uid="test_user_owner",
         recipient_uid="test_user_recipient",
@@ -480,7 +480,7 @@ async def test_unshare_nonshared_report(sharing_service, test_report):
     owner_uid = test_report["owner_uid"]
     never_shared_with = "test_user_never_shared"
 
-    unshare_result = await sharing_service.unshare_ku(
+    unshare_result = await sharing_service.unshare_report(
         ku_uid=report_uid,
         owner_uid=owner_uid,
         recipient_uid=never_shared_with,

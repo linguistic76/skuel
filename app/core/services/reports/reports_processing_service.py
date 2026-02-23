@@ -72,7 +72,7 @@ class KuProcessingService:
     # MAIN PROCESSING ENTRY POINT
     # ========================================================================
 
-    async def process_ku(
+    async def process_report(
         self, ku_uid: str, instructions: dict[str, Any] | None = None
     ) -> Result[Entity]:
         """
@@ -83,46 +83,46 @@ class KuProcessingService:
         SUBMITTED -> QUEUED -> PROCESSING -> COMPLETED (or FAILED)
 
         Args:
-            ku_uid: Ku UID to process
+            ku_uid: Report UID to process
             instructions: Processor-specific instructions (optional)
 
         Returns:
-            Result containing processed Ku
+            Result containing processed report
         """
-        ku_result = await self.ku_submission_service.get_ku(ku_uid)
+        report_result = await self.ku_submission_service.get_report(ku_uid)
 
-        if ku_result.is_error:
-            return Result.fail(ku_result.expect_error())
+        if report_result.is_error:
+            return Result.fail(report_result.expect_error())
 
-        ku = ku_result.value
-        if not ku:
-            return Result.fail(Errors.not_found("Ku", ku_uid))
+        report = report_result.value
+        if not report:
+            return Result.fail(Errors.not_found("Report", ku_uid))
 
-        if not isinstance(ku, Submission):
+        if not isinstance(report, Submission):
             return Result.fail(
                 Errors.validation(
-                    message="Only submission-type Ku can be processed",
+                    message="Only submission-type reports can be processed",
                     field="ku_type",
                 )
             )
 
-        if ku.status in {EntityStatus.COMPLETED, EntityStatus.PROCESSING}:
+        if report.status in {EntityStatus.COMPLETED, EntityStatus.PROCESSING}:
             return Result.fail(
                 Errors.validation(
-                    message=f"Ku already {ku.status.value}",
+                    message=f"Report already {report.status.value}",
                     field="status",
-                    value=ku.status.value,
+                    value=report.status.value,
                 )
             )
 
         # Update status to QUEUED
-        await self.ku_submission_service.update_ku_status(ku_uid, EntityStatus.QUEUED)
+        await self.ku_submission_service.update_report_status(ku_uid, EntityStatus.QUEUED)
 
         try:
-            result = await self._route_to_processor(ku, instructions)
+            result = await self._route_to_processor(report, instructions)
 
             if result.is_error:
-                await self.ku_submission_service.update_ku_status(
+                await self.ku_submission_service.update_report_status(
                     ku_uid,
                     EntityStatus.FAILED,
                     error_message=result.error.user_message
@@ -132,20 +132,20 @@ class KuProcessingService:
                 return result
 
             # Mark as completed
-            await self.ku_submission_service.update_ku_status(ku_uid, EntityStatus.COMPLETED)
+            await self.ku_submission_service.update_report_status(ku_uid, EntityStatus.COMPLETED)
 
             # Get updated Ku
-            updated_result = await self.ku_submission_service.get_ku(ku_uid)
+            updated_result = await self.ku_submission_service.get_report(ku_uid)
             if updated_result.is_error:
                 return Result.fail(updated_result.expect_error())
             if not updated_result.value:
-                return Result.fail(Errors.not_found("Ku", ku_uid))
+                return Result.fail(Errors.not_found("Report", ku_uid))
             return Result.ok(updated_result.value)
 
         except Exception as e:
-            self.logger.error(f"Unexpected error processing Ku {ku_uid}: {e}", exc_info=True)
+            self.logger.error(f"Unexpected error processing report {ku_uid}: {e}", exc_info=True)
 
-            await self.ku_submission_service.update_ku_status(
+            await self.ku_submission_service.update_report_status(
                 ku_uid, EntityStatus.FAILED, error_message=str(e)
             )
 
@@ -160,26 +160,26 @@ class KuProcessingService:
     # ========================================================================
 
     async def _route_to_processor(
-        self, ku: Submission, instructions: dict[str, Any] | None
+        self, report: Submission, instructions: dict[str, Any] | None
     ) -> Result[Entity]:
-        """Route Ku to appropriate processor based on file type."""
-        await self.ku_submission_service.update_ku_status(ku.uid, EntityStatus.PROCESSING)
+        """Route report to appropriate processor based on file type."""
+        await self.ku_submission_service.update_report_status(report.uid, EntityStatus.PROCESSING)
 
-        if not ku.file_type:
-            return Result.fail(Errors.validation("Cannot process Ku without file_type"))
-        file_type = ku.file_type.lower()
+        if not report.file_type:
+            return Result.fail(Errors.validation("Cannot process report without file_type"))
+        file_type = report.file_type.lower()
 
         if file_type.startswith("audio/"):
-            return await self._process_audio(ku, instructions)
+            return await self._process_audio(report, instructions)
 
         if file_type.startswith("text/"):
-            return await self._process_text(ku, instructions)
+            return await self._process_text(report, instructions)
 
         return Result.fail(
             Errors.validation(
-                message=f"File type not yet supported: {ku.file_type}",
+                message=f"File type not yet supported: {report.file_type}",
                 field="file_type",
-                value=ku.file_type,
+                value=report.file_type,
             )
         )
 
@@ -188,7 +188,7 @@ class KuProcessingService:
     # ========================================================================
 
     async def _process_audio(
-        self, ku: Submission, instructions: dict[str, Any] | None
+        self, report: Submission, instructions: dict[str, Any] | None
     ) -> Result[Entity]:
         """
         Process audio file: transcribe + LLM formatting.
@@ -206,16 +206,16 @@ class KuProcessingService:
                 )
             )
 
-        self.logger.info(f"Processing audio Ku: {ku.uid}")
+        self.logger.info(f"Processing audio report: {report.uid}")
 
         # Step 1: Create transcription record
         from core.models.transcription.transcription import TranscriptionCreateRequest
 
         create_request = TranscriptionCreateRequest(
-            audio_file_path=ku.file_path,
-            original_filename=ku.original_filename,
+            audio_file_path=report.file_path,
+            original_filename=report.original_filename,
         )
-        create_result = await self.transcription_service.create(create_request, ku.user_uid)
+        create_result = await self.transcription_service.create(create_request, report.user_uid)
 
         if create_result.is_error:
             return create_result
@@ -230,44 +230,44 @@ class KuProcessingService:
         transcription = process_result.value
         transcript_text = transcription.transcript_text
 
-        self.logger.info(f"Audio transcribed: {ku.uid} ({len(transcript_text)} chars)")
+        self.logger.info(f"Audio transcribed: {report.uid} ({len(transcript_text)} chars)")
 
         processed_content = transcript_text
 
         # Update Ku with processed content
         update_result = await self.ku_submission_service.update_processed_content(
-            uid=ku.uid, processed_content=processed_content
+            uid=report.uid, processed_content=processed_content
         )
 
         if update_result.is_error:
             return update_result
 
-        updated_ku = update_result.value
+        updated_report = update_result.value
 
         # Check if journal processing is needed
-        is_journal = ku.ku_type == EntityType.JOURNAL
+        is_journal = report.ku_type == EntityType.JOURNAL
 
         if is_journal:
-            await self._process_journal(updated_ku, transcript_text, instructions)
-            refresh_result = await self.ku_submission_service.get_ku(ku.uid)
+            await self._process_journal(updated_report, transcript_text, instructions)
+            refresh_result = await self.ku_submission_service.get_report(report.uid)
             if not refresh_result.is_error and refresh_result.value:
-                updated_ku = refresh_result.value
+                updated_report = refresh_result.value
         elif instructions and instructions.get("extract_activities", False):
             if self.activity_extractor:
-                await self._extract_activities(updated_ku, ku.user_uid, instructions)
+                await self._extract_activities(updated_report, report.user_uid, instructions)
             else:
                 self.logger.warning(
-                    f"Activity extraction requested but extractor not configured for {ku.uid}"
+                    f"Activity extraction requested but extractor not configured for {report.uid}"
                 )
 
-        return Result.ok(updated_ku)
+        return Result.ok(updated_report)
 
     # ========================================================================
     # TEXT PROCESSING
     # ========================================================================
 
     async def _process_text(
-        self, ku: Submission, instructions: dict[str, Any] | None
+        self, report: Submission, instructions: dict[str, Any] | None
     ) -> Result[Entity]:
         """
         Process text file: read content and store.
@@ -276,10 +276,10 @@ class KuProcessingService:
         1. Read text file content
         2. Update Ku with processed content
         """
-        self.logger.info(f"Processing text Ku: {ku.uid}")
+        self.logger.info(f"Processing text report: {report.uid}")
 
         # Step 1: Read text content
-        file_content_result = await self.ku_submission_service.get_file_content(ku.uid)
+        file_content_result = await self.ku_submission_service.get_file_content(report.uid)
 
         if file_content_result.is_error:
             return Result.fail(file_content_result.expect_error())
@@ -288,38 +288,38 @@ class KuProcessingService:
 
         # Step 2: Update Ku with processed content
         update_result = await self.ku_submission_service.update_processed_content(
-            uid=ku.uid, processed_content=text_content
+            uid=report.uid, processed_content=text_content
         )
 
         if update_result.is_error:
             return update_result
 
-        updated_ku = update_result.value
+        updated_report = update_result.value
 
         # Check if journal processing is needed
-        is_journal = ku.ku_type == EntityType.JOURNAL
+        is_journal = report.ku_type == EntityType.JOURNAL
 
         if is_journal:
-            await self._process_journal(updated_ku, text_content, instructions)
-            refresh_result = await self.ku_submission_service.get_ku(ku.uid)
+            await self._process_journal(updated_report, text_content, instructions)
+            refresh_result = await self.ku_submission_service.get_report(report.uid)
             if not refresh_result.is_error and refresh_result.value:
-                updated_ku = refresh_result.value
+                updated_report = refresh_result.value
         elif instructions and instructions.get("extract_activities", False):
             if self.activity_extractor:
-                await self._extract_activities(updated_ku, ku.user_uid, instructions)
+                await self._extract_activities(updated_report, report.user_uid, instructions)
             else:
                 self.logger.warning(
-                    f"Activity extraction requested but extractor not configured for {ku.uid}"
+                    f"Activity extraction requested but extractor not configured for {report.uid}"
                 )
 
-        return Result.ok(updated_ku)
+        return Result.ok(updated_report)
 
     # ========================================================================
     # JOURNAL PROCESSING
     # ========================================================================
 
     async def _process_journal(
-        self, ku: Ku, content: str, instructions: dict[str, Any] | None
+        self, report: Ku, content: str, instructions: dict[str, Any] | None
     ) -> None:
         """
         Process journal-type Ku with enrichment pipeline.
@@ -332,7 +332,7 @@ class KuProcessingService:
         """
         if not self.journal_generator:
             self.logger.warning(
-                f"Journal processing requested but generator not configured for {ku.uid}"
+                f"Journal processing requested but generator not configured for {report.uid}"
             )
             return
 
@@ -340,14 +340,14 @@ class KuProcessingService:
         enrichment_mode = instructions.get("enrichment_mode") if instructions else None
 
         self.logger.info(
-            f"Processing journal Ku {ku.uid} (enrichment_mode: {enrichment_mode or 'activity_tracking'})"
+            f"Processing journal report {report.uid} (enrichment_mode: {enrichment_mode or 'activity_tracking'})"
         )
 
         # Step 2: Generate je_output file
         output_result = await self.journal_generator.generate(
             content=content,
             enrichment_mode=enrichment_mode,
-            report_uid=ku.uid,
+            report_uid=report.uid,
         )
 
         if output_result.is_error:
@@ -359,41 +359,41 @@ class KuProcessingService:
         # Step 3: Extract activities if mode is activity_tracking (default)
         effective_mode = enrichment_mode or "activity_tracking"
         if effective_mode == "activity_tracking" and self.activity_extractor:
-            self.logger.info(f"Extracting activities for {ku.uid}")
-            await self._extract_activities(ku, ku.user_uid, instructions)
+            self.logger.info(f"Extracting activities for {report.uid}")
+            await self._extract_activities(report, report.user_uid, instructions)
 
         # Step 4: Store journal processing metadata
-        current_metadata = ku.metadata or {}
+        current_metadata = report.metadata or {}
         current_metadata["enrichment_mode"] = effective_mode
         current_metadata["je_output_path"] = je_output_path
 
-        await self.ku_submission_service.update_ku(
-            uid=ku.uid,
+        await self.ku_submission_service.update_report(
+            uid=report.uid,
             updates={"metadata": current_metadata},
         )
 
-        self.logger.info(f"Journal processing complete: {ku.uid} - {effective_mode}")
+        self.logger.info(f"Journal processing complete: {report.uid} - {effective_mode}")
 
     # ========================================================================
     # ACTIVITY EXTRACTION (DSL Integration)
     # ========================================================================
 
     async def _extract_activities(
-        self, ku: Ku, user_uid: str, instructions: dict[str, Any] | None
+        self, report: Ku, user_uid: str, instructions: dict[str, Any] | None
     ) -> None:
         """
         Extract Activity Lines from processed content and create entities.
 
         Args:
-            ku: Processed Ku with content
+            ku: Processed report with content
             user_uid: User UID for entity ownership
             instructions: Processing instructions
         """
-        self.logger.info(f"Extracting activities from Ku {ku.uid}")
+        self.logger.info(f"Extracting activities from report {report.uid}")
 
         try:
             result = await self.activity_extractor.extract_and_create(
-                report=ku,
+                report=report,
                 user_uid=user_uid,
                 create_relationships=instructions.get("create_activity_relationships", True)
                 if instructions
@@ -403,7 +403,7 @@ class KuProcessingService:
             if result.is_ok:
                 extraction = result.value
                 self.logger.info(
-                    f"Activity extraction complete for {ku.uid}: "
+                    f"Activity extraction complete for {report.uid}: "
                     f"found {extraction.activities_found} activities, "
                     f"created {extraction.total_created} entities "
                     f"(tasks={extraction.tasks_created}, habits={extraction.habits_created}, "
@@ -412,16 +412,16 @@ class KuProcessingService:
 
                 if extraction.has_errors:
                     self.logger.warning(
-                        f"Activity extraction had errors for {ku.uid}: "
+                        f"Activity extraction had errors for {report.uid}: "
                         f"{len(extraction.parse_errors)} parse errors, "
                         f"{len(extraction.creation_errors)} creation errors"
                     )
             else:
-                self.logger.warning(f"Activity extraction failed for {ku.uid}: {result.error}")
+                self.logger.warning(f"Activity extraction failed for {report.uid}: {result.error}")
 
         except Exception as e:
             self.logger.error(
-                f"Unexpected error during activity extraction for {ku.uid}: {e}",
+                f"Unexpected error during activity extraction for {report.uid}: {e}",
                 exc_info=True,
             )
 
@@ -429,7 +429,7 @@ class KuProcessingService:
     # REPROCESSING
     # ========================================================================
 
-    async def reprocess_ku(
+    async def reprocess_report(
         self, ku_uid: str, new_instructions: dict[str, Any] | None = None
     ) -> Result[Entity]:
         """
@@ -444,5 +444,5 @@ class KuProcessingService:
         Returns:
             Result containing reprocessed Ku
         """
-        await self.ku_submission_service.update_ku_status(ku_uid, EntityStatus.SUBMITTED)
-        return await self.process_ku(ku_uid, new_instructions)
+        await self.ku_submission_service.update_report_status(ku_uid, EntityStatus.SUBMITTED)
+        return await self.process_report(ku_uid, new_instructions)

@@ -57,7 +57,7 @@ if TYPE_CHECKING:
         RecurringInstancesRequest,
         RemoveAttendeeRequest,
     )
-    from core.models.ku.ku_request import KuEventCreateRequest
+    from core.models.ku.ku_request import EventCreateRequest
     from core.ports import BackendOperations
     from core.ports.facade_protocols import EventsFacadeProtocol
     from core.ports.infrastructure_protocols import EventBusOperations
@@ -719,7 +719,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
     # ========================================================================
 
     async def create_event_with_context(
-        self, event_data: KuEventCreateRequest, user_context: UserContext
+        self, event_data: EventCreateRequest, user_context: UserContext
     ) -> Result[Event]:
         """
         Create an event with full context awareness (orchestration method).

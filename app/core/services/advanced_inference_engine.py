@@ -8,7 +8,7 @@ Sophisticated algorithms for automatic knowledge detection:
 - Advanced confidence scoring
 - Knowledge validation feedback loops
 
-Builds on the foundation of KuInferenceService with enhanced capabilities.
+Builds on the foundation of EntityInferenceService with enhanced capabilities.
 """
 
 import re
@@ -56,7 +56,7 @@ class RelationshipMappingData(TypedDict):
     evidence: list[str]  # Evidence supporting the relationship
 
 
-class AdvancedKuInferenceEngine:
+class AdvancedInferenceEngine:
     """
     Advanced inference engine with sophisticated content analysis algorithms.
 

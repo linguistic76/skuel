@@ -129,7 +129,7 @@ class KuQualityMetrics:
         return self.overall_quality
 
 
-class KuGenerationService:
+class InsightGenerationService:
     """
     Service for automatic knowledge generation from completed tasks.
 

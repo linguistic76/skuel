@@ -82,7 +82,7 @@ class EnhancedResult:
 
 
 @dataclass
-class KuRetrievalResult:
+class EntityRetrievalResult:
     """Complete retrieval result with all enhancements"""
 
     results: list[EnhancedResult]
@@ -91,7 +91,7 @@ class KuRetrievalResult:
     retrieval_time_ms: int
 
 
-class KuRetrieval:
+class EntityRetrieval:
     """
     THE single retrieval service for SKUEL.
     Unifies vector search, graph traversal, and intelligent ranking.
@@ -143,11 +143,11 @@ class KuRetrieval:
         if user_progress_service:
             features.append("progress-aware ranking")
 
-        logger.info(f"✅ KuRetrieval initialized with {', '.join(features)}")
+        logger.info(f"✅ EntityRetrieval initialized with {', '.join(features)}")
 
     async def retrieve(
         self, query: str, context: UserContext | None = None, limit: int = 10
-    ) -> Result[KuRetrievalResult]:
+    ) -> Result[EntityRetrievalResult]:
         """
         THE way to retrieve knowledge. All retrieval goes through this method.
 
@@ -189,7 +189,7 @@ class KuRetrieval:
             if not base_results:
                 # Return empty result, not an error
                 return Result.ok(
-                    KuRetrievalResult(
+                    EntityRetrievalResult(
                         results=[],
                         query_analysis=query_analysis,
                         total_found=0,
@@ -211,7 +211,7 @@ class KuRetrieval:
             retrieval_time = int((time.time() - start_time) * 1000)
 
             return Result.ok(
-                KuRetrievalResult(
+                EntityRetrievalResult(
                     results=final_results,
                     query_analysis=query_analysis,
                     total_found=len(final_results),
@@ -595,7 +595,7 @@ class KuRetrieval:
 
     async def retrieve_with_optimized_query(
         self, query: str, context: UserContext | None = None, limit: int = 10
-    ) -> Result[KuRetrievalResult]:
+    ) -> Result[EntityRetrievalResult]:
         """
         Retrieve knowledge using the unified query builder's optimization.
 

@@ -56,7 +56,7 @@ async def test_share_ku_success(sharing_service, mock_driver):
         Result.ok([{"success": True}]),
     ]
 
-    result = await sharing_service.share_ku(
+    result = await sharing_service.share_report(
         ku_uid="report_123",
         owner_uid="user_owner",
         recipient_uid="user_teacher",
@@ -78,7 +78,7 @@ async def test_share_ku_not_owner(sharing_service, mock_driver):
         [{"actual_owner": "user_other"}]
     )
 
-    result = await sharing_service.share_ku(
+    result = await sharing_service.share_report(
         ku_uid="report_123",
         owner_uid="user_not_owner",
         recipient_uid="user_teacher",
@@ -99,7 +99,7 @@ async def test_share_ku_not_completed(sharing_service, mock_driver):
         Result.ok([{"status": "processing", "ku_type": "submission"}]),
     ]
 
-    result = await sharing_service.share_ku(
+    result = await sharing_service.share_report(
         ku_uid="report_123",
         owner_uid="user_owner",
         recipient_uid="user_teacher",
@@ -116,7 +116,7 @@ async def test_share_ku_not_found(sharing_service, mock_driver):
     # Mock ownership check (report not found)
     mock_driver.execute_query.return_value = Result.ok([])
 
-    result = await sharing_service.share_ku(
+    result = await sharing_service.share_report(
         ku_uid="report_nonexistent",
         owner_uid="user_owner",
         recipient_uid="user_teacher",
@@ -142,7 +142,7 @@ async def test_unshare_ku_success(sharing_service, mock_driver):
         Result.ok([{"deleted_count": 1}]),
     ]
 
-    result = await sharing_service.unshare_ku(
+    result = await sharing_service.unshare_report(
         ku_uid="report_123",
         owner_uid="user_owner",
         recipient_uid="user_teacher",
@@ -162,7 +162,7 @@ async def test_unshare_ku_not_shared(sharing_service, mock_driver):
         Result.ok([{"deleted_count": 0}]),
     ]
 
-    result = await sharing_service.unshare_ku(
+    result = await sharing_service.unshare_report(
         ku_uid="report_123",
         owner_uid="user_owner",
         recipient_uid="user_teacher",
@@ -179,7 +179,7 @@ async def test_unshare_ku_not_owner(sharing_service, mock_driver):
         [{"actual_owner": "user_other"}]
     )
 
-    result = await sharing_service.unshare_ku(
+    result = await sharing_service.unshare_report(
         ku_uid="report_123",
         owner_uid="user_not_owner",
         recipient_uid="user_teacher",
@@ -263,7 +263,7 @@ async def test_get_kus_shared_with_me_success(sharing_service, mock_driver):
         ]
     )
 
-    result = await sharing_service.get_kus_shared_with_me(
+    result = await sharing_service.get_reports_shared_with_me(
         user_uid="user_teacher",
         limit=50,
     )
@@ -279,7 +279,7 @@ async def test_get_kus_shared_with_me_empty(sharing_service, mock_driver):
     """Test getting shared reports when none exist."""
     mock_driver.execute_query.return_value = Result.ok([])
 
-    result = await sharing_service.get_kus_shared_with_me(
+    result = await sharing_service.get_reports_shared_with_me(
         user_uid="user_teacher",
         limit=50,
     )
@@ -588,7 +588,7 @@ async def test_share_ku_database_error(sharing_service, mock_driver):
         Errors.database("share_ku", "Database connection failed")
     )
 
-    result = await sharing_service.share_ku(
+    result = await sharing_service.share_report(
         ku_uid="report_123",
         owner_uid="user_owner",
         recipient_uid="user_teacher",

@@ -38,7 +38,7 @@ class KuRelationshipService:
     # RELATIONSHIP CREATION
     # ========================================================================
 
-    async def create_ku_relationships(
+    async def create_report_relationships(
         self,
         ku: Ku,
         themes: list[str] | None = None,
@@ -60,26 +60,26 @@ class KuRelationshipService:
         try:
             # 1. Temporal Relationship: FOLLOWS (previous Ku of same type)
             temporal_result = await self._create_temporal_relationship(
-                ku.uid,
-                ku.user_uid,
-                ku.ku_type.value,
+                report.uid,
+                report.user_uid,
+                report.ku_type.value,
             )
             relationships_created["temporal"] = temporal_result
 
             # 2. Thematic Relationships: RELATED_TO (shared topics)
             if themes:
                 thematic_result = await self._create_thematic_relationships(
-                    ku.uid,
-                    ku.user_uid,
+                    report.uid,
+                    report.user_uid,
                     themes,
                 )
                 relationships_created["thematic"] = thematic_result
 
             # 3. Goal Support Relationships: SUPPORTS_GOAL
-            processed_content = getattr(ku, "processed_content", None)
+            processed_content = getattr(report, "processed_content", None)
             if active_goals and processed_content:
                 goal_result = await self._create_goal_relationships(
-                    ku.uid, processed_content, active_goals
+                    report.uid, processed_content, active_goals
                 )
                 relationships_created["goal_support"] = goal_result
 
@@ -93,7 +93,7 @@ class KuRelationshipService:
         except Exception as e:
             return Result.fail(
                 Errors.database(
-                    operation="create_ku_relationships",
+                    operation="create_report_relationships",
                     message=f"Failed to create relationships: {e!s}",
                 )
             )
@@ -251,7 +251,7 @@ class KuRelationshipService:
     # RELATIONSHIP QUERIES
     # ========================================================================
 
-    async def get_related_kus(self, ku_uid: str) -> Result[list[str]]:
+    async def get_related_reports(self, ku_uid: str) -> Result[list[str]]:
         """
         Get UIDs of related Ku.
 
@@ -299,7 +299,7 @@ class KuRelationshipService:
 
         return Result.ok([r["uid"] for r in (result.value or []) if r["uid"]])
 
-    async def get_ku_summary(self, ku_uid: str) -> Result[dict[str, int]]:
+    async def get_report_summary(self, ku_uid: str) -> Result[dict[str, int]]:
         """
         Get comprehensive relationship summary for a Ku.
 

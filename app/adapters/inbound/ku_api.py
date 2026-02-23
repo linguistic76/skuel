@@ -22,7 +22,7 @@ from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRoute
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
-from core.models.ku.ku_request import KuCurriculumCreateRequest, KuUpdateRequest
+from core.models.ku.ku_request import CurriculumCreateRequest, EntityUpdateRequest
 from core.ports.facade_protocols import KuFacadeProtocol
 from core.utils.result_simplified import Errors, Result
 
@@ -53,8 +53,8 @@ def create_ku_api_routes(
     crud_factory = CRUDRouteFactory(
         service=ku_service,
         domain_name="ku",
-        create_schema=KuCurriculumCreateRequest,
-        update_schema=KuUpdateRequest,
+        create_schema=CurriculumCreateRequest,
+        update_schema=EntityUpdateRequest,
         uid_prefix="ku",
         scope=ContentScope.SHARED,
         require_role=UserRole.ADMIN,

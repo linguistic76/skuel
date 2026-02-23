@@ -52,11 +52,11 @@ class KuSubmissionOperations(Protocol):
         """Submit a file for processing. Returns Result[Ku]."""
         ...
 
-    async def get_ku(self, uid: str) -> Result[Any | None]:
+    async def get_report(self, uid: str) -> Result[Any | None]:
         """Get Ku by UID. Returns Result[Ku | None]."""
         ...
 
-    async def list_kus(
+    async def list_reports(
         self,
         user_uid: str,
         ku_type: Any | None = None,
@@ -75,7 +75,7 @@ class KuSubmissionOperations(Protocol):
         """Get processed file content. Returns Result[bytes]."""
         ...
 
-    async def get_ku_statistics(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_report_statistics(self, user_uid: str) -> Result[dict[str, Any]]:
         """Get Ku statistics for a user. Returns Result[dict]."""
         ...
 
@@ -97,11 +97,11 @@ class KuContentOperations(Protocol):
     Implementation: KuContentService
     """
 
-    async def get_ku(self, uid: str) -> Result[Any]:
+    async def get_report(self, uid: str) -> Result[Any]:
         """Get Ku by UID. Returns Result[Ku]."""
         ...
 
-    async def categorize_ku(self, uid: str, category: str) -> Result[Any]:
+    async def categorize_report(self, uid: str, category: str) -> Result[Any]:
         """Set category on a Ku. Returns Result[Ku]."""
         ...
 
@@ -113,11 +113,11 @@ class KuContentOperations(Protocol):
         """Remove tags from a Ku. Returns Result[Ku]."""
         ...
 
-    async def publish_ku(self, uid: str) -> Result[Any]:
+    async def publish_report(self, uid: str) -> Result[Any]:
         """Publish a Ku (set status to COMPLETED). Returns Result[Ku]."""
         ...
 
-    async def archive_ku(self, uid: str) -> Result[Any]:
+    async def archive_report(self, uid: str) -> Result[Any]:
         """Archive a Ku. Returns Result[Ku]."""
         ...
 
@@ -125,7 +125,7 @@ class KuContentOperations(Protocol):
         """Mark Ku as draft. Returns Result[Ku]."""
         ...
 
-    async def get_kus_by_category(
+    async def get_reports_by_category(
         self,
         category: str,
         limit: int = 50,
@@ -134,7 +134,7 @@ class KuContentOperations(Protocol):
         """Get Ku by category. Returns Result[list[Ku]]."""
         ...
 
-    async def get_recent_kus(
+    async def get_recent_reports(
         self,
         limit: int = 10,
         user_uid: str | None = None,
@@ -155,7 +155,7 @@ class KuContentOperations(Protocol):
         """Bulk delete Ku. Returns Result[int] (count deleted)."""
         ...
 
-    async def create_journal_ku(
+    async def create_journal_report(
         self,
         user_uid: str,
         title: str,
@@ -222,7 +222,7 @@ class KuContentSearchOperations(Protocol):
     Implementation: KuContentSearchService
     """
 
-    async def search_kus(
+    async def search_reports(
         self,
         user_uid: str,
         query: str,
@@ -232,7 +232,7 @@ class KuContentSearchOperations(Protocol):
         """Search Ku with filters. Returns Result[list[Ku]]."""
         ...
 
-    async def get_ku_statistics(
+    async def get_report_statistics(
         self,
         user_uid: str,
         start_date: date,
@@ -242,7 +242,7 @@ class KuContentSearchOperations(Protocol):
         """Get Ku statistics for a date range. Returns Result[dict]."""
         ...
 
-    async def get_recent_kus(
+    async def get_recent_reports(
         self,
         user_uid: str,
         ku_type: Any | None = None,
@@ -251,7 +251,7 @@ class KuContentSearchOperations(Protocol):
         """Get recent Ku. Returns Result[list[Ku]]."""
         ...
 
-    async def get_journal_for_ku(
+    async def get_journal_for_report(
         self,
         ku_uid: str,
         user_uid: str,
@@ -268,7 +268,7 @@ class KuSharingOperations(Protocol):
     Implementation: KuSharingService
     """
 
-    async def share_ku(
+    async def share_report(
         self,
         ku_uid: str,
         owner_uid: str,
@@ -278,7 +278,7 @@ class KuSharingOperations(Protocol):
         """Share a Ku with a user. Returns Result[bool]."""
         ...
 
-    async def unshare_ku(
+    async def unshare_report(
         self,
         ku_uid: str,
         owner_uid: str,
@@ -294,7 +294,7 @@ class KuSharingOperations(Protocol):
         """Get users a Ku is shared with. Returns Result[list[dict]]."""
         ...
 
-    async def get_kus_shared_with_me(
+    async def get_reports_shared_with_me(
         self,
         user_uid: str,
         limit: int = 50,
@@ -328,7 +328,7 @@ class KuProcessingOperations(Protocol):
     Implementation: KuProcessingService
     """
 
-    async def process_ku(
+    async def process_report(
         self,
         ku_uid: str,
         instructions: dict[str, Any] | None = None,
@@ -336,7 +336,7 @@ class KuProcessingOperations(Protocol):
         """Process a Ku through the pipeline. Returns Result[Ku]."""
         ...
 
-    async def reprocess_ku(
+    async def reprocess_report(
         self,
         ku_uid: str,
         new_instructions: dict[str, Any] | None = None,

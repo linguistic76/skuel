@@ -46,7 +46,7 @@ sleep 2
 
 **Symptom**: `ValueError: Embeddings service is required - vector search is not optional`
 
-**Cause**: `KuRetrieval` service initialized without embeddings service when code expected it to be required
+**Cause**: `EntityRetrieval` service initialized without embeddings service when code expected it to be required
 
 **Solution**: Embeddings service is now optional (fixed 2026-01-31). Server will gracefully degrade to keyword search.
 
@@ -56,7 +56,7 @@ sleep 2
 grep "keyword search fallback" /tmp/server.log
 
 # Expected output:
-# ✅ KuRetrieval initialized with keyword search fallback (no embeddings)
+# ✅ EntityRetrieval initialized with keyword search fallback (no embeddings)
 ```
 
 **Related**: See `/EMBEDDINGS_SERVICE_FIX_COMPLETE.md`

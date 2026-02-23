@@ -92,7 +92,7 @@ class ExerciseUpdateRequest(BaseModel):
     is_active: bool | None = Field(default=None, description="Active status")
 
 
-class KuFeedbackGenerateRequest(BaseModel):
+class FeedbackGenerateRequest(BaseModel):
     """Request to generate feedback for a Ku entry using an Exercise."""
 
     entry_uid: str = Field(..., description="UID of the Ku entry to analyze")

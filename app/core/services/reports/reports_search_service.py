@@ -83,8 +83,8 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
     # KU QUERIES
     # ========================================================================
 
-    @with_error_handling("get_ku_for_date")
-    async def get_ku_for_date(
+    @with_error_handling("get_report_for_date")
+    async def get_report_for_date(
         self,
         user_uid: str,
         target_date: date,
@@ -110,16 +110,16 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
         if result.is_error:
             return Result.fail(result)
 
-        kus = result.value
+        reports = result.value
 
-        for ku in kus:
-            if ku.created_at.date() == target_date:
-                return Result.ok(ku)
+        for report in reports:
+            if report.created_at.date() == target_date:
+                return Result.ok(report)
 
         return Result.ok(None)
 
-    @with_error_handling("list_kus_by_date_range")
-    async def list_kus_by_date_range(
+    @with_error_handling("list_reports_by_date_range")
+    async def list_reports_by_date_range(
         self,
         user_uid: str,
         start_date: date,
@@ -154,13 +154,13 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
         if result.is_error:
             return result
 
-        kus = result.value
-        filtered = [k for k in kus if start_date <= k.created_at.date() <= end_date]
+        reports = result.value
+        filtered = [k for k in reports if start_date <= k.created_at.date() <= end_date]
 
         return Result.ok(filtered)
 
-    @with_error_handling("get_kus_by_category")
-    async def get_kus_by_category(
+    @with_error_handling("get_reports_by_category")
+    async def get_reports_by_category(
         self,
         user_uid: str,
         category: str,
@@ -193,13 +193,13 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
         if result.is_error:
             return result
 
-        kus = result.value
-        filtered = [k for k in kus if k.metadata and k.metadata.get("category") == category][:limit]
+        reports = result.value
+        filtered = [k for k in reports if k.metadata and k.metadata.get("category") == category][:limit]
 
         return Result.ok(filtered)
 
-    @with_error_handling("get_kus_by_mood")
-    async def get_kus_by_mood(
+    @with_error_handling("get_reports_by_mood")
+    async def get_reports_by_mood(
         self,
         user_uid: str,
         mood: str,
@@ -236,10 +236,10 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
         if result.is_error:
             return result
 
-        kus = result.value
+        reports = result.value
 
         filtered = []
-        for k in kus:
+        for k in reports:
             if not k.metadata or k.metadata.get("mood") != mood:
                 continue
             if start_date and k.created_at.date() < start_date:
@@ -252,8 +252,8 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
 
         return Result.ok(filtered)
 
-    @with_error_handling("search_kus")
-    async def search_kus(
+    @with_error_handling("search_reports")
+    async def search_reports(
         self,
         user_uid: str,
         query: str,
@@ -288,14 +288,14 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
         if result.is_error:
             return result
 
-        kus = result.value
+        reports = result.value
         query_lower = query.lower()
 
         def _has_matching_content(k: Entity) -> bool:
             pc = getattr(k, "processed_content", None)
             return bool(pc and query_lower in pc.lower())
 
-        filtered = [k for k in kus if _has_matching_content(k)][:limit]
+        filtered = [k for k in reports if _has_matching_content(k)][:limit]
 
         return Result.ok(filtered)
 
@@ -303,8 +303,8 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
     # STATISTICS
     # ========================================================================
 
-    @with_error_handling("get_ku_statistics")
-    async def get_ku_statistics(
+    @with_error_handling("get_report_statistics")
+    async def get_report_statistics(
         self,
         user_uid: str,
         start_date: date,
@@ -324,7 +324,7 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
         - Category distribution
         - Type distribution (if not filtered)
         """
-        kus_result = await self.list_kus_by_date_range(
+        reports_result = await self.list_reports_by_date_range(
             user_uid=user_uid,
             start_date=start_date,
             end_date=end_date,
@@ -332,16 +332,16 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
             limit=QueryLimit.COMPREHENSIVE,
         )
 
-        if kus_result.is_error:
-            return Result.fail(kus_result.expect_error())
+        if reports_result.is_error:
+            return Result.fail(reports_result.expect_error())
 
-        kus = kus_result.value
+        reports = reports_result.value
 
-        total_kus = len(kus)
-        if total_kus == 0:
+        total_reports = len(reports)
+        if total_reports == 0:
             return Result.ok(
                 {
-                    "total_kus": 0,
+                    "total_reports": 0,
                     "total_words": 0,
                     "average_words": 0,
                     "longest_streak": 0,
@@ -357,23 +357,23 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
             pc = getattr(k, "processed_content", None)
             return len(pc.split()) if pc else 0
 
-        total_words = sum(_word_count(k) for k in kus)
-        average_words = total_words / total_kus if total_kus > 0 else 0
+        total_words = sum(_word_count(k) for k in reports)
+        average_words = total_words / total_reports if total_reports > 0 else 0
 
         # Streak calculation
-        ku_dates = sorted([k.created_at.date() for k in kus])
-        longest_streak = self._calculate_longest_streak(ku_dates)
-        current_streak = self._calculate_current_streak(ku_dates)
+        report_dates = sorted([k.created_at.date() for k in reports])
+        longest_streak = self._calculate_longest_streak(report_dates)
+        current_streak = self._calculate_current_streak(report_dates)
 
         # Day of week distribution
         day_of_week_counts: dict[str, int] = {}
-        for k in kus:
+        for k in reports:
             day_name = k.created_at.strftime("%A")
             day_of_week_counts[day_name] = day_of_week_counts.get(day_name, 0) + 1
 
         # Category distribution
         category_counts: dict[str, int] = {}
-        for k in kus:
+        for k in reports:
             if k.metadata and "category" in k.metadata:
                 category = k.metadata["category"]
                 category_counts[category] = category_counts.get(category, 0) + 1
@@ -381,13 +381,13 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
         # Type distribution
         type_counts: dict[str, int] = {}
         if not ku_type:
-            for k in kus:
+            for k in reports:
                 type_name = k.ku_type.value
                 type_counts[type_name] = type_counts.get(type_name, 0) + 1
 
         return Result.ok(
             {
-                "total_kus": total_kus,
+                "total_reports": total_reports,
                 "total_words": total_words,
                 "average_words": round(average_words, 1),
                 "longest_streak": longest_streak,
@@ -442,8 +442,8 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
     # RECENT KU
     # ========================================================================
 
-    @with_error_handling("get_recent_kus")
-    async def get_recent_kus(
+    @with_error_handling("get_recent_reports")
+    async def get_recent_reports(
         self,
         user_uid: str,
         ku_type: EntityType | None = None,

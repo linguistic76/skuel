@@ -31,12 +31,12 @@ from core.models.ku.habit import Habit as Habit
 from core.models.ku.ku import Ku
 from core.models.ku.ku_nested_types import ChoiceOption
 from core.models.ku.ku_request import (
-    KuChoiceCreateRequest,
-    KuPrincipleCreateRequest,
-    KuUpdateRequest,
+    ChoiceCreateRequest,
+    PrincipleCreateRequest,
+    EntityUpdateRequest,
 )
 from core.models.ku.ku_request import (
-    KuCurriculumCreateRequest as KuCreateRequest,
+    CurriculumCreateRequest as KuCreateRequest,
 )
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.ports import HasUpdated, HasUpdatedAt, PydanticModel
@@ -368,8 +368,8 @@ class ConversionServiceV2:
         return cls.create_to_pure(schema, KuPure, uid, **kwargs)
 
     @classmethod
-    def ku_update_to_pure(cls, existing: KuPure, schema: KuUpdateRequest) -> KuPure:
-        """Apply KuUpdateRequest to existing Ku using generic method."""
+    def ku_update_to_pure(cls, existing: KuPure, schema: EntityUpdateRequest) -> KuPure:
+        """Apply EntityUpdateRequest to existing Ku using generic method."""
         return cls.update_to_pure(existing, schema)
 
     # --- Finance Conversions (three-tier migrated) ---
@@ -405,9 +405,9 @@ class ConversionServiceV2:
     # --- Principle Conversions (unified Ku model) ---
     @classmethod
     def principle_create_to_pure(
-        cls, schema: KuPrincipleCreateRequest, uid: str | None = None, **kwargs: Any
+        cls, schema: PrincipleCreateRequest, uid: str | None = None, **kwargs: Any
     ) -> Ku:
-        """Convert KuPrincipleCreateRequest to Ku using generic method."""
+        """Convert PrincipleCreateRequest to Ku using generic method."""
         # Principle uses tuples for immutability, need to convert lists
         extra_fields = {}
         if schema.key_behaviors:
@@ -422,8 +422,8 @@ class ConversionServiceV2:
         return cls.create_to_pure(schema, Ku, uid, **extra_fields)
 
     @classmethod
-    def principle_update_to_pure(cls, existing: Ku, schema: KuUpdateRequest) -> Ku:
-        """Apply KuUpdateRequest to existing Ku using generic method."""
+    def principle_update_to_pure(cls, existing: Ku, schema: EntityUpdateRequest) -> Ku:
+        """Apply EntityUpdateRequest to existing Ku using generic method."""
         # Convert list fields to tuples for immutable model
         extra_updates = {}
         if schema.key_behaviors is not None:
@@ -438,7 +438,7 @@ class ConversionServiceV2:
     # --- Choice Conversions ---
     @classmethod
     def choice_create_to_pure(
-        cls, schema: KuChoiceCreateRequest, uid: str | None = None, **kwargs: Any
+        cls, schema: ChoiceCreateRequest, uid: str | None = None, **kwargs: Any
     ) -> Ku:
         """Convert ChoiceCreateRequest to Choice using generic method."""
         # Choice uses tuples for immutability, need to convert lists
@@ -474,7 +474,7 @@ class ConversionServiceV2:
         return cls.create_to_pure(schema, Ku, uid, **extra_fields)
 
     @classmethod
-    def choice_update_to_pure(cls, existing: Ku, schema: KuUpdateRequest) -> Ku:
+    def choice_update_to_pure(cls, existing: Ku, schema: EntityUpdateRequest) -> Ku:
         """Apply ChoiceUpdateRequest to existing Choice using generic method."""
         # Convert list fields to tuples for immutable model
         extra_updates = {}

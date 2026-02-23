@@ -111,8 +111,8 @@ class TestOptionAJournalsProcessing:
             current_state["report"] = updated
             return Result.ok(updated)
 
-        service.get_ku.side_effect = mock_get_report
-        service.update_ku_status.side_effect = mock_update_status
+        service.get_report.side_effect = mock_get_report
+        service.update_report_status.side_effect = mock_update_status
         service.update_processed_content.side_effect = mock_update_content
 
         return service
@@ -175,7 +175,7 @@ class TestOptionAJournalsProcessing:
         report_uid = "report.test_transcript"
 
         # Act
-        result = await processing_pipeline.process_ku(report_uid)
+        result = await processing_pipeline.process_report(report_uid)
 
         # Assert
         assert result.is_ok
@@ -192,7 +192,7 @@ class TestOptionAJournalsProcessing:
         report_uid = "report.test_transcript"
 
         # Act
-        result = await processing_pipeline.process_ku(report_uid)
+        result = await processing_pipeline.process_report(report_uid)
 
         # Assert
         assert result.is_ok
@@ -212,13 +212,13 @@ class TestOptionAJournalsProcessing:
         report_uid = "report.test_transcript"
 
         # Act
-        result = await processing_pipeline.process_ku(report_uid)
+        result = await processing_pipeline.process_report(report_uid)
 
         # Assert
         assert result.is_ok
 
         # Verify status update calls
-        status_calls = mock_report_service.update_ku_status.call_args_list
+        status_calls = mock_report_service.update_report_status.call_args_list
 
         # Should have: QUEUED, PROCESSING, COMPLETED
         assert len(status_calls) >= 2
@@ -250,7 +250,7 @@ class TestOptionAJournalsProcessing:
             updated_at=datetime.now(),
         )
 
-        mock_report_service.get_ku.side_effect = lambda _uid: Result.ok(text_ku)
+        mock_report_service.get_report.side_effect = lambda _uid: Result.ok(text_ku)
         mock_report_service.get_file_content.return_value = Result.ok(
             b"This is the text file content."
         )
@@ -261,7 +261,7 @@ class TestOptionAJournalsProcessing:
         )
 
         # Act
-        result = await pipeline.process_ku("report.test_text")
+        result = await pipeline.process_report("report.test_text")
 
         # Assert
         assert result.is_ok
@@ -293,13 +293,13 @@ class TestOptionAJournalsProcessing:
         )
 
         # Act
-        result = await pipeline.process_ku("report.test_transcript")
+        result = await pipeline.process_report("report.test_transcript")
 
         # Assert
         assert result.is_error
 
         # Verify status was set to FAILED
-        status_calls = mock_report_service.update_ku_status.call_args_list
+        status_calls = mock_report_service.update_report_status.call_args_list
         final_status = status_calls[-1][0][1]
         assert final_status == EntityStatus.FAILED
 
@@ -323,14 +323,14 @@ class TestOptionAJournalsProcessing:
 
         # Create fresh mock without side_effect interference
         mock_service = AsyncMock()
-        mock_service.get_ku.return_value = Result.ok(processing_ku)
+        mock_service.get_report.return_value = Result.ok(processing_ku)
 
         pipeline = KuProcessingService(
             ku_submission_service=mock_service,
         )
 
         # Act
-        result = await pipeline.process_ku("report.processing")
+        result = await pipeline.process_report("report.processing")
 
         # Assert
         assert result.is_error
@@ -356,14 +356,14 @@ class TestOptionAJournalsProcessing:
 
         # Create fresh mock without side_effect interference
         mock_service = AsyncMock()
-        mock_service.get_ku.return_value = Result.ok(pdf_ku)
+        mock_service.get_report.return_value = Result.ok(pdf_ku)
 
         pipeline = KuProcessingService(
             ku_submission_service=mock_service,
         )
 
         # Act
-        result = await pipeline.process_ku("report.pdf")
+        result = await pipeline.process_report("report.pdf")
 
         # Assert
         assert result.is_error
@@ -411,7 +411,7 @@ class TestOptionAJournalsProcessing:
         report_uid = "report.test_transcript"
 
         # Act
-        result = await processing_pipeline.process_ku(report_uid)
+        result = await processing_pipeline.process_report(report_uid)
 
         # Assert
         assert result.is_ok
@@ -428,10 +428,10 @@ class TestOptionAJournalsProcessing:
         """Test that reprocessing a Ku resets its status."""
         # First, complete initial processing
         report_uid = "report.test_transcript"
-        await processing_pipeline.process_ku(report_uid)
+        await processing_pipeline.process_report(report_uid)
 
         # Reset the mock to track reprocessing calls
-        mock_report_service.update_ku_status.reset_mock()
+        mock_report_service.update_report_status.reset_mock()
 
         # Now, update the Ku to COMPLETED state for reprocessing test
         completed_ku = Submission(
@@ -449,15 +449,15 @@ class TestOptionAJournalsProcessing:
             updated_at=datetime.now(),
             processed_content="Old content",
         )
-        mock_report_service.get_ku.return_value = Result.ok(completed_ku)
+        mock_report_service.get_report.return_value = Result.ok(completed_ku)
 
         # Act - reprocess
-        result = await processing_pipeline.reprocess_ku(report_uid)
+        result = await processing_pipeline.reprocess_report(report_uid)
 
         # Assert
         assert result.is_ok
 
         # Verify status was reset to SUBMITTED first
-        status_calls = mock_report_service.update_ku_status.call_args_list
+        status_calls = mock_report_service.update_report_status.call_args_list
         first_status = status_calls[0][0][1]
         assert first_status == EntityStatus.SUBMITTED

@@ -67,7 +67,7 @@ class ContentStatistics(TypedDict):
     average_reading_time: float  # Computed field
 
 
-class KuChunkingService:
+class EntityChunkingService:
     """
     Service for processing knowledge content into chunks and metadata.
 
@@ -536,7 +536,7 @@ class KuChunkingService:
         """String representation"""
         cache_stats = self.get_cache_stats()
         return (
-            f"KuChunkingService("
+            f"EntityChunkingService("
             f"cached={cache_stats['cached_content']}, "
             f"chunks={cache_stats['total_chunks']})"
         )

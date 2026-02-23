@@ -15,7 +15,7 @@ Handles task completion, progress tracking, and cascade effects.
 **Dependencies:**
 - TasksOperations (backend protocol)
 - UserContextOperations (optional protocol - for context invalidation)
-- KuAnalyticsEngine (optional - for analytics)
+- AnalyticsEngine (optional - for analytics)
 """
 
 from __future__ import annotations
@@ -88,7 +88,7 @@ class TasksProgressService(BaseService["BackendOperations[Task]", Task]):
 
         Args:
             backend: TasksOperations backend (required)
-            analytics_engine: KuAnalyticsEngine for analytics (optional)
+            analytics_engine: AnalyticsEngine for analytics (optional)
             event_bus: Event bus for publishing domain events (optional)
 
         Note:

@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations
 
 from core.models.enums import Domain, EntityStatus, Priority
-from core.models.ku.ku_request import KuTaskCreateRequest
+from core.models.ku.ku_request import TaskCreateRequest
 from core.models.ku.lp_position import LpPosition
 from core.models.ku.task import Task
 from core.models.ku.task_dto import TaskDTO
@@ -45,7 +45,7 @@ from core.utils.result_simplified import Errors, Result
 
 
 def _validate_task_prerequisites(
-    request: KuTaskCreateRequest, context: UserContext | None
+    request: TaskCreateRequest, context: UserContext | None
 ) -> Result[None]:
     """
     Validate task prerequisites against user's completed knowledge/tasks.
@@ -120,7 +120,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
         super().__init__(backend=backend, service_name="tasks.scheduling")
 
         # Initialize LearningAlignmentHelper with prerequisite validator (Phase 6)
-        self.learning_helper = LearningAlignmentHelper[Task, TaskDTO, KuTaskCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Task, TaskDTO, TaskCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="list_user_tasks",
@@ -147,7 +147,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
 
     @with_error_handling("create_task_with_context", error_type="database")
     async def create_task_with_context(
-        self, task_data: KuTaskCreateRequest, user_context: UserContext
+        self, task_data: TaskCreateRequest, user_context: UserContext
     ) -> Result[Task]:
         """
         Create a task with full context awareness.
@@ -272,7 +272,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
     @with_error_handling("create_task_with_learning_context", error_type="database")
     async def create_task_with_learning_context(
         self,
-        task_request: KuTaskCreateRequest,
+        task_request: TaskCreateRequest,
         learning_position: LpPosition | None = None,
         context: UserContext | None = None,
     ) -> Result[Task]:

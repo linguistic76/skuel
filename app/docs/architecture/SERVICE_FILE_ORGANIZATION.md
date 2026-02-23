@@ -77,7 +77,7 @@ Standalone services without subfolders.
 | **Base Classes** | `base_service.py`, `base_analytics_service.py`, `base_ai_service.py`, `base_planning_service.py` |
 | **AI/LLM** | `ai_service.py`, `llm_service.py`, `embeddings_service.py`, `context_aware_ai_service.py` |
 | **Askesis Secondary** | `askesis_ai_service.py`, `askesis_citation_service.py` |
-| **KU Generation** | `ku_chunking_service.py`, `ku_generation_service.py`, `ku_inference_service.py`, `ku_intelligence_service.py` |
+| **KU Generation** | `entity_chunking_service.py`, `insight_generation_service.py`, `entity_inference_service.py`, `ku_intelligence_service.py` |
 | **Calendar** | `calendar_service.py`, `calendar_optimization_service.py` |
 | **Analytics** | `cross_domain_analytics_service.py`, `adaptive_sel_service.py` |
 | **Content** | `conversion_service.py`, `event_logger_service.py`, `content_enrichment_service.py` |
@@ -151,9 +151,9 @@ The following ROOT-ONLY services COULD move into domain folders. They remain at 
 |---------|---------------|--------|
 | `askesis_ai_service.py` | `askesis/` | Functional as-is |
 | `askesis_citation_service.py` | `askesis/` | Functional as-is |
-| `ku_chunking_service.py` | `ku/` | Part of generation pipeline |
-| `ku_generation_service.py` | `ku/` | Part of generation pipeline |
-| `ku_inference_service.py` | `ku/` | Part of generation pipeline |
+| `entity_chunking_service.py` | `ku/` | Part of generation pipeline |
+| `insight_generation_service.py` | `ku/` | Part of generation pipeline |
+| `entity_inference_service.py` | `ku/` | Part of generation pipeline |
 | `ku_intelligence_service.py` | `ku/` | Analytics service |
 | `user_progress_service.py` | `user/` | Functional as-is |
 | `user_relationship_service.py` | `user/` | Functional as-is |

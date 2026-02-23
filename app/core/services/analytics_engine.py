@@ -104,7 +104,7 @@ class KuAwarePriority:
     scoring_rationale: list[str]
 
 
-class KuAnalyticsEngine:
+class AnalyticsEngine:
     """
     Advanced analytics engine for knowledge-aware learning insights.
 
@@ -119,7 +119,7 @@ class KuAnalyticsEngine:
 
     def __init__(self, relationship_service: "UnifiedRelationshipService | None" = None) -> None:
         """
-        Initialize KuAnalyticsEngine.
+        Initialize AnalyticsEngine.
 
         Args:
             relationship_service: Service for fetching task relationships from graph.

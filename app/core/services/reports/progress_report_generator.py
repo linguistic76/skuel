@@ -25,7 +25,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
-logger = get_logger("skuel.services.ku.progress_generator")
+logger = get_logger("skuel.services.report.progress_generator")
 
 # Time period mapping
 TIME_PERIOD_DAYS = {
@@ -121,7 +121,7 @@ class ProgressKuGenerator:
 
             # 5. Create Ku node
             uid = UIDGenerator.generate_uid("ku")
-            ku = AiReport(
+            report = AiReport(
                 uid=uid,
                 title=title,
                 ku_type=EntityType.AI_REPORT,
@@ -133,7 +133,7 @@ class ProgressKuGenerator:
                 metadata=metadata,
             )
 
-            create_result = await self.ku_backend.create(ku)
+            create_result = await self.ku_backend.create(report)
             if create_result.is_error:
                 return Result.fail(create_result.expect_error())
 
@@ -152,7 +152,7 @@ class ProgressKuGenerator:
             await publish_event(self.event_bus, event, logger)
 
             logger.info(f"Generated progress Ku {uid} for {user_uid}")
-            return Result.ok(ku)
+            return Result.ok(report)
 
         except Exception as e:
             logger.error(f"Failed to generate progress Ku for {user_uid}: {e}")
@@ -216,7 +216,7 @@ class ProgressKuGenerator:
                         "title": r["title"],
                         "status": r["status"],
                         "goals": r["goal_titles"],
-                        "kus": r["ku_titles"],
+                        "reports": r["ku_titles"],
                     }
                     for r in records
                 ]
@@ -225,9 +225,9 @@ class ProgressKuGenerator:
                         if gt:
                             result["goal_alignments"].append(gt)
                 for r in completed:
-                    for ku in r["ku_titles"]:
-                        if ku:
-                            result["knowledge_applications"].append(ku)
+                    for report in r["ku_titles"]:
+                        if report:
+                            result["knowledge_applications"].append(report)
 
         # Goals progressed in period
         if include_all or "goals" in (domains or []):
