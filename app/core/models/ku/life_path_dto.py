@@ -17,16 +17,14 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from datetime import datetime
+from typing import Any
 
 from core.models.enums import Domain
 from core.models.enums.ku_enums import AlignmentLevel, EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.ku.user_owned_dto import UserOwnedDTO
 from core.ports import get_enum_value
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 @dataclass

@@ -19,15 +19,13 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from datetime import datetime
+from typing import Any
 
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
 from core.models.enums.ku_enums import EntityStatus, EntityType
 from core.models.ku.entity_dto import EntityDTO
 from core.ports import get_enum_value
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 @dataclass

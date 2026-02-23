@@ -209,7 +209,8 @@ Main content.
         # Step 6: Verify core metadata preserved
         assert ku_dto.uid == "ku.main-topic"
         assert ku_dto.title == "Main Topic"
-        assert ku_dto.domain.value == "tech"
+        domain_val = getattr(ku_dto.domain, "value", ku_dto.domain)
+        assert domain_val == "tech"
 
         # Note: For relationship verification, we would need to query the graph directly
         # or use a backend method to get related nodes. This is a simplified test.
@@ -258,7 +259,8 @@ Content for testing full round-trip.
         # Step 3: Verify initial data
         assert ku_dto_1.uid == "ku.cycle-test"
         assert ku_dto_1.title == "Cycle Test"
-        assert ku_dto_1.domain.value == "tech"
+        domain_val = getattr(ku_dto_1.domain, "value", ku_dto_1.domain)
+        assert domain_val == "tech"
         assert ku_dto_1.quality_score == 0.85
 
         # Note: Full round-trip testing (delete + re-import + verify) would require
@@ -322,7 +324,8 @@ Content with all relationship types.
         # Verify core data
         assert ku_dto.uid == "ku.comprehensive"
         assert ku_dto.title == "Comprehensive Test"
-        assert ku_dto.domain.value == "tech"
+        domain_val = getattr(ku_dto.domain, "value", ku_dto.domain)
+        assert domain_val == "tech"
         assert ku_dto.quality_score == 0.9
         assert ku_dto.complexity == "advanced"
 

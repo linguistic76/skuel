@@ -211,7 +211,7 @@ async def ku_backend(neo4j_container):
     """Create real KuService backend."""
     from neo4j import AsyncGraphDatabase
 
-    from core.models.ku.entity_dto import EntityDTO
+    from core.models.ku.curriculum_dto import CurriculumDTO
 
     # Create driver synchronously within the fixture (no auth - use empty strings)
     uri = neo4j_container.get_connection_url()
@@ -219,7 +219,8 @@ async def ku_backend(neo4j_container):
     driver = AsyncGraphDatabase.driver(uri)
 
     # Use "Ku" to match what UnifiedIngestionService creates
-    backend = UniversalNeo4jBackend[EntityDTO](driver, "Ku", EntityDTO)
+    # IMPORTANT: Must use CurriculumDTO (not EntityDTO) to include quality_score, complexity, etc.
+    backend = UniversalNeo4jBackend[CurriculumDTO](driver, "Ku", CurriculumDTO)
 
     yield backend
 
