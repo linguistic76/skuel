@@ -155,80 +155,19 @@ This is why EntityType and EntityStatus live in the same file (`entity_enums.py`
 
 ## Model Integration
 
-Enums wire into the model layer through a class hierarchy. Each level inherits enum fields from its parent and adds domain-specific ones.
+Enums wire into the model layer through a class hierarchy. Each level inherits enum fields and adds domain-specific ones. Every model forces its `ku_type` in `__post_init__()`, which drives status validation, default status, and Neo4j labels.
 
-### Class Hierarchy
+**For the full picture** — class hierarchy, per-model enum fields, three-tier flow, directory layout, sub-entities, and intelligence models — see [Model Architecture](MODEL_ARCHITECTURE.md).
 
-```
-Entity (ku_type: EntityType, status: EntityStatus, visibility: Visibility)
-│
-├── UserOwnedEntity (inherits all, overrides visibility default → PRIVATE)
-│   ├── Task ────────── forces ku_type=TASK
-│   ├── Goal ────────── + goal_type: GoalType, timeframe: GoalTimeframe, measurement_type: MeasurementType
-│   ├── Habit ───────── + polarity: HabitPolarity, habit_category: HabitCategory, habit_difficulty: HabitDifficulty
-│   ├── Event ───────── forces ku_type=EVENT (no additional enums)
-│   ├── Choice ──────── + choice_type: ChoiceType
-│   ├── Principle ───── + principle_category, principle_source, strength, current_alignment (4 enums)
-│   ├── Submission ──── + processor_type: ProcessorType
-│   │   ├── Journal
-│   │   ├── AiReport
-│   │   └── Feedback
-│   └── LifePath ────── + alignment_level: AlignmentLevel
-│
-├── Curriculum (+ complexity: KuComplexity, learning_level: LearningLevel, sel_category: SELCategory)
-│   ├── LearningStep ── + step_difficulty: StepDifficulty
-│   ├── LearningPath ── + path_type: LpType
-│   └── Exercise ────── + scope: ProjectScope
-│
-└── Resource ─────────── forces ku_type=RESOURCE (no additional enums)
-```
+**Quick reference — enum fields by model tier:**
 
-Every model forces its `ku_type` in `__post_init__()` — a Task is always `EntityType.TASK`, a Habit is always `EntityType.HABIT`. This drives status validation (`valid_statuses()`), default status (`default_status()`), and Neo4j label selection.
+| Base Class | Enum Fields | Models |
+|------------|-------------|--------|
+| Entity | ku_type, status, visibility | *(all 16 models)* |
+| UserOwnedEntity | *(inherits above)* | Task, Goal, Habit, Event, Choice, Principle, Submission types, LifePath |
+| Curriculum | + complexity, learning_level, sel_category | Curriculum, LearningStep, LearningPath, Exercise |
 
-### Enum Fields by Model
-
-| Model | Inherited Enums | Own Enum Fields | File |
-|-------|----------------|-----------------|------|
-| Entity | — | ku_type, status, visibility | `entity.py` |
-| UserOwnedEntity | ku_type, status, visibility | *(overrides visibility default)* | `user_owned_entity.py` |
-| Task | ku_type, status, visibility | *(none)* | `task/task.py` |
-| Goal | ku_type, status, visibility | goal_type, timeframe, measurement_type | `goal/goal.py` |
-| Habit | ku_type, status, visibility | polarity, habit_category, habit_difficulty | `habit/habit.py` |
-| Event | ku_type, status, visibility | *(none)* | `event/event.py` |
-| Choice | ku_type, status, visibility | choice_type | `choice/choice.py` |
-| Principle | ku_type, status, visibility | principle_category, principle_source, strength, current_alignment | `principle/principle.py` |
-| Submission | ku_type, status, visibility | processor_type | `reports/submission.py` |
-| Journal, AiReport, Feedback | *(inherit from Submission)* | *(none)* | `reports/` |
-| LifePath | ku_type, status, visibility | alignment_level | `life_path/life_path.py` |
-| Curriculum | ku_type, status | complexity, learning_level, sel_category | `curriculum/curriculum.py` |
-| LearningStep | ku_type, status, complexity, learning_level | step_difficulty | `curriculum/learning_step.py` |
-| LearningPath | ku_type, status, complexity, learning_level | path_type | `curriculum/learning_path.py` |
-| Exercise | ku_type, status, complexity, learning_level | scope | `curriculum/exercise.py` |
-| Resource | ku_type, status | *(none)* | `resource/resource.py` |
-
-### Three-Tier Enum Flow
-
-Enums move through SKUEL's three-tier type system:
-
-| Tier | Type | Enum Handling | Example |
-|------|------|---------------|---------|
-| **Core** (frozen dataclass) | `Goal` | Enum as field type, forced in `__post_init__` | `goal_type: GoalType \| None` |
-| **Transfer** (DTO) | `GoalDTO` | Mirrors fields, `.value` on serialize, enum class on deserialize | `to_dict()` → `"goal_type": "outcome"` |
-| **External** (Pydantic) | `GoalCreateRequest` | Enum type hint = auto-validation at API boundary | `goal_type: GoalType \| None = None` |
-
-The flow: HTTP request → Pydantic validates enum membership → service creates frozen dataclass → DTO serializes for storage/response.
-
-### Dynamic Enum Logic in Models
-
-Some models use enum methods in their own business logic:
-
-| Model | Method | Enum Used | What It Does |
-|-------|--------|-----------|--------------|
-| Task | `impact_score()` | `Priority.to_numeric()` | Converts priority to 1-4 for scoring |
-| Habit | `get_effort_score()` | `HabitDifficulty` | Maps difficulty → float (0.1-0.9) |
-| Principle | `_review_cadence_days()` | `PrincipleStrength` | Maps strength → review interval (14-60 days) |
-| Curriculum | `is_appropriate_for_level()` | `LearningLevel.can_handle()` | Checks if user level can handle content |
-| Curriculum | `get_sel_context()` | `SELCategory.get_icon/color/description()` | Renders SEL framework info for UI |
+Domain-specific enum fields: Goal (+3), Habit (+3), Principle (+4), Choice (+1), Submission (+1), LifePath (+1), LearningStep (+1), LearningPath (+1), Exercise (+1).
 
 ---
 

@@ -826,7 +826,8 @@ Does the domain have 3+ business logic methods?
 ## See Also
 
 - [DATA_FLOW_WALKTHROUGH.md](/docs/tutorials/DATA_FLOW_WALKTHROUGH.md) - Complete step-by-step example
-- [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) - Enum-to-model wiring
+- [Model Architecture](/docs/architecture/MODEL_ARCHITECTURE.md) - Class hierarchy, directory layout, three-tier flow
+- [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) - Enum landscape and dynamic patterns
 - [Protocol-Based Architecture](#protocol-based-architecture) in CLAUDE.md
 - [Unified User Architecture](/docs/architecture/UNIFIED_USER_ARCHITECTURE.md)
 - [DOMAIN_PATTERNS_CATALOG.md](DOMAIN_PATTERNS_CATALOG.md) - Complete per-domain examples
