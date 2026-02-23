@@ -26,17 +26,17 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
+from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.learning_events import (
     KnowledgeMastered,
     LearningPathCompleted,
     LearningPathProgressUpdated,
 )
-from core.models.enums import Domain, SELCategory
-from core.models.enums.ku_enums import LpType
 from core.models.curriculum.curriculum import Curriculum
 from core.models.curriculum.learning_path import LearningPath
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from core.models.enums import Domain, SELCategory
+from core.models.enums.curriculum_enums import LpType
 from core.services.lp.lp_progress_service import LpProgressService
 
 

@@ -25,12 +25,12 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.ports import BackendOperations
 
-from core.models.enums import Domain, EntityStatus, Priority
-from core.models.task.task_request import TaskCreateRequest
 from core.models.curriculum.lp_position import LpPosition
+from core.models.enums import Domain, EntityStatus, Priority
+from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
-from core.models.relationship_names import RelationshipName
+from core.models.task.task_request import TaskCreateRequest
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import PrerequisiteHelper

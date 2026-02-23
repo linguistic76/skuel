@@ -16,10 +16,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.reports.ai_report_dto import AiReportDTO
     from core.models.entity_dto import EntityDTO
+    from core.models.reports.ai_report_dto import AiReportDTO
 
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.reports.submission import Submission
 
 

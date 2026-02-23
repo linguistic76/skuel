@@ -219,7 +219,7 @@ def create_principles_ui_routes(
         Returns:
             Numeric strength value (1-5)
         """
-        from core.models.enums.ku_enums import PrincipleStrength
+        from core.models.enums.principle_enums import PrincipleStrength
 
         s = getattr(p, "strength", PrincipleStrength.MODERATE)
         if isinstance(s, PrincipleStrength):
@@ -345,7 +345,7 @@ def create_principles_ui_routes(
         Orchestrates: fetch (I/O) → stats → filter → sort.
         Pure computation delegated to testable helper functions.
         """
-        from core.models.enums.ku_enums import PrincipleStrength
+        from core.models.enums.principle_enums import PrincipleStrength
 
         # Map PrincipleStrength enum to numeric values for sorting/filtering
         strength_order = {
@@ -689,7 +689,7 @@ def create_principles_ui_routes(
 
         Handles form parsing, enum conversion, and service call with named parameters.
         """
-        from core.models.enums.ku_enums import PrincipleCategory, PrincipleStrength
+        from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
 
         # VALIDATE EARLY
         validation_result = validate_principle_form_data(form_data)
@@ -794,7 +794,7 @@ def create_principles_ui_routes(
     @rt("/principles/{uid}")
     async def view_principle(request, uid: str) -> Any:
         """View a single principle with recent reflections."""
-        from core.models.enums.ku_enums import PrincipleStrength
+        from core.models.enums.principle_enums import PrincipleStrength
 
         user_uid = require_authenticated_user(request)
 
@@ -1143,7 +1143,7 @@ def create_principles_ui_routes(
     @rt("/principles/{uid}/reflect/save", methods=["POST"])
     async def save_reflection(request, uid: str) -> Any:
         """Save a reflection on a principle (persisted to graph)."""
-        from core.models.enums.ku_enums import AlignmentLevel
+        from core.models.enums.principle_enums import AlignmentLevel
 
         user_uid = require_authenticated_user(request)
 

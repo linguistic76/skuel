@@ -30,7 +30,7 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.task_events import TaskCompleted
 from core.models.enums import Domain, EntityStatus, Priority
-from core.models.enums.ku_enums import GoalType, MeasurementType
+from core.models.enums.goal_enums import GoalType, MeasurementType
 from core.models.goal.goal import Goal
 from core.models.task.task import Task as Task
 from core.services.goals.goals_progress_service import GoalsProgressService

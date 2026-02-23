@@ -65,7 +65,7 @@ from core.models.context_types import (
     _compute_relevance,
     _compute_urgency,
 )
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType
 
 if TYPE_CHECKING:
     import logging

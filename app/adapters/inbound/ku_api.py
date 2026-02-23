@@ -20,10 +20,10 @@ from adapters.inbound.auth import require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRouteFactory
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
-from core.models.enums import ContentScope
-from core.models.enums.user_enums import UserRole
 from core.models.curriculum.curriculum_requests import CurriculumCreateRequest
 from core.models.entity_requests import EntityUpdateRequest
+from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
 from core.ports.facade_protocols import KuFacadeProtocol
 from core.utils.result_simplified import Errors, Result
 

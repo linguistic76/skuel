@@ -39,8 +39,7 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
-from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

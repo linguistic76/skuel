@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
-from core.models.enums.ku_enums import AlignmentLevel
+from core.models.enums.principle_enums import AlignmentLevel
 from core.utils.uid_generator import UIDGenerator
 
 

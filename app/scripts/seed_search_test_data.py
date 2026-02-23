@@ -23,6 +23,7 @@ from datetime import date, datetime, timedelta
 from neo4j import AsyncGraphDatabase
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.models.entity_types import Ku
 from core.models.enums import (
     ContentType,
     Domain,
@@ -33,9 +34,8 @@ from core.models.enums import (
     RecurrencePattern,
     SELCategory,
 )
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.habit.habit import Habit as Habit
-from core.models.entity_types import Ku
 from core.models.task.task import Task as Task
 from core.utils.logging import get_logger
 

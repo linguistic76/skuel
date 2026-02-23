@@ -35,7 +35,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from core.models.enums import Priority
-from core.models.enums.ku_enums import EntityStatus, EntityType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarItem,

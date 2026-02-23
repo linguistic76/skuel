@@ -18,9 +18,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
-from core.models.enums.ku_enums import EntityStatus, EntityType, LpType
 from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
+from core.models.enums.curriculum_enums import LpType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.ports import get_enum_value
 
 

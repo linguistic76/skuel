@@ -9,11 +9,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums import Domain, SELCategory
-from core.models.enums.ku_enums import EntityType
 from core.models.curriculum.curriculum import Curriculum
 from core.models.curriculum.curriculum_dto import CurriculumDTO
 from core.models.entity import Entity
+from core.models.enums import Domain, SELCategory
+from core.models.enums.entity_enums import EntityType
 from core.services.ku.ku_search_service import KuSearchService
 from core.utils.result_simplified import Result
 

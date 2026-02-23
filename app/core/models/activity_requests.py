@@ -19,15 +19,14 @@ from core.models.enums import (
     Domain,
     Priority,
 )
-from core.models.enums.ku_enums import (
+from core.models.enums.choice_enums import ChoiceType
+from core.models.enums.principle_enums import (
     AlignmentLevel,
-    ChoiceType,
     PrincipleCategory,
     PrincipleSource,
     PrincipleStrength,
 )
 from core.models.request_base import CreateRequestBase
-
 
 # =============================================================================
 # NESTED REQUEST MODELS (used by create requests)

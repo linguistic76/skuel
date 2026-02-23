@@ -16,10 +16,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import EntityStatus
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.entity import Entity
 from core.models.entity_types import Ku
+from core.models.enums import EntityStatus
 from core.ports import BackendOperations
 from core.services.base_service import BaseService
 

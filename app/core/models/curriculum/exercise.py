@@ -24,8 +24,9 @@ from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING
 
-from core.models.enums.ku_enums import EntityType, ProjectScope
 from core.models.curriculum.curriculum import Curriculum
+from core.models.enums.entity_enums import EntityType
+from core.models.enums.reports_enums import ProjectScope
 
 if TYPE_CHECKING:
     from core.models.curriculum.exercise_dto import ExerciseDTO

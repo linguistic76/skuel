@@ -32,7 +32,7 @@ from core.events.goal_events import (
     GoalProgressUpdated,
 )
 from core.models.enums import EntityStatus
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.relationship_names import RelationshipName

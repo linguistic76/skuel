@@ -24,24 +24,13 @@ from core.models.enums import (
     RecurrencePattern,
     SELCategory,
 )
-from core.models.enums.ku_enums import (
-    ChoiceType,
-    EntityStatus,
-    EntityType,
-    GoalTimeframe,
-    GoalType,
-    HabitCategory,
-    HabitDifficulty,
-    HabitPolarity,
-    LpType,
-    MeasurementType,
-    PrincipleCategory,
-    PrincipleSource,
-    PrincipleStrength,
-    ProcessorType,
-    StepDifficulty,
-)
+from core.models.enums.choice_enums import ChoiceType
+from core.models.enums.curriculum_enums import LpType, StepDifficulty
+from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.goal_enums import GoalTimeframe, GoalType, MeasurementType
+from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.enums.metadata_enums import Visibility
+from core.models.enums.principle_enums import PrincipleCategory, PrincipleSource, PrincipleStrength
 from core.models.request_base import (
     ListResponseBase,
     ResponseBase,

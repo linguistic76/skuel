@@ -83,16 +83,16 @@ if TYPE_CHECKING:
     import builtins
     from datetime import date, datetime
 
+    from core.models.entity import Entity
+    from core.models.entity_types import Ku
+
     # NOTE: Event import REMOVED (February 2026) - Event merged into Ku
     # Event entities are now Ku nodes with ku_type="event"
     # NOTE: Task import REMOVED (February 2026) - Task merged into Ku
     # Task entities are now Ku nodes with ku_type="task"
     from core.models.finance.finance_pure import BudgetPure, ExpensePure
     from core.models.finance.invoice import InvoicePure
-    from core.models.entity import Entity
-    from core.models.goal.goal import Goal
     from core.models.habit.habit import Habit
-    from core.models.entity_types import Ku
     from core.models.task.task import Task
     from core.models.type_hints import EntityUID, Metadata
     from core.utils.result_simplified import Result

@@ -13,8 +13,8 @@ from adapters.inbound.route_factories import (
 )
 from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
-from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest
 from core.models.entity_requests import EntityUpdateRequest as TaskUpdateRequest
+from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest
 
 TASKS_CONFIG = create_activity_domain_route_config(
     domain_name="tasks",

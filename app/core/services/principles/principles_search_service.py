@@ -20,7 +20,7 @@ This service follows the SearchService pattern documented in:
 from datetime import date, timedelta
 
 from core.models.enums import Domain
-from core.models.enums.ku_enums import PrincipleCategory, PrincipleStrength
+from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName

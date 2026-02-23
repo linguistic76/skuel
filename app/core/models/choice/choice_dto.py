@@ -21,7 +21,8 @@ from datetime import datetime
 from typing import Any
 
 from core.models.enums import Domain
-from core.models.enums.ku_enums import ChoiceType, EntityStatus, EntityType
+from core.models.enums.choice_enums import ChoiceType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.user_owned_dto import UserOwnedDTO
 

@@ -31,16 +31,11 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.models.habit.habit_dto import HabitDTO
     from core.models.entity_dto import EntityDTO
+    from core.models.habit.habit_dto import HabitDTO
 
-from core.models.enums.ku_enums import (
-    EntityStatus,
-    EntityType,
-    HabitCategory,
-    HabitDifficulty,
-    HabitPolarity,
-)
+from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.user_owned_entity import UserOwnedEntity
 
 

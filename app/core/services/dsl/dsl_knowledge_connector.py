@@ -31,8 +31,7 @@ from typing import Any, Protocol, runtime_checkable
 from core.infrastructure.relationships.semantic_relationships import (
     SemanticRelationshipType,
 )
-from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.services.dsl.activity_dsl_parser import ParsedActivityLine, ParsedJournal
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

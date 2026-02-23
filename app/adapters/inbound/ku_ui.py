@@ -20,8 +20,8 @@ from starlette.responses import Response
 from components.card_generator import CardGenerator
 from components.form_generator import FormGenerator
 from components.shared_ui_components import SharedUIComponents
-from core.models.enums import SELCategory
 from core.models.curriculum.curriculum_requests import CurriculumCreateRequest as KuCreateRequest
+from core.models.enums import SELCategory
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from ui.daisy_components import Button, ButtonT, Card, Div, Span

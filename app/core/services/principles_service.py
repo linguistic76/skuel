@@ -18,9 +18,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums.ku_enums import PrincipleCategory
 from core.models.entity import Entity
 from core.models.entity_types import Ku
+from core.models.enums.principle_enums import PrincipleCategory
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.ports.domain_protocols import (
@@ -427,7 +427,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         Returns:
             Result with list of unique sources
         """
-        from core.models.enums.ku_enums import PrincipleSource
+        from core.models.enums.principle_enums import PrincipleSource
 
         # Return all PrincipleSource enum values
         sources = [s.value for s in PrincipleSource]

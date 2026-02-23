@@ -29,12 +29,12 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations
 
 from core.constants import QueryLimit
-from core.models.enums import EntityStatus
 from core.models.curriculum.lp_position import LpPosition
-from core.models.task.task import Task
-from core.models.task.task_dto import TaskDTO
+from core.models.enums import EntityStatus
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
+from core.models.task.task import Task
+from core.models.task.task_dto import TaskDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext

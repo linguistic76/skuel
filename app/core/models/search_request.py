@@ -70,8 +70,7 @@ from core.models.enums import (
     Priority,
     SELCategory,
 )
-from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType, NonKuDomain
 
 # ============================================================================
 # FACET MODELS

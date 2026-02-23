@@ -20,9 +20,9 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.models.enums import EntityStatus, Priority
+from core.models.task.task import Task as Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
-from core.models.task.task import Task as Task
 from core.ports.query_types import TaskUpdatePayload
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.result_simplified import Errors, Result

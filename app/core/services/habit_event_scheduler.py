@@ -14,7 +14,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from core.models.enums import Priority, RecurrencePattern
-from core.models.enums.ku_enums import HabitCategory
+from core.models.enums.habit_enums import HabitCategory
 from core.models.event.event_dto import EventDTO
 from core.models.habit.habit import Habit as Habit
 from core.models.habit.habit_dto import HabitDTO
@@ -269,7 +269,7 @@ class HabitEventScheduler:
             duration = habit.duration_minutes or self.config.default_duration_minutes
             end_time = self._calculate_end_time(start_time, duration, date.today())
 
-            from core.models.enums.ku_enums import EntityType
+            from core.models.enums.entity_enums import EntityType
             from core.utils.uid_generator import UIDGenerator
 
             event = EventDTO(
@@ -351,7 +351,7 @@ class HabitEventScheduler:
             event_date_val = date.today() + timedelta(days=1)  # Start tomorrow
             end_time = self._calculate_end_time(current_time, duration, event_date_val)
 
-            from core.models.enums.ku_enums import EntityType
+            from core.models.enums.entity_enums import EntityType
             from core.utils.uid_generator import UIDGenerator
 
             event = EventDTO(
@@ -418,7 +418,7 @@ class HabitEventScheduler:
                 duration = habit.duration_minutes or self.config.default_duration_minutes
                 end_time = self._calculate_end_time(start_time, duration, event_date)
 
-                from core.models.enums.ku_enums import EntityType
+                from core.models.enums.entity_enums import EntityType
                 from core.utils.uid_generator import UIDGenerator
 
                 event = EventDTO(
@@ -602,7 +602,7 @@ class HabitEventScheduler:
         placeholder_user = "template_user"
         today = date.today()
 
-        from core.models.enums.ku_enums import EntityType
+        from core.models.enums.entity_enums import EntityType
         from core.utils.uid_generator import UIDGenerator
 
         return {

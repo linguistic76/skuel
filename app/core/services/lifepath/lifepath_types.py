@@ -18,7 +18,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from core.models.enums.ku_enums import AlignmentLevel, ThemeCategory
+from core.models.enums.lifepath_enums import ThemeCategory
+from core.models.enums.principle_enums import AlignmentLevel
 
 
 @dataclass(frozen=True)

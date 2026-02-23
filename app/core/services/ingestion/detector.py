@@ -11,8 +11,7 @@ Extracted from unified_ingestion_service.py for separation of concerns.
 from pathlib import Path
 from typing import Any
 
-from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType, NonKuDomain
 
 # ============================================================================
 # TYPE MAPPING

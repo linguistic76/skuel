@@ -26,10 +26,10 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from core.ports import BackendOperations
 
-from core.models.enums import Priority
-from core.models.enums.ku_enums import EntityStatus
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
+from core.models.enums import Priority
+from core.models.enums.entity_enums import EntityStatus
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.services.base_service import BaseService

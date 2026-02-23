@@ -13,8 +13,8 @@ from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
 )
-from core.models.event.event_request import EventCreateRequest
 from core.models.entity_requests import EntityUpdateRequest
+from core.models.event.event_request import EventCreateRequest
 
 EVENTS_CONFIG = create_activity_domain_route_config(
     domain_name="events",

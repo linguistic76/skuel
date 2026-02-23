@@ -23,11 +23,11 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.events.curriculum_events import LearningStepCompleted
-from core.models.enums import Domain
-from core.models.graph_context import GraphContext
 from core.models.curriculum.curriculum_dto import CurriculumDTO
 from core.models.entity import Entity
 from core.models.entity_types import Ku
+from core.models.enums import Domain
+from core.models.graph_context import GraphContext
 from core.models.relationship_names import RelationshipName
 from core.ports import KuOperations
 from core.services.base_analytics_service import BaseAnalyticsService

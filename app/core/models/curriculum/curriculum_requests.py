@@ -19,12 +19,8 @@ from core.models.enums import (
     Priority,
     SELCategory,
 )
-from core.models.enums.ku_enums import (
-    LpType,
-    StepDifficulty,
-)
+from core.models.enums.curriculum_enums import LpType, StepDifficulty
 from core.models.request_base import CreateRequestBase
-
 
 # =============================================================================
 # CREATE REQUESTS — Content Processing (Curriculum)

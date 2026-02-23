@@ -262,6 +262,7 @@ from .query_types import (
 # Ku content protocols — submission, processing, sharing, feedback, scheduling
 from .reports_protocols import (
     ExerciseOperations,
+    ProgressReportGeneratorOperations,
     ReportsContentOperations,
     ReportsContentSearchOperations,
     ReportsFeedbackOperations,
@@ -269,7 +270,6 @@ from .reports_protocols import (
     ReportsScheduleOperations,
     ReportsSharingOperations,
     ReportsSubmissionOperations,
-    ProgressReportGeneratorOperations,
 )
 
 # Knowledge operation protocols

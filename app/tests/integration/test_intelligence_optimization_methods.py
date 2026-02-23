@@ -10,8 +10,8 @@ from datetime import date
 
 import pytest
 
-from core.models.enums.ku_enums import PrincipleCategory
 from core.models.activity_requests import ChoiceCreateRequest
+from core.models.enums.principle_enums import PrincipleCategory
 
 
 @pytest.mark.asyncio

@@ -25,8 +25,8 @@ The @context() tag values are now parsed to `EntityType` or `NonKuDomain` enum v
 
 **Key Components:**
 
-- `EntityType`: Enum defining Ku-based @context() values (re-exported from ku_enums)
-- `NonKuDomain`: Enum defining non-Ku @context() values (re-exported from entity_enums)
+- `EntityType`: Enum defining entity @context() values (from entity_enums)
+- `NonKuDomain`: Enum defining non-entity @context() values (from entity_enums)
 - `ActivityDSLParser`: Main parser class (parses @context tags to EntityType/NonKuDomain)
 - `ParsedActivityLine`: Intermediate representation with type-safe contexts
 - `ParsedJournal`: Collection of parsed activities from a document
@@ -122,8 +122,7 @@ Graph Relationships (APPLIES_KNOWLEDGE, FULFILLS_GOAL, etc.)
 """
 
 # Re-export EntityType and NonKuDomain for convenient access
-from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.services.dsl.activity_dsl_parser import (
     ActivityDSLParser,
     ParsedActivityLine,

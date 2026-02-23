@@ -17,11 +17,12 @@ from core.events.choice_events import (
     ChoiceOutcomeRecorded,
     ChoiceUpdated,
 )
-from core.models.enums.ku_enums import ChoiceType, EntityStatus, EntityType
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
-from core.models.entity_types import Ku
 from core.models.choice.choice_option import ChoiceOption
+from core.models.entity_types import Ku
+from core.models.enums.choice_enums import ChoiceType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config

@@ -15,11 +15,11 @@ from datetime import date, timedelta
 from typing import Any
 
 from core.constants import QueryLimit
-from core.models.enums.ku_enums import EntityType
 from core.models.entity import Entity
 from core.models.entity_types import Ku
-from core.models.reports.submission_dto import SubmissionDTO
+from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
+from core.models.reports.submission_dto import SubmissionDTO
 from core.ports import BackendOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig

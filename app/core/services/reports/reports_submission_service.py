@@ -22,12 +22,12 @@ from typing import Any
 
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
-from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType
 from core.models.entity import Entity
 from core.models.entity_types import Ku
+from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.relationship_names import RelationshipName
 from core.models.reports.submission import Submission
 from core.models.reports.submission_dto import SubmissionDTO
-from core.models.relationship_names import RelationshipName
 from core.ports import BackendOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig

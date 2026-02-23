@@ -22,7 +22,7 @@ from datetime import datetime
 from typing import Any
 
 from core.models.enums import Domain
-from core.models.enums.ku_enums import EntityStatus, EntityType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.ports import get_enum_value
 
 

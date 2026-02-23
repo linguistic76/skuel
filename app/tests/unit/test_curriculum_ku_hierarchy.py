@@ -14,15 +14,14 @@ of the Ku decomposition. Verifies:
 
 from datetime import datetime, timedelta
 
-from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
-from core.models.enums.ku_enums import EntityType
 from core.models.curriculum.curriculum import Curriculum
-from core.models.entity import Entity
-from core.models.curriculum.curriculum_dto import CurriculumDTO
-from core.models.curriculum.learning_path_dto import LearningPathDTO
-from core.models.curriculum.learning_step_dto import LearningStepDTO
 from core.models.curriculum.learning_path import LearningPath
+from core.models.curriculum.learning_path_dto import LearningPathDTO
 from core.models.curriculum.learning_step import LearningStep
+from core.models.curriculum.learning_step_dto import LearningStepDTO
+from core.models.entity import Entity
+from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
+from core.models.enums.entity_enums import EntityType
 
 # =========================================================================
 # Curriculum creation and field defaults

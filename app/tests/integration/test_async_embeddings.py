@@ -25,7 +25,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.events import TaskEmbeddingRequested
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest
 from core.services.background.embedding_worker import EmbeddingBackgroundWorker
 from core.utils.embedding_text_builder import build_embedding_text
@@ -533,7 +533,7 @@ class TestPrincipleEmbeddingEvents:
         event_bus.subscribe(PrincipleEmbeddingRequested, capture_event)
 
         # Create principle
-        from core.models.enums.ku_enums import PrincipleCategory
+        from core.models.enums.principle_enums import PrincipleCategory
 
         result = await principles_service.create_principle(
             label="Continuous Learning",

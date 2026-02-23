@@ -15,23 +15,23 @@ See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
-from core.models.enums.ku_enums import EntityType
-from core.models.reports.ai_report import AiReport
 from core.models.choice.choice import Choice
 from core.models.curriculum.curriculum import Curriculum
-from core.models.entity import Entity
-from core.models.event.event import Event
 from core.models.curriculum.exercise import Exercise
-from core.models.reports.feedback import Feedback
-from core.models.goal.goal import Goal
-from core.models.habit.habit import Habit
-from core.models.reports.journal import Journal
 from core.models.curriculum.learning_path import LearningPath
 from core.models.curriculum.learning_step import LearningStep
+from core.models.entity import Entity
+from core.models.enums.entity_enums import EntityType
+from core.models.event.event import Event
+from core.models.goal.goal import Goal
+from core.models.habit.habit import Habit
 from core.models.life_path.life_path import LifePath
 from core.models.principle.principle import Principle
-from core.models.resource.resource import Resource
+from core.models.reports.ai_report import AiReport
+from core.models.reports.feedback import Feedback
+from core.models.reports.journal import Journal
 from core.models.reports.submission import Submission
+from core.models.resource.resource import Resource
 from core.models.task.task import Task
 
 # =============================================================================

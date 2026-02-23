@@ -37,8 +37,7 @@ from core.models.enums import (
     Priority,
     SELCategory,
 )
-from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
 from core.models.search import SearchRouter
 from core.models.search_request import SearchRequest

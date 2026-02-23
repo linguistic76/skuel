@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.submission_events import SubmissionReviewed, SubmissionRevisionRequested
-from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator

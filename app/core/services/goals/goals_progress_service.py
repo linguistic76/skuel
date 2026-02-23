@@ -18,10 +18,10 @@ from typing import TYPE_CHECKING, Any
 from core.events import GoalAchieved, GoalMilestoneReached, GoalProgressUpdated, publish_event
 from core.events.task_events import TaskCompleted
 from core.models.enums import Domain, EntityStatus
-from core.models.enums.ku_enums import MeasurementType
-from core.models.graph_context import GraphContext
+from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
+from core.models.graph_context import GraphContext
 from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import GoalUpdatePayload
 from core.services.base_service import BaseService

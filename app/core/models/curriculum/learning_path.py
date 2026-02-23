@@ -20,11 +20,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.entity_dto import EntityDTO
     from core.models.curriculum.learning_path_dto import LearningPathDTO
+    from core.models.entity_dto import EntityDTO
 
-from core.models.enums.ku_enums import EntityType, LpType
 from core.models.curriculum.curriculum import Curriculum
+from core.models.enums.curriculum_enums import LpType
+from core.models.enums.entity_enums import EntityType
 
 
 @dataclass(frozen=True)

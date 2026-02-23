@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.reports.submission_dto import SubmissionDTO
 
-from core.models.enums.ku_enums import EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.models.user_owned_entity import UserOwnedEntity
 
 _SUBMISSION_KU_TYPES = frozenset(

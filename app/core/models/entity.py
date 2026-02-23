@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
 
 from core.models.enums import Domain
-from core.models.enums.ku_enums import EntityStatus, EntityType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 
 

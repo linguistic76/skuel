@@ -644,13 +644,13 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
 
         Handles form parsing, option parsing, enum conversion, and service call.
         """
-        from core.models.enums import Domain as DomainEnum
-        from core.models.enums import Priority as PriorityEnum
-        from core.models.enums.ku_enums import ChoiceType
         from core.models.activity_requests import (
             ChoiceCreateRequest,
             ChoiceOptionCreateRequest,
         )
+        from core.models.enums import Domain as DomainEnum
+        from core.models.enums import Priority as PriorityEnum
+        from core.models.enums.choice_enums import ChoiceType
 
         # VALIDATE EARLY
         validation_result = validate_choice_form_data(form_data)
@@ -1002,9 +1002,9 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
 
         form = await request.form()
 
+        from core.models.entity_requests import EntityUpdateRequest
         from core.models.enums import Domain as DomainEnum
         from core.models.enums import Priority as PriorityEnum
-        from core.models.entity_requests import EntityUpdateRequest
 
         title = form.get("title", "").strip()
         description = form.get("description", "").strip() or None

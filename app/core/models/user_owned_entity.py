@@ -24,8 +24,8 @@ See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 
 from dataclasses import dataclass
 
-from core.models.enums.metadata_enums import Visibility
 from core.models.entity import Entity
+from core.models.enums.metadata_enums import Visibility
 
 
 @dataclass(frozen=True)

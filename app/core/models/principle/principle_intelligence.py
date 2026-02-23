@@ -23,7 +23,7 @@ from enum import Enum
 from operator import itemgetter
 from typing import Any
 
-from core.models.enums.ku_enums import AlignmentLevel, PrincipleStrength
+from core.models.enums.principle_enums import AlignmentLevel, PrincipleStrength
 
 
 class ValueConflictIntensity(str, Enum):

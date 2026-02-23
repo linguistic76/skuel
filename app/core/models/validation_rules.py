@@ -614,7 +614,7 @@ def validate_habit_duration_by_difficulty(
             return v
 
         # Import here to avoid circular imports
-        from core.models.enums.ku_enums import HabitDifficulty
+        from core.models.enums.habit_enums import HabitDifficulty
 
         difficulty = info.data.get(difficulty_field)
 
@@ -685,7 +685,7 @@ def validate_timeframe_date_alignment() -> Callable:
 
     def validator_impl(instance: Any) -> Any:
         # Import here to avoid circular imports
-        from core.models.enums.ku_enums import GoalTimeframe
+        from core.models.enums.goal_enums import GoalTimeframe
 
         start_date = getattr(instance, "start_date", None) or date.today()
         target_date = getattr(instance, "target_date", None)

@@ -31,7 +31,8 @@ if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.life_path.life_path_dto import LifePathDTO
 
-from core.models.enums.ku_enums import AlignmentLevel, EntityType
+from core.models.enums.entity_enums import EntityType
+from core.models.enums.principle_enums import AlignmentLevel
 from core.models.user_owned_entity import UserOwnedEntity
 
 

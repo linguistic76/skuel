@@ -29,10 +29,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 from core.events import publish_event
-from core.models.enums import Domain, KnowledgeStatus
 from core.models.curriculum.curriculum_dto import CurriculumDTO
 from core.models.entity import Entity
 from core.models.entity_types import Ku
+from core.models.enums import Domain, KnowledgeStatus
 from core.models.relationship_names import RelationshipName
 from core.ports.content_protocols import ensure_content_protocol
 from core.ports.curriculum_protocols import CurriculumOperations

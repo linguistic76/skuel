@@ -9,7 +9,7 @@ Manages recurring progress Ku generation schedules.
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums.ku_enums import ScheduleType
+from core.models.enums.reports_enums import ScheduleType
 from core.models.reports.ku_schedule import (
     KuSchedule,
     KuScheduleDTO,

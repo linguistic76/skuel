@@ -256,7 +256,7 @@ await backend.add_relationship(uid1, "SERVES_GOAL", uid2)""",
         "severity": "WARNING",
         "description": """Use EntityType or NonKuDomain enum instead of magic strings for entity type
 identification. Provides type safety and compile-time verification.""",
-        "good": """from core.models.enums.ku_enums import EntityType
+        "good": """from core.models.enums.entity_enums import EntityType
 if entity.ku_type == EntityType.TASK:
     ...
 if EntityType.TASK in activity.contexts:

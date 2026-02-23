@@ -40,7 +40,6 @@ from starlette.requests import Request
 from starlette.responses import FileResponse
 
 from adapters.inbound.boundary import boundary_handler
-from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType
 from core.models.entity_converters import ku_to_response
 from core.models.entity_requests import (
     AddTagsRequest,
@@ -50,6 +49,7 @@ from core.models.entity_requests import (
     CategorizeEntityRequest,
     RemoveTagsRequest,
 )
+from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

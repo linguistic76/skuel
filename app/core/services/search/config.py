@@ -82,8 +82,7 @@ Architecture Notes:
 
 from dataclasses import dataclass
 
-from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType, NonKuDomain
 
 
 @dataclass(frozen=True)

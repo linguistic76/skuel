@@ -4,8 +4,8 @@ Activity Enums - Priority, Calendar Types, and Assessment Levels
 
 Enums for priority, calendar/timeline types, and dual-track assessment.
 
-Status enums (EntityStatus) live in ku_enums.py — THE unified status enum.
-CompletionStatus (habit completion tracking) also lives in ku_enums.py.
+Status enums (EntityStatus) live in entity_enums.py — THE unified status enum.
+CompletionStatus (habit completion tracking) lives in habit_enums.py.
 """
 
 from enum import Enum

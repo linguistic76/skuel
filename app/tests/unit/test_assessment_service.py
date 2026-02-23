@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.reports.feedback import Feedback
 from core.utils.result_simplified import Errors, Result
 

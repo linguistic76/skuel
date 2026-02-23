@@ -23,8 +23,8 @@ if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.resource.resource_dto import ResourceDTO
 
-from core.models.enums.ku_enums import EntityType
 from core.models.entity import Entity
+from core.models.enums.entity_enums import EntityType
 
 
 @dataclass(frozen=True)

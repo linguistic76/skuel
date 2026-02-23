@@ -34,11 +34,11 @@ from components.calendar_components import (
     create_week_grid,
 )
 from components.calendar_converters import event_to_calendar_item
+from core.models.entity_types import Ku
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarView,
 )
-from core.models.entity_types import Ku
 from core.utils.logging import get_logger
 from ui.daisy_components import (
     Button,

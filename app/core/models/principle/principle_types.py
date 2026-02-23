@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from operator import itemgetter
 
-from core.models.enums.ku_enums import AlignmentLevel
+from core.models.enums.principle_enums import AlignmentLevel
 
 
 @dataclass(frozen=True)

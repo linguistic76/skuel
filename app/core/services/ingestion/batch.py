@@ -24,8 +24,7 @@ from typing import Any, Literal
 import yaml
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
-from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

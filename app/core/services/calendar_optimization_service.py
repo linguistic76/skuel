@@ -12,8 +12,8 @@ from enum import Enum
 from operator import attrgetter
 from typing import Any
 
-from core.models.enums import Domain, Priority
 from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.enums import Domain, Priority
 from core.models.event.event_dto import EventDTO
 from core.models.task.task_dto import TaskDTO
 from core.services.calendar_optimization_types import (

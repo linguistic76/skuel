@@ -19,9 +19,10 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
-from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
-from core.models.enums.ku_enums import EntityStatus, EntityType, ProjectScope
 from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
+from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.reports_enums import ProjectScope
 from core.ports import get_enum_value
 
 

@@ -17,9 +17,9 @@ from pathlib import Path
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from adapters.persistence.neo4j_adapter import Neo4jAdapter
-from core.models.enums import Domain, LearningLevel, SELCategory
 from core.models.curriculum.curriculum import Curriculum
 from core.models.entity import Entity
+from core.models.enums import Domain, LearningLevel, SELCategory
 from core.utils.logging import get_logger
 
 # Add project root to path

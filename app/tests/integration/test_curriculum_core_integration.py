@@ -23,12 +23,12 @@ from testcontainers.neo4j import Neo4jContainer
 # Backend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums import Domain, LearningLevel, SELCategory
 
 # Domain models - use domain-specific types
 from core.models.curriculum.curriculum import Curriculum
 from core.models.curriculum.learning_path import LearningPath
 from core.models.curriculum.learning_step import LearningStep
+from core.models.enums import Domain, LearningLevel, SELCategory
 
 # ============================================================================
 # FIXTURES

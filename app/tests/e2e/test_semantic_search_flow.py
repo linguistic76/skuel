@@ -15,7 +15,7 @@ All tests use mock embedding services to avoid API calls.
 
 import pytest
 
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType
 from core.services.ingestion.preparer import prepare_entity_data_async
 
 

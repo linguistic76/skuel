@@ -28,14 +28,14 @@ from core.models.enums import EntityStatus
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 
-# Base service
-from core.services.base_service import BaseService
-from core.services.domain_config import create_activity_domain_config
-
 # Analytics engine (Phase 2.5)
 from core.services.analytics_engine import (
     AnalyticsEngine,
 )
+
+# Base service
+from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.mixins import FacadeDelegationMixin, merge_delegations
 
 # Unified relationship service (replaces TasksRelationshipService)

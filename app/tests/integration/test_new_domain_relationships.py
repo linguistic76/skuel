@@ -24,8 +24,8 @@ from datetime import date
 
 import pytest
 
-from core.models.curriculum.ku_relationships import KuRelationships
 from core.models.activity_requests import ChoiceCreateRequest
+from core.models.curriculum.ku_relationships import KuRelationships
 from core.models.curriculum.lp_relationships import LpRelationships
 from core.models.principle.principle_relationships import PrincipleRelationships
 from core.services.choices.choice_relationships import ChoiceRelationships
@@ -150,7 +150,7 @@ class TestPrincipleRelationships:
     @pytest.mark.asyncio
     async def test_principle_relationships_fetch(self, services):
         """Test fetch() method with real services."""
-        from core.models.enums.ku_enums import PrincipleCategory
+        from core.models.enums.principle_enums import PrincipleCategory
 
         # Create a test principle using core service directly
         principle_result = await services.principles.core.create_principle(
@@ -481,7 +481,7 @@ class TestParallelFetching:
     @pytest.mark.asyncio
     async def test_parallel_fetch_multiple_domains(self, services):
         """Test fetching relationships across different domains in parallel."""
-        from core.models.enums.ku_enums import PrincipleCategory
+        from core.models.enums.principle_enums import PrincipleCategory
 
         # Create test entities in different domains using core services
         choice_request = ChoiceCreateRequest(

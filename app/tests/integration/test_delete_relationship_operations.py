@@ -13,10 +13,10 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums import Domain, EntityStatus, Priority, SELCategory
 from core.models.curriculum.curriculum import Curriculum
-from core.models.task.task import Task as Task
+from core.models.enums import Domain, EntityStatus, Priority, SELCategory
 from core.models.relationship_names import RelationshipName
+from core.models.task.task import Task as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
 
 

@@ -15,9 +15,9 @@ from unittest.mock import AsyncMock
 import pytest
 
 from core.models.enums import Priority
-from core.models.enums.ku_enums import (
+from core.models.enums.entity_enums import EntityType
+from core.models.enums.principle_enums import (
     AlignmentLevel,
-    EntityType,
     PrincipleCategory,
     PrincipleSource,
     PrincipleStrength,

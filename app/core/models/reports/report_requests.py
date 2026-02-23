@@ -15,9 +15,8 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from core.models.enums import Domain
-from core.models.enums.ku_enums import ProcessorType
+from core.models.enums.entity_enums import ProcessorType
 from core.models.request_base import CreateRequestBase
-
 
 # =============================================================================
 # CREATE REQUESTS — Content Processing (Reports)

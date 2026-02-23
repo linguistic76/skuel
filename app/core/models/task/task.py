@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.task.task_dto import TaskDTO
 
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.user_owned_entity import UserOwnedEntity
 
 

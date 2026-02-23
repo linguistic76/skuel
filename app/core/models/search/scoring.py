@@ -45,8 +45,8 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
-    from core.models.enums import Priority
     from core.models.choice.choice import Choice
+    from core.models.enums import Priority
     from core.models.event.event import Event
     from core.models.goal.goal import Goal as Goal
     from core.models.habit.habit import Habit as Habit
@@ -993,7 +993,7 @@ def score_principle(principle: "Principle", context: "UserContext") -> PriorityS
     Returns:
         PriorityScore with breakdown
     """
-    from core.models.enums.ku_enums import PrincipleStrength
+    from core.models.enums.principle_enums import PrincipleStrength
 
     components: list[ComponentScore] = []
 

@@ -21,10 +21,10 @@ from fasthtml.common import Request
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRouteFactory
-from core.models.enums import ContentScope
-from core.models.enums.user_enums import UserRole
 from core.models.curriculum.curriculum_requests import LearningPathCreateRequest
 from core.models.entity_requests import EntityUpdateRequest
+from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
 from core.ports.facade_protocols import LpFacadeProtocol
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

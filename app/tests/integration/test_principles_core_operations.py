@@ -24,7 +24,7 @@ import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums.ku_enums import (
+from core.models.enums.principle_enums import (
     AlignmentLevel,
     PrincipleCategory,
     PrincipleSource,

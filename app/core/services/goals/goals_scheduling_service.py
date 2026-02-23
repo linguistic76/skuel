@@ -42,10 +42,10 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import GoalCreated, publish_event
 from core.models.enums import Domain, EntityStatus, Priority
-from core.models.enums.ku_enums import GoalTimeframe, GoalType
-from core.models.goal.goal_request import GoalCreateRequest
+from core.models.enums.goal_enums import GoalTimeframe, GoalType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
+from core.models.goal.goal_request import GoalCreateRequest
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config

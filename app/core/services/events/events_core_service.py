@@ -28,7 +28,7 @@ from core.events.calendar_event_events import (
     CalendarEventUpdated,
 )
 from core.models.enums import EntityStatus
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.ports import get_enum_value

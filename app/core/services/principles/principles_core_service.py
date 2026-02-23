@@ -17,13 +17,9 @@ from datetime import date, datetime
 from typing import Any
 
 from core.events import publish_event
-from core.models.enums.ku_enums import (
-    EntityStatus,
-    EntityType,
-    PrincipleCategory,
-    PrincipleStrength,
-)
 from core.models.entity import Entity
+from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.ports.domain_protocols import PrinciplesOperations

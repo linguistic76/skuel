@@ -29,10 +29,9 @@ if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.principle.principle_dto import PrincipleDTO
 
-from core.models.enums.ku_enums import (
+from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.principle_enums import (
     AlignmentLevel,
-    EntityStatus,
-    EntityType,
     PrincipleCategory,
     PrincipleSource,
     PrincipleStrength,

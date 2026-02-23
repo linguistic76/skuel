@@ -173,15 +173,8 @@ from core.ports import (
     HabitsOperations,
     IngestionOperations,
     IntelligenceOperations,
-    # Ku content protocols (February 2026: unified Ku model)
-    ReportsContentOperations,
-    ReportsContentSearchOperations,
-    ReportsFeedbackOperations,
     # Knowledge operations
     KuOperations,
-    ReportsProcessingOperations,
-    ReportsSharingOperations,
-    ReportsSubmissionOperations,
     # NOTE: LearningOperations DELETED January 2026 - was dead code (type hint wrong)
     # NOTE: LearningPathsOperations DELETED January 2026 - replaced by LpOperations
     # NOTE: JournalsOperations DELETED February 2026 - Journal merged into Reports
@@ -190,6 +183,13 @@ from core.ports import (
     LsOperations,
     PrinciplesOperations,
     QueryExecutor,
+    # Ku content protocols (February 2026: unified Ku model)
+    ReportsContentOperations,
+    ReportsContentSearchOperations,
+    ReportsFeedbackOperations,
+    ReportsProcessingOperations,
+    ReportsSharingOperations,
+    ReportsSubmissionOperations,
     SearchOperations,
     SystemServiceOperations,
     # Domain operations
@@ -1030,6 +1030,8 @@ async def compose_services(
         # "The plant (models) grows on the lattice (UniversalNeo4jBackend)"
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.askesis.askesis import Askesis
+        from core.models.entity_types import Ku
+        from core.models.event.event import Event
 
         # NOTE: Choice import REMOVED (February 2026) - Choice merged into Ku
         # Choice entities are now Ku nodes with ku_type="choice"
@@ -1037,20 +1039,18 @@ async def compose_services(
         # Event entities are now Ku nodes with ku_type="event"
         from core.models.finance.finance_pure import ExpensePure
         from core.models.finance.invoice import InvoicePure
+        from core.models.goal.goal import Goal
 
         # NOTE: Goal import REMOVED (February 2026) - Goal merged into Ku
         # Goal entities are now Ku nodes with ku_type="goal"
         from core.models.habit.completion import HabitCompletion
-        from core.models.event.event import Event
-        from core.models.goal.goal import Goal
         from core.models.habit.habit import Habit
-        from core.models.entity_types import Ku
-        from core.models.task.task import Task
 
         # NOTE: MapOfContent import removed (January 2026) - MOC is now KU-based
         # MOC is a KU with ORGANIZES relationships, not a separate entity
         from core.models.principle.reflection import PrincipleReflection
         from core.models.progress import UserProgress
+        from core.models.task.task import Task
         from core.models.transcription.transcription import Transcription
 
         # Create backends directly (no wrapper) - makes lattice pattern visible
@@ -1205,8 +1205,8 @@ async def compose_services(
 
         # Create analytics services (needed by tasks service)
         from core.services.analytics_engine import AnalyticsEngine
-        from core.services.insight_generation_service import InsightGenerationService
         from core.services.entity_inference_service import EntityInferenceService
+        from core.services.insight_generation_service import InsightGenerationService
 
         analytics_engine = AnalyticsEngine()
         ku_inference_service = EntityInferenceService()

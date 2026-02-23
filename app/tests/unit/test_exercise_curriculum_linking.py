@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import (
     _ENTITY_TYPE_TO_LABEL,

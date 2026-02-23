@@ -27,18 +27,15 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.goal_events import GoalAchieved, GoalRecommendationsGenerated
+from core.models.curriculum.curriculum import Curriculum
 from core.models.enums import (
     Domain,
     SELCategory,
 )
-from core.models.enums.ku_enums import (
-    EntityStatus,
-    GoalType,
-    MeasurementType,
-    PrincipleCategory,
-)
-from core.models.enums.ku_enums import EntityStatus as HabitStatus
-from core.models.curriculum.curriculum import Curriculum
+from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.entity_enums import EntityStatus as HabitStatus
+from core.models.enums.goal_enums import GoalType, MeasurementType
+from core.models.enums.principle_enums import PrincipleCategory
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.principle.principle import Principle
@@ -135,7 +132,7 @@ class TestGoalRecommendationsFlow:
         # Create 2 related habits
         habits = []
         for i, name in enumerate(["Daily Coding Practice", "Code Review Participation"], start=1):
-            from core.models.enums.ku_enums import HabitCategory
+            from core.models.enums.habit_enums import HabitCategory
 
             habit = Habit(
                 uid=f"habit.tech_{i}",

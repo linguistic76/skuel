@@ -35,11 +35,10 @@ if TYPE_CHECKING:
 
     from core.models.enums import Domain
     from core.models.habit.habit import Habit as Habit
-    from core.models.entity_types import Ku
-    from core.models.task.task import Task as Task
     from core.models.search.filters import BaseSearchFilters
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest
+    from core.models.task.task import Task as Task
     from core.services.user import UserContext
 
 # Generic type variable for domain entities

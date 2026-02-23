@@ -29,10 +29,10 @@ from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.event.event_dto import EventDTO
     from core.models.entity_dto import EntityDTO
+    from core.models.event.event_dto import EventDTO
 
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.user_owned_entity import UserOwnedEntity
 
 

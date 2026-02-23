@@ -10,12 +10,8 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from core.models.enums.ku_enums import (
-    AlignmentLevel,
-    EntityStatus,
-    EntityType,
-    PrincipleStrength,
-)
+from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.principle_enums import AlignmentLevel, PrincipleStrength
 from core.models.principle.principle import Principle
 
 

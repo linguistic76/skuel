@@ -52,12 +52,12 @@ if TYPE_CHECKING:
     from core.models.event.event_request import (
         AddAttendeeRequest,
         CheckConflictsRequest,
+        EventCreateRequest,
         EventStatusUpdateRequest,
         GetRecurringEventsRequest,
         RecurringInstancesRequest,
         RemoveAttendeeRequest,
     )
-    from core.models.event.event_request import EventCreateRequest
     from core.ports import BackendOperations
     from core.ports.facade_protocols import EventsFacadeProtocol
     from core.ports.infrastructure_protocols import EventBusOperations

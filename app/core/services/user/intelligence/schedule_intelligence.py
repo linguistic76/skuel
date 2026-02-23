@@ -19,7 +19,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from core.models.context_types import ScheduleAwareRecommendation
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType
 
 if TYPE_CHECKING:
     from core.services.user.unified_user_context import UserContext

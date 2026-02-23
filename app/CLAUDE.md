@@ -39,7 +39,7 @@ In SKUEL, every entity represents a form of knowledge. Tasks are knowledge about
 - `parent_ku_uid` field — derivation chain between Knowledge Units (stays)
 - `Ku` union type — represents the full KU concept (stays)
 - `core/models/ku/` directory — the KU model package (stays)
-- `ku_enums.py` — enums for KU types: `EntityType`, `EntityStatus` (stays)
+- `entity_enums.py` — core enums: `EntityType`, `EntityStatus`, `ContentOrigin`, `ProcessorType`
 - `KuContent`, `KuMetadata`, `KuChunk` — content/metadata FOR Knowledge Units (stays)
 - `core/services/ku/` — legitimate KU/Curriculum domain services (stays)
 - `:Ku` Neo4j label — universal label on all entities (stays)
@@ -387,7 +387,7 @@ EntityDTO (~18 fields)
 
 **KuDTO deleted** — all services use per-domain DTOs. Cross-domain services use `ENTITY_TYPE_CLASS_MAP` for generic deserialization.
 
-**Key enums:** `EntityType` (15 values, discriminator), `EntityStatus` (14 values, THE status enum). Both in `ku_enums.py`.
+**Key enums:** `EntityType` (15 values, discriminator), `EntityStatus` (14 values, THE status enum). Both in `entity_enums.py`.
 
 **Neo4j Multi-Label:** Every entity gets `:Entity` (universal) + domain label (`:Task`, `:Goal`, etc.). Backend uses `base_label=NeoLabel.ENTITY`. User relationships use `:OWNS`.
 
@@ -481,7 +481,9 @@ GraphDepth.DEFAULT                             # Named constants
 ```
 
 **Consolidated Enums:** `/core/models/enums/` - one file per domain (finance_enums.py, activity_enums.py, user_enums.py, etc.)
-- `ku_enums.py`: EntityType, EntityStatus (THE status enum), CompletionStatus, ProcessorType, ProjectScope, all domain-specific enums
+- `entity_enums.py`: EntityType, EntityStatus, ContentOrigin, ProcessorType (core discriminators)
+- `goal_enums.py`, `habit_enums.py`, `choice_enums.py`, `principle_enums.py`: per-domain enums
+- `reports_enums.py`, `curriculum_enums.py`, `lifepath_enums.py`: domain-specific enums
 - `activity_enums.py`: Priority, ActivityType (calendar/timeline), 5 dual-track assessment levels
 
 **Health Scoring Pattern:** Use typed enums (ContextHealthScore, FinancialHealthTier) instead of string literals for all health/quality assessments.
@@ -735,14 +737,14 @@ await service.get_for_user(uid, user_uid)      # Get with ownership check
 | D | `FEEDBACK` | AI Report, Feedback Report | Analysis/feedback that acts on tier C |
 
 ```python
-from core.models.enums.ku_enums import EntityType, ContentOrigin
+from core.models.enums.entity_enums import EntityType, ContentOrigin
 
 EntityType.TASK.content_origin()       # ContentOrigin.USER_CREATED
 EntityType.RESOURCE.content_origin()   # ContentOrigin.CURATED
 EntityType.AI_REPORT.content_origin()  # ContentOrigin.FEEDBACK
 ```
 
-**See:** `ContentOrigin` in `/core/models/enums/ku_enums.py`
+**See:** `ContentOrigin` in `/core/models/enums/entity_enums.py`
 
 ## Content Sharing (Phase 1: Reports)
 
@@ -1570,7 +1572,7 @@ All 10 domain `*_intelligence_service.py` files extend `BaseAnalyticsService`. A
 **Usage:**
 ```python
 from core.utils.embedding_text_builder import build_embedding_text
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType
 
 # From dict (ingestion path)
 text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description": "Details"})

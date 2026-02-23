@@ -14,7 +14,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from core.models.enums import Domain, EntityStatus, Priority
-from core.models.enums.ku_enums import (
+from core.models.enums.goal_enums import (
     GoalTimeframe,
     GoalType,
     HabitEssentiality,

@@ -25,16 +25,16 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-from core.models.enums.ku_enums import EntityType
-from core.models.finance.finance_pure import ExpensePure
 from core.models.curriculum.curriculum import Curriculum
 from core.models.entity import Entity
+from core.models.entity_types import ENTITY_TYPE_CLASS_MAP, Ku
+from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
+from core.models.finance.finance_pure import ExpensePure
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
-from core.models.entity_types import ENTITY_TYPE_CLASS_MAP, Ku
-from core.models.task.task import Task
 from core.models.query import build_prerequisite_chain
+from core.models.task.task import Task
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

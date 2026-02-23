@@ -17,9 +17,9 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.ports.reports_protocols import (
+        ProgressReportGeneratorOperations,
         ReportsScheduleOperations,
         ReportsSubmissionOperations,
-        ProgressReportGeneratorOperations,
     )
 
 from starlette.requests import Request

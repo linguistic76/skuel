@@ -22,8 +22,6 @@ from enum import Enum
 from operator import itemgetter
 from typing import Any
 
-from core.models.enums import Domain
-from core.models.entity_types import Ku
 from core.models.curriculum.ku_intelligence import (
     ContentPreference,
     LearningPreference,
@@ -32,6 +30,8 @@ from core.models.curriculum.ku_intelligence import (
 )
 from core.models.curriculum.ku_intelligence import KuMastery as KnowledgeMastery
 from core.models.curriculum.ku_intelligence import KuRecommendation as KnowledgeRecommendation
+from core.models.entity_types import Ku
+from core.models.enums import Domain
 from core.services.user import UserContext
 
 # NOTE: SearchIntent and SearchQuery removed - deprecated search_archive dependency

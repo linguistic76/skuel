@@ -9,7 +9,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .ku_enums import EntityStatus
+    from .entity_enums import EntityStatus
 
 
 class KuComplexity(str, Enum):
@@ -178,7 +178,7 @@ class KnowledgeStatus(str, Enum):
     def to_activity_status(self) -> "EntityStatus":
         """Convert to base activity status when needed for cross-domain operations"""
         # Import here to avoid circular dependency
-        from .ku_enums import EntityStatus
+        from .entity_enums import EntityStatus
 
         mapping = {
             KnowledgeStatus.DRAFT: EntityStatus.DRAFT,

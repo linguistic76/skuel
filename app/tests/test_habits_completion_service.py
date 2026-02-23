@@ -18,8 +18,8 @@ from unittest.mock import AsyncMock
 import pytest
 
 from core.models.enums import Priority, RecurrencePattern
-from core.models.enums.ku_enums import EntityStatus as HabitStatus
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityStatus as HabitStatus
+from core.models.enums.entity_enums import EntityType
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.completion_dto import HabitCompletionDTO
 from core.models.habit.habit import Habit as Habit

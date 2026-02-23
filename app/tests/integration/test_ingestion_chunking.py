@@ -13,8 +13,8 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 
-from core.services.ingestion import UnifiedIngestionService
 from core.services.entity_chunking_service import EntityChunkingService
+from core.services.ingestion import UnifiedIngestionService
 
 
 @pytest.mark.asyncio

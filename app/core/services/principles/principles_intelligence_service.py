@@ -23,10 +23,10 @@ from core.events.principle_events import (
     PrincipleReflectionRecorded,
     PrincipleStrengthChanged,
 )
-from core.models.enums import Domain
-from core.models.enums.ku_enums import AlignmentLevel
-from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.entity_types import Ku
+from core.models.enums import Domain
+from core.models.enums.principle_enums import AlignmentLevel
+from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
@@ -428,7 +428,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
             Result[DualTrackResult[AlignmentLevel]] with dual-track analysis
 
         Example:
-            >>> from core.models.enums.ku_enums import AlignmentLevel
+            >>> from core.models.enums.principle_enums import AlignmentLevel
             >>> result = await service.assess_alignment_dual_track(
             ...     principle_uid="principle.integrity",
             ...     user_uid="user_mike",

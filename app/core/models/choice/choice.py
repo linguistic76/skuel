@@ -26,8 +26,9 @@ if TYPE_CHECKING:
     from core.models.choice.choice_dto import ChoiceDTO
     from core.models.entity_dto import EntityDTO
 
-from core.models.enums.ku_enums import ChoiceType, EntityType
 from core.models.choice.choice_option import ChoiceOption
+from core.models.enums.choice_enums import ChoiceType
+from core.models.enums.entity_enums import EntityType
 from core.models.user_owned_entity import UserOwnedEntity
 
 

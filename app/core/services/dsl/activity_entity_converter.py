@@ -51,8 +51,7 @@ from core.models.enums import (
     Priority,
     RecurrencePattern,
 )
-from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.task.task_request import TaskCreateRequest
 from core.services.dsl.activity_dsl_parser import ParsedActivityLine, ParsedJournal
 from core.utils.decorators import with_error_handling

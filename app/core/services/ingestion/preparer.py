@@ -17,8 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from core.models.enums.entity_enums import NonKuDomain
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
 

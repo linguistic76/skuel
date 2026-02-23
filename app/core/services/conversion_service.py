@@ -16,6 +16,15 @@ from dataclasses import fields, is_dataclass
 from datetime import datetime
 from typing import Any, Protocol, TypeVar, runtime_checkable
 
+from core.models.activity_requests import (
+    ChoiceCreateRequest,
+    PrincipleCreateRequest,
+)
+from core.models.choice.choice_option import ChoiceOption
+from core.models.curriculum.curriculum_requests import CurriculumCreateRequest as KuCreateRequest
+from core.models.entity_requests import EntityUpdateRequest
+from core.models.entity_types import Ku
+
 # Import domain models (Tier 3 - Core)
 from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
 from core.models.finance.finance_pure import BudgetPure, ExpensePure
@@ -26,16 +35,8 @@ from core.models.finance.finance_request import (
     ExpenseUpdateRequest,
 )
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
-from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
 from core.models.habit.habit import Habit as Habit
-from core.models.entity_types import Ku
-from core.models.choice.choice_option import ChoiceOption
-from core.models.activity_requests import (
-    ChoiceCreateRequest,
-    PrincipleCreateRequest,
-)
-from core.models.entity_requests import EntityUpdateRequest
-from core.models.curriculum.curriculum_requests import CurriculumCreateRequest as KuCreateRequest
+from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.ports import HasUpdated, HasUpdatedAt, PydanticModel
 
@@ -572,7 +573,7 @@ class ConversionServiceV2:
         Returns:
             Dict representation for service layer consumption
         """
-        from core.models.enums.ku_enums import AlignmentLevel
+        from core.models.enums.principle_enums import AlignmentLevel
         from core.ports.base_protocols import EnumLike
 
         # Extract fields from Pydantic model

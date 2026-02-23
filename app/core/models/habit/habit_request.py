@@ -14,7 +14,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.models.enums import Priority, RecurrencePattern
-from core.models.enums.ku_enums import EntityStatus, HabitCategory, HabitDifficulty, HabitPolarity
+from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.validation_rules import (
     validate_habit_duration_by_difficulty,
     validate_habit_target_days_by_pattern,

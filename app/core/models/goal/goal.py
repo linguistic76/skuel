@@ -27,16 +27,11 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.models.goal.goal_dto import GoalDTO
     from core.models.entity_dto import EntityDTO
+    from core.models.goal.goal_dto import GoalDTO
 
-from core.models.enums.ku_enums import (
-    EntityStatus,
-    EntityType,
-    GoalTimeframe,
-    GoalType,
-    MeasurementType,
-)
+from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.goal_enums import GoalTimeframe, GoalType, MeasurementType
 from core.models.goal.milestone import Milestone
 from core.models.user_owned_entity import UserOwnedEntity
 

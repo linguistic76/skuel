@@ -35,7 +35,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import RecurrencePattern
-from core.models.enums.ku_enums import HabitCategory
+from core.models.enums.habit_enums import HabitCategory
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.ports.domain_protocols import HabitsOperations

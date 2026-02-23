@@ -23,7 +23,7 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING
 
-from core.models.enums.ku_enums import ThemeCategory
+from core.models.enums.lifepath_enums import ThemeCategory
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

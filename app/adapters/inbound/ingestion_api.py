@@ -396,7 +396,7 @@ def create_ingestion_api_routes(
                 return Result.fail(Errors.not_found("Directory", str(source_path)))
 
             # Map domain to EntityType
-            from core.models.enums.ku_enums import EntityType
+            from core.models.enums.entity_enums import EntityType
 
             domain_to_entity = {
                 "ku": EntityType.CURRICULUM,

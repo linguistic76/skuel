@@ -18,10 +18,10 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.reports.feedback_dto import FeedbackDTO
     from core.models.entity_dto import EntityDTO
+    from core.models.reports.feedback_dto import FeedbackDTO
 
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.reports.submission import Submission
 
 

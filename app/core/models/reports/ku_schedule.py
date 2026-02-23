@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from core.models.enums.ku_enums import ProgressDepth, ScheduleType
+from core.models.enums.reports_enums import ProgressDepth, ScheduleType
 
 # ============================================================================
 # TIER 2 - DTO (Transfer Layer)

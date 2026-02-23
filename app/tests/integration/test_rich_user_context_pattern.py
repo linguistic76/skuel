@@ -22,9 +22,9 @@ from datetime import date, time
 
 import pytest
 
-from core.models.enums import Domain, EntityStatus, Priority
-from core.models.enums.ku_enums import EntityType
 from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.enums import Domain, EntityStatus, Priority
+from core.models.enums.entity_enums import EntityType
 from core.models.event.event_dto import EventDTO
 from core.models.goal.goal_dto import GoalDTO
 from core.models.task.task_dto import TaskDTO

@@ -16,9 +16,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from core.models.enums import Domain
 from core.models.curriculum.learning_path import LearningPath
 from core.models.curriculum.learning_step import LearningStep
+from core.models.enums import Domain
 
 
 def _get_path_steps(path: LearningPath) -> list[LearningStep]:

@@ -38,10 +38,10 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import HabitCreated, publish_event
 from core.models.enums import Domain, EntityStatus, Priority, RecurrencePattern
-from core.models.enums.ku_enums import HabitCategory, HabitDifficulty
-from core.models.habit.habit_request import HabitCreateRequest
+from core.models.enums.habit_enums import HabitCategory, HabitDifficulty
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
+from core.models.habit.habit_request import HabitCreateRequest
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config

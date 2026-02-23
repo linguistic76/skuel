@@ -28,7 +28,7 @@ Usage:
         ...
 
 See Also:
-    - EntityType: Domain type enum (ku_enums.py)
+    - EntityType: Domain type enum (entity_enums.py)
     - NonKuDomain: Non-Ku domain enum (entity_enums.py)
     - RelationshipName: Relationship type enum (relationship_names.py)
     - UniversalNeo4jBackend: Generic persistence layer
@@ -40,8 +40,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.enums.entity_enums import NonKuDomain
-    from core.models.enums.ku_enums import EntityType
+    from core.models.enums.entity_enums import EntityType, NonKuDomain
 
 
 class NeoLabel(str, Enum):
@@ -167,8 +166,7 @@ class NeoLabel(str, Enum):
             NeoLabel.from_domain(NonKuDomain.FINANCE)  # Returns NeoLabel.EXPENSE
             NeoLabel.from_domain(NonKuDomain.CALENDAR)  # Returns None
         """
-        from core.models.enums.entity_enums import NonKuDomain
-        from core.models.enums.ku_enums import EntityType
+        from core.models.enums.entity_enums import EntityType, NonKuDomain
 
         if isinstance(domain, EntityType):
             return cls.from_entity_type(domain)
@@ -225,7 +223,7 @@ _ENTITY_TYPE_TO_LABEL: dict[EntityType, NeoLabel] = {}
 
 def _init_ku_type_mapping() -> None:
     """Initialize the EntityType -> NeoLabel mapping. Called on first use."""
-    from core.models.enums.ku_enums import EntityType
+    from core.models.enums.entity_enums import EntityType
 
     _ENTITY_TYPE_TO_LABEL.update(
         {

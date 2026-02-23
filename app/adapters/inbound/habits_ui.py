@@ -37,7 +37,7 @@ from components.form_generator import FormGenerator
 from components.habits_views import HabitsViewComponents
 from components.shared_ui_components import SharedUIComponents
 from core.models.enums import Priority
-from core.models.enums.ku_enums import EntityStatus
+from core.models.enums.entity_enums import EntityStatus
 from core.models.habit.habit_request import HabitCreateRequest
 from core.ports.facade_protocols import GoalsFacadeProtocol, HabitsFacadeProtocol
 from core.ports.query_types import ActivityFilterSpec
@@ -860,7 +860,7 @@ def create_habits_ui_routes(
         Handles form parsing, request building, and service call.
         """
         from core.models.enums import RecurrencePattern
-        from core.models.enums.ku_enums import HabitCategory
+        from core.models.enums.habit_enums import HabitCategory
         from core.models.habit.habit_request import HabitCreateRequest
 
         # Extract form data

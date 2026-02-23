@@ -15,7 +15,7 @@ See: /docs/patterns/EMBEDDING_ARCHITECTURE.md
 
 from typing import Any, Protocol, overload
 
-from core.models.enums.ku_enums import EntityType
+from core.models.enums.entity_enums import EntityType
 
 
 class HasAttributes(Protocol):

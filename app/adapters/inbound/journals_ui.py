@@ -35,7 +35,7 @@ from starlette.responses import FileResponse
 
 from adapters.inbound.auth import require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from core.models.enums.ku_enums import EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.daisy_components import Button, ButtonT

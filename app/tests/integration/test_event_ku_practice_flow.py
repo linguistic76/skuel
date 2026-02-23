@@ -29,12 +29,12 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.calendar_event_events import CalendarEventCompleted
 from core.events.ku_events import KnowledgePracticed
+from core.models.curriculum.curriculum import Curriculum
 from core.models.enums import (
     Domain,
     EntityStatus,
     SELCategory,
 )
-from core.models.curriculum.curriculum import Curriculum
 from core.models.event.event import Event
 from core.services.ku.ku_practice_service import KuPracticeService
 
