@@ -27,8 +27,8 @@ from fasthtml.common import H1, H2, Div, JSONResponse, P, Response, Span
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from ui.patterns.error_banner import render_error_banner
-from components.tasks_views import TasksViewComponents
-from components.todoist_task_components import TodoistTaskComponents
+from ui.tasks.views import TasksViewComponents
+from ui.tasks.todoist_components import TodoistTaskComponents
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest

@@ -29,7 +29,7 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from ui.patterns.error_banner import render_error_banner
-from components.principles_views import PrinciplesViewComponents
+from ui.principles.views import PrinciplesViewComponents
 from core.constants import QueryLimit
 from core.ports.facade_protocols import PrinciplesFacadeProtocol
 from core.ports.query_types import PrinciplesFilterSpec

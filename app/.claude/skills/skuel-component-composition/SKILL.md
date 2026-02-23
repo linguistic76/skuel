@@ -730,7 +730,7 @@ def TaskCard(task: Task, show_actions: bool = True) -> Any:
 **Usage:**
 
 ```python
-from components.todoist_task_components import TaskCard
+from ui.tasks.todoist_components import TaskCard
 
 # In route handler
 tasks = await tasks_service.get_user_tasks(user_uid)
@@ -956,7 +956,7 @@ def _domain_menu_item(domain: ProfileDomainItem, is_active: bool) -> "FT":
 ```python
 from ui.patterns import PageHeader, StatsGrid, EmptyState
 from ui.tasks.layout import create_tasks_page
-from components.todoist_task_components import TaskCard
+from ui.tasks.todoist_components import TaskCard
 
 @rt("/tasks")
 async def tasks_dashboard(request):

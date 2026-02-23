@@ -30,7 +30,7 @@ from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactor
 from components.atomic_habits_components import AtomicHabitsComponents
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.form_generator import FormGenerator
-from components.goals_views import GoalsViewComponents
+from ui.goals.views import GoalsViewComponents
 from ui.patterns.entity_dashboard import SharedUIComponents
 from core.models.enums import Priority
 from core.models.goal.goal_request import GoalCreateRequest

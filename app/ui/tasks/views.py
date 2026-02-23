@@ -5,7 +5,7 @@ Tasks Three-View Components
 Three-view task management interface with Create, List, and Calendar views.
 
 Usage:
-    from components.tasks_views import TasksViewComponents
+    from ui.tasks.views import TasksViewComponents
 
     # Main tabs
     tabs = TasksViewComponents.render_view_tabs("list")
@@ -35,14 +35,14 @@ from ui.patterns.activity_views_base import (
     ActivityViewSwitcher,
     ActivityViewTabs,
 )
-from components.calendar_components import (
+from ui.calendar.components import (
     create_day_timeline,
     create_month_grid,
     create_reschedule_form,
     create_week_grid,
 )
-from components.calendar_converters import task_to_calendar_item
-from components.todoist_task_components import TodoistTaskComponents
+from ui.calendar.converters import task_to_calendar_item
+from ui.tasks.todoist_components import TodoistTaskComponents
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarView,

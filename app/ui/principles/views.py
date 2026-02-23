@@ -6,7 +6,7 @@ Three-view principle management interface with List, Create, and Analytics views
 Uses Analytics as third tab (not Calendar - principles are not time-based).
 
 Usage:
-    from components.principles_views import PrinciplesViewComponents
+    from ui.principles.views import PrinciplesViewComponents
 
     # Main tabs
     tabs = PrinciplesViewComponents.render_view_tabs("list")

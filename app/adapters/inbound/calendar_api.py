@@ -17,7 +17,7 @@ from fasthtml.common import Div, P
 from starlette.requests import Request
 
 from adapters.inbound.boundary import boundary_handler
-from components.calendar_components import calendar_item_to_dict
+from ui.calendar.components import calendar_item_to_dict
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:

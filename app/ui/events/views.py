@@ -6,7 +6,7 @@ Three-view event management interface with Calendar, List, and Create views.
 Events is calendar-first (Calendar is the primary/default view).
 
 Usage:
-    from components.events_views import EventsViewComponents
+    from ui.events.views import EventsViewComponents
 
     # Main tabs (calendar-first)
     tabs = EventsViewComponents.render_view_tabs("calendar")
@@ -27,13 +27,13 @@ from ui.patterns.activity_views_base import (
     ActivityViewSwitcher,
     ActivityViewTabs,
 )
-from components.calendar_components import (
+from ui.calendar.components import (
     create_day_timeline,
     create_month_grid,
     create_reschedule_form,
     create_week_grid,
 )
-from components.calendar_converters import event_to_calendar_item
+from ui.calendar.converters import event_to_calendar_item
 from core.models.entity_types import Ku
 from core.models.event.calendar_models import (
     CalendarData,

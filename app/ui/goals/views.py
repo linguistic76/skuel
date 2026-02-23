@@ -5,7 +5,7 @@ Goals Three-View Components
 Three-view goal management interface with List, Create, and Calendar views.
 
 Usage:
-    from components.goals_views import GoalsViewComponents
+    from ui.goals.views import GoalsViewComponents
 
     # Main tabs
     tabs = GoalsViewComponents.render_view_tabs("list")
@@ -26,13 +26,13 @@ from ui.patterns.activity_views_base import (
     ActivityViewSwitcher,
     ActivityViewTabs,
 )
-from components.calendar_components import (
+from ui.calendar.components import (
     create_day_timeline,
     create_month_grid,
     create_reschedule_form,
     create_week_grid,
 )
-from components.calendar_converters import goal_to_calendar_item
+from ui.calendar.converters import goal_to_calendar_item
 from core.models.entity_types import Ku
 from core.models.event.calendar_models import (
     CalendarData,

@@ -11,7 +11,7 @@ Consolidates the entity-to-CalendarItem conversion logic from:
 - habits_views.py
 
 Usage:
-    from components.calendar_converters import (
+    from ui.calendar.converters import (
         task_to_calendar_item,
         goal_to_calendar_item,
         event_to_calendar_item,

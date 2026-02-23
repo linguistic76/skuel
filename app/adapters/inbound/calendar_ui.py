@@ -40,7 +40,7 @@ from fasthtml.common import (
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
-from components.calendar_components import (
+from ui.calendar.components import (
     create_day_timeline,
     create_month_grid,
     create_reschedule_form,

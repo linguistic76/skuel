@@ -27,7 +27,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from components.choices_views import ChoicesViewComponents
+from ui.choices.views import ChoicesViewComponents
 from ui.patterns.error_banner import render_error_banner
 from core.ports.facade_protocols import ChoicesFacadeProtocol
 from core.ports.query_types import ActivityFilterSpec

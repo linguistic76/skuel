@@ -5,7 +5,7 @@ Habits Three-View Components
 Three-view habit management interface with List, Create, and Calendar views.
 
 Usage:
-    from components.habits_views import HabitsViewComponents
+    from ui.habits.views import HabitsViewComponents
 
     # Main tabs
     tabs = HabitsViewComponents.render_view_tabs("list")
@@ -26,13 +26,13 @@ from ui.patterns.activity_views_base import (
     ActivityViewSwitcher,
     ActivityViewTabs,
 )
-from components.calendar_components import (
+from ui.calendar.components import (
     create_day_timeline,
     create_month_grid,
     create_reschedule_form,
     create_week_grid,
 )
-from components.calendar_converters import habit_to_calendar_items
+from ui.calendar.converters import habit_to_calendar_items
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarView,

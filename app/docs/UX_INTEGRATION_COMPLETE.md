@@ -334,7 +334,7 @@ Standardized icons for empty states:
 ### Testing
 
 ```python
-from components.todoist_task_components import TodoistTaskComponents
+from ui.tasks.todoist_components import TodoistTaskComponents
 from ui.patterns.skeleton import SkeletonList
 
 # Empty state

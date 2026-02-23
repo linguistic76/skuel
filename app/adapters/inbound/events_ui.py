@@ -28,7 +28,7 @@ from starlette.responses import RedirectResponse, Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from ui.patterns.error_banner import render_error_banner
-from components.events_views import EventsViewComponents
+from ui.events.views import EventsViewComponents
 from ui.patterns.entity_dashboard import SharedUIComponents
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO

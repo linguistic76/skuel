@@ -11,7 +11,7 @@ Design Principles:
 - DaisyUI/Tailwind styling
 
 Usage:
-    from components.todoist_task_components import TodoistTaskComponents
+    from ui.tasks.todoist_components import TodoistTaskComponents
 
     dashboard = TodoistTaskComponents.render_dashboard(tasks, projects, filters)
 """

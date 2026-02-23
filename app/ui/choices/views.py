@@ -6,7 +6,7 @@ Three-view choice management interface with List, Create, and Analytics views.
 Uses Analytics as third tab (not Calendar - choices are not time-based).
 
 Usage:
-    from components.choices_views import ChoicesViewComponents
+    from ui.choices.views import ChoicesViewComponents
 
     # Main tabs
     tabs = ChoicesViewComponents.render_view_tabs("list")

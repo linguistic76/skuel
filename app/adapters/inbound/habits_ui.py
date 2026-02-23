@@ -34,7 +34,7 @@ from components.atomic_habits_mobile import AtomicHabitsMobile
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.form_generator import FormGenerator
-from components.habits_views import HabitsViewComponents
+from ui.habits.views import HabitsViewComponents
 from ui.patterns.entity_dashboard import SharedUIComponents
 from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityStatus

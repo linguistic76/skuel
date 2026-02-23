@@ -6,7 +6,7 @@ UI components for calendar views (month, week, day).
 Extracted from calendar_routes.py for separation of concerns.
 
 Usage:
-    from components.calendar_components import (
+    from ui.calendar.components import (
         create_month_grid,
         create_week_grid,
         create_day_timeline,
