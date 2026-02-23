@@ -262,14 +262,14 @@ from .query_types import (
 # Ku content protocols — submission, processing, sharing, feedback, scheduling
 from .reports_protocols import (
     ExerciseOperations,
-    KuContentOperations,
-    KuContentSearchOperations,
-    KuFeedbackOperations,
-    KuProcessingOperations,
-    KuScheduleOperations,
-    KuSharingOperations,
-    KuSubmissionOperations,
-    ProgressKuGeneratorOperations,
+    ReportsContentOperations,
+    ReportsContentSearchOperations,
+    ReportsFeedbackOperations,
+    ReportsProcessingOperations,
+    ReportsScheduleOperations,
+    ReportsSharingOperations,
+    ReportsSubmissionOperations,
+    ProgressReportGeneratorOperations,
 )
 
 # Knowledge operation protocols
@@ -481,15 +481,15 @@ __all__ = [
     "PydanticModel",
     "QueryBuilderOperations",
     # ========== KU CONTENT PROTOCOLS (9 - February 2026) ==========
-    "KuContentOperations",
-    "KuContentSearchOperations",
-    "KuFeedbackOperations",
-    "KuProcessingOperations",
+    "ReportsContentOperations",
+    "ReportsContentSearchOperations",
+    "ReportsFeedbackOperations",
+    "ReportsProcessingOperations",
     "ExerciseOperations",
-    "KuScheduleOperations",
-    "KuSharingOperations",
-    "KuSubmissionOperations",
-    "ProgressKuGeneratorOperations",
+    "ReportsScheduleOperations",
+    "ReportsSharingOperations",
+    "ReportsSubmissionOperations",
+    "ProgressReportGeneratorOperations",
     "RelationshipCrudOperations",  # Edge CRUD (6 methods)
     "RelationshipMetadata",
     "RelationshipMetadataOperations",  # Edge properties (3 methods)

@@ -19,8 +19,8 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.ports.reports_protocols import (
-        KuContentOperations,
-        KuSharingOperations,
+        ReportsContentOperations,
+        ReportsSharingOperations,
     )
 
 from pydantic import BaseModel
@@ -70,8 +70,8 @@ class SetVisibilityRequest(BaseModel):
 def create_reports_sharing_api_routes(
     _app: Any,
     rt: Any,
-    sharing_service: "KuSharingOperations",
-    core_service: "KuContentOperations | None" = None,
+    sharing_service: "ReportsSharingOperations",
+    core_service: "ReportsContentOperations | None" = None,
 ) -> list[Any]:
     """
     Create all report sharing API routes.

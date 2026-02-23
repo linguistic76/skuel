@@ -45,7 +45,7 @@ In SKUEL, every entity represents a form of knowledge. Tasks are knowledge about
 - `:Ku` Neo4j label — universal label on all entities (stays)
 
 **What `Ku` prefix does NOT mean:** Domain-specific services use domain names, not `Ku`:
-- Reports services: `KuCoreService` (in `reports/`), not ~~`ReportsCoreService`~~ — class names retain `Ku` prefix, methods use domain names (`get_report()`, `share_report()`)
+- Reports services: `ReportsCoreService`, `ReportsSubmissionService`, etc. (renamed Feb 2026)
 - Request classes: `TaskCreateRequest`, not ~~`KuTaskCreateRequest`~~ (renamed Feb 2026)
 - Cross-domain services: `AnalyticsEngine`, not ~~`KuAnalyticsEngine`~~ (renamed Feb 2026)
 
@@ -540,7 +540,7 @@ EntityType.from_string("ku")         # -> EntityType.CURRICULUM (alias support)
 | **Infrastructure** | `infrastructure_protocols.py` | EventBus, UserOperations, etc. | 6 protocols |
 | **Intelligence** | `intelligence_protocols.py` | Analytics operations | 1 protocol |
 | **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence + CRUD | 6 protocols |
-| **Reports (Ku)** | `reports_protocols.py` | KuSubmission, KuContent, KuSharing, KuProcessing, Assignment, KuFeedback, ProgressKuGenerator, KuSchedule, KuContentSearch | 9 protocols |
+| **Reports** | `reports_protocols.py` | ReportsSubmission, ReportsContent, ReportsSharing, ReportsProcessing, Assignment, ReportsFeedback, ProgressReportGenerator, ReportsSchedule, ReportsContentSearch | 9 protocols |
 | **Groups** | `group_protocols.py` | Group CRUD, teacher review | 2 protocols |
 | **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration, Lateral | 10 protocols |
 
@@ -761,7 +761,7 @@ PUBLIC            → Anyone (portfolio showcase)
 
 **Service:**
 ```python
-from core.services.reports import KuSharingService
+from core.services.reports import ReportsSharingService
 
 # Manual share
 await sharing_service.share_report(

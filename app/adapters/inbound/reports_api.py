@@ -28,10 +28,10 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.ports.reports_protocols import (
-        KuContentOperations,
-        KuContentSearchOperations,
-        KuProcessingOperations,
-        KuSubmissionOperations,
+        ReportsContentOperations,
+        ReportsContentSearchOperations,
+        ReportsProcessingOperations,
+        ReportsSubmissionOperations,
     )
 
 from starlette.background import BackgroundTask
@@ -77,10 +77,10 @@ def cleanup_temp_file(filepath: str):
 def create_reports_api_routes(
     _app: Any,
     rt: Any,
-    report_service: "KuSubmissionOperations",
-    processing_service: "KuProcessingOperations",
-    reports_query_service: "KuContentSearchOperations | None" = None,
-    reports_core_service: "KuContentOperations | None" = None,
+    report_service: "ReportsSubmissionOperations",
+    processing_service: "ReportsProcessingOperations",
+    reports_query_service: "ReportsContentSearchOperations | None" = None,
+    reports_core_service: "ReportsContentOperations | None" = None,
 ) -> list[Any]:
     """
     Create all report API routes.

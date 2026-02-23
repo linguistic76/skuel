@@ -36,7 +36,7 @@ TIME_PERIOD_DAYS = {
 }
 
 
-class ProgressKuGenerator:
+class ProgressReportGenerator:
     """
     Generates progress Ku by querying historical activity completions.
 

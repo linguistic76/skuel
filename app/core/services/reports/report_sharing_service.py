@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.services.ku_sharing")
 
 
-class KuSharingService:
+class ReportsSharingService:
     """Service for managing Ku sharing and access control."""
 
     def __init__(self, executor: "QueryExecutor") -> None:

@@ -6,7 +6,7 @@ Tests the Ku processing pipeline for file submissions.
 
 NOTE (February 2026): Tests updated for unified Ku model.
 Reports are now Ku with ku_type=SUBMISSION.
-The KuProcessingService:
+The ReportsProcessingService:
 - Routes files to appropriate processors based on file type
 - Audio files: transcribed via TranscriptionService
 - Text files: read directly from storage
@@ -31,7 +31,7 @@ import pytest_asyncio
 
 from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType
 from core.models.ku import Curriculum, Submission
-from core.services.reports import KuProcessingService
+from core.services.reports import ReportsProcessingService
 from core.utils.result_simplified import Errors, Result
 
 
@@ -45,7 +45,7 @@ class TestOptionAJournalsProcessing:
 
     @pytest_asyncio.fixture
     async def mock_report_service(self):
-        """Mock KuSubmissionService."""
+        """Mock ReportsSubmissionService."""
         service = AsyncMock()
 
         # Mock Ku with transcript type
@@ -150,12 +150,12 @@ class TestOptionAJournalsProcessing:
         mock_report_service,
         mock_transcription_service,
     ):
-        """Create KuProcessingService with mocked dependencies.
+        """Create ReportsProcessingService with mocked dependencies.
 
         Note: content_enrichment and report_relationship_service are NOT passed
         because they are NOT used after the January 2026 domain separation.
         """
-        return KuProcessingService(
+        return ReportsProcessingService(
             ku_submission_service=mock_report_service,
             transcription_service=mock_transcription_service,
             content_enrichment=None,  # Not used - journals have their own domain
@@ -255,7 +255,7 @@ class TestOptionAJournalsProcessing:
             b"This is the text file content."
         )
 
-        pipeline = KuProcessingService(
+        pipeline = ReportsProcessingService(
             ku_submission_service=mock_report_service,
             transcription_service=None,  # Not needed for text
         )
@@ -287,7 +287,7 @@ class TestOptionAJournalsProcessing:
             Errors.system(message="Transcription service unavailable", operation="create")
         )
 
-        pipeline = KuProcessingService(
+        pipeline = ReportsProcessingService(
             ku_submission_service=mock_report_service,
             transcription_service=mock_transcription_service,
         )
@@ -325,7 +325,7 @@ class TestOptionAJournalsProcessing:
         mock_service = AsyncMock()
         mock_service.get_report.return_value = Result.ok(processing_ku)
 
-        pipeline = KuProcessingService(
+        pipeline = ReportsProcessingService(
             ku_submission_service=mock_service,
         )
 
@@ -358,7 +358,7 @@ class TestOptionAJournalsProcessing:
         mock_service = AsyncMock()
         mock_service.get_report.return_value = Result.ok(pdf_ku)
 
-        pipeline = KuProcessingService(
+        pipeline = ReportsProcessingService(
             ku_submission_service=mock_service,
         )
 

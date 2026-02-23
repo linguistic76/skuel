@@ -17,9 +17,9 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.ports.reports_protocols import (
-        KuScheduleOperations,
-        KuSubmissionOperations,
-        ProgressKuGeneratorOperations,
+        ReportsScheduleOperations,
+        ReportsSubmissionOperations,
+        ProgressReportGeneratorOperations,
     )
 
 from starlette.requests import Request
@@ -41,9 +41,9 @@ logger = get_logger("skuel.routes.reports.progress")
 def create_reports_progress_api_routes(
     _app: Any,
     rt: Any,
-    progress_generator: "ProgressKuGeneratorOperations",
-    report_service: "KuSubmissionOperations",
-    schedule_service: "KuScheduleOperations | None" = None,
+    progress_generator: "ProgressReportGeneratorOperations",
+    report_service: "ReportsSubmissionOperations",
+    schedule_service: "ReportsScheduleOperations | None" = None,
 ) -> list[Any]:
     """
     Create progress report and schedule API routes.

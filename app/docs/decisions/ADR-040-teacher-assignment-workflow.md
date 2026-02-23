@@ -13,7 +13,7 @@ SKUEL needs teachers to assign work to students and review submissions. The piec
 - `ProcessorType.HUMAN` — exists, no implementation
 - `MEMBER_OF` relationship — exists in enum, pre-wired in `UserRelationshipService`, no Group nodes
 - `Visibility.TEAM` — exists, unused
-- `KuSharingService` — sharing infrastructure works, but only for post-completion manual sharing
+- `ReportsSharingService` — sharing infrastructure works, but only for post-completion manual sharing
 
 Two changes unify these into a coherent architecture:
 1. **Group** — new entity for teacher-student class management

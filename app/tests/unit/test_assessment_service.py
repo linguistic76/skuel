@@ -3,7 +3,7 @@ Unit Tests for Assessment Service Methods
 ============================================
 
 Tests create_assessment, get_assessments_for_student,
-and get_assessments_by_teacher on KuCoreService.
+and get_assessments_by_teacher on ReportsCoreService.
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -47,10 +47,10 @@ def mock_sharing_service():
 
 @pytest.fixture
 def core_service(mock_backend, mock_event_bus, mock_sharing_service):
-    """Create KuCoreService with mocked deps."""
-    from core.services.reports.reports_core_service import KuCoreService
+    """Create ReportsCoreService with mocked deps."""
+    from core.services.reports.reports_core_service import ReportsCoreService
 
-    return KuCoreService(
+    return ReportsCoreService(
         backend=mock_backend,
         event_bus=mock_event_bus,
         sharing_service=mock_sharing_service,

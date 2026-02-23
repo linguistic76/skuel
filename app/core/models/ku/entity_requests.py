@@ -461,7 +461,7 @@ class CategorizeEntityRequest(BaseModel):
 
     category: str = Field(
         ...,
-        description="Category from KuCategory constants",
+        description="Category from ReportCategory constants",
         examples=["daily", "weekly", "reflection", "work"],
     )
 

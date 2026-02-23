@@ -11,7 +11,7 @@ from typing import Any
 
 
 @dataclass(frozen=True)
-class KuProcessingContext:
+class ReportsProcessingContext:
     """
     Context gathered from Neo4j for intelligent Ku editing.
 
@@ -27,7 +27,7 @@ class KuProcessingContext:
 
 
 @dataclass(frozen=True)
-class KuAIInsights:
+class ReportsAIInsights:
     """Parsed AI response for Ku formatting."""
 
     title: str

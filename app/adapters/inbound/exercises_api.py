@@ -44,7 +44,7 @@ def create_exercises_api_routes(
         rt: Route decorator
         exercises_service: ExerciseService instance
         transcript_service: ContentEnrichmentService for entry lookup
-        report_feedback_service: KuFeedbackService for AI feedback
+        report_feedback_service: ReportsFeedbackService for AI feedback
         user_service: UserService for role checks
     """
 
@@ -102,7 +102,7 @@ def create_exercises_api_routes(
         """
         if not report_feedback_service:
             return Result.fail(
-                Errors.system("Feedback service not available", service="KuFeedbackService")
+                Errors.system("Feedback service not available", service="ReportsFeedbackService")
             )
 
         if not transcript_service:

@@ -28,7 +28,7 @@ from core.models.relationship_names import RelationshipName
 from core.ports import BackendOperations, BaseUpdatePayload
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
-from core.services.reports.report_processing_types import KuAIInsights, KuProcessingContext
+from core.services.reports.report_processing_types import ReportsAIInsights, ReportsProcessingContext
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -131,7 +131,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         raw_transcript: str,
         instructions_uid: str | None = None,
         user_uid: str | None = None,
-    ) -> Result[KuAIInsights]:
+    ) -> Result[ReportsAIInsights]:
         """
         Process raw transcript into formatted journal using Neo4j context.
 
@@ -139,7 +139,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         REFACTORED (November 10, 2025) - Option A Implementation:
         - No longer creates or stores entities directly
-        - Returns KuAIInsights (formatted data only)
+        - Returns ReportsAIInsights (formatted data only)
         - ReportsProcessingService stores insights in Report.processed_content
         - ReportsRelationshipService creates graph relationships
 
@@ -155,7 +155,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             user_uid: User identifier (optional, enables context-aware processing)
 
         Returns:
-            Result containing KuAIInsights (formatted content, title, summary, themes, actions)
+            Result containing ReportsAIInsights (formatted content, title, summary, themes, actions)
         """
         # Step 1: Pull context from Neo4j (optional, but improves quality)
         context_obj = await self._gather_context(user_uid) if user_uid else None
@@ -189,11 +189,11 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         audio_file_path: str,
         instructions_uid: str | None = None,
         user_uid: str | None = None,
-    ) -> Result[KuAIInsights]:
+    ) -> Result[ReportsAIInsights]:
         """
         Process audio file into formatted journal insights (full pipeline).
 
-        Pipeline: Audio → Transcription → Processing → KuAIInsights
+        Pipeline: Audio → Transcription → Processing → ReportsAIInsights
 
         Args:
             audio_file_path: Path to audio file,
@@ -201,7 +201,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             user_uid: User identifier (REQUIRED for context-aware processing)
 
         Returns:
-            Result containing KuAIInsights (formatted content, title, summary, themes)
+            Result containing ReportsAIInsights (formatted content, title, summary, themes)
         """
         if not user_uid:
             return Result.fail(
@@ -243,7 +243,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
     )
     async def get_journal_context_for_processing(
         self, user_uid: str
-    ) -> Result[KuProcessingContext]:
+    ) -> Result[ReportsProcessingContext]:
         """
         Get comprehensive context for intelligent journal processing.
 
@@ -263,7 +263,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             user_uid: User identifier
 
         Returns:
-            Result containing KuProcessingContext with all contextual data
+            Result containing ReportsProcessingContext with all contextual data
         """
         cypher = """
         MATCH (u:User {uid: $user_uid})
@@ -324,7 +324,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         if not records:
             # No data found - return empty context
             return Result.ok(
-                KuProcessingContext(
+                ReportsProcessingContext(
                     user_uid=user_uid,
                     gathered_at=datetime.now().isoformat(),
                     recent_journals=[],
@@ -431,7 +431,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         }
 
         return Result.ok(
-            KuProcessingContext(
+            ReportsProcessingContext(
                 user_uid=user_uid,
                 gathered_at=datetime.now().isoformat(),
                 recent_journals=recent_journals_list,
@@ -441,14 +441,14 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             )
         )
 
-    async def _gather_context(self, user_uid: str) -> KuProcessingContext:
+    async def _gather_context(self, user_uid: str) -> ReportsProcessingContext:
         """
         Gather relevant context from Neo4j for intelligent editing.
 
         Step 3 Implementation (November 2025): Uses optimized single-query approach
         via get_journal_context_for_processing() instead of multiple separate queries.
 
-        This is a convenience wrapper that returns KuProcessingContext directly (not Result[T])
+        This is a convenience wrapper that returns ReportsProcessingContext directly (not Result[T])
         for backward compatibility with existing code.
 
         Legacy multi-query helpers (_get_recent_journals, etc.) are kept for
@@ -465,7 +465,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         if result.is_error:
             self.logger.warning(f"Failed to gather context: {result.error}")
             # Return empty context on error
-            return KuProcessingContext(
+            return ReportsProcessingContext(
                 user_uid=user_uid,
                 gathered_at=datetime.now().isoformat(),
                 recent_journals=[],
@@ -674,7 +674,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
     @with_error_handling("create_journal_relationships", error_type="database")
     async def _create_journal_relationships(
-        self, journal: Ku, context: KuProcessingContext | None
+        self, journal: Ku, context: ReportsProcessingContext | None
     ) -> Result[dict[str, int]]:
         """
         Create graph relationships connecting journal to context.
@@ -688,7 +688,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         Args:
             journal: The newly created journal
-            context: KuProcessingContext with recent data
+            context: ReportsProcessingContext with recent data
 
         Returns:
             Result containing counts of relationships created
@@ -961,7 +961,7 @@ Preserve the author's voice and authenticity while improving readability.
     @with_error_handling("apply_intelligent_editing", error_type="integration")
     async def _apply_intelligent_editing(
         self, raw_transcript: str, instructions: str, context: dict[str, Any] | None = None
-    ) -> Result[KuAIInsights]:
+    ) -> Result[ReportsAIInsights]:
         """
         Apply AI-powered editing with context awareness.
 
@@ -971,7 +971,7 @@ Preserve the author's voice and authenticity while improving readability.
         3. Returns formatted, context-aware insights
 
         REFACTORED (November 10, 2025) - Option A Implementation:
-        - Returns KuAIInsights directly (not dict)
+        - Returns ReportsAIInsights directly (not dict)
         - No entity creation
 
         Args:
@@ -980,7 +980,7 @@ Preserve the author's voice and authenticity while improving readability.
             context: Neo4j context (goals, tasks, recent journals)
 
         Returns:
-            Result containing KuAIInsights (formatted content, metadata)
+            Result containing ReportsAIInsights (formatted content, metadata)
         """
         # Fail-fast: AI service is required for journal formatting
         if not self.ai_service:
@@ -1019,7 +1019,7 @@ Preserve the author's voice and authenticity while improving readability.
             f"Parsed AI response: title={insights.title[:50] if insights.title else 'None'}"
         )
 
-        # Return KuAIInsights directly (not dict)
+        # Return ReportsAIInsights directly (not dict)
         return Result.ok(insights)
 
     def _build_editing_prompt(
@@ -1233,7 +1233,7 @@ Return ONLY Markdown in this structure:
 - [ ] Action 1
 """
 
-    def _parse_ai_response(self, ai_response: str) -> KuAIInsights:
+    def _parse_ai_response(self, ai_response: str) -> ReportsAIInsights:
         """
         Parse AI response from Markdown format into structured format.
 
@@ -1252,7 +1252,7 @@ Return ONLY Markdown in this structure:
         # Defensive check: handle None or empty response
         if not ai_response:
             self.logger.warning("AI response is None or empty")
-            return KuAIInsights(
+            return ReportsAIInsights(
                 title="Journal Entry",
                 formatted_content="",
                 summary="AI response was empty",
@@ -1321,7 +1321,7 @@ Return ONLY Markdown in this structure:
                 f"Parsed Markdown: title='{title[:50]}', themes={len(themes)}, actions={len(action_items)}"
             )
 
-            return KuAIInsights(
+            return ReportsAIInsights(
                 title=title,
                 formatted_content=formatted_content,
                 summary=summary if summary else formatted_content[:200] + "...",
@@ -1334,7 +1334,7 @@ Return ONLY Markdown in this structure:
         except Exception as e:
             self.logger.error(f"Error parsing Markdown response: {e}", exc_info=True)
             # Fallback: treat entire response as formatted content
-            return KuAIInsights(
+            return ReportsAIInsights(
                 title="Journal Entry",
                 formatted_content=ai_response,
                 summary=ai_response[:200] + "..." if len(ai_response) > 200 else ai_response,

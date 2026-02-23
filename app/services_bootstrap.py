@@ -27,7 +27,7 @@ THE 14 DOMAINS COMPOSED HERE
     10. lp        → LpService         - Learning Paths (lp:)
 
 **Content/Organization Domain Services (4):**
-    11. reports → KuCoreService - File processing + journals (unified Ku model Feb 2026)
+    11. reports → ReportsCoreService - File processing + journals (unified Ku model Feb 2026)
     12. life_path → AnalyticsLifePathService - Life goal alignment
     14. analytics → AnalyticsService     - Statistical aggregation
 
@@ -142,8 +142,8 @@ if TYPE_CHECKING:
     from core.services.relationships.unified_relationship_service import (
         UnifiedRelationshipService,
     )
-    from core.services.reports.progress_report_generator import ProgressKuGenerator
-    from core.services.reports.report_schedule_service import KuScheduleService
+    from core.services.reports.progress_report_generator import ProgressReportGenerator
+    from core.services.reports.report_schedule_service import ReportsScheduleService
     from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
     from core.services.transcription.transcription_service import TranscriptionService
     from core.services.user.intelligence.factory import (
@@ -174,14 +174,14 @@ from core.ports import (
     IngestionOperations,
     IntelligenceOperations,
     # Ku content protocols (February 2026: unified Ku model)
-    KuContentOperations,
-    KuContentSearchOperations,
-    KuFeedbackOperations,
+    ReportsContentOperations,
+    ReportsContentSearchOperations,
+    ReportsFeedbackOperations,
     # Knowledge operations
     KuOperations,
-    KuProcessingOperations,
-    KuSharingOperations,
-    KuSubmissionOperations,
+    ReportsProcessingOperations,
+    ReportsSharingOperations,
+    ReportsSubmissionOperations,
     # NOTE: LearningOperations DELETED January 2026 - was dead code (type hint wrong)
     # NOTE: LearningPathsOperations DELETED January 2026 - replaced by LpOperations
     # NOTE: JournalsOperations DELETED February 2026 - Journal merged into Reports
@@ -249,8 +249,8 @@ class Services:
     transcription: "TranscriptionService | None" = None
 
     # Ku feedback services (LLM-based processing for any Ku type)
-    report_feedback: KuFeedbackOperations | None = (
-        None  # KuFeedbackService - LLM feedback on Ku content
+    report_feedback: ReportsFeedbackOperations | None = (
+        None  # ReportsFeedbackService - LLM feedback on Ku content
     )
     exercises: ExerciseOperations | None = (
         None  # ExerciseService - Reusable LLM instruction templates
@@ -262,23 +262,23 @@ class Services:
     )
 
     # Ku content services (unified submission pipeline)
-    reports: KuSubmissionOperations | None = (
-        None  # KuSubmissionService - File upload and Ku content management
+    reports: ReportsSubmissionOperations | None = (
+        None  # ReportsSubmissionService - File upload and Ku content management
     )
-    reports_core: KuContentOperations | None = (
-        None  # KuCoreService - Content management (categories, tags, bulk operations)
+    reports_core: ReportsContentOperations | None = (
+        None  # ReportsCoreService - Content management (categories, tags, bulk operations)
     )
-    reports_sharing: KuSharingOperations | None = (
-        None  # KuSharingService - Content sharing and visibility control
+    reports_sharing: ReportsSharingOperations | None = (
+        None  # ReportsSharingService - Content sharing and visibility control
     )
-    report_processor: KuProcessingOperations | None = (
-        None  # KuProcessingService - Orchestrates processing (LLM, human, hybrid)
+    report_processor: ReportsProcessingOperations | None = (
+        None  # ReportsProcessingService - Orchestrates processing (LLM, human, hybrid)
     )
-    processing_pipeline: KuProcessingOperations | None = None  # Alias for report_processor
+    processing_pipeline: ReportsProcessingOperations | None = None  # Alias for report_processor
 
     # Ku content search service (Unified query interface for all Ku types)
-    reports_query: KuContentSearchOperations | None = (
-        None  # KuSearchService - Query all Ku types (journals, essays, projects, etc.)
+    reports_query: ReportsContentSearchOperations | None = (
+        None  # ReportsSearchService - Query all Ku types (journals, essays, projects, etc.)
     )
 
     # ========================================================================
@@ -407,8 +407,8 @@ class Services:
     progress_report_worker: "ProgressReportWorker | None" = None
 
     # Progress report generation (February 2026)
-    progress_generator: "ProgressKuGenerator | None" = None
-    report_schedule: "KuScheduleService | None" = None
+    progress_generator: "ProgressReportGenerator | None" = None
+    report_schedule: "ReportsScheduleService | None" = None
 
     # ========================================================================
     # LATERAL RELATIONSHIP SERVICES (January 2026) - Core Graph Architecture
@@ -1575,9 +1575,9 @@ async def compose_services(
         # Create Ku feedback and exercise services (February 2026: Unified Ku model)
         from core.models.ku.exercise import Exercise
         from core.services.exercises import ExerciseService
-        from core.services.reports import KuFeedbackService
+        from core.services.reports import ReportsFeedbackService
 
-        report_feedback_service = KuFeedbackService(
+        report_feedback_service = ReportsFeedbackService(
             openai_service=ai_service,
             anthropic_service=None,  # Only OpenAI configured for now
         )
@@ -1650,27 +1650,27 @@ async def compose_services(
 
         # Create Ku submission and processing pipeline services (unified Ku model)
         from core.services.reports import (
-            KuCoreService,
-            KuProcessingService,
-            KuSearchService,
-            KuSubmissionService,
+            ReportsCoreService,
+            ReportsProcessingService,
+            ReportsSearchService,
+            ReportsSubmissionService,
         )
 
         # Get storage path from environment (default: /tmp/skuel_reports)
         storage_path = os.getenv("SKUEL_REPORT_STORAGE", "/tmp/skuel_reports")
 
-        report_service = KuSubmissionService(
+        report_service = ReportsSubmissionService(
             backend=reports_backend, storage_path=storage_path, event_bus=event_bus
         )
 
         # Create Ku sharing service (content sharing)
-        from core.services.reports import KuSharingService
+        from core.services.reports import ReportsSharingService
 
-        report_sharing_service = KuSharingService(executor=query_executor)
+        report_sharing_service = ReportsSharingService(executor=query_executor)
 
         # Create Ku core service (content management: categories, tags, bulk operations)
         # February 2026: content_enrichment for handle_transcription_completed
-        reports_core_service = KuCoreService(
+        reports_core_service = ReportsCoreService(
             backend=reports_backend,
             event_bus=event_bus,
             sharing_service=report_sharing_service,
@@ -1728,7 +1728,7 @@ async def compose_services(
         )
         logger.info(f"✅ Journal output generator created (storage: {journal_storage})")
 
-        report_processor = KuProcessingService(
+        report_processor = ReportsProcessingService(
             ku_submission_service=report_service,
             transcription_service=core_services["transcription"],  # Simplified TranscriptionService
             content_enrichment=content_enrichment,  # For LLM formatting
@@ -1738,7 +1738,7 @@ async def compose_services(
         )
 
         # Create Ku search service (unified query interface)
-        reports_query_service = KuSearchService(ku_backend=reports_backend, event_bus=event_bus)
+        reports_query_service = ReportsSearchService(ku_backend=reports_backend, event_bus=event_bus)
 
         logger.info("✅ Ku submission and processing pipeline services created (unified model)")
         logger.info("✅ Ku core service created (content management: categories, tags, bulk ops)")
@@ -1746,15 +1746,15 @@ async def compose_services(
 
         # Create progress Ku generator and schedule service (February 2026: Unified Ku model)
         from core.models.ku.ku_schedule import KuSchedule
-        from core.services.reports.progress_report_generator import ProgressKuGenerator
-        from core.services.reports.report_schedule_service import KuScheduleService
+        from core.services.reports.progress_report_generator import ProgressReportGenerator
+        from core.services.reports.report_schedule_service import ReportsScheduleService
 
         report_schedule_backend = UniversalNeo4jBackend[KuSchedule](
             driver, NeoLabel.KU_SCHEDULE, KuSchedule, prometheus_metrics=prometheus_metrics
         )
-        report_schedule_service = KuScheduleService(backend=report_schedule_backend)
+        report_schedule_service = ReportsScheduleService(backend=report_schedule_backend)
 
-        progress_generator = ProgressKuGenerator(
+        progress_generator = ProgressReportGenerator(
             executor=query_executor,
             ku_backend=reports_backend,
             user_service=core_services["user"],
@@ -2028,7 +2028,7 @@ async def compose_services(
             reports_core_service.handle_transcription_completed,
         )
         logger.info(
-            "✅ KuCoreService subscribed to TranscriptionCompleted "
+            "✅ ReportsCoreService subscribed to TranscriptionCompleted "
             "(automatic journal report creation from voice transcriptions)"
         )
 
@@ -2462,13 +2462,13 @@ async def compose_services(
         # - Temporal Domain (1): Calendar
 
         from core.services.analytics_relationship_service import AnalyticsRelationshipService
-        from core.services.reports import KuRelationshipService
+        from core.services.reports import ReportsRelationshipService
         from core.services.user.intelligence import UserContextIntelligenceFactory
 
         # Create processing domain relationship services
         # NOTE: JournalRelationshipService REMOVED (February 2026) - Journal merged into Ku
-        # KuRelationshipService handles all Ku content relationships
-        report_relationship_service = KuRelationshipService(backend=reports_backend)
+        # ReportsRelationshipService handles all Ku content relationships
+        report_relationship_service = ReportsRelationshipService(backend=reports_backend)
         analytics_relationship_service = AnalyticsRelationshipService(driver)
         logger.info("✅ Processing domain relationship services created (Reports, Analytics)")
 
@@ -2490,7 +2490,7 @@ async def compose_services(
                 "learning_paths"
             ].relationships,  # Factory expects 'lp' parameter name
             # Processing Domains (2) - journals merged into reports Feb 2026
-            reports=report_relationship_service,  # KuRelationshipService
+            reports=report_relationship_service,  # ReportsRelationshipService
             analytics=analytics_relationship_service,  # AnalyticsRelationshipService
             # Temporal Domain (1)
             calendar=calendar_service,

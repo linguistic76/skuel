@@ -3,7 +3,7 @@ Knowledge Chunking Service
 ==========================
 
 **UTILITY SERVICE** - Injected dependency, not a standalone service.
-This service is used BY KuCoreService for content processing, not a duplicate.
+This service is used BY ReportsCoreService for content processing, not a duplicate.
 
 Service for processing knowledge content with automatic chunking,
 metadata extraction, and search optimization.
@@ -15,7 +15,7 @@ Handles the separation of concerns:
 
 Architecture:
 - Lives at `/core/services/` level (not in `/ku/` directory)
-- Injected into KuCoreService for content create/update operations
+- Injected into ReportsCoreService for content create/update operations
 - Specialized utility for RAG content chunking
 - See `/core/services/ku/README.md` for architecture overview
 """

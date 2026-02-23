@@ -8,15 +8,15 @@ sharing, feedback, scheduling).
 These complement the KuOperations protocol in curriculum_protocols.py which
 handles backend CRUD. These protocols cover the higher-level content lifecycle:
 
-    KuSubmissionOperations       — File upload and Ku management
-    KuContentOperations          — Content management (tags, categories, journals, assessments)
-    KuContentSearchOperations    — Cross-type search and statistics
-    KuSharingOperations          — Visibility and sharing control
-    KuProcessingOperations       — Processing pipeline (transcription, LLM)
+    ReportsSubmissionOperations       — File upload and Ku management
+    ReportsContentOperations          — Content management (tags, categories, journals, assessments)
+    ReportsContentSearchOperations    — Cross-type search and statistics
+    ReportsSharingOperations          — Visibility and sharing control
+    ReportsProcessingOperations       — Processing pipeline (transcription, LLM)
     ExerciseOperations            — LLM instruction templates (exercises)
-    KuFeedbackOperations         — LLM-based feedback generation
-    ProgressKuGeneratorOperations — Progress Ku generation
-    KuScheduleOperations         — Recurring progress Ku scheduling
+    ReportsFeedbackOperations         — LLM-based feedback generation
+    ProgressReportGeneratorOperations — Progress Ku generation
+    ReportsScheduleOperations         — Recurring progress Ku scheduling
 
 ISP-compliant: each protocol captures only the methods called from routes.
 
@@ -30,11 +30,11 @@ from core.utils.result_simplified import Result
 
 
 @runtime_checkable
-class KuSubmissionOperations(Protocol):
+class ReportsSubmissionOperations(Protocol):
     """File upload and Ku management operations.
 
     Route consumer: ku_api.py (primary service)
-    Implementation: KuSubmissionService
+    Implementation: ReportsSubmissionService
     """
 
     async def submit_file(
@@ -90,7 +90,7 @@ class KuSubmissionOperations(Protocol):
 
 
 @runtime_checkable
-class KuContentOperations(Protocol):
+class ReportsContentOperations(Protocol):
     """Content management operations (categories, tags, bulk, journals, assessments).
 
     Route consumer: ku_api.py, ku_sharing_api.py
@@ -215,7 +215,7 @@ class KuContentOperations(Protocol):
 
 
 @runtime_checkable
-class KuContentSearchOperations(Protocol):
+class ReportsContentSearchOperations(Protocol):
     """Cross-type query operations for all Ku types.
 
     Route consumer: ku_api.py
@@ -261,11 +261,11 @@ class KuContentSearchOperations(Protocol):
 
 
 @runtime_checkable
-class KuSharingOperations(Protocol):
+class ReportsSharingOperations(Protocol):
     """Content sharing and visibility control operations.
 
     Route consumer: ku_sharing_api.py (primary service)
-    Implementation: KuSharingService
+    Implementation: ReportsSharingService
     """
 
     async def share_report(
@@ -321,11 +321,11 @@ class KuSharingOperations(Protocol):
 
 
 @runtime_checkable
-class KuProcessingOperations(Protocol):
+class ReportsProcessingOperations(Protocol):
     """Ku processing pipeline operations (transcription, LLM analysis).
 
     Route consumer: ku_api.py, ku_ui.py
-    Implementation: KuProcessingService
+    Implementation: ReportsProcessingService
     """
 
     async def process_report(
@@ -449,11 +449,11 @@ class ExerciseOperations(Protocol):
 
 
 @runtime_checkable
-class KuFeedbackOperations(Protocol):
+class ReportsFeedbackOperations(Protocol):
     """LLM-based feedback generation operations.
 
     Route consumer: ku_projects_api.py
-    Implementation: KuFeedbackService
+    Implementation: ReportsFeedbackService
     """
 
     async def generate_feedback(
@@ -468,11 +468,11 @@ class KuFeedbackOperations(Protocol):
 
 
 @runtime_checkable
-class ProgressKuGeneratorOperations(Protocol):
+class ProgressReportGeneratorOperations(Protocol):
     """Progress Ku generation operations.
 
     Route consumer: ku_progress_api.py
-    Implementation: ProgressKuGenerator
+    Implementation: ProgressReportGenerator
     """
 
     async def generate(
@@ -488,11 +488,11 @@ class ProgressKuGeneratorOperations(Protocol):
 
 
 @runtime_checkable
-class KuScheduleOperations(Protocol):
+class ReportsScheduleOperations(Protocol):
     """Recurring progress Ku scheduling operations.
 
     Route consumer: ku_progress_api.py
-    Implementation: KuScheduleService
+    Implementation: ReportsScheduleService
     """
 
     async def create_schedule(

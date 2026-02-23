@@ -11,7 +11,7 @@ Responsibilities:
 - Query by type, status, user
 
 Does NOT handle:
-- Processing logic (KuProcessingService)
+- Processing logic (ReportsProcessingService)
 - AI content enrichment (ContentEnrichmentService)
 """
 
@@ -34,7 +34,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class KuSubmissionService(BaseService[BackendOperations[Entity], Entity]):
+class ReportsSubmissionService(BaseService[BackendOperations[Entity], Entity]):
     """
     Service for file submission and report management.
 
@@ -69,7 +69,7 @@ class KuSubmissionService(BaseService[BackendOperations[Entity], Entity]):
             storage_path: Base path for file storage (default: /tmp/skuel_reports)
             event_bus: Event bus for domain events (optional)
         """
-        super().__init__(backend, "KuSubmissionService")
+        super().__init__(backend, "ReportsSubmissionService")
         self.storage_path = Path(storage_path)
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.ku_submission")

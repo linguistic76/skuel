@@ -18,14 +18,14 @@ import pytest
 
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.metadata_enums import Visibility
-from core.services.reports.report_sharing_service import KuSharingService
+from core.services.reports.report_sharing_service import ReportsSharingService
 
 
 @pytest.fixture
 async def sharing_service(neo4j_driver):
-    """Create KuSharingService with real Neo4j driver via QueryExecutor."""
+    """Create ReportsSharingService with real Neo4j driver via QueryExecutor."""
     executor = Neo4jQueryExecutor(neo4j_driver)
-    return KuSharingService(executor=executor)
+    return ReportsSharingService(executor=executor)
 
 
 @pytest.fixture

@@ -21,12 +21,12 @@ Journal-specific fields (mood, energy_level, entry_date, etc.) live in metadata.
 max_retention is a first-class Ku field controlling FIFO cleanup (None = permanent).
 
 Services:
-- KuSubmissionService: File upload and storage
-- KuProcessingService: Content processing orchestration
-- KuCoreService: Content management + journal CRUD (THIS FILE)
-- KuSearchService: Read-only queries
+- ReportsSubmissionService: File upload and storage
+- ReportsProcessingService: Content processing orchestration
+- ReportsCoreService: Content management + journal CRUD (THIS FILE)
+- ReportsSearchService: Read-only queries
 - ExerciseService: LLM instruction templates (in exercises package)
-- KuFeedbackService: AI feedback generation
+- ReportsFeedbackService: AI feedback generation
 """
 
 import json
@@ -57,7 +57,7 @@ from core.utils.uid_generator import UIDGenerator
 # Categories for content organization (stored in metadata['category'])
 
 
-class KuCategory:
+class ReportCategory:
     """
     Categories for Ku content organization.
 
@@ -108,7 +108,7 @@ class KuCategory:
         ]
 
 
-class KuCoreService(BaseService[BackendOperations[Entity], Entity]):
+class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
     """
     Core Ku service for content management operations.
 
@@ -122,8 +122,8 @@ class KuCoreService(BaseService[BackendOperations[Entity], Entity]):
     - Journal CRUD (create_journal_ku, FIFO cleanup)
     - Assessment CRUD (teacher feedback)
 
-    NOTE: For file submission, use KuSubmissionService.
-    NOTE: For processing, use KuProcessingService.
+    NOTE: For file submission, use ReportsSubmissionService.
+    NOTE: For processing, use ReportsProcessingService.
 
     Source Tag: "ku_core_service_explicit"
 
@@ -163,7 +163,7 @@ class KuCoreService(BaseService[BackendOperations[Entity], Entity]):
             sharing_service: Optional sharing service for access control
             content_enrichment: Optional ContentEnrichmentService for AI processing
         """
-        super().__init__(backend, "KuCoreService")
+        super().__init__(backend, "ReportsCoreService")
         self.event_bus = event_bus
         self.sharing_service = sharing_service
         self.content_enrichment = content_enrichment
@@ -477,13 +477,13 @@ class KuCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         Args:
             uid: Report UID
-            category: Category to assign (use KuCategory constants)
+            category: Category to assign (use ReportCategory constants)
 
         Returns:
             Updated report
         """
         # Validate category
-        if category not in KuCategory.all_categories():
+        if category not in ReportCategory.all_categories():
             self.logger.warning(f"Unknown category '{category}', using anyway")
 
         # Get current report to preserve metadata

@@ -1,5 +1,5 @@
 """
-Unit Tests for KuSharingService
+Unit Tests for ReportsSharingService
 =================================
 
 Tests all 6 service methods with mocked Neo4j driver:
@@ -20,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums.metadata_enums import Visibility
-from core.services.reports.report_sharing_service import KuSharingService
+from core.services.reports.report_sharing_service import ReportsSharingService
 from core.utils.result_simplified import Errors, Result
 
 
@@ -34,8 +34,8 @@ def mock_driver():
 
 @pytest.fixture
 def sharing_service(mock_driver):
-    """Create KuSharingService with mocked driver."""
-    return KuSharingService(executor=mock_driver)
+    """Create ReportsSharingService with mocked driver."""
+    return ReportsSharingService(executor=mock_driver)
 
 
 # ============================================================================

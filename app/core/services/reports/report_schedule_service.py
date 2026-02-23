@@ -21,7 +21,7 @@ from core.utils.uid_generator import UIDGenerator
 logger = get_logger("skuel.services.report.schedule")
 
 
-class KuScheduleService:
+class ReportsScheduleService:
     """
     CRUD and scheduling logic for Ku generation schedules.
     """

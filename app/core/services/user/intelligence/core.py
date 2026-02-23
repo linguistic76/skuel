@@ -61,7 +61,7 @@ if TYPE_CHECKING:
     # LsRelationshipService deleted - LS now uses UnifiedRelationshipService
     # JournalRelationshipService deleted - Journal merged into Reports (February 2026)
     from core.services.relationships import UnifiedRelationshipService
-    from core.services.reports import KuRelationshipService
+    from core.services.reports import ReportsRelationshipService
     from core.services.user.unified_user_context import UserContext
 
 
@@ -95,7 +95,7 @@ class UserContextIntelligence(
     - lp: UnifiedRelationshipService - Critical path to life path (unified)
 
     Processing Domains (2) - journals merged into reports Feb 2026:
-    - reports: KuRelationshipService - Student submissions + journals
+    - reports: ReportsRelationshipService - Student submissions + journals
     - analytics: AnalyticsRelationshipService - System feedback (report cards)
 
     Temporal Domain (1):
@@ -134,7 +134,7 @@ class UserContextIntelligence(
         ls: UnifiedRelationshipService,  # January 2026: Unified
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (2) - REQUIRED (journals merged into reports Feb 2026)
-        reports: KuRelationshipService,
+        reports: ReportsRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,

@@ -28,7 +28,7 @@ from core.utils.result_simplified import Result
 logger = get_logger("skuel.services.ku_search")
 
 
-class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
+class ReportsSearchService(BaseService[BackendOperations[Entity], Entity]):
     """
     Ku search service — unified interface for all Ku types.
 
@@ -40,9 +40,9 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
     - Search Ku content
 
     Does NOT handle:
-    - File uploads (use KuSubmissionService)
+    - File uploads (use ReportsSubmissionService)
     - Audio processing (use TranscriptionService)
-    - Content processing (use KuProcessingService)
+    - Content processing (use ReportsProcessingService)
     """
 
     # =========================================================================
@@ -66,7 +66,7 @@ class KuSearchService(BaseService[BackendOperations[Entity], Entity]):
             ku_backend: Backend for Ku storage
             event_bus: Event bus for domain events (optional)
         """
-        super().__init__(ku_backend, "KuSearchService")
+        super().__init__(ku_backend, "ReportsSearchService")
         self.event_bus = event_bus
         self.logger = logger
 

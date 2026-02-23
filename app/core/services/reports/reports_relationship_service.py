@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations
 
 
-class KuRelationshipService:
+class ReportsRelationshipService:
     """Service for creating graph relationships on Ku nodes."""
 
     def __init__(self, backend: "BackendOperations[Any]") -> None:

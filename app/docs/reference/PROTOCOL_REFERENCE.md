@@ -551,15 +551,15 @@ Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `KuSubmissionOperations` | `reports` | 7 (submit_file, get_report, list_reports, get_file_content, get_processed_file_content, get_report_statistics, update_processed_content) | `reports_api.py` |
-| `KuContentOperations` | `reports_core` | 17 (get_report, categorize, tags, publish, archive, draft, bulk ops, create_journal_report, create_assessment, get_assessments_for_student, get_assessments_by_teacher) | `reports_api.py`, `reports_assessment_api.py` |
-| `KuContentSearchOperations` | `reports_query` | 4 (search_reports, get_report_statistics, get_recent_reports, get_journal_for_report) | `reports_api.py` |
-| `KuSharingOperations` | `reports_sharing` | 6 (share_report, unshare_report, get_shared_with_users, get_reports_shared_with_me, set_visibility, check_access) | `reports_api.py` |
-| `KuProcessingOperations` | `processing_pipeline` | 2 (process_report, reprocess_report) | `reports_api.py` |
+| `ReportsSubmissionOperations` | `reports` | 7 (submit_file, get_report, list_reports, get_file_content, get_processed_file_content, get_report_statistics, update_processed_content) | `reports_api.py` |
+| `ReportsContentOperations` | `reports_core` | 17 (get_report, categorize, tags, publish, archive, draft, bulk ops, create_journal_report, create_assessment, get_assessments_for_student, get_assessments_by_teacher) | `reports_api.py`, `reports_assessment_api.py` |
+| `ReportsContentSearchOperations` | `reports_query` | 4 (search_reports, get_report_statistics, get_recent_reports, get_journal_for_report) | `reports_api.py` |
+| `ReportsSharingOperations` | `reports_sharing` | 6 (share_report, unshare_report, get_shared_with_users, get_reports_shared_with_me, set_visibility, check_access) | `reports_api.py` |
+| `ReportsProcessingOperations` | `processing_pipeline` | 2 (process_report, reprocess_report) | `reports_api.py` |
 | `AssignmentOperations` | `assignments` | 5 (create, get, list, update, delete) | `assignments_api.py` |
-| `KuFeedbackOperations` | `report_feedback` | 1 (generate_feedback) | `assignments_api.py` |
-| `ProgressKuGeneratorOperations` | `progress_generator` | 1 (generate) | `reports_progress_api.py` |
-| `KuScheduleOperations` | `report_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `reports_progress_api.py` |
+| `ReportsFeedbackOperations` | `report_feedback` | 1 (generate_feedback) | `assignments_api.py` |
+| `ProgressReportGeneratorOperations` | `progress_generator` | 1 (generate) | `reports_progress_api.py` |
+| `ReportsScheduleOperations` | `report_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `reports_progress_api.py` |
 
 ### Group & Teaching Protocols (2)
 
@@ -624,13 +624,13 @@ class VisualizationOperations(Protocol):
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports import KuSharingOperations, KuContentOperations
+    from core.ports import ReportsSharingOperations, ReportsContentOperations
 
 def create_reports_sharing_api_routes(
     _app: Any,
     rt: Any,
-    reports_sharing: "KuSharingOperations",
-    reports_core: "KuContentOperations",
+    reports_sharing: "ReportsSharingOperations",
+    reports_core: "ReportsContentOperations",
 ) -> list[Any]:
     # MyPy verifies .share_report(), .check_access() etc. exist
     ...
@@ -645,7 +645,7 @@ Every field on the `Services` dataclass is typed — zero `Any` fields remain. T
 @dataclass
 class Services:
     # Route-facing: ISP protocols (19 fields)
-    reports: KuSubmissionOperations | None = None
+    reports: ReportsSubmissionOperations | None = None
     calendar: CalendarServiceOperations | None = None
     graph_auth: GraphAuthOperations | None = None
 

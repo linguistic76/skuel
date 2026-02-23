@@ -30,7 +30,7 @@ from core.models.ku.ku_intelligence import (
     LearningVelocity,
     MasteryLevel,
 )
-from core.models.ku.ku_progress import KuCategoryProgress, KuLearningJourney
+from core.models.ku.ku_progress import ReportCategoryProgress, KuLearningJourney
 from core.models.relationship_names import RelationshipName
 from core.models.user.user_intelligence import IntelligenceSource, UserLearningIntelligence
 from core.utils.decorators import with_error_handling
@@ -270,7 +270,7 @@ class KuAdaptiveService:
 
     async def _calculate_category_progress(
         self, user_uid: str, category: SELCategory
-    ) -> KuCategoryProgress:
+    ) -> ReportCategoryProgress:
         """Calculate progress in one SEL category."""
         try:
             all_kus_result = await self.ku_backend.find_by(sel_category=category.value)
@@ -287,7 +287,7 @@ class KuAdaptiveService:
 
             mastered = sum(1 for ku in all_kus if ku.uid in user_intel.current_masteries)
 
-            return KuCategoryProgress(
+            return ReportCategoryProgress(
                 user_uid=user_uid, sel_category=category, kus_mastered=mastered, total_kus=total
             )
 
@@ -296,7 +296,7 @@ class KuAdaptiveService:
                 "Error calculating category progress - returning empty",
                 extra={"user_uid": user_uid, "category": category.value, "error": str(e)},
             )
-            return KuCategoryProgress(
+            return ReportCategoryProgress(
                 user_uid=user_uid, sel_category=category, kus_mastered=0, total_kus=0
             )
 

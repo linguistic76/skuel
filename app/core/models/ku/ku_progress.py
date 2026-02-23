@@ -17,7 +17,7 @@ from core.models.enums import LearningLevel, SELCategory
 
 
 @dataclass(frozen=True)
-class KuCategoryProgress:
+class ReportCategoryProgress:
     """
     Tracks user's progress through one KU category.
 
@@ -109,7 +109,7 @@ class KuLearningJourney:
     """
 
     user_uid: str
-    category_progress: dict[SELCategory, KuCategoryProgress]
+    category_progress: dict[SELCategory, ReportCategoryProgress]
     overall_completion: float = 0.0
 
     def get_next_recommended_category(self) -> SELCategory:

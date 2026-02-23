@@ -1,5 +1,5 @@
 """
-Unit Tests for ProgressKuGenerator
+Unit Tests for ProgressReportGenerator
 =====================================
 
 Tests generation flow, content building, time period parsing,
@@ -15,7 +15,7 @@ from core.models.enums.ku_enums import EntityStatus, EntityType, ProcessorType
 from core.models.ku import AiReport
 from core.services.reports.progress_report_generator import (
     TIME_PERIOD_DAYS,
-    ProgressKuGenerator,
+    ProgressReportGenerator,
 )
 from core.utils.result_simplified import Result
 
@@ -57,8 +57,8 @@ def mock_event_bus():
 
 @pytest.fixture
 def generator(mock_driver, mock_backend, mock_insight_store, mock_event_bus):
-    """Create ProgressKuGenerator with mocked deps."""
-    return ProgressKuGenerator(
+    """Create ProgressReportGenerator with mocked deps."""
+    return ProgressReportGenerator(
         executor=mock_driver,
         ku_backend=mock_backend,
         user_service=None,

@@ -19,7 +19,7 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger(__name__)
 
 
-class KuFeedbackService:
+class ReportsFeedbackService:
     """
     Generates AI feedback for Ku entries using project instructions.
 
@@ -50,7 +50,7 @@ class KuFeedbackService:
         if self.anthropic:
             available.append("Anthropic")
 
-        logger.info(f"KuFeedbackService initialized with: {', '.join(available)}")
+        logger.info(f"ReportsFeedbackService initialized with: {', '.join(available)}")
 
     async def generate_feedback(
         self,

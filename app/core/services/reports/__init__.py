@@ -13,55 +13,55 @@ Architecture: Content/Processing Domain (not Activity Domain)
 - Journals are SUBMISSION Ku with journal metadata (merged February 2026)
 
 Sub-services:
-- KuSubmissionService: File upload and storage
-- KuProcessingService: Processing orchestration (audio, text, future: PDF, image)
-- KuCoreService: Content management + journal CRUD
-- KuSearchService: Query and search operations
-- KuRelationshipService: Graph relationship creation
-- KuSharingService: Content sharing between users
-- KuFeedbackService: AI feedback generation via Exercise
-- KuScheduleService: Scheduled processing
-- ProgressKuGenerator: AI-generated progress reports
+- ReportsSubmissionService: File upload and storage
+- ReportsProcessingService: Processing orchestration (audio, text, future: PDF, image)
+- ReportsCoreService: Content management + journal CRUD
+- ReportsSearchService: Query and search operations
+- ReportsRelationshipService: Graph relationship creation
+- ReportsSharingService: Content sharing between users
+- ReportsFeedbackService: AI feedback generation via Exercise
+- ReportsScheduleService: Scheduled processing
+- ProgressReportGenerator: AI-generated progress reports
 """
 
 from core.services.reports.progress_report_generator import (
-    ProgressKuGenerator,
+    ProgressReportGenerator,
 )
-from core.services.reports.report_feedback_service import KuFeedbackService
+from core.services.reports.report_feedback_service import ReportsFeedbackService
 from core.services.reports.report_processing_types import (
-    KuAIInsights,
-    KuProcessingContext,
+    ReportsAIInsights,
+    ReportsProcessingContext,
 )
 from core.services.reports.report_schedule_service import (
-    KuScheduleService,
+    ReportsScheduleService,
 )
 from core.services.reports.report_sharing_service import (
-    KuSharingService,
+    ReportsSharingService,
 )
-from core.services.reports.reports_core_service import KuCoreService
+from core.services.reports.reports_core_service import ReportsCoreService
 from core.services.reports.reports_processing_service import (
-    KuProcessingService,
+    ReportsProcessingService,
 )
 from core.services.reports.reports_relationship_service import (
-    KuRelationshipService,
+    ReportsRelationshipService,
 )
-from core.services.reports.reports_search_service import KuSearchService
+from core.services.reports.reports_search_service import ReportsSearchService
 from core.services.reports.reports_submission_service import (
-    KuSubmissionService,
+    ReportsSubmissionService,
 )
 from core.services.reports.teacher_review_service import TeacherReviewService
 
 __all__ = [
-    "KuCoreService",
-    "KuProcessingService",
-    "KuSearchService",
-    "KuSubmissionService",
-    "KuRelationshipService",
-    "KuSharingService",
-    "KuFeedbackService",
-    "KuAIInsights",
-    "KuProcessingContext",
-    "ProgressKuGenerator",
-    "KuScheduleService",
+    "ReportsCoreService",
+    "ReportsProcessingService",
+    "ReportsSearchService",
+    "ReportsSubmissionService",
+    "ReportsRelationshipService",
+    "ReportsSharingService",
+    "ReportsFeedbackService",
+    "ReportsAIInsights",
+    "ReportsProcessingContext",
+    "ProgressReportGenerator",
+    "ReportsScheduleService",
     "TeacherReviewService",
 ]
