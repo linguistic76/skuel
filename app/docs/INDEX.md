@@ -156,7 +156,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Secondary Entity Pattern](patterns/SECONDARY_ENTITY_PATTERN.md) | 2026-01-19 | 220 |
 | [Configuration-Driven Service Architecture](patterns/CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md) | 2026-01-07 | 280 |
 | [Auth Patterns](patterns/AUTH_PATTERNS.md) | 2026-01-06 | 300 |
-| [Enum Consolidation Pattern](patterns/ENUM_CONSOLIDATION_PATTERN.md) | 2026-01-07 | 220 |
 | [Ownership Verification](patterns/OWNERSHIP_VERIFICATION.md) | 2025-12-05 | 180 |
 | **[Content Sharing Patterns](patterns/SHARING_PATTERNS.md)** | **2026-02-02** | **680** |
 | **[Route Decorator Architecture](patterns/ROUTE_DECORATOR_ARCHITECTURE.md)** | **2026-02-08** | **240** |
@@ -267,7 +266,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Protocol Reference Guide](reference/PROTOCOL_REFERENCE.md) | 2026-01-29 | 617 |
 | [Search Models Reference](reference/models/SEARCH_MODELS.md) | 2026-01-04 | 480 |
 | [Search Service Methods Reference](reference/SEARCH_SERVICE_METHODS.md) | 2026-01-06 | 580 |
-| [SKUEL Enum Reference](reference/ENUM_REFERENCE.md) | 2025-11-27 | 10051 |
 | [Service Creation Template](reference/templates/service_creation.md) | 2025-11-27 | 156 |
 
 ## Intelligence

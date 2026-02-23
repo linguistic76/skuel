@@ -373,7 +373,6 @@ Used with `DualTrackResult[L]` (generic dataclass in `core/models/shared/dual_tr
 
 ## See Also
 
-- [Enum Consolidation Pattern](/docs/patterns/ENUM_CONSOLIDATION_PATTERN.md) — Philosophy behind single-source enum organization
 - [Constants Usage Guide](/docs/patterns/constants_usage_guide.md) — Named constants vs enums
 - [Domain Patterns Catalog](/docs/patterns/DOMAIN_PATTERNS_CATALOG.md) — How enums integrate with the three-tier type system
 - Source: `core/models/enums/` (17 files, ~3,400 lines)

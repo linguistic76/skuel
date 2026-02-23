@@ -488,7 +488,7 @@ GraphDepth.DEFAULT                             # Named constants
 
 **Health Scoring Pattern:** Use typed enums (ContextHealthScore, FinancialHealthTier) instead of string literals for all health/quality assessments.
 
-**See:** `/docs/architecture/ENUM_ARCHITECTURE.md`, `/docs/patterns/ENUM_CONSOLIDATION_PATTERN.md`
+**See:** `/docs/architecture/ENUM_ARCHITECTURE.md`
 
 ## Activity DSL & Domain Enums
 

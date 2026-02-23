@@ -123,7 +123,7 @@ if result.is_error:
 
 ### Reference (Look Up As Needed)
 
-- `docs/reference/ENUM_REFERENCE.md` - All enums (10,000+ lines)
+- `docs/architecture/ENUM_ARCHITECTURE.md` - Enum landscape (87 enums, 17 files)
 - `docs/INDEX.md` - Complete document listing
 
 ---
@@ -211,7 +211,7 @@ poetry run mypy core/services/tasks/tasks_core_service.py
 - **Architecture questions:** Check `docs/architecture/`
 - **Pattern questions:** Check `docs/patterns/`
 - **"How do I...?":** Check `docs/guides/`
-- **"What's the enum for...?":** Check `docs/reference/ENUM_REFERENCE.md`
+- **"What's the enum for...?":** Check `docs/architecture/ENUM_ARCHITECTURE.md`
 
 ---
 
