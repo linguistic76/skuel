@@ -331,7 +331,7 @@ The Habits domain publishes domain events for cross-service communication:
 ### Create a Habit
 
 ```python
-from core.models.ku.ku_request import HabitCreateRequest as HabitCreateRequest
+from core.models.habit.habit_request import HabitCreateRequest
 from core.models.enums.scheduling_enums import RecurrencePattern
 
 result = await habits_service.create_habit(

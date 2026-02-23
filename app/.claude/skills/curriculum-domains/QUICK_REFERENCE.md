@@ -7,7 +7,7 @@
 ### Models
 | Domain | Model | DTO | Request |
 |--------|-------|-----|---------|
-| KU | `core/models/ku/ku.py` | `ku_dto.py` | `ku_request.py` |
+| KU | `core/models/curriculum/curriculum.py` | `curriculum_dto.py` | `curriculum_requests.py` |
 | LS | `core/models/ls/ls.py` | `ls_dto.py` | `ls_request.py` |
 | LP | `core/models/lp/lp.py` | `lp_dto.py` | `lp_request.py` |
 | MOC | `core/models/moc/moc.py` | `moc_dto.py` | `moc_request.py` |
@@ -88,8 +88,8 @@
 
 ```python
 # Models
-from core.models.ku.ku import Ku
-from core.models.ku.curriculum_dto import CurriculumDTO
+from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum.curriculum_dto import CurriculumDTO
 from core.models.ls.ls import Ls
 from core.models.ls.ls_dto import LearningStepDTO
 from core.models.lp.lp import Lp
