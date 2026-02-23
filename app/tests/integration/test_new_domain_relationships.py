@@ -392,7 +392,7 @@ class TestKuRelationships:
             body="Testing relationship fetching",
             summary="Test KU",
             user_uid="test_user",
-            domain="TECH",  # Required for KuDTO
+            domain="TECH",  # Required for CurriculumDTO
         )
         assert ku_result.is_ok, f"Failed to create KU: {ku_result.error}"
         ku = ku_result.value
@@ -422,7 +422,7 @@ class TestKuRelationships:
             body="Testing semantic relationship fetching",
             summary="Test KU with semantics",
             user_uid="test_user",
-            domain="TECH",  # Required for KuDTO
+            domain="TECH",  # Required for CurriculumDTO
         )
         assert ku_result.is_ok, f"Failed to create KU: {ku_result.error}"
         ku = ku_result.value

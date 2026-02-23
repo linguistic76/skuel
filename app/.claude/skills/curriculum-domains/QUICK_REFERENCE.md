@@ -89,7 +89,7 @@
 ```python
 # Models
 from core.models.ku.ku import Ku
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.curriculum_dto import CurriculumDTO
 from core.models.ls.ls import Ls
 from core.models.ls.ls_dto import LearningStepDTO
 from core.models.lp.lp import Lp

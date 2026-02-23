@@ -11,8 +11,8 @@ from core.models.enums.ku_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.ku.curriculum import Curriculum
 from core.models.ku.entity import Entity
-from core.models.ku.ku_dto import KuDTO
 from core.models.ku.resource import Resource
+from core.models.ku.resource_dto import ResourceDTO
 
 
 class TestResourceKuCreation:
@@ -89,12 +89,12 @@ class TestResourceKuIsNotCurriculumKu:
         assert isinstance(r, Entity)
 
 
-class TestResourceKuDTORoundTrip:
-    """Test Resource ↔ KuDTO lossless conversion."""
+class TestResourceDTORoundTrip:
+    """Test Resource ↔ ResourceDTO lossless conversion."""
 
     def test_dto_to_resource_ku(self):
-        """KuDTO with ku_type=RESOURCE dispatches to Resource."""
-        dto = KuDTO(
+        """ResourceDTO with ku_type=RESOURCE dispatches to Resource."""
+        dto = ResourceDTO(
             uid="ku_yoga-book_abc123",
             title="Yoga for Beginners",
             ku_type=EntityType.RESOURCE,
@@ -132,8 +132,8 @@ class TestResourceKuDTORoundTrip:
         assert dto.resource_duration_minutes == 20
 
     def test_full_round_trip(self):
-        """KuDTO → Resource → KuDTO preserves all fields."""
-        dto1 = KuDTO(
+        """ResourceDTO → Resource → ResourceDTO preserves all fields."""
+        dto1 = ResourceDTO(
             uid="ku_film_abc123",
             title="Jiro Dreams of Sushi",
             ku_type=EntityType.RESOURCE,

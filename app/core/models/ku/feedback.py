@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.ku.feedback_dto import FeedbackDTO
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
 
 from core.models.enums.ku_enums import EntityType
 from core.models.ku.submission import Submission
@@ -51,12 +51,12 @@ class Feedback(Submission):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | FeedbackDTO") -> "Feedback":  # type: ignore[override]
-        """Create Feedback from a KuDTO or FeedbackDTO."""
+    def from_dto(cls, dto: "EntityDTO | FeedbackDTO") -> "Feedback":  # type: ignore[override]
+        """Create Feedback from an EntityDTO or FeedbackDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "FeedbackDTO":  # type: ignore[override]
-        """Convert Feedback to FeedbackDTO (not generic KuDTO)."""
+        """Convert Feedback to domain-specific FeedbackDTO."""
         import dataclasses
         from typing import Any
 

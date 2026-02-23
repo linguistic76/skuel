@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
     from core.models.ku.learning_step_dto import LearningStepDTO
 
 from core.models.enums.ku_enums import EntityType, StepDifficulty
@@ -122,12 +122,12 @@ class LearningStep(Curriculum):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | LearningStepDTO") -> "LearningStep":  # type: ignore[override]
-        """Create LearningStep from a KuDTO or LearningStepDTO."""
+    def from_dto(cls, dto: "EntityDTO | LearningStepDTO") -> "LearningStep":  # type: ignore[override]
+        """Create LearningStep from an EntityDTO or LearningStepDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "LearningStepDTO":  # type: ignore[override]
-        """Convert LearningStep to LearningStepDTO (not generic KuDTO)."""
+        """Convert LearningStep to domain-specific LearningStepDTO."""
         import dataclasses
         from typing import Any
 

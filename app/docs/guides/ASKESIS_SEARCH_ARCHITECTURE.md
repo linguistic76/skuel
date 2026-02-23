@@ -154,7 +154,7 @@ detected_intent: Intent | None = None  # LEARN, PRACTICE, etc.
    - ApocQueryBuilder
 
 4. **Knowledge Models** (/core/models/ku/)
-   - KuDTO (Knowledge Unit Data Transfer Object)
+   - Per-domain DTOs (CurriculumDTO, TaskDTO, etc.)
 
 ### What Askesis Does NOT Depend On
 

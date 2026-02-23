@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.models.ku.goal_dto import GoalDTO
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
 
 from core.models.enums.ku_enums import (
     EntityStatus,
@@ -232,12 +232,12 @@ class Goal(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | GoalDTO") -> "Goal":
-        """Create Goal from a KuDTO or GoalDTO."""
+    def from_dto(cls, dto: "EntityDTO | GoalDTO") -> "Goal":
+        """Create Goal from an EntityDTO or GoalDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "GoalDTO":  # type: ignore[override]
-        """Convert Goal to GoalDTO (not generic KuDTO)."""
+        """Convert Goal to domain-specific GoalDTO."""
         import dataclasses
 
         from core.models.ku.goal_dto import GoalDTO

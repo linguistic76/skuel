@@ -91,7 +91,7 @@ These are documented, scoped, and have clear prerequisites. Not active debt — 
 - **Journal model package deleted** (~1,400 lines of dead code)
 - **Transcription three-tier models deleted** (~1,540 lines)
 - **3 stale tracking files deleted** from `data/` directory
-- **Unified Ku model (ADR-041)** consolidated 15 domain types into single Ku + KuDTO
+- **Unified Ku model (ADR-041)** consolidated 15 domain types into single Ku + per-domain DTOs (KuDTO deleted 2026-02-23)
 - **ActivityStatus + GoalStatus consolidated** into KuStatus (14 values)
 - **Sync renamed to Ingestion** across entire codebase (one-way pipeline, not bidirectional)
 - **All ~72 Services dataclass fields typed** (zero `Any` remaining)

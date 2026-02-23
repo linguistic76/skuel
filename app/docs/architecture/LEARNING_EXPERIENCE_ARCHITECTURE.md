@@ -33,9 +33,7 @@ In the Python dataclass, `sel_category` is typed as `SELCategory | None` with a 
 
 
 
-Previously - The `KuDTO` transfer layer does not carry `sel_category` at all, so `Ku.from_dto()` defaults to `None` via `getattr()`.
-
-Now the KuDTO is operating
+The per-domain DTO transfer layer carries `sel_category` where applicable, and `Entity.from_dto()` defaults to `None` via `getattr()` when absent.
 
 **The five SEL categories** (when a KU does carry one):
 

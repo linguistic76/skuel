@@ -21,7 +21,7 @@ from neo4j import AsyncGraphDatabase
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.entity_dto import EntityDTO
 
 # ============================================================================
 # FIXTURES
@@ -207,7 +207,7 @@ async def knowledge_backend(neo4j_container):
     uri = neo4j_container.get_connection_url()
     driver = AsyncGraphDatabase.driver(uri)
 
-    backend = UniversalNeo4jBackend[KuDTO](driver, "Ku", KuDTO)
+    backend = UniversalNeo4jBackend[EntityDTO](driver, "Ku", EntityDTO)
 
     yield backend
 
@@ -277,7 +277,7 @@ async def test_search_knowledge_basic(graphql_test_data, knowledge_backend):
     # Verify searchable fields exist
     for ku in result.value:
         assert ku.title is not None
-        assert ku.content is not None  # KuDTO uses 'content', not 'summary'
+        assert ku.content is not None  # DTO uses 'content', not 'summary'
         assert ku.domain is not None
         # These fields would be used for search indexing
 

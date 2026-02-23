@@ -33,7 +33,6 @@ Architecture:
         resource.py       - Resource      +7 resource fields
 
 Support:
-    ku_dto.py          - Unified KuDTO (all fields, mutable)
     ku_request.py      - Pydantic API models
     ku_nested_types.py - Milestone, ChoiceOption, PrincipleExpression, AlignmentAssessment
     ku_content.py, ku_chunks.py, ku_metadata.py - Content & RAG
@@ -43,7 +42,7 @@ Usage:
     from core.models.ku import Task, Goal, Habit, Event, Choice, Principle
     from core.models.ku import Curriculum, Exercise, LearningStep, LearningPath
     from core.models.ku import Submission, Journal, AiReport, Feedback
-    from core.models.ku import Entity, UserOwnedEntity, Ku, KuDTO, KuSchedule
+    from core.models.ku import Entity, UserOwnedEntity, Ku, EntityDTO, KuSchedule
 """
 
 from .ai_report import AiReport
@@ -75,7 +74,6 @@ from .ku import ENTITY_TYPE_CLASS_MAP, ActivityEntity, CurriculumEntity, Ku, Sub
 from .ku_chunks import KuChunk, KuChunkType, chunk_content
 from .ku_content import KuContent
 from .ku_converters import ku_to_response
-from .ku_dto import KuDTO
 from .ku_metadata import KuMetadata
 from .ku_nested_types import (
     AlignmentAssessment,
@@ -196,7 +194,6 @@ __all__ = [
     "LearningPathDTO",
     "ExerciseDTO",
     "ResourceDTO",
-    "KuDTO",
     "KuMetadata",
     # Nested types (frozen dataclasses)
     "Milestone",

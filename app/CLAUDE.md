@@ -364,7 +364,7 @@ EntityDTO (~18 fields)
 └── ResourceDTO(EntityDTO)
 ```
 
-**KuDTO** retained ONLY for cross-domain services (MEGA-QUERY, SearchRouter) — not used by per-domain services.
+**KuDTO deleted** — all services use per-domain DTOs. Cross-domain services use `ENTITY_TYPE_CLASS_MAP` for generic deserialization.
 
 **Key enums:** `EntityType` (15 values, discriminator), `EntityStatus` (14 values, THE status enum). Both in `ku_enums.py`.
 

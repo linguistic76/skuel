@@ -29,7 +29,7 @@ from core.models.ku.curriculum import Curriculum
 
 if TYPE_CHECKING:
     from core.models.ku.exercise_dto import ExerciseDTO
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
 
 
 @dataclass(frozen=True)
@@ -136,12 +136,12 @@ class Exercise(Curriculum):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | ExerciseDTO") -> "Exercise":  # type: ignore[override]
-        """Create Exercise from a KuDTO or ExerciseDTO."""
+    def from_dto(cls, dto: "EntityDTO | ExerciseDTO") -> "Exercise":  # type: ignore[override]
+        """Create Exercise from an EntityDTO or ExerciseDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "ExerciseDTO":  # type: ignore[override]
-        """Convert Exercise to ExerciseDTO (not generic KuDTO)."""
+        """Convert Exercise to domain-specific ExerciseDTO."""
         import dataclasses
         from typing import Any
 

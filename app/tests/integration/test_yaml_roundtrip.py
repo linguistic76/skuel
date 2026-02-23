@@ -35,7 +35,7 @@ class TestYAMLRoundTrip:
         from neo4j import AsyncGraphDatabase
 
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-        from core.models.ku.ku_dto import KuDTO
+        from core.models.ku.curriculum_dto import CurriculumDTO
         from core.services.ingestion import UnifiedIngestionService
         from core.services.ku_service import KuService
 
@@ -57,8 +57,8 @@ class TestYAMLRoundTrip:
 
         ingestion_service = UnifiedIngestionService(driver=driver)
         # Use "Ku" to match what UnifiedIngestionService creates
-        # IMPORTANT: Backend must use KuDTO (mutable), not Ku (immutable)
-        ku_backend = UniversalNeo4jBackend[KuDTO](driver, "Ku", KuDTO)
+        # IMPORTANT: Backend must use CurriculumDTO (mutable), not Curriculum (immutable)
+        ku_backend = UniversalNeo4jBackend[CurriculumDTO](driver, "Ku", CurriculumDTO)
         # Create mock dependencies (required by fail-fast pattern)
         mock_content_repo = AsyncMock()
         mock_query_builder = MagicMock()
@@ -111,7 +111,9 @@ This is test content for verifying basic round-trip functionality.
 
             assert ku_dto.uid == "ku.simple-test"
             assert ku_dto.title == "Simple Test"
-            assert ku_dto.domain.value == "tech"
+            # domain may be a Domain enum or string depending on deserialization
+            domain_val = getattr(ku_dto.domain, "value", ku_dto.domain)
+            assert domain_val == "tech"
             assert ku_dto.quality_score == 0.8
             assert ku_dto.complexity == "basic"
 

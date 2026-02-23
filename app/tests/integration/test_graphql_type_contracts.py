@@ -32,7 +32,7 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.ku_enums import StepDifficulty
 from core.models.enums.neo_labels import NeoLabel
 from core.models.ku.entity import Entity
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.entity_dto import EntityDTO
 from core.models.ku.learning_path import LearningPath
 from core.models.ku.learning_step import LearningStep as LearningStepModel
 from core.services.lp_service import LpService
@@ -321,11 +321,11 @@ async def test_learning_path_service_returns_typed_steps(lp_service, type_contra
 @pytest.mark.asyncio
 async def test_knowledge_service_returns_typed_ku(ku_service, type_contract_test_data):
     """
-    Verify KuService returns properly typed KuDTO objects.
+    Verify KuService returns properly typed EntityDTO objects.
 
     Type Contract:
-        - Returns Result[KuDTO | None]
-        - KuDTO instance has required fields
+        - Returns Result[EntityDTO | None]
+        - EntityDTO instance has required fields
         - Metadata field can be None or dict
     """
     # Act
@@ -336,8 +336,8 @@ async def test_knowledge_service_returns_typed_ku(ku_service, type_contract_test
     ku = result.value
     assert ku is not None, "Expected knowledge unit to exist"
 
-    # Assert - Core type (service returns KuDTO, not Ku)
-    assert isinstance(ku, KuDTO), f"Expected KuDTO instance, got {type(ku)}"
+    # Assert - Core type (service returns EntityDTO, not Entity)
+    assert isinstance(ku, EntityDTO), f"Expected EntityDTO instance, got {type(ku)}"
 
     # Assert - Required fields
     assert isinstance(ku.uid, str), "uid should be string"
@@ -388,7 +388,7 @@ async def test_ls_satisfies_learning_step_like_protocol(lp_service, type_contrac
 @pytest.mark.asyncio
 async def test_ku_satisfies_knowledge_unit_like_protocol(ku_service, type_contract_test_data):
     """
-    Verify that KuDTO satisfies KnowledgeUnitLike protocol.
+    Verify that EntityDTO satisfies KnowledgeUnitLike protocol.
 
     Protocol Contract:
         - Has uid: str attribute
@@ -401,7 +401,7 @@ async def test_ku_satisfies_knowledge_unit_like_protocol(ku_service, type_contra
     ku = result.value
     assert ku is not None
 
-    # Act - Assign to protocol type (KuDTO satisfies KnowledgeUnitLike)
+    # Act - Assign to protocol type (EntityDTO satisfies KnowledgeUnitLike)
     knowledge: KnowledgeUnitLike = ku
 
     # Assert - Protocol guarantees these attributes exist

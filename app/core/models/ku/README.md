@@ -126,8 +126,8 @@ content: |
 
 ## Model Files
 
-- **Pure Domain Model**: `ku.py` - Tier 3 (frozen dataclass)
-- **DTO**: `ku_dto.py` - Tier 2 (mutable transfer)
+- **Pure Domain Model**: `curriculum.py` - Tier 3 (frozen dataclass)
+- **DTO**: `curriculum_dto.py` - Tier 2 (per-domain DTO)
 - **Request Models**: `ku_request.py` - Tier 1 (Pydantic validation)
 
 ---
@@ -148,9 +148,9 @@ Python Dict
     ↓
 KuCreateRequest (Pydantic) ← Validation happens here
     ↓
-KuDTO
+CurriculumDTO (per-domain DTO)
     ↓
-Ku (Pure domain model)
+Curriculum (frozen domain model)
     ↓
 Neo4j Database
 ```

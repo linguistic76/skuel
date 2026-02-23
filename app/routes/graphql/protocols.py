@@ -52,7 +52,7 @@ class KnowledgeUnitLike(Protocol):
     Any object satisfying this protocol can be used in GraphQL resolvers
     that need knowledge unit data. This includes:
     - Ku (domain model)
-    - KuDTO (data transfer object)
+    - EntityDTO (data transfer object)
     - KnowledgeNode (GraphQL type)
     - Any other object with these attributes
 

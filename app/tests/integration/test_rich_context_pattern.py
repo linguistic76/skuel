@@ -21,9 +21,11 @@ from datetime import date
 import pytest
 
 from core.models.enums import Domain, Priority
-from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_dto import KuDTO as GoalDTO
-from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.enums.ku_enums import EntityType
+from core.models.ku.curriculum_dto import CurriculumDTO
+from core.models.ku.goal_dto import GoalDTO
+from core.models.ku.task_dto import TaskDTO
+from core.utils.uid_generator import UIDGenerator
 
 
 @pytest.mark.integration
@@ -38,8 +40,10 @@ class TestRichContextPattern:
         stats are all fetched in a single query.
         """
         # Create prerequisite knowledge
-        prereq_dto = KuDTO.create_curriculum(
+        prereq_dto = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Basics",
+            ku_type=EntityType.CURRICULUM,
             domain=Domain.TECH,
         )
         prereq_result = await services.ku.core.backend.create(prereq_dto.to_dict())
@@ -47,8 +51,10 @@ class TestRichContextPattern:
         print(f"✅ Created prereq KU: {prereq_dto.uid}")
 
         # Create main knowledge unit
-        ku_dto = KuDTO.create_curriculum(
+        ku_dto = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
             title="Advanced Python",
+            ku_type=EntityType.CURRICULUM,
             domain=Domain.TECH,
         )
         main_ku_result = await services.ku.core.backend.create(ku_dto.to_dict())
@@ -125,8 +131,10 @@ class TestRichContextPattern:
         and related tasks are all fetched in a single query.
         """
         # Create knowledge unit
-        ku_dto = KuDTO.create_curriculum(
+        ku_dto = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
             title="Deployment Best Practices",
+            ku_type=EntityType.CURRICULUM,
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(ku_dto.to_dict())
@@ -244,8 +252,10 @@ class TestRichContextPattern:
         import time
 
         # Create test data
-        ku_dto = KuDTO.create_curriculum(
+        ku_dto = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
             title="Test Knowledge",
+            ku_type=EntityType.CURRICULUM,
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(ku_dto.to_dict())

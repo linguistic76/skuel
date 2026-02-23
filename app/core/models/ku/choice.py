@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.ku.choice_dto import ChoiceDTO
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
 
 from core.models.enums.ku_enums import ChoiceType, EntityType
 from core.models.ku.ku_nested_types import ChoiceOption
@@ -138,12 +138,12 @@ class Choice(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | ChoiceDTO") -> "Choice":
-        """Create Choice from a KuDTO or ChoiceDTO."""
+    def from_dto(cls, dto: "EntityDTO | ChoiceDTO") -> "Choice":
+        """Create Choice from an EntityDTO or ChoiceDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "ChoiceDTO":  # type: ignore[override]
-        """Convert Choice to ChoiceDTO (not generic KuDTO)."""
+        """Convert Choice to domain-specific ChoiceDTO."""
         import dataclasses
         from typing import Any
 

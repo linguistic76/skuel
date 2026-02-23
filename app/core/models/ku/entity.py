@@ -30,7 +30,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 if TYPE_CHECKING:
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
 
 from core.models.enums import Domain
 from core.models.enums.ku_enums import EntityStatus, EntityType
@@ -257,7 +257,7 @@ class Entity:
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "Entity":
+    def from_dto(cls, dto: "EntityDTO") -> "Entity":
         """
         Dispatch to appropriate domain subclass based on dto.ku_type.
 
@@ -274,7 +274,7 @@ class Entity:
         return target_class._from_dto(dto)
 
     @classmethod
-    def _from_dto(cls, dto: "KuDTO") -> Self:
+    def _from_dto(cls, dto: "EntityDTO") -> Self:
         """
         Generic: extract only fields defined on THIS class from the unified DTO.
 
@@ -291,20 +291,19 @@ class Entity:
             kwargs[name] = value
         return cls(**kwargs)
 
-    def to_dto(self) -> "KuDTO":
+    def to_dto(self) -> "EntityDTO":
         """
-        Generic: convert any Entity subclass to unified KuDTO.
+        Convert Entity to EntityDTO with common fields.
 
-        Creates KuDTO with fields from this instance. Fields not present on
-        the subclass get KuDTO defaults (None, 0, empty list, etc.).
+        Per-domain subclasses override this to return their specific DTOs
+        (TaskDTO, GoalDTO, etc.) with full domain-specific fields.
+        This base implementation returns EntityDTO with ~18 common fields.
+
         Converts tuples back to lists for DTO mutability.
-
-        Skips infrastructure fields (embedding, cache) that don't exist on KuDTO
-        per ADR-037 (embedding infrastructure separation).
         """
-        from core.models.ku.ku_dto import KuDTO
+        from core.models.ku.entity_dto import EntityDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(KuDTO)}
+        dto_field_names = {f.name for f in dataclasses.fields(EntityDTO)}
         kwargs: dict[str, Any] = {}
         for f in dataclasses.fields(self):
             if f.name.startswith("_"):
@@ -315,7 +314,7 @@ class Entity:
             if isinstance(value, tuple):
                 value = list(value)
             kwargs[f.name] = value
-        return KuDTO(**kwargs)
+        return EntityDTO(**kwargs)
 
     # =========================================================================
     # DISPLAY

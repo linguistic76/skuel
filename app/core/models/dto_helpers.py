@@ -397,7 +397,7 @@ def update_from_dict(
             "priority": Priority,
         })
 
-        # With whitelist (KuDTO pattern)
+        # With whitelist (DTO pattern)
         update_from_dict(self, updates, allowed_fields={
             "title", "content", "domain", "tags"
         })

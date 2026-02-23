@@ -315,7 +315,7 @@ class AnalyticsLifePathService:
         - Theoretical (<0.3): No real-world application
 
         Args:
-            knowledge_units: List of KuDTO objects
+            knowledge_units: List of Entity objects
             user_uid: User identifier
 
         Returns:
@@ -328,7 +328,7 @@ class AnalyticsLifePathService:
         theoretical: list[KnowledgeSubstanceInfo] = []  # < 0.3
 
         for ku_dto in knowledge_units:
-            # Backend returns Ku instances (entity_class=Ku), not KuDTOs
+            # Backend returns Ku instances (entity_class=Ku), not DTOs
             substance = ku_dto.substance_score()
 
             total_substance += substance
@@ -384,7 +384,7 @@ class AnalyticsLifePathService:
         - Tasks (weight 0.05 per instance)
 
         Args:
-            knowledge_units: List of KuDTO objects
+            knowledge_units: List of Entity objects
             user_uid: User identifier
 
         Returns:
@@ -407,7 +407,7 @@ class AnalyticsLifePathService:
         total_substance = 0.0
 
         for ku_dto in knowledge_units:
-            # Backend returns Ku instances (entity_class=Ku), not KuDTOs
+            # Backend returns Ku instances (entity_class=Ku), not DTOs
             # Get substance breakdown if available (future feature)
             breakdown = getattr(ku_dto, "substance_by_type", None)
             if breakdown is not None:

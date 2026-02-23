@@ -41,12 +41,21 @@ from typing import Any
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.enums import Domain
 from core.models.enums.ku_enums import EntityType
+from core.models.ku.choice_dto import ChoiceDTO
+from core.models.ku.curriculum_dto import CurriculumDTO
 
 # Curriculum domain imports - Phase 3 (February 2026): LS/LP unified into Ku
 # NOTE (February 2026): Habit imports removed — Habit merged into Ku
 # NOTE (February 2026): Ku is now a Union type alias; use Entity (the actual class) for model_class
 from core.models.ku.entity import Entity
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.event_dto import EventDTO
+from core.models.ku.exercise_dto import ExerciseDTO
+from core.models.ku.goal_dto import GoalDTO
+from core.models.ku.habit_dto import HabitDTO
+from core.models.ku.learning_path_dto import LearningPathDTO
+from core.models.ku.learning_step_dto import LearningStepDTO
+from core.models.ku.principle_dto import PrincipleDTO
+from core.models.ku.task_dto import TaskDTO
 
 # NOTE (February 2026): MOC is not a separate EntityType.
 # Any KU can organize others via ORGANIZES relationships (emergent MOC identity).
@@ -57,9 +66,7 @@ from core.models.relationship_names import RelationshipName
 
 # Task and Goal domains unified into Ku (February 2026)
 Task = Entity
-TaskDTO = KuDTO
 Goal = Entity
-GoalDTO = KuDTO
 
 # =============================================================================
 # RELATIONSHIP DEFINITION DATACLASSES
@@ -848,7 +855,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
 HABITS_CONFIG = DomainRelationshipConfig(
     domain=Domain.HABITS,
     entity_label="Ku",  # Phase 4: Unified into Ku with ku_type='habit'
-    dto_class=KuDTO,
+    dto_class=HabitDTO,
     model_class=Entity,
     backend_get_method="get",
     ownership_relationship=RelationshipName.OWNS,
@@ -1005,7 +1012,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
 EVENTS_CONFIG = DomainRelationshipConfig(
     domain=Domain.EVENTS,
     entity_label="Event",
-    dto_class=KuDTO,
+    dto_class=EventDTO,
     model_class=Entity,
     backend_get_method="get_event",
     ownership_relationship=RelationshipName.HAS_EVENT,
@@ -1146,7 +1153,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
 CHOICES_CONFIG = DomainRelationshipConfig(
     domain=Domain.CHOICES,
     entity_label="Ku",  # Phase 4: Unified into Ku with ku_type='choice'
-    dto_class=KuDTO,
+    dto_class=ChoiceDTO,
     model_class=Entity,
     backend_get_method="get",
     ownership_relationship=RelationshipName.OWNS,
@@ -1293,7 +1300,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
 PRINCIPLES_CONFIG = DomainRelationshipConfig(
     domain=Domain.PRINCIPLES,
     entity_label="Ku",  # Phase 4: Unified into Ku with ku_type='principle'
-    dto_class=KuDTO,
+    dto_class=PrincipleDTO,
     model_class=Entity,
     backend_get_method="get",
     ownership_relationship=RelationshipName.OWNS,
@@ -1598,7 +1605,7 @@ PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
 KU_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,
     entity_label="Ku",
-    dto_class=KuDTO,
+    dto_class=CurriculumDTO,
     model_class=Entity,
     backend_get_method="get",
     ownership_relationship=None,  # Shared content
@@ -1723,7 +1730,7 @@ KU_CONFIG = DomainRelationshipConfig(
 LS_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
     entity_label="Ku",
-    dto_class=KuDTO,
+    dto_class=LearningStepDTO,
     model_class=Entity,
     backend_get_method="get",
     ownership_relationship=None,  # Shared content
@@ -1819,7 +1826,7 @@ LS_CONFIG = DomainRelationshipConfig(
 LP_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
     entity_label="Ku",
-    dto_class=KuDTO,
+    dto_class=LearningPathDTO,
     model_class=Entity,
     backend_get_method="get",
     ownership_relationship=None,  # Shared content
@@ -1899,7 +1906,7 @@ LP_CONFIG = DomainRelationshipConfig(
 EXERCISE_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,  # Curriculum tier
     entity_label="Ku",  # Exercise is a :Ku node with ku_type='exercise'
-    dto_class=KuDTO,
+    dto_class=ExerciseDTO,
     model_class=Entity,
     backend_get_method="get",
     ownership_relationship=RelationshipName.OWNS,

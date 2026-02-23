@@ -20,7 +20,7 @@ import pytest
 
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.ku import LpPosition
-from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.ku.task_dto import TaskDTO
 from core.models.ku.ku_request import KuTaskCreateRequest
 from core.models.ku.learning_path import LearningPath
 from core.models.ku.learning_step import LearningStep

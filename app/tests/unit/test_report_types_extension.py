@@ -7,7 +7,8 @@ is_processable, subject_uid on submission subclasses, and converter logic.
 """
 
 from core.models.enums.ku_enums import EntityStatus, EntityType
-from core.models.ku import AiReport, Curriculum, Feedback, KuDTO, Submission
+from core.models.ku import AiReport, Curriculum, Feedback, Submission
+from core.models.ku.feedback_dto import FeedbackDTO
 
 # ============================================================================
 # ENUM TESTS
@@ -147,7 +148,7 @@ class TestKuConversions:
         assert dto.subject_uid == "user_student"
 
     def test_from_dto_preserves_subject_uid(self):
-        dto = KuDTO(
+        dto = FeedbackDTO(
             uid="ku_test_123",
             title="Teacher Feedback",
             ku_type=EntityType.FEEDBACK_REPORT,

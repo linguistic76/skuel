@@ -25,9 +25,15 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
+from core.models.enums.ku_enums import EntityType
 from core.models.finance.finance_pure import ExpensePure
+from core.models.ku.curriculum import Curriculum
 from core.models.ku.entity import Entity
-from core.models.ku.ku import Ku
+from core.models.ku.event import Event
+from core.models.ku.goal import Goal
+from core.models.ku.habit import Habit
+from core.models.ku.ku import ENTITY_TYPE_CLASS_MAP, Ku
+from core.models.ku.task import Task
 from core.models.query import build_prerequisite_chain
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -142,7 +148,7 @@ class CrossDomainQueries:
                 # Convert all nodes to Knowledge objects
                 knowledge_units = []
                 for node in all_knowledge_nodes:
-                    ku = self._neo4j_node_to_knowledge_unit(node)
+                    ku = self._neo4j_node_to_entity(node)
                     knowledge_units.append(ku)
 
                 # Sort by title (KnowledgeUnit always has title field)
@@ -165,7 +171,7 @@ class CrossDomainQueries:
                 knowledge_units = []
                 for record in records:
                     ku_node = record["knowledge_unit"]
-                    ku = self._neo4j_node_to_knowledge_unit(ku_node)
+                    ku = self._neo4j_node_to_entity(ku_node)
                     knowledge_units.append(ku)
 
             self.logger.info(
@@ -355,7 +361,7 @@ class CrossDomainQueries:
         knowledge_units = []
         for record in records:
             ku_node = record["knowledge_unit"]
-            ku = self._neo4j_node_to_knowledge_unit(ku_node)
+            ku = self._neo4j_node_to_entity(ku_node)
             knowledge_units.append(ku)
 
         return Result.ok(knowledge_units)
@@ -662,7 +668,7 @@ class CrossDomainQueries:
         budgets = [self._neo4j_node_to_budget(n) for n in record["budgets"] if n]
         expenses = [self._neo4j_node_to_expense(n) for n in record["expenses"] if n]
         knowledge_units = [
-            self._neo4j_node_to_knowledge_unit(n) for n in record["knowledge_units"] if n
+            self._neo4j_node_to_entity(n) for n in record["knowledge_units"] if n
         ]
 
         context = {
@@ -690,45 +696,39 @@ class CrossDomainQueries:
     # Helper Methods for Neo4j Node Conversion
     # =========================================================================
 
-    def _neo4j_node_to_task(self, node) -> Ku:
+    def _neo4j_node_to_task(self, node) -> Task:
         """Convert Neo4j node to Task domain model."""
-        from core.models.ku.ku_dto import KuDTO
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        dto = from_neo4j_node(dict(node), KuDTO)
-        return Entity.from_dto(dto)
+        return from_neo4j_node(dict(node), Task)
 
-    def _neo4j_node_to_event(self, node) -> Ku:
+    def _neo4j_node_to_event(self, node) -> Event:
         """Convert Neo4j node to Event domain model."""
-        from core.models.ku.ku_dto import KuDTO
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        dto = from_neo4j_node(dict(node), KuDTO)
-        return Entity.from_dto(dto)
+        return from_neo4j_node(dict(node), Event)
 
-    def _neo4j_node_to_habit(self, node) -> Ku:
+    def _neo4j_node_to_habit(self, node) -> Habit:
         """Convert Neo4j node to Habit domain model."""
-        from core.models.ku.ku_dto import KuDTO
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        dto = from_neo4j_node(dict(node), KuDTO)
-        return Entity.from_dto(dto)
+        return from_neo4j_node(dict(node), Habit)
 
-    def _neo4j_node_to_goal(self, node) -> Ku:
+    def _neo4j_node_to_goal(self, node) -> Goal:
         """Convert Neo4j node to Goal domain model."""
-        from core.models.ku.ku_dto import KuDTO
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        dto = from_neo4j_node(dict(node), KuDTO)
-        return Entity.from_dto(dto)
+        return from_neo4j_node(dict(node), Goal)
 
-    def _neo4j_node_to_knowledge_unit(self, node) -> Ku:
-        """Convert Neo4j node to Knowledge domain model."""
-        from core.models.ku.ku_dto import KuDTO
+    def _neo4j_node_to_entity(self, node) -> Entity:
+        """Convert Neo4j node to appropriate domain model based on ku_type."""
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        dto = from_neo4j_node(dict(node), KuDTO)
-        return Entity.from_dto(dto)
+        node_dict = dict(node)
+        entity_type_str = node_dict.get("ku_type", "curriculum")
+        entity_type = EntityType.from_string(entity_type_str) or EntityType.CURRICULUM
+        model_class = ENTITY_TYPE_CLASS_MAP.get(entity_type, Curriculum)
+        return from_neo4j_node(node_dict, model_class)
 
     def _neo4j_node_to_expense(self, node) -> ExpensePure:
         """Convert Neo4j node to ExpensePure domain model."""

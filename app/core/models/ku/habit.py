@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.models.ku.habit_dto import HabitDTO
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
 
 from core.models.enums.ku_enums import (
     EntityStatus,
@@ -219,12 +219,12 @@ class Habit(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | HabitDTO") -> "Habit":
-        """Create Habit from a KuDTO or HabitDTO."""
+    def from_dto(cls, dto: "EntityDTO | HabitDTO") -> "Habit":
+        """Create Habit from an EntityDTO or HabitDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "HabitDTO":  # type: ignore[override]
-        """Convert Habit to HabitDTO (not generic KuDTO)."""
+        """Convert Habit to domain-specific HabitDTO."""
         import dataclasses
 
         from core.models.ku.habit_dto import HabitDTO

@@ -255,7 +255,7 @@ def generate_knowledge_uid(cls, title: str) -> str:
 
 ```python
 # core/services/ku/ku_core_service.py
-async def create(self, title: str, body: str, **metadata) -> Result[KuDTO]:
+async def create(self, title: str, body: str, **metadata) -> Result[CurriculumDTO]:
     # Generate flat UID
     uid = UIDGenerator.generate_knowledge_uid(title=title)
 

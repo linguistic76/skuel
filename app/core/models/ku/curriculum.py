@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.models.ku.curriculum_dto import CurriculumDTO
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
 
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory, SystemConstants
 from core.models.enums.ku_enums import EntityType
@@ -466,12 +466,12 @@ class Curriculum(Entity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | CurriculumDTO") -> "Curriculum":
-        """Create Curriculum from a KuDTO or CurriculumDTO."""
+    def from_dto(cls, dto: "EntityDTO | CurriculumDTO") -> "Curriculum":
+        """Create Curriculum from an EntityDTO or CurriculumDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "CurriculumDTO":  # type: ignore[override]
-        """Convert Curriculum to CurriculumDTO (not generic KuDTO)."""
+        """Convert Curriculum to domain-specific CurriculumDTO."""
         import dataclasses
 
         from core.models.ku.curriculum_dto import CurriculumDTO

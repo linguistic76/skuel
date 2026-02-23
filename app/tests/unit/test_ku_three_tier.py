@@ -2,7 +2,7 @@
 KU Three-Tier Round-Trip Tests
 ==============================
 
-Validates that business fields survive the KuDTO ↔ Ku round-trip,
+Validates that business fields survive the DTO ↔ Ku round-trip,
 and that from_dict/to_dict handle enum/datetime serialization correctly.
 
 After Phase 2 decomposition: curriculum-only fields (learning metadata,
@@ -16,22 +16,24 @@ from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
 from core.models.enums.ku_enums import EntityType
 from core.models.ku.curriculum import Curriculum
 from core.models.ku.entity import Entity
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.curriculum_dto import CurriculumDTO
+from core.models.ku.resource_dto import ResourceDTO
+from core.models.ku.task_dto import TaskDTO
 from core.models.ku.resource import Resource
 from core.models.ku.task import Task
 
 # =========================================================================
-# Round-trip: KuDTO → Entity.from_dto() → Ku.to_dto() → all fields preserved
+# Round-trip: DTO → Entity.from_dto() → Ku.to_dto() → all fields preserved
 # =========================================================================
 
 
 class TestKuThreeTierRoundTrip:
-    """Test lossless KuDTO ↔ Ku conversion."""
+    """Test lossless DTO ↔ Ku conversion."""
 
-    def _make_full_dto(self) -> KuDTO:
-        """Create a KuDTO with all fields populated."""
+    def _make_full_dto(self) -> CurriculumDTO:
+        """Create a CurriculumDTO with all fields populated."""
         now = datetime.now()
-        return KuDTO(
+        return CurriculumDTO(
             uid="ku_test_abc123",
             title="Test Knowledge",
             domain=Domain.KNOWLEDGE,
@@ -60,7 +62,7 @@ class TestKuThreeTierRoundTrip:
         )
 
     def test_dto_to_ku_preserves_all_fields(self):
-        """KuDTO → Entity.from_dto() must carry all 26 fields."""
+        """CurriculumDTO → Entity.from_dto() must carry all 26 fields."""
         dto = self._make_full_dto()
         ku = Entity.from_dto(dto)
 
@@ -94,7 +96,7 @@ class TestKuThreeTierRoundTrip:
         assert ku.last_choice_informed_date == dto.last_choice_informed_date
 
     def test_ku_to_dto_preserves_all_fields(self):
-        """Ku.to_dto() must carry all 26 fields back to KuDTO."""
+        """Ku.to_dto() must carry all 26 fields back to CurriculumDTO."""
         dto = self._make_full_dto()
         ku = Entity.from_dto(dto)
         dto2 = ku.to_dto()
@@ -130,7 +132,7 @@ class TestKuThreeTierRoundTrip:
 
     def test_none_sel_category_preserved(self):
         """sel_category=None must survive round-trip (not default to SELF_AWARENESS)."""
-        dto = KuDTO(
+        dto = CurriculumDTO(
             uid="ku_test_none",
             title="No SEL",
             domain=Domain.TECH,
@@ -144,12 +146,12 @@ class TestKuThreeTierRoundTrip:
 
 
 # =========================================================================
-# from_dict: Dict → KuDTO with enum/datetime parsing
+# from_dict: Dict → CurriculumDTO with enum/datetime parsing
 # =========================================================================
 
 
-class TestKuDTOFromDict:
-    """Test KuDTO.from_dict() handles new fields correctly."""
+class TestCurriculumDTOFromDict:
+    """Test CurriculumDTO.from_dict() handles new fields correctly."""
 
     def test_from_dict_parses_enums(self):
         """from_dict must parse sel_category and learning_level from strings."""
@@ -160,7 +162,7 @@ class TestKuDTOFromDict:
             "sel_category": "self_awareness",
             "learning_level": "intermediate",
         }
-        dto = KuDTO.from_dict(data)
+        dto = CurriculumDTO.from_dict(data)
         assert dto.sel_category == SELCategory.SELF_AWARENESS
         assert dto.learning_level == LearningLevel.INTERMEDIATE
 
@@ -174,7 +176,7 @@ class TestKuDTOFromDict:
             "last_applied_date": now.isoformat(),
             "last_practiced_date": now.isoformat(),
         }
-        dto = KuDTO.from_dict(data)
+        dto = CurriculumDTO.from_dict(data)
         assert isinstance(dto.last_applied_date, datetime)
         assert isinstance(dto.last_practiced_date, datetime)
 
@@ -185,14 +187,14 @@ class TestKuDTOFromDict:
             "title": "Minimal",
             "domain": "knowledge",
         }
-        dto = KuDTO.from_dict(data)
+        dto = CurriculumDTO.from_dict(data)
         assert dto.sel_category is None
         assert dto.learning_level == LearningLevel.BEGINNER  # default
         assert dto.times_applied_in_tasks == 0
         assert dto.last_applied_date is None
 
     def test_from_dict_filters_embedding_fields(self):
-        """Embedding infrastructure fields must NOT appear on KuDTO (ADR-037)."""
+        """Embedding infrastructure fields must NOT appear on CurriculumDTO (ADR-037)."""
         data = {
             "uid": "ku_embed",
             "title": "With Embedding",
@@ -201,23 +203,23 @@ class TestKuDTOFromDict:
             "embedding_model": "text-embedding-3-small",
             "embedding_updated_at": datetime.now().isoformat(),
         }
-        dto = KuDTO.from_dict(data)
+        dto = CurriculumDTO.from_dict(data)
         # dto_from_dict filters out fields not in the dataclass
         assert "embedding" not in dto.__dict__
         assert "embedding_model" not in dto.__dict__
 
 
 # =========================================================================
-# to_dict: KuDTO → dict with enum serialization and datetime ISO
+# to_dict: CurriculumDTO → dict with enum serialization and datetime ISO
 # =========================================================================
 
 
-class TestKuDTOToDict:
-    """Test KuDTO.to_dict() serializes new fields correctly."""
+class TestCurriculumDTOToDict:
+    """Test CurriculumDTO.to_dict() serializes new fields correctly."""
 
     def test_to_dict_serializes_enums(self):
         """to_dict must serialize sel_category and learning_level to strings."""
-        dto = KuDTO(
+        dto = CurriculumDTO(
             uid="ku_test_ser",
             title="Test",
             domain=Domain.KNOWLEDGE,
@@ -232,7 +234,7 @@ class TestKuDTOToDict:
     def test_to_dict_serializes_substance_datetimes(self):
         """to_dict must serialize substance timestamps to ISO strings."""
         now = datetime.now()
-        dto = KuDTO(
+        dto = CurriculumDTO(
             uid="ku_test_dt",
             title="Test",
             domain=Domain.KNOWLEDGE,
@@ -245,7 +247,7 @@ class TestKuDTOToDict:
 
     def test_to_dict_none_sel_category_stays_none(self):
         """to_dict with sel_category=None must produce None, not crash."""
-        dto = KuDTO(
+        dto = CurriculumDTO(
             uid="ku_test_none",
             title="Test",
             domain=Domain.KNOWLEDGE,
@@ -255,7 +257,7 @@ class TestKuDTOToDict:
 
     def test_to_dict_includes_substance_counters(self):
         """to_dict must include all 5 substance counter fields."""
-        dto = KuDTO(
+        dto = CurriculumDTO(
             uid="ku_test_sub",
             title="Test",
             domain=Domain.KNOWLEDGE,
@@ -283,20 +285,20 @@ class TestKuTypeDispatch:
 
     def test_resource_dispatches_to_resource_ku(self):
         """EntityType.RESOURCE dispatches to Resource, not Curriculum."""
-        dto = KuDTO(uid="ku_test_res", title="Test Resource", ku_type=EntityType.RESOURCE)
+        dto = ResourceDTO(uid="ku_test_res", title="Test Resource", ku_type=EntityType.RESOURCE)
         ku = Entity.from_dto(dto)
         assert isinstance(ku, Resource)
         assert not isinstance(ku, Curriculum)
 
     def test_curriculum_dispatches_to_curriculum_ku(self):
         """EntityType.CURRICULUM still dispatches to Curriculum."""
-        dto = KuDTO(uid="ku_test_cur", title="Test Curriculum", ku_type=EntityType.CURRICULUM)
+        dto = CurriculumDTO(uid="ku_test_cur", title="Test Curriculum", ku_type=EntityType.CURRICULUM)
         ku = Entity.from_dto(dto)
         assert isinstance(ku, Curriculum)
 
     def test_task_dispatches_to_task_ku(self):
         """EntityType.TASK dispatches to Task, not Curriculum."""
-        dto = KuDTO(uid="task_test_abc", title="Test Task", ku_type=EntityType.TASK)
+        dto = TaskDTO(uid="task_test_abc", title="Test Task", ku_type=EntityType.TASK)
         ku = Entity.from_dto(dto)
         assert isinstance(ku, Task)
         assert not isinstance(ku, Curriculum)
@@ -393,13 +395,10 @@ class TestCurriculumFieldSeparation:
 
     def test_task_dto_round_trip_ignores_curriculum_fields(self):
         """Task round-trip via DTO must not gain curriculum fields."""
-        dto = KuDTO(
+        dto = TaskDTO(
             uid="task_test_rt",
             title="Task RT",
             ku_type=EntityType.TASK,
-            complexity="advanced",
-            times_applied_in_tasks=10,
-            semantic_links=["ku_other"],
         )
         ku = Entity.from_dto(dto)
         assert isinstance(ku, Task)
@@ -411,7 +410,7 @@ class TestCurriculumFieldSeparation:
     def test_curriculum_dto_round_trip_preserves_all_fields(self):
         """Curriculum round-trip via DTO preserves all curriculum fields."""
         now = datetime.now()
-        dto = KuDTO(
+        dto = CurriculumDTO(
             uid="ku_test_crt",
             title="Curriculum RT",
             ku_type=EntityType.CURRICULUM,

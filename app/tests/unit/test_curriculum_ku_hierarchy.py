@@ -18,7 +18,9 @@ from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
 from core.models.enums.ku_enums import EntityType
 from core.models.ku.curriculum import Curriculum
 from core.models.ku.entity import Entity
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.curriculum_dto import CurriculumDTO
+from core.models.ku.learning_path_dto import LearningPathDTO
+from core.models.ku.learning_step_dto import LearningStepDTO
 from core.models.ku.learning_path import LearningPath
 from core.models.ku.learning_step import LearningStep
 
@@ -365,7 +367,7 @@ class TestCurriculumKuSubclassDTORoundTrip:
 
     def test_learning_step_dto_round_trip(self):
         """LearningStep DTO round-trip preserves curriculum + step fields."""
-        dto = KuDTO(
+        dto = LearningStepDTO(
             uid="ls_test_abc",
             title="Learn Python Basics",
             ku_type=EntityType.LEARNING_STEP,
@@ -392,7 +394,7 @@ class TestCurriculumKuSubclassDTORoundTrip:
 
     def test_learning_path_dto_round_trip(self):
         """LearningPath DTO round-trip preserves curriculum + path fields."""
-        dto = KuDTO(
+        dto = LearningPathDTO(
             uid="lp_test_abc",
             title="Python Learning Path",
             ku_type=EntityType.LEARNING_PATH,

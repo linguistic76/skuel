@@ -31,7 +31,7 @@ from components.error_components import ErrorComponents
 from components.events_views import EventsViewComponents
 from components.shared_ui_components import SharedUIComponents
 from core.models.ku.event import Event
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.event_dto import EventDTO
 from core.ports.facade_protocols import EventsFacadeProtocol
 from core.ports.query_types import ActivityFilterSpec
 from core.utils.logging import get_logger
@@ -633,7 +633,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
                 logger.warning(f"Could not parse end_time: {end_time_str}")
 
         # Build DTO and convert to domain model
-        event_dto = KuDTO.create_event(
+        event_dto = EventDTO.create_event(
             user_uid=user_uid,
             title=title,
             event_date=event_date_val or date.today(),

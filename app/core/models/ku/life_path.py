@@ -28,7 +28,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
     from core.models.ku.life_path_dto import LifePathDTO
 
 from core.models.enums.ku_enums import AlignmentLevel, EntityType
@@ -125,12 +125,12 @@ class LifePath(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | LifePathDTO") -> "LifePath":
-        """Create LifePath from a KuDTO or LifePathDTO."""
+    def from_dto(cls, dto: "EntityDTO | LifePathDTO") -> "LifePath":
+        """Create LifePath from an EntityDTO or LifePathDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "LifePathDTO":  # type: ignore[override]
-        """Convert LifePath to LifePathDTO (not generic KuDTO)."""
+        """Convert LifePath to domain-specific LifePathDTO."""
         import dataclasses
         from typing import Any
 

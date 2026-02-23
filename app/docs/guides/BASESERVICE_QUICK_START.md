@@ -576,8 +576,8 @@ _config = create_activity_domain_config(
 from core.services.domain_config import create_curriculum_domain_config
 
 _config = create_curriculum_domain_config(
-    dto_class=KuDTO,
-    model_class=KnowledgeUnit,
+    dto_class=CurriculumDTO,
+    model_class=Curriculum,
     domain_name="ku",
     search_fields=("title", "content", "description"),
 )

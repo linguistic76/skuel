@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.ku.event_dto import EventDTO
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
 
 from core.models.enums.ku_enums import EntityType
 from core.models.ku.user_owned_entity import UserOwnedEntity
@@ -178,12 +178,12 @@ class Event(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | EventDTO") -> "Event":
-        """Create Event from a KuDTO or EventDTO."""
+    def from_dto(cls, dto: "EntityDTO | EventDTO") -> "Event":
+        """Create Event from an EntityDTO or EventDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "EventDTO":  # type: ignore[override]
-        """Convert Event to EventDTO (not generic KuDTO)."""
+        """Convert Event to domain-specific EventDTO."""
         import dataclasses
         from typing import Any
 

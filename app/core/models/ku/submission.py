@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
     from core.models.ku.submission_dto import SubmissionDTO
 
 from core.models.enums.ku_enums import EntityType, ProcessorType
@@ -120,12 +120,12 @@ class Submission(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | SubmissionDTO") -> "Submission":
-        """Create Submission from a KuDTO or SubmissionDTO."""
+    def from_dto(cls, dto: "EntityDTO | SubmissionDTO") -> "Submission":
+        """Create Submission from an EntityDTO or SubmissionDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "SubmissionDTO":  # type: ignore[override]
-        """Convert Submission to SubmissionDTO (not generic KuDTO)."""
+        """Convert Submission to domain-specific SubmissionDTO."""
         import dataclasses
         from typing import Any
 

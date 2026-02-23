@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
     from core.models.ku.learning_path_dto import LearningPathDTO
 
 from core.models.enums.ku_enums import EntityType, LpType
@@ -84,12 +84,12 @@ class LearningPath(Curriculum):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | LearningPathDTO") -> "LearningPath":  # type: ignore[override]
-        """Create LearningPath from a KuDTO or LearningPathDTO."""
+    def from_dto(cls, dto: "EntityDTO | LearningPathDTO") -> "LearningPath":  # type: ignore[override]
+        """Create LearningPath from an EntityDTO or LearningPathDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "LearningPathDTO":  # type: ignore[override]
-        """Convert LearningPath to LearningPathDTO (not generic KuDTO)."""
+        """Convert LearningPath to domain-specific LearningPathDTO."""
         import dataclasses
         from typing import Any
 

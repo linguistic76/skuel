@@ -25,11 +25,6 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 
 # Lazy imports to avoid circular import issues
 # These are imported inside fixtures that need them
-# from core.models.ku.ku import Ku  # (was Event, Goal, Habit, Task)
-# from core.models.ku.ku_dto import KuDTO
-# from core.services.ku_service import KuService
-# from core.services.ingestion import UnifiedIngestionService
-# from core.services.user_service import UserService
 
 # NOTE: No custom event_loop fixture needed - pytest-asyncio provides one automatically
 # with better cleanup handling for async fixtures
@@ -216,7 +211,7 @@ async def ku_backend(neo4j_container):
     """Create real KuService backend."""
     from neo4j import AsyncGraphDatabase
 
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
 
     # Create driver synchronously within the fixture (no auth - use empty strings)
     uri = neo4j_container.get_connection_url()
@@ -224,7 +219,7 @@ async def ku_backend(neo4j_container):
     driver = AsyncGraphDatabase.driver(uri)
 
     # Use "Ku" to match what UnifiedIngestionService creates
-    backend = UniversalNeo4jBackend[KuDTO](driver, "Ku", KuDTO)
+    backend = UniversalNeo4jBackend[EntityDTO](driver, "Ku", EntityDTO)
 
     yield backend
 
@@ -500,7 +495,7 @@ async def services(neo4j_container):
 
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.models.ku.entity import Entity
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
     from core.models.user.user import User
     from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService
@@ -568,8 +563,8 @@ async def services(neo4j_container):
             return getattr(self.backend, name)
 
     # Create backends with test wrappers
-    raw_ku_backend = UniversalNeo4jBackend[KuDTO](driver, "Ku", KuDTO)
-    ku_backend = TestBackendWrapper(raw_ku_backend, KuDTO)
+    raw_ku_backend = UniversalNeo4jBackend[EntityDTO](driver, "Ku", EntityDTO)
+    ku_backend = TestBackendWrapper(raw_ku_backend, EntityDTO)
 
     raw_tasks_backend = UniversalNeo4jBackend[Entity](
         driver, "Ku", Entity, default_filters={"ku_type": "task"}
@@ -695,7 +690,7 @@ async def services(neo4j_container):
         ls_service.core,
         lp_service.core,
     ]:
-        core_service._dto_class = KuDTO
+        core_service._dto_class = EntityDTO
         core_service._model_class = Entity
 
     services_container = TestServices(

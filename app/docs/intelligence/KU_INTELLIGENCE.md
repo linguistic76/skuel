@@ -419,8 +419,8 @@ self.logger.info("Message")  # Logs to: skuel.intelligence.ku.intelligence
 # Inherited from BaseAnalyticsService
 model = self._to_domain_model(
     dto_or_dict=backend_result,
-    dto_class=KuDTO,
-    model_class=Ku
+    dto_class=CurriculumDTO,
+    model_class=Curriculum
 )
 ```
 

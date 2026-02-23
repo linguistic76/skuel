@@ -54,7 +54,7 @@ Cleaned up 4 items of structural drift in the KU (Knowledge Unit) model layer to
 2. Updated domain enum examples (lowercase → UPPERCASE: `personal` → `PERSONAL`)
 3. Updated UID format examples (`ku:note-taking-basics` → `ku_note-taking-basics_a1b2c3d4`)
 4. Updated file names (`knowledge.py` → `ku.py`, `knowledge_dto.py` → `ku_dto.py`, `knowledge_request.py` → `ku_request.py`)
-5. Updated class names (`KnowledgeCreateRequest` → `KuCreateRequest`, `KnowledgeDTO` → `KuDTO`, `Knowledge` → `Ku`)
+5. Updated class names (`KnowledgeCreateRequest` → `KuCreateRequest`, `KnowledgeDTO` → `KuDTO`, `Knowledge` → `Ku`) *(Note: KuDTO later deleted 2026-02-23, replaced by per-domain DTOs)*
 6. Updated UID pattern description (`ku:topic-name` → `ku_{slug}_{random}`)
 
 ### ✅ Fix #4: Add metadata to from_dto/to_dto Conversions

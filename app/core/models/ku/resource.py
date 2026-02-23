@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
     from core.models.ku.resource_dto import ResourceDTO
 
 from core.models.enums.ku_enums import EntityType
@@ -100,12 +100,12 @@ class Resource(Entity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | ResourceDTO") -> "Resource":
-        """Create Resource from a KuDTO or ResourceDTO."""
+    def from_dto(cls, dto: "EntityDTO | ResourceDTO") -> "Resource":
+        """Create Resource from an EntityDTO or ResourceDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "ResourceDTO":  # type: ignore[override]
-        """Convert Resource to ResourceDTO (not generic KuDTO)."""
+        """Convert Resource to domain-specific ResourceDTO."""
         import dataclasses
         from typing import Any
 

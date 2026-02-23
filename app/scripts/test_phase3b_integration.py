@@ -43,7 +43,7 @@ from neo4j import AsyncGraphDatabase
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.config.credential_store import get_credential
 from core.models.enums import Priority
-from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.ku.task_dto import TaskDTO
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)

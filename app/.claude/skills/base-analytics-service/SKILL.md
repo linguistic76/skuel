@@ -419,10 +419,10 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
 
         # Initialize orchestrator if graph intelligence available
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[Ku, TaskDTO](
                 service=self,
                 backend_get_method="get",
-                dto_class=KuDTO,
+                dto_class=TaskDTO,
                 model_class=Ku,
                 domain=Domain.TASKS,
             )

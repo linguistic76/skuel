@@ -18,7 +18,6 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
 
-from core.models.ku.ku_dto import KuDTO
 from core.services.performance_types import (
     CacheOptimization,
     CachePerformance,
@@ -29,9 +28,6 @@ from core.services.performance_types import (
     TestConfiguration,
 )
 from core.utils.logging import get_logger
-
-# Type alias for clarity
-KnowledgeUnitDTO = KuDTO  # Maintaining backward compatibility in this file
 
 
 class CacheStrategy(Enum):

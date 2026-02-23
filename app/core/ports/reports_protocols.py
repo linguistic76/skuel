@@ -299,7 +299,7 @@ class KuSharingOperations(Protocol):
         user_uid: str,
         limit: int = 50,
     ) -> Result[list[Any]]:
-        """Get Ku shared with user. Returns Result[list[KuDTO]]."""
+        """Get entities shared with user. Returns Result[list[EntityDTO]]."""
         ...
 
     async def set_visibility(

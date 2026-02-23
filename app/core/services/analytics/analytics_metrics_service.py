@@ -35,7 +35,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from core.constants import QueryLimit
 from core.models.enums import EntityStatus
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.entity import Entity
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_days_until_review, get_theme_count
@@ -739,7 +739,7 @@ class AnalyticsMetricsService:
                 knowledge_units = [
                     ku
                     for ku in all_kus
-                    if isinstance(ku, KuDTO)
+                    if isinstance(ku, Entity)
                     and ku.updated_at
                     and start_date <= ku.updated_at.date() <= end_date
                 ]
@@ -773,7 +773,7 @@ class AnalyticsMetricsService:
             decay_warnings = []
 
             for ku_dto in knowledge_units:
-                # Backend returns Ku instances (entity_class=Ku), not KuDTOs
+                # Backend returns Entity instances (entity_class=Ku), not DTOs
                 ku = ku_dto
                 substance = ku.substance_score()
 

@@ -34,7 +34,7 @@ KU relationships include semantic metadata (type, confidence, source):
 - Confidence score (0.0-1.0)
 - Source (explicit, inferred, system)
 
-❌ WRONG - These fields were NEVER in KU/KuDTO (always graph-native):
+❌ WRONG - These fields were NEVER in Entity/DTO (always graph-native):
     ku.prerequisite_uids             # AttributeError!
     ku.enables_uids                  # AttributeError!
     ku.related_uids                  # AttributeError!
@@ -738,7 +738,7 @@ def _extract_uids(result: Result) -> list[str]:
     """
     Extract UIDs from Result[list[DTO]] or Result[list[str]].
 
-    Handles both KuDTO objects (with .uid attribute) and plain string UIDs.
+    Handles both DTO objects (with .uid attribute) and plain string UIDs.
     """
     if not result.is_ok:
         return []

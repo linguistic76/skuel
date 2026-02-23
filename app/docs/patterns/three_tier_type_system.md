@@ -189,7 +189,7 @@ EntityDTO (~18 fields)
 └── ResourceDTO(EntityDTO)
 ```
 
-**KuDTO retained** for cross-domain services (SearchRouter, MEGA-QUERY, analytics) where a single generic type is needed across all 15 EntityType domains.
+**KuDTO deleted** (February 2026). All services now use per-domain DTOs exclusively. Cross-domain services (SearchRouter, MEGA-QUERY, analytics) use `ENTITY_TYPE_CLASS_MAP` for generic entity deserialization across all 15 EntityType domains.
 
 ## Tier 1: Pydantic Request Models (External)
 
@@ -224,7 +224,6 @@ core/models/ku/                    # Domain models (Tier 3) + DTOs (Tier 2)
 ├── learning_path.py / learning_path_dto.py # LearningPath(Curriculum)
 ├── exercise.py / exercise_dto.py  # Exercise(Curriculum)
 ├── resource.py / resource_dto.py  # Resource(Entity)
-├── ku_dto.py                      # KuDTO — retained for cross-domain use
 └── ku.py                          # Ku union type — retained for cross-domain use
 
 core/models/{domain}/              # Pydantic request models (Tier 1)
@@ -479,10 +478,10 @@ class Entity:
         ...
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> Self:
+    def from_dto(cls, dto: "EntityDTO") -> Self:
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "KuDTO":
+    def to_dto(self) -> "EntityDTO":
         ...
 
 # Per-domain models override from_dto/to_dto to use domain-specific DTOs
@@ -492,11 +491,11 @@ class Task(UserOwnedEntity):
     ...
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | TaskDTO") -> "Task":
+    def from_dto(cls, dto: "EntityDTO | TaskDTO") -> "Task":
         return cls._from_dto(dto)
 
     def to_dto(self) -> "TaskDTO":  # type: ignore[override]
-        """Convert Task to TaskDTO (not generic KuDTO)."""
+        """Convert Task to domain-specific TaskDTO."""
         from core.models.ku.task_dto import TaskDTO
         ...
 ```
@@ -571,7 +570,7 @@ As of February 2026 (domain-first architecture complete):
 - Each domain has a corresponding per-domain DTO (e.g., `TaskDTO`, `GoalDTO`)
 - Finance: Pattern B (Two-Tier) -- no domain model, DTO only
 - **User - Special Case** (see below)
-- **Total: 15 domain models + 18 per-domain DTOs + KuDTO (cross-domain)**
+- **Total: 15 domain models + 18 per-domain DTOs**
 
 ## User Entity - Architectural Exception
 
@@ -724,7 +723,6 @@ The `total=False` makes all fields optional, matching the partial update semanti
 | `/core/models/ku/user_owned_dto.py` | UserOwnedDTO (+user_uid, visibility, priority) |
 | `/core/models/ku/task.py` | Task domain model (example per-domain implementation) |
 | `/core/models/ku/task_dto.py` | TaskDTO (example per-domain DTO) |
-| `/core/models/ku/ku_dto.py` | KuDTO -- retained for cross-domain use |
 | `/core/models/ku/ku.py` | Ku union type -- retained for cross-domain use |
 | `/core/models/protocols/domain_model_protocol.py` | Protocol definition |
 | `/core/models/enums/ku_enums.py` | EntityType, EntityStatus enums (file NOT renamed) |

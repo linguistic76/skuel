@@ -23,7 +23,7 @@ from typing import Any
 
 from core.events import publish_event
 from core.models.enums.ku_enums import EntityStatus, EntityType
-from core.models.ku import Entity, Ku, KuDTO, Submission
+from core.models.ku import Entity, Ku, Submission, SubmissionDTO
 from core.models.relationship_names import RelationshipName
 from core.ports import BackendOperations, BaseUpdatePayload
 from core.services.base_service import BaseService
@@ -82,7 +82,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
     # DomainConfig (January 2026 Phase 3)
     # =========================================================================
     _config = DomainConfig(
-        dto_class=KuDTO,
+        dto_class=SubmissionDTO,
         model_class=Entity,
         entity_label="Ku",
         search_fields=("title", "content", "processed_content"),

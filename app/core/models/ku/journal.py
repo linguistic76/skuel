@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.ku.journal_dto import JournalDTO
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
 
 from core.models.enums.ku_enums import EntityType
 from core.models.ku.submission import Submission
@@ -45,12 +45,12 @@ class Journal(Submission):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | JournalDTO") -> "Journal":  # type: ignore[override]
-        """Create Journal from a KuDTO or JournalDTO."""
+    def from_dto(cls, dto: "EntityDTO | JournalDTO") -> "Journal":  # type: ignore[override]
+        """Create Journal from an EntityDTO or JournalDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "JournalDTO":  # type: ignore[override]
-        """Convert Journal to JournalDTO (not generic KuDTO)."""
+        """Convert Journal to domain-specific JournalDTO."""
         import dataclasses
         from typing import Any
 

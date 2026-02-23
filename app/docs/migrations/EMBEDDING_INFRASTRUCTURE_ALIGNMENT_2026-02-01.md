@@ -99,7 +99,7 @@ return dto_from_dict(
 )
 ```
 
-### 3. KuDTO Migration
+### 3. KuDTO Migration *(Note: KuDTO deleted 2026-02-23, replaced by CurriculumDTO)*
 
 **Before (manual):**
 ```python

@@ -10,14 +10,14 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums import Domain
-from core.models.ku.ku_dto import KuDTO
+from core.models.ku.curriculum_dto import CurriculumDTO
 from core.services.ku.ku_graph_service import KuGraphService
 from core.utils.result_simplified import Result
 
 
 def make_ku_dto(uid="ku.test.1", title="Test Title", domain="tech"):
-    """Helper to create complete KuDTO for tests."""
-    return KuDTO(
+    """Helper to create complete CurriculumDTO for tests."""
+    return CurriculumDTO(
         uid=uid,
         title=title,
         domain=Domain(domain),

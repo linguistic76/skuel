@@ -53,7 +53,7 @@ The codebase underwent a 6-phase domain-first migration (Phases 0-5) that introd
 1. **Neo4j multi-label architecture** -- every entity gets `:Entity` (universal) + domain-specific labels (`:Task`, `:Goal`, etc.), with `:Ku` retained for backward compatibility
 2. **Renamed model classes** -- all `*Ku` suffixes removed (e.g., `TaskKu` to `Task`, `GoalKu` to `Goal`, `KuBase` to `Entity`), with `KuType` to `EntityType` and `KuStatus` to `EntityStatus`
 3. **`UserOwnedEntity` intermediate class** -- separates user-owned fields (`user_uid`, `priority`) from the base `Entity`
-4. **Per-domain DTOs** -- `TaskDTO`, `GoalDTO`, `HabitDTO`, etc. replace monolithic `KuDTO` for domain services (KuDTO retained only for cross-domain use)
+4. **Per-domain DTOs** -- `TaskDTO`, `GoalDTO`, `HabitDTO`, etc. replace monolithic `KuDTO` for all services (KuDTO deleted February 2026)
 5. **`Exercise` replaces `Assignment`** -- aligns with SKUEL's applied knowledge philosophy
 
 ### Model Hierarchy
@@ -83,7 +83,7 @@ EntityDTO (~18 fields)
 └── ResourceDTO(EntityDTO)
 ```
 
-`KuDTO` is retained ONLY for cross-domain services (`SearchRouter`, MEGA-QUERY, `cross_domain_queries.py`, `analytics_metrics_service.py`).
+`KuDTO` was deleted (February 2026). All services use per-domain DTOs. Cross-domain services use `ENTITY_TYPE_CLASS_MAP` for generic entity deserialization.
 
 ### Neo4j Multi-Label Architecture
 

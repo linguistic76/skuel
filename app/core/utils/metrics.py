@@ -18,7 +18,7 @@ Usage:
     from core.utils.metrics import track_query_metrics, get_metrics_summary
 
     @track_query_metrics("get_knowledge_unit")
-    async def get(self, uid: str) -> Result[KuDTO]:
+    async def get(self, uid: str) -> Result[Entity]:
         # Your code here
         ...
 
@@ -82,7 +82,7 @@ def track_query_metrics(operation_name: str | None = None):
 
     Usage:
         @track_query_metrics("get_knowledge_unit")
-        async def get(self, uid: str) -> Result[KuDTO]:
+        async def get(self, uid: str) -> Result[Entity]:
             ...
 
         @track_query_metrics()  # Uses function name

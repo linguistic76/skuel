@@ -23,9 +23,12 @@ from datetime import date, time
 import pytest
 
 from core.models.enums import Domain, EntityStatus, Priority
-from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_dto import KuDTO as GoalDTO
-from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.enums.ku_enums import EntityType
+from core.models.ku.curriculum_dto import CurriculumDTO
+from core.models.ku.event_dto import EventDTO
+from core.models.ku.goal_dto import GoalDTO
+from core.models.ku.task_dto import TaskDTO
+from core.utils.uid_generator import UIDGenerator
 
 
 @pytest.mark.integration
@@ -40,14 +43,18 @@ class TestRichUserContextPattern:
         complete graph neighborhoods in ONE database query.
         """
         # Create prerequisite knowledge
-        prereq_dto = KuDTO.create_curriculum(
+        prereq_dto = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
+            ku_type=EntityType.CURRICULUM,
             title="Python Basics",
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(prereq_dto.to_dict())
 
         # Create main knowledge unit
-        ku_dto = KuDTO.create_curriculum(
+        ku_dto = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
+            ku_type=EntityType.CURRICULUM,
             title="Advanced Python",
             domain=Domain.TECH,
         )
@@ -91,7 +98,7 @@ class TestRichUserContextPattern:
         await services.tasks.core.backend.create(task_dto.to_dict())
 
         # Create event
-        event_dto = KuDTO.create_event(
+        event_dto = EventDTO.create_event(
             user_uid=test_user.uid,
             title="Python Workshop",
             event_date=date.today(),
@@ -207,7 +214,9 @@ class TestRichUserContextPattern:
         """
 
         # Create test data
-        ku_dto = KuDTO.create_curriculum(
+        ku_dto = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
+            ku_type=EntityType.CURRICULUM,
             title="Test Knowledge",
             domain=Domain.TECH,
         )
@@ -330,7 +339,9 @@ class TestRichUserContextPattern:
         Validates task→goal alignments, knowledge→task applications, etc.
         """
         # Create cross-domain test data
-        ku_dto = KuDTO.create_curriculum(
+        ku_dto = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
+            ku_type=EntityType.CURRICULUM,
             title="Test Knowledge",
             domain=Domain.TECH,
         )

@@ -23,7 +23,7 @@ from datetime import date
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
     from core.models.ku.task_dto import TaskDTO
 
 from core.models.enums.ku_enums import EntityType
@@ -224,12 +224,12 @@ class Task(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | TaskDTO") -> "Task":
-        """Create Task from a KuDTO or TaskDTO."""
+    def from_dto(cls, dto: "EntityDTO | TaskDTO") -> "Task":
+        """Create Task from an EntityDTO or TaskDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "TaskDTO":  # type: ignore[override]
-        """Convert Task to TaskDTO (not generic KuDTO)."""
+        """Convert Task to domain-specific TaskDTO."""
         import dataclasses
 
         from core.models.ku.task_dto import TaskDTO

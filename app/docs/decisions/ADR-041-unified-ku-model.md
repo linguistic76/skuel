@@ -16,6 +16,7 @@ SKUEL originally had 14 separate domain model packages (`core/models/task/`, `co
 ## Decision
 
 **Everything is a Ku.** All 14 domain types are stored as unified `Ku` nodes in Neo4j, discriminated by `KuType`. One model (`Ku`), one DTO (`KuDTO`), one status enum (`KuStatus`).
+**Update (2026-02-23):** KuDTO deleted. All services now use per-domain DTOs (TaskDTO, GoalDTO, etc.).
 
 ### Phase 1-6: Model Unification (2026-02-10 to 2026-02-13)
 
@@ -96,7 +97,7 @@ EntityDTO (~18 fields)
 
 **Phase 5: Service Layer Migration**
 - 57 service files migrated from KuDTO to per-domain DTOs
-- KuDTO retained ONLY for cross-domain services (MEGA-QUERY, SearchRouter, analytics)
+- KuDTO retained for cross-domain services (later deleted in Phase 5b, 2026-02-23)
 - 7 type: ignore suppressions for pre-existing cross-domain field accesses
 
 **Impact:**
@@ -110,7 +111,7 @@ EntityDTO (~18 fields)
 | Component | Location |
 |-----------|----------|
 | Ku model | `core/models/ku/ku.py` |
-| KuDTO | `core/models/ku/ku_dto.py` |
+| KuDTO | ~~`core/models/ku/ku_dto.py`~~ (deleted 2026-02-23) |
 | EntityType (was KuType) | `core/models/enums/ku_enums.py` |
 | EntityStatus (was KuStatus) | `core/models/enums/ku_enums.py` |
 | CompletionStatus | `core/models/enums/ku_enums.py` |

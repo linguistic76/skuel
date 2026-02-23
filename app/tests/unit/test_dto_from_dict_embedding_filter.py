@@ -16,8 +16,8 @@ See: /docs/decisions/ADR-037-embedding-infrastructure-separation.md
 from datetime import datetime
 
 from core.models.enums import Domain, EntityStatus, Priority
-from core.models.ku.ku_dto import KuDTO as GoalDTO
-from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.ku.goal_dto import GoalDTO
+from core.models.ku.task_dto import TaskDTO
 
 
 def test_task_dto_from_dict_filters_embedding():

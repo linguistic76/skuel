@@ -78,7 +78,7 @@ from core.models.request_base import (
 )
 
 if TYPE_CHECKING:
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
 
 
 # =============================================================================
@@ -958,7 +958,7 @@ class KuResponse(ResponseBase):
     estimated_reading_time: int = 0
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO") -> "KuResponse":
+    def from_dto(cls, dto: "EntityDTO") -> "KuResponse":
         """Create response from DTO."""
         estimated_reading_time = max(1, dto.word_count // 200) if dto.word_count > 0 else 0
 

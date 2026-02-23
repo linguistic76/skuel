@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.ku.ai_report_dto import AiReportDTO
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
 
 from core.models.enums.ku_enums import EntityType
 from core.models.ku.submission import Submission
@@ -44,12 +44,12 @@ class AiReport(Submission):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | AiReportDTO") -> "AiReport":  # type: ignore[override]
-        """Create AiReport from a KuDTO or AiReportDTO."""
+    def from_dto(cls, dto: "EntityDTO | AiReportDTO") -> "AiReport":  # type: ignore[override]
+        """Create AiReport from an EntityDTO or AiReportDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "AiReportDTO":  # type: ignore[override]
-        """Convert AiReport to AiReportDTO (not generic KuDTO)."""
+        """Convert AiReport to domain-specific AiReportDTO."""
         import dataclasses
         from typing import Any
 

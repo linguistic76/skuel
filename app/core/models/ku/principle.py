@@ -26,7 +26,7 @@ from datetime import date
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.models.ku.ku_dto import KuDTO
+    from core.models.ku.entity_dto import EntityDTO
     from core.models.ku.principle_dto import PrincipleDTO
 
 from core.models.enums.ku_enums import (
@@ -225,12 +225,12 @@ class Principle(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "KuDTO | PrincipleDTO") -> "Principle":
-        """Create Principle from a KuDTO or PrincipleDTO."""
+    def from_dto(cls, dto: "EntityDTO | PrincipleDTO") -> "Principle":
+        """Create Principle from an EntityDTO or PrincipleDTO."""
         return cls._from_dto(dto)
 
     def to_dto(self) -> "PrincipleDTO":  # type: ignore[override]
-        """Convert Principle to PrincipleDTO (not generic KuDTO)."""
+        """Convert Principle to domain-specific PrincipleDTO."""
         import dataclasses
 
         from core.models.ku.principle_dto import PrincipleDTO

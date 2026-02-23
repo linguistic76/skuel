@@ -21,10 +21,13 @@ import asyncio
 import pytest
 
 from core.models.enums import Domain, Priority
-from core.models.enums.ku_enums import PrincipleCategory
-from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_dto import KuDTO as GoalDTO
-from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.enums.ku_enums import EntityType, PrincipleCategory
+from core.models.ku.curriculum_dto import CurriculumDTO
+from core.models.ku.goal_dto import GoalDTO
+from core.models.ku.learning_path_dto import LearningPathDTO
+from core.models.ku.learning_step_dto import LearningStepDTO
+from core.models.ku.principle_dto import PrincipleDTO
+from core.models.ku.task_dto import TaskDTO
 from core.utils.uid_generator import UIDGenerator
 
 
@@ -40,30 +43,35 @@ class TestCurriculumRichContext:
         practice opportunities, and parent path are all fetched in a single query.
         """
         # Create knowledge units for step content
-        primary_ku = KuDTO.create_curriculum(
+        primary_ku = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Functions",
+            ku_type=EntityType.CURRICULUM,
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(primary_ku.to_dict())
 
-        supporting_ku = KuDTO.create_curriculum(
+        supporting_ku = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Variables",
+            ku_type=EntityType.CURRICULUM,
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(supporting_ku.to_dict())
 
         # Create prerequisite knowledge
-        prereq_ku = KuDTO.create_curriculum(
+        prereq_ku = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Basics",
+            ku_type=EntityType.CURRICULUM,
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(prereq_ku.to_dict())
 
         # Create guiding principle
-        principle = KuDTO(
+        principle = PrincipleDTO(
             uid=UIDGenerator.generate_random_uid("principle"),
             user_uid=test_user.uid,
-            ku_type="principle",
             title="Practice Daily",
             statement="Consistent practice leads to mastery",
             description="Consistent practice leads to mastery",
@@ -80,7 +88,7 @@ class TestCurriculumRichContext:
         await services.tasks.core.backend.create(task.to_dict())
 
         # Create prerequisite learning step
-        prereq_step = KuDTO(
+        prereq_step = LearningStepDTO(
             uid=UIDGenerator.generate_random_uid("ls"),
             title="Introduction to Python",
             intent="First step in Python learning",
@@ -89,7 +97,7 @@ class TestCurriculumRichContext:
         await services.ls.core.backend.create(prereq_step)
 
         # Create main learning step
-        main_step = KuDTO(
+        main_step = LearningStepDTO(
             uid=UIDGenerator.generate_random_uid("ls"),
             title="Master Python Functions",
             intent="Deep dive into function concepts",
@@ -98,7 +106,7 @@ class TestCurriculumRichContext:
         await services.ls.core.backend.create(main_step)
 
         # Create learning path for context
-        learning_path = KuDTO(
+        learning_path = LearningPathDTO(
             uid=UIDGenerator.generate_random_uid("lp"),
             title="Python Mastery Path",
             description="Complete Python learning journey",
@@ -214,8 +222,10 @@ class TestCurriculumRichContext:
         principles, and progress stats are all fetched in a single query.
         """
         # Create prerequisite knowledge
-        prereq_ku = KuDTO.create_curriculum(
+        prereq_ku = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
             title="Programming Fundamentals",
+            ku_type=EntityType.CURRICULUM,
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(prereq_ku.to_dict())
@@ -229,10 +239,9 @@ class TestCurriculumRichContext:
         await services.goals.core.backend.create(goal)
 
         # Create embodied principle
-        principle = KuDTO(
+        principle = PrincipleDTO(
             uid=UIDGenerator.generate_random_uid("principle"),
             user_uid=test_user.uid,
-            ku_type="principle",
             title="Continuous Learning",
             statement="Always be learning new skills",
             description="Always be learning new skills",
@@ -241,7 +250,7 @@ class TestCurriculumRichContext:
         await services.principles.core.backend.create(principle.to_dict())
 
         # Create learning steps
-        step1 = KuDTO(
+        step1 = LearningStepDTO(
             uid=UIDGenerator.generate_random_uid("ls"),
             title="Python Basics",
             intent="Learn Python fundamentals",
@@ -249,7 +258,7 @@ class TestCurriculumRichContext:
         )
         await services.ls.core.backend.create(step1)
 
-        step2 = KuDTO(
+        step2 = LearningStepDTO(
             uid=UIDGenerator.generate_random_uid("ls"),
             title="Advanced Python",
             intent="Master advanced concepts",
@@ -258,7 +267,7 @@ class TestCurriculumRichContext:
         await services.ls.core.backend.create(step2)
 
         # Create learning path
-        learning_path = KuDTO(
+        learning_path = LearningPathDTO(
             uid=UIDGenerator.generate_random_uid("lp"),
             title="Python Developer Path",
             description="Complete path to Python mastery",
@@ -348,7 +357,7 @@ class TestCurriculumRichContext:
         properly populated with full entities and graph neighborhoods.
         """
         # Create learning path
-        learning_path = KuDTO(
+        learning_path = LearningPathDTO(
             uid=UIDGenerator.generate_random_uid("lp"),
             title="Python Mastery",
             description="Complete Python curriculum",
@@ -357,7 +366,7 @@ class TestCurriculumRichContext:
         await services.lp.core.backend.create(learning_path)
 
         # Create learning step
-        learning_step = KuDTO(
+        learning_step = LearningStepDTO(
             uid=UIDGenerator.generate_random_uid("ls"),
             title="Functions Deep Dive",
             intent="Master Python functions",
@@ -374,8 +383,10 @@ class TestCurriculumRichContext:
         await services.goals.core.backend.create(goal)
 
         # Create knowledge for step
-        ku = KuDTO.create_curriculum(
+        ku = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Functions",
+            ku_type=EntityType.CURRICULUM,
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(ku.to_dict())
