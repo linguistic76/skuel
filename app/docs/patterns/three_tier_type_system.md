@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-01-24
+updated: 2026-02-23
 category: patterns
 related_skills:
 - python
@@ -12,7 +12,7 @@ related_docs:
 
 # Three-Tier Type System
 
-*Last updated: 2026-01-24*
+*Last updated: 2026-02-23*
 
 ## Quick Start
 
@@ -113,30 +113,83 @@ Neo4j nodes contain infrastructure fields (`embedding`, `embedding_version`, etc
 
 ## Implementation Example
 
+The domain-first architecture (February 2026) uses a class hierarchy for both domain models and DTOs, with each domain extending a shared base.
+
 ```python
-# Tier 1: Pydantic (External)
+# Tier 1: Pydantic (External) — domain-specific request models
 class TaskCreateRequest(BaseModel):
     title: str
     due_date: Optional[date]
 
-# Tier 2: DTO (Transfer)
+# Tier 2: DTO (Transfer) — per-domain DTO hierarchy
 @dataclass
-class TaskDTO:
+class EntityDTO:
+    """~18 common fields (identity, content, status, meta)."""
     uid: str
     title: str
-    due_date: Optional[date]
+    ku_type: str  # EntityType value (stored as "ku_type" in Neo4j)
+    ...
 
-# Tier 3: Domain Model (Core)
+@dataclass
+class UserOwnedDTO(EntityDTO):
+    """Adds user_uid, visibility, priority."""
+    user_uid: str = ""
+    ...
+
+@dataclass
+class TaskDTO(UserOwnedDTO):
+    """Adds 25 task-specific fields (scheduling, hierarchy, cross-domain links)."""
+    due_date: date | None = None
+    ...
+
+# Tier 3: Domain Model (Core) — per-domain frozen dataclass hierarchy
 @dataclass(frozen=True)
-class TaskPure:
+class Entity:
+    """~19 common fields. Base for all 15 EntityType domains."""
     uid: str
     title: str
-    due_date: Optional[date]
+    ...
+
+@dataclass(frozen=True)
+class UserOwnedEntity(Entity):
+    """Adds user_uid, priority. Base for Activity Domains, Submissions, LifePath."""
+    user_uid: str = ""
+    ...
+
+@dataclass(frozen=True)
+class Task(UserOwnedEntity):
+    """25 task-specific fields + business logic methods."""
+    due_date: date | None = None
+    ...
 
     def is_overdue(self) -> bool:
         """Business logic lives here"""
         return self.due_date and self.due_date < date.today()
 ```
+
+### Domain Model Hierarchy
+
+```
+Entity (~19 fields)
+├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
+│   ├── Task, Goal, Habit, Event, Choice, Principle
+│   ├── Submission → Journal, AiReport, Feedback
+│   └── LifePath
+├── Curriculum(Entity) +21 fields → LearningStep, LearningPath, Exercise
+└── Resource(Entity) +7 fields
+```
+
+### DTO Hierarchy (mirrors model hierarchy)
+
+```
+EntityDTO (~18 fields)
+├── UserOwnedDTO(EntityDTO) +3 fields → TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO, LifePathDTO
+├── UserOwnedDTO → SubmissionDTO → JournalDTO, AiReportDTO, FeedbackDTO
+├── CurriculumDTO(EntityDTO) → LearningStepDTO, LearningPathDTO, ExerciseDTO
+└── ResourceDTO(EntityDTO)
+```
+
+**KuDTO retained** for cross-domain services (SearchRouter, MEGA-QUERY, analytics) where a single generic type is needed across all 15 EntityType domains.
 
 ## Tier 1: Pydantic Request Models (External)
 
@@ -146,13 +199,36 @@ Pydantic request models are **Tier 1 (External)** types used exclusively for API
 
 ### File Organization
 
-Request models live in domain-specific `*_request.py` files:
+Domain models and DTOs live in `core/models/ku/` (the unified model package). Request models live in domain-specific packages:
 
 ```
-core/models/{domain}/
-├── {domain}_domain.py     # Domain models (Tier 3)
-├── {domain}_dto.py        # DTOs (Tier 2)
-└── {domain}_request.py    # Pydantic request models (Tier 1)
+core/models/ku/                    # Domain models (Tier 3) + DTOs (Tier 2)
+├── entity.py                      # Entity base (~19 fields)
+├── entity_dto.py                  # EntityDTO base (~18 fields)
+├── user_owned_entity.py           # UserOwnedEntity (Entity +2 fields)
+├── user_owned_dto.py              # UserOwnedDTO (EntityDTO +3 fields)
+├── task.py                        # Task(UserOwnedEntity) +25 fields
+├── task_dto.py                    # TaskDTO(UserOwnedDTO) +25 fields
+├── goal.py / goal_dto.py          # Goal domain
+├── habit.py / habit_dto.py        # Habit domain
+├── event.py / event_dto.py        # Event domain
+├── choice.py / choice_dto.py      # Choice domain
+├── principle.py / principle_dto.py # Principle domain
+├── life_path.py / life_path_dto.py # LifePath domain
+├── submission.py / submission_dto.py # Submission base
+├── journal.py / journal_dto.py    # Journal(Submission)
+├── ai_report.py / ai_report_dto.py # AiReport(Submission)
+├── feedback.py / feedback_dto.py  # Feedback(Submission)
+├── curriculum.py / curriculum_dto.py # Curriculum base
+├── learning_step.py / learning_step_dto.py # LearningStep(Curriculum)
+├── learning_path.py / learning_path_dto.py # LearningPath(Curriculum)
+├── exercise.py / exercise_dto.py  # Exercise(Curriculum)
+├── resource.py / resource_dto.py  # Resource(Entity)
+├── ku_dto.py                      # KuDTO — retained for cross-domain use
+└── ku.py                          # Ku union type — retained for cross-domain use
+
+core/models/{domain}/              # Pydantic request models (Tier 1)
+├── {domain}_request.py            # Domain-specific request models
 ```
 
 ### Example: Context-Aware Request Models (Dissolved into Domain Files)
@@ -248,12 +324,13 @@ See [API_VALIDATION_PATTERNS.md](API_VALIDATION_PATTERNS.md) for comprehensive v
 - Literal types for enums (ExpenseStatus, PaymentMethod, etc.)
 
 **Knowledge Domain** (`core/models/ku/ku_request.py`):
-- `KuCreateRequest`, `KuUpdateRequest`
+- `KuCreateRequest`, `KuUpdateRequest` (used for curriculum CRUD)
 
-**Context-Aware Models** (dissolved into domain request files):
-- `ContextualTaskCompletionRequest` (`core/models/task/task_request.py`)
-- `ContextualGoalTaskGenerationRequest` (`core/models/goal/goal_request.py`)
-- `ContextualHabitCompletionRequest` (`core/models/habit/habit_request.py`)
+**Activity Domain Request Models** (domain-specific packages):
+- `TaskCreateRequest`, `TaskUpdateRequest` (`core/models/task/task_request.py`)
+- `GoalCreateRequest`, `GoalUpdateRequest` (`core/models/goal/goal_request.py`)
+- `HabitCreateRequest`, `HabitUpdateRequest` (`core/models/habit/habit_request.py`)
+- Plus context-aware models in the same files (e.g., `ContextualTaskCompletionRequest`)
 
 ## Frozen Dataclass Dynamic Defaults
 
@@ -265,7 +342,7 @@ Frozen dataclasses in SKUEL use `__post_init__` to set dynamic defaults for muta
 
 ```python
 @dataclass(frozen=True)
-class TaskPure:
+class Entity:
     uid: str
     title: str
 
@@ -286,6 +363,8 @@ class TaskPure:
         if self.metadata is None:
             object.__setattr__(self, 'metadata', {})
 ```
+
+Subclasses (e.g., `Task(UserOwnedEntity)`) call `super().__post_init__()` to chain initialization through the hierarchy.
 
 ### Why This Pattern
 
@@ -316,10 +395,11 @@ poetry run python scripts/add_frozen_dataclass_type_ignores.py
 
 ### Statistics
 
-As of October 2025:
-- 322 fields across 67 files use this pattern
+As of February 2026:
+- 350+ fields across 70+ files use this pattern
 - All in `core/models/` (frozen domain models and DTOs)
 - Covers `datetime`, `date`, `list`, `dict`, `set` fields
+- Includes the full Entity/UserOwnedEntity/domain model hierarchy
 
 ### Rationale
 
@@ -386,9 +466,9 @@ class DomainModelProtocol(Protocol):
 ### Implementation Pattern
 
 ```python
-# All domain models automatically satisfy the protocol
+# Entity base satisfies the protocol; all subclasses inherit it
 @dataclass(frozen=True)
-class Task:
+class Entity:
     uid: str
     created_at: datetime = None  # type: ignore[assignment]
     updated_at: datetime = None  # type: ignore[assignment]
@@ -396,18 +476,32 @@ class Task:
     def __post_init__(self) -> None:
         if self.created_at is None:
             object.__setattr__(self, 'created_at', datetime.now())
-        if self.updated_at is None:
-            object.__setattr__(self, 'updated_at', datetime.now())
+        ...
 
     @classmethod
-    def from_dto(cls, dto: TaskDTO) -> Task:
-        from core.models.task.task_converters import task_dto_to_pure
-        return task_dto_to_pure(dto)
+    def from_dto(cls, dto: "KuDTO") -> Self:
+        return cls._from_dto(dto)
 
-    def to_dto(self) -> TaskDTO:
-        from core.models.task.task_converters import task_pure_to_dto
-        return task_pure_to_dto(self)
+    def to_dto(self) -> "KuDTO":
+        ...
+
+# Per-domain models override from_dto/to_dto to use domain-specific DTOs
+@dataclass(frozen=True)
+class Task(UserOwnedEntity):
+    due_date: date | None = None
+    ...
+
+    @classmethod
+    def from_dto(cls, dto: "KuDTO | TaskDTO") -> "Task":
+        return cls._from_dto(dto)
+
+    def to_dto(self) -> "TaskDTO":  # type: ignore[override]
+        """Convert Task to TaskDTO (not generic KuDTO)."""
+        from core.models.ku.task_dto import TaskDTO
+        ...
 ```
+
+**Note:** The `# type: ignore[override]` on `to_dto()` is expected -- child classes return a more specific DTO type (covariant return), which is correct at runtime but requires suppression for MyPy.
 
 ### Generic Service Pattern
 
@@ -468,12 +562,16 @@ disable_error_code = [
 
 ### Domain Coverage
 
-As of October 2025:
-- ✅ All 7 activity domains (Tasks, Events, Habits, Goals, Choices, Principles, Finance)
-- ✅ All 3 curriculum domains (KnowledgeUnit, LearningStep, LearningPath)
-- ✅ Journals domain
-- ⚠️ **User - Special Case** (see below)
-- **Total: ~20 domain models**
+As of February 2026 (domain-first architecture complete):
+- All 6 Activity domains: Task, Goal, Habit, Event, Choice, Principle (extend `UserOwnedEntity`)
+- All 3 Curriculum domains: LearningStep, LearningPath, Exercise (extend `Curriculum`)
+- Resource domain (extends `Entity`)
+- Reports: Submission, Journal, AiReport, Feedback (extend `UserOwnedEntity`)
+- LifePath (extends `UserOwnedEntity`)
+- Each domain has a corresponding per-domain DTO (e.g., `TaskDTO`, `GoalDTO`)
+- Finance: Pattern B (Two-Tier) -- no domain model, DTO only
+- **User - Special Case** (see below)
+- **Total: 15 domain models + 18 per-domain DTOs + KuDTO (cross-domain)**
 
 ## User Entity - Architectural Exception
 
@@ -492,9 +590,21 @@ User is **NOT an activity domain** and does NOT implement DomainModelProtocol. U
 ### Backend Pattern
 
 ```python
-# Activity Domains - Use UniversalNeo4jBackend (requires DomainModelProtocol)
-tasks_backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
-goals_backend = UniversalNeo4jBackend[Goal](driver, "Goal", Goal)
+# Domain backends use multi-label CREATE with base_label=NeoLabel.ENTITY
+# Creates nodes with triple labels: (n:Ku:Entity:Task)
+from adapters.persistence.neo4j.neo_label import NeoLabel
+
+tasks_backend = UniversalNeo4jBackend[Task](
+    driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
+)
+goals_backend = UniversalNeo4jBackend[Goal](
+    driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY
+)
+
+# Non-Ku backends — single label, no base_label
+finance_backend = UniversalNeo4jBackend[ExpensePure](
+    driver, NeoLabel.EXPENSE, ExpensePure
+)
 
 # User - Use dedicated UserBackend (identity operations, no DTO lifecycle)
 users_backend = UserBackend(driver)
@@ -527,8 +637,8 @@ Domain-specific TypedDicts for update operations:
 | `ChoiceUpdatePayload` | Choices | `status`, `outcome`, `decision_date`, `confidence` |
 | `PrincipleUpdatePayload` | Principles | `status`, `strength`, `is_active` |
 | `FinanceUpdatePayload` | Finance | `status`, `amount`, `paid_at`, `receipt_link`, `has_receipt` |
-| `AssignmentUpdatePayload` | Assignments | `status`, `processing_started_at`, `processing_completed_at` |
-| `KuUpdatePayload` | KU | `status`, `difficulty`, `estimated_hours` |
+| `SubmissionUpdatePayload` | Submissions | `status`, `processing_started_at`, `processing_completed_at` |
+| `KuUpdatePayload` | KU (cross-domain) | `status`, `difficulty`, `estimated_hours` |
 | `LsUpdatePayload` | LS | `status`, `sequence_number` |
 | `LpUpdatePayload` | LP | `progress`, `is_completed` |
 
@@ -555,7 +665,7 @@ from core.ports.query_types import (
 # Update operations - IDE autocomplete shows valid fields
 async def complete_goal(self, uid: str) -> Result[Goal]:
     updates: GoalUpdatePayload = {
-        "status": GoalStatus.ACHIEVED.value,
+        "status": EntityStatus.COMPLETED.value,
         "progress_percentage": 100.0,
         "completion_date": date.today(),
     }
@@ -608,13 +718,22 @@ The `total=False` makes all fields optional, matching the partial update semanti
 
 | File | Purpose |
 |------|---------|
+| `/core/models/ku/entity.py` | Entity base class (~19 fields) |
+| `/core/models/ku/user_owned_entity.py` | UserOwnedEntity (+user_uid, priority) |
+| `/core/models/ku/entity_dto.py` | EntityDTO base (~18 fields) |
+| `/core/models/ku/user_owned_dto.py` | UserOwnedDTO (+user_uid, visibility, priority) |
+| `/core/models/ku/task.py` | Task domain model (example per-domain implementation) |
+| `/core/models/ku/task_dto.py` | TaskDTO (example per-domain DTO) |
+| `/core/models/ku/ku_dto.py` | KuDTO -- retained for cross-domain use |
+| `/core/models/ku/ku.py` | Ku union type -- retained for cross-domain use |
 | `/core/models/protocols/domain_model_protocol.py` | Protocol definition |
-| `/adapters/persistence/neo4j/universal_backend.py` | Generic backend |
+| `/core/models/enums/ku_enums.py` | EntityType, EntityStatus enums (file NOT renamed) |
+| `/adapters/persistence/neo4j/universal_backend.py` | Generic backend with multi-label support |
+| `/adapters/persistence/neo4j/neo_label.py` | NeoLabel enum (ENTITY + 16 domain labels) |
 | `/adapters/persistence/neo4j/user_backend.py` | User backend |
 | `/core/services/base_service.py` | Base service |
 | `/core/ports/query_types.py` | TypedDict definitions |
 | `/scripts/add_frozen_dataclass_type_ignores.py` | Migration script |
-| `/core/models/task/task.py` | Example implementation |
 
 ## Why Three Tiers? (Design Rationale)
 
@@ -666,7 +785,10 @@ The `total=False` makes all fields optional, matching the partial update semanti
 
 **Benefit**: Clear separation of concerns - each tier has a single responsibility.
 
-**Mitigation**: Converter functions follow consistent patterns and use shared helpers (`dto_to_dict`, `dto_from_dict`).
+**Mitigation**: The domain-first hierarchy reduces boilerplate:
+- `to_dict()` chains via `super()` -- EntityDTO serializes 18 fields, UserOwnedDTO adds 3, TaskDTO adds 25
+- `from_dict()` uses `dto_from_dict()` generic helper that filters data to only fields on the dataclass
+- `to_dto()` / `from_dto()` methods on domain models handle the Domain-to-DTO conversion directly
 
 ## Complete Example: Following a Request
 
@@ -677,9 +799,36 @@ See [DATA_FLOW_WALKTHROUGH.md](/docs/tutorials/DATA_FLOW_WALKTHROUGH.md) for a c
 - Where relationships are stored (graph-native design)
 - When to skip Tier 3 (Finance/Journals examples)
 
+## Pattern Selection (Two Patterns)
+
+SKUEL uses two approved patterns: **Domain-First (Pattern A)** for most domains, **Two-Tier (Pattern B)** for simple bookkeeping.
+
+| Pattern | Files | Tiers | Use For | Domains |
+|---------|-------|-------|---------|---------|
+| **Domain-First** | Per-domain model + per-domain DTO | Pydantic -> DTO -> Entity hierarchy | All 15 EntityType domains | Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP, Reports, LifePath |
+| **B: Two-Tier** | 2 | Pydantic -> DTO | Simple CRUD, minimal logic | Finance (1 domain) |
+
+**Decision Matrix:**
+```
+Does the domain have 3+ business logic methods?
++-- YES -> Pattern A (Domain-First)  [Default]
++-- NO  -> Is domain admin-only bookkeeping?
+    +-- YES -> Pattern B (Two-Tier)   [Exception]
+    +-- NO  -> Pattern A (Domain-First) [Default]
+```
+
+**Key enum renames (February 2026):**
+- `KuType` -> `EntityType` (15 values)
+- `KuStatus` -> `EntityStatus` (14 values)
+- Enums still live in `ku_enums.py` (file was NOT renamed)
+- `ku_type` database property was NOT renamed
+
+**See:** [ADR-035](../decisions/ADR-035-tier-selection-guidelines.md), [ADR-041](../decisions/ADR-041-unified-ku-model.md)
+
 ## See Also
 
 - [DATA_FLOW_WALKTHROUGH.md](/docs/tutorials/DATA_FLOW_WALKTHROUGH.md) - Complete step-by-step example
 - [Model Architecture](/docs/architecture/MODEL_ARCHITECTURE.md)
 - [Protocol-Based Architecture](#protocol-based-architecture) in CLAUDE.md
 - [Unified User Architecture](/docs/architecture/UNIFIED_USER_ARCHITECTURE.md)
+- [DOMAIN_PATTERNS_CATALOG.md](DOMAIN_PATTERNS_CATALOG.md) - Complete per-domain examples

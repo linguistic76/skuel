@@ -1,7 +1,7 @@
 - We use poetry for package management and for running files.
 
 ## One Path Forward - Core Development Philosophy
-*Last updated: 2026-02-09*
+*Last updated: 2026-02-23*
 
 **SKUEL does NOT maintain backward compatibility.** When a better pattern emerges, the old pattern is removed entirely.
 
@@ -173,7 +173,7 @@ SKUEL is developed through analog-to-digital collaboration where domain ideas ar
 
 ```
 Analog (Human)              Digital (Code)
-"15 domains"           ->   KuType + NonKuDomain enums
+"15 domains"           ->   EntityType + NonKuDomain enums
 "Tasks have deadlines" ->   Task.due_date: date
 "Everything flows      ->   SERVES_LIFE_PATH
  toward life path"          relationship type
@@ -194,9 +194,9 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 | 1-6 | Tasks, Goals, Habits, Events, Choices, Principles | Activity | `{type}_{slug}_{random}` | User activities |
 | 7 | Finance | Finance | `expense_{random}` | Admin-only bookkeeping |
 | 8-10 | KU, LS, LP | Curriculum | `ku_{slug}_{random}`, `ls:{random}`, `lp:{random}` | Knowledge organization |
-| 11 | Reports | Content | `ku_{slug}_{random}` | Submissions (transcripts, assignments, journals) — uses unified Ku model |
+| 11 | Reports | Content | `ku_{slug}_{random}` | Submissions (transcripts, exercises, journals) — uses Entity model hierarchy |
 | 12 | Groups | Organizational | `group_{slug}_{random}` | Teacher-student class management |
-| 13 | MOC | Organizational | N/A (emergent — any Ku with ORGANIZES) | Non-linear KU navigation |
+| 13 | MOC | Organizational | N/A (emergent — any Entity with ORGANIZES) | Non-linear KU navigation |
 | 14 | LifePath | Destination | `lp_{random}` | "Am I living my life path?" |
 
 ### Domain Category Details
@@ -218,21 +218,21 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 - `ContentScope.SHARED` + `require_role=UserRole.ADMIN` - admin creates, all users read
 - `_user_ownership_relationship = None` - no ownership verification needed
 - KU (point), LS (edge), LP (path) - three grouping patterns
-- **Resource** (KuType.RESOURCE) — books, talks, films, music. Admin-only shared content, feeds Askesis recommendations
+- **Resource** (EntityType.RESOURCE) — books, talks, films, music. Admin-only shared content, feeds Askesis recommendations
 - Core + search services extend `BaseService`
 - **Admin-only creation** - regular users consume curriculum, admins build it
 - **Detail pages:** `/ku/{uid}`, `/ls/{uid}`, `/lp/{uid}` routes with lateral relationships (Phase 5, placeholder data)
 
 **Content/Processing Domain (1)**:
-- **Reports** - All content submissions and AI/system-generated summaries. Uses unified Ku model with KuType discriminator:
-  - **File submissions** (KuType.SUBMISSION) — user uploads via `/reports/submit`, `ProcessorType.HUMAN`
-  - **AI-processed** (KuType.JOURNAL) — admin uploads via `/journals/submit`, `ProcessorType.LLM`, uses Assignment instructions
-  - **AI-generated** (KuType.AI_REPORT) — system-generated progress reports, `ProcessorType.AUTOMATIC`
-  - **Teacher feedback** (KuType.FEEDBACK_REPORT) — teacher assessments with `subject_uid` for student
+- **Reports** - All content submissions and AI/system-generated summaries. Uses Entity model hierarchy with EntityType discriminator:
+  - **File submissions** (EntityType.SUBMISSION) — user uploads via `/reports/submit`, `ProcessorType.HUMAN`
+  - **AI-processed** (EntityType.JOURNAL) — admin uploads via `/journals/submit`, `ProcessorType.LLM`, uses Exercise instructions
+  - **AI-generated** (EntityType.AI_REPORT) — system-generated progress reports, `ProcessorType.AUTOMATIC`
+  - **Teacher feedback** (EntityType.FEEDBACK_REPORT) — teacher assessments with `subject_uid` for student
 
 **Organizational Domains (2)**:
-- **Groups** - Teacher-student class management (ADR-040). Teacher creates group, adds students via MEMBER_OF. Assignments target groups via FOR_GROUP.
-- **MOC** - Non-linear knowledge navigation. MOC is NOT a KuType — any Ku can organize others via ORGANIZES relationships (emergent identity). Organization managed by `KuOrganizationService` (sub-service of KuService).
+- **Groups** - Teacher-student class management (ADR-040). Teacher creates group, adds students via MEMBER_OF. Exercises target groups via FOR_GROUP.
+- **MOC** - Non-linear knowledge navigation. MOC is NOT an EntityType — any Entity can organize others via ORGANIZES relationships (emergent identity). Organization managed by `KuOrganizationService` (sub-service of KuService).
 
 **LifePath Domain (1)** - The Destination:
 - Philosophy: "The user's vision is understood via words, UserContext via actions"
@@ -342,26 +342,33 @@ LifePath <--> All Domains
 **Infrastructure Field Filtering (ADR-037):**
 Embeddings (`embedding`, `embedding_version`, etc.) are automatically filtered out from DTOs. Embeddings are search infrastructure stored in Neo4j, not domain data. Application code doesn't need raw 1536-dimensional vectors.
 
-### Pattern Selection (Two Patterns)
+### Domain-First Model Hierarchy (February 2026)
 
-SKUEL uses two approved patterns: **Pattern A (Three-Tier)** for most domains, **Pattern B (Two-Tier)** for simple bookkeeping.
-
-**Decision Matrix**:
+Models use a class hierarchy matching domain categories. Each domain has its own frozen dataclass and per-domain DTO:
 
 ```
-Does the domain have 3+ business logic methods?
-├─ YES → Pattern A (Three-Tier) ✅ [Default]
-└─ NO  → Is domain admin-only bookkeeping?
-    ├─ YES → Pattern B (Two-Tier) ✅ [Exception]
-    └─ NO  → Pattern A (Three-Tier) ✅ [Default]
+Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
+├── UserOwnedEntity(Entity) +3 fields (user_uid, visibility, priority)
+│   ├── Task, Goal, Habit, Event, Choice, Principle  (Activity)
+│   ├── LifePath                                      (Destination)
+│   └── Submission → Journal, AiReport, Feedback      (Reports)
+├── Curriculum(Entity) +21 fields → LearningStep, LearningPath, Exercise
+└── Resource(Entity) +7 fields                        (Curated content)
 ```
 
-| Pattern | Files | Tiers | Use For | Domains |
-|---------|-------|-------|---------|---------|
-| **Unified Ku** | 1 model + 1 DTO | Pydantic→DTO→Ku | All 15 KuType domains | Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP, Reports, LifePath (11 domains) |
-| **B: Two-Tier** | 2 | Pydantic→DTO | Simple CRUD, minimal logic | Finance (1 domain) |
+**Per-Domain DTOs** mirror the model hierarchy:
+```
+EntityDTO (~18 fields)
+├── UserOwnedDTO(EntityDTO) +3 → TaskDTO, GoalDTO, HabitDTO, EventDTO, ...
+├── CurriculumDTO(EntityDTO) → LearningStepDTO, LearningPathDTO, ExerciseDTO
+└── ResourceDTO(EntityDTO)
+```
 
-**Unified Ku Model (ADR-041):** All 15 KuType domains share `Ku` (frozen dataclass) + `KuDTO` (mutable DTO). Domain-specific Pydantic request models (`*_request.py`) remain in domain packages for API validation. `KuStatus` is THE status enum — `ActivityStatus` and `GoalStatus` are deleted. MOC is not a KuType — it's emergent (any Ku with ORGANIZES relationships).
+**KuDTO** retained ONLY for cross-domain services (MEGA-QUERY, SearchRouter) — not used by per-domain services.
+
+**Key enums:** `EntityType` (15 values, discriminator), `EntityStatus` (14 values, THE status enum). Both in `ku_enums.py`.
+
+**Neo4j Multi-Label:** Every entity gets `:Entity` (universal) + domain label (`:Task`, `:Goal`, etc.). Backend uses `base_label=NeoLabel.ENTITY`. User relationships use `:OWNS`.
 
 Key: Frozen dataclasses with `__post_init__` for dynamic defaults, `DomainModelProtocol` for generics.
 
@@ -443,17 +450,17 @@ Analytics is a meta-service, not a domain. No Analytics nodes in Neo4j. READ-ONL
 Presentation logic lives inside enum methods. Magic numbers live in `/core/constants.py`.
 
 ```python
-Priority.get_color()                      # Dynamic enum methods
-KuStatus.is_terminal()                    # Terminal state check
-KuStatus.ACTIVE.get_color()               # "#06B6D4" (Cyan)
-KuStatus.from_search_text("in progress")  # [KuStatus.ACTIVE]
-ContextHealthScore.get_numeric()          # 0.0-1.0 scoring
-ContextHealthScore.get_icon()             # 🟢 for EXCELLENT
-GraphDepth.DEFAULT                        # Named constants
+Priority.get_color()                           # Dynamic enum methods
+EntityStatus.is_terminal()                     # Terminal state check
+EntityStatus.ACTIVE.get_color()                # "#06B6D4" (Cyan)
+EntityStatus.from_search_text("in progress")   # [EntityStatus.ACTIVE]
+ContextHealthScore.get_numeric()               # 0.0-1.0 scoring
+ContextHealthScore.get_icon()                  # 🟢 for EXCELLENT
+GraphDepth.DEFAULT                             # Named constants
 ```
 
 **Consolidated Enums:** `/core/models/enums/` - one file per domain (finance_enums.py, activity_enums.py, user_enums.py, etc.)
-- `ku_enums.py`: KuType, KuStatus (THE status enum), CompletionStatus, ProcessorType, ProjectScope, all domain-specific enums
+- `ku_enums.py`: EntityType, EntityStatus (THE status enum), CompletionStatus, ProcessorType, ProjectScope, all domain-specific enums
 - `activity_enums.py`: Priority, ActivityType (calendar/timeline), 5 dual-track assessment levels
 
 **Health Scoring Pattern:** Use typed enums (ContextHealthScore, FinancialHealthTier) instead of string literals for all health/quality assessments.
@@ -465,24 +472,24 @@ GraphDepth.DEFAULT                        # Named constants
 **Core Principle:** "Clear domain language -> clear types -> enforceable contracts"
 
 ```python
-# KuType — 15 knowledge-unit domain types (all :Ku nodes in Neo4j)
-class KuType(str, Enum):
+# EntityType — 15 domain types (multi-label :Entity nodes in Neo4j)
+class EntityType(str, Enum):
     TASK, HABIT, GOAL, EVENT, PRINCIPLE, CHOICE = ...  # Activity
     CURRICULUM, RESOURCE, LEARNING_STEP, LEARNING_PATH = ...  # Curriculum
     JOURNAL, SUBMISSION, AI_REPORT, FEEDBACK_REPORT = ...  # Reports
     LIFE_PATH = "life_path"  # Destination
 
-# NonKuDomain — 4 non-Ku domains
+# NonKuDomain — 4 non-Entity domains
 class NonKuDomain(str, Enum):
     FINANCE, GROUP, CALENDAR, LEARNING = ...
 
 # Type-safe context checking
-if KuType.TASK in activity.contexts:  # MyPy verified!
+if EntityType.TASK in activity.contexts:  # MyPy verified!
 
 # Key methods
-KuType.from_string("task")       # -> KuType.TASK or None
-KuType.from_string("knowledge")  # -> KuType.CURRICULUM (alias support)
-KuType.from_string("ku")         # -> KuType.CURRICULUM (alias support)
+EntityType.from_string("task")       # -> EntityType.TASK or None
+EntityType.from_string("knowledge")  # -> EntityType.CURRICULUM (alias support)
+EntityType.from_string("ku")         # -> EntityType.CURRICULUM (alias support)
 ```
 
 **See:** `/docs/dsl/DSL_SPECIFICATION.md`, `/docs/dsl/DSL_USAGE_GUIDE.md`
@@ -697,9 +704,9 @@ await service.get_for_user(uid, user_uid)      # Get with ownership check
 
 **Core Principle:** "ContentScope controls access, ContentOrigin classifies purpose"
 
-`ContentOrigin` is a derived property of `KuType` — it classifies **where content comes from and what role it plays**, complementing the access-control focus of `ContentScope`.
+`ContentOrigin` is a derived property of `EntityType` — it classifies **where content comes from and what role it plays**, complementing the access-control focus of `ContentScope`.
 
-| Tier | ContentOrigin | KuTypes | Description |
+| Tier | ContentOrigin | EntityTypes | Description |
 |------|--------------|---------|-------------|
 | A | `CURATED` | Resource | Admin-curated content used by Askesis |
 | B | `CURRICULUM` | Curriculum, LS, LP | Curriculum structure and organization |
@@ -707,11 +714,11 @@ await service.get_for_user(uid, user_uid)      # Get with ownership check
 | D | `FEEDBACK` | AI Report, Feedback Report | Analysis/feedback that acts on tier C |
 
 ```python
-from core.models.enums.ku_enums import KuType, ContentOrigin
+from core.models.enums.ku_enums import EntityType, ContentOrigin
 
-KuType.TASK.content_origin()       # ContentOrigin.USER_CREATED
-KuType.RESOURCE.content_origin()   # ContentOrigin.CURATED
-KuType.AI_REPORT.content_origin()  # ContentOrigin.FEEDBACK
+EntityType.TASK.content_origin()       # ContentOrigin.USER_CREATED
+EntityType.RESOURCE.content_origin()   # ContentOrigin.CURATED
+EntityType.AI_REPORT.content_origin()  # ContentOrigin.FEEDBACK
 ```
 
 **See:** `ContentOrigin` in `/core/models/enums/ku_enums.py`
@@ -983,7 +990,10 @@ await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_ui
 Use `UniversalNeo4jBackend[T]` directly - no wrapper classes.
 
 ```python
-tasks_backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
+tasks_backend = UniversalNeo4jBackend[Task](
+    driver, NeoLabel.TASK, Task,
+    base_label=NeoLabel.ENTITY,  # CREATE produces (n:Entity:Task)
+)
 tasks = await backend.find_by(priority='high', due_date__gte=date.today())
 ```
 
@@ -1039,7 +1049,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         model_class=Goal,
         domain_name="goals",
         date_field="target_date",
-        completed_statuses=(KuStatus.COMPLETED.value,),
+        completed_statuses=(EntityStatus.COMPLETED.value,),
         category_field="domain",  # Goals use 'domain' for categorization
     )
 ```
@@ -1048,10 +1058,10 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
 ```python
 from core.services.domain_config import create_curriculum_domain_config
 
-class KuSearchService(BaseService[KuOperations, KnowledgeUnit]):
+class KuSearchService(BaseService[KuOperations, Curriculum]):
     _config = create_curriculum_domain_config(
-        dto_class=KuDTO,
-        model_class=KnowledgeUnit,
+        dto_class=CurriculumDTO,
+        model_class=Curriculum,
         domain_name="ku",
         search_fields=("title", "description", "content"),
         category_field="domain",
@@ -1162,7 +1172,7 @@ from core.services.ingestion import UnifiedIngestionService
 - **LS Path:** Structured, linear, teacher-directed curriculum (KU → LS → LP)
 - **ORGANIZES Path:** Unstructured, graph, learner-directed exploration (any KU organizing other KUs)
 
-**MOC Architecture (February 2026):** MOC is NOT a KuType — it's emergent identity. Any Ku "is" an organizer when it has outgoing ORGANIZES relationships. Organization managed by `KuOrganizationService` (sub-service of KuService).
+**MOC Architecture (February 2026):** MOC is NOT an EntityType — it's emergent identity. Any Entity "is" an organizer when it has outgoing ORGANIZES relationships. Organization managed by `KuOrganizationService` (sub-service of KuService).
 
 **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`, `/docs/domains/moc.md`
 
@@ -1214,7 +1224,7 @@ Use for consistent timestamp/metadata handling: `timestamp_properties()`, `updat
 - SKUEL011: No `hasattr()` - use Protocol/isinstance/getattr
 - SKUEL012: No lambda expressions - use named functions
 - SKUEL013: Use `RelationshipName` enum
-- SKUEL014: Use `KuType`/`NonKuDomain` enum
+- SKUEL014: Use `EntityType`/`NonKuDomain` enum
 - SKUEL015: No `print()` in production
 
 **Avoiding Common Violations:**
@@ -1539,13 +1549,13 @@ All 10 domain `*_intelligence_service.py` files extend `BaseAnalyticsService`. A
 **Usage:**
 ```python
 from core.utils.embedding_text_builder import build_embedding_text
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import EntityType
 
 # From dict (ingestion path)
-text = build_embedding_text(KuType.TASK, {"title": "Fix bug", "description": "Details"})
+text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description": "Details"})
 
 # From model (background worker path)
-text = build_embedding_text(KuType.TASK, task_model)
+text = build_embedding_text(EntityType.TASK, task_model)
 ```
 
 **Field Mappings:** See `EMBEDDING_FIELD_MAPS` in the utility for canonical field list per entity type.

@@ -1,7 +1,7 @@
 ---
 title: Knowledge Substance Philosophy
 created: 2025-10-17
-updated: 2026-01-11
+updated: 2026-02-23
 status: active
 audience: all
 tags: [architecture, knowledge, substance, philosophy, learning, ku-activity-integration]
@@ -24,7 +24,7 @@ Learning Paths (lp) - sequences toward life goals
     ↑ composed of
 Learning Steps (ls) - curated knowledge + practice bundles
     ↑ built from
-Knowledge Units (ku) - atomic particles of applied knowledge
+Curriculum entities (ku) - atomic particles of applied knowledge
     ↕ BIDIRECTIONAL enrichment
 Supporting Domains - tasks, events, habits, journals, choices, principles
 ```
@@ -350,7 +350,7 @@ Div(
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| **Substance Fields** | `/core/models/ku/ku.py` | Times applied, last use dates, cached scores |
+| **Substance Fields** | `/core/models/ku/ku.py` | Substance fields on `Curriculum` model (Entity base + Ku union type file) |
 | **Decay Algorithm** | `/core/models/ku/ku.py` | Exponential decay, spaced repetition |
 | **Domain Events** | `/core/events/ku_events.py` | 5 substance events |
 | **Event Listeners** | `/core/services/ku_service.py` | Atomic substance updates |
@@ -504,6 +504,6 @@ substance_score = min(1.0, sum([
 
 ---
 
-**Last Updated:** January 11, 2026
+**Last Updated:** February 23, 2026
 **Status:** Active - Core philosophy driving substance tracking feature
 **Recent:** KU-Activity Integration Enhancement (per-user substance calculation)

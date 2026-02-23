@@ -1,26 +1,29 @@
 ---
 title: SKUEL 14-Domain Architecture
-updated: 2026-02-06
+updated: 2026-02-23
 status: current
 category: architecture
+version: 4.0.0
 tags:
 - architecture
 - domain
 - fourteen
+- domain-first-migration
 related:
 - ADR-019-transcription-service-standalone
 - ADR-023-curriculum-baseservice-migration
 - ADR-024-baseintellligence-service-migration
 - ADR-025-service-consolidation-patterns
 - ADR-040-teacher-assignment-workflow
+- ADR-041-unified-ku-model
 related_skills:
 - activity-domains
 ---
 
 # SKUEL 14-Domain Architecture
 
-**Last Updated**: February 6, 2026
-**Version**: 3.0.0 (ADR-040: Groups + Teacher Assignment Workflow)
+**Last Updated**: February 23, 2026
+**Version**: 4.0.0 (Domain-First Architecture Migration Complete)
 ## Related Skills
 
 For implementation guidance, see:
@@ -40,6 +43,81 @@ SKUEL is built on a **15-domain + 5 cross-cutting systems architecture** that re
 - **Cross-Cutting Systems (5)** - The infrastructure that enables everything (4 active + 1 planned)
 
 **Core Philosophy**: "Everything flows toward the life path."
+
+---
+
+## Domain-First Architecture (February 2026)
+
+The codebase underwent a 6-phase domain-first migration (Phases 0-5) that introduced:
+
+1. **Neo4j multi-label architecture** -- every entity gets `:Entity` (universal) + domain-specific labels (`:Task`, `:Goal`, etc.), with `:Ku` retained for backward compatibility
+2. **Renamed model classes** -- all `*Ku` suffixes removed (e.g., `TaskKu` to `Task`, `GoalKu` to `Goal`, `KuBase` to `Entity`), with `KuType` to `EntityType` and `KuStatus` to `EntityStatus`
+3. **`UserOwnedEntity` intermediate class** -- separates user-owned fields (`user_uid`, `priority`) from the base `Entity`
+4. **Per-domain DTOs** -- `TaskDTO`, `GoalDTO`, `HabitDTO`, etc. replace monolithic `KuDTO` for domain services (KuDTO retained only for cross-domain use)
+5. **`Exercise` replaces `Assignment`** -- aligns with SKUEL's applied knowledge philosophy
+
+### Model Hierarchy
+
+```
+Entity (~19 fields: uid, entity_type, title, description, status, tags, ...)
+├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
+│   ├── Task, Goal, Habit, Event, Choice, Principle  (Activity Domains)
+│   ├── LifePath                                      (Destination)
+│   └── Submission → Journal, AiReport, Feedback      (Reports)
+├── Curriculum(Entity) +21 fields → LearningStep, LearningPath, Exercise
+└── Resource(Entity) +7 fields                        (Curated content)
+```
+
+**Key files:**
+- `/core/models/ku/entity.py` -- `Entity` base class
+- `/core/models/ku/user_owned_entity.py` -- `UserOwnedEntity` intermediate class
+- `/core/models/enums/ku_enums.py` -- `EntityType`, `EntityStatus` (file not renamed)
+
+### DTO Hierarchy
+
+```
+EntityDTO (~18 fields)
+├── UserOwnedDTO(EntityDTO) +3 → TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO, LifePathDTO
+├── UserOwnedDTO → SubmissionDTO → JournalDTO, AiReportDTO, FeedbackDTO
+├── CurriculumDTO(EntityDTO) → LearningStepDTO, LearningPathDTO, ExerciseDTO
+└── ResourceDTO(EntityDTO)
+```
+
+`KuDTO` is retained ONLY for cross-domain services (`SearchRouter`, MEGA-QUERY, `cross_domain_queries.py`, `analytics_metrics_service.py`).
+
+### Neo4j Multi-Label Architecture
+
+Every entity node gets two or more labels:
+
+```cypher
+// CREATE produces triple labels (domain-specific + :Entity + :Ku for backward compat)
+CREATE (n:Ku:Entity:Task {uid: $uid, ...})
+CREATE (n:Ku:Entity:Goal {uid: $uid, ...})
+CREATE (n:Ku:Entity:LearningStep {uid: $uid, ...})
+```
+
+**`NeoLabel` enum** (`/core/models/enums/neo_labels.py`) has 16 domain labels + `from_entity_type()` method:
+
+| Category | Labels |
+|----------|--------|
+| **Universal** | `:Entity` (all domain entities) |
+| **Legacy** | `:Ku` (retained for backward compat) |
+| **Activity (6)** | `:Task`, `:Goal`, `:Habit`, `:Event`, `:Choice`, `:Principle` |
+| **Curriculum (4)** | `:Curriculum`, `:Resource`, `:LearningStep`, `:LearningPath` |
+| **Content (4)** | `:Submission`, `:Journal`, `:AiReport`, `:Feedback` |
+| **Instruction** | `:Exercise` |
+| **Destination** | `:LifePath` |
+
+User relationships standardized to `:OWNS` (was `:HAS_KU`). MEGA-QUERY now uses domain labels + `OWNS` relationships.
+
+### Enum Renames
+
+| Old Name | New Name | Location |
+|----------|----------|----------|
+| `KuType` | `EntityType` | `core/models/enums/ku_enums.py` |
+| `KuStatus` | `EntityStatus` | `core/models/enums/ku_enums.py` |
+
+The `ku_enums.py` file was NOT renamed. The `ku_type` database property was NOT renamed.
 
 ---
 
@@ -75,7 +153,7 @@ SKUEL is built on a **15-domain + 5 cross-cutting systems architecture** that re
 │ORGANIZATIONAL │           │ • Choices       │           │Two Access     │
 │ DOMAINS (2)   │           │ ─────────────── │           │Paths to KU:   │
 │ • Groups      │           │ • Finance (1)   │           │ • LS (linear) │
-│ • MOC (KU-    │           │                 │           │ • MOC (graph) │
+│ • MOC (Entity-│           │                 │           │ • MOC (graph) │
 │   based org)  │           │                 │           │               │
 └───────────────┘           └─────────────────┘           └───────────────┘
         │                             │                             │
@@ -99,16 +177,16 @@ SKUEL is built on a **15-domain + 5 cross-cutting systems architecture** that re
 
 ### 1. Activity Domains (6) - What I DO
 
-Activity domains are **independent entities** that users create, track, and complete. They represent the concrete actions of living.
+Activity domains are **independent entities** that users create, track, and complete. They represent the concrete actions of living. All Activity Domain models inherit from `UserOwnedEntity(Entity)`.
 
-| Domain | Purpose | Key Characteristics |
-|--------|---------|---------------------|
-| **Tasks** | Work items to complete | One-time, deadline-driven, outcome-focused |
-| **Habits** | Behaviors to build | Recurring, streak-tracked, lifestyle-integrated |
-| **Goals** | Outcomes to achieve | Milestones, progress-measured, aspiration-driven |
-| **Events** | Time commitments | Scheduled, calendar-based, attendance-tracked |
-| **Principles** | Values to embody | Guiding philosophies, decision-criteria, life-anchors |
-| **Choices** | Decisions to make | Options, criteria, outcome-tracked |
+| Domain | Model Class | Purpose | Key Characteristics |
+|--------|-------------|---------|---------------------|
+| **Tasks** | `Task` | Work items to complete | One-time, deadline-driven, outcome-focused |
+| **Habits** | `Habit` | Behaviors to build | Recurring, streak-tracked, lifestyle-integrated |
+| **Goals** | `Goal` | Outcomes to achieve | Milestones, progress-measured, aspiration-driven |
+| **Events** | `Event` | Time commitments | Scheduled, calendar-based, attendance-tracked |
+| **Principles** | `Principle` | Values to embody | Guiding philosophies, decision-criteria, life-anchors |
+| **Choices** | `Choice` | Decisions to make | Options, criteria, outcome-tracked |
 
 ### 2. Finance Domain (1) - What I MANAGE
 
@@ -127,17 +205,17 @@ Finance is its **OWN domain group**, NOT an Activity Domain:
 **No Cross-Domain Intelligence**: Finance is pure bookkeeping - no intelligence service, no relationship configuration, no cross-domain connections. January 2026 simplification removed FinanceIntelligenceService and FinanceSearchService.
 
 **Common Characteristics (Activity + Finance)**:
-- Standalone lifecycle (created → active → completed/archived)
+- Standalone lifecycle (created -> active -> completed/archived)
 - Direct user manipulation (CRUD operations)
 
 **Graph Relationships**:
 ```
-Task ─[APPLIES_KNOWLEDGE]→ KnowledgeUnit
-Task ─[FULFILLS]→ Goal
-Habit ─[REINFORCES]→ Principle
-Goal ─[INSPIRED_BY]→ Choice
-Choice ─[INFORMED_BY]→ KnowledgeUnit
-Principle ─[GROUNDED_IN]→ KnowledgeUnit
+Task -[APPLIES_KNOWLEDGE]-> KnowledgeUnit
+Task -[FULFILLS]-> Goal
+Habit -[REINFORCES]-> Principle
+Goal -[INSPIRED_BY]-> Choice
+Choice -[INFORMED_BY]-> KnowledgeUnit
+Principle -[GROUNDED_IN]-> KnowledgeUnit
 ```
 
 ---
@@ -154,7 +232,7 @@ Services compose only the mixins they need instead of inheriting a bloated base 
 
 | Mixin | Purpose | Key Methods |
 |-------|---------|-------------|
-| **ConversionHelpersMixin** | DTO ↔ Model conversion | `to_dto()`, `to_model()`, `to_dict()` |
+| **ConversionHelpersMixin** | DTO <-> Model conversion | `to_dto()`, `to_model()`, `to_dict()` |
 | **CrudOperationsMixin** | Basic CRUD operations | `create()`, `get()`, `update()`, `delete()`, `list()` |
 | **SearchOperationsMixin** | Search & filtering | `search()`, `get_by_status()`, `get_by_category()` |
 | **RelationshipOperationsMixin** | Relationship queries | `get_prerequisites()`, `get_enables()` |
@@ -239,10 +317,10 @@ self.intelligence = common.intelligence  # TasksIntelligenceService
 **Domain Facade Pattern:**
 ```
 TasksService (Facade)
-├── .core         → TasksCoreService (CRUD + domain logic)
-├── .search       → TasksSearchService (Discovery)
-├── .relationships → UnifiedRelationshipService (TASKS_CONFIG)
-└── .intelligence  → TasksIntelligenceService (Analytics, NO AI)
+├── .core         -> TasksCoreService (CRUD + domain logic)
+├── .search       -> TasksSearchService (Discovery)
+├── .relationships -> UnifiedRelationshipService (TASKS_CONFIG)
+└── .intelligence  -> TasksIntelligenceService (Analytics, NO AI)
 ```
 
 All sub-services created via `create_common_sub_services()` factory, eliminating repetitive initialization code.
@@ -251,7 +329,7 @@ All sub-services created via `create_common_sub_services()` factory, eliminating
 
 ### 3. Curriculum Domains (3) - What I LEARN
 
-Curriculum domains form SKUEL's **educational foundation** through **three grouping patterns** - different perspectives on the same knowledge base:
+Curriculum domains form SKUEL's **educational foundation** through **three grouping patterns** - different perspectives on the same knowledge base. All Curriculum Domain models inherit from `Curriculum(Entity)` (or `Resource(Entity)` for curated content).
 
 ```
                 LP     LP     LP    (Learning Paths - linear sequences)
@@ -314,61 +392,58 @@ SKUEL measures knowledge by how it's **LIVED**, not just learned:
 
 ### 4. Content/Processing Domains (2) - How I PROCESS
 
-Content/Processing domains handle **input processing and AI transformation** across the system.
+Content/Processing domains handle **input processing and AI transformation** across the system. Report models inherit from `Submission(UserOwnedEntity)`.
 
 | Domain | Type | Purpose | Data Flow |
 |--------|------|---------|-----------|
-| **Reports** | Processing | User-facing report interface | Input → Processing → Activities |
-| **Journals** | Processing | Two-tier journal system | Voice/Text → AI → Formatted Output |
+| **Reports** | Processing | User-facing report interface | Input -> Processing -> Activities |
+| **Journals** | Processing | Two-tier journal system | Voice/Text -> AI -> Formatted Output |
 
 **Report Types (February 2026):**
 
-All report types store as `Report` nodes with `report_type` distinguishing them:
+All report types store as `:Submission` (or subtype) nodes with `entity_type` / `ku_type` distinguishing them. Report models inherit from `Submission(UserOwnedEntity)`:
 
-| ReportType | Created By | Processor | Description |
-|------------|-----------|-----------|-------------|
-| `TRANSCRIPT` | User upload | Automatic (Deepgram) | Audio file transcriptions |
-| `ASSIGNMENT` | User upload | LLM/Human/Hybrid | Teacher-assigned work |
-| `JOURNAL` | User input | LLM | Daily reflections |
-| `JOURNAL_VOICE` | User upload | Automatic (Deepgram) | Ephemeral voice journals (max 3) |
-| `JOURNAL_CURATED` | User input | LLM | Permanent curated journals |
-| `PROGRESS` | System | Automatic | System-generated activity completion summaries |
-| `ASSESSMENT` | Teacher | Human | Teacher-authored qualitative evaluations |
+| EntityType | Created By | Processor | Model Class | Description |
+|------------|-----------|-----------|-------------|-------------|
+| `SUBMISSION` | User upload | LLM/Human/Hybrid | `Submission` | Teacher-assigned work |
+| `JOURNAL` | User input | LLM | `Journal` | Daily reflections (ephemeral or permanent) |
+| `AI_REPORT` | System | Automatic | `AiReport` | System-generated activity summaries |
+| `FEEDBACK_REPORT` | Teacher | Human | `Feedback` | Teacher-authored evaluations |
 
-**Content Origin Tiers:** User submissions (TRANSCRIPT through JOURNAL_CURATED) are `ContentOrigin.USER_CREATED`; system-generated content (PROGRESS, ASSESSMENT) is `ContentOrigin.FEEDBACK`. See `KuType.content_origin()` for the full mapping.
+**Content Origin Tiers:** User submissions (SUBMISSION, JOURNAL) are `ContentOrigin.USER_CREATED`; system-generated content (AI_REPORT, FEEDBACK_REPORT) is `ContentOrigin.FEEDBACK`. See `EntityType.content_origin()` for the full mapping.
 
-**Progress Reports** are generated by `ProgressReportGenerator` — queries historical completions across tasks, goals, habits, and choices within a time window, cross-references active insights, and builds structured markdown. Can be generated on-demand or on a recurring schedule via `ReportScheduleService`.
+**Progress Reports** are generated by `ProgressReportGenerator` -- queries historical completions across tasks, goals, habits, and choices within a time window, cross-references active insights, and builds structured markdown. Can be generated on-demand or on a recurring schedule via `ReportScheduleService`.
 
-**Teacher Assessments** are created by teachers via `ReportsCoreService.create_assessment()` — creates Report with `ASSESSMENT_OF` relationship to student and auto-shares via `SHARES_WITH`.
+**Teacher Assessments** are created by teachers via `ReportsCoreService.create_assessment()` -- creates Report with `ASSESSMENT_OF` relationship to student and auto-shares via `SHARES_WITH`.
 
 **Reports Architecture**:
 ```
-User Upload → ReportSubmissionService
-                    ↓
+User Upload -> ReportSubmissionService
+                    |
             ReportsProcessingService
-                    ↓
+                    |
             [Processor Selection]
-            ├→ Audio → TranscriptionService (Deepgram) → ContentEnrichmentService
-            ├→ Text → ContentEnrichmentService
-            └→ Other → Future processors
-                    ↓
+            |-> Audio -> TranscriptionService (Deepgram) -> ContentEnrichmentService
+            |-> Text -> ContentEnrichmentService
+            |-> Other -> Future processors
+                    |
             Activity Extraction (DSL Parser)
-                    ↓
+                    |
             Entity Creation (14 domains)
 
 System-Generated:
             ProgressReportGenerator
-            ├→ Query completions (Tasks, Goals, Habits, Choices)
-            ├→ Reference active Insights
-            └→ Build markdown → Report(type=PROGRESS)
-                    ↓
+            |-> Query completions (Tasks, Goals, Habits, Choices)
+            |-> Reference active Insights
+            |-> Build markdown -> Report(type=AI_REPORT)
+                    |
             ReportScheduleService (optional recurring generation)
-                    ↓
+                    |
             ProgressReportWorker (background hourly check)
 ```
 
 **Note:** TranscriptionService (ADR-019) is a simplified 8-method service that handles
-audio → Deepgram → transcript. It publishes TranscriptionCompleted events for downstream
+audio -> Deepgram -> transcript. It publishes TranscriptionCompleted events for downstream
 processing. See `/docs/decisions/ADR-019-transcription-service-standalone.md`.
 
 **Key Distinction**:
@@ -405,25 +480,41 @@ GroupService (standalone)
 ```cypher
 (teacher:User)-[:OWNS]->(group:Group)
 (student:User)-[:MEMBER_OF {joined_at, role}]->(group:Group)
-(project:Assignment)-[:FOR_GROUP]->(group:Group)              // Assignment targeting
-(submission:Ku)-[:FULFILLS_PROJECT]->(project:Assignment)      // Student submission
+(exercise:Exercise)-[:FOR_GROUP]->(group:Group)              // Exercise targeting
+(submission:Submission)-[:FULFILLS_EXERCISE]->(exercise:Exercise) // Student submission
 ```
 
-**Assignment Workflow:**
-Assignment provides `scope`, `due_date`, `processor_type`, `group_uid` fields. When `scope=ASSIGNED`, the assignment targets a group via FOR_GROUP. Students submit Ku entries that auto-share with the teacher via SHARES_WITH.
+**Exercise Workflow:**
+Exercise (formerly Assignment) provides `scope`, `due_date`, `processor_type`, `group_uid` fields. When `scope=ASSIGNED`, the exercise targets a group via `FOR_GROUP`. Students submit entities that auto-share with the teacher via `SHARES_WITH`. The pipeline is: `Curriculum -> Exercise -> Submission -> Feedback`.
+
+**Key name change (February 2026):** `Assignment` entity renamed to `Exercise` -- aligns with SKUEL's applied knowledge philosophy. `:Exercise` Neo4j label (was `:Assignment`), `HAS_EXERCISE` relationship (was `HAS_ASSIGNMENT`), `FULFILLS_EXERCISE` relationship (was `FULFILLS_PROJECT`).
 
 **See:** `/docs/decisions/ADR-040-teacher-assignment-workflow.md`
 
 #### MOC (Map of Content)
 
-**MOC** provides **non-linear knowledge organization** using KUs organized via ORGANIZES relationships.
+**MOC** provides **non-linear knowledge organization** using Entity nodes organized via `ORGANIZES` relationships.
 
-**January 2026 - KU-Based Architecture:**
-- **MOC is NOT a separate entity** - it IS a KU with ORGANIZES relationships
-- A KU "is" a MOC when it has outgoing ORGANIZES relationships (emergent identity)
-- Sections within MOCs are also KUs organized via ORGANIZES
-- Same KU can be in multiple MOCs (many-to-many)
-- Progress tracked on the KU itself, unified across LS and MOC paths
+**February 2026 - Entity-Based Architecture:**
+- **MOC is NOT a separate entity** - it IS an Entity (KU) with `ORGANIZES` relationships
+- An Entity "is" a MOC when it has outgoing `ORGANIZES` relationships (emergent identity)
+- Sections within MOCs are also Entity nodes organized via `ORGANIZES`
+- Same Entity can be in multiple MOCs (many-to-many)
+- Progress tracked on the Entity itself, unified across LS and MOC paths
+
+**Service Architecture (February 2026):**
+MOC navigation is managed by `KuOrganizationService`, a sub-service of `KuService`. The old `MOCService` / `MocNavigationService` has been deleted.
+
+```
+KuService (facade)
+└── KuOrganizationService  - All MOC organization/navigation
+    Methods: is_organizer, get_organization_view, organize, unorganize,
+             reorder, find_organizers, list_root_organizers, get_organized_children
+```
+
+**Key Files:**
+- `/core/services/ku/ku_organization_service.py` - Organization service
+- `/docs/domains/moc.md` - Full documentation
 
 **Two Paths to Knowledge (Montessori-Inspired):**
 
@@ -433,8 +524,8 @@ Assignment provides `scope`, `due_date`, `processor_type`, `group_uid` fields. W
 | **MOC** | Graph | Free exploration | Learner-directed |
 
 ```
-LS Path (Structured):              MOC Path (Exploratory):
-KU → KU → KU → KU                      KU (root MOC)
+ LS Path (Structured):              MOC Path (Exploratory):
+KU -> KU -> KU -> KU                      KU (root MOC)
 Sequential learning                   /    |    \
 "Learn this, then this"            KU    KU    KU (topics)
                                   / \         / \
@@ -445,31 +536,19 @@ Sequential learning                   /    |    \
 
 **ORGANIZES Relationship:**
 ```cypher
-// Create organization (KU organizing KU)
-(parent:Ku)-[:ORGANIZES {order: int}]->(child:Ku)
+// Create organization (Entity organizing Entity)
+(parent:Ku:Entity)-[:ORGANIZES {order: int}]->(child:Ku:Entity)
 
-// Check if KU is a MOC
-MATCH (ku:Ku {uid: $ku_uid})
-OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Ku)
+// Check if Entity is a MOC
+MATCH (e:Entity {uid: $uid})
+OPTIONAL MATCH (e)-[:ORGANIZES]->(child:Entity)
 RETURN count(child) > 0 AS is_moc
 
 // Get organized children (ordered)
-MATCH (parent:Ku {uid: $ku_uid})-[r:ORGANIZES]->(child:Ku)
+MATCH (parent:Entity {uid: $uid})-[r:ORGANIZES]->(child:Entity)
 RETURN child.uid, child.title, r.order
 ORDER BY r.order ASC
 ```
-
-**MOC Service Architecture:**
-```
-MOCService (thin facade)
-└── MocNavigationService (all MOC operations)
-    └── KuService (underlying KU CRUD)
-```
-
-**Key Files:**
-- `/core/services/moc_service.py` - Facade
-- `/core/services/moc/moc_navigation_service.py` - Navigation service
-- `/docs/domains/moc.md` - Full documentation
 
 **LS vs MOC - Complementary, Not Competing:**
 
@@ -478,14 +557,14 @@ MOCService (thin facade)
 | **Structure** | Linear sequence | Non-linear graph |
 | **Purpose** | "Learn X step-by-step" | "Browse everything about X" |
 | **Navigation** | Next/Previous | Jump anywhere |
-| **Progress** | Tracked on KU | Tracked on KU (same!) |
+| **Progress** | Tracked on Entity | Tracked on Entity (same!) |
 | **Use Case** | Structured learning | Reference & exploration |
 
 ---
 
 ### 6. LifePath (1) - The Destination
 
-**LifePath** is Domain #14 - the ultimate destination toward which everything flows.
+**LifePath** is Domain #14 - the ultimate destination toward which everything flows. The `LifePath` model inherits from `UserOwnedEntity(Entity)`.
 
 ```
 "Everything flows toward the life path."
@@ -504,10 +583,10 @@ the UserContext is determined via user's actions."
 **LifePath Service Structure** (`/core/services/lifepath/`):
 ```
 LifePathService (Facade)
-├── .vision     → LifePathVisionService    (capture, analyze, recommend)
-├── .core       → LifePathCoreService      (designation CRUD)
-├── .alignment  → LifePathAlignmentService (calculate alignment)
-└── .intelligence → LifePathIntelligenceService (recommendations)
+├── .vision     -> LifePathVisionService    (capture, analyze, recommend)
+├── .core       -> LifePathCoreService      (designation CRUD)
+├── .alignment  -> LifePathAlignmentService (calculate alignment)
+└── .intelligence -> LifePathIntelligenceService (recommendations)
 ```
 
 **5-Dimension Alignment**:
@@ -541,11 +620,11 @@ Cross-cutting systems provide **foundation and infrastructure** without being do
 
 | System | Purpose | Status | Key Features |
 |--------|---------|--------|--------------|
-| **UserContext** | User state awareness | ✅ Active | ~240 fields, rich context, UID tracking |
-| **Search** | Unified discovery | ✅ Active | Semantic search across all 14 domains |
-| **Calendar** | Time aggregation | ✅ Active | Aggregates Tasks, Events, Habits, Goals |
-| **Askesis** | AI orchestration | ✅ Active | LLM integration, intelligent assistance |
-| **Messaging** | Communication | 📋 Planned | Notifications, alerts, reminders |
+| **UserContext** | User state awareness | Active | ~240 fields, rich context, UID tracking |
+| **Search** | Unified discovery | Active | Semantic search across all 14 domains |
+| **Calendar** | Time aggregation | Active | Aggregates Tasks, Events, Habits, Goals |
+| **Askesis** | AI orchestration | Active | LLM integration, intelligent assistance |
+| **Messaging** | Communication | Planned | Notifications, alerts, reminders |
 
 **Note:** 4 cross-cutting systems are fully implemented; Messaging is planned for future development.
 
@@ -566,8 +645,8 @@ class UserContext:
     # Finance awareness (1 domain)
     recent_expense_uids: list[str]
 
-    # Curriculum awareness (3 curriculum domains; MOC is KU-based)
-    knowledge_mastery: dict[str, float]  # ku_uid → mastery
+    # Curriculum awareness (3 curriculum domains; MOC is Entity-based)
+    knowledge_mastery: dict[str, float]  # ku_uid -> mastery
     active_learning_step_uids: list[str]
     enrolled_learning_path_uids: list[str]
 
@@ -610,12 +689,12 @@ activity_services = _create_activity_services(
 )
 
 # All 6 services created uniformly:
-# activity_services["tasks"]     → TasksService
-# activity_services["events"]    → EventsService
-# activity_services["habits"]    → HabitsService
-# activity_services["goals"]     → GoalsService
-# activity_services["choices"]   → ChoicesService
-# activity_services["principles"] → PrinciplesService
+# activity_services["tasks"]     -> TasksService
+# activity_services["events"]    -> EventsService
+# activity_services["habits"]    -> HabitsService
+# activity_services["goals"]     -> GoalsService
+# activity_services["choices"]   -> ChoicesService
+# activity_services["principles"] -> PrinciplesService
 ```
 
 ### Sub-Service Structure
@@ -731,7 +810,7 @@ async def get_overdue(limit: int = 100) -> Result[list[T]]
 
 *Added: January 2026*
 
-The 3 Curriculum Domains (KU, LS, LP) follow a **decomposed facade pattern** similar to Activity Domains, with complexity appropriately sized to each domain's needs. MOC is the Organizational Domain documented in section 5 - it's KU-based (not a separate entity).
+The 3 Curriculum Domains (KU, LS, LP) follow a **decomposed facade pattern** similar to Activity Domains, with complexity appropriately sized to each domain's needs. MOC is the Organizational Domain documented in section 5 - it's Entity-based (not a separate entity).
 
 ### Complexity by Domain (Curriculum)
 
@@ -741,23 +820,24 @@ The 3 Curriculum Domains (KU, LS, LP) follow a **decomposed facade pattern** sim
 | **LP** | 408 | 8 | High | Learning paths need validation/adaptive |
 | **LS** | 311 | 3 | **Minimal** | Steps are simple aggregations |
 
-**MOC (Organizational Domain - January 2026 KU-based):**
-| Domain | Facade Lines | Sub-Services | Complexity | Rationale |
-|--------|-------------|--------------|------------|-----------|
-| **MOC** | ~100 | 1 | Minimal | Thin facade over MocNavigationService; MOC is KU with ORGANIZES |
+**MOC (Organizational Domain - February 2026 Entity-based):**
+| Domain | Sub-Services | Complexity | Rationale |
+|--------|--------------|------------|-----------|
+| **MOC** | 1 | Minimal | `KuOrganizationService` sub-service of KuService; MOC is Entity with ORGANIZES |
 
 ### Sub-Service Decomposition
 
 **KU (Knowledge Units) - Most Sophisticated:**
 ```
 KuService (facade)
-├── KuCoreService         - CRUD operations
-├── KuSearchService       - Search & discovery (facets, tags, semantic)
-├── KuGraphService        - Graph navigation
-├── KuSemanticService     - Semantic relationships
-├── KuLpService           - Learning path integration
-├── KuPracticeService     - Event-driven practice tracking
-└── KuInteractionService  - Pedagogical tracking (VIEWED → IN_PROGRESS → MASTERED)
+├── KuCoreService          - CRUD operations
+├── KuSearchService        - Search & discovery (facets, tags, semantic)
+├── KuGraphService         - Graph navigation
+├── KuSemanticService      - Semantic relationships
+├── KuLpService            - Learning path integration
+├── KuPracticeService      - Event-driven practice tracking
+├── KuOrganizationService  - MOC organization/navigation (February 2026)
+└── KuInteractionService   - Pedagogical tracking (VIEWED -> IN_PROGRESS -> MASTERED)
 ```
 
 **LP (Learning Paths) - Well-Decomposed:**
@@ -781,41 +861,44 @@ LsService (facade)
 └── LsSearchService       - Search operations (BaseService)
 ```
 
-**MOC (Map of Content) - KU-Based (January 2026):**
-```
-MOCService (thin facade)
-└── MocNavigationService  - All MOC navigation/organization
-    └── KuService         - Underlying KU CRUD operations
-```
-**Key Insight:** MOC is NOT a separate entity - it IS a KU with ORGANIZES relationships. The old 6-service architecture was replaced with a single navigation service.
-
 ### Backend Pattern
 
-| Domain | Backend Approach |
-|--------|-----------------|
-| **KU** | Direct `UniversalNeo4jBackend[Ku]` (no wrapper) |
-| **LS** | `LsUniversalBackend` extends `UniversalNeo4jBackend[Ls]` |
-| **LP** | `LpUniversalBackend` extends `UniversalNeo4jBackend[Lp]` |
-| **MOC** | No backend - MOC uses KuService (MOC IS a KU with ORGANIZES) |
+All backends use the multi-label architecture. The `base_label=NeoLabel.ENTITY` parameter ensures all created nodes get the `:Entity` universal label, while the first argument sets the domain-specific label.
+
+| Domain | Backend Approach | Example |
+|--------|-----------------|---------|
+| **KU** | Direct `UniversalNeo4jBackend[Curriculum]` | `UniversalNeo4jBackend(driver, NeoLabel.CURRICULUM, Curriculum, base_label=NeoLabel.ENTITY)` |
+| **LS** | `LsUniversalBackend` extends `UniversalNeo4jBackend[LearningStep]` | Domain label `:LearningStep`, base `:Entity` |
+| **LP** | `LpUniversalBackend` extends `UniversalNeo4jBackend[LearningPath]` | Domain label `:LearningPath`, base `:Entity` |
+| **Activity** | Direct `UniversalNeo4jBackend[Task]` etc. | `UniversalNeo4jBackend(driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)` |
+| **MOC** | No backend - MOC uses KuService (MOC IS an Entity with ORGANIZES) | -- |
+
+**CREATE produces triple labels:**
+```cypher
+CREATE (n:Ku:Entity:Task {uid: $uid, ...})     // :Ku retained for backward compat
+CREATE (n:Ku:Entity:Goal {uid: $uid, ...})
+CREATE (n:Ku:Entity:LearningStep {uid: $uid, ...})
+```
 
 ### Search Service Pattern
 
 LS and LP search services inherit from `BaseService`, providing unified search infrastructure:
 
 ```python
-class LsSearchService(BaseService["LsUniversalBackend", Ls]):
-    _dto_class = LearningStepDTO
-    _model_class = Ls
-    _search_fields = ["title", "intent", "description"]
-    _supports_user_progress = True  # Curriculum feature opt-in
-    _user_ownership_relationship = None  # Shared content (no OWNS filter)
+class LsSearchService(BaseService["LsUniversalBackend", LearningStep]):
+    _config = create_curriculum_domain_config(
+        dto_class=LearningStepDTO,
+        model_class=LearningStep,
+        domain_name="ls",
+        search_fields=("title", "intent", "description"),
+    )
 ```
 
 **Inherited Methods (via BaseService):**
 - `search()`, `get_by_status()`, `get_by_domain()`
 - `graph_aware_faceted_search()` - Rich graph context
 - `get_prerequisites()`, `get_enables()` - Prerequisite chains
-- `get_hierarchy()` - KU → LS → LP hierarchy
+- `get_hierarchy()` - KU -> LS -> LP hierarchy
 - `get_user_progress()` - User mastery data
 
 ### Intelligence Services
@@ -825,9 +908,9 @@ class LsSearchService(BaseService["LsUniversalBackend", Ls]):
 | **KU** | `KuIntelligenceService` (197 lines) | Standalone service |
 | **LP** | `LpIntelligenceService` (349 lines) | Standalone service |
 | **LS** | None | Relies on LP parent intelligence |
-| **MOC** | None | MOC is KU-based; uses KU intelligence |
+| **MOC** | None | MOC is Entity-based; uses KU intelligence via KuOrganizationService |
 
-**Key Insight:** KU and LP have standalone intelligence services for learning recommendations. LS relies on LP parent capabilities. MOC is KU-based (January 2026) so it uses KU intelligence and navigation services.
+**Key Insight:** KU and LP have standalone intelligence services for learning recommendations. LS relies on LP parent capabilities. MOC is Entity-based (February 2026) so it uses KU intelligence and organization services.
 
 ### Bootstrap Integration
 
@@ -847,13 +930,11 @@ learning_paths = learning_services["learning_paths"]  # LpService
 learning_steps = learning_services["learning_steps"]  # LsService
 ```
 
-MOC is created with KuService dependency (January 2026 - KU-based architecture):
+MOC organization is handled by `KuOrganizationService` (sub-service of KuService, created automatically during KuService initialization):
 
 ```python
-moc_service = MOCService(
-    ku_service=learning_services["ku_service"],
-    driver=driver,
-)
+# KuOrganizationService is available as:
+ku_service.organization  # KuOrganizationService instance
 ```
 
 ### Key Design Decisions
@@ -903,51 +984,51 @@ The complete pipeline from natural text to SKUEL entities:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ PHASE 1: LLM DSL Bridge (Natural Text → DSL)                            │
+│ PHASE 1: LLM DSL Bridge (Natural Text -> DSL)                           │
 │                                                                          │
 │ Natural Journal Text:                                                    │
 │ "I need to finish the quarterly report by Friday. Also want to          │
 │  start meditating daily - 10 minutes each morning."                     │
-│                           ↓                                              │
+│                           |                                              │
 │            LLMDSLBridgeService.transform()                              │
-│                           ↓                                              │
+│                           |                                              │
 │ DSL-Tagged Text:                                                         │
 │ - @context(task) Finish the quarterly report @when(Friday) @priority(1) │
 │ - @context(habit) Meditate @repeat(daily) @duration(10)                 │
 └─────────────────────────────────────────────────────────────────────────┘
-                            ↓
+                            |
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ PHASE 2: DSL Parsing (DSL → ParsedActivities)                           │
-│                           ↓                                              │
+│ PHASE 2: DSL Parsing (DSL -> ParsedActivities)                           │
+│                           |                                              │
 │            ActivityDSLParser.parse_journal()                            │
-│                           ↓                                              │
+│                           |                                              │
 │ ParsedJournal:                                                           │
 │   - tasks: [ParsedActivityLine(task, "Finish report", ...)]             │
 │   - habits: [ParsedActivityLine(habit, "Meditate", ...)]                │
 └─────────────────────────────────────────────────────────────────────────┘
-                            ↓
+                            |
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ PHASE 3: Entity Conversion (ParsedActivities → Domain Dicts)            │
-│                           ↓                                              │
+│ PHASE 3: Entity Conversion (ParsedActivities -> Domain Dicts)            │
+│                           |                                              │
 │            ActivityEntityConverter.convert_journal()                     │
-│                           ↓                                              │
+│                           |                                              │
 │ Dict with 15 keys (14 domains + errors):                                │
 │   - tasks: [TaskCreateRequest(...)]                                      │
 │   - habits: [HabitDict(...)]                                             │
 │   - ...all 14 domains...                                                │
 └─────────────────────────────────────────────────────────────────────────┘
-                            ↓
+                            |
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ PHASE 4: Entity Creation (Domain Dicts → SKUEL Entities)                │
-│                           ↓                                              │
+│ PHASE 4: Entity Creation (Domain Dicts -> SKUEL Entities)                │
+│                           |                                              │
 │       ReportActivityExtractorService.extract_and_create()               │
-│                           ↓                                              │
+│                           |                                              │
 │ Created Entities:                                                        │
 │   - Task(uid="task:abc123", title="Finish report", ...)                 │
 │   - Habit(uid="habit:xyz789", title="Meditate", ...)                    │
-│                           ↓                                              │
+│                           |                                              │
 │              DSLKnowledgeConnector.plan_connections()                   │
-│                           ↓                                              │
+│                           |                                              │
 │ Graph Relationships: APPLIES_KNOWLEDGE, FULFILLS_GOAL, etc.             │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -1024,7 +1105,7 @@ The **Supporting Services** work together to provide intelligent content discove
 │                                                                          │
 │  "What should I learn that's relevant to what I'm working on?"          │
 └─────────────────────────────────────────────────────────────────────────┘
-                                    ↓
+                                    |
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ STEP 1: Get User Context (UserService)                                   │
 │                                                                          │
@@ -1038,7 +1119,7 @@ The **Supporting Services** work together to provide intelligent content discove
 │    - core_principle_uids: ['principle:continuous-learning']              │
 │    - upcoming_event_uids: ['event:workshop-ml']                          │
 └─────────────────────────────────────────────────────────────────────────┘
-                                    ↓
+                                    |
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ STEP 2: Find Relevant Knowledge (AskesisService)                         │
 │                                                                          │
@@ -1055,7 +1136,7 @@ The **Supporting Services** work together to provide intelligent content discove
 │    - domain_coverage: Which domains each KU supports                    │
 │    - recommended_order: Optimal learning order                          │
 └─────────────────────────────────────────────────────────────────────────┘
-                                    ↓
+                                    |
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ STEP 3: Present to User                                                  │
 │                                                                          │
@@ -1164,38 +1245,42 @@ class ParsedActivityLine:
 
 ## Graph Architecture
 
-### Node Types (15 domains)
+### Neo4j Multi-Label Node Types (15 domains)
+
+Every entity node has TWO+ labels: `:Entity` (universal) + domain-specific + `:Ku` (legacy compat).
 
 ```cypher
-// Activity Domains (6)
-(:Task {uid, title, due_date, status, priority, ...})
-(:Habit {uid, title, recurrence_pattern, streak, ...})
-(:Goal {uid, title, target_date, progress, ...})
-(:Event {uid, title, event_date, duration, ...})
-(:Principle {uid, name, statement, category, ...})
-(:Choice {uid, title, decision_deadline, ...})
+// Activity Domains (6) — inherit from UserOwnedEntity
+(:Ku:Entity:Task {uid, ku_type, title, due_date, status, priority, user_uid, ...})
+(:Ku:Entity:Habit {uid, ku_type, title, recurrence_pattern, streak, user_uid, ...})
+(:Ku:Entity:Goal {uid, ku_type, title, target_date, progress, user_uid, ...})
+(:Ku:Entity:Event {uid, ku_type, title, event_date, duration, user_uid, ...})
+(:Ku:Entity:Principle {uid, ku_type, name, statement, category, user_uid, ...})
+(:Ku:Entity:Choice {uid, ku_type, title, decision_deadline, user_uid, ...})
 
-// Finance Domain (1)
+// Finance Domain (1) — non-Entity, standalone
 (:Expense {uid, amount, category, expense_date, ...})
 
-// Curriculum Domains (3)
-(:Ku {uid, title, content, domain, complexity, ...})
-(:Ls {uid, title, intent, estimated_hours, ...})
-(:Lp {uid, name, goal, difficulty, ...})
+// Curriculum Domains (3) — inherit from Curriculum(Entity) or Resource(Entity)
+(:Ku:Entity:Curriculum {uid, ku_type, title, content, domain, complexity, ...})
+(:Ku:Entity:Resource {uid, ku_type, title, content, source_url, ...})
+(:Ku:Entity:LearningStep {uid, ku_type, title, intent, estimated_hours, ...})
+(:Ku:Entity:LearningPath {uid, ku_type, name, goal, difficulty, ...})
 
-// Content/Processing Domains (2)
-(:Report {uid, report_type, status, ...})
-(:Journal {uid, content, processed_at, ...})
+// Content/Processing Domains — inherit from Submission(UserOwnedEntity)
+(:Ku:Entity:Submission {uid, ku_type, status, user_uid, ...})
+(:Ku:Entity:Journal {uid, ku_type, content, processed_at, user_uid, ...})
+(:Ku:Entity:AiReport {uid, ku_type, user_uid, ...})
+(:Ku:Entity:Feedback {uid, ku_type, subject_uid, user_uid, ...})
 
-// Organizational Domains (2) - Groups + MOC
+// Organizational Domains (2) — Groups + MOC
 (:Group {uid, name, description, owner_uid, is_active, max_members, created_at, ...})
-(:Assignment {uid, name, instructions, scope, due_date, processor_type, group_uid, ...})
-// MOC is KU-based
-// MOC is NOT a separate node type - it IS a :Ku with ORGANIZES relationships
-// A KU "is" a MOC when: EXISTS((ku:Ku)-[:ORGANIZES]->(:Ku))
+(:Ku:Entity:Exercise {uid, ku_type, name, instructions, scope, due_date, processor_type, group_uid, ...})
+// MOC is NOT a separate node type — it IS an :Entity with ORGANIZES relationships
+// An Entity "is" a MOC when: EXISTS((e:Entity)-[:ORGANIZES]->(:Entity))
 
-// LifePath - The Destination (1)
-// NOTE: LifePath is NOT a stored entity - it's a DESIGNATION on an LP
+// LifePath — The Destination (1) — inherits from UserOwnedEntity
+// NOTE: LifePath is NOT a stored entity — it's a DESIGNATION on an LP
 // The User designates an LP as their life path via ULTIMATE_PATH relationship
 // Life path data is stored on User node (vision_statement, vision_themes, etc.)
 
@@ -1203,50 +1288,54 @@ class ParsedActivityLine:
 (:User {uid, email, name, ...})
 ```
 
+**Note:** The `ku_type` property is NOT renamed in the database -- it stores the `EntityType` enum value (e.g., `"task"`, `"goal"`, `"curriculum"`). The `:Ku` label is retained on all entity nodes for backward compatibility.
+
 ### Relationship Types
 
 ```cypher
+// User Ownership (standardized to OWNS in Phase 0)
+(user:User)-[:OWNS]->(task:Task|habit:Habit|goal:Goal|event:Event|...)
+
 // Task Relationships
-(task)-[:APPLIES_KNOWLEDGE]->(ku)
-(task)-[:FULFILLS]->(goal)
-(task)-[:DEPENDS_ON]->(task)
-(task)-[:BLOCKED_BY]->(task)
+(task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
+(task:Task)-[:FULFILLS]->(goal:Goal)
+(task:Task)-[:DEPENDS_ON]->(task:Task)
+(task:Task)-[:BLOCKED_BY]->(task:Task)
 
 // Habit Relationships
-(habit)-[:REINFORCES]->(principle)
-(habit)-[:SUPPORTS]->(goal)
-(habit)-[:REQUIRES_KNOWLEDGE]->(ku)
+(habit:Habit)-[:REINFORCES]->(principle:Principle)
+(habit:Habit)-[:SUPPORTS]->(goal:Goal)
+(habit:Habit)-[:REQUIRES_KNOWLEDGE]->(ku:Curriculum)
 
 // Goal Relationships
-(goal)-[:INSPIRED_BY]->(choice)
-(goal)-[:GUIDED_BY]->(principle)
-(goal)-[:MILESTONE_OF]->(goal)  // sub-goals
+(goal:Goal)-[:INSPIRED_BY]->(choice:Choice)
+(goal:Goal)-[:GUIDED_BY]->(principle:Principle)
+(goal:Goal)-[:MILESTONE_OF]->(goal:Goal)  // sub-goals
 
 // Knowledge Relationships
-(ku)-[:REQUIRES]->(ku)  // prerequisites
-(ku)-[:ENABLES]->(ku)   // what it unlocks
-(ls)-[:TEACHES]->(ku)
-(lp)-[:CONTAINS]->(ls)
+(ku:Curriculum)-[:REQUIRES]->(ku:Curriculum)  // prerequisites
+(ku:Curriculum)-[:ENABLES]->(ku:Curriculum)   // what it unlocks
+(ls:LearningStep)-[:TEACHES]->(ku:Curriculum)
+(lp:LearningPath)-[:CONTAINS]->(ls:LearningStep)
 
-// MOC Organizational Relationships (KU organizing KUs)
-(ku)-[:ORGANIZES {order: int}]->(ku)  // MOC hierarchy
+// MOC Organizational Relationships (Entity organizing Entities)
+(entity:Entity)-[:ORGANIZES {order: int}]->(entity:Entity)  // MOC hierarchy
 
-// Group & Assignment Relationships (ADR-040)
-(teacher)-[:OWNS]->(group)                    // Teacher owns group
-(student)-[:MEMBER_OF {joined_at, role}]->(group)  // Student membership
-(project)-[:FOR_GROUP]->(group)               // Assignment targets group
-(report)-[:FULFILLS_PROJECT]->(project)       // Student submission
-(teacher)-[:SHARES_WITH {role: "teacher"}]->(report)  // Auto-shared on assignment submit
+// Group & Exercise Relationships (ADR-040)
+(teacher:User)-[:OWNS]->(group:Group)                               // Teacher owns group
+(student:User)-[:MEMBER_OF {joined_at, role}]->(group:Group)        // Student membership
+(exercise:Exercise)-[:FOR_GROUP]->(group:Group)                      // Exercise targets group
+(submission:Submission)-[:FULFILLS_EXERCISE]->(exercise:Exercise)     // Student submission
+(teacher:User)-[:SHARES_WITH {role: "teacher"}]->(submission:Submission)  // Auto-shared
 
 // Life Path Relationships
-(user)-[:ULTIMATE_PATH]->(lp)             // User's designated life path
-(entity)-[:SERVES_LIFE_PATH]->(lp)        // Entity contributes to life path
+(user:User)-[:ULTIMATE_PATH]->(lp:LearningPath)       // User's designated life path
+(entity:Entity)-[:SERVES_LIFE_PATH]->(lp:LearningPath) // Entity contributes to life path
 
-// User Ownership
-(user)-[:OWNS]->(task|habit|goal|event|...)
-(user)-[:MASTERED]->(ku)
-(user)-[:LEARNING]->(ku)
-(user)-[:ENROLLED]->(lp)
+// User Knowledge Progress
+(user:User)-[:MASTERED]->(ku:Curriculum)
+(user:User)-[:LEARNING]->(ku:Curriculum)
+(user:User)-[:ENROLLED]->(lp:LearningPath)
 ```
 
 ---
@@ -1270,6 +1359,8 @@ core/services/
 ├── goals/
 │   └── ...
 ├── ku/
+│   ├── ku_core_service.py
+│   ├── ku_organization_service.py   # MOC organization (February 2026)
 │   └── ...
 ├── ls/
 │   └── ...
@@ -1382,7 +1473,7 @@ core/services/
 │   ├── reports_core_service.py
 │   ├── reports_search_service.py
 │   ├── reports_relationship_service.py
-│   ├── assignment_service.py                # Assignment CRUD + assignment scope
+│   ├── exercise_service.py                  # Exercise CRUD + scope management
 │   └── teacher_review_service.py            # Teacher review queue + feedback (ADR-040)
 ├── groups/                                   # Groups domain (ADR-040)
 │   ├── __init__.py
@@ -1433,13 +1524,13 @@ GET    /{domain}/search     # Search entities
 
 ```
 User Action (any domain)
-       ↓
+       |
 UserContext updated
-       ↓
+       |
 Cross-domain analysis
-       ↓
+       |
 Recommendations generated
-       ↓
+       |
 Life path alignment calculated
 ```
 
@@ -1491,28 +1582,32 @@ async def on_mastery_increased(ku_uid: str, new_mastery: float):
 
 ## Implementation Status
 
-### Fully Implemented (November 2025)
+### Fully Implemented (February 2026)
 
 | Component | Status | Location |
 |-----------|--------|----------|
-| DSL Parser (14 domains) | ✅ Complete | `core/services/dsl/activity_dsl_parser.py` |
-| Entity Converters (14 domains) | ✅ Complete | `core/services/dsl/activity_entity_converter.py` |
-| Activity Extractor (14 domains) | ✅ Complete | `core/services/dsl/report_activity_extractor.py` |
-| Activity Domain Services (7) | ✅ Complete | `core/services/{domain}/` |
-| Curriculum Domain Services (3) | ✅ Complete | `core/services/ku/, ls/, lp/` |
-| UserContext | ✅ Complete | `core/services/user/unified_user_context.py` |
-| Search Service | ✅ Complete | `core/services/search/` |
-| Report Service | ✅ Complete | `core/services/report_service.py` |
-| Calendar Service | ✅ Complete | `core/services/calendar_service.py` |
-| Reports Pipeline | ✅ Complete | `core/services/reports/` |
+| Domain-First Architecture (Phases 0-5) | Complete | Codebase-wide |
+| Neo4j Multi-Label Architecture | Complete | `core/models/enums/neo_labels.py` |
+| Per-Domain DTOs (14 domains) | Complete | `core/models/ku/*_dto.py` |
+| Model Hierarchy (Entity/UserOwnedEntity) | Complete | `core/models/ku/entity.py`, `user_owned_entity.py` |
+| DSL Parser (14 domains) | Complete | `core/services/dsl/activity_dsl_parser.py` |
+| Entity Converters (14 domains) | Complete | `core/services/dsl/activity_entity_converter.py` |
+| Activity Extractor (14 domains) | Complete | `core/services/dsl/report_activity_extractor.py` |
+| Activity Domain Services (7) | Complete | `core/services/{domain}/` |
+| Curriculum Domain Services (3) | Complete | `core/services/ku/, ls/, lp/` |
+| UserContext | Complete | `core/services/user/unified_user_context.py` |
+| Search Service | Complete | `core/services/search/` |
+| Report Service | Complete | `core/services/report_service.py` |
+| Calendar Service | Complete | `core/services/calendar_service.py` |
+| Reports Pipeline | Complete | `core/services/reports/` |
+| LifePath Service | Complete | `core/services/lifepath/` |
+| Askesis Service | Complete | `core/services/askesis/` |
 
-### In Development
+### Planned
 
 | Component | Status | Target |
 |-----------|--------|--------|
-| LifePath Service | 🔄 Partial | Q4 2025 |
-| Askesis Service | 🔄 Partial | Q4 2025 |
-| Messaging Service | 📋 Planned | Q1 2026 |
+| Messaging Service | Planned | Future |
 
 ---
 
@@ -1537,7 +1632,7 @@ The **15-domain + 5 cross-cutting systems architecture** provides a complete fra
 - LifePath: 1 (The Destination)
 - **Total: 15 domains**
 
-**Cross-Cutting Systems**: UserContext (✅), Search (✅), Calendar (✅), Askesis (✅), Messaging (📋 planned)
+**Cross-Cutting Systems**: UserContext, Search, Calendar, Askesis (all active), Messaging (planned)
 
 **Core Insight**: By categorizing all human activity into 15 domains + 5 cross-cutting systems, SKUEL can:
 - Parse natural language into structured entities
@@ -1578,8 +1673,14 @@ The **15-domain + 5 cross-cutting systems architecture** provides a complete fra
 - [protocol_architecture.md](../patterns/protocol_architecture.md) - Protocol-based dependency injection
 - [query_architecture.md](../patterns/query_architecture.md) - Query builders and patterns
 
+### Related ADRs
+
+- [ADR-041-unified-ku-model.md](../decisions/ADR-041-unified-ku-model.md) - Unified Ku model decision
+- [ADR-040-teacher-assignment-workflow.md](../decisions/ADR-040-teacher-assignment-workflow.md) - Groups + Exercise workflow
+
 ---
 
-*Last Updated: February 6, 2026*
+*Last Updated: February 23, 2026*
 *Architecture: 15-Domain + 5 Cross-Cutting Systems (4 active + 1 planned)*
+*Domain-First Migration: Phases 0-5 Complete*
 *Status: Production-Ready*
