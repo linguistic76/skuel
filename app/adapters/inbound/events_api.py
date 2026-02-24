@@ -23,8 +23,12 @@ from adapters.inbound.route_factories import (
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
 from core.models.event.event_request import (
+    AddAttendeeRequest,
+    CheckConflictsRequest,
     EventStatusUpdateRequest,
     GetRecurringEventsRequest,
+    RecurringInstancesRequest,
+    RemoveAttendeeRequest,
 )
 from core.services.events_service import EventsService
 from core.utils.result_simplified import Result
@@ -125,11 +129,8 @@ def create_events_api_routes(
     @boundary_handler()
     async def check_conflicts_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
         """Check for scheduling conflicts (requires ownership)."""
-        # Use facade protocol signature: (start_time, end_time, user_uid)
         return await events_service.check_conflicts(
-            start_time=entity.start_time,
-            end_time=entity.end_time,
-            user_uid=user_uid,
+            CheckConflictsRequest(event_uid=entity.uid)
         )
 
     # Search and Analytics
@@ -205,13 +206,11 @@ def create_events_api_routes(
     ) -> Result[Any]:
         """Create recurring event instances (requires ownership)."""
         body = await request.json()
-        # Use facade protocol signature: (event_uid, recurrence_data)
-        recurrence_data = {
-            "count": body.get("count", 10),
-        }
         return await events_service.create_recurring_instances(
-            event_uid=entity.uid,
-            recurrence_data=recurrence_data,
+            RecurringInstancesRequest(
+                event_uid=entity.uid,
+                count=body.get("count", 10),
+            )
         )
 
     @rt("/api/events/recurring")
@@ -235,13 +234,14 @@ def create_events_api_routes(
     async def add_attendee_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
         """Add attendee to event (requires ownership)."""
         body = await request.json()
-        # Use facade protocol signature: (event_uid, attendee_data)
-        attendee_data = {
-            "user_uid": body.get("attendee_uid", body.get("user_uid", "")),
-            "role": body.get("role", "attendee"),
-            "send_notification": body.get("send_notification", True),
-        }
-        return await events_service.add_attendee(event_uid=entity.uid, attendee_data=attendee_data)
+        return await events_service.add_attendee(
+            AddAttendeeRequest(
+                event_uid=entity.uid,
+                user_uid=body.get("attendee_uid", body.get("user_uid", "")),
+                role=body.get("role", "attendee"),
+                send_notification=body.get("send_notification", True),
+            )
+        )
 
     @rt("/api/events/attendees", methods=["DELETE"])
     @require_ownership_query(get_events_service)
@@ -250,10 +250,11 @@ def create_events_api_routes(
         request: Request, user_uid: str, entity: Any, attendee_uid: str
     ) -> Result[Any]:
         """Remove attendee from event (requires ownership)."""
-        # Use facade protocol signature: (event_uid, attendee_uid)
         return await events_service.remove_attendee(
-            event_uid=entity.uid,
-            attendee_uid=attendee_uid,
+            RemoveAttendeeRequest(
+                event_uid=entity.uid,
+                user_uid=attendee_uid,
+            )
         )
 
     @rt("/api/events/attendees", methods=["GET"])

@@ -12,7 +12,7 @@ See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
 from datetime import date, datetime, time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
@@ -318,7 +318,7 @@ class EntityResponse(ResponseBase):
     estimated_reading_time: int = 0
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO") -> "EntityResponse":
+    def from_dto(cls, dto: Any) -> "EntityResponse":
         """Create response from DTO."""
         estimated_reading_time = max(1, dto.word_count // 200) if dto.word_count > 0 else 0
 

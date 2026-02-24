@@ -799,9 +799,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
                     estimated_hours=step_data.get("estimated_hours", 1.0),
                     step_difficulty=step_data.get("step_difficulty"),
                     status=step_data.get("status"),
-                    completed_at=step_data.get("completed_at"),
                     domain=step_data.get("domain", "PERSONAL"),
-                    priority=step_data.get("priority", "MEDIUM"),
                 )
             )
 

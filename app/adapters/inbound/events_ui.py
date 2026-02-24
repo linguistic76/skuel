@@ -551,7 +551,6 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
 
         return EventsViewComponents.render_create_view(
             event_types=event_types_result.value,
-            user_uid=user_uid,
         )
 
     # ========================================================================
@@ -573,7 +572,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
         events, _stats = filtered_result.value
 
         # Return just the event items
-        event_items = [EventsViewComponents._render_event_item(event, user_uid) for event in events]
+        event_items = [EventsViewComponents._render_event_item(event) for event in events]
 
         return Div(
             *event_items

@@ -92,6 +92,7 @@ if TYPE_CHECKING:
     # Task entities are now Ku nodes with ku_type="task"
     from core.models.finance.finance_pure import BudgetPure, ExpensePure
     from core.models.finance.invoice import InvoicePure
+    from core.models.goal.goal import Goal
     from core.models.habit.habit import Habit
     from core.models.task.task import Task
     from core.models.type_hints import EntityUID, Metadata
@@ -912,16 +913,16 @@ class ChoicesOperations(BackendOperations["Entity"], GraphRelationshipOperations
         """Mark a choice as resolved with outcome data. Returns Result[bool]."""
         ...
 
-    async def get(self, choice_id: str) -> Result[Ku | None]:
+    async def get(self, choice_id: str) -> Result[Entity | None]:
         """Get a choice by ID. Returns None if not found."""
         ...
 
-    async def get_choice(self, choice_id: str) -> Result[Ku]:
+    async def get_choice(self, choice_id: str) -> Result[Entity]:
         """Get a choice by ID. Alias for get(). Not found is an error."""
         ...
 
-    async def find_by(self, limit: int = 100, **filters: Any) -> Result[list[Ku]]:
-        """Find choices matching filters. Returns Result[list[Ku]]."""
+    async def find_by(self, limit: int = 100, **filters: Any) -> Result[list[Entity]]:
+        """Find choices matching filters. Returns Result[list[Entity]]."""
         ...
 
     async def find_choices(

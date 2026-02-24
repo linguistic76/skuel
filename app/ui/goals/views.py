@@ -22,6 +22,7 @@ from typing import Any
 from fasthtml.common import H2, H3, A, Form, P
 
 from core.models.entity_types import Ku
+from core.models.goal.goal import Goal
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarView,
@@ -211,7 +212,7 @@ class GoalsViewComponents:
         )
 
     @staticmethod
-    def _render_goal_item(goal: Ku, is_pinned: bool = False) -> Div:
+    def _render_goal_item(goal: Goal, is_pinned: bool = False) -> Div:
         """
         Render a single goal item for the list.
 

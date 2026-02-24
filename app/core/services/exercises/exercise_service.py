@@ -119,7 +119,6 @@ class ExerciseService(BaseService):
 
         exercise = Exercise(
             uid=uid,
-            user_uid=user_uid,
             ku_type=EntityType.EXERCISE,
             title=name,
             instructions=instructions,

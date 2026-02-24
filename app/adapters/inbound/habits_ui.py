@@ -836,7 +836,7 @@ def create_habits_ui_routes(
         habits, _stats = filtered_result.value
 
         # Return just the habit items
-        habit_items = [HabitsViewComponents._render_habit_item(habit, user_uid) for habit in habits]
+        habit_items = [HabitsViewComponents._render_habit_item(habit) for habit in habits]
 
         return Div(
             *habit_items
@@ -2101,7 +2101,7 @@ def create_habits_ui_routes(
                 Div(
                     Span(f"Status: {habit.status.value}", cls="badge badge-info mr-2"),
                     Span(
-                        f"Frequency: {habit.frequency.value if habit.frequency else 'Not set'}",
+                        f"Frequency: {f'{habit.target_days_per_week}x/week' if habit.target_days_per_week else 'Not set'}",
                         cls="badge badge-success mr-2",
                     ),
                     Span(f"Streak: {habit.current_streak or 0} days", cls="badge badge-warning"),
@@ -2113,19 +2113,6 @@ def create_habits_ui_routes(
             Card(
                 H2("📋 Habit Details", cls="text-xl font-semibold mb-4"),
                 Div(
-                    # Why Important
-                    (
-                        Div(
-                            P(
-                                "Why Important:",
-                                cls="text-sm font-semibold text-base-content/70 mb-1",
-                            ),
-                            P(habit.why_important or "Not specified", cls="text-base-content mb-3"),
-                            cls="mb-4",
-                        )
-                        if habit.why_important
-                        else Div()
-                    ),
                     # Cue and Response
                     (
                         Div(

@@ -610,7 +610,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
 
         # Return just the choice items
         choice_items = [
-            ChoicesViewComponents._render_choice_item(choice, user_uid) for choice in choices
+            ChoicesViewComponents._render_choice_item(choice) for choice in choices
         ]
 
         return Div(
@@ -1189,10 +1189,6 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
                 # Status and Urgency badges
                 Div(
                     Span(f"Status: {choice.status.value}", cls="badge badge-info mr-2"),
-                    Span(
-                        f"Urgency: {choice.urgency.value if choice.urgency else 'Not set'}",
-                        cls="badge badge-warning mr-2",
-                    ),
                     Span(f"Priority: {priority.title()}", cls="badge badge-ghost mr-2"),
                     Span(f"Domain: {domain.title()}", cls="badge badge-outline mr-2"),
                     Span(f"Type: {choice_type.title()}", cls="badge badge-outline"),
@@ -1212,30 +1208,14 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
                                 cls="text-sm font-semibold text-base-content/70 mb-1",
                             ),
                             P(
-                                str(choice.decision_deadline)
-                                if choice.decision_deadline
+                                str(getattr(choice, "decision_deadline", None))
+                                if getattr(choice, "decision_deadline", None)
                                 else "Not set",
                                 cls="text-base-content mb-3",
                             ),
                             cls="mb-4",
                         )
-                        if choice.decision_deadline
-                        else Div()
-                    ),
-                    # Why Important
-                    (
-                        Div(
-                            P(
-                                "Why Important:",
-                                cls="text-sm font-semibold text-base-content/70 mb-1",
-                            ),
-                            P(
-                                choice.why_important or "Not specified",
-                                cls="text-base-content mb-3",
-                            ),
-                            cls="mb-4",
-                        )
-                        if choice.why_important
+                        if getattr(choice, "decision_deadline", None)
                         else Div()
                     ),
                     # Created Date

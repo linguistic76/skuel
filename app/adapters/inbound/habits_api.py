@@ -24,8 +24,10 @@ from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRo
 from core.models.enums import ContentScope
 from core.models.habit.habit_request import (
     ArchiveHabitRequest,
+    DeleteHabitReminderRequest,
     PauseHabitRequest,
     ResumeHabitRequest,
+    SetHabitReminderRequest,
     TrackHabitRequest,
     UntrackHabitRequest,
 )
@@ -267,14 +269,13 @@ def create_habits_api_routes(
     async def set_habit_reminder_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
         """Set a reminder for a habit (requires ownership)."""
         body = await request.json()
-        # Use facade protocol signature: (habit_uid, reminder_data)
-        reminder_data = {
-            "reminder_time": body.get("time", ""),
-            "days": body.get("days", []),
-            "enabled": body.get("enabled", True),
-        }
         return await habits_service.set_habit_reminder(
-            habit_uid=entity.uid, reminder_data=reminder_data
+            SetHabitReminderRequest(
+                habit_uid=entity.uid,
+                reminder_time=body.get("time", ""),
+                days=body.get("days", []),
+                enabled=body.get("enabled", True),
+            )
         )
 
     @rt("/api/habits/reminders", methods=["GET"])
@@ -293,10 +294,11 @@ def create_habits_api_routes(
         request: Request, user_uid: str, entity: Any, reminder_id: str
     ) -> Result[Any]:
         """Delete a habit reminder (requires ownership)."""
-        # Use facade protocol signature: (habit_uid, reminder_uid)
         return await habits_service.delete_habit_reminder(
-            habit_uid=entity.uid,
-            reminder_uid=reminder_id,
+            DeleteHabitReminderRequest(
+                habit_uid=entity.uid,
+                reminder_id=reminder_id,
+            )
         )
 
     return []  # Routes registered via @rt() decorators (no objects returned)

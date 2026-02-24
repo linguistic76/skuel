@@ -404,7 +404,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
         query: str,
         filters: dict[str, Any] | None = None,
         limit: int = 50,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Entity]]:
         """
         Search principles by text query. Delegates to PrinciplesSearchService.
 
@@ -461,7 +461,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
         sources = [s.value for s in PrincipleSource]
         return Result.ok(sources)
 
-    async def get_prioritized_principles(self, user_uid: str, limit: int = 10) -> Result[list[Ku]]:
+    async def get_prioritized_principles(self, user_uid: str, limit: int = 10) -> Result[list[Entity]]:
         """
         Get principles prioritized for user context. Delegates to PrinciplesSearchService.
 
@@ -524,7 +524,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
             return Result.fail(principle_result.expect_error())
 
         principle_data = principle_result.value
-        if isinstance(principle_data, Entity):
+        if isinstance(principle_data, Principle):
             ku_dto = principle_data.to_dto()
         elif isinstance(principle_data, dict):
             ku_dto = PrincipleDTO.from_dict(principle_data)
@@ -561,7 +561,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
             return Result.fail(principle_result.expect_error())
 
         principle_data = principle_result.value
-        if isinstance(principle_data, Entity):
+        if isinstance(principle_data, Principle):
             ku_dto = principle_data.to_dto()
         elif isinstance(principle_data, dict):
             ku_dto = PrincipleDTO.from_dict(principle_data)
@@ -570,7 +570,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
 
         return Result.ok(
             [
-                {"context": e.context, "behavior": e.behavior, "example": e.example}
+                {"context": e.get("context"), "behavior": e.get("behavior"), "example": e.get("example")}
                 for e in ku_dto.expressions
             ]
         )
@@ -606,7 +606,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
             return Result.fail(principle_result.expect_error())
 
         principle_data = principle_result.value
-        if isinstance(principle_data, Entity):
+        if isinstance(principle_data, Principle):
             ku_dto = principle_data.to_dto()
         elif isinstance(principle_data, dict):
             ku_dto = PrincipleDTO.from_dict(principle_data)
@@ -616,13 +616,13 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
         cutoff = date.today() - timedelta(days=days)
         history = [
             {
-                "assessed_date": str(a.assessed_date),
-                "alignment_level": a.alignment_level.value if a.alignment_level else None,
-                "evidence": a.evidence,
-                "reflection": a.reflection,
+                "assessed_date": str(a.get("assessed_date")),
+                "alignment_level": a.get("alignment_level"),
+                "evidence": a.get("evidence"),
+                "reflection": a.get("reflection"),
             }
             for a in ku_dto.alignment_history
-            if a.assessed_date >= cutoff
+            if (assessed_date := a.get("assessed_date")) and assessed_date >= cutoff
         ]
 
         # Most recent first, then cap

@@ -23,6 +23,7 @@ from typing import Any
 from fasthtml.common import H2, H3, A, Form, P
 
 from core.models.entity_types import Ku
+from core.models.event.event import Event
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarView,
@@ -290,7 +291,7 @@ class EventsViewComponents:
         )
 
     @staticmethod
-    def _render_event_item(event: Ku) -> Div:
+    def _render_event_item(event: Event) -> Div:
         """Render a single event item for the list."""
         uid = event.uid
         title = event.title

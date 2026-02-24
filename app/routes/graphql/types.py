@@ -130,7 +130,7 @@ class LearningStep:
     estimated_time: float
 
     @classmethod
-    def from_domain(cls, step: Ku, step_number: int) -> LearningStep:
+    def from_domain(cls, step: Any, step_number: int) -> LearningStep:
         """
         Convert Ku domain model to GraphQL DTO.
 

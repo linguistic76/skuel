@@ -607,9 +607,8 @@ class Query:
 
                 # Check each step for blockers
                 for step in steps:
-                    step_ku_uid = (
-                        step.primary_knowledge_uids[0] if step.primary_knowledge_uids else ""
-                    )
+                    _primary_ku_uids = getattr(step, "primary_knowledge_uids", None)
+                    step_ku_uid = _primary_ku_uids[0] if _primary_ku_uids else ""
                     if not step_ku_uid:
                         continue  # Skip steps with no knowledge UID
 
@@ -783,7 +782,7 @@ class Query:
                             summary=prereq_ku.summary or "",
                             domain=prereq_ku.domain.value,
                             tags=prereq_ku.tags or [],
-                            quality_score=prereq_ku.quality_score,
+                            quality_score=getattr(prereq_ku, "quality_score", 0.0),
                         ),
                         depth=current_depth + 1,
                         is_mastered=is_mastered,
@@ -892,7 +891,7 @@ class Query:
                     summary=prereq.summary or "",
                     domain=prereq.domain.value,
                     tags=prereq.tags or [],
-                    quality_score=prereq.quality_score,
+                    quality_score=getattr(prereq, "quality_score", 0.0),
                 )
             )
             edges.append(
@@ -913,7 +912,7 @@ class Query:
                     summary=enabled.summary or "",
                     domain=enabled.domain.value,
                     tags=enabled.tags or [],
-                    quality_score=enabled.quality_score,
+                    quality_score=getattr(enabled, "quality_score", 0.0),
                 )
             )
             edges.append(

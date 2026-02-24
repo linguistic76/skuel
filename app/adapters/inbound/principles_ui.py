@@ -635,7 +635,6 @@ def create_principles_ui_routes(
 
         return PrinciplesViewComponents.render_analytics_view(
             analytics_data=analytics_result.value,
-            user_uid=user_uid,
         )
 
     # ========================================================================
@@ -662,7 +661,7 @@ def create_principles_ui_routes(
 
         # Return just the principle items
         principle_items = [
-            PrinciplesViewComponents._render_principle_item(principle, user_uid)
+            PrinciplesViewComponents._render_principle_item(principle)
             for principle in principles
         ]
 
@@ -1044,7 +1043,6 @@ def create_principles_ui_routes(
             filters=filters,
             stats=stats,
             categories=categories_result.value,
-            user_uid=user_uid,
         )
 
     @rt("/principles/{uid}/reflect")

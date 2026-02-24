@@ -195,9 +195,9 @@ class LpService:
         """Get steps in a learning path."""
         return await self.core.get_path_steps(path_uid)
 
-    async def get_current_step(self, path_uid: str, user_uid: str) -> Any:
+    async def get_current_step(self, path_uid: str) -> Any:
         """Get current step for a user in a learning path."""
-        return await self.core.get_current_step(path_uid, user_uid)
+        return await self.core.get_current_step(path_uid)
 
     async def update_path(self, uid: str, updates: dict[str, Any]) -> Any:
         """Update a learning path."""
