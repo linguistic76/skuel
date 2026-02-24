@@ -11,15 +11,12 @@ See: /docs/architecture/HYPERVIEW_STRATEGY.md
 """
 
 from core.hxml.elements import Behavior, Doc, Screen, Style, Text, View
-from core.hxml.negotiation import HXML_CONTENT_TYPE, is_hyperview_client
 
 __all__ = [
     "Behavior",
     "Doc",
-    "HXML_CONTENT_TYPE",
     "Screen",
     "Style",
     "Text",
     "View",
-    "is_hyperview_client",
 ]
