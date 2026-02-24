@@ -319,9 +319,9 @@ def create_orchestration_routes(app: Any, rt: Any, services: Any, _sync_service=
     if services and services.habit_event_scheduler:
         routes.extend(create_habit_event_routes(app, rt, services.habit_event_scheduler))
 
-    if services and services.goals_intelligence:
+    if services and services.goals:
         routes.extend(
-            create_goals_intelligence_routes(app, rt, services.goals_intelligence, services.habits)
+            create_goals_intelligence_routes(app, rt, services.goals.intelligence, services.habits)
         )
 
     if services and services.principles:

@@ -29,7 +29,7 @@ logger = get_logger("skuel.routes.learning")
 # Configuration for main LP routes
 LEARNING_CONFIG = DomainRouteConfig(
     domain_name="learning",
-    primary_service_attr="learning",  # services.learning
+    primary_service_attr="lp",  # services.lp
     api_factory=create_learning_api_routes,
     ui_factory=create_learning_ui_routes,
     api_related_services={

@@ -122,29 +122,17 @@ if TYPE_CHECKING:
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
     from core.services.background.progress_report_worker import ProgressReportWorker
     from core.services.calendar_optimization_service import CalendarOptimizationService
-    from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.content_enrichment_service import ContentEnrichmentService
     from core.services.context_aware_ai_service import ContextAwareAIService
-    from core.services.events.events_intelligence_service import EventsIntelligenceService
-    from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
-    from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
     from core.services.insight.insight_store import InsightStore
     from core.services.journals.journal_output_generator import JournalOutputGenerator
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
-    from core.services.ku_intelligence_service import KuIntelligenceService
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.notifications.notification_service import NotificationService
     from core.services.performance_optimization_service import PerformanceOptimizationService
-    from core.services.principles.principles_intelligence_service import (
-        PrinciplesIntelligenceService,
-    )
-    from core.services.relationships.unified_relationship_service import (
-        UnifiedRelationshipService,
-    )
     from core.services.reports.progress_report_generator import ProgressReportGenerator
     from core.services.reports.report_schedule_service import ReportsScheduleService
-    from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
     from core.services.transcription.transcription_service import TranscriptionService
     from core.services.user.intelligence.factory import (
         UserContextIntelligenceFactory,
@@ -199,7 +187,6 @@ from core.ports import (
     UserOperations,
     VisualizationOperations,
 )
-from core.ports.facade_protocols import LpFacadeProtocol
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -274,7 +261,6 @@ class Services:
     report_processor: ReportsProcessingOperations | None = (
         None  # ReportsProcessingService - Orchestrates processing (LLM, human, hybrid)
     )
-    processing_pipeline: ReportsProcessingOperations | None = None  # Alias for report_processor
 
     # Ku content search service (Unified query interface for all Ku types)
     reports_query: ReportsContentSearchOperations | None = (
@@ -315,10 +301,6 @@ class Services:
     context_intelligence: "UserContextIntelligenceFactory | None" = None
 
     # Consolidated Learning Services (V4)
-    # learning facade uses LpFacadeProtocol for MyPy type checking
-    learning: LpFacadeProtocol | None = (
-        None  # LpService facade (routes access .intelligence, .core, .search)
-    )
     user_progress: "UserProgressService | None" = None
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
     lp: LpOperations | None = None  # LpService - All path management (Protocol-typed for GraphQL)
@@ -328,9 +310,6 @@ class Services:
     learning_intelligence: IntelligenceOperations | None = (
         None  # LpIntelligenceService - analysis and recommendations
     )
-    # Relationship sub-services for curriculum domains
-    ls_relationships: "UnifiedRelationshipService | None" = None
-    lp_relationships: "UnifiedRelationshipService | None" = None
     askesis: AskesisOperations | None = (
         None  # AskesisService - Unified retrieval chatbot (requires OPENAI_API_KEY)
     )
@@ -383,15 +362,8 @@ class Services:
     jupyter_sync: "JupyterNeo4jSync | None" = None
     performance_optimization: "PerformanceOptimizationService | None" = None
 
-    # Intelligence services (Phase 3 - Real implementations replacing mock data)
-    tasks_intelligence: "TasksIntelligenceService | None" = None
-    habits_intelligence: "HabitsIntelligenceService | None" = None
-    goals_intelligence: "GoalsIntelligenceService | None" = None
-    events_intelligence: "EventsIntelligenceService | None" = None
-    choices_intelligence: "ChoicesIntelligenceService | None" = None
+    # Cross-cutting AI services (require LLM/embeddings - ADR-030: Two-Tier Intelligence Design)
     askesis_ai: "AskesisAIService | None" = None
-    ku_intelligence: "KuIntelligenceService | None" = None
-    principles_intelligence: "PrinciplesIntelligenceService | None" = None
     context_aware_ai: "ContextAwareAIService | None" = None
 
     # Infrastructure - Neo4j driver and query executor
@@ -1408,30 +1380,10 @@ async def compose_services(
         # NOTE: Askesis service now created in PHASE 4 after intelligence_factory is available
         # This eliminates post-construction wiring (January 2026 architecture evolution)
 
-        # ========================================================================
-        # PHASE 3: INTELLIGENCE SERVICES (Real implementations replacing mock data)
-        # ========================================================================
-        # All 6 Activity Domain facades created in activity_services (access via facade.intelligence):
-        # - tasks_intelligence → activity_services["tasks"].intelligence
-        # - habits_intelligence → activity_services["habits"].intelligence
-        # - events_intelligence → activity_services["events"].intelligence
-        # - goals_intelligence → activity_services["goals"].intelligence
-        # - choices_intelligence → activity_services["choices"].intelligence
-        # - principles_intelligence → activity_services["principles"].intelligence
-        #
-        # Curriculum/meta intelligence services (no facades):
-
-        # January 2026: KuIntelligenceService now created inside KuService facade
-        # Access via learning_services["ku_service"].intelligence
-        ku_intelligence = learning_services["ku_service"].intelligence
-
         # Cross-cutting AI services (askesis_ai, context_aware_ai) created below
         # in the AI SERVICES section - they REQUIRE LLM/embeddings
         askesis_ai = None
         context_aware_ai = None
-
-        logger.info("✅ Intelligence services ready (6 Activity via facades, KU via facade)")
-        # Note: choices_service and principle_service now come from activity_services
 
         # ========================================================================
         # AI SERVICES (Optional - ADR-030: Two-Tier Intelligence Design)
@@ -2377,7 +2329,6 @@ async def compose_services(
             reports_core=reports_core_service,  # Content management (categories, tags, bulk ops)
             reports_sharing=report_sharing_service,  # Phase 1: Report portfolio sharing
             report_processor=report_processor,
-            processing_pipeline=report_processor,  # Alias for report_processor
             reports_query=reports_query_service,  # Phase 3 - Unified report queries
             # Progress reports (February 2026)
             progress_generator=progress_generator,
@@ -2395,14 +2346,11 @@ async def compose_services(
             graph_auth=graph_auth,  # Graph-native authentication (January 2026)
             context_service=context_service,  # Context-aware intelligence (NEW: 2025-11-18)
             # Learning services
-            learning=learning_services[
-                "learning_paths"
-            ],  # LpService facade (routes access .intelligence)
             user_progress=learning_services["user_progress"],
             # unified_progress DELETED (January 2026) - use user_progress
             lp=learning_services[
                 "learning_paths"
-            ],  # Renamed from learning_paths (consistency: ku, ls, lp)
+            ],  # ku, ls, lp short-name consistency
             ls=learning_services[
                 "learning_steps"
             ],  # Renamed from learning_steps (consistency: ku, ls, lp)
@@ -2434,16 +2382,6 @@ async def compose_services(
             calendar_optimization=advanced["calendar_optimization"],
             jupyter_sync=advanced["jupyter_sync"],
             performance_optimization=advanced["performance_optimization"],
-            # Intelligence (10 domains)
-            # Activity Domains (6) - ALL via unified activity_services facades
-            tasks_intelligence=activity_services["tasks"].intelligence,
-            habits_intelligence=activity_services["habits"].intelligence,
-            events_intelligence=activity_services["events"].intelligence,
-            goals_intelligence=activity_services["goals"].intelligence,
-            principles_intelligence=activity_services["principles"].intelligence,
-            choices_intelligence=activity_services["choices"].intelligence,
-            # Curriculum/meta (no facades)
-            ku_intelligence=ku_intelligence,
             # Cross-cutting AI services (require LLM/embeddings)
             askesis_ai=askesis_ai,
             context_aware_ai=context_aware_ai,

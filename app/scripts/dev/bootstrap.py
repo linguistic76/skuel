@@ -587,7 +587,7 @@ async def _wire_all_routes(
         logger.info("✅ Finance routes registered")
 
     # Reports routes (Primary interface for file submission and processing)
-    if services.reports and services.processing_pipeline:
+    if services.reports and services.report_processor:
         from adapters.inbound.reports_routes import create_reports_routes
 
         create_reports_routes(app, rt, services, None)
@@ -705,7 +705,7 @@ async def _wire_all_routes(
         logger.info("✅ Transcription routes registered")
 
     # Learning routes with clean architecture
-    if services.learning:
+    if services.lp:
         from adapters.inbound.learning_routes import create_learning_routes
 
         create_learning_routes(app, rt, services, None)  # sync removed Jan 2026
