@@ -11,7 +11,7 @@ Design Philosophy:
 Uses semantic HTML with TailwindCSS + DaisyUI styling.
 
 Usage:
-    from components.search_components import (
+    from ui.search.components import (
         render_search_page_with_navbar,
         render_search_results,
     )

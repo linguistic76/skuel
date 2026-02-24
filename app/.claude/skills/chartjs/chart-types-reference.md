@@ -65,7 +65,7 @@ config = {
 ### FastHTML Usage
 
 ```python
-from components.visualization_components import create_chart_view
+from ui.goals.visualization import create_chart_view
 
 def completion_trend():
     return create_chart_view(

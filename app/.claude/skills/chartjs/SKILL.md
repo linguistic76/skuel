@@ -26,7 +26,7 @@ In SKUEL, Chart.js visualizes the 6 activity domains (Tasks, Goals, Habits, Even
 ### Example 1: Task Completion Rate (Line Chart)
 
 ```python
-from components.visualization_components import create_chart_view
+from ui.goals.visualization import create_chart_view
 
 def task_analytics_page():
     return Div(
@@ -42,7 +42,7 @@ def task_analytics_page():
 ### Example 2: Priority Distribution (Doughnut)
 
 ```python
-from components.visualization_components import create_chart_view
+from ui.goals.visualization import create_chart_view
 
 def priority_breakdown():
     return create_chart_view(
@@ -55,7 +55,7 @@ def priority_breakdown():
 ### Example 3: Habit Streaks (Horizontal Bar)
 
 ```python
-from components.visualization_components import create_chart_view
+from ui.goals.visualization import create_chart_view
 
 def habit_dashboard():
     return create_chart_view(
@@ -187,7 +187,7 @@ STATUS_COLORS = {
 ### Basic Chart Container
 
 ```python
-from components.visualization_components import create_chart_view
+from ui.goals.visualization import create_chart_view
 
 # Simple usage
 chart = create_chart_view(
@@ -220,7 +220,7 @@ def custom_chart(data_url: str, options: dict):
 ### Dashboard with Multiple Charts
 
 ```python
-from components.visualization_components import (
+from ui.goals.visualization import (
     create_chart_view,
     create_visualization_dashboard,
 )
@@ -241,7 +241,7 @@ def analytics_dashboard(user_uid: str):
 
 ```python
 # GOOD: Use existing components
-from components.visualization_components import create_chart_view
+from ui.goals.visualization import create_chart_view
 chart = create_chart_view(data_url, chart_type, title)
 
 # AVOID: Rebuilding from scratch

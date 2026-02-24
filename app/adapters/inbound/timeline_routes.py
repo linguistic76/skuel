@@ -24,7 +24,7 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
-from components.timeline_components import (
+from ui.timeline.components import (
     render_timeline_error,
     render_timeline_viewer_page,
 )

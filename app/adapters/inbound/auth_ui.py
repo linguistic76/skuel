@@ -37,7 +37,7 @@ from adapters.inbound.auth import (
 from adapters.inbound.form_helpers import safe_form_string
 
 # Import auth components
-from components.auth_components import AuthComponents
+from ui.auth.components import AuthComponents
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:

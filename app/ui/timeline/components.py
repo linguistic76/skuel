@@ -11,7 +11,7 @@ Replaced Markwhen with Vis.js Timeline (January 2026) for:
 - Active maintenance and documentation
 
 Usage:
-    from components.timeline_components import render_timeline_viewer_page
+    from ui.timeline.components import render_timeline_viewer_page
 """
 
 __version__ = "2.0"  # Vis.js Timeline version

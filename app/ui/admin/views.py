@@ -8,7 +8,7 @@ UI components for the admin dashboard, including:
 - System health indicators
 
 Usage:
-    from components.admin_components import AdminUIComponents
+    from ui.admin.views import AdminUIComponents
 
     # Render user card
     card = AdminUIComponents.render_user_card(user_data)

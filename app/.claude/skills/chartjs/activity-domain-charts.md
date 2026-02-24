@@ -30,7 +30,7 @@ Each activity domain has unique metrics that benefit from different chart types:
 ### Task Completion Rate (Line)
 
 ```python
-from components.visualization_components import create_chart_view
+from ui.goals.visualization import create_chart_view
 
 def task_completion_chart(user_uid: str, period: str = "week"):
     """Task completion rate over time."""
@@ -192,7 +192,7 @@ def goal_status_chart(user_uid: str):
 The signature chart for habits - comparing current vs best streaks:
 
 ```python
-from components.visualization_components import create_streak_chart
+from ui.goals.visualization import create_streak_chart
 
 def habit_streaks(user_uid: str):
     """Habit streak comparison chart."""

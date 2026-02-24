@@ -559,7 +559,7 @@ SKUEL provides Alpine components for Chart.js, Vis.js Timeline, and Frappe Gantt
 ### Quick Chart Example
 
 ```python
-from components.visualization_components import create_chart_view
+from ui.goals.visualization import create_chart_view
 
 def analytics_section(user_uid: str) -> Div:
     """Analytics section with chart."""

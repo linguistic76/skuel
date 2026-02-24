@@ -334,7 +334,7 @@ def create_ku_api_routes(
                 cls="alert alert-error",
             )
 
-        from components.ku_adaptive_components import SELJourneyOverview
+        from ui.patterns.ku_adaptive import SELJourneyOverview
 
         return SELJourneyOverview(result.value)
 
@@ -372,7 +372,7 @@ def create_ku_api_routes(
                 icon="📚",
             )
 
-        from components.ku_adaptive_components import AdaptiveKUCard
+        from ui.patterns.ku_adaptive import AdaptiveKUCard
 
         return Div(
             *[AdaptiveKUCard(ku) for ku in curriculum],

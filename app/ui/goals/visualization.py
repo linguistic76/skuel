@@ -11,7 +11,7 @@ These components:
 - Work with VisualizationService API endpoints
 
 Usage:
-    from components.visualization_components import (
+    from ui.goals.visualization import (
         create_chart_view,
         create_timeline_view,
         create_gantt_view,

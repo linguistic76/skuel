@@ -13,7 +13,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from components.insight_card import DismissedInsightMessage
+from ui.insights.insight_card import DismissedInsightMessage
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

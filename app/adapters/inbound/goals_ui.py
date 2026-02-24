@@ -1400,7 +1400,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
 
         Displays the goal timeline with dependent tasks using Frappe Gantt.
         """
-        from components.visualization_components import (
+        from ui.goals.visualization import (
             create_gantt_view,
             gantt_scripts,
         )

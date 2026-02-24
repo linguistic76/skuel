@@ -15,7 +15,7 @@ Python generates the HTML structure, Alpine handles loading/rendering, and the V
 The simplest approach - use existing components from `visualization_components.py`:
 
 ```python
-from components.visualization_components import create_chart_view
+from ui.goals.visualization import create_chart_view
 
 def analytics_page():
     return Div(
@@ -55,7 +55,7 @@ def analytics_page():
 When rendering multiple charts, include scripts only once:
 
 ```python
-from components.visualization_components import create_chart_view
+from ui.goals.visualization import create_chart_view
 
 def multi_chart_page():
     return Div(
@@ -91,7 +91,7 @@ def multi_chart_page():
 Using Tailwind grid for responsive chart layouts:
 
 ```python
-from components.visualization_components import create_chart_view
+from ui.goals.visualization import create_chart_view
 
 def chart_grid():
     return Div(
@@ -301,7 +301,7 @@ async def dashboard(request):
 ### Using Built-in User Components
 
 ```python
-from components.visualization_components import (
+from ui.goals.visualization import (
     create_completion_chart,
     create_streak_chart,
 )
@@ -322,7 +322,7 @@ async def habits_analytics(request):
 Full dashboard with multiple visualization types:
 
 ```python
-from components.visualization_components import create_visualization_dashboard
+from ui.goals.visualization import create_visualization_dashboard
 
 @rt("/analytics")
 async def full_analytics(request):

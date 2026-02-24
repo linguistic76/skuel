@@ -316,7 +316,7 @@ SKUEL includes Alpine components for Chart.js, Vis.js Timeline, and Frappe Gantt
 ### Chart.js Integration (`chartVis`)
 
 ```python
-from components.visualization_components import create_chart_view
+from ui.goals.visualization import create_chart_view
 
 # Simple usage - creates full Alpine component wrapper
 chart = create_chart_view(
@@ -342,7 +342,7 @@ Div(
 ### Timeline Integration (`timelineVis`)
 
 ```python
-from components.visualization_components import create_timeline_view
+from ui.goals.visualization import create_timeline_view
 
 timeline = create_timeline_view(
     data_url="/api/visualizations/timeline",
@@ -358,7 +358,7 @@ timeline = create_timeline_view(
 ### Gantt Integration (`ganttVis`)
 
 ```python
-from components.visualization_components import create_gantt_view
+from ui.goals.visualization import create_gantt_view
 
 gantt = create_gantt_view(
     data_url="/api/visualizations/gantt/tasks",
