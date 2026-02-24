@@ -37,7 +37,7 @@ Events represent scheduled calendar items. They connect to knowledge application
 | Config | `EVENTS_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/calendar_event_events.py` |
 | UI Routes | `/adapters/inbound/events_ui.py` |
-| View Components | `/components/events_views.py` |
+| View Components | `/ui/events/views.py` |
 
 ## Facade Pattern (January 2026)
 

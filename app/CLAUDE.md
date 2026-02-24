@@ -861,9 +861,8 @@ result: PrerequisiteResult = PrerequisiteHelper.check_prerequisites(
 **Core Principle:** "BasePage for consistency, custom layouts for special cases"
 
 - Routes (`/adapters/inbound/*_routes.py`) - HTTP handling
-- Components (`/components/*.py`) - Pure presentation
+- UI (`/ui/`) - All presentation: layouts, patterns, domain views, design tokens
 - Static (`/static/css/`, `/static/js/`) - CSS/JS assets
-- Design System (`/ui/`) - Primitives, patterns, layouts, tokens
 
 **Unified UX Design System:**
 
@@ -887,8 +886,11 @@ result: PrerequisiteResult = PrerequisiteHelper.check_prerequisites(
 - `/ui/layouts/navbar.py` - Navbar with profile dropdown (`_profile_dropdown`)
 - `/ui/layouts/nav_config.py` - `PROFILE_DROPDOWN_ITEMS` (5 activity domains)
 - `/ui/patterns/sidebar.py` - Unified sidebar component (`SidebarItem`, `SidebarNav`, `SidebarPage`)
+- `/ui/patterns/` - PageHeader, SectionHeader, form_generator, card_generator, entity_dashboard, error_banner
+- `/ui/{domain}/views.py` - Domain view components (tasks, goals, habits, events, choices, principles)
+- `/ui/calendar/` - Calendar subsystem (components, converters)
+- `/ui/habits/atomic_*.py` - Atomic habits subsystem (6 files)
 - `/ui/tokens.py` - Spacing, container, card tokens
-- `/ui/patterns/` - PageHeader, SectionHeader components
 
 **Navbar Profile Dropdown (Desktop):**
 Avatar click opens DaisyUI dropdown with Tasks, Goals, Habits, Choices, Principles. On mobile (<640px), these appear in the hamburger menu under "Activity Domains" section.

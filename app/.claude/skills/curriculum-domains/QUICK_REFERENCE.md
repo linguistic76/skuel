@@ -31,10 +31,10 @@
 ### UI
 | Domain | Routes | Views |
 |--------|--------|-------|
-| KU | `adapters/inbound/ku_routes.py` | `components/ku_views.py` |
-| LS | `adapters/inbound/ls_routes.py` | `components/ls_views.py` |
-| LP | `adapters/inbound/lp_routes.py` | `components/lp_views.py` |
-| MOC | `adapters/inbound/moc_routes.py` | `components/moc_views.py` |
+| KU | `adapters/inbound/ku_routes.py` | `ui/patterns/ku_adaptive.py` |
+| LS | `adapters/inbound/ls_routes.py` | `ui/patterns/ku_adaptive.py` |
+| LP | `adapters/inbound/lp_routes.py` | `ui/patterns/ku_adaptive.py` |
+| MOC | `adapters/inbound/moc_routes.py` | `ui/patterns/ku_adaptive.py` |
 
 ## UID Formats
 

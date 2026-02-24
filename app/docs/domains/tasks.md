@@ -43,7 +43,7 @@ Tasks represent work items with dependencies, deadlines, and knowledge requireme
 | Config | `TASKS_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/task_events.py` |
 | UI Routes | `/adapters/inbound/tasks_ui.py` |
-| View Components | `/components/tasks_views.py` |
+| View Components | `/ui/tasks/views.py` |
 
 ## Facade Pattern (January 2026)
 

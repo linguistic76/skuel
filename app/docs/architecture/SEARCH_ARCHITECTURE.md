@@ -601,7 +601,7 @@ create_search_routes(app, rt, services, services.search_router)
 | **Domain Search Services** | `/core/services/{domain}/{domain}_search_service.py` | Domain-specific search logic |
 | **LS Search** | `/core/services/ls/ls_search_service.py` | Learning Steps search (January 2026) |
 | **LP Search** | `/core/services/lp/lp_search_service.py` | Learning Paths search (January 2026) |
-| **UI Components** | `/components/search_components.py` | Sidebar, results, learning badges |
+| **UI Components** | `/ui/search/components.py` | Sidebar, results, learning badges |
 | **Intelligence** | `/core/services/search/search_intelligence_service.py` | Ranking, suggestions |
 | **MEGA-QUERY** | `/core/services/user/user_context_queries.py` | User state query |
 | **Context Builder** | `/core/services/user/user_context_builder.py` | Orchestrates MEGA-QUERY |

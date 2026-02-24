@@ -34,7 +34,7 @@ Choices represent decisions with outcome tracking. They connect knowledge, princ
 | Config | `CHOICES_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/choice_events.py` |
 | UI Routes | `/adapters/inbound/choice_ui.py` |
-| View Components | `/components/choices_views.py` |
+| View Components | `/ui/choices/views.py` |
 
 ## Facade Pattern (January 2026)
 
@@ -195,7 +195,7 @@ Alpine.data('choiceOptions', function() {
 
 ### Form Integration
 
-The Create form in `/components/choices_views.py`:
+The Create form in `/ui/choices/views.py`:
 - Wraps form with `x-data="choiceOptions()"`
 - Uses `x-for` to render dynamic option inputs
 - Uses `x-model` and `x-bind:name` for form field binding

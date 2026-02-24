@@ -26,7 +26,7 @@ Following the "One Path Forward" principle, all naming should use the canonical 
 1. `knowledge_routes.py` → `ku_routes.py`
 2. `knowledge_api.py` → `ku_api.py`
 3. `knowledge_ui.py` → `ku_ui.py`
-4. `components/knowledge_ui_components.py` → `components/ku_ui_components.py`
+4. `ui/patterns/ku_adaptive.py` → `ui/patterns/ku_adaptive.py`
 5. `core/events/knowledge_events.py` → `core/events/ku_events.py`
 
 ### Route Configuration Updates

@@ -504,5 +504,5 @@ class MenuItem:
 
 - `/ui/layouts/navbar.py` - SKUEL navbar implementation
 - `/ui/layouts/nav_config.py` - NavItem configuration
-- `/components/drawer_layout.py` - DaisyUI drawer pattern
+- `/ui/patterns/drawer_layout.py` - DaisyUI drawer pattern
 - `/static/js/skuel.js` - Alpine.data('navbar') component

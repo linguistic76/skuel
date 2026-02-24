@@ -52,7 +52,7 @@ The Profile Hub and Insights Dashboard integration transforms two isolated syste
 **Solution**: Deep linking with focus parameter and visual highlighting.
 
 **Files Modified** (4):
-- `components/insight_card.py` - Added deep link URLs with focus parameter
+- `ui/insights/insight_card.py` - Added deep link URLs with focus parameter
 - `adapters/inbound/user_profile_ui.py` - Extract focus param, pass to views
 - `ui/profile/domain_views.py` - Accept focus_uid, add "Back to Insights" link
 - `static/js/skuel.js` - Added `profileFocusHandler()` Alpine component
@@ -207,7 +207,7 @@ x_show_expr = (
 
 **Files Modified** (3):
 - `static/js/skuel.js` - Added `insightDetailModal()` Alpine component
-- `components/insight_card.py` - Added `InsightDetailModal()` function, "View Details" button
+- `ui/insights/insight_card.py` - Added `InsightDetailModal()` function, "View Details" button
 - `adapters/inbound/insights_api.py` - Added `/api/insights/{uid}/details` and `/api/insights/{uid}/snooze` endpoints
 
 **Features**:

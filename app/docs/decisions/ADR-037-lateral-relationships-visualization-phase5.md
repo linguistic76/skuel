@@ -360,7 +360,7 @@ async def detail_page(request: Any, uid: str) -> Any:
 3. Habits (`adapters/inbound/habits_ui.py`)
 4. Events (`adapters/inbound/events_ui.py`)
 5. Choices (`adapters/inbound/choice_ui.py`)
-6. Principles (`components/principles_views.py`)
+6. Principles (`ui/principles/views.py`)
 7. KU (`adapters/inbound/learning_ui.py`)
 8. LS (`adapters/inbound/learning_ui.py`)
 9. LP (`adapters/inbound/learning_ui.py`)

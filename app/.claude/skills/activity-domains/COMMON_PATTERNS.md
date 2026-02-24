@@ -64,7 +64,7 @@ All domains use identical UI structure:
 /domain/{uid}/edit         # Edit modal
 ```
 
-**View components** in `/components/{domain}_views.py`:
+**View components** in `/ui/{domain}/views.py`:
 ```python
 class TasksViewComponents:
     @staticmethod

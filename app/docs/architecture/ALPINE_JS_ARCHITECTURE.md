@@ -36,8 +36,8 @@ curl -sL "https://unpkg.com/alpinejs@X.Y.Z/dist/cdn.min.js" \
   -o static/vendor/alpinejs/alpine.X.Y.Z.min.js
 
 # Update references in:
-# - components/timeline_components.py
-# - components/search_components.py
+# - ui/timeline/components.py
+# - ui/search/components.py
 # - adapters/inbound/askesis_ui.py
 # - adapters/inbound/calendar_routes.py
 # - This file + CLAUDE.md

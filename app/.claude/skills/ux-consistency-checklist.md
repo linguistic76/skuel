@@ -19,7 +19,7 @@
 **Quick Test:**
 ```bash
 # Find hardcoded colors
-grep -r "bg-white\|text-gray-\|bg-gray-" adapters/inbound/ components/
+grep -r "bg-white\|text-gray-\|bg-gray-" adapters/inbound/ ui/
 ```
 
 **Fix:**
@@ -73,7 +73,7 @@ grep -r "data-theme" adapters/inbound/
 **Quick Test:**
 ```bash
 # Find non-standard spacing
-grep -r "space-y-[135579]\|gap-[135579]" adapters/inbound/ components/
+grep -r "space-y-[135579]\|gap-[135579]" adapters/inbound/ ui/
 ```
 
 **Fix:**
@@ -203,7 +203,7 @@ Div(content, cls=Card.STANDARD)
 **Quick Test:**
 ```bash
 # Find images without alt
-grep -r "<img" adapters/inbound/ components/ | grep -v "alt="
+grep -r "<img" adapters/inbound/ ui/ | grep -v "alt="
 ```
 
 **Fix:**
@@ -271,19 +271,19 @@ Run these before committing:
 ```bash
 # Hardcoded colors
 echo "=== Hardcoded Colors ==="
-grep -r "bg-white\|text-gray-\|bg-gray-\|bg-blue-\|bg-red-" adapters/inbound/ components/ | grep -v chart
+grep -r "bg-white\|text-gray-\|bg-gray-\|bg-blue-\|bg-red-" adapters/inbound/ ui/ | grep -v chart
 
 # Custom container widths
 echo "=== Custom Containers ==="
-grep -r "max-w-[0-9xl]\+" adapters/inbound/ components/ | grep -v "Container\."
+grep -r "max-w-[0-9xl]\+" adapters/inbound/ ui/ | grep -v "Container\."
 
 # Non-standard spacing
 echo "=== Non-Standard Spacing ==="
-grep -r "space-y-[135579]\|gap-[135579]" adapters/inbound/ components/
+grep -r "space-y-[135579]\|gap-[135579]" adapters/inbound/ ui/
 
 # Missing alt attributes
 echo "=== Missing Alt Text ==="
-grep -r "<img" adapters/inbound/ components/ | grep -v "alt="
+grep -r "<img" adapters/inbound/ ui/ | grep -v "alt="
 
 # Theme on wrong element
 echo "=== Theme on Body (should be HTML) ==="
@@ -302,27 +302,27 @@ echo
 errors=0
 
 # Check 1: Hardcoded colors
-if grep -rq "bg-white\|text-gray-[0-9]\|bg-gray-[0-9]" adapters/inbound/ components/ 2>/dev/null; then
+if grep -rq "bg-white\|text-gray-[0-9]\|bg-gray-[0-9]" adapters/inbound/ ui/ 2>/dev/null; then
     echo "❌ Found hardcoded colors (use DaisyUI semantic colors)"
-    grep -rn "bg-white\|text-gray-[0-9]\|bg-gray-[0-9]" adapters/inbound/ components/ | head -5
+    grep -rn "bg-white\|text-gray-[0-9]\|bg-gray-[0-9]" adapters/inbound/ ui/ | head -5
     errors=$((errors+1))
 else
     echo "✅ No hardcoded colors"
 fi
 
 # Check 2: Custom containers
-if grep -rq "max-w-[0-9]" adapters/inbound/ components/ 2>/dev/null | grep -vq "Container\."; then
+if grep -rq "max-w-[0-9]" adapters/inbound/ ui/ 2>/dev/null | grep -vq "Container\."; then
     echo "❌ Found custom container widths (use Container tokens)"
-    grep -rn "max-w-[0-9]" adapters/inbound/ components/ | grep -v "Container\." | head -5
+    grep -rn "max-w-[0-9]" adapters/inbound/ ui/ | grep -v "Container\." | head -5
     errors=$((errors+1))
 else
     echo "✅ Using Container tokens"
 fi
 
 # Check 3: Non-standard spacing
-if grep -rq "space-y-[135579]\|gap-[135579]" adapters/inbound/ components/ 2>/dev/null; then
+if grep -rq "space-y-[135579]\|gap-[135579]" adapters/inbound/ ui/ 2>/dev/null; then
     echo "❌ Found non-standard spacing (use 4, 6, 8)"
-    grep -rn "space-y-[135579]\|gap-[135579]" adapters/inbound/ components/ | head -5
+    grep -rn "space-y-[135579]\|gap-[135579]" adapters/inbound/ ui/ | head -5
     errors=$((errors+1))
 else
     echo "✅ Using standard spacing"

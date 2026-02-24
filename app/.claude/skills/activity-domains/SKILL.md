@@ -54,7 +54,7 @@ core/services/{domain}/
 core/services/{domain}_service.py  # Facade
 
 adapters/inbound/{domain}_ui.py    # Routes
-components/{domain}_views.py       # View components
+ui/{domain}/views.py               # View components
 core/events/{domain}_events.py     # Domain events
 ```
 

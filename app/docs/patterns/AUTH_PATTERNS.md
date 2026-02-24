@@ -290,7 +290,7 @@ return create_docs_page(
 | `/ui/layouts/activity_layout.py` | Activity domain layout with request support |
 | `/ui/habits/layout.py` (etc.) | Domain-specific layouts delegating to activity_layout |
 | `/ui/docs/layout.py` | Documentation layout with request support |
-| `/components/shared_ui_components.py` | Shared dashboard with request support |
+| `/ui/patterns/entity_dashboard.py` | Shared dashboard with request support |
 
 ## Session Flow
 

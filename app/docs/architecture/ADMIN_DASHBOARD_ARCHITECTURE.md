@@ -81,7 +81,7 @@ The user management section (`/admin/users`) provides:
 │   │   │  Analytics   │    │   AdminSystemComponents            │   │   │
 │   │   │  Learning    │    │   AdminLearningComponents          │   │   │
 │   │   │  System      │    │                                    │   │   │
-│   │   │  Finance →   │    │   (from components/admin_*)        │   │   │
+│   │   │  Finance →   │    │   (from ui/admin/)        │   │   │
 │   │   │  Ingestion → │    │                                    │   │   │
 │   │   └──────────────┘    └────────────────────────────────────┘   │   │
 │   └─────────────────────────────────────────────────────────────────┘   │
@@ -177,7 +177,7 @@ ADMIN_NAV_ITEMS = [
 ]
 ```
 
-### AdminUIComponents (components/admin_components.py)
+### AdminUIComponents (ui/admin/views.py)
 
 User management UI components:
 
@@ -204,7 +204,7 @@ User management UI components:
 | `render_user_distribution(stats)` | Role distribution bars |
 | `render_activity_stats(data)` | Activity count cards |
 
-### AdminLearningComponents (components/admin_components.py)
+### AdminLearningComponents (ui/admin/views.py)
 
 KU learning progression monitoring:
 
@@ -480,7 +480,7 @@ ADMIN_NAV_ITEMS = [
 ### 2. Add Components (if needed)
 
 ```python
-# components/admin_components.py
+# ui/admin/views.py
 class AdminLogsComponents:
     @staticmethod
     def render_log_entry(log: dict) -> Div:
@@ -520,7 +520,7 @@ async def admin_logs(request, current_user: Any):
 | File | Purpose |
 |------|---------|
 | `ui/admin/layout.py` | AdminLayout, AdminNavItem, create_admin_page |
-| `components/admin_components.py` | User/Analytics/System/Learning UI components |
+| `ui/admin/views.py` | User/Analytics/System/Learning UI components |
 | `adapters/inbound/admin_dashboard_ui.py` | Dashboard UI routes |
 | `adapters/inbound/admin_routes.py` | API routes (JSON) |
 | `core/auth/roles.py` | @require_admin decorator |

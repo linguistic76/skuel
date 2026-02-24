@@ -168,7 +168,7 @@ Integrated client-side form validation into FormGenerator:
 
 ### Files Modified
 
-**`/components/form_generator.py`:**
+**`/ui/patterns/form_generator.py`:**
 - Added `x-data="formValidator"` to form attributes
 - Added `@submit="validate($event)"` to form attributes
 - Added `@input="clearError('{field_name}')"` to all inputs
@@ -257,7 +257,7 @@ Standardized empty states and prepared skeleton loader infrastructure:
 
 ### Files Modified
 
-**`/components/todoist_task_components.py`:**
+**`/ui/tasks/todoist_components.py`:**
 - Updated `render_task_list()` to use `EmptyState` component
 - Replaced custom empty markup with standardized pattern
 
@@ -417,14 +417,14 @@ assert skeleton is not None  ✅
    - Enhanced result_to_response() to handle _headers
    - Auto-add error toasts
 
-3. **`/components/form_generator.py`**
+3. **`/ui/patterns/form_generator.py`**
    - Added formValidator Alpine.js integration
    - Added error clearing on input
    - Added error divs to all fields
 
 ### Domain Changes (1 file)
 
-4. **`/components/todoist_task_components.py`**
+4. **`/ui/tasks/todoist_components.py`**
    - Updated render_task_list() to use EmptyState
 
 ---

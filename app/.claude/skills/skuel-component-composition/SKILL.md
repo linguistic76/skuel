@@ -66,7 +66,7 @@ Badge("New", variant=BadgeT.success)
 
 **Layer 2: Patterns (Semantic Components)**
 
-Location: `/ui/patterns/`, `/components/`
+Location: `/ui/patterns/`, `/ui/`
 
 Purpose: **Domain-aware reusable components** with semantic meaning
 
@@ -227,7 +227,7 @@ Need to create a new component?
 │   ├─ YES → Add to /ui/patterns/ (Pattern)
 │   └─ NO → Continue
 ├─ Is it domain-specific but reusable within domain?
-│   ├─ YES → Add to /components/{domain}_*.py (Pattern)
+│   ├─ YES → Add to /ui/{domain}/*.py (Pattern)
 │   └─ NO → Continue
 └─ Is it one-off UI for single route?
     └─ YES → Inline in route file (No separate component)
@@ -640,7 +640,7 @@ EmptyState(
 
 **Purpose:** Task-specific card with domain knowledge
 
-**File:** `/home/mike/skuel/app/components/todoist_task_components.py`
+**File:** `/home/mike/skuel/app/ui/tasks/todoist_components.py`
 
 **Implementation:**
 
@@ -1143,7 +1143,7 @@ def TaskCard(task: Task, cls: str = ""):
 - `/docs/patterns/UI_COMPONENT_PATTERNS.md` - Complete UI patterns guide
 - `/ui/patterns/` - Pattern implementations
 - `/ui/layouts/` - Layout components
-- `/components/` - Domain-specific components
+- `/ui/` - Domain-specific components
 
 ### Related Patterns
 

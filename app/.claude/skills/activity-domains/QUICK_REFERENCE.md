@@ -27,12 +27,12 @@
 ### UI
 | Domain | Routes | Views | Events File |
 |--------|--------|-------|-------------|
-| Tasks | `adapters/inbound/tasks_ui.py` | `components/tasks_views.py` | `core/events/task_events.py` |
-| Goals | `adapters/inbound/goals_ui.py` | `components/goals_views.py` | `core/events/goal_events.py` |
-| Habits | `adapters/inbound/habits_ui.py` | `components/habits_views.py` | `core/events/habit_events.py` |
-| Events | `adapters/inbound/events_ui.py` | `components/events_views.py` | `core/events/calendar_event_events.py` |
-| Choices | `adapters/inbound/choice_ui.py` | `components/choices_views.py` | `core/events/choice_events.py` |
-| Principles | `adapters/inbound/principles_ui.py` | `components/principles_views.py` | `core/events/principle_events.py` |
+| Tasks | `adapters/inbound/tasks_ui.py` | `ui/tasks/views.py` | `core/events/task_events.py` |
+| Goals | `adapters/inbound/goals_ui.py` | `ui/goals/views.py` | `core/events/goal_events.py` |
+| Habits | `adapters/inbound/habits_ui.py` | `ui/habits/views.py` | `core/events/habit_events.py` |
+| Events | `adapters/inbound/events_ui.py` | `ui/events/views.py` | `core/events/calendar_event_events.py` |
+| Choices | `adapters/inbound/choice_ui.py` | `ui/choices/views.py` | `core/events/choice_events.py` |
+| Principles | `adapters/inbound/principles_ui.py` | `ui/principles/views.py` | `core/events/principle_events.py` |
 
 ## Domain-Specific Quirks
 

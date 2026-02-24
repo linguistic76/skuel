@@ -73,7 +73,7 @@ def habit_dashboard():
 |------|---------|
 | `/static/js/skuel.js` | `chartVis()` Alpine component (lines 514-571) |
 | `/core/services/visualization_service.py` | Data transformation to Chart.js JSON |
-| `/components/visualization_components.py` | FastHTML component wrappers |
+| `/ui/goals/visualization.py` | FastHTML component wrappers |
 | `/adapters/inbound/visualization_routes.py` | API endpoints returning Chart.js configs |
 | `/static/vendor/chart.js/` | Chart.js library (local vendor) |
 

@@ -428,4 +428,4 @@ Div(
 - [SKILL.md](SKILL.md) - Main Chart.js guide
 - [chart-types-reference.md](chart-types-reference.md) - Chart type catalog
 - [activity-domain-charts.md](activity-domain-charts.md) - Domain-specific patterns
-- `/components/visualization_components.py` - Source code for components
+- `/ui/goals/visualization.py` - Source code for components

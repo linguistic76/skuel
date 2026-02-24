@@ -250,24 +250,24 @@ Use these grep commands to find violations before committing:
 
 ```bash
 # Find raw Tailwind colors in routes/components
-grep -r "bg-gray-\|text-gray-\|bg-white\|text-black" adapters/inbound/ components/
+grep -r "bg-gray-\|text-gray-\|bg-white\|text-black" adapters/inbound/ ui/
 
 # Find hardcoded blue/red/green (except charts)
-grep -r "bg-blue-\|bg-red-\|bg-green-" adapters/inbound/ components/ | grep -v chart
+grep -r "bg-blue-\|bg-red-\|bg-green-" adapters/inbound/ ui/ | grep -v chart
 ```
 
 ### Find Custom Container Widths
 
 ```bash
 # Find custom max-width values (should use Container tokens)
-grep -r "max-w-[0-9xl]\+" adapters/inbound/ components/ | grep -v "Container\."
+grep -r "max-w-[0-9xl]\+" adapters/inbound/ ui/ | grep -v "Container\."
 ```
 
 ### Find Non-Standard Spacing
 
 ```bash
 # Find unusual spacing values (1, 3, 5, 7, 9 are non-standard)
-grep -r "space-y-[135579]\|gap-[135579]" adapters/inbound/ components/
+grep -r "space-y-[135579]\|gap-[135579]" adapters/inbound/ ui/
 ```
 
 ### Find Missing Token Imports

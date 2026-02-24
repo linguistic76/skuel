@@ -701,7 +701,7 @@ LIFEPATH_CONFIG = DomainRouteConfig(
 **Key Patterns:**
 - Private helper function: `_lifepath_drawer_layout()` (underscore prefix)
 - Drawer menu items constant: `LIFEPATH_MENU_ITEMS`
-- Uses `create_drawer_layout()` from `components/drawer_layout.py`
+- Uses `create_drawer_layout()` from `ui/patterns/drawer_layout.py`
 
 **Testing Results:**
 - ✅ All 9 routes working (5 UI + 4 API)
@@ -754,7 +754,7 @@ SEL_CONFIG = DomainRouteConfig(
 **Key Patterns:**
 - Private helper function: `_sel_drawer_layout()` (underscore prefix)
 - Drawer menu items constant: `SEL_MENU_ITEMS` (6 items for overview + 5 categories)
-- Uses `create_drawer_layout()` from `components/drawer_layout.py`
+- Uses `create_drawer_layout()` from `ui/patterns/drawer_layout.py`
 - Lazy component imports (inside route functions) to prevent circular dependencies:
   ```python
   # Inside HTMX route functions only

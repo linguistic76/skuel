@@ -45,7 +45,7 @@ Goals represent desired outcomes that guide learning and habit formation. They p
 | Config | `GOALS_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/goal_events.py` |
 | UI Routes | `/adapters/inbound/goals_ui.py` |
-| View Components | `/components/goals_views.py` |
+| View Components | `/ui/goals/views.py` |
 
 ## Facade Pattern (January 2026)
 

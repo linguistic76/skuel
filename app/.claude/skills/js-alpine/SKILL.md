@@ -525,5 +525,5 @@ def toggle_component():
 ## See Also
 
 - `/static/js/skuel.js` - All Alpine.data() components
-- `/components/calendar_components.py`, `/components/search_components.py` - Component examples
+- `/ui/calendar/components.py`, `/ui/search/components.py` - Component examples
 - Alpine.js Docs: https://alpinejs.dev/

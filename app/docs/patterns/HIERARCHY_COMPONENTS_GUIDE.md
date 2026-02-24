@@ -792,7 +792,7 @@ async def goal_hierarchy_view(request, uid: str):
 
 ### Hierarchy View Component
 
-See `/components/goals_views.py:609` for full example:
+See `/ui/goals/views.py:609` for full example:
 
 ```python
 @staticmethod
@@ -857,7 +857,7 @@ def render_hierarchy_view(root_uid: str, root_goal: Goal) -> Div:
 
 | File | Purpose |
 |------|---------|
-| `/components/goals_views.py` | Example: Goals hierarchy view |
+| `/ui/goals/views.py` | Example: Goals hierarchy view |
 | `/adapters/inbound/goals_ui.py` | Example: Route handler |
 
 ---

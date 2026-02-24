@@ -225,7 +225,7 @@ entity_renderer=lambda e: EntityCard(e)
 
 - **Full Guide:** `/docs/SHARED_UI_COMPONENTS_GUIDE.md`
 - **Example:** `/examples/habits_ui_refactored_example.py`
-- **Source:** `/components/shared_ui_components.py`
+- **Source:** `/ui/patterns/entity_dashboard.py`
 
 ## One More Example
 

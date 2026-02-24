@@ -46,7 +46,7 @@ Habits represent recurring behaviors with streak tracking. They form the "system
 | Config | `HABITS_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/habit_events.py` |
 | UI Routes | `/adapters/inbound/habits_ui.py` |
-| View Components | `/components/habits_views.py` |
+| View Components | `/ui/habits/views.py` |
 
 ## Facade Pattern (January 2026)
 

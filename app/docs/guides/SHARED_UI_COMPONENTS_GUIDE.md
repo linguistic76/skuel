@@ -11,7 +11,7 @@ related: [AUTH_PATTERNS.md]
 
 **Version:** 2.0.0 (January 2026) - DaisyUI Migration
 **Status:** Production Ready
-**Location:** `/components/shared_ui_components.py`
+**Location:** `/ui/patterns/entity_dashboard.py`
 
 > **Related:** For page-level layout (page types, container widths, spacing tokens), see the **Unified UX Design System** in `/docs/patterns/UI_COMPONENT_PATTERNS.md`. This guide covers dashboard *content* patterns.
 
@@ -658,7 +658,7 @@ entity_renderer=HabitCard  # Missing lambda/call
 
 - **Documentation:** `/docs/SHARED_UI_COMPONENTS_GUIDE.md`
 - **Examples:** `/examples/habits_ui_refactored_example.py`
-- **Source:** `/components/shared_ui_components.py`
+- **Source:** `/ui/patterns/entity_dashboard.py`
 - **Tests:** `/tests/test_shared_ui_components.py` (TBD)
 
 ## Changelog

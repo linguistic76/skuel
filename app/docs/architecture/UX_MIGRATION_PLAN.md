@@ -5,7 +5,7 @@
 
 ## Executive Summary
 
-Migrate SKUEL's UI from **FrankenUI component DSL** to **semantic HTML + DaisyUI + Tailwind CSS**, following the successful pattern established in `/docs/` and `/components/drawer_layout.py`.
+Migrate SKUEL's UI from **FrankenUI component DSL** to **semantic HTML + DaisyUI + Tailwind CSS**, following the successful pattern established in `/docs/` and `/ui/patterns/drawer_layout.py`.
 
 **Status:** MIGRATION COMPLETE + HARMONIZATION COMPLETE (February 2026)
 **Current State:** All 6 phases complete. SKUEL uses BasePage for consistency with custom layouts for special cases.
@@ -14,10 +14,10 @@ Migrate SKUEL's UI from **FrankenUI component DSL** to **semantic HTML + DaisyUI
 ### Phase 1 Status: COMPLETE
 
 New DaisyUI components created (parallel to existing FrankenUI versions):
-- `components/daisyui_design_system.py` - Core design system with NavItem, DaisyUIComponents, page layouts
-- `components/shared_ui_components_daisy.py` - Dashboard components (stats, entity lists, quick actions)
-- `components/form_generator_daisy.py` - Pydantic model to form HTML generation
-- `components/auth_components_daisy.py` - Login/registration pages
+- `ui/layouts/base_page.py` - Core design system with NavItem, DaisyUIComponents, page layouts
+- `ui/patterns/entity_dashboard.py` - Dashboard components (stats, entity lists, quick actions)
+- `ui/patterns/form_generator.py` - Pydantic model to form HTML generation
+- `ui/auth/components.py` - Login/registration pages
 - `static/css/main.css` - Core stylesheet with typography, animations, HTMX loading states
 
 ---
@@ -688,6 +688,6 @@ If issues arise during migration:
 
 - `/docs/Daisyui_llms.txt` - Complete DaisyUI reference
 - `/docs/fasthtml-llms.txt` - FastHTML patterns
-- `/components/drawer_layout.py` - Working DaisyUI drawer
-- `/components/docs_layout.py` - Working DaisyUI page layout
+- `/ui/patterns/drawer_layout.py` - Working DaisyUI drawer
+- `/ui/layouts/base_page.py` - Working DaisyUI page layout
 - `/static/css/docs.css` - Reference CSS implementation

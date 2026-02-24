@@ -234,7 +234,7 @@ _delegations = {
 
 ### Components
 
-**File:** `components/ku_adaptive_components.py`
+**File:** `ui/patterns/ku_adaptive.py`
 
 Three components render the learning experience:
 
@@ -318,7 +318,7 @@ MODELS (frozen dataclasses)                             │ KuLearningJourney│
 | LearningLevel enum | `core/models/enums/learning_enums.py` |
 | Adaptive curriculum service | `core/services/ku/ku_adaptive_service.py` |
 | KU facade (wires sub-services) | `core/services/ku_service.py` |
-| UI components | `components/ku_adaptive_components.py` |
+| UI components | `ui/patterns/ku_adaptive.py` |
 | API routes | `adapters/inbound/ku_api.py` |
 | Ingestion pipeline | `core/services/ingestion/` |
 | Substance philosophy | `docs/architecture/knowledge_substance_philosophy.md` |

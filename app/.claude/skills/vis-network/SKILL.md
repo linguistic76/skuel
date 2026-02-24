@@ -95,7 +95,7 @@ This architecture enables:
 └── vis-network.min.css     # 220KB
 ```
 
-Scripts are loaded via `/components/base_layout.py` in the `<head>` section:
+Scripts are loaded via `/ui/layouts/base_page.py` in the `<head>` section:
 
 ```python
 # Already included in all pages
@@ -1840,7 +1840,7 @@ async def {domain}_detail(request: Request, uid: str):
 <link rel="stylesheet" href="/static/vendor/vis-network/vis-network.min.css">
 ```
 
-**If missing:** Add to `/components/base_layout.py`:
+**If missing:** Add to `/ui/layouts/base_page.py`:
 
 ```python
 Script(src="/static/vendor/vis-network/vis-network.min.js"),

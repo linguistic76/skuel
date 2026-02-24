@@ -45,7 +45,7 @@ January 31, 2026
 
 **Tasks**: 11, 12, 13, 14, 15, 16
 
-#### 2. `/components/insight_card.py` (+60 lines)
+#### 2. `/ui/insights/insight_card.py` (+60 lines)
 
 **Changes**:
 - Updated `InsightMiniCard()` - Added deep link URLs with focus parameter

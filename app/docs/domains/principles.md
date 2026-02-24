@@ -37,7 +37,7 @@ Principles represent core values and guiding beliefs that inform goals, choices,
 | **Planning Service** | `/core/services/principles/principles_planning_service.py` |
 | Facade | `/core/services/principles_service.py` |
 | Config | `PRINCIPLES_CONFIG` in `/core/models/relationship_registry.py` |
-| UI Components | `/components/principles_views.py` |
+| UI Components | `/ui/principles/views.py` |
 | Routes | `/adapters/inbound/principles_ui.py` |
 | Events | `/core/events/principle_events.py` |
 | Context Types | `/core/models/context_types.py` (ContextualPrinciple, PracticeOpportunity) |
@@ -595,7 +595,7 @@ class PrincipleConflictRevealed(BaseEvent):
 
 ### UI Components
 
-**PrinciplesViewComponents** (`/components/principles_views.py`):
+**PrinciplesViewComponents** (`/ui/principles/views.py`):
 
 | Component | Description |
 |-----------|-------------|

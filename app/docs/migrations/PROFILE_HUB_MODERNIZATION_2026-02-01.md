@@ -163,7 +163,7 @@ return create_profile_page(content, domains, request=request)
 ### Updated (5 documentation)
 - `/ui/profile/__init__.py` - Updated exports
 - `/adapters/inbound/{habits,events,goals}_ui.py` - Comment updates
-- `/components/todoist_task_components.py` - Comment update
+- `/ui/tasks/todoist_components.py` - Comment update
 - `/ui/admin/layout.py` - Comment update
 
 ### Deleted (0)

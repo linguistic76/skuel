@@ -104,7 +104,7 @@ Implemented comprehensive **Visual Hierarchy Component Library** providing 4 reu
 
 ### Integration Examples (2 files, ~120 lines modifications)
 
-10. **`/components/goals_views.py`** (+80 lines)
+10. **`/ui/goals/views.py`** (+80 lines)
     - `render_hierarchy_view()` - Complete example integration
     - TreeView usage with controls
     - Bulk actions panel
@@ -445,7 +445,7 @@ async def goal_hierarchy_view(request, uid: str):
 
 **Component:**
 ```python
-# components/goals_views.py:609
+# ui/goals/views.py:609
 @staticmethod
 def render_hierarchy_view(root_uid: str, root_goal: Goal) -> Div:
     return Stack(
@@ -518,7 +518,7 @@ async def habit_hierarchy_view(request, uid: str):
     # Same pattern as goals
     ...
 
-# components/habits_views.py
+# ui/habits/views.py
 @staticmethod
 def render_hierarchy_view(root_uid: str, root_habit: Habit) -> Div:
     return Stack(

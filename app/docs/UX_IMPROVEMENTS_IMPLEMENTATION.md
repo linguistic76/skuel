@@ -175,7 +175,7 @@ Response headers:
 **Files Modified:**
 - `/static/css/main.css` - Added CSS environment variables
 - `/ui/layouts/base_page.py` - Updated viewport meta tag
-- `/components/atomic_habits_mobile.py` - Updated to use safe zone class
+- `/ui/habits/atomic_mobile.py` - Updated to use safe zone class
 
 **Changes:**
 - Viewport meta tag: `viewport-fit=cover`
@@ -287,7 +287,7 @@ Response headers:
 ### 6.2 Keyboard Navigation for Tabs
 **Status:** Not Started
 **Files to Update:**
-- `/components/activity_views_base.py` - Add arrow key handling
+- `/ui/patterns/activity_views_base.py` - Add arrow key handling
 
 ---
 
@@ -430,7 +430,7 @@ None at this time. All implemented features have been tested for syntax and basi
 - `/ui/layouts/base_page.py` - Live region, viewport meta
 - `/static/js/skuel.js` - Alpine.js components (toast, validator, focus trap, swipe)
 - `/static/css/main.css` - Safe zones, loading states, accessibility
-- `/components/atomic_habits_mobile.py` - Safe zone class
+- `/ui/habits/atomic_mobile.py` - Safe zone class
 
 ---
 

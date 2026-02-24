@@ -411,7 +411,7 @@ poetry run python main.py
 
 ### Implementation
 - **Core Infrastructure:** `/adapters/inbound/route_factories/domain_route_factory.py`
-- **Drawer Layout Component:** `/components/drawer_layout.py`
+- **Drawer Layout Component:** `/ui/patterns/drawer_layout.py`
 - **SEL Components:** `/adapters/inbound/sel_components.py`
 
 ### Related

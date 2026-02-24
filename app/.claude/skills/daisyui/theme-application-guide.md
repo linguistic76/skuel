@@ -348,7 +348,7 @@ def base_html(*content):
 ### Theme Toggle Component
 
 ```python
-# /components/theme_toggle.py
+# /ui/layouts/base_page.py
 
 def ThemeToggle():
     return Button(
