@@ -27,7 +27,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from components.atomic_habits_components import AtomicHabitsComponents
+from ui.habits.atomic_components import AtomicHabitsComponents
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.form_generator import FormGenerator
 from ui.goals.views import GoalsViewComponents

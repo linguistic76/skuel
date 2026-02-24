@@ -19,7 +19,7 @@ from typing import Any, TypedDict
 
 from fasthtml.common import H1, H2, H3, Option, P
 
-from components.atomic_habits_animations import AtomicHabitsAnimations
+from ui.habits.atomic_animations import AtomicHabitsAnimations
 from ui.daisy_components import (
     Button,
     Card,

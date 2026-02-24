@@ -26,11 +26,11 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from components.atomic_habits_achievements import AtomicHabitsBadges
-from components.atomic_habits_analytics import AtomicHabitsAnalytics
-from components.atomic_habits_components import AtomicHabitsComponents
-from components.atomic_habits_intelligence import AtomicHabitsIntelligence
-from components.atomic_habits_mobile import AtomicHabitsMobile
+from ui.habits.atomic_achievements import AtomicHabitsBadges
+from ui.habits.atomic_analytics import AtomicHabitsAnalytics
+from ui.habits.atomic_components import AtomicHabitsComponents
+from ui.habits.atomic_intelligence import AtomicHabitsIntelligence
+from ui.habits.atomic_mobile import AtomicHabitsMobile
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.form_generator import FormGenerator
