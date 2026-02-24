@@ -304,7 +304,7 @@ async def test_vector_search_by_text_mock(neo4j_driver, clean_neo4j, services_wi
     for item in similar:
         assert "node" in item
         assert "score" in item
-        assert item["node"]["uid"].startswith("ku.")
+        assert item["node"]["uid"].startswith("entity.")  # label="Entity" → entity.*
         assert 0.7 <= item["score"] <= 1.0
 
 

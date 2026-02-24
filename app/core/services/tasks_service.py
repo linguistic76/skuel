@@ -14,6 +14,7 @@ Sub-Services:
 
 from __future__ import annotations
 
+from datetime import date
 from typing import TYPE_CHECKING, Any, TypedDict
 
 if TYPE_CHECKING:
@@ -283,8 +284,19 @@ class TasksService(BaseService["BackendOperations[Task]", Task]):
     async def list_tasks(self, *args: Any, **kwargs: Any) -> Any:
         return await self.core.list_tasks(*args, **kwargs)
 
-    async def get_user_items_in_range(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.core.get_user_items_in_range(*args, **kwargs)
+    async def get_user_items_in_range(
+        self,
+        user_uid: str,
+        start_date: date,
+        end_date: date,
+        include_completed: bool = False,
+    ) -> Any:
+        return await self.core.get_user_items_in_range(
+            user_uid=user_uid,
+            start_date=start_date,
+            end_date=end_date,
+            include_completed=include_completed,
+        )
 
     async def update_task(self, *args: Any, **kwargs: Any) -> Any:
         return await self.core.update_task(*args, **kwargs)

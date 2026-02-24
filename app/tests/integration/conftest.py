@@ -173,7 +173,7 @@ async def clean_neo4j(neo4j_container, create_moc_test_user, ensure_test_users):
             # Create vector index for KU entities
             # Required by semantic search integration tests
             result = await session.run("""
-                CREATE VECTOR INDEX ku_embedding_idx IF NOT EXISTS
+                CREATE VECTOR INDEX entity_embedding_idx IF NOT EXISTS
                 FOR (n:Entity)
                 ON (n.embedding)
                 OPTIONS {

@@ -293,12 +293,17 @@ class Neo4jGenericMapper:
         if not is_dataclass(entity_class):
             raise ValueError(f"Entity class must be a dataclass, got {entity_class}")
 
-        # Get type hints for the class
-        # Use localns=locals() to allow forward references to resolve
+        # Get type hints for the class using the module namespace so that
+        # forward references from `from __future__ import annotations` resolve
+        # correctly (locals() here doesn't contain the class's own imports).
+        import sys as _sys
+
         try:
-            type_hints = get_type_hints(entity_class, localns=locals())
-        except NameError:
-            # If forward references can't be resolved, fall back to field.type
+            module = _sys.modules.get(entity_class.__module__)
+            globalns = getattr(module, "__dict__", {}) if module else {}
+            type_hints = get_type_hints(entity_class, globalns=globalns, localns={})
+        except (NameError, AttributeError):
+            # Fall back to field.type strings if resolution still fails
             type_hints = {}
         kwargs = {}
 
@@ -369,6 +374,23 @@ class Neo4jGenericMapper:
         # Handle None
         if value is None:
             return None
+
+        # Guard: if target_type is still a string annotation (get_type_hints fallback),
+        # detect common dict/list patterns and attempt JSON parsing.
+        if isinstance(target_type, str):
+            if target_type == "dict" or target_type.startswith("dict["):
+                if isinstance(value, str) and value:
+                    try:
+                        return json.loads(value)
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+            elif target_type == "list" or target_type.startswith("list["):
+                if isinstance(value, str) and value:
+                    try:
+                        return json.loads(value)
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+            return value
 
         # Get origin for generic types
         origin = get_origin(target_type)
