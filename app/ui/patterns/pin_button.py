@@ -5,7 +5,7 @@ Pin Button Component
 Reusable pin/unpin button for any entity (tasks, goals, KUs, assignments, etc.).
 
 Usage:
-    from components.shared.pin_button import PinButton
+    from ui.patterns.pin_button import PinButton
 
     # In entity card/detail view
     card = Div(

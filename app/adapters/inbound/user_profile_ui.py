@@ -261,7 +261,7 @@ def setup_user_profile_routes(rt, services):
                 "monthly_learning_hours": prefs.monthly_learning_hours,
             }
 
-        from components.user_preferences_components import UserPreferencesComponents
+        from ui.profile.preferences import UserPreferencesComponents
 
         return UserPreferencesComponents.render_preferences_editor(prefs_dict)
 
@@ -328,7 +328,7 @@ def setup_user_profile_routes(rt, services):
                 cls="p-4",
             )
 
-        from components.user_preferences_components import UserPreferencesComponents
+        from ui.profile.preferences import UserPreferencesComponents
 
         return UserPreferencesComponents.render_preferences_saved_message()
 

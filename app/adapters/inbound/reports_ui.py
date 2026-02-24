@@ -108,7 +108,7 @@ def _render_report_card(report: Any, is_pinned: bool = False) -> Any:
         report: Report entity
         is_pinned: Whether this report is pinned
     """
-    from components.shared.pin_button import PinButton
+    from ui.patterns.pin_button import PinButton
 
     file_size_mb = (report.file_size / 1024 / 1024) if report.file_size else 0
     identifier = _get_report_identifier(report)

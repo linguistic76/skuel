@@ -222,7 +222,7 @@ class GoalsViewComponents:
             user_uid: User UID (unused, kept for compatibility)
             is_pinned: Whether this goal is pinned
         """
-        from components.shared.pin_button import PinButton
+        from ui.patterns.pin_button import PinButton
 
         uid = goal.uid
         title = goal.title

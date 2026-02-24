@@ -75,7 +75,7 @@ def create_user_pins_routes(
             return result
 
         # Return updated pin button for HTMX
-        from components.shared.pin_button import PinButton
+        from ui.patterns.pin_button import PinButton
 
         return PinButton(entity_uid=entity_uid, is_pinned=True)
 
@@ -97,7 +97,7 @@ def create_user_pins_routes(
             return result
 
         # Return updated pin button for HTMX
-        from components.shared.pin_button import PinButton
+        from ui.patterns.pin_button import PinButton
 
         return PinButton(entity_uid=entity_uid, is_pinned=False)
 

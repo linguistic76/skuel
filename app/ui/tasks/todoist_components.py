@@ -204,7 +204,7 @@ class TodoistTaskComponents:
         )
 
         # Pin button - with click.stop to prevent triggering row click
-        from components.shared.pin_button import PinButton
+        from ui.patterns.pin_button import PinButton
 
         pin_btn = Div(
             PinButton(entity_uid=task.uid, is_pinned=is_pinned, size="xs"),
