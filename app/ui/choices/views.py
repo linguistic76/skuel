@@ -82,7 +82,6 @@ class ChoicesViewComponents:
             choices: List of choices to display
             filters: Current filter values
             stats: Choice statistics
-            user_uid: Current user UID
 
         Returns:
             Div containing the list view
@@ -286,7 +285,6 @@ class ChoicesViewComponents:
         Args:
             choice_types: List of choice type names
             domains: List of domain names
-            user_uid: Current user UID
 
         Returns:
             Div containing the creation form
@@ -511,7 +509,6 @@ class ChoicesViewComponents:
 
         Args:
             analytics_data: Analytics data including satisfaction rates, patterns
-            user_uid: Current user UID
 
         Returns:
             Div containing the analytics view

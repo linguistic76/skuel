@@ -100,7 +100,6 @@ class GoalsViewComponents:
             filters: Current filter values
             stats: Goal statistics
             categories: List of category names for filter
-            user_uid: Current user UID
 
         Returns:
             Div containing the list view
@@ -327,7 +326,6 @@ class GoalsViewComponents:
         Args:
             categories: List of category names for dropdown
             timeframes: List of (value, label) tuples for timeframe
-            user_uid: Current user UID
 
         Returns:
             Div containing the creation form

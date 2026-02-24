@@ -83,7 +83,6 @@ class PrinciplesViewComponents:
             filters: Current filter values
             stats: Principle statistics
             categories: Available categories for filtering
-            user_uid: Current user UID
 
         Returns:
             Div containing the list view
@@ -334,7 +333,6 @@ class PrinciplesViewComponents:
 
         Args:
             categories: List of category names
-            user_uid: Current user UID
 
         Returns:
             Div containing the creation form
@@ -495,7 +493,6 @@ class PrinciplesViewComponents:
 
         Args:
             analytics_data: Analytics data including adherence rates, impact
-            user_uid: Current user UID
 
         Returns:
             Div containing the analytics view
@@ -602,7 +599,6 @@ class PrinciplesViewComponents:
         Args:
             principle: Principle to edit
             categories: List of category names
-            user_uid: Current user UID
 
         Returns:
             Div containing the edit form
@@ -730,7 +726,6 @@ class PrinciplesViewComponents:
 
         Args:
             principle: Principle to reflect on
-            user_uid: Current user UID
 
         Returns:
             Div containing the reflection form
@@ -886,7 +881,6 @@ class PrinciplesViewComponents:
         Args:
             principle: The principle entity
             reflections: List of PrincipleReflection entities
-            user_uid: Current user UID
 
         Returns:
             Div containing reflection history
@@ -1013,7 +1007,6 @@ class PrinciplesViewComponents:
 
         Args:
             trend: AlignmentTrend data object
-            user_uid: Current user UID
 
         Returns:
             Div containing trend visualization

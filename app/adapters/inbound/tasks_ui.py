@@ -554,7 +554,7 @@ def create_tasks_ui_routes(
             )
             return await create_tasks_page(error_content, user_uid)
 
-        tasks, stats = filtered_result.value
+        tasks, _stats = filtered_result.value
         projects = projects_result.value if not projects_result.is_error else []
         assignees = assignees_result.value if not assignees_result.is_error else []
 
@@ -628,7 +628,7 @@ def create_tasks_ui_routes(
         if filtered_result.is_error:
             return render_error_banner("Failed to load tasks")
 
-        tasks, stats = filtered_result.value
+        tasks, _stats = filtered_result.value
         projects = projects_result.value if not projects_result.is_error else []
         assignees = assignees_result.value if not assignees_result.is_error else []
 
@@ -797,7 +797,7 @@ def create_tasks_ui_routes(
         if filtered_result.is_error:
             return render_error_banner("Failed to load tasks")
 
-        all_tasks, stats = filtered_result.value
+        all_tasks, _stats = filtered_result.value
         projects = projects_result.value if not projects_result.is_error else []
         assignees = assignees_result.value if not assignees_result.is_error else []
 

@@ -83,7 +83,6 @@ class AtomicHabitsAnalytics:
         Main analytics dashboard with all visualizations.
 
         Args:
-            user_uid: User identifier,
             date_range: (start_date, end_date) tuple
         """
         if not date_range:

@@ -99,7 +99,6 @@ class TasksViewComponents:
         Args:
             projects: List of existing project names for autocomplete
             existing_tasks: List of existing tasks for parent selection
-            user_uid: Current user UID
 
         Returns:
             Div containing the creation form
@@ -266,10 +265,8 @@ class TasksViewComponents:
         Args:
             tasks: List of tasks to display
             filters: Current filter values
-            stats: Task statistics (total, completed, overdue)
             projects: List of project names for filter dropdown
             assignees: List of assignee names for filter dropdown
-            user_uid: Current user UID
 
         Returns:
             Div containing the list view

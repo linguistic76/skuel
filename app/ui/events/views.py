@@ -197,7 +197,6 @@ class EventsViewComponents:
             events: List of events to display
             filters: Current filter values
             stats: Event statistics
-            user_uid: Current user UID
 
         Returns:
             Div containing the list view
@@ -365,7 +364,6 @@ class EventsViewComponents:
 
         Args:
             event_types: List of event type names for dropdown
-            user_uid: Current user UID
 
         Returns:
             Div containing the creation form
