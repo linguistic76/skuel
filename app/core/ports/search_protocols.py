@@ -33,6 +33,7 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from datetime import date
 
+    from core.models.entity import Entity
     from core.models.enums import Domain
     from core.models.habit.habit import Habit as Habit
     from core.models.search.filters import BaseSearchFilters

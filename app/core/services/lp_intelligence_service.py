@@ -886,9 +886,8 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
     # Wiring checklist:
     #   1. Add ls_intelligence param to __init__ (or resolve from ls_service)
     #   2. Implement identify_practice_gaps() calling LS per-step methods
-    #   3. Add to LpService._delegations map
-    #   4. Add to LpFacadeProtocol in facade_protocols.py
-    #   5. Add API route
+    #   3. Add explicit delegation method to LpService
+    #   4. Add API route
     #
     # Full design: /docs/domains/lp.md § "Future: Practice Gap Analysis"
     # LS infrastructure: /docs/domains/ls.md § "Cross-Domain: Practice Infrastructure"

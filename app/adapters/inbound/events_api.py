@@ -26,14 +26,14 @@ from core.models.event.event_request import (
     EventStatusUpdateRequest,
     GetRecurringEventsRequest,
 )
-from core.ports.facade_protocols import EventsFacadeProtocol
+from core.services.events_service import EventsService
 from core.utils.result_simplified import Result
 
 
 def create_events_api_routes(
     app: Any,
     rt: Any,
-    events_service: EventsFacadeProtocol,
+    events_service: EventsService,
     **_kwargs: Any,
 ) -> list[Any]:
     """

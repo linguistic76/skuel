@@ -6,7 +6,7 @@ This package contains focused sub-services that compose the unified ChoicesServi
 
 Architecture: Facade Pattern (4 sub-services)
 - Each sub-service handles ONE specific responsibility
-- ChoicesService (facade) auto-delegates to appropriate sub-service via FacadeDelegationMixin
+- ChoicesService (facade) delegates to appropriate sub-service via explicit delegation methods
 - Decision-making domain with principle alignment and learning guidance
 - Zero breaking changes to external code
 

@@ -14,11 +14,10 @@ Sub-Services:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypedDict, cast
+from typing import TYPE_CHECKING, Any, TypedDict
 
 if TYPE_CHECKING:
     from core.ports import BackendOperations
-    from core.ports.facade_protocols import TasksFacadeProtocol
     from core.ports.search_protocols import TasksSearchOperations
 
 # Knowledge generation service (Phase 4.1)
@@ -36,7 +35,6 @@ from core.services.analytics_engine import (
 # Base service
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.mixins import FacadeDelegationMixin, merge_delegations
 
 # Unified relationship service (replaces TasksRelationshipService)
 from core.services.relationships import UnifiedRelationshipService
@@ -118,17 +116,17 @@ class TaskAnalyticsDashboard(TypedDict):
     analytics_status: AnalyticsStatus
 
 
-class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Task]", Task]):
+class TasksService(BaseService["BackendOperations[Task]", Task]):
     """
     Tasks service facade with specialized sub-services.
 
     This facade:
     1. Delegates to 7 specialized sub-services for core operations
-    2. Uses FacadeDelegationMixin for ~35 auto-generated delegation methods
+    2. Uses explicit delegation methods for all sub-service calls
     3. Retains explicit methods for complex orchestration and transformations
     4. Provides clean separation of concerns
 
-    Auto-Generated Delegations (via FacadeDelegationMixin):
+    Delegation Methods:
     - Core CRUD: get_task, get_user_tasks, list_tasks, update_task, delete_task
     - Search: get_tasks_for_goal, get_tasks_for_habit, get_prioritized_tasks, etc.
     - Progress: check_prerequisites, unblock_task_if_ready, record_task_completion, etc.
@@ -155,7 +153,6 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Task]",
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - Uses FacadeDelegationMixin for delegation (January 2026 Phase 3)
     - No APOC calls (Phase 5 eliminated those)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
@@ -175,9 +172,8 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Task]",
     )
 
     # ========================================================================
-    # CLASS-LEVEL TYPE ANNOTATIONS (for FacadeDelegationMixin signature preservation)
+    # CLASS-LEVEL TYPE ANNOTATIONS
     # ========================================================================
-    # These annotations allow the mixin to resolve method signatures at class definition time.
     core: TasksCoreService
     search: TasksSearchOperations  # Forward ref - imported in TYPE_CHECKING
     progress: TasksProgressService
@@ -185,73 +181,6 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Task]",
     planning: TasksPlanningService
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
-
-    # ========================================================================
-    # DELEGATION SPECIFICATION (FacadeDelegationMixin)
-    # ========================================================================
-    # Simple delegations are auto-generated. Complex methods remain explicit.
-    _delegations = merge_delegations(
-        # Core CRUD delegations
-        {
-            "get_task": ("core", "get_task"),
-            "get_user_tasks": ("core", "get_user_tasks"),
-            "list_tasks": ("core", "list_tasks"),
-            "get_user_items_in_range": ("core", "get_user_items_in_range"),
-            "update_task": ("core", "update_task"),
-            "delete_task": ("core", "delete_task"),
-        },
-        # Search delegations
-        {
-            "get_tasks_for_goal": ("search", "get_tasks_for_goal"),
-            "get_tasks_for_habit": ("search", "get_tasks_for_habit"),
-            "get_tasks_applying_knowledge": ("search", "get_tasks_applying_knowledge"),
-            "get_blocked_by_prerequisites": ("search", "get_blocked_by_prerequisites"),
-            "get_prioritized_tasks": ("search", "get_prioritized_tasks"),
-            "get_learning_relevant_tasks": ("search", "get_learning_relevant_tasks"),
-            "get_curriculum_tasks": ("search", "get_curriculum_tasks"),
-            "get_tasks_for_learning_step": ("search", "get_tasks_for_learning_step"),
-        },
-        # Progress delegations
-        {
-            "check_prerequisites": ("progress", "check_prerequisites"),
-            "unblock_task_if_ready": ("progress", "unblock_task_if_ready"),
-            "record_task_completion": ("progress", "record_task_completion"),
-            "assign_task_to_user": ("progress", "assign_task_to_user"),
-        },
-        # Scheduling delegations
-        {
-            "create_task_with_context": ("scheduling", "create_task_with_context"),
-            "create_task_with_learning_context": (
-                "scheduling",
-                "create_task_with_learning_context",
-            ),
-            "create_tasks_from_learning_path": ("scheduling", "create_tasks_from_learning_path"),
-            "get_next_learning_task": ("scheduling", "get_next_learning_task"),
-            "suggest_learning_aligned_tasks": ("scheduling", "suggest_learning_aligned_tasks"),
-            "create_task_from_learning_step": ("scheduling", "create_task_from_learning_step"),
-        },
-        # Planning delegations (context-first queries)
-        {
-            "get_task_dependencies_for_user": ("planning", "get_task_dependencies_for_user"),
-            "get_actionable_tasks_for_user": ("planning", "get_actionable_tasks_for_user"),
-            "get_learning_tasks_for_user": ("planning", "get_learning_tasks_for_user"),
-        },
-        # Relationship delegations (simple passthrough only)
-        {
-            "get_task_completion_impact": ("relationships", "get_completion_impact"),
-            "analyze_task_learning_context": ("relationships", "get_cross_domain_context"),
-            "get_task_with_semantic_context": ("relationships", "get_with_semantic_context"),
-        },
-        # Intelligence delegations (Task model analysis - moved from TasksAnalyticsService)
-        {
-            "analyze_task_learning_metrics": ("intelligence", "analyze_task_learning_metrics"),
-            "generate_task_knowledge_insights": (
-                "intelligence",
-                "generate_task_knowledge_insights",
-            ),
-            "get_learning_opportunities": ("intelligence", "get_learning_opportunities"),
-        },
-    )
 
     def __init__(
         self,
@@ -341,25 +270,114 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Task]",
         return "Entity"
 
     # ========================================================================
-    # AUTO-GENERATED DELEGATIONS (via FacadeDelegationMixin)
+    # DELEGATION METHODS
     # ========================================================================
-    # The following methods are auto-generated from _delegations specification:
-    # - Core CRUD: get_task, get_user_tasks, list_tasks, get_user_items_in_range,
-    #              update_task, delete_task
-    # - Search: get_tasks_for_goal, get_tasks_for_habit, get_tasks_applying_knowledge,
-    #           get_blocked_by_prerequisites, get_prioritized_tasks, get_learning_relevant_tasks,
-    #           get_curriculum_tasks, get_tasks_for_learning_step
-    # - Progress: check_prerequisites, unblock_task_if_ready, record_task_completion,
-    #             assign_task_to_user
-    # - Scheduling: create_task_with_context, create_task_with_learning_context,
-    #               create_tasks_from_learning_path, get_next_learning_task,
-    #               suggest_learning_aligned_tasks, create_task_from_learning_step
-    # - Planning: get_task_dependencies_for_user, get_actionable_tasks_for_user,
-    #             get_learning_tasks_for_user
-    # - Relationships: get_task_completion_impact, analyze_task_learning_context,
-    #                  get_task_with_semantic_context
-    # - Intelligence: analyze_task_learning_metrics, generate_task_knowledge_insights
-    # ========================================================================
+
+    # Core CRUD delegations
+    async def get_task(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_task(*args, **kwargs)
+
+    async def get_user_tasks(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_user_tasks(*args, **kwargs)
+
+    async def list_tasks(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.list_tasks(*args, **kwargs)
+
+    async def get_user_items_in_range(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_user_items_in_range(*args, **kwargs)
+
+    async def update_task(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.update_task(*args, **kwargs)
+
+    async def delete_task(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.delete_task(*args, **kwargs)
+
+    # Search delegations
+    async def get_tasks_for_goal(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_tasks_for_goal(*args, **kwargs)
+
+    async def get_tasks_for_habit(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_tasks_for_habit(*args, **kwargs)
+
+    async def get_tasks_applying_knowledge(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_tasks_applying_knowledge(*args, **kwargs)
+
+    async def get_blocked_by_prerequisites(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_blocked_by_prerequisites(*args, **kwargs)
+
+    async def get_prioritized_tasks(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_prioritized_tasks(*args, **kwargs)
+
+    async def get_learning_relevant_tasks(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_learning_relevant_tasks(*args, **kwargs)
+
+    async def get_curriculum_tasks(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_curriculum_tasks(*args, **kwargs)
+
+    async def get_tasks_for_learning_step(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_tasks_for_learning_step(*args, **kwargs)
+
+    # Progress delegations
+    async def check_prerequisites(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.check_prerequisites(*args, **kwargs)
+
+    async def unblock_task_if_ready(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.unblock_task_if_ready(*args, **kwargs)
+
+    async def record_task_completion(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.record_task_completion(*args, **kwargs)
+
+    async def assign_task_to_user(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.assign_task_to_user(*args, **kwargs)
+
+    # Scheduling delegations
+    async def create_task_with_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.create_task_with_context(*args, **kwargs)
+
+    async def create_task_with_learning_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.create_task_with_learning_context(*args, **kwargs)
+
+    async def create_tasks_from_learning_path(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.create_tasks_from_learning_path(*args, **kwargs)
+
+    async def get_next_learning_task(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.get_next_learning_task(*args, **kwargs)
+
+    async def suggest_learning_aligned_tasks(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.suggest_learning_aligned_tasks(*args, **kwargs)
+
+    async def create_task_from_learning_step(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.create_task_from_learning_step(*args, **kwargs)
+
+    # Planning delegations
+    async def get_task_dependencies_for_user(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.planning.get_task_dependencies_for_user(*args, **kwargs)
+
+    async def get_actionable_tasks_for_user(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.planning.get_actionable_tasks_for_user(*args, **kwargs)
+
+    async def get_learning_tasks_for_user(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.planning.get_learning_tasks_for_user(*args, **kwargs)
+
+    # Relationship delegations
+    async def get_task_completion_impact(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.relationships.get_completion_impact(*args, **kwargs)
+
+    async def analyze_task_learning_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.relationships.get_cross_domain_context(*args, **kwargs)
+
+    async def get_task_with_semantic_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.relationships.get_with_semantic_context(*args, **kwargs)
+
+    # Intelligence delegations
+    async def analyze_task_learning_metrics(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.analyze_task_learning_metrics(*args, **kwargs)
+
+    async def generate_task_knowledge_insights(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.generate_task_knowledge_insights(*args, **kwargs)
+
+    async def get_learning_opportunities(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_learning_opportunities(*args, **kwargs)
 
     # ========================================================================
     # EXPLICIT CORE METHODS (custom logic)
@@ -598,9 +616,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Task]",
         from core.services.tasks.task_relationships import TaskRelationships
 
         # Get task from backend
-        # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_self = cast("TasksFacadeProtocol", self)
-        task_result = await typed_self.get_task(task_uid)
+        task_result = await self.get_task(task_uid)
         if task_result.is_error:
             return Result.fail(task_result)
 

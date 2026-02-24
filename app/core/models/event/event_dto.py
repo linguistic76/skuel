@@ -17,8 +17,10 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, time
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from datetime import date, time
 
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType

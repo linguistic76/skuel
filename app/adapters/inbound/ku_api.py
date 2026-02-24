@@ -24,12 +24,12 @@ from core.models.curriculum.curriculum_requests import CurriculumCreateRequest
 from core.models.entity_requests import EntityUpdateRequest
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
-from core.ports.facade_protocols import KuFacadeProtocol
+from core.services.ku_service import KuService
 from core.utils.result_simplified import Errors, Result
 
 
 def create_ku_api_routes(
-    app: Any, rt: Any, ku_service: KuFacadeProtocol, user_service: Any = None
+    app: Any, rt: Any, ku_service: KuService, user_service: Any = None
 ) -> list[Any]:
     """
     Create KU API routes using factory pattern.

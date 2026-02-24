@@ -40,15 +40,15 @@ class ReportsRelationshipService:
 
     async def create_report_relationships(
         self,
-        ku: Ku,
+        entity: Ku,
         themes: list[str] | None = None,
         active_goals: list[dict[str, str]] | None = None,
     ) -> Result[dict[str, int]]:
         """
-        Create graph relationships for a Ku.
+        Create graph relationships for a report entity.
 
         Args:
-            ku: The newly created/updated Ku
+            entity: The newly created/updated report entity
             themes: Optional list of themes for thematic relationships
             active_goals: Optional list of active goals for goal-support relationships
 
@@ -58,28 +58,28 @@ class ReportsRelationshipService:
         relationships_created = {"temporal": 0, "thematic": 0, "goal_support": 0}
 
         try:
-            # 1. Temporal Relationship: FOLLOWS (previous Ku of same type)
+            # 1. Temporal Relationship: FOLLOWS (previous entity of same type)
             temporal_result = await self._create_temporal_relationship(
-                report.uid,
-                report.user_uid,
-                report.ku_type.value,
+                entity.uid,
+                entity.user_uid,
+                entity.ku_type.value,
             )
             relationships_created["temporal"] = temporal_result
 
             # 2. Thematic Relationships: RELATED_TO (shared topics)
             if themes:
                 thematic_result = await self._create_thematic_relationships(
-                    report.uid,
-                    report.user_uid,
+                    entity.uid,
+                    entity.user_uid,
                     themes,
                 )
                 relationships_created["thematic"] = thematic_result
 
             # 3. Goal Support Relationships: SUPPORTS_GOAL
-            processed_content = getattr(report, "processed_content", None)
+            processed_content = getattr(entity, "processed_content", None)
             if active_goals and processed_content:
                 goal_result = await self._create_goal_relationships(
-                    report.uid, processed_content, active_goals
+                    entity.uid, processed_content, active_goals
                 )
                 relationships_created["goal_support"] = goal_result
 

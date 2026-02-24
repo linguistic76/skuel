@@ -16,14 +16,14 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_ownership_query
 from adapters.inbound.boundary import boundary_handler
-from core.ports.facade_protocols import ChoicesFacadeProtocol
+from core.services.choices_service import ChoicesService
 from core.utils.result_simplified import Result
 
 
 def create_choices_api_routes(
     app: Any,
     rt: Any,
-    choice_service: ChoicesFacadeProtocol,
+    choice_service: ChoicesService,
     **_kwargs: Any,
 ) -> list[Any]:
     """

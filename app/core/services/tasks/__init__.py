@@ -6,7 +6,7 @@ This package contains focused sub-services that compose the unified TasksService
 
 Architecture: Facade Pattern (7 sub-services)
 - Each sub-service handles ONE specific responsibility
-- TasksService (facade) auto-delegates to appropriate sub-service via FacadeDelegationMixin
+- TasksService (facade) auto-delegates to appropriate sub-service via explicit delegation methods
 - ~35 auto-generated delegation methods + explicit orchestration methods
 - Zero breaking changes to external code
 

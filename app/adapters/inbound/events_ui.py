@@ -29,7 +29,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.ports.facade_protocols import EventsFacadeProtocol
+from core.services.events_service import EventsService
 from core.ports.query_types import ActivityFilterSpec
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -167,7 +167,7 @@ class EventUIComponents:
 # ============================================================================
 
 
-def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
+def create_events_ui_routes(_app, rt, events_service: EventsService):
     """
     Create three-view event UI routes (standalone, calendar-first).
 

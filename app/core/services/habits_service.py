@@ -45,11 +45,6 @@ from core.services.habits.habits_completion_service import HabitsCompletionServi
 
 # Unified relationship service (replaces HabitsRelationshipService)
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
-from core.services.mixins import (
-    FacadeDelegationMixin,
-    create_relationship_delegations,
-    merge_delegations,
-)
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.logging import get_logger
@@ -73,17 +68,17 @@ if TYPE_CHECKING:
     from core.services.user import UserContext
 
 
-class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit]):
+class HabitsService(BaseService[HabitsOperations, Habit]):
     """
     Habits service facade with specialized sub-services.
 
     This facade:
     1. Delegates to 11 specialized sub-services for core operations
-    2. Uses FacadeDelegationMixin for ~50 auto-generated delegation methods
+    2. Uses explicit delegation methods (~45 methods) for sub-service access
     3. Retains explicit methods for complex orchestration operations
     4. Provides clean separation of concerns
 
-    Auto-Generated Delegations (via FacadeDelegationMixin):
+    Delegations (explicit methods):
     - Core: get_habit, get_user_habits, list_habits, get_user_items_in_range
     - Progress: complete_habit_with_quality, get_at_risk_habits, analyze_habit_consistency, etc.
     - Search: search_habits, get_habits_by_status, get_habits_by_domain, etc.
@@ -102,7 +97,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - Uses FacadeDelegationMixin for delegation (January 2026 Phase 3)
+    - Uses explicit delegation methods (February 2026)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     """
@@ -121,104 +116,166 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
     )
 
     # ========================================================================
-    # DELEGATION SPECIFICATION (FacadeDelegationMixin)
+    # DELEGATION METHODS
     # ========================================================================
-    _delegations = merge_delegations(
-        # Core CRUD delegations
-        {
-            "create_habit": ("core", "create_habit"),
-            "get_habit": ("core", "get_habit"),
-            "get_user_habits": ("core", "get_user_habits"),
-            "list_habits": ("core", "list_habits"),
-            "get_user_items_in_range": ("core", "get_user_items_in_range"),
-        },
-        # Progress delegations
-        {
-            "complete_habit_with_quality": ("progress", "complete_habit_with_quality"),
-            "get_at_risk_habits": ("progress", "get_at_risk_habits"),
-            "analyze_habit_consistency": ("progress", "analyze_habit_consistency"),
-            "get_keystone_habits": ("progress", "get_keystone_habits"),
-            "identify_potential_keystone_habits": (
-                "progress",
-                "identify_potential_keystone_habits",
-            ),
-        },
-        # Search delegations
-        {
-            "get_active_habits": ("search", "get_active_habits"),
-            "search_habits": ("search", "search"),
-            "list_habit_categories": ("search", "list_user_categories"),
-            "list_all_habit_categories": ("search", "list_all_categories"),
-            "get_habits_by_category": ("search", "get_by_category"),
-            "get_habits_due_today": ("search", "get_user_due_today"),
-            "get_all_habits_due_today": ("search", "get_all_due_today"),
-            "get_overdue_habits": ("search", "get_overdue"),
-            "get_habits_by_status": ("search", "get_by_status"),
-            "get_habits_by_domain": ("search", "get_by_domain"),
-            "get_habits_by_frequency": ("search", "get_by_frequency"),
-            "get_prioritized_habits": ("search", "get_prioritized"),
-        },
-        # Learning delegations
-        {
-            "get_learning_habits": ("learning", "get_learning_habits"),
-            "create_habit_from_learning_goal": ("learning", "create_habit_from_learning_goal"),
-            "create_habit_with_learning_alignment": (
-                "learning",
-                "create_habit_with_learning_alignment",
-            ),
-            "suggest_learning_supporting_habits": (
-                "learning",
-                "suggest_learning_supporting_habits",
-            ),
-            "get_learning_reinforcing_habits": ("learning", "get_learning_reinforcing_habits"),
-            "assess_habit_learning_impact": ("learning", "assess_habit_learning_impact"),
-        },
-        # Relationship delegations (factory-generated)
-        create_relationship_delegations("habit"),
-        # Intelligence delegations
-        {
-            "get_habit_with_context": ("intelligence", "get_habit_with_context"),
-            "analyze_habit_performance": ("intelligence", "analyze_habit_performance"),
-            "get_habit_knowledge_reinforcement": (
-                "intelligence",
-                "get_habit_knowledge_reinforcement",
-            ),
-            "get_habit_goal_support": ("intelligence", "get_habit_goal_support"),
-        },
-        # Event integration delegations
-        {
-            "get_events_for_habit": ("events", "get_events_for_habit"),
-            "schedule_events_for_habit": ("events", "schedule_events_for_habit"),
-        },
-        # Planning delegations (January 2026)
-        {
-            "get_habit_priorities_for_user": ("planning", "get_habit_priorities_for_user"),
-            "get_actionable_habits_for_user": ("planning", "get_actionable_habits_for_user"),
-            "get_learning_habits_for_user": ("planning", "get_learning_habits_for_user"),
-            "get_goal_supporting_habits_for_user": (
-                "planning",
-                "get_goal_supporting_habits_for_user",
-            ),
-            "get_habit_readiness_for_user": ("planning", "get_habit_readiness_for_user"),
-        },
-        # Scheduling delegations (January 2026)
-        {
-            "check_habit_capacity": ("scheduling", "check_habit_capacity"),
-            "create_habit_with_scheduling_context": (
-                "scheduling",
-                "create_habit_with_context",
-            ),
-            "create_habit_with_learning_scheduling_context": (
-                "scheduling",
-                "create_habit_with_learning_context",
-            ),
-            "suggest_habit_frequency": ("scheduling", "suggest_habit_frequency"),
-            "optimize_habit_schedule": ("scheduling", "optimize_habit_schedule"),
-            "suggest_habit_stacking": ("scheduling", "suggest_habit_stacking"),
-            "create_habit_from_learning_step": ("scheduling", "create_habit_from_learning_step"),
-            "get_habit_load_by_day": ("scheduling", "get_habit_load_by_day"),
-        },
-    )
+
+    # Core CRUD delegations
+    async def create_habit(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.create_habit(*args, **kwargs)
+
+    async def get_habit(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_habit(*args, **kwargs)
+
+    async def get_user_habits(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_user_habits(*args, **kwargs)
+
+    async def list_habits(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.list_habits(*args, **kwargs)
+
+    async def get_user_items_in_range(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_user_items_in_range(*args, **kwargs)
+
+    # Progress delegations
+    async def complete_habit_with_quality(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.complete_habit_with_quality(*args, **kwargs)
+
+    async def get_at_risk_habits(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.get_at_risk_habits(*args, **kwargs)
+
+    async def analyze_habit_consistency(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.analyze_habit_consistency(*args, **kwargs)
+
+    async def get_keystone_habits(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.get_keystone_habits(*args, **kwargs)
+
+    async def identify_potential_keystone_habits(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.identify_potential_keystone_habits(*args, **kwargs)
+
+    # Search delegations
+    async def get_active_habits(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_active_habits(*args, **kwargs)
+
+    async def search_habits(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.search(*args, **kwargs)
+
+    async def list_habit_categories(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.list_user_categories(*args, **kwargs)
+
+    async def list_all_habit_categories(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.list_all_categories(*args, **kwargs)
+
+    async def get_habits_by_category(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_by_category(*args, **kwargs)
+
+    async def get_habits_due_today(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_user_due_today(*args, **kwargs)
+
+    async def get_all_habits_due_today(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_all_due_today(*args, **kwargs)
+
+    async def get_overdue_habits(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_overdue(*args, **kwargs)
+
+    async def get_habits_by_status(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_by_status(*args, **kwargs)
+
+    async def get_habits_by_domain(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_by_domain(*args, **kwargs)
+
+    async def get_habits_by_frequency(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_by_frequency(*args, **kwargs)
+
+    async def get_prioritized_habits(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_prioritized(*args, **kwargs)
+
+    # Learning delegations
+    async def get_learning_habits(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.get_learning_habits(*args, **kwargs)
+
+    async def create_habit_from_learning_goal(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.create_habit_from_learning_goal(*args, **kwargs)
+
+    async def create_habit_with_learning_alignment(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.create_habit_with_learning_alignment(*args, **kwargs)
+
+    async def suggest_learning_supporting_habits(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.suggest_learning_supporting_habits(*args, **kwargs)
+
+    async def get_learning_reinforcing_habits(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.get_learning_reinforcing_habits(*args, **kwargs)
+
+    async def assess_habit_learning_impact(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.assess_habit_learning_impact(*args, **kwargs)
+
+    # Relationship delegations
+    async def get_habit_cross_domain_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.relationships.get_cross_domain_context(*args, **kwargs)
+
+    async def get_habit_with_semantic_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.relationships.get_with_semantic_context(*args, **kwargs)
+
+    # Intelligence delegations
+    async def get_habit_with_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_habit_with_context(*args, **kwargs)
+
+    async def analyze_habit_performance(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.analyze_habit_performance(*args, **kwargs)
+
+    async def get_habit_knowledge_reinforcement(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_habit_knowledge_reinforcement(*args, **kwargs)
+
+    async def get_habit_goal_support(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_habit_goal_support(*args, **kwargs)
+
+    # Event integration delegations
+    async def get_events_for_habit(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.events.get_events_for_habit(*args, **kwargs)
+
+    async def schedule_events_for_habit(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.events.schedule_events_for_habit(*args, **kwargs)
+
+    # Planning delegations
+    async def get_habit_priorities_for_user(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.planning.get_habit_priorities_for_user(*args, **kwargs)
+
+    async def get_actionable_habits_for_user(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.planning.get_actionable_habits_for_user(*args, **kwargs)
+
+    async def get_learning_habits_for_user(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.planning.get_learning_habits_for_user(*args, **kwargs)
+
+    async def get_goal_supporting_habits_for_user(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.planning.get_goal_supporting_habits_for_user(*args, **kwargs)
+
+    async def get_habit_readiness_for_user(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.planning.get_habit_readiness_for_user(*args, **kwargs)
+
+    # Scheduling delegations
+    async def check_habit_capacity(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.check_habit_capacity(*args, **kwargs)
+
+    async def create_habit_with_scheduling_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.create_habit_with_context(*args, **kwargs)
+
+    async def create_habit_with_learning_scheduling_context(
+        self, *args: Any, **kwargs: Any
+    ) -> Any:
+        return await self.scheduling.create_habit_with_learning_context(*args, **kwargs)
+
+    async def suggest_habit_frequency(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.suggest_habit_frequency(*args, **kwargs)
+
+    async def optimize_habit_schedule(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.optimize_habit_schedule(*args, **kwargs)
+
+    async def suggest_habit_stacking(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.suggest_habit_stacking(*args, **kwargs)
+
+    async def create_habit_from_learning_step(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.create_habit_from_learning_step(*args, **kwargs)
+
+    async def get_habit_load_by_day(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.get_habit_load_by_day(*args, **kwargs)
 
     def __init__(
         self,
@@ -327,7 +384,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
     # COMPLETION TRACKING - Delegate to HabitsCompletionService
     # ========================================================================
     # Note: Core CRUD and Progress delegations (get_habit, get_user_habits,
-    # complete_habit_with_quality, etc.) auto-generated by FacadeDelegationMixin.
+    # complete_habit_with_quality, etc.) delegated via explicit methods below.
 
     async def track_habit(
         self,
@@ -627,7 +684,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
     # ========================================================================
     # Reminder configuration is stored directly on the Habit model.
     # Note: Search delegations (search_habits, get_habits_by_status, etc.)
-    # auto-generated by FacadeDelegationMixin.
+    # delegated via explicit methods below.
 
     async def set_habit_reminder(
         self,
@@ -836,7 +893,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
     # GRAPH RELATIONSHIPS - Delegate to UnifiedRelationshipService
     # ========================================================================
     # Note: Learning delegations (get_learning_habits, create_habit_from_learning_goal, etc.)
-    # auto-generated by FacadeDelegationMixin.
+    # delegated via explicit methods below.
 
     async def create_user_habit_relationship(
         self, user_uid: str, habit_uid: str, commitment_level: str = "active"
@@ -873,7 +930,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
         )
 
     # Note: get_habit_cross_domain_context, get_habit_with_semantic_context auto-generated
-    # by FacadeDelegationMixin.
+    # by explicit delegation methods.
 
     async def get_skills_developed_by_habits(self, user_uid: str) -> Result[dict[str, Any]]:
         """Get all skills/knowledge developed through user's habits."""
@@ -940,7 +997,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
     # ========================================================================
     # Note: Intelligence delegations (get_habit_with_context, analyze_habit_performance, etc.)
     # and Event Integration delegations (get_events_for_habit, schedule_events_for_habit)
-    # auto-generated by FacadeDelegationMixin.
+    # delegated via explicit methods below.
 
     async def create_habit_with_context(
         self, habit_data: HabitCreateRequest, user_context: UserContext

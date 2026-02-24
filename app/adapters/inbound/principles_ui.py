@@ -29,7 +29,7 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.constants import QueryLimit
-from core.ports.facade_protocols import PrinciplesFacadeProtocol
+from core.services.principles_service import PrinciplesService
 from core.ports.query_types import PrinciplesFilterSpec
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -71,7 +71,7 @@ class Request(Protocol):
 
 
 def create_principles_ui_routes(
-    _app, rt, principles_service: PrinciplesFacadeProtocol, services: Any = None
+    _app, rt, principles_service: PrinciplesService, services: Any = None
 ):
     """
     Create three-view principle UI routes (standalone, analytics as third tab).

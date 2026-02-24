@@ -21,7 +21,7 @@ from core.models.activity_requests import (
     PrincipleExpressionRequest,
     PrincipleLinkRequest,
 )
-from core.ports.facade_protocols import PrinciplesFacadeProtocol
+from core.services.principles_service import PrinciplesService
 from core.services.conversion_service import ConversionService
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
@@ -32,7 +32,7 @@ conversion_service = ConversionService()
 def create_principles_api_routes(
     app: Any,
     rt: Any,
-    principles_service: PrinciplesFacadeProtocol,
+    principles_service: PrinciplesService,
     **_kwargs: Any,
 ) -> list[Any]:
     """

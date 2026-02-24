@@ -16,7 +16,6 @@ Organized in 5 sections:
 from __future__ import annotations
 
 from enum import Enum
-from typing import Union
 
 # =============================================================================
 # 1. CORE IDENTITY
@@ -874,7 +873,7 @@ class NonKuDomain(str, Enum):
 
 # Union type for any domain identifier in SKUEL.
 # EntityType covers all 16 entity manifestations; NonKuDomain covers the 4 non-entity domains.
-DomainIdentifier = Union[EntityType, NonKuDomain]
+DomainIdentifier = EntityType | NonKuDomain
 
 
 # =============================================================================

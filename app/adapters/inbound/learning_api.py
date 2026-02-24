@@ -25,7 +25,7 @@ from core.models.curriculum.curriculum_requests import LearningPathCreateRequest
 from core.models.entity_requests import EntityUpdateRequest
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
-from core.ports.facade_protocols import LpFacadeProtocol
+from core.services.lp_service import LpService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -33,7 +33,7 @@ logger = get_logger("skuel.routes.learning.api")
 
 
 def create_learning_api_routes(
-    app: Any, rt: Any, learning_service: LpFacadeProtocol, user_service: Any = None
+    app: Any, rt: Any, learning_service: LpService, user_service: Any = None
 ) -> list[Any]:
     """
     Create learning API routes using factory pattern.

@@ -27,7 +27,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from core.ports.facade_protocols import ChoicesFacadeProtocol
+from core.services.choices_service import ChoicesService
 from core.ports.query_types import ActivityFilterSpec
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -83,7 +83,7 @@ class Request(Protocol):
 # ============================================================================
 
 
-def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, services: Any = None):
+def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services: Any = None):
     """
     Create three-view choice UI routes (standalone, analytics as third tab).
 

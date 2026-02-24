@@ -29,7 +29,7 @@ from core.models.habit.habit_request import (
     TrackHabitRequest,
     UntrackHabitRequest,
 )
-from core.ports.facade_protocols import HabitsFacadeProtocol
+from core.services.habits_service import HabitsService
 from core.utils.result_simplified import Result
 
 # ============================================================================
@@ -62,7 +62,7 @@ def build_archive_habit_request(uid: str, fields: dict[str, Any]) -> ArchiveHabi
 def create_habits_api_routes(
     app: Any,
     rt: Any,
-    habits_service: HabitsFacadeProtocol,
+    habits_service: HabitsService,
     **_kwargs: Any,
 ) -> list[Any]:
     """

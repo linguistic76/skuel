@@ -15,7 +15,7 @@ Sub-Services:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeRemoved
@@ -39,7 +39,6 @@ from core.services.events import (
 )
 from core.services.events.events_ai_service import EventsAIService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
-from core.services.mixins import FacadeDelegationMixin, merge_delegations
 
 # Unified relationship service (replaces EventsRelationshipService)
 from core.services.relationships import UnifiedRelationshipService
@@ -59,24 +58,23 @@ if TYPE_CHECKING:
         RemoveAttendeeRequest,
     )
     from core.ports import BackendOperations
-    from core.ports.facade_protocols import EventsFacadeProtocol
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.search_protocols import EventsSearchOperations
     from core.services.events.events_intelligence_service import EventsIntelligenceService
     from core.services.user import UserContext
 
 
-class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]", Event]):
+class EventsService(BaseService["BackendOperations[Event]", Event]):
     """
     Events service facade with specialized sub-services.
 
     This facade:
     1. Delegates to 6 specialized sub-services for core operations
-    2. Uses FacadeDelegationMixin for ~30 auto-generated delegation methods
+    2. Uses explicit delegation methods (~50 methods) for sub-service access
     3. Retains explicit methods for complex cross-service orchestration
     4. Provides clean separation of concerns
 
-    Auto-Generated Delegations (via FacadeDelegationMixin):
+    Delegations (explicit methods):
     - Core CRUD: get_event, get_user_events, find_events, count_events
     - Habits: get_events_for_habit, get_habit_reinforcement_events, etc.
     - Learning: get_learning_events, create_study_session, etc.
@@ -102,7 +100,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - Uses FacadeDelegationMixin for delegation (January 2026 Phase 3)
+    - Uses explicit delegation methods (February 2026)
     - No APOC calls (Phase 5 eliminated those)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
@@ -122,9 +120,8 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
     )
 
     # ========================================================================
-    # CLASS-LEVEL TYPE ANNOTATIONS (for FacadeDelegationMixin signature preservation)
+    # CLASS-LEVEL TYPE ANNOTATIONS
     # ========================================================================
-    # These annotations allow the mixin to resolve method signatures at class definition time.
     core: EventsCoreService
     search: EventsSearchService
     habits: EventsHabitIntegrationService
@@ -135,88 +132,166 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
     intelligence: EventsIntelligenceService
 
     # ========================================================================
-    # DELEGATION SPECIFICATION (FacadeDelegationMixin)
+    # DELEGATION METHODS
     # ========================================================================
-    # Simple delegations are auto-generated. Complex methods remain explicit.
-    _delegations = merge_delegations(
-        # Core CRUD delegations
-        {
-            "get_event": ("core", "get_event"),
-            "get_user_events": ("core", "get_user_events"),
-            "find_events": ("core", "find_events"),
-            "count_events": ("core", "count_events"),
-            "update": ("core", "update"),
-            "get_user_items_in_range": ("core", "get_user_items_in_range"),
-        },
-        # Habit integration delegations
-        {
-            "get_events_for_habit": ("habits", "get_events_for_habit"),
-            "get_habit_reinforcement_events": ("habits", "get_habit_reinforcement_events"),
-            "get_at_risk_habit_events": ("habits", "get_at_risk_habit_events"),
-            "complete_event_with_quality": ("habits", "complete_event_with_quality"),
-            "miss_habit_event": ("habits", "miss_habit_event"),
-            "create_recurring_events_for_habit": ("habits", "create_recurring_events_for_habit"),
-            "get_next_habit_events": ("habits", "get_next_habit_events"),
-        },
-        # Learning integration delegations
-        {
-            "get_learning_events": ("learning", "get_learning_events"),
-            "get_events_for_knowledge": ("learning", "get_events_for_knowledge"),
-            "get_events_for_learning_path": ("learning", "get_events_for_learning_path"),
-            "create_study_session": ("learning", "create_study_session"),
-            "suggest_spaced_repetition_events": ("learning", "suggest_spaced_repetition_events"),
-            "create_learning_path_schedule": ("learning", "create_learning_path_schedule"),
-            "get_knowledge_reinforcement_stats": ("learning", "get_knowledge_reinforcement_stats"),
-        },
-        # Search delegations (with method name mapping where needed)
-        {
-            "search_events": ("search", "search"),
-            "get_calendar_events": ("search", "get_calendar_events"),
-            "get_event_history": ("search", "get_history"),
-            "get_events_due_soon": ("search", "get_due_soon"),
-            "get_overdue_events": ("search", "get_overdue"),
-            "get_events_by_status": ("search", "get_by_status"),
-            "get_events_in_range": ("search", "get_in_range"),
-            "get_prioritized_events": ("search", "get_prioritized"),
-        },
-        # Relationship delegations (simple passthrough only)
-        {
-            "get_event_cross_domain_context": ("relationships", "get_cross_domain_context"),
-            "get_event_with_semantic_context": ("relationships", "get_with_semantic_context"),
-            "analyze_event_impact": ("relationships", "get_completion_impact"),
-        },
-        # Intelligence delegations
-        {
-            "get_event_with_context": ("intelligence", "get_event_with_context"),
-            "analyze_event_performance": ("intelligence", "analyze_event_performance"),
-            "get_event_goal_support": ("intelligence", "get_event_goal_support"),
-            "get_event_knowledge_reinforcement": (
-                "intelligence",
-                "get_event_knowledge_reinforcement",
-            ),
-            "analyze_upcoming_events": ("intelligence", "analyze_upcoming_events"),
-        },
-        # Progress delegations (January 2026)
-        {
-            "complete_event_with_cascade": ("progress", "complete_event_with_cascade"),
-            "get_attendance_rate": ("progress", "get_attendance_rate"),
-            "get_quality_trends": ("progress", "get_quality_trends"),
-            "get_goal_contribution_metrics": ("progress", "get_goal_contribution_metrics"),
-            "get_weekly_summary": ("progress", "get_weekly_summary"),
-            "get_habit_event_stats": ("progress", "get_habit_event_stats"),
-        },
-        # Scheduling delegations (January 2026)
-        {
-            "schedule_event_smart": ("scheduling", "schedule_event_smart"),
-            "check_conflicts": ("scheduling", "check_conflicts"),
-            "suggest_time_slots": ("scheduling", "suggest_time_slots"),
-            "find_next_available_slot": ("scheduling", "find_next_available_slot"),
-            "optimize_recurring_schedule": ("scheduling", "optimize_recurring_schedule"),
-            "create_recurring_events": ("scheduling", "create_recurring_events"),
-            "get_busy_times": ("scheduling", "get_busy_times"),
-            "get_calendar_density": ("scheduling", "get_calendar_density"),
-        },
-    )
+
+    # Core CRUD delegations
+    async def get_event(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_event(*args, **kwargs)
+
+    async def get_user_events(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_user_events(*args, **kwargs)
+
+    async def find_events(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.find_events(*args, **kwargs)
+
+    async def count_events(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.count_events(*args, **kwargs)
+
+    async def update(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.update(*args, **kwargs)
+
+    async def get_user_items_in_range(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_user_items_in_range(*args, **kwargs)
+
+    # Habit integration delegations
+    async def get_events_for_habit(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.habits.get_events_for_habit(*args, **kwargs)
+
+    async def get_habit_reinforcement_events(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.habits.get_habit_reinforcement_events(*args, **kwargs)
+
+    async def get_at_risk_habit_events(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.habits.get_at_risk_habit_events(*args, **kwargs)
+
+    async def complete_event_with_quality(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.habits.complete_event_with_quality(*args, **kwargs)
+
+    async def miss_habit_event(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.habits.miss_habit_event(*args, **kwargs)
+
+    async def create_recurring_events_for_habit(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.habits.create_recurring_events_for_habit(*args, **kwargs)
+
+    async def get_next_habit_events(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.habits.get_next_habit_events(*args, **kwargs)
+
+    # Learning integration delegations
+    async def get_learning_events(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.get_learning_events(*args, **kwargs)
+
+    async def get_events_for_knowledge(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.get_events_for_knowledge(*args, **kwargs)
+
+    async def get_events_for_learning_path(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.get_events_for_learning_path(*args, **kwargs)
+
+    async def create_study_session(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.create_study_session(*args, **kwargs)
+
+    async def suggest_spaced_repetition_events(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.suggest_spaced_repetition_events(*args, **kwargs)
+
+    async def create_learning_path_schedule(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.create_learning_path_schedule(*args, **kwargs)
+
+    async def get_knowledge_reinforcement_stats(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.get_knowledge_reinforcement_stats(*args, **kwargs)
+
+    # Search delegations
+    async def search_events(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.search(*args, **kwargs)
+
+    async def get_calendar_events(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_calendar_events(*args, **kwargs)
+
+    async def get_event_history(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_history(*args, **kwargs)
+
+    async def get_events_due_soon(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_due_soon(*args, **kwargs)
+
+    async def get_overdue_events(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_overdue(*args, **kwargs)
+
+    async def get_events_by_status(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_by_status(*args, **kwargs)
+
+    async def get_events_in_range(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_in_range(*args, **kwargs)
+
+    async def get_prioritized_events(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_prioritized(*args, **kwargs)
+
+    # Relationship delegations
+    async def get_event_cross_domain_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.relationships.get_cross_domain_context(*args, **kwargs)
+
+    async def get_event_with_semantic_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.relationships.get_with_semantic_context(*args, **kwargs)
+
+    async def analyze_event_impact(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.relationships.get_completion_impact(*args, **kwargs)
+
+    # Intelligence delegations
+    async def get_event_with_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_event_with_context(*args, **kwargs)
+
+    async def analyze_event_performance(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.analyze_event_performance(*args, **kwargs)
+
+    async def get_event_goal_support(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_event_goal_support(*args, **kwargs)
+
+    async def get_event_knowledge_reinforcement(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_event_knowledge_reinforcement(*args, **kwargs)
+
+    async def analyze_upcoming_events(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.analyze_upcoming_events(*args, **kwargs)
+
+    # Progress delegations
+    async def complete_event_with_cascade(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.complete_event_with_cascade(*args, **kwargs)
+
+    async def get_attendance_rate(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.get_attendance_rate(*args, **kwargs)
+
+    async def get_quality_trends(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.get_quality_trends(*args, **kwargs)
+
+    async def get_goal_contribution_metrics(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.get_goal_contribution_metrics(*args, **kwargs)
+
+    async def get_weekly_summary(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.get_weekly_summary(*args, **kwargs)
+
+    async def get_habit_event_stats(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.get_habit_event_stats(*args, **kwargs)
+
+    # Scheduling delegations
+    async def schedule_event_smart(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.schedule_event_smart(*args, **kwargs)
+
+    async def check_conflicts(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.check_conflicts(*args, **kwargs)
+
+    async def suggest_time_slots(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.suggest_time_slots(*args, **kwargs)
+
+    async def find_next_available_slot(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.find_next_available_slot(*args, **kwargs)
+
+    async def optimize_recurring_schedule(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.optimize_recurring_schedule(*args, **kwargs)
+
+    async def create_recurring_events(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.create_recurring_events(*args, **kwargs)
+
+    async def get_busy_times(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.get_busy_times(*args, **kwargs)
+
+    async def get_calendar_density(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.get_calendar_density(*args, **kwargs)
 
     def __init__(
         self,
@@ -284,7 +359,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
     # Custom backend property removed November 2025 - was unnecessary indirection
 
     # ========================================================================
-    # AUTO-GENERATED DELEGATIONS (via FacadeDelegationMixin)
+    # EXPLICIT DELEGATIONS
     # ========================================================================
     # The following methods are auto-generated from _delegations specification:
     # - Core CRUD: get_event, get_user_events, find_events, count_events, get_user_items_in_range
@@ -653,9 +728,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Event]
         from datetime import timedelta
 
         # Get the template event
-        # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_self = cast("EventsFacadeProtocol", self)
-        event_result = await typed_self.get_event(request.event_uid)
+        event_result = await self.get_event(request.event_uid)
         if event_result.is_error:
             return Result.fail(event_result.expect_error())
 

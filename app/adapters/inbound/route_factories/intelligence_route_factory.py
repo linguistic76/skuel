@@ -39,7 +39,7 @@ Usage:
     factory.register_routes(app, rt)
 
 Benefits:
-    - Eliminates ~900 lines per intelligence API × 10 files = 9,000 lines
+    - Eliminates ~900 lines per intelligence API x 10 files = 9,000 lines
     - Consistent intelligence behavior across all domains
     - Single source of truth for intelligence patterns
     - Protocol matches actual service implementations

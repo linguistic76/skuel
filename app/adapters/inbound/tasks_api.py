@@ -22,14 +22,14 @@ from adapters.inbound.route_factories import (
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
-from core.ports.facade_protocols import TasksFacadeProtocol
+from core.services.tasks_service import TasksService
 from core.utils.result_simplified import Result
 
 
 def create_tasks_api_routes(
     app: Any,
     rt: Any,
-    tasks_service: TasksFacadeProtocol,
+    tasks_service: TasksService,
     **_kwargs: Any,
 ) -> list[Any]:
     """
@@ -79,7 +79,7 @@ def create_tasks_api_routes(
     # ========================================================================
 
     async def handle_performance_analytics(
-        service: TasksFacadeProtocol, params: dict[str, Any]
+        service: TasksService, params: dict[str, Any]
     ) -> Result[Any]:
         """Handle performance analytics request."""
         period_days = int(params.get("period_days", "30"))
@@ -88,7 +88,7 @@ def create_tasks_api_routes(
         return cast("Result[Any]", result)
 
     async def handle_behavioral_insights(
-        service: TasksFacadeProtocol, params: dict[str, Any]
+        service: TasksService, params: dict[str, Any]
     ) -> Result[Any]:
         """Handle behavioral insights request."""
         period_days = int(params.get("period_days", "90"))
@@ -131,7 +131,7 @@ def create_tasks_api_routes(
         assigned_by = body.get("assigned_by")
         priority_override = body.get("priority_override")
 
-        # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
+        # Note: method is directly available on TasksService
         facade = tasks_service
         return await facade.assign_task_to_user(
             entity.uid, target_user_uid, assigned_by, priority_override
@@ -182,7 +182,7 @@ def create_tasks_api_routes(
     @boundary_handler()
     async def get_tasks_for_knowledge_route(request: Request, knowledge_uid: str) -> Result[Any]:
         """Get tasks that apply specific knowledge."""
-        # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
+        # Note: method is directly available on TasksService
         facade = tasks_service
         return await facade.get_tasks_applying_knowledge(knowledge_uid)
 
@@ -195,7 +195,7 @@ def create_tasks_api_routes(
         request: Request, user_uid: str, entity: Any
     ) -> Result[Any]:
         """Analyze impact of completing this task (requires ownership)."""
-        # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
+        # Note: method is directly available on TasksService
         facade = tasks_service
         return await facade.get_task_completion_impact(entity.uid)
 

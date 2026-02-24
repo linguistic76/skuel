@@ -19,8 +19,10 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 from core.models.entity_dto import EntityDTO
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory

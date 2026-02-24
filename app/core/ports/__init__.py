@@ -196,21 +196,6 @@ from .domain_protocols import (
     UserContextOperations,
 )
 
-# Facade protocols (January 2026 - type declarations for delegated methods)
-# These make FacadeDelegationMixin-generated methods visible to MyPy
-# NOTE: MocFacadeProtocol removed January 2026 - MOC is KU-based
-from .facade_protocols import (
-    ChoicesFacadeProtocol,
-    EventsFacadeProtocol,
-    GoalsFacadeProtocol,
-    HabitsFacadeProtocol,
-    KuFacadeProtocol,
-    LpFacadeProtocol,
-    LsFacadeProtocol,
-    PrinciplesFacadeProtocol,
-    TasksFacadeProtocol,
-)
-
 # Graph protocols - entity relationships (consolidated)
 from .graph_protocols import GraphEntity, GraphEntityBase
 
@@ -386,16 +371,8 @@ __all__ = [
     "GeConstraint",
     "GoalAwareness",
     "GoalsSearchOperations",
-    # ========== FACADE PROTOCOLS (9 - January 2026) ==========
-    "ChoicesFacadeProtocol",
-    "EventsFacadeProtocol",
-    "GoalsFacadeProtocol",
-    "HabitsFacadeProtocol",
     "GoalsOperations",
     "GoalTaskGeneratorOperations",
-    "KuFacadeProtocol",
-    "LpFacadeProtocol",
-    "LsFacadeProtocol",
     "GraphContextNode",
     # ========== GRAPH PROTOCOLS (2) ==========
     "GraphAuthOperations",
@@ -463,9 +440,7 @@ __all__ = [
     # "LearningPathsOperations", - DELETED January 2026, use LpOperations
     "LowLevelOperations",  # Direct DB access (2 methods + driver)
     "QueryExecutor",  # Standalone Cypher query execution port
-    "LpFacadeProtocol",
     "LpOperations",  # Learning Path operations (path)
-    # MocFacadeProtocol removed January 2026 - MOC is KU-based
     "LsOperations",  # Learning Step operations (edge)
     "LtConstraint",
     "MaxItemsConstraint",
@@ -475,7 +450,6 @@ __all__ = [
     # MocOperations removed January 2026 - MOC is KU-based
     "PrincipleAwareness",
     "PrinciplesSearchOperations",
-    "PrinciplesFacadeProtocol",
     "PrinciplesOperations",
     "PydanticFieldInfo",
     "PydanticModel",
@@ -517,7 +491,6 @@ __all__ = [
     "SystemServiceOperations",
     "TaskAwareness",
     "TasksSearchOperations",
-    "TasksFacadeProtocol",
     "TasksOperations",
     "TeacherReviewOperations",
     "UserContextOperations",

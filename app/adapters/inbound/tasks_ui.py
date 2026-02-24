@@ -29,7 +29,7 @@ from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactor
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest
-from core.ports.facade_protocols import TasksFacadeProtocol
+from core.services.tasks_service import TasksService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
@@ -73,7 +73,7 @@ class Request(Protocol):
 def create_tasks_ui_routes(
     _app: Any,
     rt: RouteDecorator,
-    tasks_service: TasksFacadeProtocol,
+    tasks_service: TasksService,
     services: Any = None,
 ) -> list:
     """

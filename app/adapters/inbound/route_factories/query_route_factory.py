@@ -98,7 +98,7 @@ class CommonQueryRouteFactory:
         self.verify_ownership = scope == ContentScope.USER_OWNED
         self.base_path = base_path or f"/api/{domain_name}"
 
-    def register_routes(self, app, rt):
+    def register_routes(self, _app, rt):
         """Register all common query routes. Returns route descriptions for diagnostics."""
         route_descriptions = []
 
@@ -142,7 +142,7 @@ class CommonQueryRouteFactory:
         async def get_user_entities_route(
             request: Request, user_uid: str | None = None
         ) -> Result[Any]:
-            f"""Get {domain} for a user."""
+            # Get {domain} for a user.
             # Always require authentication
             auth_user_uid = require_authenticated_user(request)
 
@@ -210,7 +210,7 @@ class CommonQueryRouteFactory:
         @rt(f"{self.base_path}/by-status")
         @boundary_handler()
         async def get_by_status_route(request: Request, status: str) -> Result[Any]:
-            f"""Get {domain} filtered by status."""
+            # Get {domain} filtered by status.
             # Require authentication
             user_uid = require_authenticated_user(request)
 
@@ -249,7 +249,7 @@ class CommonQueryRouteFactory:
         @rt(f"{self.base_path}/goal")
         @boundary_handler()
         async def get_for_goal_route(request: Request, goal_uid: str) -> Result[Any]:
-            f"""Get {domain} related to a goal."""
+            # Get {domain} related to a goal.
             # Require authentication
             user_uid = require_authenticated_user(request)
 
@@ -295,7 +295,7 @@ class CommonQueryRouteFactory:
         @rt(f"{self.base_path}/habit")
         @boundary_handler()
         async def get_for_habit_route(request: Request, habit_uid: str) -> Result[Any]:
-            f"""Get {domain} related to a habit."""
+            # Get {domain} related to a habit.
             # Require authentication
             user_uid = require_authenticated_user(request)
 

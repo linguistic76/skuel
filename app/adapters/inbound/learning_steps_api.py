@@ -26,7 +26,7 @@ from core.models.curriculum.curriculum_requests import LearningStepCreateRequest
 from core.models.entity_requests import EntityUpdateRequest as KuStepUpdateRequest
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
-from core.ports.facade_protocols import LsFacadeProtocol
+from core.services.ls_service import LsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -34,7 +34,7 @@ logger = get_logger("skuel.routes.learning_steps.api")
 
 
 def create_learning_steps_api_routes(
-    app: Any, rt: Any, ls_service: LsFacadeProtocol, user_service: Any = None
+    app: Any, rt: Any, ls_service: LsService, user_service: Any = None
 ) -> list[Any]:
     """
     Create learning steps API routes using factory pattern.

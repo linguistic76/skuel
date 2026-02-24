@@ -29,7 +29,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.models.enums import Priority
 from core.models.goal.goal_request import GoalCreateRequest
-from core.ports.facade_protocols import GoalsFacadeProtocol
+from core.services.goals_service import GoalsService
 from core.ports.query_types import ActivityFilterSpec
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -534,7 +534,7 @@ def get_priority_color(priority) -> Any:
 # ============================================================================
 
 
-def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, services: Any = None):
+def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any = None):
     """
     Create three-view goal UI routes (standalone, no drawer).
 

@@ -6,7 +6,7 @@ This package contains focused sub-services that compose the unified EventsServic
 
 Architecture: Facade Pattern (7 sub-services)
 - Each sub-service handles ONE specific responsibility
-- EventsService (facade) auto-delegates to appropriate sub-service via FacadeDelegationMixin
+- EventsService (facade) delegates to appropriate sub-service via explicit delegation methods
 - Calendar and scheduling domain with habit integration
 - Zero breaking changes to external code
 

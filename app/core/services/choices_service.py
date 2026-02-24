@@ -23,18 +23,13 @@ from core.models.enums import EntityStatus
 from core.ports import BackendOperations
 from core.services.base_service import BaseService
 
-# Import sub-services and mixins
+# Import sub-services
 from core.services.choices import ChoicesLearningService
 from core.services.choices.choices_ai_service import ChoicesAIService
 from core.services.domain_config import create_activity_domain_config
 
 # Unified relationship service (replaces ChoicesRelationshipService)
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
-from core.services.mixins import (
-    FacadeDelegationMixin,
-    create_relationship_delegations,
-    merge_delegations,
-)
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.logging import get_logger
@@ -49,17 +44,17 @@ if TYPE_CHECKING:
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
 
 
-class ChoicesService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", Ku]):
+class ChoicesService(BaseService["BackendOperations[Ku]", Ku]):
     """
     Choices service facade with specialized sub-services.
 
     This facade:
     1. Delegates to 5 specialized sub-services for core operations
-    2. Uses FacadeDelegationMixin for ~30 auto-generated delegation methods
+    2. Uses explicit delegation methods (~26 methods) for sub-service access
     3. Retains explicit methods for complex operations
     4. Provides clean separation of concerns
 
-    Auto-Generated Delegations (via FacadeDelegationMixin):
+    Delegations (explicit methods):
     - Core: get_choice, get_user_choices, get_user_items_in_range
     - Learning: create_choice_with_learning_guidance, suggest_learning_aligned_choices, etc.
     - Search: search_choices, get_choices_by_status, get_pending_choices, etc.
@@ -71,7 +66,7 @@ class ChoicesService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]",
     - Semantic relationships: create_semantic_choice_relationship, find_choices_aligned_with_principle
 
     SKUEL Architecture:
-    - Uses FacadeDelegationMixin for delegation (January 2026 Phase 3)
+    - Uses explicit delegation methods (February 2026)
     - Uses CypherGenerator for ALL graph queries
     - Returns Result[T] for error handling
     """
@@ -89,52 +84,91 @@ class ChoicesService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]",
     )
 
     # ========================================================================
-    # DELEGATION SPECIFICATION (FacadeDelegationMixin)
+    # DELEGATION METHODS
     # ========================================================================
-    _delegations = merge_delegations(
-        # Core CRUD delegations
-        {
-            "get_choice": ("core", "get_choice"),
-            "get_user_choices": ("core", "get_user_choices"),
-            "get_user_items_in_range": ("core", "get_user_items_in_range"),
-        },
-        # Learning delegations
-        {
-            "create_choice_with_learning_guidance": (
-                "learning",
-                "create_choice_with_learning_guidance",
-            ),
-            "get_learning_informed_guidance": ("learning", "get_learning_informed_guidance"),
-            "track_choice_learning_outcomes": ("learning", "track_choice_learning_outcomes"),
-            "suggest_learning_aligned_choices": ("learning", "suggest_learning_aligned_choices"),
-        },
-        # Relationship delegations (factory-generated)
-        create_relationship_delegations("choice"),
-        # Intelligence delegations (includes consolidated analytics methods - January 2026)
-        {
-            "get_choice_with_context": ("intelligence", "get_choice_with_context"),
-            "get_decision_intelligence": ("intelligence", "get_decision_intelligence"),
-            "analyze_choice_impact": ("intelligence", "analyze_choice_impact"),
-            # Analytics methods (consolidated from ChoicesAnalyticsService)
-            "get_decision_patterns": ("intelligence", "get_decision_patterns"),
-            "get_choice_quality_correlations": ("intelligence", "get_choice_quality_correlations"),
-            "get_domain_decision_patterns": ("intelligence", "get_domain_decision_patterns"),
-        },
-        # Search delegations
-        {
-            "search_choices": ("search", "search"),
-            "get_choices_by_status": ("search", "get_by_status"),
-            "get_choices_by_domain": ("search", "get_by_domain"),
-            "get_pending_choices": ("search", "get_pending"),
-            "get_choices_due_soon": ("search", "get_due_soon"),
-            "get_overdue_choices": ("search", "get_overdue"),
-            "get_choices_by_urgency": ("search", "get_by_urgency"),
-            "get_choices_needing_decision": ("search", "get_needing_decision"),
-            "get_prioritized_choices": ("search", "get_prioritized"),
-            "list_choice_categories": ("search", "list_user_categories"),
-            "list_all_choice_categories": ("search", "list_all_categories"),
-        },
-    )
+
+    # Core CRUD delegations
+    async def get_choice(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_choice(*args, **kwargs)
+
+    async def get_user_choices(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_user_choices(*args, **kwargs)
+
+    async def get_user_items_in_range(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_user_items_in_range(*args, **kwargs)
+
+    # Learning delegations
+    async def create_choice_with_learning_guidance(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.create_choice_with_learning_guidance(*args, **kwargs)
+
+    async def get_learning_informed_guidance(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.get_learning_informed_guidance(*args, **kwargs)
+
+    async def track_choice_learning_outcomes(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.track_choice_learning_outcomes(*args, **kwargs)
+
+    async def suggest_learning_aligned_choices(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.suggest_learning_aligned_choices(*args, **kwargs)
+
+    # Relationship delegations
+    async def get_choice_cross_domain_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.relationships.get_cross_domain_context(*args, **kwargs)
+
+    async def get_choice_with_semantic_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.relationships.get_with_semantic_context(*args, **kwargs)
+
+    # Intelligence delegations
+    async def get_choice_with_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_choice_with_context(*args, **kwargs)
+
+    async def get_decision_intelligence(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_decision_intelligence(*args, **kwargs)
+
+    async def analyze_choice_impact(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.analyze_choice_impact(*args, **kwargs)
+
+    async def get_decision_patterns(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_decision_patterns(*args, **kwargs)
+
+    async def get_choice_quality_correlations(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_choice_quality_correlations(*args, **kwargs)
+
+    async def get_domain_decision_patterns(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_domain_decision_patterns(*args, **kwargs)
+
+    # Search delegations
+    async def search_choices(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.search(*args, **kwargs)
+
+    async def get_choices_by_status(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_by_status(*args, **kwargs)
+
+    async def get_choices_by_domain(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_by_domain(*args, **kwargs)
+
+    async def get_pending_choices(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_pending(*args, **kwargs)
+
+    async def get_choices_due_soon(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_due_soon(*args, **kwargs)
+
+    async def get_overdue_choices(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_overdue(*args, **kwargs)
+
+    async def get_choices_by_urgency(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_by_urgency(*args, **kwargs)
+
+    async def get_choices_needing_decision(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_needing_decision(*args, **kwargs)
+
+    async def get_prioritized_choices(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_prioritized(*args, **kwargs)
+
+    async def list_choice_categories(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.list_user_categories(*args, **kwargs)
+
+    async def list_all_choice_categories(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.list_all_categories(*args, **kwargs)
 
     def __init__(
         self,
@@ -205,7 +239,7 @@ class ChoicesService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]",
     # CORE CRUD OPERATIONS - Delegate to ChoicesCoreService
     # ========================================================================
     # Note: Simple delegations (get_choice, get_user_choices, get_user_items_in_range)
-    # auto-generated by FacadeDelegationMixin.
+    # delegated via explicit methods below.
 
     async def create_choice(self, choice_request: ChoiceCreateRequest, user_uid: str) -> Result[Ku]:
         """Create a basic choice.
@@ -328,7 +362,7 @@ class ChoicesService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]",
     # CROSS-DOMAIN RELATIONSHIPS - Delegate to UnifiedRelationshipService
     # ========================================================================
     # Note: Learning delegations (create_choice_with_learning_guidance, etc.)
-    # auto-generated by FacadeDelegationMixin.
+    # delegated via explicit methods below.
 
     async def link_choice_to_goal(
         self, choice_uid: str, goal_uid: str, contribution_score: float = 0.5
@@ -356,7 +390,7 @@ class ChoicesService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]",
         )
 
     # Note: get_choice_cross_domain_context, get_choice_with_semantic_context
-    # auto-generated by FacadeDelegationMixin.
+    # delegated via explicit methods below.
 
     async def create_semantic_choice_relationship(
         self,
@@ -409,4 +443,4 @@ class ChoicesService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]",
 
     # Note: Intelligence delegations (get_choice_with_context, get_decision_intelligence,
     # analyze_choice_impact, get_decision_patterns, etc.) and Search delegations
-    # (search_choices, get_choices_by_status, etc.) auto-generated by FacadeDelegationMixin.
+    # (search_choices, get_choices_by_status, etc.) delegated via explicit methods below.

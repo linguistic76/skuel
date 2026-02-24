@@ -38,11 +38,6 @@ from core.services.goals.goal_relationships import GoalRelationships
 from core.services.goals.goals_ai_service import GoalsAIService
 from core.services.goals_types import GoalFeasibilityAssessment
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
-from core.services.mixins import (
-    FacadeDelegationMixin,
-    create_relationship_delegations,
-    merge_delegations,
-)
 
 # Unified relationship service (replaces GoalsRelationshipService)
 from core.services.relationships import UnifiedRelationshipService
@@ -59,17 +54,17 @@ if TYPE_CHECKING:
     from core.services.user import UserContext
 
 
-class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
+class GoalsService(BaseService[GoalsOperations, Goal]):
     """
     Goals service facade with specialized sub-services.
 
     This facade:
     1. Delegates to 8 specialized sub-services for core operations
-    2. Uses FacadeDelegationMixin for ~40 auto-generated delegation methods
+    2. Uses explicit delegation methods (~40 methods) for sub-service access
     3. Retains explicit methods for complex orchestration operations
     4. Provides clean separation of concerns
 
-    Auto-Generated Delegations (via FacadeDelegationMixin):
+    Delegations (explicit methods):
     - Core: get_goal, get_user_goals, get_user_items_in_range, activate/pause/complete/archive
     - Progress: calculate_goal_progress_with_context, complete_milestone, etc.
     - Learning: create_goal_with_learning_integration, assess_goal_learning_alignment, etc.
@@ -83,7 +78,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - Uses FacadeDelegationMixin for delegation (January 2026 Phase 3)
+    - Uses explicit delegation methods (February 2026)
     - No APOC calls (Phase 5 eliminated those)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
@@ -104,82 +99,150 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
     )
 
     # ========================================================================
-    # DELEGATION SPECIFICATION (FacadeDelegationMixin)
+    # DELEGATION METHODS
     # ========================================================================
-    _delegations = merge_delegations(
-        # Core CRUD delegations
-        {
-            "get_goal": ("core", "get_goal"),
-            "get_user_goals": ("core", "get_user_goals"),
-            "get_user_items_in_range": ("core", "get_user_items_in_range"),
-            "activate_goal": ("core", "activate_goal"),
-            "pause_goal": ("core", "pause_goal"),
-            "complete_goal": ("core", "complete_goal"),
-            "archive_goal": ("core", "archive_goal"),
-            "create_goal": ("core", "create_goal"),
-        },
-        # Progress delegations
-        {
-            "calculate_goal_progress_with_context": (
-                "progress",
-                "calculate_goal_progress_with_context",
-            ),
-            "complete_milestone": ("progress", "complete_milestone"),
-            "update_goal_from_habit_progress": ("progress", "update_goal_from_habit_progress"),
-            "update_goal_progress": ("progress", "update_goal_progress"),
-            "get_goal_progress": ("progress", "get_goal_progress"),
-            "create_goal_milestone": ("progress", "create_goal_milestone"),
-            "get_goal_milestones": ("progress", "get_goal_milestones"),
-        },
-        # Learning delegations
-        {
-            "create_goal_with_learning_integration": (
-                "learning",
-                "create_goal_with_learning_integration",
-            ),
-            "assess_goal_learning_alignment": ("learning", "assess_goal_learning_alignment"),
-            "suggest_learning_aligned_goals": ("learning", "suggest_learning_aligned_goals"),
-            "get_learning_supporting_goals": ("learning", "get_learning_supporting_goals"),
-            "track_goal_learning_progress": ("learning", "track_goal_learning_progress"),
-            "get_goals_needing_habits": ("learning", "get_goals_needing_habits"),
-            "get_goals_blocked_by_knowledge": ("learning", "get_goals_blocked_by_knowledge"),
-        },
-        # Relationship delegations (factory-generated)
-        create_relationship_delegations("goal"),
-        # Intelligence delegations
-        {
-            "get_goal_with_context": ("intelligence", "get_goal_with_context"),
-            "get_goal_progress_dashboard": ("intelligence", "get_goal_progress_dashboard"),
-            "get_goal_completion_forecast": ("intelligence", "get_goal_completion_forecast"),
-            "get_goal_learning_requirements": ("intelligence", "get_goal_learning_requirements"),
-        },
-        # Search delegations
-        {
-            "list_goal_categories": ("search", "list_user_categories"),
-            "list_all_goal_categories": ("search", "list_all_categories"),
-            "get_goals_by_category": ("search", "get_by_category"),
-            "get_goals_by_status": ("search", "get_by_status"),
-            "search_goals": ("search", "search"),
-            "get_goals_due_soon": ("search", "get_due_soon"),
-            "get_overdue_goals": ("search", "get_overdue"),
-            "get_goals_by_domain": ("search", "get_by_domain"),
-            "get_prioritized_goals": ("search", "get_prioritized"),
-        },
-        # Scheduling delegations (January 2026)
-        {
-            "check_goal_capacity": ("scheduling", "check_goal_capacity"),
-            "suggest_goal_timeline": ("scheduling", "suggest_goal_timeline"),
-            "assess_goal_achievability": ("scheduling", "assess_goal_achievability"),
-            "get_schedule_aware_next_goal": ("scheduling", "get_schedule_aware_next_goal"),
-            "optimize_goal_sequencing": ("scheduling", "optimize_goal_sequencing"),
-            "get_goal_load_by_timeframe": ("scheduling", "get_goal_load_by_timeframe"),
-            "create_goal_with_scheduling_context": ("scheduling", "create_goal_with_context"),
-            "create_goal_with_learning_scheduling": (
-                "scheduling",
-                "create_goal_with_learning_context",
-            ),
-        },
-    )
+
+    # Core CRUD delegations
+    async def get_goal(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_goal(*args, **kwargs)
+
+    async def get_user_goals(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_user_goals(*args, **kwargs)
+
+    async def get_user_items_in_range(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_user_items_in_range(*args, **kwargs)
+
+    async def activate_goal(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.activate_goal(*args, **kwargs)
+
+    async def pause_goal(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.pause_goal(*args, **kwargs)
+
+    async def complete_goal(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.complete_goal(*args, **kwargs)
+
+    async def archive_goal(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.archive_goal(*args, **kwargs)
+
+    async def create_goal(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.create_goal(*args, **kwargs)
+
+    # Progress delegations
+    async def calculate_goal_progress_with_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.calculate_goal_progress_with_context(*args, **kwargs)
+
+    async def complete_milestone(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.complete_milestone(*args, **kwargs)
+
+    async def update_goal_from_habit_progress(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.update_goal_from_habit_progress(*args, **kwargs)
+
+    async def update_goal_progress(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.update_goal_progress(*args, **kwargs)
+
+    async def get_goal_progress(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.get_goal_progress(*args, **kwargs)
+
+    async def create_goal_milestone(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.create_goal_milestone(*args, **kwargs)
+
+    async def get_goal_milestones(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.get_goal_milestones(*args, **kwargs)
+
+    # Learning delegations
+    async def create_goal_with_learning_integration(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.create_goal_with_learning_integration(*args, **kwargs)
+
+    async def assess_goal_learning_alignment(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.assess_goal_learning_alignment(*args, **kwargs)
+
+    async def suggest_learning_aligned_goals(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.suggest_learning_aligned_goals(*args, **kwargs)
+
+    async def get_learning_supporting_goals(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.get_learning_supporting_goals(*args, **kwargs)
+
+    async def track_goal_learning_progress(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.track_goal_learning_progress(*args, **kwargs)
+
+    async def get_goals_needing_habits(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.get_goals_needing_habits(*args, **kwargs)
+
+    async def get_goals_blocked_by_knowledge(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.get_goals_blocked_by_knowledge(*args, **kwargs)
+
+    # Relationship delegations
+    async def get_goal_cross_domain_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.relationships.get_cross_domain_context(*args, **kwargs)
+
+    async def get_goal_with_semantic_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.relationships.get_with_semantic_context(*args, **kwargs)
+
+    # Intelligence delegations
+    async def get_goal_with_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_goal_with_context(*args, **kwargs)
+
+    async def get_goal_progress_dashboard(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_goal_progress_dashboard(*args, **kwargs)
+
+    async def get_goal_completion_forecast(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_goal_completion_forecast(*args, **kwargs)
+
+    async def get_goal_learning_requirements(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_goal_learning_requirements(*args, **kwargs)
+
+    # Search delegations
+    async def list_goal_categories(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.list_user_categories(*args, **kwargs)
+
+    async def list_all_goal_categories(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.list_all_categories(*args, **kwargs)
+
+    async def get_goals_by_category(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_by_category(*args, **kwargs)
+
+    async def get_goals_by_status(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_by_status(*args, **kwargs)
+
+    async def search_goals(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.search(*args, **kwargs)
+
+    async def get_goals_due_soon(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_due_soon(*args, **kwargs)
+
+    async def get_overdue_goals(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_overdue(*args, **kwargs)
+
+    async def get_goals_by_domain(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_by_domain(*args, **kwargs)
+
+    async def get_prioritized_goals(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_prioritized(*args, **kwargs)
+
+    # Scheduling delegations
+    async def check_goal_capacity(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.check_goal_capacity(*args, **kwargs)
+
+    async def suggest_goal_timeline(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.suggest_goal_timeline(*args, **kwargs)
+
+    async def assess_goal_achievability(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.assess_goal_achievability(*args, **kwargs)
+
+    async def get_schedule_aware_next_goal(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.get_schedule_aware_next_goal(*args, **kwargs)
+
+    async def optimize_goal_sequencing(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.optimize_goal_sequencing(*args, **kwargs)
+
+    async def get_goal_load_by_timeframe(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.get_goal_load_by_timeframe(*args, **kwargs)
+
+    async def create_goal_with_scheduling_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.create_goal_with_context(*args, **kwargs)
+
+    async def create_goal_with_learning_scheduling(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.create_goal_with_learning_context(*args, **kwargs)
 
     def __init__(
         self,
@@ -284,7 +347,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
     # GRAPH RELATIONSHIPS - Delegate to UnifiedRelationshipService
     # ========================================================================
     # Note: Simple delegations (Core CRUD, Progress, Learning) auto-generated
-    # by FacadeDelegationMixin via _delegations dict above.
+    # delegated via explicit method below.
 
     async def create_user_goal_relationship(
         self, user_uid: str, goal_uid: str, role: str = "owner"
@@ -338,7 +401,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
         )
 
     # Note: get_goal_cross_domain_context, get_goal_with_semantic_context auto-generated
-    # by FacadeDelegationMixin via _delegations dict above.
+    # delegated via explicit method below.
 
     async def create_semantic_goal_relationship(
         self,
@@ -366,7 +429,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
     # ========================================================================
     # Note: Intelligence delegations (get_goal_with_context, get_goal_progress_dashboard,
     # get_goal_completion_forecast, get_goal_learning_requirements) auto-generated
-    # by FacadeDelegationMixin via _delegations dict above.
+    # delegated via explicit method below.
 
     async def create_goal_with_context(
         self, goal_data: GoalCreateRequest, user_context: UserContext
@@ -571,4 +634,4 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
 
     # Note: Status operations (activate_goal, pause_goal, complete_goal, archive_goal)
     # and Search operations (list_goal_categories, get_goals_by_status, search_goals, etc.)
-    # auto-generated by FacadeDelegationMixin via _delegations dict above.
+    # delegated via explicit method below.

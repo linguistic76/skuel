@@ -21,14 +21,14 @@ from adapters.inbound.route_factories import (
 )
 from core.models.enums import ContentScope
 from core.models.goal.goal import Goal
-from core.ports.facade_protocols import GoalsFacadeProtocol
+from core.services.goals_service import GoalsService
 from core.utils.result_simplified import Result
 
 
 def create_goals_api_routes(
     app: Any,
     rt: Any,
-    goals_service: GoalsFacadeProtocol,
+    goals_service: GoalsService,
     **_kwargs: Any,
 ) -> list[Any]:
     """

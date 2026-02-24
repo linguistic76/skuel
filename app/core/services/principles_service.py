@@ -31,12 +31,7 @@ from core.ports.domain_protocols import (
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 
-# Import sub-services, mixins, and their types
-from core.services.mixins import (
-    FacadeDelegationMixin,
-    create_relationship_delegations,
-    merge_delegations,
-)
+# Import sub-services and their types
 from core.services.principles import (
     PrinciplesAlignmentService,
     PrinciplesLearningService,
@@ -70,17 +65,17 @@ def _by_assessed_date(item: dict[str, Any]) -> str:
     return item.get("assessed_date", "")
 
 
-class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations, Entity]):
+class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
     """
     Principles service facade with specialized sub-services.
 
     This facade:
     1. Delegates to 6 specialized sub-services for core operations
-    2. Uses FacadeDelegationMixin for ~25 auto-generated delegation methods
+    2. Uses explicit delegation methods (~35 methods) for sub-service access
     3. Retains explicit methods for complex operations
     4. Provides clean separation of concerns
 
-    Auto-Generated Delegations (via FacadeDelegationMixin):
+    Delegations (explicit methods):
     - Core: get_principle, get_user_principles, get_user_items_in_range
     - Alignment: assess_goal_alignment, assess_habit_alignment, get_motivational_profile, etc.
     - Learning: frame_principle_practice_with_learning, assess_principle_learning_alignment, etc.
@@ -96,7 +91,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
     - Principle links: create_principle_link, get_principle_links
 
     SKUEL Architecture:
-    - Uses FacadeDelegationMixin for delegation (January 2026 Phase 3)
+    - Uses explicit delegation methods (February 2026)
     - Uses CypherGenerator for ALL graph queries
     - Returns Result[T] for error handling
     """
@@ -114,88 +109,125 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
     )
 
     # ========================================================================
-    # DELEGATION SPECIFICATION (FacadeDelegationMixin)
+    # DELEGATION METHODS
     # ========================================================================
-    _delegations = merge_delegations(
-        # Core CRUD delegations
-        {
-            "get_principle": ("core", "get_principle"),
-            "get_user_principles": ("core", "get_user_principles"),
-            "get_user_items_in_range": ("core", "get_user_items_in_range"),
-        },
-        # Alignment delegations
-        {
-            "assess_goal_alignment": ("alignment", "assess_goal_alignment"),
-            "assess_habit_alignment": ("alignment", "assess_habit_alignment"),
-            "get_motivational_profile": ("alignment", "get_motivational_profile"),
-            "make_principle_based_decision": ("alignment", "make_principle_based_decision"),
-        },
-        # Learning delegations
-        {
-            "frame_principle_practice_with_learning": (
-                "learning",
-                "frame_principle_practice_with_learning",
-            ),
-            "assess_principle_learning_alignment": (
-                "learning",
-                "assess_principle_learning_alignment",
-            ),
-            "suggest_learning_supported_principles": (
-                "learning",
-                "suggest_learning_supported_principles",
-            ),
-            "track_principle_learning_development": (
-                "learning",
-                "track_principle_learning_development",
-            ),
-        },
-        # Relationship delegations (factory-generated, no semantic context for principles)
-        create_relationship_delegations("principle", include_semantic=False),
-        # Intelligence delegations
-        {
-            "get_principle_with_context": ("intelligence", "get_principle_with_context"),
-            "assess_principle_alignment": ("intelligence", "assess_principle_alignment"),
-            "get_principle_adherence_trends": ("intelligence", "get_principle_adherence_trends"),
-            "get_principle_conflict_analysis": ("intelligence", "get_principle_conflict_analysis"),
-        },
-        # Search delegations
-        {
-            "get_principle_categories": ("search", "list_user_categories"),
-            "list_all_principle_categories": ("search", "list_all_categories"),
-            "get_related_principles": ("search", "get_related_principles"),
-            "get_principles_by_status": ("search", "get_by_status"),
-            "get_principles_by_strength": ("search", "get_by_strength"),
-            "get_principles_by_category": ("search", "get_by_category"),
-            "get_principles_needing_review": ("search", "get_needing_review"),
-            "get_principles_for_goal": ("search", "get_for_goal"),
-            "get_principles_for_choice": ("search", "get_for_choice"),
-        },
-        # Reflection delegations
-        {
-            "save_reflection": ("reflection", "save_reflection"),
-            "get_reflections_for_principle": ("reflection", "get_reflections_for_principle"),
-            "get_recent_reflections": ("reflection", "get_recent_reflections"),
-            "get_alignment_trend": ("reflection", "calculate_alignment_trend"),
-            "get_cross_domain_insights": ("reflection", "get_cross_domain_insights"),
-            "get_reflection_frequency": ("reflection", "get_reflection_frequency"),
-            "get_conflict_analysis": ("reflection", "get_conflict_analysis"),
-        },
-        # Planning delegations (January 2026)
-        {
-            "get_principles_needing_attention_for_user": (
-                "planning",
-                "get_principles_needing_attention_for_user",
-            ),
-            "get_contextual_principles_for_user": (
-                "planning",
-                "get_contextual_principles_for_user",
-            ),
-            "get_principle_practice_opportunities_for_user": (
-                "planning",
-                "get_principle_practice_opportunities_for_user",
-            ),
-        },
-    )
+
+    # Core CRUD delegations
+    async def get_principle(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_principle(*args, **kwargs)
+
+    async def get_user_principles(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_user_principles(*args, **kwargs)
+
+    async def get_user_items_in_range(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_user_items_in_range(*args, **kwargs)
+
+    # Alignment delegations
+    async def assess_goal_alignment(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.alignment.assess_goal_alignment(*args, **kwargs)
+
+    async def assess_habit_alignment(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.alignment.assess_habit_alignment(*args, **kwargs)
+
+    async def get_motivational_profile(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.alignment.get_motivational_profile(*args, **kwargs)
+
+    async def make_principle_based_decision(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.alignment.make_principle_based_decision(*args, **kwargs)
+
+    # Learning delegations
+    async def frame_principle_practice_with_learning(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.frame_principle_practice_with_learning(*args, **kwargs)
+
+    async def assess_principle_learning_alignment(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.assess_principle_learning_alignment(*args, **kwargs)
+
+    async def suggest_learning_supported_principles(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.suggest_learning_supported_principles(*args, **kwargs)
+
+    async def track_principle_learning_development(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.learning.track_principle_learning_development(*args, **kwargs)
+
+    # Relationship delegations
+    async def get_principle_cross_domain_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.relationships.get_cross_domain_context(*args, **kwargs)
+
+    # Intelligence delegations
+    async def get_principle_with_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_principle_with_context(*args, **kwargs)
+
+    async def assess_principle_alignment(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.assess_principle_alignment(*args, **kwargs)
+
+    async def get_principle_adherence_trends(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_principle_adherence_trends(*args, **kwargs)
+
+    async def get_principle_conflict_analysis(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_principle_conflict_analysis(*args, **kwargs)
+
+    # Search delegations
+    async def get_principle_categories(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.list_user_categories(*args, **kwargs)
+
+    async def list_all_principle_categories(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.list_all_categories(*args, **kwargs)
+
+    async def get_related_principles(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_related_principles(*args, **kwargs)
+
+    async def get_principles_by_status(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_by_status(*args, **kwargs)
+
+    async def get_principles_by_strength(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_by_strength(*args, **kwargs)
+
+    async def get_principles_by_category(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_by_category(*args, **kwargs)
+
+    async def get_principles_needing_review(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_needing_review(*args, **kwargs)
+
+    async def get_principles_for_goal(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_for_goal(*args, **kwargs)
+
+    async def get_principles_for_choice(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.get_for_choice(*args, **kwargs)
+
+    # Reflection delegations
+    async def save_reflection(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.reflection.save_reflection(*args, **kwargs)
+
+    async def get_reflections_for_principle(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.reflection.get_reflections_for_principle(*args, **kwargs)
+
+    async def get_recent_reflections(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.reflection.get_recent_reflections(*args, **kwargs)
+
+    async def get_alignment_trend(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.reflection.calculate_alignment_trend(*args, **kwargs)
+
+    async def get_cross_domain_insights(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.reflection.get_cross_domain_insights(*args, **kwargs)
+
+    async def get_reflection_frequency(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.reflection.get_reflection_frequency(*args, **kwargs)
+
+    async def get_conflict_analysis(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.reflection.get_conflict_analysis(*args, **kwargs)
+
+    # Planning delegations
+    async def get_principles_needing_attention_for_user(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.planning.get_principles_needing_attention_for_user(*args, **kwargs)
+
+    async def get_contextual_principles_for_user(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.planning.get_contextual_principles_for_user(*args, **kwargs)
+
+    async def get_principle_practice_opportunities_for_user(
+        self, *args: Any, **kwargs: Any
+    ) -> Any:
+        return await self.planning.get_principle_practice_opportunities_for_user(
+            *args, **kwargs
+        )
 
     def __init__(
         self,
@@ -289,7 +321,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
     # ========================================================================
     # Note: Simple delegations (get_principle, get_user_principles, get_user_items_in_range,
     # alignment assessment, motivational intelligence, learning path integration)
-    # auto-generated by FacadeDelegationMixin.
+    # delegated via explicit methods below.
 
     async def create_principle(
         self,
@@ -329,7 +361,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
             principle_uid, knowledge_uid, relevance=relevance
         )
 
-    # Note: get_principle_cross_domain_context auto-generated by FacadeDelegationMixin.
+    # Note: get_principle_cross_domain_context delegated via explicit methods below.
 
     async def get_user_principle_portfolio(self, user_uid: str) -> Result[dict[str, Any]]:
         """Get user's complete principle portfolio with integrity analysis."""
@@ -369,7 +401,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
     # ========================================================================
     # Note: Intelligence delegations (get_principle_with_context, assess_principle_alignment,
     # get_principle_adherence_trends, get_principle_conflict_analysis)
-    # auto-generated by FacadeDelegationMixin.
+    # delegated via explicit methods below.
 
     async def search_principles(
         self,
@@ -418,7 +450,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
     # Note: Simple search delegations (get_principle_categories, list_all_principle_categories,
     # get_related_principles, get_principles_by_status, get_principles_by_strength,
     # get_principles_by_category, get_principles_needing_review, get_principles_for_goal,
-    # get_principles_for_choice) auto-generated by FacadeDelegationMixin.
+    # get_principles_for_choice) delegated via explicit methods below.
 
     async def get_principle_sources(self) -> Result[list[str]]:
         """
