@@ -25,7 +25,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
-from neo4j import AsyncGraphDatabase
 
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
@@ -48,7 +47,7 @@ if TYPE_CHECKING:
 
 
 @pytest_asyncio.fixture
-async def type_contract_test_data(neo4j_container, clean_neo4j, ensure_test_users):
+async def type_contract_test_data(neo4j_driver, clean_neo4j, ensure_test_users):
     """
     Create test data for type contract testing.
 
@@ -57,10 +56,7 @@ async def type_contract_test_data(neo4j_container, clean_neo4j, ensure_test_user
     - 3 Learning Steps
     - 1 Learning Path with those steps
     """
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
-
-    async with driver.session() as session:
+    async with neo4j_driver.session() as session:
         # Create test user
         await session.run(
             """
@@ -219,28 +215,23 @@ async def type_contract_test_data(neo4j_container, clean_neo4j, ensure_test_user
 
     yield
 
-    # Cleanup handled by clean_neo4j fixture
-    await driver.close()
-
 
 @pytest_asyncio.fixture
-async def lp_service(neo4j_container):
+async def lp_service(neo4j_driver):
     """Create LpService with necessary dependencies."""
     from unittest.mock import MagicMock
 
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
-    executor = Neo4jQueryExecutor(driver)
+    executor = Neo4jQueryExecutor(neo4j_driver)
 
     # January 2026: graph_intel is REQUIRED for unified Curriculum architecture
     mock_graph_intel = MagicMock()
 
     # Create backends (composition root pattern)
     ls_backend = UniversalNeo4jBackend[LearningStepModel](
-        driver, NeoLabel.LEARNING_STEP, LearningStepModel, base_label=NeoLabel.ENTITY
+        neo4j_driver, NeoLabel.LEARNING_STEP, LearningStepModel, base_label=NeoLabel.ENTITY
     )
     lp_backend = UniversalNeo4jBackend[LearningPath](
-        driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
+        neo4j_driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
     )
 
     # Create LsService (required by LpService)
@@ -260,8 +251,6 @@ async def lp_service(neo4j_container):
     )
 
     yield service
-
-    await driver.close()
 
 
 # ============================================================================

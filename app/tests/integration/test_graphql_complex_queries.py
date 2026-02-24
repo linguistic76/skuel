@@ -17,7 +17,6 @@ Run with:
 
 import pytest
 import pytest_asyncio
-from neo4j import AsyncGraphDatabase
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.entity_dto import EntityDTO
@@ -29,16 +28,13 @@ from core.models.enums import Domain
 
 
 @pytest_asyncio.fixture
-async def graphql_test_data(neo4j_container, clean_neo4j):
+async def graphql_test_data(neo4j_driver, clean_neo4j):
     """
     Create test data for GraphQL queries.
 
     Depends on clean_neo4j to ensure clean database state.
     """
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
-
-    async with driver.session() as session:
+    async with neo4j_driver.session() as session:
         # Create test user
         await session.run(
             """
@@ -186,7 +182,7 @@ async def graphql_test_data(neo4j_container, clean_neo4j):
     yield
 
     # Cleanup
-    async with driver.session() as session:
+    async with neo4j_driver.session() as session:
         await session.run(
             """
             MATCH (n)
@@ -198,20 +194,13 @@ async def graphql_test_data(neo4j_container, clean_neo4j):
             """
         )
 
-    await driver.close()
-
 
 @pytest_asyncio.fixture
-async def knowledge_backend(neo4j_container):
+async def knowledge_backend(neo4j_driver):
     """Create knowledge backend for service initialization."""
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
-
-    backend = UniversalNeo4jBackend[EntityDTO](driver, "Entity", EntityDTO)
+    backend = UniversalNeo4jBackend[EntityDTO](neo4j_driver, "Entity", EntityDTO)
 
     yield backend
-
-    await driver.close()
 
 
 # ============================================================================
@@ -288,64 +277,49 @@ async def test_search_knowledge_basic(graphql_test_data, knowledge_backend):
 
 
 @pytest.mark.asyncio
-async def test_tasks_list_authenticated_user(graphql_test_data, neo4j_container):
+async def test_tasks_list_authenticated_user(graphql_test_data, neo4j_driver):
     """Test tasks list query for authenticated user."""
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
+    async with neo4j_driver.session() as session:
+        result_records = await session.run(
+            """
+            MATCH (t:Task {user_uid: $user_uid})
+            WHERE t.status <> 'completed'
+            RETURN t
+            ORDER BY t.created_at DESC
+            LIMIT 20
+            """,
+            user_uid="user.graphql_test",
+        )
 
-    try:
-        # Get tasks for specific user
-        async with driver.session() as session:
-            result_records = await session.run(
-                """
-                MATCH (t:Task {user_uid: $user_uid})
-                WHERE t.status <> 'completed'
-                RETURN t
-                ORDER BY t.created_at DESC
-                LIMIT 20
-                """,
-                user_uid="user.graphql_test",
-            )
+        records = [record async for record in result_records]
 
-            records = [record async for record in result_records]
+        # Should have 2 active tasks (excluding completed)
+        assert len(records) == 2
 
-            # Should have 2 active tasks (excluding completed)
-            assert len(records) == 2
-
-            for record in records:
-                task_data = dict(record["t"])
-                assert task_data["status"] != "completed"
-                assert task_data["user_uid"] == "user.graphql_test"
-
-    finally:
-        await driver.close()
+        for record in records:
+            task_data = dict(record["t"])
+            assert task_data["status"] != "completed"
+            assert task_data["user_uid"] == "user.graphql_test"
 
 
 @pytest.mark.asyncio
-async def test_tasks_include_completed(graphql_test_data, neo4j_container):
+async def test_tasks_include_completed(graphql_test_data, neo4j_driver):
     """Test tasks list with completed tasks included."""
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
+    async with neo4j_driver.session() as session:
+        result_records = await session.run(
+            """
+            MATCH (t:Task {user_uid: $user_uid})
+            RETURN t
+            ORDER BY t.created_at DESC
+            LIMIT 20
+            """,
+            user_uid="user.graphql_test",
+        )
 
-    try:
-        async with driver.session() as session:
-            result_records = await session.run(
-                """
-                MATCH (t:Task {user_uid: $user_uid})
-                RETURN t
-                ORDER BY t.created_at DESC
-                LIMIT 20
-                """,
-                user_uid="user.graphql_test",
-            )
+        records = [record async for record in result_records]
 
-            records = [record async for record in result_records]
-
-            # Should have all 3 tasks
-            assert len(records) == 3
-
-    finally:
-        await driver.close()
+        # Should have all 3 tasks
+        assert len(records) == 3
 
 
 # ============================================================================
@@ -354,33 +328,26 @@ async def test_tasks_include_completed(graphql_test_data, neo4j_container):
 
 
 @pytest.mark.asyncio
-async def test_learning_paths_list(graphql_test_data, neo4j_container):
+async def test_learning_paths_list(graphql_test_data, neo4j_driver):
     """Test learning_paths list query."""
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
+    async with neo4j_driver.session() as session:
+        result_records = await session.run(
+            """
+            MATCH (lp:Lp)
+            RETURN lp
+            LIMIT 20
+            """
+        )
 
-    try:
-        async with driver.session() as session:
-            result_records = await session.run(
-                """
-                MATCH (lp:Lp)
-                RETURN lp
-                LIMIT 20
-                """
-            )
+        records = [record async for record in result_records]
 
-            records = [record async for record in result_records]
+        # Should have at least 1 learning path
+        assert len(records) >= 1
 
-            # Should have at least 1 learning path
-            assert len(records) >= 1
-
-            lp_data = dict(records[0]["lp"])
-            assert "uid" in lp_data
-            assert "name" in lp_data
-            assert "goal" in lp_data
-
-    finally:
-        await driver.close()
+        lp_data = dict(records[0]["lp"])
+        assert "uid" in lp_data
+        assert "name" in lp_data
+        assert "goal" in lp_data
 
 
 # ============================================================================
@@ -389,32 +356,25 @@ async def test_learning_paths_list(graphql_test_data, neo4j_container):
 
 
 @pytest.mark.asyncio
-async def test_discover_cross_domain_data_setup(graphql_test_data, neo4j_container):
+async def test_discover_cross_domain_data_setup(graphql_test_data, neo4j_driver):
     """Test cross-domain opportunities data is set up correctly."""
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
+    async with neo4j_driver.session() as session:
+        # Verify we have knowledge units across different domains
+        result = await session.run(
+            """
+            MATCH (k:Entity)
+            RETURN DISTINCT k.domain as domain, count(k) as count
+            ORDER BY domain
+            """
+        )
 
-    try:
-        async with driver.session() as session:
-            # Verify we have knowledge units across different domains
-            result = await session.run(
-                """
-                MATCH (k:Entity)
-                RETURN DISTINCT k.domain as domain, count(k) as count
-                ORDER BY domain
-                """
-            )
+        domains = {record["domain"]: record["count"] async for record in result}
 
-            domains = {record["domain"]: record["count"] async for record in result}
-
-            # Should have at least 3 different domains
-            assert len(domains) >= 3
-            assert Domain.TECH.value in domains
-            assert Domain.BUSINESS.value in domains
-            assert Domain.PERSONAL.value in domains
-
-    finally:
-        await driver.close()
+        # Should have at least 3 different domains
+        assert len(domains) >= 3
+        assert Domain.TECH.value in domains
+        assert Domain.BUSINESS.value in domains
+        assert Domain.PERSONAL.value in domains
 
 
 # ============================================================================
@@ -423,50 +383,43 @@ async def test_discover_cross_domain_data_setup(graphql_test_data, neo4j_contain
 
 
 @pytest.mark.asyncio
-async def test_user_dashboard_data_aggregation(graphql_test_data, neo4j_container):
+async def test_user_dashboard_data_aggregation(graphql_test_data, neo4j_driver):
     """Test user dashboard aggregates data from multiple sources."""
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
+    async with neo4j_driver.session() as session:
+        # Test task count aggregation
+        task_result = await session.run(
+            """
+            MATCH (t:Task {user_uid: $user_uid})
+            WHERE t.status = 'active'
+            RETURN count(t) as active_tasks
+            """,
+            user_uid="user.graphql_test",
+        )
 
-    try:
-        async with driver.session() as session:
-            # Test task count aggregation
-            task_result = await session.run(
-                """
-                MATCH (t:Task {user_uid: $user_uid})
-                WHERE t.status = 'active'
-                RETURN count(t) as active_tasks
-                """,
-                user_uid="user.graphql_test",
-            )
+        task_record = await task_result.single()
+        assert task_record["active_tasks"] == 2
 
-            task_record = await task_result.single()
-            assert task_record["active_tasks"] == 2
+        # Test knowledge unit access
+        ku_result = await session.run(
+            """
+            MATCH (k:Entity)
+            RETURN count(k) as total_knowledge
+            """
+        )
 
-            # Test knowledge unit access
-            ku_result = await session.run(
-                """
-                MATCH (k:Entity)
-                RETURN count(k) as total_knowledge
-                """
-            )
+        ku_record = await ku_result.single()
+        assert ku_record["total_knowledge"] >= 4
 
-            ku_record = await ku_result.single()
-            assert ku_record["total_knowledge"] >= 4
+        # Test learning path count
+        lp_result = await session.run(
+            """
+            MATCH (lp:Lp)
+            RETURN count(lp) as total_paths
+            """
+        )
 
-            # Test learning path count
-            lp_result = await session.run(
-                """
-                MATCH (lp:Lp)
-                RETURN count(lp) as total_paths
-                """
-            )
-
-            lp_record = await lp_result.single()
-            assert lp_record["total_paths"] >= 1
-
-    finally:
-        await driver.close()
+        lp_record = await lp_result.single()
+        assert lp_record["total_paths"] >= 1
 
 
 # ============================================================================
@@ -486,29 +439,22 @@ async def test_knowledge_units_invalid_domain(graphql_test_data, knowledge_backe
 
 
 @pytest.mark.asyncio
-async def test_tasks_unauthenticated_user(neo4j_container):
+async def test_tasks_unauthenticated_user(neo4j_driver):
     """Test tasks query without authentication should fail gracefully."""
     # This would test GraphQL authentication middleware
     # For now, verify data isolation
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
+    async with neo4j_driver.session() as session:
+        # Query with non-existent user should return empty
+        result = await session.run(
+            """
+            MATCH (t:Task {user_uid: $user_uid})
+            RETURN t
+            """,
+            user_uid="user.nonexistent",
+        )
 
-    try:
-        async with driver.session() as session:
-            # Query with non-existent user should return empty
-            result = await session.run(
-                """
-                MATCH (t:Task {user_uid: $user_uid})
-                RETURN t
-                """,
-                user_uid="user.nonexistent",
-            )
-
-            records = [record async for record in result]
-            assert len(records) == 0
-
-    finally:
-        await driver.close()
+        records = [record async for record in result]
+        assert len(records) == 0
 
 
 # ============================================================================
@@ -517,73 +463,59 @@ async def test_tasks_unauthenticated_user(neo4j_container):
 
 
 @pytest.mark.asyncio
-async def test_tasks_with_knowledge_nested(graphql_test_data, neo4j_container):
+async def test_tasks_with_knowledge_nested(graphql_test_data, neo4j_driver):
     """Test tasks can be queried with nested knowledge units."""
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
+    async with neo4j_driver.session() as session:
+        # Test nested query pattern (task -> knowledge)
+        result = await session.run(
+            """
+            MATCH (t:Task {user_uid: $user_uid})
+            WHERE t.knowledge_uid IS NOT NULL
+            OPTIONAL MATCH (k:Entity {uid: t.knowledge_uid})
+            RETURN t, k
+            LIMIT 10
+            """,
+            user_uid="user.graphql_test",
+        )
 
-    try:
-        async with driver.session() as session:
-            # Test nested query pattern (task -> knowledge)
-            result = await session.run(
-                """
-                MATCH (t:Task {user_uid: $user_uid})
-                WHERE t.knowledge_uid IS NOT NULL
-                OPTIONAL MATCH (k:Entity {uid: t.knowledge_uid})
-                RETURN t, k
-                LIMIT 10
-                """,
-                user_uid="user.graphql_test",
-            )
+        records = [record async for record in result]
 
-            records = [record async for record in result]
+        # Should have tasks with knowledge relationships
+        assert len(records) >= 2
 
-            # Should have tasks with knowledge relationships
-            assert len(records) >= 2
-
-            for record in records:
-                if record["k"]:
-                    ku_data = dict(record["k"])
-                    assert "uid" in ku_data
-                    assert "title" in ku_data
-
-    finally:
-        await driver.close()
+        for record in records:
+            if record["k"]:
+                ku_data = dict(record["k"])
+                assert "uid" in ku_data
+                assert "title" in ku_data
 
 
 @pytest.mark.asyncio
-async def test_learning_path_with_steps_nested(graphql_test_data, neo4j_container):
+async def test_learning_path_with_steps_nested(graphql_test_data, neo4j_driver):
     """Test learning path can be queried with nested steps and knowledge."""
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
+    async with neo4j_driver.session() as session:
+        # Test triple-nested query (path -> steps -> knowledge)
+        result = await session.run(
+            """
+            MATCH (lp:Lp {uid: $lp_uid})
+            OPTIONAL MATCH (lp)-[r:HAS_STEP]->(k:Entity)
+            WITH lp, r, k
+            ORDER BY r.step_number
+            RETURN lp, collect({step: r.step_number, knowledge: k}) as steps
+            """,
+            lp_uid="lp.python_mastery",
+        )
 
-    try:
-        async with driver.session() as session:
-            # Test triple-nested query (path -> steps -> knowledge)
-            result = await session.run(
-                """
-                MATCH (lp:Lp {uid: $lp_uid})
-                OPTIONAL MATCH (lp)-[r:HAS_STEP]->(k:Entity)
-                WITH lp, r, k
-                ORDER BY r.step_number
-                RETURN lp, collect({step: r.step_number, knowledge: k}) as steps
-                """,
-                lp_uid="lp.python_mastery",
-            )
+        record = await result.single()
 
-            record = await result.single()
+        assert record is not None
+        assert record["lp"] is not None
+        assert len(record["steps"]) == 2  # Two steps created
 
-            assert record is not None
-            assert record["lp"] is not None
-            assert len(record["steps"]) == 2  # Two steps created
-
-            # Verify steps are ordered
-            for i, step in enumerate(record["steps"], 1):
-                assert step["step"] == i
-                assert step["knowledge"] is not None
-
-    finally:
-        await driver.close()
+        # Verify steps are ordered
+        for i, step in enumerate(record["steps"], 1):
+            assert step["step"] == i
+            assert step["knowledge"] is not None
 
 
 # ============================================================================

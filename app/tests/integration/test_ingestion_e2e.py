@@ -34,19 +34,13 @@ from core.services.ingestion.types import DryRunPreview, IncrementalStats
 
 
 @pytest_asyncio.fixture
-async def ingestion_service(neo4j_container):
+async def ingestion_service(neo4j_driver):
     """Override conftest ingestion_service to include executor for incremental mode."""
-    from neo4j import AsyncGraphDatabase
+    executor = Neo4jQueryExecutor(neo4j_driver)
 
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
-    executor = Neo4jQueryExecutor(driver)
-
-    service = UnifiedIngestionService(driver=driver, executor=executor)
+    service = UnifiedIngestionService(driver=neo4j_driver, executor=executor)
 
     yield service
-
-    await driver.close()
 
 
 @pytest_asyncio.fixture

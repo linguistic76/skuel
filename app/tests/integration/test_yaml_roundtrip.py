@@ -20,7 +20,7 @@ import pytest
 class TestYAMLRoundTrip:
     """Integration tests for YAML import → export → import."""
 
-    async def test_basic_roundtrip_no_relationships(self, neo4j_container, temp_yaml_dir):
+    async def test_basic_roundtrip_no_relationships(self, neo4j_driver, temp_yaml_dir):
         """
         Test basic round-trip for knowledge unit without relationships.
 
@@ -30,35 +30,25 @@ class TestYAMLRoundTrip:
         3. Export from Neo4j
         4. Verify data matches
         """
-        from unittest.mock import AsyncMock
-
-        from neo4j import AsyncGraphDatabase
+        from unittest.mock import AsyncMock, MagicMock
 
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.curriculum.curriculum_dto import CurriculumDTO
         from core.services.ingestion import UnifiedIngestionService
         from core.services.ku_service import KuService
 
-        # Create driver in async context
-        uri = neo4j_container.get_connection_url()
-        driver = AsyncGraphDatabase.driver(uri)
-
-        # Verify connection
-        async with driver.session() as session:
+        # Verify connection and clean database
+        async with neo4j_driver.session() as session:
             result = await session.run("RETURN 1 as test")
             record = await result.single()
             assert record["test"] == 1
-
-            # Clean database
             await session.run("MATCH (n) DETACH DELETE n")
 
-        # Create services with async driver
-        from unittest.mock import MagicMock
-
-        ingestion_service = UnifiedIngestionService(driver=driver)
+        # Create services with shared driver
+        ingestion_service = UnifiedIngestionService(driver=neo4j_driver)
         # Use "Entity" to match what UnifiedIngestionService creates
         # IMPORTANT: Backend must use CurriculumDTO (mutable), not Curriculum (immutable)
-        ku_backend = UniversalNeo4jBackend[CurriculumDTO](driver, "Entity", CurriculumDTO)
+        ku_backend = UniversalNeo4jBackend[CurriculumDTO](neo4j_driver, "Entity", CurriculumDTO)
         # Create mock dependencies (required by fail-fast pattern)
         mock_content_repo = AsyncMock()
         mock_query_builder = MagicMock()
@@ -72,10 +62,9 @@ class TestYAMLRoundTrip:
             graph_intelligence_service=mock_graph_intelligence,  # Required for cross-domain queries
         )
 
-        try:
-            # Step 1: Create initial YAML file
-            # Note: Use dot notation (ku.xxx) as ingestion normalizes colons to dots
-            yaml_content = """---
+        # Step 1: Create initial YAML file
+        # Note: Use dot notation (ku.xxx) as ingestion normalizes colons to dots
+        yaml_content = """---
 uid: ku.simple-test
 title: Simple Test
 content: Test content for basic round-trip
@@ -91,41 +80,37 @@ tags:
 
 This is test content for verifying basic round-trip functionality.
 """
-            yaml_path = temp_yaml_dir / "simple.md"
-            yaml_path.write_text(yaml_content)
+        yaml_path = temp_yaml_dir / "simple.md"
+        yaml_path.write_text(yaml_content)
 
-            # Step 2: Import YAML → Neo4j
-            import_result = await ingestion_service.ingest_file(yaml_path)
-            assert import_result.is_ok, (
-                f"Import failed: {import_result.error if not import_result.is_ok else 'Unknown'}"
-            )
+        # Step 2: Import YAML → Neo4j
+        import_result = await ingestion_service.ingest_file(yaml_path)
+        assert import_result.is_ok, (
+            f"Import failed: {import_result.error if not import_result.is_ok else 'Unknown'}"
+        )
 
-            # Step 3: Retrieve KU from Neo4j (use dot notation)
-            get_result = await ku_service.get("ku.simple-test")
-            assert get_result.is_ok, (
-                f"Get failed: {get_result.error if not get_result.is_ok else 'Unknown'}"
-            )
-            ku_dto = get_result.value
+        # Step 3: Retrieve KU from Neo4j (use dot notation)
+        get_result = await ku_service.get("ku.simple-test")
+        assert get_result.is_ok, (
+            f"Get failed: {get_result.error if not get_result.is_ok else 'Unknown'}"
+        )
+        ku_dto = get_result.value
 
-            # Step 4: Verify retrieved data matches original
+        # Step 4: Verify retrieved data matches original
+        assert ku_dto.uid == "ku.simple-test"
+        assert ku_dto.title == "Simple Test"
+        # domain may be a Domain enum or string depending on deserialization
+        domain_val = getattr(ku_dto.domain, "value", ku_dto.domain)
+        assert domain_val == "tech"
+        assert ku_dto.quality_score == 0.8
+        assert ku_dto.complexity == "basic"
 
-            assert ku_dto.uid == "ku.simple-test"
-            assert ku_dto.title == "Simple Test"
-            # domain may be a Domain enum or string depending on deserialization
-            domain_val = getattr(ku_dto.domain, "value", ku_dto.domain)
-            assert domain_val == "tech"
-            assert ku_dto.quality_score == 0.8
-            assert ku_dto.complexity == "basic"
-
-            # Tags should be a list
-            assert isinstance(ku_dto.tags, list), (
-                f"Expected tags to be list, got {type(ku_dto.tags)}"
-            )
-            assert "test" in ku_dto.tags
-            assert "integration" in ku_dto.tags
-        finally:
-            # Cleanup
-            await driver.close()
+        # Tags should be a list
+        assert isinstance(ku_dto.tags, list), (
+            f"Expected tags to be list, got {type(ku_dto.tags)}"
+        )
+        assert "test" in ku_dto.tags
+        assert "integration" in ku_dto.tags
 
     async def test_roundtrip_with_relationships(
         self, clean_neo4j, ku_service, ingestion_service, temp_yaml_dir

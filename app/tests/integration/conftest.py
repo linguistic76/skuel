@@ -76,7 +76,7 @@ async def neo4j_driver(neo4j_uri):
 
 
 @pytest_asyncio.fixture(scope="session")
-async def ensure_test_users(neo4j_container):
+async def ensure_test_users(neo4j_driver):
     """
     Ensure all test user UIDs have User nodes in the database.
 
@@ -86,11 +86,6 @@ async def ensure_test_users(neo4j_container):
     Created before any tests run (session scope).
     """
     from datetime import datetime
-
-    from neo4j import AsyncGraphDatabase
-
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
 
     # All test user UIDs used across integration tests
     test_user_uids = [
@@ -112,7 +107,7 @@ async def ensure_test_users(neo4j_container):
 
     async def create_users():
         """Create all test User nodes."""
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             for user_uid in test_user_uids:
                 result = await session.run(
                     """
@@ -130,23 +125,19 @@ async def ensure_test_users(neo4j_container):
     yield
 
     # Cleanup after all tests (delete test users)
-    async def cleanup():
-        async with driver.session() as session:
-            await session.run(
-                """
-                MATCH (u:User)
-                WHERE u.uid IN $user_uids
-                DETACH DELETE u
-                """,
-                user_uids=test_user_uids,
-            )
-        await driver.close()
-
-    await cleanup()
+    async with neo4j_driver.session() as session:
+        await session.run(
+            """
+            MATCH (u:User)
+            WHERE u.uid IN $user_uids
+            DETACH DELETE u
+            """,
+            user_uids=test_user_uids,
+        )
 
 
 @pytest_asyncio.fixture
-async def clean_neo4j(neo4j_container, create_moc_test_user, ensure_test_users):
+async def clean_neo4j(neo4j_driver, create_moc_test_user, ensure_test_users):
     """
     Clean Neo4j database before each test (after creating test users).
 
@@ -155,21 +146,15 @@ async def clean_neo4j(neo4j_container, create_moc_test_user, ensure_test_users):
 
     Also ensures vector indexes are created for semantic search tests.
     """
-    from neo4j import AsyncGraphDatabase
-
-    # Create driver for cleanup operations (no auth - use empty strings)
-    uri = neo4j_container.get_connection_url()
-    # No auth needed when auth is disabled
-    driver = AsyncGraphDatabase.driver(uri)
 
     async def cleanup():
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             # Delete all nodes except User nodes
             await session.run("MATCH (n) WHERE NOT n:User DETACH DELETE n")
 
     async def create_vector_indexes():
         """Create vector indexes required for semantic search tests."""
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             # Create vector index for KU entities
             # Required by semantic search integration tests
             result = await session.run("""
@@ -195,7 +180,6 @@ async def clean_neo4j(neo4j_container, create_moc_test_user, ensure_test_users):
 
     # Cleanup after test
     await cleanup()
-    await driver.close()
 
 
 @pytest.fixture
@@ -207,25 +191,15 @@ def temp_yaml_dir() -> Generator[Path, None, None]:
 
 
 @pytest_asyncio.fixture
-async def ku_backend(neo4j_container):
+async def ku_backend(neo4j_driver):
     """Create real KuService backend."""
-    from neo4j import AsyncGraphDatabase
-
     from core.models.curriculum.curriculum_dto import CurriculumDTO
-
-    # Create driver synchronously within the fixture (no auth - use empty strings)
-    uri = neo4j_container.get_connection_url()
-    # No auth needed when auth is disabled
-    driver = AsyncGraphDatabase.driver(uri)
 
     # Use "Entity" to match what UnifiedIngestionService creates
     # IMPORTANT: Must use CurriculumDTO (not EntityDTO) to include quality_score, complexity, etc.
-    backend = UniversalNeo4jBackend[CurriculumDTO](driver, "Entity", CurriculumDTO)
+    backend = UniversalNeo4jBackend[CurriculumDTO](neo4j_driver, "Entity", CurriculumDTO)
 
     yield backend
-
-    # Cleanup
-    await driver.close()
 
 
 @pytest.fixture
@@ -273,53 +247,36 @@ def ku_service(ku_backend, mock_graph_intel):
 
 
 @pytest_asyncio.fixture
-async def ingestion_service(neo4j_container):
+async def ingestion_service(neo4j_driver):
     """Create real UnifiedIngestionService."""
-    from neo4j import AsyncGraphDatabase
-
     from core.services.ingestion import UnifiedIngestionService
 
-    # Create driver synchronously within the fixture (no auth - use empty strings)
-    uri = neo4j_container.get_connection_url()
-    # No auth needed when auth is disabled
-    driver = AsyncGraphDatabase.driver(uri)
-
-    service = UnifiedIngestionService(driver=driver)
+    service = UnifiedIngestionService(driver=neo4j_driver)
 
     yield service
 
-    # Cleanup
-    await driver.close()
-
 
 @pytest_asyncio.fixture
-async def user_service(neo4j_container):
+async def user_service(neo4j_driver):
     """Create UserService for user-entity tracking tests."""
-    from neo4j import AsyncGraphDatabase
-
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.models.user.user import User
     from core.services.user_service import UserService
 
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
-
     # Create user backend
-    user_backend = UniversalNeo4jBackend[User](driver, "User", User)
+    user_backend = UniversalNeo4jBackend[User](neo4j_driver, "User", User)
 
     # Create QueryExecutor wrapper for driver (UserContextBuilder expects QueryExecutor)
-    query_executor = Neo4jQueryExecutor(driver)
+    query_executor = Neo4jQueryExecutor(neo4j_driver)
 
     # Create UserService with query_executor for aggregation queries
     service = UserService(user_repo=user_backend, driver=query_executor)
 
     yield service
 
-    await driver.close()
-
 
 @pytest_asyncio.fixture
-async def test_user(neo4j_container):
+async def test_user(neo4j_driver):
     """
     Create and return a test User object for rich context pattern tests.
 
@@ -328,12 +285,7 @@ async def test_user(neo4j_container):
     """
     from datetime import datetime
 
-    from neo4j import AsyncGraphDatabase
-
     from core.models.user.user import User
-
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
 
     # Create a test user with minimal required fields
     test_user_obj = User(
@@ -347,7 +299,7 @@ async def test_user(neo4j_container):
     )
 
     # Ensure the user exists in Neo4j
-    async with driver.session() as session:
+    async with neo4j_driver.session() as session:
         await session.run(
             """
             MERGE (u:User {uid: $uid})
@@ -371,114 +323,82 @@ async def test_user(neo4j_container):
     yield test_user_obj
 
     # Cleanup: Delete the test user from Neo4j
-    async with driver.session() as session:
+    async with neo4j_driver.session() as session:
         await session.run(
             "MATCH (u:User {uid: $uid}) DETACH DELETE u",
             uid=test_user_obj.uid,
         )
 
-    await driver.close()
-
 
 @pytest_asyncio.fixture
-async def create_test_users(neo4j_container):
+async def create_test_users(neo4j_driver):
     """Create test user nodes in Neo4j for user-entity tracking tests."""
     from datetime import datetime
 
-    from neo4j import AsyncGraphDatabase
-
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
-
-    async def create_users():
-        """Create User nodes in Neo4j."""
-        async with driver.session() as session:
-            # Create user_test_123
-            await session.run(
-                """
-                MERGE (u:User {uid: $user_uid})
-                ON CREATE SET u.created_at = datetime($created_at)
-                RETURN u
-                """,
-                user_uid="user_test_123",
-                created_at=datetime.now().isoformat(),
-            )
-            # Create user_test_456
-            await session.run(
-                """
-                MERGE (u:User {uid: $user_uid})
-                ON CREATE SET u.created_at = datetime($created_at)
-                RETURN u
-                """,
-                user_uid="user_test_456",
-                created_at=datetime.now().isoformat(),
-            )
-
-    # Create users before test
-    await create_users()
+    async with neo4j_driver.session() as session:
+        await session.run(
+            """
+            MERGE (u:User {uid: $user_uid})
+            ON CREATE SET u.created_at = datetime($created_at)
+            RETURN u
+            """,
+            user_uid="user_test_123",
+            created_at=datetime.now().isoformat(),
+        )
+        await session.run(
+            """
+            MERGE (u:User {uid: $user_uid})
+            ON CREATE SET u.created_at = datetime($created_at)
+            RETURN u
+            """,
+            user_uid="user_test_456",
+            created_at=datetime.now().isoformat(),
+        )
 
     yield
 
     # Cleanup after test
-    async def cleanup():
-        async with driver.session() as session:
-            await session.run(
-                """
-                MATCH (u:User)
-                WHERE u.uid IN ['user_test_123', 'user_test_456']
-                DETACH DELETE u
-                """
-            )
-        await driver.close()
-
-    await cleanup()
+    async with neo4j_driver.session() as session:
+        await session.run(
+            """
+            MATCH (u:User)
+            WHERE u.uid IN ['user_test_123', 'user_test_456']
+            DETACH DELETE u
+            """
+        )
 
 
 @pytest_asyncio.fixture(scope="session")
-async def create_moc_test_user(neo4j_container):
+async def create_moc_test_user(neo4j_driver):
     """Create test user node for MOC integration tests."""
     from datetime import datetime
 
-    from neo4j import AsyncGraphDatabase
-
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
-
-    async def create_user():
-        """Create User node for MOC tests."""
-        async with driver.session() as session:
-            result = await session.run(
-                """
-                MERGE (u:User {uid: $user_uid})
-                ON CREATE SET u.created_at = datetime($created_at)
-                RETURN u
-                """,
-                user_uid="user.test_integration",
-                created_at=datetime.now().isoformat(),
-            )
-            await result.consume()  # Ensure transaction commits
-
-    # Create user before tests
-    await create_user()
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            """
+            MERGE (u:User {uid: $user_uid})
+            ON CREATE SET u.created_at = datetime($created_at)
+            RETURN u
+            """,
+            user_uid="user.test_integration",
+            created_at=datetime.now().isoformat(),
+        )
+        await result.consume()  # Ensure transaction commits
 
     yield
 
     # Cleanup after all tests
-    async def cleanup():
-        async with driver.session() as session:
-            await session.run(
-                """
-                MATCH (u:User {uid: 'user.test_integration'})
-                DETACH DELETE u
-                """
-            )
-        await driver.close()
-
-    await cleanup()
+    async with neo4j_driver.session() as session:
+        await session.run(
+            """
+            MATCH (u:User {uid: 'user.test_integration'})
+            DETACH DELETE u
+            """
+        )
 
 
 @pytest_asyncio.fixture
-async def services(neo4j_container):
+async def services(neo4j_driver):
     """
     Create unified services fixture with all domain services and their relationship services.
 
@@ -491,8 +411,6 @@ async def services(neo4j_container):
     """
     from dataclasses import dataclass
     from unittest.mock import AsyncMock, MagicMock
-
-    from neo4j import AsyncGraphDatabase
 
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.models.entity import Entity
@@ -507,9 +425,6 @@ async def services(neo4j_container):
     from core.services.principles_service import PrinciplesService
     from core.services.tasks_service import TasksService
     from core.services.user_service import UserService
-
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
 
     @dataclass
     class TestServices:
@@ -564,40 +479,40 @@ async def services(neo4j_container):
             return getattr(self.backend, name)
 
     # Create backends with test wrappers
-    raw_ku_backend = UniversalNeo4jBackend[EntityDTO](driver, "Entity", EntityDTO)
+    raw_ku_backend = UniversalNeo4jBackend[EntityDTO](neo4j_driver, "Entity", EntityDTO)
     ku_backend = TestBackendWrapper(raw_ku_backend, EntityDTO)
 
     raw_tasks_backend = UniversalNeo4jBackend[Entity](
-        driver, "Entity", Entity, default_filters={"ku_type": "task"}
+        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "task"}
     )
     tasks_backend = TestBackendWrapper(raw_tasks_backend, Entity)
 
     raw_goals_backend = UniversalNeo4jBackend[Entity](
-        driver, "Entity", Entity, default_filters={"ku_type": "goal"}
+        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "goal"}
     )
     goals_backend = TestBackendWrapper(raw_goals_backend, Entity)
 
     raw_events_backend = UniversalNeo4jBackend[Entity](
-        driver, "Entity", Entity, default_filters={"ku_type": "event"}
+        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "event"}
     )
     events_backend = TestBackendWrapper(raw_events_backend, Entity)
 
-    raw_ls_backend = UniversalNeo4jBackend[Entity](driver, "Entity", Entity)
+    raw_ls_backend = UniversalNeo4jBackend[Entity](neo4j_driver, "Entity", Entity)
     ls_backend = TestBackendWrapper(raw_ls_backend, Entity)
 
-    raw_lp_backend = UniversalNeo4jBackend[Entity](driver, "Entity", Entity)
+    raw_lp_backend = UniversalNeo4jBackend[Entity](neo4j_driver, "Entity", Entity)
     lp_backend = TestBackendWrapper(raw_lp_backend, Entity)
 
     raw_principles_backend = UniversalNeo4jBackend[Entity](
-        driver, "Entity", Entity, default_filters={"ku_type": "principle"}
+        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "principle"}
     )
     principles_backend = TestBackendWrapper(raw_principles_backend, Entity)
 
     # These backends aren't used by tests, create without wrapper
     choices_backend = UniversalNeo4jBackend[Entity](
-        driver, "Entity", Entity, default_filters={"ku_type": "choice"}
+        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "choice"}
     )
-    users_backend = UniversalNeo4jBackend[User](driver, "User", User)
+    users_backend = UniversalNeo4jBackend[User](neo4j_driver, "User", User)
 
     # Mock GraphIntelligenceService for services that require it
     mock_graph_intel = MagicMock()
@@ -617,7 +532,7 @@ async def services(neo4j_container):
     # Create QueryExecutor adapter for services that require it
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
-    query_executor = Neo4jQueryExecutor(driver)
+    query_executor = Neo4jQueryExecutor(neo4j_driver)
 
     # Create LS service (used by LP service)
     # January 2026: graph_intel now REQUIRED for unified Curriculum architecture
@@ -711,9 +626,6 @@ async def services(neo4j_container):
 
     yield services_container
 
-    # Cleanup
-    await driver.close()
-
 
 # ============================================================================
 # LP Relationship Service Fixtures
@@ -732,17 +644,13 @@ async def lp_relationship_service(services):
 
 
 @pytest_asyncio.fixture
-async def create_relationship(neo4j_container):
+async def create_relationship(neo4j_driver):
     """
     Fixture to create relationships in Neo4j for testing.
 
     Provides a helper function that creates nodes and relationships
     between entities for integration tests.
     """
-    from neo4j import AsyncGraphDatabase
-
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
 
     async def _create_relationship(
         from_uid: str,
@@ -753,7 +661,7 @@ async def create_relationship(neo4j_container):
         properties: dict | None = None,
     ):
         """Create a relationship between two nodes (creating nodes if needed)."""
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             # Build properties clause for relationship
             props_clause = ""
             if properties:
@@ -776,25 +684,19 @@ async def create_relationship(neo4j_container):
 
     yield _create_relationship
 
-    await driver.close()
-
 
 @pytest_asyncio.fixture
-async def count_relationships(neo4j_container):
+async def count_relationships(neo4j_driver):
     """
     Fixture to count relationships in Neo4j for testing.
 
     Provides a helper function that counts outgoing relationships
     of a specific type from an entity.
     """
-    from neo4j import AsyncGraphDatabase
-
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
 
     async def _count_relationships(uid: str, rel_type: str) -> int:
         """Count outgoing relationships of a specific type."""
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             query = f"""
                 MATCH (n {{uid: $uid}})-[r:{rel_type}]->()
                 RETURN count(r) as count
@@ -804,8 +706,6 @@ async def count_relationships(neo4j_container):
             return record["count"] if record else 0
 
     yield _count_relationships
-
-    await driver.close()
 
 
 # ============================================================================

@@ -15,10 +15,9 @@ Test Coverage:
 """
 
 from collections.abc import Generator
-from typing import Any
 
 import pytest
-from testcontainers.neo4j import Neo4jContainer
+import pytest_asyncio
 
 # Backend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
@@ -36,50 +35,29 @@ from core.models.enums import Domain, LearningLevel, SELCategory
 
 
 @pytest.fixture
-def ku_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[Curriculum]:
+def ku_backend(neo4j_driver) -> UniversalNeo4jBackend[Curriculum]:
     """Create KU backend with real Neo4j."""
-    from neo4j import AsyncGraphDatabase
-
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
-
-    return UniversalNeo4jBackend[Curriculum](driver, "Entity", Curriculum)
+    return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
 
 
 @pytest.fixture
-def lp_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[LearningPath]:
+def lp_backend(neo4j_driver) -> UniversalNeo4jBackend[LearningPath]:
     """Create LP backend with real Neo4j."""
-    from neo4j import AsyncGraphDatabase
-
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
-
-    return UniversalNeo4jBackend[LearningPath](driver, "Entity", LearningPath)
+    return UniversalNeo4jBackend[LearningPath](neo4j_driver, "Entity", LearningPath)
 
 
 @pytest.fixture
-def ls_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[LearningStep]:
+def ls_backend(neo4j_driver) -> UniversalNeo4jBackend[LearningStep]:
     """Create LS backend with real Neo4j."""
-    from neo4j import AsyncGraphDatabase
-
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
-
-    return UniversalNeo4jBackend[LearningStep](driver, "Entity", LearningStep)
+    return UniversalNeo4jBackend[LearningStep](neo4j_driver, "Entity", LearningStep)
 
 
-@pytest.fixture
-def clean_curriculum(
-    neo4j_container: Neo4jContainer, event_loop: Any
-) -> Generator[None, None, None]:
+@pytest_asyncio.fixture
+async def clean_curriculum(neo4j_driver) -> Generator[None, None, None]:
     """Clean all curriculum data before tests."""
-    from neo4j import AsyncGraphDatabase
-
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
 
     async def cleanup():
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             # Delete all curriculum entities and relationships
             await session.run("""
                 MATCH (n)
@@ -88,12 +66,11 @@ def clean_curriculum(
                 DETACH DELETE r, n
             """)
 
-    event_loop.run_until_complete(cleanup())
+    await cleanup()
 
     yield
 
-    event_loop.run_until_complete(cleanup())
-    event_loop.run_until_complete(driver.close())
+    await cleanup()
 
 
 # ============================================================================
@@ -399,15 +376,10 @@ class TestCurriculumRelationships:
     """Test relationships between KU, LS, and LP."""
 
     @pytest.mark.asyncio
-    async def test_ku_prerequisite_relationship(self, neo4j_container, clean_curriculum) -> None:
+    async def test_ku_prerequisite_relationship(self, neo4j_driver, clean_curriculum) -> None:
         """Should create REQUIRES relationship between KUs."""
-        from neo4j import AsyncGraphDatabase
-
-        uri = neo4j_container.get_connection_url()
-        driver = AsyncGraphDatabase.driver(uri)
-
         # Create two KUs with prerequisite relationship
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             await session.run("""
                 CREATE (ku1:Entity {
                     uid: 'ku:python_basics',
@@ -429,7 +401,7 @@ class TestCurriculumRelationships:
             """)
 
         # Verify relationship exists
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             result = await session.run("""
                 MATCH (ku2:Entity {uid: 'ku:python_advanced'})-[:REQUIRES]->(ku1:Entity {uid: 'ku:python_basics'})
                 RETURN ku1.uid as prereq_uid, ku2.uid as dependent_uid
@@ -440,18 +412,11 @@ class TestCurriculumRelationships:
             assert record["prereq_uid"] == "ku:python_basics"
             assert record["dependent_uid"] == "ku:python_advanced"
 
-        await driver.close()
-
     @pytest.mark.asyncio
-    async def test_lp_contains_ls_relationship(self, neo4j_container, clean_curriculum) -> None:
+    async def test_lp_contains_ls_relationship(self, neo4j_driver, clean_curriculum) -> None:
         """Should create CONTAINS relationship between LP and LS."""
-        from neo4j import AsyncGraphDatabase
-
-        uri = neo4j_container.get_connection_url()
-        driver = AsyncGraphDatabase.driver(uri)
-
         # Create LP and LS with CONTAINS relationship (both are Ku nodes)
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             await session.run("""
                 CREATE (lp:Entity {
                     uid: 'lp:python_journey',
@@ -475,7 +440,7 @@ class TestCurriculumRelationships:
             """)
 
         # Verify relationship exists
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             result = await session.run("""
                 MATCH (lp:Entity {uid: 'lp:python_journey'})-[r:CONTAINS]->(ls:Entity {uid: 'ls:step_1'})
                 RETURN lp.uid as lp_uid, ls.uid as ls_uid, r.order as step_order
@@ -487,8 +452,6 @@ class TestCurriculumRelationships:
             assert record["ls_uid"] == "ls:step_1"
             assert record["step_order"] == 1
 
-        await driver.close()
-
 
 # ============================================================================
 # USER MASTERY INTEGRATION TESTS
@@ -499,15 +462,10 @@ class TestCurriculumUserIntegration:
     """Test curriculum integration with user mastery tracking."""
 
     @pytest.mark.asyncio
-    async def test_user_mastery_tracking(self, neo4j_container, clean_curriculum) -> None:
+    async def test_user_mastery_tracking(self, neo4j_driver, clean_curriculum) -> None:
         """Should track user mastery of KUs."""
-        from neo4j import AsyncGraphDatabase
-
-        uri = neo4j_container.get_connection_url()
-        driver = AsyncGraphDatabase.driver(uri)
-
         # Create user and KU with MASTERED relationship
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             await session.run("""
                 CREATE (u:User {
                     uid: 'user:test_learner',
@@ -528,7 +486,7 @@ class TestCurriculumUserIntegration:
             """)
 
         # Verify mastery relationship
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             result = await session.run("""
                 MATCH (u:User {uid: 'user:test_learner'})-[m:MASTERED]->(ku:Entity {uid: 'ku:python_basics'})
                 RETURN u.uid as user_uid, ku.uid as ku_uid, m.mastery_score as score
@@ -539,8 +497,6 @@ class TestCurriculumUserIntegration:
             assert record["user_uid"] == "user:test_learner"
             assert record["ku_uid"] == "ku:python_basics"
             assert record["score"] == 0.85
-
-        await driver.close()
 
 
 # ============================================================================
@@ -553,7 +509,7 @@ class TestCurriculumContextBuilder:
 
     @pytest.mark.asyncio
     async def test_builder_populates_mastered_knowledge(
-        self, neo4j_container, clean_curriculum
+        self, neo4j_driver, clean_curriculum
     ) -> None:
         """
         Verify UserContextBuilder.build_user_context() correctly populates
@@ -561,17 +517,12 @@ class TestCurriculumContextBuilder:
 
         This tests the REAL construction pipeline, not manual mock data.
         """
-        from neo4j import AsyncGraphDatabase
-
         from core.models.user.user import User
         from core.services.user.user_context_builder import UserContextBuilder
 
-        uri = neo4j_container.get_connection_url()
-        driver = AsyncGraphDatabase.driver(uri)
-
         # Setup: Create user and multiple KUs with varying mastery scores
         test_user_uid = "user:builder_test"
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             await session.run(
                 """
                 CREATE (u:User {
@@ -614,7 +565,7 @@ class TestCurriculumContextBuilder:
             )
 
         # Test: Build context using UserContextBuilder (THE real pipeline)
-        builder = UserContextBuilder(Neo4jQueryExecutor(driver))
+        builder = UserContextBuilder(Neo4jQueryExecutor(neo4j_driver))
         test_user = User(uid=test_user_uid, title="Builder Test User", email="builder@test.com")
 
         context_result = await builder.build_user_context(test_user_uid, test_user)
@@ -641,28 +592,21 @@ class TestCurriculumContextBuilder:
         assert context.knowledge_mastery["ku:advanced_python"] == 0.75
         assert context.knowledge_mastery["ku:testing"] == 0.6
 
-        await driver.close()
-
     @pytest.mark.asyncio
     async def test_builder_populates_enrolled_learning_paths(
-        self, neo4j_container, clean_curriculum
+        self, neo4j_driver, clean_curriculum
     ) -> None:
         """
         Verify UserContextBuilder correctly populates enrolled learning path UIDs.
 
         Tests the builder queries for ENROLLED_IN relationships.
         """
-        from neo4j import AsyncGraphDatabase
-
         from core.models.user.user import User
         from core.services.user.user_context_builder import UserContextBuilder
 
-        uri = neo4j_container.get_connection_url()
-        driver = AsyncGraphDatabase.driver(uri)
-
         # Setup: Create user enrolled in multiple learning paths
         test_user_uid = "user:learning_path_test"
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             await session.run(
                 """
                 CREATE (u:User {
@@ -698,7 +642,7 @@ class TestCurriculumContextBuilder:
             )
 
         # Test: Build context via builder pipeline
-        builder = UserContextBuilder(Neo4jQueryExecutor(driver))
+        builder = UserContextBuilder(Neo4jQueryExecutor(neo4j_driver))
         test_user = User(uid=test_user_uid, title="Learning Path User", email="lp@test.com")
 
         context_result = await builder.build_user_context(test_user_uid, test_user)
@@ -714,28 +658,21 @@ class TestCurriculumContextBuilder:
         assert "lp:python_journey" in context.enrolled_path_uids
         assert "lp:web_development" in context.enrolled_path_uids
 
-        await driver.close()
-
     @pytest.mark.asyncio
     async def test_builder_handles_no_curriculum_data(
-        self, neo4j_container, clean_curriculum
+        self, neo4j_driver, clean_curriculum
     ) -> None:
         """
         Verify builder handles user with no curriculum entities gracefully.
 
         Tests that queries return empty collections when no data exists.
         """
-        from neo4j import AsyncGraphDatabase
-
         from core.models.user.user import User
         from core.services.user.user_context_builder import UserContextBuilder
 
-        uri = neo4j_container.get_connection_url()
-        driver = AsyncGraphDatabase.driver(uri)
-
         # Setup: Create user with NO curriculum data
         test_user_uid = "user:empty_curriculum"
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             await session.run(
                 """
                 CREATE (u:User {
@@ -750,7 +687,7 @@ class TestCurriculumContextBuilder:
             )
 
         # Test: Build context (should not fail on empty data)
-        builder = UserContextBuilder(Neo4jQueryExecutor(driver))
+        builder = UserContextBuilder(Neo4jQueryExecutor(neo4j_driver))
         test_user = User(uid=test_user_uid, title="Empty Curriculum User", email="empty@test.com")
 
         context_result = await builder.build_user_context(test_user_uid, test_user)
@@ -766,11 +703,9 @@ class TestCurriculumContextBuilder:
         assert context.enrolled_path_uids == []
         assert context.knowledge_mastery == {}
 
-        await driver.close()
-
     @pytest.mark.asyncio
     async def test_builder_integrates_curriculum_with_activity_domains(
-        self, neo4j_container, clean_curriculum
+        self, neo4j_driver, clean_curriculum
     ) -> None:
         """
         Verify builder correctly integrates curriculum data alongside activity domains.
@@ -780,17 +715,12 @@ class TestCurriculumContextBuilder:
         """
         from datetime import date, timedelta
 
-        from neo4j import AsyncGraphDatabase
-
         from core.models.user.user import User
         from core.services.user.user_context_builder import UserContextBuilder
 
-        uri = neo4j_container.get_connection_url()
-        driver = AsyncGraphDatabase.driver(uri)
-
         # Setup: Create user with curriculum + activity domain entities
         test_user_uid = "user:integrated_test"
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             await session.run(
                 """
                 // User
@@ -872,7 +802,7 @@ class TestCurriculumContextBuilder:
             )
 
         # Test: Build context with COMPLETE domain integration
-        builder = UserContextBuilder(Neo4jQueryExecutor(driver))
+        builder = UserContextBuilder(Neo4jQueryExecutor(neo4j_driver))
         test_user = User(uid=test_user_uid, title="Integrated User", email="integrated@test.com")
 
         context_result = await builder.build_user_context(test_user_uid, test_user)
@@ -902,5 +832,3 @@ class TestCurriculumContextBuilder:
         assert len(context.active_goal_uids) == 1
         assert "goal:learn_python" in context.active_goal_uids
         assert context.goal_progress["goal:learn_python"] == 0.7
-
-        await driver.close()
