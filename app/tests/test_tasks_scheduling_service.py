@@ -382,8 +382,8 @@ async def test_create_task_from_learning_step(scheduling_service, mock_backend):
 @pytest.mark.asyncio
 async def test_create_curriculum_task_backend_error(scheduling_service, mock_backend):
     """Test curriculum task creation with backend error."""
-    # Setup
-    mock_backend.create_task.return_value = Result.fail(
+    # Setup: create_task_from_learning_step calls backend.create() (not create_task)
+    mock_backend.create.return_value = Result.fail(
         Errors.database("create_task", "Database error")
     )
 

@@ -57,7 +57,8 @@ def sample_progress_data():
 # ============================================================================
 
 
-def test_broadcast_progress_with_active_connection(sample_progress_data):
+@pytest.mark.asyncio
+async def test_broadcast_progress_with_active_connection(sample_progress_data):
     """Test broadcasting progress to active WebSocket connection."""
     from adapters.inbound import ingestion_api
 
@@ -100,7 +101,8 @@ def test_broadcast_progress_without_connection(sample_progress_data):
         pytest.fail(f"broadcast_progress raised {e} with missing connection")
 
 
-def test_broadcast_progress_with_error(sample_progress_data):
+@pytest.mark.asyncio
+async def test_broadcast_progress_with_error(sample_progress_data):
     """Test broadcasting handles WebSocket errors gracefully."""
     from adapters.inbound import ingestion_api
 
@@ -261,7 +263,8 @@ async def test_websocket_connection_cleanup():
 # ============================================================================
 
 
-def test_multiple_concurrent_connections():
+@pytest.mark.asyncio
+async def test_multiple_concurrent_connections():
     """Test multiple ingestion operations can have concurrent WebSocket connections."""
     from adapters.inbound import ingestion_api
 
@@ -416,7 +419,8 @@ def test_progress_tracker_with_one_file():
     assert callback_data[-1]["percentage"] == 100.0
 
 
-def test_broadcast_progress_with_invalid_json():
+@pytest.mark.asyncio
+async def test_broadcast_progress_with_invalid_json():
     """Test broadcasting handles non-serializable data gracefully."""
     from adapters.inbound import ingestion_api
 
