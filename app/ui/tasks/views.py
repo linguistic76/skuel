@@ -30,11 +30,11 @@ from fasthtml.common import (
     P,
 )
 
-from ui.patterns.activity_views_base import (
-    ActivityCalendarNav,
-    ActivityViewSwitcher,
-    ActivityViewTabs,
+from core.models.event.calendar_models import (
+    CalendarData,
+    CalendarView,
 )
+from core.utils.logging import get_logger
 from ui.calendar.components import (
     create_day_timeline,
     create_month_grid,
@@ -42,13 +42,13 @@ from ui.calendar.components import (
     create_week_grid,
 )
 from ui.calendar.converters import task_to_calendar_item
-from ui.tasks.todoist_components import TodoistTaskComponents
-from core.models.event.calendar_models import (
-    CalendarData,
-    CalendarView,
-)
-from core.utils.logging import get_logger
 from ui.daisy_components import Button, ButtonT, Input, Select, Size, Textarea
+from ui.patterns.activity_views_base import (
+    ActivityCalendarNav,
+    ActivityViewSwitcher,
+    ActivityViewTabs,
+)
+from ui.tasks.todoist_components import TodoistTaskComponents
 
 logger = get_logger("skuel.components.tasks_views")
 

@@ -24,13 +24,13 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from core.models.enums import EntityStatus
+from core.utils.logging import get_logger
+from core.utils.result_simplified import Errors, Result
 from ui.timeline.components import (
     render_timeline_error,
     render_timeline_viewer_page,
 )
-from core.models.enums import EntityStatus
-from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
 

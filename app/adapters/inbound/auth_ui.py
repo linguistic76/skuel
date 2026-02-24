@@ -35,10 +35,10 @@ from adapters.inbound.auth import (
     set_current_user,
 )
 from adapters.inbound.form_helpers import safe_form_string
+from core.utils.logging import get_logger
 
 # Import auth components
 from ui.auth.components import AuthComponents
-from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from core.ports import GraphAuthOperations

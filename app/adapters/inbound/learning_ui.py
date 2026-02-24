@@ -39,7 +39,6 @@ from fasthtml.common import (
 )
 from starlette.responses import HTMLResponse
 
-from ui.patterns.form_generator import FormGenerator
 from core.models.curriculum.curriculum_requests import LearningPathFilterRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -47,6 +46,7 @@ from core.utils.uid_generator import UIDGenerator
 from ui.daisy_components import Button, ButtonT, Card, Div, Label, Option, Select, Span
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.patterns.form_generator import FormGenerator
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.ui_types import (
     AchievementData,

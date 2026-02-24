@@ -26,16 +26,6 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from ui.habits.atomic_achievements import AtomicHabitsBadges
-from ui.habits.atomic_analytics import AtomicHabitsAnalytics
-from ui.habits.atomic_components import AtomicHabitsComponents
-from ui.habits.atomic_intelligence import AtomicHabitsIntelligence
-from ui.habits.atomic_mobile import AtomicHabitsMobile
-from ui.patterns.card_generator import CardGenerator
-from ui.patterns.error_banner import render_error_banner
-from ui.patterns.form_generator import FormGenerator
-from ui.habits.views import HabitsViewComponents
-from ui.patterns.entity_dashboard import SharedUIComponents
 from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityStatus
 from core.models.habit.habit_request import HabitCreateRequest
@@ -50,10 +40,20 @@ from core.utils.sort_functions import (
     get_recurrence_pattern,
 )
 from ui.daisy_components import Button, ButtonT, Card, CardBody, Div, Size, Span
+from ui.habits.atomic_achievements import AtomicHabitsBadges
+from ui.habits.atomic_analytics import AtomicHabitsAnalytics
+from ui.habits.atomic_components import AtomicHabitsComponents
+from ui.habits.atomic_intelligence import AtomicHabitsIntelligence
+from ui.habits.atomic_mobile import AtomicHabitsMobile
 from ui.habits.layout import create_habits_page
+from ui.habits.views import HabitsViewComponents
 from ui.layouts.base_page import BasePage
 from ui.layouts.navbar import create_navbar_for_request
 from ui.layouts.page_types import PageType
+from ui.patterns.card_generator import CardGenerator
+from ui.patterns.entity_dashboard import SharedUIComponents
+from ui.patterns.error_banner import render_error_banner
+from ui.patterns.form_generator import FormGenerator
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
 

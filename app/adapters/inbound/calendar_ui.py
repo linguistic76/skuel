@@ -40,6 +40,8 @@ from fasthtml.common import (
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
+from core.models.event.calendar_models import CalendarView
+from core.utils.logging import get_logger
 from ui.calendar.components import (
     create_day_timeline,
     create_month_grid,
@@ -48,8 +50,6 @@ from ui.calendar.components import (
     create_week_grid,
     error_response,
 )
-from core.models.event.calendar_models import CalendarView
-from core.utils.logging import get_logger
 from ui.layouts.navbar import create_navbar_for_request
 
 logger = get_logger("skuel.routes.calendar")

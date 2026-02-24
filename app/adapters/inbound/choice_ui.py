@@ -27,8 +27,6 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from ui.choices.views import ChoicesViewComponents
-from ui.patterns.error_banner import render_error_banner
 from core.ports.facade_protocols import ChoicesFacadeProtocol
 from core.ports.query_types import ActivityFilterSpec
 from core.utils.logging import get_logger
@@ -39,6 +37,7 @@ from core.utils.sort_functions import (
     make_priority_string_getter,
 )
 from ui.choices.layout import create_choices_page
+from ui.choices.views import ChoicesViewComponents
 from ui.daisy_components import (
     Button,
     ButtonT,
@@ -53,6 +52,7 @@ from ui.daisy_components import (
 )
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.patterns.error_banner import render_error_banner
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
 

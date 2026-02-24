@@ -13,8 +13,8 @@ from fasthtml.common import H2, H3, A, Div, Input, Label, NotStr, P, Select, Spa
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
-from ui.insights.insight_card import InsightCard
 from core.utils.logging import get_logger
+from ui.insights.insight_card import InsightCard
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState

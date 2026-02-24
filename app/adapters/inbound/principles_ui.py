@@ -28,8 +28,6 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from ui.patterns.error_banner import render_error_banner
-from ui.principles.views import PrinciplesViewComponents
 from core.constants import QueryLimit
 from core.ports.facade_protocols import PrinciplesFacadeProtocol
 from core.ports.query_types import PrinciplesFilterSpec
@@ -39,8 +37,10 @@ from core.utils.sort_functions import get_created_at_attr, get_title_or_name_low
 from ui.daisy_components import Button, ButtonT, Card, Div, Span
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.patterns.error_banner import render_error_banner
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.principles.layout import create_principles_page
+from ui.principles.views import PrinciplesViewComponents
 from ui.tokens import Container, Spacing
 
 logger = get_logger("skuel.routes.principles.ui")

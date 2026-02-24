@@ -27,11 +27,6 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from ui.habits.atomic_components import AtomicHabitsComponents
-from ui.patterns.error_banner import render_error_banner
-from ui.patterns.form_generator import FormGenerator
-from ui.goals.views import GoalsViewComponents
-from ui.patterns.entity_dashboard import SharedUIComponents
 from core.models.enums import Priority
 from core.models.goal.goal_request import GoalCreateRequest
 from core.ports.facade_protocols import GoalsFacadeProtocol
@@ -57,8 +52,13 @@ from ui.daisy_components import (
     Span,
 )
 from ui.goals.layout import create_goals_page
+from ui.goals.views import GoalsViewComponents
+from ui.habits.atomic_components import AtomicHabitsComponents
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.patterns.entity_dashboard import SharedUIComponents
+from ui.patterns.error_banner import render_error_banner
+from ui.patterns.form_generator import FormGenerator
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
 

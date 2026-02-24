@@ -17,14 +17,14 @@ from fasthtml.common import A as Anchor
 from starlette.requests import Request
 from starlette.responses import Response
 
-from ui.patterns.card_generator import CardGenerator
-from ui.patterns.form_generator import FormGenerator
-from ui.patterns.entity_dashboard import SharedUIComponents
 from core.models.curriculum.curriculum_requests import CurriculumCreateRequest as KuCreateRequest
 from core.models.enums import SELCategory
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from ui.daisy_components import Button, ButtonT, Card, Div, Span
+from ui.patterns.card_generator import CardGenerator
+from ui.patterns.entity_dashboard import SharedUIComponents
+from ui.patterns.form_generator import FormGenerator
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 logger = get_logger("skuel.routes.ku.ui")

@@ -363,7 +363,9 @@ async def seed_choices(driver):
 
 async def seed_principles(driver):
     """Seed sample principles"""
-    backend = UniversalNeo4jBackend(driver, "Principle", Ku, default_filters={"ku_type": "principle"})
+    backend = UniversalNeo4jBackend(
+        driver, "Principle", Ku, default_filters={"ku_type": "principle"}
+    )
 
     logger.info("Seeding principles...")
     for principle_data in PRINCIPLES:

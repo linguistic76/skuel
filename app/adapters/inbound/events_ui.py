@@ -27,9 +27,6 @@ from starlette.responses import RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from ui.patterns.error_banner import render_error_banner
-from ui.events.views import EventsViewComponents
-from ui.patterns.entity_dashboard import SharedUIComponents
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.ports.facade_protocols import EventsFacadeProtocol
@@ -50,8 +47,11 @@ from ui.daisy_components import (
     Textarea,
 )
 from ui.events.layout import create_events_page
+from ui.events.views import EventsViewComponents
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.patterns.entity_dashboard import SharedUIComponents
+from ui.patterns.error_banner import render_error_banner
 from ui.patterns.relationships import EntityRelationshipsSection
 
 logger = get_logger("skuel.routes.events.ui")

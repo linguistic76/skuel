@@ -22,11 +22,12 @@ from typing import Any
 
 from fasthtml.common import H2, H3, A, Form, P
 
-from ui.patterns.activity_views_base import (
-    ActivityCalendarNav,
-    ActivityViewSwitcher,
-    ActivityViewTabs,
+from core.models.entity_types import Ku
+from core.models.event.calendar_models import (
+    CalendarData,
+    CalendarView,
 )
+from core.utils.logging import get_logger
 from ui.calendar.components import (
     create_day_timeline,
     create_month_grid,
@@ -34,12 +35,6 @@ from ui.calendar.components import (
     create_week_grid,
 )
 from ui.calendar.converters import event_to_calendar_item
-from core.models.entity_types import Ku
-from core.models.event.calendar_models import (
-    CalendarData,
-    CalendarView,
-)
-from core.utils.logging import get_logger
 from ui.daisy_components import (
     Button,
     Div,
@@ -49,6 +44,11 @@ from ui.daisy_components import (
     Select,
     Span,
     Textarea,
+)
+from ui.patterns.activity_views_base import (
+    ActivityCalendarNav,
+    ActivityViewSwitcher,
+    ActivityViewTabs,
 )
 
 logger = get_logger("skuel.components.events_views")

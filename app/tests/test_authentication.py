@@ -13,10 +13,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from ui.auth.components import AuthComponents
 from core.models.enums import LearningLevel
 from core.models.user.user import User, UserPreferences
 from core.utils.result_simplified import Result
+from ui.auth.components import AuthComponents
 
 
 @pytest.fixture

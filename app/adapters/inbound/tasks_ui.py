@@ -26,9 +26,6 @@ from fasthtml.common import H1, H2, Div, JSONResponse, P, Response, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from ui.patterns.error_banner import render_error_banner
-from ui.tasks.views import TasksViewComponents
-from ui.tasks.todoist_components import TodoistTaskComponents
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest
@@ -44,8 +41,11 @@ from core.utils.sort_functions import (
 from ui.daisy_components import Button, ButtonT, Card
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.patterns.error_banner import render_error_banner
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tasks.layout import create_tasks_page
+from ui.tasks.todoist_components import TodoistTaskComponents
+from ui.tasks.views import TasksViewComponents
 from ui.tokens import Container, Spacing
 
 logger = get_logger("skuel.routes.tasks.todoist")

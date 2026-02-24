@@ -21,7 +21,6 @@ from typing import ClassVar
 
 from fasthtml.common import H2, A, Form, P
 
-from ui.patterns.entity_dashboard import SharedUIComponents
 from ui.daisy_components import (
     Button,
     Div,
@@ -35,6 +34,7 @@ from ui.daisy_components import (
     Thead,
     Tr,
 )
+from ui.patterns.entity_dashboard import SharedUIComponents
 
 
 class AdminUIComponents:
