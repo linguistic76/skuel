@@ -32,12 +32,12 @@ REPORTS_CONFIG = DomainRouteConfig(
     api_factory=create_reports_api_routes,
     ui_factory=create_reports_ui_routes,
     api_related_services={
-        "processing_service": "processing_pipeline",
+        "processing_service": "report_processor",
         "reports_query_service": "reports_query",
         "reports_core_service": "reports_core",
     },
     ui_related_services={
-        "_processing_service": "processing_pipeline",
+        "_processing_service": "report_processor",
         "_report_projects_service": "assignments",
     },
 )
