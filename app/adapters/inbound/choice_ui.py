@@ -500,7 +500,6 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
             view_content = ChoicesViewComponents.render_create_view(
                 choice_types=choice_types,
                 domains=domains,
-                user_uid=user_uid,
             )
         elif view == "analytics":
             analytics_result = await get_analytics_data(user_uid)
@@ -513,7 +512,6 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
             else:
                 view_content = ChoicesViewComponents.render_analytics_view(
                     analytics_data=analytics_result.value,
-                    user_uid=user_uid,
                 )
         else:  # list (default for choices)
             view_content = ChoicesViewComponents.render_list_view(
@@ -523,7 +521,6 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
                     "sort_by": filters.sort_by,
                 },
                 stats=stats,
-                user_uid=user_uid,
             )
 
         # Build page with tabs + view content
@@ -558,13 +555,12 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
             choices=choices,
             filters=filters_dict,
             stats=stats,
-            user_uid=user_uid,
         )
 
     @rt("/choices/view/create")
     async def choices_view_create(request) -> Any:
         """HTMX fragment for create view."""
-        user_uid = require_authenticated_user(request)
+        require_authenticated_user(request)
         choice_types_result = await get_choice_types()
         domains_result = await get_domains()
 
@@ -578,7 +574,6 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
         return ChoicesViewComponents.render_create_view(
             choice_types=choice_types_result.value,
             domains=domains_result.value,
-            user_uid=user_uid,
         )
 
     @rt("/choices/view/analytics")
@@ -593,7 +588,6 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
 
         return ChoicesViewComponents.render_analytics_view(
             analytics_data=analytics_result.value,
-            user_uid=user_uid,
         )
 
     # ========================================================================
@@ -709,7 +703,6 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
             choices=choices,
             filters=filters,
             stats=stats,
-            user_uid=user_uid,
         )
 
     async def render_choice_add_another_view(user_uid: str) -> Any:
@@ -719,7 +712,6 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
         return ChoicesViewComponents.render_create_view(
             choice_types=choice_types,
             domains=domains,
-            user_uid=user_uid,
         )
 
     # Register quick-add route via factory

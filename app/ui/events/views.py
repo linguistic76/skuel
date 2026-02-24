@@ -189,7 +189,6 @@ class EventsViewComponents:
         events: list[Any],
         filters: dict[str, Any] | None = None,
         stats: dict[str, int] | None = None,
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render the event list with filters.
@@ -269,7 +268,7 @@ class EventsViewComponents:
         )
 
         # Event list
-        event_items = [EventsViewComponents._render_event_item(event, user_uid) for event in events]
+        event_items = [EventsViewComponents._render_event_item(event) for event in events]
 
         event_list = Div(
             *event_items
@@ -292,7 +291,7 @@ class EventsViewComponents:
         )
 
     @staticmethod
-    def _render_event_item(event: Ku, user_uid: str | None = None) -> Div:
+    def _render_event_item(event: Ku) -> Div:
         """Render a single event item for the list."""
         uid = event.uid
         title = event.title
@@ -360,7 +359,6 @@ class EventsViewComponents:
     @staticmethod
     def render_create_view(
         event_types: list[str] | None = None,
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render the event creation form.

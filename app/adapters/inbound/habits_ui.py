@@ -718,7 +718,6 @@ def create_habits_ui_routes(
         if view == "create":
             view_content = HabitsViewComponents.render_create_view(
                 categories=categories,
-                user_uid=user_uid,
             )
         elif view == "calendar":
             all_habits_result = await get_all_habits(user_uid)
@@ -743,7 +742,6 @@ def create_habits_ui_routes(
                 },
                 stats=stats,
                 categories=categories,
-                user_uid=user_uid,
             )
 
         # Build page with tabs + view content
@@ -784,13 +782,12 @@ def create_habits_ui_routes(
             filters=filters_dict,
             stats=stats,
             categories=categories,
-            user_uid=user_uid,
         )
 
     @rt("/habits/view/create")
     async def habits_view_create(request) -> Any:
         """HTMX fragment for create view."""
-        user_uid = require_authenticated_user(request)
+        require_authenticated_user(request)
         categories_result = await get_categories()
 
         # Handle errors
@@ -799,7 +796,6 @@ def create_habits_ui_routes(
 
         return HabitsViewComponents.render_create_view(
             categories=categories_result.value,
-            user_uid=user_uid,
         )
 
     @rt("/habits/view/calendar")
@@ -909,13 +905,12 @@ def create_habits_ui_routes(
             filters={},
             stats=stats,
             categories=categories,
-            user_uid=user_uid,
         )
 
     async def render_habit_add_another_view(user_uid: str) -> Any:
         """Render create view for add-another flow."""
         categories = await get_categories()
-        return HabitsViewComponents.render_create_view(categories=categories, user_uid=user_uid)
+        return HabitsViewComponents.render_create_view(categories=categories)
 
     # Register quick-add route via factory
     habits_quick_add_config = QuickAddConfig(
@@ -1653,7 +1648,7 @@ def create_habits_ui_routes(
         Requires authentication.
         """
         # Get authenticated user from session (raises 401 if not authenticated)
-        user_uid = require_authenticated_user(request)
+        require_authenticated_user(request)
 
         params = dict(request.query_params)
         date_range_param = params.get("range", "30d")
@@ -1670,7 +1665,7 @@ def create_habits_ui_routes(
             start_date = end_date - timedelta(days=30)
 
         return AtomicHabitsAnalytics.render_analytics_dashboard(
-            user_uid=user_uid, date_range=(start_date, end_date)
+            date_range=(start_date, end_date)
         )
 
     @rt("/analytics/update")

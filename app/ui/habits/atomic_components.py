@@ -351,7 +351,7 @@ class AtomicHabitsComponents:
         )
 
     @staticmethod
-    def _render_goal_essentiality_selector(goal: dict, form_data: dict) -> Any:
+    def _render_goal_essentiality_selector(goal: dict, _form_data: dict) -> Any:
         """Render essentiality radio buttons for a goal"""
         goal_uid = goal["uid"]
 

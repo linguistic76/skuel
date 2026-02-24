@@ -77,7 +77,7 @@ class AtomicHabitsAnalytics:
 
     @staticmethod
     def render_analytics_dashboard(
-        user_uid: str, date_range: tuple[date, date] | None = None
+        date_range: tuple[date, date] | None = None,
     ) -> Div:
         """
         Main analytics dashboard with all visualizations.

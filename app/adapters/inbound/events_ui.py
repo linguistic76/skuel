@@ -467,12 +467,10 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
                     "sort_by": filters.sort_by,
                 },
                 stats=stats,
-                user_uid=user_uid,
             )
         elif view == "create":
             view_content = EventsViewComponents.render_create_view(
                 event_types=event_types,
-                user_uid=user_uid,
             )
         else:  # calendar (default for events)
             all_events_result = await get_all_events(user_uid)
@@ -539,7 +537,6 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
             events=events,
             filters=filters_dict,
             stats=stats,
-            user_uid=user_uid,
         )
 
     @rt("/events/view/create")
@@ -659,7 +656,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
     async def render_event_add_another_view(user_uid: str) -> Any:
         """Render create view for add-another flow."""
         event_types = await get_event_types()
-        return EventsViewComponents.render_create_view(event_types=event_types, user_uid=user_uid)
+        return EventsViewComponents.render_create_view(event_types=event_types)
 
     # Register quick-add route via factory
     events_quick_add_config = QuickAddConfig(

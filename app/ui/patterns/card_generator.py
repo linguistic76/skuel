@@ -45,7 +45,7 @@ class FieldRendererMapper:
     """
 
     @staticmethod
-    def get_default_renderer(field_name: str, field_type: type, value: Any) -> Callable:
+    def get_default_renderer(_field_name: str, field_type: type, value: Any) -> Callable:
         """
         Determine default renderer from field type introspection.
 
@@ -186,7 +186,7 @@ class FieldRendererMapper:
             return Span(f"{value:.2f}", cls="text-base-content/80 font-mono")
 
     @staticmethod
-    def _render_none(value: Any) -> Span:
+    def _render_none(_value: Any) -> Span:
         """Render None value as placeholder"""
         return Span("—", cls="text-base-content/50 italic")
 

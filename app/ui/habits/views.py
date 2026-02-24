@@ -91,7 +91,6 @@ class HabitsViewComponents:
         filters: dict[str, Any] | None = None,
         stats: dict[str, int] | None = None,
         categories: list[str] | None = None,
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render the habit list with streak indicators.
@@ -178,7 +177,7 @@ class HabitsViewComponents:
         )
 
         # Habit list
-        habit_items = [HabitsViewComponents._render_habit_item(habit, user_uid) for habit in habits]
+        habit_items = [HabitsViewComponents._render_habit_item(habit) for habit in habits]
 
         habit_list = Div(
             *habit_items
@@ -201,7 +200,7 @@ class HabitsViewComponents:
         )
 
     @staticmethod
-    def _render_habit_item(habit: Habit, user_uid: str | None = None) -> Div:
+    def _render_habit_item(habit: Habit) -> Div:
         """Render a single habit item for the list."""
         uid = habit.uid
         name = habit.title
@@ -315,7 +314,6 @@ class HabitsViewComponents:
     @staticmethod
     def render_create_view(
         categories: list[str] | None = None,
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render the habit creation form.

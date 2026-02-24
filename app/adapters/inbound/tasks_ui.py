@@ -563,7 +563,6 @@ def create_tasks_ui_routes(
             view_content = TasksViewComponents.render_create_view(
                 projects=projects,
                 existing_tasks=tasks,
-                user_uid=user_uid,
             )
         elif view == "calendar":
             # Get all user's tasks (not filtered by status) for calendar
@@ -588,10 +587,8 @@ def create_tasks_ui_routes(
                     "status": filters.status_filter,
                     "sort_by": filters.sort_by,
                 },
-                stats=stats,
                 projects=projects,
                 assignees=assignees,
-                user_uid=user_uid,
             )
 
         # Build page with tabs + view content
@@ -644,10 +641,8 @@ def create_tasks_ui_routes(
                 "status": filters.status_filter,
                 "sort_by": filters.sort_by,
             },
-            stats=stats,
             projects=projects,
             assignees=assignees,
-            user_uid=user_uid,
         )
 
     @rt("/tasks/view/create")
@@ -668,7 +663,6 @@ def create_tasks_ui_routes(
         return TasksViewComponents.render_create_view(
             projects=projects,
             existing_tasks=tasks,
-            user_uid=user_uid,
         )
 
     @rt("/tasks/view/calendar")
@@ -719,7 +713,7 @@ def create_tasks_ui_routes(
             return render_error_banner("Failed to load tasks")
 
         tasks, _stats = filtered_result.value
-        return TodoistTaskComponents.render_task_list(tasks, user_uid)
+        return TodoistTaskComponents.render_task_list(tasks)
 
     # ========================================================================
     # QUICK ADD (via QuickAddRouteFactory)
@@ -810,10 +804,8 @@ def create_tasks_ui_routes(
         return TasksViewComponents.render_list_view(
             tasks=all_tasks,
             filters={},
-            stats=stats,
             projects=projects,
             assignees=assignees,
-            user_uid=user_uid,
         )
 
     async def render_task_add_another_view(user_uid: str) -> Any:
@@ -831,7 +823,6 @@ def create_tasks_ui_routes(
         return TasksViewComponents.render_create_view(
             projects=projects,
             existing_tasks=tasks,
-            user_uid=user_uid,
         )
 
     # Register quick-add route via factory
@@ -879,7 +870,7 @@ def create_tasks_ui_routes(
                 )
 
             updated_task = update_result.value
-            return TodoistTaskComponents.render_task_item(updated_task, user_uid)
+            return TodoistTaskComponents.render_task_item(updated_task)
 
         except Exception as e:
             logger.error(
@@ -1051,7 +1042,7 @@ def create_tasks_ui_routes(
             logger.info(f"Task updated successfully: {updated_task.uid}")
 
             # Return the updated task row for HTMX swap
-            return TodoistTaskComponents.render_task_item(updated_task, user_uid)
+            return TodoistTaskComponents.render_task_item(updated_task)
 
         except Exception as e:
             logger.error(

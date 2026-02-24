@@ -363,7 +363,7 @@ class AtomicHabitsAnimations:
         return Style(css)
 
     @staticmethod
-    def render_vote_particle(identity: str, vote_number: int) -> Div:
+    def render_vote_particle(identity: str, _vote_number: int) -> Div:
         """
         Render animated particle when identity vote is cast.
 

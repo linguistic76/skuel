@@ -74,7 +74,6 @@ class PrinciplesViewComponents:
         filters: dict[str, Any] | None = None,
         stats: dict[str, int] | None = None,
         categories: list[str] | None = None,
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render the principle list with strength indicators.
@@ -195,7 +194,7 @@ class PrinciplesViewComponents:
 
         # Principle list
         principle_items = [
-            PrinciplesViewComponents._render_principle_item(principle, user_uid)
+            PrinciplesViewComponents._render_principle_item(principle)
             for principle in principles
         ]
 
@@ -220,7 +219,7 @@ class PrinciplesViewComponents:
         )
 
     @staticmethod
-    def _render_principle_item(principle: Any, user_uid: str | None = None) -> Div:
+    def _render_principle_item(principle: Any) -> Div:
         """Render a single principle item for the list."""
         from core.models.enums.principle_enums import PrincipleStrength
 
@@ -329,7 +328,6 @@ class PrinciplesViewComponents:
     @staticmethod
     def render_create_view(
         categories: list[str] | None = None,
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render the principle creation form.
@@ -491,7 +489,6 @@ class PrinciplesViewComponents:
     @staticmethod
     def render_analytics_view(
         analytics_data: dict[str, Any] | None = None,
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render the principle analytics view.
@@ -598,7 +595,6 @@ class PrinciplesViewComponents:
     def render_edit_form(
         principle: Any,
         categories: list[str] | None = None,
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render edit form for a principle (modal content).
@@ -728,7 +724,7 @@ class PrinciplesViewComponents:
     # ========================================================================
 
     @staticmethod
-    def render_reflect_form(principle: Any, user_uid: str | None = None) -> Div:
+    def render_reflect_form(principle: Any) -> Div:
         """
         Render reflection form for a principle (modal content).
 
@@ -883,7 +879,6 @@ class PrinciplesViewComponents:
     def render_reflection_history(
         principle: Any,
         reflections: list[Any],
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render reflection history for a principle.
@@ -1012,7 +1007,7 @@ class PrinciplesViewComponents:
     # ========================================================================
 
     @staticmethod
-    def render_alignment_trend(trend: Any, user_uid: str | None = None) -> Div:
+    def render_alignment_trend(trend: Any) -> Div:
         """
         Render alignment trend visualization for a principle.
 

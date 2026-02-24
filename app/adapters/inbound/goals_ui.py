@@ -892,7 +892,6 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
         if view == "create":
             view_content = GoalsViewComponents.render_create_view(
                 categories=categories,
-                user_uid=user_uid,
             )
         elif view == "calendar":
             all_goals_result = await get_all_goals(user_uid)
@@ -917,7 +916,6 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
                 },
                 stats=stats,
                 categories=categories,
-                user_uid=user_uid,
             )
 
         # Build page with tabs + view content
@@ -958,13 +956,12 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
             filters=filters_dict,
             stats=stats,
             categories=categories,
-            user_uid=user_uid,
         )
 
     @rt("/goals/view/create")
     async def goals_view_create(request) -> Any:
         """HTMX fragment for create view."""
-        user_uid = require_authenticated_user(request)
+        require_authenticated_user(request)
         categories_result = await get_categories()
 
         # Handle errors
@@ -973,7 +970,6 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
 
         return GoalsViewComponents.render_create_view(
             categories=categories_result.value,
-            user_uid=user_uid,
         )
 
     @rt("/goals/view/calendar")
@@ -1085,7 +1081,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
     async def render_goal_add_another_view(user_uid: str) -> Any:
         """Render create view for add-another flow."""
         categories = await get_categories()
-        return GoalsViewComponents.render_create_view(categories=categories, user_uid=user_uid)
+        return GoalsViewComponents.render_create_view(categories=categories)
 
     # Register quick-add route via factory
     goals_quick_add_config = QuickAddConfig(

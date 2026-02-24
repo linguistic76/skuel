@@ -508,7 +508,6 @@ def create_principles_ui_routes(
 
             view_content = PrinciplesViewComponents.render_create_view(
                 categories=categories_result.value,
-                user_uid=user_uid,
             )
         elif view == "analytics":
             analytics_result = await get_analytics_data(user_uid)
@@ -524,7 +523,6 @@ def create_principles_ui_routes(
 
             view_content = PrinciplesViewComponents.render_analytics_view(
                 analytics_data=analytics_result.value,
-                user_uid=user_uid,
             )
         else:  # list (default for principles)
             filtered_result = await get_filtered_principles(
@@ -561,7 +559,6 @@ def create_principles_ui_routes(
                 },
                 stats=stats,
                 categories=categories_result.value,
-                user_uid=user_uid,
             )
 
         # Build page with tabs + view content
@@ -610,13 +607,12 @@ def create_principles_ui_routes(
             filters=filter_spec,
             stats=stats,
             categories=categories_result.value,
-            user_uid=user_uid,
         )
 
     @rt("/principles/view/create")
     async def principles_view_create(request) -> Any:
         """HTMX fragment for create view."""
-        user_uid = require_authenticated_user(request)
+        require_authenticated_user(request)
         categories_result = await get_categories()
 
         # Handle errors (return banner directly for HTMX swap)
@@ -625,7 +621,6 @@ def create_principles_ui_routes(
 
         return PrinciplesViewComponents.render_create_view(
             categories=categories_result.value,
-            user_uid=user_uid,
         )
 
     @rt("/principles/view/analytics")
@@ -760,7 +755,6 @@ def create_principles_ui_routes(
             filters=filters,
             stats=stats,
             categories=categories_result.value,
-            user_uid=user_uid,
         )
 
     async def render_principle_add_another_view(user_uid: str) -> Any:
@@ -773,7 +767,6 @@ def create_principles_ui_routes(
 
         return PrinciplesViewComponents.render_create_view(
             categories=categories_result.value,
-            user_uid=user_uid,
         )
 
     # Register quick-add route via factory
@@ -985,7 +978,7 @@ def create_principles_ui_routes(
             return render_error_banner("Failed to load categories")
 
         return PrinciplesViewComponents.render_edit_form(
-            principle, categories_result.value, user_uid
+            principle, categories_result.value
         )
 
     @rt("/principles/{uid}/save", methods=["POST"])
@@ -1070,7 +1063,7 @@ def create_principles_ui_routes(
             return Response(f"Principle not found: {uid}", status_code=404)
 
         principle = result.value
-        return PrinciplesViewComponents.render_reflect_form(principle, user_uid)
+        return PrinciplesViewComponents.render_reflect_form(principle)
 
     @rt("/principles/{uid}/reflections")
     async def get_principle_reflections(request, uid: str) -> Any:
@@ -1107,7 +1100,6 @@ def create_principles_ui_routes(
         return PrinciplesViewComponents.render_reflection_history(
             principle=principle_result.value,
             reflections=reflections,
-            user_uid=user_uid,
         )
 
     @rt("/principles/{uid}/alignment-trend")
@@ -1138,7 +1130,7 @@ def create_principles_ui_routes(
         trend = result.value
 
         # Return trend component
-        return PrinciplesViewComponents.render_alignment_trend(trend, user_uid)
+        return PrinciplesViewComponents.render_alignment_trend(trend)
 
     @rt("/principles/{uid}/reflect/save", methods=["POST"])
     async def save_reflection(request, uid: str) -> Any:
@@ -1226,7 +1218,6 @@ def create_principles_ui_routes(
             filters=filters,
             stats=stats,
             categories=categories_result.value,
-            user_uid=user_uid,
         )
 
     return []  # Routes registered via @rt() decorators (no objects returned)

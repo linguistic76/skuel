@@ -178,7 +178,7 @@ class TodoistTaskComponents:
     # ========================================================================
 
     @staticmethod
-    def render_task_item(task: Any, user_uid: str | None = None, is_pinned: bool = False) -> Any:
+    def render_task_item(task: Any, is_pinned: bool = False) -> Any:
         """
         Render single task row in Todoist style.
 
@@ -187,7 +187,6 @@ class TodoistTaskComponents:
 
         Args:
             task: Task entity
-            user_uid: User UID (unused, kept for compatibility)
             is_pinned: Whether this task is pinned
         """
         is_completed = task.status == EntityStatus.COMPLETED
@@ -527,7 +526,6 @@ class TodoistTaskComponents:
     @staticmethod
     def render_quick_add_form(
         projects: list[str] | None = None,
-        user_uid: str | None = None,
         existing_tasks: list[Any] | None = None,
     ) -> Any:
         """
@@ -808,7 +806,7 @@ class TodoistTaskComponents:
     # ========================================================================
 
     @staticmethod
-    def render_task_list(tasks: list[Any], user_uid: str | None = None) -> Any:
+    def render_task_list(tasks: list[Any]) -> Any:
         """Render the task list container."""
         if not tasks:
             from ui.patterns.empty_state import EmptyState
@@ -821,7 +819,7 @@ class TodoistTaskComponents:
                 action_url="/tasks?view=create",
             )
 
-        task_items = [TodoistTaskComponents.render_task_item(task, user_uid) for task in tasks]
+        task_items = [TodoistTaskComponents.render_task_item(task) for task in tasks]
 
         return Ul(*task_items, id="task-list", cls="list-none")
 
@@ -857,9 +855,7 @@ class TodoistTaskComponents:
         tasks: list[Any],
         projects: list[str] | None = None,
         assignees: list[str] | None = None,
-        stats: dict[str, int] | None = None,
         filters: dict[str, Any] | None = None,
-        user_uid: str | None = None,
     ) -> Any:
         """
         Render task dashboard content (without page wrapper).
@@ -878,12 +874,12 @@ class TodoistTaskComponents:
             # Title
             H1("Task Manager", cls="text-3xl font-bold mb-8"),
             # Quick Add Form (Todoist-specific feature) - front and center
-            TodoistTaskComponents.render_quick_add_form(projects, user_uid, tasks),
+            TodoistTaskComponents.render_quick_add_form(projects, tasks),
             # Filter Bar (Todoist-specific feature)
             TodoistTaskComponents.render_filter_bar(projects, assignees, filters),
             # Task List
             Div(
-                TodoistTaskComponents.render_task_list(tasks, user_uid),
+                TodoistTaskComponents.render_task_list(tasks),
                 cls="card bg-base-100 shadow-md border border-base-200 rounded-xl overflow-hidden",
             ),
         )

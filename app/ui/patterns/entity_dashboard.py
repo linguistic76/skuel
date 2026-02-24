@@ -455,7 +455,7 @@ class SharedUIComponents:
         search_endpoint: str,
         target_id: str = "#search-results",
         placeholder: str = "Search...",
-        include_fields: list[str] | None = None,
+        _include_fields: list[str] | None = None,
     ) -> Form:
         """
         Render search bar with HTMX.

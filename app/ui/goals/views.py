@@ -91,7 +91,6 @@ class GoalsViewComponents:
         filters: dict[str, Any] | None = None,
         stats: dict[str, int] | None = None,
         categories: list[str] | None = None,
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render the sortable, filterable goal list.
@@ -190,7 +189,7 @@ class GoalsViewComponents:
         )
 
         # Goal list
-        goal_items = [GoalsViewComponents._render_goal_item(goal, user_uid) for goal in goals]
+        goal_items = [GoalsViewComponents._render_goal_item(goal) for goal in goals]
 
         goal_list = Div(
             *goal_items
@@ -213,13 +212,12 @@ class GoalsViewComponents:
         )
 
     @staticmethod
-    def _render_goal_item(goal: Ku, user_uid: str | None = None, is_pinned: bool = False) -> Div:
+    def _render_goal_item(goal: Ku, is_pinned: bool = False) -> Div:
         """
         Render a single goal item for the list.
 
         Args:
             goal: Goal entity
-            user_uid: User UID (unused, kept for compatibility)
             is_pinned: Whether this goal is pinned
         """
         from ui.patterns.pin_button import PinButton
@@ -320,7 +318,6 @@ class GoalsViewComponents:
     def render_create_view(
         categories: list[str] | None = None,
         timeframes: list[tuple[str, str]] | None = None,
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render the goal creation form.

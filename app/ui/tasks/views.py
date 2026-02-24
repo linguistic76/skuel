@@ -90,7 +90,6 @@ class TasksViewComponents:
     def render_create_view(
         projects: list[str] | None = None,
         existing_tasks: list[Any] | None = None,
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render the full task creation form.
@@ -258,10 +257,8 @@ class TasksViewComponents:
     def render_list_view(
         tasks: list[Any],
         filters: dict[str, Any] | None = None,
-        stats: dict[str, int] | None = None,
         projects: list[str] | None = None,
         assignees: list[str] | None = None,
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render the sortable, filterable task list.
@@ -289,7 +286,7 @@ class TasksViewComponents:
         )
 
         # Task list (reuse existing component)
-        task_list = TodoistTaskComponents.render_task_list(tasks, user_uid)
+        task_list = TodoistTaskComponents.render_task_list(tasks)
 
         return Div(
             filter_bar,

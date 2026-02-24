@@ -74,7 +74,6 @@ class ChoicesViewComponents:
         choices: list[Any],
         filters: dict[str, Any] | None = None,
         stats: dict[str, int] | None = None,
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render the choice list with status indicators.
@@ -167,7 +166,7 @@ class ChoicesViewComponents:
 
         # Choice list
         choice_items = [
-            ChoicesViewComponents._render_choice_item(choice, user_uid) for choice in choices
+            ChoicesViewComponents._render_choice_item(choice) for choice in choices
         ]
 
         choice_list = Div(
@@ -193,7 +192,7 @@ class ChoicesViewComponents:
         )
 
     @staticmethod
-    def _render_choice_item(choice: Ku, user_uid: str | None = None) -> Div:
+    def _render_choice_item(choice: Ku) -> Div:
         """Render a single choice item for the list."""
         uid = choice.uid
         title = choice.title
@@ -280,7 +279,6 @@ class ChoicesViewComponents:
     def render_create_view(
         choice_types: list[str] | None = None,
         domains: list[str] | None = None,
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render the choice creation form.
@@ -507,7 +505,6 @@ class ChoicesViewComponents:
     @staticmethod
     def render_analytics_view(
         analytics_data: dict[str, Any] | None = None,
-        user_uid: str | None = None,
     ) -> Div:
         """
         Render the decision analytics view.
