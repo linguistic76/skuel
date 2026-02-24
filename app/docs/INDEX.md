@@ -261,6 +261,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | Document | Updated | Lines |
 |----------|---------|-------|
 | [Code Review Checklist - Phase 7.3](reference/CODE_REVIEW_CHECKLIST.md) | 2025-11-27 | 602 |
+| [Placeholder Parameter Index](reference/PLACEHOLDER_INDEX.md) | 2026-02-24 | — |
 | [Protocol Definition Template](reference/templates/protocol_definition.md) | 2025-11-27 | 229 |
 | [Protocol Reference Guide](reference/PROTOCOL_REFERENCE.md) | 2026-01-29 | 617 |
 | [Search Models Reference](reference/models/SEARCH_MODELS.md) | 2026-01-04 | 480 |
