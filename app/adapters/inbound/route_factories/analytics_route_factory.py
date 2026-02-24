@@ -47,7 +47,7 @@ Usage:
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories.route_helpers import check_required_role
@@ -197,7 +197,7 @@ class AnalyticsRouteFactory:
                         )
 
                 # Call the service handler (must return Result[T])
-                return await endpoint.handler(self.service, params)
+                return cast(Result[Any], await endpoint.handler(self.service, params))
 
             except Exception as e:
                 logger.error(f"Error in analytics endpoint {endpoint.path}: {e}")

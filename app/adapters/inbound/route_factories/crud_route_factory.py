@@ -675,7 +675,7 @@ class CRUDRouteFactory[T]:
             result = await search_handler(query=query, limit=limit, offset=offset)
 
             logger.debug(f"Searched {domain}: query='{query}', limit={limit}")
-            return result
+            return cast(Result[Any], result)
 
         # Apply instrumentation if metrics enabled, then register route (Phase 2 - January 2026)
         instrumented = self._instrument_handler(search, f"{self.base_path}/search")

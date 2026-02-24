@@ -20,7 +20,7 @@ import contextlib
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from fasthtml.common import H1, H2, H3, Form, P
 from starlette.responses import Response
@@ -690,7 +690,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
             options=option_requests,
         )
 
-        return await choices_service.core.create_choice(choice_request, user_uid)
+        return cast(Result[Any], await choices_service.core.create_choice(choice_request, user_uid))
 
     async def render_choice_success_view(user_uid: str) -> Any:
         """Render list view after successful choice creation."""

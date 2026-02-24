@@ -14,7 +14,7 @@ See: /docs/patterns/AUTH_PATTERNS.md, /docs/patterns/OWNERSHIP_VERIFICATION.md
 """
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from adapters.inbound.auth.session import require_authenticated_user
 from core.models.enums import UserRole
@@ -108,7 +108,7 @@ async def verify_entity_ownership(
 
     See: /docs/patterns/OWNERSHIP_VERIFICATION.md
     """
-    ownership_result = await service.verify_ownership(uid, user_uid)
+    ownership_result: Result[Any] = cast(Result[Any], await service.verify_ownership(uid, user_uid))
     if ownership_result.is_error:
         if domain:
             logger.debug(f"Ownership verification failed for {domain}: uid={uid}, user={user_uid}")

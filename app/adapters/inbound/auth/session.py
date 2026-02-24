@@ -26,7 +26,7 @@ Architecture:
 import os
 from datetime import datetime
 from functools import wraps
-from typing import Any
+from typing import Any, cast
 
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
@@ -98,7 +98,7 @@ def get_current_user(request: Request) -> UserUID | None:
             return None
 
         # Get user_uid from session
-        user_uid = session.get("user_uid")
+        user_uid: str | None = session.get("user_uid")
 
         if user_uid:
             logger.debug(f"✅ Authenticated user found: {user_uid}")
@@ -192,7 +192,7 @@ async def get_current_user_validated(request: Request, graph_auth: Any) -> UserU
             logger.warning("Session validation failed - session may have been invalidated")
             return None
 
-        return result.value  # Returns user_uid directly
+        return cast(str | None, result.value)  # Returns user_uid directly
 
     except Exception as e:
         logger.error(f"Error validating session: {e}")
@@ -212,7 +212,7 @@ def get_session_token(request: Request) -> str | None:
     session = getattr(request, "session", None)
     if session is None:
         return None
-    return session.get("session_token")
+    return cast(str | None, session.get("session_token"))
 
 
 def set_current_user(
@@ -325,7 +325,7 @@ def get_is_admin(request: Request) -> bool:
     session = getattr(request, "session", None)
     if session is None:
         return False
-    return session.get("is_admin", False)
+    return cast(bool, session.get("is_admin", False))
 
 
 def get_is_teacher(request: Request) -> bool:
@@ -341,7 +341,7 @@ def get_is_teacher(request: Request) -> bool:
     session = getattr(request, "session", None)
     if session is None:
         return False
-    return session.get("is_teacher", False)
+    return cast(bool, session.get("is_teacher", False))
 
 
 def require_authenticated_user(request: Request) -> UserUID:

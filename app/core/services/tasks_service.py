@@ -276,13 +276,13 @@ class TasksService(BaseService["BackendOperations[Task]", Task]):
     # ========================================================================
 
     # Core CRUD delegations
-    async def get_task(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_task(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.get_task(*args, **kwargs)
 
-    async def get_user_tasks(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_user_tasks(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.get_user_tasks(*args, **kwargs)
 
-    async def list_tasks(self, *args: Any, **kwargs: Any) -> Any:
+    async def list_tasks(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.list_tasks(*args, **kwargs)
 
     async def get_user_items_in_range(
@@ -299,97 +299,97 @@ class TasksService(BaseService["BackendOperations[Task]", Task]):
             include_completed=include_completed,
         )
 
-    async def update_task(self, *args: Any, **kwargs: Any) -> Any:
+    async def update_task(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.update_task(*args, **kwargs)
 
-    async def delete_task(self, *args: Any, **kwargs: Any) -> Any:
+    async def delete_task(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.delete_task(*args, **kwargs)
 
     # Search delegations
-    async def get_tasks_for_goal(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_tasks_for_goal(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_tasks_for_goal(*args, **kwargs)
 
-    async def get_tasks_for_habit(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_tasks_for_habit(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_tasks_for_habit(*args, **kwargs)
 
-    async def get_tasks_applying_knowledge(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_tasks_applying_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_tasks_applying_knowledge(*args, **kwargs)
 
-    async def get_blocked_by_prerequisites(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_blocked_by_prerequisites(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_blocked_by_prerequisites(*args, **kwargs)
 
-    async def get_prioritized_tasks(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_prioritized_tasks(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_prioritized_tasks(*args, **kwargs)
 
-    async def get_learning_relevant_tasks(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_learning_relevant_tasks(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_learning_relevant_tasks(*args, **kwargs)
 
-    async def get_curriculum_tasks(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_curriculum_tasks(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_curriculum_tasks(*args, **kwargs)
 
-    async def get_tasks_for_learning_step(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_tasks_for_learning_step(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_tasks_for_learning_step(*args, **kwargs)
 
     # Progress delegations
-    async def check_prerequisites(self, *args: Any, **kwargs: Any) -> Any:
+    async def check_prerequisites(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.progress.check_prerequisites(*args, **kwargs)
 
-    async def unblock_task_if_ready(self, *args: Any, **kwargs: Any) -> Any:
+    async def unblock_task_if_ready(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.progress.unblock_task_if_ready(*args, **kwargs)
 
-    async def record_task_completion(self, *args: Any, **kwargs: Any) -> Any:
+    async def record_task_completion(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.progress.record_task_completion(*args, **kwargs)
 
-    async def assign_task_to_user(self, *args: Any, **kwargs: Any) -> Any:
+    async def assign_task_to_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.progress.assign_task_to_user(*args, **kwargs)
 
     # Scheduling delegations
-    async def create_task_with_context(self, *args: Any, **kwargs: Any) -> Any:
+    async def create_task_with_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.create_task_with_context(*args, **kwargs)
 
-    async def create_task_with_learning_context(self, *args: Any, **kwargs: Any) -> Any:
+    async def create_task_with_learning_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.create_task_with_learning_context(*args, **kwargs)
 
-    async def create_tasks_from_learning_path(self, *args: Any, **kwargs: Any) -> Any:
+    async def create_tasks_from_learning_path(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.create_tasks_from_learning_path(*args, **kwargs)
 
-    async def get_next_learning_task(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_next_learning_task(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.get_next_learning_task(*args, **kwargs)
 
-    async def suggest_learning_aligned_tasks(self, *args: Any, **kwargs: Any) -> Any:
+    async def suggest_learning_aligned_tasks(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.suggest_learning_aligned_tasks(*args, **kwargs)
 
-    async def create_task_from_learning_step(self, *args: Any, **kwargs: Any) -> Any:
+    async def create_task_from_learning_step(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.create_task_from_learning_step(*args, **kwargs)
 
     # Planning delegations
-    async def get_task_dependencies_for_user(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_task_dependencies_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.planning.get_task_dependencies_for_user(*args, **kwargs)
 
-    async def get_actionable_tasks_for_user(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_actionable_tasks_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.planning.get_actionable_tasks_for_user(*args, **kwargs)
 
-    async def get_learning_tasks_for_user(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_learning_tasks_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.planning.get_learning_tasks_for_user(*args, **kwargs)
 
     # Relationship delegations
-    async def get_task_completion_impact(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_task_completion_impact(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.relationships.get_completion_impact(*args, **kwargs)
 
-    async def analyze_task_learning_context(self, *args: Any, **kwargs: Any) -> Any:
+    async def analyze_task_learning_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.relationships.get_cross_domain_context(*args, **kwargs)
 
-    async def get_task_with_semantic_context(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_task_with_semantic_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.relationships.get_with_semantic_context(*args, **kwargs)
 
     # Intelligence delegations
-    async def analyze_task_learning_metrics(self, *args: Any, **kwargs: Any) -> Any:
+    async def analyze_task_learning_metrics(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.intelligence.analyze_task_learning_metrics(*args, **kwargs)
 
-    async def generate_task_knowledge_insights(self, *args: Any, **kwargs: Any) -> Any:
+    async def generate_task_knowledge_insights(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.intelligence.generate_task_knowledge_insights(*args, **kwargs)
 
-    async def get_learning_opportunities(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_learning_opportunities(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.intelligence.get_learning_opportunities(*args, **kwargs)
 
     # ========================================================================

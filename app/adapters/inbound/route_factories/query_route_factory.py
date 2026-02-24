@@ -33,7 +33,7 @@ Security Model:
 - /goal, /habit routes: Verify user owns the goal/habit before filtering
 """
 
-from typing import Any
+from typing import Any, cast
 
 from fasthtml.common import Request
 
@@ -191,7 +191,7 @@ class CommonQueryRouteFactory:
                     )
                 )
 
-            return await method(target_user_uid)
+            return cast(Result[Any], await method(target_user_uid))
 
         return f"GET {self.base_path}/user[?user_uid=...]"
 
@@ -227,7 +227,7 @@ class CommonQueryRouteFactory:
                 )
 
             # Include user_uid in filter to ensure ownership
-            return await method(filters={"status": status, "user_uid": user_uid})
+            return cast(Result[Any], await method(filters={"status": status, "user_uid": user_uid}))
 
         return f"GET {self.base_path}/by-status?status=..."
 
@@ -273,7 +273,7 @@ class CommonQueryRouteFactory:
                     )
                 )
 
-            return await method(goal_uid)
+            return cast(Result[Any], await method(goal_uid))
 
         return f"GET {self.base_path}/goal?goal_uid=..."
 
@@ -319,7 +319,7 @@ class CommonQueryRouteFactory:
                     )
                 )
 
-            return await method(habit_uid)
+            return cast(Result[Any], await method(habit_uid))
 
         return f"GET {self.base_path}/habit?habit_uid=..."
 

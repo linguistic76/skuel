@@ -21,7 +21,7 @@ to avoid the path parameter matching "quick-add" as a uid value.
 __version__ = "2.0"
 
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from fasthtml.common import H1, H2, H3, P
 from starlette.responses import Response
@@ -719,14 +719,17 @@ def create_principles_ui_routes(
             strength = PrincipleStrength.MODERATE
 
         # Call service with named parameters
-        return await principles_service.core.create_principle(
-            label=title,
-            description=statement or description,
-            category=category,
-            why_matters=description,
-            user_uid=user_uid,
-            strength=strength,
-            is_active=is_active,
+        return cast(
+            Result[Any],
+            await principles_service.core.create_principle(
+                label=title,
+                description=statement or description,
+                category=category,
+                why_matters=description,
+                user_uid=user_uid,
+                strength=strength,
+                is_active=is_active,
+            ),
         )
 
     async def render_principle_success_view(user_uid: str) -> Any:

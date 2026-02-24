@@ -45,7 +45,7 @@ __version__ = "1.0"
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -302,7 +302,7 @@ class StatusRouteFactory:
                 result = await service_method(uid, **fields)
 
             logger.info(f"{action.title()}d {domain_singular}: {uid} for user {user_uid}")
-            return result
+            return cast(Result[Any], result)
 
         # Give the function a unique name for debugging
         status_route.__name__ = f"{action}_{domain_singular}_route"

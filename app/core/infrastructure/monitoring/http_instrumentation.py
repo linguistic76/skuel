@@ -144,7 +144,7 @@ def instrument_with_boundary_handler(
     prometheus_metrics: Any,
     endpoint: str,
     success_status: int = 200,
-) -> Callable:
+) -> Callable[[Callable], Callable]:
     """
     Combined decorator that instruments HTTP requests AND converts Result[T] to JSONResponse.
 

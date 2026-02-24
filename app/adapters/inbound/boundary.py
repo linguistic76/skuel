@@ -14,9 +14,9 @@ See: /docs/patterns/ERROR_HANDLING.md
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any, ParamSpec
 
 from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse
@@ -25,7 +25,7 @@ from core.utils.result_simplified import ErrorCategory, ErrorContext, Result
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
+P = ParamSpec("P")
 
 # ============================================================================
 # BOUNDARY CONVERTERS - For Routes/Adapters
@@ -106,9 +106,14 @@ def result_to_exception[T](result: Result[T]) -> T:
     raise RuntimeError(f"{error.category.value}: {error.message}")
 
 
-def boundary_handler(success_status: int = 200) -> Callable[[Callable], Callable]:
+def boundary_handler(
+    success_status: int = 200,
+) -> Callable[[Callable[P, Awaitable[Any]]], Callable[P, Coroutine[Any, Any, Any]]]:
     """
     Decorator for route handlers that automatically converts Results to responses.
+
+    Typed with ParamSpec to preserve the wrapped function's parameter signature,
+    enabling mypy to check call sites properly.
 
     Usage:
         @boundary_handler()
@@ -117,9 +122,11 @@ def boundary_handler(success_status: int = 200) -> Callable[[Callable], Callable
             return result  # Automatically converted to response
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(
+        func: Callable[P, Awaitable[Any]],
+    ) -> Callable[P, Coroutine[Any, Any, Any]]:
         @wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
             try:
                 result = await func(*args, **kwargs)
 
@@ -127,7 +134,7 @@ def boundary_handler(success_status: int = 200) -> Callable[[Callable], Callable
                 if isinstance(result, Result):
                     return result_to_response(result, success_status)
 
-                # Otherwise return as-is
+                # Otherwise return as-is (e.g. FastHTML FT nodes for UI routes)
                 return result
 
             except HTTPException:

@@ -120,159 +120,159 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
     # ========================================================================
 
     # Core CRUD delegations
-    async def create_habit(self, *args: Any, **kwargs: Any) -> Any:
+    async def create_habit(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.create_habit(*args, **kwargs)
 
-    async def get_habit(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habit(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.get_habit(*args, **kwargs)
 
-    async def get_user_habits(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_user_habits(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.get_user_habits(*args, **kwargs)
 
-    async def list_habits(self, *args: Any, **kwargs: Any) -> Any:
+    async def list_habits(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.list_habits(*args, **kwargs)
 
-    async def get_user_items_in_range(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_user_items_in_range(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.get_user_items_in_range(*args, **kwargs)
 
     # Progress delegations
-    async def complete_habit_with_quality(self, *args: Any, **kwargs: Any) -> Any:
+    async def complete_habit_with_quality(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.progress.complete_habit_with_quality(*args, **kwargs)
 
-    async def get_at_risk_habits(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_at_risk_habits(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.progress.get_at_risk_habits(*args, **kwargs)
 
-    async def analyze_habit_consistency(self, *args: Any, **kwargs: Any) -> Any:
+    async def analyze_habit_consistency(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.progress.analyze_habit_consistency(*args, **kwargs)
 
-    async def get_keystone_habits(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_keystone_habits(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.progress.get_keystone_habits(*args, **kwargs)
 
-    async def identify_potential_keystone_habits(self, *args: Any, **kwargs: Any) -> Any:
+    async def identify_potential_keystone_habits(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.progress.identify_potential_keystone_habits(*args, **kwargs)
 
     # Search delegations
-    async def get_active_habits(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_active_habits(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_active_habits(*args, **kwargs)
 
-    async def search_habits(self, *args: Any, **kwargs: Any) -> Any:
+    async def search_habits(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.search(*args, **kwargs)
 
-    async def list_habit_categories(self, *args: Any, **kwargs: Any) -> Any:
+    async def list_habit_categories(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.list_user_categories(*args, **kwargs)
 
-    async def list_all_habit_categories(self, *args: Any, **kwargs: Any) -> Any:
+    async def list_all_habit_categories(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.list_all_categories(*args, **kwargs)
 
-    async def get_habits_by_category(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habits_by_category(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_by_category(*args, **kwargs)
 
-    async def get_habits_due_today(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habits_due_today(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_user_due_today(*args, **kwargs)
 
-    async def get_all_habits_due_today(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_all_habits_due_today(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_all_due_today(*args, **kwargs)
 
-    async def get_overdue_habits(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_overdue_habits(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_overdue(*args, **kwargs)
 
-    async def get_habits_by_status(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habits_by_status(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_by_status(*args, **kwargs)
 
-    async def get_habits_by_domain(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habits_by_domain(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_by_domain(*args, **kwargs)
 
-    async def get_habits_by_frequency(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habits_by_frequency(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_by_frequency(*args, **kwargs)
 
-    async def get_prioritized_habits(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_prioritized_habits(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_prioritized(*args, **kwargs)
 
     # Learning delegations
-    async def get_learning_habits(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_learning_habits(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.learning.get_learning_habits(*args, **kwargs)
 
-    async def create_habit_from_learning_goal(self, *args: Any, **kwargs: Any) -> Any:
+    async def create_habit_from_learning_goal(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.learning.create_habit_from_learning_goal(*args, **kwargs)
 
-    async def create_habit_with_learning_alignment(self, *args: Any, **kwargs: Any) -> Any:
+    async def create_habit_with_learning_alignment(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.learning.create_habit_with_learning_alignment(*args, **kwargs)
 
-    async def suggest_learning_supporting_habits(self, *args: Any, **kwargs: Any) -> Any:
+    async def suggest_learning_supporting_habits(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.learning.suggest_learning_supporting_habits(*args, **kwargs)
 
-    async def get_learning_reinforcing_habits(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_learning_reinforcing_habits(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.learning.get_learning_reinforcing_habits(*args, **kwargs)
 
-    async def assess_habit_learning_impact(self, *args: Any, **kwargs: Any) -> Any:
+    async def assess_habit_learning_impact(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.learning.assess_habit_learning_impact(*args, **kwargs)
 
     # Relationship delegations
-    async def get_habit_cross_domain_context(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habit_cross_domain_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.relationships.get_cross_domain_context(*args, **kwargs)
 
-    async def get_habit_with_semantic_context(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habit_with_semantic_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.relationships.get_with_semantic_context(*args, **kwargs)
 
     # Intelligence delegations
-    async def get_habit_with_context(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habit_with_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.intelligence.get_habit_with_context(*args, **kwargs)
 
-    async def analyze_habit_performance(self, *args: Any, **kwargs: Any) -> Any:
+    async def analyze_habit_performance(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.intelligence.analyze_habit_performance(*args, **kwargs)
 
-    async def get_habit_knowledge_reinforcement(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habit_knowledge_reinforcement(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.intelligence.get_habit_knowledge_reinforcement(*args, **kwargs)
 
-    async def get_habit_goal_support(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habit_goal_support(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.intelligence.get_habit_goal_support(*args, **kwargs)
 
     # Event integration delegations
-    async def get_events_for_habit(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_events_for_habit(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.events.get_events_for_habit(*args, **kwargs)
 
-    async def schedule_events_for_habit(self, *args: Any, **kwargs: Any) -> Any:
+    async def schedule_events_for_habit(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.events.schedule_events_for_habit(*args, **kwargs)
 
     # Planning delegations
-    async def get_habit_priorities_for_user(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habit_priorities_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.planning.get_habit_priorities_for_user(*args, **kwargs)
 
-    async def get_actionable_habits_for_user(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_actionable_habits_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.planning.get_actionable_habits_for_user(*args, **kwargs)
 
-    async def get_learning_habits_for_user(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_learning_habits_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.planning.get_learning_habits_for_user(*args, **kwargs)
 
-    async def get_goal_supporting_habits_for_user(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_goal_supporting_habits_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.planning.get_goal_supporting_habits_for_user(*args, **kwargs)
 
-    async def get_habit_readiness_for_user(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habit_readiness_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.planning.get_habit_readiness_for_user(*args, **kwargs)
 
     # Scheduling delegations
-    async def check_habit_capacity(self, *args: Any, **kwargs: Any) -> Any:
+    async def check_habit_capacity(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.check_habit_capacity(*args, **kwargs)
 
-    async def create_habit_with_scheduling_context(self, *args: Any, **kwargs: Any) -> Any:
+    async def create_habit_with_scheduling_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.create_habit_with_context(*args, **kwargs)
 
-    async def create_habit_with_learning_scheduling_context(self, *args: Any, **kwargs: Any) -> Any:
+    async def create_habit_with_learning_scheduling_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.create_habit_with_learning_context(*args, **kwargs)
 
-    async def suggest_habit_frequency(self, *args: Any, **kwargs: Any) -> Any:
+    async def suggest_habit_frequency(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.suggest_habit_frequency(*args, **kwargs)
 
-    async def optimize_habit_schedule(self, *args: Any, **kwargs: Any) -> Any:
+    async def optimize_habit_schedule(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.optimize_habit_schedule(*args, **kwargs)
 
-    async def suggest_habit_stacking(self, *args: Any, **kwargs: Any) -> Any:
+    async def suggest_habit_stacking(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.suggest_habit_stacking(*args, **kwargs)
 
-    async def create_habit_from_learning_step(self, *args: Any, **kwargs: Any) -> Any:
+    async def create_habit_from_learning_step(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.create_habit_from_learning_step(*args, **kwargs)
 
-    async def get_habit_load_by_day(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habit_load_by_day(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.get_habit_load_by_day(*args, **kwargs)
 
     def __init__(

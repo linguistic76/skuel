@@ -138,19 +138,19 @@ class EventsService(BaseService["BackendOperations[Event]", Event]):
     # ========================================================================
 
     # Core CRUD delegations
-    async def get_event(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_event(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.get_event(*args, **kwargs)
 
-    async def get_user_events(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_user_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.get_user_events(*args, **kwargs)
 
-    async def find_events(self, *args: Any, **kwargs: Any) -> Any:
+    async def find_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.find_events(*args, **kwargs)
 
-    async def count_events(self, *args: Any, **kwargs: Any) -> Any:
+    async def count_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.count_events(*args, **kwargs)
 
-    async def update(self, *args: Any, **kwargs: Any) -> Any:
+    async def update(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.update(*args, **kwargs)
 
     async def get_user_items_in_range(
@@ -168,139 +168,139 @@ class EventsService(BaseService["BackendOperations[Event]", Event]):
         )
 
     # Habit integration delegations
-    async def get_events_for_habit(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_events_for_habit(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.habits.get_events_for_habit(*args, **kwargs)
 
-    async def get_habit_reinforcement_events(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habit_reinforcement_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.habits.get_habit_reinforcement_events(*args, **kwargs)
 
-    async def get_at_risk_habit_events(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_at_risk_habit_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.habits.get_at_risk_habit_events(*args, **kwargs)
 
-    async def complete_event_with_quality(self, *args: Any, **kwargs: Any) -> Any:
+    async def complete_event_with_quality(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.habits.complete_event_with_quality(*args, **kwargs)
 
-    async def miss_habit_event(self, *args: Any, **kwargs: Any) -> Any:
+    async def miss_habit_event(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.habits.miss_habit_event(*args, **kwargs)
 
-    async def create_recurring_events_for_habit(self, *args: Any, **kwargs: Any) -> Any:
+    async def create_recurring_events_for_habit(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.habits.create_recurring_events_for_habit(*args, **kwargs)
 
-    async def get_next_habit_events(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_next_habit_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.habits.get_next_habit_events(*args, **kwargs)
 
     # Learning integration delegations
-    async def get_learning_events(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_learning_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.learning.get_learning_events(*args, **kwargs)
 
-    async def get_events_for_knowledge(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_events_for_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.learning.get_events_for_knowledge(*args, **kwargs)
 
-    async def get_events_for_learning_path(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_events_for_learning_path(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.learning.get_events_for_learning_path(*args, **kwargs)
 
-    async def create_study_session(self, *args: Any, **kwargs: Any) -> Any:
+    async def create_study_session(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.learning.create_study_session(*args, **kwargs)
 
-    async def suggest_spaced_repetition_events(self, *args: Any, **kwargs: Any) -> Any:
+    async def suggest_spaced_repetition_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.learning.suggest_spaced_repetition_events(*args, **kwargs)
 
-    async def create_learning_path_schedule(self, *args: Any, **kwargs: Any) -> Any:
+    async def create_learning_path_schedule(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.learning.create_learning_path_schedule(*args, **kwargs)
 
-    async def get_knowledge_reinforcement_stats(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_knowledge_reinforcement_stats(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.learning.get_knowledge_reinforcement_stats(*args, **kwargs)
 
     # Search delegations
-    async def search_events(self, *args: Any, **kwargs: Any) -> Any:
+    async def search_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.search(*args, **kwargs)
 
-    async def get_calendar_events(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_calendar_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_calendar_events(*args, **kwargs)
 
-    async def get_event_history(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_event_history(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_history(*args, **kwargs)
 
-    async def get_events_due_soon(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_events_due_soon(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_due_soon(*args, **kwargs)
 
-    async def get_overdue_events(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_overdue_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_overdue(*args, **kwargs)
 
-    async def get_events_by_status(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_events_by_status(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_by_status(*args, **kwargs)
 
-    async def get_events_in_range(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_events_in_range(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_in_range(*args, **kwargs)
 
-    async def get_prioritized_events(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_prioritized_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.get_prioritized(*args, **kwargs)
 
     # Relationship delegations
-    async def get_event_cross_domain_context(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_event_cross_domain_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.relationships.get_cross_domain_context(*args, **kwargs)
 
-    async def get_event_with_semantic_context(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_event_with_semantic_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.relationships.get_with_semantic_context(*args, **kwargs)
 
-    async def analyze_event_impact(self, *args: Any, **kwargs: Any) -> Any:
+    async def analyze_event_impact(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.relationships.get_completion_impact(*args, **kwargs)
 
     # Intelligence delegations
-    async def get_event_with_context(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_event_with_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.intelligence.get_event_with_context(*args, **kwargs)
 
-    async def analyze_event_performance(self, *args: Any, **kwargs: Any) -> Any:
+    async def analyze_event_performance(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.intelligence.analyze_event_performance(*args, **kwargs)
 
-    async def get_event_goal_support(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_event_goal_support(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.intelligence.get_event_goal_support(*args, **kwargs)
 
-    async def get_event_knowledge_reinforcement(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_event_knowledge_reinforcement(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.intelligence.get_event_knowledge_reinforcement(*args, **kwargs)
 
-    async def analyze_upcoming_events(self, *args: Any, **kwargs: Any) -> Any:
+    async def analyze_upcoming_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.intelligence.analyze_upcoming_events(*args, **kwargs)
 
     # Progress delegations
-    async def complete_event_with_cascade(self, *args: Any, **kwargs: Any) -> Any:
+    async def complete_event_with_cascade(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.progress.complete_event_with_cascade(*args, **kwargs)
 
-    async def get_attendance_rate(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_attendance_rate(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.progress.get_attendance_rate(*args, **kwargs)
 
-    async def get_quality_trends(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_quality_trends(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.progress.get_quality_trends(*args, **kwargs)
 
-    async def get_goal_contribution_metrics(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_goal_contribution_metrics(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.progress.get_goal_contribution_metrics(*args, **kwargs)
 
-    async def get_weekly_summary(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_weekly_summary(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.progress.get_weekly_summary(*args, **kwargs)
 
-    async def get_habit_event_stats(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_habit_event_stats(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.progress.get_habit_event_stats(*args, **kwargs)
 
     # Scheduling delegations
-    async def schedule_event_smart(self, *args: Any, **kwargs: Any) -> Any:
+    async def schedule_event_smart(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.schedule_event_smart(*args, **kwargs)
 
-    async def suggest_time_slots(self, *args: Any, **kwargs: Any) -> Any:
+    async def suggest_time_slots(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.suggest_time_slots(*args, **kwargs)
 
-    async def find_next_available_slot(self, *args: Any, **kwargs: Any) -> Any:
+    async def find_next_available_slot(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.find_next_available_slot(*args, **kwargs)
 
-    async def optimize_recurring_schedule(self, *args: Any, **kwargs: Any) -> Any:
+    async def optimize_recurring_schedule(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.optimize_recurring_schedule(*args, **kwargs)
 
-    async def create_recurring_events(self, *args: Any, **kwargs: Any) -> Any:
+    async def create_recurring_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.create_recurring_events(*args, **kwargs)
 
-    async def get_busy_times(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_busy_times(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.get_busy_times(*args, **kwargs)
 
-    async def get_calendar_density(self, *args: Any, **kwargs: Any) -> Any:
+    async def get_calendar_density(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.scheduling.get_calendar_density(*args, **kwargs)
 
     def __init__(

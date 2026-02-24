@@ -91,7 +91,7 @@ Usage:
 import asyncio
 from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import Any, cast
 
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
@@ -128,7 +128,7 @@ async def get_user_role(request: Request, user_service: Any) -> UserRole | None:
     if result.is_error or not result.value:
         return None
 
-    return result.value.role
+    return cast(UserRole | None, result.value.role)
 
 
 async def is_current_user_admin(request: Request, user_service: Any) -> bool:
