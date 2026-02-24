@@ -20,17 +20,16 @@ from typing import TYPE_CHECKING, Any
 
 import strawberry
 from strawberry.extensions import MaxTokensLimiter, QueryDepthLimiter
+from strawberry.types import Info
 
 from core.constants import ConfidenceLevel, QueryLimit
 from core.models.enums import Domain
 from routes.graphql.config import get_graphql_config, validate_list_limit
+from routes.graphql.context import GraphQLContext
 
 if TYPE_CHECKING:
-    from strawberry.types import Info
-
     from core.models.entity_types import Ku
     from core.utils.result_simplified import Result
-    from routes.graphql.context import GraphQLContext
     from routes.graphql.protocols import KnowledgeUnitLike, LearningStepLike
 from routes.graphql.types import (
     Blocker,

@@ -10,15 +10,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import strawberry
+from strawberry.types import Info
 
+from routes.graphql.context import GraphQLContext
 from routes.graphql.query_helpers import GraphQLQueryHelpers
 
 if TYPE_CHECKING:
-    from strawberry.types import Info
-
     from core.models.entity_types import Ku
     from core.utils.result_simplified import Result
-    from routes.graphql.context import GraphQLContext
 
 
 @strawberry.type
