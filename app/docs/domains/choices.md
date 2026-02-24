@@ -36,18 +36,26 @@ Choices represent decisions with outcome tracking. They connect knowledge, princ
 | UI Routes | `/adapters/inbound/choice_ui.py` |
 | View Components | `/ui/choices/views.py` |
 
-## Facade Pattern (January 2026)
+## Facade Pattern (February 2026)
 
-`ChoicesService` uses `FacadeDelegationMixin` with signature preservation for clean delegation to 6 specialized sub-services:
+`ChoicesService` uses explicit `async def` delegation methods for clean delegation to 6 specialized sub-services:
 
 ```python
-class ChoicesService(FacadeDelegationMixin, BaseService[ChoicesOperations, Choice]):
-    _delegations = merge_delegations(
-        {"get_choice": ("core", "get_choice"), ...},           # Core CRUD
-        {"search_choices": ("search", "search"), ...},         # Search
-        create_relationship_delegations("choice"),              # Relationships
-        {"analyze_decision_patterns": ("analytics", ...), ...}, # Analytics
-    )
+class ChoicesService(BaseService[ChoicesOperations, Choice]):
+    core: ChoicesCoreService
+    search: ChoicesSearchService
+    relationships: UnifiedRelationshipService
+    analytics: ChoicesAnalyticsService
+
+    # Explicit delegation — MyPy-native, no mixin needed
+    async def get_choice(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_choice(*args, **kwargs)
+
+    async def search_choices(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.search(*args, **kwargs)
+
+    async def analyze_decision_patterns(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.analytics.analyze_decision_patterns(*args, **kwargs)
 ```
 
 **Sub-services:**

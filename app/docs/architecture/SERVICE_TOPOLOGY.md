@@ -89,8 +89,8 @@ BaseService[B: BackendOperations, T: DomainModelProtocol]
 
 ```
 TasksService (Facade)
-├─ Inherits: FacadeDelegationMixin + BaseService[TasksOperations, Task]
-├─ Provides: ~35 auto-generated delegation methods
+├─ Inherits: BaseService[TasksOperations, Task]
+├─ Provides: ~35 explicit async delegation methods
 └─ Composes 7 sub-services:
     │
     ├─ self.core: TasksCoreService
@@ -169,15 +169,15 @@ Route Layer
 ┌────────────────────────────────────────────────────────┐
 │ TasksService (Facade)                                  │
 │                                                         │
-│  _delegations = {                                      │
-│    "create_task": ("core", "create_task"),            │
-│    "search": ("search", "search"),                     │
-│    "complete_task": ("progress", "complete_task"),    │
-│  }                                                      │
+│  # Explicit delegation methods (February 2026)        │
+│  async def create_task(self, *args, **kwargs):        │
+│      return await self.core.create_task(*args, **kwargs) │
 │                                                         │
-│  FacadeDelegationMixin auto-generates:                │
-│    async def create_task(self, *args, **kwargs):      │
-│        return await self.core.create_task(*args, **kwargs)  │
+│  async def search(self, *args, **kwargs):             │
+│      return await self.search.search(*args, **kwargs) │
+│                                                         │
+│  async def complete_task(self, *args, **kwargs):      │
+│      return await self.progress.complete_task(*args, **kwargs) │
 └───────────┬────────────────────────────────────────────┘
             │
             ├─────────────────┬─────────────────┬──────────────────┐
@@ -205,7 +205,7 @@ Route Layer
 
 **Key Observations:**
 
-1. **Facade → Sub-Service** - Auto-delegation via FacadeDelegationMixin
+1. **Facade → Sub-Service** - Explicit delegation methods (one-line `async def` per method)
 2. **Sub-Service → Backend** - Direct calls to UniversalNeo4jBackend
 3. **Sub-Service ↔ Sub-Service** - Cross-service calls (e.g., progress calls relationships)
 4. **Backend → Neo4j** - Single path to database
@@ -451,8 +451,7 @@ Routes / Application Code
 │   ├─ relationship_operations_mixin.py (uses conversion_helpers)
 │   ├─ time_query_mixin.py            (uses conversion_helpers)
 │   ├─ user_progress_mixin.py         (uses conversion_helpers)
-│   ├─ context_operations_mixin.py    (uses crud_operations)
-│   └─ facade_delegation_mixin.py     (standalone - introspection only)
+│   └─ context_operations_mixin.py    (uses crud_operations)
 │
 ├─ tasks/
 │   ├─ tasks_core_service.py          (extends BaseService)
@@ -570,7 +569,7 @@ BaseService._get_config_value("search_fields")
 
 1. **Mixin Composition** - 7 focused mixins provide 100+ methods to BaseService
 2. **Facade Pattern** - 1 facade per domain delegates to 3-11 specialized sub-services
-3. **Auto-Delegation** - FacadeDelegationMixin generates ~50 methods from `_delegations` dict
+3. **Explicit Delegation** - Facade services have ~50 explicit `async def` delegation methods
 4. **Factory Pattern** - `create_common_sub_services()` creates 4 common sub-services
 5. **Configuration Pattern** - DomainConfig dataclass provides single source of truth
 6. **Event-Driven** - Domain events published for side effects (analytics, achievements, etc.)
@@ -588,7 +587,7 @@ Layer 4: Routes (HTTP → Facades)                 ← Interface (HTTP boundarie
 
 - **Single Responsibility** - Each mixin/sub-service has ONE focused responsibility
 - **Composition over Inheritance** - Facades compose sub-services, don't inherit from them
-- **DRY via Auto-Generation** - FacadeDelegationMixin eliminates 1,500 lines of boilerplate
+- **Explicit over Magic** - Explicit delegation methods, no dynamic generation
 - **Configuration over Code** - DomainConfig replaces scattered class attributes
 - **Fail-Fast** - All dependencies REQUIRED at init (no graceful degradation)
 
@@ -600,4 +599,4 @@ Layer 4: Routes (HTTP → Facades)                 ← Interface (HTTP boundarie
 - [Method Index](/docs/reference/BASESERVICE_METHOD_INDEX.md) - Complete method listing
 - [Quick Start Guide](/docs/guides/BASESERVICE_QUICK_START.md) - New developer onboarding
 - [BaseService Source](/core/services/base_service.py) - Implementation
-- [FacadeDelegationMixin Source](/core/services/mixins/facade_delegation_mixin.py) - Auto-delegation
+- [Example Facade Source](/core/services/tasks_service.py) - Explicit delegation pattern

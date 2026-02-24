@@ -48,21 +48,28 @@ Habits represent recurring behaviors with streak tracking. They form the "system
 | UI Routes | `/adapters/inbound/habits_ui.py` |
 | View Components | `/ui/habits/views.py` |
 
-## Facade Pattern (January 2026)
+## Facade Pattern (February 2026)
 
-`HabitsService` uses `FacadeDelegationMixin` with signature preservation for clean delegation to 11 specialized sub-services:
+`HabitsService` uses explicit `async def` delegation methods for clean delegation to 11 specialized sub-services:
 
 ```python
-class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit]):
-    _delegations = merge_delegations(
-        {"get_habit": ("core", "get_habit"), ...},              # Core CRUD
-        {"search_habits": ("search", "search"), ...},           # Search
-        create_relationship_delegations("habit"),                # Relationships
-        {"record_completion": ("completion", ...), ...},        # Completion
-        {"get_habit_with_context": ("intelligence", ...), ...}, # Intelligence
-        {"get_habit_priorities_for_user": ("planning", ...), ...},  # Planning
-        {"check_habit_capacity": ("scheduling", ...), ...},     # Scheduling
-    )
+class HabitsService(BaseService[HabitsOperations, Habit]):
+    core: HabitsCoreService
+    search: HabitsSearchService
+    completion: HabitsCompletionService
+    planning: HabitsPlanningService
+    scheduling: HabitsSchedulingService
+    intelligence: HabitsIntelligenceService
+
+    # Explicit delegation — MyPy-native, no mixin needed
+    async def get_habit(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_habit(*args, **kwargs)
+
+    async def record_completion(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.completion.record_completion(*args, **kwargs)
+
+    async def get_habit_with_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_habit_with_context(*args, **kwargs)
 ```
 
 **Sub-services:**

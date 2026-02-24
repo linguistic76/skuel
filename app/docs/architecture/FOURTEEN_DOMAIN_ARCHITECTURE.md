@@ -252,7 +252,7 @@ Services compose only the mixins they need instead of inheriting a bloated base 
 └── context_operations_mixin.py        # Graph context
 ```
 
-**Plus:** `FacadeDelegationMixin` (in `facade_delegation_mixin.py`) for dynamic method delegation to sub-services.
+**Plus:** Facade services use explicit `async def` delegation methods (February 2026 — `facade_delegation_mixin.py` deleted).
 
 ### Activity Domain Service Architecture
 

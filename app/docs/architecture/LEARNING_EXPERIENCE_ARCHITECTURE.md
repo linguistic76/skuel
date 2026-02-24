@@ -215,15 +215,18 @@ Built by `KuAdaptiveService.get_sel_journey()` (line 242), which iterates all fi
 
 **File:** `core/services/ku_service.py`
 
-The `KuService` facade delegates to 9 sub-services via `FacadeDelegationMixin`. The adaptive curriculum methods route through:
+The `KuService` facade delegates to 9 sub-services via explicit `async def` delegation methods (February 2026). The adaptive curriculum methods route through:
 
 ```python
-# ku_service.py:192-197
-_delegations = {
-    "get_personalized_curriculum": ("adaptive", "get_personalized_curriculum"),
-    "get_sel_journey": ("adaptive", "get_sel_journey"),
-    "track_curriculum_completion": ("adaptive", "track_curriculum_completion"),
-}
+# ku_service.py — explicit delegation
+async def get_personalized_curriculum(self, *args: Any, **kwargs: Any) -> Any:
+    return await self.adaptive.get_personalized_curriculum(*args, **kwargs)
+
+async def get_sel_journey(self, *args: Any, **kwargs: Any) -> Any:
+    return await self.adaptive.get_sel_journey(*args, **kwargs)
+
+async def track_curriculum_completion(self, *args: Any, **kwargs: Any) -> Any:
+    return await self.adaptive.track_curriculum_completion(*args, **kwargs)
 ```
 
 `self.adaptive` is a `KuAdaptiveService` instance, created by the `create_ku_sub_services()` factory in `core/utils/curriculum_domain_config.py`.

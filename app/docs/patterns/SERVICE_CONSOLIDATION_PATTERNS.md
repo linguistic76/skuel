@@ -13,7 +13,7 @@ related_docs:
 
 # Service Consolidation Patterns
 
-Six patterns to reduce boilerplate in SKUEL services (~1,500+ lines saved across 10 facades).
+Six patterns to reduce boilerplate in SKUEL services. Includes the explicit delegation pattern (February 2026) that replaced FacadeDelegationMixin, saving 2,422 lines across all 9 facade services.
 
 ## Quick Start
 
@@ -233,91 +233,58 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
 
 ---
 
-## 3. FacadeDelegationMixin
+## 3. Explicit Delegation Methods (February 2026)
 
-Auto-generates delegation methods for facade services at class definition time, **with signature preservation**.
+All 9 facade services use explicit `async def` delegation methods — MyPy-native, no mixin needed.
 
-### The Problem
+### The Problem (Historical)
 
-Facade services had 20-30 one-line delegation methods:
-
-```python
-# OLD PATTERN - ~30 lines of boilerplate
-class TasksService:
-    async def create_task(self, *args, **kwargs):
-        return await self.core.create_task(*args, **kwargs)
-
-    async def get_task(self, *args, **kwargs):
-        return await self.core.get_task(*args, **kwargs)
-
-    async def search(self, *args, **kwargs):
-        return await self.search.search(*args, **kwargs)
-
-    # ... 27 more methods
-```
+`FacadeDelegationMixin` (deleted February 2026) generated delegation methods dynamically via a `_delegations` dict. This required a parallel `facade_protocols.py` file to make the dynamic methods visible to MyPy — a three-way synchronization burden (service class, delegations dict, protocol file).
 
 ### The Solution
 
 ```python
-from core.services.mixins import FacadeDelegationMixin, merge_delegations
+from typing import Any
 
-class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
-    # Class-level type annotations enable signature preservation
+class TasksService(BaseService[TasksOperations, Task]):
     core: TasksCoreService
     search: TasksSearchService
-    intelligence: TasksIntelligenceService  # January 2026: TasksAnalyticsService removed
+    intelligence: TasksIntelligenceService
 
-    _delegations = merge_delegations(
-        # CRUD delegations to core
-        {
-            "create_task": ("core", "create_task"),
-            "get_task": ("core", "get_task"),
-            "update_task": ("core", "update_task"),
-            "delete_task": ("core", "delete_task"),
-        },
-        # Search delegations
-        {
-            "search": ("search", "search"),
-            "intelligent_search": ("search", "intelligent_search"),
-        },
-        # Analytics delegations
-        {
-            "get_learning_opportunities": ("analytics", "get_learning_opportunities"),
-        },
-    )
+    # Explicit delegation — MyPy-native, no mixin needed
+    async def create_task(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.create_task(*args, **kwargs)
+
+    async def get_task(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_task(*args, **kwargs)
+
+    async def search_tasks(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.search(*args, **kwargs)
 ```
 
 ### How It Works
 
-1. Define `_delegations` as a dict mapping `{facade_method: (sub_service, target_method)}`
-2. `__init_subclass__` generates async methods at class definition time
-3. IDE completion works because methods exist on the class (not `__getattr__`)
+1. Every delegated method is a real `async def` on the class
+2. MyPy sees all methods natively — no protocol workaround required
+3. Route files import the concrete service class as the type hint
 
-### Signature Preservation (January 2026)
-
-When class-level type annotations are provided, the mixin preserves method signatures:
+### Route Files Use Concrete Class Types
 
 ```python
-# Without annotations - inspect.signature() returns (*args, **kwargs)
-class BadFacade(FacadeDelegationMixin):
-    _delegations = {"method": ("service", "method")}
+# Before (deleted)
+if TYPE_CHECKING:
+    from core.ports.facade_protocols import TasksFacadeProtocol
 
-# With annotations - inspect.signature() returns actual parameters
-class GoodFacade(FacadeDelegationMixin):
-    service: SomeService  # <-- Type annotation required
-    _delegations = {"method": ("service", "method")}
+def create_tasks_api_routes(app, rt, tasks_service: "TasksFacadeProtocol", ...):
+    ...
+
+# After (current)
+if TYPE_CHECKING:
+    from core.services.tasks_service import TasksService
+
+def create_tasks_api_routes(app, rt, tasks_service: "TasksService", ...):
+    ...
 ```
-
-**How it works internally:**
-1. `__init_subclass__` reads `__annotations__` from the class
-2. String annotations (from `from __future__ import annotations`) are resolved using `eval()` with module globals
-3. The target method's signature is extracted using `inspect.signature()`
-4. The delegator's `__signature__` attribute is set to the resolved signature
-
-**Benefits:**
-- `inspect.signature(Facade.method)` returns actual parameter names
-- IDE tools and documentation generators see real signatures
-- Type checkers can validate call sites
 
 ### Underscore Prefix Convention
 
@@ -341,77 +308,33 @@ async def get_learning_opportunities(
 - `_param` = "This parameter exists in the signature but is not yet implemented"
 - NOT "This parameter is unused and should be deleted"
 
-This convention signals architectural intent: the API contract is defined, but implementation is deferred.
+### Custom Logic Methods
 
-### Delegation Format
-
-```python
-_delegations = {
-    "facade_method_name": ("sub_service_attr", "target_method_name"),
-}
-```
-
-- `facade_method_name`: Name of the method on this facade
-- `sub_service_attr`: Attribute name of the sub-service (e.g., `"core"`, `"search"`)
-- `target_method_name`: Method name on the sub-service to call
-
-### Pre-defined Delegation Sets
-
-Import common delegation patterns:
+For methods requiring orchestration across sub-services, write the logic directly:
 
 ```python
-from core.services.mixins import (
-    CRUD_DELEGATIONS,      # create, get, get_many, update, delete, list
-    SEARCH_DELEGATIONS,    # search, get_by_status, get_by_category, etc.
-    RELATIONSHIP_DELEGATIONS,  # link_to_knowledge, link_to_goal, etc.
-    merge_delegations,
-)
+class TasksService(BaseService[TasksOperations, Task]):
 
-class MyService(FacadeDelegationMixin):
-    _delegations = merge_delegations(
-        CRUD_DELEGATIONS,
-        SEARCH_DELEGATIONS,
-        {
-            # Domain-specific delegations
-            "complete_task": ("core", "complete_task"),
-        }
-    )
-```
+    # Simple delegation
+    async def get_task(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_task(*args, **kwargs)
 
-### When NOT to Delegate
-
-Override manually when custom logic is needed:
-
-```python
-class TasksService(FacadeDelegationMixin):
-    _delegations = merge_delegations(
-        CRUD_DELEGATIONS,
-        # Don't include create_task - we override it
-    )
-
-    # Manual override with custom logic
+    # Custom logic (not a delegation — orchestrates multiple sub-services)
     async def create_task(self, data: dict, user_uid: str) -> Result[Task]:
-        # Validation before delegating
         if not data.get("title"):
             return Result.fail(Errors.validation("Title required"))
-
-        # Now delegate with additional processing
         result = await self.core.create_task(data, user_uid)
-
-        # Post-processing
         if result.is_ok:
             await self._send_notification(result.value)
-
         return result
 ```
 
-### Error Handling
+### Benefits
 
-If a sub-service isn't initialized, a clear error is raised:
-
-```
-AttributeError: TasksService.create_task() requires 'core' sub-service to be initialized
-```
+- **2,422 lines removed** — no mixin, no protocol file, no three-way sync
+- **MyPy-native** — all methods visible without workarounds
+- **One file** — everything in the service class itself
+- **No ceremony** — add a method, it just works
 
 ---
 
@@ -771,7 +694,7 @@ class LpSubServices:
 |---------|------|--------|
 | DomainConfig | `/core/services/domain_config.py` | `from core.services.domain_config import DomainConfig, create_activity_domain_config` |
 | BaseService Mixins | `/core/services/mixins/` | `from core.services.mixins import ConversionHelpersMixin, CrudOperationsMixin, ...` |
-| FacadeDelegationMixin | `/core/services/mixins/facade_delegation_mixin.py` | `from core.services.mixins import FacadeDelegationMixin, merge_delegations` |
+| Explicit Delegation | `/core/services/tasks_service.py` | Explicit `async def` methods on facade class (no import needed) |
 | Relationship Registry | `/core/models/relationship_registry.py` | `from core.models.relationship_registry import generate_graph_enrichment` |
 | Post-Query Processors | `/core/models/query/cypher/post_processors.py` | `from core.models.query.cypher.post_processors import apply_processor, PROCESSOR_REGISTRY` |
 | KU/LP Factories | `/core/utils/curriculum_domain_config.py` | `from core.utils.curriculum_domain_config import create_ku_sub_services, create_lp_sub_services` |
@@ -783,4 +706,4 @@ class LpSubServices:
 - **Decision context:** [ADR-025](/docs/decisions/ADR-025-service-consolidation-patterns.md) - Why these patterns were chosen
 - **Mixin decomposition:** [ADR-031](/docs/decisions/ADR-031-baseservice-mixin-decomposition.md) - BaseService mixin architecture
 - **BaseService:** `/core/services/base_service.py` - Uses DomainConfig, composed of mixins
-- **Example facade:** `/core/services/tasks_service.py` - FacadeDelegationMixin usage
+- **Example facade:** `/core/services/tasks_service.py` - Explicit delegation pattern

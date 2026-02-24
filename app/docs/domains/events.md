@@ -39,31 +39,34 @@ Events represent scheduled calendar items. They connect to knowledge application
 | UI Routes | `/adapters/inbound/events_ui.py` |
 | View Components | `/ui/events/views.py` |
 
-## Facade Pattern (January 2026)
+## Facade Pattern (February 2026)
 
-EventsService uses `FacadeDelegationMixin` with **signature preservation**:
+`EventsService` uses explicit `async def` delegation methods:
 
 ```python
-class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event]):
-    # Class-level type annotations for signature preservation
+class EventsService(BaseService[EventsOperations, Event]):
     core: EventsCoreService
     search: EventsSearchService
     habits: EventsHabitIntegrationService
     learning: EventsLearningService
-    progress: EventsProgressService      # January 2026
-    scheduling: EventsSchedulingService  # January 2026
+    progress: EventsProgressService
+    scheduling: EventsSchedulingService
     relationships: UnifiedRelationshipService
     intelligence: EventsIntelligenceService
 
-    _delegations = merge_delegations(
-        {"get_event": ("core", "get_event"), ...},
-        {"get_user_items_in_range": ("core", "get_user_items_in_range"), ...},
-        {"complete_event_with_cascade": ("progress", "complete_event_with_cascade"), ...},
-        {"schedule_event_smart": ("scheduling", "schedule_event_smart"), ...},
-    )
-```
+    # Explicit delegation — MyPy-native, no mixin needed
+    async def get_event(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_event(*args, **kwargs)
 
-**Signature preservation**: `inspect.signature(EventsService.get_user_items_in_range)` returns the actual parameters (`user_uid`, `start_date`, `end_date`, `include_completed`) rather than generic `(*args, **kwargs)`.
+    async def get_user_items_in_range(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_user_items_in_range(*args, **kwargs)
+
+    async def complete_event_with_cascade(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.progress.complete_event_with_cascade(*args, **kwargs)
+
+    async def schedule_event_smart(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.schedule_event_smart(*args, **kwargs)
+```
 
 ## Model Fields
 

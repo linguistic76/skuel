@@ -103,131 +103,47 @@ class SomeOperations(Protocol):
         ...
 ```
 
-## Facade Protocol Template
+## Facade Service Type Hints (February 2026)
 
-**Location:** `/core/ports/facade_protocols.py`
-**Purpose:** Type hints for dynamically delegated facade methods
-**Use Case:** Services using `FacadeDelegationMixin` to auto-generate delegation methods
+> **Note:** `facade_protocols.py` and `FacadeDelegationMixin` are deleted. Facade services now have explicit `async def` delegation methods. Route files import the concrete service class.
 
-**⚠️ CRITICAL WARNING:** Facade protocols are for TYPE HINTS on dynamically delegated methods, NOT for inheritance.
+**Pattern:** Import the concrete service class under `TYPE_CHECKING`:
 
 ```python
-from typing import Protocol, runtime_checkable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from core.utils.result import Result
 
 if TYPE_CHECKING:
-    # Import domain model only during type checking to prevent circular imports
     from core.models.tasks.task import Task
+    from core.services.tasks_service import TasksService  # Concrete class
 
-@runtime_checkable
-class TasksFacadeProtocol(Protocol):
+async def analyze_tasks(service: "TasksService") -> dict:
     """
-    Type hints for TasksService delegated methods.
-
-    **WARNING:** This protocol is for TYPE HINTS ONLY, NOT for inheritance.
-
-    TasksService uses FacadeDelegationMixin to dynamically generate delegation
-    methods at class definition time. MyPy can't see these dynamic methods,
-    so this protocol tells MyPy what methods exist at runtime.
-
-    **CORRECT Usage:**
-    ```python
-    from typing import TYPE_CHECKING
-
-    if TYPE_CHECKING:
-        from core.ports.facade_protocols import TasksFacadeProtocol
-
-    async def analyze_tasks(service: "TasksFacadeProtocol"):
-        # Type hint enables MyPy autocomplete for delegated methods
-        result = await service.get_task(uid)
-    ```
-
-    **INCORRECT Usage (DO NOT DO THIS):**
-    ```python
-    # ❌ WRONG - Do NOT inherit from facade protocols
-    class TasksService(TasksFacadeProtocol, FacadeDelegationMixin):
-        # MyPy error: Cannot instantiate abstract class...
-        pass
-    ```
-
-    **Why NOT to inherit:**
-    - MyPy expects explicit implementations when Protocol is a base class
-    - Dynamic methods from FacadeDelegationMixin aren't visible to static analysis
-    - Results in "Cannot instantiate abstract class" errors
+    Route function that uses TasksService.
+    MyPy sees all explicit methods on TasksService directly.
     """
-
-    # ========================================================================
-    # DELEGATED METHODS (from TasksCoreService)
-    # ========================================================================
-
-    async def get_task(self, uid: str) -> "Result[Task]":
-        """Get task by UID (delegated to self.core.get_task)."""
-        ...
-
-    async def create_task(self, task_data: dict) -> "Result[Task]":
-        """Create task (delegated to self.core.create_task)."""
-        ...
-
-    async def update_task(self, uid: str, updates: dict) -> "Result[Task]":
-        """Update task (delegated to self.core.update_task)."""
-        ...
-
-    async def delete_task(self, uid: str) -> "Result[bool]":
-        """Delete task (delegated to self.core.delete_task)."""
-        ...
-
-    # ========================================================================
-    # DELEGATED METHODS (from TasksSearchService)
-    # ========================================================================
-
-    async def search_tasks(self, query: str, filters: dict) -> "Result[list[Task]]":
-        """Search tasks (delegated to self.search.search_tasks)."""
-        ...
-
-    # ========================================================================
-    # DELEGATED METHODS (from TasksIntelligenceService)
-    # ========================================================================
-
-    async def analyze_task_completion_impact(self, uid: str) -> "Result[dict]":
-        """Analyze impact (delegated to self.intelligence.analyze_task_completion_impact)."""
-        ...
+    result = await service.get_task(uid)
+    if result.is_error:
+        return {}
+    return {"task": result.value}
 ```
 
 **Key Differences from Domain Protocols:**
 
-| Aspect | Domain Protocol (TasksOperations) | Facade Protocol (TasksFacadeProtocol) |
-|--------|-----------------------------------|---------------------------------------|
-| **Purpose** | Service implementation contract | Type hints for delegated methods |
-| **Inheritance** | ✅ Implement in backend classes | ❌ NEVER inherit - type hints only |
+| Aspect | Domain Protocol (TasksOperations) | Facade Service (TasksService) |
+|--------|-----------------------------------|-------------------------------|
+| **Purpose** | Service implementation contract | Facade aggregating sub-services |
+| **Inheritance** | ✅ Implement in backend classes | ✅ Import as `TYPE_CHECKING` hint |
 | **Return Types** | `Result[T]` | `Result[T]` (same) |
-| **Decorator** | Optional | `@runtime_checkable` required |
-| **Usage** | Backend depends on protocol | Use as parameter type hint with TYPE_CHECKING |
-| **Location** | `/core/ports/domain_protocols.py` | `/core/ports/facade_protocols.py` |
+| **Location** | `/core/ports/domain_protocols.py` | `/core/services/tasks_service.py` |
+| **Method visibility** | Defined in Protocol | Explicit `async def` on class |
 
-**Template Usage Pattern:**
+**Adding delegation methods:**
 
 ```python
-# Step 1: Define the facade protocol (one-time setup)
-# File: /core/ports/facade_protocols.py
-
-@runtime_checkable
-class SomeFacadeProtocol(Protocol):
-    """Type hints for SomeService delegated methods."""
-    async def some_method(self, arg: str) -> Result[Any]:
-        ...
-
-# Step 2: Use as type hint in consuming code
-# Example file location: <your_service_file>.py
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from core.ports.facade_protocols import SomeFacadeProtocol
-
-async def process_something(service: "SomeFacadeProtocol"):
-    # MyPy sees delegated methods, IDE provides autocomplete
-    result = await service.some_method("value")
-    return result.value
+# In core/services/tasks_service.py — add one line per delegated method
+async def some_method(self, *args: Any, **kwargs: Any) -> Any:
+    return await self.core.some_method(*args, **kwargs)
 ```
 
 ## Key Patterns

@@ -522,11 +522,11 @@ EntityType.from_string("ku")         # -> EntityType.CURRICULUM (alias support)
 **Status (February 2026):** ✅ **100% Protocol Compliance Achieved**
 - Zero concrete type dependencies in route signatures
 - All services use protocol-based backends
-- All facade services have MyPy-visible protocol declarations
+- All facade services have explicit delegation methods (MyPy-native, no parallel protocol file needed)
 - Full type safety across 27+ services
 - **Services dataclass: zero `Any` fields** — all ~72 fields typed (protocols + TYPE_CHECKING)
 
-**Protocol Location:** `core/ports/` - 11 protocol files covering all domains
+**Protocol Location:** `core/ports/` - 10 protocol files covering all domains
 
 **Key Protocol Categories:**
 
@@ -534,7 +534,6 @@ EntityType.from_string("ku")         # -> EntityType.CURRICULUM (alias support)
 |----------|------|---------|-------|
 | **Backend** | `base_protocols.py` | ISP-compliant backend operations | 7 protocols |
 | **Domains** | `domain_protocols.py` | Business logic (Tasks, Goals, etc.) | 9 protocols |
-| **Facades** | `facade_protocols.py` | MyPy declarations for delegated methods | 9 protocols |
 | **Curriculum** | `curriculum_protocols.py` | KU, LS, LP operations | 4 protocols |
 | **Search** | `search_protocols.py` | Search and query operations | 8 protocols |
 | **Infrastructure** | `infrastructure_protocols.py` | EventBus, UserOperations, etc. | 6 protocols |
@@ -553,11 +552,8 @@ EntityType.from_string("ku")         # -> EntityType.CURRICULUM (alias support)
 
 Route-facing protocols capture only the methods routes actually call (ISP). Internal fields use concrete classes for IDE support without architectural boundaries. Zero `Any` fields remain on the Services dataclass.
 
-**Facade Protocols (9 total):**
-Make FacadeDelegationMixin-generated methods visible to MyPy:
-- `TasksFacadeProtocol`, `GoalsFacadeProtocol`, `HabitsFacadeProtocol`
-- `EventsFacadeProtocol`, `ChoicesFacadeProtocol`, `PrinciplesFacadeProtocol`
-- `KuFacadeProtocol`, `LpFacadeProtocol`, `LsFacadeProtocol`
+**Facade Services (9 total) — Explicit Delegation (February 2026):**
+All 9 facade services (`TasksService`, `GoalsService`, `HabitsService`, `EventsService`, `ChoicesService`, `PrinciplesService`, `KuService`, `LsService`, `LpService`) now have explicit `async def` delegation methods. Route files import the concrete service class directly — no parallel protocol file needed.
 
 **BackendOperations Protocol Hierarchy:**
 ```
@@ -1117,7 +1113,7 @@ SKUEL's BaseService architecture uses 7 focused mixins + facade pattern with 3-1
 **Architecture Overview:**
 - **7 Mixins:** ConversionHelpers, CRUD, Search, Relationships, TimeQuery, UserProgress, Context
 - **6 Activity Domains:** Tasks (7 sub-services), Goals (9), Habits (8), Events (7), Choices (4), Principles (7)
-- **Facade Pattern:** Auto-delegation via FacadeDelegationMixin (~35-50 methods per facade)
+- **Facade Pattern:** Explicit `async def` delegation methods (~35-50 methods per facade)
 - **Factory Pattern:** `create_common_sub_services()` eliminates ~80 lines of boilerplate
 
 **Quick Reference:**
@@ -1134,7 +1130,7 @@ core = TasksCoreService(backend=mock_backend)
 **Implementation Files:**
 - `/core/services/base_service.py` - Foundation with 7 mixins
 - `/core/ports/base_service_interface.py` - Protocol for type checking & IDE autocomplete
-- `/core/services/mixins/facade_delegation_mixin.py` - Auto-delegation pattern
+- `/core/services/tasks_service.py` - Example facade with explicit delegation methods
 - `/core/utils/activity_domain_config.py` - Factory for common sub-services
 - `/core/utils/service_introspection.py` - Generic service utilities (type-safe examples)
 

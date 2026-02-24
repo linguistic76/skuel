@@ -36,8 +36,7 @@ SKUEL uses Python's Protocol typing (PEP 544) for dependency injection without f
 - **100% protocol compliance** - All services, routes, and containers use protocol types
 - **100% hasattr elimination** - All attribute checks now use Protocol-based type checking
 - **Zero port dependencies** - All services use `core/ports/*` exclusively
-- **Zero concrete type dependencies** - All route signatures use facade or ISP protocols
-- **9 facade protocols** - Complete MyPy visibility for delegated methods
+- **Facade services use concrete types** - Route files import `TasksService` directly; no facade protocols needed
 - **19 route-facing ISP protocols** - Services container fields typed (February 2026)
 - **Services dataclass: zero `Any` fields** — all ~72 fields fully typed (February 2026)
 - **75% code reduction** through generic programming patterns
@@ -83,7 +82,6 @@ core/
         ├── context_awareness_protocols.py # UserContext slices (11 protocols)
         ├── curriculum_protocols.py    # KU, LS, LP operations (4 protocols)
         ├── domain_protocols.py        # Activity domain operations (9 protocols)
-        ├── facade_protocols.py        # MyPy declarations for facades (9 protocols)
         ├── graph_protocols.py         # Graph entity protocols
         ├── group_protocols.py         # Group & teaching (2 protocols) [Feb 2026]
         ├── infrastructure_protocols.py # EventBus, User, Ingestion (6 protocols)
@@ -100,7 +98,6 @@ core/
 |----------|------|---------|-------|
 | **Type Checking** | `core/protocols.py` | Attribute checking (replaces hasattr) | 30+ |
 | **Domain Operations** | `domain_protocols.py` | Business logic (Tasks, Goals, etc.) | 9 |
-| **Facade Protocols** | `facade_protocols.py` | MyPy declarations for delegated methods | 9 |
 | **Curriculum** | `curriculum_protocols.py` | KU, LS, LP operations (unified hierarchy) | 4 |
 | **Search** | `search_protocols.py` | Search and query operations | 8 |
 | **Infrastructure** | `infrastructure_protocols.py` | EventBus, UserOperations, Ingestion | 6 |
@@ -129,60 +126,51 @@ Following "One Path Forward", unused and dead protocols have been removed:
 - Use `KuOperations` from `curriculum_protocols.py` instead of `KuOperationsLegacy`
 - Use duck typing or `Any` for services without proper protocol alignment
 
-### Facade Protocols (January 2026)
+### Facade Services — Explicit Delegation (February 2026)
 
-**Purpose**: Make FacadeDelegationMixin-generated methods visible to MyPy for static type checking.
+**Previous approach (deleted):** `FacadeDelegationMixin` generated 30-50+ delegation methods dynamically from a `_delegations` dict. This required `facade_protocols.py` (9 protocol classes) to make the dynamic methods visible to MyPy — a three-way synchronization burden.
 
-Services using the facade pattern auto-generate 30-50+ delegation methods at class definition time. These methods aren't visible to MyPy without explicit type declarations. Facade protocols solve this by declaring all delegated method signatures.
-
-**The 9 Facade Protocols:**
-
-| Protocol | Service | Delegated Methods |
-|----------|---------|-------------------|
-| `TasksFacadeProtocol` | `TasksService` | 45+ methods → core, search, scheduling, planning, intelligence |
-| `GoalsFacadeProtocol` | `GoalsService` | 40+ methods → core, search, scheduling, intelligence |
-| `HabitsFacadeProtocol` | `HabitsService` | 38+ methods → core, search, tracking, streaks, intelligence |
-| `EventsFacadeProtocol` | `EventsService` | 35+ methods → core, search, recurrence, intelligence |
-| `ChoicesFacadeProtocol` | `ChoicesService` | 30+ methods → core, search, decision analysis, intelligence |
-| `PrinciplesFacadeProtocol` | `PrinciplesService` | 32+ methods → core, search, alignment, intelligence |
-| `KuFacadeProtocol` | `KuService` | 50+ methods → core, search, graph, semantic, practice |
-| `LpFacadeProtocol` | `LpService` | 35+ methods → core, search, pathfinding, intelligence |
-| `LsFacadeProtocol` | `LsService` | 20+ methods → core, search, step management |
-
-**Usage in Routes:**
+**Current approach:** All 9 facade services have explicit `async def` delegation methods. MyPy sees them natively. No parallel protocol file needed.
 
 ```python
-# ✅ Good - Protocol type (MyPy can verify all method calls)
+# Current pattern (February 2026)
+class TasksService(BaseService[TasksOperations, Task]):
+    core: TasksCoreService
+    search: TasksSearchService
+    intelligence: TasksIntelligenceService
+
+    # Explicit delegation — MyPy-native
+    async def create_task(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.create_task(*args, **kwargs)
+
+    async def search_tasks(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.search(*args, **kwargs)
+```
+
+**Route files import the concrete service class:**
+
+```python
+# Current (February 2026)
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from core.ports.facade_protocols import TasksFacadeProtocol
+    from core.services.tasks_service import TasksService
 
 def create_tasks_api_routes(
     app: Any,
     rt: Any,
-    tasks_service: TasksFacadeProtocol,  # Protocol, not concrete class
+    tasks_service: "TasksService",  # Concrete class, not protocol
 ) -> list[Any]:
-    # MyPy knows all delegated methods exist
-    await tasks_service.schedule_task(...)  # ✓ Type-safe
+    await tasks_service.schedule_task(...)  # ✓ Type-safe (method is explicit)
     await tasks_service.get_ready_to_work_on(...)  # ✓ Type-safe
 ```
 
-**Usage in Service Container:**
-
-```python
-from core.ports.facade_protocols import LpFacadeProtocol
-
-@dataclass
-class Services:
-    # Protocol type instead of Any
-    learning: LpFacadeProtocol | None = None
-```
+**Affected services:** `TasksService`, `GoalsService`, `HabitsService`, `EventsService`, `ChoicesService`, `PrinciplesService`, `KuService`, `LsService`, `LpService`
 
 **Benefits:**
-- **MyPy verification** - All facade method calls are type-checked
-- **IDE autocomplete** - Full method discovery in IDEs
-- **Refactoring safety** - Rename detection across facade boundaries
-- **Documentation** - Protocol serves as method catalog
+- **MyPy-native** - No protocol workaround needed
+- **2,422 lines removed** - No mixin, no protocol file
+- **One file** - Service class is the single source of truth
+- **Simpler** - Add a method and it just works
 
 ### Architecture Pattern
 
@@ -200,10 +188,12 @@ Adapters (in adapters/)
 
 SKUEL achieved **100% protocol compliance** across the entire codebase through systematic improvements:
 
-### Phase 1: Protocol Creation
-- ✅ Created `KuFacadeProtocol` with 50+ method signatures for KU domain
+### Phase 1: Protocol Creation (January 2026 — superseded February 2026)
+- ✅ Created 9 facade protocols for all facade services
 - ✅ Exported all 9 facade protocols in `__init__.py`
 - ✅ Added `UserOperations` to infrastructure protocol exports
+
+> **Note:** The facade protocols created in this phase were superseded in February 2026 by explicit delegation methods. Facade services now use concrete class type hints in routes instead of protocol types. See "Facade Services — Explicit Delegation" section.
 
 ### Phase 2: Services Container (12 fields updated)
 Updated `Services` dataclass in `services_bootstrap.py`:
@@ -216,9 +206,9 @@ class Services:
     learning: Any = None
     context_service: Any = None
 
-    # After: Protocol types
+    # After: Protocol types (January 2026) / concrete types (February 2026 for facades)
     journals_core: JournalsOperations | None = None
-    learning: LpFacadeProtocol | None = None
+    learning: "LpService | None" = None  # February 2026: concrete class (was LpFacadeProtocol)
     learning_steps: LsOperations | None = None
     learning_intelligence: IntelligenceOperations | None = None
     context_service: UserContextOperations | None = None
@@ -229,21 +219,21 @@ class Services:
 ```
 
 ### Phase 3: Route Signatures (14 files updated)
-All API route functions now use protocol types instead of concrete classes:
+All API route functions now use protocol types instead of concrete classes. Note: Activity and Curriculum domain facades were later updated again in Phase 2 of the explicit delegation migration (February 2026) to use concrete service class types.
 
-**Activity Domains (6):**
-- `tasks_api.py` → `TasksFacadeProtocol`
-- `goals_api.py` → `GoalsFacadeProtocol`
-- `habits_api.py` → `HabitsFacadeProtocol`
-- `events_api.py` → `EventsFacadeProtocol`
-- `choices_api.py` → `ChoicesFacadeProtocol`
-- `principles_api.py` → `PrinciplesFacadeProtocol`
+**Activity Domains (6) — now use concrete service class:**
+- `tasks_api.py` → `TasksService`
+- `goals_api.py` → `GoalsService`
+- `habits_api.py` → `HabitsService`
+- `events_api.py` → `EventsService`
+- `choices_api.py` → `ChoicesService`
+- `principles_api.py` → `PrinciplesService`
 
-**Curriculum Domains (4):**
-- `knowledge_api.py` → `KuFacadeProtocol`
-- `learning_api.py` → `LpFacadeProtocol`
-- `learning_steps_api.py` → `LsFacadeProtocol`
-- `moc_api.py` → `KuFacadeProtocol` (MOC is KU-based)
+**Curriculum Domains (4) — now use concrete service class:**
+- `knowledge_api.py` → `KuService`
+- `learning_api.py` → `LpService`
+- `learning_steps_api.py` → `LsService`
+- `moc_api.py` → `KuService` (MOC is KU-based)
 
 **Other Domains (4):**
 - `context_aware_api.py` → `UserContextOperations`

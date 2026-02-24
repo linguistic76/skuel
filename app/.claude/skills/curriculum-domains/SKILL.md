@@ -48,7 +48,7 @@ UniversalNeo4jBackend[T]     <- ONE instance per domain (no wrappers)
 Factory / Manual             <- Creates sub-services
         |
         v
-    {Domain}Service          <- Facade with FacadeDelegationMixin
+    {Domain}Service          <- Facade with explicit delegation methods
         |
         v
     Sub-services             <- core, search, intelligence, relationships

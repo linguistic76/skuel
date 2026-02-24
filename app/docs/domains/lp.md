@@ -310,9 +310,8 @@ When learning paths have content with practice relationships:
        })
    ```
 
-3. **Wire to facade** — Add `"identify_practice_gaps"` to `LpService._delegations` map
-4. **Wire to protocol** — Add to `LpFacadeProtocol` in `facade_protocols.py`
-5. **Wire to route** — Add API endpoint in LP routes
+3. **Wire to facade** — Add explicit delegation method to `LpService`
+4. **Wire to route** — Add API endpoint in LP routes
 
 ### Expected Return Shape
 

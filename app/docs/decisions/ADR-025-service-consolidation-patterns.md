@@ -9,7 +9,9 @@ related: [ADR-023, ADR-024]
 
 # ADR-025: Service Consolidation Patterns
 
-**Status:** Accepted (All Phases Complete)
+> **Partial Supersede (February 2026):** The `FacadeDelegationMixin` pattern described in this ADR (Pattern 3) has been replaced by explicit `async def` delegation methods on the facade service class. `facade_delegation_mixin.py` and `facade_protocols.py` are deleted. The remaining patterns (DomainConfig, BaseService Mixins, Relationship Registry, Post-Query Processors, Domain-Specific Factories) remain in effect. See `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md` for the current Pattern 3.
+
+**Status:** Accepted (All Phases Complete — Pattern 3 superseded February 2026)
 
 **Date:** 2026-01-07
 

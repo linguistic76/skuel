@@ -222,7 +222,7 @@ Finance is intentionally **standalone** and **simple**:
 - Search service (admin queries expenses directly)
 - Relationship configuration (no graph relationships to other domains)
 - BaseService inheritance (standalone CRUD)
-- FacadeDelegationMixin (explicit delegation)
+- Facade pattern (no sub-services — single FinanceService class)
 
 **What Finance HAS:**
 - Clean CRUD operations for expenses and budgets

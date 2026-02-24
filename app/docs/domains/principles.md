@@ -42,22 +42,32 @@ Principles represent core values and guiding beliefs that inform goals, choices,
 | Events | `/core/events/principle_events.py` |
 | Context Types | `/core/models/context_types.py` (ContextualPrinciple, PracticeOpportunity) |
 
-## Facade Pattern (January 2026)
+## Facade Pattern (February 2026)
 
-`PrinciplesService` uses `FacadeDelegationMixin` with signature preservation for clean delegation to **8 specialized sub-services**:
+`PrinciplesService` uses explicit `async def` delegation methods for clean delegation to **8 specialized sub-services**:
 
 ```python
-class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations, Principle]):
-    _delegations = merge_delegations(
-        {"get_principle": ("core", "get_principle"), ...},              # Core CRUD
-        {"assess_goal_alignment": ("alignment", ...), ...},             # Alignment
-        {"frame_principle_practice_with_learning": ("learning", ...), ...},  # Learning
-        create_relationship_delegations("principle", include_semantic=False), # Relationships
-        {"get_principle_with_context": ("intelligence", ...), ...},     # Intelligence
-        {"get_principle_categories": ("search", ...), ...},             # Search
-        {"save_reflection": ("reflection", ...), ...},                  # Reflection
-        {"get_principles_needing_attention_for_user": ("planning", ...), ...},  # Planning
-    )
+class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
+    core: PrinciplesCoreService
+    search: PrinciplesSearchService
+    alignment: PrinciplesAlignmentService
+    learning: PrinciplesLearningService
+    reflection: PrinciplesReflectionService
+    planning: PrinciplesPlanningService
+    intelligence: PrinciplesIntelligenceService
+
+    # Explicit delegation — MyPy-native, no mixin needed
+    async def get_principle(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_principle(*args, **kwargs)
+
+    async def assess_goal_alignment(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.alignment.assess_goal_alignment(*args, **kwargs)
+
+    async def get_principle_with_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_principle_with_context(*args, **kwargs)
+
+    async def save_reflection(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.reflection.save_reflection(*args, **kwargs)
 ```
 
 **Sub-services:**

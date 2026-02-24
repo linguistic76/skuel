@@ -1,23 +1,31 @@
 # Activity Domain Facade Pattern
 
-> All 6 Activity Domains use identical facade architecture with FacadeDelegationMixin.
+> All 6 Activity Domains use identical facade architecture with explicit delegation methods (February 2026).
 
 ## Facade Structure
 
 ```python
-class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
-    # Class-level type annotations for signature preservation
+from typing import Any
+
+class TasksService(BaseService[TasksOperations, Task]):
+    # Class-level type annotations (for IDE and MyPy)
     core: TasksCoreService
     search: TasksSearchService
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
 
-    _delegations = merge_delegations(
-        {"get_task": ("core", "get_task"), ...},
-        {"search": ("search", "search"), ...},
-        create_relationship_delegations("task"),
-        {"get_task_with_context": ("intelligence", ...), ...},
-    )
+    # Explicit delegation methods — one line per delegated method
+    async def get_task(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_task(*args, **kwargs)
+
+    async def search_tasks(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.search(*args, **kwargs)
+
+    async def link_to_goal(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.relationships.link_to_goal(*args, **kwargs)
+
+    async def get_task_with_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_task_with_context(*args, **kwargs)
 ```
 
 ## Common Sub-services (All 6 Domains)
@@ -42,17 +50,41 @@ Created via `create_common_sub_services()` factory:
 | **Choices** | `learning`, `analytics` |
 | **Principles** | `alignment`, `learning`, `reflection` |
 
-## FacadeDelegationMixin
+## Explicit Delegation Pattern
 
-Auto-generates delegation methods from `_delegations` dict:
+Each facade method is a real `async def` that delegates to a sub-service:
 
 ```python
-_delegations = {
-    "facade_method_name": ("sub_service_attr", "sub_service_method"),
-}
+# Simple delegation (most methods)
+async def get_task(self, *args: Any, **kwargs: Any) -> Any:
+    return await self.core.get_task(*args, **kwargs)
+
+# Custom orchestration (when logic spans multiple sub-services)
+async def complete_task_with_cascade(self, task_uid: str, ...) -> Result[Task]:
+    result = await self.progress.complete_task_with_cascade(task_uid, ...)
+    if result.is_ok:
+        await self._trigger_knowledge_generation()
+    return result
 ```
 
-**Signature Preservation**: Class-level type annotations enable `inspect.signature()` to return actual parameters instead of `(*args, **kwargs)`.
+**Why explicit methods?**
+- MyPy sees all methods natively — no parallel protocol file needed
+- `FacadeDelegationMixin` and `facade_protocols.py` are deleted (February 2026)
+- 2,422 lines removed across 9 facade services
+
+## Route Files Use Concrete Class Types
+
+```python
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from core.services.tasks_service import TasksService
+
+def create_tasks_api_routes(
+    app: Any, rt: Any, tasks_service: "TasksService", ...
+) -> list[Any]:
+    result = await tasks_service.create_task(body, user_uid)
+```
 
 ## Factory Pattern
 
@@ -76,47 +108,23 @@ def __init__(self, backend, graph_intelligence_service, event_bus=None):
 
     # Domain-specific sub-services (manual creation)
     self.progress = TasksProgressService(backend=backend)
-    # Note: TasksAnalyticsService removed January 2026 - KU analytics are now direct
 ```
 
 ## Adding New Facade Methods
 
-**Option 1: Delegation (preferred for simple pass-through)**
-```python
-_delegations = merge_delegations(
-    existing_delegations,
-    {"new_method": ("sub_service", "method_name")},
-)
-```
-
-**Option 2: Explicit method (for custom logic)**
-```python
-async def complex_operation(self, uid: str, ...) -> Result[Entity]:
-    # Custom orchestration across sub-services
-    context = await self.intelligence.get_with_context(uid)
-    if context.is_error:
-        return context
-    # ... additional logic
-    return await self.core.update(uid, updates)
-```
-
-## Relationship Delegations
-
-Factory-generated via `create_relationship_delegations()`:
+Add the method to the sub-service, then add one delegation line to the facade:
 
 ```python
-from core.services.mixins import create_relationship_delegations
+# 1. Add to sub-service
+class TasksCoreService(BaseService[...]):
+    async def my_new_method(self, arg: str) -> Result[Task]:
+        ...
 
-_delegations = merge_delegations(
-    core_delegations,
-    create_relationship_delegations("task"),  # Generates ~8 methods
-)
+# 2. Add delegation to facade
+class TasksService(BaseService[...]):
+    async def my_new_method(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.my_new_method(*args, **kwargs)
 ```
-
-Generated methods:
-- `get_task_cross_domain_context()`
-- `link_to_goal()`, `link_to_principle()`, `link_to_knowledge()`
-- `get_related_uids()`, `get_entity_with_context()`
 
 ## Backend Sharing
 

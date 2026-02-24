@@ -47,19 +47,29 @@ Goals represent desired outcomes that guide learning and habit formation. They p
 | UI Routes | `/adapters/inbound/goals_ui.py` |
 | View Components | `/ui/goals/views.py` |
 
-## Facade Pattern (January 2026)
+## Facade Pattern (February 2026)
 
-`GoalsService` uses `FacadeDelegationMixin` with signature preservation for clean delegation to 8 specialized sub-services:
+`GoalsService` uses explicit `async def` delegation methods for clean delegation to 8 specialized sub-services:
 
 ```python
-class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
-    _delegations = merge_delegations(
-        {"get_goal": ("core", "get_goal"), ...},                # Core CRUD
-        {"search_goals": ("search", "search"), ...},            # Search
-        create_relationship_delegations("goal"),                 # Relationships
-        {"check_goal_capacity": ("scheduling", ...), ...},      # Scheduling
-        {"get_goal_with_context": ("intelligence", ...), ...},  # Intelligence
-    )
+class GoalsService(BaseService[GoalsOperations, Goal]):
+    core: GoalsCoreService
+    search: GoalsSearchService
+    scheduling: GoalsSchedulingService
+    intelligence: GoalsIntelligenceService
+
+    # Explicit delegation — MyPy-native, no mixin needed
+    async def get_goal(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_goal(*args, **kwargs)
+
+    async def search_goals(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.search(*args, **kwargs)
+
+    async def check_goal_capacity(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.check_goal_capacity(*args, **kwargs)
+
+    async def get_goal_with_context(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.get_goal_with_context(*args, **kwargs)
 ```
 
 **Sub-services:**

@@ -421,7 +421,7 @@ result = await tasks.create_task(request, user_uid)  # Delegates to core.create_
 
 **Benefits:**
 - Clean API (50+ methods at facade level)
-- Auto-delegation via FacadeDelegationMixin
+- Explicit delegation methods — MyPy-native, no parallel protocol file
 - Single import point
 
 ---
@@ -606,5 +606,5 @@ metrics_result = await tasks.intelligence.analyze_task_learning_metrics(user_uid
 - [Service Topology](/docs/architecture/SERVICE_TOPOLOGY.md) - Architecture diagrams
 - [Quick Start Guide](/docs/guides/BASESERVICE_QUICK_START.md) - New developer onboarding
 - [BaseService Implementation](/core/services/base_service.py) - Source code
-- [FacadeDelegationMixin](/core/services/mixins/facade_delegation_mixin.py) - Auto-delegation pattern
+- [Example Facade Service](/core/services/tasks_service.py) - Explicit delegation pattern
 - [Activity Domain Config](/core/utils/activity_domain_config.py) - Factory pattern

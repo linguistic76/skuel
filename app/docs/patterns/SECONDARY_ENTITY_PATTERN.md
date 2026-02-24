@@ -195,7 +195,7 @@ principles_reflection_service = PrinciplesReflectionService(
 Secondary entity services are sub-services of the primary domain facade:
 
 ```python
-class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations, Principle]):
+class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     def __init__(self, ...):
         # Primary sub-services (extend BaseService)
         self.core = PrinciplesCoreService(...)

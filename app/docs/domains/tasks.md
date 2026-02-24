@@ -45,13 +45,12 @@ Tasks represent work items with dependencies, deadlines, and knowledge requireme
 | UI Routes | `/adapters/inbound/tasks_ui.py` |
 | View Components | `/ui/tasks/views.py` |
 
-## Facade Pattern (January 2026)
+## Facade Pattern (February 2026)
 
-TasksService uses `FacadeDelegationMixin` with **signature preservation**:
+`TasksService` uses explicit `async def` delegation methods:
 
 ```python
-class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
-    # Class-level type annotations for signature preservation
+class TasksService(BaseService[TasksOperations, Task]):
     core: TasksCoreService
     search: TasksSearchService
     progress: TasksProgressService
@@ -59,13 +58,13 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
 
-    _delegations = merge_delegations(
-        {"get_task": ("core", "get_task"), ...},
-        {"analyze_task_learning_metrics": ("intelligence", "analyze_task_learning_metrics"), ...},
-    )
-```
+    # Explicit delegation — MyPy-native, no mixin needed
+    async def get_task(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_task(*args, **kwargs)
 
-**Signature preservation**: `inspect.signature(TasksService.analyze_learning_patterns)` returns the actual parameters (e.g., `user_uid, timeframe_days`) rather than generic `(*args, **kwargs)`.
+    async def analyze_task_learning_metrics(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.intelligence.analyze_task_learning_metrics(*args, **kwargs)
+```
 
 **Note (January 2026)**: TasksAnalyticsService removed. KU analytics methods are now direct in TasksService, Task model analysis moved to TasksIntelligenceService.
 

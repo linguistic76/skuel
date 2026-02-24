@@ -1302,7 +1302,7 @@ await events_service.create_study_session(...)
 
 ## See Also
 
-- [Service Consolidation Patterns](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - DomainConfig, FacadeDelegationMixin
+- [Service Consolidation Patterns](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - DomainConfig, explicit delegation patterns
 - [Three-Tier Type System](/docs/patterns/three_tier_type_system.md) - DTO/Domain model conversion
 - [Error Handling](/docs/patterns/ERROR_HANDLING.md) - Result[T] pattern
 - [Intelligence Services](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md) - Domain intelligence architecture

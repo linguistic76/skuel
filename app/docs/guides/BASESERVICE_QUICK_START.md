@@ -24,7 +24,7 @@ from core.services.tasks import TasksCoreService  # Import sub-service directly
 core = TasksCoreService(backend=mock_backend)
 ```
 
-**Key Concept:** Facades auto-delegate 50+ methods to specialized sub-services. You don't need to know which sub-service handles what - just call the facade method.
+**Key Concept:** Facades delegate 50+ methods to specialized sub-services via explicit `async def` methods. You don't need to know which sub-service handles what - just call the facade method.
 
 ---
 
@@ -66,8 +66,8 @@ SKUEL's service layer has **3 levels**:
 - SearchService = Queries
 - IntelligenceService = Analytics
 
-**3. Facades auto-delegate to sub-services**
-- FacadeDelegationMixin generates ~50 delegation methods
+**3. Facades delegate to sub-services via explicit methods**
+- Each facade has ~50 explicit `async def` delegation methods
 - Call `tasks_service.create_task()` → delegates to `core.create_task()`
 
 **4. DomainConfig configures BaseService behavior**
@@ -402,7 +402,7 @@ When implementing a new facade, use the factory:
 ```python
 from core.utils.activity_domain_config import create_common_sub_services
 
-class TasksService(FacadeDelegationMixin, BaseService):
+class TasksService(BaseService[TasksOperations, Task]):
     def __init__(self, backend, ...):
         super().__init__(backend, "tasks")
 
@@ -499,13 +499,14 @@ async def test_task_lifecycle(tasks_core_service):
 
 ---
 
-### Q: Why facades with auto-delegation?
+### Q: Why facades with explicit delegation methods?
 
-**A:** DRY + Clean Public API
+**A:** Clean Public API + MyPy-native type safety
 
-- **Before:** 50+ one-line delegation methods (boilerplate)
-- **After:** Declarative `_delegations` dict + auto-generation
-- Reduces 1,500 lines of boilerplate across 6 Activity Domains
+- Facades expose a single unified API across all sub-services
+- Explicit `async def` methods are visible to MyPy without any workarounds
+- No dynamic generation, no parallel protocol file to maintain
+- Add a method to a sub-service, add one delegation line to the facade — done
 
 ---
 
@@ -520,17 +521,16 @@ async def test_task_lifecycle(tasks_core_service):
 
 ### Q: How do I add a new method to a domain?
 
-**A:** Add to appropriate sub-service, then add delegation entry
+**A:** Add to appropriate sub-service, then add explicit delegation method to facade
 
 ```python
 # 1. Add method to sub-service (e.g., TasksCoreService)
 async def my_new_method(self, arg: str) -> Result[Task]:
     ...
 
-# 2. Add delegation entry in facade (TasksService)
-_delegations = {
-    "my_new_method": ("core", "my_new_method"),
-}
+# 2. Add explicit delegation method in facade (TasksService)
+async def my_new_method(self, *args: Any, **kwargs: Any) -> Any:
+    return await self.core.my_new_method(*args, **kwargs)
 
 # 3. Use from facade
 result = await tasks_service.my_new_method("value")
@@ -643,7 +643,7 @@ poetry run mypy core/services/mixins/*.py
 3. 📖 [Method Index](/docs/reference/BASESERVICE_METHOD_INDEX.md) - Complete method listing
 4. 📊 [Service Topology](/docs/architecture/SERVICE_TOPOLOGY.md) - Architecture diagrams
 5. 📚 [BaseService Source](/core/services/base_service.py) - Implementation details
-6. 📚 [FacadeDelegationMixin Source](/core/services/mixins/facade_delegation_mixin.py) - Auto-delegation magic
+6. 📚 [Example Facade Source](/core/services/tasks_service.py) - Explicit delegation pattern
 
 ### Practice Exercise
 

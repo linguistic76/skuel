@@ -598,7 +598,7 @@ SKUEL uses two distinct protocol categories:
 | Protocol Type | Location | Purpose | Usage |
 |--------------|----------|---------|-------|
 | **Domain Protocols** | `/core/ports/domain_protocols.py` | Service operation interfaces | Dependency injection (backends implement, services depend on) |
-| **Facade Protocols** | `/core/ports/facade_protocols.py` | Type hints for dynamic methods | Type safety at call sites (NOT for inheritance) |
+| **Facade Services** | `/core/services/{domain}_service.py` | Concrete classes with explicit delegation | Route files import concrete class as type hint |
 
 ### Domain Protocols: Service Operation Interfaces
 
@@ -648,61 +648,27 @@ class TasksService:
         self.backend = backend  # Protocol interface - dependency injection
 ```
 
-### Facade Protocols: Type Hints for Dynamic Methods
+### Facade Services: Concrete Classes with Explicit Delegation (February 2026)
 
-**Purpose:** Provide type declarations for methods created dynamically by `FacadeDelegationMixin`.
+**Purpose:** All 9 facade services (`TasksService`, `GoalsService`, etc.) have explicit `async def` delegation methods. Route files import the concrete service class directly.
 
-**CRITICAL:** These are for TYPE HINTS only, NOT for inheritance. Facade methods are created dynamically at class definition time - MyPy can't see them, so protocols enable structural subtyping.
+**Previous approach (deleted):** `FacadeDelegationMixin` generated methods dynamically from a `_delegations` dict. `facade_protocols.py` existed to make those dynamic methods visible to MyPy. Both are deleted.
 
 ```python
-# File: /core/ports/facade_protocols.py
-
-from typing import TYPE_CHECKING, Protocol
-
-if TYPE_CHECKING:
-    from core.models.goal.goal import Goal
-    from core.utils.result_simplified import Result
-
-class GoalsFacadeProtocol(Protocol):
-    """
-    Type declarations for dynamically delegated methods.
-
-    WARNING: Do NOT inherit from this protocol in GoalsService.
-    Use as TYPE HINT for parameters accepting facade instances.
-    """
-
-    async def get_goal_milestones(self, uid: str) -> Result[list[dict]]:
-        """Get goal milestones (delegated to goals_milestones sub-service)"""
-        ...
-
-    async def update_goal_progress(self, uid: str, progress: float) -> Result[Goal]:
-        """Update goal progress (delegated to goals_progress sub-service)"""
-        ...
-```
-
-**Usage Pattern:**
-```python
-# At call sites (NOT in service definition)
-from typing import TYPE_CHECKING, cast
+# Current pattern — route file imports concrete class
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.ports.facade_protocols import GoalsFacadeProtocol
+    from core.services.goals_service import GoalsService
 
-async def analyze_goals(goals_service: "GoalsFacadeProtocol") -> dict:
+async def analyze_goals(goals_service: "GoalsService") -> dict:
     """
-    MyPy sees method declarations from protocol.
-    Runtime uses structural subtyping (duck typing).
+    MyPy sees all explicit methods on GoalsService directly.
+    No protocol workaround needed.
     """
     milestones = await goals_service.get_goal_milestones(uid)
     progress = await goals_service.update_goal_progress(uid, 0.5)
     return {"milestones": milestones, "progress": progress}
-
-# In routes with dynamic delegation
-@rt("/api/tasks/assign")
-async def assign_task_route(request: Request) -> Result[Any]:
-    # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-    facade = cast("TasksFacadeProtocol", tasks_service)
-    return await facade.assign_task_to_user(uid, target_uid, assigned_by)
 ```
 
 ### Why Two Protocol Types?
@@ -713,11 +679,10 @@ async def assign_task_route(request: Request) -> Result[Any]:
 - Prevents circular dependencies
 - All return Result[T] for consistent error handling
 
-**Facade Protocols** solve type safety with dynamic methods:
-- FacadeDelegationMixin creates methods at class definition time
-- MyPy can't see dynamically created methods
-- Protocols provide structural subtyping (duck typing)
-- Used as type hints at call sites, NOT base classes
+**Facade Services** solve type safety with explicit methods:
+- All delegation methods are real `async def` — MyPy sees them natively
+- Route files use `TYPE_CHECKING` import of the concrete class
+- No parallel protocol file needed
 
 ### Protocol Benefits
 

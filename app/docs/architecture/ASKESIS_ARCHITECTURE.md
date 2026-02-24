@@ -132,7 +132,7 @@ This eliminates the former circular dependency between UserStateAnalyzer and Act
 
 | Aspect | Activity Domain Facade | Askesis |
 |--------|----------------------|---------|
-| **Inheritance** | `FacadeDelegationMixin` | `FacadeDelegationMixin` (January 2026) |
+| **Inheritance** | `BaseService` (explicit delegation methods) | `BaseService` (explicit delegation methods) |
 | **Sub-services** | 7 (core, search, intelligence, etc.) | 7 (state, recommendation, query, intent, response, etc.) |
 | **Entity CRUD** | Yes (BaseService) | No (cross-domain only) |
 | **Backend** | `UniversalNeo4jBackend[T]` | None (uses domain services) |

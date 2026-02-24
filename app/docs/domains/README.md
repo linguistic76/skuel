@@ -90,31 +90,32 @@ core/services/{domain}/
 └── {domain}_service.py           # Facade (combines core + search)
 ```
 
-### Facade Delegation Pattern (January 2026)
+### Facade Delegation Pattern (February 2026)
 
-Activity Domain facades use `FacadeDelegationMixin` with **signature preservation**:
+Activity Domain facades use explicit `async def` delegation methods — MyPy-native, no mixin needed:
 
 ```python
-from core.services.mixins import FacadeDelegationMixin, merge_delegations
+from typing import Any
 
-class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
-    # Class-level type annotations enable signature preservation
+class TasksService(BaseService[TasksOperations, Task]):
     core: TasksCoreService
     search: TasksSearchService
     intelligence: TasksIntelligenceService
 
-    _delegations = merge_delegations(
-        {"get_task": ("core", "get_task"), ...},
-        {"search": ("search", "search"), ...},
-    )
+    # Explicit delegation — each method is a real async def
+    async def get_task(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.get_task(*args, **kwargs)
+
+    async def search_tasks(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.search(*args, **kwargs)
 ```
 
 **Key features:**
-- **Signature preservation**: `inspect.signature()` on facade methods returns actual parameter names (not `*args, **kwargs`)
-- **Class-level annotations**: Required for the mixin to resolve method signatures at class definition time
+- **MyPy-native**: All methods are real `async def` — no workaround needed
 - **Underscore prefix convention**: `_filters` means "placeholder for future implementation" (not "unused")
+- **One file**: The service class is the single source of truth
 
-**See:** `/core/services/mixins/facade_delegation_mixin.py`
+**Note:** `FacadeDelegationMixin` and `facade_protocols.py` are deleted (February 2026).
 
 ### Intelligence Service Pattern (January 2026 - ADR-031)
 
@@ -133,7 +134,7 @@ Domain intelligence services follow the **unified internal creation pattern**:
 
 ```python
 # Example: LpService creates intelligence internally
-class LpService(FacadeDelegationMixin):
+class LpService(BaseService[LpOperations, LearningPath]):
     def __init__(self, driver, ls_service, graph_intelligence_service, ...):
         # Step 5: Create intelligence INTERNALLY (January 2026 - Unified Pattern)
         self.intelligence = LpIntelligenceService(

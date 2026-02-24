@@ -223,6 +223,8 @@ In SKUEL's codebase:
 
 ## 3. Protocol Synchronization
 
+> **Historical Note (February 2026):** `ChoicesFacadeProtocol` and other facade protocols are deleted. Facade services now have explicit `async def` methods — no parallel protocol file to synchronize. This section's patterns still apply to domain protocols (`TasksOperations`, `GoalsOperations`, etc.) and other non-facade protocols.
+
 **Problem:** Protocol method signatures don't match actual implementation signatures → `call-arg` errors when calling methods
 
 **Solution:** Keep protocols in sync with implementations - protocols are contracts, not documentation
@@ -341,6 +343,8 @@ In SKUEL's codebase:
 
 ## 4. Protocol Completeness
 
+> **Historical Note (February 2026):** `PrinciplesFacadeProtocol` and other facade protocols are deleted. For facade services, add an explicit `async def` delegation method to the service class instead. This section's patterns still apply to domain protocols and other non-facade protocols.
+
 **Problem:** Protocols missing method declarations that are actually called in code → `attr-defined` errors
 
 **Solution:** Add missing methods to protocols - if it's called, it must be declared
@@ -415,14 +419,15 @@ When you get `attr-defined` errors:
 ```bash
 # 1. Find the error
 poetry run mypy adapters/inbound/principles_api.py 2>&1 | grep "has no attribute"
-# Output: "PrinciplesFacadeProtocol" has no attribute "create_principle_expression"
+# Output: "PrinciplesService" has no attribute "create_principle_expression"
 
 # 2. Find the implementation
 grep -r "def create_principle_expression" core/services/principles/
 
-# 3. Check the protocol
-grep -A 5 "def create_principle_expression" core/ports/facade_protocols.py
-# If not found, add it!
+# 3. Add explicit delegation method to the facade
+# In core/services/principles_service.py:
+async def create_principle_expression(self, *args: Any, **kwargs: Any) -> Any:
+    return await self.core.create_principle_expression(*args, **kwargs)
 ```
 
 ### Pattern Template
@@ -431,22 +436,17 @@ grep -A 5 "def create_principle_expression" core/ports/facade_protocols.py
 # Step 1: Find methods called on the service
 grep "service\.method_name" adapters/inbound/*.py
 
-# Step 2: Check if protocol declares them
-grep "def method_name" core/ports/facade_protocols.py
+# Step 2: Check if facade has delegation method
+grep "def method_name" core/services/principles_service.py
 
-# Step 3: Add missing methods to protocol
-class ServiceProtocol(Protocol):
-    # Existing methods...
-
-    # Add missing method with signature matching implementation
-    async def method_name(self, param: str) -> Result[Any]:
-        """Description of what the method does."""
-        ...
+# Step 3: Add explicit delegation method to facade
+async def method_name(self, *args: Any, **kwargs: Any) -> Any:
+    return await self.sub_service.method_name(*args, **kwargs)
 ```
 
-### Impact
+### Impact (Historical — January 2026)
 
-In SKUEL's codebase:
+Before the explicit delegation migration:
 - **5 errors fixed** in PrinciplesFacadeProtocol
 - **Methods added:** create_principle_expression, get_principle_expressions, get_principle_alignment_history, create_principle_link
 
@@ -612,7 +612,7 @@ In SKUEL's codebase:
 
 - **Route factories:** 3 files (reports_api.py, askesis_api.py, reports_sharing_api.py)
 - **Route infrastructure:** 2 files (lateral_route_factory.py, lateral_routes.py)
-- **Protocols:** 2 files (domain_protocols.py, facade_protocols.py)
+- **Protocols:** 1 file (domain_protocols.py)
 - **API routes:** 1 file (insights_api.py)
 - **UI routes:** 2 files (choice_ui.py, goals_ui.py)
 

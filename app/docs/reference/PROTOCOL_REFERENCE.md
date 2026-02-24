@@ -21,7 +21,7 @@ related: [ADR-025, ADR-027]
 2. [Pydantic Integration Protocols](#pydantic-integration-protocols)
 3. [Backend Capability Protocols](#backend-capability-protocols)
 4. [Domain-Specific Protocols](#domain-specific-protocols)
-5. [Facade Protocols (January 2026)](#facade-protocols-january-2026)
+5. [Facade Services — Explicit Delegation (February 2026)](#facade-services--explicit-delegation-february-2026)
 6. [Route-Facing Service Protocols (February 2026)](#route-facing-service-protocols-february-2026)
 7. [Knowledge Carrier Protocols (ADR-027)](#knowledge-carrier-protocols-adr-027)
 8. [Context Awareness Protocols](#context-awareness-protocols)
@@ -43,7 +43,7 @@ related: [ADR-025, ADR-027]
 | **Search Protocols** | `/core/ports/search_protocols.py` | Search operations |
 | **Infrastructure Protocols** | `/core/ports/infrastructure_protocols.py` | EventBus, Schema, User, Ingestion |
 | **Intelligence Protocols** | `/core/ports/intelligence_protocols.py` | Analytics operations |
-| **Facade Protocols** | `/core/ports/facade_protocols.py` | Type hints for delegated methods |
+| **Facade Services** | `/core/services/{domain}_service.py` | Concrete classes with explicit delegation methods |
 | **Context Awareness** | `/core/ports/context_awareness_protocols.py` | UserContext slices (ISP) |
 | **Knowledge Carrier** | `/core/models/protocols/knowledge_carrier_protocol.py` | Knowledge integration |
 
@@ -417,116 +417,47 @@ class HasStreaks(Protocol):
 
 ---
 
-## Facade Protocols (January 2026)
+## Facade Services — Explicit Delegation (February 2026)
 
-**Location:** `/core/ports/facade_protocols.py`
-**Purpose:** Type hints for dynamically delegated facade methods
-**See:** ADR-025 (Service Consolidation Patterns)
+**Status:** `facade_protocols.py` and `FacadeDelegationMixin` are **deleted**. Facade services now use explicit `async def` delegation methods.
 
-### Core Principle: "Type hints for delegation, NOT for inheritance"
+### What Changed
 
-**CRITICAL:** Facade protocols are for TYPE HINTS only, NEVER use them as base classes.
+Previously, `FacadeDelegationMixin` generated delegation methods dynamically from a `_delegations` dict. `facade_protocols.py` existed solely to make those dynamic methods visible to MyPy — a three-way sync burden (service class, `_delegations` dict, protocol class).
 
-### Rationale: Why Facade Protocols Exist
+**Current approach:** All 9 facade services have explicit `async def` methods. MyPy sees them natively.
 
-Facade services use `FacadeDelegationMixin` to dynamically generate delegation methods at class definition time:
+### Usage Pattern
 
-```python
-class TasksService(FacadeDelegationMixin):
-    _delegate_to = ["core", "search", "intelligence"]
-
-    def __init__(self, core, search, intelligence):
-        self.core = core
-        self.search = search
-        self.intelligence = intelligence
-
-# At class definition, FacadeDelegationMixin creates these methods:
-# - self.get_task() -> delegates to self.core.get_task()
-# - self.search_tasks() -> delegates to self.search.search_tasks()
-# - self.analyze_task() -> delegates to self.intelligence.analyze_task()
-```
-
-**The Problem:** MyPy can't see these dynamically-generated methods. Static analysis happens before runtime, so MyPy sees TasksService as having NO methods.
-
-**The Solution:** Facade protocols use structural subtyping (Protocol) to tell MyPy what methods exist at runtime:
-
-```python
-@runtime_checkable
-class TasksFacadeProtocol(Protocol):
-    # Declare ALL delegated methods for MyPy
-    async def get_task(self, uid: str) -> Result[Task]: ...
-    async def search_tasks(self, query: str) -> Result[list[Task]]: ...
-    async def analyze_task(self, uid: str) -> Result[dict]: ...
-```
-
-When you use `TasksFacadeProtocol` as a type hint, MyPy enables autocomplete and type checking for all delegated methods.
-
-### Available Facade Protocols (9 Total - January 2026)
-
-**Status:** ✅ **100% Coverage** - All facade services have protocol declarations
-
-| Protocol | Facade Service | Sub-services Covered | Methods |
-|----------|----------------|---------------------|---------|
-| `TasksFacadeProtocol` | TasksService | core, search, scheduling, planning, intelligence | 45+ |
-| `GoalsFacadeProtocol` | GoalsService | core, search, scheduling, intelligence | 40+ |
-| `HabitsFacadeProtocol` | HabitsService | core, search, tracking, streaks, intelligence | 38+ |
-| `EventsFacadeProtocol` | EventsService | core, search, recurrence, intelligence | 35+ |
-| `ChoicesFacadeProtocol` | ChoicesService | core, search, decision analysis, intelligence | 30+ |
-| `PrinciplesFacadeProtocol` | PrinciplesService | core, search, alignment, intelligence | 32+ |
-| `KuFacadeProtocol` | KuService | core, search, graph, semantic, practice, interaction | 50+ |
-| `LpFacadeProtocol` | LpService | core, search, pathfinding, intelligence | 35+ |
-| `LsFacadeProtocol` | LsService | core, search, step management | 20+ |
-
-**Note:** MOC uses `KuFacadeProtocol` (MOC is KU-based as of January 2026)
-
-### Usage Pattern: TYPE_CHECKING Guard
-
-**Always use TYPE_CHECKING guard to prevent circular imports:**
+Route files import the concrete service class directly:
 
 ```python
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.ports.facade_protocols import GoalsFacadeProtocol
+    from core.services.tasks_service import TasksService
 
-async def analyze_goals(goals_service: "GoalsFacadeProtocol") -> dict:
-    # MyPy sees the protocol's method declarations
-    # IDE provides autocomplete for all delegated methods
-    milestones = await goals_service.get_goal_milestones(uid)
-    progress = await goals_service.update_goal_progress(uid, 0.5)
-    return {"milestones": milestones, "progress": progress}
+async def analyze_tasks(tasks_service: "TasksService") -> dict:
+    # MyPy sees all explicit methods on TasksService
+    milestones = await tasks_service.get_task(uid)
+    return {"task": milestones}
 ```
 
-**Why TYPE_CHECKING?**
-- The `if TYPE_CHECKING:` block only runs during static analysis (MyPy)
-- At runtime, the import is skipped, preventing circular dependency issues
-- Use string literal `"GoalsFacadeProtocol"` for the type hint to avoid NameError at runtime
+### Affected Services (9 Total)
 
-### ⚠️ CRITICAL WARNING: Do NOT Inherit From Facade Protocols
+| Service | Module |
+|---------|--------|
+| `TasksService` | `core.services.tasks_service` |
+| `GoalsService` | `core.services.goals_service` |
+| `HabitsService` | `core.services.habits_service` |
+| `EventsService` | `core.services.events_service` |
+| `ChoicesService` | `core.services.choices_service` |
+| `PrinciplesService` | `core.services.principles_service` |
+| `KuService` | `core.services.ku_service` |
+| `LpService` | `core.services.lp_service` |
+| `LsService` | `core.services.ls_service` |
 
-```python
-# ❌ WRONG - DO NOT DO THIS
-class TasksService(TasksFacadeProtocol, FacadeDelegationMixin):
-    # MyPy error: Cannot instantiate abstract class 'TasksService' with abstract methods...
-    pass
-
-# ✅ CORRECT - Use as TYPE HINT only
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from core.ports.facade_protocols import TasksFacadeProtocol
-
-def process_tasks(service: "TasksFacadeProtocol"):
-    # Type hint for parameter, NOT inheritance
-    pass
-```
-
-**Why NOT to inherit:**
-1. **MyPy expects explicit implementations** - When Protocol is a base class, MyPy expects you to explicitly implement ALL protocol methods
-2. **Dynamic methods are invisible to static analysis** - FacadeDelegationMixin creates methods at runtime, but MyPy runs BEFORE runtime
-3. **Results in "Cannot instantiate abstract class" errors** - MyPy sees "missing" methods that actually exist at runtime
-
-**Facade protocols are ONLY for parameter type hints, NOT for inheritance.**
+**Note:** MOC uses `KuService` (MOC is KU-based).
 
 ---
 
@@ -870,19 +801,19 @@ def process_entity(entity: KnowledgeCarrier) -> dict:
 
 ---
 
-### Example 4: Facade Protocol Type Hints
+### Example 4: Facade Service Type Hints (February 2026)
 
 ```python
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.ports.facade_protocols import TasksFacadeProtocol
+    from core.services.tasks_service import TasksService
 
 async def analyze_task_knowledge(
-    tasks_service: TasksFacadeProtocol,
+    tasks_service: "TasksService",
     task_uid: str
 ) -> dict:
-    # MyPy sees these delegated methods
+    # MyPy sees all explicit methods on TasksService
     result = await tasks_service.get_task(task_uid)
     if result.is_error:
         return {}

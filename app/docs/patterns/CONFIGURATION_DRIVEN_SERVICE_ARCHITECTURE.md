@@ -275,7 +275,7 @@ results = await service.graph_aware_faceted_search(
 Facades create one backend, share with sub-services:
 
 ```python
-class LsService(FacadeDelegationMixin):
+class LsService(BaseService[LsOperations, Ls]):
     """Learning Step facade - uses UniversalNeo4jBackend directly."""
 
     def __init__(self, driver: Neo4jDriver, event_bus: EventBus | None = None):
@@ -286,10 +286,12 @@ class LsService(FacadeDelegationMixin):
         self.core = LsCoreService(backend=ls_backend, event_bus=event_bus)
         self.search = LsSearchService(backend=ls_backend)
 
-    _delegations = merge_delegations(
-        {"create_ls": ("core", "create_ls"), ...},
-        {"search": ("search", "search"), ...},
-    )
+    # Explicit delegation methods (February 2026)
+    async def create_ls(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.core.create_ls(*args, **kwargs)
+
+    async def search(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search.search(*args, **kwargs)
 ```
 
 ---
