@@ -14,10 +14,11 @@ Sub-Services:
 
 from __future__ import annotations
 
-from datetime import date
 from typing import TYPE_CHECKING, Any, TypedDict
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from core.ports import BackendOperations
     from core.ports.search_protocols import TasksSearchOperations
 

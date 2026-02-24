@@ -222,12 +222,8 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
     async def get_contextual_principles_for_user(self, *args: Any, **kwargs: Any) -> Any:
         return await self.planning.get_contextual_principles_for_user(*args, **kwargs)
 
-    async def get_principle_practice_opportunities_for_user(
-        self, *args: Any, **kwargs: Any
-    ) -> Any:
-        return await self.planning.get_principle_practice_opportunities_for_user(
-            *args, **kwargs
-        )
+    async def get_principle_practice_opportunities_for_user(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.planning.get_principle_practice_opportunities_for_user(*args, **kwargs)
 
     def __init__(
         self,

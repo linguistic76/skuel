@@ -2348,9 +2348,7 @@ async def compose_services(
             # Learning services
             user_progress=learning_services["user_progress"],
             # unified_progress DELETED (January 2026) - use user_progress
-            lp=learning_services[
-                "learning_paths"
-            ],  # ku, ls, lp short-name consistency
+            lp=learning_services["learning_paths"],  # ku, ls, lp short-name consistency
             ls=learning_services[
                 "learning_steps"
             ],  # Renamed from learning_steps (consistency: ku, ls, lp)

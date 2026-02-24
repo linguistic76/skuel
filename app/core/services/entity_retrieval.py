@@ -311,7 +311,7 @@ class EntityRetrieval:
             return await self._execute_base_search(analysis, query, limit)
 
     async def _execute_base_search(
-        self, analysis: QueryElements, query: str, limit: int
+        self, _analysis: QueryElements, query: str, limit: int
     ) -> list[EnhancedResult]:
         """
         Execute base search using repository.

@@ -29,8 +29,8 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.models.enums import Priority
 from core.models.goal.goal_request import GoalCreateRequest
-from core.services.goals_service import GoalsService
 from core.ports.query_types import ActivityFilterSpec
+from core.services.goals_service import GoalsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (

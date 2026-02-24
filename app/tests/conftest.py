@@ -216,7 +216,7 @@ def authenticated_client_simple(skuel_app) -> "Generator[TestClient, None, None]
         # Log in with default dev user
         # DEFAULT_DEV_USER is "user_mike" — extract username by removing "user_" prefix
         dev_username = DEFAULT_DEV_USER.removeprefix("user_").removeprefix("user.")
-        login_response = client.post(
+        client.post(
             "/login/submit",
             data={
                 "username": dev_username,  # "mike"
@@ -244,7 +244,7 @@ def authenticated_client_simple(skuel_app) -> "Generator[TestClient, None, None]
                 yield client
             else:
                 # Try login again after registration
-                login_response = client.post(
+                client.post(
                     "/login/submit",
                     data={
                         "username": dev_username,

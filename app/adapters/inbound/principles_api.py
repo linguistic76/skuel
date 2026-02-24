@@ -21,8 +21,8 @@ from core.models.activity_requests import (
     PrincipleExpressionRequest,
     PrincipleLinkRequest,
 )
-from core.services.principles_service import PrinciplesService
 from core.services.conversion_service import ConversionService
+from core.services.principles_service import PrinciplesService
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
 

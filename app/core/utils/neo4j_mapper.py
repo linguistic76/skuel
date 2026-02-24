@@ -378,18 +378,20 @@ class Neo4jGenericMapper:
         # Guard: if target_type is still a string annotation (get_type_hints fallback),
         # detect common dict/list patterns and attempt JSON parsing.
         if isinstance(target_type, str):
-            if target_type == "dict" or target_type.startswith("dict["):
-                if isinstance(value, str) and value:
-                    try:
-                        return json.loads(value)
-                    except (json.JSONDecodeError, ValueError):
-                        pass
-            elif target_type == "list" or target_type.startswith("list["):
-                if isinstance(value, str) and value:
-                    try:
-                        return json.loads(value)
-                    except (json.JSONDecodeError, ValueError):
-                        pass
+            if (
+                (
+                    target_type == "dict"
+                    or target_type.startswith("dict[")
+                    or target_type == "list"
+                    or target_type.startswith("list[")
+                )
+                and isinstance(value, str)
+                and value
+            ):
+                try:
+                    return json.loads(value)
+                except (json.JSONDecodeError, ValueError):
+                    pass
             return value
 
         # Get origin for generic types

@@ -164,9 +164,7 @@ class ChoicesViewComponents:
         )
 
         # Choice list
-        choice_items = [
-            ChoicesViewComponents._render_choice_item(choice) for choice in choices
-        ]
+        choice_items = [ChoicesViewComponents._render_choice_item(choice) for choice in choices]
 
         choice_list = Div(
             *choice_items

@@ -167,43 +167,43 @@ class LpService:
     # CORE CRUD OPERATIONS - Delegated to LpCoreService
     # ============================================================================
 
-    async def create_path_from_knowledge_units(self, *args: "Any", **kwargs: "Any") -> "Any":
+    async def create_path_from_knowledge_units(self, *args: Any, **kwargs: Any) -> Any:
         """Create a learning path from knowledge units."""
         return await self.core.create_path_from_knowledge_units(*args, **kwargs)
 
-    async def create_path(self, *args: "Any", **kwargs: "Any") -> "Any":
+    async def create_path(self, *args: Any, **kwargs: Any) -> Any:
         """Create a learning path."""
         return await self.core.create_path(*args, **kwargs)
 
-    async def get_learning_paths_batch(self, uids: "list[str]") -> "Any":
+    async def get_learning_paths_batch(self, uids: list[str]) -> Any:
         """Get multiple learning paths in one query."""
         return await self.core.get_learning_paths_batch(uids)
 
-    async def get_learning_path(self, uid: str) -> "Any":
+    async def get_learning_path(self, uid: str) -> Any:
         """Get a learning path by UID."""
         return await self.core.get_learning_path(uid)
 
-    async def list_user_paths(self, user_uid: str, limit: int = 100) -> "Any":
+    async def list_user_paths(self, user_uid: str, limit: int = 100) -> Any:
         """List learning paths for a user."""
         return await self.core.list_user_paths(user_uid, limit)
 
-    async def list_all_paths(self, limit: int = 100) -> "Any":
+    async def list_all_paths(self, limit: int = 100) -> Any:
         """List all learning paths."""
         return await self.core.list_all_paths(limit=limit)
 
-    async def get_path_steps(self, path_uid: str) -> "Any":
+    async def get_path_steps(self, path_uid: str) -> Any:
         """Get steps in a learning path."""
         return await self.core.get_path_steps(path_uid)
 
-    async def get_current_step(self, path_uid: str, user_uid: str) -> "Any":
+    async def get_current_step(self, path_uid: str, user_uid: str) -> Any:
         """Get current step for a user in a learning path."""
         return await self.core.get_current_step(path_uid, user_uid)
 
-    async def update_path(self, uid: str, updates: "dict[str, Any]") -> "Any":
+    async def update_path(self, uid: str, updates: dict[str, Any]) -> Any:
         """Update a learning path."""
         return await self.core.update_path(uid, updates)
 
-    async def delete_path(self, uid: str) -> "Any":
+    async def delete_path(self, uid: str) -> Any:
         """Delete a learning path."""
         return await self.core.delete_path(uid)
 
@@ -211,35 +211,35 @@ class LpService:
     # INTELLIGENCE OPERATIONS - Delegated to LpIntelligenceService
     # ============================================================================
 
-    async def validate_path_prerequisites(self, *args: "Any", **kwargs: "Any") -> "Any":
+    async def validate_path_prerequisites(self, *args: Any, **kwargs: Any) -> Any:
         """Validate prerequisites for a learning path."""
         return await self.intelligence.validate_path_prerequisites(*args, **kwargs)
 
-    async def identify_path_blockers(self, *args: "Any", **kwargs: "Any") -> "Any":
+    async def identify_path_blockers(self, *args: Any, **kwargs: Any) -> Any:
         """Identify blockers in a learning path."""
         return await self.intelligence.identify_path_blockers(*args, **kwargs)
 
-    async def get_optimal_path_recommendation(self, *args: "Any", **kwargs: "Any") -> "Any":
+    async def get_optimal_path_recommendation(self, *args: Any, **kwargs: Any) -> Any:
         """Get optimal path recommendation."""
         return await self.intelligence.get_optimal_path_recommendation(*args, **kwargs)
 
-    async def get_path_with_context(self, *args: "Any", **kwargs: "Any") -> "Any":
+    async def get_path_with_context(self, *args: Any, **kwargs: Any) -> Any:
         """Get learning path with context."""
         return await self.intelligence.get_path_with_context(*args, **kwargs)
 
-    async def analyze_path_knowledge_scope(self, *args: "Any", **kwargs: "Any") -> "Any":
+    async def analyze_path_knowledge_scope(self, *args: Any, **kwargs: Any) -> Any:
         """Analyze knowledge scope of a learning path."""
         return await self.intelligence.analyze_path_knowledge_scope(*args, **kwargs)
 
-    async def find_learning_sequence(self, *args: "Any", **kwargs: "Any") -> "Any":
+    async def find_learning_sequence(self, *args: Any, **kwargs: Any) -> Any:
         """Find learning sequence."""
         return await self.intelligence.find_learning_sequence(*args, **kwargs)
 
-    async def get_next_adaptive_step(self, *args: "Any", **kwargs: "Any") -> "Any":
+    async def get_next_adaptive_step(self, *args: Any, **kwargs: Any) -> Any:
         """Get next adaptive learning step."""
         return await self.intelligence.get_next_adaptive_step(*args, **kwargs)
 
-    async def get_recommended_learning_steps(self, *args: "Any", **kwargs: "Any") -> "Any":
+    async def get_recommended_learning_steps(self, *args: Any, **kwargs: Any) -> Any:
         """Get recommended learning steps."""
         return await self.intelligence.get_recommended_learning_steps(*args, **kwargs)
 

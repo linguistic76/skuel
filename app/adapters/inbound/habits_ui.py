@@ -29,9 +29,9 @@ from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactor
 from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityStatus
 from core.models.habit.habit_request import HabitCreateRequest
+from core.ports.query_types import ActivityFilterSpec
 from core.services.goals_service import GoalsService
 from core.services.habits_service import HabitsService
-from core.ports.query_types import ActivityFilterSpec
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
@@ -1665,9 +1665,7 @@ def create_habits_ui_routes(
         else:  # 30d default
             start_date = end_date - timedelta(days=30)
 
-        return AtomicHabitsAnalytics.render_analytics_dashboard(
-            date_range=(start_date, end_date)
-        )
+        return AtomicHabitsAnalytics.render_analytics_dashboard(date_range=(start_date, end_date))
 
     @rt("/analytics/update")
     async def analytics_update_fragment(request) -> Any:

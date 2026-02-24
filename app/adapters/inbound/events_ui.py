@@ -29,8 +29,8 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.services.events_service import EventsService
 from core.ports.query_types import ActivityFilterSpec
+from core.services.events_service import EventsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_lower

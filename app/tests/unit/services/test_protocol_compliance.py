@@ -136,7 +136,8 @@ class TestFacadeStructure:
         """Verify facade has callable methods beyond the base class minimum."""
         # Explicit facades should expose many methods (delegations + domain-specific)
         methods = [
-            name for name in dir(facade)
+            name
+            for name in dir(facade)
             if not name.startswith("_") and callable(getattr(facade, name, None))
         ]
         assert len(methods) >= 5, (

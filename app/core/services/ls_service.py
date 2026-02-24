@@ -150,28 +150,26 @@ class LsService:
     # ============================================================================
 
     async def create_step(
-        self, step: "LearningStep", path_uid: "str | None" = None
-    ) -> "Result[LearningStep]":
+        self, step: LearningStep, path_uid: str | None = None
+    ) -> Result[LearningStep]:
         """Create a learning step."""
         return await self.core.create_step(step, path_uid)
 
-    async def get_step(self, step_uid: str) -> "Result[LearningStep | None]":
+    async def get_step(self, step_uid: str) -> Result[LearningStep | None]:
         """Get a learning step by UID."""
         return await self.core.get_step(step_uid)
 
-    async def update_step(
-        self, step_uid: str, updates: "dict[str, Any]"
-    ) -> "Result[LearningStep]":
+    async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[LearningStep]:
         """Update a learning step."""
         return await self.core.update_step(step_uid, updates)
 
-    async def delete_step(self, step_uid: str) -> "Result[bool]":
+    async def delete_step(self, step_uid: str) -> Result[bool]:
         """Delete a learning step."""
         return await self.core.delete_step(step_uid)
 
     async def list_steps(
-        self, path_uid: "str | None" = None, limit: int = 100, **kwargs: "Any"
-    ) -> "Result[list[LearningStep]]":
+        self, path_uid: str | None = None, limit: int = 100, **kwargs: Any
+    ) -> Result[list[LearningStep]]:
         """List learning steps."""
         return await self.core.list_steps(path_uid=path_uid, limit=limit, **kwargs)
 
@@ -180,19 +178,19 @@ class LsService:
     # ============================================================================
     # These methods make LsService compatible with CRUDRouteFactory
 
-    async def create(self, entity: "LearningStep") -> "Result[LearningStep]":
+    async def create(self, entity: LearningStep) -> Result[LearningStep]:
         """Create method for CRUDRouteFactory compatibility."""
         return await self.create_step(entity)
 
-    async def get(self, uid: str) -> "Result[LearningStep | None]":
+    async def get(self, uid: str) -> Result[LearningStep | None]:
         """Get method for CRUDRouteFactory compatibility."""
         return await self.get_step(uid)
 
-    async def update(self, uid: str, updates: "dict[str, Any]") -> "Result[LearningStep]":
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[LearningStep]:
         """Update method for CRUDRouteFactory compatibility."""
         return await self.update_step(uid, updates)
 
-    async def delete(self, uid: str) -> "Result[bool]":
+    async def delete(self, uid: str) -> Result[bool]:
         """Delete method for CRUDRouteFactory compatibility."""
         return await self.delete_step(uid)
 
@@ -203,7 +201,7 @@ class LsService:
         order_by: str | None = None,
         order_desc: bool = False,
         user_uid: str | None = None,
-    ) -> "Result[builtins.list[LearningStep]]":
+    ) -> Result[builtins.list[LearningStep]]:
         """
         List learning steps with pagination and sorting support.
 
@@ -230,7 +228,7 @@ class LsService:
 
     async def attach_step_to_path(
         self, step_uid: str, path_uid: str, sequence: int | None = None
-    ) -> "Result[bool]":
+    ) -> Result[bool]:
         """
         Attach an existing learning step to a learning path.
 
@@ -267,7 +265,7 @@ class LsService:
             edge_properties={"sequence": sequence, "completed": False},
         )
 
-    async def detach_step_from_path(self, step_uid: str, path_uid: str) -> "Result[bool]":
+    async def detach_step_from_path(self, step_uid: str, path_uid: str) -> Result[bool]:
         """
         Detach a learning step from a learning path.
 
@@ -286,9 +284,7 @@ class LsService:
             to_uid=path_uid,
         )
 
-    async def get_step_paths(
-        self, step_uid: str, limit: int = 100
-    ) -> "Result[builtins.list[str]]":
+    async def get_step_paths(self, step_uid: str, limit: int = 100) -> Result[builtins.list[str]]:
         """
         Get all learning paths that contain a specific step.
 

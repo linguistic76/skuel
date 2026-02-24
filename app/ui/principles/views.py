@@ -193,8 +193,7 @@ class PrinciplesViewComponents:
 
         # Principle list
         principle_items = [
-            PrinciplesViewComponents._render_principle_item(principle)
-            for principle in principles
+            PrinciplesViewComponents._render_principle_item(principle) for principle in principles
         ]
 
         principle_list = Div(

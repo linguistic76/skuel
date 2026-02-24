@@ -247,30 +247,22 @@ class KuService:
     # Organization delegations (with None guard — organization service is optional)
     async def organize(self, *args: Any, **kwargs: Any) -> Any:
         if self.organization is None:
-            return Result.fail(
-                Errors.system("Organization service not available", "organize")
-            )
+            return Result.fail(Errors.system("Organization service not available", "organize"))
         return await self.organization.organize(*args, **kwargs)
 
     async def unorganize(self, *args: Any, **kwargs: Any) -> Any:
         if self.organization is None:
-            return Result.fail(
-                Errors.system("Organization service not available", "unorganize")
-            )
+            return Result.fail(Errors.system("Organization service not available", "unorganize"))
         return await self.organization.unorganize(*args, **kwargs)
 
     async def reorder(self, *args: Any, **kwargs: Any) -> Any:
         if self.organization is None:
-            return Result.fail(
-                Errors.system("Organization service not available", "reorder")
-            )
+            return Result.fail(Errors.system("Organization service not available", "reorder"))
         return await self.organization.reorder(*args, **kwargs)
 
     async def is_organizer(self, *args: Any, **kwargs: Any) -> Any:
         if self.organization is None:
-            return Result.fail(
-                Errors.system("Organization service not available", "is_organizer")
-            )
+            return Result.fail(Errors.system("Organization service not available", "is_organizer"))
         return await self.organization.is_organizer(*args, **kwargs)
 
     async def get_organization_view(self, *args: Any, **kwargs: Any) -> Any:

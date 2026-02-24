@@ -29,8 +29,8 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.constants import QueryLimit
-from core.services.principles_service import PrinciplesService
 from core.ports.query_types import PrinciplesFilterSpec
+from core.services.principles_service import PrinciplesService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_or_name_lower
@@ -977,9 +977,7 @@ def create_principles_ui_routes(
         if categories_result.is_error:
             return render_error_banner("Failed to load categories")
 
-        return PrinciplesViewComponents.render_edit_form(
-            principle, categories_result.value
-        )
+        return PrinciplesViewComponents.render_edit_form(principle, categories_result.value)
 
     @rt("/principles/{uid}/save", methods=["POST"])
     async def save_principle(request, uid: str) -> Any:

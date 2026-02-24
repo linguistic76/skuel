@@ -15,7 +15,6 @@ Sub-Services:
 
 from __future__ import annotations
 
-from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
@@ -48,6 +47,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.event.event_request import (
         AddAttendeeRequest,
@@ -283,9 +284,6 @@ class EventsService(BaseService["BackendOperations[Event]", Event]):
     # Scheduling delegations
     async def schedule_event_smart(self, *args: Any, **kwargs: Any) -> Any:
         return await self.scheduling.schedule_event_smart(*args, **kwargs)
-
-    async def check_conflicts(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.scheduling.check_conflicts(*args, **kwargs)
 
     async def suggest_time_slots(self, *args: Any, **kwargs: Any) -> Any:
         return await self.scheduling.suggest_time_slots(*args, **kwargs)

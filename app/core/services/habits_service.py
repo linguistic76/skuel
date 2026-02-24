@@ -257,9 +257,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
     async def create_habit_with_scheduling_context(self, *args: Any, **kwargs: Any) -> Any:
         return await self.scheduling.create_habit_with_context(*args, **kwargs)
 
-    async def create_habit_with_learning_scheduling_context(
-        self, *args: Any, **kwargs: Any
-    ) -> Any:
+    async def create_habit_with_learning_scheduling_context(self, *args: Any, **kwargs: Any) -> Any:
         return await self.scheduling.create_habit_with_learning_context(*args, **kwargs)
 
     async def suggest_habit_frequency(self, *args: Any, **kwargs: Any) -> Any:

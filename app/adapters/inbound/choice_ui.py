@@ -27,8 +27,8 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from core.services.choices_service import ChoicesService
 from core.ports.query_types import ActivityFilterSpec
+from core.services.choices_service import ChoicesService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (

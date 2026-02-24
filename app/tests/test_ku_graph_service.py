@@ -657,7 +657,6 @@ class TestFacadeDelegation:
         neo4j = MagicMock()
         query_builder = MagicMock()  # Required for KuSearchService
         graph_intel = MagicMock()
-        driver = MagicMock()  # Required for KuSearchService
 
         service = KuService(
             repo=repo,
