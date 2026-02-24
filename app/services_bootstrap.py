@@ -390,29 +390,33 @@ class Services:
     # Services are ready when constructed - no lifecycle needed
 
     async def cleanup(self) -> None:
-        """Clean up all async resources"""
+        """Clean up all async resources (idempotent — safe to call multiple times)"""
         logger.info("Cleaning up service container...")
 
         # Close database connection with detailed logging
         if self.graph_adapter:
+            adapter = self.graph_adapter
+            self.graph_adapter = None  # Clear first to prevent double-close
             try:
                 logger.info("Closing graph adapter...")
-                if isinstance(self.graph_adapter, AsyncCloseable):
-                    await self.graph_adapter.close()
-                elif isinstance(self.graph_adapter, Closeable):
-                    self.graph_adapter.close()
+                if isinstance(adapter, AsyncCloseable):
+                    await adapter.close()
+                elif isinstance(adapter, Closeable):
+                    adapter.close()
                 logger.info("Graph adapter closed")
             except Exception as e:
                 logger.warning(f"Error closing graph adapter: {e}")
 
         # Close event bus with detailed logging
         if self.event_bus:
+            bus = self.event_bus
+            self.event_bus = None  # Clear first to prevent double-close
             try:
                 logger.info("Closing event bus...")
-                if isinstance(self.event_bus, AsyncCloseable):
-                    await self.event_bus.close()
-                elif isinstance(self.event_bus, Closeable):
-                    self.event_bus.close()
+                if isinstance(bus, AsyncCloseable):
+                    await bus.close()
+                elif isinstance(bus, Closeable):
+                    bus.close()
                 logger.info("Event bus closed")
             except Exception as e:
                 logger.warning(f"Error closing event bus: {e}")

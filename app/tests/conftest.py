@@ -192,7 +192,7 @@ def authenticated_client(skuel_app) -> "Generator[TestClient, None, None]":
         yield client
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def authenticated_client_simple(skuel_app) -> "Generator[TestClient, None, None]":
     """
     Simplified authenticated client that uses login flow with default dev user.
