@@ -230,7 +230,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
     # CORE CRUD OPERATIONS
     # ========================================================================
 
-    async def get_principle(self, principle_uid: str) -> Result[Entity]:
+    async def get_principle(self, principle_uid: str) -> Result[Principle]:
         """
         Get a specific principle by UID.
 
@@ -241,9 +241,9 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
             principle_uid: Principle UID
 
         Returns:
-            Result[Entity] - success contains Principle, not found is an error
+            Result[Principle] - success contains Principle, not found is an error
         """
-        return await self.get(principle_uid)
+        return await self.get(principle_uid)  # type: ignore[return-value]  # BaseService.get() returns Result[Entity], Principle is a subclass
 
     @with_error_handling("create_principle", error_type="database")
     async def create_principle(
@@ -253,7 +253,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
         category: PrincipleCategory,
         why_matters: str,
         **kwargs: Any,
-    ) -> Result[Entity]:
+    ) -> Result[Principle]:
         """
         Create a new principle.
 
@@ -324,7 +324,9 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
         return result  # backend.create() already returns Result[Entity]
 
     @with_error_handling("update_principle", error_type="database", uid_param="principle_uid")
-    async def update_principle(self, principle_uid: str, updates: dict[str, Any]) -> Result[Entity]:
+    async def update_principle(
+        self, principle_uid: str, updates: dict[str, Any]
+    ) -> Result[Principle]:
         """
         Update a principle.
 
@@ -388,7 +390,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
     @with_error_handling("get_user_principles", error_type="database", uid_param="user_uid")
     async def get_user_principles(
         self, user_uid: str, strength_filter: PrincipleStrength | None = None
-    ) -> Result[list[Entity]]:
+    ) -> Result[list[Principle]]:
         """
         Get all principles for a user, optionally filtered by strength.
 

@@ -72,9 +72,7 @@ class HabitsBackend(UniversalNeo4jBackend["Habit"]):
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_id))
         return result  # type: ignore[return-value]
 
-    async def list_by_user(
-        self, user_uid: str, limit: int = 100
-    ) -> Result[builtins.list[Habit]]:
+    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[builtins.list[Habit]]:
         """List all habits for a user. Returns flat list (not paginated tuple)."""
         result = await self.get_user_entities(user_uid, limit=limit)
         if result.is_error:
@@ -93,16 +91,12 @@ class HabitsBackend(UniversalNeo4jBackend["Habit"]):
             return result
         return Result.ok(True)
 
-    async def create_user_habit_relationship(
-        self, user_uid: str, habit_uid: str
-    ) -> bool:
+    async def create_user_habit_relationship(self, user_uid: str, habit_uid: str) -> bool:
         """Create User→Habit OWNS relationship in the graph."""
         result = await self.create_user_relationship(user_uid, habit_uid)
         return result.is_ok
 
-    async def link_habit_to_knowledge(
-        self, habit_uid: str, knowledge_uid: str
-    ) -> bool:
+    async def link_habit_to_knowledge(self, habit_uid: str, knowledge_uid: str) -> bool:
         """
         Link habit to knowledge it practices.
         Creates: (Habit)-[:REINFORCES_KNOWLEDGE]->(Entity)
@@ -125,9 +119,7 @@ class HabitsBackend(UniversalNeo4jBackend["Habit"]):
             self.logger.error(f"Failed to link habit to knowledge: {e}")
             return False
 
-    async def link_habit_to_principle(
-        self, habit_uid: str, principle_uid: str
-    ) -> bool:
+    async def link_habit_to_principle(self, habit_uid: str, principle_uid: str) -> bool:
         """
         Link habit to principle it embodies.
         Creates: (Habit)-[:EMBODIES_PRINCIPLE]->(Entity)
@@ -157,9 +149,10 @@ class GoalsBackend(UniversalNeo4jBackend["Goal"]):
 
     Extends UniversalNeo4jBackend[Goal] with explicit implementations of
     GoalsOperations methods that fail via __getattr__:
-    - get_goal(uid)         → not matched by get_*_by_uid pattern
-    - get_user_goals(uid)   → not matched by any __getattr__ pattern
-    - add_milestone(...)    → graph MERGE operation
+    - get_goal(uid)          → not matched by get_*_by_uid pattern
+    - list_by_user(uid, limit) → not matched by list_*s pattern
+    - get_user_goals(uid)    → delegates to list_by_user()
+    - add_milestone(...)     → graph MERGE operation
     - link_goal_to_habit    → Cypher MERGE
     - link_goal_to_knowledge → Cypher MERGE
     - link_goal_to_principle → Cypher MERGE
@@ -177,15 +170,17 @@ class GoalsBackend(UniversalNeo4jBackend["Goal"]):
 
     async def get_user_goals(self, user_uid: str) -> Result[builtins.list[Goal]]:
         """Get all goals for a user. Returns flat list (not paginated tuple)."""
-        result = await self.get_user_entities(user_uid)
+        return await self.list_by_user(user_uid)
+
+    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[builtins.list[Goal]]:
+        """List all goals for a user. Returns flat list (not paginated tuple)."""
+        result = await self.get_user_entities(user_uid, limit=limit)
         if result.is_error:
             return result
         goals, _ = result.value
         return Result.ok(goals)
 
-    async def add_milestone(
-        self, goal_id: str, milestone: dict[str, Any]
-    ) -> Result[bool]:
+    async def add_milestone(self, goal_id: str, milestone: dict[str, Any]) -> Result[bool]:
         """
         Add a milestone to a goal.
         Creates: (Goal)-[:HAS_MILESTONE]->(Milestone)
@@ -213,9 +208,7 @@ class GoalsBackend(UniversalNeo4jBackend["Goal"]):
             self.logger.error(f"Failed to add milestone: {e}")
             return Result.fail(Errors.database(operation="add_milestone", message=str(e)))
 
-    async def create_user_goal_relationship(
-        self, user_uid: str, goal_uid: str
-    ) -> Result[bool]:
+    async def create_user_goal_relationship(self, user_uid: str, goal_uid: str) -> Result[bool]:
         """Create User→Goal OWNS relationship in the graph."""
         return await self.create_user_relationship(user_uid, goal_uid)
 
@@ -232,9 +225,7 @@ class GoalsBackend(UniversalNeo4jBackend["Goal"]):
             RETURN r
             """
             async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"goal_uid": goal_uid, "habit_uid": habit_uid}
-                )
+                result = await session.run(query, {"goal_uid": goal_uid, "habit_uid": habit_uid})
                 await result.single()
             self.logger.info(f"Linked Goal:{goal_uid} to Habit:{habit_uid}")
             return Result.ok(True)
@@ -242,9 +233,7 @@ class GoalsBackend(UniversalNeo4jBackend["Goal"]):
             self.logger.error(f"Failed to link goal to habit: {e}")
             return Result.fail(Errors.database(operation="link_goal_to_habit", message=str(e)))
 
-    async def link_goal_to_knowledge(
-        self, goal_uid: str, knowledge_uid: str
-    ) -> Result[bool]:
+    async def link_goal_to_knowledge(self, goal_uid: str, knowledge_uid: str) -> Result[bool]:
         """
         Link goal to required knowledge unit.
         Creates: (Goal)-[:REQUIRES_KNOWLEDGE]->(Entity)
@@ -265,13 +254,9 @@ class GoalsBackend(UniversalNeo4jBackend["Goal"]):
             return Result.ok(True)
         except Exception as e:
             self.logger.error(f"Failed to link goal to knowledge: {e}")
-            return Result.fail(
-                Errors.database(operation="link_goal_to_knowledge", message=str(e))
-            )
+            return Result.fail(Errors.database(operation="link_goal_to_knowledge", message=str(e)))
 
-    async def link_goal_to_principle(
-        self, goal_uid: str, principle_uid: str
-    ) -> Result[bool]:
+    async def link_goal_to_principle(self, goal_uid: str, principle_uid: str) -> Result[bool]:
         """
         Link goal to guiding principle.
         Creates: (Goal)-[:GUIDED_BY_PRINCIPLE]->(Entity)
@@ -292,9 +277,7 @@ class GoalsBackend(UniversalNeo4jBackend["Goal"]):
             return Result.ok(True)
         except Exception as e:
             self.logger.error(f"Failed to link goal to principle: {e}")
-            return Result.fail(
-                Errors.database(operation="link_goal_to_principle", message=str(e))
-            )
+            return Result.fail(Errors.database(operation="link_goal_to_principle", message=str(e)))
 
 
 __all__ = ["HabitsBackend", "GoalsBackend"]

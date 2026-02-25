@@ -12,13 +12,13 @@ THE 14 DOMAINS AND THEIR PROTOCOLS
 ----------------------------------
 
 **Activity Domain Protocols (7):**
-    1. TasksOperations[Task]           - Work items and dependencies
-    2. GoalsOperations[Goal]           - Objectives and milestones
-    3. HabitsOperations[Habit]         - Recurring behaviors and streaks
-    4. EventsOperations[Entity]        - Calendar items and scheduling
-    5. ChoicesOperations[Entity]       - Decisions and outcomes
-    6. PrinciplesOperations[Entity]    - Values and alignment
-    7. FinancesOperations[ExpensePure] - Expenses and budgets
+    1. TasksOperations[Task]               - Work items and dependencies
+    2. GoalsOperations[Goal]               - Objectives and milestones
+    3. HabitsOperations[Habit]             - Recurring behaviors and streaks
+    4. EventsOperations[Event]             - Calendar items and scheduling
+    5. ChoicesOperations[Choice]           - Decisions and outcomes
+    6. PrinciplesOperations[Principle]     - Values and alignment
+    7. FinancesOperations[ExpensePure]     - Expenses and budgets
 
 **Curriculum Domain Protocols (3):**
     8. KuOperations[KnowledgeUnit]     - Knowledge Units (ku:)
@@ -83,16 +83,14 @@ if TYPE_CHECKING:
     import builtins
     from datetime import date, datetime
 
-    from core.models.entity import Entity
+    from core.models.choice.choice import Choice
     from core.models.entity_types import Ku
-
-    # NOTE: Event import REMOVED (February 2026) - Event merged into Ku
-    # Event entities are now Ku nodes with ku_type="event"
-    # NOTE: Task import REMOVED (February 2026) - Task merged into Ku
-    # Task entities are now Ku nodes with ku_type="task"
+    from core.models.event.event import Event
     from core.models.finance.finance_pure import BudgetPure, ExpensePure
     from core.models.finance.invoice import InvoicePure
+    from core.models.goal.goal import Goal
     from core.models.habit.habit import Habit
+    from core.models.principle.principle import Principle
     from core.models.task.task import Task
     from core.models.type_hints import EntityUID, Metadata
     from core.utils.result_simplified import Result
@@ -205,50 +203,6 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
         """
         ...
 
-    # ========================================================================
-    # DEPENDENCY METHODS
-    # ========================================================================
-
-    async def get_task_dependencies(self, task_uid: str) -> Result[list[Task]]:
-        """Get dependencies for a task."""
-        ...
-
-    async def create_task_dependency(
-        self, task_uid: str, depends_on_uid: str, dependency_type: str = "blocks"
-    ) -> Result[bool]:
-        """Create a dependency between tasks. Returns Result[bool]."""
-        ...
-
-    # ========================================================================
-    # RELATIONSHIP METHODS
-    # ========================================================================
-
-    async def link_task_to_knowledge(
-        self,
-        task_uid: str,
-        knowledge_uid: str,
-        knowledge_score_required: float = 0.8,
-        is_learning_opportunity: bool = False,
-    ) -> Result[bool]:
-        """
-        Link task to required knowledge unit.
-        Creates: (Ku)-[:REQUIRES_KNOWLEDGE]->(Knowledge)
-        """
-        ...
-
-    async def link_task_to_goal(
-        self,
-        task_uid: str,
-        goal_uid: str,
-        contribution_percentage: float = 0.1,
-        milestone_uid: str | None = None,
-    ) -> Result[bool]:
-        """
-        Link task to goal it contributes to.
-        Creates: (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)
-        """
-        ...
-
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[list[Ku]]:
@@ -279,7 +233,7 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
 
 
 @runtime_checkable
-class EventsOperations(BackendOperations["Entity"], GraphRelationshipOperations, Protocol):
+class EventsOperations(BackendOperations["Event"], GraphRelationshipOperations, Protocol):
     """Core event management operations.
 
     Inherits base CRUD operations from BackendOperations:
@@ -302,54 +256,31 @@ class EventsOperations(BackendOperations["Entity"], GraphRelationshipOperations,
         ...
 
     async def cancel_event(self, event_id: EntityUID) -> Result[bool]:
-        """Cancel an event. Returns Result[bool]."""
+        """
+        Cancel an event (status transition to "cancelled", NOT a DETACH DELETE).
+
+        Events are cancelled, not deleted, to preserve history and relationship
+        context. Use delete() from BackendOperations only for test cleanup.
+        Returns Result[bool].
+        """
         ...
 
-    async def get_event(self, event_id: EntityUID) -> Result[Metadata]:
+    async def get_event(self, event_id: EntityUID) -> Result[Event]:
         """Get an event by ID. Not found is an error."""
         ...
 
-    async def get_user_events(self, user_uid: str) -> Result[list[Metadata]]:
-        """Get all events for a user. Returns Result[list[Event]]."""
+    async def get_user_events(self, user_uid: str) -> Result[list[Event]]:
+        """Get all events for a user."""
         ...
 
     async def list_events(
         self, limit: int = 100, filters: Metadata | None = None, offset: int = 0
-    ) -> Result[tuple[list[Metadata], int]]:
+    ) -> Result[tuple[list[Event], int]]:
         """List events with optional filters and pagination. Returns Result[(events, total_count)]."""
         ...
 
     async def count_events(self, filters: Metadata | None = None) -> Result[int]:
         """Count events matching filters efficiently. Returns Result[int]."""
-        ...
-
-    # ========================================================================
-    # RELATIONSHIP METHODS
-    # ========================================================================
-
-    async def link_event_to_goal(
-        self, event_uid: str, goal_uid: str, contribution_weight: float = 1.0
-    ) -> Result[bool]:
-        """
-        Link event to goal it supports.
-        Creates: (Event)-[:SUPPORTS_GOAL {contribution_weight}]->(Goal)
-        """
-        ...
-
-    async def link_event_to_habit(self, event_uid: str, habit_uid: str) -> Result[bool]:
-        """
-        Link event to habit it reinforces.
-        Creates: (Event)-[:REINFORCES_HABIT]->(Habit)
-        """
-        ...
-
-    async def link_event_to_knowledge(
-        self, event_uid: str, knowledge_uids: list[str]
-    ) -> Result[bool]:
-        """
-        Link event to knowledge units it reinforces.
-        Creates: (Event)-[:REINFORCES_KNOWLEDGE]->(Knowledge) for each UID
-        """
         ...
 
     async def get_user_items_in_range(
@@ -402,7 +333,13 @@ class HabitsOperations(BackendOperations["Habit"], GraphRelationshipOperations, 
         ...
 
     async def archive_habit(self, habit_id: str) -> Result[bool]:
-        """Archive a habit. Returns Result[bool]."""
+        """
+        Archive a habit (soft delete — status transition to "archived").
+
+        This is intentional domain logic: habits represent behavioral patterns
+        and are archived, not destroyed. Use delete() from BackendOperations
+        only for test cleanup. Returns Result[bool].
+        """
         ...
 
     async def get_habit(self, habit_id: str) -> Result[Habit]:
@@ -415,18 +352,6 @@ class HabitsOperations(BackendOperations["Habit"], GraphRelationshipOperations, 
 
     async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[builtins.list[Habit]]:
         """List all habits for a user. Returns Result[list[Habit]]."""
-        ...
-
-    async def create_user_habit_relationship(self, user_uid: str, habit_uid: str) -> bool:
-        """Create User→Habit relationship in graph."""
-        ...
-
-    async def link_habit_to_knowledge(self, habit_uid: str, knowledge_uid: str) -> bool:
-        """Link habit to knowledge it practices."""
-        ...
-
-    async def link_habit_to_principle(self, habit_uid: str, principle_uid: str) -> bool:
-        """Link habit to principle it embodies."""
         ...
 
     async def get_user_items_in_range(
@@ -715,24 +640,12 @@ class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Pr
         """Add a milestone to a goal. Returns Result[bool]."""
         ...
 
-    async def get_goal(self, goal_id: str) -> Result[Any]:
+    async def get_goal(self, goal_id: str) -> Result[Goal]:
         """Get a goal by ID. Not found is an error."""
         ...
 
-    async def create_user_goal_relationship(self, user_uid: str, goal_uid: str) -> Result[bool]:
-        """Create User→Goal relationship in graph. Returns Result[bool]."""
-        ...
-
-    async def link_goal_to_habit(self, goal_uid: str, habit_uid: str) -> Result[bool]:
-        """Link goal to supporting habit. Returns Result[bool]."""
-        ...
-
-    async def link_goal_to_knowledge(self, goal_uid: str, knowledge_uid: str) -> Result[bool]:
-        """Link goal to required knowledge. Returns Result[bool]."""
-        ...
-
-    async def link_goal_to_principle(self, goal_uid: str, principle_uid: str) -> Result[bool]:
-        """Link goal to guiding principle. Returns Result[bool]."""
+    async def get_user_goals(self, user_uid: str) -> Result[list[Goal]]:
+        """Get all goals for a user. Returns flat list (not paginated tuple)."""
         ...
 
     async def get_user_items_in_range(
@@ -766,7 +679,7 @@ class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Pr
 
 
 @runtime_checkable
-class ChoicesOperations(BackendOperations["Entity"], GraphRelationshipOperations, Protocol):
+class ChoicesOperations(BackendOperations["Choice"], GraphRelationshipOperations, Protocol):
     """Core choice management operations.
 
     Inherits base CRUD operations from BackendOperations:
@@ -800,34 +713,22 @@ class ChoicesOperations(BackendOperations["Entity"], GraphRelationshipOperations
         """Mark a choice as resolved with outcome data. Returns Result[bool]."""
         ...
 
-    async def get_choice(self, choice_id: str) -> Result[Entity]:
+    async def get_choice(self, choice_id: str) -> Result[Choice]:
         """Get a choice by ID. Not found is an error."""
         ...
 
     async def find_choices(
         self, filters: dict[str, Any] | None = None, limit: int = 100
-    ) -> Result[list[Ku]]:
-        """Find choices with filters and limit. Returns Result[list[Ku]]."""
+    ) -> Result[list[Choice]]:
+        """Find choices with filters and limit."""
         ...
 
-    async def get_user_choices(self, user_id: str) -> Result[list[Ku]]:
-        """Get all choices for a user. Returns Result[list[Ku]]."""
+    async def get_user_choices(self, user_id: str) -> Result[list[Choice]]:
+        """Get all choices for a user."""
         ...
 
     async def count_choices(self, filters: dict[str, Any] | None = None) -> Result[int]:
         """Count choices matching filters. Returns Result[int]."""
-        ...
-
-    async def link_choice_to_goal(self, choice_uid: str, goal_uid: str) -> bool:
-        """Link choice to related goal."""
-        ...
-
-    async def link_choice_to_habit(self, choice_uid: str, habit_uid: str) -> bool:
-        """Link choice to habit it affects."""
-        ...
-
-    async def link_choice_to_principle(self, choice_uid: str, principle_uid: str) -> bool:
-        """Link choice to guiding principle."""
         ...
 
     async def get_user_items_in_range(
@@ -857,8 +758,8 @@ class ChoicesOperations(BackendOperations["Entity"], GraphRelationshipOperations
 
 
 @runtime_checkable
-class PrinciplesOperations(BackendOperations["Entity"], GraphRelationshipOperations, Protocol):
-    """Core principle management operations. Uses unified Ku model with EntityType.PRINCIPLE.
+class PrinciplesOperations(BackendOperations["Principle"], GraphRelationshipOperations, Protocol):
+    """Core principle management operations. Uses Principle domain model (EntityType.PRINCIPLE).
 
     Inherits base CRUD operations from BackendOperations:
     - create, get, update, DETACH DELETE, list
@@ -868,33 +769,36 @@ class PrinciplesOperations(BackendOperations["Entity"], GraphRelationshipOperati
 
     Adds principle-specific operations below.
 
+    Deactivation note: Use update_principle(uid, {"is_active": False}) to deactivate
+    a principle without removing it from the graph. delete_principle() performs a hard
+    DETACH DELETE — only use for test cleanup or permanent removal.
+
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
 
     # ========================================================================
-    # RELATIONSHIP METHODS
+    # CRUD METHODS
     # ========================================================================
 
-    async def create_user_principle_relationship(
-        self,
-        user_uid: str,
-        principle_uid: str,
-        strength: str = "core",
-        adoption_date: str | None = None,
-    ) -> Result[bool]:
-        """
-        Create User→Principle relationship in graph.
-        Creates: (User)-[:HOLDS_PRINCIPLE {strength, adoption_date}]->(Ku)
-        """
+    async def create_principle(self, data: Metadata) -> Result[EntityUID]:
+        """Create a new principle and return its ID."""
         ...
 
-    async def link_principle_to_knowledge(
-        self, principle_uid: str, knowledge_uid: str, relevance: str = "fundamental"
-    ) -> Result[bool]:
-        """
-        Link principle to knowledge it's based on.
-        Creates: (Ku)-[:BASED_ON_KNOWLEDGE {relevance}]->(Knowledge)
-        """
+    async def update_principle(self, principle_uid: EntityUID, data: Metadata) -> Result[bool]:
+        """Update an existing principle."""
+        ...
+
+    async def delete_principle(self, principle_uid: EntityUID) -> Result[bool]:
+        """DETACH DELETE a principle. Principles have no soft-delete; use update_principle
+        to set is_active=False for deactivation without graph removal."""
+        ...
+
+    async def get_principle(self, principle_uid: str) -> Result[Principle]:
+        """Get a principle by ID. Not found is an error."""
+        ...
+
+    async def get_user_principles(self, user_uid: str) -> Result[list[Principle]]:
+        """Get all principles for a user."""
         ...
 
     async def get_user_items_in_range(
