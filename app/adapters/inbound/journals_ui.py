@@ -230,69 +230,57 @@ JOURNALS_SIDEBAR_ITEMS = [
 # ============================================================================
 
 
-def _render_instruction_selector(exercises: list[Any]) -> Any:
-    """Render the processing instructions radio + optional exercise dropdown."""
-    if exercises:
-        exercise_options = [Option("— select an exercise —", value="", disabled=True, selected=True)]
-        for ex in exercises:
-            exercise_options.append(
-                Option(getattr(ex, "title", str(ex)), value=getattr(ex, "uid", ""))
-            )
-        exercise_input = Select(
-            *exercise_options,
-            name="exercise_uid",
-            cls="select select-bordered w-full",
-            **{"x-model": "exerciseUid"},
+def _render_instruction_card(ex: Any, is_first: bool = False) -> Any:
+    """Render one saved instruction file as a selectable card."""
+    uid = getattr(ex, "uid", "")
+    title = getattr(ex, "title", "Unnamed")
+    created_at = getattr(ex, "created_at", None)
+
+    if isinstance(created_at, datetime):
+        date_str = created_at.strftime("%b %d, %Y")
+    elif isinstance(created_at, str) and created_at:
+        date_str = created_at[:10]
+    else:
+        date_str = ""
+
+    selected_cls = "ring-2 ring-primary bg-base-200" if is_first else ""
+    return Div(
+        Div(
+            Span(title, cls="text-sm font-semibold truncate"),
+            Span(date_str, cls="text-xs text-base-content/60 shrink-0 ml-2"),
+            cls="flex items-center justify-between",
+        ),
+        cls=f"instruction-card border border-base-300 rounded-lg p-3 cursor-pointer hover:bg-base-200 transition-colors {selected_cls}",
+        **{
+            "data-uid": uid,
+            "onclick": f"selectInstruction('{uid}', this)",
+        },
+    )
+
+
+def _render_instruction_list(exercises: list[Any], error: str | None = None) -> Any:
+    """Return the #instruction-file-list fragment (initial render or HTMX swap)."""
+    exercises_sorted = sorted(
+        exercises,
+        key=lambda e: getattr(e, "created_at", "") or "",
+        reverse=True,
+    )[:5]
+
+    parts: list[Any] = []
+    if error:
+        parts.append(P(f"Error: {error}", cls="text-sm text-error mb-2"))
+
+    if exercises_sorted:
+        parts.extend(
+            _render_instruction_card(ex, is_first=(i == 0))
+            for i, ex in enumerate(exercises_sorted)
         )
     else:
-        exercise_input = Div(
-            P(
-                "No exercises found — ",
-                A("create one first", href="/ku", cls="link"),
-                ".",
-                cls="text-sm text-base-content/60 mb-0",
-            ),
-            # Hidden input so backend always receives exercise_uid (empty = use default)
-            Input(type="hidden", name="exercise_uid", value=""),
+        parts.append(
+            P("No saved instruction files yet.", cls="text-sm text-base-content/60")
         )
 
-    return Div(
-        Label("Processing Instructions", cls="label"),
-        Div(
-            # Default radio
-            Label(
-                Input(
-                    type="radio",
-                    name="instruction_mode",
-                    value="default",
-                    cls="radio radio-sm",
-                    **{"x-model": "instructionMode"},
-                ),
-                Span("Default instructions", cls="ml-2"),
-                cls="flex items-center cursor-pointer",
-            ),
-            # Exercise radio
-            Label(
-                Input(
-                    type="radio",
-                    name="instruction_mode",
-                    value="exercise",
-                    cls="radio radio-sm",
-                    **{"x-model": "instructionMode"},
-                ),
-                Span("Use an exercise", cls="ml-2"),
-                cls="flex items-center cursor-pointer",
-            ),
-            # Exercise selector (shown when exercise radio selected)
-            Div(
-                exercise_input,
-                cls="ml-6 mt-2",
-                **{"x-show": "instructionMode === 'exercise'"},
-            ),
-            cls="flex flex-col gap-2",
-        ),
-        cls="mb-4",
-    )
+    return Div(*parts, id="instruction-file-list", cls="space-y-2")
 
 
 def _render_upload_form(exercises: list[Any] | None = None) -> Any:
@@ -300,6 +288,7 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
     exercises = exercises or []
     return Div(
         Div(
+            # x-data on card-body so both Form and instruction file picker share scope
             Div(
                 Form(
                     # Title input
@@ -318,9 +307,63 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
                         ),
                         cls="mb-4",
                     ),
-                    # Processing instructions selector
-                    _render_instruction_selector(exercises),
-                    # File input (directly in form for proper HTMX serialization)
+                    # Hidden exercise_uid — set by selectInstruction() JS, cleared on default mode
+                    Input(type="hidden", name="exercise_uid", id="exercise-uid-input", value=""),
+                    # Processing instructions section
+                    Div(
+                        Label("Processing Instructions", cls="label"),
+                        Div(
+                            # Default radio
+                            Label(
+                                Input(
+                                    type="radio",
+                                    name="instruction_mode",
+                                    value="default",
+                                    cls="radio radio-sm",
+                                    **{
+                                        "x-model": "instructionMode",
+                                        "@change": "clearInstructionUid()",
+                                    },
+                                ),
+                                Span("Default instructions", cls="ml-2"),
+                                cls="flex items-center cursor-pointer",
+                            ),
+                            # Custom file radio
+                            Label(
+                                Input(
+                                    type="radio",
+                                    name="instruction_mode",
+                                    value="custom",
+                                    cls="radio radio-sm",
+                                    **{
+                                        "x-model": "instructionMode",
+                                        "@change": "autoSelectFirstInstruction()",
+                                    },
+                                ),
+                                Span("Custom instruction file", cls="ml-2"),
+                                cls="flex items-center cursor-pointer",
+                            ),
+                            # Custom mode panel (shown when custom radio selected)
+                            Div(
+                                # Upload button triggers the instruction file picker (outside form)
+                                Button(
+                                    "+ Upload instruction file",
+                                    type="button",
+                                    cls="btn btn-sm btn-outline mb-3",
+                                    **{
+                                        "@click": "document.getElementById('instruction-file-picker').click()"
+                                    },
+                                ),
+                                # Saved instruction list (HTMX target)
+                                _render_instruction_list(exercises),
+                                cls="mt-2",
+                                **{"x-show": "instructionMode === 'custom'"},
+                            ),
+                            cls="flex flex-col gap-2",
+                        ),
+                        cls="mb-4",
+                    ),
+                    # Journal file picker (hidden, triggered by drop-zone click)
                     Input(
                         type="file",
                         name="file",
@@ -330,7 +373,7 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
                         required=True,
                         **{"x-on:change": "handleFileSelect($event)"},
                     ),
-                    # Custom file selector button
+                    # Drop-zone
                     Div(
                         Div(
                             P("Select File", cls="text-center mb-0", id="file-label-text"),
@@ -346,16 +389,11 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
                     ),
                     # Submit button
                     Div(
-                        Button(
-                            "Submit to AI",
-                            variant=ButtonT.primary,
-                            type="submit",
-                        ),
+                        Button("Submit to AI", variant=ButtonT.primary, type="submit"),
                         cls="text-center",
                     ),
                     # Upload status (HTMX target)
                     Div(id="upload-status", cls="mt-4 text-center"),
-                    # HTMX attributes
                     **{
                         "hx-post": "/journals/upload",
                         "hx-target": "#upload-status",
@@ -363,25 +401,47 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
                         "hx-encoding": "multipart/form-data",
                     },
                     id="upload-form",
+                ),
+                # Instruction file picker — sibling of Form, shares Alpine scope from card-body
+                Input(
+                    type="file",
+                    id="instruction-file-picker",
+                    name="instruction_file",
+                    cls="hidden",
+                    accept=".txt,.md,.rst,text/plain,text/markdown",
                     **{
-                        "x-data": """{
-                            selectedFile: null,
-                            instructionMode: 'default',
-                            exerciseUid: '',
-                            handleFileSelect(event) {
-                                const file = event.target.files[0];
-                                if (file) {
-                                    this.selectedFile = file;
-                                    const labelText = document.getElementById('file-label-text');
-                                    const labelHint = document.getElementById('file-label-hint');
-                                    if (labelText) labelText.textContent = file.name;
-                                    if (labelHint) labelHint.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
-                                }
-                            }
-                        }"""
+                        "hx-post": "/journals/instructions/upload",
+                        "hx-target": "#instruction-file-list",
+                        "hx-swap": "outerHTML",
+                        "hx-encoding": "multipart/form-data",
+                        "hx-trigger": "change",
                     },
                 ),
                 cls="card-body",
+                **{
+                    "x-data": """{
+                        selectedFile: null,
+                        instructionMode: 'default',
+                        handleFileSelect(event) {
+                            const file = event.target.files[0];
+                            if (file) {
+                                this.selectedFile = file;
+                                const labelText = document.getElementById('file-label-text');
+                                const labelHint = document.getElementById('file-label-hint');
+                                if (labelText) labelText.textContent = file.name;
+                                if (labelHint) labelHint.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+                            }
+                        },
+                        clearInstructionUid() {
+                            const inp = document.getElementById('exercise-uid-input');
+                            if (inp) inp.value = '';
+                        },
+                        autoSelectFirstInstruction() {
+                            const card = document.querySelector('#instruction-file-list .instruction-card[data-uid]');
+                            if (card) selectInstruction(card.dataset.uid, card);
+                        }
+                    }"""
+                },
             ),
             cls="card bg-base-100 shadow-sm hover:shadow-md transition-shadow",
         ),
@@ -389,9 +449,27 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
 
 
 def _upload_form_script() -> Any:
-    """HTMX event handlers for upload form UX polish and error handling."""
+    """HTMX event handlers and helpers for the journal upload form."""
     return Script(
         NotStr("""
+        // Global: highlight selected instruction card and store its uid
+        function selectInstruction(uid, el) {
+            document.querySelectorAll('.instruction-card').forEach(function(c) {
+                c.classList.remove('ring-2', 'ring-primary', 'bg-base-200');
+            });
+            if (el) el.classList.add('ring-2', 'ring-primary', 'bg-base-200');
+            var inp = document.getElementById('exercise-uid-input');
+            if (inp) inp.value = uid || '';
+        }
+
+        // After instruction file upload: auto-select the first (newest) card
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.detail.target && evt.detail.target.id === 'instruction-file-list') {
+                var firstCard = evt.detail.target.querySelector('.instruction-card[data-uid]');
+                if (firstCard) selectInstruction(firstCard.dataset.uid, firstCard);
+            }
+        });
+
         document.body.addEventListener('htmx:beforeRequest', function(evt) {
             var form = evt.detail.elt;
             if (form.id === 'upload-form') {
@@ -688,6 +766,51 @@ def create_journals_ui_routes(
             logger.error(f"Error uploading journal: {e}", exc_info=True)
             return _render_upload_status("error", f"Upload failed: {e}", is_error=True)
 
+    @rt("/journals/instructions/upload")
+    async def upload_instruction_file(request: Request) -> Any:
+        """HTMX endpoint: save an instruction text file, return updated card list."""
+        try:
+            user_uid = require_authenticated_user(request)
+            form = await request.form()
+            uploaded_file = form.get("instruction_file")
+
+            if not uploaded_file or not isinstance(uploaded_file, UploadFile):
+                return _render_instruction_list([], error="No file provided")
+
+            file_bytes = await uploaded_file.read()
+            try:
+                instructions_text = file_bytes.decode("utf-8")
+            except UnicodeDecodeError:
+                return _render_instruction_list([], error="File must be plain text (UTF-8)")
+
+            if not instructions_text.strip():
+                return _render_instruction_list([], error="File is empty")
+
+            filename = uploaded_file.filename or "instructions.txt"
+
+            if report_projects_service:
+                create_result = await report_projects_service.create_exercise(
+                    user_uid=user_uid,
+                    name=filename,
+                    instructions=instructions_text,
+                )
+                if create_result.is_error:
+                    logger.warning(f"Failed to save instruction file: {create_result.error}")
+
+            # Fetch updated list and return refreshed fragment
+            exercises: list[Any] = []
+            if report_projects_service:
+                ex_result = await report_projects_service.list_user_exercises(user_uid)
+                if ex_result.is_ok:
+                    exercises = ex_result.value or []
+
+            logger.info(f"Instruction file saved for {user_uid}: {filename}")
+            return _render_instruction_list(exercises)
+
+        except Exception as e:
+            logger.error(f"Error saving instruction file: {e}", exc_info=True)
+            return _render_instruction_list([], error=str(e))
+
     @rt("/journals/grid")
     async def get_journals_grid(request: Request) -> Any:
         """HTMX endpoint for loading AI-processed reports grid."""
@@ -867,6 +990,7 @@ def create_journals_ui_routes(
         journals_submit_page,
         journals_browse_page,
         upload_journal,
+        upload_instruction_file,
         get_journals_grid,
         download_je_output,
         cleanup_je_outputs,

@@ -137,6 +137,19 @@ class ExerciseService(BaseService):
             self.logger.error(f"Failed to create exercise: {result.error}")
             return result
 
+        # Create OWNS relationship (user → exercise)
+        owns_result = await self.backend.execute_query(
+            f"""
+            MATCH (u:User {{uid: $user_uid}})
+            MATCH (e:Entity {{uid: $exercise_uid}})
+            MERGE (u)-[:{RelationshipName.OWNS.value}]->(e)
+            RETURN true as success
+            """,
+            {"user_uid": user_uid, "exercise_uid": uid},
+        )
+        if owns_result.is_error:
+            self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
+
         # Create FOR_GROUP relationship for ASSIGNED scope
         if scope == ProjectScope.ASSIGNED and group_uid:
             rel_result = await self.backend.execute_query(
@@ -172,16 +185,28 @@ class ExerciseService(BaseService):
     async def list_user_exercises(
         self, user_uid: str, active_only: bool = True
     ) -> Result[list[Exercise]]:
-        """List all exercises for a user."""
-        if active_only:
-            result = await self.backend.find_by(user_uid=user_uid, ku_type="exercise")
-        else:
-            result = await self.backend.find_by(user_uid=user_uid, ku_type="exercise")
+        """List personal exercises owned by a user via OWNS relationship."""
+        result = await self.backend.execute_query(
+            f"""
+            MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(e:Exercise)
+            RETURN e
+            ORDER BY e.created_at DESC
+            """,
+            {"user_uid": user_uid},
+        )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
-        exercises = result.value or []
+        exercises = []
+        for record in result.value or []:
+            props = record["e"]
+            try:
+                exercise = Exercise(**props)
+                exercises.append(exercise)
+            except Exception as exc:
+                self.logger.warning(f"Failed to deserialize exercise: {exc}")
+
         self.logger.info(f"Found {len(exercises)} exercises for user {user_uid}")
         return Result.ok(exercises)
 

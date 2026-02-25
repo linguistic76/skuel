@@ -59,10 +59,9 @@ class Exercise(Curriculum):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=EXERCISE, then delegate to Curriculum."""
-        if self.ku_type != EntityType.EXERCISE:
-            object.__setattr__(self, "ku_type", EntityType.EXERCISE)
+        """Force ku_type=EXERCISE (must run after super() so Curriculum's override doesn't win)."""
         super().__post_init__()
+        object.__setattr__(self, "ku_type", EntityType.EXERCISE)
 
     # =========================================================================
     # EXERCISE-SPECIFIC FIELDS (7)
