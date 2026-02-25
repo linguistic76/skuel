@@ -35,12 +35,10 @@ class NavItem:
 
 
 # Main navigation items - order determines display order
-# Note: Profile is accessed via the avatar link in the navbar right section, not here.
 MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
     NavItem("Teaching", "/teaching", "teaching", requires_teacher=True),
     NavItem("Knowledge", "/profile/knowledge", "knowledge"),
     NavItem("Curriculum", "/curriculum", "curriculum"),
-    NavItem("Tracking", "/profile", "profile/hub"),
 )
 
 # Admin-only navigation item - prepended to nav when user is admin
@@ -53,6 +51,7 @@ ADMIN_NAV_ITEM = NavItem(
 
 # Profile dropdown items - account actions only (Activity Domains moved to profile sidebar)
 PROFILE_DROPDOWN_ITEMS: tuple[NavItem, ...] = (
+    NavItem("Profile", "/profile", "profile"),
     NavItem("Settings", "/profile/settings", "settings"),
     NavItem("Sign out", "/logout", "logout"),
 )
