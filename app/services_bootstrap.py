@@ -1131,7 +1131,7 @@ async def compose_services(
         # Create user service FIRST (foundation service with no dependencies)
         from core.services.user_service import create_user_service
 
-        user_service = create_user_service(users_backend, driver, metrics_cache=metrics_cache)
+        user_service = create_user_service(users_backend, query_executor, metrics_cache=metrics_cache)
         logger.info("✅ UserService created (foundation service)")
 
         # Ensure system user exists for infrastructure operations
