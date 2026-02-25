@@ -1678,14 +1678,20 @@ def render_domain_card_preview(items: list[Any], slug: str) -> Div:
 
     def _priority_dot(item: Any) -> Span:
         """Compact priority indicator: colored dot + P-label."""
-        priority = getattr(item, "priority", Priority.LOW)
-        color = _PREVIEW_PRIORITY_COLORS.get(priority, "bg-gray-400")
-        label = _PREVIEW_PRIORITY_LABELS.get(priority, "P4")
+        raw = getattr(item, "priority", Priority.LOW)
+        # Services may return string values instead of Priority enum instances
+        if not isinstance(raw, Priority):
+            try:
+                raw = Priority(str(raw).lower())
+            except ValueError:
+                raw = Priority.LOW
+        color = _PREVIEW_PRIORITY_COLORS.get(raw, "bg-gray-400")
+        label = _PREVIEW_PRIORITY_LABELS.get(raw, "P4")
         return Span(
             Span(cls=f"w-2 h-2 rounded-full {color} shrink-0"),
             Span(label, cls="text-xs font-medium text-base-content/50 w-5"),
             cls="inline-flex items-center gap-1 shrink-0",
-            title=f"Priority: {priority.value.title()}",
+            title=f"Priority: {raw.value.title()}",
         )
 
     rows = [

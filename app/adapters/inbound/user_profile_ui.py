@@ -31,7 +31,6 @@ from core.ports import get_enum_value
 from core.services.user.unified_user_context import UserContext
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import make_priority_order_getter
 from ui.daisy_components import Div
 from ui.layouts.base_page import BasePage
 from ui.profile.domain_stats_config import (
@@ -69,15 +68,27 @@ from ui.profile.layout import (
 
 logger = get_logger("skuel.routes.user_profile")
 
-# Priority sort key for domain card previews (CRITICAL first)
-_PREVIEW_PRIORITY_SORT_KEY = make_priority_order_getter(
-    {
-        Priority.CRITICAL: 0,
-        Priority.HIGH: 1,
-        Priority.MEDIUM: 2,
-        Priority.LOW: 3,
-    }
-)
+_PREVIEW_PRIORITY_ORDER = {
+    Priority.CRITICAL: 0,
+    Priority.HIGH: 1,
+    Priority.MEDIUM: 2,
+    Priority.LOW: 3,
+}
+
+
+def _preview_priority_sort_key(item: Any) -> int:
+    """Sort key for domain card preview items by priority (CRITICAL first).
+
+    Coerces string priority values to Priority enum before lookup so that
+    service backends returning plain strings sort correctly.
+    """
+    raw = getattr(item, "priority", Priority.LOW)
+    if not isinstance(raw, Priority):
+        try:
+            raw = Priority(str(raw).lower())
+        except ValueError:
+            raw = Priority.LOW
+    return _PREVIEW_PRIORITY_ORDER.get(raw, 4)
 
 # Valid Activity Domain slugs for the preview endpoint
 _PREVIEW_VALID_SLUGS = frozenset(
@@ -728,11 +739,17 @@ def setup_user_profile_routes(rt, services):
             )
             return Para("Unable to load items", cls="text-sm text-base-content/50 py-2")
 
-        # Filter terminal statuses (completed, failed, cancelled, archived)
-        active_items = [item for item in result.value if not item.status.is_terminal()]
+        # Filter terminal statuses (completed, failed, cancelled, archived).
+        # Guard against string status values returned by some service backends.
+        _terminal_strings = frozenset(["completed", "failed", "cancelled", "archived"])
+        active_items = [
+            item
+            for item in result.value
+            if str(getattr(item, "status", "active")).lower() not in _terminal_strings
+        ]
 
         # Sort by priority (most important first), take top 5
-        sorted_items = sorted(active_items, key=_PREVIEW_PRIORITY_SORT_KEY)
+        sorted_items = sorted(active_items, key=_preview_priority_sort_key)
         preview_items = sorted_items[:5]
 
         return render_domain_card_preview(preview_items, slug)
