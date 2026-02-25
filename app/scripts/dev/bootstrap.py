@@ -633,6 +633,13 @@ async def _wire_all_routes(
             "✅ Analytics routes registered (Layer 3 meta-analysis: Life Path + cross-layer)"
         )
 
+    # Context-aware routes (UserContext API + UI)
+    if services.context_service:
+        from adapters.inbound.context_routes import create_context_aware_routes
+
+        create_context_aware_routes(app, rt, services)
+        logger.info("✅ Context-aware routes registered (API + UI)")
+
     # LifePath routes (Domain #14: The Destination)
     if services.lifepath:
         from adapters.inbound.lifepath_routes import create_lifepath_routes

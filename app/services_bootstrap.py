@@ -137,6 +137,7 @@ if TYPE_CHECKING:
     from core.services.user.intelligence.factory import (
         UserContextIntelligenceFactory,
     )
+    from core.services.cross_domain_queries import CrossDomainQueries
     from core.services.user_progress_service import UserProgressService
     from core.services.user_relationship_service import UserRelationshipService
 
@@ -386,6 +387,9 @@ class Services:
     # LATERAL RELATIONSHIP SERVICES (January 2026) - Core Graph Architecture
     # ========================================================================
     lateral: "LateralRelationshipOperations | None" = None
+
+    # Cross-domain graph queries (multi-hop: Tasks↔KU, Habits↔Goals, Events↔KU, Finance↔Goals)
+    cross_domain_queries: "CrossDomainQueries | None" = None
 
     # Services are ready when constructed - no lifecycle needed
 
@@ -922,6 +926,12 @@ async def compose_services(
 
         query_executor = Neo4jQueryExecutor(driver)
         logger.info("✅ QueryExecutor created (hexagonal architecture port)")
+
+        # CrossDomainQueries — multi-hop graph queries spanning Tasks↔KU, Habits↔Goals, etc.
+        from core.services.cross_domain_queries import CrossDomainQueries
+
+        cross_domain_queries_svc = CrossDomainQueries(query_executor)
+        logger.info("✅ CrossDomainQueries created")
 
         # ========================================================================
         # PHASE 1.5: SYNC AUTH INDEXES AND CLEANUP (Startup Tasks)
@@ -2395,6 +2405,8 @@ async def compose_services(
             context_aware_ai=context_aware_ai,
             # Lateral relationship services (January 2026 - Core graph architecture)
             lateral=lateral_service,
+            # Cross-domain graph queries
+            cross_domain_queries=cross_domain_queries_svc,
         )
 
         # ========================================================================

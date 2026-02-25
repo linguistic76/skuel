@@ -22,9 +22,11 @@ Usage:
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
-from core.models.enums import Priority
+from adapters.calendar_adapters import adapt_entities
+from core.models.enums import ActivityType, Priority
 from core.models.event.calendar_models import CalendarItem, CalendarItemType
 from core.ports import get_enum_value
+from core.ports.calendar_protocol import CalendarTrackable, WindowKind
 from core.utils.neo4j_temporal import convert_neo4j_date, convert_neo4j_time
 
 # =============================================================================
@@ -336,11 +338,108 @@ def habit_to_calendar_items(habit: Any, current_date: date) -> list[CalendarItem
     return items
 
 
+# =============================================================================
+# PROTOCOL-BASED CONVERTERS (uniform interface for mixed entity lists)
+# =============================================================================
+
+_ACTIVITY_TYPE_TO_ITEM_TYPE: dict[ActivityType, CalendarItemType] = {
+    ActivityType.TASK: CalendarItemType.TASK_WORK,
+    ActivityType.HABIT: CalendarItemType.HABIT,
+    ActivityType.EVENT: CalendarItemType.EVENT,
+    ActivityType.LEARNING: CalendarItemType.EVENT,
+    ActivityType.MILESTONE: CalendarItemType.MILESTONE,
+    ActivityType.DEADLINE: CalendarItemType.TASK_DEADLINE,
+    ActivityType.MEETING: CalendarItemType.EVENT,
+    ActivityType.PRACTICE: CalendarItemType.TASK_WORK,
+    ActivityType.REVIEW: CalendarItemType.TASK_WORK,
+    ActivityType.BREAK: CalendarItemType.EVENT,
+}
+
+
+def trackable_to_calendar_items(trackable: CalendarTrackable) -> list[CalendarItem]:
+    """
+    Convert a CalendarTrackable entity to CalendarItem objects.
+
+    One CalendarItem is generated per time window. Entities with no
+    scheduled windows return an empty list.
+
+    Args:
+        trackable: Entity implementing CalendarTrackable protocol
+
+    Returns:
+        List of CalendarItems (empty if entity has no calendar windows)
+    """
+    windows = trackable.get_calendar_windows()
+    if not windows:
+        return []
+
+    activity_type = trackable.get_activity_type()
+    priority = trackable.get_priority()
+    color = trackable.get_color() or get_priority_calendar_color(priority)
+    icon = trackable.get_icon() or CalendarItemType.EVENT.get_icon()
+    tags = trackable.get_tags()
+    related_uids = trackable.get_related_uids()
+    description = trackable.get_description() or ""
+    metadata = trackable.get_metadata()
+
+    items = []
+    for i, window in enumerate(windows):
+        # WindowKind.DEADLINE overrides the activity type mapping
+        if window.kind == WindowKind.DEADLINE:
+            item_type = CalendarItemType.TASK_DEADLINE
+        else:
+            item_type = _ACTIVITY_TYPE_TO_ITEM_TYPE.get(activity_type, CalendarItemType.EVENT)
+
+        uid_suffix = f"-{i}" if len(windows) > 1 else ""
+        items.append(
+            CalendarItem(
+                uid=f"{activity_type.value}-{trackable.uid}{uid_suffix}",
+                source_uid=trackable.uid,
+                item_type=item_type,
+                title=trackable.title,
+                start_time=window.start,
+                end_time=window.end,
+                all_day=window.is_all_day,
+                description=description,
+                color=color,
+                icon=icon,
+                priority=get_enum_value(priority),  # type: ignore[arg-type]
+                tags=tags,
+                related_uids=related_uids,
+                metadata=metadata,
+            )
+        )
+    return items
+
+
+def entities_to_calendar_items(entities: list[Any]) -> list[CalendarItem]:
+    """
+    Convert a mixed list of calendar entities to CalendarItem objects.
+
+    Uses CalendarTrackable adapters for uniform entity handling — no type
+    switching required in calling code.
+
+    Args:
+        entities: Mixed list of Tasks, Events, Habits (or any CalendarTrackable-
+                  compatible entity)
+
+    Returns:
+        Flat list of CalendarItems across all adapted entities
+    """
+    trackables = adapt_entities(entities)
+    items: list[CalendarItem] = []
+    for trackable in trackables:
+        items.extend(trackable_to_calendar_items(trackable))
+    return items
+
+
 __all__ = [
     "task_to_calendar_item",
     "goal_to_calendar_item",
     "event_to_calendar_item",
     "habit_to_calendar_items",
+    "trackable_to_calendar_items",
+    "entities_to_calendar_items",
     "get_priority_calendar_color",
     "EVENT_TYPE_COLORS",
     "FREQUENCY_COLORS",

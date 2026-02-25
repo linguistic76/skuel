@@ -1,7 +1,7 @@
 # Placeholder Parameter Index
 
 *Technical debt register for underscore-prefixed placeholder parameters.*
-*Last updated: 2026-02-24*
+*Last updated: 2026-02-25*
 
 ## Convention
 
@@ -182,6 +182,42 @@ These are FastHTML component functions that accept parameters that are not yet r
 
 ---
 
+## Group K — Messaging / Conversation System Groundwork
+
+`adapters/outbound/in_memory_conversation_repo.py` is a working in-memory session store that
+was written before the Messaging cross-cutting system was designed. The implementation itself
+is complete but nothing in the codebase instantiates or calls it yet.
+
+**What exists:**
+- `InMemoryConversationRepo` — save/load/delete session operations, active-session filtering,
+  TTL-based cleanup
+- `ConversationSession` stub dataclass (defined inline, not in `core/models/`)
+
+**What is missing before wiring:**
+
+| Missing Piece | Location | Notes |
+|---------------|----------|-------|
+| `ConversationRepoPort` protocol | `core/ports/` | ISP interface for conversation persistence |
+| `core/models/conversation/` | — | Proper `ConversationSession` domain model |
+| Neo4j persistence adapter | `adapters/outbound/` | Production replacement for in-memory |
+| `Services.conversation_repo` field | `services_bootstrap.py` | Wire into service container |
+| `MessagingService` or `ConversationService` | `core/services/` | Domain service consuming the repo |
+
+**File:** `adapters/outbound/in_memory_conversation_repo.py`
+
+**What full implementation requires:**
+1. Define `ConversationSession` as a proper frozen dataclass in `core/models/conversation/`
+2. Extract `ConversationRepoPort` as a Protocol in `core/ports/`
+3. Update `InMemoryConversationRepo` to implement the protocol (replace inline stub)
+4. Create `Neo4jConversationRepo` for production (sessions stored as Neo4j nodes)
+5. Add `conversation_repo: ConversationRepoPort | None = None` to `Services` dataclass
+6. Wire in `services_bootstrap.py` (use in-memory for dev, Neo4j for production)
+
+**Priority:** Low — depends on Messaging system design decision. The in-memory adapter provides
+a functional starting point when the system is scoped.
+
+---
+
 ## Implementation Priority
 
 | Priority | Group | Reason |
@@ -197,6 +233,7 @@ These are FastHTML component functions that accept parameters that are not yet r
 | Low | H — Askesis Private Methods | Internal heuristics refinement |
 | Low | I — misc infrastructure | Calendar energy profile, schema optimizer, conflict detection |
 | Low | J — UI Views | UX enhancement; not correctness issues |
+| Low | K — Conversation System | Depends on Messaging system design |
 
 ---
 
