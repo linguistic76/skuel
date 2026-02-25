@@ -26,10 +26,12 @@ from typing import Any
 from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
+from core.models.enums import Priority
 from core.ports import get_enum_value
 from core.services.user.unified_user_context import UserContext
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
+from core.utils.sort_functions import make_priority_order_getter
 from ui.daisy_components import Div
 from ui.layouts.base_page import BasePage
 from ui.profile.domain_stats_config import (
@@ -54,6 +56,7 @@ from ui.profile.domain_views import (
     OverviewView,
     PrinciplesDomainView,
     TasksDomainView,
+    render_domain_card_preview,
 )
 from ui.profile.layout import (
     CURRICULUM_ORDER,
@@ -65,6 +68,21 @@ from ui.profile.layout import (
 )
 
 logger = get_logger("skuel.routes.user_profile")
+
+# Priority sort key for domain card previews (CRITICAL first)
+_PREVIEW_PRIORITY_SORT_KEY = make_priority_order_getter(
+    {
+        Priority.CRITICAL: 0,
+        Priority.HIGH: 1,
+        Priority.MEDIUM: 2,
+        Priority.LOW: 3,
+    }
+)
+
+# Valid Activity Domain slugs for the preview endpoint
+_PREVIEW_VALID_SLUGS = frozenset(
+    {"tasks", "goals", "habits", "events", "choices", "principles"}
+)
 
 
 # ============================================================================
@@ -595,7 +613,7 @@ def setup_user_profile_routes(rt, services):
     @rt("/profile")
     async def profile_page(request: Request) -> Any:
         """
-        Tracking overview page — no sidebar, standard BasePage.
+        Tracking overview page with sidebar navigation.
 
         Operates in two modes:
         - Basic mode: Core profile data (always works)
@@ -641,12 +659,83 @@ def setup_user_profile_routes(rt, services):
         else:
             content = OverviewView(context)
 
-        return await BasePage(
-            content,
-            title="Tracking",
+        # Build domain items for sidebar (same as domain-specific pages)
+        domains = _build_domain_items(context)
+        curriculum_domains = _build_curriculum_items(context)
+
+        return await create_profile_page(
+            content=content,
+            domains=domains,
+            active_domain="",  # Empty = Overview item is active
+            curriculum_domains=curriculum_domains,
             request=request,
-            active_page="profile/hub",
+            title="Tracking",
         )
+
+    @rt("/api/profile/{slug}/preview")
+    async def domain_card_preview(request: Request, slug: str) -> Any:
+        """
+        HTMX fragment: top 5 active items for a domain card, sorted by priority.
+
+        Called by the domain cards on the /profile overview page via
+        hx-trigger="load". Returns a compact item list (priority dot + title)
+        or an empty-state message.
+
+        Requires authentication.
+        """
+        if slug not in _PREVIEW_VALID_SLUGS:
+            from fasthtml.common import P as Para
+
+            return Para("Unknown domain", cls="text-error text-sm")
+
+        user_uid = require_authenticated_user(request)
+
+        async def _fetch_items() -> Result[list[Any]]:
+            """Dispatch to the correct service based on slug."""
+            if slug == "tasks":
+                if services.tasks is None:
+                    return Result.fail(Errors.system("Tasks service not initialized"))
+                return await services.tasks.get_user_tasks(user_uid)
+            elif slug == "goals":
+                if services.goals is None:
+                    return Result.fail(Errors.system("Goals service not initialized"))
+                return await services.goals.get_user_goals(user_uid)
+            elif slug == "habits":
+                if services.habits is None:
+                    return Result.fail(Errors.system("Habits service not initialized"))
+                return await services.habits.get_user_habits(user_uid)
+            elif slug == "events":
+                if services.events is None:
+                    return Result.fail(Errors.system("Events service not initialized"))
+                return await services.events.get_user_events(user_uid)
+            elif slug == "choices":
+                if services.choices is None:
+                    return Result.fail(Errors.system("Choices service not initialized"))
+                return await services.choices.get_user_choices(user_uid)
+            else:  # principles
+                if services.principles is None:
+                    return Result.fail(Errors.system("Principles service not initialized"))
+                return await services.principles.get_user_principles(user_uid)
+
+        result = await _fetch_items()
+
+        if result.is_error:
+            from fasthtml.common import P as Para
+
+            logger.warning(
+                "Failed to load domain card preview",
+                extra={"slug": slug, "user_uid": user_uid, "error": str(result.error)},
+            )
+            return Para("Unable to load items", cls="text-sm text-base-content/50 py-2")
+
+        # Filter terminal statuses (completed, failed, cancelled, archived)
+        active_items = [item for item in result.value if not item.status.is_terminal()]
+
+        # Sort by priority (most important first), take top 5
+        sorted_items = sorted(active_items, key=_PREVIEW_PRIORITY_SORT_KEY)
+        preview_items = sorted_items[:5]
+
+        return render_domain_card_preview(preview_items, slug)
 
     @rt("/profile/{domain}")
     async def profile_domain(request: Request, domain: str) -> Any:

@@ -208,6 +208,17 @@ def _build_profile_sidebar_items(
 
     extra_sections.append(_section_header("Curriculum"))
 
+    # Knowledge in Focus: placeholder linking to the existing knowledge domain view
+    knowledge_focus_item = SidebarItem(
+        "Knowledge in Focus",
+        "/profile/knowledge",
+        "knowledge-focus",
+        icon="🔍",
+    )
+    extra_sections.append(
+        _profile_item_renderer(knowledge_focus_item, active_domain == "knowledge-focus")
+    )
+
     if curriculum_domains:
         for d in curriculum_domains:
             _profile_domain_data[d.slug] = d

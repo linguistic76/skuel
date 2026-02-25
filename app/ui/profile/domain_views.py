@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H2, H3, A, Button, Div, Label, Li, Option, P, Select, Span, Ul
 
+from core.models.enums import Priority
 from core.services.user.unified_user_context import UserContext
 from ui.patterns.empty_state import EmptyState
 
@@ -1616,64 +1617,117 @@ def _velocity_summary(context: UserContext) -> Div:
     )
 
 
-def _domain_progress_grid(context: UserContext) -> Div:
-    """Per-domain item counts — the hero element of the profile page.
+def _card_preview_skeleton() -> Div:
+    """Animated skeleton shown in domain cards while HTMX loads item lists."""
+    return Div(
+        Div(cls="h-4 bg-base-200 rounded animate-pulse"),
+        Div(cls="h-4 bg-base-200 rounded animate-pulse w-4/5"),
+        Div(cls="h-4 bg-base-200 rounded animate-pulse w-3/5"),
+        cls="space-y-2 py-1",
+    )
 
-    Large, colorful cards with left accent borders showing item counts
-    per domain. Each domain gets a primary count (big number) and a
-    secondary breakdown for context.
+
+_PREVIEW_DOMAIN_HREFS: dict[str, str] = {
+    "tasks": "/tasks",
+    "goals": "/goals",
+    "habits": "/habits",
+    "events": "/events",
+    "choices": "/choices",
+    "principles": "/principles",
+}
+
+_PREVIEW_PRIORITY_COLORS: dict[Priority, str] = {
+    Priority.CRITICAL: "bg-red-500",
+    Priority.HIGH: "bg-orange-500",
+    Priority.MEDIUM: "bg-blue-500",
+    Priority.LOW: "bg-gray-400",
+}
+
+_PREVIEW_PRIORITY_LABELS: dict[Priority, str] = {
+    Priority.CRITICAL: "P1",
+    Priority.HIGH: "P2",
+    Priority.MEDIUM: "P3",
+    Priority.LOW: "P4",
+}
+
+
+def render_domain_card_preview(items: list[Any], slug: str) -> Div:
+    """Render domain card preview HTML fragment.
+
+    Called from the /api/profile/{slug}/preview endpoint.
+    Shows up to 5 active items sorted by priority with a "View all" link.
+
+    Args:
+        items: Pre-filtered and pre-sorted list of domain items (max 5).
+        slug: Domain slug used for the "View all" link.
     """
-    # (icon, name, slug, primary_count, primary_label, secondary_count, secondary_label, create_href)
-    # create_href: URL for the "+" button. None = no create button.
-    domain_data: list[tuple[str, str, str, int, str, int, str, str | None]] = [
-        (
-            "✅",
-            "Tasks",
-            "tasks",
-            len(context.active_task_uids),
-            "active",
-            len(context.completed_task_uids),
-            "completed",
-            "/tasks?view=create",
+    view_href = _PREVIEW_DOMAIN_HREFS.get(slug, f"/{slug}")
+
+    if not items:
+        return Div(
+            P(
+                f"No active {slug}",
+                cls="text-sm text-base-content/40 text-center py-3",
+            ),
+            A(
+                f"View all {slug} →",
+                href=view_href,
+                cls="text-xs text-primary hover:underline block text-center",
+            ),
+        )
+
+    def _priority_dot(item: Any) -> Span:
+        """Compact priority indicator: colored dot + P-label."""
+        priority = getattr(item, "priority", Priority.LOW)
+        color = _PREVIEW_PRIORITY_COLORS.get(priority, "bg-gray-400")
+        label = _PREVIEW_PRIORITY_LABELS.get(priority, "P4")
+        return Span(
+            Span(cls=f"w-2 h-2 rounded-full {color} shrink-0"),
+            Span(label, cls="text-xs font-medium text-base-content/50 w-5"),
+            cls="inline-flex items-center gap-1 shrink-0",
+            title=f"Priority: {priority.value.title()}",
+        )
+
+    rows = [
+        Li(
+            _priority_dot(item),
+            Span(
+                getattr(item, "title", "Untitled"),
+                cls="text-sm text-base-content truncate flex-1 min-w-0",
+            ),
+            cls="flex items-center gap-2 py-1.5",
+        )
+        for item in items
+    ]
+
+    return Div(
+        Ul(*rows, cls="divide-y divide-base-200"),
+        A(
+            f"View all {slug} →",
+            href=view_href,
+            cls="text-xs text-primary hover:underline mt-3 inline-block",
         ),
-        (
-            "🔄",
-            "Habits",
-            "habits",
-            len(context.active_habit_uids),
-            "active",
-            len(context.at_risk_habits),
-            "at risk",
-            "/habits?view=create",
-        ),
-        (
-            "🎯",
-            "Goals",
-            "goals",
-            len(context.active_goal_uids),
-            "active",
-            len(context.completed_goal_uids),
-            "completed",
-            "/goals?view=create",
-        ),
-        (
-            "📅",
-            "Events",
-            "events",
-            len(context.upcoming_event_uids),
-            "upcoming",
-            len(context.today_event_uids),
-            "today",
-            "/events?view=create",
-        ),
+    )
+
+
+def _domain_progress_grid(context: UserContext) -> Div:
+    """Per-domain cards — Activity Domains load item lists via HTMX.
+
+    The 6 Activity Domains (Tasks, Habits, Goals, Events, Principles,
+    Choices) show a compact priority-sorted item list loaded asynchronously.
+    Knowledge and Journals use static stat displays.
+    """
+    # Activity Domain cards: active count badge in header + HTMX-loaded item list
+    activity_data: list[tuple[str, str, str, int, str]] = [
+        ("✅", "Tasks", "tasks", len(context.active_task_uids), "/tasks?view=create"),
+        ("🔄", "Habits", "habits", len(context.active_habit_uids), "/habits?view=create"),
+        ("🎯", "Goals", "goals", len(context.active_goal_uids), "/goals?view=create"),
+        ("📅", "Events", "events", len(context.upcoming_event_uids), "/events?view=create"),
         (
             "⚖️",
             "Principles",
             "principles",
             len(context.core_principle_uids),
-            "total",
-            len(context.principle_conflicts),
-            "conflicts",
             "/principles?view=create",
         ),
         (
@@ -1681,91 +1735,108 @@ def _domain_progress_grid(context: UserContext) -> Div:
             "Choices",
             "choices",
             len(context.pending_choice_uids),
-            "pending",
-            len(context.resolved_choice_uids),
-            "resolved",
             "/choices?view=create",
-        ),
-        (
-            "📓",
-            "Journals",
-            "journals",
-            0,
-            "entries",
-            0,
-            "",
-            "/journals/submit",
-        ),
-        (
-            "📖",
-            "Knowledge",
-            "knowledge",
-            len(context.mastered_knowledge_uids) + len(context.in_progress_knowledge_uids),
-            "studied",
-            len(context.mastered_knowledge_uids),
-            "mastered",
-            None,
         ),
     ]
 
-    domain_items = []
-    for (
-        icon,
-        name,
-        _slug,
-        primary,
-        primary_label,
-        secondary,
-        secondary_label,
-        create_href,
-    ) in domain_data:
-        # Secondary line (only shown when count > 0)
-        secondary_el = (
-            Span(f"{secondary} {secondary_label}", cls="text-sm text-base-content/50")
-            if secondary > 0
-            else None
+    domain_items: list[Any] = []
+    for icon, name, slug, active_count, create_href in activity_data:
+        create_btn = A(
+            "+",
+            href=create_href,
+            cls="w-7 h-7 flex items-center justify-center rounded-full "
+            "text-base-content/40 hover:text-base-content hover:bg-base-200 "
+            "transition-colors text-lg font-bold leading-none",
+            title=f"New {name.removesuffix('s')}",
         )
-
-        # Create button (only when create_href is provided)
-        create_btn: A | str = ""
-        if create_href:
-            create_btn = A(
-                "+",
-                href=create_href,
-                cls="w-7 h-7 flex items-center justify-center rounded-full "
-                "text-base-content/40 hover:text-base-content hover:bg-base-200 "
-                "transition-colors text-lg font-bold leading-none",
-                title=f"New {name.removesuffix('s')}",
-            )
-
         domain_items.append(
             Div(
-                # Domain header with optional add button
+                # Header: icon + name + active count + create button
                 Div(
                     Div(
                         Span(icon, cls="text-xl"),
                         Span(name, cls="text-base font-semibold text-base-content"),
+                        Span(str(active_count), cls="badge badge-sm badge-ghost"),
                         cls="flex items-center gap-2",
                     ),
                     create_btn,
                     cls="flex items-center justify-between mb-3",
                 ),
-                # Primary count — the hero number
+                # HTMX-loaded item list (skeleton shown while loading)
                 Div(
-                    Span(str(primary), cls="text-3xl font-bold text-base-content"),
-                    Span(primary_label, cls="text-sm text-base-content/50 ml-2"),
-                    cls="flex items-baseline",
+                    _card_preview_skeleton(),
+                    hx_get=f"/api/profile/{slug}/preview",
+                    hx_trigger="load",
+                    hx_swap="innerHTML",
+                    cls="min-h-[100px]",
                 ),
-                # Secondary breakdown
-                Div(
-                    secondary_el,
-                    cls="mt-1 min-h-[1.25rem]",
-                )
-                if secondary_el
-                else Div(cls="mt-1 min-h-[1.25rem]"),
                 cls="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
             )
         )
+
+    # Knowledge card (static stat — no items endpoint needed)
+    total_knowledge = (
+        len(context.mastered_knowledge_uids) + len(context.in_progress_knowledge_uids)
+    )
+    mastered = len(context.mastered_knowledge_uids)
+    knowledge_secondary = (
+        Span(f"{mastered} mastered", cls="text-sm text-base-content/50")
+        if mastered > 0
+        else None
+    )
+    domain_items.append(
+        Div(
+            Div(
+                Div(
+                    Span("📖", cls="text-xl"),
+                    Span("Knowledge", cls="text-base font-semibold text-base-content"),
+                    cls="flex items-center gap-2",
+                ),
+                cls="flex items-center justify-between mb-3",
+            ),
+            Div(
+                Span(str(total_knowledge), cls="text-3xl font-bold text-base-content"),
+                Span("studied", cls="text-sm text-base-content/50 ml-2"),
+                cls="flex items-baseline",
+            ),
+            Div(knowledge_secondary, cls="mt-1 min-h-[1.25rem]")
+            if knowledge_secondary
+            else Div(cls="mt-1 min-h-[1.25rem]"),
+            cls="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
+        )
+    )
+
+    # Journals card (CTA — submit a new entry)
+    domain_items.append(
+        Div(
+            Div(
+                Div(
+                    Span("📓", cls="text-xl"),
+                    Span("Journals", cls="text-base font-semibold text-base-content"),
+                    cls="flex items-center gap-2",
+                ),
+                A(
+                    "+",
+                    href="/journals/submit",
+                    cls="w-7 h-7 flex items-center justify-center rounded-full "
+                    "text-base-content/40 hover:text-base-content hover:bg-base-200 "
+                    "transition-colors text-lg font-bold leading-none",
+                    title="Submit journal",
+                ),
+                cls="flex items-center justify-between mb-3",
+            ),
+            P(
+                "Submit a journal entry to track your progress.",
+                cls="text-sm text-base-content/50",
+            ),
+            A(
+                "Submit journal →",
+                href="/journals/submit",
+                cls="text-xs text-primary hover:underline mt-2 inline-block",
+            ),
+            cls="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
+        )
+    )
 
     return Div(
         *domain_items,
@@ -2180,4 +2251,5 @@ __all__ = [
     "OverviewView",
     "PrinciplesDomainView",
     "TasksDomainView",
+    "render_domain_card_preview",
 ]
