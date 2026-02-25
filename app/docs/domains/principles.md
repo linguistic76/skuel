@@ -409,7 +409,7 @@ The Principles domain publishes domain events for cross-service communication:
 ### Create a Principle
 
 ```python
-from core.models.enums.ku_enums import PrincipleCategory
+from core.models.enums.principle_enums import PrincipleCategory
 
 result = await principles_service.create_principle(
     label="Continuous Learning",

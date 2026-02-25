@@ -112,7 +112,7 @@ async def _dual_track_assessment(
 ```python
 # File: /core/services/principles/principles_intelligence_service.py
 
-from core.models.enums.ku_enums import AlignmentLevel
+from core.models.enums.principle_enums import AlignmentLevel
 from core.models.shared.dual_track import DualTrackResult
 
 async def assess_alignment_dual_track(
