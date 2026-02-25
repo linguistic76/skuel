@@ -336,18 +336,23 @@ class ReportsProcessingService:
             )
             return
 
-        # Step 1: Read enrichment mode from instructions
+        # Step 1: Read enrichment mode and custom instructions from instructions dict
         enrichment_mode = instructions.get("enrichment_mode") if instructions else None
+        custom_instructions = instructions.get("custom_instructions") if instructions else None
 
-        self.logger.info(
-            f"Processing journal report {report.uid} (enrichment_mode: {enrichment_mode or 'activity_tracking'})"
-        )
+        if custom_instructions:
+            self.logger.info(f"Processing journal report {report.uid} with custom instructions")
+        else:
+            self.logger.info(
+                f"Processing journal report {report.uid} (enrichment_mode: {enrichment_mode or 'activity_tracking'})"
+            )
 
         # Step 2: Generate je_output file
         output_result = await self.journal_generator.generate(
             content=content,
             enrichment_mode=enrichment_mode,
             report_uid=report.uid,
+            custom_instructions=custom_instructions,
         )
 
         if output_result.is_error:

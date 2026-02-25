@@ -58,9 +58,10 @@ class JournalOutputGenerator:
         content: str,
         enrichment_mode: str | None,
         report_uid: str,
+        custom_instructions: str | None = None,
     ) -> Result[str]:
         """
-        Generate formatted je_output file based on enrichment mode.
+        Generate formatted je_output file based on enrichment mode or custom instructions.
 
         Output saved to: {storage_base}/{YYYY-MM}/report_{uid}_output.md
 
@@ -69,23 +70,29 @@ class JournalOutputGenerator:
             enrichment_mode: Processing strategy ("activity_tracking", "idea_articulation",
                 "critical_thinking"). Defaults to "activity_tracking" when None.
             report_uid: Report UID for filename
+            custom_instructions: User-provided instruction text. When set, used directly
+                as the LLM prompt instead of the built-in mode templates.
 
         Returns:
             Result containing path to generated je_output file
         """
-        mode = enrichment_mode or "activity_tracking"
-        self.logger.info(f"Generating je_output for {report_uid} (mode: {mode})")
-
-        # Select formatter based on enrichment mode
-        if mode == "activity_tracking":
-            formatted_result = await self._format_activity(content)
-        elif mode == "idea_articulation":
-            formatted_result = await self._format_articulation(content)
-        elif mode == "critical_thinking":
-            formatted_result = await self._format_exploration(content)
+        if custom_instructions:
+            self.logger.info(f"Generating je_output for {report_uid} (custom instructions)")
+            formatted_result = await self._format_custom(content, custom_instructions)
         else:
-            self.logger.warning(f"Unknown enrichment mode '{mode}', falling back to activity")
-            formatted_result = await self._format_activity(content)
+            mode = enrichment_mode or "activity_tracking"
+            self.logger.info(f"Generating je_output for {report_uid} (mode: {mode})")
+
+            # Select formatter based on enrichment mode
+            if mode == "activity_tracking":
+                formatted_result = await self._format_activity(content)
+            elif mode == "idea_articulation":
+                formatted_result = await self._format_articulation(content)
+            elif mode == "critical_thinking":
+                formatted_result = await self._format_exploration(content)
+            else:
+                self.logger.warning(f"Unknown enrichment mode '{mode}', falling back to activity")
+                formatted_result = await self._format_activity(content)
 
         if formatted_result.is_error:
             return Result.fail(formatted_result.expect_error())
@@ -100,6 +107,11 @@ class JournalOutputGenerator:
         output_path = output_path_result.value
         self.logger.info(f"je_output saved: {output_path}")
         return Result.ok(output_path)
+
+    async def _format_custom(self, content: str, custom_instructions: str) -> Result[str]:
+        """Format content using user-provided instructions."""
+        prompt = f"{custom_instructions}\n\n## Content to Process\n\n{content}"
+        return await self._call_formatter(prompt, "custom")
 
     async def _format_activity(self, content: str) -> Result[str]:
         """Format content for activity tracking mode (structured DSL)."""

@@ -739,7 +739,7 @@ def create_journals_ui_routes(
             process_result = await processing_service.process_report(
                 report.uid,
                 instructions={
-                    "instructions": instructions_text,
+                    "custom_instructions": instructions_text,
                     "extract_activities": True,  # Enable DSL entity extraction
                 },
             )
