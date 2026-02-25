@@ -239,6 +239,14 @@ def _build_profile_sidebar_items(
         ]
     )
 
+    settings_item = SidebarItem("Settings", "/profile/settings", "settings", icon="⚙️")
+    extra_sections.extend(
+        [
+            _section_header("Account"),
+            _profile_item_renderer(settings_item, active_domain == "settings"),
+        ]
+    )
+
     return items, extra_sections or None
 
 

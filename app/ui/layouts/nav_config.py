@@ -49,16 +49,8 @@ ADMIN_NAV_ITEM = NavItem(
     requires_admin=True,
 )
 
-# Profile dropdown items - account actions only (Activity Domains moved to profile sidebar)
-PROFILE_DROPDOWN_ITEMS: tuple[NavItem, ...] = (
-    NavItem("Profile", "/profile", "profile"),
-    NavItem("Settings", "/profile/settings", "settings"),
-    NavItem("Sign out", "/logout", "logout"),
-)
-
 __all__ = [
     "NavItem",
     "MAIN_NAV_ITEMS",
     "ADMIN_NAV_ITEM",
-    "PROFILE_DROPDOWN_ITEMS",
 ]

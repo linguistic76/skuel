@@ -20,13 +20,12 @@ Usage:
 
 from typing import Any
 
-from fasthtml.common import A, Button, Div, Li, Nav, NotStr, Span, Ul
+from fasthtml.common import A, Button, Div, Nav, NotStr, Span
 from starlette.requests import Request
 
 from ui.layouts.nav_config import (
     ADMIN_NAV_ITEM,
     MAIN_NAV_ITEMS,
-    PROFILE_DROPDOWN_ITEMS,
     NavItem,
 )
 
@@ -173,36 +172,32 @@ def _avatar_hue(name: str) -> int:
     return h
 
 
-_DOMAIN_ICONS: dict[str, str] = {
-    "profile": "👤",
-    "settings": "⚙️",
-    "logout": "🚪",
-}
-
-
-def _dropdown_link(item: NavItem, active_page: str) -> Li:
-    """Single dropdown menu item with domain icon."""
-    is_active = item.page_key == active_page
-    icon = _DOMAIN_ICONS.get(item.page_key, "")
-    active_cls = "active" if is_active else ""
-
-    return Li(
-        A(
-            Span(icon, cls="text-base", aria_hidden="true"),
-            item.label,
-            href=item.href,
-            cls=active_cls,
-            **{"hx-boost": "false"},
-        )
+def _logout_icon() -> NotStr:
+    """Create the sign-out arrow-right-on-rectangle SVG icon."""
+    return NotStr(
+        '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" '
+        'stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true">'
+        '<path stroke-linecap="round" stroke-linejoin="round" '
+        'd="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5'
+        "A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"
+        '"/>'
+        "</svg>"
     )
 
 
-def _profile_dropdown(current_user: str, active_page: str) -> Div:
-    """Profile avatar with dropdown menu (Profile, Settings, Sign out).
+def _logout_button() -> A:
+    """Sign-out icon button that navigates to /logout."""
+    return A(
+        Span("Sign out", cls="sr-only"),
+        _logout_icon(),
+        href="/logout",
+        cls="btn btn-ghost btn-circle text-base-content/70 hover:text-base-content",
+        **{"hx-boost": "false"},
+    )
 
-    Desktop: DaisyUI dropdown appears on click via CSS :focus-within.
-    Mobile: Hidden — items appear in hamburger menu instead.
-    """
+
+def _avatar_link(current_user: str) -> A:
+    """Profile avatar as a direct link to /profile (no dropdown)."""
     initial = current_user[0].upper() if current_user else "U"
     hue = _avatar_hue(current_user)
 
@@ -213,22 +208,12 @@ def _profile_dropdown(current_user: str, active_page: str) -> Div:
         aria_hidden="true",
     )
 
-    menu_items = [_dropdown_link(item, active_page) for item in PROFILE_DROPDOWN_ITEMS]
-
-    return Div(
-        Div(
-            avatar,
-            tabindex="0",
-            role="button",
-            cls="btn btn-ghost btn-circle",
-            aria_label="Profile menu",
-        ),
-        Ul(
-            *menu_items,
-            tabindex="0",
-            cls="dropdown-content menu bg-base-100 rounded-box z-[1] w-48 p-2 shadow-lg border border-base-200",
-        ),
-        cls="dropdown hidden sm:block",
+    return A(
+        Span("Go to profile", cls="sr-only"),
+        avatar,
+        href="/profile",
+        cls="btn btn-ghost btn-circle",
+        **{"hx-boost": "false"},
     )
 
 
@@ -320,25 +305,8 @@ def create_navbar(
         **{"x-show": "mobileMenuOpen", "x-transition": "", "x-cloak": ""},
     )
 
-    # Mobile account links (shown in hamburger menu for authenticated users)
-    # Activity Domains are in the profile sidebar, not the navbar mobile menu
-    mobile_domain_links: Div | str = ""
-    if is_authenticated:
-        mobile_domain_links = Div(
-            Div(
-                Span(
-                    "Account",
-                    cls="text-xs font-semibold uppercase tracking-wider opacity-60 px-3 pt-3 pb-1 block",
-                ),
-                *[_nav_link(item, active_page, mobile=True) for item in PROFILE_DROPDOWN_ITEMS],
-                cls="space-y-1 px-2 pb-3 border-t border-base-200 mt-2 pt-2",
-            ),
-            cls="sm:hidden",
-            **{"x-show": "mobileMenuOpen", "x-transition": "", "x-cloak": ""},
-        )
-
     # Profile section (authenticated vs not)
-    # Admin users get simplified profile — no activity domain dropdown
+    # Admin users get simplified profile — sign out text link only
     if is_authenticated and current_user and is_admin:
         profile_section = Div(
             _admin_profile_section(current_user),
@@ -348,7 +316,8 @@ def create_navbar(
         )
     elif is_authenticated and current_user:
         profile_section = Div(
-            _profile_dropdown(current_user, active_page),
+            _avatar_link(current_user),
+            _logout_button(),
             _search_button(active_page),
             _notification_button(unread_insights),
             cls="flex items-center gap-2",
@@ -379,8 +348,6 @@ def create_navbar(
         ),
         # Mobile menu (collapsible)
         mobile_links,
-        # Mobile activity domains (below main nav items)
-        mobile_domain_links,
         # Alpine.js state management
         **{"x-data": "navbar()"},
         cls="navbar bg-white border-b border-gray-200 sticky top-0 z-50",
