@@ -258,11 +258,15 @@ def _render_instruction_card(ex: Any, is_first: bool = False) -> Any:
     )
 
 
+def _exercise_created_at(exercise: Any) -> str:
+    return getattr(exercise, "created_at", "") or ""
+
+
 def _render_instruction_list(exercises: list[Any], error: str | None = None) -> Any:
     """Return the #instruction-file-list fragment (initial render or HTMX swap)."""
     exercises_sorted = sorted(
         exercises,
-        key=lambda e: getattr(e, "created_at", "") or "",
+        key=_exercise_created_at,
         reverse=True,
     )[:5]
 
