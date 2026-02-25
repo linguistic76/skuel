@@ -464,11 +464,11 @@ await moc_service.search.intelligent_search("public template tech")
 All 10 domains are registered in `_SEARCHABLE_DOMAINS` (January 2026 - Unified):
 
 ```python
-_SEARCHABLE_DOMAINS: frozenset[KuType] = frozenset({
+_SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
     # All domains are peers - no Activity/Curriculum distinction
-    KuType.TASK, KuType.GOAL, KuType.HABIT,
-    KuType.EVENT, KuType.CHOICE, KuType.PRINCIPLE,
-    KuType.CURRICULUM, KuType.LEARNING_STEP, KuType.LEARNING_PATH,
+    EntityType.TASK, EntityType.GOAL, EntityType.HABIT,
+    EntityType.EVENT, EntityType.CHOICE, EntityType.PRINCIPLE,
+    EntityType.CURRICULUM, EntityType.LEARNING_STEP, EntityType.LEARNING_PATH,
 })
 ```
 

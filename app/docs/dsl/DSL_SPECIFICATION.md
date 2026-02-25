@@ -103,7 +103,7 @@ metric     → data/measurement item
 @context(goal,learning)
 ```
 
-**Type Safety Note:** The `@context()` value maps to `KuType` (for knowledge-unit-based domains) or `NonKuDomain` (for finance, group, calendar, learning) in `/core/models/enums/` for compile-time verification. The union type `DomainIdentifier = KuType | NonKuDomain` covers all domains.
+**Type Safety Note:** The `@context()` value maps to `EntityType` (for all 14 domain types) or `NonKuDomain` (for finance, group, calendar, learning) in `/core/models/enums/` for compile-time verification. The union type `DomainIdentifier = EntityType | NonKuDomain` covers all domains.
 
 ---
 
@@ -403,5 +403,5 @@ Planned additions for future versions:
 
 - **Usage Guide:** `DSL_USAGE_GUIDE.md` - Examples and patterns
 - **Implementation Guide:** `DSL_IMPLEMENTATION.md` - Parser architecture
-- **KuType / NonKuDomain Enums:** `/core/models/enums/` (`DomainIdentifier = KuType | NonKuDomain`)
+- **EntityType / NonKuDomain Enums:** `/core/models/enums/entity_enums.py` (`DomainIdentifier = EntityType | NonKuDomain`)
 - **Activity DSL Parser:** `/core/services/dsl/`

@@ -81,7 +81,7 @@ class TasksService(BaseService[TasksOperations, Task]):
 | `completion_date` | `date?` | When task was completed |
 | `duration_minutes` | `int` | Estimated duration (default: 30) |
 | `actual_minutes` | `int?` | Actual time spent |
-| `status` | `KuStatus` | Draft, Active, Completed, etc. (indexed) |
+| `status` | `EntityStatus` | Draft, Active, Completed, etc. (indexed) |
 | `priority` | `Priority` | Low, Medium, High, Urgent (indexed) |
 | `project` | `str?` | Project grouping |
 | `tags` | `tuple[str, ...]` | Tags for categorization |
@@ -171,7 +171,7 @@ task, context = await tasks_rel.get_entity_with_context("task:123", depth=2)
 | Method | Description |
 |--------|-------------|
 | `search(query, user_uid)` | Text search across title, description |
-| `get_by_status(status, user_uid)` | Filter by KuStatus |
+| `get_by_status(status, user_uid)` | Filter by EntityStatus |
 | `get_by_domain(domain, user_uid)` | Filter by Domain |
 | `get_by_category(category, user_uid)` | Filter by category field |
 | `get_by_relationship(related_uid, rel, dir)` | Graph traversal |

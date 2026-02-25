@@ -253,27 +253,27 @@ KU ──────→ LS ──────→ LP
 
 Type safety **channels** the relationships so energy (user effort, system computation, semantic meaning) flows through defined paths and feeds back into the system.
 
-### The KuType Enum
+### The EntityType Enum
 
 ```python
-from core.models.enums.ku_enums import KuType
+from core.models.enums.entity_enums import EntityType
 
-class KuType(str, Enum):
+class EntityType(str, Enum):
     # Knowledge (shared curriculum)
-    CURRICULUM = "curriculum"   # Was EntityType.KU
-    MOC = "moc"                # KU with ORGANIZES relationships
+    CURRICULUM = "curriculum"
+    # MOC is NOT a separate EntityType — any Entity can organize others via ORGANIZES
 
     # Curriculum structure
-    LEARNING_STEP = "learning_step"   # Was EntityType.LS
-    LEARNING_PATH = "learning_path"   # Was EntityType.LP
-    # ... plus 10 more (activity domains, content processing, destination)
+    LEARNING_STEP = "learning_step"
+    LEARNING_PATH = "learning_path"
+    # ... plus 11 more (activity domains, content processing, destination)
 ```
 
-Under the unified Ku model, curriculum patterns are KuType values alongside activity domains. The grouping patterns (CURRICULUM, LEARNING_STEP, LEARNING_PATH) form the shared knowledge organization system. MOC is not a separate KuType — any Ku can organize others via ORGANIZES relationships (emergent identity).
+Curriculum patterns are EntityType values alongside activity domains. The grouping patterns (CURRICULUM, LEARNING_STEP, LEARNING_PATH) form the shared knowledge organization system. MOC is not a separate EntityType — any Entity can organize others via ORGANIZES relationships (emergent identity).
 
-**Domain Classification (February 2026 - Unified Ku):**
-- **Knowledge (shared curriculum):** KuType.CURRICULUM (any Ku can be an organizer via ORGANIZES)
-- **Curriculum structure:** KuType.LEARNING_STEP, KuType.LEARNING_PATH
+**Domain Classification:**
+- **Knowledge (shared curriculum):** EntityType.CURRICULUM (any Entity can be an organizer via ORGANIZES)
+- **Curriculum structure:** EntityType.LEARNING_STEP, EntityType.LEARNING_PATH
 
 ### Relationship Types
 
@@ -344,7 +344,7 @@ The `MarkdownSyncService` automatically detects and routes each file type.
 | LP Model | `/core/models/lp/lp.py` | Learning Path definition |
 | MOC Service | `/core/services/moc_service.py` | MOC facade (KU-based) |
 | MOC Navigation | `/core/services/moc/moc_navigation_service.py` | MOC operations |
-| KuType | `/core/models/enums/ku_enums.py` | Type-safe entity identification |
+| EntityType | `/core/models/enums/entity_enums.py` | Type-safe entity identification |
 | Markdown Sync | `/core/services/markdown_sync_service.py` | Sync all patterns from markdown |
 | Unified Registry | `/core/models/relationship_registry.py` | All domain relationship configs |
 
