@@ -258,16 +258,11 @@ def setup_user_profile_routes(rt, services):
         """
         user_uid = require_authenticated_user(request)
 
-        # Get user - ONE PATH (no fallback)
-        user_result = await services.user_service.get_user(user_uid)
-        if user_result.is_error:
-            logger.error(
-                "Failed to load user for settings",
-                extra={"user_uid": user_uid, "error": str(user_result.error)},
-            )
+        try:
+            user, context = await _get_user_and_context(user_uid)
+        except ValueError as e:
+            logger.error("Failed to load user for settings", extra={"error": str(e)})
             return await error_page("User not found", 404)
-
-        user = user_result.value
 
         # Extract preferences as dict
         prefs_dict = {}
@@ -292,7 +287,20 @@ def setup_user_profile_routes(rt, services):
 
         from ui.profile.preferences import UserPreferencesComponents
 
-        return UserPreferencesComponents.render_preferences_editor(prefs_dict)
+        content = UserPreferencesComponents.render_preferences_editor(prefs_dict)
+        domains = _build_domain_items(context)
+        curriculum_domains = _build_curriculum_items(context)
+        display_name = user.display_name if user.display_name else user.username
+
+        return await create_profile_page(
+            content=content,
+            domains=domains,
+            active_domain="settings",
+            curriculum_domains=curriculum_domains,
+            user_display_name=display_name,
+            title="Settings - Profile Hub",
+            request=request,
+        )
 
     @rt("/profile/settings/save")
     async def save_user_settings(request: Request) -> Any:
