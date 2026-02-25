@@ -21,9 +21,12 @@ Architecture:
 __version__ = "4.0"  # Merged dashboard sidebar into profile/hub
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
 
 from adapters.inbound.auth import require_authenticated_user
 from core.models.enums import Priority
@@ -90,10 +93,9 @@ def _preview_priority_sort_key(item: Any) -> int:
             raw = Priority.LOW
     return _PREVIEW_PRIORITY_ORDER.get(raw, 4)
 
+
 # Valid Activity Domain slugs for the preview endpoint
-_PREVIEW_VALID_SLUGS = frozenset(
-    {"tasks", "goals", "habits", "events", "choices", "principles"}
-)
+_PREVIEW_VALID_SLUGS = frozenset({"tasks", "goals", "habits", "events", "choices", "principles"})
 
 
 # ============================================================================
@@ -235,7 +237,7 @@ def parse_profile_params(request: Request) -> ProfileParams:
 # ============================================================================
 
 
-def setup_user_profile_routes(rt, services):
+def setup_user_profile_routes(rt: Any, services: "Services") -> None:
     """
     Setup user profile routes.
 
@@ -243,6 +245,10 @@ def setup_user_profile_routes(rt, services):
         rt: FastHTML route decorator
         services: Services container with all backends
     """
+
+    if services.user_service is None:
+        raise RuntimeError("UserService is required for profile routes")
+    user_service = services.user_service
 
     # ========================================================================
     # SETTINGS ROUTES
@@ -342,7 +348,7 @@ def setup_user_profile_routes(rt, services):
         }
 
         # Update user preferences - ONE PATH (no fallback)
-        update_result = await services.user_service.update_preferences(user_uid, preferences_update)
+        update_result = await user_service.update_preferences(user_uid, preferences_update)
 
         if update_result.is_error:
             # Log detailed error for debugging (don't leak to user)
@@ -391,13 +397,13 @@ def setup_user_profile_routes(rt, services):
             ValueError: If user or context cannot be loaded
         """
         # Get user - ONE PATH (no fallback)
-        user_result = await services.user_service.get_user(user_uid)
+        user_result = await user_service.get_user(user_uid)
         if user_result.is_error:
             raise ValueError(f"User not found: {user_uid}")
         user = user_result.value
 
         # Get context - ONE PATH (no fallback)
-        context_result = await services.user_service.get_rich_unified_context(user_uid)
+        context_result = await user_service.get_rich_unified_context(user_uid)
         if context_result.is_error:
             raise ValueError(f"Failed to load context for user: {user_uid}")
         context = context_result.value

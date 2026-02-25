@@ -36,19 +36,15 @@ See: /docs/patterns/OWNERSHIP_VERIFICATION.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.models.goal.goal import Goal
+from core.models.habit.habit import Habit
 from core.utils.result_simplified import Errors, Result
 
-if TYPE_CHECKING:
-    import builtins
 
-    from core.models.goal.goal import Goal
-    from core.models.habit.habit import Habit
-
-
-class HabitsBackend(UniversalNeo4jBackend["Habit"]):
+class HabitsBackend(UniversalNeo4jBackend[Habit]):
     """
     Domain backend for Habit entities.
 
@@ -65,36 +61,38 @@ class HabitsBackend(UniversalNeo4jBackend["Habit"]):
 
     async def get_habit(self, habit_id: str) -> Result[Habit]:
         """Get habit by ID. Returns error if not found (contrast with get() → None)."""
-        result = await self.get(habit_id)
-        if result.is_error:
-            return result
-        if not result.value:
+        get_result: Result[Habit | None] = await self.get(habit_id)
+        if get_result.is_error:
+            return Result.fail(get_result.expect_error())
+        if not get_result.value:
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_id))
-        return result  # type: ignore[return-value]
+        return Result.ok(get_result.value)
 
-    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[builtins.list[Habit]]:
+    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[list[Habit]]:
         """List all habits for a user. Returns flat list (not paginated tuple)."""
-        result = await self.get_user_entities(user_uid, limit=limit)
-        if result.is_error:
-            return result
-        habits, _ = result.value
+        page_result: Result[tuple[list[Habit], int]] = await self.get_user_entities(
+            user_uid, limit=limit
+        )
+        if page_result.is_error:
+            return Result.fail(page_result.expect_error())
+        habits, _ = page_result.value
         return Result.ok(habits)
 
-    async def get_user_habits(self, user_uid: str) -> Result[builtins.list[Habit]]:
+    async def get_user_habits(self, user_uid: str) -> Result[list[Habit]]:
         """Get all habits for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid)
 
     async def archive_habit(self, habit_id: str) -> Result[bool]:
         """Archive a habit by transitioning its status to 'archived'."""
-        result = await self.update(habit_id, {"status": "archived"})
-        if result.is_error:
-            return result
+        update_result: Result[Habit] = await self.update(habit_id, {"status": "archived"})
+        if update_result.is_error:
+            return Result.fail(update_result.expect_error())
         return Result.ok(True)
 
     async def create_user_habit_relationship(self, user_uid: str, habit_uid: str) -> bool:
         """Create User→Habit OWNS relationship in the graph."""
-        result = await self.create_user_relationship(user_uid, habit_uid)
-        return result.is_ok
+        rel_result: Result[bool] = await self.create_user_relationship(user_uid, habit_uid)
+        return rel_result.is_ok
 
     async def link_habit_to_knowledge(self, habit_uid: str, knowledge_uid: str) -> bool:
         """
@@ -143,7 +141,7 @@ class HabitsBackend(UniversalNeo4jBackend["Habit"]):
             return False
 
 
-class GoalsBackend(UniversalNeo4jBackend["Goal"]):
+class GoalsBackend(UniversalNeo4jBackend[Goal]):
     """
     Domain backend for Goal entities.
 
@@ -161,23 +159,25 @@ class GoalsBackend(UniversalNeo4jBackend["Goal"]):
 
     async def get_goal(self, goal_id: str) -> Result[Goal]:
         """Get goal by ID. Returns error if not found (contrast with get() → None)."""
-        result = await self.get(goal_id)
-        if result.is_error:
-            return result
-        if not result.value:
+        get_result: Result[Goal | None] = await self.get(goal_id)
+        if get_result.is_error:
+            return Result.fail(get_result.expect_error())
+        if not get_result.value:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_id))
-        return result  # type: ignore[return-value]
+        return Result.ok(get_result.value)
 
-    async def get_user_goals(self, user_uid: str) -> Result[builtins.list[Goal]]:
+    async def get_user_goals(self, user_uid: str) -> Result[list[Goal]]:
         """Get all goals for a user. Returns flat list (not paginated tuple)."""
         return await self.list_by_user(user_uid)
 
-    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[builtins.list[Goal]]:
+    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[list[Goal]]:
         """List all goals for a user. Returns flat list (not paginated tuple)."""
-        result = await self.get_user_entities(user_uid, limit=limit)
-        if result.is_error:
-            return result
-        goals, _ = result.value
+        page_result: Result[tuple[list[Goal], int]] = await self.get_user_entities(
+            user_uid, limit=limit
+        )
+        if page_result.is_error:
+            return Result.fail(page_result.expect_error())
+        goals, _ = page_result.value
         return Result.ok(goals)
 
     async def add_milestone(self, goal_id: str, milestone: dict[str, Any]) -> Result[bool]:
@@ -210,7 +210,8 @@ class GoalsBackend(UniversalNeo4jBackend["Goal"]):
 
     async def create_user_goal_relationship(self, user_uid: str, goal_uid: str) -> Result[bool]:
         """Create User→Goal OWNS relationship in the graph."""
-        return await self.create_user_relationship(user_uid, goal_uid)
+        rel_result: Result[bool] = await self.create_user_relationship(user_uid, goal_uid)
+        return rel_result
 
     async def link_goal_to_habit(self, goal_uid: str, habit_uid: str) -> Result[bool]:
         """

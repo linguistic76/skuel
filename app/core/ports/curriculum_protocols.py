@@ -83,7 +83,7 @@ from .base_protocols import BackendOperations, GraphRelationshipOperations
 if TYPE_CHECKING:
     from core.models.curriculum.learning_path import LearningPath
     from core.models.curriculum.learning_step import LearningStep
-    from core.models.entity import Entity
+    from core.models.entity import Entity  # noqa: F401 — used as forward ref in KuOperations base
     from core.models.entity_types import Ku
 
     # NOTE: MapOfContent, MOCSection, MOCStats imports removed January 2026

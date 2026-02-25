@@ -85,8 +85,24 @@ class UserOperations(Protocol):
         """Update user's learning progress. Returns Result[bool]."""
         ...
 
+    async def get_user(self, user_uid: str) -> Result[Any | None]:
+        """Get user by UID. Alias for get_user_by_uid. Returns Result[Optional[User]]."""
+        ...
+
     async def get_user_context(self, user_uid: str) -> Result[Any]:
         """Get user context (UserContext). Returns Result[UserContext]."""
+        ...
+
+    async def get_rich_unified_context(
+        self, user_uid: str, min_confidence: float = 0.7
+    ) -> Result[Any]:
+        """Get complete UserContext with both standard and rich fields. Returns Result[UserContext]."""
+        ...
+
+    async def update_preferences(
+        self, user_uid: str, preferences_update: dict[str, Any]
+    ) -> Result[Any]:
+        """Update user preferences. Returns Result[User]."""
         ...
 
     async def get(self, user_uid: str) -> Result[Any | None]:

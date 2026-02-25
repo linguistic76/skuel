@@ -157,6 +157,15 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
         """Get all tasks for a user."""
         ...
 
+    async def complete_task(
+        self,
+        uid: str,
+        actual_minutes: int | None = None,
+        quality_score: int | None = None,
+    ) -> Result[Task]:
+        """Complete a task (StatusRouteFactory compatible)."""
+        ...
+
     async def get_tasks_batch(self, uids: list[str]) -> Result[list[Task | None]]:
         """Batch load multiple tasks by UIDs."""
         ...

@@ -29,7 +29,6 @@ See Also:
 from typing import Any
 
 from core.models.user import User
-from core.ports.infrastructure_protocols import UserOperations
 from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.utils.result_simplified import Errors, Result
@@ -37,7 +36,7 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger(__name__)
 
 
-class UserBackend(UserOperations):
+class UserBackend:
     """
     Dedicated backend for User identity management.
 
