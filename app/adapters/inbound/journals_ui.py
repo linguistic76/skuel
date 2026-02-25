@@ -230,8 +230,74 @@ JOURNALS_SIDEBAR_ITEMS = [
 # ============================================================================
 
 
-def _render_upload_form() -> Any:
-    """Render the simplified file upload form — title + file only."""
+def _render_instruction_selector(exercises: list[Any]) -> Any:
+    """Render the processing instructions radio + optional exercise dropdown."""
+    if exercises:
+        exercise_options = [Option("— select an exercise —", value="", disabled=True, selected=True)]
+        for ex in exercises:
+            exercise_options.append(
+                Option(getattr(ex, "title", str(ex)), value=getattr(ex, "uid", ""))
+            )
+        exercise_input = Select(
+            *exercise_options,
+            name="exercise_uid",
+            cls="select select-bordered w-full",
+            **{"x-model": "exerciseUid"},
+        )
+    else:
+        exercise_input = Div(
+            P(
+                "No exercises found — ",
+                A("create one first", href="/ku", cls="link"),
+                ".",
+                cls="text-sm text-base-content/60 mb-0",
+            ),
+            # Hidden input so backend always receives exercise_uid (empty = use default)
+            Input(type="hidden", name="exercise_uid", value=""),
+        )
+
+    return Div(
+        Label("Processing Instructions", cls="label"),
+        Div(
+            # Default radio
+            Label(
+                Input(
+                    type="radio",
+                    name="instruction_mode",
+                    value="default",
+                    cls="radio radio-sm",
+                    **{"x-model": "instructionMode"},
+                ),
+                Span("Default instructions", cls="ml-2"),
+                cls="flex items-center cursor-pointer",
+            ),
+            # Exercise radio
+            Label(
+                Input(
+                    type="radio",
+                    name="instruction_mode",
+                    value="exercise",
+                    cls="radio radio-sm",
+                    **{"x-model": "instructionMode"},
+                ),
+                Span("Use an exercise", cls="ml-2"),
+                cls="flex items-center cursor-pointer",
+            ),
+            # Exercise selector (shown when exercise radio selected)
+            Div(
+                exercise_input,
+                cls="ml-6 mt-2",
+                **{"x-show": "instructionMode === 'exercise'"},
+            ),
+            cls="flex flex-col gap-2",
+        ),
+        cls="mb-4",
+    )
+
+
+def _render_upload_form(exercises: list[Any] | None = None) -> Any:
+    """Render the file upload form — title + instruction selector + file."""
+    exercises = exercises or []
     return Div(
         Div(
             Div(
@@ -252,6 +318,8 @@ def _render_upload_form() -> Any:
                         ),
                         cls="mb-4",
                     ),
+                    # Processing instructions selector
+                    _render_instruction_selector(exercises),
                     # File input (directly in form for proper HTMX serialization)
                     Input(
                         type="file",
@@ -298,6 +366,8 @@ def _render_upload_form() -> Any:
                     **{
                         "x-data": """{
                             selectedFile: null,
+                            instructionMode: 'default',
+                            exerciseUid: '',
                             handleFileSelect(event) {
                                 const file = event.target.files[0];
                                 if (file) {
@@ -480,14 +550,20 @@ def create_journals_ui_routes(
         return await _render_submit_page(request)
 
     async def _render_submit_page(request: Request) -> Any:
-        require_authenticated_user(request)
+        user_uid = require_authenticated_user(request)
+
+        exercises: list[Any] = []
+        if report_projects_service:
+            ex_result = await report_projects_service.list_user_exercises(user_uid)
+            if ex_result.is_ok:
+                exercises = ex_result.value or []
 
         content = Div(
             PageHeader(
                 "Submit to AI",
                 subtitle="Upload a file to be processed by AI",
             ),
-            _render_upload_form(),
+            _render_upload_form(exercises),
             _upload_form_script(),
         )
         return await SidebarPage(
@@ -549,9 +625,22 @@ def create_journals_ui_routes(
             file_content = await uploaded_file.read()
             filename = uploaded_file.filename or "unknown"
 
+            # Resolve processing instructions: exercise overrides default
+            exercise_uid = str(form.get("exercise_uid", "")).strip()
+            instructions_text = DEFAULT_INSTRUCTIONS
+            if exercise_uid and report_projects_service:
+                ex_result = await report_projects_service.get_exercise(exercise_uid)
+                if ex_result.is_ok and ex_result.value and ex_result.value.instructions:
+                    instructions_text = ex_result.value.instructions
+                    logger.info(f"Using exercise instructions: {exercise_uid}")
+
             logger.info(f"Journal upload: {filename} ({len(file_content)} bytes, title={title})")
 
-            # Submit file with LLM processor type and default instructions
+            # Submit file with LLM processor type
+            metadata: dict[str, Any] = {"project_uid": "__default__"}
+            if exercise_uid:
+                metadata["exercise_uid"] = exercise_uid
+
             result = await report_service.submit_file(
                 file_content=file_content,
                 original_filename=filename,
@@ -559,7 +648,7 @@ def create_journals_ui_routes(
                 ku_type=EntityType.JOURNAL,
                 processor_type=ProcessorType.LLM,
                 title=title,
-                metadata={"project_uid": "__default__"},
+                metadata=metadata,
             )
 
             if result.is_error:
@@ -572,7 +661,7 @@ def create_journals_ui_routes(
             process_result = await processing_service.process_report(
                 report.uid,
                 instructions={
-                    "instructions": DEFAULT_INSTRUCTIONS,
+                    "instructions": instructions_text,
                     "extract_activities": True,  # Enable DSL entity extraction
                 },
             )
