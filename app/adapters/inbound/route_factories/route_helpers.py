@@ -108,7 +108,9 @@ async def verify_entity_ownership(
 
     See: /docs/patterns/OWNERSHIP_VERIFICATION.md
     """
-    ownership_result: Result[Any] = cast("Result[Any]", await service.verify_ownership(uid, user_uid))
+    ownership_result: Result[Any] = cast(
+        "Result[Any]", await service.verify_ownership(uid, user_uid)
+    )
     if ownership_result.is_error:
         if domain:
             logger.debug(f"Ownership verification failed for {domain}: uid={uid}, user={user_uid}")

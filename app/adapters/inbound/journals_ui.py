@@ -276,13 +276,10 @@ def _render_instruction_list(exercises: list[Any], error: str | None = None) -> 
 
     if exercises_sorted:
         parts.extend(
-            _render_instruction_card(ex, is_first=(i == 0))
-            for i, ex in enumerate(exercises_sorted)
+            _render_instruction_card(ex, is_first=(i == 0)) for i, ex in enumerate(exercises_sorted)
         )
     else:
-        parts.append(
-            P("No saved instruction files yet.", cls="text-sm text-base-content/60")
-        )
+        parts.append(P("No saved instruction files yet.", cls="text-sm text-base-content/60"))
 
     return Div(*parts, id="instruction-file-list", cls="space-y-2")
 

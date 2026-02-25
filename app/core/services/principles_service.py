@@ -136,7 +136,9 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
         return await self.alignment.make_principle_based_decision(*args, **kwargs)
 
     # Learning delegations
-    async def frame_principle_practice_with_learning(self, *args: Any, **kwargs: Any) -> Result[Any]:
+    async def frame_principle_practice_with_learning(
+        self, *args: Any, **kwargs: Any
+    ) -> Result[Any]:
         return await self.learning.frame_principle_practice_with_learning(*args, **kwargs)
 
     async def assess_principle_learning_alignment(self, *args: Any, **kwargs: Any) -> Result[Any]:
@@ -216,13 +218,17 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
         return await self.reflection.get_conflict_analysis(*args, **kwargs)
 
     # Planning delegations
-    async def get_principles_needing_attention_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
+    async def get_principles_needing_attention_for_user(
+        self, *args: Any, **kwargs: Any
+    ) -> Result[Any]:
         return await self.planning.get_principles_needing_attention_for_user(*args, **kwargs)
 
     async def get_contextual_principles_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.planning.get_contextual_principles_for_user(*args, **kwargs)
 
-    async def get_principle_practice_opportunities_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
+    async def get_principle_practice_opportunities_for_user(
+        self, *args: Any, **kwargs: Any
+    ) -> Result[Any]:
         return await self.planning.get_principle_practice_opportunities_for_user(*args, **kwargs)
 
     def __init__(
@@ -461,7 +467,9 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
         sources = [s.value for s in PrincipleSource]
         return Result.ok(sources)
 
-    async def get_prioritized_principles(self, user_uid: str, limit: int = 10) -> Result[list[Entity]]:
+    async def get_prioritized_principles(
+        self, user_uid: str, limit: int = 10
+    ) -> Result[list[Entity]]:
         """
         Get principles prioritized for user context. Delegates to PrinciplesSearchService.
 
@@ -570,7 +578,11 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
 
         return Result.ok(
             [
-                {"context": e.get("context"), "behavior": e.get("behavior"), "example": e.get("example")}
+                {
+                    "context": e.get("context"),
+                    "behavior": e.get("behavior"),
+                    "example": e.get("example"),
+                }
                 for e in ku_dto.expressions
             ]
         )

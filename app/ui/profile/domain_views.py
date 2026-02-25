@@ -1781,14 +1781,10 @@ def _domain_progress_grid(context: UserContext) -> Div:
         )
 
     # Knowledge card (static stat — no items endpoint needed)
-    total_knowledge = (
-        len(context.mastered_knowledge_uids) + len(context.in_progress_knowledge_uids)
-    )
+    total_knowledge = len(context.mastered_knowledge_uids) + len(context.in_progress_knowledge_uids)
     mastered = len(context.mastered_knowledge_uids)
     knowledge_secondary = (
-        Span(f"{mastered} mastered", cls="text-sm text-base-content/50")
-        if mastered > 0
-        else None
+        Span(f"{mastered} mastered", cls="text-sm text-base-content/50") if mastered > 0 else None
     )
     domain_items.append(
         Div(

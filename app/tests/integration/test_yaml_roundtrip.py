@@ -106,9 +106,7 @@ This is test content for verifying basic round-trip functionality.
         assert ku_dto.complexity == "basic"
 
         # Tags should be a list
-        assert isinstance(ku_dto.tags, list), (
-            f"Expected tags to be list, got {type(ku_dto.tags)}"
-        )
+        assert isinstance(ku_dto.tags, list), f"Expected tags to be list, got {type(ku_dto.tags)}"
         assert "test" in ku_dto.tags
         assert "integration" in ku_dto.tags
 

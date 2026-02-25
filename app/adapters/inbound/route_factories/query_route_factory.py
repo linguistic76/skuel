@@ -227,7 +227,9 @@ class CommonQueryRouteFactory:
                 )
 
             # Include user_uid in filter to ensure ownership
-            return cast("Result[Any]", await method(filters={"status": status, "user_uid": user_uid}))
+            return cast(
+                "Result[Any]", await method(filters={"status": status, "user_uid": user_uid})
+            )
 
         return f"GET {self.base_path}/by-status?status=..."
 

@@ -129,9 +129,7 @@ def create_events_api_routes(
     @boundary_handler()
     async def check_conflicts_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
         """Check for scheduling conflicts (requires ownership)."""
-        return await events_service.check_conflicts(
-            CheckConflictsRequest(event_uid=entity.uid)
-        )
+        return await events_service.check_conflicts(CheckConflictsRequest(event_uid=entity.uid))
 
     # Search and Analytics
     # --------------------

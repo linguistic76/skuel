@@ -201,7 +201,9 @@ def create_exercises_api_routes(
                 )
             )
 
-        return cast("Result[Any]", await exercises_service.link_to_curriculum(exercise_uid, curriculum_uid))
+        return cast(
+            "Result[Any]", await exercises_service.link_to_curriculum(exercise_uid, curriculum_uid)
+        )
 
     @rt("/api/exercises/unrequire-knowledge", methods=["POST"])
     @require_teacher(get_user_service_instance)
@@ -230,7 +232,10 @@ def create_exercises_api_routes(
                 )
             )
 
-        return cast("Result[Any]", await exercises_service.unlink_from_curriculum(exercise_uid, curriculum_uid))
+        return cast(
+            "Result[Any]",
+            await exercises_service.unlink_from_curriculum(exercise_uid, curriculum_uid),
+        )
 
     @rt("/api/exercises/required-knowledge", methods=["GET"])
     @require_teacher(get_user_service_instance)
@@ -272,7 +277,9 @@ def create_exercises_api_routes(
                 Errors.validation("curriculum_uid is required", field="curriculum_uid")
             )
 
-        return cast("Result[Any]", await exercises_service.get_exercises_for_curriculum(curriculum_uid))
+        return cast(
+            "Result[Any]", await exercises_service.get_exercises_for_curriculum(curriculum_uid)
+        )
 
     logger.info("Exercises API routes registered (Factory pattern + curriculum linking)")
     return []

@@ -661,8 +661,7 @@ def create_principles_ui_routes(
 
         # Return just the principle items
         principle_items = [
-            PrinciplesViewComponents._render_principle_item(principle)
-            for principle in principles
+            PrinciplesViewComponents._render_principle_item(principle) for principle in principles
         ]
 
         return Div(

@@ -659,9 +659,7 @@ class TestCurriculumContextBuilder:
         assert "lp:web_development" in context.enrolled_path_uids
 
     @pytest.mark.asyncio
-    async def test_builder_handles_no_curriculum_data(
-        self, neo4j_driver, clean_curriculum
-    ) -> None:
+    async def test_builder_handles_no_curriculum_data(self, neo4j_driver, clean_curriculum) -> None:
         """
         Verify builder handles user with no curriculum entities gracefully.
 

@@ -1084,7 +1084,6 @@ async def compose_services(
         # User is NOT an activity domain - it's the identity layer all domains reference
         # See: CLAUDE.md §2.11 Domain Architecture Categories
         from adapters.persistence.neo4j.user_backend import UserBackend
-
         from core.models.curriculum.curriculum import Curriculum
 
         users_backend = UserBackend(driver)
@@ -1135,7 +1134,9 @@ async def compose_services(
         # Create user service FIRST (foundation service with no dependencies)
         from core.services.user_service import create_user_service
 
-        user_service = create_user_service(users_backend, query_executor, metrics_cache=metrics_cache)
+        user_service = create_user_service(
+            users_backend, query_executor, metrics_cache=metrics_cache
+        )
         logger.info("✅ UserService created (foundation service)")
 
         # Ensure system user exists for infrastructure operations

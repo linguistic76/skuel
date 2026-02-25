@@ -52,7 +52,9 @@ def create_lifepath_api_routes(
         user_uid = require_authenticated_user(request)
 
         if not lifepath_service:
-            return Result.fail(Errors.system("LifePath service unavailable", operation="get_status"))
+            return Result.fail(
+                Errors.system("LifePath service unavailable", operation="get_status")
+            )
 
         return await lifepath_service.get_full_status(user_uid)
 
@@ -96,9 +98,7 @@ def create_lifepath_api_routes(
             )
 
         if not lifepath_service:
-            return Result.fail(
-                Errors.system("LifePath service unavailable", operation="designate")
-            )
+            return Result.fail(Errors.system("LifePath service unavailable", operation="designate"))
 
         return await lifepath_service.designate_and_calculate(user_uid, life_path_uid)
 
