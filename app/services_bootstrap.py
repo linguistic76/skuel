@@ -1004,6 +1004,7 @@ async def compose_services(
 
         # 100% Dynamic Pattern: Instantiate UniversalNeo4jBackend directly at point of use
         # "The plant (models) grows on the lattice (UniversalNeo4jBackend)"
+        from adapters.persistence.neo4j.domain_backends import GoalsBackend, HabitsBackend
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.askesis.askesis import Askesis
         from core.models.entity_types import Ku
@@ -1048,7 +1049,7 @@ async def compose_services(
             prometheus_metrics=prometheus_metrics,
             base_label=NeoLabel.ENTITY,
         )
-        habits_backend = UniversalNeo4jBackend[Habit](
+        habits_backend = HabitsBackend(
             driver,
             NeoLabel.HABIT,
             Habit,
@@ -1061,7 +1062,7 @@ async def compose_services(
             HabitCompletion,
             prometheus_metrics=prometheus_metrics,
         )
-        goals_backend = UniversalNeo4jBackend[Goal](
+        goals_backend = GoalsBackend(
             driver,
             NeoLabel.GOAL,
             Goal,

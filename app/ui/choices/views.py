@@ -21,7 +21,6 @@ from typing import Any
 
 from fasthtml.common import H2, H3, A, Form, P
 
-from core.models.entity_types import Ku
 from core.models.choice.choice import Choice
 from core.utils.logging import get_logger
 from ui.daisy_components import (

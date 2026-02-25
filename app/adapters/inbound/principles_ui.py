@@ -720,7 +720,7 @@ def create_principles_ui_routes(
 
         # Call service with named parameters
         return cast(
-            Result[Any],
+            "Result[Any]",
             await principles_service.core.create_principle(
                 label=title,
                 description=statement or description,

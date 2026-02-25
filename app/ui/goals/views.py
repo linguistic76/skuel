@@ -22,11 +22,11 @@ from typing import Any
 from fasthtml.common import H2, H3, A, Form, P
 
 from core.models.entity_types import Ku
-from core.models.goal.goal import Goal
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarView,
 )
+from core.models.goal.goal import Goal
 from core.utils.logging import get_logger
 from ui.calendar.components import (
     create_day_timeline,

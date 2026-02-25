@@ -12,7 +12,7 @@ See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
 from datetime import date, datetime, time
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -36,10 +36,6 @@ from core.models.request_base import (
     ResponseBase,
     UpdateRequestBase,
 )
-
-if TYPE_CHECKING:
-    from core.models.entity_dto import EntityDTO
-
 
 # =============================================================================
 # UPDATE REQUEST (shared across all EntityTypes)

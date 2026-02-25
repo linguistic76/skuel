@@ -12,12 +12,12 @@ THE 14 DOMAINS AND THEIR PROTOCOLS
 ----------------------------------
 
 **Activity Domain Protocols (7):**
-    1. TasksOperations[Ku]             - Work items and dependencies (unified Ku model)
+    1. TasksOperations[Task]           - Work items and dependencies
     2. GoalsOperations[Goal]           - Objectives and milestones
     3. HabitsOperations[Habit]         - Recurring behaviors and streaks
-    4. EventsOperations[Ku]            - Calendar items and scheduling (unified Ku model)
-    5. ChoicesOperations[Choice]       - Decisions and outcomes
-    6. PrinciplesOperations[Entity]     - Values and alignment (unified Ku model)
+    4. EventsOperations[Entity]        - Calendar items and scheduling
+    5. ChoicesOperations[Entity]       - Decisions and outcomes
+    6. PrinciplesOperations[Entity]    - Values and alignment
     7. FinancesOperations[ExpensePure] - Expenses and budgets
 
 **Curriculum Domain Protocols (3):**
@@ -92,7 +92,6 @@ if TYPE_CHECKING:
     # Task entities are now Ku nodes with ku_type="task"
     from core.models.finance.finance_pure import BudgetPure, ExpensePure
     from core.models.finance.invoice import InvoicePure
-    from core.models.goal.goal import Goal
     from core.models.habit.habit import Habit
     from core.models.task.task import Task
     from core.models.type_hints import EntityUID, Metadata
@@ -146,10 +145,6 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
 
     async def delete_task(self, task_id: EntityUID) -> Result[bool]:
         """Delete task by ID. Alias for delete() with semantic naming."""
-        ...
-
-    async def complete_task(self, task_id: EntityUID) -> Result[bool]:
-        """Mark a task as completed. Domain-specific state transition."""
         ...
 
     # ========================================================================
@@ -250,29 +245,7 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
     ) -> Result[bool]:
         """
         Link task to goal it contributes to.
-        Creates: (Ku)-[:CONTRIBUTES_TO_GOAL]->(Goal)
-        """
-        ...
-
-    async def get_task_cross_domain_context(
-        self, task_uid: str, depth: int = 2
-    ) -> Result[GraphContextResult]:
-        """
-        Get complete cross-domain context for a task with configurable graph traversal depth.
-
-        Returns task with all its relationships:
-        - Prerequisites (other tasks)
-        - Required knowledge
-        - Contributing goals
-        - Applied knowledge
-        - Dependencies
-
-        Args:
-            task_uid: Task UID
-            depth: Graph traversal depth (1=direct relationships, 2+=multi-hop, default=2)
-
-        Returns:
-            Result[GraphContextResult]: Type-safe cross-domain context
+        Creates: (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)
         """
         ...
 
@@ -379,27 +352,6 @@ class EventsOperations(BackendOperations["Entity"], GraphRelationshipOperations,
         """
         ...
 
-    async def get_event_cross_domain_context(
-        self, event_uid: str, depth: int = 2
-    ) -> Result[GraphContextResult]:
-        """
-        Get complete cross-domain context for an event with configurable graph traversal depth.
-
-        Returns event with all its relationships:
-        - Supporting goals
-        - Reinforcing habits
-        - Related knowledge units
-        - Learning path connections
-
-        Args:
-            event_uid: Event UID
-            depth: Graph traversal depth (1=direct relationships, 2+=multi-hop, default=2)
-
-        Returns:
-            Result[GraphContextResult]: Type-safe cross-domain context
-        """
-        ...
-
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[list[Ku]]:
@@ -445,19 +397,6 @@ class HabitsOperations(BackendOperations["Habit"], GraphRelationshipOperations, 
         """Create a new habit and return its ID. Returns Result[str]."""
         ...
 
-    async def record_completion(self, habit_id: str, date: datetime) -> Result[bool]:
-        """
-        Record habit completion for a date.
-
-        Args:
-            habit_id: The habit identifier
-            date: When the habit was completed (caller provides explicit datetime)
-
-        Returns:
-            Result[bool] indicating success
-        """
-        ...
-
     async def update_habit(self, habit_id: str, data: dict[str, Any]) -> Result[bool]:
         """Update habit details. Returns Result[bool]."""
         ...
@@ -470,23 +409,8 @@ class HabitsOperations(BackendOperations["Habit"], GraphRelationshipOperations, 
         """Get a habit by ID. Not found is an error."""
         ...
 
-    async def get(self, habit_id: str) -> Result[Habit | None]:
-        """Get a habit by ID. Returns None if not found."""
-        ...
-
     async def get_user_habits(self, user_uid: str) -> Result[list[Habit]]:
         """Get all habits for a user. Returns Result[list[Habit]]."""
-        ...
-
-    async def list(
-        self,
-        limit: int = 100,
-        offset: int = 0,
-        filters: dict[str, Any] | None = None,
-        sort_by: str | None = None,
-        sort_order: str = "asc",
-    ) -> Result[tuple[builtins.list[Habit], int]]:
-        """List habits with optional filters. Returns Result[(habits, total_count)]."""
         ...
 
     async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[builtins.list[Habit]]:
@@ -503,23 +427,6 @@ class HabitsOperations(BackendOperations["Habit"], GraphRelationshipOperations, 
 
     async def link_habit_to_principle(self, habit_uid: str, principle_uid: str) -> bool:
         """Link habit to principle it embodies."""
-        ...
-
-    async def get_habit_cross_domain_context(
-        self, habit_uid: str, depth: int = 2, min_confidence: float = 0.7
-    ) -> dict[str, Any]:
-        """
-        Get complete cross-domain context for habit with configurable graph traversal depth.
-
-        Args:
-            habit_uid: Habit UID
-            depth: Graph traversal depth (1=direct relationships, 2+=multi-hop, default=2)
-            min_confidence: Minimum confidence threshold for relationships (default=0.7)
-        """
-        ...
-
-    async def get_skills_developed_by_habits(self, user_uid: str) -> dict[str, Any]:
-        """Get skills developed through user's habits."""
         ...
 
     async def get_user_items_in_range(
@@ -804,10 +711,6 @@ class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Pr
         """DETACH DELETE a goal. Returns Result[bool]."""
         ...
 
-    async def complete_goal(self, goal_id: str) -> Result[bool]:
-        """Mark a goal as completed. Returns Result[bool]."""
-        ...
-
     async def add_milestone(self, goal_id: str, milestone: dict[str, Any]) -> Result[bool]:
         """Add a milestone to a goal. Returns Result[bool]."""
         ...
@@ -830,22 +733,6 @@ class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Pr
 
     async def link_goal_to_principle(self, goal_uid: str, principle_uid: str) -> Result[bool]:
         """Link goal to guiding principle. Returns Result[bool]."""
-        ...
-
-    async def get_goal_cross_domain_context(
-        self, goal_uid: str, depth: int = 2, min_confidence: float = 0.7
-    ) -> Result[GraphContextResult]:
-        """
-        Get complete cross-domain context for goal with configurable graph traversal depth.
-
-        Args:
-            goal_uid: Goal UID
-            depth: Graph traversal depth (1=direct relationships, 2+=multi-hop, default=2)
-            min_confidence: Minimum confidence threshold for relationships (default=0.7)
-
-        Returns:
-            Result[GraphContextResult]: Type-safe cross-domain context
-        """
         ...
 
     async def get_user_items_in_range(
@@ -913,16 +800,8 @@ class ChoicesOperations(BackendOperations["Entity"], GraphRelationshipOperations
         """Mark a choice as resolved with outcome data. Returns Result[bool]."""
         ...
 
-    async def get(self, choice_id: str) -> Result[Entity | None]:
-        """Get a choice by ID. Returns None if not found."""
-        ...
-
     async def get_choice(self, choice_id: str) -> Result[Entity]:
-        """Get a choice by ID. Alias for get(). Not found is an error."""
-        ...
-
-    async def find_by(self, limit: int = 100, **filters: Any) -> Result[list[Entity]]:
-        """Find choices matching filters. Returns Result[list[Entity]]."""
+        """Get a choice by ID. Not found is an error."""
         ...
 
     async def find_choices(
@@ -949,30 +828,6 @@ class ChoicesOperations(BackendOperations["Entity"], GraphRelationshipOperations
 
     async def link_choice_to_principle(self, choice_uid: str, principle_uid: str) -> bool:
         """Link choice to guiding principle."""
-        ...
-
-    async def get_choice_cross_domain_context(
-        self, choice_uid: str, depth: int = 2
-    ) -> dict[str, Any]:
-        """
-        Get complete cross-domain context for choice with configurable graph traversal depth.
-
-        Args:
-            choice_uid: Choice UID
-            depth: Graph traversal depth (1=direct relationships, 2+=multi-hop, default=2)
-        """
-        ...
-
-    async def analyze_decision_patterns(
-        self, user_uid: str, timeframe_days: int = 90
-    ) -> dict[str, Any]:
-        """Analyze user's decision-making patterns."""
-        ...
-
-    async def execute_query(
-        self, query: str, params: dict[str, Any] | None = None
-    ) -> Result[builtins.list[dict[str, Any]]]:
-        """Execute a low-level database query. Should not be in protocol - architectural issue."""
         ...
 
     async def get_user_items_in_range(
@@ -1016,26 +871,6 @@ class PrinciplesOperations(BackendOperations["Entity"], GraphRelationshipOperati
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
 
-    async def create(self, principle: Any) -> Result[Entity]:
-        """Create a new principle. Returns Result[Entity]."""
-        ...
-
-    async def get(self, principle_uid: str) -> Result[Entity | None]:
-        """Get a principle by UID. Returns Result[Entity | None]."""
-        ...
-
-    async def find_by(self, limit: int = 100, **filters: Any) -> Result[builtins.list[Entity]]:
-        """Find principles matching filters. Returns Result[list[Entity]]."""
-        ...
-
-    async def update(self, principle_uid: str, updates: dict[str, Any]) -> Result[Entity]:
-        """Update a principle. Returns Result[Entity]."""
-        ...
-
-    async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
-        """DETACH DELETE a principle. Returns Result[bool]."""
-        ...
-
     # ========================================================================
     # RELATIONSHIP METHODS
     # ========================================================================
@@ -1059,54 +894,6 @@ class PrinciplesOperations(BackendOperations["Entity"], GraphRelationshipOperati
         """
         Link principle to knowledge it's based on.
         Creates: (Ku)-[:BASED_ON_KNOWLEDGE {relevance}]->(Knowledge)
-        """
-        ...
-
-    async def get_principle_cross_domain_context(
-        self, principle_uid: str, depth: int = 2
-    ) -> Result[GraphContextResult]:
-        """
-        Get complete cross-domain context for a principle with configurable graph traversal depth.
-
-        Args:
-            principle_uid: Principle UID
-            depth: Graph traversal depth (1=direct relationships, 2+=multi-hop, default=2)
-
-        Returns:
-            Result[GraphContextResult] with comprehensive context including:
-            - Users who hold this principle
-            - Goals guided by principle
-            - Habits embodying principle
-            - Knowledge foundations
-            - Alignment metrics
-        """
-        ...
-
-    async def get_user_principle_portfolio(self, user_uid: str) -> Result[dict[str, Any]]:
-        """
-        Get user's complete principle portfolio with integrity analysis.
-
-        Returns:
-        - All principles user holds
-        - Strength distribution (core/strong/developing/aspirational)
-        - Goals/habits aligned with principles
-        - Integrity score (actions match values)
-        - Conflicts and opportunities
-        """
-        ...
-
-    async def calculate_principle_integrity(
-        self, user_uid: str, principle_uid: str
-    ) -> Result[dict[str, Any]]:
-        """
-        Calculate how well user's actions align with stated principle.
-
-        Uses:
-        - Goals guided by principle (alignment)
-        - Habits embodying principle (practice)
-        - Consistency over time
-
-        Returns integrity score 0.0-1.0 with breakdown
         """
         ...
 

@@ -117,7 +117,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast(Result[dict[str, Any]], result)
+                return cast("Result[dict[str, Any]]", result)
 
             return Result.ok(
                 {
@@ -145,7 +145,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast(Result[dict[str, Any]], result)
+                return cast("Result[dict[str, Any]]", result)
 
             return Result.ok(
                 {
@@ -172,7 +172,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast(Result[dict[str, Any]], result)
+                return cast("Result[dict[str, Any]]", result)
 
             return Result.ok(
                 {
@@ -225,7 +225,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast(Result[dict[str, Any]], result)
+                return cast("Result[dict[str, Any]]", result)
 
             return Result.ok(
                 {
@@ -256,7 +256,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast(Result[dict[str, Any]], result)
+                return cast("Result[dict[str, Any]]", result)
 
             return Result.ok(
                 {
@@ -309,7 +309,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast(Result[dict[str, Any]], result)
+                return cast("Result[dict[str, Any]]", result)
 
             return Result.ok(
                 {
@@ -337,7 +337,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast(Result[dict[str, Any]], result)
+                return cast("Result[dict[str, Any]]", result)
 
             return Result.ok(
                 {
@@ -390,7 +390,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast(Result[dict[str, Any]], result)
+                return cast("Result[dict[str, Any]]", result)
 
             return Result.ok(
                 {
@@ -418,7 +418,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast(Result[dict[str, Any]], result)
+                return cast("Result[dict[str, Any]]", result)
 
             return Result.ok(
                 {
@@ -448,7 +448,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast(Result[dict[str, Any]], result)
+                return cast("Result[dict[str, Any]]", result)
 
             return Result.ok(
                 {
@@ -507,7 +507,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast(Result[dict[str, Any]], result)
+                return cast("Result[dict[str, Any]]", result)
 
             return Result.ok(
                 {
@@ -549,7 +549,7 @@ class LateralRouteFactory:
             result = await self.lateral_service.get_blocking_chain(uid, max_depth)
 
             if result.is_error:
-                return cast(Result[dict[str, Any]], result)
+                return cast("Result[dict[str, Any]]", result)
 
             return Result.ok(result.value)
 
@@ -588,7 +588,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast(Result[dict[str, Any]], result)
+                return cast("Result[dict[str, Any]]", result)
 
             return Result.ok(
                 {
@@ -637,7 +637,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast(Result[dict[str, Any]], result)
+                return cast("Result[dict[str, Any]]", result)
 
             # Return Vis.js format directly (includes nodes and edges)
             return Result.ok(result.value)

@@ -690,7 +690,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
             options=option_requests,
         )
 
-        return cast(Result[Any], await choices_service.core.create_choice(choice_request, user_uid))
+        return cast("Result[Any]", await choices_service.core.create_choice(choice_request, user_uid))
 
     async def render_choice_success_view(user_uid: str) -> Any:
         """Render list view after successful choice creation."""

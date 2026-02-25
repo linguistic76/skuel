@@ -302,7 +302,7 @@ class StatusRouteFactory:
                 result = await service_method(uid, **fields)
 
             logger.info(f"{action.title()}d {domain_singular}: {uid} for user {user_uid}")
-            return cast(Result[Any], result)
+            return cast("Result[Any]", result)
 
         # Give the function a unique name for debugging
         status_route.__name__ = f"{action}_{domain_singular}_route"

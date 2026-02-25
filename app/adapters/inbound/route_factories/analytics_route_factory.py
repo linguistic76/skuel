@@ -197,7 +197,7 @@ class AnalyticsRouteFactory:
                         )
 
                 # Call the service handler (must return Result[T])
-                return cast(Result[Any], await endpoint.handler(self.service, params))
+                return cast("Result[Any]", await endpoint.handler(self.service, params))
 
             except Exception as e:
                 logger.error(f"Error in analytics endpoint {endpoint.path}: {e}")

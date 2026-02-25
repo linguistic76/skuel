@@ -128,7 +128,7 @@ async def get_user_role(request: Request, user_service: Any) -> UserRole | None:
     if result.is_error or not result.value:
         return None
 
-    return cast(UserRole | None, result.value.role)
+    return cast("UserRole | None", result.value.role)
 
 
 async def is_current_user_admin(request: Request, user_service: Any) -> bool:
