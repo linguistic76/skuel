@@ -542,7 +542,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
     @rt("/events/view/create")
     async def events_view_create(request) -> Any:
         """HTMX fragment for create view."""
-        user_uid = require_authenticated_user(request)
+        require_authenticated_user(request)
         event_types_result = await get_event_types()
 
         # Handle errors

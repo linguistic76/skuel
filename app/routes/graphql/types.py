@@ -10,7 +10,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import strawberry
-from strawberry.types import Info
+from strawberry.types import (
+    Info,  # noqa: TC002 - Strawberry evaluates resolver annotations at runtime
+)
 
 from routes.graphql.context import GraphQLContext
 from routes.graphql.query_helpers import GraphQLQueryHelpers

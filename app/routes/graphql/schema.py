@@ -20,7 +20,9 @@ from typing import TYPE_CHECKING, Any
 
 import strawberry
 from strawberry.extensions import MaxTokensLimiter, QueryDepthLimiter
-from strawberry.types import Info
+from strawberry.types import (
+    Info,  # noqa: TC002 - Strawberry evaluates resolver annotations at runtime
+)
 
 from core.constants import ConfidenceLevel, QueryLimit
 from core.models.enums import Domain
