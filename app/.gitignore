@@ -78,3 +78,8 @@ npm-debug.log*
 tmp/
 temp/
 *.tmp
+
+# Runtime files
+.sesskey
+server.pid
+server.log

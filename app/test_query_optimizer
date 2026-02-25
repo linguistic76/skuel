@@ -1,8 +1,0 @@
-### Unit Tests (Per Sub-Service):
-```python
-# test_query_optimizer.py
-async def test_optimizer_unique_lookup():
-    optimizer = QueryOptimizer(schema_service)
-    result = await optimizer.build_optimized_query(request)
-    assert result.is_ok
-```
