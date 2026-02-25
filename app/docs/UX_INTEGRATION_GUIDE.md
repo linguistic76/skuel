@@ -497,6 +497,6 @@ Div(
 
 For questions or issues:
 1. Check this guide first
-2. Review implementation summary: `/docs/UX_IMPROVEMENTS_IMPLEMENTATION.md`
+2. Check the Alpine.js architecture: `/docs/architecture/ALPINE_JS_ARCHITECTURE.md`
 3. Check Alpine.js component JSDoc in `/static/js/skuel.js`
 4. Test in isolation with minimal examples
