@@ -187,14 +187,14 @@ Search fields are configured centrally in `core/services/search/config.py`:
 
 ```python
 from core.services.search.config import SEARCH_FIELD_CONFIG, get_search_fields
-from core.models.enums.ku_enums import KuType
+from core.models.enums.entity_enums import EntityType
 
-# Get text search fields for a KuType
-fields = get_search_fields(KuType.CURRICULUM)  # ('title', 'content', 'tags')
-fields = get_search_fields(KuType.TASK)  # ('title', 'description')
+# Get text search fields for an EntityType
+fields = get_search_fields(EntityType.CURRICULUM)  # ('title', 'content', 'tags')
+fields = get_search_fields(EntityType.TASK)  # ('title', 'description')
 
 # Full config includes text_fields, array_fields, filter_fields, order_by
-config = SEARCH_FIELD_CONFIG[KuType.CURRICULUM]
+config = SEARCH_FIELD_CONFIG[EntityType.CURRICULUM]
 # SearchFieldConfig(
 #     text_fields=('title', 'content', 'tags'),
 #     array_fields=(),
@@ -214,7 +214,7 @@ from core.models.search_request import SearchRequest
 
 request = SearchRequest(
     query_text="machine learning",
-    entity_types=[KuType.CURRICULUM, KuType.TASK],
+    entity_types=[EntityType.CURRICULUM, EntityType.TASK],
     connected_to_uid="ku.python-basics",
     connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
     tags_contain=["python"],
@@ -231,7 +231,7 @@ All 6 Activity domain search services implement `intelligent_search()` for **NLP
 
 ### How It Works
 
-1. **Query Parsing**: Uses `SearchQueryParser` to extract Priority, KuStatus, and Domain from the query
+1. **Query Parsing**: Uses `SearchQueryParser` to extract Priority, EntityStatus, and Domain from the query
 2. **Domain-Specific Keywords**: Each service recognizes keywords specific to its domain
 3. **Filter Building**: Extracted keywords become filters for the backend query
 4. **Fallback**: If no filters extracted, falls back to text search
@@ -271,7 +271,7 @@ The `ParsedSearchQuery` contains:
 - `raw_query`: Original query string
 - `text_query`: Query with filter keywords removed
 - `priorities`: List of extracted Priority enums
-- `statuses`: List of extracted KuStatus enums
+- `statuses`: List of extracted EntityStatus enums
 - `domains`: List of extracted Domain enums
 - `to_filter_summary()`: Human-readable summary of filters
 

@@ -103,11 +103,10 @@ def my_page():
 static/js/
 └── skuel.js          # Central Alpine.data() component definitions (~400 lines)
 
-components/
-├── calendar_components.py   # FastHTML + Alpine directives
-├── search_components.py     # FastHTML + Alpine directives
-├── timeline_components.py   # FastHTML + Alpine directives
-└── ...
+ui/
+├── calendar/               # FastHTML + Alpine directives
+├── search/                 # FastHTML + Alpine directives
+└── timeline/               # FastHTML + Alpine directives
 
 .claude/skills/js-alpine/    # Claude Code skill documentation
 ├── SKILL.md

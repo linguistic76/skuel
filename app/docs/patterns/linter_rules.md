@@ -57,7 +57,7 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 | **SKUEL011** | `hasattr()` usage | Use Protocol/isinstance |
 | **SKUEL012** | Lambda expressions | Use named functions |
 | **SKUEL013** | RelationshipName strings | Use `RelationshipName` enum |
-| **SKUEL014** | KuType/NonKuDomain strings | Use `KuType` or `NonKuDomain` enum |
+| **SKUEL014** | EntityType/NonKuDomain strings | Use `EntityType` or `NonKuDomain` enum |
 | **SKUEL015** | Print in production code | Use `logger.*()` instead |
 
 ## Rule: SKUEL003 - Deprecated .is_err
@@ -200,9 +200,9 @@ await backend.add_relationship(uid1, RelationshipName.SERVES_GOAL, uid2)
 
 **Note:** Cypher query strings still use literal relationship names (unavoidable).
 
-## Rule: SKUEL014 - KuType / NonKuDomain Enum
+## Rule: SKUEL014 - EntityType / NonKuDomain Enum
 
-**Pattern:** Use `KuType` or `NonKuDomain` enum instead of magic strings for entity type identification.
+**Pattern:** Use `EntityType` or `NonKuDomain` enum instead of magic strings for entity type identification.
 
 ```python
 # ❌ VIOLATION - Magic string comparison
@@ -212,14 +212,14 @@ if "task" in contexts:
     ...
 
 # ✅ CORRECT - Use enum
-from core.models.enums.ku_enums import KuType
-if entity.ku_type == KuType.TASK:
+from core.models.enums.entity_enums import EntityType
+if entity.entity_type == EntityType.TASK:
     ...
-if KuType.TASK in activity.contexts:
+if EntityType.TASK in activity.contexts:
     ...
 
-# ✅ CORRECT - Non-Ku domains
-from core.models.enums import NonKuDomain
+# ✅ CORRECT - Non-entity domains
+from core.models.enums.entity_enums import NonKuDomain
 if domain == NonKuDomain.FINANCE:
     ...
 ```
@@ -227,7 +227,7 @@ if domain == NonKuDomain.FINANCE:
 **Rationale:**
 - Type safety with compile-time verification
 - Better IDE support and autocomplete
-- Consistent with unified Ku model (`DomainIdentifier = KuType | NonKuDomain`)
+- Consistent with domain-first model (`DomainIdentifier = EntityType | NonKuDomain`)
 
 ## Rule: SKUEL015 - Print Statements in Production Code
 
