@@ -1,2 +1,0 @@
-
-  The codebase now uses pure Cypher everywhere except for complex graph traversals in the adapter layer where APOC provides significant value.

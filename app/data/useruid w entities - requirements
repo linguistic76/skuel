@@ -1,8 +1,0 @@
-
-  | Entity Type                                                    | Requires user_uid | Rationale                              |
-  |----------------------------------------------------------------|-------------------|----------------------------------------|
-  | Activity Domains (task, goal, habit, event, choice, principle) | ✅ Yes             | User-owned personal data               |
-  | Finance                                                        | ✅ Yes             | User-owned financial data              |
-  | Journal, Assignment                                            | ✅ Yes             | User-owned content                     |
-  | Curriculum (ku, moc, lp, ls)                                   | ❌ No              | Shared knowledge content               |
-  | LifePath                                                       | ❌ No              | Already has user_uid as required field |

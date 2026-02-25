@@ -70,6 +70,9 @@ data/transactions/
 # Screenshots and design assets
 data/*.png
 
+# Generated report output (written by analytics_service.py at runtime)
+data/reports/
+
 # Node
 node_modules/
 npm-debug.log*

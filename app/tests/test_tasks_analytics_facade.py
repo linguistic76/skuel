@@ -58,10 +58,10 @@ def test_intelligence_methods_exist():
 
 
 def test_method_signatures():
-    """Test 5: Check method signatures are preserved through facade delegation.
+    """Test 5: Check method signatures are preserved through explicit facade delegation.
 
-    TasksService facade uses FacadeDelegationMixin with class-level type annotations
-    to preserve method signatures from the underlying implementations.
+    TasksService facade uses explicit async def delegation methods (February 2026)
+    to preserve method signatures from the underlying sub-service implementations.
     """
     import inspect
 

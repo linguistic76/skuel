@@ -1,4 +1,0 @@
-The user services module is now cleaner with the consolidated architecture:
-  - user_context_builder.py - ALL context building
-  - user_context_intelligence.py - ALL intelligence operations (9 methods)
-  - user_context_service.py - API orchestration layer

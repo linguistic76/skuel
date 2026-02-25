@@ -1,8 +1,0 @@
-
-  Once you confirm everything works, I can:
-  1. Remove old password.py file (no longer needed)
-  2. Remove password_hash field from User model completely
-  3. Remove old authenticate() method from UserService
-
-
-  /home/mike/skuel0/data/loogedon.png

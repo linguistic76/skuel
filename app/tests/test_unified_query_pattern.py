@@ -171,8 +171,7 @@ class TestUnifiedQueryIntegration:
         # Verify method exists on facade
         assert hasattr(TasksService, "get_user_items_in_range")
 
-        # Verify method signature is preserved through FacadeDelegationMixin
-        # (requires class-level type annotations on facade)
+        # Verify method signature is preserved through explicit facade delegation
         sig = inspect.signature(TasksService.get_user_items_in_range)
         params = list(sig.parameters.keys())
 
@@ -190,8 +189,7 @@ class TestUnifiedQueryIntegration:
         # Verify method exists on facade
         assert hasattr(EventsService, "get_user_items_in_range")
 
-        # Verify method signature is preserved through FacadeDelegationMixin
-        # (requires class-level type annotations on facade)
+        # Verify method signature is preserved through explicit facade delegation
         sig = inspect.signature(EventsService.get_user_items_in_range)
         params = list(sig.parameters.keys())
 

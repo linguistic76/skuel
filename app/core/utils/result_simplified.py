@@ -165,16 +165,6 @@ class Result[T]:
         return self._error is None
 
     @property
-    def is_err(self) -> bool:
-        """
-        Check if the result represents failure.
-
-        DEPRECATED: Use .is_error instead for better readability.
-        Maintained for backward compatibility only.
-        """
-        return self._error is not None
-
-    @property
     def is_error(self) -> bool:
         """
         Check if the result represents failure.
