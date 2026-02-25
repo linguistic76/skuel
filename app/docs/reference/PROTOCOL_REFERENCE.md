@@ -321,10 +321,10 @@ class SupportsHealthCheck(Protocol):
 ## Domain Operations Protocols
 
 **Location:** `/core/ports/domain_protocols.py`
-**Purpose:** Service operation interfaces for all 14 domains
+**Purpose:** Backend/persistence-layer interfaces for all 14 domains
 **Core Principle:** "Results internally, exceptions at boundaries"
 
-All domain operation protocols use `Result[T]` return types, aligning with SKUEL's error handling pattern. Services implement these protocols and return `Result.ok(value)` or `Result.error(error)`.
+All domain operation protocols use `Result[T]` return types and define **persistence-layer operations only** — CRUD, graph queries, and relationship management. Service-level methods (state transitions, event publishing, orchestration) exist on facade services as explicit delegation methods but are **not** part of the backend protocol contract.
 
 ### Domain Backend Protocols
 
@@ -341,21 +341,50 @@ All domain operation protocols use `Result[T]` return types, aligning with SKUEL
 | `LsOperations` | Learning Steps | Curriculum |
 | `LpOperations` | Learning Paths | Curriculum |
 
+**What domain protocols contain:**
+- Persistence CRUD: `create_*`, `get_*_by_uid`, `update_*`, `delete_*` (via `BackendOperations[T]` base)
+- Domain-specific queries: `get_user_tasks()`, `find_by_status()`, `list_by_user()`
+- Graph relationship operations: `link_*_to_*()`, `create_user_*_relationship()`
+
+**What domain protocols do NOT contain** (lives on facade services instead):
+- State transitions: `complete_task()`, `complete_goal()`, `record_completion()`
+- Orchestration methods: `analyze_decision_patterns()`, `calculate_principle_integrity()`
+- Cross-domain context: `get_*_cross_domain_context()` (not on backend)
+
+### Typed Backend Subclasses (February 2026)
+
+For methods that don't match `UniversalNeo4jBackend.__getattr__` bridge patterns, typed subclasses provide explicit implementations:
+
+```python
+# adapters/persistence/neo4j/domain_backends.py
+class HabitsBackend(UniversalNeo4jBackend["Habit"]):
+    """Adds get_habit, list_by_user, get_user_habits, archive_habit, link_habit_to_*"""
+
+class GoalsBackend(UniversalNeo4jBackend["Goal"]):
+    """Adds get_goal, get_user_goals, add_milestone, link_goal_to_*"""
+```
+
+Both are drop-in replacements — same constructor signature as `UniversalNeo4jBackend[T]`.
+
 ### Result[T] Return Pattern
 
 ```python
-# Example: TasksOperations protocol
+# Example: TasksOperations protocol (persistence ops only)
 class TasksOperations(Protocol):
-    async def get_task(self, uid: str) -> Result[Task]:
+    async def get_task_by_uid(self, uid: str) -> Result[Task]:
         """Get task by UID - returns Result[Task], not Task directly."""
         ...
 
-    async def create_task(self, task_data: TaskCreateDTO) -> Result[Task]:
+    async def create_task(self, task_data: dict | Task) -> Result[Task]:
         """Create task - returns Result[Task]."""
         ...
 
     async def update_task(self, uid: str, updates: dict[str, Any]) -> Result[Task]:
         """Update task - returns Result[Task]."""
+        ...
+
+    async def get_user_tasks(self, user_uid: str) -> Result[list[Task]]:
+        """Get all tasks for a user - domain-specific query."""
         ...
 ```
 
@@ -364,7 +393,7 @@ class TasksOperations(Protocol):
 from core.ports import TasksOperations
 
 async def process_task(service: TasksOperations, task_uid: str):
-    result = await service.get_task(task_uid)
+    result = await service.get_task_by_uid(task_uid)
 
     if result.is_error:
         # Handle error (NotFound, Database, etc.)
@@ -376,6 +405,7 @@ async def process_task(service: TasksOperations, task_uid: str):
 ```
 
 **See:** `/docs/patterns/ERROR_HANDLING.md` for complete Result[T] pattern documentation.
+**See:** `/docs/patterns/protocol_architecture.md` for February 2026 protocol cleanup details.
 
 ---
 

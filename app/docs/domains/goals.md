@@ -33,6 +33,7 @@ Goals represent desired outcomes that guide learning and habit formation. They p
 | DTO | `/core/models/goal/goal_dto.py` |
 | Request Models | `/core/models/goal/goal_request.py` |
 | Relationships | `/core/models/goal/goal_relationships.py` |
+| **Backend** | `/adapters/persistence/neo4j/domain_backends.py` (`GoalsBackend`) |
 | Core Service | `/core/services/goals/goals_core_service.py` |
 | Search Service | `/core/services/goals/goals_search_service.py` |
 | Progress Service | `/core/services/goals/goals_progress_service.py` |

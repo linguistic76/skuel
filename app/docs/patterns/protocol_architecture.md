@@ -107,6 +107,50 @@ core/
 | **Groups** | `group_protocols.py` | Group CRUD, teacher review queue | 2 |
 | **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration | 9 |
 
+### Protocol Cleanup (February 2026)
+
+Following "One Path Forward", service-level and redundant methods were removed from domain backend protocols in `domain_protocols.py`. The principle: **backend protocols define persistence operations only** — CRUD, queries, and graph relationships. Service-level orchestration (state transitions, event publishing) belongs on facade services.
+
+**Removed from activity domain protocols:**
+- `complete_task` from `TasksOperations` — service-level (TasksProgressService, with event publishing)
+- `complete_goal` from `GoalsOperations` — service-level (GoalsCoreService, with event publishing)
+- `record_completion` from `HabitsOperations` — service-level (HabitsCompletionService, multi-step)
+- `analyze_decision_patterns` from `ChoicesOperations` — service-level analytics
+- `execute_query` from `ChoicesOperations` — self-annotated architectural issue
+- `get_user_principle_portfolio`, `calculate_principle_integrity` from `PrinciplesOperations` — service-level
+- Redundant `get`/`create`/`update`/`delete` re-declarations from `ChoicesOperations`, `PrinciplesOperations` (already in `BackendOperations[T]`)
+- All `get_*_cross_domain_context` methods — never implemented in any backend
+
+These methods still exist as explicit delegation methods on facade services (`TasksService.complete_task()`, `HabitsService.record_completion()`, etc.) — they were only removed from the backend protocol contract.
+
+**Added: Typed backend subclasses (February 2026)**
+
+`HabitsBackend` and `GoalsBackend` in `adapters/persistence/neo4j/domain_backends.py` are thin subclasses of `UniversalNeo4jBackend[T]` that explicitly implement domain-specific backend methods which don't match the `__getattr__` bridge patterns:
+
+```python
+# UniversalNeo4jBackend.__getattr__ patterns:
+# create_*    → create()           ✓ works
+# get_*_by_uid → get()             ✓ works
+# update_*    → update()           ✓ works
+# list_*s     → list wrapper       ✓ works (must end in 's')
+#
+# These do NOT match → AttributeError without typed subclass:
+# get_habit(uid)       (not get_habit_by_uid)
+# list_by_user(uid)    (not list_by_users)
+# get_user_habits(uid) (no matching pattern)
+# get_goal(uid)        (not get_goal_by_uid)
+# get_user_goals(uid)  (no matching pattern)
+
+class HabitsBackend(UniversalNeo4jBackend["Habit"]):
+    async def get_habit(self, habit_id: str) -> Result[Habit]: ...
+    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[list[Habit]]: ...
+    async def get_user_habits(self, user_uid: str) -> Result[list[Habit]]: ...
+```
+
+`HabitsBackend` and `GoalsBackend` are drop-in replacements with the same constructor signature — only the instantiation in `services_bootstrap.py` changes.
+
+**See:** `adapters/persistence/neo4j/domain_backends.py`
+
 ### Protocol Cleanup (January 2026)
 
 Following "One Path Forward", unused and dead protocols have been removed:
