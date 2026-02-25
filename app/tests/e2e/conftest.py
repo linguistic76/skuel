@@ -52,15 +52,10 @@ async def event_bus():
 @pytest_asyncio.fixture
 async def embeddings_service(neo4j_driver):
     """Create embeddings service for e2e tests."""
-    try:
-        from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
-        return Neo4jGenAIEmbeddingsService(neo4j_driver)
-    except Exception:
-        # If embeddings service fails (no OpenAI key), skip these tests
-        import pytest
-
-        pytest.skip("Embeddings service not available (requires OpenAI API key)")
+    return Neo4jGenAIEmbeddingsService(Neo4jQueryExecutor(neo4j_driver))
 
 
 @pytest_asyncio.fixture

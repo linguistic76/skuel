@@ -50,7 +50,6 @@ class TestEmbeddingWorkerLifecycle:
         assert worker_task.cancelled()
 
 
-@pytest.mark.skip(reason="Requires Neo4j GenAI plugin (genai.vector.encodeBatch procedure)")
 class TestEmbeddingWorkerEventProcessing:
     """Test event queue and batch processing."""
 
@@ -70,7 +69,7 @@ class TestEmbeddingWorkerEventProcessing:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                CREATE (t:Entity {
+                CREATE (t:Entity:Task {
                     uid: $uid,
                     user_uid: $user_uid,
                     ku_type: 'task',
@@ -154,7 +153,7 @@ class TestEmbeddingWorkerEventProcessing:
             # Create task
             await session.run(
                 """
-                CREATE (t:Entity {
+                CREATE (t:Entity:Task {
                     uid: $uid,
                     user_uid: $user_uid,
                     ku_type: 'task',
@@ -173,7 +172,7 @@ class TestEmbeddingWorkerEventProcessing:
             # Create goal
             await session.run(
                 """
-                CREATE (g:Entity {
+                CREATE (g:Entity:Goal {
                     uid: $uid,
                     user_uid: $user_uid,
                     ku_type: 'goal',
@@ -255,7 +254,6 @@ class TestEmbeddingWorkerEventProcessing:
                 )
 
 
-@pytest.mark.skip(reason="Requires Neo4j GenAI plugin (genai.vector.encodeBatch procedure)")
 class TestEmbeddingWorkerBatchProcessing:
     """Test batch size and performance."""
 
@@ -276,7 +274,7 @@ class TestEmbeddingWorkerBatchProcessing:
             for uid in task_uids:
                 await session.run(
                     """
-                    CREATE (t:Entity {
+                    CREATE (t:Entity:Task {
                         uid: $uid,
                         user_uid: $user_uid,
                         ku_type: 'task',
@@ -342,7 +340,6 @@ class TestEmbeddingWorkerBatchProcessing:
                 )
 
 
-@pytest.mark.skip(reason="Requires Neo4j GenAI plugin (genai.vector.encodeBatch procedure)")
 class TestEmbeddingWorkerErrorRecovery:
     """Test error handling and recovery."""
 
@@ -363,7 +360,7 @@ class TestEmbeddingWorkerErrorRecovery:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                CREATE (t:Entity {
+                CREATE (t:Entity:Task {
                     uid: $uid,
                     user_uid: $user_uid,
                     ku_type: 'task',

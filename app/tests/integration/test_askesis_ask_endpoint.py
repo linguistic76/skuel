@@ -22,10 +22,12 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _genai_plugin_available(skuel_app) -> bool:
+async def _genai_plugin_available(skuel_app) -> bool:
     """Check if Neo4j GenAI plugin is available in the test environment."""
     embeddings = getattr(skuel_app.state.services, "embeddings_service", None)
-    return bool(embeddings and getattr(embeddings, "_plugin_available", False))
+    if not embeddings:
+        return False
+    return await embeddings._check_plugin_availability()
 
 
 def test_ask_endpoint_validation(skuel_app):
@@ -47,7 +49,7 @@ def test_ask_endpoint_validation(skuel_app):
 @pytest.mark.asyncio
 async def test_ask_endpoint_success(skuel_app, populated_test_data):
     """Test successful RAG question answering with populated data."""
-    if not _genai_plugin_available(skuel_app):
+    if not await _genai_plugin_available(skuel_app):
         pytest.skip("Requires Neo4j GenAI plugin for intent classification")
     askesis = skuel_app.state.services.askesis
     user_uid = populated_test_data["user_uid"]
@@ -77,7 +79,7 @@ async def test_ask_endpoint_success(skuel_app, populated_test_data):
 @pytest.mark.asyncio
 async def test_ask_endpoint_entity_extraction(skuel_app, populated_test_data):
     """Test that entity extraction works with populated knowledge units."""
-    if not _genai_plugin_available(skuel_app):
+    if not await _genai_plugin_available(skuel_app):
         pytest.skip("Requires Neo4j GenAI plugin for intent classification")
     askesis = skuel_app.state.services.askesis
     user_uid = populated_test_data["user_uid"]
@@ -105,7 +107,7 @@ async def test_ask_endpoint_entity_extraction(skuel_app, populated_test_data):
 @pytest.mark.asyncio
 async def test_ask_endpoint_semantic_search(skuel_app, populated_test_data):
     """Test that semantic search pathway works (question without exact keyword match)."""
-    if not _genai_plugin_available(skuel_app):
+    if not await _genai_plugin_available(skuel_app):
         pytest.skip("Requires Neo4j GenAI plugin for intent classification")
     askesis = skuel_app.state.services.askesis
     user_uid = populated_test_data["user_uid"]

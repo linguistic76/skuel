@@ -99,9 +99,9 @@ class Neo4jGenAIEmbeddingsService:
             return self._plugin_available
 
         query = """
-        CALL dbms.components() YIELD name, versions
-        WHERE name = 'GenAI Plugin'
-        RETURN name
+        SHOW PROCEDURES YIELD name
+        WHERE name STARTS WITH 'genai.vector'
+        RETURN name LIMIT 1
         """
 
         try:
@@ -290,8 +290,8 @@ class Neo4jGenAIEmbeddingsService:
                 dimensions: $dimensions
             }
         )
-        YIELD index, embedding
-        RETURN index, embedding
+        YIELD index, vector
+        RETURN index, vector
         ORDER BY index
         """
 
@@ -345,8 +345,8 @@ class Neo4jGenAIEmbeddingsService:
                 operation="embeddings", model=self.model, token_type="prompt"
             ).inc(estimated_tokens)
 
-        # Extract embeddings in order
-        embeddings = [record["embedding"] for record in sorted(records, key=itemgetter("index"))]
+        # Extract embeddings in order (procedure yields 'vector', not 'embedding')
+        embeddings = [record["vector"] for record in sorted(records, key=itemgetter("index"))]
 
         # Validate all dimensions
         for idx, emb in enumerate(embeddings):

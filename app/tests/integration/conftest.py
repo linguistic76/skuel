@@ -41,7 +41,9 @@ def neo4j_container():
     container = Neo4jContainer("neo4j:5.26.0")
     # Disable auth completely for testing
     container.with_env("NEO4J_dbms_security_auth__enabled", "false")
-    container.with_env("NEO4J_PLUGINS", '["apoc"]')
+    container.with_env("NEO4J_PLUGINS", '["apoc", "genai"]')
+    # Allow genai procedures without role checks (no allowlist — keeps all APOC available for tests)
+    container.with_env("NEO4J_dbms_security_procedures_unrestricted", "genai.*,apoc.*")
 
     # Start container
     container.start()
