@@ -21,7 +21,7 @@ This guide covers how to implement a parser for the SKUEL Activity DSL, includin
 **Key Components:**
 - `ActivityDSLParser` - Main parser class
 - `ParsedActivityLine` - Structured result dataclass
-- `KuType` enum - Type-safe entity classification
+- `EntityType` enum - Type-safe entity classification
 - `ActivityEntityConverter` - DSL → Domain entity conversion
 
 ---
@@ -111,15 +111,15 @@ tags = extract_tags(line)
 ### `@context()` Parsing
 
 ```python
-from core.models.enums.ku_enums import KuType
+from core.models.enums.entity_enums import EntityType
 
-def parse_context(value: str) -> list[KuType]:
-    """Parse @context() into KuType list."""
+def parse_context(value: str) -> list[EntityType]:
+    """Parse @context() into EntityType list."""
     raw_contexts = [c.strip().lower() for c in value.split(',')]
 
     ku_types = []
     for ctx in raw_contexts:
-        ku_type = KuType.from_string(ctx)
+        ku_type = EntityType.from_string(ctx)
         if ku_type:
             ku_types.append(ku_type)
         else:
@@ -132,7 +132,7 @@ def parse_context(value: str) -> list[KuType]:
 **Example:**
 ```python
 parse_context("task, learning")
-# Result: [KuType.TASK, KuType.LEARNING_STEP]
+# Result: [EntityType.TASK, EntityType.LEARNING_STEP]
 ```
 
 ---
@@ -358,7 +358,7 @@ desc = extract_description(line, tags)
 ```python
 from dataclasses import dataclass, field
 from datetime import datetime
-from core.models.enums.ku_enums import KuType
+from core.models.enums.entity_enums import EntityType
 
 @dataclass
 class ParsedActivityLine:
@@ -366,7 +366,7 @@ class ParsedActivityLine:
 
     # Required
     description: str
-    contexts: list[KuType]
+    contexts: list[EntityType]
 
     # Optional temporal
     when: datetime | None = None
@@ -462,7 +462,7 @@ class ActivityDSLParser:
 
 ```python
 from core.services.dsl.activity_converter import ActivityEntityConverter
-from core.models.enums.ku_enums import KuType
+from core.models.enums.entity_enums import EntityType
 
 class ActivityEntityConverter:
     """Converts ParsedActivityLine to domain create requests."""
@@ -478,13 +478,13 @@ class ActivityEntityConverter:
 
         # Dispatch to appropriate converter
         match primary_type:
-            case KuType.TASK:
+            case EntityType.TASK:
                 return self._convert_to_task(activity)
-            case KuType.HABIT:
+            case EntityType.HABIT:
                 return self._convert_to_habit(activity)
-            case KuType.GOAL:
+            case EntityType.GOAL:
                 return self._convert_to_goal(activity)
-            case KuType.EVENT:
+            case EntityType.EVENT:
                 return self._convert_to_event(activity)
             case _:
                 return self._convert_generic(activity)
@@ -550,9 +550,9 @@ CREATE (t)-[:FULFILLS_GOAL]->(g)
 
 ```python
 def test_parse_context():
-    assert parse_context("task") == [KuType.TASK]
-    assert parse_context("task, habit") == [KuType.TASK, KuType.HABIT]
-    assert parse_context("task,learning") == [KuType.TASK, KuType.LEARNING_STEP]
+    assert parse_context("task") == [EntityType.TASK]
+    assert parse_context("task, habit") == [EntityType.TASK, EntityType.HABIT]
+    assert parse_context("task,learning") == [EntityType.TASK, EntityType.LEARNING_STEP]
 
 def test_parse_when():
     result = parse_when("2025-11-30T09:30")
@@ -592,8 +592,8 @@ def test_full_activity_line_parsing():
 
     assert result is not None
     assert result.description == "Draft lesson"
-    assert KuType.TASK in result.contexts
-    assert KuType.LEARNING_STEP in result.contexts
+    assert EntityType.TASK in result.contexts
+    assert EntityType.LEARNING_STEP in result.contexts
     assert result.when == datetime(2025, 11, 30, 9, 0)
     assert result.priority == 1
     assert result.duration_minutes == 90
@@ -672,4 +672,4 @@ def parse_line_with_validation(self, line: str) -> Result[ParsedActivityLine]:
 - **Usage Examples:** `DSL_USAGE_GUIDE.md`
 - **Parser Implementation:** `/core/services/dsl/activity_parser.py`
 - **Entity Converter:** `/core/services/dsl/activity_converter.py`
-- **KuType Enum:** `/core/models/enums/ku_enums.py`
+- **EntityType Enum:** `/core/models/enums/ku_enums.py`

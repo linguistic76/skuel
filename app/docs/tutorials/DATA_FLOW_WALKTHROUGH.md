@@ -87,7 +87,7 @@ class TaskCreateRequest(CreateRequestBase):
 
     # Priority and status
     priority: Priority = Field(default=Priority.MEDIUM, description="Task priority")
-    status: KuStatus = Field(default=KuStatus.DRAFT, description="Initial status")
+    status: EntityStatus = Field(default=EntityStatus.DRAFT, description="Initial status")
 
     # Learning Integration
     applies_knowledge_uids: list[str] = Field(
@@ -125,7 +125,7 @@ body: TaskCreateRequest = TaskCreateRequest(
     duration_minutes=60,
     applies_knowledge_uids=["ku.python-decorators"],
     prerequisite_knowledge_uids=["ku.python-functions"],
-    status=KuStatus.DRAFT,  # Default value
+    status=EntityStatus.DRAFT,  # Default value
 )
 ```
 
@@ -201,7 +201,7 @@ task_dto: TaskDTO = TaskDTO(
     description="Study decorators before the advanced class",
     due_date=date(2026, 2, 5),
     priority=Priority.HIGH,
-    status=KuStatus.DRAFT,
+    status=EntityStatus.DRAFT,
     duration_minutes=60,
     tags=[],
     # Single UID fields
@@ -392,7 +392,7 @@ def from_dict(cls, data: dict) -> TaskDTO:
         cls,
         data,
         enum_fields={  # Convert strings → enums
-            "status": KuStatus,
+            "status": EntityStatus,
             "priority": Priority,
             "recurrence_pattern": RecurrencePattern,
         },
@@ -446,7 +446,7 @@ task: Task = Task(
     title="Review Python decorators",
     due_date=date(2026, 2, 5),
     priority=Priority.HIGH,
-    status=KuStatus.DRAFT,
+    status=EntityStatus.DRAFT,
     tags=("python", "learning"),  # Immutable tuple
     created_at=datetime(2026, 1, 29, 10, 30, 0),
     # ...business logic methods available...
@@ -523,7 +523,7 @@ response: TaskResponse = TaskResponse(
     title="Review Python decorators",
     due_date=date(2026, 2, 5),
     priority=Priority.HIGH,
-    status=KuStatus.DRAFT,
+    status=EntityStatus.DRAFT,
     created_at=datetime(2026, 1, 29, 10, 30, 0),
 
     # Relationship UIDs from graph
@@ -725,7 +725,7 @@ knowledge_uids = rels.applies_knowledge_uids  # Fetched from graph
 task_dto = await backend.get_by_uid(uid)
 
 # Update status (requires mutability)
-task_dto.status = KuStatus.COMPLETED
+task_dto.status = EntityStatus.COMPLETED
 task_dto.completion_date = date.today()
 task_dto.updated_at = datetime.now()
 
