@@ -32,13 +32,14 @@ class NavItem:
     requires_auth: bool = True
     requires_admin: bool = False
     requires_teacher: bool = False
+    hide_for_admin: bool = False
 
 
 # Main navigation items - order determines display order
 MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
     NavItem("Teaching", "/teaching", "teaching", requires_teacher=True),
-    NavItem("Knowledge", "/profile/knowledge", "knowledge"),
-    NavItem("Curriculum", "/curriculum", "curriculum"),
+    NavItem("Knowledge", "/profile/knowledge", "knowledge", hide_for_admin=True),
+    NavItem("Curriculum", "/curriculum", "curriculum", hide_for_admin=True),
 )
 
 # Admin-only navigation item - prepended to nav when user is admin

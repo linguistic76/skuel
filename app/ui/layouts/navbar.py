@@ -234,7 +234,13 @@ def _admin_profile_section(current_user: str) -> Div:
     )
 
     return Div(
-        Div(avatar, cls="flex items-center"),
+        A(
+            Span("Go to admin dashboard", cls="sr-only"),
+            avatar,
+            href="/admin",
+            cls="btn btn-ghost btn-circle",
+            **{"hx-boost": "false"},
+        ),
         A(
             "Sign out",
             href="/logout",
@@ -279,6 +285,8 @@ def create_navbar(
 
     def _should_show_item(item: NavItem) -> bool:
         if item.requires_admin and not is_admin:
+            return False
+        if item.hide_for_admin and is_admin:
             return False
         return not (item.requires_teacher and not (is_teacher or is_admin))
 
