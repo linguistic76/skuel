@@ -30,7 +30,7 @@ Reports is the primary user-facing interface for all content submissions and sys
 | `PROGRESS` | System | No | System-generated activity completion summaries |
 | `ASSESSMENT` | Teacher | No | Teacher-authored qualitative evaluations of students |
 
-**Content Origin:** User-submitted types (TRANSCRIPT, ASSIGNMENT, JOURNAL, JOURNAL_VOICE, JOURNAL_CURATED) are `ContentOrigin.USER_CREATED`. System-generated types (PROGRESS, ASSESSMENT) are `ContentOrigin.FEEDBACK`. See `KuType.content_origin()` in `/core/models/enums/ku_enums.py`.
+**Content Origin:** User-submitted types (TRANSCRIPT, ASSIGNMENT, JOURNAL, JOURNAL_VOICE, JOURNAL_CURATED) are `ContentOrigin.USER_CREATED`. System-generated types (PROGRESS, ASSESSMENT) are `ContentOrigin.FEEDBACK`. See `EntityType.content_origin()` in `/core/models/enums/entity_enums.py`.
 
 ## Routes
 

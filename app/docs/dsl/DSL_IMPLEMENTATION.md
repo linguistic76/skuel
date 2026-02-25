@@ -672,4 +672,4 @@ def parse_line_with_validation(self, line: str) -> Result[ParsedActivityLine]:
 - **Usage Examples:** `DSL_USAGE_GUIDE.md`
 - **Parser Implementation:** `/core/services/dsl/activity_parser.py`
 - **Entity Converter:** `/core/services/dsl/activity_converter.py`
-- **EntityType Enum:** `/core/models/enums/ku_enums.py`
+- **EntityType Enum:** `/core/models/enums/entity_enums.py`

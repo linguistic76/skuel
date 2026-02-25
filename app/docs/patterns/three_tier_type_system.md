@@ -722,10 +722,10 @@ The `total=False` makes all fields optional, matching the partial update semanti
 | `/core/models/ku/entity_dto.py` | EntityDTO base (~18 fields) |
 | `/core/models/ku/user_owned_dto.py` | UserOwnedDTO (+user_uid, visibility, priority) |
 | `/core/models/ku/task.py` | Task domain model (example per-domain implementation) |
-| `/core/models/ku/task_dto.py` | TaskDTO (example per-domain DTO) |
-| `/core/models/ku/ku.py` | Ku union type -- retained for cross-domain use |
+| `/core/models/task/task_dto.py` | TaskDTO (example per-domain DTO) |
+| `/core/models/entity_types.py` | Ku union type -- cross-domain entity types |
 | `/core/models/protocols/domain_model_protocol.py` | Protocol definition |
-| `/core/models/enums/ku_enums.py` | EntityType, EntityStatus enums (file NOT renamed) |
+| `/core/models/enums/entity_enums.py` | EntityType, EntityStatus enums |
 | `/adapters/persistence/neo4j/universal_backend.py` | Generic backend with multi-label support |
 | `/adapters/persistence/neo4j/neo_label.py` | NeoLabel enum (ENTITY + 16 domain labels) |
 | `/adapters/persistence/neo4j/user_backend.py` | User backend |
@@ -818,7 +818,7 @@ Does the domain have 3+ business logic methods?
 **Key enum renames (February 2026):**
 - `KuType` -> `EntityType` (15 values)
 - `KuStatus` -> `EntityStatus` (14 values)
-- Enums still live in `ku_enums.py` (file was NOT renamed)
+- `ku_enums.py` was deleted and split into 8 domain-specific enum files (Feb 2026); EntityType/EntityStatus live in `entity_enums.py`
 - `ku_type` database property was NOT renamed
 
 **See:** [ADR-035](../decisions/ADR-035-tier-selection-guidelines.md), [ADR-041](../decisions/ADR-041-unified-ku-model.md)

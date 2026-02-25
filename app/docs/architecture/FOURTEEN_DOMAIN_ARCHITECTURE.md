@@ -69,9 +69,9 @@ Entity (~19 fields: uid, entity_type, title, description, status, tags, ...)
 ```
 
 **Key files:**
-- `/core/models/ku/entity.py` -- `Entity` base class
-- `/core/models/ku/user_owned_entity.py` -- `UserOwnedEntity` intermediate class
-- `/core/models/enums/ku_enums.py` -- `EntityType`, `EntityStatus` (file not renamed)
+- `/core/models/entity.py` -- `Entity` base class
+- `/core/models/entity.py` -- `UserOwnedEntity` intermediate class (same file)
+- `/core/models/enums/entity_enums.py` -- `EntityType`, `EntityStatus`
 
 ### DTO Hierarchy
 
@@ -113,10 +113,10 @@ User relationships standardized to `:OWNS` (was `:HAS_KU`). MEGA-QUERY now uses 
 
 | Old Name | New Name | Location |
 |----------|----------|----------|
-| `KuType` | `EntityType` | `core/models/enums/ku_enums.py` |
-| `KuStatus` | `EntityStatus` | `core/models/enums/ku_enums.py` |
+| `KuType` | `EntityType` | `core/models/enums/entity_enums.py` |
+| `KuStatus` | `EntityStatus` | `core/models/enums/entity_enums.py` |
 
-The `ku_enums.py` file was NOT renamed. The `ku_type` database property was NOT renamed.
+The `ku_enums.py` file was deleted and split into 8 domain-specific enum files (Feb 2026). The `ku_type` database property was NOT renamed.
 
 ---
 
