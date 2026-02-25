@@ -1007,7 +1007,6 @@ async def compose_services(
         from adapters.persistence.neo4j.domain_backends import GoalsBackend, HabitsBackend
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.askesis.askesis import Askesis
-        from core.models.entity_types import Ku
         from core.models.event.event import Event
 
         # NOTE: Choice import REMOVED (February 2026) - Choice merged into Ku
@@ -1086,9 +1085,11 @@ async def compose_services(
         # See: CLAUDE.md §2.11 Domain Architecture Categories
         from adapters.persistence.neo4j.user_backend import UserBackend
 
+        from core.models.curriculum.curriculum import Curriculum
+
         users_backend = UserBackend(driver)
-        knowledge_backend = UniversalNeo4jBackend[Ku](
-            driver, NeoLabel.ENTITY, Ku, prometheus_metrics=prometheus_metrics
+        knowledge_backend = UniversalNeo4jBackend[Curriculum](
+            driver, NeoLabel.ENTITY, Curriculum, prometheus_metrics=prometheus_metrics
         )
         from core.models.principle.principle import Principle
 
@@ -1117,10 +1118,13 @@ async def compose_services(
         progress_backend = UniversalNeo4jBackend[UserProgress](
             driver, NeoLabel.USER_PROGRESS, UserProgress, prometheus_metrics=prometheus_metrics
         )
+        from core.models.reports.submission import Submission
+
         # NOTE: vectors_backend REMOVED (January 2026) - was unused dead code
         # reports_backend uses :Entity label for cross-domain queries (reports span multiple EntityTypes)
-        reports_backend = UniversalNeo4jBackend[Ku](
-            driver, NeoLabel.ENTITY, Ku, prometheus_metrics=prometheus_metrics
+        # entity_class=Submission: base class for all 4 report types (SUBMISSION, JOURNAL, AI_REPORT, FEEDBACK_REPORT)
+        reports_backend = UniversalNeo4jBackend[Submission](
+            driver, NeoLabel.ENTITY, Submission, prometheus_metrics=prometheus_metrics
         )
         askesis_backend = UniversalNeo4jBackend[Askesis](
             driver, NeoLabel.ASKESIS, Askesis, prometheus_metrics=prometheus_metrics
