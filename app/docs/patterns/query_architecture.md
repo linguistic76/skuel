@@ -577,7 +577,7 @@ from core.ports.query_types import TaskUpdatePayload, GoalUpdatePayload
 
 # Task update with type-checked fields
 updates: TaskUpdatePayload = {
-    "status": KuStatus.COMPLETED.value,
+    "status": EntityStatus.COMPLETED.value,
     "priority": Priority.HIGH.value,
 }
 

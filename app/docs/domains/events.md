@@ -82,7 +82,7 @@ class EventsService(BaseService[EventsOperations, Event]):
 | `duration_minutes` | `int` | Duration in minutes |
 | `location` | `str?` | Event location |
 | `event_type` | `EventType` | Meeting, Practice, Learning, etc. |
-| `status` | `KuStatus` | Scheduled, Completed, Cancelled |
+| `status` | `EntityStatus` | Scheduled, Completed, Cancelled |
 | `priority` | `Priority` | Low, Medium, High, Urgent |
 | `recurrence_pattern` | `RecurrencePattern?` | Daily, Weekly, etc. |
 
@@ -150,7 +150,7 @@ class EventsService(BaseService[EventsOperations, Event]):
 | Method | Description |
 |--------|-------------|
 | `search(query, user_uid)` | Text search across title, description, location |
-| `get_by_status(status, user_uid)` | Filter by KuStatus |
+| `get_by_status(status, user_uid)` | Filter by EntityStatus |
 | `get_by_domain(domain, user_uid)` | Filter by Domain |
 | `get_by_category(category, user_uid)` | Filter by event_type (category_field) |
 | `get_by_relationship(related_uid, rel, dir)` | Graph traversal |

@@ -96,7 +96,7 @@ result = await ku_search.search_by_tags(["python", "ml"], match_all=True)
 ### Filter Methods
 
 #### `get_by_status(status: str, user_uid: str | None = None) -> Result[list[Model]]`
-Filter by status field. Activity domains use `KuStatus` enum.
+Filter by status field. Activity domains use `EntityStatus` enum.
 
 ```python
 result = await tasks_search.get_by_status("active", user_uid="user.123")
@@ -585,7 +585,7 @@ from core.models.search.search_router import SearchRouter
 router = SearchRouter(services)
 result = await router.faceted_search(SearchRequest(
     query="",
-    domains=[KuType.TASK, KuType.GOAL, KuType.CURRICULUM],
+    domains=[EntityType.TASK, EntityType.GOAL, EntityType.CURRICULUM],
     user_uid="user.123",
     limit=10
 ))

@@ -356,7 +356,7 @@ async def analyze_learning_path(self, user_uid: str) -> Result[dict]:
     # Pattern 1: Get user's active tasks (simple query)
     tasks = await self.backend.find_by(
         user_uid=user_uid,
-        status=KuStatus.ACTIVE
+        status=EntityStatus.ACTIVE
     )
 
     analytics = {

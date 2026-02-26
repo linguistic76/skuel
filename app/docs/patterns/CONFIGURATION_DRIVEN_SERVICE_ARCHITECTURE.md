@@ -61,7 +61,7 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
         model_class=Task,
         domain_name="tasks",
         date_field="due_date",
-        completed_statuses=(KuStatus.COMPLETED.value,),
+        completed_statuses=(EntityStatus.COMPLETED.value,),
     )
 ```
 
@@ -87,7 +87,7 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
         model_class=Task,                  # Required: Domain model class
         domain_name="tasks",               # Required: Logger name
         date_field="due_date",             # Optional: Default "created_at"
-        completed_statuses=(KuStatus.COMPLETED.value,),
+        completed_statuses=(EntityStatus.COMPLETED.value,),
         category_field="category",         # Optional: Default "category"
         search_fields=("title", "description"),  # Optional
         search_order_by="created_at",      # Optional

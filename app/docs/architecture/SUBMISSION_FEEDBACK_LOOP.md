@@ -6,9 +6,9 @@
 
 SKUEL's content processing domain implements a learning loop where **students create**, **AI processes**, and **teachers guide**. Every piece of student work flows through a clear pipeline from raw submission to structured feedback.
 
-## The Four KuTypes in the Loop
+## The Four EntityTypes in the Loop
 
-| KuType | Who Creates | Purpose | ProcessorType |
+| EntityType | Who Creates | Purpose | ProcessorType |
 |--------|------------|---------|---------------|
 | `SUBMISSION` | Student uploads file | Raw student work (audio, text, images) | `HUMAN` |
 | `JOURNAL` | Admin uploads file | AI-processed reflective writing | `LLM` |
@@ -49,7 +49,7 @@ Assignment (scope=ASSIGNED)
 2. Student submits file → ReportsSubmissionService.submit_file()
        |                   Creates Entity with ku_type=SUBMISSION
        v
-3. Processing routes by MIME type (not KuType):
+3. Processing routes by MIME type (not EntityType):
        audio/* → TranscriptionService → text
        text/*  → Read raw content
        |
