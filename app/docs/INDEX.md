@@ -377,9 +377,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Edge Metadata Fields](edge_metadata_fields.md) | 2025-11-23 | 89 |
 | [SKUEL Codebase Analysis - DRY & Separation of Conc...](ANALYSIS_README.md) | 2025-11-28 | 199 |
 | [SKUEL Documentation Hub](README.md) | 2025-12-04 | 153 |
-| [SKUEL Refactoring Checklist](REFACTORING_CHECKLIST.md) | 2025-11-28 | 323 |
-| [SKUEL Development Phases](PHASES.md) | 2026-01-03 | 440 |
-| [SKUEL Phase Dependencies](PHASE_DEPENDENCIES.md) | 2026-01-03 | 180 |
 
 ---
 
