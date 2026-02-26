@@ -515,7 +515,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         """
         Get the appropriate view component for a domain.
 
-        Phase 3, Task 11: Supports focus_uid for deep linking to specific entities.
+        , Task 11: Supports focus_uid for deep linking to specific entities.
 
         Args:
             domain: Domain name (tasks, events, goals, etc.)
@@ -776,7 +776,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         Shows combined stats + item list for the selected domain.
         Valid domains: tasks, events, goals, habits, principles, choices, knowledge, learning-steps, learning-paths
 
-        Phase 3, Task 11: Supports ?focus={entity_uid} query param for deep linking from insights.
+        , Task 11: Supports ?focus={entity_uid} query param for deep linking from insights.
 
         Requires authentication.
         One path forward: Service succeeds or fails with clear error.
@@ -800,7 +800,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         user_uid = require_authenticated_user(request)
 
-        # Parse typed parameters for deep linking (Phase 3, Task 11)
+        # Parse typed parameters for deep linking
         params = parse_profile_params(request)
         focus_uid = params.focus
 
@@ -859,8 +859,8 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         """
         Shared With Me tab - shows assignments and events shared with current user.
 
-        Phase 1: Assignments only
-        Phase 2: Will include events
+        Assignments only
+        Will include events
 
         Uses profile hub layout with custom content view.
         """
@@ -947,7 +947,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 "Reports and events shared with you by teachers, peers, and mentors.",
                 cls="text-base-content/70 mb-6",
             ),
-            # Filter tabs (Phase 1: only Reports active)
+            # Filter tabs
             Div(
                 Button("All", cls="btn btn-sm btn-ghost", disabled=True),
                 Button("Reports", cls="btn btn-sm btn-primary"),
@@ -1121,7 +1121,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         )
 
     # ========================================================================
-    # CHART API ROUTES - Phase 1, Task 2: Intelligence Data Visualization
+    # CHART API ROUTES - , Task 2: Intelligence Data Visualization
     # ========================================================================
 
     @rt("/api/profile/charts/alignment")
@@ -1347,7 +1347,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         """
         HTMX endpoint for loading intelligence section with skeleton loading state.
 
-        Phase 1, Task 3: Prevents blank screen during 2-3s intelligence load.
+        , Task 3: Prevents blank screen during 2-3s intelligence load.
         """
         user_uid = require_authenticated_user(request)
 

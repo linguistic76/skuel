@@ -13,22 +13,22 @@ DOMAINS SERVED BY THIS BACKEND (12 of 14)
 -----------------------------------------
 
 **Activity Domains (7):**
-    UniversalNeo4jBackend[Task]      - tasks_backend
-    UniversalNeo4jBackend[Goal]      - goals_backend
-    UniversalNeo4jBackend[Habit]     - habits_backend
-    UniversalNeo4jBackend[Event]     - events_backend
-    UniversalNeo4jBackend[Choice]    - choices_backend
+    UniversalNeo4jBackend[Task] - tasks_backend
+    UniversalNeo4jBackend[Goal] - goals_backend
+    UniversalNeo4jBackend[Habit] - habits_backend
+    UniversalNeo4jBackend[Event] - events_backend
+    UniversalNeo4jBackend[Choice] - choices_backend
     UniversalNeo4jBackend[Principle] - principles_backend
     UniversalNeo4jBackend[ExpensePure] - finance_backend
 
 **Curriculum Domains (3):**
     UniversalNeo4jBackend[KnowledgeUnit] - knowledge_backend (ku:)
-    UniversalNeo4jBackend[LearningStep]  - ls_backend (ls:)
-    UniversalNeo4jBackend[LearningPath]  - lp_backend (lp:)
+    UniversalNeo4jBackend[LearningStep] - ls_backend (ls:)
+    UniversalNeo4jBackend[LearningPath] - lp_backend (lp:)
 
 **Content/Organization Domains (2 of 4):**
-    UniversalNeo4jBackend[Report]      - reports_backend (journals are Report with report_type=JOURNAL)
-    UniversalNeo4jBackend[Moc]         - moc_backend
+    UniversalNeo4jBackend[Report] - reports_backend (journals are Report with report_type=JOURNAL)
+    UniversalNeo4jBackend[Moc] - moc_backend
 
 DOMAINS NOT USING THIS BACKEND (2 of 14)
 ----------------------------------------
@@ -40,9 +40,9 @@ THE 4 CROSS-CUTTING SYSTEMS
 ---------------------------
 
     1. UserContext - UserBackend (dedicated, not UniversalNeo4jBackend)
-    2. Search      - SearchRouter → Domain SearchServices (One Path Forward, January 2026)
-    3. Askesis     - Cross-domain queries (no dedicated backend)
-    4. Messaging   - Conversation models (no dedicated backend)
+    2. Search - SearchRouter → Domain SearchServices (One Path Forward, January 2026)
+    3. Askesis - Cross-domain queries (no dedicated backend)
+    4. Messaging - Conversation models (no dedicated backend)
 
 100% DYNAMIC BACKEND PATTERN
 ----------------------------
@@ -136,7 +136,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         - Batch Operations: get_many() for N+1 query prevention
         - Efficient Queries: UnifiedQueryBuilder optimizes filters and indexes
         - Relationship Counting: count_related() without loading entities
-        - Graph Intelligence: Optional Phase 1-4 integration for smart traversal
+        - Graph Intelligence: Optional -4 integration for smart traversal
 
     Usage:
         ```python
@@ -169,7 +169,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         ```
 
     Extension Points:
-        - graph_intelligence_service: Enable Phase 1-4 smart graph traversal
+        - graph_intelligence_service: Enable -4 smart graph traversal
         - RelationshipRegistry: Validate relationship types per domain
         - Custom protocols: Add domain-specific methods (auto-delegated)
 
@@ -217,9 +217,9 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             driver: Neo4j async driver
             label: Node label - can be NeoLabel enum or string (e.g., NeoLabel.TASK, "Task")
             entity_class: Entity class for serialization (e.g., Task, Goal)
-            graph_intelligence_service: Optional GraphIntelligenceService for Phase 1-4 queries
+            graph_intelligence_service: Optional GraphIntelligenceService for -4 queries
             validate_label: If True, validates label against NeoLabel enum (default: True)
-            prometheus_metrics: PrometheusMetrics instance for database instrumentation (Phase 2 - January 2026)
+            prometheus_metrics: PrometheusMetrics instance for database instrumentation
             default_filters: Properties automatically applied to all queries and new nodes.
                 Legacy mechanism for Ku-type discrimination. Superseded by domain-specific
                 labels (e.g., NeoLabel.TASK instead of NeoLabel.ENTITY + default_filters).
@@ -278,7 +278,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             # Single-label: non-Entity backends (Finance, Group, etc.)
             self._create_labels = self.label
 
-        # Phase 2: UnifiedQueryBuilder for all query building
+        # UnifiedQueryBuilder for all query building
         self.query_builder = UnifiedQueryBuilder(executor=self)
 
         intel_status = "with Phase 1-4" if graph_intelligence_service else "basic"
@@ -290,7 +290,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 
     def _track_db_metrics(self, operation: str, duration: float, is_error: bool = False) -> None:
         """
-        Track database operation metrics (Phase 2 - January 2026).
+        Track database operation metrics.
 
         Args:
             operation: Operation type (create/read/update/delete)
@@ -313,7 +313,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             self.prometheus_metrics.db.query_errors.labels(operation=operation).inc()
 
     # ============================================================================
-    # DEFAULT FILTER HELPERS (Unified Ku Model - Phase 2)
+    # DEFAULT FILTER HELPERS (Unified Ku Model - )
     # ============================================================================
 
     def _default_filter_clause(self, node_var: str = "n") -> str:
@@ -386,7 +386,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             record = await result.single()
 
             if not record:
-                # Track error metrics (Phase 2 - January 2026)
+                # Track error metrics
                 self._track_db_metrics("create", time.time() - start_time, is_error=True)
                 return Result.fail(Errors.database("create", f"Failed to create {self.label}"))
 
@@ -408,7 +408,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
                         f"Auto-created OWNS relationship for {self.label} {created.uid}"
                     )
 
-            # Track metrics (Phase 2 - January 2026)
+            # Track metrics
             self._track_db_metrics("create", time.time() - start_time, is_error=False)
 
             return Result.ok(created)
@@ -616,7 +616,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 
             updated = from_neo4j_node(dict(record["n"]), self.entity_class)
 
-            # Track metrics (Phase 2 - January 2026)
+            # Track metrics
             self._track_db_metrics("update", time.time() - start_time, is_error=False)
 
             return Result.ok(updated)
@@ -681,7 +681,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             query = f"""
             MATCH (n:{self.label} {{uid: $uid}})
             {where_line}
-            DELETE n  // noqa: CYP002 - intentional: non-DETACH DELETE is the safety check
+            DELETE n // noqa: CYP002 - intentional: non-DETACH DELETE is the safety check
             RETURN count(n) as deleted
             """
 
@@ -695,7 +695,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 
                 deleted = summary.counters.nodes_deleted > 0
 
-                # Track metrics (Phase 2 - January 2026)
+                # Track metrics
                 self._track_db_metrics("delete", time.time() - start_time, is_error=False)
 
                 return Result.ok(deleted)
@@ -727,7 +727,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         """
         List any entity type with dynamic filters.
 
-        Phase 2: Now uses UnifiedQueryBuilder with fluent API.
+        Now uses UnifiedQueryBuilder with fluent API.
         Add a field to your model → it's automatically filterable!
         """
         # Build query using UnifiedQueryBuilder fluent API
@@ -758,7 +758,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             return Result.ok(entities)
 
     # ============================================================================
-    # PHASE 1-4 GRAPH INTELLIGENCE INTEGRATION
+    # -4 GRAPH INTELLIGENCE INTEGRATION
     # ============================================================================
 
     @safe_backend_operation("get_with_graph_context")
@@ -766,7 +766,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         self, uid: str, intent: QueryIntent | None = None, depth: int = 2
     ) -> Result[tuple[T | None, GraphContext | None]]:
         """
-        Get entity with graph context in single call using Phase 1-4.
+        Get entity with graph context in single call using -4.
 
         This method combines entity retrieval with graph intelligence,
         leveraging the entity's own query building methods if available.
@@ -1077,7 +1077,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         # Merge default_filters (non-overridable) with caller filters
         all_filters = {**filters, **self.default_filters}
 
-        # Phase 2: Use UnifiedQueryBuilder fluent API with explicit label
+        # Use UnifiedQueryBuilder fluent API with explicit label
         query_builder = (
             self.query_builder.for_model(self.entity_class, label=self.label)
             .filter(**all_filters)
@@ -1100,7 +1100,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 
             entities = [from_neo4j_node(r["n"], self.entity_class) for r in records]
 
-            # Track metrics (Phase 2 - January 2026)
+            # Track metrics
             self._track_db_metrics("read", time.time() - start_time, is_error=False)
 
             return Result.ok(entities)
@@ -1110,7 +1110,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         """
         Count any entity type with dynamic filters.
 
-        Phase 2: Now uses UnifiedQueryBuilder - supports the same filter syntax as find_by().
+        Now uses UnifiedQueryBuilder - supports the same filter syntax as find_by().
         """
         # Merge default_filters with caller filters
         all_filters = {**filters, **self.default_filters}
@@ -1136,7 +1136,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             return Result.ok(record and record["alive"] == 1)
 
     # ============================================================================
-    # PHASE 2B: RAW GRAPH CONTEXT (DOMAIN-AGNOSTIC)
+    # B: RAW GRAPH CONTEXT (DOMAIN-AGNOSTIC)
     # ============================================================================
 
     async def get_domain_context_raw(
@@ -1184,8 +1184,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 
             # Returns typed list - categorization done by caller
             for node in result.value:
-                uid = node["uid"]  # Type-safe: str
-                labels = node["labels"]  # Type-safe: list[str]
+                uid = node["uid"] # Type-safe: str
+                labels = node["labels"] # Type-safe: list[str]
             ```
 
         Note:
@@ -1276,7 +1276,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             return Result.ok(records)
 
     # ============================================================================
-    # DYNAMIC PROTOCOL COMPLIANCE - PHASE 2A
+    # DYNAMIC PROTOCOL COMPLIANCE - A
     # ============================================================================
 
     def __getattr__(self, name: str) -> Any:
@@ -1296,11 +1296,11 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         Example:
             ```python
             # These calls are equivalent:
-            await backend.create_task(task)  # Via __getattr__
-            await backend.create(task)  # Direct call
+            await backend.create_task(task) # Via __getattr__
+            await backend.create(task) # Direct call
 
-            await backend.get_task_by_uid(uid)  # Via __getattr__
-            await backend.get(uid)  # Direct call
+            await backend.get_task_by_uid(uid) # Via __getattr__
+            await backend.get(uid) # Direct call
             ```
 
         Note:
@@ -1311,7 +1311,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 
         See Also:
             - Protocol definitions in core/ports/domain_protocols.py
-            - Phase 2A documentation in /docs/improvements/
+            - A documentation in /docs/improvements/
         """
         # Pattern 1: create_{domain}(entity) → create(entity)
         if name.startswith("create_") and not name.endswith("_relationship"):
@@ -1347,10 +1347,10 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
     # GRAPH-NATIVE RELATIONSHIP QUERIES
     # ============================================================================
     # Added: October 6, 2025
-    # See: /docs/migrations/GRAPH_NATIVE_MIGRATION_PLAN.md Phase 2
+    # See: /docs/migrations/GRAPH_NATIVE_MIGRATION_PLAN.md
     #
     # These methods query relationships from graph edges, not node properties.
-    # This enables removing relationship fields from domain models (Phase 3).
+    # This enables removing relationship fields from domain models.
 
     async def get_related_entities(
         self, uid: str, relationship_type: str, direction: str = "outgoing", limit: int = 100
@@ -1485,8 +1485,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
                 properties={"essentiality": "essential"}
             )
             # Cypher: MATCH (n {uid: $uid})-[r:REQUIRES_HABIT]->(related)
-            #         WHERE r.essentiality = $prop_essentiality
-            #         RETURN related.uid
+            # WHERE r.essentiality = $prop_essentiality
+            # RETURN related.uid
 
         Edge Direction Semantics:
             - PREREQUISITE: Use "incoming" for requirements
@@ -1772,10 +1772,10 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             )
 
     # ============================================================================
-    # PHASE 4: RICH EDGE PROPERTIES
+    # RICH EDGE PROPERTIES
     # ============================================================================
     # Added: October 6, 2025
-    # See: /docs/migrations/GRAPH_NATIVE_MIGRATION_PLAN.md Phase 4
+    # See: /docs/migrations/GRAPH_NATIVE_MIGRATION_PLAN.md
     #
     # These methods provide typed access to rich edge metadata.
 
@@ -1783,7 +1783,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         self, from_uid: str, to_uid: str, relationship_type: RelationshipName
     ) -> Result[EdgeMetadata | None]:
         """
-        Get typed EdgeMetadata for a relationship (Phase 4).
+        Get typed EdgeMetadata for a relationship.
 
         Returns EdgeMetadata with confidence, strength, semantic_distance,
         learning properties, temporal tracking, etc.
@@ -1831,7 +1831,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         self, from_uid: str, to_uid: str, relationship_type: str, edge_metadata: EdgeMetadata
     ) -> Result[bool]:
         """
-        Update edge metadata properties (Phase 4).
+        Update edge metadata properties.
 
         Replaces all edge properties with new EdgeMetadata.
 
@@ -1885,7 +1885,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         self, from_uid: str, to_uid: str, relationship_type: str
     ) -> Result[bool]:
         """
-        Increment traversal count for a relationship (Phase 4).
+        Increment traversal count for a relationship.
 
         Updates traversal_count and last_traversed timestamp.
         More efficient than fetching + updating full metadata.
@@ -2064,8 +2064,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         Example:
             >>> result = await backend._get_node_labels("task:123", "ku.python")
             >>> source_labels, target_labels = result.value
-            >>> print(source_labels)  # ["Task"]
-            >>> print(target_labels)  # ["Entity", "Entity"]
+            >>> print(source_labels) # ["Task"]
+            >>> print(target_labels) # ["Entity", "Entity"]
         """
         try:
             query = """
@@ -2111,7 +2111,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         """
         Create or update a graph relationship between two entities.
 
-        **PHASE 2C (November 2025): RelationshipRegistry Validation**
+
         - Validates relationship type for source domain (hard failure)
         - Validates target node label matches registry spec (hard failure)
         - Uses UID parsing + DB fallback for label extraction
@@ -2184,7 +2184,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         )
 
         # ========================================================================
-        # PHASE 2C: VALIDATION (Hard Failures)
+        # C: VALIDATION (Hard Failures)
         # ========================================================================
 
         # Step 1: Extract source label (fast UID parsing first)
@@ -2576,7 +2576,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         """
         Create multiple relationships in a single transaction.
 
-        **PHASE 2C (November 2025): RelationshipRegistry Validation**
+
         - Validates ALL relationships BEFORE creating ANY (transaction integrity)
         - Returns detailed errors for invalid relationships
         - Uses efficient batch validation with single DB query
@@ -2604,7 +2604,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
                 ("task:123", "ku.loops", "APPLIES_KNOWLEDGE", {"confidence": 0.7})
             ]
             result = await backend.create_relationships_batch(rels)
-            print(f"Created {result.value} relationships")  # All or nothing
+            print(f"Created {result.value} relationships") # All or nothing
         """
         from core.models.relationship_registry import (
             get_relationship_metadata,
@@ -2616,7 +2616,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             return Result.ok(0)
 
         # ========================================================================
-        # PHASE 2C: BATCH VALIDATION (Validate ALL before creating ANY)
+        # C: BATCH VALIDATION (Validate ALL before creating ANY)
         # ========================================================================
 
         validation_errors = []
@@ -2833,7 +2833,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
     # ============================================================================
     # USER-ENTITY RELATIONSHIP TRACKING (October 16, 2025)
     # ============================================================================
-    # Phase 2: Complete User Tracking Across All Domains
+    # Complete User Tracking Across All Domains
     #
     # These methods enable tracking of user-entity relationships for ALL domains:
     # tasks, events, habits, goals, choices, principles, journals, finance, etc.
@@ -3608,7 +3608,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             return Result.fail(Errors.database("get_active_learners", str(e)))
 
     # ============================================================================
-    # PROTOCOL COMPLIANCE - AUTOMATIC VIA __GETATTR__ (PHASE 2A)
+    # PROTOCOL COMPLIANCE - AUTOMATIC VIA __GETATTR__
     # ============================================================================
     # Simple CRUD methods (create_task, get_task_by_uid, update_task, delete_task, list_tasks)
     # are now handled automatically by __getattr__ above.
@@ -3781,7 +3781,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             self.logger.error(f"Failed to link event to knowledge: {e}")
             return Result.fail(Errors.database(operation="link_event_to_knowledge", message=str(e)))
 
-    # REMOVED (Phase 2B - November 2025): get_event_cross_domain_context()
+    # REMOVED: get_event_cross_domain_context()
     # Use EventsRelationshipService.get_event_cross_domain_context() instead.
     # Backend now provides get_domain_context_raw() primitive, services handle categorization.
 
@@ -3961,19 +3961,19 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
                 Errors.database(operation="get_expense_cross_domain_context", message=str(e))
             )
 
-    # REMOVED (Phase 2B - November 2025): get_habit_cross_domain_context()
+    # REMOVED: get_habit_cross_domain_context()
     # Use HabitsRelationshipService.get_habit_cross_domain_context() instead.
     # Backend now provides get_domain_context_raw() primitive, services handle categorization.
 
-    # REMOVED (Phase 2B - November 2025): get_goal_cross_domain_context()
+    # REMOVED: get_goal_cross_domain_context()
     # Use GoalsRelationshipService.get_goal_cross_domain_context() instead.
     # Backend now provides get_domain_context_raw() primitive, services handle categorization.
 
-    # REMOVED (Phase 2B - November 2025): get_principle_cross_domain_context()
+    # REMOVED: get_principle_cross_domain_context()
     # Use PrinciplesRelationshipService.get_principle_cross_domain_context() instead.
     # Backend now provides get_domain_context_raw() primitive, services handle categorization.
 
-    # REMOVED (Phase 2B - November 2025): get_choice_cross_domain_context()
+    # REMOVED: get_choice_cross_domain_context()
     # Use ChoicesRelationshipService.get_choice_cross_domain_context() instead.
     # Backend now provides get_domain_context_raw() primitive, services handle categorization.
 

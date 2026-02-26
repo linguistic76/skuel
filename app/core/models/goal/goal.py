@@ -18,7 +18,7 @@ Goal-specific methods: calculate_progress, is_on_track, expected_progress_percen
 diagnose_system_health, calculate_system_strength, calculate_habit_velocity,
 is_overdue, is_achieved, days_remaining, get_summary, explain_existence.
 
-See: /.claude/plans/ku-decomposition-domain-types.md (Phase 2)
+See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 

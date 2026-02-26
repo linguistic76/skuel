@@ -177,7 +177,7 @@ class HabitUIComponents:
         """
         Individual habit card component.
 
-        ✅ ENHANCED: Now shows identity progress bar for identity-based habits (Phase 1 MVP).
+        ✅ ENHANCED: Now shows identity progress bar for identity-based habits.
         Previously: Basic card with streak indicators.
         Now: Includes Atomic Habits identity visualization when applicable.
         """
@@ -187,7 +187,7 @@ class HabitUIComponents:
             habit, "current_streak", 0
         )
 
-        # Atomic Habits Phase 1 MVP: Check for identity
+        # Atomic Habits MVP: Check for identity
         identity = (
             habit.get("reinforces_identity")
             if isinstance(habit, dict)
@@ -220,7 +220,7 @@ class HabitUIComponents:
             },
         )
 
-        # Phase 1 MVP: Add identity progress bar if identity-based
+        # MVP: Add identity progress bar if identity-based
         identity_component = None
         if is_identity_habit:
             identity_component = AtomicHabitsComponents.render_identity_progress_bar(
@@ -924,7 +924,7 @@ def create_habits_ui_routes(
     QuickAddRouteFactory.register_route(rt, habits_quick_add_config)
 
     # ========================================================================
-    # ATOMIC HABITS WIZARD ROUTES (Phase 1 MVP)
+    # ATOMIC HABITS WIZARD ROUTES
     # ========================================================================
 
     @rt("/habits/wizard/step1")
@@ -1174,7 +1174,7 @@ def create_habits_ui_routes(
         )
 
     # ========================================================================
-    # PHASE 2: INTELLIGENCE ROUTES
+    # INTELLIGENCE ROUTES
     # ========================================================================
 
     @rt("/habits/{uid}/patterns")
@@ -1570,7 +1570,7 @@ def create_habits_ui_routes(
         return AtomicHabitsIntelligence.render_goal_impact_analysis(impact_data)
 
     # ========================================================================
-    # PHASE 3: ACHIEVEMENT BADGE ROUTES
+    # ACHIEVEMENT BADGE ROUTES
     # ========================================================================
 
     @rt("/badges/showcase")
@@ -1639,7 +1639,7 @@ def create_habits_ui_routes(
         return AtomicHabitsBadges.render_badge_progress_widget(near_unlock_badges=badges, limit=3)
 
     # ========================================================================
-    # PHASE 3.3: ADVANCED ANALYTICS ROUTES
+    # ADVANCED ANALYTICS ROUTES
     # ========================================================================
 
     @rt("/habits/analytics")
@@ -1689,7 +1689,7 @@ def create_habits_ui_routes(
         )
 
     # ========================================================================
-    # PHASE 3.4: MOBILE-OPTIMIZED ROUTES
+    # MOBILE-OPTIMIZED ROUTES
     # ========================================================================
 
     @rt("/habits/mobile")
@@ -2054,7 +2054,7 @@ def create_habits_ui_routes(
         return Response(js_content, media_type="application/javascript")
 
     # ========================================================================
-    # HABIT DETAIL PAGE (Phase 5)
+    # HABIT DETAIL PAGE
     # ========================================================================
 
     @rt("/habits/{uid}")
@@ -2062,7 +2062,7 @@ def create_habits_ui_routes(
         """
         Habit detail view with full context and relationships.
 
-        Phase 5: Shows habit details plus lateral relationships visualization.
+        Shows habit details plus lateral relationships visualization.
         """
         user_uid = require_authenticated_user(request)
 
@@ -2156,7 +2156,7 @@ def create_habits_ui_routes(
                 ),
                 cls="p-4 mb-4",
             ),
-            # Phase 5: Lateral Relationships Section
+            # Lateral Relationships Section
             EntityRelationshipsSection(
                 entity_uid=habit.uid,
                 entity_type="habits",

@@ -7,8 +7,8 @@ REST API for Analytics meta-analysis (Layer 3).
 Version: 1.0.0 (October 24, 2025)
 
 This provides analytical endpoints for:
-- Life Path alignment tracking (Phase 1)
-- Cross-layer life summaries (Phase 3)
+- Life Path alignment tracking
+- Cross-layer life summaries
 - Pattern detection across layers
 
 All endpoints are read-only (no CRUD operations).
@@ -47,7 +47,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
     """
 
     # ========================================================================
-    # LIFE PATH ALIGNMENT TRACKING (Phase 1)
+    # LIFE PATH ALIGNMENT TRACKING
     # ========================================================================
 
     @rt("/api/analytics/life-path-alignment")
@@ -73,7 +73,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
         return await analytics_service.calculate_life_path_alignment(user_uid)
 
     # ========================================================================
-    # CROSS-LAYER LIFE SUMMARIES (Phase 3)
+    # CROSS-LAYER LIFE SUMMARIES
     # ========================================================================
 
     @rt("/api/analytics/weekly-life-summary")

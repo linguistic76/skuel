@@ -602,14 +602,14 @@ def create_askesis_api_routes(
     # daily planning and learning step recommendations.
     #
     # Architecture:
-    #   UserContextIntelligence = UserContext + 13 Domain Services
-    #                           = User State + Complete Graph Intelligence
+    # UserContextIntelligence = UserContext + 13 Domain Services
+    # = User State + Complete Graph Intelligence
     #
     # The 13 Domains:
-    #   Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
-    #   Curriculum Domains (3): KU, LS, LP
-    #   Processing Domains (3): Assignments, Journals, Reports
-    #   Temporal Domain (1): Calendar
+    # Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
+    # Curriculum Domains (3): KU, LS, LP
+    # Processing Domains (3): Assignments, Journals, Reports
+    # Temporal Domain (1): Calendar
     #
     # ========================================================================
 
@@ -948,7 +948,7 @@ def create_askesis_api_routes(
         )
 
     # =========================================================================
-    # PHASE 2: Cross-Domain Synergies (Habit→Goal, Task→Habit, etc.)
+    # Cross-Domain Synergies (Habit→Goal, Task→Habit, etc.)
     # =========================================================================
 
     @rt("/api/askesis/synergies")
@@ -957,7 +957,7 @@ def create_askesis_api_routes(
         """
         Detect synergies between entities across different domains.
 
-        **Phase 2 Addition:** Cross-domain correlation for habit→goal synergies
+        **Addition:** Cross-domain correlation for habit→goal synergies
         and other high-leverage connections.
 
         **Synergy Types Detected:**
@@ -1043,7 +1043,7 @@ def create_askesis_api_routes(
         )
 
     # =========================================================================
-    # PHASE 3: Life Path Alignment Scoring
+    # Life Path Alignment Scoring
     # =========================================================================
 
     @rt("/api/askesis/life-path-alignment")
@@ -1052,7 +1052,7 @@ def create_askesis_api_routes(
         """
         Calculate comprehensive life path alignment score.
 
-        **Phase 3 Addition:** 5-dimensional alignment scoring showing how well
+        **Addition:** 5-dimensional alignment scoring showing how well
         the user's current activities align with their life path.
 
         **5 Dimensions (Weighted):**
@@ -1139,7 +1139,7 @@ def create_askesis_api_routes(
         )
 
     # =========================================================================
-    # PHASE 4: Schedule-Aware Recommendations
+    # Schedule-Aware Recommendations
     # =========================================================================
 
     @rt("/api/askesis/schedule-recommendations")
@@ -1150,7 +1150,7 @@ def create_askesis_api_routes(
         """
         Get recommendations that consider the user's schedule and capacity.
 
-        **Phase 4 Addition:** Schedule-aware intelligence that provides:
+        **Addition:** Schedule-aware intelligence that provides:
         - Time-optimal recommendations based on available slots
         - Energy-matched suggestions
         - Priority-ranked actions across all domains
@@ -1274,9 +1274,9 @@ __all__ = ["create_askesis_api_routes"]
 
 # Migration Statistics:
 # =====================
-# Before (askesis_api.py):     577 lines (mock data, custom response helpers)
+# Before (askesis_api.py): 577 lines (mock data, custom response helpers)
 # After (askesis_api_migrated): ~280 lines (boundary_handler, Pydantic validation)
-# Reduction:                    ~297 lines (51% reduction)
+# Reduction: ~297 lines (51% reduction)
 #
 # Note: This API is 100% domain-specific (no CRUD pattern), so CRUDRouteFactory
 # is not applicable. Migration focuses on:
@@ -1288,14 +1288,14 @@ __all__ = ["create_askesis_api_routes"]
 # 6. Prepared for service integration with TODOs
 #
 # Routes Summary (10 routes):
-# 1. GET  /api/askesis/{user_uid} - Get Askesis instance
+# 1. GET /api/askesis/{user_uid} - Get Askesis instance
 # 2. POST /api/askesis - Create Askesis instance
-# 3. PUT  /api/askesis/{askesis_uid} - Update settings
+# 3. PUT /api/askesis/{askesis_uid} - Update settings
 # 4. POST /api/askesis/{askesis_uid}/conversations - Start conversation
 # 5. POST /api/askesis/conversations/{conversation_uid}/messages - Send message
-# 6. GET  /api/askesis/conversations/{conversation_uid} - Get conversation
+# 6. GET /api/askesis/conversations/{conversation_uid} - Get conversation
 # 7. POST /api/askesis/{askesis_uid}/guidance - Generate guidance
-# 8. GET  /api/askesis/{askesis_uid}/insights - Get AI insights
+# 8. GET /api/askesis/{askesis_uid}/insights - Get AI insights
 # 9. POST /api/askesis/{askesis_uid}/domain-integration - Domain integration
 # 10. GET /api/askesis/{askesis_uid}/analytics - Get analytics
 # 11. POST /api/askesis/suggestions - Domain suggestions

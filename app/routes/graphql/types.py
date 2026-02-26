@@ -57,7 +57,7 @@ class Task:
     """
     A task with optional nested knowledge units.
 
-    Note: knowledge_uid field removed (Phase 3B - graph-native).
+    Note: knowledge_uid field removed.
     Use the knowledge() resolver to get associated knowledge units.
     """
 
@@ -240,7 +240,7 @@ class TaskInput:
 
 
 # ============================================================================
-# PHASE 2: Complex Graph Query Types
+# Complex Graph Query Types
 # ============================================================================
 
 

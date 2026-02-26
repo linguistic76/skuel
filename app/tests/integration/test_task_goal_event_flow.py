@@ -2,7 +2,7 @@
 Integration Test: Task→Goal Event-Driven Progress Updates
 =============================================================
 
-Tests Phase 4 event-driven architecture for cross-domain dependencies.
+Tests event-driven architecture for cross-domain dependencies.
 
 This test suite verifies that:
 1. TaskCompleted events trigger goal progress updates

@@ -8,7 +8,7 @@ Test Coverage:
 2. TasksService.get_user_items_in_range() - Tasks domain
 3. EventsService.get_user_items_in_range() - Events domain
 
-Phase 1 Proof of Concept (October 29, 2025)
+Proof of Concept (October 29, 2025)
 """
 
 from datetime import date

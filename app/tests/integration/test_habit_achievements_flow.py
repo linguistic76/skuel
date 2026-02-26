@@ -1,5 +1,5 @@
 """
-Integration Tests: Habit Streak→Achievement Badges Flow (Phase 4)
+Integration Tests: Habit Streak→Achievement Badges Flow
 =====================================================================
 
 Tests the complete event-driven flow:

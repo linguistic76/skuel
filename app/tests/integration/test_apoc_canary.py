@@ -1,11 +1,11 @@
 """
-APOC Canary Tests - Phase 6.2
+APOC Canary Tests
 ==============================
 
 Verify APOC procedures work correctly before/after Neo4j upgrades.
 
-PHASE 6 CONTEXT:
-- Phase 5 eliminated APOC from domain services
+CONTEXT:
+
 - APOC still used for infrastructure: batch ops, schema introspection
 - These tests validate APOC infrastructure procedures only
 
@@ -24,7 +24,7 @@ class TestApocCanary:
     These tests validate that APOC procedures used for infrastructure
     operations (batch loading, schema introspection) work correctly.
 
-    PHASE 6.2: Run these tests before/after Neo4j upgrades.
+    Run these tests before/after Neo4j upgrades.
     """
 
     async def test_apoc_version_matches_neo4j(self, neo4j_driver: AsyncDriver):
@@ -143,7 +143,7 @@ class TestApocCanary:
 @pytest.mark.asyncio
 class TestSemanticRelationshipCanary:
     """
-    Canary tests for semantic relationship types (Phase 5).
+    Canary tests for semantic relationship types.
 
     Validates that all 10 semantic relationship types work correctly
     and that Neo4j query planner can optimize queries using them.
@@ -153,7 +153,7 @@ class TestSemanticRelationshipCanary:
         """
         Canary: Verify all 4 prerequisite semantic types work.
 
-        Phase 5 established these types to replace APOC traversal.
+        established these types to replace APOC traversal.
         """
         async with neo4j_driver.session() as session:
             # Create test nodes
@@ -247,7 +247,7 @@ class TestSemanticRelationshipCanary:
         """
         Canary: Verify variable-length patterns work with semantic types.
 
-        This is the pure Cypher pattern that replaced APOC in Phase 5.
+        This is the pure Cypher pattern that replaced APOC in
         """
         async with neo4j_driver.session() as session:
             # Create chain: D -> C -> B -> A
@@ -333,7 +333,7 @@ class TestNeo4jVersionCanary:
         """
         Canary: Verify Neo4j version is exactly 5.26.0.
 
-        Phase 6.1 pinned Neo4j driver to 5.26.0 - server must match.
+        pinned Neo4j driver to 5.26.0 - server must match.
         """
         async with neo4j_driver.session() as session:
             result = await session.run(

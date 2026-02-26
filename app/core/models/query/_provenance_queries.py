@@ -1,5 +1,5 @@
 """
-Provenance Query Builders - Phase 4B: Trust-Based Intelligence
+Provenance Query Builders - B: Trust-Based Intelligence
 
 Query builders for source and evidence-based filtering and analysis.
 
@@ -105,11 +105,11 @@ class ProvenanceQueries:
             query, params = ProvenanceQueries.build_provenance_distribution_query()
 
             # Results:
-            # source          | count | percentage | avg_confidence | with_evidence
-            # expert_verified | 1,247 | 45.2%      | 0.95          | 98.2%
-            # curriculum      | 856   | 31.0%      | 0.92          | 100.0%
-            # ai_generated    | 523   | 18.9%      | 0.78          | 12.4%
-            # manual          | 134   | 4.9%       | 0.85          | 45.5%
+            # source | count | percentage | avg_confidence | with_evidence
+            # expert_verified | 1,247 | 45.2% | 0.95 | 98.2%
+            # curriculum | 856 | 31.0% | 0.92 | 100.0%
+            # ai_generated | 523 | 18.9% | 0.78 | 12.4%
+            # manual | 134 | 4.9% | 0.85 | 45.5%
         """
         user_filter = ""
         if user_uid:
@@ -358,7 +358,7 @@ class ProvenanceQueries:
 
             # Results:
             # prerequisite_uid | prerequisite_title | source | evidence | citation_text
-            # ku.python_oop    | Python OOP         | expert | [...]    | "Source: Expert-verified..."
+            # ku.python_oop | Python OOP | expert | [...] | "Source: Expert-verified..."
         """
         cypher = f"""
         MATCH (end:{node_label} {{uid: $node_uid}})<-[r:{relationship_type}*1..{depth}]-(prereq:{node_label})
@@ -374,7 +374,7 @@ class ProvenanceQueries:
             rel.notes as notes,
             rel.confidence as confidence,
             'Source: ' + rel.source + '\\nEvidence:\\n' +
-                reduce(s = '', item IN rel.evidence | s + '  • ' + item + '\\n') as citation_text
+                reduce(s = '', item IN rel.evidence | s + ' • ' + item + '\\n') as citation_text
         ORDER BY prereq.title
         """
 

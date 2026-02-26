@@ -4,7 +4,7 @@ Prometheus metrics registry for SKUEL.
 This module defines all Prometheus metrics (Counter, Gauge, Histogram) used across the application.
 Metrics are organized into logical groups: System, HTTP, Database, Events, Relationships, Search.
 
-See: /docs/observability/PROMETHEUS_METRICS.md (to be created in Phase 5)
+See: /docs/observability/PROMETHEUS_METRICS.md (to be created in )
 """
 
 from prometheus_client import Counter, Gauge, Histogram
@@ -70,7 +70,7 @@ class DatabaseMetrics:
 
 
 class EventMetrics:
-    """Event bus metrics (Phase 3 - January 2026)."""
+    """Event bus metrics."""
 
     def __init__(self) -> None:
         # Event publication metrics
@@ -141,7 +141,7 @@ class RelationshipMetrics:
     """
     Graph relationship metrics for tracking SKUEL's graph health and patterns.
 
-    Phase 4 - January 2026
+    - January 2026
 
     Tracks the four relationship layers:
     1. Hierarchical - Parent/child (CONTAINS, ORGANIZES)
@@ -263,7 +263,7 @@ class SearchMetrics:
 
 class QueryMetrics:
     """
-    Query/operation performance metrics (Phase 3.6 - January 2026).
+    Query/operation performance metrics.
 
     Tracks individual operation performance (e.g., ku_search_by_title, ls_add_knowledge).
     More granular than DatabaseMetrics (which tracks by operation type: create/read/update/delete).
@@ -292,7 +292,7 @@ class QueryMetrics:
 
 class AiMetrics:
     """
-    AI service operation metrics (Phase 1 - January 2026).
+    AI service operation metrics.
 
     Tracks OpenAI API calls, embedding generation, and Deepgram transcription.
     Critical for monitoring expensive AI operations and enabling cost optimization.
@@ -379,7 +379,7 @@ class PrometheusMetrics:
             operation="create", label="Task"
         ).inc()
 
-        # In AI services (Phase 1 - January 2026)
+        # In AI services
         prometheus_metrics.ai.openai_requests_total.labels(
             operation="embeddings", model="text-embedding-3-small"
         ).inc()
@@ -394,4 +394,4 @@ class PrometheusMetrics:
         self.relationships = RelationshipMetrics()
         self.search = SearchMetrics()
         self.queries = QueryMetrics()
-        self.ai = AiMetrics()  # Phase 1 - January 2026
+        self.ai = AiMetrics()  # January 2026

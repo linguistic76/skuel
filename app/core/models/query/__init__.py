@@ -61,7 +61,7 @@ See Documentation:
 - /docs/PURE_CYPHER_MIGRATION_SUMMARY.md - Migration summary
 """
 
-# Phase 4: Internal implementation modules (marked with underscore prefix)
+# Internal implementation modules (marked with underscore prefix)
 from core.constants import GraphDepth
 
 from ._progressive_learning_queries import ProgressiveLearningQueries
@@ -204,7 +204,7 @@ from .unified_query_builder import (
     QueryResult,
     SemanticQueryBuilder,
     TemplateQueryBuilder,
-    # THE SINGLE ENTRY POINT (Phase 1 - NEW)
+    # THE SINGLE ENTRY POINT
     UnifiedQueryBuilder,
     query,
 )

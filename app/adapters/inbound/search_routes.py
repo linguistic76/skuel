@@ -121,7 +121,7 @@ def create_search_routes(
         not_yet_viewed: str | None = None,
         viewed_not_mastered: str | None = None,
         ready_to_review: str | None = None,
-        # Semantic search filters (Phase 1 Enhancement - January 2026)
+        # Semantic search filters
         enable_semantic_boost: str | None = None,
         enable_learning_aware: str | None = None,
         prefer_unmastered: str | None = None,
@@ -176,7 +176,7 @@ def create_search_routes(
         viewed_not_mastered_bool = _checkbox_to_bool(viewed_not_mastered)
         ready_to_review_bool = _checkbox_to_bool(ready_to_review)
 
-        # Convert semantic search filters to boolean (Phase 1 Enhancement)
+        # Convert semantic search filters to boolean
         enable_semantic_boost_bool = _checkbox_to_bool(enable_semantic_boost)
         enable_learning_aware_bool = _checkbox_to_bool(enable_learning_aware)
         prefer_unmastered_bool = _checkbox_to_bool(prefer_unmastered)
@@ -232,7 +232,7 @@ def create_search_routes(
                 not_yet_viewed=not_yet_viewed_bool,
                 viewed_not_mastered=viewed_not_mastered_bool,
                 ready_to_review=ready_to_review_bool,
-                # Semantic search filters (Phase 1 Enhancement)
+                # Semantic search filters
                 enable_semantic_boost=enable_semantic_boost_bool,
                 enable_learning_aware=enable_learning_aware_bool,
                 prefer_unmastered=prefer_unmastered_bool,
@@ -277,7 +277,7 @@ def create_search_routes(
         """
         Unified search API combining text, graph, and array search.
 
-        This endpoint combines all Phase 1-3 search capabilities:
+        This endpoint combines all -3 search capabilities:
         - Text search on configured fields
         - Graph-aware filtering (relationship traversal)
         - Tag/array filtering (AND/OR semantics)
@@ -301,7 +301,7 @@ def create_search_routes(
                     "ku": [{"uid": str, "title": str, ...}, ...],
                     "task": [...],
                 },
-                "top_results": [...]  # Merged top results across domains
+                "top_results": [...] # Merged top results across domains
             }
 
         Example:

@@ -1134,7 +1134,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         return Response(headers={"HX-Redirect": f"/choices/{uid}"})
 
     # ========================================================================
-    # CHOICE DETAIL PAGE (Phase 5)
+    # CHOICE DETAIL PAGE
     # ========================================================================
 
     @rt("/choices/{uid}")
@@ -1142,7 +1142,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         """
         Choice detail view with full context and relationships.
 
-        Phase 5: Shows choice details plus lateral relationships visualization.
+        Shows choice details plus lateral relationships visualization.
         """
         user_uid = require_authenticated_user(request)
 
@@ -1300,7 +1300,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
                 ),
                 cls="p-4 mb-4",
             ),
-            # Phase 5: Lateral Relationships Section
+            # Lateral Relationships Section
             EntityRelationshipsSection(
                 entity_uid=choice.uid,
                 entity_type="choices",

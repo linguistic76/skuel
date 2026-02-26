@@ -3,13 +3,13 @@
 
 Wires Insights API and UI routes using DomainRouteConfig.
 
-Phase 1 (January 2026): Insight dashboard with dismiss/action functionality.
-Phase 4, Task 17 (January 2026): Action tracking and history page.
+(January 2026): Insight dashboard with dismiss/action functionality.
+, Task 17 (January 2026): Action tracking and history page.
 
 Routes:
 - GET /insights - Insights dashboard with filtering
 - GET /insights/stats - Insight statistics
-- GET /insights/history - Action history page (Phase 4, Task 17)
+- GET /insights/history - Action history page
 - POST /api/insights/{uid}/dismiss - Dismiss insight (with optional notes)
 - POST /api/insights/{uid}/action - Mark insight as actioned (with optional notes)
 - GET /api/insights/active - Get active insights (JSON)
@@ -54,7 +54,7 @@ def create_insights_routes(app: Any, rt: Any, services: Any, _sync_service=None)
     # Register standard API + UI routes via DomainRouteConfig
     routes = register_domain_routes(app, rt, services, INSIGHTS_CONFIG)
 
-    # Additional history routes (Phase 4, Task 17)
+    # Additional history routes
     if services and services.insight_store:
         history_routes = create_insights_history_routes(app, rt, services.insight_store)
         routes.extend(history_routes)

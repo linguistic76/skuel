@@ -126,7 +126,7 @@ def _notification_button(unread_count: int = 0) -> Button:
         _bell_icon(),
     ]
 
-    # Add badge if there are unread items (Phase 1 integration)
+    # Add badge if there are unread items
     if unread_count > 0:
         badge = Div(
             Span(
@@ -277,7 +277,7 @@ def create_navbar(
         active_page: Current page slug for highlighting (e.g., "profile/hub", "calendar")
         is_admin: Whether user has admin role (shows Admin Dashboard link)
         is_teacher: Whether user has teacher role or higher (shows Teaching link)
-        unread_insights: Number of unread insights (Phase 1 integration)
+        unread_insights: Number of unread insights
 
     Returns:
         FastHTML Nav element with Alpine.js state management
@@ -372,7 +372,7 @@ async def create_navbar_for_request(
     Args:
         request: Starlette/FastHTML request object
         active_page: Current page slug for highlighting (e.g., "calendar", "search")
-        insight_store: Optional InsightStore for fetching unread insight count (Phase 1)
+        insight_store: Optional InsightStore for fetching unread insight count
         notification_service: Optional NotificationService for unread notification count
 
     Returns:
@@ -386,7 +386,7 @@ async def create_navbar_for_request(
         is_authenticated,
     )
 
-    # Get unread insight count (Phase 1 integration)
+    # Get unread insight count
     unread_insights = 0
     if is_authenticated(request) and insight_store:
         try:

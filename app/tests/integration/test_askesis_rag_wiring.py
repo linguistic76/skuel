@@ -40,11 +40,11 @@ async def test_askesis_service_wiring(skuel_app):
     # Verify askesis has all RAG dependencies
     askesis = services.askesis
 
-    # Phase 1 dependencies (RAG Orchestration)
+    # dependencies (RAG Orchestration)
     assert hasattr(askesis, "user_service"), "Askesis missing user_service (Phase 1: UserContext)"
     assert hasattr(askesis, "llm_service"), "Askesis missing llm_service (Phase 1: LLM generation)"
 
-    # Phase 2 dependencies (Semantic Search)
+    # dependencies (Semantic Search)
     assert hasattr(askesis, "embeddings_service"), (
         "Askesis missing embeddings_service (Phase 2: Semantic search)"
     )

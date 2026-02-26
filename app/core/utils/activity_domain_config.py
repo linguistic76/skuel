@@ -149,7 +149,7 @@ class CommonSubServices(Generic[T_Intelligence]):
     Facades should annotate the assignment to get proper type checking:
 
         common: CommonSubServices[TasksIntelligenceService] = create_common_sub_services(...)
-        self.intelligence = common.intelligence  # MyPy knows this is TasksIntelligenceService
+        self.intelligence = common.intelligence # MyPy knows this is TasksIntelligenceService
     """
 
     core: Any
@@ -175,7 +175,7 @@ def create_common_sub_services(
         backend: Domain backend operations (protocol-typed)
         graph_intel: GraphIntelligenceService for analytics
         event_bus: Event bus for domain events (optional)
-        insight_store: InsightStore for persisting event-driven insights (optional, Phase 1 - January 2026)
+        insight_store: InsightStore for persisting event-driven insights (optional, - January 2026)
 
     Returns:
         CommonSubServices dataclass with core, search, relationships, intelligence.
@@ -190,7 +190,7 @@ def create_common_sub_services(
         self.core = common.core
         self.search = common.search
         self.relationships = common.relationships
-        self.intelligence = common.intelligence  # Typed as TasksIntelligenceService
+        self.intelligence = common.intelligence # Typed as TasksIntelligenceService
     """
     import importlib
 

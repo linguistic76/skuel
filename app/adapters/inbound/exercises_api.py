@@ -69,11 +69,11 @@ def create_exercises_api_routes(
     )
 
     # Register all standard CRUD routes:
-    # - POST /api/exercises/create        (create)
-    # - GET  /api/exercises/get?uid=...   (get)
+    # - POST /api/exercises/create (create)
+    # - GET /api/exercises/get?uid=... (get)
     # - POST /api/exercises/update?uid=.. (update)
     # - POST /api/exercises/delete?uid=.. (delete)
-    # - GET  /api/exercises/list          (list with pagination)
+    # - GET /api/exercises/list (list with pagination)
     crud_factory.register_routes(app, rt)
 
     # ========================================================================
@@ -171,7 +171,7 @@ def create_exercises_api_routes(
         )
 
     # ========================================================================
-    # CURRICULUM LINKING ROUTES (Phase 4)
+    # CURRICULUM LINKING ROUTES
     # ========================================================================
 
     @rt("/api/exercises/require-knowledge", methods=["POST"])

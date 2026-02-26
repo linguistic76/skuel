@@ -380,13 +380,13 @@ class AnalyticsUIComponents:
         )
 
     # ========================================================================
-    # LIFE PATH ALIGNMENT DASHBOARD (Phase 1 - NEW)
+    # LIFE PATH ALIGNMENT DASHBOARD
     # ========================================================================
 
     @staticmethod
     def render_life_path_alignment_dashboard(alignment_data: dict[str, Any]) -> Any:
         """
-        Render Life Path alignment dashboard (Phase 1).
+        Render Life Path alignment dashboard.
 
         Shows comprehensive alignment analysis:
         - Alignment score (0.0-1.0)
@@ -498,13 +498,13 @@ class AnalyticsUIComponents:
         )
 
     # ========================================================================
-    # CROSS-LAYER LIFE SUMMARY (Phase 3 - NEW)
+    # CROSS-LAYER LIFE SUMMARY
     # ========================================================================
 
     @staticmethod
     def render_weekly_life_summary(summary_data: dict[str, Any]) -> Any:
         """
-        Render weekly life summary across ALL 4 layers (Phase 3).
+        Render weekly life summary across ALL 4 layers.
 
         Shows:
         - Layer 1: Activity across 7 domains
@@ -739,7 +739,7 @@ def create_analytics_ui_routes(app, rt, analytics_service):
         return AnalyticsUIComponents.render_markdown_view("# Analytics markdown would go here...")
 
     # ========================================================================
-    # LIFE PATH ALIGNMENT UI (Phase 1 - NEW)
+    # LIFE PATH ALIGNMENT UI
     # ========================================================================
 
     @app.get("/ui/analytics/life-path-alignment")
@@ -762,7 +762,7 @@ def create_analytics_ui_routes(app, rt, analytics_service):
             return Div(P(f"Error: {e}", cls="text-error p-4"))
 
     # ========================================================================
-    # CROSS-LAYER LIFE SUMMARY UI (Phase 3 - NEW)
+    # CROSS-LAYER LIFE SUMMARY UI
     # ========================================================================
 
     @app.get("/ui/analytics/weekly-life-summary")

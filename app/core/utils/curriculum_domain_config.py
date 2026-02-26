@@ -133,7 +133,7 @@ class CurriculumCommonSubServices(Generic[T_Intelligence]):
     Facades should annotate the assignment to get proper type checking:
 
         common: CurriculumCommonSubServices[LpIntelligenceService] = create_curriculum_sub_services(...)
-        self.intelligence = common.intelligence  # MyPy knows this is LpIntelligenceService
+        self.intelligence = common.intelligence # MyPy knows this is LpIntelligenceService
     """
 
     core: Any
@@ -173,7 +173,7 @@ def create_curriculum_sub_services(
         self.core = common.core
         self.search = common.search
         self.relationships = common.relationships
-        self.intelligence = common.intelligence  # Typed as LsIntelligenceService
+        self.intelligence = common.intelligence # Typed as LsIntelligenceService
 
     Note:
         For domains with non-standard core/search signatures (KU, LP, MOC),
@@ -297,7 +297,7 @@ def create_ku_sub_services(
         graph_intelligence_service: GraphIntelligenceService - REQUIRED
         query_builder: QueryBuilder service for optimized queries (optional)
         event_bus: Event bus for publishing domain events (optional)
-        driver: Neo4j async driver for Phase 4 event-driven operations (optional)
+        driver: Neo4j async driver for event-driven operations (optional)
         user_service: UserService for UserContext access (January 2026 - KU-Activity Integration)
         vector_search_service: Optional Neo4jVectorSearchService for semantic search (January 2026 - GenAI)
         embeddings_service: Optional Neo4jGenAIEmbeddingsService for embedding generation (January 2026 - GenAI)

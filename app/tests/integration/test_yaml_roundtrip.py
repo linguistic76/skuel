@@ -2,7 +2,7 @@
 YAML Round-Trip Integration Tests
 ==================================
 
-Tests for Phase 3: YAML import → export → import produces identical results.
+Tests for YAML import → export → import produces identical results.
 
 Requires:
 - Docker running

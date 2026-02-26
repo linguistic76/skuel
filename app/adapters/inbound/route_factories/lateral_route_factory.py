@@ -25,9 +25,9 @@ Domain-specific routes can be added separately for unique relationship types:
 Usage:
     factory = LateralRouteFactory(
         domain="goals",
-        lateral_service=lateral_service,  # Core LateralRelationshipService
+        lateral_service=lateral_service, # Core LateralRelationshipService
         entity_name="Goal",
-        domain_service=goals_service,     # For ownership verification
+        domain_service=goals_service, # For ownership verification
     )
     factory.register_routes(app, rt)
 
@@ -71,7 +71,7 @@ class LateralRouteFactory:
             self._create_complementary_routes(rt),
             self._create_sibling_route(rt),
             self._create_delete_route(rt),
-            # Phase 5: Enhanced UX routes
+            # Enhanced UX routes
             self._create_chain_route(rt),
             self._create_comparison_route(rt),
             self._create_graph_route(rt),
@@ -520,7 +520,7 @@ class LateralRouteFactory:
         return delete_lateral_relationship
 
     # ========================================================================
-    # Phase 5: Enhanced UX Routes
+    # Enhanced UX Routes
     # ========================================================================
 
     def _create_chain_route(self, rt) -> Any:

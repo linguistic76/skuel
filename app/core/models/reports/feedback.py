@@ -9,7 +9,7 @@ Adds 2 feedback-specific fields:
 - feedback: str | None — the feedback text
 - feedback_generated_at: datetime | None — when feedback was generated
 
-See: /.claude/plans/ku-decomposition-domain-types.md (Phase 8)
+See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 

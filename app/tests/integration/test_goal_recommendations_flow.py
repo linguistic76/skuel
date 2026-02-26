@@ -2,7 +2,7 @@
 Integration Test: Goal Achievement→Recommendations Event-Driven Flow
 ====================================================================
 
-Tests Phase 4 event-driven architecture for Goal→Recommendations.
+Tests event-driven architecture for Goal→Recommendations.
 
 This test suite verifies that:
 1. GoalAchieved events trigger recommendation generation

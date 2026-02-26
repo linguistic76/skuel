@@ -1,5 +1,5 @@
 """
-Integration Tests: Analytics Generation Flow (Phase 4)
+Integration Tests: Analytics Generation Flow
 ======================================================
 
 Tests the complete event-driven analytics generation flow:
@@ -49,7 +49,7 @@ class TestAnalyticsGenerationFlow:
         Create AnalyticsService with event bus.
 
         Note: AnalyticsService has many dependencies (user_service, domain services, etc.)
-        For Phase 4 integration tests, we only test event handler execution.
+        For integration tests, we only test event handler execution.
         Real analytics generation requires full service wiring.
         """
         # Minimal AnalyticsService for event handler testing

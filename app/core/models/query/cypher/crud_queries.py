@@ -337,7 +337,7 @@ def build_graph_aware_search_query(
             source_uid="ku.python-basics",
             relationship_type="ENABLES_KNOWLEDGE",
             search_fields=("title", "content"),
-            direction="incoming",  # KUs that are enabled BY python-basics
+            direction="incoming", # KUs that are enabled BY python-basics
         )
 
         # Find tasks containing "review" that fulfill a specific goal
@@ -346,7 +346,7 @@ def build_graph_aware_search_query(
             query="review",
             source_uid="goal:health-2025",
             relationship_type="FULFILLS_GOAL",
-            direction="incoming",  # Tasks that fulfill this goal
+            direction="incoming", # Tasks that fulfill this goal
         )
     """
     if not is_dataclass(entity_class):
@@ -701,7 +701,7 @@ def get_supported_operators() -> list[str]:
 
 
 # =============================================================================
-# PHASE 2 CONSOLIDATION - Extended Query Builders (January 2026)
+# CONSOLIDATION - Extended Query Builders (January 2026)
 # =============================================================================
 
 

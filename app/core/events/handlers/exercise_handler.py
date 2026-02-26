@@ -6,7 +6,7 @@ Listens for SubmissionCreated events with a fulfills_project_uid.
 When present, calls process_exercise_submission() to create
 FULFILLS_EXERCISE + SHARES_WITH relationships.
 
-Formerly assignment_handler.py — renamed per Phase 3 of Ku hierarchy refactoring.
+Formerly assignment_handler.py — renamed per of Ku hierarchy refactoring.
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """

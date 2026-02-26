@@ -1,8 +1,8 @@
 """
-Atomic Habits UI Components - Phase 1 MVP
+Atomic Habits UI Components - MVP
 ==========================================
 
-Implements the 4 core Phase 1 MVP components:
+Implements the 4 core MVP components:
 1. Habit creation wizard with identity
 2. Identity progress bar (votes/50)
 3. System strength meter
@@ -31,7 +31,7 @@ from ui.habits.atomic_animations import AtomicHabitsAnimations
 
 class AtomicHabitsComponents:
     """
-    Phase 1 MVP components for Atomic Habits visualization.
+    MVP components for Atomic Habits visualization.
 
     Philosophy: "You do not rise to the level of your goals.
                  You fall to the level of your systems."

@@ -8,7 +8,7 @@ Inherits all fields from Submission (Entity ~48 + 13 submission fields).
 Zero extra fields — AI reports use subject_uid (who the report is about)
 and processed_content (AI-generated text) from Submission.
 
-See: /.claude/plans/ku-decomposition-domain-types.md (Phase 8)
+See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 

@@ -255,22 +255,22 @@ def create_tasks_service_for_testing(
 # ============================================================================
 
 # def create_habits_service_for_testing(...):
-#     """Create HabitsService for testing."""
+# """Create HabitsService for testing."""
 
 # def create_events_service_for_testing(...):
-#     """Create EventsService for testing."""
+# """Create EventsService for testing."""
 
 # def create_goals_service_for_testing(...):
-#     """Create GoalsService for testing."""
+# """Create GoalsService for testing."""
 
 # def create_journals_service_for_testing(...):
-#     """Create JournalsService for testing."""
+# """Create JournalsService for testing."""
 
 # def create_knowledge_service_for_testing(...):
-#     """Create KnowledgeService (KuService) for testing."""
+# """Create KnowledgeService (KuService) for testing."""
 
 # def create_learning_service_for_testing(...):
-#     """Create LearningService (LpIntelligenceService) for testing."""
+# """Create LearningService (LpIntelligenceService) for testing."""
 
 
 # ============================================================================
@@ -451,28 +451,28 @@ def create_askesis_user_context_for_testing(
 """
 Service Factory Migration Checklist:
 
-Phase 1: MOC — DELETED (February 2026). MOC is no longer a separate service.
+MOC — DELETED (February 2026). MOC is no longer a separate service.
   KU organization tests use KuOrganizationService directly.
 
-Phase 2: UserContext (6 failures)
+UserContext (6 failures)
 - [x] Create create_unified_user_context_for_testing()
 - [ ] Update tests/test_type_system.py
 - [ ] Run tests: poetry run pytest tests/test_type_system.py -v
 - [ ] Validate: 6 failures → 0 failures
 
-Phase 3: Finance (multiple failures)
+Finance (multiple failures)
 - [x] Create create_finance_service_for_testing()
 - [ ] Update tests/test_finance_service.py
 - [ ] Run tests: poetry run pytest tests/test_finance_service.py -v
 - [ ] Validate failures resolved
 
-Phase 4: Tasks (assertion failures)
+Tasks (assertion failures)
 - [x] Create create_tasks_service_for_testing()
 - [ ] Update tests/test_tasks_service.py
 - [ ] Run tests: poetry run pytest tests/test_tasks_service.py -v
 - [ ] Validate failures resolved
 
-Phase 5: Other services (as needed)
+Other services (as needed)
 - [ ] Add factories for remaining services
 - [ ] Migrate tests incrementally
 - [ ] Track progress: 92% → 95% → 98% → 100%

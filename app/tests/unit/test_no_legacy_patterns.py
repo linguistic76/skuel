@@ -260,7 +260,7 @@ class TestNoLegacyMarkers:
 
         Exceptions:
         - neo_labels.py: Legacy comments describe labels retained for backward compat
-          during the multi-label migration (Phase 0). These are intentional markers
+          during the multi-label migration. These are intentional markers
           for the migration plan, not stale aliases.
         """
         # Files allowed to have "Legacy" comments (migration infrastructure)

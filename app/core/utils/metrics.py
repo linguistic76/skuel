@@ -25,7 +25,7 @@ Usage:
     # Get metrics
     summary = get_metrics_summary()
 
-Phase 3.6 - January 2026 (Prometheus-first migration)
+- January 2026 (Prometheus-first migration)
 """
 
 import asyncio
@@ -85,7 +85,7 @@ def track_query_metrics(operation_name: str | None = None):
         async def get(self, uid: str) -> Result[Entity]:
             ...
 
-        @track_query_metrics()  # Uses function name
+        @track_query_metrics() # Uses function name
         async def search(self, query: str):
             ...
     """

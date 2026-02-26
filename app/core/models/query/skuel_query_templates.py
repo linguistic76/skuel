@@ -483,7 +483,7 @@ BULK_LEARNING_PATH_INGESTION = SkuelQueryTemplate(
     name="bulk_learning_path_ingestion",
     description="Import learning paths and knowledge units from structured data",
     cypher="""
-    // Phase 1: Create LearningPaths with sections
+    // Create LearningPaths with sections
     UNWIND $learning_paths AS lp_data
 
     MERGE (lp:Lp {uid: lp_data.uid})
@@ -497,7 +497,7 @@ BULK_LEARNING_PATH_INGESTION = SkuelQueryTemplate(
 
     WITH lp, lp_data
 
-    // Phase 2: Create KnowledgeUnits
+    // Create KnowledgeUnits
     UNWIND lp_data.knowledge_units AS ku_data
 
     MERGE (ku:Entity {uid: ku_data.uid})
@@ -511,18 +511,18 @@ BULK_LEARNING_PATH_INGESTION = SkuelQueryTemplate(
       ku.domain = ku_data.domain,
       ku.updated_at = datetime()
 
-    // Phase 3: Wire KU to LearningPath
+    // Wire KU to LearningPath
     MERGE (ku)-[:PART_OF]->(lp)
 
     WITH ku, ku_data
 
-    // Phase 4: Create prerequisite relationships
+    // Create prerequisite relationships
     FOREACH (prereq_uid IN coalesce(ku_data.prerequisites, []) |
       MERGE (prereq:Entity {uid: prereq_uid})
       MERGE (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
     )
 
-    // Phase 5: Create enables relationships
+    // Create enables relationships
     FOREACH (enabled_uid IN coalesce(ku_data.enables, []) |
       MERGE (enabled:Entity {uid: enabled_uid})
       MERGE (ku)-[:ENABLES_KNOWLEDGE]->(enabled)

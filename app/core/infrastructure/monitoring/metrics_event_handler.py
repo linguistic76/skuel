@@ -12,7 +12,7 @@ This enables business-level observability:
 - What's the completion rate for tasks/goals/habits?
 - Which domains are most active?
 
-Phase 3 - January 2026
+- January 2026
 """
 
 from typing import Any

@@ -5,7 +5,7 @@ Exercise Routes - Configuration-Driven Registration
 Wires Exercise API and UI routes using DomainRouteConfig.
 Exercises provide reusable LLM instruction templates for any submission type.
 
-Formerly assignments_routes.py — renamed per Phase 3 of Ku hierarchy refactoring.
+Formerly assignments_routes.py — renamed per of Ku hierarchy refactoring.
 """
 
 from adapters.inbound.exercises_api import create_exercises_api_routes

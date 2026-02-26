@@ -5,7 +5,7 @@ Learning UI Components - Clean Architecture
 Component-based UI for learning management following clean separation of concerns.
 Uses DaisyUI components for consistent styling and HTMX for dynamic interactions.
 
-✅ MIGRATED TO FORMGENERATOR/CARDGENERATOR PATTERN (Phase 3)
+✅ MIGRATED TO FORMGENERATOR/CARDGENERATOR PATTERN
 - Previously: Inline route architecture with manual forms
 - Now: Component-based architecture with FormGenerator
 - Forms migrated: 1 (learning path filter form)
@@ -65,7 +65,7 @@ class LearningUIComponents:
     """
     Reusable component library for learning management interface.
 
-    ✅ PHASE 3 MIGRATION COMPLETE:
+    ✅ MIGRATION COMPLETE:
     - Architecture: Component-based ✅
     - Filter form: Migrated to FormGenerator ✅
     - Display components: Organized in static methods ✅
@@ -1026,7 +1026,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
     # KNOWLEDGE UNIT DETAIL PAGE: Moved to ku_reading_ui.py → /ku/{uid}
 
     # ========================================================================
-    # LEARNING STEP DETAIL PAGE (Phase 5)
+    # LEARNING STEP DETAIL PAGE
     # ========================================================================
 
     @rt("/ls/{uid}")
@@ -1034,7 +1034,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
         """
         Learning Step detail view with full context and relationships.
 
-        Phase 5: Shows LS details plus lateral relationships visualization.
+        Shows LS details plus lateral relationships visualization.
         """
         # Note: This is a placeholder. Needs ls_service to be passed in
         content = Div(
@@ -1048,7 +1048,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
                 ),
                 cls="p-6 mb-4",
             ),
-            # Phase 5: Lateral Relationships Section
+            # Lateral Relationships Section
             EntityRelationshipsSection(
                 entity_uid=uid,
                 entity_type="ls",
@@ -1067,7 +1067,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
     routes.append(ls_detail_view)
 
     # ========================================================================
-    # LEARNING PATH DETAIL PAGE (Phase 5)
+    # LEARNING PATH DETAIL PAGE
     # ========================================================================
 
     @rt("/lp/{uid}")
@@ -1075,7 +1075,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
         """
         Learning Path detail view with full context and relationships.
 
-        Phase 5: Shows LP details plus lateral relationships visualization.
+        Shows LP details plus lateral relationships visualization.
         Note: This complements the existing /learning/path/{path_uid} route.
         """
         # Note: This is a placeholder. Needs lp_service to be passed in
@@ -1090,7 +1090,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
                 ),
                 cls="p-6 mb-4",
             ),
-            # Phase 5: Lateral Relationships Section
+            # Lateral Relationships Section
             EntityRelationshipsSection(
                 entity_uid=uid,
                 entity_type="lp",

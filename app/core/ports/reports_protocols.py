@@ -8,15 +8,15 @@ sharing, feedback, scheduling).
 These complement the KuOperations protocol in curriculum_protocols.py which
 handles backend CRUD. These protocols cover the higher-level content lifecycle:
 
-    ReportsSubmissionOperations       — File upload and Ku management
-    ReportsContentOperations          — Content management (tags, categories, journals, assessments)
-    ReportsContentSearchOperations    — Cross-type search and statistics
-    ReportsSharingOperations          — Visibility and sharing control
-    ReportsProcessingOperations       — Processing pipeline (transcription, LLM)
-    ExerciseOperations            — LLM instruction templates (exercises)
-    ReportsFeedbackOperations         — LLM-based feedback generation
+    ReportsSubmissionOperations — File upload and Ku management
+    ReportsContentOperations — Content management (tags, categories, journals, assessments)
+    ReportsContentSearchOperations — Cross-type search and statistics
+    ReportsSharingOperations — Visibility and sharing control
+    ReportsProcessingOperations — Processing pipeline (transcription, LLM)
+    ExerciseOperations — LLM instruction templates (exercises)
+    ReportsFeedbackOperations — LLM-based feedback generation
     ProgressReportGeneratorOperations — Progress Ku generation
-    ReportsScheduleOperations         — Recurring progress Ku scheduling
+    ReportsScheduleOperations — Recurring progress Ku scheduling
 
 ISP-compliant: each protocol captures only the methods called from routes.
 
@@ -428,7 +428,7 @@ class ExerciseOperations(Protocol):
         """Alias for delete_exercise."""
         ...
 
-    # Curriculum linking (Phase 4)
+    # Curriculum linking
     async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
         """Link exercise to curriculum KU via REQUIRES_KNOWLEDGE."""
         ...

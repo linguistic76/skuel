@@ -747,7 +747,7 @@ class SearchRouter:
         """
         Advanced unified search combining text, graph, and array filters.
 
-        This is the flagship search method, combining all Phase 1-3 capabilities:
+        This is the flagship search method, combining all -3 capabilities:
         - Text search on configured fields
         - Graph-aware filtering (relationship traversal)
         - Tag/array filtering (AND/OR semantics)
@@ -837,7 +837,7 @@ class SearchRouter:
         Execute the appropriate search strategy based on request filters.
 
         Strategy selection:
-        0. Semantic/Learning-Aware: Use vector search with boosting (Phase 1 enhancement)
+        0. Semantic/Learning-Aware: Use vector search with boosting
         1. Graph + Text: Use search_connected_to if available
         2. Tags + Text: Use search_by_tags, then filter by text
         3. Text only: Use search directly
@@ -848,7 +848,7 @@ class SearchRouter:
         limit_per_domain = request.limit // max(len(request.entity_types), 1)
         limit_per_domain = max(limit_per_domain, 10)  # Minimum 10 per domain
 
-        # Strategy 0: Semantic-enhanced or learning-aware search (Phase 1 Enhancement)
+        # Strategy 0: Semantic-enhanced or learning-aware search
         if request.has_semantic_boost() or request.has_learning_aware():
             items = await self._semantic_or_learning_search(
                 entity_type=entity_type, request=request, limit=limit_per_domain
@@ -858,7 +858,7 @@ class SearchRouter:
                 return items
             # Otherwise fall through to standard search
 
-        # Strategy 1: Graph-aware search (Phase 2)
+        # Strategy 1: Graph-aware search
         if request.has_graph_traversal_filter():
             if isinstance(search_service, SupportsGraphTraversalSearch):
                 result = await search_service.search_connected_to(
@@ -883,7 +883,7 @@ class SearchRouter:
                     search_service, entity_type, request, limit_per_domain
                 )
 
-        # Strategy 2: Tag search (Phase 3)
+        # Strategy 2: Tag search
         elif request.has_tag_filter():
             if isinstance(search_service, SupportsTagSearch):
                 result = await search_service.search_by_tags(
@@ -907,7 +907,7 @@ class SearchRouter:
                     search_service, entity_type, request, limit_per_domain
                 )
 
-        # Strategy 3: Text search only (Phase 1)
+        # Strategy 3: Text search only
         else:
             result = await search_service.search(request.query_text or "", limit_per_domain)
             if result.is_ok and result.value:
@@ -1300,7 +1300,7 @@ def get_search_service_attr(entity_type: EntityType | NonKuDomain) -> str | None
 
     Example:
         attr = get_search_service_attr(EntityType.TASK)
-        service = getattr(services, attr)  # Gets TasksService
+        service = getattr(services, attr) # Gets TasksService
     """
     return SearchRouter._SERVICE_REGISTRY.get(entity_type)
 

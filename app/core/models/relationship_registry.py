@@ -45,7 +45,7 @@ from core.models.curriculum.exercise_dto import ExerciseDTO
 from core.models.curriculum.learning_path_dto import LearningPathDTO
 from core.models.curriculum.learning_step_dto import LearningStepDTO
 
-# Curriculum domain imports - Phase 3 (February 2026): LS/LP unified into Ku
+# Curriculum domain imports - (February 2026): LS/LP unified into Ku
 # NOTE (February 2026): Habit imports removed — Habit merged into Ku
 # NOTE (February 2026): Ku is now a Union type alias; use Entity (the actual class) for model_class
 from core.models.entity import Entity
@@ -854,7 +854,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 HABITS_CONFIG = DomainRelationshipConfig(
     domain=Domain.HABITS,
-    entity_label="Entity",  # Phase 4: Unified into Ku with ku_type='habit'
+    entity_label="Entity",
     dto_class=HabitDTO,
     model_class=Entity,
     backend_get_method="get",
@@ -1152,7 +1152,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 CHOICES_CONFIG = DomainRelationshipConfig(
     domain=Domain.CHOICES,
-    entity_label="Entity",  # Phase 4: Unified into Ku with ku_type='choice'
+    entity_label="Entity",
     dto_class=ChoiceDTO,
     model_class=Entity,
     backend_get_method="get",
@@ -1299,7 +1299,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 PRINCIPLES_CONFIG = DomainRelationshipConfig(
     domain=Domain.PRINCIPLES,
-    entity_label="Entity",  # Phase 4: Unified into Ku with ku_type='principle'
+    entity_label="Entity",
     dto_class=PrincipleDTO,
     model_class=Entity,
     backend_get_method="get",
@@ -1598,7 +1598,7 @@ PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
 
 # -----------------------------------------------------------------------------
 # CURRICULUM DOMAINS (Shared Content - No User Ownership)
-# Phase 2 Complete - January 2026
+# Complete - January 2026
 # -----------------------------------------------------------------------------
 
 # KU (Knowledge Unit)
@@ -1726,7 +1726,7 @@ KU_CONFIG = DomainRelationshipConfig(
     },
 )
 
-# LS (Learning Step) — Phase 3: Unified into Ku with ku_type='learning_step'
+# LS (Learning Step) — Unified into Ku with ku_type='learning_step'
 LS_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
     entity_label="Entity",
@@ -1822,7 +1822,7 @@ LS_CONFIG = DomainRelationshipConfig(
     },
 )
 
-# LP (Learning Path) — Phase 3: Unified into Ku with ku_type='learning_path'
+# LP (Learning Path) — Unified into Ku with ku_type='learning_path'
 LP_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
     entity_label="Entity",
@@ -1964,7 +1964,7 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
 
 
 # =============================================================================
-# DOMAIN CONFIGS - ALL DOMAINS (Phase 1 + Phase 2 Complete)
+# DOMAIN CONFIGS - ALL DOMAINS
 # =============================================================================
 # Note: Finance domain is standalone (no relationship registry)
 # Finance is a bookkeeping domain, not an Activity domain
@@ -1978,7 +1978,7 @@ DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
     Domain.CHOICES: CHOICES_CONFIG,
     Domain.PRINCIPLES: PRINCIPLES_CONFIG,
     # Note: Finance is standalone (not in registry)
-    # Curriculum Domains - Shared content (Phase 2)
+    # Curriculum Domains - Shared content
     # Note: LS and LP both use Domain.LEARNING
     # Use LABEL_CONFIGS for unambiguous lookup
     Domain.KNOWLEDGE: KU_CONFIG,  # Primary for Domain.KNOWLEDGE
@@ -1986,7 +1986,7 @@ DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
 }
 
 # Label-based lookup (THE authoritative way to get curriculum configs)
-# Phase 3 (February 2026): "Ls" and "Lp" kept as virtual config keys.
+# (February 2026): "Ls" and "Lp" kept as virtual config keys.
 # Their entity_label is now "Entity" (all curriculum nodes are :Entity in Neo4j).
 LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     # Activity Domains (6)

@@ -9,7 +9,7 @@ Zero extra fields — journals use the same file/processing/subject fields
 as other submission types. Journal-specific metadata (mood, energy_level,
 entry_date) lives in the metadata dict.
 
-See: /.claude/plans/ku-decomposition-domain-types.md (Phase 8)
+See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 

@@ -1,5 +1,5 @@
 """
-Unit tests for KU Search Graph Enrichment Patterns (Phase 3).
+Unit tests for KU Search Graph Enrichment Patterns.
 
 Tests that KuSearchService properly configures _graph_enrichment_patterns
 to surface cross-domain activity applications in search results.

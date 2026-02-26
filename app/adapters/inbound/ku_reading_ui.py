@@ -8,7 +8,7 @@ User-facing routes for reading Knowledge Units with:
 - Mark as read / bookmark actions
 - Next/prev navigation via MOC ORGANIZES order
 - KU metadata display (domain, complexity, tags)
-- Lateral relationships visualization (Phase 5)
+- Lateral relationships visualization
 
 Routes:
 - GET /ku/{uid} - KU detail page with reading interface
@@ -104,7 +104,7 @@ def create_ku_reading_ui_routes(
         - KU metadata (domain, complexity, tags)
         - Markdown content with table of contents
         - Next/prev navigation (via MOC ORGANIZES order)
-        - Lateral relationships visualization (Phase 5)
+        - Lateral relationships visualization
         """
         user_uid = require_authenticated_user(request)
 

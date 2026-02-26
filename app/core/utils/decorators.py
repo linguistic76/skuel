@@ -8,7 +8,7 @@ Extracted from base_service.py to promote reusability across the entire codebase
 
 Core decorators:
 - with_error_handling: Generic try/except wrapper with error categorization
-- requires_graph_intelligence: Validates graph_intel availability for Phase 1-4 methods
+- requires_graph_intelligence: Validates graph_intel availability for -4 methods
 
 Philosophy:
 - Decorators are pure utilities (no service dependencies)
@@ -238,14 +238,14 @@ def with_error_handling(
 
 def requires_graph_intelligence(operation: str):
     """
-    Decorator for Phase 1-4 graph intelligence methods.
+    Decorator for -4 graph intelligence methods.
 
     Eliminates repetitive graph_intel availability checks across all services.
     This pattern appears 38+ times in the codebase with identical implementation:
 
     if not self.graph_intel:
         return Result.fail(Errors.system(
-            message="GraphIntelligenceService not available - Phase 1-4 queries disabled",
+            message="GraphIntelligenceService not available - -4 queries disabled",
             operation="method_name"
         )))
 
@@ -258,11 +258,11 @@ def requires_graph_intelligence(operation: str):
         Decorated function with automatic graph_intel validation
 
     Example:
-        # Before (repeated in every Phase 1-4 method):
+        # Before (repeated in every -4 method):
         async def get_habit_with_context(self, uid: str) -> Result:
             if not self.graph_intel:
                 return Result.fail(Errors.system(
-                    message="GraphIntelligenceService not available - Phase 1-4 queries disabled",
+                    message="GraphIntelligenceService not available - -4 queries disabled",
                     operation="get_habit_with_context"
                 )))
             # ... method logic
@@ -275,7 +275,7 @@ def requires_graph_intelligence(operation: str):
             # ... method logic only
 
     Note:
-        Services that use Phase 1-4 graph intelligence should store graph_intel
+        Services that use -4 graph intelligence should store graph_intel
         in their __init__ method (usually named graph_intelligence_service).
     """
 

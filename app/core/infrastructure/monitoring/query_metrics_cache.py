@@ -13,7 +13,7 @@ Design Philosophy:
 - Direct writes (no bridge code, no export lag)
 - Zero duplication (cache is lossy subset)
 
-Phase 3.6 - January 2026 (Option D Pattern for Query Metrics)
+- January 2026 (Option D Pattern for Query Metrics)
 """
 
 from __future__ import annotations

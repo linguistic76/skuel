@@ -1058,7 +1058,7 @@ def create_tasks_ui_routes(
             return Response("Error updating task", status_code=500)
 
     # ========================================================================
-    # TASK DETAIL PAGE (Phase 5)
+    # TASK DETAIL PAGE
     # ========================================================================
 
     @rt("/tasks/{uid}")
@@ -1066,7 +1066,7 @@ def create_tasks_ui_routes(
         """
         Task detail view with full context and relationships.
 
-        Phase 5: Shows task details plus lateral relationships visualization.
+        Shows task details plus lateral relationships visualization.
         """
         user_uid = require_authenticated_user(request)
 
@@ -1172,7 +1172,7 @@ def create_tasks_ui_routes(
                 ),
                 cls="p-4 mb-4",
             ),
-            # Phase 5: Lateral Relationships Section
+            # Lateral Relationships Section
             EntityRelationshipsSection(
                 entity_uid=task.uid,
                 entity_type="tasks",

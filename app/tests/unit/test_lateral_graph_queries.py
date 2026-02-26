@@ -1,4 +1,4 @@
-"""Unit tests for lateral relationship graph queries (Phase 5).
+"""Unit tests for lateral relationship graph queries.
 
 Tests the three new service methods:
 - get_blocking_chain()

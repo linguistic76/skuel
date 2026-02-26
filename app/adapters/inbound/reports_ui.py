@@ -378,7 +378,7 @@ def parse_report_filters(request: Request) -> ReportFilters:
 
 
 # ============================================================================
-# SHARING UI COMPONENTS (Phase 1: Report Portfolio)
+# SHARING UI COMPONENTS
 # ============================================================================
 
 

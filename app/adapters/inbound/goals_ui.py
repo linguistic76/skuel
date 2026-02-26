@@ -223,7 +223,7 @@ class GoalUIComponents:
             ),
         ]
 
-        # Phase 1 MVP: Add system strength meter if goal has habit system
+        # MVP: Add system strength meter if goal has habit system
         # Check for system strength data
         system_strength = (
             goal.get("system_strength")
@@ -328,7 +328,7 @@ class GoalUIComponents:
         """
         Create goal form component with relationship context capture.
 
-        Phase 1: Adds guidance manifestations and derivation reasoning
+        Adds guidance manifestations and derivation reasoning
         to make entity connections comprehensible.
 
         Uses FormGenerator for dynamic form generation from GoalCreateRequest.
@@ -1098,7 +1098,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         """
         Goal detail view with relationship context display.
 
-        Phase 1: Shows WHY the goal exists and HOW principles guide it.
+        Shows WHY the goal exists and HOW principles guide it.
         """
         user_uid = require_authenticated_user(request)
 
@@ -1158,7 +1158,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                 ),
                 cls="p-6 mb-4",
             ),
-            # Explanation Section (Phase 1)
+            # Explanation Section
             Card(
                 H2("💡 Why This Goal Exists", cls="text-xl font-semibold mb-4 text-gray-700"),
                 # Main explanation
@@ -1312,7 +1312,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                 ),
                 cls="p-4 mb-4",
             ),
-            # Phase 5: Lateral Relationships Section
+            # Lateral Relationships Section
             EntityRelationshipsSection(
                 entity_uid=goal.uid,
                 entity_type="goals",

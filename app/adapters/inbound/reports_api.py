@@ -4,7 +4,7 @@ Reports API Routes
 
 REST API for file submission and processing pipeline.
 
-Phase 1 Implementation:
+
 - File upload (audio, text)
 - List reports with filters
 - Get report details

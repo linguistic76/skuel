@@ -3,7 +3,7 @@
 
 UI routes for displaying and managing event-driven insights.
 
-Phase 1 (January 2026): Insight dashboard with dismiss/action functionality.
+(January 2026): Insight dashboard with dismiss/action functionality.
 """
 
 from dataclasses import dataclass
@@ -91,7 +91,7 @@ def create_insights_ui_routes(
         # Parse typed filter parameters
         filters = parse_insights_filters(request)
 
-        # Phase 2, Task 8: Progressive loading - load 10 initially for fast page load
+        # , Task 8: Progressive loading - load 10 initially for fast page load
         page_size = 10
         result = await insight_store.get_active_insights(
             user_uid=user_uid,
@@ -126,7 +126,7 @@ def create_insights_ui_routes(
                     or search_lower in (i.description or "").lower()
                 ]
 
-        # Build advanced filter form (Phase 1, Task 4; Phase 4, Task 16: Debounced)
+        # Build advanced filter form
         filter_form = Div(
             # Row 1: Search + Domain
             Div(
@@ -240,7 +240,7 @@ def create_insights_ui_routes(
             },
         )
 
-        # Phase 2, Task 9: Bulk actions bar (only shown when insights selected)
+        # , Task 9: Bulk actions bar (only shown when insights selected)
         bulk_action_bar = Div(
             Div(
                 # Selection count
@@ -280,7 +280,7 @@ def create_insights_ui_routes(
             **{"x-transition": ""},
         )
 
-        # Phase 2, Task 9: Select-all header (only shown when insights present)
+        # , Task 9: Select-all header (only shown when insights present)
         select_all_header = None
         if insights:
             select_all_header = Div(
@@ -297,7 +297,7 @@ def create_insights_ui_routes(
                 cls="mb-4 p-3 bg-base-200 rounded-lg",
             )
 
-        # Phase 2, Task 8: Progressive loading with HTMX infinite scroll
+        # , Task 8: Progressive loading with HTMX infinite scroll
         # Build insight cards with load-more trigger
         if insights:
             # Encode filters for load-more URL
@@ -320,7 +320,7 @@ def create_insights_ui_routes(
                 else f"/insights/load-more?offset={page_size}"
             )
 
-            # Phase 2, Task 9: Wrap each insight card with checkbox
+            # , Task 9: Wrap each insight card with checkbox
             insight_card_items = []
             for insight in insights:
                 card_with_checkbox = Div(
@@ -380,7 +380,7 @@ def create_insights_ui_routes(
                 icon="💡",
             )
 
-        # Phase 2: Charts visualization section (only show if there are insights)
+        # Charts visualization section (only show if there are insights)
         charts_section = None
         if len(insights) >= 3:  # Only show charts if meaningful data (3+ insights)
             charts_section = Div(
@@ -419,13 +419,13 @@ def create_insights_ui_routes(
                 cls="mb-8",
             )
 
-        # Build page content (Phase 2, Task 9: wrapped in bulkInsightManager; Phase 4, Task 17: history link)
+        # Build page content
         content = Div(
             PageHeader(
                 title="💡 Insights",
                 subtitle=f"{len(insights)} active insight{'s' if len(insights) != 1 else ''} from your behavior patterns",
             ),
-            # Phase 4, Task 17: Link to history page
+            # , Task 17: Link to history page
             Div(
                 A(
                     "📜 View History",
@@ -436,15 +436,15 @@ def create_insights_ui_routes(
             ),
             filter_form,
             charts_section if charts_section else Div(),  # Add charts section if available
-            bulk_action_bar,  # Phase 2, Task 9: bulk action bar (shown when insights selected)
+            bulk_action_bar,  # bulk action bar (shown when insights selected)
             select_all_header
             if select_all_header
-            else Div(),  # Phase 2, Task 9: select-all checkbox
+            else Div(),  # select-all checkbox
             insight_cards,
             cls="space-y-6",
             **{
                 "x-data": "bulkInsightManager()"
-            },  # Phase 2, Task 9: Alpine component for bulk selection
+            },  # Alpine component for bulk selection
         )
 
         return await BasePage(
@@ -528,7 +528,7 @@ def create_insights_ui_routes(
 
     @rt("/insights/load-more")
     async def load_more_insights(request):
-        """HTMX endpoint for progressive loading (Phase 2, Task 8).
+        """HTMX endpoint for progressive loading.
 
         Loads next batch of insights for infinite scroll.
         Returns insight cards + new load-more trigger (or end marker).
@@ -600,7 +600,7 @@ def create_insights_ui_routes(
             else f"/insights/load-more?offset={next_offset}"
         )
 
-        # Phase 2, Task 9: Wrap each loaded insight with checkbox
+        # , Task 9: Wrap each loaded insight with checkbox
         loaded_card_items = []
         for insight in new_insights:
             card_with_checkbox = Div(

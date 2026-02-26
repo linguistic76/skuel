@@ -1,8 +1,8 @@
 """
-Test GraphQL Queries - Phase 3 Verification
+Test GraphQL Queries - Verification
 ===========================================
 
-Tests the new Phase 2 GraphQL queries to verify they work correctly.
+Tests the new GraphQL queries to verify they work correctly.
 
 NOTE: These tests require:
 1. Running Neo4j instance
@@ -216,7 +216,7 @@ def test_learning_path_query(sample_queries, authenticated_client_simple):
 
 
 def test_learning_path_with_context_query(sample_queries, authenticated_client_simple):
-    """Test learning path context query (Phase 2)"""
+    """Test learning path context query"""
     response = authenticated_client_simple.post(
         "/graphql",
         json={
@@ -253,7 +253,7 @@ def test_learning_path_with_context_query(sample_queries, authenticated_client_s
 
 
 def test_prerequisite_chain_query(sample_queries, authenticated_client_simple):
-    """Test prerequisite chain query (Phase 2)"""
+    """Test prerequisite chain query"""
     response = authenticated_client_simple.post(
         "/graphql",
         json={
@@ -289,7 +289,7 @@ def test_prerequisite_chain_query(sample_queries, authenticated_client_simple):
 
 
 def test_knowledge_dependencies_query(sample_queries, authenticated_client_simple):
-    """Test knowledge dependencies graph query (Phase 2)"""
+    """Test knowledge dependencies graph query"""
     response = authenticated_client_simple.post(
         "/graphql",
         json={
@@ -325,7 +325,7 @@ def test_knowledge_dependencies_query(sample_queries, authenticated_client_simpl
 
 
 def test_learning_path_blockers_query(sample_queries, authenticated_client_simple):
-    """Test learning path blockers query (Phase 2)"""
+    """Test learning path blockers query"""
     response = authenticated_client_simple.post(
         "/graphql",
         json={
@@ -365,7 +365,7 @@ def test_learning_path_blockers_query(sample_queries, authenticated_client_simpl
 
 
 def test_nested_query_depth(sample_queries, authenticated_client_simple):
-    """Test deeply nested query (Phase 3 - demonstrates GraphQL power)"""
+    """Test deeply nested query"""
     response = authenticated_client_simple.post(
         "/graphql",
         json={"query": sample_queries["nested_full_path"], "variables": {"uid": "lp.test_path"}},
@@ -404,7 +404,7 @@ def test_nested_query_depth(sample_queries, authenticated_client_simple):
 
 
 def test_flexible_field_selection_minimal(authenticated_client_simple):
-    """Test minimal field selection (Phase 3 - mobile use case)"""
+    """Test minimal field selection"""
     minimal_query = """
         query GetLearningPathsLight {
             learningPaths(limit: 5) {
@@ -443,7 +443,7 @@ def test_flexible_field_selection_minimal(authenticated_client_simple):
 
 
 def test_flexible_field_selection_rich(authenticated_client_simple):
-    """Test rich field selection (Phase 3 - web dashboard use case)"""
+    """Test rich field selection"""
     rich_query = """
         query GetLearningPathsRich {
             learningPaths(limit: 5) {

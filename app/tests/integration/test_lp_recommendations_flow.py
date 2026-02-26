@@ -1,5 +1,5 @@
 """
-Integration Tests: Learning Path Completion→Recommendations Flow (Phase 4)
+Integration Tests: Learning Path Completion→Recommendations Flow
 ============================================================================
 
 Tests the complete event-driven flow:

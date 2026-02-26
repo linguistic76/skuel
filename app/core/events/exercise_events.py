@@ -4,7 +4,7 @@ Exercise Domain Events
 
 Events published when teacher exercise operations occur.
 
-Formerly assignment_events.py — renamed per Phase 3 of Ku hierarchy refactoring.
+Formerly assignment_events.py — renamed per of Ku hierarchy refactoring.
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """

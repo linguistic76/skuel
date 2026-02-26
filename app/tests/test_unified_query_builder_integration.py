@@ -1,17 +1,17 @@
 """
-Integration Tests for UnifiedQueryBuilder - Phase 1 & Phase 2 Improvements
+Integration Tests for UnifiedQueryBuilder - & Improvements
 ===========================================================================
 
 Tests comprehensive integration of UnifiedQueryBuilder with QueryBuilder,
 QueryOptimizer, and template system.
 
-**Phase 1 (Template Discovery):**
+
 - Template discovery without manual injection
 - Template validation with helpful errors
 - Category-based filtering
 - Lazy QueryBuilder initialization
 
-**Phase 2 (Optimization Bridge):**
+
 - Query optimization via optimize_query()
 - Query validation via validate_query()
 - Query explanation via explain_query()
@@ -26,7 +26,7 @@ from core.models.query import UnifiedQueryBuilder
 from core.services.query_builder import QueryBuilder
 
 # ============================================================================
-# PHASE 1 TESTS: Template Discovery
+# TESTS: Template Discovery
 # ============================================================================
 
 
@@ -130,7 +130,7 @@ def test_template_library_caching():
 
 
 # ============================================================================
-# PHASE 2 TESTS: Optimization Bridge
+# TESTS: Optimization Bridge
 # ============================================================================
 
 
@@ -208,7 +208,7 @@ def test_optimization_methods_with_schema_service():
 
 
 # ============================================================================
-# INTEGRATION TESTS: Phase 1 + Phase 2 Together
+# INTEGRATION TESTS: + Together
 # ============================================================================
 
 
@@ -217,20 +217,20 @@ async def test_full_integration_workflow():
     """Test complete workflow: templates + optimization together."""
     builder = UnifiedQueryBuilder(executor=None)
 
-    # Step 1: Discover templates (Phase 1)
+    # Step 1: Discover templates
     templates = builder.list_templates()
     assert len(templates) > 0
 
-    # Step 2: Validate a query (Phase 2)
+    # Step 2: Validate a query
     cypher = "MATCH (t:Task) WHERE t.status = 'active' RETURN t"
     validation_result = await builder.validate_query(cypher)
     assert validation_result is not None
 
-    # Step 3: Optimize the query (Phase 2)
+    # Step 3: Optimize the query
     optimization_result = await builder.optimize_query(cypher)
     assert optimization_result is not None
 
-    # Step 4: Explain the query (Phase 2)
+    # Step 4: Explain the query
     explanation = builder.explain_query(cypher)
     assert isinstance(explanation, str)
 
@@ -240,17 +240,17 @@ async def test_full_integration_workflow():
 
 
 def test_phase_2_methods_available_in_api():
-    """Test that Phase 2 methods are discoverable via dir()."""
+    """Test that methods are discoverable via dir()."""
     builder = UnifiedQueryBuilder(executor=None)
 
-    # Verify all Phase 2 methods are available
+    # Verify all methods are available
     api_methods = dir(builder)
 
     assert "optimize_query" in api_methods
     assert "validate_query" in api_methods
     assert "explain_query" in api_methods
 
-    # Verify Phase 1 methods still available
+    # Verify methods still available
     assert "list_templates" in api_methods
     assert "template" in api_methods
 
@@ -286,7 +286,7 @@ def test_optimization_without_driver_succeeds():
 
 
 def test_docstrings_exist_for_phase_2_methods():
-    """Test that all Phase 2 methods have comprehensive docstrings."""
+    """Test that all methods have comprehensive docstrings."""
     builder = UnifiedQueryBuilder(executor=None)
 
     # Check optimize_query docstring
@@ -306,7 +306,7 @@ def test_docstrings_exist_for_phase_2_methods():
 
 
 def test_class_docstring_documents_phase_2():
-    """Test that UnifiedQueryBuilder class docstring documents Phase 2."""
+    """Test that UnifiedQueryBuilder class docstring documents """
     docstring = UnifiedQueryBuilder.__doc__
 
     assert docstring is not None

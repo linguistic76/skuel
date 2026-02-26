@@ -11,7 +11,7 @@ Modules:
 - relationship_queries: Counting, batch operations, path queries
 - intelligence_queries: Hybrid patterns, registry validation, weighted paths
 
-Phase 2 Infrastructure Functions (January 2026):
+Infrastructure Functions (January 2026):
 - build_distinct_values_query: Get distinct field values (categories)
 - build_hierarchy_query: Parent/child hierarchy traversal
 - build_prerequisite_traversal_query: Prerequisite chains (both directions)
@@ -24,7 +24,7 @@ Usage:
     from core.models.query.cypher import build_relationship_count, build_batch_relationship_exists
     from core.models.query.cypher import build_hybrid_knowledge_search, search, get_by
 
-    # Phase 2 consolidation functions
+    # consolidation functions
     from core.models.query.cypher import (
         build_distinct_values_query,
         build_hierarchy_query,
@@ -167,7 +167,7 @@ __all__ = [
     "build_choice_with_context",
     "build_count_query",
     "build_cross_domain_bridges",
-    # Phase 2 consolidation queries (January 2026)
+    # consolidation queries (January 2026)
     "build_distinct_values_query",
     "build_domain_context_with_paths",
     # Time-based queries (January 2026)

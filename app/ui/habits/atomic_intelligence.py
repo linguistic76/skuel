@@ -1,8 +1,8 @@
 """
-Atomic Habits Intelligence Components - Phase 2
+Atomic Habits Intelligence Components
 ================================================
 
-Implements Phase 2 intelligence features:
+Implements intelligence features:
 1. Pattern recognition (success/failure patterns)
 2. System health diagnostics UI
 3. Habit velocity tracking visualization
@@ -33,7 +33,7 @@ from ui.daisy_components import (
 
 class AtomicHabitsIntelligence:
     """
-    Phase 2 intelligence components for behavioral insights and analytics.
+    intelligence components for behavioral insights and analytics.
     """
 
     # ========================================================================

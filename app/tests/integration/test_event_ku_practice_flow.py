@@ -2,7 +2,7 @@
 Integration Test: Event Completion→Knowledge Practice Event-Driven Updates
 ===========================================================================
 
-Tests Phase 4 event-driven architecture for Event→KU practice tracking.
+Tests event-driven architecture for Event→KU practice tracking.
 
 This test suite verifies that:
 1. CalendarEventCompleted events trigger KU practice updates
@@ -64,7 +64,7 @@ class TestEventKuPracticeFlow:
     async def ku_practice_service(self, event_bus, ku_backend):
         """Create KuPracticeService with event bus and backend."""
         return KuPracticeService(
-            backend=ku_backend,  # Phase 4: For Event→KU Cypher queries
+            backend=ku_backend,  # For Event→KU Cypher queries
             event_bus=event_bus,
         )
 

@@ -212,7 +212,7 @@ def _render_filter_bar() -> str:
                 </div>
             </div>
 
-            <!-- Semantic Search (Phase 1 Enhancement) -->
+            <!-- Semantic Search -->
             <div>
                 <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-2">Semantic Search
                     <span class="badge badge-xs badge-primary ml-1">NEW</span>
@@ -640,7 +640,7 @@ def _render_relationship_checkboxes() -> str:
 
 def _render_semantic_search_checkboxes() -> str:
     """
-    Semantic search checkboxes (Phase 1 Enhancement - January 2026).
+    Semantic search checkboxes.
 
     Enables semantic relationship boosting and learning-aware search.
     """

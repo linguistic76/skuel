@@ -84,7 +84,7 @@ class CRUDOperations(Protocol[T]):
 
     Any service implementing these methods can use CRUDRouteFactory.
 
-    PHASE 4 UPDATE: list() method now accepts user_uid for user-specific filtering.
+    UPDATE: list() method now accepts user_uid for user-specific filtering.
     DECEMBER 2025: Added ownership-verified methods for multi-tenant security.
     """
 
@@ -222,7 +222,7 @@ class CRUDRouteFactory[T]:
             allow_dict_fallback: If True, fall back to dict when no converter found (default: False).
                                When False (fail-fast), returns error if no converter exists.
                                Only set to True for rapid prototyping or entities with flexible schemas.
-            prometheus_metrics: PrometheusMetrics instance for HTTP instrumentation (Phase 2 - January 2026).
+            prometheus_metrics: PrometheusMetrics instance for HTTP instrumentation.
                               If provided, all routes will be instrumented with request count, latency, and error metrics.
         """
         self.service = service
@@ -274,7 +274,7 @@ class CRUDRouteFactory[T]:
         Returns:
             Wrapped handler that tracks metrics and converts Result[T] to JSONResponse
 
-        Phase 2 (January 2026): Integrated HTTP instrumentation + boundary handling
+        (January 2026): Integrated HTTP instrumentation + boundary handling
         """
         if not self.prometheus_metrics:
             # No metrics - just apply boundary handler
@@ -414,7 +414,7 @@ class CRUDRouteFactory[T]:
             logger.info(f"Created {domain}: {uid} for user {user_uid}")
             return result
 
-        # Apply instrumentation + boundary handling, then register route (Phase 2 - January 2026)
+        # Apply instrumentation + boundary handling, then register route
         instrumented = self._instrument_handler(
             create, f"{self.base_path}/create", success_status=201
         )
@@ -456,7 +456,7 @@ class CRUDRouteFactory[T]:
 
             return result
 
-        # Apply instrumentation + boundary handling, then register route (Phase 2 - January 2026)
+        # Apply instrumentation + boundary handling, then register route
         instrumented = self._instrument_handler(get, f"{self.base_path}/get")
         return rt(f"{self.base_path}/get")(instrumented)
 
@@ -513,7 +513,7 @@ class CRUDRouteFactory[T]:
 
             return result
 
-        # Apply instrumentation if metrics enabled, then register route (Phase 2 - January 2026)
+        # Apply instrumentation if metrics enabled, then register route
         instrumented = self._instrument_handler(update, f"{self.base_path}/update")
         return rt(f"{self.base_path}/update")(instrumented)
 
@@ -551,7 +551,7 @@ class CRUDRouteFactory[T]:
 
             return result
 
-        # Apply instrumentation if metrics enabled, then register route (Phase 2 - January 2026)
+        # Apply instrumentation if metrics enabled, then register route
         instrumented = self._instrument_handler(delete, f"{self.base_path}/delete")
         return rt(f"{self.base_path}/delete")(instrumented)
 
@@ -630,7 +630,7 @@ class CRUDRouteFactory[T]:
             logger.debug(f"Listed {domain}: user={user_uid}, limit={limit}, offset={offset}")
             return result
 
-        # Apply instrumentation if metrics enabled, then register route (Phase 2 - January 2026)
+        # Apply instrumentation if metrics enabled, then register route
         instrumented = self._instrument_handler(list_entities, f"{self.base_path}/list")
         return rt(f"{self.base_path}/list")(instrumented)
 
@@ -677,7 +677,7 @@ class CRUDRouteFactory[T]:
             logger.debug(f"Searched {domain}: query='{query}', limit={limit}")
             return cast("Result[Any]", result)
 
-        # Apply instrumentation if metrics enabled, then register route (Phase 2 - January 2026)
+        # Apply instrumentation if metrics enabled, then register route
         instrumented = self._instrument_handler(search, f"{self.base_path}/search")
         return rt(f"{self.base_path}/search")(instrumented)
 

@@ -93,7 +93,7 @@ class TestKuSearchServiceInitialization:
         backend = MagicMock()
         service = KuSearchService(backend=backend)
 
-        # KuSearchService uses _config = DomainConfig(...) pattern (Phase 3)
+        # KuSearchService uses _config = DomainConfig(...) pattern
         # Access through _config, not legacy _dto_class attribute
         assert service._config.dto_class == CurriculumDTO
         assert service._config.model_class == Entity

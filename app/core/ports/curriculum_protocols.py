@@ -27,30 +27,30 @@ Protocol Hierarchy:
 
 Protocol Hierarchy
 ------------------
-    CurriculumOperations[T]  ← Base for all curriculum domains
+    CurriculumOperations[T] ← Base for all curriculum domains
         ├── Inherits: BackendOperations[T] (CRUD, relationships, traversal)
         ├── Inherits: GraphRelationshipOperations (get_related_uids, count_related)
         │
         └── Curriculum-Specific Methods:
-            ├── get_with_content()      → Result[T]
-            ├── get_with_context()      → Result[T]
-            ├── get_prerequisites()     → Result[list[T]]
-            └── get_hierarchy()         → Result[dict]
+            ├── get_with_content() → Result[T]
+            ├── get_with_context() → Result[T]
+            ├── get_prerequisites() → Result[list[T]]
+            └── get_hierarchy() → Result[dict]
 
 Domain-Specific Protocols:
     KuOperations(CurriculumOperations[Ku], Protocol):
-        ├── get_enables()           → Result[list[Ku]]
-        ├── get_semantic_links()    → Result[list[str]]
-        └── get_substance_score()   → Result[float]
+        ├── get_enables() → Result[list[Ku]]
+        ├── get_semantic_links() → Result[list[str]]
+        └── get_substance_score() → Result[float]
 
     LsOperations(CurriculumOperations[Ku], Protocol):
-        ├── get_knowledge_uids()    → Result[list[str]]
-        ├── get_path_steps()        → Result[list[Ku]]
-        └── get_practice_summary()  → Result[dict]
+        ├── get_knowledge_uids() → Result[list[str]]
+        ├── get_path_steps() → Result[list[Ku]]
+        └── get_practice_summary() → Result[dict]
 
     LpOperations(CurriculumOperations[Ku], Protocol):
-        ├── get_next_step()         → Result[Ku | None]
-        ├── calculate_progress()    → Result[float]
+        ├── get_next_step() → Result[Ku | None]
+        ├── calculate_progress() → Result[float]
 
 Return Type Consistency
 -----------------------
@@ -490,7 +490,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
     - Practice integration (habits, tasks, events)
     - Path integration (LS can be standalone or part of LP)
 
-    Phase 3 Unified Ku Model: LS nodes are :Entity{ku_type='learning_step'}
+    Unified Ku Model: LS nodes are :Entity{ku_type='learning_step'}
     UID Prefix: "ls:"
     """
 
@@ -711,7 +711,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
     - Motivational alignment (goals, principles)
     - Milestone and checkpoint management
 
-    Phase 3 Unified Ku Model: LP nodes are :Entity{ku_type='learning_path'}
+    Unified Ku Model: LP nodes are :Entity{ku_type='learning_path'}
     UID Prefix: "lp:"
     """
 

@@ -1,5 +1,5 @@
 """
-Phase 3: Achievement Badge System - Gamification for Atomic Habits
+Achievement Badge System - Gamification for Atomic Habits
 
 This module implements achievement badges that recognize user milestones in their
 habit system journey. Based on James Clear's philosophy that "every action is a vote
@@ -569,9 +569,9 @@ class AtomicHabitsBadges:
         Expected user_data structure:
         {
             "identity_votes": {"writer": 35, "athlete": 60, "learner": 25},
-            "system_strengths": [92, 88, 95, 78],  # All goal system strengths
+            "system_strengths": [92, 88, 95, 78], # All goal system strengths
             "perfect_streak_days": 45,
-            "weekly_velocities": [120, 115, 130, 125],  # Last 4 weeks
+            "weekly_velocities": [120, 115, 130, 125], # Last 4 weeks
             "designed_habits_count": 8,
             "goals_achieved_count": 2
         }

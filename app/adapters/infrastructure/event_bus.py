@@ -19,9 +19,9 @@ Design:
 - Event history can be captured for debugging/replay
 
 Migration Status:
-- Phase 1: Domain events defined ✅
-- Phase 2: Services publishing events 🚧
-- Phase 3: Subscribers wired in bootstrap 🚧
+
+
+
 """
 
 import asyncio

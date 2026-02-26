@@ -2,7 +2,7 @@
 Curriculum Hierarchy Tests
 =============================
 
-Tests for the Curriculum intermediate class introduced in Phase 2
+Tests for the Curriculum intermediate class introduced in
 of the Ku decomposition. Verifies:
 
 1. Curriculum field inheritance from Entity

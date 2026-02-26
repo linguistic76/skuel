@@ -23,8 +23,8 @@ API:
 
 UI:
 - GET /ui/analytics (existing dashboard)
-- GET /ui/analytics/life-path-alignment (Phase 1)
-- GET /ui/analytics/weekly-life-summary (Phase 3)
+- GET /ui/analytics/life-path-alignment
+- GET /ui/analytics/weekly-life-summary
 """
 
 from adapters.inbound.analytics_summary_api import create_analytics_summary_api_routes

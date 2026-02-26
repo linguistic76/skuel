@@ -1,4 +1,4 @@
-"""Lateral Relationship UI Components - Phase 5.
+"""Lateral Relationship UI Components
 
 Provides interactive components for visualizing and navigating lateral relationships
 across all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP).

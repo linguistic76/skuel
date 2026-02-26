@@ -1,5 +1,5 @@
 """
-Tests for CypherGenerator - Phase 1 Consolidation
+Tests for CypherGenerator - Consolidation
 ==================================================
 
 Validates that CypherGenerator correctly consolidates functionality from:

@@ -233,7 +233,7 @@ class RelationshipName(str, Enum):
     HAS_STEP = "HAS_STEP"  # (lp)-[:HAS_STEP]->(ls) - Learning path contains step
 
     # =========================================================================
-    # CURRICULUM RELATIONSHIPS (January 2026 - Phase 2 Consolidation)
+    # CURRICULUM RELATIONSHIPS (January 2026 - Consolidation)
     # Learning Step, Learning Path, and Map of Content relationships
     # =========================================================================
     # Learning Step (LS) relationships

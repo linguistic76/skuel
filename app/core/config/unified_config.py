@@ -152,7 +152,7 @@ class VectorSearchConfig:
     # RRF (Reciprocal Rank Fusion) parameter
     rrf_k: int = 60  # Standard RRF k value
 
-    # Semantic relationship boosting (Phase 1 Enhancement)
+    # Semantic relationship boosting
     semantic_boost_weight: float = 0.3  # 30% semantic, 70% vector similarity
     semantic_boost_enabled: bool = True
 
@@ -182,7 +182,7 @@ class VectorSearchConfig:
         }
     )
 
-    # Learning state boost/penalty multipliers (Phase 1 Enhancement)
+    # Learning state boost/penalty multipliers
     # Applied to search results based on user's learning progress
     learning_state_boost_mastered: float = -0.2  # -20% penalty (already know)
     learning_state_boost_in_progress: float = 0.1  # +10% boost (currently learning)

@@ -1,5 +1,5 @@
 """
-Phase 3.4: Mobile-Optimized Views - Touch-First Atomic Habits UI
+Mobile-Optimized Views - Touch-First Atomic Habits UI
 
 This module provides mobile-optimized views for Atomic Habits, designed for:
 - Small screens (320px - 480px width)

@@ -3,7 +3,7 @@
 
 UI routes for viewing dismissed and actioned insights with notes.
 
-Phase 4, Task 17: Action tracking and history page.
+, Task 17: Action tracking and history page.
 """
 
 from dataclasses import dataclass
@@ -71,7 +71,7 @@ def create_insights_history_routes(
     async def insights_history_page(request):
         """Display insight action history (dismissed and actioned insights).
 
-        Phase 4, Task 17: Audit trail for user actions.
+        , Task 17: Audit trail for user actions.
         """
         user_uid = require_authenticated_user(request)
 

@@ -66,7 +66,7 @@ class TestUnifiedRegistry:
             "Entity",
             "Ls",
             "Lp",
-            "Exercise",  # Instruction templates (Phase 5)
+            "Exercise",  # Instruction templates
             # Note: MapOfContent and MOCSection removed - MOC is now KU with ORGANIZES relationships
             # Other entities
             "User",  # User entity relationships
@@ -217,7 +217,7 @@ class TestHelperFunctions:
 
 
 class TestCurriculumDomains:
-    """Test curriculum domain configurations (Phase 2)."""
+    """Test curriculum domain configurations."""
 
     def test_ku_config_is_shared_content(self):
         """Verify KU config has shared content settings."""

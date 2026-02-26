@@ -72,7 +72,7 @@ def _build_head(
         Script(src="https://unpkg.com/htmx.org@1.9.10"),
         # Alpine.js (self-hosted, version-pinned)
         Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
-        # Vis.js Network (self-hosted, v9.1.9) - Phase 5 Lateral Relationships
+        # Vis.js Network (self-hosted, v9.1.9) - Lateral Relationships
         Link(rel="stylesheet", href="/static/vendor/vis-network/vis-network.min.css"),
         Script(src="/static/vendor/vis-network/vis-network.min.js"),
         # SKUEL CSS

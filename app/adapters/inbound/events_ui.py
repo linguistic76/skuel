@@ -929,7 +929,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
             return Response("Error updating event", status_code=500)
 
     # ========================================================================
-    # EVENT DETAIL PAGE (Phase 5)
+    # EVENT DETAIL PAGE
     # ========================================================================
 
     @rt("/events/{uid}")
@@ -937,7 +937,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
         """
         Event detail view with full context and relationships.
 
-        Phase 5: Shows event details plus lateral relationships visualization.
+        Shows event details plus lateral relationships visualization.
         """
         user_uid = require_authenticated_user(request)
 
@@ -1039,7 +1039,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
                 ),
                 cls="p-4 mb-4",
             ),
-            # Phase 5: Lateral Relationships Section
+            # Lateral Relationships Section
             EntityRelationshipsSection(
                 entity_uid=event.uid,
                 entity_type="events",

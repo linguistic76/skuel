@@ -6,7 +6,7 @@ Extends UserOwnedDTO with 25 task-specific fields matching the Task
 frozen dataclass (Tier 3): scheduling, hierarchy, cross-domain links,
 progress impact, and knowledge intelligence.
 
-This is the first per-domain DTO, proving the pattern for Phase 3
+This is the first per-domain DTO, proving the pattern for
 of the domain-first architecture migration.
 
 Hierarchy:

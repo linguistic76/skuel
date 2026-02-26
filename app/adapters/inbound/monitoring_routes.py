@@ -4,7 +4,7 @@ Monitoring Routes
 
 System health and metrics endpoints for monitoring SKUEL infrastructure.
 
-Phase 3 - January 2026:
+- January 2026:
 - Background worker metrics
 - System health checks
 - Performance statistics

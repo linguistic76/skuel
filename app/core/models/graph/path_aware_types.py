@@ -8,7 +8,7 @@ These types add graph intelligence to domain models by including:
 - path_strength: Confidence cascade (average of all relationship confidences in path)
 - via_relationships: Sequence of relationship types that form the connection
 
-Created: 2025-11-15 (Phase 1 of Graph Intelligence Enhancement)
+Created: 2025-11-15
 """
 
 from dataclasses import dataclass

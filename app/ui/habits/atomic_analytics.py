@@ -1,5 +1,5 @@
 """
-Phase 3.3: Advanced Analytics Dashboards - Atomic Habits Insights
+Advanced Analytics Dashboards - Atomic Habits Insights
 
 This module provides comprehensive analytics dashboards for understanding habit systems,
 tracking progress over time, and identifying optimization opportunities.

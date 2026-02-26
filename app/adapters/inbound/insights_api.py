@@ -3,7 +3,7 @@
 
 API routes for managing event-driven insights (dismiss, mark as actioned).
 
-Phase 1 (January 2026): Insight lifecycle management.
+(January 2026): Insight lifecycle management.
 """
 
 from operator import itemgetter
@@ -41,7 +41,7 @@ def create_insights_api_routes(
     async def dismiss_insight(request: Request, uid: str) -> Result[Any]:
         """Dismiss an insight (mark as dismissed).
 
-        Phase 4, Task 17: Now accepts optional notes parameter.
+        , Task 17: Now accepts optional notes parameter.
 
         Args:
             request: HTTP request with authentication (optional JSON body with notes)
@@ -80,7 +80,7 @@ def create_insights_api_routes(
     async def mark_insight_actioned(request: Request, uid: str) -> Result[Any]:
         """Mark an insight as actioned.
 
-        Phase 4, Task 17: Now accepts optional notes parameter.
+        , Task 17: Now accepts optional notes parameter.
 
         Args:
             request: HTTP request with authentication (optional JSON body with notes)
@@ -123,13 +123,13 @@ def create_insights_api_routes(
         )
 
     # ========================================
-    # Phase 2, Task 9: Bulk Action Endpoints
+    # , Task 9: Bulk Action Endpoints
     # ========================================
 
     @rt("/api/insights/bulk/dismiss", methods=["POST"])
     @boundary_handler(success_status=200)
     async def bulk_dismiss_insights(request: Request) -> Result[Any]:
-        """Bulk dismiss multiple insights (Phase 2, Task 9).
+        """Bulk dismiss multiple insights.
 
         Args:
             request: HTTP request with JSON body containing insight UIDs
@@ -175,7 +175,7 @@ def create_insights_api_routes(
     @rt("/api/insights/bulk/action", methods=["POST"])
     @boundary_handler(success_status=200)
     async def bulk_action_insights(request: Request) -> Result[Any]:
-        """Bulk mark insights as actioned (Phase 2, Task 9).
+        """Bulk mark insights as actioned.
 
         Args:
             request: HTTP request with JSON body containing insight UIDs
@@ -221,7 +221,7 @@ def create_insights_api_routes(
     @rt("/api/insights/bulk/smart-dismiss", methods=["POST"])
     @boundary_handler(success_status=200)
     async def smart_dismiss_insights(request: Request) -> Result[Any]:
-        """Smart bulk dismiss (dismiss all insights matching filter) (Phase 2, Task 9).
+        """Smart bulk dismiss (dismiss all insights matching filter).
 
         Args:
             request: HTTP request with JSON body containing filter_type and filter_value
@@ -361,7 +361,7 @@ def create_insights_api_routes(
         return result_typed
 
     # ========================================
-    # Phase 2: Chart Visualization Endpoints
+    # Chart Visualization Endpoints
     # ========================================
 
     @rt("/api/insights/charts/impact-distribution")
@@ -580,13 +580,13 @@ def create_insights_api_routes(
         return Result.ok(chart_config)
 
     # ========================================
-    # Phase 3, Task 13: Detail Modal Endpoints
+    # , Task 13: Detail Modal Endpoints
     # ========================================
 
     @rt("/api/insights/{uid}/details")
     @boundary_handler(success_status=200)
     async def get_insight_details(request: Request, uid: str) -> Result[Any]:
-        """Get detailed insight information for modal display (Phase 3, Task 13).
+        """Get detailed insight information for modal display.
 
         Args:
             request: HTTP request with authentication
@@ -633,7 +633,7 @@ def create_insights_api_routes(
     @rt("/api/insights/{uid}/snooze", methods=["POST"])
     @boundary_handler(success_status=200)
     async def snooze_insight(request: Request, uid: str) -> Result[Any]:
-        """Snooze an insight for a specified number of days (Phase 3, Task 13).
+        """Snooze an insight for a specified number of days.
 
         Args:
             request: HTTP request with authentication and JSON body
@@ -683,12 +683,12 @@ def create_insights_api_routes(
         mark_insight_actioned,
         get_active_insights,
         get_insight_stats,
-        # Phase 2: Chart endpoints
+        # Chart endpoints
         impact_distribution_chart,
         domain_distribution_chart,
         type_distribution_chart,
         action_rate_chart,
-        # Phase 3, Task 13: Detail modal endpoints
+        # , Task 13: Detail modal endpoints
         get_insight_details,
         snooze_insight,
     ]

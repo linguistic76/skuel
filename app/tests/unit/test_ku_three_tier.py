@@ -5,7 +5,7 @@ KU Three-Tier Round-Trip Tests
 Validates that business fields survive the DTO ↔ Ku round-trip,
 and that from_dict/to_dict handle enum/datetime serialization correctly.
 
-After Phase 2 decomposition: curriculum-only fields (learning metadata,
+After decomposition: curriculum-only fields (learning metadata,
 substance tracking) live on Curriculum, not Entity. Tests verify
 correct dispatch and field separation.
 """
@@ -307,7 +307,7 @@ class TestKuTypeDispatch:
 
 
 # =========================================================================
-# Phase 2: Curriculum field separation
+# Curriculum field separation
 # =========================================================================
 
 

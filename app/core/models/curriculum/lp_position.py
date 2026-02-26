@@ -8,7 +8,7 @@ operations where learning path progression guides task, habit, goal, and other d
 
 Design Principle: "How does the user's learning path position frame this operation?"
 
-Phase 3 domain-first refactor: LpPosition uses LearningPath and LearningStep models directly.
+domain-first refactor: LpPosition uses LearningPath and LearningStep models directly.
 Steps are stored in path.metadata["steps"] (list[LearningStep]).
 """
 

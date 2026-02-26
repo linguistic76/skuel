@@ -12,21 +12,21 @@ This module provides utilities for building optimized Neo4j queries that combine
 ```cypher
 // ✅ EFFICIENT - Filter first, then traverse
 MATCH (ku:Entity)
-WHERE ku.sel_category = 'self_awareness'  -- Fast indexed property filter
-  AND ku.learning_level = 'beginner'       -- Fast indexed property filter
+WHERE ku.sel_category = 'self_awareness' -- Fast indexed property filter
+  AND ku.learning_level = 'beginner' -- Fast indexed property filter
 WITH ku
-WHERE EXISTS {                              -- Graph traversal on filtered set
+WHERE EXISTS { -- Graph traversal on filtered set
   MATCH (user)-[:MASTERED]->()-[:ENABLES_KNOWLEDGE]->(ku)
 }
 RETURN ku
 
 // ❌ INEFFICIENT - Traverse first, then filter
 MATCH (ku:Entity)
-WHERE EXISTS {                              -- Graph traversal on ALL nodes
+WHERE EXISTS { -- Graph traversal on ALL nodes
   MATCH (user)-[:MASTERED]->()-[:ENABLES_KNOWLEDGE]->(ku)
 }
 WITH ku
-WHERE ku.sel_category = 'self_awareness'  -- Filter after traversal
+WHERE ku.sel_category = 'self_awareness' -- Filter after traversal
 RETURN ku
 ```
 
@@ -36,7 +36,7 @@ RETURN ku
 - Filter first = traverse fewer nodes = faster query
 
 **Created:** November 15, 2025
-**Status:** Strategic Enhancement (Phase 3 - Hybrid Query Optimization)
+**Status:** Strategic Enhancement
 """
 
 from typing import Any
@@ -128,7 +128,7 @@ class HybridQueryBuilder:
             "offset": offset,
         }
 
-        # Phase 1: Property Filters (FAST - uses indexes)
+        # Property Filters (FAST - uses indexes)
         property_conditions = []
 
         for key, value in property_filters.items():
@@ -147,12 +147,12 @@ class HybridQueryBuilder:
         if property_conditions:
             cypher_parts.append("WHERE " + " AND ".join(property_conditions))
 
-        # Phase 2: WITH clause to pass filtered results
+        # WITH clause to pass filtered results
         # This is KEY for optimization - graph patterns operate on filtered set
         if graph_patterns:
             cypher_parts.append("WITH ku")
 
-        # Phase 3: Graph Patterns (operates on filtered candidates)
+        # Graph Patterns (operates on filtered candidates)
         if graph_patterns:
             # Each pattern is a complete WHERE condition
             graph_conditions = [f"({pattern_cypher})" for pattern_cypher in graph_patterns.values()]
@@ -160,7 +160,7 @@ class HybridQueryBuilder:
             if graph_conditions:
                 cypher_parts.append("WHERE " + " AND ".join(graph_conditions))
 
-        # Phase 4: Context Enrichment (optional)
+        # Context Enrichment (optional)
         if include_context:
             cypher_parts.extend(
                 [
@@ -382,16 +382,16 @@ class QueryOptimizationPatterns:
         return """
         // ✅ EFFICIENT PATTERN
         MATCH (ku:Entity)
-        WHERE ku.sel_category = $category          -- Indexed property filter
-          AND ku.learning_level = $level            -- Indexed property filter
+        WHERE ku.sel_category = $category -- Indexed property filter
+          AND ku.learning_level = $level -- Indexed property filter
         WITH ku
-        WHERE NOT EXISTS {                          -- Graph pattern on filtered set
+        WHERE NOT EXISTS { -- Graph pattern on filtered set
             MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
             WHERE NOT EXISTS {
                 MATCH (user:User {uid: $user_uid})-[:MASTERED]->(prereq)
             }
         }
-        AND NOT EXISTS {                            -- Additional graph pattern
+        AND NOT EXISTS { -- Additional graph pattern
             MATCH (user:User {uid: $user_uid})-[:MASTERED]->(ku)
         }
         RETURN ku
@@ -408,15 +408,15 @@ class QueryOptimizationPatterns:
         return """
         // ❌ INEFFICIENT ANTI-PATTERN
         MATCH (ku:Entity)
-        WHERE NOT EXISTS {                          -- Graph traversal on ALL nodes
+        WHERE NOT EXISTS { -- Graph traversal on ALL nodes
             MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
             WHERE NOT EXISTS {
                 MATCH (user:User {uid: $user_uid})-[:MASTERED]->(prereq)
             }
         }
         WITH ku
-        WHERE ku.sel_category = $category          -- Filter after traversal
-          AND ku.learning_level = $level            -- Filter after traversal
+        WHERE ku.sel_category = $category -- Filter after traversal
+          AND ku.learning_level = $level -- Filter after traversal
         RETURN ku
         LIMIT 10
         """
@@ -431,13 +431,13 @@ class QueryOptimizationPatterns:
         return """
         // ✅ EFFICIENT PATTERN
         MATCH (user:User {uid: $user_uid})-[:PURSUING_GOAL]->(goal:Goal)
-        WHERE goal.status IN ['active', 'in_progress']  -- Filter goals first
+        WHERE goal.status IN ['active', 'in_progress'] -- Filter goals first
         WITH user, collect(goal) as active_goals
 
         MATCH (goal)-[:REQUIRES_KNOWLEDGE]->(ku:Entity)
         WHERE goal IN active_goals
-          AND ku.learning_level = $level                 -- Property filter
-          AND NOT EXISTS {                                -- Graph pattern
+          AND ku.learning_level = $level -- Property filter
+          AND NOT EXISTS { -- Graph pattern
             MATCH (user)-[:MASTERED]->(ku)
           }
         RETURN ku, collect(goal) as supporting_goals
@@ -453,22 +453,22 @@ class QueryOptimizationPatterns:
         return """
         // ✅ EFFICIENT MULTI-PATTERN
         MATCH (ku:Entity)
-        WHERE ku.sel_category = $category          -- Property filter (indexed)
-          AND ku.learning_level = $level            -- Property filter (indexed)
-          AND ku.content_type = $content_type       -- Property filter (indexed)
+        WHERE ku.sel_category = $category -- Property filter (indexed)
+          AND ku.learning_level = $level -- Property filter (indexed)
+          AND ku.content_type = $content_type -- Property filter (indexed)
         WITH ku
 
         // Now apply graph patterns on filtered set
-        WHERE NOT EXISTS {                          -- Pattern 1: Prerequisites met
+        WHERE NOT EXISTS { -- Pattern 1: Prerequisites met
             MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
             WHERE NOT EXISTS {
                 MATCH (user:User {uid: $user_uid})-[:MASTERED]->(prereq)
             }
         }
-        AND EXISTS {                                -- Pattern 2: Enabled by mastered
+        AND EXISTS { -- Pattern 2: Enabled by mastered
             MATCH (user:User {uid: $user_uid})-[:MASTERED]->(m)-[:ENABLES_LEARNING]->(ku)
         }
-        AND EXISTS {                                -- Pattern 3: Supports goals
+        AND EXISTS { -- Pattern 3: Supports goals
             MATCH (user)-[:PURSUING_GOAL]->(goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku)
             WHERE goal.status IN ['active', 'in_progress']
         }

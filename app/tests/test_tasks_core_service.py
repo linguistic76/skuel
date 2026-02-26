@@ -176,7 +176,7 @@ async def test_create_task_with_knowledge_inference(
     """Test task creation with knowledge inference applied."""
     # Setup - inference adds knowledge UIDs
     enhanced_dto = TaskDTO.from_dict(sample_task_dto.to_dict())
-    # Phase 2: inferred_knowledge_uids removed - relationships stored as graph edges
+    # inferred_knowledge_uids removed - relationships stored as graph edges
     # Query via TasksRelationshipService.get_task_knowledge() instead
     enhanced_dto.learning_opportunities_count = 2
 
@@ -190,7 +190,7 @@ async def test_create_task_with_knowledge_inference(
     # Verify
     assert result.is_ok
     task = result.value
-    # Phase 2: inferred_knowledge_uids removed from Task model
+    # inferred_knowledge_uids removed from Task model
     # Relationships now queried via TasksRelationshipService
     assert task.learning_opportunities_count == 2
     mock_ku_inference_service.enhance_task_dto_with_inference.assert_called_once()

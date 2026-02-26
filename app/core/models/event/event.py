@@ -20,7 +20,7 @@ Inherits common fields from UserOwnedEntity. Adds 26 event-specific fields:
 Event-specific methods: start_datetime, end_datetime, overlaps_with, is_past,
 get_summary, explain_existence, category, is_from_learning_step, from_dto.
 
-See: /.claude/plans/ku-decomposition-domain-types.md (Phase 4)
+See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 

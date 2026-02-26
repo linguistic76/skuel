@@ -1,5 +1,5 @@
 """
-Phase 3.2: Animated Transitions - Visual Feedback for Atomic Habits
+Animated Transitions - Visual Feedback for Atomic Habits
 
 This module provides animated transitions and visual feedback for key habit events.
 Animations reinforce positive behaviors and make the system feel responsive and engaging.

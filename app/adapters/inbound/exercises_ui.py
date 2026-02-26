@@ -10,7 +10,7 @@ UI for exercises (instruction templates) following SKUEL's transparency principl
 
 Uses DaisyUI/Tailwind components for clean, consistent design.
 
-Formerly assignments_ui.py — renamed per Phase 3 of Ku hierarchy refactoring.
+Formerly assignments_ui.py — renamed per of Ku hierarchy refactoring.
 """
 
 from typing import Any

@@ -2,7 +2,7 @@
 Integration Test: Knowledge Mastery→Learning Path Event-Driven Progress Updates
 ================================================================================
 
-Tests Phase 4 event-driven architecture for cross-domain dependencies.
+Tests event-driven architecture for cross-domain dependencies.
 
 This test suite verifies that:
 1. KnowledgeMastered events trigger LP progress updates
@@ -65,7 +65,7 @@ class TestKuLpEventFlow:
     async def lp_progress_service(self, event_bus, neo4j_driver):
         """Create LpProgressService with event bus and executor."""
         return LpProgressService(
-            executor=Neo4jQueryExecutor(neo4j_driver),  # Phase 4: For KU→LP Cypher queries
+            executor=Neo4jQueryExecutor(neo4j_driver),  # For KU→LP Cypher queries
             event_bus=event_bus,
         )
 

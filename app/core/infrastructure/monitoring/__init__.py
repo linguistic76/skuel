@@ -3,7 +3,7 @@ Performance Monitoring Infrastructure
 ======================================
 
 Prometheus-first metrics with in-memory cache for debugging.
-Phase 3.5 - January 2026 (Option D: Prometheus as Primary)
+- January 2026 (Option D: Prometheus as Primary)
 
 Key Components:
 - PrometheusMetrics: Source of truth for production monitoring

@@ -9,7 +9,7 @@ GRAPH-NATIVE INTEGRATION:
 CypherExecutor handles the critical step of preserving connection data during batch
 operations while ensuring it doesn't pollute node properties.
 
-CONNECTION DATA FLOW (Phase 3):
+CONNECTION DATA FLOW:
     1. YAML frontmatter → MarkdownSyncService stores in metadata._connections
     2. Here: Extract and flatten to dotted keys (Neo4j can't store nested maps)
     3. BulkIngestionEngine: Uses apoc.map.removeKeys() to exclude from node props
@@ -34,7 +34,7 @@ Example Flow:
     item = {
         "uid": "ku:test",
         "title": "Test",
-        "metadata": {...}  # Contains _connections
+        "metadata": {...} # Contains _connections
     }
 
     # Step 2: Extract connections from metadata (lines 169-177)
@@ -44,13 +44,13 @@ Example Flow:
 
     # Step 3: BulkIngestionEngine template filters connections.* from node props
     # Step 4: Cypher FOREACH creates edges:
-    #   MERGE (n)-[:REQUIRES_KNOWLEDGE]->(target {uid: "ku:A"})
-    #   MERGE (n)-[:ENABLES_KNOWLEDGE]->(target {uid: "ku:B"})
+    # MERGE (n)-[:REQUIRES_KNOWLEDGE]->(target {uid: "ku:A"})
+    # MERGE (n)-[:ENABLES_KNOWLEDGE]->(target {uid: "ku:B"})
 
     # Final Result:
     # - Node: (:Entity {uid: "ku:test", title: "Test"})
     # - Edges: (ku:test)-[:REQUIRES_KNOWLEDGE]->(ku:A)
-    #          (ku:test)-[:ENABLES_KNOWLEDGE]->(ku:B)
+    # (ku:test)-[:ENABLES_KNOWLEDGE]->(ku:B)
 
 Type Safety:
     - Generic[T] parameter ensures type-safe entity processing
@@ -219,30 +219,30 @@ class CypherExecutor[T]:
                     item = to_neo4j_node(entity)
 
                     # ========================================================================
-                    # PHASE 3 GRAPH-NATIVE: Critical Connection Data Extraction
+                    # GRAPH-NATIVE: Critical Connection Data Extraction
                     # ========================================================================
                     # Connection data flow:
-                    #   1. YAML frontmatter → MarkdownSyncService stores in metadata._connections
-                    #   2. HERE: Extract and flatten to dotted keys (Neo4j can't store nested maps)
-                    #   3. BulkIngestionEngine: Uses apoc.map.removeKeys() to exclude from node props
-                    #   4. Cypher template: Creates graph edges via FOREACH + MERGE
-                    #   5. Result: Edges exist in graph, properties don't exist in nodes
+                    # 1. YAML frontmatter → MarkdownSyncService stores in metadata._connections
+                    # 2. HERE: Extract and flatten to dotted keys (Neo4j can't store nested maps)
+                    # 3. BulkIngestionEngine: Uses apoc.map.removeKeys() to exclude from node props
+                    # 4. Cypher template: Creates graph edges via FOREACH + MERGE
+                    # 5. Result: Edges exist in graph, properties don't exist in nodes
                     #
                     # Why flatten?
-                    #   Neo4j properties cannot store nested dictionaries, but CAN use them
-                    #   in Cypher queries. By flattening {"requires": ["ku:A"]} to
-                    #   {"connections.requires": ["ku:A"]}, we make it accessible in Cypher
-                    #   via backtick escaping: item.`connections.requires`
+                    # Neo4j properties cannot store nested dictionaries, but CAN use them
+                    # in Cypher queries. By flattening {"requires": ["ku:A"]} to
+                    # {"connections.requires": ["ku:A"]}, we make it accessible in Cypher
+                    # via backtick escaping: item.`connections.requires`
                     #
                     # Example transformation:
-                    #   Input:  metadata._connections = {"requires": ["ku:A"], "enables": ["ku:B"]}
-                    #   Output: item["connections.requires"] = ["ku:A"]
-                    #           item["connections.enables"] = ["ku:B"]
+                    # Input: metadata._connections = {"requires": ["ku:A"], "enables": ["ku:B"]}
+                    # Output: item["connections.requires"] = ["ku:A"]
+                    # item["connections.enables"] = ["ku:B"]
                     #
                     # Later in BulkIngestionEngine:
-                    #   - apoc.map.removeKeys() filters out "connections.requires", "connections.enables"
-                    #   - FOREACH creates edges: MERGE (n)-[:REQUIRES_KNOWLEDGE]->(target {uid: "ku:A"})
-                    #   - Result: Node has NO connection properties, ONLY graph edges exist
+                    # - apoc.map.removeKeys() filters out "connections.requires", "connections.enables"
+                    # - FOREACH creates edges: MERGE (n)-[:REQUIRES_KNOWLEDGE]->(target {uid: "ku:A"})
+                    # - Result: Node has NO connection properties, ONLY graph edges exist
                     # ========================================================================
                     metadata = getattr(entity, "metadata", None)
                     if isinstance(metadata, dict):

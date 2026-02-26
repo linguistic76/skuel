@@ -5,7 +5,7 @@ Integration Test: Automatic Chunking During Ingestion
 Tests that KU entities automatically generate chunks during ingestion
 without requiring explicit chunking calls.
 
-Phase 1 Implementation (January 2026) - Automatic Chunking
+Implementation (January 2026) - Automatic Chunking
 """
 
 from pathlib import Path

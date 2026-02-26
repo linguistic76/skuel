@@ -51,7 +51,7 @@ class AppContainer:
     rt: Any  # FastHTML router
     services: Services  # Business services (includes SearchRouter)
     config: UnifiedConfig  # Application configuration
-    prometheus_metrics: Any  # Prometheus metrics (Phase 2 - January 2026)
+    prometheus_metrics: Any  # Prometheus metrics
 
 
 async def bootstrap_skuel() -> AppContainer:
@@ -144,17 +144,17 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
     await neo4j_adapter.connect()
     logger.info("✅ Neo4j adapter connected")
 
-    # Initialize Prometheus metrics (Phase 3.5 - January 2026)
+    # Initialize Prometheus metrics
     # Prometheus is THE source of truth for production monitoring
     prometheus_metrics = PrometheusMetrics()
     logger.info("✅ Prometheus metrics initialized (source of truth)")
 
-    # Initialize metrics cache (Phase 3.5 - January 2026)
+    # Initialize metrics cache
     # Cache provides debugging access (last 100 items) while Prometheus is primary
     metrics_cache = MetricsCache(prometheus_metrics, enabled=True)
     logger.info("✅ MetricsCache initialized (debugging access to last 100 items)")
 
-    # Initialize query metrics cache (Phase 3.6 - January 2026)
+    # Initialize query metrics cache
     # Query-level performance tracking with Prometheus as source of truth
     query_metrics_cache = QueryMetricsCache(prometheus_metrics, enabled=True)
     set_query_metrics_cache(query_metrics_cache)
@@ -164,7 +164,7 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
     event_bus = InMemoryEventBus(metrics_cache=metrics_cache)
     logger.info("✅ Event bus initialized with MetricsCache")
 
-    # Initialize metrics event handler (Phase 3 - January 2026)
+    # Initialize metrics event handler
     # Subscribes to domain events and tracks entity creation/completion
     _metrics_handler = MetricsEventHandler(event_bus, prometheus_metrics)
     logger.info("✅ MetricsEventHandler initialized and subscribed to domain events")
@@ -391,7 +391,7 @@ def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None)
         hdrs=(
             # SKUEL DaisyUI theme headers (includes HTMX, Alpine.js, custom CSS/JS)
             *daisy_headers(),
-            # Chart.js for data visualization (Phase 1, Task 2)
+            # Chart.js for data visualization
             *chartjs_headers(),
             # Disable HTMX boost completely - intercept and cancel boosted requests
             # This is a bootstrap-level fix - element-level patches don't work
@@ -548,19 +548,19 @@ async def _wire_all_routes(
 
     create_system_routes(app, rt, services)
 
-    # Monitoring routes (Phase 3 - January 2026)
+    # Monitoring routes
     from adapters.inbound.monitoring_routes import create_monitoring_routes
 
     create_monitoring_routes(app, rt, services)
     logger.info("✅ Monitoring routes registered (/api/monitoring/*)")
 
-    # Prometheus metrics endpoint (Phase 1 - Prometheus + Grafana Integration)
+    # Prometheus metrics endpoint
     from adapters.inbound.metrics_routes import create_metrics_routes
 
     create_metrics_routes(app, rt)
     logger.info("✅ Prometheus metrics endpoint registered (/metrics)")
 
-    # Insights routes (Phase 2 - Event-Driven Insights Dashboard)
+    # Insights routes
     if services.insight_store:
         from adapters.inbound.insights_routes import create_insights_routes
 
@@ -647,7 +647,7 @@ async def _wire_all_routes(
         create_lifepath_routes(app, rt, services)
         logger.info("✅ LifePath routes registered (Vision→Action bridge)")
 
-    # Phase 5: Analytics API routes
+    # Analytics API routes
     if services.cross_domain_analytics:
         from adapters.inbound.analytics_api import register_analytics_routes
 
@@ -762,13 +762,13 @@ async def _wire_all_routes(
         create_user_pins_routes(app, rt, services.user_relationships)
         logger.info("✅ User pins routes registered (4 endpoints: get, pin, unpin, reorder)")
 
-    # Orchestration API routes (Phase 1 - Essential)
+    # Orchestration API routes
     from adapters.inbound.orchestration_routes import create_orchestration_routes
 
     create_orchestration_routes(app, rt, services)
     logger.info("✅ Orchestration API routes registered (Phase 1 - Essential)")
 
-    # Advanced API routes (Phase 2 - Optional)
+    # Advanced API routes
     from adapters.inbound.advanced_routes import create_advanced_routes
 
     create_advanced_routes(app, rt, services)

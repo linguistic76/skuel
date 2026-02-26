@@ -15,7 +15,7 @@ Usage:
     rels = await KuRelationships.fetch(ku_uid, neo4j_adapter, user_uid)
     print(f"Applied in {len(rels.applied_in_task_uids)} tasks")
 
-Phase 2 (January 2026):
+(January 2026):
     Added cross-domain Activity application relationships:
     - applied_in_task_uids, required_by_goal_uids, practiced_in_event_uids
     - reinforced_by_habit_uids, informs_choice_uids, grounds_principle_uids
@@ -26,7 +26,7 @@ Knowledge Unit Relationships Helper (Graph-Native Pattern - Hybrid Design)
 Container for knowledge unit relationship data fetched from graph.
 Extends the Domain Relationships Pattern with semantic relationship support.
 
-⚠️  CRITICAL: KU relationships are SEMANTIC, not just UID lists!
+⚠️ CRITICAL: KU relationships are SEMANTIC, not just UID lists!
 ================================================================
 
 KU relationships include semantic metadata (type, confidence, source):
@@ -35,19 +35,19 @@ KU relationships include semantic metadata (type, confidence, source):
 - Source (explicit, inferred, system)
 
 ❌ WRONG - These fields were NEVER in Entity/DTO (always graph-native):
-    ku.prerequisite_uids             # AttributeError!
-    ku.enables_uids                  # AttributeError!
-    ku.related_uids                  # AttributeError!
+    ku.prerequisite_uids # AttributeError!
+    ku.enables_uids # AttributeError!
+    ku.related_uids # AttributeError!
 
 ✅ CORRECT (NEW - January 2026) - Use KuRelationships.fetch_via_unified():
     rels = await KuRelationships.fetch_via_unified(ku.uid, ku_service.relationships)
-    rels.prerequisite_uids           # ✓ List of prerequisite KU UIDs
-    rels.enables_uids                # ✓ List of enabled KU UIDs
+    rels.prerequisite_uids # ✓ List of prerequisite KU UIDs
+    rels.enables_uids # ✓ List of enabled KU UIDs
 
 ✅ ALTERNATIVE - Use KuRelationships.fetch() for rich semantic data:
     rels = await KuRelationships.fetch(ku.uid, ku_service.graph)
     rels.get_high_confidence_prerequisites()
-    rels.semantic_context            # Rich metadata when fetched
+    rels.semantic_context # Rich metadata when fetched
 
 Decision Tree: "Do I need relationship data?"
 =============================================
@@ -56,7 +56,7 @@ Q1: Am I writing code that needs to know about KU relationships?
     (prerequisites, enables, related concepts, learning paths, applications)
 
     YES → Use KuRelationships.fetch()
-    NO  → Use ku.attribute directly (e.g., ku.title, ku.domain)
+    NO → Use ku.attribute directly (e.g., ku.title, ku.domain)
 
 Q2: Do I need simple UID lists or rich semantic data?
 
@@ -546,7 +546,7 @@ class KuRelationships:
 
 
 # ========================================================================
-# HELPER QUERY FUNCTIONS (Phase 2 Implementation)
+# HELPER QUERY FUNCTIONS
 # ========================================================================
 
 

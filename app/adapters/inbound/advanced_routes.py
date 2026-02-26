@@ -1,5 +1,5 @@
 """
-Advanced Routes - Phase 2 Optional Services
+Advanced Routes - Optional Services
 ============================================
 
 Wires advanced API routes using DomainRouteConfig (Multi-Factory variant).
@@ -10,16 +10,16 @@ Extension factories:
 - create_performance_routes: Scale & speed optimization (4 endpoints)
 
 Routes:
-- GET  /events/calendar/optimize       - Optimize calendar with cognitive load balancing
-- GET  /events/calendar/cognitive-load - Analyze cognitive load for a date
-- GET  /jupyter/fetch                  - Fetch KU content for Jupyter editing
-- POST /jupyter/save                   - Save Jupyter edits back to Neo4j
-- POST /jupyter/sync-to-obsidian       - Sync changes to Obsidian
-- GET  /jupyter/detect-conflicts       - Detect Neo4j/Obsidian conflicts
-- GET  /performance/metrics            - Current performance metrics
-- GET  /performance/cache-stats        - Cache performance statistics
-- POST /performance/optimize           - Trigger optimization analysis
-- GET  /performance/scale-test         - Run scale testing simulation
+- GET /events/calendar/optimize - Optimize calendar with cognitive load balancing
+- GET /events/calendar/cognitive-load - Analyze cognitive load for a date
+- GET /jupyter/fetch - Fetch KU content for Jupyter editing
+- POST /jupyter/save - Save Jupyter edits back to Neo4j
+- POST /jupyter/sync-to-obsidian - Sync changes to Obsidian
+- GET /jupyter/detect-conflicts - Detect Neo4j/Obsidian conflicts
+- GET /performance/metrics - Current performance metrics
+- GET /performance/cache-stats - Cache performance statistics
+- POST /performance/optimize - Trigger optimization analysis
+- GET /performance/scale-test - Run scale testing simulation
 """
 
 from datetime import date

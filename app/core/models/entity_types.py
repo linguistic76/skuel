@@ -2,7 +2,7 @@
 Ku - Union Type for Domain-Specific Knowledge Types
 =====================================================
 
-After Phase 10 decomposition, Ku is a Union type alias representing any of the
+After decomposition, Ku is a Union type alias representing any of the
 15 domain-specific frozen dataclasses. The God Object is gone.
 
 For construction: Use the specific subclass (Task, Goal, etc.)

@@ -1,8 +1,8 @@
 """
-Integration Tests: Phase 4 Evidence Field & Citations
+Integration Tests: Evidence Field & Citations
 ======================================================
 
-Tests for Phase 4 implementation:
+Tests for implementation:
 - EdgeMetadata evidence field
 - Evidence helper methods
 - Provenance query builders
@@ -420,10 +420,10 @@ class TestAskesisCitationServiceIntegration:
         assert service.backend == mock_backend
 
 
-# Summary test showing complete Phase 4 workflow
+# Summary test showing complete workflow
 def test_phase4_complete_workflow():
     """
-    Integration test: Complete Phase 4 workflow.
+    Integration test: Complete workflow.
 
     This test demonstrates the full flow:
     1. Create EdgeMetadata with evidence

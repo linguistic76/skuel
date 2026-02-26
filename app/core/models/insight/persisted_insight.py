@@ -145,11 +145,11 @@ class PersistedInsight:
     # Expiration (None = never expires)
     expires_at: datetime | None = None
 
-    # Lifecycle flags (Phase 4, Task 17: Action tracking)
+    # Lifecycle flags
     dismissed: bool = False
     actioned: bool = False
 
-    # Action tracking (Phase 4, Task 17: Audit trail)
+    # Action tracking
     dismissed_at: datetime | None = None
     dismissed_notes: str = ""
     actioned_at: datetime | None = None
@@ -264,7 +264,7 @@ class PersistedInsight:
         if isinstance(expires_at, str):
             expires_at = datetime.fromisoformat(expires_at)
 
-        # Parse action tracking timestamps (Phase 4, Task 17)
+        # Parse action tracking timestamps
         dismissed_at = data.get("dismissed_at")
         if isinstance(dismissed_at, str):
             dismissed_at = datetime.fromisoformat(dismissed_at)

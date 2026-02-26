@@ -14,7 +14,7 @@ Inherits common fields from UserOwnedEntity. Adds 25 task-specific fields:
 Task-specific methods: impact_score, learning_alignment_score, is_overdue,
 days_remaining, get_summary, category, parent_goal_uid.
 
-See: /.claude/plans/ku-decomposition-domain-types.md (Phase 1)
+See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 

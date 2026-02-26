@@ -264,7 +264,7 @@ async def test_get_tasks_for_habit_success(search_service, mock_backend, sample_
 @pytest.mark.asyncio
 async def test_get_tasks_applying_knowledge_success(search_service, mock_backend, sample_tasks):
     """Test successful retrieval of tasks applying specific knowledge."""
-    # Setup - Phase 3B: Mock graph query for APPLIES_KNOWLEDGE relationships
+    # Setup - B: Mock graph query for APPLIES_KNOWLEDGE relationships
     # Tasks 1 and 4 apply ku.python.basics
     task_uids = ["task:1", "task:4"]
     mock_backend.get_related_uids.return_value = Result.ok(task_uids)

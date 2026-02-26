@@ -4,7 +4,7 @@ This is the primary pattern for displaying domain entities (Tasks, Goals,
 Habits, Events, etc.) in lists and grids. It provides consistent layout
 with priority indicators, status badges, and proper text truncation.
 
-Variant System (Phase 3, Task 4):
+Variant System:
     - CardVariant enum: DEFAULT, COMPACT, HIGHLIGHTED
     - CardConfig dataclass: Configurable styling and behavior
     - Factory methods: .default(), .compact(), .highlighted()
@@ -91,7 +91,7 @@ class CardConfig:
         custom_config = CardConfig(
             variant=CardVariant.DEFAULT,
             show_description=True,
-            description_lines=3,  # Show 3 lines instead of 2
+            description_lines=3, # Show 3 lines instead of 2
             padding_cls="p-5",
         )
     """
@@ -215,7 +215,7 @@ def EntityCard(
         # Compact card for sidebar
         EntityCard(
             title="Complete project proposal",
-            description="...",  # Won't show in compact mode
+            description="...", # Won't show in compact mode
             status="in_progress",
             priority="high",
             config=CardConfig.compact(),

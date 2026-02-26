@@ -11,13 +11,13 @@ The Askesis layer provides:
 - Integration of search, conversation, and learning
 - Pedagogical enhancements for teaching
 
-Phase 1-4 Integration (October 3, 2025):
-- Phase 1: APOC query building for user context and learning paths
-- Phase 3: GraphContext for personalized learning intelligence
-- Phase 4: QueryIntent selection for conversation-specific patterns
+-4 Integration (October 3, 2025):
+
+
+
 """
 
-__version__ = "2.1"  # Updated for Phase 1-4 integration
+__version__ = "2.1"
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime

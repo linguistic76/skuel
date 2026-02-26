@@ -682,12 +682,12 @@ async def test_count_zero_results():
 
 @pytest.mark.asyncio
 async def test_find_by_uses_cypher_generator():
-    """Test that find_by() uses UnifiedQueryBuilder internally (Phase 2)"""
+    """Test that find_by() uses UnifiedQueryBuilder internally"""
     backend, mock_session = create_mock_backend()
 
     await setup_mock_query_response(mock_session, [])
 
-    # Phase 2: UniversalBackend now uses UnifiedQueryBuilder instead of CypherGenerator directly
+    # UniversalBackend now uses UnifiedQueryBuilder instead of CypherGenerator directly
     # The test verifies that find_by() still generates correct queries
     result = await backend.find_by(priority="high")
 

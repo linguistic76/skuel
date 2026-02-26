@@ -532,7 +532,7 @@ class Query:
         ]
 
     # ========================================================================
-    # PHASE 2: Complex Graph Queries (GraphQL's Strength)
+    # Complex Graph Queries (GraphQL's Strength)
     # ========================================================================
 
     @strawberry.field

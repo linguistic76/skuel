@@ -941,7 +941,7 @@ def create_principles_ui_routes(
             ),
             # Recent reflections section
             reflection_section,
-            # Phase 5: Lateral Relationships Section
+            # Lateral Relationships Section
             EntityRelationshipsSection(
                 entity_uid=uid,
                 entity_type="principles",

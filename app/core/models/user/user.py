@@ -16,13 +16,13 @@ Three-tier position:
 - Transfer: user_dto.py (mutable DTOs)
 - Core: user.py (this file, frozen domain model)
 
-Phase 1-4 Integration (October 3, 2025):
-- Phase 1: Query building for user's entity graph
-- Phase 3: GraphContext for complete user activity view
-- Phase 4: Cross-domain user intelligence
+-4 Integration (October 3, 2025):
+
+
+
 """
 
-__version__ = "2.1"  # Updated for Phase 1-4 integration
+__version__ = "2.1"
 
 
 from dataclasses import dataclass, field
@@ -252,8 +252,8 @@ class User(BaseEntity):
 
         # Check for specific interests
         # GRAPH-NATIVE: current_goals field removed - would query via service layer
-        # if has_active_goals:  # Would use UserRelationshipService.has_active_goals(user_uid)
-        #     return QueryIntent.SPECIFIC
+        # if has_active_goals: # Would use UserRelationshipService.has_active_goals(user_uid)
+        # return QueryIntent.SPECIFIC
 
         # Default to relationship exploration
         return QueryIntent.RELATIONSHIP

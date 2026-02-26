@@ -263,7 +263,7 @@ class SearchRequest(BaseModel):
     )
 
     # ========================================================================
-    # SEMANTIC SEARCH ENHANCEMENT (Phase 1 - January 2026)
+    # SEMANTIC SEARCH ENHANCEMENT
     # ========================================================================
 
     # Enable semantic relationship boosting
@@ -485,7 +485,7 @@ class SearchRequest(BaseModel):
             'NOT EXISTS { MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity) ... }'
 
             >>> # Later, at query execution:
-            >>> params = {"user_uid": "user_123"}  # $user_uid gets filled here
+            >>> params = {"user_uid": "user_123"} # $user_uid gets filled here
             >>> results = await execute_query(cypher_with_patterns, params)
         """
         patterns = {}
@@ -675,7 +675,7 @@ class SearchRequest(BaseModel):
             'text': Use text search only
             'faceted': Use faceted property search
         """
-        # Semantic/learning-aware search takes priority (Phase 1 enhancement)
+        # Semantic/learning-aware search takes priority
         if self.has_semantic_boost():
             return "semantic"
         if self.has_learning_aware():

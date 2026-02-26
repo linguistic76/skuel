@@ -13,32 +13,32 @@ THE 14 DOMAINS COMPOSED HERE
 ----------------------------
 
 **Activity Domain Services (7):**
-    1. tasks      → TasksService      - Work items and dependencies
-    2. goals      → GoalsService      - Objectives and milestones
-    3. habits     → HabitsService     - Recurring behaviors and streaks
-    4. events     → EventsService     - Calendar items and scheduling
-    5. choices    → ChoicesService    - Decisions and outcomes
+    1. tasks → TasksService - Work items and dependencies
+    2. goals → GoalsService - Objectives and milestones
+    3. habits → HabitsService - Recurring behaviors and streaks
+    4. events → EventsService - Calendar items and scheduling
+    5. choices → ChoicesService - Decisions and outcomes
     6. principles → PrinciplesService - Values and alignment
-    7. finance    → FinanceService    - Expenses and budgets
+    7. finance → FinanceService - Expenses and budgets
 
 **Curriculum Domain Services (3):**
-    8. knowledge  → KuService         - Knowledge Units (ku:)
-    9. ls         → LsService         - Learning Steps (ls:)
-    10. lp        → LpService         - Learning Paths (lp:)
+    8. knowledge → KuService - Knowledge Units (ku:)
+    9. ls → LsService - Learning Steps (ls:)
+    10. lp → LpService - Learning Paths (lp:)
 
 **Content/Organization Domain Services (4):**
     11. reports → ReportsCoreService - File processing + journals
     12. life_path → AnalyticsLifePathService - Life goal alignment
-    14. analytics → AnalyticsService     - Statistical aggregation
+    14. analytics → AnalyticsService - Statistical aggregation
 
 THE 4 CROSS-CUTTING SYSTEMS
 ---------------------------
 
 **Foundation & Infrastructure:**
     1. user_context → UserContextBuilder - ~240 fields cross-domain state
-    2. search       → SearchOperations   - Unified search across domains
-    3. askesis      → AskesisService     - Life context synthesis
-    4. messaging    → Conversation       - Turn-based chat interface
+    2. search → SearchOperations - Unified search across domains
+    3. askesis → AskesisService - Life context synthesis
+    4. messaging → Conversation - Turn-based chat interface
 
 ARCHITECTURE PATTERNS
 ---------------------
@@ -67,19 +67,19 @@ INFRASTRUCTURE SERVICES
 -----------------------
 
 **Currently Active (Required):**
-    - Neo4j          ✅ Graph database (runs from /infra) - REQUIRED
-    - Deepgram API   ✅ Audio transcription - REQUIRED
+    - Neo4j ✅ Graph database (runs from /infra) - REQUIRED
+    - Deepgram API ✅ Audio transcription - REQUIRED
 
 **Optional AI Services:**
-    - OpenAI API     🟡 AI/LLM features and embeddings - OPTIONAL (graceful degradation)
+    - OpenAI API 🟡 AI/LLM features and embeddings - OPTIONAL (graceful degradation)
 
 **Future Services (Pre-wired but Disabled):**
-    - Redis          🟡 Distributed caching (in-memory cache currently used)
-    - Ollama         🟡 Local LLM inference (OpenAI API currently used)
+    - Redis 🟡 Distributed caching (in-memory cache currently used)
+    - Ollama 🟡 Local LLM inference (OpenAI API currently used)
     - RabbitMQ/Kafka 🟡 Message queue (in-memory event bus currently used)
-    - Prometheus     🟡 Metrics (manual monitoring currently used)
-    - Grafana        🟡 Dashboards (manual monitoring currently used)
-    - Nginx          🟡 Reverse proxy (direct access currently used)
+    - Prometheus 🟡 Metrics (manual monitoring currently used)
+    - Grafana 🟡 Dashboards (manual monitoring currently used)
+    - Nginx 🟡 Reverse proxy (direct access currently used)
 
 See: /FUTURE_SERVICES.md for detailed explanation of why these services
      are pre-wired but disabled, and when to enable them.
@@ -323,7 +323,7 @@ class Services:
     event_bus: EventBusOperations | None = None
     prometheus_metrics: "PrometheusMetrics | None" = None
 
-    # Event-driven intelligence (Phase 1 - January 2026)
+    # Event-driven intelligence
     insight_store: "InsightStore | None" = None
 
     # Note: choices moved to Activity Domains section above
@@ -343,13 +343,13 @@ class Services:
     # Analytics services (meta-service, not a domain)
     analytics: "AnalyticsService | None" = None
     cross_domain_analytics: CrossDomainAnalyticsOperations | None = (
-        None  # CrossDomainAnalyticsService - Event-driven analytics (Phase 5)
+        None  # CrossDomainAnalyticsService - Event-driven analytics
     )
 
     # Search infrastructure (One Path Forward, January 2026)
     search_router: SearchOperations | None = None  # SearchRouter - THE path for all search
 
-    # Orchestration services (Phase 1 - Essential)
+    # Orchestration services
     # Note: principles moved to Activity Domains section above
     goal_task_generator: GoalTaskGeneratorOperations | None = (
         None  # GoalTaskGenerator - Auto-generate tasks from goals
@@ -358,7 +358,7 @@ class Services:
         None  # HabitEventScheduler - Auto-schedule events from habits
     )
 
-    # Advanced services (Phase 2 - Optional)
+    # Advanced services
     calendar_optimization: "CalendarOptimizationService | None" = None
     jupyter_sync: "JupyterNeo4jSync | None" = None
     performance_optimization: "PerformanceOptimizationService | None" = None
@@ -487,7 +487,7 @@ def _create_core_services(
         transcription_backend: UniversalNeo4jBackend[Transcription],
         user_service: UserService for context operations (REQUIRED),
         event_bus: Event bus for publishing domain events (optional),
-        graph_intelligence: GraphIntelligenceService for Phase 1-4 queries (optional),
+        graph_intelligence: GraphIntelligenceService for -4 queries (optional),
         ku_inference_service: EntityInferenceService for knowledge inference (optional),
         analytics_engine: AnalyticsEngine for advanced analytics (optional),
         ku_generation_service: InsightGenerationService for knowledge generation (optional),
@@ -580,11 +580,11 @@ def _create_learning_services(
     chunking_service: Any,
     user_service: Any,
     graph_intelligence: Any,
-    llm_service: Any,  # LLMService for RAG generation (Phase 1)
-    _tasks_service: Any = None,  # Placeholder: TasksService for entity extraction (Phase 2.5)
-    _habits_service: Any = None,  # Placeholder: HabitsService for entity extraction (Phase 2.5)
-    _goals_service: Any = None,  # Placeholder: GoalsService for entity extraction (Phase 2.5)
-    _events_service: Any = None,  # Placeholder: EventsService for entity extraction (Phase 2.5)
+    llm_service: Any,  # LLMService for RAG generation
+    _tasks_service: Any = None,  # Placeholder: TasksService for entity extraction
+    _habits_service: Any = None,  # Placeholder: HabitsService for entity extraction
+    _goals_service: Any = None,  # Placeholder: GoalsService for entity extraction
+    _events_service: Any = None,  # Placeholder: EventsService for entity extraction
     event_bus: Any = None,
     prometheus_metrics: Any = None,
     query_executor: Any = None,
@@ -617,7 +617,7 @@ def _create_learning_services(
         # Create GenAI embeddings service (uses ai.text.embed())
         embeddings_service = Neo4jGenAIEmbeddingsService(
             executor=query_executor,
-            prometheus_metrics=prometheus_metrics,  # Phase 1 - Track OpenAI calls
+            prometheus_metrics=prometheus_metrics,  # Track OpenAI calls
         )
         logger.info("✅ Neo4j GenAI embeddings service created (with Prometheus instrumentation)")
 
@@ -638,7 +638,7 @@ def _create_learning_services(
     schema_service = Neo4jSchemaService(driver)
     unified_query_builder = QueryBuilder(schema_service)
 
-    # Phase 3: Create knowledge service using dynamic backends with REQUIRED query_builder
+    # Create knowledge service using dynamic backends with REQUIRED query_builder
     # January 2026: KuIntelligenceService created internally, no longer passed in
     # January 2026 - GenAI Integration: Pass vector search and embeddings services
     ku_service = KuService(
@@ -647,9 +647,9 @@ def _create_learning_services(
         neo4j_adapter=neo4j_adapter,
         chunking_service=chunking_service,
         graph_intelligence_service=graph_intelligence,
-        query_builder=unified_query_builder,  # Phase 3: QueryBuilder is now REQUIRED
+        query_builder=unified_query_builder,  # QueryBuilder is now REQUIRED
         event_bus=event_bus,  # Event-driven architecture
-        executor=query_executor,  # Phase 4: For KuOrganizationService
+        executor=query_executor,  # For KuOrganizationService
         user_service=user_service,  # January 2026: KU-Activity Integration
         vector_search_service=vector_search_service,  # January 2026: GenAI vector search
         embeddings_service=embeddings_service,  # January 2026: GenAI embeddings (THE ONLY service)
@@ -684,7 +684,7 @@ def _create_learning_services(
         ls_service=ls_service,  # Delegate LS operations to LsService
         ku_service=ku_service,
         progress_service=user_progress,
-        graph_intelligence_service=graph_intelligence,  # Phase 1-4 graph queries (REQUIRED)
+        graph_intelligence_service=graph_intelligence,  # 4 graph queries (REQUIRED)
         event_bus=event_bus,  # Event-driven architecture
         progress_backend=progress_backend,
         user_service=user_service,
@@ -704,7 +704,7 @@ def _create_learning_services(
     # NOTE: Askesis creation MOVED to compose_services() (January 2026)
     # This allows intelligence_factory to be passed at construction time (not post-wired)
     # Askesis needs: learning_paths.intelligence, graph_intelligence, user_service, llm_service,
-    #                embeddings_service, ku_service, tasks/goals/habits/events services
+    # embeddings_service, ku_service, tasks/goals/habits/events services
 
     # Create cross-domain service (circular import resolved via adaptive_lp_models.py)
     from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
@@ -724,7 +724,7 @@ def _create_learning_services(
         # NOTE: "askesis" MOVED to compose_services() (January 2026)
         "cross_domain": cross_domain_service,
         "embeddings_service": embeddings_service,  # For intelligence services
-        "vector_search_service": vector_search_service,  # For semantic search (Phase 1)
+        "vector_search_service": vector_search_service,  # For semantic search
         # Components needed for Askesis creation in compose_services()
         "graph_intelligence": graph_intelligence,
         "llm_service": llm_service,
@@ -748,7 +748,7 @@ def _create_activity_services(
     ku_inference_service: Any = None,
     analytics_engine: Any = None,
     ku_generation_service: Any = None,
-    # Event-driven insights (Phase 1 - January 2026)
+    # Event-driven insights
     insight_store: Any = None,
 ) -> dict[str, Any]:
     """Create all 6 Activity Domain services.
@@ -817,7 +817,7 @@ def _create_activity_services(
 
 
 def _create_advanced_services(_driver: Any, query_executor: Any = None) -> dict[str, Any]:
-    """Create Phase 2 advanced services."""
+    """Create advanced services."""
     from pathlib import Path
 
     from core.services.calendar_optimization_service import CalendarOptimizationService
@@ -831,7 +831,7 @@ def _create_advanced_services(_driver: Any, query_executor: Any = None) -> dict[
         "calendar_optimization": CalendarOptimizationService(),
         "jupyter_sync": JupyterNeo4jSync(executor=query_executor, vault_path=vault_path),
         "performance_optimization": PerformanceOptimizationService(),
-        "cross_domain_analytics": CrossDomainAnalyticsService(executor=query_executor),  # Phase 4
+        "cross_domain_analytics": CrossDomainAnalyticsService(executor=query_executor),
     }
 
 
@@ -865,7 +865,7 @@ async def compose_services(
         prometheus_metrics: Prometheus metrics registry (optional),
         metrics_cache: MetricsCache for performance tracking (optional)
         config: UnifiedConfig for accessing configuration (optional, will load if None)
-        prometheus_metrics: PrometheusMetrics for instrumentation (optional, Phase 2 - January 2026)
+        prometheus_metrics: PrometheusMetrics for instrumentation (optional, - January 2026)
 
     Returns:
         Result[tuple[Services, knowledge_backend]]: Success with wired services or failure
@@ -885,7 +885,7 @@ async def compose_services(
 
     try:
         # ========================================================================
-        # PHASE 0: CREATE EVENT BUS (Event-Driven Architecture)
+        # CREATE EVENT BUS (Event-Driven Architecture)
         # ========================================================================
 
         # Create event bus if not provided
@@ -897,7 +897,7 @@ async def compose_services(
         else:
             logger.info("✅ Using provided event bus")
         # ========================================================================
-        # PHASE 1: VALIDATE ALL REQUIRED DEPENDENCIES (FAIL-FAST)
+        # VALIDATE ALL REQUIRED DEPENDENCIES (FAIL-FAST)
         # ========================================================================
 
         from core.config.credential_store import get_credential
@@ -934,7 +934,7 @@ async def compose_services(
         logger.info("✅ CrossDomainQueries created")
 
         # ========================================================================
-        # PHASE 1.5: SYNC AUTH INDEXES AND CLEANUP (Startup Tasks)
+        # SYNC AUTH INDEXES AND CLEANUP (Startup Tasks)
         # ========================================================================
         from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
 
@@ -1009,7 +1009,7 @@ async def compose_services(
         logger.info("✅ Required API keys validated")
 
         # ========================================================================
-        # PHASE 2: CREATE SERVICES (All dependencies are guaranteed available)
+        # CREATE SERVICES (All dependencies are guaranteed available)
         # ========================================================================
 
         # 100% Dynamic Pattern: Instantiate UniversalNeo4jBackend directly at point of use
@@ -1043,7 +1043,7 @@ async def compose_services(
         # ACTIVITY DOMAINS - Use UniversalNeo4jBackend (requires DomainModelProtocol)
         # Domain-specific labels (NeoLabel.TASK, NeoLabel.GOAL, etc.) with
         # base_label=NeoLabel.ENTITY for multi-label CREATE: (n:Entity:Task)
-        # Phase 2 (January 2026): Pass prometheus_metrics for database instrumentation
+        # (January 2026): Pass prometheus_metrics for database instrumentation
         tasks_backend = UniversalNeo4jBackend[Task](
             driver,
             NeoLabel.TASK,
@@ -1205,7 +1205,7 @@ async def compose_services(
         ku_generation_service = InsightGenerationService()
         logger.info("✅ Analytics and inference services created")
 
-        # Create InsightStore (Phase 1: Event-Driven Architecture - January 2026)
+        # Create InsightStore
         from core.services.insight import InsightStore
 
         insight_store = InsightStore(query_executor)
@@ -1332,13 +1332,13 @@ async def compose_services(
             chunking_service=chunking_service,
             user_service=user_service,
             graph_intelligence=graph_intelligence,
-            llm_service=llm_service,  # Pass LLM service for askesis RAG (Phase 1)
-            _tasks_service=activity_services["tasks"],  # Placeholder: Phase 2.5 entity extraction
-            _habits_service=activity_services["habits"],  # Placeholder: Phase 2.5 entity extraction
-            _goals_service=activity_services["goals"],  # Placeholder: Phase 2.5 entity extraction
-            _events_service=activity_services["events"],  # Placeholder: Phase 2.5 entity extraction
+            llm_service=llm_service,  # Pass LLM service for askesis RAG
+            _tasks_service=activity_services["tasks"],  # Placeholder - not yet implemented
+            _habits_service=activity_services["habits"],  # Placeholder - not yet implemented
+            _goals_service=activity_services["goals"],  # Placeholder - not yet implemented
+            _events_service=activity_services["events"],  # Placeholder - not yet implemented
             event_bus=event_bus,  # Event-driven architecture
-            prometheus_metrics=prometheus_metrics,  # Phase 1 - Metrics instrumentation
+            prometheus_metrics=prometheus_metrics,  # Metrics instrumentation
             query_executor=query_executor,
         )
         logger.info("✅ Learning services created")
@@ -1363,7 +1363,7 @@ async def compose_services(
                     embeddings_service=embeddings_service,
                     executor=query_executor,
                     config=config,
-                    prometheus_metrics=prometheus_metrics,  # Phase 1 - Real-time metrics exposure
+                    prometheus_metrics=prometheus_metrics,  # Real-time metrics exposure
                     batch_size=25,  # Process 25 entities per batch (cost-optimized)
                     batch_interval_seconds=30,  # Run every 30 seconds
                 )
@@ -1397,7 +1397,7 @@ async def compose_services(
         askesis_core_service = AskesisCoreService(backend=askesis_backend)
         logger.info("✅ Askesis core service created (CRUD operations)")
 
-        # NOTE: Askesis service now created in PHASE 4 after intelligence_factory is available
+        # NOTE: Askesis service now created in after intelligence_factory is available
         # This eliminates post-construction wiring (January 2026 architecture evolution)
 
         # Cross-cutting AI services (askesis_ai, context_aware_ai) created below
@@ -1532,7 +1532,7 @@ async def compose_services(
         from core.services.ai_service import OpenAIService
         from core.services.content_enrichment_service import ContentEnrichmentService
 
-        # Get required API key (already validated in PHASE 1)
+        # Get required API key (already validated in )
         openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
         ai_service = OpenAIService(api_key=openai_api_key)
 
@@ -1762,7 +1762,7 @@ async def compose_services(
             user_service=user_service,  # Life path alignment
             ku_service=learning_services["ku_service"],  # Layer 0 reporting
             lp_service=learning_services["learning_paths"],  # Layer 0 reporting
-            event_bus=event_bus,  # Phase 4: Event-driven report generation
+            event_bus=event_bus,  # Event-driven report generation
         )
         logger.info("✅ Analytics service created")
 
@@ -1787,7 +1787,7 @@ async def compose_services(
         logger.info("✅ Advanced services created")
 
         # ========================================================================
-        # PHASE 3: WIRE EVENT SUBSCRIBERS (Event-Driven Architecture)
+        # WIRE EVENT SUBSCRIBERS (Event-Driven Architecture)
         # ========================================================================
 
         # Import event types
@@ -2070,7 +2070,7 @@ async def compose_services(
         # Context invalidation happens through Entity events, not separate MOC events
 
         # ========================================================================
-        # CROSS-DOMAIN EVENT SUBSCRIPTIONS (Phase 4: November 5, 2025)
+        # CROSS-DOMAIN EVENT SUBSCRIPTIONS
         # "Events over dependencies" - Eliminate service-to-service coupling
         # ========================================================================
 
@@ -2089,7 +2089,7 @@ async def compose_services(
             "✅ GoalsProgressService subscribed to HabitCompleted (automatic progress updates)"
         )
 
-        # Goal achievement → Goal recommendations (Phase 4)
+        # Goal achievement → Goal recommendations
         event_bus.subscribe(GoalAchieved, goals_service.recommendations.handle_goal_achieved)
         logger.info(
             "✅ GoalRecommendationService subscribed to GoalAchieved (intelligent recommendations)"
@@ -2113,7 +2113,7 @@ async def compose_services(
             "✅ KuPracticeService subscribed to CalendarEventCompleted (automatic practice tracking)"
         )
 
-        # Habit streak milestone → Achievement badges (Phase 4)
+        # Habit streak milestone → Achievement badges
         from core.events.habit_events import HabitStreakMilestone
 
         habits_service = activity_services["habits"]
@@ -2124,7 +2124,7 @@ async def compose_services(
             "✅ HabitAchievementService subscribed to HabitStreakMilestone (badge awarding)"
         )
 
-        # Learning path completion & knowledge mastery → Learning recommendations (Phase 4)
+        # Learning path completion & knowledge mastery → Learning recommendations
         from core.events.learning_events import KnowledgeMastered, LearningPathCompleted
 
         learning_intelligence = learning_services["learning_intelligence"]
@@ -2140,7 +2140,7 @@ async def compose_services(
             "(intelligent next-step recommendations)"
         )
 
-        # Multi-domain analytics → Track activity across all domains (Phase 4)
+        # Multi-domain analytics → Track activity across all domains
         from core.events.calendar_event_events import CalendarEventCompleted
         from core.events.habit_events import HabitCompleted
         from core.events.task_events import TaskCompleted
@@ -2161,14 +2161,14 @@ async def compose_services(
             LearningPathCompleted, cross_domain_analytics_service.handle_path_completed
         )
         # NOTE: JournalCreated subscription REMOVED (February 2026)
-        # Journal merged into Reports — cross_domain_analytics needs update in Phase 5
+        # Journal merged into Reports — cross_domain_analytics needs update in
         # to subscribe to SubmissionCreated and filter for entity_type="journal"
         logger.info(
             "✅ CrossDomainAnalyticsService subscribed to 8 event types "
             "(Tasks, Habits, Events, Expenses, Goals, Knowledge, Paths)"
         )
 
-        # Milestone achievements → Automatic report generation (Phase 4)
+        # Milestone achievements → Automatic report generation
         from core.events.goal_events import GoalAchieved
 
         event_bus.subscribe(GoalAchieved, analytics_service.handle_goal_achieved)
@@ -2344,12 +2344,12 @@ async def compose_services(
             # Notifications
             notification_service=notification_service,
             # Note: audio_service removed (Dec 2025) - use transcription service directly
-            # Reports (Phase 1 - File submission pipeline)
+            # Reports
             reports=report_service,
             reports_core=reports_core_service,  # Content management (categories, tags, bulk ops)
-            reports_sharing=report_sharing_service,  # Phase 1: Report portfolio sharing
+            reports_sharing=report_sharing_service,  # Report portfolio sharing
             report_processor=report_processor,
-            reports_query=reports_query_service,  # Phase 3 - Unified report queries
+            reports_query=reports_query_service,  # Unified report queries
             # Progress reports (February 2026)
             progress_generator=progress_generator,
             report_schedule=report_schedule_service,
@@ -2381,7 +2381,7 @@ async def compose_services(
             prometheus_metrics=prometheus_metrics,
             neo4j_driver=driver,
             query_executor=query_executor,
-            insight_store=insight_store,  # Event-driven insights (Phase 1 - January 2026)
+            insight_store=insight_store,  # Event-driven insights
             # GenAI services (Neo4j native - January 2026)
             embeddings_service=embeddings_service,
             vector_search_service=vector_search_service,
@@ -2390,7 +2390,7 @@ async def compose_services(
             progress_report_worker=progress_report_worker,
             # Analytics
             analytics=analytics_service,
-            cross_domain_analytics=advanced["cross_domain_analytics"],  # Phase 5
+            cross_domain_analytics=advanced["cross_domain_analytics"],
             # LifePath (Domain #14: The Destination)
             lifepath=lifepath_service,
             # Orchestration (Activity Domains already assigned above)
@@ -2410,7 +2410,7 @@ async def compose_services(
         )
 
         # ========================================================================
-        # PHASE 4: CREATE USER CONTEXT INTELLIGENCE (13-Domain Architecture)
+        # CREATE USER CONTEXT INTELLIGENCE (13-Domain Architecture)
         # ========================================================================
         # UserContextIntelligence = UserContext + 13 Domain Services
         # This is THE service that answers: "What should I work on next?"
@@ -2454,7 +2454,7 @@ async def compose_services(
             analytics=analytics_relationship_service,  # AnalyticsRelationshipService
             # Temporal Domain (1)
             calendar=calendar_service,
-            # Optional: Vector search for semantic enhancements (Phase 1 - January 2026)
+            # Optional: Vector search for semantic enhancements
             vector_search_service=vector_search_service,
         )
         services.context_intelligence = context_intelligence_factory
@@ -2489,7 +2489,7 @@ async def compose_services(
         logger.info("✅ Askesis service created with intelligence_factory (13-domain synthesis)")
 
         # ========================================================================
-        # PHASE 5: CREATE SEARCH ROUTER (One Path Forward, January 2026)
+        # CREATE SEARCH ROUTER (One Path Forward, January 2026)
         # ========================================================================
         # SearchRouter = THE path for all search. No fallback needed.
         # Activity Domains → graph_aware_faceted_search()

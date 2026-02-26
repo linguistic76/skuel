@@ -15,7 +15,7 @@ Submission-specific methods: get_processing_duration, get_summary.
 Leaf subclasses (Journal, AiReport, Feedback) inherit from Submission
 and force their specific ku_type. Feedback adds 2 extra fields.
 
-See: /.claude/plans/ku-decomposition-domain-types.md (Phase 8)
+See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 

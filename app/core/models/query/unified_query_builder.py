@@ -7,7 +7,7 @@ Fluent API facade that eliminates query builder confusion.
 **Problem Solved:**
 Before: 3 query builders (CypherGenerator, QueryBuilder, SemanticQueryBuilder)
         + Decision matrix needed to know which one to use
-After:  Single fluent API that routes internally
+After: Single fluent API that routes internally
 
 **Architecture:**
 - Public: Fluent API methods (for_model, semantic, template)
@@ -36,7 +36,7 @@ context = await (
     .semantic("ku.python_basics")
     .traverse(types=[SemanticRelationshipType.REQUIRES_FOUNDATION])
     .execute()
-)  # GraphDepth.DEFAULT is default
+) # GraphDepth.DEFAULT is default
 
 # Template-based queries (routes to QueryBuilder templates)
 results = await (
@@ -55,11 +55,11 @@ results = await (
 5. Internal routing - automatically picks best strategy
 
 **Migration Status:**
-- Phase 1: Facade created ✓
-- Phase 2: UniversalBackend using fluent API ✓
-- Phase 3: Services migrated to Pure Cypher ✓
-- Phase 4: CypherGenerator marked as internal ✓
-- Phase 5: APOC completely removed (October 20, 2025) ✓
+
+
+
+
+
 """
 
 from __future__ import annotations
@@ -70,7 +70,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.query._query_models import QueryIntent
 
-# Phase 4: Import from internal modules (marked with underscore prefix)
+# Import from internal modules (marked with underscore prefix)
 from core.models.query.cypher import (
     build_count_query,
     build_list_query,
@@ -168,7 +168,7 @@ class ModelQueryBuilder[T]:
         Example:
             kus = await (builder
                 .for_model(KnowledgeUnit)
-                .fulltext("python async")  # Finds KUs with "python" AND "async"
+                .fulltext("python async") # Finds KUs with "python" AND "async"
                 .limit(20)
                 .execute())
 
@@ -397,10 +397,10 @@ class SemanticQueryBuilder:
 # BatchQueryBuilder removed - Pure Cypher migration (October 20, 2025)
 # Use Pure Cypher UNWIND patterns instead of APOC batch operations:
 #
-#   UNWIND $nodes AS node_data
-#   MERGE (n:Label {uid: node_data.uid})
-#   SET n += node_data.properties
-#   RETURN count(n) as created_count
+# UNWIND $nodes AS node_data
+# MERGE (n:Label {uid: node_data.uid})
+# SET n += node_data.properties
+# RETURN count(n) as created_count
 
 
 class TemplateQueryBuilder:
@@ -452,12 +452,12 @@ class UnifiedQueryBuilder:
 
     **Pure Cypher architecture - no APOC dependencies.**
 
-    **Phase 1 Improvements (November 2025):**
+
     - Template discovery via list_templates()
     - Automatic QueryBuilder initialization
     - Template validation before execution
 
-    **Phase 2 Improvements (November 2025):**
+
     - Query optimization via optimize_query()
     - Query validation via validate_query()
     - Query explanation via explain_query()
@@ -477,13 +477,13 @@ class UnifiedQueryBuilder:
         # Templates (auto-initialized, validated)
         await UnifiedQueryBuilder(executor).template("search").params(...).execute()
 
-        # Query optimization (NEW in Phase 2!)
+        # Query optimization (NEW in !)
         result = await UnifiedQueryBuilder(executor).optimize_query(cypher_query)
 
-        # Query validation (NEW in Phase 2!)
+        # Query validation (NEW in !)
         validation = await UnifiedQueryBuilder(executor).validate_query(cypher_query)
 
-        # Query explanation (NEW in Phase 2!)
+        # Query explanation (NEW in !)
         explanation = UnifiedQueryBuilder(executor).explain_query(cypher_query)
 
         # Graph context
@@ -521,7 +521,7 @@ class UnifiedQueryBuilder:
 
         Example:
             tasks = await (builder
-                .for_model(Task, label="Task")  # Explicit label
+                .for_model(Task, label="Task") # Explicit label
                 .filter(priority='high', status='in_progress')
                 .order_by('due_date', desc=True)
                 .limit(50)
@@ -540,7 +540,7 @@ class UnifiedQueryBuilder:
                 .semantic("ku.python_basics")
                 .traverse(types=[SemanticRelationshipType.REQUIRES_FOUNDATION])
                 .min_confidence(0.8)
-                .execute())  # GraphDepth.DEFAULT is default
+                .execute()) # GraphDepth.DEFAULT is default
         """
         return SemanticQueryBuilder(uid, self.executor)
 
@@ -664,7 +664,7 @@ class UnifiedQueryBuilder:
         return TemplateQueryBuilder(name, qb)
 
     # ========================================================================
-    # OPTIMIZATION BRIDGE (Phase 2 - November 2025)
+    # OPTIMIZATION BRIDGE
     # ========================================================================
 
     async def optimize_query(

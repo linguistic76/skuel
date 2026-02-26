@@ -29,7 +29,7 @@ T = TypeVar("T")
 logger = get_logger(__name__)
 
 # ============================================================================
-# PHASE 1: GRAPH-NATIVE MIGRATION - SKIP RELATIONSHIP FIELDS
+# GRAPH-NATIVE MIGRATION - SKIP RELATIONSHIP FIELDS
 # ============================================================================
 # These fields should NOT be serialized to Neo4j node properties.
 # Relationships are stored as graph edges, not node properties.
@@ -87,7 +87,7 @@ class Neo4jGenericMapper:
     Replaces thousands of lines of repetitive mapping code with a single
     implementation that uses type introspection.
 
-    Phase 1 Graph-Native Migration:
+    Graph-Native Migration:
     - Relationship fields are skipped during serialization
     - Relationships stored ONLY as Neo4j edges, not node properties
     """
@@ -121,7 +121,7 @@ class Neo4jGenericMapper:
         node_data: dict[str, Any] = {}
 
         for field in fields(entity):
-            # Phase 1: Skip relationship fields - these become graph edges
+            # Skip relationship fields - these become graph edges
             if field.name in RELATIONSHIP_SKIP_FIELDS:
                 continue
 
@@ -659,14 +659,14 @@ from core.models.task_pure import TaskPure
 class Neo4jTasksBackend:
     async def create_task(self, task: TaskPure) -> TaskPure:
         # OLD: props = task_to_node(task)
-        props = to_neo4j_node(task)  # NEW: Generic mapper
+        props = to_neo4j_node(task) # NEW: Generic mapper
 
         cypher = "CREATE (t:Task $props) RETURN t"
         records = await self.neo4j.execute_query(cypher, {"props": props})
 
         if records:
             # OLD: return node_to_pure(dict(records[0]["t"]))
-            return from_neo4j_node(dict(records[0]["t"]), TaskPure)  # NEW
+            return from_neo4j_node(dict(records[0]["t"]), TaskPure) # NEW
         return task
 
 # In reports backend (generic example):

@@ -2,7 +2,7 @@
 KU API - Migrated to CRUDRouteFactory
 ======================================
 
-Sixth migration in Phase 1 CRUD API rollout.
+Sixth migration in CRUD API rollout.
 
 Before: 327 lines of manual route definitions
 After: ~270 lines
@@ -63,11 +63,11 @@ def create_ku_api_routes(
     )
 
     # Register all standard CRUD routes:
-    # - POST   /api/ku           (create)
-    # - GET    /api/ku/{uid}     (get)
-    # - PUT    /api/ku/{uid}     (update)
-    # - DELETE /api/ku/{uid}     (delete)
-    # - GET    /api/ku           (list with pagination)
+    # - POST /api/ku (create)
+    # - GET /api/ku/{uid} (get)
+    # - PUT /api/ku/{uid} (update)
+    # - DELETE /api/ku/{uid} (delete)
+    # - GET /api/ku (list with pagination)
     crud_factory.register_routes(app, rt)
 
     # ========================================================================
@@ -81,9 +81,9 @@ def create_ku_api_routes(
     )
 
     # Register intelligence routes:
-    # - GET /api/ku/context?uid=...&depth=2     (entity with graph context)
-    # - GET /api/ku/analytics?period_days=30   (user performance analytics)
-    # - GET /api/ku/insights?uid=...           (domain-specific insights)
+    # - GET /api/ku/context?uid=...&depth=2 (entity with graph context)
+    # - GET /api/ku/analytics?period_days=30 (user performance analytics)
+    # - GET /api/ku/insights?uid=... (domain-specific insights)
     intelligence_factory.register_routes(app, rt)
 
     # ========================================================================
@@ -420,20 +420,20 @@ def create_ku_api_routes(
 
 # Migration Statistics:
 # =====================
-# Phase 1 - CRUD Factory Migration:
-# Before (ku_api.py):            327 lines
-# After (CRUD factory):          ~270 lines
-# CRUD Reduction:                57 lines (17% reduction via CRUDRouteFactory)
+# - CRUD Factory Migration:
+# Before (ku_api.py): 327 lines
+# After (CRUD factory): ~270 lines
+# CRUD Reduction: 57 lines (17% reduction via CRUDRouteFactory)
 #
-# Phase 2 - Analytics Factory Migration:
-# Analytics endpoints migrated:  2 (summary, graph structure)
-# Analytics before:              ~26 lines (13 lines × 2 endpoints)
-# Analytics after:               ~20 lines (handlers + factory config)
-# Analytics Reduction:           ~6 lines (23% reduction via AnalyticsRouteFactory)
+# - Analytics Factory Migration:
+# Analytics endpoints migrated: 2 (summary, graph structure)
+# Analytics before: ~26 lines (13 lines × 2 endpoints)
+# Analytics after: ~20 lines (handlers + factory config)
+# Analytics Reduction: ~6 lines (23% reduction via AnalyticsRouteFactory)
 #
-# Total Reduction:               ~63 lines (19% overall reduction)
+# Total Reduction: ~63 lines (19% overall reduction)
 #
 # Factory usage:
-# - CRUDRouteFactory:     5 standard CRUD routes
+# - CRUDRouteFactory: 5 standard CRUD routes
 # - AnalyticsRouteFactory: 2 analytics endpoints
-# - Manual routes:        17 domain-specific routes
+# - Manual routes: 17 domain-specific routes

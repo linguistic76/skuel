@@ -2,16 +2,16 @@
 Edge Metadata Models
 ====================
 
-Metadata stored on Neo4j relationship edges for Phase 4 graph-native migration.
+Metadata stored on Neo4j relationship edges for graph-native migration.
 
-Phase 4 Graph-Native Migration (October 6, 2025):
+Graph-Native Migration (October 6, 2025):
 - Rich edge properties instead of simple relationships
 - Confidence, strength, semantic distance on every edge
 - Learning properties: difficulty gaps, typical order
 - Temporal tracking: when created, how often traversed
 - User-specific relationships possible
 
-See: /docs/migrations/GRAPH_NATIVE_MIGRATION_PLAN.md Phase 4
+See: /docs/migrations/GRAPH_NATIVE_MIGRATION_PLAN.md
 """
 
 from dataclasses import dataclass, field
@@ -339,7 +339,7 @@ class EdgeMetadata:
         )
 
     # =========================================================================
-    # EVIDENCE METHODS (Phase 4 - November 23, 2025)
+    # EVIDENCE METHODS
     # =========================================================================
 
     def has_evidence(self) -> bool:
@@ -507,7 +507,7 @@ def create_ai_inferred_metadata(
 
 
 # =========================================================================
-# EVIDENCE-AWARE HELPER FUNCTIONS (Phase 4 - November 23, 2025)
+# EVIDENCE-AWARE HELPER FUNCTIONS
 # =========================================================================
 
 

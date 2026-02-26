@@ -76,7 +76,7 @@ def build_hybrid_knowledge_search(
         "offset": offset,
     }
 
-    # Phase 1: Property Filters (FAST - uses indexes)
+    # Property Filters (FAST - uses indexes)
     property_conditions = []
 
     for key, value in property_filters.items():
@@ -95,11 +95,11 @@ def build_hybrid_knowledge_search(
     if property_conditions:
         cypher_parts.append("WHERE " + " AND ".join(property_conditions))
 
-    # Phase 2: WITH clause to pass filtered results (KEY for optimization)
+    # WITH clause to pass filtered results (KEY for optimization)
     if graph_patterns:
         cypher_parts.append("WITH ku")
 
-    # Phase 3: Graph Patterns (operates on filtered candidates)
+    # Graph Patterns (operates on filtered candidates)
     if graph_patterns:
         # Each pattern is a complete condition (may include EXISTS, NOT EXISTS, etc.)
         graph_conditions = [
@@ -109,7 +109,7 @@ def build_hybrid_knowledge_search(
         if graph_conditions:
             cypher_parts.append("WHERE " + " AND ".join(graph_conditions))
 
-    # Phase 4: Return with pagination
+    # Return with pagination
     cypher_parts.extend(
         ["", "RETURN ku", "ORDER BY ku.created_at DESC", "SKIP $offset", "LIMIT $limit"]
     )
@@ -163,14 +163,14 @@ def build_optimized_ready_to_learn(
     property_where = " AND ".join(property_filters) if property_filters else "true"
 
     cypher = f"""
-    // Phase 1: Property filters (FAST - indexed)
+    // Property filters (FAST - indexed)
     MATCH (ku:Entity)
     WHERE {property_where}
 
-    // Phase 2: WITH to pass filtered results
+    // WITH to pass filtered results
     WITH ku
 
-    // Phase 3: Graph patterns on filtered set
+    // Graph patterns on filtered set
     WHERE NOT EXISTS {{
         // Check prerequisites (relationship traversal)
         MATCH (ku)-[r:REQUIRES_KNOWLEDGE]->(prereq:Entity)
@@ -672,9 +672,9 @@ def build_weighted_path_query(
         '{weight_mode}' as aggregation_mode
     ORDER BY
         CASE '$weight_mode'
-            WHEN 'min' THEN -path_weight  // Higher min is better
-            WHEN 'sum' THEN path_weight   // Lower sum is better (cost)
-            ELSE -path_weight             // Higher product/avg is better
+            WHEN 'min' THEN -path_weight // Higher min is better
+            WHEN 'sum' THEN path_weight // Lower sum is better (cost)
+            ELSE -path_weight // Higher product/avg is better
         END
     LIMIT 10
     """

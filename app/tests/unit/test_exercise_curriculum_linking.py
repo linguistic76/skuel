@@ -2,7 +2,7 @@
 Exercise-Curriculum Linking Tests
 ==================================
 
-Validates Phase 4 of Ku hierarchy refactoring:
+Validates of Ku hierarchy refactoring:
 - EXERCISE_CONFIG in relationship registry
 - ExerciseService curriculum linking methods
 - ExerciseOperations protocol compliance

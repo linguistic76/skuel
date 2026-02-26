@@ -123,8 +123,8 @@ def InsightCard(insight: PersistedInsight) -> Div:
             )
 
     # Action buttons (Dismiss, Mark as Actioned, and View Entity)
-    # Phase 2, Task 10: Responsive button sizing - btn-md on mobile, btn-sm on desktop
-    # Phase 3, Task 11: Add "View Entity" link for deep linking to profile
+    # , Task 10: Responsive button sizing - btn-md on mobile, btn-sm on desktop
+    # , Task 11: Add "View Entity" link for deep linking to profile
     action_buttons_list = [
         Form(
             Button(
@@ -148,7 +148,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
         ),
     ]
 
-    # Add "View Entity" button if entity_uid exists (Phase 3, Task 11)
+    # Add "View Entity" button if entity_uid exists
     if insight.entity_uid:
         from fasthtml.common import A
 
@@ -162,7 +162,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
             )
         )
 
-    # Add "View Details" button for modal (Phase 3, Task 13)
+    # Add "View Details" button for modal
     action_buttons_list.insert(
         0,  # Insert at beginning
         Button(
@@ -180,7 +180,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
     content.append(Div(action_buttons, cls="mt-4 pt-3 border-t border-base-200"))
 
     # Card with impact-based border
-    # Phase 3, Task 13: Wrap in Alpine component for modal
+    # , Task 13: Wrap in Alpine component for modal
     card = Card(
         *content,
         cls=f"border-l-4 {border_cls}",
@@ -237,7 +237,7 @@ def InsightMiniCard(insight: PersistedInsight, show_domain: bool = False) -> Div
         domain_badge = Badge(insight.domain, variant="neutral")
         badges.append(domain_badge)
 
-    # Phase 3, Task 11: Deep linking - determine link URL based on entity_uid
+    # , Task 11: Deep linking - determine link URL based on entity_uid
     # If entity_uid exists, deep link to profile with focus parameter
     # Otherwise, fall back to filtered insights page
     link_url = (
@@ -296,7 +296,7 @@ def DismissedInsightMessage() -> Div:
 
 
 def InsightDetailModal(insight: PersistedInsight) -> Div:
-    """Modal dialog for viewing detailed insight information (Phase 3, Task 13).
+    """Modal dialog for viewing detailed insight information.
 
     Shows:
     - Full description and supporting data

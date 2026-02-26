@@ -43,7 +43,7 @@ class GraphQLContext:
     knowledge_loader: DataLoader[str, Any]
     task_loader: DataLoader[str, Any]
     learning_path_loader: DataLoader[str, Any]
-    learning_step_loader: DataLoader[str, Any]  # NEW: Phase 4
+    learning_step_loader: DataLoader[str, Any]  # NEW:
 
     # Request metadata
     user_uid: str | None = None
@@ -113,7 +113,7 @@ async def batch_load_learning_steps(keys: list[str], context: GraphQLContext) ->
     """
     Batch load learning steps by UIDs with metrics logging.
 
-    Phase 4: Prevents N+1 queries when loading steps for multiple paths.
+    Prevents N+1 queries when loading steps for multiple paths.
 
     Args:
         keys: List of learning step UIDs to batch load

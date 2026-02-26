@@ -1,10 +1,10 @@
 """
-Analytics API Routes (Phase 5)
+Analytics API Routes
 ================================
 
 Event-driven analytics API for querying live metrics.
 
-**Phase 5 Enhancement:**
+
 - Exposes analytics data from CrossDomainAnalyticsService
 - Real-time metrics via Neo4j + in-memory caching
 - Event-driven updates (no polling needed)
@@ -177,7 +177,7 @@ def register_analytics_routes(app, services):
         return result
 
     # ========================================================================
-    # PRODUCTIVITY ANALYTICS (Phase 5 New)
+    # PRODUCTIVITY ANALYTICS
     # ========================================================================
 
     @rt("/api/analytics/productivity")
@@ -220,7 +220,7 @@ def register_analytics_routes(app, services):
         return result
 
     # ========================================================================
-    # HABIT CONSISTENCY ANALYTICS (Phase 5 New)
+    # HABIT CONSISTENCY ANALYTICS
     # ========================================================================
 
     @rt("/api/analytics/habit-consistency")
