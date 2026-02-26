@@ -145,12 +145,13 @@ def create_admin_dashboard_routes(_app, rt, services):
             ),
         )
 
-        return create_admin_page(
+        return await create_admin_page(
             content=content,
             active_section="overview",
             admin_username=current_user.display_name or current_user.title,
             title="Admin Dashboard",
             system_status=system_status.get("status", "unknown"),
+            request=request,
         )
 
     # ========================================================================
@@ -225,12 +226,13 @@ def create_admin_dashboard_routes(_app, rt, services):
             ),
         )
 
-        return create_admin_page(
+        return await create_admin_page(
             content=content,
             active_section="users",
             admin_username=current_user.display_name or current_user.title,
             title="User Management",
             system_status=system_status.get("status", "unknown"),
+            request=request,
         )
 
     @rt("/admin/users/partial")
@@ -281,11 +283,12 @@ def create_admin_dashboard_routes(_app, rt, services):
                 P(f"No user found with UID: {uid}", cls="text-base-content/50"),
                 A("← Back to Users", href="/admin/users", cls="btn btn-ghost mt-4"),
             )
-            return create_admin_page(
+            return await create_admin_page(
                 content=content,
                 active_section="users",
                 admin_username=current_user.display_name or current_user.title,
                 title="User Not Found",
+            request=request,
             )
 
         user = result.value
@@ -397,12 +400,13 @@ def create_admin_dashboard_routes(_app, rt, services):
             ),
         )
 
-        return create_admin_page(
+        return await create_admin_page(
             content=content,
             active_section="users",
             admin_username=current_user.display_name or current_user.title,
             title=f"User: {user_data['display_name'] or user_data['username']}",
             system_status=system_status.get("status", "unknown"),
+            request=request,
         )
 
     @rt("/admin/users/{uid}/role-form")
@@ -517,12 +521,13 @@ def create_admin_dashboard_routes(_app, rt, services):
             AdminAnalyticsComponents.render_analytics_dashboard(analytics_data),
         )
 
-        return create_admin_page(
+        return await create_admin_page(
             content=content,
             active_section="analytics",
             admin_username=current_user.display_name or current_user.title,
             title="Analytics",
             system_status=system_status.get("status", "unknown"),
+            request=request,
         )
 
     # ========================================================================
@@ -588,12 +593,13 @@ def create_admin_dashboard_routes(_app, rt, services):
             ),
         )
 
-        return create_admin_page(
+        return await create_admin_page(
             content=content,
             active_section="system",
             admin_username=current_user.display_name or current_user.title,
             title="System Health",
             system_status=health_data.get("status", "unknown"),
+            request=request,
         )
 
     # ========================================================================
@@ -636,12 +642,13 @@ def create_admin_dashboard_routes(_app, rt, services):
             ),
         )
 
-        return create_admin_page(
+        return await create_admin_page(
             content=content,
             active_section="learning",
             admin_username=current_user.display_name or current_user.title,
             title="Learning Dashboard",
             system_status=system_status.get("status", "unknown"),
+            request=request,
         )
 
     @rt("/admin/learning/user/{uid}")
@@ -666,11 +673,12 @@ def create_admin_dashboard_routes(_app, rt, services):
                     cls="btn btn-ghost mt-4",
                 ),
             )
-            return create_admin_page(
+            return await create_admin_page(
                 content=content,
                 active_section="learning",
                 admin_username=current_user.display_name or current_user.title,
                 title="User Not Found",
+            request=request,
             )
 
         user = user_result.value
@@ -705,12 +713,13 @@ def create_admin_dashboard_routes(_app, rt, services):
             ),
         )
 
-        return create_admin_page(
+        return await create_admin_page(
             content=content,
             active_section="learning",
             admin_username=current_user.display_name or current_user.title,
             title=f"Learning: {user.display_name or user.title}",
             system_status=system_status.get("status", "unknown"),
+            request=request,
         )
 
     logger.info("Admin dashboard UI routes registered")

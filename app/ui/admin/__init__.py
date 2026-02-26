@@ -5,15 +5,11 @@ All admin routes require ADMIN role.
 """
 
 from ui.admin.layout import (
-    ADMIN_NAV_ITEMS,
-    AdminLayout,
-    AdminNavItem,
+    ADMIN_SIDEBAR_ITEMS,
     create_admin_page,
 )
 
 __all__ = [
-    "ADMIN_NAV_ITEMS",
-    "AdminLayout",
-    "AdminNavItem",
+    "ADMIN_SIDEBAR_ITEMS",
     "create_admin_page",
 ]
