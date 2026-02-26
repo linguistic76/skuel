@@ -14,7 +14,7 @@ Handles basic create, read, update, DETACH DELETE operations for knowledge units
 - Content analysis integration
 
 **Dependencies:**
-- KuOperations (backend protocol)
+- CurriculumOperations (backend protocol)
 - ContentOperations (content storage)
 - Intelligence service (content analysis)
 - Chunking service (optional RAG)
@@ -75,7 +75,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     """
@@ -259,7 +259,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         Pattern: Try chunking first, fallback to simple storage.
         """
         if self.chunking_service:
-            # Process with chunking — pass body directly, not via Ku model
+            # Process with chunking — pass body directly, not via Curriculum model
             chunking_result = await self.chunking_service.process_ku_content(
                 knowledge=None, content_body=body.strip(), format="markdown", parent_uid=uid
             )
