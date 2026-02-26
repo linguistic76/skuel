@@ -4,8 +4,8 @@ Teacher Review Service
 
 Manages the teacher review workflow for assigned Ku submissions.
 
-Reuses SHARES_WITH infrastructure. When a student submits a Ku against
-an ASSIGNED Exercise, the Ku is auto-shared with the teacher.
+Reuses SHARES_WITH infrastructure. When a student submits an entity against
+an ASSIGNED Exercise, the entity is auto-shared with the teacher.
 The teacher's review queue = Ku shared with them via role="teacher".
 
 When providing feedback or requesting revision, a FEEDBACK_REPORT Entity nodes
@@ -34,7 +34,7 @@ logger = get_logger("skuel.services.teacher_review")
 
 
 class TeacherReviewService:
-    """Service for teacher review of student Ku submissions."""
+    """Service for teacher review of student submissions."""
 
     def __init__(
         self,
@@ -186,7 +186,7 @@ class TeacherReviewService:
         feedback: str,
     ) -> Result[dict[str, Any]]:
         """
-        Submit teacher feedback for a Ku.
+        Submit teacher feedback for an entity.
 
         Creates a FEEDBACK_REPORT Entity nodes linked to the submission via FEEDBACK_FOR.
         Also writes feedback to submission's feedback field (denormalized for quick access)
@@ -464,7 +464,7 @@ class TeacherReviewService:
         student_uid = record["student_uid"] or ""
         linked_ku_uids = [uid for uid in (record["linked_ku_uids"] or []) if uid]
 
-        # Update mastery for linked curriculum Ku
+        # Update mastery for linked curriculum entities
         mastered_count = 0
         if self.ku_interaction_service and student_uid and linked_ku_uids:
             for linked_uid in linked_ku_uids:
@@ -515,7 +515,7 @@ class TeacherReviewService:
         report_uid: str,
         teacher_uid: str,
     ) -> Result[bool]:
-        """Verify teacher has SHARES_WITH access to the Ku."""
+        """Verify teacher has SHARES_WITH access to the entity."""
         query = """
         MATCH (teacher:User {uid: $teacher_uid})-[r:SHARES_WITH {role: 'teacher'}]->(ku:Entity {uid: $report_uid})
         RETURN true as has_access

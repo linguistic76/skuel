@@ -205,7 +205,7 @@ class KuUIComponents:
         """
         uid = unit.uid
 
-        # Custom renderer for connections count (computed field not in Ku dataclass)
+        # Custom renderer for connections count (computed field not in entity dataclass)
         def render_connections(value) -> Any:
             return Span(
                 f"🔗 {value} connections" if value > 0 else "🔗 No connections",

@@ -198,7 +198,7 @@ class RelationshipName(str, Enum):
     HAS_GOAL = "HAS_GOAL"
     HAS_PRINCIPLE = "HAS_PRINCIPLE"
     HAS_CHOICE = "HAS_CHOICE"
-    HAS_KU = "HAS_KU"  # Unified ownership for Ku-migrated activity domains
+    HAS_KU = "HAS_KU"  # Unified ownership for Entity-migrated activity domains
 
     # =========================================================================
     # USER LEARNING PROGRESS RELATIONSHIPS
@@ -268,7 +268,7 @@ class RelationshipName(str, Enum):
     # Teacher exercise workflow and group management
     # =========================================================================
     FOR_GROUP = "FOR_GROUP"  # (Exercise)-[:FOR_GROUP]->(Group)
-    # (Ku)-[:FULFILLS_EXERCISE]->(Exercise) - Student submission
+    # (Entity)-[:FULFILLS_EXERCISE]->(Exercise) - Student submission
     FULFILLS_EXERCISE = "FULFILLS_EXERCISE"
 
     # =========================================================================
@@ -282,7 +282,7 @@ class RelationshipName(str, Enum):
         "ASSESSMENT_OF"  # (Report)-[:ASSESSMENT_OF]->(User) - Teacher assessment targets student
     )
     FEEDBACK_FOR = (
-        "FEEDBACK_FOR"  # (Ku)-[:FEEDBACK_FOR]->(Ku) - Teacher feedback targets submission
+        "FEEDBACK_FOR"  # (Entity)-[:FEEDBACK_FOR]->(Entity) - Teacher feedback targets submission
     )
 
     # =========================================================================

@@ -84,7 +84,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
         domain_name="lp",
         search_fields=("title", "description"),  # LP: name→title, goal→description
         search_order_by="updated_at",
-        content_field="description",  # LP goal mapped to Ku description
+        content_field="description",  # LP goal mapped to Entity description
     )
 
     def __init__(self, backend: BackendOperations[LearningPath]) -> None:

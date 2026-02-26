@@ -204,7 +204,7 @@ class TestCurriculumRichContext:
         assert "graph_context" in step_dto.metadata, "metadata.graph_context missing"
         context = step_dto.metadata["graph_context"]
 
-        # Post Unified-Ku-Model: LS get_with_context uses its own override
+        # Post entity model migration: LS get_with_context uses its own override
         # with domain-specific context keys.
         assert isinstance(context, dict)
         assert len(context) > 0, "graph_context should not be empty"
@@ -338,7 +338,7 @@ class TestCurriculumRichContext:
         assert "graph_context" in path_dto.metadata, "metadata.graph_context missing"
         context = path_dto.metadata["graph_context"]
 
-        # Post Unified-Ku-Model: LP get_with_context uses its own override
+        # Post entity model migration: LP get_with_context uses its own override
         # with domain-specific context keys.
         assert isinstance(context, dict)
         assert len(context) > 0, "graph_context should not be empty"

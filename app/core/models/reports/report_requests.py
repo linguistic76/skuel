@@ -87,7 +87,7 @@ class FeedbackCreateRequest(CreateRequestBase):
 
 
 class LifePathCreateRequest(CreateRequestBase):
-    """Create a LIFE_PATH Ku (knowledge about your life direction)."""
+    """Create a LIFE_PATH entity (knowledge about your life direction)."""
 
     title: str = Field(min_length=1, max_length=200, description="Life path title")
     description: str | None = Field(None, max_length=2000, description="Life path description")
@@ -102,7 +102,7 @@ class LifePathCreateRequest(CreateRequestBase):
 
 
 class AssessmentCreateRequest(BaseModel):
-    """Request model for creating a teacher assessment (FEEDBACK_REPORT Ku)."""
+    """Request model for creating a teacher assessment (FEEDBACK_REPORT entity)."""
 
     subject_uid: str = Field(..., description="Student being assessed")
     title: str = Field(..., min_length=1, max_length=500, description="Assessment title")

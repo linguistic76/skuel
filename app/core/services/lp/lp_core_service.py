@@ -98,7 +98,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         domain_name="lp",
         search_fields=("title", "description"),  # LP: name→title, goal→description
         search_order_by="updated_at",
-        content_field="description",  # LP goal mapped to Ku description
+        content_field="description",  # LP goal mapped to Entity description
     )
 
     @property
@@ -669,7 +669,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         if not steps:
             return Result.ok(None)
 
-        # Find first incomplete step (Ku uses is_completed property)
+        # Find first incomplete step (Entity uses is_completed property)
         for step in steps:
             if not step.is_completed:
                 return Result.ok(step)

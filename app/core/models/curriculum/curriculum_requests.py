@@ -54,7 +54,7 @@ class CurriculumCreateRequest(CreateRequestBase):
 
 
 class MocCreateRequest(CreateRequestBase):
-    """Create a MOC Ku (Map of Content — KU organizing KUs). Admin-only, shared."""
+    """Create an MOC entity (Map of Content — KU organizing KUs). Admin-only, shared."""
 
     title: str = Field(min_length=1, max_length=200, description="MOC title")
     content: str | None = Field(None, description="MOC content")
@@ -64,7 +64,7 @@ class MocCreateRequest(CreateRequestBase):
 
 
 class LearningStepCreateRequest(CreateRequestBase):
-    """Create a LEARNING_STEP Ku (step in a learning path). Admin-only, shared."""
+    """Create a LEARNING_STEP entity (step in a learning path). Admin-only, shared."""
 
     title: str = Field(min_length=1, max_length=200, description="Step title")
     intent: str = Field(min_length=1, description="Step intent/purpose")
@@ -101,7 +101,7 @@ class LearningStepCreateRequest(CreateRequestBase):
 
 
 class LearningPathCreateRequest(CreateRequestBase):
-    """Create a LEARNING_PATH Ku (ordered sequence of steps). Admin-only, shared."""
+    """Create a LEARNING_PATH entity (ordered sequence of steps). Admin-only, shared."""
 
     title: str = Field(min_length=1, max_length=200, description="Learning path title")
     description: str | None = Field(None, max_length=2000, description="Path description")

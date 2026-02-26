@@ -2,7 +2,7 @@
 Integration Test: Ku Processing Pipeline
 =========================================
 
-Tests the Ku processing pipeline for file submissions.
+Tests the entity processing pipeline for file submissions.
 
 NOTE (February 2026): Tests updated for domain-first Entity model.
 Reports use EntityType.SUBMISSION discrimination.
@@ -38,7 +38,7 @@ from core.utils.result_simplified import Errors, Result
 
 @pytest.mark.asyncio
 class TestOptionAJournalsProcessing:
-    """Integration tests for Ku processing (post domain separation)."""
+    """Integration tests for entity processing (post domain separation)."""
 
     # ==========================================================================
     # FIXTURES
@@ -49,7 +49,7 @@ class TestOptionAJournalsProcessing:
         """Mock ReportsSubmissionService."""
         service = AsyncMock()
 
-        # Mock Ku with transcript type
+        # Mock entity with transcript type
         ku = Submission(
             uid="report.test_transcript",
             title="Meeting Notes",
@@ -235,7 +235,7 @@ class TestOptionAJournalsProcessing:
 
     async def test_text_processing_reads_content(self, mock_report_service):
         """Test that text files are read directly from storage."""
-        # Arrange - Create text file Ku
+        # Arrange - Create text file entity
         text_ku = Submission(
             uid="report.test_text",
             title="Notes",
@@ -282,7 +282,7 @@ class TestOptionAJournalsProcessing:
     async def test_transcription_failure_marks_report_failed(
         self, mock_report_service, mock_transcription_service
     ):
-        """Test that transcription failure marks Ku as FAILED."""
+        """Test that transcription failure marks entity as FAILED."""
         # Arrange
         mock_transcription_service.create.return_value = Result.fail(
             Errors.system(message="Transcription service unavailable", operation="create")
@@ -305,8 +305,8 @@ class TestOptionAJournalsProcessing:
         assert final_status == EntityStatus.FAILED
 
     async def test_already_processing_report_rejected(self):
-        """Test that already-processing Ku are rejected."""
-        # Arrange - Ku already in PROCESSING state
+        """Test that already-processing entities are rejected."""
+        # Arrange - entity already in PROCESSING state
         processing_ku = Submission(
             uid="report.processing",
             title="Processing",
@@ -339,7 +339,7 @@ class TestOptionAJournalsProcessing:
 
     async def test_unsupported_file_type_rejected(self):
         """Test that unsupported file types return an error."""
-        # Arrange - Ku with unsupported file type
+        # Arrange - entity with unsupported file type
         pdf_ku = Submission(
             uid="report.pdf",
             title="PDF Report",
@@ -407,7 +407,7 @@ class TestOptionAJournalsProcessing:
     async def test_no_llm_processing_in_report_pipeline(
         self, processing_pipeline, mock_report_service
     ):
-        """Test that Ku pipeline does NOT do LLM processing (domain separation)."""
+        """Test that entity pipeline does NOT do LLM processing (domain separation)."""
         # Arrange
         report_uid = "report.test_transcript"
 
@@ -426,7 +426,7 @@ class TestOptionAJournalsProcessing:
         # NOT something like "# Meeting Notes\n\n## Summary\n..."
 
     async def test_reprocess_ku_resets_status(self, processing_pipeline, mock_report_service):
-        """Test that reprocessing a Ku resets its status."""
+        """Test that reprocessing an entity resets its status."""
         # First, complete initial processing
         report_uid = "report.test_transcript"
         await processing_pipeline.process_report(report_uid)
@@ -434,7 +434,7 @@ class TestOptionAJournalsProcessing:
         # Reset the mock to track reprocessing calls
         mock_report_service.update_report_status.reset_mock()
 
-        # Now, update the Ku to COMPLETED state for reprocessing test
+        # Now, update the entity to COMPLETED state for reprocessing test
         completed_ku = Submission(
             uid="report.test_transcript",
             title="Meeting Notes",

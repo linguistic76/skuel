@@ -85,7 +85,7 @@ class EventsProgressService(BaseService["BackendOperations[Event]", Event]):
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Ku entities."""
+        """Return the graph label for Entity nodes."""
         return "Entity"
 
     # ========================================================================
@@ -95,7 +95,7 @@ class EventsProgressService(BaseService["BackendOperations[Event]", Event]):
     def _get_event_from_rich_context(
         self, event_uid: str, user_context: UserContext
     ) -> Event | None:
-        """Try to get Ku from UserContext.active_events_rich."""
+        """Try to get Entity from UserContext.active_events_rich."""
         if not user_context.active_events_rich:
             return None
 

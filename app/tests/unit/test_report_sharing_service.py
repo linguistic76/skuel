@@ -399,7 +399,7 @@ async def test_check_access_owner(sharing_service, mock_driver):
 
 @pytest.mark.asyncio
 async def test_check_access_public(sharing_service, mock_driver):
-    """Test anyone can access PUBLIC Ku."""
+    """Test anyone can access PUBLIC entity."""
     mock_driver.execute_query.return_value = Result.ok(
         [
             {
@@ -422,7 +422,7 @@ async def test_check_access_public(sharing_service, mock_driver):
 
 @pytest.mark.asyncio
 async def test_check_access_shared_with_relationship(sharing_service, mock_driver):
-    """Test user with SHARES_WITH relationship can access SHARED Ku."""
+    """Test user with SHARES_WITH relationship can access SHARED entity."""
     mock_driver.execute_query.return_value = Result.ok(
         [
             {
@@ -445,7 +445,7 @@ async def test_check_access_shared_with_relationship(sharing_service, mock_drive
 
 @pytest.mark.asyncio
 async def test_check_access_shared_without_relationship(sharing_service, mock_driver):
-    """Test user without SHARES_WITH relationship cannot access SHARED Ku."""
+    """Test user without SHARES_WITH relationship cannot access SHARED entity."""
     mock_driver.execute_query.return_value = Result.ok(
         [
             {
@@ -468,7 +468,7 @@ async def test_check_access_shared_without_relationship(sharing_service, mock_dr
 
 @pytest.mark.asyncio
 async def test_check_access_private_not_owner(sharing_service, mock_driver):
-    """Test non-owner cannot access PRIVATE Ku."""
+    """Test non-owner cannot access PRIVATE entity."""
     mock_driver.execute_query.return_value = Result.ok(
         [
             {

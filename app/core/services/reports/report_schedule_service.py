@@ -45,7 +45,7 @@ class ReportsScheduleService:
         depth: str = "standard",
     ) -> Result[KuSchedule]:
         """
-        Create a Ku generation schedule.
+        Create an entity generation schedule.
 
         Args:
             user_uid: User who owns this schedule
@@ -92,7 +92,7 @@ class ReportsScheduleService:
         return Result.ok(schedule)
 
     async def get_user_schedule(self, user_uid: str) -> Result[KuSchedule | None]:
-        """Get the user's active Ku schedule (one per user)."""
+        """Get the user's active entity schedule (one per user)."""
         result = await self.backend.find_by(user_uid=user_uid, is_active=True)
         if result.is_error:
             return Result.fail(result.expect_error())

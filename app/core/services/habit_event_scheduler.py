@@ -156,7 +156,7 @@ class HabitEventScheduler:
 
         habit = to_domain_model(habit_result.value, HabitDTO, Habit)
 
-        # Check if habit is active (is_active is a bool field on Ku)
+        # Check if habit is active (is_active is a bool field on Entity)
         if not habit.is_active:
             return Result.ok([])
 

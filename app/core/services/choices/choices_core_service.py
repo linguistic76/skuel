@@ -236,7 +236,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         if validation:
             return validation
 
-        # Create DTO from request using Ku factory method
+        # Create DTO from request using entity factory method
         dto = ChoiceDTO.create_choice(
             user_uid=user_uid,
             title=choice_request.title,

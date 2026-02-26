@@ -81,7 +81,7 @@ class TestCascadeDeleteTrue:
         await ku_backend.create(ku1)
         await ku_backend.create(ku2)
 
-        # Create relationship (Ku uses REQUIRES_KNOWLEDGE for prerequisites)
+        # Create relationship (Entity uses REQUIRES_KNOWLEDGE for prerequisites)
         rel_result = await ku_backend.create_relationships_batch(
             [("ku:cascade-source", "ku:cascade-target", "REQUIRES_KNOWLEDGE", None)]
         )
@@ -124,7 +124,7 @@ class TestCascadeDeleteTrue:
         await ku_backend.create(ku1)
         await ku_backend.create(ku2)
 
-        # Create relationship (Ku uses REQUIRES_KNOWLEDGE)
+        # Create relationship (Entity uses REQUIRES_KNOWLEDGE)
         await ku_backend.create_relationships_batch(
             [("ku:preserve-source", "ku:preserve-target", "REQUIRES_KNOWLEDGE", None)]
         )
@@ -159,7 +159,7 @@ class TestCascadeDeleteTrue:
             )
             await ku_backend.create(related)
 
-        # Create relationships to all (Ku uses REQUIRES_KNOWLEDGE)
+        # Create relationships to all (Entity uses REQUIRES_KNOWLEDGE)
         relationships = [
             ("ku:multi-center", f"ku:multi-related-{i}", "REQUIRES_KNOWLEDGE", None)
             for i in range(5)
@@ -280,7 +280,7 @@ class TestCascadeDeleteFalse:
         await ku_backend.create(ku1)
         await ku_backend.create(ku2)
 
-        # Create relationship (Ku uses REQUIRES_KNOWLEDGE)
+        # Create relationship (Entity uses REQUIRES_KNOWLEDGE)
         await ku_backend.create_relationships_batch(
             [("ku:non-cascade-source", "ku:non-cascade-target", "REQUIRES_KNOWLEDGE", None)]
         )
@@ -449,7 +449,7 @@ class TestDeleteEdgeCases:
         for node in nodes:
             await ku_backend.create(node)
 
-        # A -> B and B -> C (Ku uses REQUIRES_KNOWLEDGE)
+        # A -> B and B -> C (Entity uses REQUIRES_KNOWLEDGE)
         await ku_backend.create_relationships_batch(
             [
                 ("ku:bidir-a", "ku:bidir-b", "REQUIRES_KNOWLEDGE", None),
@@ -494,7 +494,7 @@ class TestDeleteEdgeCases:
         await ku_backend.create(ku1)
         await ku_backend.create(ku2)
 
-        # Create relationship with properties (Ku uses REQUIRES_KNOWLEDGE)
+        # Create relationship with properties (Entity uses REQUIRES_KNOWLEDGE)
         await ku_backend.create_relationships_batch(
             [
                 (

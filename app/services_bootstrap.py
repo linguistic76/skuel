@@ -2426,7 +2426,7 @@ async def compose_services(
         from core.services.user.intelligence import UserContextIntelligenceFactory
 
         # Create processing domain relationship services
-        # NOTE: JournalRelationshipService REMOVED (February 2026) - Journal merged into Ku
+        # NOTE: JournalRelationshipService REMOVED (February 2026) - Journal merged into Entity model
         # ReportsRelationshipService handles all report content relationships
         report_relationship_service = ReportsRelationshipService(backend=reports_backend)
         analytics_relationship_service = AnalyticsRelationshipService(driver)

@@ -151,7 +151,7 @@ class EntityType(str, Enum):
     # -------------------------------------------------------------------------
 
     def is_derived(self) -> bool:
-        """Check if this EntityType is derived from another Ku (has parent)."""
+        """Check if this EntityType is derived from another Entity (has parent)."""
         return self in {
             EntityType.JOURNAL,
             EntityType.SUBMISSION,

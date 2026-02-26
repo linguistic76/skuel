@@ -34,7 +34,7 @@ from core.models.request_base import CreateRequestBase
 
 
 class ChoiceOptionRequest(BaseModel):
-    """Request model for creating an option within a CHOICE Ku."""
+    """Request model for creating an option within a Choice entity."""
 
     title: str = Field(min_length=1, max_length=200, description="Option title")
     description: str = Field(default="", max_length=1000, description="Option description")
@@ -48,7 +48,7 @@ class ChoiceOptionRequest(BaseModel):
 
 
 class PrincipleExpressionRequest(BaseModel):
-    """Request model for creating an expression within a PRINCIPLE Ku."""
+    """Request model for creating an expression within a Principle entity."""
 
     context: str = Field(min_length=1, max_length=500, description="Life situation")
     behavior: str = Field(min_length=1, max_length=500, description="Expected behavior")
@@ -61,7 +61,7 @@ class PrincipleExpressionRequest(BaseModel):
 
 
 class ChoiceCreateRequest(CreateRequestBase):
-    """Create a CHOICE Ku (knowledge about decisions you make)."""
+    """Create a Choice entity (knowledge about decisions you make)."""
 
     title: str = Field(min_length=1, max_length=200, description="Choice title")
     description: str = Field(min_length=1, max_length=1000, description="Choice description")
@@ -140,7 +140,7 @@ class ChoiceOptionUpdateRequest(BaseModel):
 
 
 class PrincipleCreateRequest(CreateRequestBase):
-    """Create a PRINCIPLE Ku (knowledge about what you believe)."""
+    """Create a Principle entity (knowledge about what you believe)."""
 
     title: str = Field(min_length=1, max_length=100, description="Principle title")
     statement: str = Field(min_length=1, max_length=500, description="Core statement")

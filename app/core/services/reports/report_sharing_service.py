@@ -14,7 +14,7 @@ Access Control Rules:
 1. Owner can always view their Ku
 2. PUBLIC Ku visible to all users
 3. SHARED Ku visible to owner + users with SHARES_WITH relationship
-4. Only completed Ku can be shared (quality control)
+4. Only completed entities can be shared (quality control)
 
 See: /docs/patterns/SHARING_PATTERNS.md
 """
@@ -34,7 +34,7 @@ logger = get_logger("skuel.services.ku_sharing")
 
 
 class ReportsSharingService:
-    """Service for managing Ku sharing and access control."""
+    """Service for managing entity sharing and access control."""
 
     def __init__(self, executor: "QueryExecutor") -> None:
         """
@@ -53,11 +53,11 @@ class ReportsSharingService:
         role: str = "viewer",
     ) -> Result[bool]:
         """
-        Share a Ku with a specific user.
+        Share an entity with a specific user.
 
         Creates a SHARES_WITH relationship from recipient to Ku.
         Only the owner can share their Ku.
-        Only completed Ku can be shared.
+        Only completed entities can be shared.
 
         Args:
             ku_uid: Ku to share
@@ -157,7 +157,7 @@ class ReportsSharingService:
         ku_uid: str,
     ) -> Result[list[dict[str, Any]]]:
         """
-        Get list of users a Ku is shared with.
+        Get list of users an entity is shared with.
 
         Returns user UID, role, and share timestamp.
 
@@ -295,7 +295,7 @@ class ReportsSharingService:
         user_uid: str,
     ) -> Result[bool]:
         """
-        Check if a user can access a Ku.
+        Check if a user can access an entity.
 
         Access is granted if:
         - User is the owner
@@ -338,7 +338,7 @@ class ReportsSharingService:
         ku_type = record["ku_type"]
         has_share = record["has_share_relationship"]
 
-        # CURRICULUM Ku are always accessible
+        # CURRICULUM entities are always accessible
         if ku_type == "curriculum":
             return Result.ok(True)
         # Owner always has access
@@ -358,7 +358,7 @@ class ReportsSharingService:
         ku_uid: str,
         owner_uid: str,
     ) -> Result[bool]:
-        """Verify that a user owns a Ku."""
+        """Verify that a user owns an entity."""
         query = """
         MATCH (ku:Entity {uid: $ku_uid})
         RETURN ku.user_uid as actual_owner
@@ -394,7 +394,7 @@ class ReportsSharingService:
         self,
         ku_uid: str,
     ) -> Result[bool]:
-        """Verify that a Ku can be shared.
+        """Verify that an entity can be shared.
 
         For report/journal types: only completed Ku can be shared.
         For activity types (task, goal, etc.): active or completed Ku can be shared.

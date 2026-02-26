@@ -434,8 +434,8 @@ class TestTasksCoreOperations:
         assert created.scheduled_date is None
         # Check defaults are set
         assert created.status == EntityStatus.DRAFT
-        assert created.priority is None  # Ku default: no priority
-        assert created.duration_minutes is None  # Ku default: no duration
+        assert created.priority is None  # Entity default: no priority
+        assert created.duration_minutes is None  # Entity default: no duration
 
     async def test_task_date_ranges(self, tasks_service, test_user_uid):
         """Test creating tasks with different date ranges."""

@@ -28,7 +28,7 @@ class ReportsProcessingContext:
 
 @dataclass(frozen=True)
 class ReportsAIInsights:
-    """Parsed AI response for Ku formatting."""
+    """Parsed AI response for entity formatting."""
 
     title: str
     formatted_content: str

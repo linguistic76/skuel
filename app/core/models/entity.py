@@ -179,7 +179,7 @@ class Entity:
     # =========================================================================
 
     def is_shareable(self) -> bool:
-        """Only completed Ku can be shared (quality control)."""
+        """Only completed entities can be shared (quality control)."""
         return self.status == EntityStatus.COMPLETED
 
     def can_view(self, _viewer_uid: str, _shared_user_uids: set[str] | None = None) -> bool:

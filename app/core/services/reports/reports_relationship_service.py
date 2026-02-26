@@ -117,7 +117,7 @@ class ReportsRelationshipService:
             Count of relationships created (0 or 1)
         """
         if not user_uid:
-            return 0  # CURRICULUM Ku don't have temporal chains per user
+            return 0  # CURRICULUM entities don't have temporal chains per user
 
         cypher = """
         MATCH (new:Entity {uid: $ku_uid})
@@ -301,7 +301,7 @@ class ReportsRelationshipService:
 
     async def get_report_summary(self, ku_uid: str) -> Result[dict[str, int]]:
         """
-        Get comprehensive relationship summary for a Ku.
+        Get comprehensive relationship summary for an entity.
 
         Returns counts for all relationship types.
 

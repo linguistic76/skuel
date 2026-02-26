@@ -97,7 +97,7 @@ async def test_create_vector_index_manually(neo4j_driver, clean_neo4j):
 async def test_embedding_generation_and_storage(neo4j_driver, clean_neo4j, mock_embeddings_service):
     """Test embedding generation and storage in Neo4j."""
 
-    # Create test Ku without embedding
+    # Create test entity without embedding
     create_query = """
     CREATE (ku:Entity {
         uid: 'ku.test_embedding',

@@ -352,7 +352,7 @@ class TestLearningAwareSearch:
 
     @pytest.mark.asyncio
     async def test_learning_aware_non_ku_label(self, vector_search_service):
-        """Test that non-Ku labels fall back to standard search."""
+        """Test that non-Entity labels fall back to standard search."""
 
         standard_results = [{"node": {"uid": "task.test", "title": "Test Task"}, "score": 0.8}]
 

@@ -130,7 +130,7 @@ class Curriculum(Entity):
         return self.quality_score > 0 and len(self.semantic_links) > 0
 
     def is_connected(self) -> bool:
-        """Check if connected to other Ku via semantic links."""
+        """Check if connected to other entities via semantic links."""
         return len(self.semantic_links) > 0
 
     def get_all_connections(self) -> set[str]:

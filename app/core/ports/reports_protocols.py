@@ -31,7 +31,7 @@ from core.utils.result_simplified import Result
 
 @runtime_checkable
 class ReportsSubmissionOperations(Protocol):
-    """File upload and Ku management operations.
+    """File upload and entity management operations.
 
     Route consumer: ku_api.py (primary service)
     Implementation: ReportsSubmissionService
@@ -53,7 +53,7 @@ class ReportsSubmissionOperations(Protocol):
         ...
 
     async def get_report(self, uid: str) -> Result[Any | None]:
-        """Get Ku by UID. Returns Result[Ku | None]."""
+        """Get Entity by UID. Returns Result[Ku | None]."""
         ...
 
     async def list_reports(
@@ -76,7 +76,7 @@ class ReportsSubmissionOperations(Protocol):
         ...
 
     async def get_report_statistics(self, user_uid: str) -> Result[dict[str, Any]]:
-        """Get Ku statistics for a user. Returns Result[dict]."""
+        """Get entity statistics for a user. Returns Result[dict]."""
         ...
 
     async def update_processed_content(
@@ -85,7 +85,7 @@ class ReportsSubmissionOperations(Protocol):
         processed_content: str,
         processed_file_path: str | None = None,
     ) -> Result[Any]:
-        """Update processed content on a Ku. Returns Result[Ku]."""
+        """Update processed content on an entity. Returns Result[Ku]."""
         ...
 
 
@@ -98,27 +98,27 @@ class ReportsContentOperations(Protocol):
     """
 
     async def get_report(self, uid: str) -> Result[Any]:
-        """Get Ku by UID. Returns Result[Ku]."""
+        """Get Entity by UID. Returns Result[Ku]."""
         ...
 
     async def categorize_report(self, uid: str, category: str) -> Result[Any]:
-        """Set category on a Ku. Returns Result[Ku]."""
+        """Set category on an entity. Returns Result[Ku]."""
         ...
 
     async def add_tags(self, uid: str, tags: list[str]) -> Result[Any]:
-        """Add tags to a Ku. Returns Result[Ku]."""
+        """Add tags to an entity. Returns Result[Ku]."""
         ...
 
     async def remove_tags(self, uid: str, tags: list[str]) -> Result[Any]:
-        """Remove tags from a Ku. Returns Result[Ku]."""
+        """Remove tags from an entity. Returns Result[Ku]."""
         ...
 
     async def publish_report(self, uid: str) -> Result[Any]:
-        """Publish a Ku (set status to COMPLETED). Returns Result[Ku]."""
+        """Publish an entity (set status to COMPLETED). Returns Result[Ku]."""
         ...
 
     async def archive_report(self, uid: str) -> Result[Any]:
-        """Archive a Ku. Returns Result[Ku]."""
+        """Archive an entity. Returns Result[Ku]."""
         ...
 
     async def mark_as_draft(self, uid: str) -> Result[Any]:
@@ -144,15 +144,15 @@ class ReportsContentOperations(Protocol):
         ...
 
     async def bulk_categorize(self, uids: list[str], category: str) -> Result[int]:
-        """Bulk categorize Ku. Returns Result[int] (count updated)."""
+        """Bulk categorize entities. Returns Result[int] (count updated)."""
         ...
 
     async def bulk_tag(self, uids: list[str], tags: list[str]) -> Result[int]:
-        """Bulk tag Ku. Returns Result[int] (count updated)."""
+        """Bulk tag entities. Returns Result[int] (count updated)."""
         ...
 
     async def bulk_delete(self, uids: list[str], soft_delete: bool = True) -> Result[int]:
-        """Bulk delete Ku. Returns Result[int] (count deleted)."""
+        """Bulk delete entities. Returns Result[int] (count deleted)."""
         ...
 
     async def create_journal_report(
@@ -239,7 +239,7 @@ class ReportsContentSearchOperations(Protocol):
         end_date: date,
         ku_type: Any | None = None,
     ) -> Result[dict[str, Any]]:
-        """Get Ku statistics for a date range. Returns Result[dict]."""
+        """Get entity statistics for a date range. Returns Result[dict]."""
         ...
 
     async def get_recent_reports(
@@ -256,7 +256,7 @@ class ReportsContentSearchOperations(Protocol):
         ku_uid: str,
         user_uid: str,
     ) -> Result[dict[str, Any] | None]:
-        """Get journal data for a Ku. Returns Result[dict | None]."""
+        """Get journal data for an entity. Returns Result[dict | None]."""
         ...
 
 
@@ -275,7 +275,7 @@ class ReportsSharingOperations(Protocol):
         recipient_uid: str,
         role: str = "viewer",
     ) -> Result[bool]:
-        """Share a Ku with a user. Returns Result[bool]."""
+        """Share an entity with a user. Returns Result[bool]."""
         ...
 
     async def unshare_report(
@@ -291,7 +291,7 @@ class ReportsSharingOperations(Protocol):
         self,
         ku_uid: str,
     ) -> Result[list[dict[str, Any]]]:
-        """Get users a Ku is shared with. Returns Result[list[dict]]."""
+        """Get users an entity is shared with. Returns Result[list[dict]]."""
         ...
 
     async def get_reports_shared_with_me(
@@ -308,7 +308,7 @@ class ReportsSharingOperations(Protocol):
         owner_uid: str,
         visibility: Any,
     ) -> Result[bool]:
-        """Set Ku visibility level. Returns Result[bool]."""
+        """Set entity visibility level. Returns Result[bool]."""
         ...
 
     async def check_access(
@@ -316,13 +316,13 @@ class ReportsSharingOperations(Protocol):
         ku_uid: str,
         user_uid: str,
     ) -> Result[bool]:
-        """Check if user has access to Ku. Returns Result[bool]."""
+        """Check if user has access to entity. Returns Result[bool]."""
         ...
 
 
 @runtime_checkable
 class ReportsProcessingOperations(Protocol):
-    """Ku processing pipeline operations (transcription, LLM analysis).
+    """Entity processing pipeline operations (transcription, LLM analysis).
 
     Route consumer: ku_api.py, ku_ui.py
     Implementation: ReportsProcessingService
@@ -333,7 +333,7 @@ class ReportsProcessingOperations(Protocol):
         ku_uid: str,
         instructions: dict[str, Any] | None = None,
     ) -> Result[Any]:
-        """Process a Ku through the pipeline. Returns Result[Ku]."""
+        """Process an entity through the pipeline. Returns Result[Ku]."""
         ...
 
     async def reprocess_report(
@@ -341,7 +341,7 @@ class ReportsProcessingOperations(Protocol):
         ku_uid: str,
         new_instructions: dict[str, Any] | None = None,
     ) -> Result[Any]:
-        """Reprocess a Ku with new instructions. Returns Result[Ku]."""
+        """Reprocess an entity with new instructions. Returns Result[Ku]."""
         ...
 
 
@@ -469,7 +469,7 @@ class ReportsFeedbackOperations(Protocol):
 
 @runtime_checkable
 class ProgressReportGeneratorOperations(Protocol):
-    """Progress Ku generation operations.
+    """Progress report generation operations.
 
     Route consumer: ku_progress_api.py
     Implementation: ProgressReportGenerator
@@ -489,7 +489,7 @@ class ProgressReportGeneratorOperations(Protocol):
 
 @runtime_checkable
 class ReportsScheduleOperations(Protocol):
-    """Recurring progress Ku scheduling operations.
+    """Recurring progress report scheduling operations.
 
     Route consumer: ku_progress_api.py
     Implementation: ReportsScheduleService
@@ -503,11 +503,11 @@ class ReportsScheduleOperations(Protocol):
         domains: list[str] | None = None,
         depth: str = "standard",
     ) -> Result[Any]:
-        """Create a Ku generation schedule. Returns Result[KuSchedule]."""
+        """Create an entity generation schedule. Returns Result[KuSchedule]."""
         ...
 
     async def get_user_schedule(self, user_uid: str) -> Result[Any]:
-        """Get the user's active Ku schedule. Returns Result[KuSchedule | None]."""
+        """Get the user's active entity schedule. Returns Result[KuSchedule | None]."""
         ...
 
     async def update_schedule(self, uid: str, updates: dict[str, Any]) -> Result[Any]:

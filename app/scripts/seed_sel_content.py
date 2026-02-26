@@ -652,7 +652,7 @@ async def seed_sel_content(ku_backend):
 
     for ku_data in EXAMPLE_SEL_KUS:
         try:
-            # Create Ku object (prerequisites and enables are graph relationships, not fields)
+            # Create entity object (prerequisites and enables are graph relationships, not fields)
             content_body = ku_data.get("content", "")
             ku = Curriculum(
                 uid=ku_data["uid"],

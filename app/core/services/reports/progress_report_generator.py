@@ -420,7 +420,7 @@ class ProgressReportGenerator:
         return "\n".join(sections)
 
     async def _create_insight_relationships(self, ku_uid: str, insights: list[Any]) -> None:
-        """Create BASED_ON_INSIGHT relationships between Ku and insights."""
+        """Create BASED_ON_INSIGHT relationships between Entity and insights."""
         for insight in insights:
             insight_uid = getattr(insight, "uid", None)
             if not insight_uid:

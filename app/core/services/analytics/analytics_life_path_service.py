@@ -211,7 +211,7 @@ class AnalyticsLifePathService:
                     }
                 )
 
-            # Step 4: Calculate substance scores for each Ku
+            # Step 4: Calculate substance scores for each entity
             knowledge_analysis = await self._analyze_knowledge_substance(knowledge_units, user_uid)
 
             # Step 5: Calculate overall alignment score (average substance)
@@ -391,10 +391,10 @@ class AnalyticsLifePathService:
             Dict mapping domain name to contribution proportion (0.0-1.0)
         """
         # This is a simplified calculation - in full implementation,
-        # would need to query each Ku's substance breakdown by domain
+        # would need to query each entity's substance breakdown by domain
 
         # For now, return placeholder showing expected structure
-        # In real implementation, would sum substance_by_type for each Ku
+        # In real implementation, would sum substance_by_type for each entity
 
         domain_totals = {
             "habits": 0.0,

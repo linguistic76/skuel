@@ -431,7 +431,7 @@ class EntityResponse(ResponseBase):
 
 
 class EntityListResponse(ListResponseBase):
-    """Response for listing multiple Ku items."""
+    """Response for listing multiple entity items."""
 
     items: list[EntityResponse]
 
@@ -442,7 +442,7 @@ class EntityListResponse(ListResponseBase):
 
 
 class CategorizeEntityRequest(BaseModel):
-    """Request to categorize a Ku."""
+    """Request to categorize an entity."""
 
     category: str = Field(
         ...,
@@ -452,7 +452,7 @@ class CategorizeEntityRequest(BaseModel):
 
 
 class AddTagsRequest(BaseModel):
-    """Request to add tags to a Ku."""
+    """Request to add tags to an entity."""
 
     tags: list[str] = Field(
         ...,
@@ -463,27 +463,27 @@ class AddTagsRequest(BaseModel):
 
 
 class RemoveTagsRequest(BaseModel):
-    """Request to remove tags from a Ku."""
+    """Request to remove tags from an entity."""
 
     tags: list[str] = Field(..., min_length=1, description="List of tags to remove")
 
 
 class BulkCategorizeRequest(BaseModel):
-    """Request to categorize multiple Ku."""
+    """Request to categorize multiple entities."""
 
     ku_uids: list[str] = Field(..., min_length=1, description="List of Ku UIDs")
     category: str = Field(..., description="Category to assign")
 
 
 class BulkTagRequest(BaseModel):
-    """Request to tag multiple Ku."""
+    """Request to tag multiple entities."""
 
     ku_uids: list[str] = Field(..., min_length=1, description="List of Ku UIDs")
     tags: list[str] = Field(..., min_length=1, description="List of tags to add")
 
 
 class BulkDeleteRequest(BaseModel):
-    """Request to delete multiple Ku."""
+    """Request to delete multiple entities."""
 
     ku_uids: list[str] = Field(..., min_length=1, description="List of Ku UIDs to delete")
     soft_delete: bool = Field(
@@ -493,7 +493,7 @@ class BulkDeleteRequest(BaseModel):
 
 
 class ProgressReportGenerateRequest(BaseModel):
-    """Request model for on-demand progress Ku generation."""
+    """Request model for on-demand progress entity generation."""
 
     time_period: str = Field(
         default="7d",
@@ -516,7 +516,7 @@ class ProgressReportGenerateRequest(BaseModel):
 
 
 class ScheduleCreateRequest(BaseModel):
-    """Request model for creating a Ku generation schedule."""
+    """Request model for creating an entity generation schedule."""
 
     schedule_type: str = Field(
         default="weekly",
@@ -541,7 +541,7 @@ class ScheduleCreateRequest(BaseModel):
 
 
 class ScheduleUpdateRequest(BaseModel):
-    """Request model for updating a Ku schedule. All fields optional."""
+    """Request model for updating an entity schedule. All fields optional."""
 
     schedule_type: str | None = Field(
         None,

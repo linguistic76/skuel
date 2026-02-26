@@ -366,7 +366,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
         if not choice_result.value:
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
-        choice = choice_result.value  # backend.get() already returns Ku domain model
+        choice = choice_result.value  # backend.get() already returns domain model
         assert isinstance(choice, Choice)
 
         # Get cross-domain context using relationship helper (Priority 2 refactoring)
@@ -591,7 +591,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
         if not choice_result.value:
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
-        choice = choice_result.value  # backend.get() already returns Ku domain model
+        choice = choice_result.value  # backend.get() already returns domain model
 
         # Get cross-domain context with configurable depth
         if self.relationships is None:

@@ -76,7 +76,7 @@ class ReportsProcessingService:
         self, ku_uid: str, instructions: dict[str, Any] | None = None
     ) -> Result[Entity]:
         """
-        Process a Ku using appropriate processor.
+        Process an entity using appropriate processor.
 
         Routes to processor based on file type and configuration.
         Updates Ku status throughout:
@@ -134,7 +134,7 @@ class ReportsProcessingService:
             # Mark as completed
             await self.ku_submission_service.update_report_status(ku_uid, EntityStatus.COMPLETED)
 
-            # Get updated Ku
+            # Get updated entity
             updated_result = await self.ku_submission_service.get_report(ku_uid)
             if updated_result.is_error:
                 return Result.fail(updated_result.expect_error())
@@ -196,7 +196,7 @@ class ReportsProcessingService:
         Pipeline:
         1. TranscriptionService.create() + process()
         2. Journal processing if metadata indicates journal type
-        3. Update Ku with processed content
+        3. Update entity with processed content
         """
         if not self.transcription_service:
             return Result.fail(
@@ -234,7 +234,7 @@ class ReportsProcessingService:
 
         processed_content = transcript_text
 
-        # Update Ku with processed content
+        # Update entity with processed content
         update_result = await self.ku_submission_service.update_processed_content(
             uid=report.uid, processed_content=processed_content
         )
@@ -274,7 +274,7 @@ class ReportsProcessingService:
 
         Pipeline:
         1. Read text file content
-        2. Update Ku with processed content
+        2. Update entity with processed content
         """
         self.logger.info(f"Processing text report: {report.uid}")
 
@@ -286,7 +286,7 @@ class ReportsProcessingService:
 
         text_content = file_content_result.value.decode("utf-8")
 
-        # Step 2: Update Ku with processed content
+        # Step 2: Update entity with processed content
         update_result = await self.ku_submission_service.update_processed_content(
             uid=report.uid, processed_content=text_content
         )

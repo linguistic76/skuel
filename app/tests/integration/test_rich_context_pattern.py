@@ -180,7 +180,7 @@ class TestRichContextPattern:
         assert "graph_context" in task.metadata
         context = task.metadata["graph_context"]
 
-        # Post Unified-Ku-Model: entity_label="Entity" means LABEL_CONFIGS resolves to
+        # Post entity model migration: entity_label="Entity" means LABEL_CONFIGS resolves to
         # KU_CONFIG (curriculum), so context keys are curriculum-generic, not task-specific.
         # Verify that context was populated (structure depends on registry resolution).
         assert isinstance(context, dict)
@@ -236,7 +236,7 @@ class TestRichContextPattern:
         assert "graph_context" in goal.metadata
         context = goal.metadata["graph_context"]
 
-        # Post Unified-Ku-Model: entity_label="Entity" means LABEL_CONFIGS resolves to
+        # Post entity model migration: entity_label="Entity" means LABEL_CONFIGS resolves to
         # KU_CONFIG (curriculum), so context keys are curriculum-generic, not goal-specific.
         # Verify that context was populated (structure depends on registry resolution).
         assert isinstance(context, dict)

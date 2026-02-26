@@ -235,7 +235,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Ku entities."""
+        """Return the graph label for Entity nodes."""
         return "Entity"
 
     # ========================================================================

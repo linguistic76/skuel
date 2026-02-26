@@ -56,7 +56,7 @@ TEACHING_SIDEBAR_ITEMS = [
 
 
 def _status_badge(status: str) -> Span:
-    """Render a DaisyUI badge for Ku status."""
+    """Render a DaisyUI badge for entity status."""
     badge_classes = {
         "submitted": "badge-warning",
         "active": "badge-info",

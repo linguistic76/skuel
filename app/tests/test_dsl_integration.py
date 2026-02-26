@@ -121,7 +121,7 @@ class TestJournalActivityExtractor:
 
     @pytest.fixture
     def mock_ku(self):
-        """Create a mock Ku with journal content."""
+        """Create a mock entity with journal content."""
         # Use dynamic future date to avoid validation errors
         from datetime import timedelta
 

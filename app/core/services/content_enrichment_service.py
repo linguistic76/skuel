@@ -124,7 +124,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Ku entities."""
+        """Return the graph label for Entity nodes."""
         return "Entity"
 
     # ========================================================================
@@ -1355,7 +1355,7 @@ Return ONLY Markdown in this structure:
     # ========================================================================
 
     async def create(self, ku: Entity) -> Result[Entity]:
-        """Create Ku and publish event."""
+        """Create Entity and publish event."""
         result = await super().create(ku)
 
         if result.is_ok:
@@ -1373,16 +1373,16 @@ Return ONLY Markdown in this structure:
         return result
 
     async def get(self, uid: str) -> Result[Entity]:
-        """Get Ku by UID."""
+        """Get Entity by UID."""
         return await super().get(uid)
 
     async def update(self, uid: str, updates: BaseUpdatePayload | dict[str, Any]) -> Result[Entity]:
-        """Update Ku."""
+        """Update entity."""
         return await super().update(uid, updates)
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
-        """Delete Ku and publish event."""
-        # Get Ku before deletion for event data
+        """Delete Entity and publish event."""
+        # Get entity before deletion for event data
         ku_result = await self.get(uid)
         ku_user_uid = "unknown"
 
@@ -1408,7 +1408,7 @@ Return ONLY Markdown in this structure:
         return result
 
     async def list_kus(self, limit: int = 100, offset: int = 0) -> Result[list[Ku]]:
-        """List Ku with pagination."""
+        """List entities with pagination."""
         result = await self.backend.list(
             limit=limit, offset=offset, sort_by="entry_date", sort_order="desc"
         )

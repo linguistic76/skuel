@@ -96,13 +96,13 @@ class NeoLabel(str, Enum):
     PRINCIPLE_REFLECTION = "PrincipleReflection"
 
     # =========================================================================
-    # Finance Domain (non-Ku)
+    # Finance Domain (non-Entity)
     # =========================================================================
     EXPENSE = "Expense"
     INVOICE = "Invoice"
 
     # =========================================================================
-    # Organizational (non-Ku)
+    # Organizational (non-Entity)
     # =========================================================================
     GROUP = "Group"  # Teacher-student class management (ADR-040)
 

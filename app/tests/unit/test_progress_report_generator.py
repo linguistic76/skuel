@@ -98,7 +98,7 @@ class TestGenerate:
 
     @pytest.mark.asyncio
     async def test_generate_creates_ku(self, generator, mock_backend):
-        """Test that generate creates a Ku with correct type."""
+        """Test that generate creates an entity with correct type."""
         from core.utils.result_simplified import Result
 
         mock_backend.create.return_value = Result.ok(MagicMock())

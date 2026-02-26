@@ -45,8 +45,8 @@ from core.models.curriculum.exercise_dto import ExerciseDTO
 from core.models.curriculum.learning_path_dto import LearningPathDTO
 from core.models.curriculum.learning_step_dto import LearningStepDTO
 
-# Curriculum domain imports - (February 2026): LS/LP unified into Ku
-# NOTE (February 2026): Habit imports removed — Habit merged into Ku
+# Curriculum domain imports - (February 2026): LS/LP unified into Entity model
+# NOTE (February 2026): Habit imports removed — Habit merged into Entity model
 # NOTE (February 2026): Ku is now a Union type alias; use Entity (the actual class) for model_class
 from core.models.entity import Entity
 from core.models.enums import Domain
@@ -64,7 +64,7 @@ from core.models.query import QueryIntent
 from core.models.relationship_names import RelationshipName
 from core.models.task.task_dto import TaskDTO
 
-# Task and Goal domains unified into Ku (February 2026)
+# Task and Goal domains unified into Entity model (February 2026)
 Task = Entity
 Goal = Entity
 
@@ -1629,7 +1629,7 @@ KU_CONFIG = DomainRelationshipConfig(
             "enables",
             yaml_field_path="connections.enables",
         ),
-        # Incoming: Other Ku → This Ku (dependents)
+        # Incoming: Other Entity → This Entity (dependents)
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
             "Entity",
