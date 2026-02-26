@@ -555,24 +555,19 @@ When Service A needs Service B, but Service B also needs Service A:
 ### Core Architecture
 - **ARCHITECTURE_OVERVIEW.md** (this file) - Complete system architecture
 - **[FOURTEEN_DOMAIN_ARCHITECTURE.md](./FOURTEEN_DOMAIN_ARCHITECTURE.md)** - **The 14-domain vision** (DSL, graph, services)
-- **ROUTING_ARCHITECTURE.md** - Routes, services, and persistence details
-- **THREE_TIER_ARCHITECTURE.md** - Type system implementation
+- **[ROUTING_ARCHITECTURE.md](./ROUTING_ARCHITECTURE.md)** - Routes, services, and persistence details
+- **[../patterns/three_tier_type_system.md](../patterns/three_tier_type_system.md)** - Type system implementation
 
 ### Patterns & Protocols
-- **PROTOCOLS.md** - Protocol-based architecture
-- **ERROR_HANDLING.md** - Result[T] pattern
-- **GENERIC_PROGRAMMING_EVOLUTION.md** - Generic patterns
+- **[../patterns/protocol_architecture.md](../patterns/protocol_architecture.md)** - Protocol-based architecture
+- **[../patterns/ERROR_HANDLING.md](../patterns/ERROR_HANDLING.md)** - Result[T] pattern
 
 ### Domain Documentation
-- **UNIFIED_DOMAIN_ARCHITECTURE.md** - Domain relationships
-- **USER_CONTEXT_ARCHITECTURE.md** - User context system
-- **KNOWLEDGE_CENTRIC_ARCHITECTURE.md** - Knowledge-first design
-- **REPORTS_ARCHITECTURE.md** - Meta-service aggregation pattern
+- **[UNIFIED_USER_ARCHITECTURE.md](./UNIFIED_USER_ARCHITECTURE.md)** - User context system
+- **[REPORTS_ARCHITECTURE.md](./REPORTS_ARCHITECTURE.md)** - Meta-service aggregation pattern
 
 ### Database & Infrastructure
-- **NEO4J_DATABASE_ARCHITECTURE.md** - Graph database design
-- **KNOWLEDGE_GRAPH_COMPLETE.md** - Knowledge graph structure
-- **SEARCH_SYSTEM_ARCHITECTURE.md** - Semantic search
+- **[SEARCH_ARCHITECTURE.md](./SEARCH_ARCHITECTURE.md)** - Semantic search
 
 ---
 
@@ -591,7 +586,7 @@ When Service A needs Service B, but Service B also needs Service A:
 ### One Path Forward
 - Single, clear way to accomplish tasks
 - No backward compatibility burden
-- Deprecated code archived, not maintained
+- Dead code deleted, not archived
 
 ### Knowledge-First Design
 - All operations connect to knowledge
