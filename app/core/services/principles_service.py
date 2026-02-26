@@ -315,7 +315,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Principle (Ku) entities."""
+        """Return the graph label for Principle entities."""
         return "Entity"
 
     # ========================================================================
@@ -487,7 +487,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
         return await self.search.get_prioritized(user_context, limit=limit)
 
     # ========================================================================
-    # PRINCIPLE EXPRESSIONS — Inline list on Ku model
+    # PRINCIPLE EXPRESSIONS — Inline list on Principle entity
     # ========================================================================
 
     async def create_principle_expression(
@@ -588,7 +588,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
         )
 
     # ========================================================================
-    # ALIGNMENT HISTORY — Inline list on Ku model
+    # ALIGNMENT HISTORY — Inline list on Principle entity
     # ========================================================================
 
     async def get_principle_alignment_history(
