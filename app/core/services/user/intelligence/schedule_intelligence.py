@@ -5,7 +5,7 @@ Schedule Intelligence Mixin
 Method 8 of UserContextIntelligence:
 - get_schedule_aware_recommendations() - Recommendations considering schedule and capacity
 
-**Phase 4 Addition:** Schedule-aware recommendations take into account:
+Schedule-aware recommendations take into account:
 - Current events and scheduled activities
 - Energy levels and preferred times
 - Available time slots
@@ -47,7 +47,7 @@ class ScheduleIntelligenceMixin:
         """
         Get recommendations that consider the user's schedule and capacity.
 
-        **Phase 4 Addition:** This method synthesizes:
+        This method synthesizes:
         - Current events and scheduled activities (Calendar domain)
         - Available time slots and capacity
         - Energy levels and preferred times
