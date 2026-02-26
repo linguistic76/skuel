@@ -1766,7 +1766,7 @@ SHOW VECTOR INDEXES
 ## Deep Dive Resources
 
 **Architecture:**
-- [NEO4J_DATABASE_ARCHITECTURE.md](/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md) - Graph database architecture
+- [Query Architecture](/docs/patterns/query_architecture.md) - Graph database architecture
 - [SEARCH_ARCHITECTURE.md](/docs/architecture/SEARCH_ARCHITECTURE.md) - Unified search with vector search
 - [ADR-034](/docs/decisions/ADR-034-semantic-search-phase1-enhancement.md) - Semantic search enhancement
 

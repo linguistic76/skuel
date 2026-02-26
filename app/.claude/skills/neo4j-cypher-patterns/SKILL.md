@@ -239,7 +239,7 @@ RETURN t
 ## Deep Dive Resources
 
 **Architecture:**
-- [NEO4J_DATABASE_ARCHITECTURE.md](/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md) - Graph database architecture
+- [Query Architecture](/docs/patterns/query_architecture.md) - Graph database architecture
 - [LATERAL_RELATIONSHIPS_CORE.md](/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md) - Lateral relationship patterns
 - [ADR-037](/docs/decisions/ADR-037-lateral-relationships-visualization-phase5.md) - Lateral relationships visualization
 
@@ -258,5 +258,5 @@ This skill has no prerequisites. It is a foundational pattern.
 ## See Also
 
 - `/docs/patterns/query_architecture.md` - Query architecture documentation
-- `/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md` - Database architecture
+- `/docs/patterns/query_architecture.md` - Database architecture
 - `/core/models/relationship_names.py` - RelationshipName enum (source of truth)
