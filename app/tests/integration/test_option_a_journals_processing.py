@@ -20,7 +20,7 @@ Test Coverage:
 - Error handling and failure status
 
 Implementation Date: November 10, 2025
-Updated: February 2026 (Unified Ku model - Report → Ku)
+Updated: February 2026 (Domain-first model - Report → Entity hierarchy)
 """
 
 from datetime import datetime

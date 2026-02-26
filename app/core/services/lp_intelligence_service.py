@@ -825,7 +825,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         """
         Analyze the knowledge scope of a learning path.
 
-        Uses Ku model methods to provide comprehensive curriculum analysis.
+        Uses LearningPath model methods to provide comprehensive curriculum analysis.
 
         Args:
             path_uid: Learning path identifier

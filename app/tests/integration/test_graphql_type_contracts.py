@@ -135,7 +135,7 @@ async def type_contract_test_data(neo4j_driver, clean_neo4j, ensure_test_users):
         )
 
         # Create learning steps
-        # Unified Ku model: primary_knowledge_uids is a list property
+        # primary_knowledge_uids is a list property
         learning_steps = [
             {
                 "uid": "ls.type_test_step_1",

@@ -6,8 +6,7 @@ PrincipleReflection is a separate entity (Neo4j: :PrincipleReflection)
 that tracks alignment assessments over time. It is NOT merged into Ku —
 reflections are log entries, not knowledge units.
 
-The Principle domain model itself has been unified into the Ku model
-(ku_type="principle"). See: core/models/ku/ku.py
+The Principle domain model uses entity_type="principle". See: core/models/entity_types.py
 """
 
 from .principle_types import (

@@ -337,7 +337,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             Result containing updated report or error
         """
-        # Define allowed fields (Ku model first-class fields only)
+        # Define allowed fields (Entity model first-class fields only)
         allowed_fields = {
             "status",
             "processed_content",

@@ -1,8 +1,8 @@
 """
-Ku Model Converters
-====================
+Entity Model Converters
+=======================
 
-Conversion functions for Ku domain model to API response format.
+Conversion functions for domain models to API response format.
 
 Following SKUEL's three-tier type system:
 - Ku (Domain Model) -> dict (API response)

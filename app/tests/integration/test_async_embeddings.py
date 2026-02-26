@@ -507,7 +507,7 @@ class TestChoiceEmbeddingEvents:
         assert event.entity_type == "choice"
         assert "Career Path Decision" in event.embedding_text
         assert "current company or joining startup" in event.embedding_text
-        # decision_context doesn't exist on Ku model, so not included in embedding text
+        # decision_context doesn't exist on Choice model, so not included in embedding text
 
 
 class TestPrincipleEmbeddingEvents:

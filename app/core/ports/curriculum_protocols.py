@@ -490,7 +490,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
     - Practice integration (habits, tasks, events)
     - Path integration (LS can be standalone or part of LP)
 
-    Unified Ku Model: LS nodes are :Entity{ku_type='learning_step'}
+    Neo4j: LS nodes are :Entity{entity_type='learning_step'}
     UID Prefix: "ls:"
     """
 
@@ -711,7 +711,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
     - Motivational alignment (goals, principles)
     - Milestone and checkpoint management
 
-    Unified Ku Model: LP nodes are :Entity{ku_type='learning_path'}
+    Neo4j: LP nodes are :Entity{entity_type='learning_path'}
     UID Prefix: "lp:"
     """
 

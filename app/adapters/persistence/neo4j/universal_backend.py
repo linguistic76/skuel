@@ -313,7 +313,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             self.prometheus_metrics.db.query_errors.labels(operation=operation).inc()
 
     # ============================================================================
-    # DEFAULT FILTER HELPERS (Unified Ku Model - )
+    # DEFAULT FILTER HELPERS
     # ============================================================================
 
     def _default_filter_clause(self, node_var: str = "n") -> str:

@@ -522,7 +522,7 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
         if not result.value:
             return Result.ok([])
 
-        # Convert to Ku models
+        # Convert to domain models
         events = []
         for record in result.value:
             event_data = record["subevent"]

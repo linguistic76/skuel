@@ -134,11 +134,11 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
     """
 
     async def create_task(self, data: Metadata) -> Result[EntityUID]:
-        """Create task from request data. Use create() if you have a Ku model."""
+        """Create task from request data. Use create() if you have a domain model."""
         ...
 
     async def update_task(self, task_id: EntityUID, data: Metadata) -> Result[bool]:
-        """Update task from request data. Use update() if you have a Ku model."""
+        """Update task from request data. Use update() if you have a domain model."""
         ...
 
     async def delete_task(self, task_id: EntityUID) -> Result[bool]:
