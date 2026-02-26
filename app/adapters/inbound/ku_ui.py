@@ -327,7 +327,7 @@ class KuUIComponents:
 
     @staticmethod
     def render_ku_analytics_dashboard() -> Any:
-        """KU analytics dashboard component"""
+        """Curriculum analytics dashboard component"""
         return Div(
             H1("📊 Knowledge Analytics", cls="text-2xl font-bold mb-6"),
             # Growth metrics

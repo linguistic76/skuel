@@ -234,8 +234,8 @@ def create_ku_api_routes(
 
         return await ku_service.list_knowledge_tags(min_usage)
 
-    # KU Analytics
-    # ------------
+    # Curriculum Analytics
+    # --------------------
 
     @rt("/api/ku/stats")
     @boundary_handler()

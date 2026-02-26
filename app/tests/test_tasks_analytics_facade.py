@@ -2,7 +2,7 @@
 
 January 2026: TasksAnalyticsService removed.
 - Task model analysis methods moved to TasksIntelligenceService
-- KU analytics methods implemented directly in TasksService
+- Analytics methods implemented directly in TasksService
 """
 
 
@@ -25,7 +25,7 @@ def test_analytics_methods_exist():
 
     January 2026: Methods restructured after TasksAnalyticsService removal.
     - Task model analysis: TasksIntelligenceService
-    - KU analytics: TasksService direct
+    - Analytics: TasksService direct
     """
     from core.services.tasks_service import TasksService
 
