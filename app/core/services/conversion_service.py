@@ -20,6 +20,7 @@ from core.models.activity_requests import (
     ChoiceCreateRequest,
     PrincipleCreateRequest,
 )
+from core.models.choice.choice import Choice
 from core.models.choice.choice_option import ChoiceOption
 from core.models.curriculum.curriculum_requests import CurriculumCreateRequest as KuCreateRequest
 from core.models.entity_requests import EntityUpdateRequest
@@ -37,6 +38,7 @@ from core.models.finance.finance_request import (
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
 from core.models.habit.habit import Habit as Habit
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
+from core.models.principle.principle import Principle
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.ports import HasUpdated, HasUpdatedAt, PydanticModel
 
@@ -405,7 +407,7 @@ class ConversionServiceV2:
     @classmethod
     def principle_create_to_pure(
         cls, schema: PrincipleCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> Ku:
+    ) -> Principle:
         """Convert PrincipleCreateRequest to Principle entity using generic method."""
         # Principle uses tuples for immutability, need to convert lists
         extra_fields = {}
@@ -418,10 +420,10 @@ class ConversionServiceV2:
 
         # Merge kwargs (includes user_uid) with extra_fields
         extra_fields.update(kwargs)
-        return cls.create_to_pure(schema, Ku, uid, **extra_fields)
+        return cls.create_to_pure(schema, Principle, uid, **extra_fields)
 
     @classmethod
-    def principle_update_to_pure(cls, existing: Ku, schema: EntityUpdateRequest) -> Ku:
+    def principle_update_to_pure(cls, existing: Principle, schema: EntityUpdateRequest) -> Principle:
         """Apply EntityUpdateRequest to existing Principle entity using generic method."""
         # Convert list fields to tuples for immutable model
         extra_updates = {}
@@ -438,8 +440,8 @@ class ConversionServiceV2:
     @classmethod
     def choice_create_to_pure(
         cls, schema: ChoiceCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> Ku:
-        """Convert ChoiceCreateRequest to Choice using generic method."""
+    ) -> Choice:
+        """Convert ChoiceCreateRequest to Choice entity using generic method."""
         # Choice uses tuples for immutability, need to convert lists
         extra_fields = {}
         if schema.decision_criteria:
@@ -470,10 +472,10 @@ class ConversionServiceV2:
 
         # Merge kwargs (includes user_uid) with extra_fields
         extra_fields.update(kwargs)
-        return cls.create_to_pure(schema, Ku, uid, **extra_fields)
+        return cls.create_to_pure(schema, Choice, uid, **extra_fields)
 
     @classmethod
-    def choice_update_to_pure(cls, existing: Ku, schema: EntityUpdateRequest) -> Ku:
+    def choice_update_to_pure(cls, existing: Choice, schema: EntityUpdateRequest) -> Choice:
         """Apply ChoiceUpdateRequest to existing Choice using generic method."""
         # Convert list fields to tuples for immutable model
         extra_updates = {}
