@@ -55,7 +55,7 @@ class KuGraphService:
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     """
@@ -1003,7 +1003,7 @@ class KuGraphService:
             return "advanced"
 
     # ========================================================================
-    # CONTEXT-FIRST METHODS (Phase 2 - November 25, 2025)
+    # CONTEXT-FIRST METHODS
     # ========================================================================
     #
     # These methods leverage UserContext to provide personalized,
