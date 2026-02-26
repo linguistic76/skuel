@@ -211,7 +211,7 @@ class ReportsRelationshipService:
 
         Args:
             ku_uid: UID of the Ku
-            processed_content: Processed Ku content
+            processed_content: Processed report content
             active_goals: List of active goals from context
 
         Returns:

@@ -293,7 +293,7 @@ class KuAIService(BaseAIService[KuOperations, Ku]):
         """
         Generate an AI-powered summary of a knowledge unit.
 
-        Uses LLM to create a concise, clear summary of the KU content.
+        Uses LLM to create a concise, clear summary of the curriculum content.
 
         Args:
             ku_uid: Knowledge unit to summarize

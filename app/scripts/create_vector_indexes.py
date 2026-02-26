@@ -47,10 +47,10 @@ from core.utils.logging import get_logger
 logger = get_logger("skuel.scripts.create_vector_indexes")
 
 
-# Priority entities with embedding fields (as of Phase 8 - January 2026)
+# Priority entities with embedding fields (as of - January 2026)
 PRIORITY_ENTITIES = [
     "Curriculum",  # Curriculum (Knowledge Units) - CRITICAL
-    "ContentChunk",  # KU Content Chunks - CRITICAL (for RAG)
+    "ContentChunk",  # Curriculum Content Chunks - CRITICAL (for RAG)
     "Task",  # Tasks - HIGH
     "Goal",  # Goals - HIGH
     "LpStep",  # Learning Path Steps - HIGH

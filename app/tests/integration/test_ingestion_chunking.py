@@ -20,7 +20,7 @@ from core.services.ingestion import UnifiedIngestionService
 @pytest.mark.asyncio
 async def test_ingest_file_creates_chunks(neo4j_driver):
     """Test that ingesting a KU file automatically creates chunks"""
-    # Given: A markdown file with KU content
+    # Given: A markdown file with curriculum content
     ku_content = """---
 type: knowledge
 title: Python Basics

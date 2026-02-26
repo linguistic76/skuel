@@ -12,7 +12,7 @@ Extension factories:
 Routes:
 - GET /events/calendar/optimize - Optimize calendar with cognitive load balancing
 - GET /events/calendar/cognitive-load - Analyze cognitive load for a date
-- GET /jupyter/fetch - Fetch KU content for Jupyter editing
+- GET /jupyter/fetch - Fetch curriculum content for Jupyter editing
 - POST /jupyter/save - Save Jupyter edits back to Neo4j
 - POST /jupyter/sync-to-obsidian - Sync changes to Obsidian
 - GET /jupyter/detect-conflicts - Detect Neo4j/Obsidian conflicts

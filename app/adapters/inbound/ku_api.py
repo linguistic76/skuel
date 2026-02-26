@@ -132,14 +132,14 @@ def create_ku_api_routes(
         """Get what depends on this KU."""
         return await ku_service.get_knowledge_dependencies(uid)
 
-    # KU Content Operations
+    # Curriculum Content Operations
     # ---------------------
 
     @rt("/api/ku/content", methods=["POST"])
     @require_admin(user_service_getter)
     @boundary_handler()
     async def update_ku_content_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
-        """Update KU content. Requires ADMIN role."""
+        """Update curriculum content. Requires ADMIN role."""
         body = await request.json()
         content = body.get("content")
         title = body.get("title")  # Optional title update

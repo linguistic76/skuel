@@ -244,7 +244,7 @@ from .query_types import (
     WhereClauseSpec,
 )
 
-# Ku content protocols — submission, processing, sharing, feedback, scheduling
+# Reports protocols — submission, processing, sharing, feedback, scheduling
 from .reports_protocols import (
     ExerciseOperations,
     ProgressReportGeneratorOperations,

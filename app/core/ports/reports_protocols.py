@@ -1,8 +1,8 @@
 """
-Ku Content Protocols
-=====================
+Reports Protocols
+==================
 
-Route-facing protocols for Ku content operations (submission, processing,
+Route-facing protocols for reports operations (submission, processing,
 sharing, feedback, scheduling).
 
 These complement the KuOperations protocol in curriculum_protocols.py which

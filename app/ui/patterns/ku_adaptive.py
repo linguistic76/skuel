@@ -3,7 +3,7 @@ KU Adaptive Curriculum Components
 =================================
 
 DaisyUI/Tailwind components for adaptive KU curriculum delivery.
-Absorbed from SEL components — these display KU content organized by SEL categories.
+Absorbed from SEL components — these display curriculum content organized by SEL categories.
 
 Components:
 - SELCategoryCard: Progress card for one SEL category

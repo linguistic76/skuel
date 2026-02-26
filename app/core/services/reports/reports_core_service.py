@@ -62,7 +62,7 @@ from core.utils.uid_generator import UIDGenerator
 
 class ReportCategory:
     """
-    Categories for Ku content organization.
+    Categories for report content organization.
 
     Stored in Ku.metadata['category'].
     Using constants instead of Enum for flexibility with existing data.
@@ -774,7 +774,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
             uid: Report UID
 
         Returns:
-            Markdown formatted Ku content
+            Markdown formatted report content
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:

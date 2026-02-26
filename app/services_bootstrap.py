@@ -2427,7 +2427,7 @@ async def compose_services(
 
         # Create processing domain relationship services
         # NOTE: JournalRelationshipService REMOVED (February 2026) - Journal merged into Ku
-        # ReportsRelationshipService handles all Ku content relationships
+        # ReportsRelationshipService handles all report content relationships
         report_relationship_service = ReportsRelationshipService(backend=reports_backend)
         analytics_relationship_service = AnalyticsRelationshipService(driver)
         logger.info("✅ Processing domain relationship services created (Reports, Analytics)")

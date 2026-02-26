@@ -8,7 +8,7 @@ State Progression:
     NONE -> VIEWED -> IN_PROGRESS -> MASTERED
 
 Responsibilities:
-- Record when user views KU content
+- Record when user views curriculum content
 - Track in-progress learning state
 - Query user's learning state for a KU
 - Support pedagogical search filters

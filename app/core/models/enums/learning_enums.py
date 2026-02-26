@@ -16,7 +16,7 @@ class KuComplexity(str, Enum):
     """
     Complexity level of a Knowledge Unit.
 
-    Used to indicate difficulty/sophistication of KU content.
+    Used to indicate difficulty/sophistication of curriculum content.
     """
 
     BASIC = "basic"
