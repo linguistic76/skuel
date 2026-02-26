@@ -20,31 +20,11 @@ This directory contains complete documentation for implemented features in SKUEL
 
 ## Current Features
 
-### Profile Hub & Insights Integration (January 2026)
+### SEL Adaptive Curriculum (February 2026)
 
-**Document**: [PROFILE_INSIGHTS_INTEGRATION.md](PROFILE_INSIGHTS_INTEGRATION.md)
+**Document**: [SEL_ADAPTIVE_CURRICULUM.md](SEL_ADAPTIVE_CURRICULUM.md)
 
-**Summary**: Unified Profile Hub and Insights Dashboard with bidirectional navigation, deep linking, performance optimizations, and complete audit trails.
-
-**Key Capabilities**:
-- Deep linking from insights to specific profile entities
-- Client-side filtering and sorting (zero latency)
-- Modal dialogs with transparency and snooze
-- Mobile swipe gestures for drawer navigation
-- Intelligence caching with optimistic loading
-- Debounced filter inputs (90% request reduction)
-- Complete action tracking with notes and history
-
-**Impact**:
-- Profile ↔ Insights navigation: 1 click (previously 5+ clicks)
-- Deep link time: ~3 seconds (previously ~30 seconds)
-- Cache hit rate: ~75% (2-3s load → 50ms)
-- Filter requests: 90% reduction
-
-**Related Docs**:
-- **Pattern**: [/docs/patterns/INSIGHT_ACTION_TRACKING.md](../patterns/INSIGHT_ACTION_TRACKING.md)
-- **Migration**: [/docs/migrations/PROFILE_INSIGHTS_PHASE3_4_COMPLETE.md](../migrations/PROFILE_INSIGHTS_PHASE3_4_COMPLETE.md)
-- **Plan**: `/home/mike/.claude/plans/staged-gliding-clarke.md`
+**Summary**: SEL (Social Emotional Learning) adaptive curriculum delivers personalized knowledge units across 5 core competencies. SEL navigation is a lens over the `/ku` hub.
 
 ---
 
@@ -75,7 +55,7 @@ When documenting a new feature:
 3. **Update INDEX.md** to reference new doc
 4. **Link related docs** (patterns, migrations, decisions)
 
-**Template**: Use `PROFILE_INSIGHTS_INTEGRATION.md` as a reference template.
+**Template**: Use `SEL_ADAPTIVE_CURRICULUM.md` as a reference template.
 
 ---
 

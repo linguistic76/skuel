@@ -584,10 +584,8 @@ CREATE INDEX insight_actioned_at FOR (i:Insight) ON (i.actioned_at)
 
 ## See Also
 
-- **Feature**: `/docs/features/PROFILE_INSIGHTS_INTEGRATION.md`
-- **Architecture**: `/docs/architecture/EVENT_DRIVEN_INSIGHTS.md`
-- **API**: `/docs/api/INSIGHTS_API.md`
-- **Testing**: `/docs/testing/INTEGRATION_TEST_PATTERNS.md`
+- **Pattern**: `/docs/patterns/event_driven_architecture.md`
+- **Testing**: `/docs/patterns/TESTING_PATTERNS.md`
 
 ---
 

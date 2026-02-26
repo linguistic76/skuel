@@ -813,7 +813,6 @@ For trees with 1000+ nodes:
 ## Related Documentation
 
 - `/docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md` - Backend hierarchical methods
-- `/docs/migrations/HIERARCHICAL_METHODS_IMPLEMENTATION_COMPLETE_2026-01-30.md` - Backend implementation
 - `/ui/layouts/base_page.py` - BasePage includes hierarchy.css
 - `/static/js/skuel.js` - Alpine.js components
 

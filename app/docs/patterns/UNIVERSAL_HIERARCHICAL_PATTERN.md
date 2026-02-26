@@ -639,11 +639,6 @@ RETURN completed_weight / total_weight as progress_percentage
 ### Decision Records
 - `/docs/decisions/ADR-013-ku-uid-flat-identity.md` - KU flat identity decision
 
-### Migration Documentation
-- `/docs/migrations/UNIVERSAL_HIERARCHICAL_IMPLEMENTATION_2026-01-30.md` - Implementation plan
-- `/docs/migrations/UNIVERSAL_HIERARCHICAL_COMPLETE_2026-01-30.md` - Completion report
-- `/docs/migrations/HIERARCHICAL_RELATIONSHIPS_IMPLEMENTATION_COMPLETE_2026-01-30.md` - Activity domain completion
-
 ### Code References
 - `/core/utils/uid_generator.py` - Flat UID generation
 - `/core/models/relationship_names.py` - Relationship type definitions
