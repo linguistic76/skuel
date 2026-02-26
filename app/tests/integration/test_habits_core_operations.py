@@ -474,7 +474,7 @@ class TestHabitsCoreOperations:
         assert created.cue is None
         assert created.routine is None
         assert created.reward is None
-        # Check defaults are set (unified Ku model uses None for optional domain fields)
+        # Check defaults are set (domain models use None for optional domain fields)
         assert created.polarity is None
         assert created.habit_category is None
         assert created.habit_difficulty is None

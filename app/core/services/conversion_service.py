@@ -401,7 +401,7 @@ class ConversionServiceV2:
     # NOTE: Journal conversions REMOVED (February 2026) - Journal merged into Reports
     # NOTE: Transcription conversions REMOVED (February 2026) - Three-tier models deleted
 
-    # --- Principle Conversions (unified Ku model) ---
+    # --- Principle Conversions ---
     @classmethod
     def principle_create_to_pure(
         cls, schema: PrincipleCreateRequest, uid: str | None = None, **kwargs: Any

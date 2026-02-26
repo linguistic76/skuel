@@ -4,7 +4,7 @@ Principle Business Logic Types
 
 Frozen dataclass types used by the principles alignment and reflection services.
 These are principle-domain-specific business logic types that do NOT belong
-in the unified Ku model.
+in the Entity model hierarchy.
 
 Types:
 - PrincipleExpression: How a principle manifests in specific contexts

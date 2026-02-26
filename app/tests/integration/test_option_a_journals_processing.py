@@ -4,8 +4,8 @@ Integration Test: Ku Processing Pipeline
 
 Tests the Ku processing pipeline for file submissions.
 
-NOTE (February 2026): Tests updated for unified Ku model.
-Reports are now Ku with ku_type=SUBMISSION.
+NOTE (February 2026): Tests updated for domain-first Entity model.
+Reports use EntityType.SUBMISSION discrimination.
 The ReportsProcessingService:
 - Routes files to appropriate processors based on file type
 - Audio files: transcribed via TranscriptionService

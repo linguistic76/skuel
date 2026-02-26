@@ -6,14 +6,14 @@ Calculates alignment between user's life path and actual behavior.
 
 This service answers: "Am I living my life path?"
 
-All queries use the unified Ku model with ku_type discriminator:
-- Life path: Ku {ku_type: 'life_path'}
-- Learning steps: Ku {ku_type: 'learning_step'}
-- Knowledge: Ku {ku_type: 'curriculum'}
-- Tasks: Ku {ku_type: 'task'}
-- Habits: Ku {ku_type: 'habit'}
-- Goals: Ku {ku_type: 'goal'}
-- Principles: Ku {ku_type: 'principle'}
+All queries use the Entity model with entity_type discriminator:
+- Life path: Entity {entity_type: 'life_path'}
+- Learning steps: Entity {entity_type: 'learning_step'}
+- Knowledge: Entity {entity_type: 'curriculum'}
+- Tasks: Entity {entity_type: 'task'}
+- Habits: Entity {entity_type: 'habit'}
+- Goals: Entity {entity_type: 'goal'}
+- Principles: Entity {entity_type: 'principle'}
 
 Core Philosophy: "Everything flows toward the life path"
 """

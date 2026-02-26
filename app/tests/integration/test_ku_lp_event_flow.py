@@ -56,7 +56,7 @@ class TestKuLpEventFlow:
 
     @pytest_asyncio.fixture
     async def lp_backend(self, neo4j_driver, clean_neo4j):
-        """Create LP backend with clean database (unified Ku model)."""
+        """Create LP backend with clean database (domain-first Entity model)."""
         return UniversalNeo4jBackend[LearningPath](
             neo4j_driver, "Entity", LearningPath, default_filters={"ku_type": "learning_path"}
         )

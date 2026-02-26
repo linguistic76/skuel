@@ -268,7 +268,7 @@ class TasksService(BaseService["BackendOperations[Task]", Task]):
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Task entities (unified Ku model)."""
+        """Return the graph label for Task entities."""
         return "Entity"
 
     # ========================================================================

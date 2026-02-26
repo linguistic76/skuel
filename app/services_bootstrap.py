@@ -27,7 +27,7 @@ THE 14 DOMAINS COMPOSED HERE
     10. lp        → LpService         - Learning Paths (lp:)
 
 **Content/Organization Domain Services (4):**
-    11. reports → ReportsCoreService - File processing + journals (unified Ku model Feb 2026)
+    11. reports → ReportsCoreService - File processing + journals
     12. life_path → AnalyticsLifePathService - Life goal alignment
     14. analytics → AnalyticsService     - Statistical aggregation
 
@@ -172,7 +172,7 @@ from core.ports import (
     LsOperations,
     PrinciplesOperations,
     QueryExecutor,
-    # Ku content protocols (February 2026: unified Ku model)
+    # Reports domain protocols
     ReportsContentOperations,
     ReportsContentSearchOperations,
     ReportsFeedbackOperations,
@@ -1620,7 +1620,7 @@ async def compose_services(
         except Exception as e:
             logger.warning(f"Failed to load default transcript project: {e}")
 
-        # Create Ku submission and processing pipeline services (unified Ku model)
+        # Create reports submission and processing pipeline services
         from core.services.reports import (
             ReportsCoreService,
             ReportsProcessingService,

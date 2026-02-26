@@ -3,11 +3,11 @@ Enhanced Principles Service - Facade Pattern
 =============================================
 
 Principles service facade that delegates to specialized sub-services.
-Uses unified Ku model with EntityType.PRINCIPLE discrimination.
+Uses Entity model with EntityType.PRINCIPLE discrimination.
 
 Sub-Services:
 - PrinciplesCoreService: CRUD operations for principles
-- PrinciplesSearchService: Search and discovery (DomainSearchOperations[Ku] protocol)
+- PrinciplesSearchService: Search and discovery (DomainSearchOperations[Entity] protocol)
 - PrinciplesAlignmentService: Alignment assessment and motivational intelligence
 - PrinciplesLearningService: Learning path integration and framing
 - UnifiedRelationshipService (PRINCIPLES_CONFIG): Cross-domain links and integrity calculation

@@ -395,7 +395,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
                 suggestions.append(suggestion)
 
                 # Suggest preparation for next step (find step that comes after current in sequence)
-                # Steps stored in path.metadata["steps"] (unified Ku model)
+                # Steps stored in path.metadata["steps"]
                 path_steps = path.metadata.get("steps", []) if path.metadata else []
                 try:
                     current_index = path_steps.index(current_step)

@@ -216,7 +216,7 @@ def get_priority_value(item: Any) -> int:
         # Handle enum priorities with to_numeric method
         if isinstance(item.priority, HasToNumeric):
             return item.priority.to_numeric()
-        # Handle string priorities (unified Ku model stores priority as str)
+        # Handle string priorities (stored as str via Neo4j deserialization)
         if isinstance(item.priority, str):
             from core.models.enums import Priority
 
@@ -366,7 +366,7 @@ def get_principle_priority(principle: Any) -> int:
     if isinstance(principle, HasPriority):
         if isinstance(principle.priority, HasToNumeric):
             return principle.priority.to_numeric()
-        # Handle string priorities (unified Ku model stores priority as str)
+        # Handle string priorities (stored as str via Neo4j deserialization)
         if isinstance(principle.priority, str):
             from core.models.enums import Priority
 

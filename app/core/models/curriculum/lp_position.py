@@ -43,7 +43,7 @@ class LpPosition:
     Simple learning path position using Ku model.
 
     This context frames operations by understanding where the user is
-    in their learning journey using the unified Ku model.
+    in their learning journey using the domain-first Entity model.
     """
 
     # Core Learning State (using Ku model)

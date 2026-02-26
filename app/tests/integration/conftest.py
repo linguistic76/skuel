@@ -862,7 +862,7 @@ def user_uid():
 
 @pytest_asyncio.fixture
 async def tasks_backend(neo4j_driver):
-    """Create tasks backend for testing — unified Ku model with ku_type filter."""
+    """Create tasks backend for testing — domain-first Entity model with entity_type filter."""
     from core.models.entity import Entity
 
     return UniversalNeo4jBackend[Entity](
@@ -880,7 +880,7 @@ async def tasks_service(tasks_backend, event_bus):
 
 @pytest_asyncio.fixture
 async def goals_backend(neo4j_driver):
-    """Create goals backend for testing — unified Ku model with ku_type filter."""
+    """Create goals backend for testing — domain-first Entity model with entity_type filter."""
     from core.models.entity import Entity
 
     return UniversalNeo4jBackend[Entity](
@@ -898,7 +898,7 @@ async def goals_service(goals_backend, event_bus):
 
 @pytest_asyncio.fixture
 async def habits_backend(neo4j_driver):
-    """Create habits backend for testing — unified Ku model with ku_type filter."""
+    """Create habits backend for testing — domain-first Entity model with entity_type filter."""
     from core.models.entity import Entity
 
     return UniversalNeo4jBackend[Entity](
@@ -916,7 +916,7 @@ async def habits_service(habits_backend, event_bus):
 
 @pytest_asyncio.fixture
 async def events_backend(neo4j_driver):
-    """Create events backend for testing — unified Ku model with ku_type filter."""
+    """Create events backend for testing — domain-first Entity model with entity_type filter."""
     from core.models.event.event import Event
 
     return UniversalNeo4jBackend[Event](
@@ -934,7 +934,7 @@ async def events_service(events_backend, event_bus):
 
 @pytest_asyncio.fixture
 async def choices_backend(neo4j_driver):
-    """Create choices backend for testing — unified Ku model with ku_type filter."""
+    """Create choices backend for testing — domain-first Entity model with entity_type filter."""
     from core.models.entity import Entity
 
     return UniversalNeo4jBackend[Entity](

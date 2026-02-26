@@ -847,7 +847,7 @@ class Domain(str, Enum):
 
 class NonKuDomain(str, Enum):
     """
-    Non-knowledge-unit domains outside the unified Ku model.
+    Non-knowledge-unit domains outside the Entity model hierarchy.
 
     These 4 domains exist in SKUEL but are NOT represented as :Entity nodes:
     - FINANCE: Admin-only bookkeeping (:Expense nodes)
