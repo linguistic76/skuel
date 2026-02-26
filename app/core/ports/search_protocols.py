@@ -527,7 +527,7 @@ class GoalsSearchOperations(DomainSearchOperations["Entity"], Protocol):
     """
     Extended search protocol for Goals domain.
 
-    Inherits all methods from DomainSearchOperations[Ku]:
+    Inherits all methods from DomainSearchOperations[Entity]:
     - search(), search_filtered(), intelligent_search()
     - get_by_status(), get_by_domain(), get_prioritized()
     - get_by_relationship(), get_due_soon(), get_overdue()
@@ -589,7 +589,7 @@ class ChoicesSearchOperations(DomainSearchOperations["Entity"], Protocol):
     """
     Extended search protocol for Choices domain.
 
-    Inherits all methods from DomainSearchOperations[Choice]:
+    Inherits all methods from DomainSearchOperations[Entity]:
     - search(), search_filtered(), intelligent_search()
     - get_by_status(), get_by_domain(), get_prioritized()
     - get_by_relationship(), get_due_soon(), get_overdue()
