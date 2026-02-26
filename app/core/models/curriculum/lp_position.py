@@ -2,13 +2,13 @@
 Simple Learning Path Position Context
 ====================================
 
-Leverages existing Ku model (ku_type='learning_path' / 'learning_step') to provide
+Leverages existing Entity model (entity_type='learning_path' / 'learning_step') to provide
 learning path position context for service operations. This enables knowledge-first
 operations where learning path progression guides task, habit, goal, and other domain operations.
 
 Design Principle: "How does the user's learning path position frame this operation?"
 
-Phase 3 Unified Ku Model: LpPosition now uses Ku for both paths and steps.
+Phase 3 domain-first refactor: LpPosition uses LearningPath and LearningStep models directly.
 Steps are stored in path.metadata["steps"] (list[LearningStep]).
 """
 
@@ -22,7 +22,7 @@ from core.models.enums import Domain
 
 
 def _get_path_steps(path: LearningPath) -> list[LearningStep]:
-    """Get steps from a learning path Ku's metadata."""
+    """Get steps from a LearningPath's metadata."""
     if path.metadata:
         return path.metadata.get("steps", [])
     return []
@@ -40,13 +40,13 @@ def _get_next_step(path: LearningPath, completed_step_uids: set[str]) -> Learnin
 @dataclass
 class LpPosition:
     """
-    Simple learning path position using Ku model.
+    Simple learning path position context.
 
     This context frames operations by understanding where the user is
     in their learning journey using the domain-first Entity model.
     """
 
-    # Core Learning State (using Ku model)
+    # Core Learning State
     active_paths: list[LearningPath]  # User's current learning paths
     current_steps: dict[str, LearningStep]  # Current step in each path (path_uid -> step)
     completed_step_uids: set[str]  # All completed step UIDs across paths
@@ -341,7 +341,7 @@ def create_lp_position(
     readiness_map: dict[str, bool] | None = None,
 ) -> LpPosition:
     """
-    Factory function to create LpPosition from Ku models.
+    Factory function to create LpPosition from LearningPath models.
 
     Args:
         user_uid: User identifier,
