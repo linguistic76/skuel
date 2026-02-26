@@ -316,12 +316,7 @@ def create_navbar(
     # Profile section (authenticated vs not)
     # Admin users get simplified profile — sign out text link only
     if is_authenticated and current_user and is_admin:
-        profile_section = Div(
-            _admin_profile_section(current_user),
-            _search_button(active_page),
-            _notification_button(unread_insights),
-            cls="flex items-center gap-2",
-        )
+        profile_section = _admin_profile_section(current_user)
     elif is_authenticated and current_user:
         profile_section = Div(
             _avatar_link(current_user),
