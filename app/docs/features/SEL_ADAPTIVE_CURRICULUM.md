@@ -42,8 +42,8 @@ The SEL (Social Emotional Learning) adaptive curriculum delivers personalized kn
 ### Service Architecture
 
 ```python
-# Service: AdaptiveSELService
-# Location: core/services/adaptive_sel_service.py
+# Service: AdaptiveSELService (absorbed into KuAdaptiveService — February 2026)
+# Location: core/services/ku/ku_adaptive_service.py
 
 class AdaptiveSELService:
     """
@@ -395,27 +395,8 @@ create_sel_sidebar_layout(
 ### Unit Tests
 
 ```bash
-# Run SEL service tests
-poetry run pytest tests/test_adaptive_sel_service.py -v
-
-# 14 tests covering:
-# - Service initialization
-# - Curriculum personalization
-# - Readiness filtering
-# - Learning value ranking
-# - Journey progress calculation
-```
-
-**Test Coverage:**
-```python
-test_adaptive_sel_service_initialization()
-test_get_personalized_curriculum_empty()
-test_get_personalized_curriculum_single_ku()
-test_get_personalized_curriculum_filters_by_category()
-test_get_personalized_curriculum_respects_limit()
-test_filters_kus_by_prerequisites()
-test_ranks_by_learning_value()
-test_get_sel_journey_all_categories()
+# SEL adaptive logic now tested via ku_adaptive_service tests
+poetry run pytest tests/test_ku_search_service.py -v
 ```
 
 ### Manual Testing Checklist

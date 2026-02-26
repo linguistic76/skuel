@@ -79,7 +79,7 @@ Standalone services without subfolders.
 | **Askesis Secondary** | `askesis_ai_service.py`, `askesis_citation_service.py` |
 | **KU Generation** | `entity_chunking_service.py`, `insight_generation_service.py`, `entity_inference_service.py`, `ku_intelligence_service.py` |
 | **Calendar** | `calendar_service.py`, `calendar_optimization_service.py` |
-| **Analytics** | `cross_domain_analytics_service.py`, `adaptive_sel_service.py` |
+| **Analytics** | `cross_domain_analytics_service.py` |
 | **Content** | `conversion_service.py`, `event_logger_service.py`, `content_enrichment_service.py` |
 | **Reports** | `report_service.py`, `report_relationship_service.py` |
 | **Schema** | `schema_service.py`, `schema_mapping_service.py` |
