@@ -138,7 +138,7 @@ class UserContextIntelligence(
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
-        # Optional: Vector search for semantic enhancements (Phase 1 - January 2026)
+        # Optional: Vector search for semantic enhancements
         vector_search: Any = None,
     ) -> None:
         """
@@ -167,7 +167,7 @@ class UserContextIntelligence(
             Temporal Domain (1):
                 calendar: Calendar service for schedule-aware intelligence
 
-            Optional Services (Phase 1 Enhancement):
+            Optional Services:
                 vector_search: Neo4jVectorSearchService for semantic/learning-aware search
 
         Raises:
@@ -224,7 +224,7 @@ class UserContextIntelligence(
         # Temporal domain (1)
         self.calendar = calendar
 
-        # Optional: Vector search (Phase 1 enhancement - January 2026)
+        # Optional: Vector search for semantic enhancements
         self.vector_search = vector_search
 
 
