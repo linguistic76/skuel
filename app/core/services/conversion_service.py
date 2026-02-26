@@ -41,12 +41,12 @@ from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.ports import HasUpdated, HasUpdatedAt, PydanticModel
 
 # Create aliases for Pure models (backward compatibility)
-Task = Ku  # Task domain unified into Ku (February 2026)
+Task = Ku  # Alias for Entity union type (domain-first model)
 TaskPure = Task
 EventPure = Ku
 HabitPure = Habit
-GoalPure = Ku  # Goal domain unified into Ku (February 2026)
-KuPure = Ku  # Knowledge Unit
+GoalPure = Ku  # Alias for Entity union type (domain-first model)
+KuPure = Ku  # Knowledge Unit (Curriculum entity)
 
 # Type variables for generic methods
 T = TypeVar("T")
@@ -363,12 +363,12 @@ class ConversionServiceV2:
     def ku_create_to_pure(
         cls, schema: KuCreateRequest, uid: str | None = None, **kwargs: Any
     ) -> KuPure:
-        """Convert KuCreateRequest to Ku using generic method."""
+        """Convert CurriculumCreateRequest to Curriculum entity using generic method."""
         return cls.create_to_pure(schema, KuPure, uid, **kwargs)
 
     @classmethod
     def ku_update_to_pure(cls, existing: KuPure, schema: EntityUpdateRequest) -> KuPure:
-        """Apply EntityUpdateRequest to existing Ku using generic method."""
+        """Apply EntityUpdateRequest to existing Curriculum entity using generic method."""
         return cls.update_to_pure(existing, schema)
 
     # --- Finance Conversions (three-tier migrated) ---
@@ -406,7 +406,7 @@ class ConversionServiceV2:
     def principle_create_to_pure(
         cls, schema: PrincipleCreateRequest, uid: str | None = None, **kwargs: Any
     ) -> Ku:
-        """Convert PrincipleCreateRequest to Ku using generic method."""
+        """Convert PrincipleCreateRequest to Principle entity using generic method."""
         # Principle uses tuples for immutability, need to convert lists
         extra_fields = {}
         if schema.key_behaviors:
@@ -422,7 +422,7 @@ class ConversionServiceV2:
 
     @classmethod
     def principle_update_to_pure(cls, existing: Ku, schema: EntityUpdateRequest) -> Ku:
-        """Apply EntityUpdateRequest to existing Ku using generic method."""
+        """Apply EntityUpdateRequest to existing Principle entity using generic method."""
         # Convert list fields to tuples for immutable model
         extra_updates = {}
         if schema.key_behaviors is not None:
