@@ -551,7 +551,7 @@ class DSLConnectionExecutor:
         # This will vary based on your actual relationship service API
         try:
             # Most relationship services have a method like:
-            # await rel_service.link_knowledge(entity_uid, ku_uid, relationship_type, properties)
+            # await rel_service.link_knowledge(entity_uid, entity_uid, relationship_type, properties)
 
             if isinstance(rel_service, HasLinkKnowledge):
                 return await rel_service.link_knowledge(

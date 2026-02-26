@@ -276,10 +276,6 @@ class AdaptiveLpRecommendationsService:
         # completed_tasks = [t for t in tasks if t.status == EntityStatus.COMPLETED]
         # for task in completed_tasks:
         # if task.actual_minutes and task.duration_minutes and task.actual_minutes > task.duration_minutes * 1.5:
-        # for ku_uid in task.applies_knowledge_uids: # Field doesn't exist anymore
-        # if '.' in ku_uid:
-        # domain = ku_uid.split('.')[1]
-        # gaps.append(f'ku.{domain}.fundamentals')
 
         return []
 

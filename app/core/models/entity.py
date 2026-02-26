@@ -61,7 +61,7 @@ class Entity:
     uid: str
     title: str
     ku_type: EntityType = EntityType.CURRICULUM
-    parent_ku_uid: str | None = None  # Derivation chain — what Ku this was based on
+    parent_ku_uid: str | None = None  # Derivation chain — what Entity this was based on
     domain: Domain = Domain.KNOWLEDGE
     created_by: str | None = None
 
