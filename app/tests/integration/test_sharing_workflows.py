@@ -31,15 +31,15 @@ async def sharing_service(neo4j_driver):
 @pytest.fixture
 async def test_report(neo4j_driver):
     """
-    Create a test Ku node and User nodes in Neo4j for testing.
+    Create a test Entity nodes and User nodes in Neo4j for testing.
 
     Returns the Ku UID and cleans up after the test.
     """
-    # Create Ku node and owner User node in Neo4j
+    # Create Entity nodes and owner User node in Neo4j
     report_uid = "test_report_integration_001"
     user_uid = "test_user_owner"
 
-    # Create owner User + Ku node
+    # Create owner User + Entity nodes
     query = """
     MERGE (u:User {uid: $user_uid})
     SET u.name = 'Test Owner'

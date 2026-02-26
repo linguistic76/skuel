@@ -7,7 +7,7 @@ Uses mock services for testing without requiring actual OpenAI API or Neo4j GenA
 These tests verify:
 1. Vector index creation and verification
 2. Embedding generation and storage in Neo4j
-3. Vector similarity search across KU nodes
+3. Vector similarity search across Entity nodes
 4. Graceful degradation when embeddings unavailable
 """
 
@@ -48,7 +48,7 @@ async def test_vector_index_verification(neo4j_driver):
 async def test_create_vector_index_manually(neo4j_driver, clean_neo4j):
     """Test creating a vector index manually for testing purposes."""
 
-    # Create a vector index for KU nodes
+    # Create a vector index for Entity nodes
     # Note: This requires Neo4j 5.11+ with vector index support
     index_name = "ku_embedding_test_idx"
 

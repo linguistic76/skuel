@@ -60,7 +60,7 @@ def parse_markdown_file(file_path: Path) -> dict | None:
 
 
 async def create_ku_node(session, data: dict) -> bool:
-    """Create a KU node in Neo4j."""
+    """Create a Entity nodes in Neo4j."""
     query = """
     MERGE (k:Entity {uid: $uid})
     SET k.title = $title,

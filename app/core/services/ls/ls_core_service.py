@@ -982,7 +982,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         Remove CONTAINS_KNOWLEDGE relationship between LS and KU.
 
         Universal Hierarchical Pattern: Removes the graph edge while preserving
-        both the LS and KU nodes.
+        both the LS and Entity nodes.
 
         Args:
             ls_uid: Learning Step UID

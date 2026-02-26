@@ -160,7 +160,7 @@ Content for batch test topic {i}.
 
 @pytest_asyncio.fixture
 async def pre_existing_ku(neo4j_driver):
-    """Create a Ku node in Neo4j that will be detected as 'existing' by dry-run."""
+    """Create a Entity nodes in Neo4j that will be detected as 'existing' by dry-run."""
     async with neo4j_driver.session() as session:
         await session.run(
             """

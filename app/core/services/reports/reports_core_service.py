@@ -8,7 +8,7 @@ and journal-specific CRUD (create_journal_ku, FIFO cleanup, etc.).
 
 ARCHITECTURE (February 2026):
 ------------------------------
-Ku nodes are the SINGLE SOURCE OF TRUTH for all knowledge.
+Entity nodes are the SINGLE SOURCE OF TRUTH for all knowledge.
 "Ku is the heartbeat of SKUEL."
 
 Four manifestations:

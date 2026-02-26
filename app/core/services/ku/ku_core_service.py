@@ -184,11 +184,11 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         # Parent relationship handled separately via ORGANIZES edge
         uid = UIDGenerator.generate_knowledge_uid(title=title)
 
-        # Compute word_count from body (stored as metadata on Ku node)
+        # Compute word_count from body (stored as metadata on Entity nodes)
         word_count = len(body.strip().split())
 
         # Prepare unit data with timestamps (via MetadataManagerMixin)
-        # Content body is NOT stored on the Ku node — it goes to the :Content node
+        # Content body is NOT stored on the Entity nodes — it goes to the :Content node
         unit_data = {
             "uid": uid,
             "title": title.strip(),
@@ -552,11 +552,11 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         Update content with optional re-chunking.
 
         Pattern: Re-chunk if chunking service available, fallback to simple update.
-        Also recomputes word_count on the Ku node.
+        Also recomputes word_count on the Entity nodes.
 
         Note: existing_dto is actually a Ku instance (backend uses entity_class=Ku).
         """
-        # Recompute word_count on the Ku node
+        # Recompute word_count on the Entity nodes
         new_word_count = len(new_body.strip().split())
         await self.backend.update(uid, {"word_count": new_word_count})
 
@@ -1029,7 +1029,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         Remove ORGANIZES relationship between KUs.
 
         Universal Hierarchical Pattern: Removes parent-child relationship while
-        preserving both KU nodes. Useful for reorganization.
+        preserving both Entity nodes. Useful for reorganization.
 
         Args:
             parent_uid: Parent KU UID

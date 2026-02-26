@@ -6,7 +6,7 @@ Generates system-created progress Ku by querying historical
 completions from Neo4j, cross-referencing with UserContext, and
 building structured markdown content.
 
-Progress Ku are stored as Ku nodes with ku_type=AI_REPORT.
+Progress reports are stored as Entity nodes with ku_type=AI_REPORT.
 """
 
 from datetime import datetime, timedelta
@@ -44,7 +44,7 @@ class ProgressReportGenerator:
 
     Constructor dependencies:
         driver: Query executor for direct Cypher queries
-        ku_backend: Backend for creating Ku nodes
+        ku_backend: Backend for creating Entity nodes
         user_service: UserOperations for building UserContext
         insight_store: InsightStore for referencing active insights
         event_bus: EventBusOperations for publishing events
@@ -121,7 +121,7 @@ class ProgressReportGenerator:
                 "insights_referenced": len(insights),
             }
 
-            # 5. Create Ku node
+            # 5. Create Entity nodes
             uid = UIDGenerator.generate_uid("ku")
             report = AiReport(
                 uid=uid,

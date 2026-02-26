@@ -11,7 +11,7 @@ Submit (voice or text) → Extract (transcribe if audio) → Enrich (LLM + instr
 The power comes from Neo4j context awareness:
 - Recent entries, active goals, habits, tasks
 - UserContext for personalized editing
-- Processing instructions stored as Exercise Ku nodes in Neo4j
+- Processing instructions stored as Exercise Entity nodes in Neo4j
 
 Renamed from ContentEnrichmentService to ContentEnrichmentService
 """
@@ -262,7 +262,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         - Trending topics (last 30 days) for thematic continuity
         - Recent mood averages for emotional awareness
 
-        Updated February 2026: Queries Ku nodes with ku_type="submission"
+        Updated February 2026: Queries Entity nodes with ku_type="submission"
         (Journal→Report merge, assignment→submission rename).
 
         Args:
@@ -486,7 +486,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         """
         Get recent journal entries for context awareness.
 
-        Updated February 2026: Queries Ku nodes with ku_type="submission".
+        Updated February 2026: Queries Entity nodes with ku_type="submission".
 
         Args:
             user_uid: User identifier
@@ -586,7 +586,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         """
         Extract recurring topics from recent journals.
 
-        Updated February 2026: Queries Ku nodes with ku_type="submission".
+        Updated February 2026: Queries Entity nodes with ku_type="submission".
 
         Args:
             user_uid: User identifier
@@ -842,7 +842,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         if not instructions_uid:
             instructions_uid = "instructions:default-report-formatting"
 
-        # Load from Neo4j (instructions stored as Exercise Ku nodes)
+        # Load from Neo4j (instructions stored as Exercise Entity nodes)
         query = """
         MATCH (i:Entity {uid: $uid, ku_type: 'exercise'})
         RETURN i.instructions as instructions, i.name as name

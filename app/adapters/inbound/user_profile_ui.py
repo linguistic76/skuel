@@ -1000,7 +1000,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
     async def _build_knowledge_view(context: UserContext, user_uid: str) -> Any:
         """Build the Knowledge domain view with all KUs and user status.
 
-        Queries Neo4j for all KU nodes with per-user VIEWED/BOOKMARKED/MASTERED relationships.
+        Queries Neo4j for all Entity nodes with per-user VIEWED/BOOKMARKED/MASTERED relationships.
         """
         from fasthtml.common import H2, H4, A, Div, P, Span
 

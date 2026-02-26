@@ -2,7 +2,7 @@
 Ku Relationship Service
 ========================
 
-Creates graph relationships for Ku nodes.
+Creates graph relationships for Entity nodes.
 
 Relationships Created:
 1. FOLLOWS -> Previous Ku of same type (temporal continuity)
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 class ReportsRelationshipService:
-    """Service for creating graph relationships on Ku nodes."""
+    """Service for creating graph relationships on Entity nodes."""
 
     def __init__(self, backend: "BackendOperations[Any]") -> None:
         """

@@ -177,7 +177,7 @@ class TestGoalRecommendationsFlow:
         assert result.is_ok
         created_goal = result.value
 
-        # Set ku_type='knowledge_unit' on KU nodes so production query matches
+        # Set ku_type='knowledge_unit' on Entity nodes so production query matches
         # (production _get_goal_context uses WHERE ku.ku_type = 'knowledge_unit')
         async with neo4j_driver.session() as session:
             for ku in kus:

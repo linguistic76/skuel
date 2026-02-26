@@ -8,7 +8,7 @@ Reuses SHARES_WITH infrastructure. When a student submits a Ku against
 an ASSIGNED Exercise, the Ku is auto-shared with the teacher.
 The teacher's review queue = Ku shared with them via role="teacher".
 
-When providing feedback or requesting revision, a FEEDBACK_REPORT Ku node
+When providing feedback or requesting revision, a FEEDBACK_REPORT Entity nodes
 is created and linked to the submission via FEEDBACK_FOR. This makes every
 feedback round a first-class graph entity — searchable, queryable, and
 supporting revision cycles.
@@ -188,7 +188,7 @@ class TeacherReviewService:
         """
         Submit teacher feedback for a Ku.
 
-        Creates a FEEDBACK_REPORT Ku node linked to the submission via FEEDBACK_FOR.
+        Creates a FEEDBACK_REPORT Entity nodes linked to the submission via FEEDBACK_FOR.
         Also writes feedback to submission's feedback field (denormalized for quick access)
         and sets submission status to COMPLETED.
 
@@ -219,7 +219,7 @@ class TeacherReviewService:
             submission.status = $completed_status,
             submission.updated_at = datetime($now)
 
-        // Create FEEDBACK_REPORT Ku node
+        // Create FEEDBACK_REPORT Entity nodes
         CREATE (fb:Entity {
             uid: $feedback_uid,
             title: $title,
@@ -304,7 +304,7 @@ class TeacherReviewService:
         """
         Request revision for a student Ku.
 
-        Creates a FEEDBACK_REPORT Ku node with revision notes, linked via FEEDBACK_FOR.
+        Creates a FEEDBACK_REPORT Entity nodes with revision notes, linked via FEEDBACK_FOR.
         Sets submission status to REVISION_REQUESTED.
 
         Args:
@@ -332,7 +332,7 @@ class TeacherReviewService:
             submission.status = $revision_status,
             submission.updated_at = datetime($now)
 
-        // Create FEEDBACK_REPORT Ku node for revision request
+        // Create FEEDBACK_REPORT Entity nodes for revision request
         CREATE (fb:Entity {
             uid: $feedback_uid,
             title: $title,

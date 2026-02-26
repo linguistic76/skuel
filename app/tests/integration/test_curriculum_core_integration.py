@@ -415,7 +415,7 @@ class TestCurriculumRelationships:
     @pytest.mark.asyncio
     async def test_lp_contains_ls_relationship(self, neo4j_driver, clean_curriculum) -> None:
         """Should create CONTAINS relationship between LP and LS."""
-        # Create LP and LS with CONTAINS relationship (both are Ku nodes)
+        # Create LP and LS with CONTAINS relationship (both are Entity nodes)
         async with neo4j_driver.session() as session:
             await session.run("""
                 CREATE (lp:Entity {

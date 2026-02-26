@@ -1032,7 +1032,7 @@ def ChoicesDomainView(context: UserContext, focus_uid: str | None = None) -> Div
 def KnowledgeDomainView(context: UserContext, services: Any = None, user_uid: str = "") -> Div:
     """Knowledge domain: all KUs with user's VIEWED/BOOKMARKED status.
 
-    Queries Neo4j for all KU nodes and enriches with per-user relationships.
+    Queries Neo4j for all Entity nodes and enriches with per-user relationships.
 
     Args:
         context: UserContext (used for mastered/in_progress status)

@@ -6,7 +6,7 @@ Fetches relationship data for Knowledge Units from Neo4j graph.
 
 IMPORTANT: This class handles GRAPH-NATIVE relationships only.
 Substance tracking properties (times_applied, times_practiced, etc.)
-are stored on the KU node itself and accessed directly via ku.times_applied_in_tasks.
+are stored on the Entity nodes itself and accessed directly via ku.times_applied_in_tasks.
 
 See /docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md for full documentation
 on KU's hybrid design (GRAPH-NATIVE relationships + substance tracking properties).

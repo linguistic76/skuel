@@ -764,7 +764,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         """
         Delete a learning path and its associated steps.
 
-        Cascade deletes step Ku nodes to prevent orphaned data.
+        Cascade deletes step Entity nodes to prevent orphaned data.
         """
         # First verify path exists
         get_result = await self.get_learning_path(path_uid)
