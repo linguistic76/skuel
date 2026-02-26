@@ -31,6 +31,7 @@ from starlette.responses import RedirectResponse
 from adapters.inbound.auth import (
     clear_current_user,
     get_current_user,
+    get_is_admin,
     is_authenticated,
     set_current_user,
 )
@@ -84,9 +85,9 @@ def create_auth_ui_routes(
     @rt("/register")
     async def register_page(request: Request) -> Any:
         """Show registration page"""
-        # If already logged in, redirect to profile hub
+        # If already logged in, redirect to appropriate hub
         if is_authenticated(request):
-            return RedirectResponse("/profile", status_code=303)
+            return RedirectResponse("/admin" if get_is_admin(request) else "/profile", status_code=303)
 
         return AuthComponents.render_registration_page()
 
@@ -188,11 +189,12 @@ def create_auth_ui_routes(
                 is_teacher=user.can_create_curriculum(),
             )
 
+            is_admin = user.can_manage_users()
             logger.info(
                 f"User registered and logged in: {username} "
-                f"(admin={user.can_manage_users()}, teacher={user.can_create_curriculum()})"
+                f"(admin={is_admin}, teacher={user.can_create_curriculum()})"
             )
-            return RedirectResponse("/profile", status_code=303)
+            return RedirectResponse("/admin" if is_admin else "/profile", status_code=303)
 
         except Exception as e:
             logger.error(f"Registration error: {e}")
@@ -207,9 +209,9 @@ def create_auth_ui_routes(
     @rt("/login")
     async def login_page(request: Request) -> Any:
         """Show login page"""
-        # If already logged in, redirect to profile hub
+        # If already logged in, redirect to appropriate hub
         if is_authenticated(request):
-            return RedirectResponse("/profile", status_code=303)
+            return RedirectResponse("/admin" if get_is_admin(request) else "/profile", status_code=303)
 
         return AuthComponents.render_login_page()
 
@@ -279,11 +281,12 @@ def create_auth_ui_routes(
                 is_teacher=user.can_create_curriculum(),
             )
 
+            is_admin = user.can_manage_users()
             logger.info(
                 f"User logged in: {email} ({session_data['user_uid']}) "
-                f"(admin={user.can_manage_users()}, teacher={user.can_create_curriculum()})"
+                f"(admin={is_admin}, teacher={user.can_create_curriculum()})"
             )
-            return RedirectResponse("/profile", status_code=303)
+            return RedirectResponse("/admin" if is_admin else "/profile", status_code=303)
 
         except Exception as e:
             logger.error(f"Login error: {e}")
@@ -315,9 +318,9 @@ def create_auth_ui_routes(
     @rt("/reset-password")
     async def reset_password_page(request: Request, token: str = "") -> Any:
         """Show reset password form where users enter token and new password"""
-        # If already logged in, redirect to profile hub
+        # If already logged in, redirect to appropriate hub
         if is_authenticated(request):
-            return RedirectResponse("/profile", status_code=303)
+            return RedirectResponse("/admin" if get_is_admin(request) else "/profile", status_code=303)
 
         return AuthComponents.render_reset_password_page(token=token)
 
