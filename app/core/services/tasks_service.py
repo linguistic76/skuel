@@ -22,14 +22,12 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations
     from core.ports.search_protocols import TasksSearchOperations
 
-# Knowledge generation service (Phase 4.1)
-# Protocol interfaces
 # Domain models
 from core.models.enums import EntityStatus
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 
-# Analytics engine (Phase 2.5)
+# Analytics engine
 from core.services.analytics_engine import (
     AnalyticsEngine,
 )
@@ -38,7 +36,7 @@ from core.services.analytics_engine import (
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 
-# Unified relationship service (replaces TasksRelationshipService)
+# Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
 
 # Sub-services
@@ -200,8 +198,8 @@ class TasksService(BaseService["BackendOperations[Task]", Task]):
         Args:
             backend: Protocol-based backend for task operations,
             ku_inference_service: Service for automatic knowledge inference,
-            analytics_engine: AnalyticsEngine for advanced analytics (Phase 2.5),
-            ku_generation_service: InsightGenerationService for automatic knowledge generation (Phase 4.1),
+            analytics_engine: AnalyticsEngine for advanced analytics,
+            ku_generation_service: InsightGenerationService for automatic knowledge generation,
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics,
             event_bus: Event bus for publishing domain events (optional)
             ai_service: Optional AI service for LLM/embeddings features (January 2026)
@@ -250,7 +248,7 @@ class TasksService(BaseService["BackendOperations[Task]", Task]):
             relationship_service=self.relationships,
         )
 
-        # KU analytics engine for direct calls (simplified from TasksAnalyticsService)
+        # Analytics engine for direct calls (simplified from TasksAnalyticsService)
         # January 2026: TasksAnalyticsService removed - AnalyticsEngine called directly
         self.analytics_engine = analytics_engine or AnalyticsEngine(
             relationship_service=self.relationships
@@ -442,7 +440,7 @@ class TasksService(BaseService["BackendOperations[Task]", Task]):
             task_uid, user_context, actual_minutes, quality_score
         )
 
-        # Trigger automatic knowledge generation (Phase 4.1) - Facade orchestration
+        # Trigger automatic knowledge generation - facade orchestration
         if result.is_ok and self.ku_generation_service:
             await self._trigger_knowledge_generation(user_context.user_uid)
 
@@ -654,7 +652,7 @@ class TasksService(BaseService["BackendOperations[Task]", Task]):
         return Result.ok(impact_analysis)
 
     # ========================================================================
-    # KU ANALYTICS ENGINE - Direct calls (January 2026)
+    # ANALYTICS ENGINE - Direct calls (January 2026)
     # These methods call AnalyticsEngine directly, replacing TasksAnalyticsService.
     # ========================================================================
 
@@ -819,7 +817,7 @@ class TasksService(BaseService["BackendOperations[Task]", Task]):
         )
 
     # ========================================================================
-    # PHASE 4.1 - AUTOMATIC KNOWLEDGE GENERATION
+    # AUTOMATIC KNOWLEDGE GENERATION
     # ========================================================================
 
     async def _trigger_knowledge_generation(self, user_uid: str) -> None:
