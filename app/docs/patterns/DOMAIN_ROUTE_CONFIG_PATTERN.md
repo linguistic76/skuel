@@ -768,59 +768,7 @@ LIFEPATH_CONFIG = DomainRouteConfig(
 
 ---
 
-### Example 10: Multi-Category Drawer Layout (SEL)
-
-**File:** `/adapters/inbound/sel_routes.py`
-
-```python
-SEL_CONFIG = DomainRouteConfig(
-    domain_name="sel",
-    primary_service_attr="adaptive_sel",  # services.adaptive_sel
-    api_factory=create_sel_api_routes,
-    ui_factory=create_sel_ui_routes,
-    api_related_services={},  # Self-contained
-)
-```
-
-**API Routes:** (`sel_api.py` - 203 lines)
-- 2 JSON API routes (`/api/sel/journey`, `/api/sel/curriculum/{category}`)
-- 2 HTMX fragment routes (`/api/sel/journey-html`, `/api/sel/curriculum-html/{category}`)
-- Lazy component imports (inside route functions) to prevent circular dependencies
-
-**UI Routes:** (`sel_ui.py` - 603 lines)
-- 6 UI routes: overview + 5 SEL category pages (self-awareness, self-management, social-awareness, relationship-skills, decision-making)
-- Drawer navigation with `SEL_MENU_ITEMS` constant (6 items)
-- Private helper function: `_sel_drawer_layout()` (underscore prefix)
-- Service availability guards for non-blocking tracking
-
-**Key features:**
-- **Highest reduction rate:** 730 → 35 lines (95.2% reduction)
-- **Multi-category UI:** 6 pages with consistent drawer navigation
-- **Lazy imports pattern:** Components imported inside route functions only
-  ```python
-  # Inside HTMX route function (prevents circular imports)
-  from adapters.inbound.sel_components import SELJourneyOverview
-  ```
-- **HTMX fragments in API file:** Fragment routes treated as data endpoints
-- **Service guards:** Non-blocking tracking with availability checks
-  ```python
-  if adaptive_sel_service:
-      await adaptive_sel_service.track_page_view(user_uid, category)
-  ```
-- **Breadcrumb navigation:** Each category page includes path breadcrumbs
-- **Practice exercises:** Static content preserved in each category page
-- **DaisyUI drawer:** Zero custom CSS/JS needed
-
-**SEL Context:**
-- SKUEL's **paramount feature** - personalized learning across 5 SEL competencies
-- Adaptive curriculum based on user progress and knowledge gaps
-- Each category has description, personalized curriculum (HTMX-loaded), and practice exercises
-
-**Migration:** 2026-02-03 (Phase 4, following LifePath pattern)
-
----
-
-### Example 11: Standard with UI Optional Dependency (Calendar)
+### Example 10: Standard with UI Optional Dependency (Calendar)
 
 **File:** `/adapters/inbound/calendar_routes.py`
 
@@ -1066,19 +1014,18 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
 21. `/adapters/inbound/insights_routes.py` (67 lines) - Insights dashboard (multi-factory)
 22. `/adapters/inbound/nous_routes.py` (29 lines) - NOUS knowledge UI (UI-only)
 
-**Phase 4 Migrations (2):** *(Migrated 2026-02-03)*
+**Phase 4 Migration (1):** *(Migrated 2026-02-03)*
 23. `/adapters/inbound/lifepath_routes.py` (32 lines) - Life path alignment (API + UI, drawer layout)
-24. `/adapters/inbound/sel_routes.py` (35 lines) - SEL personalized learning (API + UI, drawer layout)
 
 **Phase 5 Migration (1):** *(Migrated 2026-02-03)*
-25. `/adapters/inbound/calendar_routes.py` (34 lines) - Calendar views (API + UI, HTMX fragments)
+24. `/adapters/inbound/calendar_routes.py` (34 lines) - Calendar views (API + UI, HTMX fragments)
 
 **Phase 6 Migrations (2):** *(Migrated 2026-02-03)*
-26. `/adapters/inbound/orchestration_routes.py` (326 lines) - Cross-domain orchestration (Multi-factory, 4 service groups)
-27. `/adapters/inbound/advanced_routes.py` (306 lines) - Advanced optional services (Multi-factory, 3 service groups)
+25. `/adapters/inbound/orchestration_routes.py` (326 lines) - Cross-domain orchestration (Multi-factory, 4 service groups)
+26. `/adapters/inbound/advanced_routes.py` (306 lines) - Advanced optional services (Multi-factory, 3 service groups)
 
 **Phase 7 Migration (1):** *(Migrated 2026-02-04)*
-28. `/adapters/inbound/assignments_routes.py` (76 lines) - File submission pipeline (Multi-factory, sharing extension uses separate primary service)
+27. `/adapters/inbound/assignments_routes.py` (76 lines) - File submission pipeline (Multi-factory, sharing extension uses separate primary service)
 
 ### Justified Exceptions (7 files)
 

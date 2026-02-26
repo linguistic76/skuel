@@ -120,7 +120,7 @@ async def get_task(self, task_uid: EntityUID) -> Result[Task]:
 
 ```python
 from core.models.type_hints import TypeConverter, EntityUID
-from core.utils.error_handler import boundary_handler
+from adapters.inbound.boundary import boundary_handler
 
 @rt("/api/tasks/{uid}")
 @boundary_handler()

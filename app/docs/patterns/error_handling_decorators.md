@@ -339,7 +339,6 @@ Keep manual try-except for:
 | system_service_init | ✅ Preserved | Health checks |
 | schema_mapping_service | ✅ Preserved | Type introspection |
 | markdown_sync_service | ✅ Preserved | File I/O, enum parsing |
-| adaptive_sel_service | ✅ Preserved | Graceful degradation |
 
 ## Best Practices
 

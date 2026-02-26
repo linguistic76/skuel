@@ -114,7 +114,6 @@ except AttributeError:
 
 **Exceptions:**
 - `core/utils/sort_functions.py` - Duck typing for generic sort utilities
-- `core/utils/mock_decorators.py` - Testing function metadata
 - `tests/**/*.py` - Test utilities can use `hasattr()`
 
 ## Rule: SKUEL007 - String-Based Result.fail()
@@ -178,7 +177,6 @@ tasks.sort(key=get_priority_value, reverse=True)
 **Exceptions:**
 - `tests/**/*.py` - Tests can use lambdas for mocking
 - `examples/**/*.py` - Examples can use lambdas for demonstration
-- `core/utils/mock_decorators.py` - Mock utilities
 
 ## Rule: SKUEL013 - RelationshipName Enum
 
