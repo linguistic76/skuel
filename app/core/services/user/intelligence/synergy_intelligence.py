@@ -45,9 +45,6 @@ class SynergyIntelligenceMixin:
         """
         Detect synergies between entities across different domains.
 
-        **Phase 2 Addition:** Cross-domain correlation for habit->goal synergies
-        and other high-leverage connections.
-
         **Synergy Types Detected:**
         1. Habit->Goal: Habits supporting multiple goals (high leverage)
         2. Task->Habit: Tasks that build habits (behavior change)
