@@ -287,7 +287,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 | Document | Updated | Lines |
 |----------|---------|-------|
-| **[Profile Hub & Insights Integration](features/PROFILE_INSIGHTS_INTEGRATION.md)** | **2026-01-31** | **1100** |
 | **[SEL Adaptive Curriculum](features/SEL_ADAPTIVE_CURRICULUM.md)** | **2026-02-03** | **850** |
 
 ## Migrations
@@ -298,7 +297,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 |----------|---------|-------|
 | [**DomainConfig Migration Complete**](migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md) | 2026-01-29 | 486 |
 | [**BaseService Improvements 2026-01-29**](migrations/BASESERVICE_IMPROVEMENTS_2026-01-29.md) | 2026-01-29 | 513 |
-| [**Documentation Updates 2026-01-29**](migrations/DOCUMENTATION_UPDATES_2026-01-29.md) | 2026-01-29 | 374 |
 | [Domain Route Config Migration - Phase 2](migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-01-24.md) | 2026-01-24 | 251 |
 | **[Domain Route Config Migration - Phase 3](migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md)** | **2026-02-03** | **1050** |
 | [Neo4j Label Standardization Migration Plan](migrations/NEO4J_LABEL_STANDARDIZATION.md) | 2025-11-27 | 167 |
@@ -308,12 +306,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Service Refactoring Analysis](migrations/service-refactoring-analysis-2026-01-25.md) | 2026-01-25 | 298 |
 | [Service Layer Refactoring Complete](migrations/service-layer-refactoring-complete-2026-01-25.md) | 2026-01-25 | 435 |
 | [Context Health Score Enum Improvement](migrations/health-score-enum-improvement-2026-01-25.md) | 2026-01-25 | 334 |
-| [Documentation Updates 2026-01-25](migrations/documentation-updates-2026-01-25.md) | 2026-01-25 | - |
 | **[Lateral Relationships Implementation Complete](migrations/LATERAL_RELATIONSHIPS_COMPLETE_2026-01-31.md)** | **2026-01-31** | **452** |
-| **[Lateral Relationships Phase 1 Complete](migrations/LATERAL_RELATIONSHIPS_PHASE1_COMPLETE_2026-01-31.md)** | **2026-01-31** | **280** |
-| **[Lateral Relationships Phase 3 Complete](migrations/LATERAL_RELATIONSHIPS_PHASE3_COMPLETE_2026-01-31.md)** | **2026-01-31** | **240** |
-| **[Lateral Relationships Phase 4 Complete](migrations/LATERAL_RELATIONSHIPS_PHASE4_COMPLETE_2026-01-31.md)** | **2026-01-31** | **320** |
-| **[Profile Insights Phase 3 & 4 Complete](migrations/PROFILE_INSIGHTS_PHASE3_4_COMPLETE.md)** | **2026-01-31** | **780** |
 | [KU Route Naming Standardization](migrations/KU_ROUTE_NAMING_STANDARDIZATION_2026-02-02.md) | 2026-02-02 | 167 |
 | **[UI Factory Signature Standardization](migrations/UI_FACTORY_SIGNATURE_STANDARDIZATION_2026-02-03.md)** | **2026-02-03** | **180** |
 | **[SEL Routes UX Modernization](migrations/SEL_UX_MODERNIZATION_2026-02-03.md)** | **2026-02-03** | **900** |
