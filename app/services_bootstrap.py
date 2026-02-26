@@ -124,6 +124,7 @@ if TYPE_CHECKING:
     from core.services.calendar_optimization_service import CalendarOptimizationService
     from core.services.content_enrichment_service import ContentEnrichmentService
     from core.services.context_aware_ai_service import ContextAwareAIService
+    from core.services.cross_domain_queries import CrossDomainQueries
     from core.services.insight.insight_store import InsightStore
     from core.services.journals.journal_output_generator import JournalOutputGenerator
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
@@ -137,7 +138,6 @@ if TYPE_CHECKING:
     from core.services.user.intelligence.factory import (
         UserContextIntelligenceFactory,
     )
-    from core.services.cross_domain_queries import CrossDomainQueries
     from core.services.user_progress_service import UserProgressService
     from core.services.user_relationship_service import UserRelationshipService
 
@@ -236,9 +236,9 @@ class Services:
     content_enrichment: "ContentEnrichmentService | None" = None
     transcription: "TranscriptionService | None" = None
 
-    # Ku feedback services (LLM-based processing for any Ku type)
+    # Reports feedback services (LLM-based processing)
     report_feedback: ReportsFeedbackOperations | None = (
-        None  # ReportsFeedbackService - LLM feedback on Ku content
+        None  # ReportsFeedbackService - LLM feedback on report content
     )
     exercises: ExerciseOperations | None = (
         None  # ExerciseService - Reusable LLM instruction templates
@@ -249,9 +249,9 @@ class Services:
         None  # JournalOutputGenerator - je_output formatting and disk storage
     )
 
-    # Ku content services (unified submission pipeline)
+    # Reports content services (submission pipeline)
     reports: ReportsSubmissionOperations | None = (
-        None  # ReportsSubmissionService - File upload and Ku content management
+        None  # ReportsSubmissionService - File upload and report content management
     )
     reports_core: ReportsContentOperations | None = (
         None  # ReportsCoreService - Content management (categories, tags, bulk operations)
@@ -263,9 +263,9 @@ class Services:
         None  # ReportsProcessingService - Orchestrates processing (LLM, human, hybrid)
     )
 
-    # Ku content search service (Unified query interface for all Ku types)
+    # Reports search service (unified query interface)
     reports_query: ReportsContentSearchOperations | None = (
-        None  # ReportsSearchService - Query all Ku types (journals, essays, projects, etc.)
+        None  # ReportsSearchService - Query all report types (journals, essays, projects, etc.)
     )
 
     # ========================================================================
@@ -1019,21 +1019,21 @@ async def compose_services(
         from core.models.askesis.askesis import Askesis
         from core.models.event.event import Event
 
-        # NOTE: Choice import REMOVED (February 2026) - Choice merged into Ku
-        # Choice entities are now Ku nodes with ku_type="choice"
-        # NOTE: Event import REMOVED (February 2026) - Event merged into Ku
-        # Event entities are now Ku nodes with ku_type="event"
+        # NOTE: Choice import REMOVED (February 2026) - Choice uses Entity model
+        # Choice entities are Entity nodes with entity_type="choice"
+        # NOTE: Event import REMOVED (February 2026) - Event uses Entity model
+        # Event entities are Entity nodes with entity_type="event"
         from core.models.finance.finance_pure import ExpensePure
         from core.models.finance.invoice import InvoicePure
         from core.models.goal.goal import Goal
 
-        # NOTE: Goal import REMOVED (February 2026) - Goal merged into Ku
-        # Goal entities are now Ku nodes with ku_type="goal"
+        # NOTE: Goal import REMOVED (February 2026) - Goal uses Entity model
+        # Goal entities are Entity nodes with entity_type="goal"
         from core.models.habit.completion import HabitCompletion
         from core.models.habit.habit import Habit
 
-        # NOTE: MapOfContent import removed (January 2026) - MOC is now KU-based
-        # MOC is a KU with ORGANIZES relationships, not a separate entity
+        # NOTE: MapOfContent import removed (January 2026) - MOC is Entity-based (emergent)
+        # MOC is any Entity with ORGANIZES relationships, not a separate entity type
         from core.models.principle.reflection import PrincipleReflection
         from core.models.progress import UserProgress
         from core.models.task.task import Task
@@ -1084,8 +1084,8 @@ async def compose_services(
         invoice_backend = UniversalNeo4jBackend[InvoicePure](
             driver, NeoLabel.INVOICE, InvoicePure, prometheus_metrics=prometheus_metrics
         )
-        # NOTE: journals_backend REMOVED (February 2026) - Journal merged into Ku
-        # Journal entries are now Ku nodes with ku_type="submission" and journal metadata
+        # NOTE: journals_backend REMOVED (February 2026) - Journal uses Entity model
+        # Journal entries are Entity nodes with entity_type="submission" and journal metadata
         transcription_backend = UniversalNeo4jBackend[Transcription](
             driver, NeoLabel.TRANSCRIPTION, Transcription, prometheus_metrics=prometheus_metrics
         )
@@ -1537,14 +1537,14 @@ async def compose_services(
         ai_service = OpenAIService(api_key=openai_api_key)
 
         content_enrichment = ContentEnrichmentService(
-            backend=reports_backend,  # February 2026: Uses Ku backend (unified model)
+            backend=reports_backend,  # February 2026: Uses Entity backend (domain-first model)
             transcription_service=core_services["transcription"],
             ai_service=ai_service,  # REQUIRED - always available
             event_bus=event_bus,  # Event-driven architecture
         )
         logger.info("✅ Transcript processor service created")
 
-        # Create Ku feedback and exercise services (February 2026: Unified Ku model)
+        # Create Reports feedback and exercise services
         from core.models.curriculum.exercise import Exercise
         from core.services.exercises import ExerciseService
         from core.services.reports import ReportsFeedbackService
@@ -1563,7 +1563,7 @@ async def compose_services(
         )
 
         exercise_service = ExerciseService(backend=exercise_backend)
-        logger.info("✅ Ku feedback and exercise services created")
+        logger.info("✅ Reports feedback and exercise services created")
 
         # Create group service (ADR-040: Teacher Assignment Workflow)
         from core.models.group.group import Group
@@ -1635,12 +1635,12 @@ async def compose_services(
             backend=reports_backend, storage_path=storage_path, event_bus=event_bus
         )
 
-        # Create Ku sharing service (content sharing)
+        # Create Reports sharing service (content sharing)
         from core.services.reports import ReportsSharingService
 
         report_sharing_service = ReportsSharingService(executor=query_executor)
 
-        # Create Ku core service (content management: categories, tags, bulk operations)
+        # Create Reports core service (content management: categories, tags, bulk operations)
         # February 2026: content_enrichment for handle_transcription_completed
         reports_core_service = ReportsCoreService(
             backend=reports_backend,
@@ -1709,16 +1709,16 @@ async def compose_services(
             event_bus=event_bus,
         )
 
-        # Create Ku search service (unified query interface)
+        # Create Reports search service (unified query interface)
         reports_query_service = ReportsSearchService(
             ku_backend=reports_backend, event_bus=event_bus
         )
 
-        logger.info("✅ Ku submission and processing pipeline services created (unified model)")
-        logger.info("✅ Ku core service created (content management: categories, tags, bulk ops)")
-        logger.info("✅ Ku search service created (unified query interface for all Ku types)")
+        logger.info("✅ Reports submission and processing pipeline services created")
+        logger.info("✅ Reports core service created (content management: categories, tags, bulk ops)")
+        logger.info("✅ Reports search service created (unified query interface for all report types)")
 
-        # Create progress Ku generator and schedule service (February 2026: Unified Ku model)
+        # Create progress report generator and schedule service
         from core.models.reports.ku_schedule import KuSchedule
         from core.services.reports.progress_report_generator import ProgressReportGenerator
         from core.services.reports.report_schedule_service import ReportsScheduleService
@@ -1737,7 +1737,7 @@ async def compose_services(
         )
 
         # Create progress report background worker (February 2026)
-        # Worker checks hourly for due schedules and generates AI_REPORT Ku nodes
+        # Worker checks hourly for due schedules and generates AI_REPORT Entity nodes
         from core.services.background.progress_report_worker import ProgressReportWorker
 
         progress_report_worker = ProgressReportWorker(
@@ -1745,7 +1745,7 @@ async def compose_services(
             progress_generator=progress_generator,
             check_interval_seconds=3600,  # Hourly check
         )
-        logger.info("✅ Progress Ku generator, schedule service, and background worker created")
+        logger.info("✅ Progress report generator, schedule service, and background worker created")
 
         # Create analytics service
         from core.services.analytics_service import AnalyticsService
@@ -2066,8 +2066,8 @@ async def compose_services(
         )
 
         # NOTE: MOC event subscriptions removed (January 2026)
-        # MOC is now KU-based - MOC changes are KU changes with ORGANIZES relationships
-        # Context invalidation happens through KU events, not separate MOC events
+        # MOC is Entity-based - MOC changes are Entity changes with ORGANIZES relationships
+        # Context invalidation happens through Entity events, not separate MOC events
 
         # ========================================================================
         # CROSS-DOMAIN EVENT SUBSCRIPTIONS (Phase 4: November 5, 2025)
@@ -2162,7 +2162,7 @@ async def compose_services(
         )
         # NOTE: JournalCreated subscription REMOVED (February 2026)
         # Journal merged into Reports — cross_domain_analytics needs update in Phase 5
-        # to subscribe to SubmissionCreated and filter for ku_type="journal"
+        # to subscribe to SubmissionCreated and filter for entity_type="journal"
         logger.info(
             "✅ CrossDomainAnalyticsService subscribed to 8 event types "
             "(Tasks, Habits, Events, Expenses, Goals, Knowledge, Paths)"
@@ -2306,8 +2306,8 @@ async def compose_services(
         logger.info("✅ PrinciplesIntelligenceService subscribed to PrincipleConflictRevealed")
 
         # NOTE: MOC intelligence subscription removed (January 2026)
-        # MOC is now KU-based - intelligence operations happen through KU's ORGANIZES relationships
-        # MapOfContentUpdated event type is deprecated - MOC changes are KU changes
+        # MOC is Entity-based - intelligence operations happen through Entity ORGANIZES relationships
+        # MapOfContentUpdated event type is deprecated - MOC changes are Entity changes
 
         logger.info(
             "✅ Domain intelligence event subscriptions wired (8 handlers): "
