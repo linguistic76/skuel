@@ -19,7 +19,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.entity import Entity
-from core.models.entity_types import Ku
 from core.models.enums.principle_enums import PrincipleCategory
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
@@ -332,7 +331,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
         category: PrincipleCategory,
         why_matters: str,
         **kwargs: Any,
-    ) -> Result[Ku]:
+    ) -> Result[Principle]:
         """Create a new principle."""
         return await self.core.create_principle(label, description, category, why_matters, **kwargs)
 
