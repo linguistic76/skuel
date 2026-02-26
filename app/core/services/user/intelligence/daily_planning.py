@@ -49,7 +49,7 @@ class DailyPlanningMixin:
     choices: Any  # ChoicesRelationshipService
     principles: Any  # PrinciplesRelationshipService
     ku: Any  # KuGraphService
-    vector_search: Any = None  # Neo4jVectorSearchService (optional - Phase 1 enhancement)
+    vector_search: Any = None  # Neo4jVectorSearchService (optional)
 
     # =========================================================================
     # METHOD 5: Ready to Work on Today - THE FLAGSHIP METHOD
@@ -155,10 +155,9 @@ class DailyPlanningMixin:
 
         # =====================================================================
         # PRIORITY 5: Learning (if capacity allows)
-        # Phase 1 Enhancement: Use semantic/learning-aware search if available
         # =====================================================================
         if not respect_capacity or estimated_time < available_time * 0.7:
-            # Try semantic-enhanced search first (Phase 1)
+            # Try semantic-enhanced search first (if available)
             if self.vector_search and getattr(self.vector_search, "learning_aware_search", None):
                 search_query = self._generate_daily_learning_query(goals_uids, tasks_uids)
                 vector_result = await self.vector_search.learning_aware_search(
@@ -326,7 +325,7 @@ class DailyPlanningMixin:
         return "; ".join(rationale_parts) if rationale_parts else "Balanced daily plan"
 
     # =========================================================================
-    # Vector Search Helpers (Phase 1 Enhancement)
+    # Vector Search Helpers
     # =========================================================================
 
     def _generate_daily_learning_query(self, goals_uids: list[str], tasks_uids: list[str]) -> str:
