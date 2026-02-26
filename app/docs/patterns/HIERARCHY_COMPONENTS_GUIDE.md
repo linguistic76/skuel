@@ -75,41 +75,6 @@ async def goal_hierarchy(request: Request, uid: str):
     )
 ```
 
-### AccordionHierarchy - Content-Rich Display
-
-```python
-from ui.patterns.accordion_hierarchy import AccordionHierarchy
-
-# Fetch root nodes with metadata
-root_goals_result = await goals_service.search(user_uid=user_uid, limit=10)
-root_goals = root_goals_result.value
-
-# Convert to dicts
-goals_data = []
-for g in root_goals:
-    # Check if has children
-    children_result = await goals_service.get_subgoals(g.uid, depth=1)
-    has_children = not children_result.is_error and len(children_result.value) > 0
-
-    goals_data.append({
-        "uid": g.uid,
-        "title": g.title,
-        "description": g.description,
-        "has_children": has_children,
-        "child_count": len(children_result.value) if not children_result.is_error else 0,
-    })
-
-# Render
-return AccordionHierarchy(
-    root_nodes=goals_data,
-    entity_type="goal",
-    children_endpoint="/api/goals/{uid}/children",
-    mode="checkbox",  # Multiple items can be open
-    lazy_load=True,
-    show_metadata=True,
-)
-```
-
 ### Breadcrumbs - Navigation Trail
 
 ```python
@@ -138,36 +103,6 @@ Breadcrumbs(
     path=ancestors,
     show_home=True,
     home_url="/goals",
-)
-```
-
-### IndentedList - Simple Static Display
-
-```python
-from ui.patterns.indented_list import IndentedList
-
-# Fetch full hierarchy (for shallow trees only!)
-hierarchy_result = await goals_service.get_subgoals(uid, depth=3)
-children = hierarchy_result.value
-
-# Flatten to list with depth
-items = []
-
-def flatten_goals(goals: list[Goal], depth: int = 0):
-    for goal in goals:
-        items.append({"uid": goal.uid, "title": goal.title, "depth": depth})
-        # Get children
-        children_result = await goals_service.get_subgoals(goal.uid, depth=1)
-        if not children_result.is_error:
-            flatten_goals(children_result.value, depth + 1)
-
-flatten_goals([root_goal], depth=0)
-
-# Render
-IndentedList(
-    items=items,
-    entity_type="goal",
-    link_pattern="/goals/{uid}",
 )
 ```
 
@@ -560,17 +495,16 @@ async def bulk_delete(request: Request):
 
 ## Component Comparison
 
-| Feature | TreeView | AccordionHierarchy | Breadcrumbs | IndentedList |
-|---------|----------|-------------------|-------------|-------------|
-| **Expand/Collapse** | ✅ | ✅ | ❌ | ❌ |
-| **Lazy Loading** | ✅ | ✅ | ❌ | ❌ |
-| **Drag-Drop** | ✅ | ⚠️ Limited | ❌ | ❌ |
-| **Keyboard Nav** | ✅ | ❌ | ❌ | ❌ |
-| **Multi-Select** | ✅ | ❌ | ❌ | ❌ |
-| **Inline Edit** | ✅ | ❌ | ❌ | ❌ |
-| **Content-Rich Nodes** | ⚠️ Compact | ✅ Best | ❌ | ⚠️ Basic |
-| **Deep Trees (10+ levels)** | ✅ Excellent | ⚠️ Okay | ❌ | ⚠️ Okay |
-| **Performance (1000+ nodes)** | ✅ (with lazy load) | ✅ (with lazy load) | N/A | ❌ Slow |
+| Feature | TreeView | Breadcrumbs |
+|---------|----------|-------------|
+| **Expand/Collapse** | ✅ | ❌ |
+| **Lazy Loading** | ✅ | ❌ |
+| **Drag-Drop** | ✅ | ❌ |
+| **Keyboard Nav** | ✅ | ❌ |
+| **Multi-Select** | ✅ | ❌ |
+| **Inline Edit** | ✅ | ❌ |
+| **Deep Trees (10+ levels)** | ✅ Excellent | ❌ |
+| **Performance (1000+ nodes)** | ✅ (with lazy load) | N/A |
 
 ---
 
@@ -585,25 +519,11 @@ async def bulk_delete(request: Request):
 - File/folder-like navigation
 - **Use when:** Interactive features needed (drag-drop, keyboard, multi-select)
 
-**AccordionHierarchy:**
-- Knowledge Unit organization (course → module → lesson)
-- Principle value hierarchies (core → supporting → derived)
-- Choice decision trees with descriptions
-- Documentation/wiki navigation
-- **Use when:** Nodes have substantial metadata/content
-
 **Breadcrumbs:**
 - Every detail page with hierarchy
 - Above TreeView/Accordion for context
 - Navigation aid in deeply nested structures
 - **Use when:** User needs context of current location
-
-**IndentedList:**
-- Quick overviews (< 50 items)
-- Static displays without interaction
-- Print-friendly hierarchy views
-- Sidebar navigation (shallow trees)
-- **Use when:** Simple display, no interaction needed
 
 ### Performance Optimization
 
@@ -840,9 +760,7 @@ def render_hierarchy_view(root_uid: str, root_goal: Goal) -> Div:
 | File | Purpose | Lines |
 |------|---------|-------|
 | `/ui/patterns/tree_view.py` | TreeView, TreeNodeList | ~250 |
-| `/ui/patterns/accordion_hierarchy.py` | AccordionHierarchy | ~200 |
 | `/ui/patterns/breadcrumbs.py` | Breadcrumbs | ~80 |
-| `/ui/patterns/indented_list.py` | IndentedList | ~100 |
 | `/static/js/skuel.js` | hierarchyTree() Alpine component | +300 |
 | `/static/css/hierarchy.css` | Hierarchy styles | ~120 |
 

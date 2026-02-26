@@ -179,41 +179,14 @@ ws://localhost:5001/ws/ingest/progress/{operation_id}
 
 ### Domain-Integrated Ingestion (Admin)
 
-Trigger ingestion from domain list pages:
+Trigger ingestion via the admin panel or API endpoints:
 
-```python
-from ui.patterns.domain_ingestion_trigger import DomainIngestionTrigger, DomainIngestionModal
-
-@rt("/ku")
-async def ku_list_page(request: Request):
-    is_admin = has_admin_role(request)
-    kus = await ku_service.list_all()
-
-    return BasePage(
-        content=Div(
-            Div(
-                H1("Knowledge Units"),
-                DomainIngestionTrigger("ku", is_admin),  # Admin-only button
-                cls="flex justify-between items-center mb-4"
-            ),
-            KuListTable(kus),
-            DomainIngestionModal("ku"),  # Modal with form
-        ),
-        title="Knowledge Units",
-        request=request,
-    )
+```bash
+# Ingest a specific domain (admin only)
+POST /api/ingest/domain/ku
 ```
 
-**Admin Experience:**
-1. Click "Ingest KU" button
-2. Modal opens with form:
-   - Source directory (pre-filled)
-   - File pattern (default: `*.md`)
-   - Dry-run checkbox
-3. Submit form
-4. See results in modal (formatted stats or preview)
-
-**See:** `/DOMAIN_SYNC_INTEGRATION_GUIDE.md` for complete guide
+**See:** `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md` for ingestion architecture
 
 ---
 

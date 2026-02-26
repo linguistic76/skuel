@@ -529,7 +529,6 @@ config = CardConfig.compact() if is_mobile else CardConfig.default()
 EntityCard(title=task.title, config=config)
 ```
 
-**See Also:** `/ui/patterns/entity_card_examples.py` for 8 complete examples
 
 ---
 
@@ -778,18 +777,6 @@ RelationshipGraphView(
 **Location:** `/ui/patterns/tree_view.py`
 
 Hierarchical tree visualization with expand/collapse.
-
-### AccordionHierarchy
-
-**Location:** `/ui/patterns/accordion_hierarchy.py`
-
-Accordion-style hierarchy navigation.
-
-### IndentedList
-
-**Location:** `/ui/patterns/indented_list.py`
-
-Indented list for hierarchical data.
 
 ### Breadcrumbs
 
@@ -1161,7 +1148,6 @@ Div(cls=f"{CONTAINERS['standard']} {SPACING['section_gap']}")
 
 Quick alphabetical index:
 
-- **AccordionHierarchy** - `/ui/patterns/accordion_hierarchy.py`
 - **Badge** - `/ui/primitives/badge.py`
 - **BasePage** - `/ui/layouts/base_page.py`
 - **Breadcrumbs** - `/ui/patterns/breadcrumbs.py`
@@ -1187,7 +1173,6 @@ Quick alphabetical index:
 
 # Related Documentation
 
-- **EntityCard Variant Guide:** `/ui/patterns/entity_card_examples.py`
 - **Error Handling Patterns:** `/docs/patterns/ERROR_HANDLING.md`
 - **UI Component Patterns:** `/docs/patterns/UI_COMPONENT_PATTERNS.md`
 - **WCAG Accessibility Guide:** `/.claude/skills/accessibility-guide/`

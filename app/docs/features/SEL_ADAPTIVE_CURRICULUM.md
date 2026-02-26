@@ -142,10 +142,7 @@ async def sel_category(request: Request) -> Any:
             hx_get=f"/api/sel/curriculum-html/{category}?limit=10",
             hx_trigger="load",
             hx_swap="innerHTML",
-            **htmx_attrs(
-                operation=HTMXOperation.LOAD,
-                announce="Curriculum loaded",
-            ),
+            **{"data-announce": "Curriculum loaded"},
             id="curriculum-list",
             cls="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6",
         ),
@@ -353,12 +350,9 @@ LIMIT 30
 ### ARIA Announcements
 
 ```python
-# HTMX attributes for screen readers
-**htmx_attrs(
-    operation=HTMXOperation.LOAD,
-    announce="Curriculum loaded",                    # Success announcement
-    announce_loading="Loading personalized curriculum"  # Loading announcement
-)
+# HTMX attributes for screen readers (raw data attributes, read by skuel.js)
+**{"data-announce": "Curriculum loaded",
+   "data-announce-loading": "Loading personalized curriculum"}
 ```
 
 **Screen reader flow:**
