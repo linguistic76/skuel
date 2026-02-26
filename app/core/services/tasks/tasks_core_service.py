@@ -56,7 +56,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -341,7 +341,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
             )
             await publish_event(self.event_bus, knowledge_event, self.logger)
 
-        # Publish embedding request event for async background generation (Phase 1 - January 2026)
+        # Publish embedding request event for async background generation
         # Background worker will process embeddings in batches (zero latency impact on user)
         embedding_text = build_embedding_text(EntityType.TASK, task)
         if embedding_text:
