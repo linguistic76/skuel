@@ -87,7 +87,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
     """
 
     # =========================================================================
-    # DomainConfig consolidation (January 2026 Phase 3)
+    # DomainConfig consolidation (January 2026)
     # =========================================================================
     # All configuration in one place, using centralized relationship registry
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
@@ -100,7 +100,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
     )
 
     # =========================================================================
-    # GRAPH ENRICHMENT PATTERNS (Phase 3: Cross-Domain Applications)
+    # GRAPH ENRICHMENT PATTERNS
     # =========================================================================
     # These patterns are used by BaseService.graph_aware_faceted_search()
     # to enrich search results with relationship context.
@@ -218,7 +218,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        # Convert Ku models to CurriculumDTOs for API compatibility
+        # Convert Curriculum models to CurriculumDTOs for API compatibility
         dtos = self._convert_to_dtos(result.value)
 
         self.logger.debug(f"Title search for '{search_term}' returned {len(dtos)} results")
