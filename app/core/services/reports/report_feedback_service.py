@@ -1,8 +1,8 @@
 """
-Ku Feedback Service
-====================
+Report Feedback Service
+========================
 
-Generates transparent AI feedback for Ku entries using Exercises.
+Generates transparent AI feedback for report entries using Exercises.
 
 Following SKUEL principles:
 - Transparent: User sees exact prompt sent to LLM
