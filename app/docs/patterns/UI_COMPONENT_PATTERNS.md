@@ -1187,10 +1187,10 @@ def compute_task_stats(tasks: list[Any]) -> dict[str, int]:
     today = date.today()
     return {
         "total": len(tasks),
-        "completed": sum(1 for t in tasks if t.status == KuStatus.COMPLETED),
+        "completed": sum(1 for t in tasks if t.status == EntityStatus.COMPLETED),
         "overdue": sum(
             1 for t in tasks
-            if t.due_date and t.due_date < today and t.status != KuStatus.COMPLETED
+            if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
         ),
     }
 
@@ -1211,9 +1211,9 @@ def apply_task_filters(
 
     # Filter: status
     if status_filter == "active":
-        tasks = [t for t in tasks if t.status != KuStatus.COMPLETED]
+        tasks = [t for t in tasks if t.status != EntityStatus.COMPLETED]
     elif status_filter == "completed":
-        tasks = [t for t in tasks if t.status == KuStatus.COMPLETED]
+        tasks = [t for t in tasks if t.status == EntityStatus.COMPLETED]
 
     return tasks
 
@@ -1365,7 +1365,7 @@ def test_compute_task_stats_empty_list():
     assert stats == {"total": 0, "completed": 0, "overdue": 0}
 
 def test_apply_task_filters_status():
-    tasks = [Mock(status=KuStatus.COMPLETED), Mock(status=KuStatus.ACTIVE)]
+    tasks = [Mock(status=EntityStatus.COMPLETED), Mock(status=EntityStatus.ACTIVE)]
     filtered = apply_task_filters(tasks, status_filter="active")
     assert len(filtered) == 1
 

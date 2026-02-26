@@ -132,7 +132,7 @@ async def assess_alignment_dual_track(
         user_reflection=reflection,
         system_calculator=self._calculate_system_alignment,  # Action: measures actual behavior
         level_scorer=self._alignment_level_to_score,         # AlignmentLevel → 0.0-1.0
-        entity_type=KuType.PRINCIPLE.value,
+        entity_type=EntityType.PRINCIPLE.value,
     )
 
 async def _calculate_system_alignment(
