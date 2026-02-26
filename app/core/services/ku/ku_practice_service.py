@@ -29,7 +29,7 @@ class KuPracticeService:
     Handles automatic KU practice count updates when events are completed,
     eliminating direct dependencies between EventsService and KuService.
 
-    Event-Driven Architecture (Phase 4):
+    Event-Driven Architecture:
     - Subscribes to CalendarEventCompleted events
     - Updates KU practice counts (times_practiced_in_events)
     - Updates last_practiced_date timestamps
@@ -57,7 +57,7 @@ class KuPracticeService:
         Initialize knowledge practice service.
 
         Args:
-            backend: BackendOperations for Cypher queries (REQUIRED for Phase 4)
+            backend: BackendOperations for Cypher queries
             event_bus: Optional event bus for publishing events
         """
         self.backend = backend
@@ -65,7 +65,7 @@ class KuPracticeService:
         self.logger = get_logger("skuel.services.ku.practice")
 
     # ========================================================================
-    # EVENT HANDLERS (Phase 4: Event-Driven Architecture)
+    # EVENT HANDLERS
     # ========================================================================
 
     async def handle_event_completed(self, event: CalendarEventCompleted) -> None:
