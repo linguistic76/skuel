@@ -54,7 +54,7 @@ def _validate_task_prerequisites(
 
     Args:
         request: Task creation request
-        context: User context with completed_ku_uids and completed_task_uids
+        context: User context with completed_knowledge_uids and completed_task_uids
 
     Returns:
         Result.ok() if valid, Result.fail() with missing prerequisites
@@ -119,7 +119,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
         """
         super().__init__(backend=backend, service_name="tasks.scheduling")
 
-        # Initialize LearningAlignmentHelper with prerequisite validator (Phase 6)
+        # Initialize LearningAlignmentHelper with prerequisite validator
         self.learning_helper = LearningAlignmentHelper[Task, TaskDTO, TaskCreateRequest](
             service=self,
             backend_get_method="get",
@@ -289,7 +289,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
         Returns:
             Result containing created Task with learning path enhancement
         """
-        # Use LearningAlignmentHelper with prerequisite validator (Phase 6 consolidation)
+        # Use LearningAlignmentHelper with prerequisite validator
         return await self.learning_helper.create_with_learning_alignment(
             request=task_request, learning_position=learning_position, context=context
         )
@@ -461,7 +461,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
         Future Implementation:
         1. Create task (current behavior - working)
         2. Loop through knowledge_uids
-        3. Call self.relationships.add_task_knowledge(task.uid, ku_uid) for each
+        3. Call self.relationships.add_task_knowledge(task.uid, knowledge_uid) for each
         4. Create (Task)-[:APPLIES_KNOWLEDGE]->(Knowledge) relationships in graph
 
         Args:
