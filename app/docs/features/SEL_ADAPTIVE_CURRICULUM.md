@@ -499,8 +499,7 @@ See: `/docs/migrations/SEL_UX_MODERNIZATION_2026-02-03.md`
 
 ## Contact & Support
 
-**Service Location:** `core/services/adaptive_sel_service.py`
-**Routes Location:** `adapters/inbound/sel_routes.py`
-**Components Location:** `adapters/inbound/sel_components.py`
+**Service Location:** `core/services/ku/ku_adaptive_service.py` (absorbed from AdaptiveSELService February 2026 — SEL is a navigation lens over KUs)
+**Routes:** SEL routes removed February 2026 — curriculum access via `/ku` hub
 
 **Key Contributors:** Claude Sonnet 4.5 (UX Modernization - 2026-02-03)

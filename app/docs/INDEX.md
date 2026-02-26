@@ -143,7 +143,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Return Type Error Propagation Pattern](patterns/RETURN_TYPE_ERROR_PROPAGATION.md) | 2025-11-08 | 255 |
 | [Route Factory Patterns - Complete Guide](patterns/ROUTE_FACTORY_PATTERNS.md) | 2025-11-18 | 469 |
 | [SearchService Pattern for Activity Domains](patterns/search_service_pattern.md) | 2025-11-28 | 268 |
-| **[SEL Component Patterns](patterns/SEL_COMPONENT_PATTERNS.md)** | **2026-02-03** | **650** |
 | [Service Decomposition - Implementation Guide](patterns/SERVICE_DECOMPOSITION_IMPLEMENTATION_GUIDE.md) | 2025-11-27 | 554 |
 | [Service Integration Guide - Relationship Helpers](patterns/SERVICE_INTEGRATION_RELATIONSHIP_HELPERS.md) | 2025-11-18 | 468 |
 | **[Three-Tier Type System](patterns/three_tier_type_system.md)** | **2026-01-24** | **468** |
