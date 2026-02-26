@@ -7,7 +7,7 @@ Centralized configuration for BaseService behavior.
 This module consolidates the 18 class attributes previously scattered
 across individual service classes into a single, type-safe dataclass.
 
-**ONE PATH FORWARD (January 2026 - Phase 3 Complete):**
+**ONE PATH FORWARD (January 2026):**
 DomainConfig is THE ONLY configuration source for BaseService.
 
 **Before (scattered class attributes):**
@@ -42,10 +42,8 @@ class TasksSearchService(BaseService):
 - ✅ No dual configuration system - DomainConfig is THE path
 
 **Migration Status (January 2026):**
-- ✅ Phase 1: Created DomainConfig and factories
-- ✅ Phase 2: Migrated search services to use DomainConfig
-- ✅ Phase 3: Migrated ALL services to DomainConfig (19 core + 6 search = 25 services)
-- ✅ Phase 3: Removed class attribute fallback from _get_config_value()
+- ✅ All services migrated to DomainConfig (19 core + 6 search = 25 services)
+- ✅ Class attribute fallback removed from _get_config_value()
 
 See Also:
     - /core/services/base_service.py - Uses DomainConfig exclusively
