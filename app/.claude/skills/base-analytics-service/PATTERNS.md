@@ -15,8 +15,8 @@ Intelligence for habit streak patterns and knowledge reinforcement.
 from typing import Any, ClassVar
 
 from core.events.habit_events import HabitCompleted, HabitStreakBroken
-from core.models.ku.ku import Ku as Habit
-from core.models.ku.habit_dto import HabitDTO
+from core.models.habit.habit import Habit
+from core.models.habit.habit_dto import HabitDTO
 from core.models.enums import Domain
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence.orchestrator import GraphContextOrchestrator
