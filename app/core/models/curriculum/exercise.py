@@ -85,7 +85,7 @@ class Exercise(Curriculum):
         This is the FULL transparency — user can see exactly what goes to the LLM.
 
         Args:
-            entry_content: The Ku entry text to analyze
+            entry_content: The report entry text to analyze
 
         Returns:
             Complete prompt: instructions + context + entry

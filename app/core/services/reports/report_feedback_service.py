@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 
 class ReportsFeedbackService:
     """
-    Generates AI feedback for Ku entries using project instructions.
+    Generates AI feedback for report entries using project instructions.
 
     Supports both OpenAI and Anthropic models.
     User selects which model to use via Exercise.model field.
@@ -60,7 +60,7 @@ class ReportsFeedbackService:
         max_tokens: int = 4000,
     ) -> Result[str]:
         """
-        Generate AI feedback for a Ku entry using project instructions.
+        Generate AI feedback for a report entry using project instructions.
 
         Args:
             entry: Ku to analyze (uses content or processed_content)

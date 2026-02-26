@@ -93,9 +93,9 @@ class ExerciseUpdateRequest(BaseModel):
 
 
 class FeedbackGenerateRequest(BaseModel):
-    """Request to generate feedback for a Ku entry using an Exercise."""
+    """Request to generate feedback for a report entry using an Exercise."""
 
-    entry_uid: str = Field(..., description="UID of the Ku entry to analyze")
+    entry_uid: str = Field(..., description="UID of the report entry to analyze")
 
     project_uid: str = Field(..., description="UID of the Exercise with instructions")
 
@@ -108,5 +108,5 @@ class FeedbackGenerateRequest(BaseModel):
     )
 
     save_feedback: bool = Field(
-        default=True, description="Whether to save feedback to the Ku entry"
+        default=True, description="Whether to save feedback to the report entry"
     )

@@ -463,7 +463,7 @@ class ReportsFeedbackOperations(Protocol):
         temperature: float = 0.7,
         max_tokens: int = 4000,
     ) -> Result[str]:
-        """Generate AI feedback for a Ku entry using an Assignment. Returns Result[str]."""
+        """Generate AI feedback for a report entry using an Assignment. Returns Result[str]."""
         ...
 
 
