@@ -289,12 +289,13 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
             budget_alerts=budget_alerts,
         )
 
-        return create_finance_page(
+        return await create_finance_page(
             content=content,
             active_section="dashboard",
             admin_username=current_user.display_name or current_user.username,
             title="Finance Dashboard",
             budget_health=budget_health,
+            request=request,
         )
 
     # =========================================================================
@@ -362,11 +363,12 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
             total_count=total_count,
         )
 
-        return create_finance_page(
+        return await create_finance_page(
             content=content,
             active_section="expenses",
             admin_username=current_user.display_name or current_user.username,
             title="Expenses",
+            request=request,
         )
 
     # =========================================================================
@@ -410,11 +412,12 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
             total_spent=total_spent,
         )
 
-        return create_finance_page(
+        return await create_finance_page(
             content=content,
             active_section="budgets",
             admin_username=current_user.display_name or current_user.username,
             title="Budgets",
+            request=request,
         )
 
     # =========================================================================
@@ -495,11 +498,12 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
             tax_summary=tax_summary,
         )
 
-        return create_finance_page(
+        return await create_finance_page(
             content=content,
             active_section="reports",
             admin_username=current_user.display_name or current_user.username,
             title="Reports",
+            request=request,
         )
 
     # =========================================================================
@@ -574,11 +578,12 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
             budget_adherence=budget_adherence,
         )
 
-        return create_finance_page(
+        return await create_finance_page(
             content=content,
             active_section="analytics",
             admin_username=current_user.display_name or current_user.username,
             title="Analytics",
+            request=request,
         )
 
     # =========================================================================
@@ -630,11 +635,12 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
 
         content = InvoiceViews.render_invoices_list(invoices=invoices, stats=stats)
 
-        return create_finance_page(
+        return await create_finance_page(
             content=content,
             active_section="invoices",
             admin_username=current_user.display_name or current_user.username,
             title="Invoices",
+            request=request,
         )
 
     logger.info("Finance Hub UI routes registered")

@@ -1,20 +1,15 @@
-"""Finance Hub UI module.
+"""Finance UI module.
 
-Provides the FinanceLayout class for sidebar-based finance hub navigation.
+Provides the finance hub layout and navigation components.
+All finance routes require ADMIN role.
 """
 
 from ui.finance.layout import (
-    FINANCE_NAV_ITEMS,
-    FinanceLayout,
-    FinanceNavItem,
-    FinanceSidebarItem,
+    FINANCE_SIDEBAR_ITEMS,
     create_finance_page,
 )
 
 __all__ = [
-    "FINANCE_NAV_ITEMS",
-    "FinanceLayout",
-    "FinanceNavItem",
-    "FinanceSidebarItem",
+    "FINANCE_SIDEBAR_ITEMS",
     "create_finance_page",
 ]
