@@ -325,7 +325,7 @@ class CrossDomainAnalyticsService:
     # ========================================================================
 
     # ========================================================================
-    # EVENT HANDLERS - Activity Domain Tracking (Phase 4)
+    # EVENT HANDLERS - Activity Domain Tracking
     # ========================================================================
 
     async def handle_task_completed(self, event: Any) -> Result[None]:

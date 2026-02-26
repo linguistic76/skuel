@@ -13,7 +13,7 @@ Handles advanced task search and discovery operations.
 - Semantic knowledge search
 - Learning-aligned task discovery
 - Curriculum task filtering
-- Graph-aware faceted search (Phase 4 decomposition)
+- Graph-aware faceted search ()
 
 **Dependencies:**
 - TasksOperations (backend protocol)
@@ -59,13 +59,13 @@ class TasksSearchService(BaseService["BackendOperations[Task]", Task]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
     """
 
-    # DomainConfig consolidation (January 2026 Phase 2)
+    # DomainConfig consolidation (January 2026)
     # All configuration in one place, using centralized relationship registry
     _config = create_activity_domain_config(
         dto_class=TaskDTO,

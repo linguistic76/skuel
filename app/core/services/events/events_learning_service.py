@@ -54,7 +54,7 @@ class EventsLearningService(BaseService["BackendOperations[Event]", Event]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -95,7 +95,7 @@ class EventsLearningService(BaseService["BackendOperations[Event]", Event]):
         self.relationships = relationships
         self.event_bus = event_bus
 
-        # Initialize LearningAlignmentHelper for Events (Phase 6)
+        # Initialize LearningAlignmentHelper for Events
         self.learning_helper = LearningAlignmentHelper[Event, EventDTO, EventCreateRequest](
             service=self,
             backend_get_method="get",
@@ -307,7 +307,7 @@ class EventsLearningService(BaseService["BackendOperations[Event]", Event]):
         if learning_path_uid:
             custom_fields["source_learning_path_uid"] = learning_path_uid
 
-        # Create via helper (Phase 6 consolidation)
+        # Create via helper (consolidation)
         result = await self.learning_helper.create_with_learning_alignment(
             request=request,
             learning_position=None,  # Not used for study sessions
@@ -464,7 +464,7 @@ class EventsLearningService(BaseService["BackendOperations[Event]", Event]):
                 event_requests.append(request)
                 custom_fields_list.append(custom_fields)
 
-        # Create all events in batch via helper (Phase 6 consolidation)
+        # Create all events in batch via helper (consolidation)
         result = await self.learning_helper.create_batch_with_learning_alignment(
             requests=event_requests,
             custom_fields_per_request=custom_fields_list,

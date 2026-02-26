@@ -1,5 +1,5 @@
 """
-Askesis Citation Service - Phase 4C: Citations as First-Class Citizen
+Askesis Citation Service - Citations as First-Class Citizen
 
 Service for retrieving and formatting relationship citations for Askesis responses.
 
@@ -222,7 +222,7 @@ class AskesisCitationService:
             result = await service.get_citations_for_knowledge_unit(
                 "ku.django_models",
                 depth=3,
-                min_evidence_count=1  # Only well-documented prerequisites
+                min_evidence_count=1 # Only well-documented prerequisites
             )
         """
         # Build citation export query

@@ -12,7 +12,7 @@ An Exercise is like Claude/ChatGPT Projects - simple, transparent:
 
 Works with any Ku type (exercises, curriculum, etc.)
 
-Formerly AssignmentService — renamed per Phase 3 of Ku hierarchy refactoring.
+Formerly AssignmentService — renamed per of Ku hierarchy refactoring.
 """
 
 import json
@@ -454,7 +454,7 @@ class ExerciseService(BaseService):
         return await self.backend.update(uid, updates)
 
     # ========================================================================
-    # CURRICULUM LINKING (Phase 4 — Exercise-Curriculum Connections)
+    # CURRICULUM LINKING
     # ========================================================================
 
     @with_error_handling("link_to_curriculum", error_type="database")

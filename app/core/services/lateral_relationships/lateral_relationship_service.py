@@ -418,7 +418,7 @@ class LateralRelationshipService:
             MATCH (grandparent)-[]->(parent2)-[]->(cousin)
             WHERE parent1 != parent2
             AND cousin.uid != $entity_uid
-            AND NOT (parent1)-[]->(cousin)  // Not a sibling
+            AND NOT (parent1)-[]->(cousin) // Not a sibling
             RETURN
                 cousin.uid as cousin_uid,
                 cousin.title as cousin_title,
@@ -658,7 +658,7 @@ class LateralRelationshipService:
             logger.info(f"Deleted inverse relationship: {relationship_type.value}")
 
     # ========================================================================
-    # Enhanced UX Methods (Phase 5)
+    # Enhanced UX Methods
     # ========================================================================
 
     async def get_blocking_chain(

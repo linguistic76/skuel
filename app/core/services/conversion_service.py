@@ -97,7 +97,7 @@ class ConversionServiceV2:
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -290,7 +290,7 @@ class ConversionServiceV2:
     # SPECIFIC CONVERSIONS (Using Generic Methods)
     # ========================================================================
 
-    # --- Task Conversions ---
+    # --- Task Conversions --
     @classmethod
     def task_create_to_pure(
         cls, schema: TaskCreateRequest, uid: str | None = None, **kwargs: Any
@@ -303,7 +303,7 @@ class ConversionServiceV2:
         """Apply TaskUpdateRequest to existing TaskPure using generic method."""
         return cls.update_to_pure(existing, schema)
 
-    # --- Event Conversions ---
+    # --- Event Conversions --
     @classmethod
     def event_create_to_pure(
         cls, schema: EventCreateRequest, uid: str | None = None, **kwargs: Any
@@ -316,7 +316,7 @@ class ConversionServiceV2:
         """Apply EventUpdateRequest to existing EventPure using generic method."""
         return cls.update_to_pure(existing, schema)
 
-    # --- Habit Conversions ---
+    # --- Habit Conversions --
     @classmethod
     def habit_create_to_pure(
         cls, schema: HabitCreateRequest, uid: str | None = None, **kwargs: Any
@@ -342,7 +342,7 @@ class ConversionServiceV2:
 
         return cls.update_to_pure(existing, schema, **extra_updates)
 
-    # --- Goal Conversions ---
+    # --- Goal Conversions --
     @classmethod
     def goal_create_to_pure(
         cls, schema: GoalCreateRequest, uid: str | None = None, **kwargs: Any
@@ -360,7 +360,7 @@ class ConversionServiceV2:
         """Convert GoalUpdateRequest to dict for updating DTO."""
         return schema.model_dump(exclude_none=True)
 
-    # --- Knowledge Unit (Ku) Conversions ---
+    # --- Knowledge Unit (Ku) Conversions --
     @classmethod
     def ku_create_to_pure(
         cls, schema: KuCreateRequest, uid: str | None = None, **kwargs: Any
@@ -373,7 +373,7 @@ class ConversionServiceV2:
         """Apply EntityUpdateRequest to existing Curriculum entity using generic method."""
         return cls.update_to_pure(existing, schema)
 
-    # --- Finance Conversions (three-tier migrated) ---
+    # --- Finance Conversions (three-tier migrated) --
     @classmethod
     def expense_create_to_pure(
         cls, schema: ExpenseCreateRequest, uid: str | None = None, **kwargs: Any
@@ -403,7 +403,7 @@ class ConversionServiceV2:
     # NOTE: Journal conversions REMOVED (February 2026) - Journal merged into Reports
     # NOTE: Transcription conversions REMOVED (February 2026) - Three-tier models deleted
 
-    # --- Principle Conversions ---
+    # --- Principle Conversions --
     @classmethod
     def principle_create_to_pure(
         cls, schema: PrincipleCreateRequest, uid: str | None = None, **kwargs: Any
@@ -436,7 +436,7 @@ class ConversionServiceV2:
 
         return cls.update_to_pure(existing, schema, **extra_updates)
 
-    # --- Choice Conversions ---
+    # --- Choice Conversions --
     @classmethod
     def choice_create_to_pure(
         cls, schema: ChoiceCreateRequest, uid: str | None = None, **kwargs: Any

@@ -1,5 +1,5 @@
 """
-Knowledge Analytics Engine (Phase 2.5)
+Knowledge Analytics Engine
 ======================================
 
 **UTILITY SERVICE** - Injected dependency, not a standalone service.

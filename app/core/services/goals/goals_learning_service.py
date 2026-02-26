@@ -58,7 +58,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -99,7 +99,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         self.event_bus = event_bus
         self.relationships = relationships_service  # GRAPH-NATIVE: For fetching goal relationships
 
-        # Initialize LearningAlignmentHelper for learning operations (Phase 4)
+        # Initialize LearningAlignmentHelper for learning operations
         self.learning_helper = LearningAlignmentHelper[Goal, GoalDTO, GoalCreateRequest](
             service=self,
             backend_get_method="get_goal",
@@ -140,7 +140,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing created Goal with learning path integration
         """
-        # Use LearningAlignmentHelper (Phase 4 consolidation)
+        # Use LearningAlignmentHelper (consolidation)
         result = await self.learning_helper.create_with_learning_alignment(
             request=goal_request, learning_position=learning_position
         )
@@ -177,7 +177,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing learning alignment assessment
         """
-        # Use LearningAlignmentHelper (Phase 4 consolidation)
+        # Use LearningAlignmentHelper (consolidation)
         return await self.learning_helper.assess_learning_alignment(
             entity_uid=goal_uid, learning_position=learning_position
         )
@@ -199,7 +199,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing suggested goals with learning alignment
         """
-        # Use LearningAlignmentHelper (Phase 4 consolidation)
+        # Use LearningAlignmentHelper (consolidation)
         return await self.learning_helper.suggest_learning_aligned_entities(
             learning_position=learning_position, filter_param=goal_domain, max_suggestions=8
         )
@@ -221,7 +221,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing goals that support learning progression
         """
-        # Use LearningAlignmentHelper (Phase 4 consolidation)
+        # Use LearningAlignmentHelper (consolidation)
         return await self.learning_helper.get_learning_supporting_entities(
             user_uid=user_uid, learning_position=learning_position
         )

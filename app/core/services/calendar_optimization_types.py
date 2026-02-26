@@ -5,7 +5,7 @@ Calendar Optimization Strategy Types (Pattern 3C Migration)
 TypedDict definitions for calendar optimization strategy returns.
 Replaces dict[str, Any] with strongly-typed structures for internal strategies.
 
-Pattern 3C Phase 2: Internal Analytics Types (Calendar Strategies)
+Pattern 3C: Internal Analytics Types (Calendar Strategies)
 """
 
 from typing import Any, TypedDict

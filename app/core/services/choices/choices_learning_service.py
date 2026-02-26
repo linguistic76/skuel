@@ -49,7 +49,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Choice]", Choice]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -77,7 +77,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Choice]", Choice]):
         super().__init__(backend, "choices.learning")
         self.logger = get_logger("skuel.services.choices.learning")
 
-        # Initialize LearningAlignmentHelper for learning operations (Phase 4)
+        # Initialize LearningAlignmentHelper for learning operations
         self.learning_helper = LearningAlignmentHelper[Choice, ChoiceDTO, ChoiceCreateRequest](
             service=self,
             backend_get_method="get",
@@ -450,7 +450,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Choice]", Choice]):
         Returns:
             Result containing suggested choices with learning alignment
         """
-        # Use LearningAlignmentHelper (Phase 4 consolidation)
+        # Use LearningAlignmentHelper (consolidation)
         result = await self.learning_helper.suggest_learning_aligned_entities(
             learning_position=learning_position, filter_param=choice_domain, max_suggestions=10
         )

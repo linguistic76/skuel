@@ -74,8 +74,8 @@ class LearningRecommendationEngine:
         Args:
             state_analyzer: LearningStateAnalyzer for learning state
             learning_backend: Learning backend for path data (optional)
-            event_bus: Event bus for publishing recommendation events (Phase 4)
-            user_service: UserService for getting UserContext (Phase 4)
+            event_bus: Event bus for publishing recommendation events
+            user_service: UserService for getting UserContext
         """
         self.state_analyzer = state_analyzer
         self.learning_backend = learning_backend
@@ -85,7 +85,7 @@ class LearningRecommendationEngine:
         logger.info("LearningRecommendationEngine initialized")
 
     # ========================================================================
-    # EVENT HANDLERS (Phase 4: Event-Driven Architecture)
+    # EVENT HANDLERS
     # ========================================================================
 
     async def handle_learning_path_completed(self, event: LearningPathCompleted) -> None:
@@ -98,7 +98,7 @@ class LearningRecommendationEngine:
         Args:
             event: LearningPathCompleted event containing path completion details
 
-        Phase 4 Integration:
+
         - Subscribes to: LearningPathCompleted
         - Publishes: LearningRecommendationGenerated (via event bus)
         """
@@ -176,7 +176,7 @@ class LearningRecommendationEngine:
         Args:
             event: KnowledgeMastered event containing mastery details
 
-        Phase 4 Integration:
+
         - Subscribes to: KnowledgeMastered
         - Publishes: LearningRecommendationGenerated (via event bus)
         """

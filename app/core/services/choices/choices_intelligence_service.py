@@ -58,7 +58,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
     It uses pure graph queries and Python calculations - no LLM or embeddings.
 
     Responsibilities:
-    - Get choice with graph context (Phase 1-4)
+    - Get choice with graph context
     - Analyze choice impact across domains
     - Provide decision intelligence
     - Track decision patterns over time
@@ -76,7 +76,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     - NO embeddings_service or llm_service (ADR-030)
@@ -109,7 +109,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
         )
         self.insight_store = insight_store
 
-        # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)
+        # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
             self.orchestrator = GraphContextOrchestrator[Choice, ChoiceDTO](
                 service=self,
@@ -119,7 +119,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
                 domain=Domain.CHOICES,
             )
 
-        # Initialize path-aware intelligence helper (Phase 4)
+        # Initialize path-aware intelligence helper
         self.path_helper = PathAwareIntelligenceHelper()
 
     # ========================================================================
@@ -285,7 +285,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
             print(f"Guided by {len(principles)} principles")
             ```
         """
-        # Use GraphContextOrchestrator pattern (Phase 2 consolidation)
+        # Use GraphContextOrchestrator pattern (consolidation)
         # Orchestrator is guaranteed to exist when @requires_graph_intelligence passes
         if not self.orchestrator:
             return Result.fail(
@@ -301,7 +301,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
         self, choice_uid: str, min_confidence: float = ConfidenceLevel.MEDIUM, depth: int = 2
     ) -> Result[DecisionIntelligence]:
         """
-        Get complete decision intelligence for informed choice using Phase 1-4.
+        Get complete decision intelligence for informed choice
 
         Provides comprehensive decision support including:
         - Decision context (goals, principles, knowledge)
@@ -327,9 +327,9 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
                     "habits": List[Habit]
                 },
                 "decision_analysis": {
-                    "complexity": float,  # 0-10
-                    "confidence_needed": str,  # "low", "medium", "high"
-                    "stake_level": str  # "low", "medium", "high"
+                    "complexity": float, # 0-10
+                    "confidence_needed": str, # "low", "medium", "high"
+                    "stake_level": str # "low", "medium", "high"
                 },
                 "recommendations": {
                     "gather_more_info": bool,
@@ -386,7 +386,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
 
         context_dict = context_result.value
 
-        # Parse path-aware context (Phase 4: Path Intelligence)
+        # Parse path-aware context
         from core.models.graph.path_aware_types import ChoiceCrossContext
 
         # Extract path-aware entities from dict (using shared helper)
@@ -450,21 +450,21 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
         if affected_tasks:
             consider_impact_list.append("task completion")
 
-        # Generate path-aware improvement_opportunities (Phase 5: Path-Aware Intelligence)
+        # Generate path-aware improvement_opportunities
         improvement_opportunities_list = self.path_helper.generate_recommendations(
             goals=related_goals,
             knowledge=required_knowledge,
             principles=guiding_principles,
         )
 
-        # Calculate cascade impact for graph context (Phase 5)
+        # Calculate cascade impact for graph context
         cascade_impact = self.path_helper.calculate_cascade_impact(
             goals=related_goals,
             knowledge=required_knowledge,
             principles=guiding_principles,
         )
 
-        # Build structured graph context (Phase 5)
+        # Build structured graph context
         from core.services.choices.choices_types import (
             CascadeImpact,
             ChoiceGraphContext,
@@ -528,7 +528,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
         self, choice_uid: str, depth: int = 2, min_confidence: float = ConfidenceLevel.MEDIUM
     ) -> Result[ChoiceImpactAnalysis]:
         """
-        Analyze cross-domain impact of a choice using Phase 1-4.
+        Analyze cross-domain impact of a choice
 
         Provides detailed impact analysis including:
         - Entities affected by this choice
@@ -547,7 +547,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
                 "impact_summary": {
                     "total_entities_affected": int,
                     "domains_affected": List[str],
-                    "impact_score": float  # 0-10
+                    "impact_score": float # 0-10
                 },
                 "domain_impact": {
                     "goals": {
@@ -560,7 +560,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
                     "principles": {...}
                 },
                 "risk_assessment": {
-                    "risk_level": str,  # "low", "medium", "high"
+                    "risk_level": str, # "low", "medium", "high"
                     "risk_factors": List[str],
                     "mitigation_suggestions": List[str]
                 },
@@ -580,7 +580,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
             risk = impact["risk_assessment"]
             print(f"Risk level: {risk['risk_level']}")
             for factor in risk["risk_factors"]:
-                print(f"  ⚠ {factor}")
+                print(f" ⚠ {factor}")
             ```
         """
         # Get choice
@@ -610,7 +610,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
 
         context_dict = context_result.value
 
-        # Parse path-aware context (Phase 4: Path Intelligence)
+        # Parse path-aware context
         from core.models.graph.path_aware_types import ChoiceCrossContext
 
         supporting_goals = [
@@ -719,7 +719,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
         if len(affected_principles) > 0:
             opportunities_list.append("Opportunity to live more aligned with principles")
 
-        # Add path-strength-based recommendations (Phase 4 - using shared helper)
+        # Add path-strength-based recommendations
         path_recommendations = self.path_helper.generate_recommendations(
             goals=supporting_goals + conflicting_goals,
             knowledge=knowledge,
@@ -763,7 +763,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
             mitigation_suggestions=mitigation_list,
         )
 
-        # Build structured graph context with cascade impact (Phase 5: Path-Aware Intelligence)
+        # Build structured graph context with cascade impact
         from core.services.choices.choices_types import (
             CascadeImpact,
             ChoiceGraphContext,
@@ -803,7 +803,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
         return Result.ok(impact_analysis)
 
     # ========================================================================
-    # DOMAIN-SPECIFIC INTELLIGENCE (Phase 4)
+    # DOMAIN-SPECIFIC INTELLIGENCE
     # ========================================================================
     # Note: Generic path-aware helpers moved to PathAwareIntelligenceHelper
     # This section reserved for Choice-specific intelligence methods
@@ -1009,8 +1009,8 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
                 },
                 "patterns": {
                     "most_common_principle": str,
-                    "decision_making_trend": str,  # "improving", "stable", "declining"
-                    "strategic_vs_tactical": str  # "strategic", "balanced", "tactical"
+                    "decision_making_trend": str, # "improving", "stable", "declining"
+                    "strategic_vs_tactical": str # "strategic", "balanced", "tactical"
                 },
                 "recommendations": List[str]
             }
@@ -1486,7 +1486,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
                     },
                 )
 
-                # Persist insight for positive pattern (Phase 1: Quick Wins)
+                # Persist insight for positive pattern
                 if self.insight_store:
                     insight = PersistedInsight(
                         uid=PersistedInsight.generate_uid(
@@ -1524,7 +1524,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
                     },
                 )
 
-                # Persist insight for missing alignment (Phase 1: Quick Wins)
+                # Persist insight for missing alignment
                 if self.insight_store:
                     insight = PersistedInsight(
                         uid=PersistedInsight.generate_uid(

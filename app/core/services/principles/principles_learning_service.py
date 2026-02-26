@@ -136,10 +136,10 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
-    - Uses LearningAlignmentHelper with custom scorers (Phase 6)
+    - Uses LearningAlignmentHelper with custom scorers
 
     """
 
@@ -164,7 +164,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
         """
         super().__init__(backend, "principles.learning")
 
-        # Initialize LearningAlignmentHelper with custom scorers (Phase 6)
+        # Initialize LearningAlignmentHelper with custom scorers
         self.learning_helper = LearningAlignmentHelper[
             Principle, PrincipleDTO, PrincipleCreateRequest
         ](
@@ -271,7 +271,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
         Returns:
             Result containing principle-learning alignment assessment with character development data
         """
-        # Use LearningAlignmentHelper with custom scorers (Phase 6 consolidation)
+        # Use LearningAlignmentHelper with custom scorers (consolidation)
         return await self.learning_helper.assess_learning_alignment(
             entity_uid=principle_uid, learning_position=learning_position
         )

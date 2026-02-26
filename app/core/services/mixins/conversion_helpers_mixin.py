@@ -89,11 +89,11 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
         methods need to guarantee Result[T] (resource must exist).
 
         Architectural Pattern:
-            Backend.get() → Result[T | None]  # Honest about nullability
+            Backend.get() → Result[T | None] # Honest about nullability
                  ↓
-            Service._ensure_exists() → Result[T]  # Validates and converts
+            Service._ensure_exists() → Result[T] # Validates and converts
                  ↓
-            Service.method() → Result[T]  # Fulfills promise
+            Service.method() → Result[T] # Fulfills promise
 
         Args:
             result: Result that might contain None
@@ -144,7 +144,7 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
         """
         Extract nodes from query records and convert to domain models.
 
-        Phase 2 consolidation helper: handles the common pattern of extracting
+        consolidation helper: handles the common pattern of extracting
         nodes from RETURN n queries and converting to domain models.
 
         Args:
@@ -246,7 +246,7 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
 # type error during MyPy static analysis (zero runtime cost).
 #
 # To verify compliance:
-#   poetry run mypy core/services/mixins/conversion_helpers_mixin.py
+# poetry run mypy core/services/mixins/conversion_helpers_mixin.py
 #
 # See: /docs/investigations/PROTOCOL_MIXIN_ALIGNMENT_SOLUTIONS.md
 # ============================================================================

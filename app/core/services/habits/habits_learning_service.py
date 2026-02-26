@@ -54,7 +54,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -88,7 +88,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         super().__init__(backend, "habits.learning")
         self.event_bus = event_bus
 
-        # Initialize LearningAlignmentHelper for learning operations (Phase 4)
+        # Initialize LearningAlignmentHelper for learning operations
         self.learning_helper = LearningAlignmentHelper[Habit, HabitDTO, HabitCreateRequest](
             service=self,
             backend_get_method="get_habit",
@@ -229,7 +229,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing created Habit with learning path alignment
         """
-        # Use LearningAlignmentHelper (Phase 4 consolidation)
+        # Use LearningAlignmentHelper (consolidation)
         result = await self.learning_helper.create_with_learning_alignment(
             request=habit_request, learning_position=learning_position
         )
@@ -276,7 +276,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing suggested habits with learning alignment
         """
-        # Use LearningAlignmentHelper (Phase 4 consolidation)
+        # Use LearningAlignmentHelper (consolidation)
         return await self.learning_helper.suggest_learning_aligned_entities(
             learning_position=learning_position, filter_param=habit_category, max_suggestions=12
         )
@@ -294,7 +294,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing habits that support learning progression
         """
-        # Use LearningAlignmentHelper (Phase 4 consolidation)
+        # Use LearningAlignmentHelper (consolidation)
         return await self.learning_helper.get_learning_supporting_entities(
             user_uid=user_uid, learning_position=learning_position
         )
@@ -312,7 +312,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing learning impact assessment
         """
-        # Use LearningAlignmentHelper (Phase 4 consolidation)
+        # Use LearningAlignmentHelper (consolidation)
         return await self.learning_helper.assess_learning_alignment(
             entity_uid=habit_uid, learning_position=learning_position
         )

@@ -309,7 +309,7 @@ class UnifiedIngestionService:
         stats = result.value
         self.logger.info(f"Ingested {entity_type.value}: {entity_data['uid']}")
 
-        # Phase 1: Automatic chunking for KU entities (January 2026)
+        # Automatic chunking for KU entities (January 2026)
         # Generate chunks immediately after successful KU ingestion for RAG-readiness
         chunks_generated = False
         if entity_type == EntityType.CURRICULUM and self.chunking:

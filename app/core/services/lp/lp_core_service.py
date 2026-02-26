@@ -81,13 +81,13 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
     SKUEL Architecture:
     - Extends BaseService for unified infrastructure
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     """
 
     # =========================================================================
-    # DomainConfig consolidation (January 2026 Phase 3)
+    # DomainConfig consolidation (January 2026)
     # =========================================================================
     # All configuration in one place, using centralized relationship registry
     # See: /docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md

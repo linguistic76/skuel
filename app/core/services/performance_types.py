@@ -5,7 +5,7 @@ Performance Optimization Types (Pattern 3C Migration)
 Frozen dataclasses for performance optimization analysis returns.
 Replaces dict[str, Any] with strongly-typed, immutable structures.
 
-Pattern 3C Phase 3: Infrastructure Types (Performance Optimization)
+Pattern 3C: Infrastructure Types (Performance Optimization)
 """
 
 from dataclasses import dataclass

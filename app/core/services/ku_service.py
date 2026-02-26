@@ -94,7 +94,7 @@ class KuService:
     SKUEL Architecture:
     - Uses explicit delegation methods (~55 methods) (February 2026)
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -327,7 +327,7 @@ class KuService:
             graph_intelligence_service: GraphIntelligenceService - REQUIRED for cross-domain queries
             query_builder: QueryBuilder service for optimized queries (optional)
             event_bus: Event bus for publishing domain events (optional)
-            driver: Neo4j async driver for Phase 4 event-driven operations (optional)
+            driver: Neo4j async driver for event-driven operations (optional)
             user_service: UserService for UserContext access (January 2026 - KU-Activity Integration)
             ai_service: Optional KuAIService for AI features (ADR-030 separation)
             vector_search_service: Optional Neo4jVectorSearchService for semantic search (January 2026 - GenAI)

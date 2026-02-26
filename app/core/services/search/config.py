@@ -20,7 +20,7 @@ Usage:
     if "content" in SEARCH_FIELD_CONFIG[EntityType.CURRICULUM].text_fields:
         # Field is text-searchable
 
-Graph-Aware Search (Phase 2):
+Graph-Aware Search:
     BaseService provides `search_connected_to()` which combines text search
     with relationship traversal in a single Neo4j query:
 
@@ -32,7 +32,7 @@ Graph-Aware Search (Phase 2):
             direction="outgoing"
         )
 
-Tag/Array Search (Phase 3):
+Tag/Array Search:
     BaseService provides `search_by_tags()` and `search_array_field()` for
     searching within array fields like tags:
 
@@ -51,7 +51,7 @@ Tag/Array Search (Phase 3):
         # Search any array field
         result = await service.search_array_field("categories", "investment")
 
-Unified Search API (Phase 4):
+Unified Search API:
     SearchRouter provides `advanced_search()` combining all phases in one call.
     SearchRequest is THE canonical request model (One Path Forward).
 
@@ -64,7 +64,7 @@ Unified Search API (Phase 4):
             connected_to_uid="ku.python-basics",
             connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
             tags_contain=["python", "beginner"],
-            tags_match_all=False,  # OR semantics
+            tags_match_all=False, # OR semantics
         )
         result = await router.advanced_search(request)
 

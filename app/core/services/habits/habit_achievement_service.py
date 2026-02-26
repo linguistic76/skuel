@@ -31,7 +31,7 @@ class HabitAchievementService:
     Handles automatic achievement badge awarding when habits reach
     streak milestones, using Neo4j to track earned badges.
 
-    Event-Driven Architecture (Phase 4):
+    Event-Driven Architecture:
     - Subscribes to HabitStreakMilestone events
     - Awards badges based on milestone thresholds
     - Publishes AchievementEarned events
@@ -98,7 +98,7 @@ class HabitAchievementService:
         self.logger = get_logger("skuel.services.habits.achievements")
 
     # ========================================================================
-    # EVENT HANDLERS (Phase 4: Event-Driven Architecture)
+    # EVENT HANDLERS
     # ========================================================================
 
     async def handle_habit_streak_milestone(self, event: HabitStreakMilestone) -> None:

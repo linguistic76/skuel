@@ -2,7 +2,7 @@
 Path-Aware Intelligence Helper - Reusable Path Analysis Utilities
 ===================================================================
 
-Phase 4: Path Intelligence - Generic helper for all intelligence services.
+Path Intelligence - Generic helper for all intelligence services.
 
 Provides reusable methods for:
 - Parsing path-aware entities from dict representations

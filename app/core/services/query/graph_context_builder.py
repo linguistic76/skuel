@@ -4,7 +4,7 @@ Graph Context Query Builder
 
 Builds graph traversal queries for context discovery.
 
-Part of QueryBuilder decomposition (Phase 1 - Proof of Concept).
+Part of QueryBuilder decomposition.
 """
 
 from core.models.query import QueryIntent
@@ -48,7 +48,7 @@ class GraphContextBuilder:
         Example:
             >>> builder = GraphContextBuilder()
             >>> query = builder.build_graph_context_query(
-            ...     node_uid="task:123", intent=QueryIntent.DISCOVER_CONTEXT, GraphDepth.NEIGHBORHOOD
+            ... node_uid="task:123", intent=QueryIntent.DISCOVER_CONTEXT, GraphDepth.NEIGHBORHOOD
             ... )
         """
         self.logger.debug(f"Building graph context query for node={node_uid}, depth={depth}")

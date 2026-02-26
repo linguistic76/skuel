@@ -6,13 +6,13 @@ Shared intelligence patterns for all domains.
 
 Provides:
 - QueryIntelligenceService: Query intelligence (intent detection, facet suggestion, ranking)
-- GraphContextOrchestrator[T]: Generic APOC orchestration (Phase 2 consolidation)
+- GraphContextOrchestrator[T]: Generic APOC orchestration (consolidation)
 - Typed Context Dataclasses: Type-safe containers for cross-domain context data
 - Metrics Calculators: Domain-specific metrics calculation functions
-- RecommendationEngine: Fluent builder for recommendation generation (Phase 5 consolidation)
-- MetricsCalculator: Shared calculation utilities (Phase 5 consolidation)
-- PatternAnalyzer: Pattern detection utilities (Phase 5 consolidation)
-- TrendAnalyzer: Trend classification utilities (Phase 5 consolidation)
+- RecommendationEngine: Fluent builder for recommendation generation (consolidation)
+- MetricsCalculator: Shared calculation utilities (consolidation)
+- PatternAnalyzer: Pattern detection utilities (consolidation)
+- TrendAnalyzer: Trend classification utilities (consolidation)
 """
 
 from core.services.intelligence.cross_domain_contexts import (
@@ -46,7 +46,7 @@ from core.services.intelligence.query_intelligence_service import (
     ResultRanker,
 )
 
-# Phase 5 consolidation: Shared helper utilities (January 2026)
+# consolidation: Shared helper utilities (January 2026)
 from core.services.intelligence.recommendation_engine import (
     RecommendationEngine,
     RecommendationLevel,
@@ -87,7 +87,7 @@ __all__ = [
     "calculate_knowledge_metrics",
     "calculate_principle_metrics",
     "calculate_task_metrics",
-    # Phase 5 consolidation: Shared helper utilities (January 2026)
+    # consolidation: Shared helper utilities (January 2026)
     "MetricsCalculator",
     "PatternAnalyzer",
     "RecommendationEngine",

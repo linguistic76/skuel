@@ -5,7 +5,7 @@ Events Intelligence Service
 Handles pure Cypher graph intelligence queries for events.
 
 Responsibilities:
-- Get event with full graph context (Phase 1-4)
+- Get event with full graph context
 - Analyze event performance and impact
 - Get event's goal contribution analysis
 - Get event's knowledge reinforcement tracking
@@ -61,7 +61,7 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Event]",
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     - NO embeddings_service or llm_service (ADR-030)
@@ -265,7 +265,7 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Event]",
 
     async def analyze_event_performance(self, uid: str) -> Result[dict[str, Any]]:
         """
-        Analyze event with goal support and habit reinforcement using Phase 1-4.
+        Analyze event with goal support and habit reinforcement
 
         Returns comprehensive analysis:
         - Goal contribution metrics
@@ -312,7 +312,7 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Event]",
 
     async def get_event_goal_support(self, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
         """
-        Get event's goal contribution analysis using Phase 1-4.
+        Get event's goal contribution analysis
 
         Args:
             uid: UID of the event,
@@ -356,7 +356,7 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Event]",
         self, uid: str, depth: int = 2
     ) -> Result[dict[str, Any]]:
         """
-        Get event's knowledge practice tracking using Phase 1-4.
+        Get event's knowledge practice tracking
 
         Args:
             uid: UID of the event,

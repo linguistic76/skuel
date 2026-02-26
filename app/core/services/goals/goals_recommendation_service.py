@@ -29,7 +29,7 @@ class GoalsRecommendationService:
     Handles automatic goal recommendations when goals are achieved,
     using graph analysis to suggest progressive, related goals.
 
-    Event-Driven Architecture (Phase 4):
+    Event-Driven Architecture:
     - Subscribes to GoalAchieved events
     - Analyzes achieved goal context (domain, knowledge, habits)
     - Generates smart recommendations
@@ -65,7 +65,7 @@ class GoalsRecommendationService:
         self.logger = get_logger("skuel.services.goals.recommendations")
 
     # ========================================================================
-    # EVENT HANDLERS (Phase 4: Event-Driven Architecture)
+    # EVENT HANDLERS
     # ========================================================================
 
     async def handle_goal_achieved(self, event: GoalAchieved) -> None:

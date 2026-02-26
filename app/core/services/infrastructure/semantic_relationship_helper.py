@@ -125,7 +125,7 @@ class SemanticRelationshipHelper[T, DTO]:
     - Uses CypherGenerator for ALL graph queries
     - Returns Result[T] for error handling
     - Logs operations with structured logging
-    - Leverages BaseService._to_domain_model() from Phase 1
+    - Leverages BaseService._to_domain_model() from
     """
 
     def __init__(

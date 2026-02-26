@@ -121,7 +121,7 @@ class AskesisService:
         Initialize facade with all sub-services.
 
         Args:
-            graph_intelligence_service: GraphIntelligenceService for Phase 1-4 queries
+            graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
             user_service: UserService for accessing UserContext
             llm_service: LLMService for natural language generation
             embeddings_service: EmbeddingsService for semantic search
@@ -130,7 +130,7 @@ class AskesisService:
             goals_service: GoalsService for entity extraction
             habits_service: HabitsService for entity extraction
             events_service: EventsService for entity extraction
-            citation_service: AskesisCitationService for source and evidence transparency (Phase 4C)
+            citation_service: AskesisCitationService for source and evidence transparency
             intelligence_factory: UserContextIntelligenceFactory for 13-domain synthesis (REQUIRED)
                                   Wired with all 13 domain relationship services for DailyWorkPlan
 
@@ -199,21 +199,21 @@ class AskesisService:
     # ========================================================================
     #
     # STATE ANALYSIS (2 methods → state_analyzer):
-    #   - identify_patterns(user_context) → list[AskesisInsight]
-    #   - calculate_system_health(user_context) → dict[str, float]
+    # - identify_patterns(user_context) → list[AskesisInsight]
+    # - calculate_system_health(user_context) → dict[str, float]
     #
     # RECOMMENDATIONS (3 methods → recommendation_engine):
-    #   - get_next_best_action(user_context) → AskesisRecommendation
-    #   - optimize_workflow(user_context) → list[dict]
-    #   - predict_future_state(user_context, days_ahead) → dict
+    # - get_next_best_action(user_context) → AskesisRecommendation
+    # - optimize_workflow(user_context) → list[dict]
+    # - predict_future_state(user_context, days_ahead) → dict
     #
     # QUERY PROCESSING (2 methods → query_processor):
-    #   - answer_user_question(user_uid, question) → dict
-    #   - process_query_with_context(user_uid, query_message, depth) → dict
+    # - answer_user_question(user_uid, question) → dict
+    # - process_query_with_context(user_uid, query_message, depth) → dict
     #
     # CONTEXT RETRIEVAL (2 methods → context_retriever):
-    #   - get_learning_context(user_uid, depth) → dict
-    #   - analyze_knowledge_gaps(user_uid) → dict
+    # - get_learning_context(user_uid, depth) → dict
+    # - analyze_knowledge_gaps(user_uid) → dict
     #
     # ========================================================================
 
@@ -319,14 +319,14 @@ class AskesisService:
     # daily planning and learning step recommendations.
     #
     # Architecture:
-    #   UserContextIntelligence = UserContext + 13 Domain Services
-    #                           = User State + Complete Graph Intelligence
+    # UserContextIntelligence = UserContext + 13 Domain Services
+    # = User State + Complete Graph Intelligence
     #
     # The 13 Domains:
-    #   Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
-    #   Curriculum Domains (3): KU, LS, LP
-    #   Processing Domains (3): Assignments, Journals, Reports
-    #   Temporal Domain (1): Calendar
+    # Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
+    # Curriculum Domains (3): KU, LS, LP
+    # Processing Domains (3): Assignments, Journals, Reports
+    # Temporal Domain (1): Calendar
     #
     # ========================================================================
 
@@ -552,7 +552,7 @@ class AskesisService:
         """
         Detect synergies between entities across different domains.
 
-        **Phase 2 Addition:** Cross-domain correlation for habit→goal synergies
+        Cross-domain correlation for habit→goal synergies
         and other high-leverage connections.
 
         **Synergy Types Detected:**
@@ -605,7 +605,7 @@ class AskesisService:
         """
         Calculate comprehensive life path alignment.
 
-        **Phase 3 Addition:** Multi-dimensional life path alignment scoring.
+        Multi-dimensional life path alignment scoring.
 
         **Philosophy:** "Everything flows toward the life path"
 
@@ -651,8 +651,8 @@ class AskesisService:
     # with knowledge recommendations.
     #
     # Architecture:
-    #   UserContext → Current activities (goals, habits, choices, etc.)
-    #   AskesisService → Find knowledge that supports those activities
+    # UserContext → Current activities (goals, habits, choices, etc.)
+    # AskesisService → Find knowledge that supports those activities
     #
     # =========================================================================
 
@@ -707,11 +707,11 @@ class AskesisService:
 
         Returns:
             Result[dict[str, Any]]: {
-                "knowledge_units": [...],  # Relevant KU data
-                "relevance_scores": {...},  # UID -> score mapping
-                "relevance_reasons": {...},  # UID -> list of reasons
-                "domain_coverage": {...},  # Which domains each KU helps
-                "recommended_order": [...],  # Optimal learning order
+                "knowledge_units": [...], # Relevant KU data
+                "relevance_scores": {...}, # UID -> score mapping
+                "relevance_reasons": {...}, # UID -> list of reasons
+                "domain_coverage": {...}, # Which domains each KU helps
+                "recommended_order": [...], # Optimal learning order
             }
         """
         # Use graph intelligence if available
@@ -1051,7 +1051,7 @@ class AskesisService:
         """
         Get recommendations that consider the user's schedule and capacity.
 
-        **Phase 4 Addition:** Schedule-aware intelligence that considers:
+        Schedule-aware intelligence that considers:
         - Current events and scheduled activities
         - Energy levels and preferred times
         - Available time slots and capacity
@@ -1124,7 +1124,7 @@ def create_askesis_service(
     Factory function to create AskesisService instance.
 
     Args:
-        graph_intelligence_service: GraphIntelligenceService for Phase 1-4 queries
+        graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
         user_service: UserService for accessing UserContext
         llm_service: LLMService for natural language generation
         embeddings_service: EmbeddingsService for semantic search

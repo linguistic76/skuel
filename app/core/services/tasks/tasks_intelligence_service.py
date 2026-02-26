@@ -401,7 +401,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
         """
         Analyze knowledge prerequisites for task using graph intelligence.
 
-        Uses shared intelligence utilities (Phase 2 - Decoupled).
+        Uses shared intelligence utilities.
 
         Args:
             entity_uid: Task UID
@@ -638,7 +638,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
         )
 
     # ========================================================================
-    # CROSS-DOMAIN CONTEXT - Domain-specific categorization (Phase 2B)
+    # CROSS-DOMAIN CONTEXT - Domain-specific categorization
     # ========================================================================
 
     @with_error_handling(
@@ -653,7 +653,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
         This contains the domain-specific intelligence that was previously
         in the backend's get_task_cross_domain_context() method.
 
-        Phase 2B Architecture:
+         Architecture:
         - Backend provides raw graph data via get_domain_context_raw()
         - Intelligence service performs domain-specific categorization
         - This achieves true separation: Backend = primitives, Intelligence = domain logic
@@ -814,14 +814,14 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
 
     def _analyze_task_patterns(self, tasks: list) -> list[dict[str, Any]]:
         """Analyze patterns in task titles and descriptions."""
-        # Uses PatternAnalyzer from shared intelligence utilities (Phase 5 consolidation)
+        # Uses PatternAnalyzer from shared intelligence utilities (consolidation)
         return PatternAnalyzer.extract_word_frequencies(
             [task.title for task in tasks], min_word_length=5, top_n=10
         )
 
     def _identify_learning_opportunities(self, tasks: list) -> list[str]:
         """Identify learning opportunities from task patterns."""
-        # Uses PatternAnalyzer from shared intelligence utilities (Phase 5 consolidation)
+        # Uses PatternAnalyzer from shared intelligence utilities (consolidation)
         return PatternAnalyzer.detect_by_keywords(
             tasks,
             keyword_sets=[
@@ -837,7 +837,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
 
     def _identify_knowledge_gaps(self, tasks: list) -> list[str]:
         """Identify knowledge gaps from task patterns."""
-        # Uses PatternAnalyzer from shared intelligence utilities (Phase 5 consolidation)
+        # Uses PatternAnalyzer from shared intelligence utilities (consolidation)
         return PatternAnalyzer.detect_by_indicator_tuples(
             tasks,
             indicators=[
@@ -859,7 +859,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
 
     def _identify_skill_opportunities(self, tasks: list) -> list[dict[str, Any]]:
         """Identify skill development opportunities from task titles and domains."""
-        # Uses PatternAnalyzer from shared intelligence utilities (Phase 5 consolidation)
+        # Uses PatternAnalyzer from shared intelligence utilities (consolidation)
         return PatternAnalyzer.extract_skill_keywords(
             tasks,
             text_extractor=_extract_lowercase_title,
@@ -901,7 +901,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
 
     def _analyze_completion_patterns(self, tasks: list) -> list[dict[str, Any]]:
         """Analyze task completion patterns."""
-        # Uses PatternAnalyzer from shared intelligence utilities (Phase 5 consolidation)
+        # Uses PatternAnalyzer from shared intelligence utilities (consolidation)
         peak_time = PatternAnalyzer.find_peak_time(tasks, _extract_completion_hour)
         if peak_time:
             return [
@@ -917,7 +917,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
         """Identify factors contributing to successful task completion."""
         if not tasks:
             return []
-        # Uses PatternAnalyzer from shared intelligence utilities (Phase 5 consolidation)
+        # Uses PatternAnalyzer from shared intelligence utilities (consolidation)
         return PatternAnalyzer.identify_factors(
             tasks,
             conditions=[
@@ -936,7 +936,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
         self, patterns: list[dict], success_factors: list[str]
     ) -> list[str]:
         """Generate behavioral recommendations."""
-        # Uses RecommendationEngine from shared intelligence utilities (Phase 5 consolidation)
+        # Uses RecommendationEngine from shared intelligence utilities (consolidation)
         engine = RecommendationEngine()
 
         # Add recommendations based on patterns
@@ -956,7 +956,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
 
     def _analyze_performance_trends(self, tasks: list) -> dict[str, Any]:
         """Analyze performance trends over time from task completion data."""
-        # Uses analyze_completion_trend from shared intelligence utilities (Phase 5 consolidation)
+        # Uses analyze_completion_trend from shared intelligence utilities (consolidation)
         completed_count = sum(1 for task in tasks if task.status == CompletionStatus.DONE)
         result = analyze_completion_trend(completed_count, len(tasks))
 
@@ -1065,14 +1065,14 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
         Example:
             >>> from core.models.enums.activity_enums import ProductivityLevel
             >>> result = await service.assess_productivity_dual_track(
-            ...     user_uid="user_mike",
-            ...     user_productivity_level=ProductivityLevel.PRODUCTIVE,
-            ...     user_evidence="I complete most tasks on time",
-            ...     user_reflection="Could improve on complex tasks",
+            ... user_uid="user_mike",
+            ... user_productivity_level=ProductivityLevel.PRODUCTIVE,
+            ... user_evidence="I complete most tasks on time",
+            ... user_reflection="Could improve on complex tasks",
             ... )
             >>> if result.is_ok:
-            ...     dual_track = result.value
-            ...     print(f"Gap: {dual_track.perception_gap:.0%}")
+            ... dual_track = result.value
+            ... print(f"Gap: {dual_track.perception_gap:.0%}")
         """
         # Calculate system assessment
         system_level, system_score, system_evidence = await self._calculate_system_productivity(

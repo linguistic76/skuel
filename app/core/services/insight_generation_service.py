@@ -1,5 +1,5 @@
 """
-Knowledge Generation Service (Phase 4.1)
+Knowledge Generation Service
 ==========================================
 
 **UTILITY SERVICE** - Injected dependency, not a standalone service.
@@ -152,7 +152,7 @@ class InsightGenerationService:
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -472,31 +472,31 @@ class InsightGenerationService:
 
         # Original logic commented out until relationship fetching is implemented:
         # knowledge_tasks = [
-        #     task for task in tasks
-        #     if task.applies_knowledge_uids  # Field doesn't exist anymore
+        # task for task in tasks
+        # if task.applies_knowledge_uids # Field doesn't exist anymore
         # ]
         #
         # if len(knowledge_tasks) >= self.min_pattern_frequency:
-        #     knowledge_efficiency = self._calculate_task_efficiency(knowledge_tasks)
-        #     overall_efficiency = self._calculate_task_efficiency(tasks)
+        # knowledge_efficiency = self._calculate_task_efficiency(knowledge_tasks)
+        # overall_efficiency = self._calculate_task_efficiency(tasks)
         #
-        #     if knowledge_efficiency > overall_efficiency * 1.1:
-        #         patterns.append(TaskPattern(
-        #             pattern_id=f"knowledge_application_benefit_{datetime.now().strftime('%Y%m%d')}",
-        #             pattern_type=PatternType.BEST_PRACTICE,
-        #             confidence_score=knowledge_efficiency / overall_efficiency,
-        #             supporting_tasks=[task.uid for task in knowledge_tasks],
-        #             description="Tasks with applied knowledge show higher efficiency",
-        #             evidence=[
-        #                 f"Knowledge tasks efficiency: {knowledge_efficiency:.1%}",
-        #                 f"Overall efficiency: {overall_efficiency:.1%}",
-        #                 f"Improvement: {(knowledge_efficiency/overall_efficiency - 1):.1%}"
-        #             ],
-        #             frequency=len(knowledge_tasks),
-        #             success_rate=knowledge_efficiency,
-        #             knowledge_uids_involved=list(set().union(*[task.applies_knowledge_uids for task in knowledge_tasks])),
-        #             metadata={'knowledge_benefit': knowledge_efficiency / overall_efficiency}
-        #         ))
+        # if knowledge_efficiency > overall_efficiency * 1.1:
+        # patterns.append(TaskPattern(
+        # pattern_id=f"knowledge_application_benefit_{datetime.now().strftime('%Y%m%d')}",
+        # pattern_type=PatternType.BEST_PRACTICE,
+        # confidence_score=knowledge_efficiency / overall_efficiency,
+        # supporting_tasks=[task.uid for task in knowledge_tasks],
+        # description="Tasks with applied knowledge show higher efficiency",
+        # evidence=[
+        # f"Knowledge tasks efficiency: {knowledge_efficiency:.1%}",
+        # f"Overall efficiency: {overall_efficiency:.1%}",
+        # f"Improvement: {(knowledge_efficiency/overall_efficiency - 1):.1%}"
+        # ],
+        # frequency=len(knowledge_tasks),
+        # success_rate=knowledge_efficiency,
+        # knowledge_uids_involved=list(set().union(*[task.applies_knowledge_uids for task in knowledge_tasks])),
+        # metadata={'knowledge_benefit': knowledge_efficiency / overall_efficiency}
+        # ))
 
         return []
 

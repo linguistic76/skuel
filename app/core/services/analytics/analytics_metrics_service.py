@@ -84,7 +84,7 @@ class AnalyticsMetricsService:
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -147,7 +147,7 @@ class AnalyticsMetricsService:
         """
         Calculate statistical metrics for tasks.
 
-        Phase 5 Refactoring (October 29, 2025):
+        Refactoring:
         Uses unified query pattern with Cypher-level filtering.
         """
         if not self.tasks:
@@ -157,7 +157,7 @@ class AnalyticsMetricsService:
                 )
             )
 
-        # Use unified API for Cypher-level filtering (Phase 5)
+        # Use unified API for Cypher-level filtering
         tasks_result = await self.tasks.get_user_items_in_range(
             user_uid=user_uid,
             start_date=start_date,
@@ -229,7 +229,7 @@ class AnalyticsMetricsService:
         """
         Calculate statistical metrics for habits.
 
-        Phase 5 Refactoring (October 29, 2025):
+        Refactoring:
         Uses unified query pattern with Cypher-level filtering.
         Note: Habits don't use date filtering (ongoing practices).
         """
@@ -240,7 +240,7 @@ class AnalyticsMetricsService:
                 )
             )
 
-        # Use unified API (Phase 5) - dates ignored for habits
+        # Use unified API - dates ignored for habits
         habits_result = await self.habits.get_user_items_in_range(
             user_uid=user_uid,
             start_date=start_date,
@@ -295,7 +295,7 @@ class AnalyticsMetricsService:
         """
         Calculate statistical metrics for goals.
 
-        Phase 5 Refactoring (October 29, 2025):
+        Refactoring:
         Uses unified query pattern with Cypher-level filtering.
         """
         if not self.goals:
@@ -305,7 +305,7 @@ class AnalyticsMetricsService:
                 )
             )
 
-        # Use unified API (Phase 5) - gets active goals by target_date
+        # Use unified API - gets active goals by target_date
         goals_result = await self.goals.get_user_items_in_range(
             user_uid=user_uid,
             start_date=start_date,
@@ -344,7 +344,7 @@ class AnalyticsMetricsService:
 
         avg_progress = sum(progress_values) / len(progress_values) if progress_values else 0.0
 
-        # Get completed goals in same period (Phase 5 unified API)
+        # Get completed goals in same period ( unified API)
         completed_goals_result = await self.goals.get_user_items_in_range(
             user_uid=user_uid,
             start_date=start_date,
@@ -386,7 +386,7 @@ class AnalyticsMetricsService:
         """
         Calculate statistical metrics for events.
 
-        Phase 5 Refactoring (October 29, 2025):
+        Refactoring:
         Uses unified query pattern with Cypher-level filtering.
         """
         if not self.events:
@@ -396,7 +396,7 @@ class AnalyticsMetricsService:
                 )
             )
 
-        # Use unified API for Cypher-level filtering (Phase 5)
+        # Use unified API for Cypher-level filtering
         events_result = await self.events.get_user_items_in_range(
             user_uid=user_uid,
             start_date=start_date,
@@ -458,7 +458,7 @@ class AnalyticsMetricsService:
         """
         Calculate statistical metrics for finance.
 
-        Phase 5 Refactoring (October 29, 2025):
+        Refactoring:
         Uses unified query pattern with Cypher-level filtering.
         """
         if not self.finance:
@@ -468,7 +468,7 @@ class AnalyticsMetricsService:
                 )
             )
 
-        # Use unified API for Cypher-level filtering (Phase 5)
+        # Use unified API for Cypher-level filtering
         expenses_result = await self.finance.get_user_items_in_range(
             user_uid=user_uid,
             start_date=start_date,
@@ -528,7 +528,7 @@ class AnalyticsMetricsService:
         """
         Calculate statistical metrics for choices.
 
-        Phase 5 Refactoring (October 29, 2025):
+        Refactoring:
         Uses unified query pattern with Cypher-level filtering.
         Note: Choices don't use date filtering (decision points in time).
         """
@@ -542,7 +542,7 @@ class AnalyticsMetricsService:
                 }
             )
 
-        # Use unified API (Phase 5) - dates ignored for choices
+        # Use unified API - dates ignored for choices
         choices_result = await self.choices.get_user_items_in_range(
             user_uid=user_uid,
             start_date=start_date,
@@ -602,7 +602,7 @@ class AnalyticsMetricsService:
         """
         Calculate statistical metrics for principles.
 
-        Phase 5 Refactoring (October 29, 2025):
+        Refactoring:
         Uses unified query pattern with Cypher-level filtering.
         Note: Principles are timeless values (no date filtering).
         """
@@ -617,7 +617,7 @@ class AnalyticsMetricsService:
                 }
             )
 
-        # Use unified API (Phase 5) - dates ignored for principles
+        # Use unified API - dates ignored for principles
         principles_result = await self.principles.get_user_items_in_range(
             user_uid=user_uid,
             start_date=start_date,
@@ -689,10 +689,10 @@ class AnalyticsMetricsService:
             {
                 "total_knowledge_units": 50,
                 "avg_substance_score": 0.62,
-                "theoretical_knowledge": 15,  # < 0.3 substance
-                "applied_knowledge": 20,      # 0.3-0.6
-                "practiced_knowledge": 10,     # 0.6-0.8
-                "embodied_knowledge": 5,       # 0.8+
+                "theoretical_knowledge": 15, # < 0.3 substance
+                "applied_knowledge": 20, # 0.3-0.6
+                "practiced_knowledge": 10, # 0.6-0.8
+                "embodied_knowledge": 5, # 0.8+
                 "knowledge_by_domain": {
                     "TECH": {"count": 20, "avg_substance": 0.75},
                     "BUSINESS": {"count": 15, "avg_substance": 0.52}
@@ -982,11 +982,11 @@ class AnalyticsMetricsService:
             Result[dict] with journal analysis:
             {
                 "total_entries": 15,
-                "avg_entry_length": 1250,  # characters
-                "reflection_frequency": 0.5,  # entries per day
+                "avg_entry_length": 1250, # characters
+                "reflection_frequency": 0.5, # entries per day
                 "top_themes": ["learning", "meditation", "productivity"],
                 "action_items_identified": 23,
-                "metacognition_score": 0.72  # journal substance contribution
+                "metacognition_score": 0.72 # journal substance contribution
             }
         """
         if not self.content_enrichment:

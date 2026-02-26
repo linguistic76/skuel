@@ -5,7 +5,7 @@ Principles Intelligence Service - Pure Cypher Graph Analytics
 Handles Pure Cypher graph intelligence queries for principles.
 
 Responsibilities:
-- Get principle with graph context (Phase 1-4)
+- Get principle with graph context
 - Assess principle alignment using APOC
 - Analyze adherence trends over time
 - Detect principle conflicts
@@ -67,7 +67,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
     It uses pure graph queries and Python calculations - no LLM or embeddings.
 
     Responsibilities:
-    - Get principle with graph context (Phase 1-4)
+    - Get principle with graph context
     - Assess principle alignment
     - Analyze adherence trends
     - Detect principle conflicts
@@ -85,7 +85,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     - NO embeddings_service or llm_service (ADR-030)
@@ -118,7 +118,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         )
         self.insight_store = insight_store
 
-        # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)
+        # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
             self.orchestrator = GraphContextOrchestrator[Principle, PrincipleDTO](
                 service=self,
@@ -257,7 +257,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         Returns:
             Result containing (principle, GraphContext) tuple
         """
-        # Use GraphContextOrchestrator pattern (Phase 2 consolidation)
+        # Use GraphContextOrchestrator pattern (consolidation)
         # Orchestrator is guaranteed to exist when @requires_graph_intelligence passes
         if not self.orchestrator:
             return Result.fail(
@@ -273,7 +273,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         self, principle_uid: str, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
         """
-        Assess how well user is living by a principle using Phase 1-4.
+        Assess how well user is living by a principle
 
         Provides comprehensive alignment assessment including:
         - Recent activities aligned with principle
@@ -288,10 +288,10 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         Returns:
             Result containing alignment assessment dictionary
 
-        Phase 5 Refactoring (Jan 2026):
+        Refactoring:
         - Uses BaseIntelligenceService._analyze_entity_with_context template
         """
-        # Phase 5: Use base class template for standardized analysis
+        # Use base class template for standardized analysis
         analysis_result = await self._analyze_entity_with_context(
             uid=principle_uid,
             context_method="get_principle_cross_domain_context",
@@ -345,7 +345,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
                 },
                 "recent_trend": recent_trend,
                 "recommendations": analysis["recommendations"],
-                "metrics": metrics,  # Phase 5: Include standard metrics
+                "metrics": metrics,  # Include standard metrics
                 "graph_context": {
                     "goal_count": metrics["goal_count"],
                     "habit_count": metrics["habit_count"],
@@ -430,16 +430,16 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         Example:
             >>> from core.models.enums.principle_enums import AlignmentLevel
             >>> result = await service.assess_alignment_dual_track(
-            ...     principle_uid="principle.integrity",
-            ...     user_uid="user_mike",
-            ...     user_alignment_level=AlignmentLevel.ALIGNED,
-            ...     user_evidence="I always act with integrity",
-            ...     user_reflection="This is my core value",
+            ... principle_uid="principle.integrity",
+            ... user_uid="user_mike",
+            ... user_alignment_level=AlignmentLevel.ALIGNED,
+            ... user_evidence="I always act with integrity",
+            ... user_reflection="This is my core value",
             ... )
             >>> if result.is_ok:
-            ...     dual_track = result.value
-            ...     print(f"Gap: {dual_track.perception_gap:.0%}")
-            ...     print(f"Direction: {dual_track.gap_direction}")
+            ... dual_track = result.value
+            ... print(f"Gap: {dual_track.perception_gap:.0%}")
+            ... print(f"Direction: {dual_track.gap_direction}")
         """
 
         return await self._dual_track_assessment(
@@ -655,7 +655,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         self, principle_uid: str, days: int = 90
     ) -> Result[dict[str, Any]]:
         """
-        Analyze principle adherence trends over time using Phase 1-4.
+        Analyze principle adherence trends over time
 
         Provides trend analysis including:
         - Adherence score trajectory
@@ -737,7 +737,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
     @requires_graph_intelligence("get_principle_conflict_analysis")
     async def get_principle_conflict_analysis(self, user_uid: str) -> Result[dict[str, Any]]:
         """
-        Analyze conflicts between user's principles using Phase 1-4.
+        Analyze conflicts between user's principles
 
         Identifies situations where principles may be in tension:
         - Competing principles for same activity
@@ -1722,7 +1722,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
                 },
             )
 
-            # 7. Persist conflict insight to InsightStore (Phase 1: Quick Wins)
+            # 7. Persist conflict insight to InsightStore
             if self.insight_store:
                 impact = InsightImpact.CRITICAL if severity == "high" else InsightImpact.HIGH
                 insight = PersistedInsight(

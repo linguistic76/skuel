@@ -10,7 +10,7 @@ These are service-layer types (not stored entities):
 - LpRecommendation: LP recommendation type
 - WordActionAlignment: Word-action gap analysis type
 
-Relocated from core/models/lifepath/ during Phase 5 Ku unification.
+Relocated from core/models/lifepath/ during Ku unification.
 """
 
 from __future__ import annotations

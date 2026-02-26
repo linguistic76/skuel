@@ -64,7 +64,7 @@ class AnalyticsLifePathService:
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -100,12 +100,12 @@ class AnalyticsLifePathService:
             {
                 "life_path_uid": "lp:mindful-software-engineer",
                 "life_path_title": "Become a Mindful Software Engineer",
-                "alignment_score": 0.73,  # 0.0-1.0
+                "alignment_score": 0.73, # 0.0-1.0
                 "knowledge_count": 15,
-                "embodied_knowledge": 8,  # substance >= 0.7
-                "theoretical_knowledge": 7,  # substance < 0.5
+                "embodied_knowledge": 8, # substance >= 0.7
+                "theoretical_knowledge": 7, # substance < 0.5
                 "domain_contributions": {
-                    "habits": 0.40,  # 40% of alignment from habits
+                    "habits": 0.40, # 40% of alignment from habits
                     "tasks": 0.25,
                     ...
                 },
@@ -455,9 +455,9 @@ class AnalyticsLifePathService:
         #
         # Query would look like:
         # snapshots = await self.backend.find_by(
-        #     user_uid=user_uid,
-        #     life_path_uid=life_path_uid,
-        #     limit=30
+        # user_uid=user_uid,
+        # life_path_uid=life_path_uid,
+        # limit=30
         # )
 
         # For now, return structure showing expected data with context

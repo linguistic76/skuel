@@ -63,7 +63,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -790,7 +790,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         return acceleration_opportunities
 
     # ========================================================================
-    # API SUPPORT METHODS (Phase 5: P5 Missing Methods)
+    # API SUPPORT METHODS
     # ========================================================================
 
     async def update_goal_progress(
@@ -1007,7 +1007,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         return Result.ok(milestones)
 
     # ========================================================================
-    # EVENT HANDLERS (Phase 4: Event-Driven Architecture)
+    # EVENT HANDLERS
     # ========================================================================
 
     async def handle_task_completed(self, event: TaskCompleted) -> None:

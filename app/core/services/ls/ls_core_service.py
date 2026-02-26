@@ -82,13 +82,13 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
     SKUEL Architecture:
     - Extends BaseService for unified infrastructure
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     """
 
     # =========================================================================
-    # DomainConfig consolidation (January 2026 Phase 3)
+    # DomainConfig consolidation (January 2026)
     # =========================================================================
     # All configuration in one place, using centralized relationship registry
     # See: /docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md
@@ -909,8 +909,8 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             # Get all knowledge
             result = await ls_service.get_contained_knowledge("ls:abc123")
             # Returns: [
-            #   {"uid": "ku_python_xyz", "title": "Python Basics", "type": "primary"},
-            #   {"uid": "ku_advanced_def", "title": "Advanced", "type": "supporting"}
+            # {"uid": "ku_python_xyz", "title": "Python Basics", "type": "primary"},
+            # {"uid": "ku_advanced_def", "title": "Advanced", "type": "supporting"}
             # ]
 
             # Get only primary knowledge
@@ -1043,11 +1043,11 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         Example:
             result = await ls_service.get_knowledge_summary("ls:abc123")
             # Returns: {
-            #   "primary_count": 2,
-            #   "supporting_count": 1,
-            #   "total_count": 3,
-            #   "primary_uids": ["ku_python_xyz", "ku_basics_abc"],
-            #   "supporting_uids": ["ku_advanced_def"]
+            # "primary_count": 2,
+            # "supporting_count": 1,
+            # "total_count": 3,
+            # "primary_uids": ["ku_python_xyz", "ku_basics_abc"],
+            # "supporting_uids": ["ku_advanced_def"]
             # }
         """
         query = """

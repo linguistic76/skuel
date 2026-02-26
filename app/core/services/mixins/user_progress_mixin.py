@@ -79,7 +79,7 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         Requires: _supports_user_progress = True
 
-        Uses: build_user_progress_query from cypher module (Phase 2 consolidation)
+        Uses: build_user_progress_query from cypher module (consolidation)
 
         Args:
             user_uid: User UID
@@ -218,7 +218,7 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         Requires: _supports_user_progress = True
 
-        Uses: build_user_curriculum_query from cypher module (Phase 2 consolidation)
+        Uses: build_user_curriculum_query from cypher module (consolidation)
 
         Args:
             user_uid: User UID

@@ -33,14 +33,14 @@ from core.utils.result_simplified import Result
 
 @dataclass
 class InferenceConfig:
-    """Configuration for knowledge inference algorithms (Phase 2.4 Enhanced)."""
+    """Configuration for knowledge inference algorithms."""
 
     confidence_threshold: float = 0.5
     max_inferred_connections: int = 10
     enable_pattern_detection: bool = True
     enable_opportunity_discovery: bool = True
     enable_insight_generation: bool = True
-    # Phase 2.4 Advanced features
+    # Advanced features
     enable_advanced_engine: bool = True
     enable_cross_domain_mapping: bool = True
     enable_validation_feedback: bool = True
@@ -70,7 +70,7 @@ class EntityInferenceService:
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -80,7 +80,7 @@ class EntityInferenceService:
         self.config = config or InferenceConfig()
         self.logger = get_logger("skuel.inference.service")
 
-        # Initialize advanced inference engine (Phase 2.4)
+        # Initialize advanced inference engine
         if self.config.enable_advanced_engine:
             self.advanced_engine = AdvancedInferenceEngine()
             self.logger.info("Advanced knowledge inference engine enabled")
@@ -104,7 +104,7 @@ class EntityInferenceService:
     @with_error_handling("enhance_task_dto_with_inference", error_type="system")
     async def enhance_task_dto_with_inference(self, task_dto: TaskDTO) -> Result[TaskDTO]:
         """
-        Enhance a TaskDTO with inferred knowledge data using advanced algorithms (Phase 2.4).
+        Enhance a TaskDTO with inferred knowledge data using advanced algorithms.
 
         Args:
             task_dto: The TaskDTO to enhance
@@ -112,7 +112,7 @@ class EntityInferenceService:
         Returns:
             Result containing the enhanced TaskDTO with sophisticated inference
         """
-        # Use advanced engine if available (Phase 2.4)
+        # Use advanced engine if available
         if self.advanced_engine and self.config.enable_advanced_engine:
             self.logger.debug("Using advanced inference engine for task: %s", task_dto.title)
             return await self.advanced_engine.enhance_task_dto_with_advanced_inference(task_dto)
@@ -284,7 +284,7 @@ class EntityInferenceService:
         return count
 
     # ========================================================================
-    # VALIDATION FEEDBACK CAPABILITIES (Phase 2.4)
+    # VALIDATION FEEDBACK CAPABILITIES
     # ========================================================================
 
     def add_validation_feedback(

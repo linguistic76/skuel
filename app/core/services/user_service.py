@@ -596,10 +596,10 @@ class UserService:
             context = context_result.value
 
             # Access lightweight UIDs (standard context)
-            task_uids = context.active_task_uids  # ✅ Populated from MEGA-QUERY
+            task_uids = context.active_task_uids # ✅ Populated from MEGA-QUERY
 
             # Access rich entities with graph neighborhoods
-            for task_data in context.active_tasks_rich:  # ✅ Populated from MEGA-QUERY
+            for task_data in context.active_tasks_rich: # ✅ Populated from MEGA-QUERY
                 task = task_data["task"]
                 graph_context = task_data["graph_context"]
 
@@ -663,7 +663,7 @@ class UserService:
         return Result.ok(context)
 
     # ========================================================================
-    # INTELLIGENCE METHODS (Phase 4 - November 2025)
+    # INTELLIGENCE METHODS
     # ========================================================================
 
     async def get_daily_work_plan(

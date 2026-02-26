@@ -5,7 +5,7 @@ Tasks Analysis Types (Pattern 3C Migration)
 Frozen dataclasses for tasks knowledge pattern analysis returns.
 Replaces dict[str, Any] with strongly-typed, immutable structures.
 
-Pattern 3C Phase 2: Internal Analytics Types
+Pattern 3C: Internal Analytics Types
 """
 
 from dataclasses import dataclass

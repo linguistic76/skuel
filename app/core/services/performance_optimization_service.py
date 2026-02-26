@@ -1,5 +1,5 @@
 """
-Performance Optimization Service (Phase 5.2)
+Performance Optimization Service
 =============================================
 
 Optimizes knowledge system performance for scale and speed.
@@ -844,7 +844,7 @@ class PerformanceOptimizationService:
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 

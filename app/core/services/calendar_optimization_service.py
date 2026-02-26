@@ -1,5 +1,5 @@
 """
-Calendar Optimization Service (Phase 4.3)
+Calendar Optimization Service
 =========================================
 
 Knowledge-aware calendar scheduling with cognitive load balancing.
@@ -29,7 +29,7 @@ from core.services.calendar_optimization_types import (
 # - TaskDTO.knowledge_mastery_check: bool (direct access)
 # - TaskDTO.project: str | None (direct access)
 # - TaskDTO.applies_knowledge_uids: REMOVED (graph-native migration)
-#   Use TaskRelationships.fetch() for relationship data
+# Use TaskRelationships.fetch() for relationship data
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -232,7 +232,7 @@ class CalendarOptimizationService:
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 

@@ -58,7 +58,7 @@ class AdaptiveLpRecommendationsService:
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -268,18 +268,18 @@ class AdaptiveLpRecommendationsService:
         # Original logic commented out until relationship fetching is implemented:
         # incomplete_tasks = [t for t in tasks if t.status not in [EntityStatus.COMPLETED, EntityStatus.CANCELLED]]
         # for task in incomplete_tasks:
-        #     if task.prerequisite_knowledge_uids:  # Field doesn't exist anymore
-        #         user_knowledge = knowledge_state.get('applied_knowledge', set())
-        #         missing_prereqs = set(task.prerequisite_knowledge_uids) - user_knowledge
-        #         gaps.extend(missing_prereqs)
+        # if task.prerequisite_knowledge_uids: # Field doesn't exist anymore
+        # user_knowledge = knowledge_state.get('applied_knowledge', set())
+        # missing_prereqs = set(task.prerequisite_knowledge_uids) - user_knowledge
+        # gaps.extend(missing_prereqs)
         #
         # completed_tasks = [t for t in tasks if t.status == EntityStatus.COMPLETED]
         # for task in completed_tasks:
-        #     if task.actual_minutes and task.duration_minutes and task.actual_minutes > task.duration_minutes * 1.5:
-        #         for ku_uid in task.applies_knowledge_uids:  # Field doesn't exist anymore
-        #             if '.' in ku_uid:
-        #                 domain = ku_uid.split('.')[1]
-        #                 gaps.append(f'ku.{domain}.fundamentals')
+        # if task.actual_minutes and task.duration_minutes and task.actual_minutes > task.duration_minutes * 1.5:
+        # for ku_uid in task.applies_knowledge_uids: # Field doesn't exist anymore
+        # if '.' in ku_uid:
+        # domain = ku_uid.split('.')[1]
+        # gaps.append(f'ku.{domain}.fundamentals')
 
         return []
 

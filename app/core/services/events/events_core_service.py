@@ -73,7 +73,7 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -354,7 +354,7 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
             )
             await publish_event(self.event_bus, domain_event, self.logger)
 
-            # Publish embedding request event for async background generation (Phase 1 - January 2026)
+            # Publish embedding request event for async background generation
             # Background worker will process embeddings in batches (zero latency impact on user)
             embedding_text = build_embedding_text(EntityType.EVENT, event)
             if embedding_text:
@@ -579,11 +579,11 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
         Example:
             hierarchy = await service.get_event_hierarchy("event_xyz789")
             # {
-            #   "ancestors": [root_event, parent_event],
-            #   "current": event_xyz789,
-            #   "siblings": [sibling1, sibling2],
-            #   "children": [child1, child2],
-            #   "depth": 2
+            # "ancestors": [root_event, parent_event],
+            # "current": event_xyz789,
+            # "siblings": [sibling1, sibling2],
+            # "children": [child1, child2],
+            # "depth": 2
             # }
         """
         # Get ancestors

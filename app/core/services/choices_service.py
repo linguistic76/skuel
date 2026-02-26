@@ -185,7 +185,7 @@ class ChoicesService(BaseService["BackendOperations[Ku]", Ku]):
             backend: Protocol-based backend for choice operations
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
-            insight_store: InsightStore for persisting event-driven insights (optional, Phase 1 - January 2026)
+            insight_store: InsightStore for persisting event-driven insights (optional)
 
         Note:
             Context invalidation now happens via event-driven architecture.

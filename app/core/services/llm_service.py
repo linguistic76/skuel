@@ -71,7 +71,7 @@ class LLMService:
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -438,7 +438,7 @@ class LLMService:
         context_lines = []
 
         for key, value in additional_context.items():
-            # Special formatting for mentioned_entities (Phase 2.5)
+            # Special formatting for mentioned_entities
             if key == "mentioned_entities" and isinstance(value, dict):
                 context_lines.append("Entities User Asked About:")
                 for entity_type, entities in value.items():

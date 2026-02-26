@@ -27,9 +27,9 @@ from core.models.shared.dual_track import DualTrackResult
 # NOTE (November 2025): Removed HasConsistencyScore, HasFrequency, HasStreakCount imports
 # These protocols were used for defensive isinstance() checks, but the Habit model
 # is well-typed - use direct attribute access instead:
-#   - habit.calculate_consistency_score() instead of isinstance(habit, HasConsistencyScore)
-#   - habit.current_streak instead of isinstance(habit, HasStreakCount)
-#   - habit.recurrence_pattern instead of isinstance(habit, HasFrequency)
+# - habit.calculate_consistency_score() instead of isinstance(habit, HasConsistencyScore)
+# - habit.current_streak instead of isinstance(habit, HasStreakCount)
+# - habit.recurrence_pattern instead of isinstance(habit, HasFrequency)
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import (
@@ -74,7 +74,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     - NO embeddings_service or llm_service (ADR-030)
@@ -312,7 +312,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         self, uid: str, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
         """
-        Analyze habit with knowledge reinforcement and goal support using Phase 1-4.
+        Analyze habit with knowledge reinforcement and goal support
 
         Provides comprehensive performance analysis including:
         - Knowledge areas being reinforced through habit practice
@@ -338,9 +338,9 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
                     "total_goals_supported": int
                 },
                 "insights": {
-                    "high_reinforcement": bool,  # effectiveness > 5.0
-                    "goal_aligned": bool,        # supports goals
-                    "knowledge_builder": bool     # reinforces knowledge
+                    "high_reinforcement": bool, # effectiveness > 5.0
+                    "goal_aligned": bool, # supports goals
+                    "knowledge_builder": bool # reinforces knowledge
                 },
                 "recommendations": {
                     "maintain_consistency": bool,
@@ -368,10 +368,10 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
                 print("This is a highly effective learning habit!")
             ```
 
-        Phase 5 Refactoring (Jan 2026):
+        Refactoring:
         - Uses BaseIntelligenceService._analyze_entity_with_context template
         """
-        # Phase 5: Use base class template for standardized analysis
+        # Use base class template for standardized analysis
         analysis_result = await self._analyze_entity_with_context(
             uid=uid,
             context_method="get_habit_cross_domain_context",
@@ -426,7 +426,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
                 },
                 "insights": insights,
                 "recommendations": recommendations,
-                "metrics": metrics,  # Phase 3: Include standard metrics
+                "metrics": metrics,  # Include standard metrics
             }
         )
 
@@ -435,7 +435,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         self, uid: str, depth: int = 2, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
         """
-        Get habit's knowledge practice tracking using Phase 1-4.
+        Get habit's knowledge practice tracking
 
         Analyzes how this habit reinforces knowledge through practice:
         - Knowledge units actively reinforced
@@ -453,10 +453,10 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
                 "habit": Habit,
                 "knowledge_reinforcement": {
                     "reinforced_knowledge": List[Ku],
-                    "practice_frequency": str,  # from habit
+                    "practice_frequency": str, # from habit
                     "practice_effectiveness_score": float,
                     "mastery_progression": List[Dict],
-                    "knowledge_coverage": float  # 0-1
+                    "knowledge_coverage": float # 0-1
                 },
                 "learning_analysis": {
                     "primary_knowledge_areas": List[str],
@@ -476,10 +476,10 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             print(f"Effectiveness: {kr['practice_effectiveness_score']}")
             ```
 
-        Phase 5 Refactoring (Jan 2026):
+        Refactoring:
         - Uses BaseIntelligenceService._analyze_entity_with_context template
         """
-        # Phase 5: Use base class template for standardized analysis
+        # Use base class template for standardized analysis
         analysis_result = await self._analyze_entity_with_context(
             uid=uid,
             context_method="get_habit_cross_domain_context",
@@ -537,7 +537,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
                     "knowledge_coverage": knowledge_coverage,
                 },
                 "learning_analysis": learning_analysis,
-                "metrics": metrics,  # Phase 3: Include standard metrics
+                "metrics": metrics,  # Include standard metrics
             }
         )
 
@@ -546,7 +546,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         self, uid: str, depth: int = 2, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
         """
-        Get habit's goal contribution analysis using Phase 1-4.
+        Get habit's goal contribution analysis
 
         Analyzes how this habit supports user's goals:
         - Goals directly supported
@@ -564,15 +564,15 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
                 "habit": Habit,
                 "goal_support": {
                     "supported_goals": List[Goal],
-                    "goal_contributions": List[Dict],  # per-goal contribution
-                    "alignment_score": float,  # 0-10
+                    "goal_contributions": List[Dict], # per-goal contribution
+                    "alignment_score": float, # 0-10
                     "total_goals_supported": int,
                     "primary_goal": Optional[Goal]
                 },
                 "impact_analysis": {
-                    "high_impact": bool,  # alignment > 7.0
-                    "goal_aligned": bool,  # supports goals
-                    "consistency_matters": bool  # high contribution
+                    "high_impact": bool, # alignment > 7.0
+                    "goal_aligned": bool, # supports goals
+                    "consistency_matters": bool # high contribution
                 },
                 "recommendations": {
                     "increase_frequency": bool,
@@ -592,13 +592,13 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             print(f"Alignment: {gs['alignment_score']}/10")
 
             for contrib in gs["goal_contributions"]:
-                print(f"  {contrib['goal_title']}: {contrib['contribution_strength']}")
+                print(f" {contrib['goal_title']}: {contrib['contribution_strength']}")
             ```
 
-        Phase 5 Refactoring (Jan 2026):
+        Refactoring:
         - Uses BaseIntelligenceService._analyze_entity_with_context template
         """
-        # Phase 5: Use base class template for standardized analysis
+        # Use base class template for standardized analysis
         analysis_result = await self._analyze_entity_with_context(
             uid=uid,
             context_method="get_habit_cross_domain_context",
@@ -667,7 +667,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
                 },
                 "impact_analysis": impact_analysis,
                 "recommendations": recommendations,
-                "metrics": metrics,  # Phase 3: Include standard metrics
+                "metrics": metrics,  # Include standard metrics
             }
         )
 
@@ -970,7 +970,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
                 },
             )
 
-            # Persist insight to InsightStore (Phase 1: Quick Wins)
+            # Persist insight to InsightStore
             if self.insight_store:
                 impact = InsightImpact.HIGH if is_very_difficult else InsightImpact.MEDIUM
                 insight = PersistedInsight(
@@ -1069,15 +1069,15 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         Example:
             >>> from core.models.enums.activity_enums import ConsistencyLevel
             >>> result = await service.assess_consistency_dual_track(
-            ...     habit_uid="habit.morning-meditation",
-            ...     user_uid="user_mike",
-            ...     user_consistency_level=ConsistencyLevel.CONSISTENT,
-            ...     user_evidence="I meditate most mornings",
-            ...     user_reflection="Sometimes skip on weekends",
+            ... habit_uid="habit.morning-meditation",
+            ... user_uid="user_mike",
+            ... user_consistency_level=ConsistencyLevel.CONSISTENT,
+            ... user_evidence="I meditate most mornings",
+            ... user_reflection="Sometimes skip on weekends",
             ... )
             >>> if result.is_ok:
-            ...     dual_track = result.value
-            ...     print(f"Gap: {dual_track.perception_gap:.0%}")
+            ... dual_track = result.value
+            ... print(f"Gap: {dual_track.perception_gap:.0%}")
         """
         return await self._dual_track_assessment(
             uid=habit_uid,

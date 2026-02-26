@@ -56,7 +56,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -243,7 +243,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
         Returns:
             Result[Principle] - success contains Principle, not found is an error
         """
-        return await self.get(principle_uid)  # type: ignore[return-value]  # BaseService.get() returns Result[Entity], Principle is a subclass
+        return await self.get(principle_uid)  # type: ignore[return-value] # BaseService.get() returns Result[Entity], Principle is a subclass
 
     @with_error_handling("create_principle", error_type="database")
     async def create_principle(
@@ -303,7 +303,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
         )
         await publish_event(self.event_bus, event, logger)
 
-        # Publish embedding request event for async background generation (Phase 1 - January 2026)
+        # Publish embedding request event for async background generation
         # Background worker will process embeddings in batches (zero latency impact on user)
         embedding_text = build_embedding_text(EntityType.PRINCIPLE, principle)
         if embedding_text:
@@ -732,11 +732,11 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
         Example:
             hierarchy = await service.get_principle_hierarchy("principle_xyz789")
             # {
-            #   "ancestors": [root_principle, parent_principle],
-            #   "current": principle_xyz789,
-            #   "siblings": [sibling1, sibling2],
-            #   "children": [child1, child2],
-            #   "depth": 2
+            # "ancestors": [root_principle, parent_principle],
+            # "current": principle_xyz789,
+            # "siblings": [sibling1, sibling2],
+            # "children": [child1, child2],
+            # "depth": 2
             # }
         """
         # Get ancestors

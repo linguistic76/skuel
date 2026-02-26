@@ -4,7 +4,7 @@ Faceted Query Builder
 
 Faceted search query generation.
 
-Part of QueryBuilder decomposition (Phase 2).
+Part of QueryBuilder decomposition.
 Builds queries for faceted search with aggregations and filters.
 
 NOTE: This service depends on QueryOptimizer for full functionality.
@@ -148,7 +148,7 @@ class FacetedQueryBuilder:
                     )
 
             # Build optimized query with all facet constraints
-            # Phase 2: Delegate to injected optimizer
+            # Delegate to injected optimizer
             if not self.optimizer:
                 return Result.fail(
                     Errors.system(
@@ -189,7 +189,7 @@ class FacetedQueryBuilder:
 
         try:
             # Parse base query to extract the MATCH clause
-            # TODO [ENHANCEMENT]: Phase 2 - Use analyze_query_intent for semantic analysis
+            # TODO [ENHANCEMENT]: Use analyze_query_intent for semantic analysis
             # analyze_query_intent(base_query)
             match_clause = base_query.split("RETURN")[0] if "RETURN" in base_query else base_query
 

@@ -70,7 +70,7 @@ class Neo4jGenAIEmbeddingsService:
             executor: Query executor for database operations
             model: Embedding model to use (default: text-embedding-3-small)
             dimension: Expected embedding dimension (default: 1536 for text-embedding-3-small)
-            prometheus_metrics: PrometheusMetrics for tracking OpenAI calls (Phase 1 - January 2026)
+            prometheus_metrics: PrometheusMetrics for tracking OpenAI calls
         """
         self.executor = executor
         self.model = model
@@ -184,7 +184,7 @@ class Neo4jGenAIEmbeddingsService:
             "dimensions": self.dimension,
         }
 
-        # Track OpenAI API call metrics (Phase 1 - January 2026)
+        # Track OpenAI API call metrics
         import time
 
         start_time = time.time()
@@ -302,7 +302,7 @@ class Neo4jGenAIEmbeddingsService:
             "dimensions": self.dimension,
         }
 
-        # Track OpenAI batch API call metrics (Phase 1 - January 2026)
+        # Track OpenAI batch API call metrics
         import time
 
         start_time = time.time()
@@ -423,10 +423,10 @@ class Neo4jGenAIEmbeddingsService:
 
         Example:
             >>> result = await service.store_embedding_with_metadata(
-            ...     uid="ku.python",
-            ...     label="Entity",
-            ...     embedding=[0.1, 0.2, ...],
-            ...     text="Python programming language",
+            ... uid="ku.python",
+            ... label="Entity",
+            ... embedding=[0.1, 0.2, ...],
+            ... text="Python programming language",
             ... )
         """
         query = f"""
@@ -478,7 +478,7 @@ class Neo4jGenAIEmbeddingsService:
         Example:
             >>> result = await service.get_embedding_metadata("ku.python", "Entity")
             >>> if result.is_ok:
-            ...     print(f"Version: {result.value['version']}")
+            ... print(f"Version: {result.value['version']}")
         """
         query = f"""
         MATCH (n:{label} {{uid: $uid}})
@@ -528,7 +528,7 @@ class Neo4jGenAIEmbeddingsService:
         Example:
             >>> result = await service.check_version_compatibility("ku.python", "Entity")
             >>> if result.is_ok and result.value["needs_update"]:
-            ...     # Regenerate embedding
+            ... # Regenerate embedding
         """
         metadata_result = await self.get_embedding_metadata(uid, label)
 
@@ -572,7 +572,7 @@ class Neo4jGenAIEmbeddingsService:
 
         Example:
             >>> result = await service.get_or_create_embedding(
-            ...     uid="ku.python", label="Entity", text="Python programming language"
+            ... uid="ku.python", label="Entity", text="Python programming language"
             ... )
         """
         # Check if node has current-version embedding

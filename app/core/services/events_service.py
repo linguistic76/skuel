@@ -103,7 +103,7 @@ class EventsService(BaseService["BackendOperations[Event]", Event]):
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
     - Uses explicit delegation methods (February 2026)
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     """
@@ -374,16 +374,16 @@ class EventsService(BaseService["BackendOperations[Event]", Event]):
     # The following methods are auto-generated from _delegations specification:
     # - Core CRUD: get_event, get_user_events, find_events, count_events, get_user_items_in_range
     # - Habits: get_events_for_habit, get_habit_reinforcement_events, get_at_risk_habit_events,
-    #           complete_event_with_quality, miss_habit_event, create_recurring_events_for_habit,
-    #           get_next_habit_events
+    # complete_event_with_quality, miss_habit_event, create_recurring_events_for_habit,
+    # get_next_habit_events
     # - Learning: get_learning_events, get_events_for_knowledge, get_events_for_learning_path,
-    #             create_study_session, suggest_spaced_repetition_events, create_learning_path_schedule,
-    #             get_knowledge_reinforcement_stats
+    # create_study_session, suggest_spaced_repetition_events, create_learning_path_schedule,
+    # get_knowledge_reinforcement_stats
     # - Search: search_events, get_calendar_events, get_event_history, get_events_due_soon,
-    #           get_overdue_events, get_events_by_status, get_events_in_range, get_prioritized_events
+    # get_overdue_events, get_events_by_status, get_events_in_range, get_prioritized_events
     # - Relationships: get_event_cross_domain_context, get_event_with_semantic_context, analyze_event_impact
     # - Intelligence: get_event_with_context, analyze_event_performance, get_event_goal_support,
-    #                 get_event_knowledge_reinforcement, analyze_upcoming_events
+    # get_event_knowledge_reinforcement, analyze_upcoming_events
     # ========================================================================
 
     # ========================================================================

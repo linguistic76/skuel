@@ -111,7 +111,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     - NO embeddings_service or llm_service (ADR-030)
@@ -136,7 +136,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
 
         Args:
             backend: Protocol-based backend for goal operations,
-            graph_intelligence_service: GraphIntelligenceService for Phase 1-4 queries,
+            graph_intelligence_service: GraphIntelligenceService for graph intelligence queries,
             relationship_service: GoalsRelationshipOperations protocol for fetching (REQUIRED) goal relationships
             progress_service: GoalsProgressService for velocity calculations
         """
@@ -147,7 +147,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         )
         self.progress = progress_service  # Domain-specific: for velocity calculations
 
-        # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)
+        # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
             self.orchestrator = GraphContextOrchestrator[Goal, GoalDTO](
                 service=self,
@@ -301,7 +301,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         Returns:
             Result containing (goal, GraphContext) tuple with comprehensive insights
         """
-        # Use GraphContextOrchestrator pattern (Phase 2 consolidation)
+        # Use GraphContextOrchestrator pattern (consolidation)
         # Orchestrator is guaranteed to exist when @requires_graph_intelligence passes
         if not self.orchestrator:
             return Result.fail(
@@ -317,7 +317,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         self, uid: str, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
         """
-        Get comprehensive goal progress dashboard using Phase 1-4.
+        Get comprehensive goal progress dashboard
 
         Provides complete view including:
         - Current progress and status
@@ -333,11 +333,11 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         Returns:
             Result containing comprehensive progress dashboard
 
-        Phase 5 Refactoring (Jan 2026):
+        Refactoring:
         - Uses BaseIntelligenceService._analyze_entity_with_context template
         - Consolidates entity fetch + context + metrics pattern
         """
-        # Phase 5: Use base class template for standardized analysis
+        # Use base class template for standardized analysis
         analysis_result = await self._analyze_entity_with_context(
             uid=uid,
             context_method="get_goal_cross_domain_context",
@@ -413,7 +413,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
                 },
                 "insights": insights,
                 "recommendations": analysis["recommendations"],
-                "metrics": metrics,  # Phase 5: Include standard metrics
+                "metrics": metrics,  # Include standard metrics
             }
         )
 
@@ -421,7 +421,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         self, entity: Any, context: GoalCrossContext, metrics: dict[str, Any]
     ) -> list[str]:
         """Generate recommendations for goal progress dashboard."""
-        # Uses RecommendationEngine from shared intelligence utilities (Phase 5 consolidation)
+        # Uses RecommendationEngine from shared intelligence utilities (consolidation)
         return (
             RecommendationEngine()
             .with_metrics(metrics)
@@ -452,7 +452,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         self, uid: str, depth: int = 2, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
         """
-        Get goal completion forecast using Phase 1-4.
+        Get goal completion forecast
 
         Analyzes completion trajectory based on:
         - Current progress rate
@@ -467,10 +467,10 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         Returns:
             Result containing completion forecast with velocity metrics
 
-        Phase 5 Refactoring (Jan 2026):
+        Refactoring:
         - Uses BaseIntelligenceService._analyze_entity_with_context template
         """
-        # Phase 5: Use base class template for standardized analysis
+        # Use base class template for standardized analysis
         analysis_result = await self._analyze_entity_with_context(
             uid=uid,
             context_method="get_goal_cross_domain_context",
@@ -540,7 +540,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
                 },
                 "risk_factors": risk_factors,
                 "acceleration_opportunities": acceleration_opportunities,
-                "metrics": metrics,  # Phase 3: Include standard metrics
+                "metrics": metrics,  # Include standard metrics
                 "graph_context": {
                     "task_support_count": len(context.supporting_task_uids),
                     "habit_support_count": len(context.supporting_habit_uids),
@@ -554,7 +554,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         self, uid: str, depth: int = 2, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
         """
-        Get goal's learning requirements using Phase 1-4.
+        Get goal's learning requirements
 
         Analyzes learning needs for goal achievement:
         - Required knowledge areas
@@ -569,10 +569,10 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         Returns:
             Result containing learning requirements analysis
 
-        Phase 5 Refactoring (Jan 2026):
+        Refactoring:
         - Uses BaseIntelligenceService._analyze_entity_with_context template
         """
-        # Phase 5: Use base class template for standardized analysis
+        # Use base class template for standardized analysis
         analysis_result = await self._analyze_entity_with_context(
             uid=uid,
             context_method="get_goal_cross_domain_context",
@@ -637,7 +637,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
                 },
                 "learning_analysis": learning_analysis,
                 "recommendations": analysis["recommendations"],
-                "metrics": metrics,  # Phase 5: Include standard metrics
+                "metrics": metrics,  # Include standard metrics
                 "graph_context": {
                     "knowledge_requirement_count": total_required,
                     "learning_path_count": metrics["learning_path_count"],
@@ -650,7 +650,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         self, entity: Any, context: GoalCrossContext, metrics: dict[str, Any]
     ) -> list[str]:
         """Generate recommendations for goal learning requirements."""
-        # Uses RecommendationEngine from shared intelligence utilities (Phase 5 consolidation)
+        # Uses RecommendationEngine from shared intelligence utilities (consolidation)
         knowledge_gaps_count = metrics.get("knowledge_requirement_count", 0)
         has_learning_paths = metrics.get("has_curriculum_alignment", False)
 
@@ -1330,15 +1330,15 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         Example:
             >>> from core.models.enums.activity_enums import ProgressLevel
             >>> result = await service.assess_progress_dual_track(
-            ...     goal_uid="goal.learn-python",
-            ...     user_uid="user_mike",
-            ...     user_progress_level=ProgressLevel.ON_TRACK,
-            ...     user_evidence="I've completed most milestones",
-            ...     user_reflection="Feeling good about this goal",
+            ... goal_uid="goal.learn-python",
+            ... user_uid="user_mike",
+            ... user_progress_level=ProgressLevel.ON_TRACK,
+            ... user_evidence="I've completed most milestones",
+            ... user_reflection="Feeling good about this goal",
             ... )
             >>> if result.is_ok:
-            ...     dual_track = result.value
-            ...     print(f"Gap: {dual_track.perception_gap:.0%}")
+            ... dual_track = result.value
+            ... print(f"Gap: {dual_track.perception_gap:.0%}")
         """
         return await self._dual_track_assessment(
             uid=goal_uid,

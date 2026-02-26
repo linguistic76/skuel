@@ -153,7 +153,7 @@ class TasksService(BaseService["BackendOperations[Task]", Task]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     """
@@ -475,7 +475,7 @@ class TasksService(BaseService["BackendOperations[Task]", Task]):
     # RELATIONSHIPS AND DEPENDENCIES - Explicit methods (custom logic)
     # ========================================================================
     # Note: Simple delegations (get_task_completion_impact, analyze_task_learning_context,
-    #       get_task_with_semantic_context) are auto-generated via _delegations.
+    # get_task_with_semantic_context) are auto-generated via _delegations.
 
     async def get_task_with_context(
         self, uid: str, depth: int = 2
@@ -484,7 +484,7 @@ class TasksService(BaseService["BackendOperations[Task]", Task]):
         return await self.relationships.get_with_context(uid, depth)
 
     async def get_task_with_dependencies(self, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
-        """Get task with complete dependency graph using Phase 1-4."""
+        """Get task with complete dependency graph."""
         # Use get_with_context with "dependencies" intent
         result = await self.relationships.get_with_context(uid, depth, intent="dependencies")
         if result.is_error:
@@ -495,7 +495,7 @@ class TasksService(BaseService["BackendOperations[Task]", Task]):
     async def get_task_practice_opportunities(
         self, uid: str, depth: int = 2
     ) -> Result[dict[str, Any]]:
-        """Find practice opportunities related to this task using Phase 1-4."""
+        """Find practice opportunities related to this task."""
         # Use get_with_context with "practice" intent
         result = await self.relationships.get_with_context(uid, depth, intent="practice")
         if result.is_error:

@@ -126,7 +126,7 @@ class UserProgressService:
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -658,7 +658,7 @@ class UserProgressService:
         """
         Calculate how well learned knowledge covers unlearned topics.
 
-        Uses Phase 4 edge metadata:
+        Uses edge metadata:
         - User progress (what's learned)
         - Prerequisite edges (what enables what)
         - Edge confidence (how reliable the relationship)
@@ -684,7 +684,7 @@ class UserProgressService:
 
         // Calculate coverage for each unlearned topic
         OPTIONAL MATCH (unlearned)-[r:REQUIRES_KNOWLEDGE]->(prereq:Entity)
-        WHERE prereq.uid IN learned_uids  // Only count learned prerequisites
+        WHERE prereq.uid IN learned_uids // Only count learned prerequisites
 
         WITH unlearned,
              learned_uids,
@@ -703,7 +703,7 @@ class UserProgressService:
              satisfied_prereqs,
              total_prereqs,
              CASE
-                 WHEN total_prereqs = 0 THEN 1.0  // No prereqs = ready
+                 WHEN total_prereqs = 0 THEN 1.0 // No prereqs = ready
                  ELSE toFloat(size(satisfied_prereqs)) / total_prereqs
              END as coverage_ratio,
              avg_prerequisite_confidence

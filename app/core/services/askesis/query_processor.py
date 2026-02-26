@@ -99,7 +99,7 @@ class QueryProcessor:
             context_retriever: ContextRetriever for context retrieval
             user_service: UserService for accessing UserContext
             llm_service: LLMService for natural language generation (required)
-            graph_intelligence_service: GraphIntelligenceService for Phase 1-4 queries
+            graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
             citation_service: AskesisCitationService for source and evidence transparency
         """
         self.intent_classifier = intent_classifier
@@ -220,7 +220,7 @@ class QueryProcessor:
             user_context, intent, relevant_context
         )
 
-        # Step 8: Add citations for knowledge units (Phase 4C)
+        # Step 8: Add citations for knowledge units
         citations_text = ""
         if intent in (QueryIntent.PREREQUISITE, QueryIntent.HIERARCHICAL):
             knowledge_entities = extracted_entities.get("knowledge", [])
@@ -265,7 +265,7 @@ class QueryProcessor:
         self, user_uid: str, query_message: str, depth: int = 2
     ) -> Result[dict[str, Any]]:
         """
-        Process Askesis query with full user context using Phase 1-4.
+        Process Askesis query with full user context
 
         This is the primary method for context-aware AI responses. It retrieves
         complete user learning context in a single Pure Cypher query and
@@ -520,7 +520,7 @@ class QueryProcessor:
         """
         Retrieve and format citations for knowledge units mentioned in response.
 
-        Phase 4C: Citations as First-Class Citizen
+        Citations as First-Class Citizen
         This method ensures ALL Askesis responses include source and evidence
         when discussing knowledge units.
 

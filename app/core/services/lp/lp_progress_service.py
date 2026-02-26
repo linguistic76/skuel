@@ -29,7 +29,7 @@ class LpProgressService:
     Handles automatic progress updates when users master knowledge units,
     eliminating direct dependencies between KuService and LpService.
 
-    Event-Driven Architecture (Phase 4):
+    Event-Driven Architecture:
     - Subscribes to KnowledgeMastered events
     - Calculates LP progress from mastered KUs
     - Publishes LearningPathProgressUpdated events
@@ -57,7 +57,7 @@ class LpProgressService:
         Initialize learning path progress service.
 
         Args:
-            executor: QueryExecutor for Cypher queries (REQUIRED for Phase 4)
+            executor: QueryExecutor for Cypher queries (REQUIRED for )
             event_bus: Optional event bus for publishing events
         """
         self.executor = executor
@@ -65,7 +65,7 @@ class LpProgressService:
         self.logger = get_logger("skuel.services.lp.progress")
 
     # ========================================================================
-    # EVENT HANDLERS (Phase 4: Event-Driven Architecture)
+    # EVENT HANDLERS
     # ========================================================================
 
     async def handle_knowledge_mastered(self, event: KnowledgeMastered) -> None:

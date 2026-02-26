@@ -3,7 +3,7 @@ Unified Base Service - Relationship-Centric Architecture
 ========================================================
 
 SKUEL's 14-Domain + 4-System Architecture - Service Foundation
----------------------------------------------------------------
+--------------------------------------------------------------
 
 This module provides the base service class for **6 of the 14 Domains**.
 Core principle: Everything has relationships - that's what makes SKUEL
@@ -13,7 +13,7 @@ powerful as a knowledge graph platform.
 following Single Responsibility Principle. See /core/services/mixins/ for details.
 
 DOMAINS USING THIS BASE SERVICE (6 of 14)
------------------------------------------
+----------------------------------------
 
 **Activity Domain Services with BaseService (6 of 7):**
     1. TasksService(BaseService[TasksOperations, Task])
@@ -24,32 +24,32 @@ DOMAINS USING THIS BASE SERVICE (6 of 14)
     6. PrinciplesService(BaseService[PrinciplesOperations, Principle])
 
 DOMAINS NOT USING THIS BASE SERVICE (8 of 14)
----------------------------------------------
+--------------------------------------------
 
 **Activity Domain (1 of 7)** - Standalone facade:
     7. FinanceService - Expenses and budgets (standalone facade)
 
 **Curriculum Domain Services (3)** - Standalone facades:
-    8. KuService  - Knowledge Units (ku:)
-    9. LsService  - Learning Steps (ls:)
+    8. KuService - Knowledge Units (ku:)
+    9. LsService - Learning Steps (ls:)
     10. LpService - Learning Paths (lp:)
 
 **Content/Organization Domains (3)** - Cross-domain composition:
-    11. JournalsService           - File processing
-    12. AnalyticsLifePathService  - Life goal alignment
-    13. AnalyticsService          - Statistical aggregation
+    11. JournalsService - File processing
+    12. AnalyticsLifePathService - Life goal alignment
+    13. AnalyticsService - Statistical aggregation
 
 THE 4 CROSS-CUTTING SYSTEMS
----------------------------
+--------------------------
 
 **Foundation & Infrastructure (not domains):**
     1. UserContextBuilder - ~240 fields cross-domain state
-    2. SearchOperations   - Unified search
-    3. AskesisService     - Life context synthesis
-    4. Conversation       - Turn-based chat interface
+    2. SearchOperations - Unified search
+    3. AskesisService - Life context synthesis
+    4. Conversation - Turn-based chat interface
 
 MIXIN COMPOSITION (January 2026)
---------------------------------
+-------------------------------
 
 BaseService is composed from 7 focused mixins:
     - ConversionHelpersMixin: DTO conversion and result handling
@@ -150,7 +150,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     """
@@ -260,7 +260,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
         Example:
             config = TasksService._get_config_cls()
             if config:
-                print(config.search_fields)  # ('title', 'description')
+                print(config.search_fields) # ('title', 'description')
 
         See Also:
             /docs/patterns/DOMAIN_CONFIG_PATTERN.md - Configuration patterns
@@ -288,13 +288,13 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
         **OPTIMIZATION (2026-01-31):** Cached property for 50-100x faster access.
 
         Priority:
-            1. _config.entity_label (from DomainConfig, Phase 2)
+            1. _config.entity_label (from DomainConfig, )
             2. _entity_label class attribute (explicit override)
             3. _config.model_class.__name__ (from DomainConfig)
             4. _model_class.__name__ (auto-inferred)
             5. Class name minus "Service" suffix (fallback)
         """
-        # Priority 1: DomainConfig.entity_label (Phase 2)
+        # Priority 1: DomainConfig.entity_label
         config = self._get_config_cls()
         if config and config.entity_label:
             return config.entity_label
@@ -323,7 +323,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
         """
         Get configuration value from DomainConfig.
 
-        **ONE PATH FORWARD (January 2026 - Phase 3):**
+        **ONE PATH FORWARD (January 2026):**
         DomainConfig is THE configuration source. Class attribute fallback removed.
 
         Args:
@@ -440,8 +440,8 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     # DOMAIN-SPECIFIC CONFIGURATION (Class Attributes or DomainConfig)
     # ========================================================================
     # Services can configure behavior via:
-    #   1. DomainConfig object (Phase 2 - January 2026, recommended)
-    #   2. Individual class attributes (backward compatible)
+    # 1. DomainConfig object
+    # 2. Individual class attributes (backward compatible)
 
     # Optional DomainConfig object - takes priority when set
     _config: ClassVar[Any] = None

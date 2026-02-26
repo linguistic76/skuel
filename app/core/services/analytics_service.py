@@ -70,7 +70,7 @@ class AnalyticsService:
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -103,12 +103,12 @@ class AnalyticsService:
             finance_service: FinanceService facade (Layer 1)
             choices_service: ChoicesService facade (Layer 1)
             principle_service: PrinciplesService facade (Layer 1)
-            content_enrichment: ContentEnrichmentService (Layer 2) - for Phase 2
+            content_enrichment: ContentEnrichmentService (Layer 2) - for
             user_service: UserService for getting UserContext (Layer 3 - for Life Path)
-            ku_service: KuService for knowledge substance scores (Layer 0 - for Phase 2)
-            lp_service: LpService for Learning Path details (Layer 0 - for Phase 2)
+            ku_service: KuService for knowledge substance scores (Layer 0 - for )
+            lp_service: LpService for Learning Path details (Layer 0 - for )
             report_dir: Directory for storing generated analytics
-            event_bus: Event bus for automatic analytics generation (Phase 4)
+            event_bus: Event bus for automatic analytics generation
         """
         self.event_bus = event_bus
         self.user_service = user_service
@@ -122,9 +122,9 @@ class AnalyticsService:
             finance_service=finance_service,
             choices_service=choices_service,
             principle_service=principle_service,
-            # Layer 2: Pipeline services (Phase 2)
+            # Layer 2: Pipeline services
             content_enrichment=content_enrichment,
-            # Layer 0: Curriculum services (Phase 2)
+            # Layer 0: Curriculum services
             ku_service=ku_service,
             lp_service=lp_service,
         )
@@ -147,7 +147,7 @@ class AnalyticsService:
         )
 
     # ========================================================================
-    # EVENT HANDLERS (Phase 4: Event-Driven Report Generation)
+    # EVENT HANDLERS
     # ========================================================================
 
     async def handle_goal_achieved(self, event: Any) -> None:
@@ -160,11 +160,11 @@ class AnalyticsService:
         Args:
             event: GoalAchieved event containing goal completion details
 
-        Phase 4 Integration:
+
         - Subscribes to: GoalAchieved
         - Generates: Goal achievement summary report
 
-        Phase 5 Enhancement:
+        :
         - Actually generates markdown report file
         - Stores in /data/reports/goals/
         """
@@ -211,11 +211,11 @@ class AnalyticsService:
         Args:
             event: LearningPathCompleted event
 
-        Phase 4 Integration:
+
         - Subscribes to: LearningPathCompleted
         - Generates: Learning progress summary
 
-        Phase 5 Enhancement:
+        :
         - Actually generates markdown report file
         - Stores in /data/reports/learning/
         - Includes mastery metrics and duration analysis
@@ -266,11 +266,11 @@ class AnalyticsService:
         Args:
             event: HabitStreakMilestone event
 
-        Phase 4 Integration:
+
         - Subscribes to: HabitStreakMilestone
         - Generates: Habit consistency report
 
-        Phase 5 Enhancement:
+        :
         - Actually generates markdown report file
         - Stores in /data/reports/habits/
         - Only generates for major milestones (7, 30, 100, 365 days)
@@ -606,7 +606,7 @@ class AnalyticsService:
             {
                 "life_path_uid": "lp:...",
                 "life_path_title": "...",
-                "alignment_score": 0.73,  # 0.0-1.0
+                "alignment_score": 0.73, # 0.0-1.0
                 "knowledge_count": 15,
                 "embodied_knowledge": 8,
                 "theoretical_knowledge": 7,

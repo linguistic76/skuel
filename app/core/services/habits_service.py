@@ -295,7 +295,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             completions_backend: Backend for habit completion tracking (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
             ai_service: Optional AI service for LLM/embeddings features (January 2026)
-            insight_store: InsightStore for persisting event-driven insights (optional, Phase 1 - January 2026)
+            insight_store: InsightStore for persisting event-driven insights (optional)
 
         Note:
             Context invalidation now happens via event-driven architecture.
@@ -356,7 +356,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             event_bus=event_bus,
         )
 
-        # Phase 4: Event-driven achievement service (backend is REQUIRED)
+        # Event-driven achievement service (backend is REQUIRED)
         self.achievements = HabitAchievementService(
             backend=backend,
             event_bus=event_bus,

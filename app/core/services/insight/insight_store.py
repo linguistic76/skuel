@@ -356,7 +356,7 @@ class InsightStore:
         Args:
             uid: Insight UID
             user_uid: User who owns the insight
-            notes: Optional notes explaining why dismissed (Phase 4, Task 17)
+            notes: Optional notes explaining why dismissed (, Task 17)
 
         Returns:
             Result indicating success
@@ -410,7 +410,7 @@ class InsightStore:
         Args:
             uid: Insight UID
             user_uid: User who owns the insight
-            notes: Optional notes describing action taken (Phase 4, Task 17)
+            notes: Optional notes describing action taken (, Task 17)
 
         Returns:
             Result indicating success
@@ -508,7 +508,7 @@ class InsightStore:
         """
         Get dismissed or actioned insights for history page.
 
-        Phase 4, Task 17: Action tracking and audit trail.
+        , Task 17: Action tracking and audit trail.
 
         Args:
             user_uid: User's UID

@@ -161,8 +161,8 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         self.recommendation_engine = LearningRecommendationEngine(
             state_analyzer=self.state_analyzer,
             learning_backend=self.learning_backend,
-            event_bus=event_bus,  # Phase 4: Enable event-driven recommendations
-            user_service=user_service,  # Phase 4: Enable UserContext access
+            event_bus=event_bus,  # Enable event-driven recommendations
+            user_service=user_service,  # Enable UserContext access
         )
 
         self.content_analyzer = ContentAnalyzer(
@@ -877,17 +877,17 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
     # Blocked: Learning paths need content with practice relationships populated.
     #
     # The per-step infrastructure ALREADY EXISTS in LsIntelligenceService:
-    #   - get_practice_summary(ls_uid) → {"habits": int, "tasks": int, "events": int}
-    #   - practice_completeness_score(ls_uid) → 0.0-1.0 (each type = 1/3)
+    # - get_practice_summary(ls_uid) → {"habits": int, "tasks": int, "events": int}
+    # - practice_completeness_score(ls_uid) → 0.0-1.0 (each type = 1/3)
     #
     # Implementation: Inject ls_intelligence (or access via ls_service.intelligence),
     # iterate path steps, call practice_completeness_score per step, aggregate.
     #
     # Wiring checklist:
-    #   1. Add ls_intelligence param to __init__ (or resolve from ls_service)
-    #   2. Implement identify_practice_gaps() calling LS per-step methods
-    #   3. Add explicit delegation method to LpService
-    #   4. Add API route
+    # 1. Add ls_intelligence param to __init__ (or resolve from ls_service)
+    # 2. Implement identify_practice_gaps() calling LS per-step methods
+    # 3. Add explicit delegation method to LpService
+    # 4. Add API route
     #
     # Full design: /docs/domains/lp.md § "Future: Practice Gap Analysis"
     # LS infrastructure: /docs/domains/ls.md § "Cross-Domain: Practice Infrastructure"
@@ -904,7 +904,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         """
         Find optimal learning path from start to goal using graph traversal.
 
-        Uses Phase 4 edge metadata:
+        Uses edge metadata:
         - typical_learning_order for sequencing
         - semantic_distance for related knowledge discovery
 
@@ -927,7 +927,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         )
         WITH path, relationships(path) as rels
 
-        // Sort by typical_learning_order if available (Phase 4 edge metadata)
+        // Sort by typical_learning_order if available ( edge metadata)
         UNWIND rels as r
         WITH path, r
         ORDER BY coalesce(r.typical_learning_order, 999)
@@ -966,7 +966,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         """
         Get next learning step based on adaptive intelligence.
 
-        Uses Phase 4 edge metadata:
+        Uses edge metadata:
         - strength: How strongly concepts are related
         - confidence: How confident we are in the relationship
         - difficulty_gap: Expected difficulty increase
@@ -987,7 +987,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         query = """
         MATCH (current:Entity {uid: $current_uid})-[r:ENABLES_KNOWLEDGE]->(next:Entity)
 
-        // Get user progress for prerequisites (Phase 4 user progress tracking)
+        // Get user progress for prerequisites ( user progress tracking)
         OPTIONAL MATCH (next)-[:REQUIRES_KNOWLEDGE]->(prereq)
         OPTIONAL MATCH (prereq)<-[:HAS_PROGRESS]-(up:UserProgress {user_uid: $user_uid})
 
@@ -1011,7 +1011,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         // Filter to ready steps (80% of prerequisites complete)
         WHERE prerequisite_readiness >= 0.8
 
-        // Score by confidence (60%) and strength (40%) - Phase 4 metadata
+        // Score by confidence (60%) and strength (40%) - metadata
         WITH next,
              (avg_confidence * 0.6 + avg_strength * 0.4) as readiness_score,
              avg_difficulty,
@@ -1060,7 +1060,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         """
         Get recommended learning steps for a user based on their progress.
 
-        Uses Phase 4 intelligence:
+        Uses intelligence:
         - Semantic distance for related knowledge
         - Edge confidence for relationship quality
         - User progress for readiness assessment
@@ -1106,7 +1106,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
                  ELSE toFloat(completed_prereqs) / total_prereqs
              END as prerequisite_readiness
 
-        // Filter by readiness and difficulty (Phase 4 metadata)
+        // Filter by readiness and difficulty ( metadata)
         WHERE prerequisite_readiness >= 0.8
           AND coalesce(r.difficulty_gap, 0.3) <= $max_difficulty
 

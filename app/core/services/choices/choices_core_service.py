@@ -63,7 +63,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -289,7 +289,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             )
             await publish_event(self.event_bus, knowledge_event, self.logger)
 
-        # Publish embedding request event for async background generation (Phase 1 - January 2026)
+        # Publish embedding request event for async background generation
         # Background worker will process embeddings in batches (zero latency impact on user)
         embedding_text = build_embedding_text(EntityType.CHOICE, choice)
         if embedding_text:
@@ -1093,11 +1093,11 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         Example:
             hierarchy = await service.get_choice_hierarchy("choice_xyz789")
             # {
-            #   "ancestors": [root_choice, parent_choice],
-            #   "current": choice_xyz789,
-            #   "siblings": [sibling1, sibling2],
-            #   "children": [child1, child2],
-            #   "depth": 2
+            # "ancestors": [root_choice, parent_choice],
+            # "current": choice_xyz789,
+            # "siblings": [sibling1, sibling2],
+            # "children": [child1, child2],
+            # "depth": 2
             # }
         """
         # Get ancestors

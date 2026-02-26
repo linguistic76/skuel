@@ -21,7 +21,7 @@ This service is part of the refactored EnhancedAskesisService architecture:
 - EnhancedAskesisService: Facade coordinating all sub-services
 
 Architecture:
-- Requires GraphIntelligenceService for Phase 1-4 queries (optional)
+- Requires GraphIntelligenceService for graph intelligence queries (optional)
 - Requires EmbeddingsService for semantic search (optional)
 - Uses UserContext for user state
 - Returns Result[T] for error handling
@@ -50,7 +50,7 @@ class ContextRetriever:
 
     This service handles context retrieval:
     - Retrieve relevant context based on intent
-    - Get complete learning context (Phase 1-4)
+    - Get complete learning context
     - Analyze knowledge gaps with prerequisite chains
     - Find semantically similar knowledge
     - Identify quick wins and high-impact gaps
@@ -71,7 +71,7 @@ class ContextRetriever:
         Initialize context retriever.
 
         Args:
-            graph_intelligence_service: GraphIntelligenceService for Phase 1-4 queries (optional)
+            graph_intelligence_service: GraphIntelligenceService for graph intelligence queries (optional)
             embeddings_service: EmbeddingsService for semantic search (optional)
 
         Note:
@@ -92,8 +92,8 @@ class ContextRetriever:
         """
         Retrieve relevant context using both graph queries AND semantic search.
 
-        Phase 1: Graph-based retrieval (prerequisite chains, tasks, etc.)
-        Phase 2: Semantic search enrichment (similar knowledge via embeddings)
+        Graph-based retrieval (prerequisite chains, tasks, etc.)
+        Semantic search enrichment (similar knowledge via embeddings)
 
         Args:
             user_context: Complete user context
@@ -177,7 +177,7 @@ class ContextRetriever:
     @with_error_handling("get_learning_context", error_type="system", uid_param="user_uid")
     async def get_learning_context(self, user_uid: str, depth: int = 2) -> Result[dict[str, Any]]:
         """
-        Get user's complete learning context using Phase 1-4.
+        Get user's complete learning context
 
         Retrieves in single query:
         - Current knowledge state (mastered, learning, blocked)
@@ -253,7 +253,7 @@ class ContextRetriever:
     @with_error_handling("analyze_knowledge_gaps", error_type="system", uid_param="user_uid")
     async def analyze_knowledge_gaps(self, user_uid: str) -> Result[dict[str, Any]]:
         """
-        Analyze user's knowledge gaps and prerequisite chains using Phase 1-4.
+        Analyze user's knowledge gaps and prerequisite chains
 
         Identifies:
         - Blocked knowledge areas

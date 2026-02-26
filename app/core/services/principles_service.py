@@ -251,7 +251,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
             habits_backend: Backend for habit queries (cross-domain alignment)
             reflection_backend: Backend for reflection persistence (optional, uses backend if not provided)
             event_bus: Event bus for publishing domain events (optional)
-            insight_store: InsightStore for persisting event-driven insights (optional, Phase 1 - January 2026)
+            insight_store: InsightStore for persisting event-driven insights (optional)
 
         Note:
             Context invalidation now happens via event-driven architecture.

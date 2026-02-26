@@ -59,7 +59,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -343,7 +343,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         )
         await publish_event(self.event_bus, event, self.logger)
 
-        # Publish embedding request event for async background generation (Phase 1 - January 2026)
+        # Publish embedding request event for async background generation
         # Background worker will process embeddings in batches (zero latency impact on user)
         embedding_text = build_embedding_text(EntityType.HABIT, habit)
         if embedding_text:
@@ -491,11 +491,11 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         Example:
             hierarchy = await service.get_habit_hierarchy("habit_xyz789")
             # {
-            #   "ancestors": [root_habit, parent_habit],
-            #   "current": habit_xyz789,
-            #   "siblings": [sibling1, sibling2],
-            #   "children": [child1, child2],
-            #   "depth": 2
+            # "ancestors": [root_habit, parent_habit],
+            # "current": habit_xyz789,
+            # "siblings": [sibling1, sibling2],
+            # "children": [child1, child2],
+            # "depth": 2
             # }
         """
         # Get ancestors

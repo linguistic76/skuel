@@ -4,7 +4,7 @@ Query Optimizer
 
 Index-aware query optimization for maximum performance.
 
-Part of QueryBuilder decomposition (Phase 2).
+Part of QueryBuilder decomposition.
 Generates multiple query plans and selects the optimal strategy
 based on available indexes.
 """

@@ -12,7 +12,7 @@ This follows the architectural principle: Pure domain inside.
 
 Note (January 2026): Unused classes removed per "One Path Forward" principle.
 Removed: QueryUnderstanding, SearchContext, RelatedContent, SearchResult, Level.
-These were skeleton classes from an incomplete Phase 2 refactor.
+These were skeleton classes from an incomplete refactor.
 """
 
 from __future__ import annotations

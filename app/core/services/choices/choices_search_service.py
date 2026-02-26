@@ -85,7 +85,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Choice]", Choice]):
     - Logs operations with structured logging
     """
 
-    # DomainConfig consolidation (January 2026 Phase 3)
+    # DomainConfig consolidation (January 2026)
     # All configuration in one place, using centralized relationship registry
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     _config = create_activity_domain_config(

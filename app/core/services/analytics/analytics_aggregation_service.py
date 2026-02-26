@@ -69,7 +69,7 @@ class AnalyticsAggregationService:
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -122,7 +122,7 @@ class AnalyticsAggregationService:
             user_uid, start_date, end_date
         )
 
-        # Layer 0: Knowledge and curriculum metrics (NEW - Phase 3)
+        # Layer 0: Knowledge and curriculum metrics (NEW - )
         knowledge_metrics = await self.metrics.calculate_knowledge_metrics(
             user_uid, start_date, end_date
         )
@@ -131,7 +131,7 @@ class AnalyticsAggregationService:
             curriculum_metrics_result.value if curriculum_metrics_result.is_ok else {}
         )
 
-        # Layer 2: Journal reflection metrics (NEW - Phase 3)
+        # Layer 2: Journal reflection metrics (NEW - )
         journal_metrics = await self.metrics.calculate_journal_metrics(
             user_uid, start_date, end_date
         )
@@ -150,7 +150,7 @@ class AnalyticsAggregationService:
         total_activity = self._calculate_total_activity(layer1_domains)
         domain_activity_ranking = self._rank_domains_by_activity(layer1_domains)
 
-        # NEW: Cross-layer synthesis (Phase 3)
+        # NEW: Cross-layer synthesis
         cross_layer_insights = self._synthesize_cross_layer_insights(
             layer1_domains=layer1_domains,
             knowledge_metrics=knowledge_metrics,
@@ -543,7 +543,7 @@ class AnalyticsAggregationService:
         return {"balanced": True, "recommendation": "No activity detected"}
 
     # ========================================================================
-    # CROSS-LAYER SYNTHESIS (Phase 3 - NEW)
+    # CROSS-LAYER SYNTHESIS
     # ========================================================================
 
     def _synthesize_cross_layer_insights(
@@ -556,7 +556,7 @@ class AnalyticsAggregationService:
         """
         Synthesize insights across ALL 4 architectural layers.
 
-        This is the core Phase 3 enhancement - identifies patterns and
+        This is the core - identifies patterns and
         correlations that span multiple layers.
 
         Returns:
@@ -883,7 +883,7 @@ class AnalyticsAggregationService:
         """
         Generate human-readable summary including ALL layers.
 
-        NEW in Phase 3: Includes Layer 0 (knowledge), Layer 2 (journals),
+        NEW in : Includes Layer 0 (knowledge), Layer 2 (journals),
         and cross-layer synthesis.
         """
         if not rankings:

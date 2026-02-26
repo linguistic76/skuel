@@ -223,7 +223,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         Requires: _prerequisite_relationships to be configured (non-empty list)
 
-        Uses: build_prerequisite_traversal_query from cypher module (Phase 2 consolidation)
+        Uses: build_prerequisite_traversal_query from cypher module (consolidation)
 
         Args:
             uid: Entity UID
@@ -273,7 +273,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         Requires: _prerequisite_relationships to be configured (non-empty list)
 
-        Uses: build_prerequisite_traversal_query from cypher module (Phase 2 consolidation)
+        Uses: build_prerequisite_traversal_query from cypher module (consolidation)
 
         Args:
             uid: Entity UID
@@ -362,7 +362,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         - Parents: Entities that contain/aggregate this one
         - Children: Entities this one contains/aggregates
 
-        Uses: build_hierarchy_query from cypher module (Phase 2 consolidation)
+        Uses: build_hierarchy_query from cypher module (consolidation)
 
         Args:
             uid: Entity UID

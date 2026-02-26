@@ -2,7 +2,7 @@
 Goals Planning Service - Context-First User Planning Methods
 =============================================================
 
-Extracted from GoalsRelationshipService (December 2025) - Phase 2 refactoring.
+Extracted from GoalsRelationshipService (December 2025)
 
 **Purpose:** Methods that leverage UserContext to provide personalized,
 filtered, and ranked goal queries for users.

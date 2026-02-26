@@ -10,11 +10,11 @@ basic retrieval to intelligent knowledge discovery and exploration.
 
 FUTURE FEATURES PLANNED:
 
-Priority 1 (Phase 6):
+Priority 1:
 - Facet Suggestion Engine: Natural language query → smart filter suggestions
 - Knowledge Domain Relationships: Semantic cross-domain connections
 
-Priority 2 (Phase 7+):
+Priority 2:
 - Discovery Enhancement: Related topics and exploration paths
 - Semantic Query Expansion: AI-powered query enhancement
 - Learning Progression Paths: Natural knowledge acquisition sequences
@@ -36,7 +36,7 @@ Current Status:
 
 __version__ = "1.0"
 
-# Search field configuration (Phase 1 - Harmonization)
+# Search field configuration
 from core.services.search.config import (
     SEARCH_FIELD_CONFIG,
     SearchFieldConfig,
@@ -46,7 +46,7 @@ from core.services.search.config import (
 )
 
 __all__ = [
-    # Phase 1: Search field configuration
+    # Search field configuration
     "SEARCH_FIELD_CONFIG",
     "SearchFieldConfig",
     # Future phases

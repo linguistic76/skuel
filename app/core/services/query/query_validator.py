@@ -4,7 +4,7 @@ Query Validator
 
 Query validation and syntax checking.
 
-Part of QueryBuilder decomposition (Phase 2).
+Part of QueryBuilder decomposition.
 Validates query syntax and suggests optimizations.
 
 NOTE: This service depends on QueryOptimizer and QueryTemplateManager

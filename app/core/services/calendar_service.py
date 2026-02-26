@@ -6,7 +6,7 @@ Unified calendar service for displaying tasks, events, and habits in calendar vi
 Simplified implementation focusing on essential calendar functionality.
 
 DESIGN DECISION (October 3, 2025):
------------------------------------
+----------------------------------
 This service intentionally keeps a SIMPLE, BASIC, FUNDAMENTAL design.
 
 Core Responsibilities:
@@ -22,7 +22,7 @@ This service does NOT provide:
 - Dependency analysis
 - Cross-domain intelligence
 
-Phase 1-4 Integration History:
+Integration History:
 Intelligent scheduling methods (conflict detection, recommendations, context loading)
 were explored in October 2025 but removed to keep service simple and focused.
 See git history (commit around Oct 3, 2025) for reference implementation if needed.
@@ -96,7 +96,7 @@ class CalendarService:
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -113,7 +113,7 @@ class CalendarService:
 
         PARTIAL INITIALIZATION SUPPORTED (Meta-Service Pattern):
         CalendarService is a meta-service that aggregates from multiple domains.
-        Unlike domain services, it intentionally supports partial initialization -
+        Unlike domain services, it intentionally supports partial initialization
         any or all services may be None. Methods gracefully return empty results
         for missing domains rather than failing.
 
@@ -160,7 +160,7 @@ class CalendarService:
             Result with CalendarData or error
 
         Note:
-            Phase 4 Refactoring (October 29, 2025):
+            Refactoring:
             Uses unified query pattern with Cypher-level filtering.
             10-100x performance improvement over in-memory filtering.
         """
@@ -411,7 +411,7 @@ class CalendarService:
         """
         Fetch tasks and convert to calendar items.
 
-        Phase 4 Refactoring (October 29, 2025):
+        Refactoring:
         Uses unified query pattern with Cypher-level date filtering.
         BEFORE: Fetched 100 tasks, filtered in Python
         AFTER: Cypher filters by date range at database level
@@ -458,7 +458,7 @@ class CalendarService:
         """
         Fetch events and convert to calendar items.
 
-        Phase 4 Refactoring (October 29, 2025):
+        Refactoring:
         Uses unified query pattern with Cypher-level date filtering.
         BEFORE: Fetched 100 events, filtered in Python
         AFTER: Cypher filters by event_date at database level
@@ -499,7 +499,7 @@ class CalendarService:
         """
         Fetch active habits.
 
-        Phase 4 Refactoring (October 29, 2025):
+        Refactoring:
         Uses unified query pattern with Cypher-level status filtering.
         BEFORE: Fetched 100 habits, filtered by is_active() in Python
         AFTER: Cypher filters by status (excludes ARCHIVED) at database level

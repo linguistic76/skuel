@@ -48,7 +48,7 @@ class EmbeddingBackgroundWorker:
 
     Zero-latency async embedding generation for all activity domains.
 
-    Metrics Tracking (Phase 3 - January 2026):
+    Metrics Tracking:
     - Total entities processed
     - Success/failure counts
     - Average batch size
@@ -77,7 +77,7 @@ class EmbeddingBackgroundWorker:
             content_adapter: Neo4jContentAdapter for chunk embedding storage (optional)
             batch_size: Number of entities to process per batch
             batch_interval_seconds: Seconds between batch processing runs
-            prometheus_metrics: PrometheusMetrics for exposing metrics (Phase 1 - January 2026)
+            prometheus_metrics: PrometheusMetrics for exposing metrics
         """
         self.event_bus = event_bus
         self.embeddings_service = embeddings_service
@@ -162,7 +162,7 @@ class EmbeddingBackgroundWorker:
         Infinite loop that runs batch processing at regular intervals.
         Processes both entity embeddings and chunk embeddings.
 
-        Exposes queue sizes to Prometheus in real-time (Phase 1 - January 2026).
+        Exposes queue sizes to Prometheus in real-time.
         """
         while True:
             await asyncio.sleep(self.batch_interval)
@@ -255,7 +255,7 @@ class EmbeddingBackgroundWorker:
             self._total_failed += failed_count
             self._batches_processed += 1
 
-            # Track Prometheus metrics (Phase 1 - January 2026)
+            # Track Prometheus metrics
             if self.prometheus_metrics:
                 # Per-entity-type counters
                 for entity_type, stats in entity_type_stats.items():
@@ -438,7 +438,7 @@ class EmbeddingBackgroundWorker:
 
     def get_metrics(self) -> dict[str, Any]:
         """
-        Get worker performance metrics (Phase 3 - January 2026).
+        Get worker performance metrics.
 
         Returns:
             Dictionary with worker statistics:

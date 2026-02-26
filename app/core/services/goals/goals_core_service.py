@@ -12,9 +12,9 @@ Responsibilities:
   RelationshipRegistry (GOALS_CONFIG). Shared-neighbor pattern for
   related_goals is now defined in the registry.
   See: /core/models/relationship_registry.py
-- v2.2.0 (2025-11-28): Phase 2 - Milestones as graph nodes.
+- v2.2.0 (2025-11-28): Milestones as graph nodes.
   Milestones are now stored as separate Milestone nodes connected via HAS_MILESTONE edge.
-- v2.1.0 (2025-11-28): Phase 1 - Eliminated APOC dependency.
+- v2.1.0 (2025-11-28): Eliminated APOC dependency.
 - v2.0.0 (2025-11-05): Initial facade pattern implementation
 """
 
@@ -76,7 +76,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
     SKUEL Architecture:
     - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
+    - No APOC calls (uses pure Cypher)
     - Returns Result[T] for error handling
     - Logs operations with structured logging
 
@@ -355,7 +355,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         )
         await publish_event(self.event_bus, event, self.logger)
 
-        # Publish embedding request event for async background generation (Phase 1 - January 2026)
+        # Publish embedding request event for async background generation
         # Background worker will process embeddings in batches (zero latency impact on user)
         embedding_text = build_embedding_text(EntityType.GOAL, goal)
         if embedding_text:
@@ -536,7 +536,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         return result
 
     # ========================================================================
-    # STATUS OPERATIONS (Phase 5: P5 Missing Methods)
+    # STATUS OPERATIONS
     # ========================================================================
 
     async def activate_goal(self, uid: str) -> Result[bool]:
@@ -641,7 +641,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         return Result.ok(True) if result.is_ok else Result.fail(result.expect_error())
 
     # ========================================================================
-    # QUERY OPERATIONS (Phase 5: P5 Missing Methods)
+    # QUERY OPERATIONS
     # ========================================================================
 
     async def list_goal_categories(self) -> Result[list[str]]:
@@ -739,12 +739,12 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # TIME-BASED QUERIES - REMOVED (January 2026)
     # ========================================================================
     # The following methods were removed as duplicates of GoalsSearchService:
-    #   - get_goals_due_soon() -> Use search.get_due_soon() instead
-    #   - get_overdue_goals() -> Use search.get_overdue() instead
+    # - get_goals_due_soon() -> Use search.get_due_soon() instead
+    # - get_overdue_goals() -> Use search.get_overdue() instead
     #
     # The facade (GoalsService) delegates to search service via:
-    #   "get_goals_due_soon": ("search", "get_due_soon")
-    #   "get_overdue_goals": ("search", "get_overdue")
+    # "get_goals_due_soon": ("search", "get_due_soon")
+    # "get_overdue_goals": ("search", "get_overdue")
     #
     # GoalsSearchService has custom implementations with Goals-specific
     # status filtering (IN ['active', 'in_progress', 'on_track']).
@@ -904,11 +904,11 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         Example:
             hierarchy = await service.get_goal_hierarchy("goal_xyz789")
             # {
-            #   "ancestors": [root_goal, parent_goal],
-            #   "current": goal_xyz789,
-            #   "siblings": [sibling1, sibling2],
-            #   "children": [child1, child2],
-            #   "depth": 2
+            # "ancestors": [root_goal, parent_goal],
+            # "current": goal_xyz789,
+            # "siblings": [sibling1, sibling2],
+            # "children": [child1, child2],
+            # "depth": 2
             # }
         """
         # Get ancestors
