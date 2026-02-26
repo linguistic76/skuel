@@ -38,7 +38,7 @@ tags: [documentation, index, hub, architecture, patterns]
 
 | Category | Description | Key Documents |
 |----------|-------------|---------------|
-| **[architecture/](architecture/)** | System design, domain structure | [14-Domain Architecture](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md), [Neo4j Architecture](architecture/NEO4J_DATABASE_ARCHITECTURE.md) |
+| **[architecture/](architecture/)** | System design, domain structure | [14-Domain Architecture](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md), [Neo4j Architecture](architecture//docs/patterns/query_architecture.md) |
 | **[patterns/](patterns/)** | Implementation patterns, coding standards | [Query Architecture](patterns/query_architecture.md), [Error Handling](patterns/ERROR_HANDLING.md) |
 | **[decisions/](decisions/)** | Architecture Decision Records (ADRs) | [ADR-015 MEGA-QUERY](decisions/ADR-015-mega-query-rich-queries-completion.md), [ADR-016 Context Builder](decisions/ADR-016-context-builder-decomposition.md) |
 | **[dsl/](dsl/)** | Activity DSL specification | [DSL Specification](dsl/DSL_SPECIFICATION.md), [DSL Usage Guide](dsl/DSL_USAGE_GUIDE.md) |

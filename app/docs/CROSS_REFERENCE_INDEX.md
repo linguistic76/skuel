@@ -197,7 +197,7 @@ For each skill, this section shows all related documentation (architecture docs,
 **Description:** Neo4j Cypher queries and SKUEL's graph patterns
 
 **Architecture:**
-- [NEO4J_DATABASE_ARCHITECTURE.md](/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md)
+- [/docs/patterns/query_architecture.md](/docs/architecture//docs/patterns/query_architecture.md)
 
 **Patterns (Primary):**
 - [query_architecture.md](/docs/patterns/query_architecture.md)
@@ -408,7 +408,7 @@ For each documentation category, this section shows which skills are relevant.
 - [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) → @curriculum-domains
 - [FOURTEEN_DOMAIN_ARCHITECTURE.md](/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) → @activity-domains
 - [LATERAL_RELATIONSHIPS_CORE.md](/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md) → @vis-network
-- [NEO4J_DATABASE_ARCHITECTURE.md](/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md) → @neo4j-cypher-patterns
+- [/docs/patterns/query_architecture.md](/docs/architecture//docs/patterns/query_architecture.md) → @neo4j-cypher-patterns
 - [SEARCH_ARCHITECTURE.md](/docs/architecture/SEARCH_ARCHITECTURE.md) → @skuel-search-architecture
 - [UNIFIED_USER_ARCHITECTURE.md](/docs/architecture/UNIFIED_USER_ARCHITECTURE.md) → @user-context-intelligence
 

@@ -101,5 +101,5 @@ Replace "DEPRECATED" with "GRAPH-NATIVE: Limited implementation..." to clarify i
 ## See Also
 
 - `/docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md` - Complete relationship pattern documentation
-- `/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md` - Graph-native architecture overview
+- `/docs/architecture/../patterns/query_architecture.md` - Graph-native architecture overview
 - `CLAUDE.md` § "Graph-Native Comment Standard" - Quick reference

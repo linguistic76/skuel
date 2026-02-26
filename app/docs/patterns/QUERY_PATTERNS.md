@@ -240,6 +240,6 @@ else:
 
 - [Search Architecture](../architecture/SEARCH_ARCHITECTURE.md) - How search uses query patterns
 - [ADR-015: MEGA-QUERY](../decisions/ADR-015-mega-query-rich-queries-completion.md) - MEGA-QUERY decision
-- [Neo4j Database Architecture](../architecture/NEO4J_DATABASE_ARCHITECTURE.md) - Database architecture
+- [Neo4j Database Architecture](../architecture/../patterns/query_architecture.md) - Database architecture
 - [SearchService Pattern](search_service_pattern.md) - Domain search protocols
 - `/core/models/query/` - Query module implementation

@@ -1651,7 +1651,7 @@ The **15-domain + 5 cross-cutting systems architecture** provides a complete fra
 | Document | Purpose |
 |----------|---------|
 | [UNIFIED_USER_ARCHITECTURE.md](UNIFIED_USER_ARCHITECTURE.md) | UserContext (~240 fields), ProfileHubData |
-| [NEO4J_DATABASE_ARCHITECTURE.md](NEO4J_DATABASE_ARCHITECTURE.md) | Database schema, constraints, indexes |
+| [../patterns/query_architecture.md](../patterns/query_architecture.md) | Database schema, constraints, indexes |
 | [RELATIONSHIPS_ARCHITECTURE.md](RELATIONSHIPS_ARCHITECTURE.md) | Cross-domain relationships |
 | [CURRICULUM_GROUPING_PATTERNS.md](CURRICULUM_GROUPING_PATTERNS.md) | KU/LS/LP/MOC curriculum patterns |
 | [REPORTS_ARCHITECTURE.md](REPORTS_ARCHITECTURE.md) | Analytics meta-service pattern |

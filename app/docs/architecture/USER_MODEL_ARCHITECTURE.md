@@ -13,7 +13,7 @@ related: [ADR-018-user-roles-four-tier-system.md, ADR-022-graph-native-authentic
 
 SKUEL uses a **three-tier architecture** for user models following the "Pydantic at the edges" pattern. This ensures clean separation between external validation, data transfer, and core business logic.
 
-**Recent Updates (2025)**: Complete refactoring to align with [THREE_TIER_ARCHITECTURE.md](./THREE_TIER_ARCHITECTURE.md):
+**Recent Updates (2025)**: Complete refactoring to align with [three_tier_type_system.md](../patterns/three_tier_type_system.md):
 - User domain model now inherits from `BaseEntity`
 - Clear separation between frozen domain models, mutable DTOs, and Pydantic schemas
 - Unified context system replaced with proper DTO pattern
@@ -638,7 +638,7 @@ shared_context.content_metadata = analyze_result  # Service adds data
 
 ## 📚 Related Documentation
 
-- [THREE_TIER_ARCHITECTURE.md](./THREE_TIER_ARCHITECTURE.md) - Overall pattern
+- [three_tier_type_system.md](../patterns/three_tier_type_system.md) - Overall pattern
 - [ENUM_ARCHITECTURE.md](./ENUM_ARCHITECTURE.md) - Enum-to-model wiring
 - [BASE_MODELS_MIGRATION.md](./BASE_MODELS_MIGRATION.md) - Migration guide
 - [LEARNING_API_DOCUMENTATION.md](./LEARNING_API_DOCUMENTATION.md) - Learning coordinator APIs

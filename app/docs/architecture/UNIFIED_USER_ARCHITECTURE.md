@@ -1025,7 +1025,7 @@ def OverviewView(
 | Document | Purpose |
 |----------|---------|
 | [FOURTEEN_DOMAIN_ARCHITECTURE.md](FOURTEEN_DOMAIN_ARCHITECTURE.md) | 14-domain + 5 systems architecture overview |
-| [NEO4J_DATABASE_ARCHITECTURE.md](NEO4J_DATABASE_ARCHITECTURE.md) | Database schema, MEGA-QUERY implementation |
+| [../patterns/query_architecture.md](../patterns/query_architecture.md) | Database schema, MEGA-QUERY implementation |
 | [RELATIONSHIPS_ARCHITECTURE.md](RELATIONSHIPS_ARCHITECTURE.md) | Cross-domain relationships |
 | [SEARCH_ARCHITECTURE.md](SEARCH_ARCHITECTURE.md) | Graph-aware search using UserContext |
 

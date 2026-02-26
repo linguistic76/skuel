@@ -656,7 +656,7 @@ When Service A needs Service B, but Service B also needs Service A:
 | Document | Purpose |
 |----------|---------|
 | [FOURTEEN_DOMAIN_ARCHITECTURE.md](FOURTEEN_DOMAIN_ARCHITECTURE.md) | Complete 14-domain + 5 systems architecture |
-| [NEO4J_DATABASE_ARCHITECTURE.md](NEO4J_DATABASE_ARCHITECTURE.md) | Database schema, constraints, indexes |
+| [../patterns/query_architecture.md](../patterns/query_architecture.md) | Database schema, constraints, indexes |
 | [UNIFIED_USER_ARCHITECTURE.md](UNIFIED_USER_ARCHITECTURE.md) | UserContext (~240 fields) and ProfileHubData |
 | [RELATIONSHIPS_ARCHITECTURE.md](RELATIONSHIPS_ARCHITECTURE.md) | Cross-domain relationship types |
 

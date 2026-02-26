@@ -473,7 +473,7 @@ The volumes in `docker-compose.yml` map to `/opt/skuel-neo4j/data` on the host. 
 - [AuraDB Migration Guide](./AURADB_MIGRATION_GUIDE.md) — Stage 3: the end goal
 - [Neo4j Setup Migration Summary](./NEO4J_SETUP_MIGRATION_SUMMARY.md) — history of the Docker ↔ AuraDB doc split
 - [GenAI Setup](../development/GENAI_SETUP.md) — local Docker GenAI configuration (reference for Droplet setup)
-- [Neo4j Database Architecture](../architecture/NEO4J_DATABASE_ARCHITECTURE.md) — query patterns and schema
+- [Query Architecture](../patterns/query_architecture.md) — query patterns and schema
 
 ---
 

@@ -87,7 +87,7 @@ Neo4j Graph (digital)
 (lp:LifePath {uid: "lp_professional-growth_abc"})
 ```
 
-**See:** `/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md`
+**See:** `/docs/architecture/../patterns/query_architecture.md`
 
 ---
 
@@ -348,7 +348,7 @@ RETURN path
 - `/docs/diagrams/ingestion_architecture.md` - Architecture diagrams
 
 **Graph Architecture:**
-- `/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md` - Database design
+- `/docs/architecture/../patterns/query_architecture.md` - Database design
 - `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` - Domain model
 - `/docs/patterns/query_architecture.md` - Query patterns
 
