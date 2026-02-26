@@ -395,7 +395,7 @@ class TestOptionAJournalsProcessing:
         # Act & Assert
         assert assignment_ku.ku_type == EntityType.SUBMISSION
 
-        # Can differentiate from other ku types
+        # Can differentiate from other entity types
         curriculum_ku = Curriculum(
             uid="ku.curriculum_type",
             title="Curriculum Content",

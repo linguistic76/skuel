@@ -60,7 +60,7 @@ Ku = (
 )
 
 # =============================================================================
-# NARROWER TYPE ALIASES — for services that handle a subset of Ku types
+# NARROWER TYPE ALIASES — for services that handle a subset of entity types
 #
 # Use these instead of the full 16-member Ku union when a service only handles
 # curriculum entities or submission entities.

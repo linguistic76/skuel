@@ -235,7 +235,7 @@ class SearchRouter:
         NonKuDomain.CALENDAR: "calendar",  # Aggregation: Tasks + Events + Habits + Goals
     }
 
-    # KuTypes that support DomainSearchOperations[T] protocol
+    # EntityTypes that support DomainSearchOperations[T] protocol
     _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset(
         {
             # Activity Domains (6)

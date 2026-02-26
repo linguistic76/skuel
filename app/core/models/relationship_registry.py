@@ -256,7 +256,7 @@ class UnifiedRelationshipDefinition:
     # When set, this relationship is created during YAML/Markdown import.
     yaml_field_path: str | None = None
     # Scopes yaml_field_path to a specific EntityType.
-    # Needed when multiple KuTypes share a Neo4j label.
+    # Needed when multiple EntityTypes share a Neo4j label.
     # None means: applies to the default EntityType for this label.
     ingestion_ku_type: EntityType | None = None
 
@@ -1726,7 +1726,7 @@ KU_CONFIG = DomainRelationshipConfig(
     },
 )
 
-# LS (Learning Step) — Unified into Ku with ku_type='learning_step'
+# LS (Learning Step) — Entity with ku_type='learning_step'
 LS_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
     entity_label="Entity",
@@ -1822,7 +1822,7 @@ LS_CONFIG = DomainRelationshipConfig(
     },
 )
 
-# LP (Learning Path) — Unified into Ku with ku_type='learning_path'
+# LP (Learning Path) — Entity with ku_type='learning_path'
 LP_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
     entity_label="Entity",

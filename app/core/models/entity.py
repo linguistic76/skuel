@@ -205,7 +205,7 @@ class Entity:
         return (self.uid,)
 
     # =========================================================================
-    # GENERIC BUSINESS LOGIC (applies to all KuTypes)
+    # GENERIC BUSINESS LOGIC (applies to all entity types)
     # =========================================================================
 
     def has_tag(self, tag: str) -> bool:

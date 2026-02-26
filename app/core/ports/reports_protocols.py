@@ -216,7 +216,7 @@ class ReportsContentOperations(Protocol):
 
 @runtime_checkable
 class ReportsContentSearchOperations(Protocol):
-    """Cross-type query operations for all Ku types.
+    """Cross-type query operations for all entity types.
 
     Route consumer: ku_api.py
     Implementation: KuContentSearchService

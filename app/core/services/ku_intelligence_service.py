@@ -153,7 +153,7 @@ class KuIntelligenceService(BaseAnalyticsService[KuOperations, Entity]):
         if not ku:
             return Result.fail(Errors.not_found(resource="KnowledgeUnit", identifier=uid))
 
-        # Build insights response — curriculum fields may not exist on all Ku types
+        # Build insights response — curriculum fields may not exist on all entity types
         learning_level = getattr(ku, "learning_level", None)
         quality_score = getattr(ku, "quality_score", 0.0)
         semantic_links = getattr(ku, "semantic_links", ())

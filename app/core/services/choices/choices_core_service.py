@@ -95,7 +95,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Choice entities (now Ku with ku_type filter)."""
+        """Return the graph label for Choice entities (filters by entity_type)."""
         return "Entity"
 
     # ========================================================================

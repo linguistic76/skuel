@@ -511,7 +511,7 @@ _ENTITY_STATUS_SEARCH_DESCRIPTIONS: dict[EntityStatus, str] = {
     EntityStatus.ARCHIVED: "No longer active",
 }
 
-# General transition map — union of all valid transitions across all KuTypes.
+# General transition map — union of all valid transitions across all EntityTypes.
 # Type-specific validation is handled by can_transition_to() + valid_statuses().
 _VALID_TRANSITIONS: dict[EntityStatus, set[EntityStatus]] = {
     EntityStatus.DRAFT: {

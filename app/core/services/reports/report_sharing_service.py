@@ -378,7 +378,7 @@ class ReportsSharingService:
 
         return Result.ok(True)
 
-    # Activity ku_types that can be shared when active (not just completed)
+    # Activity entity types that can be shared when active (not just completed)
     _ACTIVITY_ENTITY_TYPES = frozenset(
         {
             "task",

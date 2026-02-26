@@ -43,7 +43,7 @@ from core.models.request_base import (
 
 
 class EntityUpdateRequest(UpdateRequestBase):
-    """Update any Ku type. All fields optional.
+    """Update any entity type. All fields optional.
 
     Services validate which fields are appropriate per EntityType.
     """
@@ -180,7 +180,7 @@ class EntityUpdateRequest(UpdateRequestBase):
 
 
 class EntityResponse(ResponseBase):
-    """API response for any Ku type.
+    """API response for any entity type.
 
     Contains all fields needed to display any EntityType. Fields that don't apply
     to a specific EntityType will be at their default value (None, 0, [], etc.).

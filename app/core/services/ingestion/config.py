@@ -141,7 +141,7 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         requires_user_uid=True,
     ),
     # NOTE: Journal merged into Reports (February 2026).
-    # Journal ingestion creates Ku nodes with ku_type="submission".
+    # Journal ingestion creates Entity nodes with ku_type="submission".
     # Kept as SUBMISSION entry — "journal" alias in TYPE_MAPPING resolves here.
     EntityType.SUBMISSION: EntityIngestionConfig(
         entity_label="Report",

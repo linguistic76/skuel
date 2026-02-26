@@ -91,7 +91,7 @@ def build_embedding_text(
         >>> build_embedding_text(EntityType.TASK, {})
         ''
     """
-    # Get field mapping for this ku type
+    # Get field mapping for this entity type
     fields = EMBEDDING_FIELD_MAPS.get(ku_type)
     if not fields:
         return ""
