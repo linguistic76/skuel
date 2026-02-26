@@ -2,7 +2,7 @@
 Tasks Planning Service - Context-First User Planning
 =====================================================
 
-Extracted from TasksRelationshipService (December 2025) - Phase 3 refactoring.
+Extracted from TasksRelationshipService (December 2025).
 
 **Purpose:** Context-aware planning methods that leverage UserContext (~240 fields)
 to provide personalized, filtered, and ranked task queries.
