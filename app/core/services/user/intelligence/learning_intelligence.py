@@ -35,7 +35,7 @@ class LearningIntelligenceMixin:
     context: UserContext
     tasks: Any  # TasksRelationshipService
     ku: Any  # KuGraphService
-    vector_search: Any = None  # Neo4jVectorSearchService (optional - Phase 1 enhancement)
+    vector_search: Any = None  # Neo4jVectorSearchService (optional)
 
     # =========================================================================
     # METHOD 1: Optimal Next Learning Steps
@@ -52,7 +52,7 @@ class LearningIntelligenceMixin:
 
         **Synthesizes:**
         - KU service: get_ready_to_learn_for_user() - Prerequisites met
-        - Vector search (Phase 1): Learning-aware search with mastery boosting
+        - Vector search: Learning-aware search with mastery boosting
         - Goals service: Goal alignment
         - Tasks service: Knowledge application opportunities
         - Context: Capacity, energy, life path alignment
@@ -73,7 +73,7 @@ class LearningIntelligenceMixin:
         Returns:
             Result[list[LearningStep]] ranked by priority with full context
         """
-        # Phase 1 Enhancement: Try learning-aware search first (if available)
+        # Try learning-aware search first (if available)
         if self.vector_search and getattr(self.vector_search, "learning_aware_search", None):
             # Use semantic/learning-aware search to find optimal next steps
             # This personalizes based on mastery state (MASTERED, IN_PROGRESS, etc.)
@@ -489,7 +489,7 @@ class LearningIntelligenceMixin:
         return Result.ok(sorted(blocker_counts.items(), key=get_second_item, reverse=True))
 
     # =========================================================================
-    # Vector Search Helpers (Phase 1 Enhancement)
+    # Vector Search Helpers
     # =========================================================================
 
     def _generate_learning_query(self) -> str:
