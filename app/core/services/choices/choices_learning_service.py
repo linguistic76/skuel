@@ -117,7 +117,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Choice]", Choice]):
         # Create base choice using core service
         choice_result = await core_service.create_choice(choice_request, user_uid=user_uid)
         if choice_result.is_error:
-            return choice_result  # type: ignore[return-value]
+            return Result.fail(choice_result.error)
 
         choice = choice_result.value
 

@@ -256,7 +256,7 @@ class LsIntelligenceService(
         """
         executor_result = self._require_executor()
         if executor_result.is_error:
-            return executor_result  # type: ignore[return-value]
+            return Result.fail(executor_result.error)
 
         def _check_readiness(records: list[dict]) -> bool:
             if not records:
@@ -300,7 +300,7 @@ class LsIntelligenceService(
         """
         executor_result = self._require_executor()
         if executor_result.is_error:
-            return executor_result  # type: ignore[return-value]
+            return Result.fail(executor_result.error)
 
         def _process_summary(records: list[dict]) -> dict[str, int]:
             if not records:
@@ -385,7 +385,7 @@ class LsIntelligenceService(
         """
         executor_result = self._require_executor()
         if executor_result.is_error:
-            return executor_result  # type: ignore[return-value]
+            return Result.fail(executor_result.error)
 
         def _calculate_score(records: list[dict]) -> float:
             if not records:

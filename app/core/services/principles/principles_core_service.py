@@ -17,7 +17,6 @@ from datetime import date, datetime
 from typing import Any
 
 from core.events import publish_event
-from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
@@ -34,7 +33,7 @@ from core.utils.sort_functions import get_principle_priority
 logger = get_logger(__name__)
 
 
-class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
+class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
     """
     Core service for principle CRUD operations.
 
@@ -68,7 +67,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
 
     _config = create_activity_domain_config(
         dto_class=PrincipleDTO,
-        model_class=Entity,
+        model_class=Principle,
         domain_name="principles",
         date_field="created_at",
         completed_statuses=(EntityStatus.ARCHIVED.value,),
@@ -106,7 +105,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, principle: Entity) -> Result[None] | None:
+    def _validate_create(self, principle: Principle) -> Result[None] | None:
         """
         Validate principle creation with business rules.
 
@@ -145,7 +144,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
 
         return None  # All validations passed
 
-    def _validate_update(self, current: Entity, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: Principle, updates: dict[str, Any]) -> Result[None] | None:
         """
         Validate principle updates with business rules.
 
@@ -243,7 +242,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
         Returns:
             Result[Principle] - success contains Principle, not found is an error
         """
-        return await self.get(principle_uid)  # type: ignore[return-value] # BaseService.get() returns Result[Entity], Principle is a subclass
+        return await self.get(principle_uid)
 
     @with_error_handling("create_principle", error_type="database")
     async def create_principle(
@@ -321,7 +320,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
             await publish_event(self.event_bus, embedding_event, logger)
 
         logger.info(f"Created principle: {label}")
-        return result  # backend.create() already returns Result[Entity]
+        return result  # backend.create() already returns Result[Principle]
 
     @with_error_handling("update_principle", error_type="database", uid_param="principle_uid")
     async def update_principle(
@@ -419,7 +418,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
         return Result.ok(principles)
 
     @with_error_handling("get_principles_for_goal", error_type="database", uid_param="goal_uid")
-    async def get_principles_for_goal(self, goal_uid: str) -> Result[list[Entity]]:
+    async def get_principles_for_goal(self, goal_uid: str) -> Result[list[Principle]]:
         """
         Get all principles that guide a specific goal.
 
@@ -463,7 +462,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
         return Result.ok(principles)
 
     @with_error_handling("get_principles_for_habit", error_type="database", uid_param="habit_uid")
-    async def get_principles_for_habit(self, habit_uid: str) -> Result[list[Entity]]:
+    async def get_principles_for_habit(self, habit_uid: str) -> Result[list[Principle]]:
         """
         Get all principles that are aligned with a specific habit.
 
@@ -509,7 +508,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
     @with_error_handling("get_user_items_in_range", error_type="database", uid_param="user_uid")
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Entity]]:
+    ) -> Result[list[Principle]]:
         """
         Get user's principles - standard interface for meta-services.
 
@@ -639,7 +638,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
     # ========================================================================
 
     @with_error_handling("get_subprinciples", error_type="database", uid_param="parent_uid")
-    async def get_subprinciples(self, parent_uid: str, depth: int = 1) -> Result[list[Entity]]:
+    async def get_subprinciples(self, parent_uid: str, depth: int = 1) -> Result[list[Principle]]:
         """
         Get all subprinciples of a parent principle.
 
@@ -675,7 +674,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
         principles = []
         for record in result.value:
             principle_data = record["subprinciple"]
-            principle = self._to_domain_model(principle_data, PrincipleDTO, Entity)
+            principle = self._to_domain_model(principle_data, PrincipleDTO, Principle)
             principles.append(principle)
 
         return Result.ok(principles)
@@ -683,7 +682,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
     @with_error_handling(
         "get_parent_principle", error_type="database", uid_param="subprinciple_uid"
     )
-    async def get_parent_principle(self, subprinciple_uid: str) -> Result[Entity | None]:
+    async def get_parent_principle(self, subprinciple_uid: str) -> Result[Principle | None]:
         """
         Get immediate parent of a subprinciple (if any).
 
@@ -708,7 +707,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
             return Result.ok(None)
 
         parent_data = result.value[0]["parent"]
-        parent = self._to_domain_model(parent_data, PrincipleDTO, Entity)
+        parent = self._to_domain_model(parent_data, PrincipleDTO, Principle)
         return Result.ok(parent)
 
     @with_error_handling(
@@ -767,7 +766,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
         if current_result.is_error:
             return Result.fail(current_result.expect_error())
 
-        current_principle = self._to_domain_model(current_result.value, PrincipleDTO, Entity)
+        current_principle = self._to_domain_model(current_result.value, PrincipleDTO, Principle)
 
         ancestors_result = await self.backend.execute_query(
             ancestors_query, {"principle_uid": principle_uid}
@@ -788,7 +787,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
         ):
             for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
                 principle_data = node
-                ancestors.append(self._to_domain_model(principle_data, PrincipleDTO, Entity))
+                ancestors.append(self._to_domain_model(principle_data, PrincipleDTO, Principle))
 
         # Process siblings
         siblings = []
@@ -800,7 +799,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
             for node in siblings_result.value[0]["siblings"]:
                 if node:  # Skip None values
                     principle_data = node
-                    siblings.append(self._to_domain_model(principle_data, PrincipleDTO, Entity))
+                    siblings.append(self._to_domain_model(principle_data, PrincipleDTO, Principle))
 
         # Process children
         children = []
@@ -812,7 +811,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Entity]):
             for node in children_result.value[0]["children"]:
                 if node:  # Skip None values
                     principle_data = node
-                    children.append(self._to_domain_model(principle_data, PrincipleDTO, Entity))
+                    children.append(self._to_domain_model(principle_data, PrincipleDTO, Principle))
 
         return Result.ok(
             {

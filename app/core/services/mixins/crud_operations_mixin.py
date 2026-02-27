@@ -48,7 +48,7 @@ TypedDicts are structural subtypes of dict[str, Any], so this is backward compat
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.models.protocols import DomainModelProtocol
 from core.ports import BackendOperations
@@ -121,7 +121,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(Errors.not_found(f"Entity {uid} not found"))
 
         # At this point, result is either an error or has a non-None value
-        return result  # type: ignore[return-value]
+        return cast(Result[T], result)
 
     async def update(self, uid: str, updates: dict[str, Any]) -> Result[T]:
         """
