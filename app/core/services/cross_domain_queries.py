@@ -26,8 +26,7 @@ from typing import TYPE_CHECKING, Any
 from core.constants import GraphDepth
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.curriculum.curriculum import Curriculum
-from core.models.entity import Entity
-from core.models.entity_types import ENTITY_TYPE_CLASS_MAP, Ku
+from core.models.entity_types import ENTITY_TYPE_CLASS_MAP, CurriculumEntity
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.finance.finance_pure import ExpensePure
@@ -69,13 +68,13 @@ class CrossDomainQueries:
 
     async def find_knowledge_for_task(
         self, task_uid: str, include_indirect: bool = False
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[CurriculumEntity]]:
         """
         Find knowledge units related to a task.
 
         PHASE 5 MIGRATION: Replaced APOC with CypherGenerator for prerequisite traversal.
 
-        Relationship: Task -[APPLIES_KNOWLEDGE]-> Ku
+        Relationship: Task -[APPLIES_KNOWLEDGE]-> Curriculum
 
         Args:
             task_uid: Task UID,
@@ -193,18 +192,18 @@ class CrossDomainQueries:
     )
     async def find_tasks_using_knowledge(
         self, ku_uid: str, user_uid: str | None = None
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Task]]:
         """
         Find tasks that apply specific knowledge.
 
-        Relationship: Ku <-[APPLIES_KNOWLEDGE]- Task
+        Relationship: Curriculum <-[APPLIES_KNOWLEDGE]- Task
 
         Args:
-            ku_uid: Ku unit UID,
+            ku_uid: Curriculum unit UID
             user_uid: Filter by user (optional)
 
         Returns:
-            Result containing list of Ku objects
+            Result containing list of Task objects
         """
         if user_uid:
             cypher = """
@@ -245,7 +244,7 @@ class CrossDomainQueries:
     @with_error_handling(
         error_type="database", operation="find_goals_for_habit", uid_param="habit_uid"
     )
-    async def find_goals_for_habit(self, habit_uid: str) -> Result[list[Ku]]:
+    async def find_goals_for_habit(self, habit_uid: str) -> Result[list[Goal]]:
         """
         Find goals that a habit contributes to.
 
@@ -284,18 +283,18 @@ class CrossDomainQueries:
     )
     async def find_habits_for_goal(
         self, goal_uid: str, only_active: bool = True
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Habit]]:
         """
         Find habits contributing to a goal.
 
         Relationship: Goal <-[CONTRIBUTES_TO]- Habit
 
         Args:
-            goal_uid: Goal UID,
+            goal_uid: Goal UID
             only_active: Only return active habits
 
         Returns:
-            Result containing list of Ku objects
+            Result containing list of Habit objects
         """
         if only_active:
             cypher = """
@@ -334,11 +333,11 @@ class CrossDomainQueries:
     @with_error_handling(
         error_type="database", operation="find_knowledge_for_event", uid_param="event_uid"
     )
-    async def find_knowledge_for_event(self, event_uid: str) -> Result[list[Ku]]:
+    async def find_knowledge_for_event(self, event_uid: str) -> Result[list[CurriculumEntity]]:
         """
         Find knowledge reinforced by an event.
 
-        Relationship: Event -[REINFORCES_CONCEPT]-> Ku
+        Relationship: Event -[REINFORCES_CONCEPT]-> Curriculum
 
         Args:
             event_uid: Event UID
@@ -371,15 +370,15 @@ class CrossDomainQueries:
     )
     async def find_events_reinforcing_knowledge(
         self, ku_uid: str, user_uid: str | None = None, upcoming_only: bool = False
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Event]]:
         """
         Find events that reinforce specific knowledge.
 
-        Relationship: Ku <-[REINFORCES_CONCEPT]- Event
+        Relationship: Curriculum <-[REINFORCES_CONCEPT]- Event
 
         Args:
-            ku_uid: Ku unit UID,
-            user_uid: Filter by user (optional),
+            ku_uid: Curriculum unit UID
+            user_uid: Filter by user (optional)
             upcoming_only: Only return future events
 
         Returns:
@@ -425,7 +424,7 @@ class CrossDomainQueries:
     @with_error_handling(
         error_type="database", operation="find_goals_supported_by_budget", uid_param="budget_uid"
     )
-    async def find_goals_supported_by_budget(self, budget_uid: str) -> Result[list[Ku]]:
+    async def find_goals_supported_by_budget(self, budget_uid: str) -> Result[list[Goal]]:
         """
         Find goals supported by a budget.
 
@@ -518,7 +517,7 @@ class CrossDomainQueries:
     @with_error_handling(
         error_type="database", operation="find_goal_for_task", uid_param="task_uid"
     )
-    async def find_goal_for_task(self, task_uid: str) -> Result[Ku | None]:
+    async def find_goal_for_task(self, task_uid: str) -> Result[Goal | None]:
         """
         Find goal that a task advances.
 
@@ -554,18 +553,18 @@ class CrossDomainQueries:
     )
     async def find_tasks_for_goal(
         self, goal_uid: str, status_filter: str | None = None
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Task]]:
         """
         Find tasks advancing a goal.
 
         Relationship: Goal <-[ADVANCES_GOAL]- Task
 
         Args:
-            goal_uid: Goal UID,
+            goal_uid: Goal UID
             status_filter: Filter by task status (e.g., 'pending', 'completed')
 
         Returns:
-            Result containing list of Ku objects
+            Result containing list of Task objects
         """
         if status_filter:
             cypher = """
@@ -718,8 +717,8 @@ class CrossDomainQueries:
 
         return from_neo4j_node(dict(node), Goal)
 
-    def _neo4j_node_to_entity(self, node) -> Entity:
-        """Convert Neo4j node to appropriate domain model based on ku_type."""
+    def _neo4j_node_to_entity(self, node) -> CurriculumEntity:
+        """Convert Neo4j node to curriculum domain model based on ku_type."""
         from core.utils.neo4j_mapper import from_neo4j_node
 
         node_dict = dict(node)
