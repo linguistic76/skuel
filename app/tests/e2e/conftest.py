@@ -76,7 +76,7 @@ async def embedding_worker(event_bus, embeddings_service, neo4j_driver):
         executor=Neo4jQueryExecutor(neo4j_driver),
         config=mock_config,
         batch_size=25,
-        batch_interval_seconds=30,
+        batch_interval_seconds=2,  # Short interval for tests (production uses 30s)
     )
 
 

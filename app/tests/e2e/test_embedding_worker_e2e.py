@@ -10,16 +10,25 @@ Test Coverage:
 3. Neo4j storage verification
 4. Multiple domains simultaneously
 5. Error recovery and retry logic
+
+Network-Dependent Tests:
+Tests 2-5 call OpenAI via the Neo4j GenAI plugin. They require actual network
+access to api.openai.com from inside the Docker testcontainer. To run them:
+
+    SKUEL_E2E_OPENAI_TESTS=1 poetry run pytest tests/e2e/test_embedding_worker_e2e.py
+
+Note: OPENAI_API_KEY is loaded automatically from .env — SKUEL_E2E_OPENAI_TESTS
+must be set separately in the shell environment to opt into network-dependent tests.
 """
 
 import asyncio
 import contextlib
+import os
 from datetime import datetime
 
 import pytest
 
 from core.events import GoalEmbeddingRequested, TaskEmbeddingRequested
-
 
 class TestEmbeddingWorkerLifecycle:
     """Test worker startup and shutdown."""
@@ -62,6 +71,9 @@ class TestEmbeddingWorkerEventProcessing:
         WHEN: TaskEmbeddingRequested event published
         THEN: Embedding generated and stored in Neo4j within 60 seconds
         """
+        if not os.getenv("SKUEL_E2E_OPENAI_TESTS"):
+            pytest.skip("Set SKUEL_E2E_OPENAI_TESTS=1 to run (calls OpenAI via Neo4j GenAI plugin)")
+
         # Create test task in Neo4j first
         task_uid = "task.test_embedding_e2e"
         user_uid = "user.test_e2e"
@@ -104,8 +116,8 @@ class TestEmbeddingWorkerEventProcessing:
             await event_bus.publish_async(event)
 
             # Wait for worker to process (batch interval + processing time)
-            # Worker runs every 30 seconds, give it up to 35 seconds
-            await asyncio.sleep(35)
+            # Fixture uses 2s interval; 8 seconds gives 3+ batch cycles
+            await asyncio.sleep(8)
 
             # Verify embedding was stored in Neo4j
             async with neo4j_driver.session() as session:
@@ -144,6 +156,9 @@ class TestEmbeddingWorkerEventProcessing:
         WHEN: Multiple domain events published (Task + Goal)
         THEN: All embeddings generated and stored correctly
         """
+        if not os.getenv("SKUEL_E2E_OPENAI_TESTS"):
+            pytest.skip("Set SKUEL_E2E_OPENAI_TESTS=1 to run (calls OpenAI via Neo4j GenAI plugin)")
+
         # Create test entities in Neo4j
         task_uid = "task.multi_domain_test"
         goal_uid = "goal.multi_domain_test"
@@ -218,8 +233,8 @@ class TestEmbeddingWorkerEventProcessing:
             await event_bus.publish_async(task_event)
             await event_bus.publish_async(goal_event)
 
-            # Wait for processing
-            await asyncio.sleep(35)
+            # Wait for processing (fixture uses 2s interval; 8 seconds gives 3+ batch cycles)
+            await asyncio.sleep(8)
 
             # Verify both embeddings
             async with neo4j_driver.session() as session:
@@ -266,6 +281,8 @@ class TestEmbeddingWorkerBatchProcessing:
         WHEN: 10 embedding requests published
         THEN: All processed in single batch cycle
         """
+        if not os.getenv("SKUEL_E2E_OPENAI_TESTS"):
+            pytest.skip("Set SKUEL_E2E_OPENAI_TESTS=1 to run (calls OpenAI via Neo4j GenAI plugin)")
         user_uid = "user.test_batch"
         task_uids = [f"task.batch_test_{i}" for i in range(10)]
 
@@ -306,8 +323,8 @@ class TestEmbeddingWorkerBatchProcessing:
                 )
                 await event_bus.publish_async(event)
 
-            # Wait for one batch cycle
-            await asyncio.sleep(35)
+            # Wait for one batch cycle (fixture uses 2s interval; 8 seconds gives 3+ cycles)
+            await asyncio.sleep(8)
 
             # Verify all embeddings generated
             async with neo4j_driver.session() as session:
@@ -352,6 +369,9 @@ class TestEmbeddingWorkerErrorRecovery:
         WHEN: Batch contains valid and invalid requests
         THEN: Valid requests processed, invalid logged and skipped
         """
+        if not os.getenv("SKUEL_E2E_OPENAI_TESTS"):
+            pytest.skip("Set SKUEL_E2E_OPENAI_TESTS=1 to run (calls OpenAI via Neo4j GenAI plugin)")
+
         user_uid = "user.test_error"
         valid_uid = "task.valid_entity"
         invalid_uid = "task.nonexistent_entity"  # Doesn't exist in Neo4j
@@ -401,8 +421,8 @@ class TestEmbeddingWorkerErrorRecovery:
             await event_bus.publish_async(valid_event)
             await event_bus.publish_async(invalid_event)
 
-            # Wait for processing
-            await asyncio.sleep(35)
+            # Wait for processing (fixture uses 2s interval; 8 seconds gives 3+ batch cycles)
+            await asyncio.sleep(8)
 
             # Verify valid task got embedding (worker didn't crash)
             async with neo4j_driver.session() as session:
