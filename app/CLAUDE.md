@@ -371,7 +371,9 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 │   ├── Task, Goal, Habit, Event, Choice, Principle  (Activity)
 │   ├── LifePath                                      (Destination)
 │   └── Submission → Journal, AiReport, Feedback      (Reports)
-├── Curriculum(Entity) +21 fields → LearningStep, LearningPath, Exercise
+├── Curriculum(Entity) +21 fields (base class only)
+│   ├── Ku(Curriculum) — atomic knowledge unit (EntityType.KU)
+│   └── LearningStep, LearningPath, Exercise
 └── Resource(Entity) +7 fields                        (Curated content)
 ```
 
@@ -379,13 +381,13 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 ```
 EntityDTO (~18 fields)
 ├── UserOwnedDTO(EntityDTO) +3 → TaskDTO, GoalDTO, HabitDTO, EventDTO, ...
-├── CurriculumDTO(EntityDTO) → LearningStepDTO, LearningPathDTO, ExerciseDTO
+├── CurriculumDTO(EntityDTO) → KuDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO(EntityDTO)
 ```
 
-**KuDTO deleted** — all services use per-domain DTOs. Cross-domain services use `ENTITY_TYPE_CLASS_MAP` for generic deserialization.
+**KuDTO** is a thin subclass of CurriculumDTO (all 39 fields inherited). Cross-domain services use `ENTITY_TYPE_CLASS_MAP` for generic deserialization.
 
-**Key enums:** `EntityType` (15 values, discriminator), `EntityStatus` (14 values, THE status enum). Both in `entity_enums.py`.
+**Key enums:** `EntityType` (16 values, discriminator), `EntityStatus` (14 values, THE status enum). Both in `entity_enums.py`.
 
 **Neo4j Multi-Label:** Every entity gets `:Entity` (universal) + domain label (`:Task`, `:Goal`, etc.). Backend uses `base_label=NeoLabel.ENTITY`. User relationships use `:OWNS`.
 
@@ -496,7 +498,7 @@ GraphDepth.DEFAULT                             # Named constants
 # EntityType — 16 domain types (multi-label :Entity nodes in Neo4j)
 class EntityType(str, Enum):
     TASK, HABIT, GOAL, EVENT, PRINCIPLE, CHOICE = ...  # Activity
-    CURRICULUM, RESOURCE, LEARNING_STEP, LEARNING_PATH, EXERCISE = ...  # Curriculum
+    KU, RESOURCE, LEARNING_STEP, LEARNING_PATH, EXERCISE = ...  # Curriculum
     JOURNAL, SUBMISSION, AI_REPORT, FEEDBACK_REPORT = ...  # Reports
     LIFE_PATH = "life_path"  # Destination
 
@@ -509,8 +511,8 @@ if EntityType.TASK in activity.contexts:  # MyPy verified!
 
 # Key methods
 EntityType.from_string("task")       # -> EntityType.TASK or None
-EntityType.from_string("knowledge")  # -> EntityType.CURRICULUM (alias support)
-EntityType.from_string("ku")         # -> EntityType.CURRICULUM (alias support)
+EntityType.from_string("knowledge")  # -> EntityType.KU (alias support)
+EntityType.from_string("ku")         # -> EntityType.KU (canonical)
 ```
 
 **See:** `/docs/dsl/DSL_SPECIFICATION.md`, `/docs/dsl/DSL_USAGE_GUIDE.md`

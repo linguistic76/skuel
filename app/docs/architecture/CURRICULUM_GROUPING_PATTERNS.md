@@ -4,7 +4,7 @@ related_skills:
 ---
 ---
 title: Curriculum Grouping Patterns: KU, LS, LP + MOC Organization
-updated: 2026-01-20
+updated: 2026-02-27
 status: current
 category: architecture
 tags: [architecture, curriculum, grouping, patterns, moc, montessori]
@@ -13,7 +13,7 @@ related: [ADR-023-curriculum-baseservice-migration, ADR-028-ku-moc-unified-relat
 
 # Curriculum Grouping Patterns: KU, LS, LP + MOC Organization
 
-*Last updated: 2026-01-20*
+*Last updated: 2026-02-27*
 ## Related Skills
 
 For implementation guidance, see:
@@ -78,6 +78,13 @@ Sequential "Learn A then B"      Non-linear "Explore what interests you"
 
 **What it is:** The smallest indivisible piece of knowledge content.
 
+**Python Class:** `Ku(Curriculum)` — the concrete leaf class for atomic knowledge units.
+`Curriculum` is the shared base class; `Ku`, `LearningStep`, `LearningPath`, and `Exercise` are the leaf types.
+
+**EntityType:** `EntityType.KU = "ku"` — stored as `ku_type` property in Neo4j.
+
+**Neo4j Labels:** `:Entity:Ku {ku_type: 'ku'}` (dual-label pattern, February 2026)
+
 **Characteristics:**
 - Self-contained markdown content
 - Has a domain (TECH, HEALTH, etc.)
@@ -86,7 +93,7 @@ Sequential "Learn A then B"      Non-linear "Explore what interests you"
 
 **Example:**
 ```yaml
-uid: ku.python.functions
+uid: ku_python-functions_a1b2c3
 title: Python Functions
 domain: tech
 content: |

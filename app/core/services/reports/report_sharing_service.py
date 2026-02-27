@@ -339,7 +339,7 @@ class ReportsSharingService:
         has_share = record["has_share_relationship"]
 
         # KU entities are always accessible (shared content)
-        if ku_type in ("ku", "curriculum"):  # "curriculum" = backward compat alias
+        if ku_type == "ku":
             return Result.ok(True)
         # Owner always has access
         if user_uid == owner_uid:

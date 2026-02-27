@@ -186,7 +186,6 @@ class EntityType(str, Enum):
 
         Supports aliases for backward compatibility with DSL and ingestion:
             "ku" -> KU (canonical)
-            "curriculum" -> KU (backward compat alias — migrated from old value)
             "knowledge" -> KU
             "ls" -> LEARNING_STEP
             "lp" -> LEARNING_PATH
@@ -302,8 +301,7 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "choice": EntityType.CHOICE,
     "principle": EntityType.PRINCIPLE,
     "life_path": EntityType.LIFE_PATH,
-    # Aliases (backward compat — "curriculum" stored in Neo4j migrated to "ku")
-    "curriculum": EntityType.KU,
+    # Aliases
     "knowledge": EntityType.KU,
     "moc": EntityType.KU,
     "map_of_content": EntityType.KU,
