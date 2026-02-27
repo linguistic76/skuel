@@ -9,8 +9,8 @@ Manages recurring progress Ku generation schedules.
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums.reports_enums import ScheduleType
-from core.models.reports.ku_schedule import (
+from core.models.enums.submissions_enums import ScheduleType
+from core.models.submissions.ku_schedule import (
     KuSchedule,
     KuScheduleDTO,
     ku_schedule_dto_to_domain,
@@ -25,7 +25,7 @@ from core.utils.uid_generator import UIDGenerator
 logger = get_logger("skuel.services.report.schedule")
 
 
-class ReportsScheduleService:
+class ProgressScheduleService:
     """
     CRUD and scheduling logic for Ku generation schedules.
     """

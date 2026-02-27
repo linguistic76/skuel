@@ -39,7 +39,7 @@ from core.models.askesis.askesis_intelligence import (
 
 
 async def test_askesis_intelligence():
-    """Test the complete Askesis intelligence architecture - """
+    """Test the complete Askesis intelligence architecture -"""
     print("🚀 Testing Askesis Intelligence Architecture - Phase 1")
     print("=" * 60)
     print("\\n1. Testing AskesisIntelligence Entity Creation")

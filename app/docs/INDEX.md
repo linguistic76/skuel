@@ -91,7 +91,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[Lateral Relationships Core Architecture](architecture/LATERAL_RELATIONSHIPS_CORE.md)** | **2026-01-31** | **1200** |
 | **[Model Architecture](architecture/MODEL_ARCHITECTURE.md)** | **2026-02-23** | **290** |
 | [Relationships Architecture](architecture/RELATIONSHIPS_ARCHITECTURE.md) | 2025-11-27 | 630 |
-| [Reports Architecture - Statistical Aggregation Met...](architecture/REPORTS_ARCHITECTURE.md) | 2025-11-27 | 522 |
+| [Reports Architecture - Statistical Aggregation Met...](architecture/SUBMISSIONS_ARCHITECTURE.md) | 2025-11-27 | 522 |
 | [SKUEL 15-Domain Architecture](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) | 2026-02-06 | 1560 |
 | [SKUEL Architecture Guide](architecture/ARCHITECTURE_OVERVIEW.md) | 2025-11-29 | 650 |
 | [SKUEL Routing Architecture: Routes, Services, and ...](architecture/ROUTING_ARCHITECTURE.md) | 2025-11-27 | 647 |

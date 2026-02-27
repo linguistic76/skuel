@@ -142,7 +142,9 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Principle, GraphContext]]:
+    async def get_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[Principle, GraphContext]]:
         """
         Get principle with full graph context.
 
@@ -429,11 +431,11 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         Example:
             >>> from core.models.enums.principle_enums import AlignmentLevel
             >>> result = await service.assess_alignment_dual_track(
-            ... principle_uid="principle.integrity",
-            ... user_uid="user_mike",
-            ... user_alignment_level=AlignmentLevel.ALIGNED,
-            ... user_evidence="I always act with integrity",
-            ... user_reflection="This is my core value",
+            ...     principle_uid="principle.integrity",
+            ...     user_uid="user_mike",
+            ...     user_alignment_level=AlignmentLevel.ALIGNED,
+            ...     user_evidence="I always act with integrity",
+            ...     user_reflection="This is my core value",
             ... )
             >>> if result.is_ok:
             ... dual_track = result.value

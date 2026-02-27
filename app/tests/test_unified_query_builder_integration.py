@@ -306,7 +306,7 @@ def test_docstrings_exist_for_phase_2_methods():
 
 
 def test_class_docstring_documents_phase_2():
-    """Test that UnifiedQueryBuilder class docstring documents """
+    """Test that UnifiedQueryBuilder class docstring documents"""
     docstring = UnifiedQueryBuilder.__doc__
 
     assert docstring is not None

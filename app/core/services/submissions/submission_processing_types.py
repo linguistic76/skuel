@@ -11,7 +11,7 @@ from typing import Any
 
 
 @dataclass(frozen=True)
-class ReportsProcessingContext:
+class SubmissionProcessingContext:
     """
     Context gathered from Neo4j for intelligent Ku editing.
 
@@ -27,7 +27,7 @@ class ReportsProcessingContext:
 
 
 @dataclass(frozen=True)
-class ReportsAIInsights:
+class SubmissionAIInsights:
     """Parsed AI response for entity formatting."""
 
     title: str

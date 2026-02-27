@@ -589,7 +589,7 @@ grep "SEVERITY_CRITICAL" logs/*.log
 Errors automatically capture origin:
 ```python
 error.source_location
-# "services/reports_core_service.py:create_report:45"
+# "services/submissions_core_service.py:create_report:45"
 ```
 
 ### Rich Context for Debugging

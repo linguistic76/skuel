@@ -67,7 +67,7 @@ from ui.patterns.sidebar import SidebarItem
 
 item = SidebarItem(
     label="Submit",        # Display text
-    href="/reports/submit", # Navigation URL
+    href="/submissions/submit", # Navigation URL
     slug="submit",         # For active state matching
     icon="📤",             # Optional emoji
     description="",        # Optional subtitle (renders two-line item)
@@ -105,9 +105,9 @@ Creates a full page with collapsible sidebar. This is THE function to call.
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 items = [
-    SidebarItem("Submit", "/reports/submit", "submit", icon="📤"),
-    SidebarItem("Browse", "/reports/browse", "browse", icon="📂"),
-    SidebarItem("Projects", "/reports/projects", "projects", icon="📋"),
+    SidebarItem("Submit", "/submissions/submit", "submit", icon="📤"),
+    SidebarItem("Browse", "/submissions/browse", "browse", icon="📂"),
+    SidebarItem("Projects", "/submissions/projects", "projects", icon="📋"),
 ]
 
 return await SidebarPage(
@@ -224,9 +224,9 @@ Simplest case — flat list of items, no extra sections.
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 REPORTS_ITEMS = [
-    SidebarItem("Submit", "/reports/submit", "submit", icon="📤"),
-    SidebarItem("Browse", "/reports/browse", "browse", icon="📂"),
-    SidebarItem("Projects", "/reports/projects", "projects", icon="📋"),
+    SidebarItem("Submit", "/submissions/submit", "submit", icon="📤"),
+    SidebarItem("Browse", "/submissions/browse", "browse", icon="📂"),
+    SidebarItem("Projects", "/submissions/projects", "projects", icon="📋"),
 ]
 
 async def _reports_page(content, active_slug, request):
@@ -415,10 +415,10 @@ mobile_btn = Div(Span("☰"), onclick="toggleProfileSidebar()")
 
 ```python
 # ❌ BAD: HTMX boost intercepts navigation, causes partial page load
-A("Submit", href="/reports/submit")
+A("Submit", href="/submissions/submit")
 
 # ✅ GOOD: Disable boost for full page navigation
-A("Submit", href="/reports/submit", **{"hx-boost": "false"})
+A("Submit", href="/submissions/submit", **{"hx-boost": "false"})
 ```
 
 **Note:** `SidebarItem.hx_attrs` and the default renderer handle this automatically.

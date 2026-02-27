@@ -23,7 +23,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.metadata_enums import Visibility
-from core.models.reports.submission_dto import SubmissionDTO
+from core.models.submissions.submission_dto import SubmissionDTO
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.services.ku_sharing")
 
 
-class ReportsSharingService:
+class SubmissionsSharingService:
     """Service for managing entity sharing and access control."""
 
     def __init__(self, executor: "QueryExecutor") -> None:

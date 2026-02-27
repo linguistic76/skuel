@@ -81,7 +81,7 @@ QueryExecutor — the most common focused protocol:
 
     # Used by: KuOrganizationService, CrossDomainQueries, LateralRelationshipService,
     #          UserContextQueryExecutor, UserStatsAggregator, ReportSharingService,
-    #          TeacherReviewService, ProgressReportGenerator, Neo4jVectorSearchService,
+    #          TeacherReviewService, ProgressFeedbackGenerator, Neo4jVectorSearchService,
     #          Neo4jGenAIEmbeddingsService, UserProgressService
 
     from typing import TYPE_CHECKING

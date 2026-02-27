@@ -134,7 +134,7 @@ core/models/{domain}/
 | `principle/` | Principle + PrincipleDTO + requests | Activity | + Reflection sub-entity, PrincipleIntelligence |
 | `curriculum/` | Curriculum, LS, LP, Exercise + DTOs | Curriculum | + KU content/metadata/chunks, 14 files |
 | `resource/` | Resource + ResourceDTO | Shared | Curated content (books, talks) |
-| `reports/` | Submission, Journal, AiReport, Feedback + DTOs | Reports | + report_requests.py, ku_schedule.py |
+| `reports/` | Submission, Journal, AiReport, Feedback + DTOs | Reports | + submission_requests.py, ku_schedule.py |
 | `life_path/` | LifePath + LifePathDTO | Destination | |
 | `group/` | Group + request | Organizational | Teacher-student classes (ADR-040) |
 | `finance/` | Finance + FinanceDTO + requests | Finance | + Invoice, FinanceIntelligence |

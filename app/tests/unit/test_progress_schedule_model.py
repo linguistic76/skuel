@@ -10,8 +10,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from core.models.enums.reports_enums import ProgressDepth, ScheduleType
-from core.models.reports.ku_schedule import (
+from core.models.enums.submissions_enums import ProgressDepth, ScheduleType
+from core.models.submissions.ku_schedule import (
     KuSchedule,
     KuScheduleDTO,
     ku_schedule_domain_to_dto,
@@ -195,27 +195,27 @@ class TestComputeNextDueAt:
     """Test schedule date computation logic."""
 
     def test_weekly_next_due(self):
-        from core.services.reports.report_schedule_service import ReportsScheduleService
+        from core.services.feedback.progress_schedule_service import ProgressScheduleService
 
-        next_due = ReportsScheduleService.compute_next_due_at(ScheduleType.WEEKLY, day_of_week=0)
+        next_due = ProgressScheduleService.compute_next_due_at(ScheduleType.WEEKLY, day_of_week=0)
         # Should be within 7 days
         assert next_due > datetime.now()
         assert next_due <= datetime.now() + timedelta(days=7)
         assert next_due.weekday() == 0  # Monday
 
     def test_biweekly_next_due(self):
-        from core.services.reports.report_schedule_service import ReportsScheduleService
+        from core.services.feedback.progress_schedule_service import ProgressScheduleService
 
-        next_due = ReportsScheduleService.compute_next_due_at(ScheduleType.BIWEEKLY, day_of_week=3)
+        next_due = ProgressScheduleService.compute_next_due_at(ScheduleType.BIWEEKLY, day_of_week=3)
         # Should be within 14 days
         assert next_due > datetime.now()
         assert next_due <= datetime.now() + timedelta(days=14)
         assert next_due.weekday() == 3  # Thursday
 
     def test_monthly_next_due(self):
-        from core.services.reports.report_schedule_service import ReportsScheduleService
+        from core.services.feedback.progress_schedule_service import ProgressScheduleService
 
-        next_due = ReportsScheduleService.compute_next_due_at(ScheduleType.MONTHLY, day_of_week=5)
+        next_due = ProgressScheduleService.compute_next_due_at(ScheduleType.MONTHLY, day_of_week=5)
         # Should be at least 28 days away
         assert next_due > datetime.now() + timedelta(days=27)
         assert next_due.weekday() == 5  # Saturday

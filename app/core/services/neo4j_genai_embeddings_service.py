@@ -423,10 +423,10 @@ class Neo4jGenAIEmbeddingsService:
 
         Example:
             >>> result = await service.store_embedding_with_metadata(
-            ... uid="ku.python",
-            ... label="Entity",
-            ... embedding=[0.1, 0.2, ...],
-            ... text="Python programming language",
+            ...     uid="ku.python",
+            ...     label="Entity",
+            ...     embedding=[0.1, 0.2, ...],
+            ...     text="Python programming language",
             ... )
         """
         query = f"""
@@ -572,7 +572,7 @@ class Neo4jGenAIEmbeddingsService:
 
         Example:
             >>> result = await service.get_or_create_embedding(
-            ... uid="ku.python", label="Entity", text="Python programming language"
+            ...     uid="ku.python", label="Entity", text="Python programming language"
             ... )
         """
         # Check if node has current-version embedding

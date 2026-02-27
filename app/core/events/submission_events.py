@@ -41,7 +41,9 @@ class SubmissionCreated(BaseEvent):
     file_size: int | None = None
     file_type: str | None = None
     original_filename: str | None = None
-    fulfills_exercise_uid: str | None = None  # Exercise UID when submission fulfills an assigned exercise
+    fulfills_exercise_uid: str | None = (
+        None  # Exercise UID when submission fulfills an assigned exercise
+    )
     metadata: dict[str, Any] | None = None
 
     @property

@@ -90,12 +90,12 @@ Migrated all remaining BaseService subclasses outside Activity domains to achiev
 **Content/Processing Domains (3):**
 - `core/services/content_enrichment_service.py` - Audio transcription processing
 - `core/services/journals/journals_core_service.py` - Journal entry management
-- `core/services/reports/report_project_service.py` - Report project operations
+- `core/services/submissions/ + core/services/feedback/report_project_service.py` - Report project operations
 
 **Reports Domain (3):**
-- `core/services/reports/reports_core_service.py` - Report core operations
-- `core/services/reports/reports_search_service.py` - Report search/query
-- `core/services/reports/reports_submission_service.py` - Submission handling
+- `core/services/submissions/ + core/services/feedback/submissions_core_service.py` - Report core operations
+- `core/services/submissions/ + core/services/feedback/submissions_search_service.py` - Report search/query
+- `core/services/submissions/ + core/services/feedback/submissions_service.py` - Submission handling
 
 **Infrastructure Services (1):**
 - `core/services/relationships/unified_relationship_service.py` - Added `_get_config_value()` override for graceful degradation pattern
@@ -214,12 +214,12 @@ GOALS_CONFIG = create_activity_domain_config(
 ### Content Services (Phase 4) - 3 files
 - `core/services/content_enrichment_service.py`
 - `core/services/journals/journals_core_service.py`
-- `core/services/reports/report_project_service.py`
+- `core/services/submissions/ + core/services/feedback/report_project_service.py`
 
 ### Reports Services (Phase 4) - 3 files
-- `core/services/reports/reports_core_service.py`
-- `core/services/reports/reports_search_service.py`
-- `core/services/reports/reports_submission_service.py`
+- `core/services/submissions/ + core/services/feedback/submissions_core_service.py`
+- `core/services/submissions/ + core/services/feedback/submissions_search_service.py`
+- `core/services/submissions/ + core/services/feedback/submissions_service.py`
 
 ### Infrastructure Services (Phase 4) - 1 file
 - `core/services/relationships/unified_relationship_service.py`

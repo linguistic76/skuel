@@ -485,7 +485,7 @@ class SearchRequest(BaseModel):
             'NOT EXISTS { MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity) ... }'
 
             >>> # Later, at query execution:
-            >>> params = {"user_uid": "user_123"} # $user_uid gets filled here
+            >>> params = {"user_uid": "user_123"}  # $user_uid gets filled here
             >>> results = await execute_query(cypher_with_patterns, params)
         """
         patterns = {}

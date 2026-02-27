@@ -18,10 +18,10 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
-    from core.models.reports.journal_dto import JournalDTO
+    from core.models.submissions.journal_dto import JournalDTO
 
 from core.models.enums.entity_enums import EntityType
-from core.models.reports.submission import Submission
+from core.models.submissions.submission import Submission
 
 
 @dataclass(frozen=True)
@@ -54,7 +54,7 @@ class Journal(Submission):
         import dataclasses
         from typing import Any
 
-        from core.models.reports.journal_dto import JournalDTO
+        from core.models.submissions.journal_dto import JournalDTO
 
         dto_field_names = {f.name for f in dataclasses.fields(JournalDTO)}
         kwargs: dict[str, Any] = {}

@@ -48,8 +48,8 @@ class FeedbackOperations(Protocol):
     generation (from the former ReportsFeedbackOperations) are unified here because
     they represent the same concept: a response to student work.
 
-    Route consumers: reports_assessment_api.py (assessments), exercises_api.py (AI feedback)
-    Implementation: ReportsCoreService (assessments) + ReportsFeedbackService (AI)
+    Route consumers: feedback_assessment_api.py (assessments), exercises_api.py (AI feedback)
+    Implementation: SubmissionsCoreService (assessments) + FeedbackService (AI)
     """
 
     # ------------------------------------------------------------------
@@ -127,8 +127,8 @@ class ProgressFeedbackOperations(Protocol):
     over a time window. These are system-generated, not submitted by users or tied
     to a specific submission. processor_type = AUTOMATIC.
 
-    Route consumer: reports_progress_api.py
-    Implementation: ProgressReportGenerator
+    Route consumer: progress_feedback_api.py
+    Implementation: ProgressFeedbackGenerator
     """
 
     async def generate(
@@ -147,8 +147,8 @@ class ProgressFeedbackOperations(Protocol):
 class ProgressScheduleOperations(Protocol):
     """Recurring progress report scheduling operations.
 
-    Route consumer: reports_progress_api.py
-    Implementation: ReportsScheduleService
+    Route consumer: progress_feedback_api.py
+    Implementation: ProgressScheduleService
     """
 
     async def create_schedule(

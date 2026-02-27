@@ -25,7 +25,7 @@ from core.models.curriculum.exercise import Exercise
 from core.models.curriculum.exercise_dto import ExerciseDTO
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType, ProcessorType
-from core.models.enums.reports_enums import ExerciseScope
+from core.models.enums.submissions_enums import ExerciseScope
 from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
@@ -214,7 +214,6 @@ class ExerciseService(BaseService):
         self.logger.info(f"Found {len(exercises)} exercises for user {user_uid}")
         return Result.ok(exercises)
 
-
     # ========================================================================
     # UPDATE
     # ========================================================================
@@ -263,7 +262,6 @@ class ExerciseService(BaseService):
 
         self.logger.info(f"Exercise updated: {uid}")
         return result
-
 
     # ========================================================================
     # EXERCISE QUERIES (ADR-040)

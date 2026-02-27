@@ -22,8 +22,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.curriculum.exercise import Exercise
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.reports.feedback import Feedback
-from core.models.reports.submission import Submission
+from core.models.feedback.feedback import Feedback
+from core.models.submissions.submission import Submission
 from core.services.ai_service import AnthropicService, OpenAIService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class ReportsFeedbackService:
+class FeedbackService:
     """
     Generates AI feedback for report entries using exercise instructions.
 
@@ -76,7 +76,7 @@ class ReportsFeedbackService:
         if self.executor:
             available.append("Neo4j")
 
-        logger.info(f"ReportsFeedbackService initialized with: {', '.join(available)}")
+        logger.info(f"FeedbackService initialized with: {', '.join(available)}")
 
     async def generate_feedback(
         self,
@@ -202,7 +202,7 @@ class ReportsFeedbackService:
         if not self.executor:
             self.logger.warning(
                 "No executor configured — AI feedback generated but not persisted as entity. "
-                "Configure executor in ReportsFeedbackService to enable full persistence."
+                "Configure executor in FeedbackService to enable full persistence."
             )
             # Return a transient Feedback object for graceful degradation
             return self._build_transient_feedback(submission, exercise, feedback_text, user_uid)

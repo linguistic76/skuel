@@ -423,7 +423,9 @@ class ConversionServiceV2:
         return cls.create_to_pure(schema, Principle, uid, **extra_fields)
 
     @classmethod
-    def principle_update_to_pure(cls, existing: Principle, schema: EntityUpdateRequest) -> Principle:
+    def principle_update_to_pure(
+        cls, existing: Principle, schema: EntityUpdateRequest
+    ) -> Principle:
         """Apply EntityUpdateRequest to existing Principle entity using generic method."""
         # Convert list fields to tuples for immutable model
         extra_updates = {}

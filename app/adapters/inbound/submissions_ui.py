@@ -41,7 +41,7 @@ from ui.layouts.base_page import BasePage
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
-logger = get_logger("skuel.routes.reports.ui")
+logger = get_logger("skuel.routes.submissions.ui")
 
 
 # ============================================================================
@@ -133,7 +133,7 @@ def _render_report_card(report: Any, is_pinned: bool = False) -> Any:
                     PinButton(entity_uid=report.uid, is_pinned=is_pinned, size="xs"),
                     A(
                         "View",
-                        href=f"/reports/{report.uid}",
+                        href=f"/submissions/{report.uid}",
                         cls="btn btn-sm btn-ghost",
                     ),
                     cls="flex gap-2",
@@ -235,7 +235,7 @@ def _render_category_selector(report: Any) -> Any:
                 for cat in categories
             ],
             cls="select select-bordered w-full",
-            hx_post=f"/api/reports/categorize?report_uid={report.uid}&user_uid={report.user_uid}",
+            hx_post=f"/api/submissions/categorize?report_uid={report.uid}&user_uid={report.user_uid}",
             hx_trigger="change",
             hx_target=f"#category-display-{report.uid}",
             hx_swap="outerHTML",
@@ -255,7 +255,7 @@ def _render_category_display(report: Any) -> Any:
         Button(
             "Change",
             cls="btn btn-xs btn-ghost ml-2",
-            hx_get=f"/reports/{report.uid}/category-selector",
+            hx_get=f"/submissions/{report.uid}/category-selector",
             hx_target=f"#category-display-{report.uid}",
             hx_swap="outerHTML",
         ),
@@ -273,7 +273,7 @@ def _render_tags_manager(report: Any) -> Any:
             Button(
                 "\u00d7",
                 cls="btn btn-xs btn-ghost ml-1",
-                hx_post=f"/api/reports/tags/remove?report_uid={report.uid}&user_uid={report.user_uid}",
+                hx_post=f"/api/submissions/tags/remove?report_uid={report.uid}&user_uid={report.user_uid}",
                 hx_vals=f'js:{{tags: ["{tag}"]}}',
                 hx_target=f"#tags-manager-{report.uid}",
                 hx_swap="outerHTML",
@@ -296,7 +296,7 @@ def _render_tags_manager(report: Any) -> Any:
             ),
             Button("Add Tag", type="submit", cls="btn btn-primary btn-sm ml-2"),
             cls="flex items-center mt-2",
-            hx_post=f"/api/reports/tags/add?report_uid={report.uid}&user_uid={report.user_uid}",
+            hx_post=f"/api/submissions/tags/add?report_uid={report.uid}&user_uid={report.user_uid}",
             hx_vals="js:{tags: [document.querySelector('[name=\"new_tag\"]').value]}",
             hx_target=f"#tags-manager-{report.uid}",
             hx_swap="outerHTML",
@@ -315,7 +315,7 @@ def _render_status_buttons(report: Any) -> Any:
             Button(
                 "Publish",
                 cls="btn btn-success btn-sm",
-                hx_post=f"/api/reports/publish?report_uid={report.uid}&user_uid={report.user_uid}",
+                hx_post=f"/api/submissions/publish?report_uid={report.uid}&user_uid={report.user_uid}",
                 hx_target=f"#status-buttons-{report.uid}",
                 hx_swap="outerHTML",
                 disabled=(current_status == "published"),
@@ -323,7 +323,7 @@ def _render_status_buttons(report: Any) -> Any:
             Button(
                 "Archive",
                 cls="btn btn-warning btn-sm ml-2",
-                hx_post=f"/api/reports/archive?report_uid={report.uid}&user_uid={report.user_uid}",
+                hx_post=f"/api/submissions/archive?report_uid={report.uid}&user_uid={report.user_uid}",
                 hx_target=f"#status-buttons-{report.uid}",
                 hx_swap="outerHTML",
                 disabled=(current_status == "archived"),
@@ -331,7 +331,7 @@ def _render_status_buttons(report: Any) -> Any:
             Button(
                 "Mark as Draft",
                 cls="btn btn-ghost btn-sm ml-2",
-                hx_post=f"/api/reports/draft?report_uid={report.uid}&user_uid={report.user_uid}",
+                hx_post=f"/api/submissions/draft?report_uid={report.uid}&user_uid={report.user_uid}",
                 hx_target=f"#status-buttons-{report.uid}",
                 hx_swap="outerHTML",
                 disabled=(current_status == "draft"),
@@ -421,7 +421,7 @@ def _render_visibility_dropdown(report: Any) -> Any:
             ],
             name="visibility",
             cls="select select-bordered w-full",
-            hx_post="/api/reports/set-visibility",
+            hx_post="/api/submissions/set-visibility",
             hx_trigger="change",
             hx_vals=f"js:{{report_uid: '{report.uid}', visibility: event.target.value}}",
             hx_target="#visibility-status",
@@ -505,7 +505,7 @@ def _render_share_modal(report_uid: str) -> Any:
                             ),
                             cls="flex gap-2 justify-end",
                         ),
-                        hx_post="/api/reports/share",
+                        hx_post="/api/submissions/share",
                         hx_vals=f"js:{{report_uid: '{report_uid}', recipient_uid: document.querySelector('input[name=recipient_uid]').value, role: document.querySelector('select[name=role]').value}}",
                         hx_target="#shared-users-list",
                         hx_swap="innerHTML",
@@ -541,7 +541,7 @@ def _render_shared_users_list(report_uid: str) -> Any:
         Div(
             P("Loading shared users...", cls="text-base-content/60 text-sm"),
             id="shared-users-list",
-            hx_get=f"/reports/{report_uid}/shared-users",
+            hx_get=f"/submissions/{report_uid}/shared-users",
             hx_trigger="load",
             hx_swap="innerHTML",
         ),
@@ -587,11 +587,11 @@ def _render_sharing_section(report: Any) -> Any:
 # ============================================================================
 
 REPORTS_SIDEBAR_ITEMS = [
-    SidebarItem("Submit", "/reports/submit", "submit", icon="📤"),
-    SidebarItem("Browse", "/reports/browse", "browse", icon="📂"),
-    SidebarItem("Your Submissions", "/reports/yours", "yours", icon="📋"),
-    SidebarItem("Feedback", "/reports/feedback", "feedback", icon="💬"),
-    SidebarItem("Progress", "/reports/progress", "progress", icon="📊"),
+    SidebarItem("Submit", "/submissions/submit", "submit", icon="📤"),
+    SidebarItem("Browse", "/submissions/browse", "browse", icon="📂"),
+    SidebarItem("Your Submissions", "/submissions/yours", "yours", icon="📋"),
+    SidebarItem("Feedback", "/submissions/feedback", "feedback", icon="💬"),
+    SidebarItem("Progress", "/submissions/progress", "progress", icon="📊"),
 ]
 
 
@@ -679,7 +679,7 @@ def _render_upload_form(assigned_exercises: list[Any] | None = None) -> Any:
                 Div(id="upload-status", cls="mt-4 text-center"),
                 # HTMX attributes for form submission
                 **{
-                    "hx-post": "/reports/upload",
+                    "hx-post": "/submissions/upload",
                     "hx-target": "#upload-status",
                     "hx-swap": "outerHTML",
                     "hx-encoding": "multipart/form-data",
@@ -761,7 +761,7 @@ def _render_filters_section() -> Any:
                     cls="flex gap-4",
                 ),
                 **{
-                    "hx-get": "/reports/grid",
+                    "hx-get": "/submissions/grid",
                     "hx-target": "#reports-grid-container",
                     "hx-swap": "outerHTML",
                     "hx-trigger": "change from:select",
@@ -781,7 +781,7 @@ def _render_reports_grid_container() -> Any:
         id="reports-grid-container",
         cls="mt-4",
         **{
-            "hx-get": "/reports/grid",
+            "hx-get": "/submissions/grid",
             "hx-trigger": "load",
             "hx-swap": "outerHTML",
         },
@@ -793,7 +793,7 @@ def _render_reports_grid_container() -> Any:
 # ============================================================================
 
 
-def create_reports_ui_routes(
+def create_submissions_ui_routes(
     _app, rt, _report_service, _processing_service, _report_projects_service=None
 ):
     """
@@ -813,12 +813,12 @@ def create_reports_ui_routes(
     # SIDEBAR PAGES
     # ========================================================================
 
-    @rt("/reports")
+    @rt("/submissions")
     async def reports_landing(request: Request) -> Any:
         """Reports landing — defaults to Submit page."""
         return await _render_submit_page(request)
 
-    @rt("/reports/submit")
+    @rt("/submissions/submit")
     async def reports_submit_page(request: Request) -> Any:
         """Submit page: upload form."""
         return await _render_submit_page(request)
@@ -850,10 +850,10 @@ def create_reports_ui_routes(
             page_title="Submit",
             request=request,
             active_page="reports",
-            title_href="/reports",
+            title_href="/submissions",
         )
 
-    @rt("/reports/browse")
+    @rt("/submissions/browse")
     async def reports_browse_page(request: Request) -> Any:
         """Browse page: filters + results grid."""
         require_authenticated_user(request)
@@ -872,10 +872,10 @@ def create_reports_ui_routes(
             page_title="Browse Submissions",
             request=request,
             active_page="reports",
-            title_href="/reports",
+            title_href="/submissions",
         )
 
-    @rt("/reports/yours")
+    @rt("/submissions/yours")
     async def reports_yours_page(request: Request) -> Any:
         """Your Reports page: full listing without filters."""
         require_authenticated_user(request)
@@ -893,14 +893,14 @@ def create_reports_ui_routes(
             page_title="Your Submissions",
             request=request,
             active_page="reports",
-            title_href="/reports",
+            title_href="/submissions",
         )
 
     # ========================================================================
     # HTMX ENDPOINTS
     # ========================================================================
 
-    @rt("/reports/upload")
+    @rt("/submissions/upload")
     async def upload_report(request: Request) -> Any:
         """HTMX endpoint for report file upload (human review)."""
         try:
@@ -954,7 +954,7 @@ def create_reports_ui_routes(
             logger.error(f"Error uploading report: {e}", exc_info=True)
             return _render_upload_status("error", f"Upload failed: {e}", is_error=True)
 
-    @rt("/reports/grid")
+    @rt("/submissions/grid")
     async def get_reports_grid(request: Request) -> Any:
         """HTMX endpoint for loading reports grid with filters."""
         try:
@@ -970,7 +970,7 @@ def create_reports_ui_routes(
             if filters.status:
                 kwargs["status"] = filters.status
 
-            result = await _report_service.list_reports(**kwargs)
+            result = await _report_service.list_submissions(**kwargs)
 
             if result.is_error:
                 return Div(
@@ -988,7 +988,7 @@ def create_reports_ui_routes(
                 id="reports-grid-container",
             )
 
-    @rt("/reports/{uid}/info")
+    @rt("/submissions/{uid}/info")
     async def get_report_info(request: Request, uid: str) -> Any:
         """HTMX endpoint for loading report detail info."""
         try:
@@ -1024,7 +1024,7 @@ def create_reports_ui_routes(
                 id="report-info",
             )
 
-    @rt("/reports/{uid}/content")
+    @rt("/submissions/{uid}/content")
     async def get_report_content(request: Request, uid: str) -> Any:
         """HTMX endpoint for loading report processed content."""
         try:
@@ -1045,7 +1045,7 @@ def create_reports_ui_routes(
     # CONTENT MANAGEMENT UI ROUTES
     # ========================================================================
 
-    @rt("/reports/{uid}/category-selector")
+    @rt("/submissions/{uid}/category-selector")
     async def get_category_selector(request: Request, uid: str) -> Any:
         """HTMX endpoint for category selector."""
         try:
@@ -1060,7 +1060,7 @@ def create_reports_ui_routes(
             logger.error(f"Error loading category selector: {e}", exc_info=True)
             return Div("Error loading category selector", cls="text-error")
 
-    @rt("/reports/{uid}/tags-manager")
+    @rt("/submissions/{uid}/tags-manager")
     async def get_tags_manager(request: Request, uid: str) -> Any:
         """HTMX endpoint for tags manager."""
         try:
@@ -1079,7 +1079,7 @@ def create_reports_ui_routes(
     # FEEDBACK PAGE (assessments received)
     # ========================================================================
 
-    @rt("/reports/feedback")
+    @rt("/submissions/feedback")
     async def reports_feedback_page(request: Request) -> Any:
         """Feedback page: assessments received from teachers."""
         require_authenticated_user(request)
@@ -1090,7 +1090,7 @@ def create_reports_ui_routes(
                 id="feedback-list",
                 cls="mt-4",
                 **{
-                    "hx-get": "/api/reports/assessments/received",
+                    "hx-get": "/api/feedback/assessments/received",
                     "hx-trigger": "load",
                     "hx-swap": "innerHTML",
                 },
@@ -1114,7 +1114,7 @@ def create_reports_ui_routes(
                                 html += '<h4 class="font-semibold mb-1">' + (a.title || 'Assessment') + '</h4>';
                                 html += '<p class="text-sm text-base-content/60 mb-2">From: ' + (a.user_uid || '') + ' &bull; ' + date + '</p>';
                                 html += '<p class="text-sm">' + summary + '</p>';
-                                html += '<a href="/reports/' + a.uid + '" class="btn btn-sm btn-ghost mt-2">View Full</a>';
+                                html += '<a href="/submissions/' + a.uid + '" class="btn btn-sm btn-ghost mt-2">View Full</a>';
                                 html += '</div></div>';
                             });
                             container.innerHTML = html;
@@ -1134,14 +1134,14 @@ def create_reports_ui_routes(
             page_title="Feedback",
             request=request,
             active_page="reports",
-            title_href="/reports",
+            title_href="/submissions",
         )
 
     # ========================================================================
     # PROGRESS PAGE (generate + view progress reports)
     # ========================================================================
 
-    @rt("/reports/progress")
+    @rt("/submissions/progress")
     async def reports_progress_page(request: Request) -> Any:
         """Progress page: generate and view progress reports."""
         require_authenticated_user(request)
@@ -1183,7 +1183,7 @@ def create_reports_ui_routes(
                     ),
                     Div(id="generate-status", cls="mt-4"),
                     **{
-                        "hx-post": "/api/reports/progress/generate",
+                        "hx-post": "/api/feedback/progress/generate",
                         "hx-target": "#generate-status",
                         "hx-swap": "innerHTML",
                         "hx-vals": 'js:JSON.stringify({time_period: document.querySelector("[name=time_period]").value, depth: document.querySelector("[name=depth]").value, include_insights: true})',
@@ -1201,7 +1201,7 @@ def create_reports_ui_routes(
                 P("Loading...", cls="text-center text-base-content/60"),
                 id="progress-reports-list",
                 **{
-                    "hx-get": "/api/reports/progress?limit=10",
+                    "hx-get": "/api/feedback/progress?limit=10",
                     "hx-trigger": "load",
                     "hx-swap": "innerHTML",
                 },
@@ -1230,7 +1230,7 @@ def create_reports_ui_routes(
                                 html += '<div class="flex gap-2">';
                                 html += '<span class="badge badge-info">' + tasks + ' tasks</span>';
                                 html += '<span class="badge badge-success">' + goals + ' goals</span>';
-                                html += '<a href="/reports/' + r.uid + '" class="btn btn-xs btn-ghost">View</a>';
+                                html += '<a href="/submissions/' + r.uid + '" class="btn btn-xs btn-ghost">View</a>';
                                 html += '</div></div></div></div>';
                             });
                             container.innerHTML = html;
@@ -1256,10 +1256,10 @@ def create_reports_ui_routes(
             page_title="Progress Reports",
             request=request,
             active_page="reports",
-            title_href="/reports",
+            title_href="/submissions",
         )
 
-    @rt("/reports/{uid}/shared-users")
+    @rt("/submissions/{uid}/shared-users")
     async def get_shared_users_ui(request: Request, uid: str) -> Any:
         """
         HTMX endpoint for rendering shared users list.
@@ -1292,7 +1292,7 @@ def create_reports_ui_routes(
     # /reports/grid, /reports/upload, etc.
     # ========================================================================
 
-    @rt("/reports/{uid}")
+    @rt("/submissions/{uid}")
     async def report_detail(request: Request, uid: str) -> Any:
         """
         Report detail view.
@@ -1323,7 +1323,7 @@ def create_reports_ui_routes(
                     id="report-info",
                     cls="mb-4",
                     **{
-                        "hx-get": f"/reports/{uid}/info",
+                        "hx-get": f"/submissions/{uid}/info",
                         "hx-trigger": "load",
                         "hx-swap": "outerHTML",
                     },
@@ -1337,7 +1337,7 @@ def create_reports_ui_routes(
                         cls="p-4 bg-base-200 rounded-lg",
                         style="max-height: 600px; overflow-y: auto;",
                         **{
-                            "hx-get": f"/reports/{uid}/content",
+                            "hx-get": f"/submissions/{uid}/content",
                             "hx-trigger": "load",
                             "hx-swap": "outerHTML",
                         },
@@ -1355,7 +1355,7 @@ def create_reports_ui_routes(
                 Div(
                     A(
                         "\u2190 Back to Submissions",
-                        href="/reports",
+                        href="/submissions",
                         cls="btn btn-ghost",
                     ),
                     cls="mt-4",

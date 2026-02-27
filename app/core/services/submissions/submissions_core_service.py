@@ -35,12 +35,12 @@ max_retention controls FIFO cleanup for voice journals (None = permanent).
 
 Service Responsibilities
 --------------------------
-- ReportsSubmissionService: File upload and storage
-- ReportsProcessingService: Content processing orchestration
-- ReportsCoreService: Content management + journal CRUD + exercise linking (THIS FILE)
-- ReportsSearchService: Read-only queries
+- SubmissionsService: File upload and storage
+- SubmissionsProcessingService: Content processing orchestration
+- SubmissionsCoreService: Content management + journal CRUD + exercise linking (THIS FILE)
+- SubmissionsSearchService: Read-only queries
 - ExerciseService: Exercise CRUD (in exercises package)
-- ReportsFeedbackService: AI feedback generation
+- FeedbackService: AI feedback generation
 """
 
 import json
@@ -56,9 +56,9 @@ from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.relationship_names import RelationshipName
-from core.models.reports.feedback import Feedback
-from core.models.reports.journal import Journal
-from core.models.reports.submission_dto import SubmissionDTO
+from core.models.feedback.feedback import Feedback
+from core.models.submissions.journal import Journal
+from core.models.submissions.submission_dto import SubmissionDTO
 from core.ports import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.base_service import BaseService
@@ -125,7 +125,7 @@ class ReportCategory:
         ]
 
 
-class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
+class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     """
     Core Ku service for content management operations.
 
@@ -139,8 +139,8 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
     - Journal CRUD (create_journal_ku, FIFO cleanup)
     - Assessment CRUD (teacher feedback)
 
-    NOTE: For file submission, use ReportsSubmissionService.
-    NOTE: For processing, use ReportsProcessingService.
+    NOTE: For file submission, use SubmissionsService.
+    NOTE: For processing, use SubmissionsProcessingService.
 
     Source Tag: "ku_core_service_explicit"
 
@@ -180,7 +180,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
             sharing_service: Optional sharing service for access control
             content_enrichment: Optional ContentEnrichmentService for AI processing
         """
-        super().__init__(backend, "ReportsCoreService")
+        super().__init__(backend, "SubmissionsCoreService")
         self.event_bus = event_bus
         self.sharing_service = sharing_service
         self.content_enrichment = content_enrichment
@@ -293,7 +293,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         return Result.ok(None)
 
-    async def get_recent_reports(
+    async def get_recent_submissions(
         self,
         limit: int = 10,
         user_uid: str | None = None,

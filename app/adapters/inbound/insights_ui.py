@@ -437,14 +437,10 @@ def create_insights_ui_routes(
             filter_form,
             charts_section if charts_section else Div(),  # Add charts section if available
             bulk_action_bar,  # bulk action bar (shown when insights selected)
-            select_all_header
-            if select_all_header
-            else Div(),  # select-all checkbox
+            select_all_header if select_all_header else Div(),  # select-all checkbox
             insight_cards,
             cls="space-y-6",
-            **{
-                "x-data": "bulkInsightManager()"
-            },  # Alpine component for bulk selection
+            **{"x-data": "bulkInsightManager()"},  # Alpine component for bulk selection
         )
 
         return await BasePage(

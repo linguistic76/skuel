@@ -13,7 +13,7 @@ tags: [journals, content-domain, reports, multi-modal, ai-processing, lp-integra
 **UID Prefix:** `report_`
 **Entity Label:** `:Report` (with `report_type=JOURNAL`)
 **UI Route:** `/journals` (admin-only)
-**API Route:** Reuses `/api/reports/*` endpoints
+**API Route:** Reuses `/api/submissions/*` endpoints
 
 ## Domain Architecture (February 2026)
 
@@ -49,7 +49,7 @@ Journals support **three modes** with weighted distribution:
    ├─ report_type: JOURNAL
    └─ processor_type: LLM
 
-2. AI processing triggered → ReportsProcessingService.process_report()
+2. AI processing triggered → SubmissionsProcessingService.process_report()
    ├─ Audio: transcribe → process_journal()
    └─ Text: direct → process_journal()
 
@@ -263,12 +263,12 @@ class ReportActivityExtractorService:
 
 ### API Routes
 
-Journals reuse existing `/api/reports/*` endpoints:
+Journals reuse existing `/api/submissions/*` endpoints:
 
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/api/reports/submit` | POST | Submit journal file (with report_type=JOURNAL) |
-| `/api/reports/{uid}` | GET | Get journal report |
+| `/api/submissions/submit` | POST | Submit journal file (with report_type=JOURNAL) |
+| `/api/submissions/{uid}` | GET | Get journal report |
 | `/api/reports` | GET | List reports (filter by processor_type=LLM) |
 | `/api/admin/journals/cleanup` | GET | Cleanup je_output files by date range |
 
@@ -389,8 +389,8 @@ When a journal is processed, these fields are stored in `report.metadata`:
 | Mode Classifier | `/core/services/journals/journal_mode_classifier.py` |
 | Output Generator | `/core/services/journals/journal_output_generator.py` |
 | Activity Extractor | `/core/services/dsl/report_activity_extractor.py` |
-| Processing Service | `/core/services/reports/reports_processing_service.py` |
-| Assignments | `/core/services/reports/assignment_service.py` |
+| Processing Service | `/core/services/submissions/ + core/services/feedback/submissions_processing_service.py` |
+| Assignments | `/core/services/submissions/ + core/services/feedback/assignment_service.py` |
 | **Types** | |
 | Journal Types | `/core/services/journals/journal_types.py` |
 | **Prompts** | |

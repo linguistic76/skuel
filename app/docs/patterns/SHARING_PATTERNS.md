@@ -110,7 +110,7 @@ report = await reports_core_service.get_with_access_check(
 ```
 
 **UI Flow:**
-1. Student: `/reports/{uid}` → Set visibility dropdown to "Shared"
+1. Student: `/submissions/{uid}` → Set visibility dropdown to "Shared"
 2. Student: Click "Share with User" → Enter teacher UID → Submit
 3. Teacher: Navigate to `/profile/shared` → See report in inbox
 4. Teacher: Click "View" → Access report detail page
@@ -122,7 +122,7 @@ report = await reports_core_service.get_with_access_check(
 **Use Case:** Teacher assigns work to a group. When a student submits, the report is automatically shared with the assigning teacher.
 
 ```python
-from core.services.reports import ReportsCoreService, TeacherReviewService
+from core.services.reports import SubmissionsCoreService, TeacherReviewService
 
 # Step 1: Teacher creates assigned Assignment (targets a group)
 # (handled by AssignmentService.create_project with scope=ASSIGNED)
@@ -195,7 +195,7 @@ assert access_result.value is True  # ✅ Public access
 
 **API Endpoint:**
 ```http
-GET /api/reports/public?user_uid=user_alice&limit=10
+GET /api/submissions/public?user_uid=user_alice&limit=10
 ```
 
 Returns all public reports for user's portfolio.
@@ -290,7 +290,7 @@ Roles are stored in relationship metadata for future feature expansion (e.g., ro
 ### Share Report
 
 ```http
-POST /api/reports/share
+POST /api/submissions/share
 Content-Type: application/json
 
 {
@@ -309,7 +309,7 @@ Content-Type: application/json
 ### Unshare Report
 
 ```http
-POST /api/reports/unshare
+POST /api/submissions/unshare
 Content-Type: application/json
 
 {
@@ -326,7 +326,7 @@ Content-Type: application/json
 ### Set Visibility
 
 ```http
-POST /api/reports/set-visibility
+POST /api/submissions/set-visibility
 Content-Type: application/json
 
 {
@@ -345,7 +345,7 @@ Content-Type: application/json
 ### Get Shared With Me
 
 ```http
-GET /api/reports/shared-with-me?limit=50
+GET /api/submissions/shared-with-me?limit=50
 ```
 
 **Auth:** Authenticated user
@@ -372,7 +372,7 @@ GET /api/reports/shared-with-me?limit=50
 ### Get Shared Users
 
 ```http
-GET /api/reports/shared-users?uid=report_123
+GET /api/submissions/shared-users?uid=report_123
 ```
 
 **Auth:** Owner only
@@ -397,7 +397,7 @@ GET /api/reports/shared-users?uid=report_123
 ### Browse Public Reports
 
 ```http
-GET /api/reports/public?user_uid=user_alice&limit=10
+GET /api/submissions/public?user_uid=user_alice&limit=10
 ```
 
 **Auth:** None (public content)
@@ -409,7 +409,7 @@ GET /api/reports/public?user_uid=user_alice&limit=10
 
 ### Sharing Section (Report Detail Page)
 
-Located at `/reports/{uid}`, visible only to owner.
+Located at `/submissions/{uid}`, visible only to owner.
 
 **Components:**
 1. **Visibility Dropdown** - Select PRIVATE/SHARED/PUBLIC
@@ -504,14 +504,14 @@ class ReportSharingService:
         """Get reports shared with user."""
 ```
 
-**Location:** `/core/services/reports/report_sharing_service.py`
+**Location:** `/core/services/submissions/ + core/services/feedback/report_sharing_service.py`
 
 ---
 
 ### Integration with Core Service
 
 ```python
-from core.services.reports import ReportsCoreService
+from core.services.reports import SubmissionsCoreService
 
 # Access-controlled retrieval
 report = await reports_core_service.get_with_access_check(
@@ -725,7 +725,7 @@ if result.is_error:
 ## References
 
 ### Implementation Files
-- **Service:** `/core/services/reports/report_sharing_service.py`
+- **Service:** `/core/services/submissions/ + core/services/feedback/report_sharing_service.py`
 - **API Routes:** `/adapters/inbound/reports_sharing_api.py`
 - **UI Components:** `/adapters/inbound/reports_ui.py`
 - **Profile Tab:** `/adapters/inbound/user_profile_ui.py`

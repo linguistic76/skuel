@@ -1,5 +1,5 @@
 """
-Unit Tests for ProgressReportGenerator
+Unit Tests for ProgressFeedbackGenerator
 =====================================
 
 Tests generation flow, content building, time period parsing,
@@ -12,10 +12,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.reports.ai_report import AiReport
-from core.services.reports.progress_report_generator import (
+from core.models.feedback.ai_report import AiReport
+from core.services.feedback.progress_feedback_generator import (
     TIME_PERIOD_DAYS,
-    ProgressReportGenerator,
+    ProgressFeedbackGenerator,
 )
 from core.utils.result_simplified import Result
 
@@ -57,8 +57,8 @@ def mock_event_bus():
 
 @pytest.fixture
 def generator(mock_driver, mock_backend, mock_insight_store, mock_event_bus):
-    """Create ProgressReportGenerator with mocked deps."""
-    return ProgressReportGenerator(
+    """Create ProgressFeedbackGenerator with mocked deps."""
+    return ProgressFeedbackGenerator(
         executor=mock_driver,
         ku_backend=mock_backend,
         user_service=None,
@@ -197,7 +197,7 @@ class TestBuildReportContent:
 
     def test_summary_depth_no_details(self, generator):
         """Summary depth should not include per-item details."""
-        from core.models.enums.reports_enums import ProgressDepth
+        from core.models.enums.submissions_enums import ProgressDepth
 
         completions = {
             "tasks_completed": 5,
@@ -229,7 +229,7 @@ class TestBuildReportContent:
 
     def test_standard_depth_includes_details(self, generator):
         """Standard depth should include per-item details."""
-        from core.models.enums.reports_enums import ProgressDepth
+        from core.models.enums.submissions_enums import ProgressDepth
 
         completions = {
             "tasks_completed": 1,
@@ -265,7 +265,7 @@ class TestBuildReportContent:
 
     def test_empty_report_fallback(self, generator):
         """Empty completions should produce fallback text."""
-        from core.models.enums.reports_enums import ProgressDepth
+        from core.models.enums.submissions_enums import ProgressDepth
 
         completions = {
             "tasks_completed": 0,
@@ -293,7 +293,7 @@ class TestBuildReportContent:
 
     def test_insights_section(self, generator):
         """Active insights should appear in report content."""
-        from core.models.enums.reports_enums import ProgressDepth
+        from core.models.enums.submissions_enums import ProgressDepth
 
         completions = {
             "tasks_completed": 0,

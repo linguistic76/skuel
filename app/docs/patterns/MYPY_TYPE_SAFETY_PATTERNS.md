@@ -59,7 +59,7 @@ def create_reports_api_routes(
 ):
     """Create report API routes."""
 
-    @rt("/api/reports/categorize")
+    @rt("/api/submissions/categorize")
     async def categorize_route(request, uid: str) -> Result[Any]:
         # ERROR: Returning Any from function declared to return Result[Any]
         # Because reports_core_service is type Any, its return type is unknown
@@ -78,22 +78,22 @@ def create_reports_api_routes(
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.reports.reports_core_service import ReportsCoreService
-    from core.services.reports.reports_processing_service import ReportsProcessingService
-    from core.services.reports.reports_search_service import ReportsSearchService
+    from core.services.reports.reports_core_service import SubmissionsCoreService
+    from core.services.reports.reports_processing_service import SubmissionsProcessingService
+    from core.services.reports.reports_search_service import SubmissionsSearchService
     from core.services.reports.reports_submission_service import ReportSubmissionService
 
 def create_reports_api_routes(
     _app: Any,
     rt: Any,
     report_service: "ReportSubmissionService",              # Type-safe
-    processing_service: "ReportsProcessingService",         # Type-safe
-    reports_query_service: "ReportsSearchService | None" = None,
-    reports_core_service: "ReportsCoreService | None" = None,
+    processing_service: "SubmissionsProcessingService",         # Type-safe
+    reports_query_service: "SubmissionsSearchService | None" = None,
+    reports_core_service: "SubmissionsCoreService | None" = None,
 ) -> list[Any]:
     """Create report API routes."""
 
-    @rt("/api/reports/categorize")
+    @rt("/api/submissions/categorize")
     async def categorize_route(request, uid: str) -> Result[Any]:
         # ✅ No error - mypy knows the return type
         return await reports_core_service.categorize_report(uid, category)
@@ -461,7 +461,7 @@ Before the explicit delegation migration:
 ### ❌ Before (Unsafe Access)
 
 ```python
-@rt("/reports/categorize")
+@rt("/submissions/categorize")
 async def categorize_route(request, report_uid: str) -> Result[Any]:
     # Get report
     report_result = await report_service.get_report(report_uid)
@@ -490,7 +490,7 @@ async def categorize_route(request, report_uid: str) -> Result[Any]:
 ### ✅ After (Safe with Guard)
 
 ```python
-@rt("/reports/categorize")
+@rt("/submissions/categorize")
 async def categorize_route(request, report_uid: str) -> Result[Any]:
     # Get report
     report_result = await report_service.get_report(report_uid)

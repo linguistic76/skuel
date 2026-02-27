@@ -19,8 +19,8 @@ if TYPE_CHECKING:
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.enums.reports_enums import ProgressDepth
-from core.models.reports.ai_report import AiReport
+from core.models.enums.submissions_enums import ProgressDepth
+from core.models.feedback.ai_report import AiReport
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -37,7 +37,7 @@ TIME_PERIOD_DAYS = {
 }
 
 
-class ProgressReportGenerator:
+class ProgressFeedbackGenerator:
     """
     Generates progress Ku by querying historical activity completions.
 

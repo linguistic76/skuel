@@ -1,13 +1,13 @@
 ---
-title: Reports Domain
+title: Submissions + Feedback Domain
 created: 2025-12-04
-updated: 2026-02-09
+updated: 2026-02-27
 status: current
 category: domains
-tags: [reports, processing-domain, domain]
+tags: [submissions, feedback, processing-domain, domain]
 ---
 
-# Reports Domain
+# Submissions + Feedback Domain
 
 **Type:** Content/Processing Domain
 **UID Prefix:** `report_`
@@ -37,31 +37,31 @@ Reports is the primary user-facing interface for all content submissions and sys
 | Route | Type | Purpose |
 |-------|------|---------|
 | `/reports` | UI | Dashboard with 5-item sidebar |
-| `/reports/submit` | UI | File upload form |
-| `/reports/browse` | UI | Browse all reports with type/status filters |
-| `/reports/yours` | UI | User's own reports |
-| `/reports/feedback` | UI | Assessments received from teachers |
-| `/reports/progress` | UI | Generate progress reports + schedule settings |
+| `/submissions/submit` | UI | File upload form |
+| `/submissions/browse` | UI | Browse all reports with type/status filters |
+| `/submissions/yours` | UI | User's own reports |
+| `/submissions/feedback` | UI | Assessments received from teachers |
+| `/submissions/progress` | UI | Generate progress reports + schedule settings |
 | `/journals` | UI | Two-tier journal submission (voice + curated) |
-| `/api/reports/upload` | API | File upload endpoint |
+| `/api/submissions/upload` | API | File upload endpoint |
 | `/api/reports` | API | List reports (supports `report_type` filter) |
-| `/api/reports/progress/generate` | API | On-demand progress report generation |
-| `/api/reports/progress` | API | List user's progress reports |
-| `/api/reports/schedule` | API | Schedule CRUD (create, get, update, deactivate) |
-| `/api/reports/assessments` | API | Create assessment (TEACHER role required) |
-| `/api/reports/assessments/given` | API | Teacher's authored assessments |
-| `/api/reports/assessments/received` | API | Student's received assessments |
+| `/api/submissions/progress/generate` | API | On-demand progress report generation |
+| `/api/submissions/progress` | API | List user's progress reports |
+| `/api/submissions/schedule` | API | Schedule CRUD (create, get, update, deactivate) |
+| `/api/submissions/assessments` | API | Create assessment (TEACHER role required) |
+| `/api/submissions/assessments/given` | API | Teacher's authored assessments |
+| `/api/submissions/assessments/received` | API | Student's received assessments |
 
 ## Key Files
 
 | Component | Location |
 |-----------|----------|
-| **Service Package** | `/core/services/reports/` |
-| Submission Service | `reports_submission_service.py` |
-| Processing Service | `reports_processing_service.py` |
-| Core Service | `reports_core_service.py` (includes assessment CRUD) |
-| Search Service | `reports_search_service.py` |
-| Relationship Service | `reports_relationship_service.py` |
+| **Service Package** | `/core/services/submissions/ + core/services/feedback/` |
+| Submission Service | `submissions_service.py` |
+| Processing Service | `submissions_processing_service.py` |
+| Core Service | `submissions_core_service.py` (includes assessment CRUD) |
+| Search Service | `submissions_search_service.py` |
+| Relationship Service | `submissions_relationship_service.py` |
 | Sharing Service | `report_sharing_service.py` |
 | Progress Generator | `progress_report_generator.py` |
 | Assignment Service | `assignment_service.py` (Assignment CRUD) |
@@ -99,7 +99,7 @@ Reports is the primary user-facing interface for all content submissions and sys
 
 ## Progress Report Generation
 
-**On-demand:** `POST /api/reports/progress/generate` with time_period (7d/14d/30d/90d), depth (summary/standard/detailed), optional domain filter.
+**On-demand:** `POST /api/submissions/progress/generate` with time_period (7d/14d/30d/90d), depth (summary/standard/detailed), optional domain filter.
 
 **Scheduled:** `ReportScheduleService` manages recurring schedules (weekly/biweekly/monthly). `ProgressReportWorker` checks hourly for due schedules.
 
@@ -113,11 +113,11 @@ Reports is the primary user-facing interface for all content submissions and sys
 
 ## Teacher Assessments
 
-Created via `ReportsCoreService.create_assessment()` (requires TEACHER role). Auto-creates:
+Created via `SubmissionsCoreService.create_assessment()` (requires TEACHER role). Auto-creates:
 - `ASSESSMENT_OF` relationship to student
 - `SHARES_WITH` relationship for student access
 
-Students see assessments at `/reports/feedback`.
+Students see assessments at `/submissions/feedback`.
 
 ## Relationships
 

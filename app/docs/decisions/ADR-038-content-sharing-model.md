@@ -71,7 +71,7 @@ This prevents users from sharing failed/processing reports, ensuring portfolio q
 
 ### Service Layer
 
-**ReportSharingService** (`/core/services/reports/report_sharing_service.py`):
+**ReportSharingService** (`/core/services/submissions/ + core/services/feedback/report_sharing_service.py`):
 - `share_report()` - Create SHARES_WITH relationship
 - `unshare_report()` - Delete SHARES_WITH relationship
 - `set_visibility()` - Update visibility level
@@ -79,7 +79,7 @@ This prevents users from sharing failed/processing reports, ensuring portfolio q
 - `get_shared_with_users()` - List users with access
 - `get_reports_shared_with_me()` - Query shared reports
 
-**ReportsCoreService** integration:
+**SubmissionsCoreService** integration:
 - Added `get_with_access_check()` method that wraps `get_report()` with access verification
 - Prevents leaking "not found" vs "forbidden" (both return 404)
 
@@ -87,12 +87,12 @@ This prevents users from sharing failed/processing reports, ensuring portfolio q
 
 **6 new endpoints** (`/adapters/inbound/reports_sharing_api.py`):
 
-1. `POST /api/reports/share` - Share with user
-2. `POST /api/reports/unshare` - Revoke access
-3. `POST /api/reports/set-visibility` - Change visibility
-4. `GET /api/reports/shared-with-me` - Shared content inbox
-5. `GET /api/reports/shared-users?uid=` - List recipients
-6. `GET /api/reports/public` - Browse public portfolios
+1. `POST /api/submissions/share` - Share with user
+2. `POST /api/submissions/unshare` - Revoke access
+3. `POST /api/submissions/set-visibility` - Change visibility
+4. `GET /api/submissions/shared-with-me` - Shared content inbox
+5. `GET /api/submissions/shared-users?uid=` - List recipients
+6. `GET /api/submissions/public` - Browse public portfolios
 
 All routes use `@boundary_handler` for Result[T] -> HTTP conversion.
 
@@ -198,7 +198,7 @@ report.shared_with = ["user_1", "user_2"]
 
 ## References
 
-- `/core/services/reports/report_sharing_service.py` - Service implementation
+- `/core/services/submissions/ + core/services/feedback/report_sharing_service.py` - Service implementation
 - `/adapters/inbound/reports_sharing_api.py` - API routes
 - `/core/models/report/report.py` - Data model changes
 - `/docs/patterns/SHARING_PATTERNS.md` - Usage patterns (to be created)

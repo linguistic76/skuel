@@ -41,7 +41,7 @@ from typing import TYPE_CHECKING
 
 from core.models.curriculum.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.reports_enums import ExerciseScope
+from core.models.enums.submissions_enums import ExerciseScope
 
 if TYPE_CHECKING:
     from core.models.curriculum.exercise_dto import ExerciseDTO

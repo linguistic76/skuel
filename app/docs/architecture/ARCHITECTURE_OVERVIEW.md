@@ -564,7 +564,7 @@ When Service A needs Service B, but Service B also needs Service A:
 
 ### Domain Documentation
 - **[UNIFIED_USER_ARCHITECTURE.md](./UNIFIED_USER_ARCHITECTURE.md)** - User context system
-- **[REPORTS_ARCHITECTURE.md](./REPORTS_ARCHITECTURE.md)** - Meta-service aggregation pattern
+- **[SUBMISSIONS_ARCHITECTURE.md](./SUBMISSIONS_ARCHITECTURE.md)** - Meta-service aggregation pattern
 
 ### Database & Infrastructure
 - **[SEARCH_ARCHITECTURE.md](./SEARCH_ARCHITECTURE.md)** - Semantic search

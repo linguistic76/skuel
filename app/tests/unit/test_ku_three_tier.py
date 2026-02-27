@@ -292,9 +292,7 @@ class TestKuTypeDispatch:
 
     def test_curriculum_dispatches_to_curriculum_ku(self):
         """EntityType.KU still dispatches to Curriculum."""
-        dto = CurriculumDTO(
-            uid="ku_test_cur", title="Test Curriculum", ku_type=EntityType.KU
-        )
+        dto = CurriculumDTO(uid="ku_test_cur", title="Test Curriculum", ku_type=EntityType.KU)
         ku = Entity.from_dto(dto)
         assert isinstance(ku, Curriculum)
 

@@ -43,7 +43,7 @@ In SKUEL, every entity represents a form of knowledge. Tasks are knowledge about
 - `core/services/ku/` — legitimate KU/Curriculum domain services (stays)
 
 **What `Ku` prefix does NOT mean:** Domain-specific services use domain names, not `Ku`:
-- Reports services: `ReportsCoreService`, `ReportsSubmissionService`, etc. (renamed Feb 2026)
+- Reports services → Submissions/Feedback: `SubmissionsCoreService`, `FeedbackService`, etc. (renamed Feb 2026)
 - Request classes: `TaskCreateRequest`, not ~~`KuTaskCreateRequest`~~ (renamed Feb 2026)
 - Cross-domain services: `AnalyticsEngine`, not ~~`KuAnalyticsEngine`~~ (renamed Feb 2026)
 
@@ -213,7 +213,7 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 | 1-6 | Tasks, Goals, Habits, Events, Choices, Principles | Activity | `{type}_{slug}_{random}` | User activities |
 | 7 | Finance | Finance | `expense_{random}` | Admin-only bookkeeping |
 | 8-10 | KU, LS, LP | Curriculum | `ku_{slug}_{random}`, `ls:{random}`, `lp:{random}` | Knowledge organization |
-| 11 | Reports | Content | `ku_{slug}_{random}` | Submissions (transcripts, exercises, journals) — uses Entity model hierarchy |
+| 11 | Submissions + Feedback | Content | `ku_{slug}_{random}` | Student work + teacher/AI responses — uses Entity model hierarchy |
 | 12 | Groups | Organizational | `group_{slug}_{random}` | Teacher-student class management |
 | 13 | MOC | Organizational | N/A (emergent — any Entity with ORGANIZES) | Non-linear KU navigation |
 | 14 | LifePath | Destination | `lp_{random}` | "Am I living my life path?" |
@@ -243,11 +243,13 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 - **Detail pages:** `/ku/{uid}`, `/ls/{uid}`, `/lp/{uid}` routes with lateral relationships (Phase 5, placeholder data)
 
 **Content/Processing Domain (1)**:
-- **Reports** - All content submissions and AI/system-generated summaries. Uses Entity model hierarchy with EntityType discriminator:
-  - **File submissions** (EntityType.SUBMISSION) — user uploads via `/reports/submit`, `ProcessorType.HUMAN`
+- **Submissions + Feedback** - The educational loop `Ku → Exercise → Submission → Feedback`. Uses Entity model hierarchy with EntityType discriminator:
+  - **File submissions** (EntityType.SUBMISSION) — user uploads via `/submissions/submit`, `ProcessorType.HUMAN`
   - **AI-processed** (EntityType.JOURNAL) — admin uploads via `/journals/submit`, `ProcessorType.LLM`, uses Exercise instructions
   - **AI-generated** (EntityType.AI_REPORT) — system-generated progress reports, `ProcessorType.AUTOMATIC`
   - **Teacher feedback** (EntityType.FEEDBACK_REPORT) — teacher assessments with `subject_uid` for student
+- **Services split:** `core/services/submissions/` (student work) + `core/services/feedback/` (responses)
+- **Models split:** `core/models/submissions/` + `core/models/feedback/`
 
 **Organizational Domains (2)**:
 - **Groups** - Teacher-student class management (ADR-040). Teacher creates group, adds students via MEMBER_OF. Exercises target groups via FOR_GROUP.
@@ -370,7 +372,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 ├── UserOwnedEntity(Entity) +3 fields (user_uid, visibility, priority)
 │   ├── Task, Goal, Habit, Event, Choice, Principle  (Activity)
 │   ├── LifePath                                      (Destination)
-│   └── Submission → Journal, AiReport, Feedback      (Reports)
+│   └── Submission → Journal, AiReport, Feedback      (Submissions/Feedback)
 ├── Curriculum(Entity) +21 fields (base class only)
 │   ├── Ku(Curriculum) — atomic knowledge unit (EntityType.KU)
 │   └── LearningStep, LearningPath, Exercise
@@ -483,7 +485,7 @@ GraphDepth.DEFAULT                             # Named constants
 **Consolidated Enums:** `/core/models/enums/` - one file per domain (finance_enums.py, activity_enums.py, user_enums.py, etc.)
 - `entity_enums.py`: EntityType, EntityStatus, ContentOrigin, ProcessorType (core discriminators)
 - `goal_enums.py`, `habit_enums.py`, `choice_enums.py`, `principle_enums.py`: per-domain enums
-- `reports_enums.py`, `curriculum_enums.py`, `lifepath_enums.py`: domain-specific enums
+- `submissions_enums.py`, `curriculum_enums.py`, `lifepath_enums.py`: domain-specific enums
 - `activity_enums.py`: Priority, ActivityType (calendar/timeline), 5 dual-track assessment levels
 
 **Health Scoring Pattern:** Use typed enums (ContextHealthScore, FinancialHealthTier) instead of string literals for all health/quality assessments.
@@ -499,7 +501,7 @@ GraphDepth.DEFAULT                             # Named constants
 class EntityType(str, Enum):
     TASK, HABIT, GOAL, EVENT, PRINCIPLE, CHOICE = ...  # Activity
     KU, RESOURCE, LEARNING_STEP, LEARNING_PATH, EXERCISE = ...  # Curriculum
-    JOURNAL, SUBMISSION, AI_REPORT, FEEDBACK_REPORT = ...  # Reports
+    JOURNAL, SUBMISSION, AI_REPORT, FEEDBACK_REPORT = ...  # Submissions + Feedback
     LIFE_PATH = "life_path"  # Destination
 
 # NonKuDomain — 4 non-Entity domains
@@ -588,7 +590,7 @@ def create_groups_api_routes(
 | Pattern | Use Case |
 |---------|----------|
 | Config-Driven (UnifiedRelationshipService) | Activity domains (6) |
-| Direct Driver | Curriculum, Reports, User |
+| Direct Driver | Curriculum, Submissions/Feedback, User |
 
 **Protocol-Mixin Compliance (January 2026):**
 ✅ **100% alignment achieved** - All 7 BaseService mixins match their protocol interfaces.
@@ -712,11 +714,11 @@ await service.get_for_user(uid, user_uid)      # Get with ownership check
 
 | Pattern | Domains | Create | Read | Ownership Check |
 |---------|---------|--------|------|-----------------|
-| **USER_OWNED** | Tasks, Goals, Habits, Events, Choices, Principles, Reports | User | Owner only | Yes (returns 404 if not owner) |
+| **USER_OWNED** | Tasks, Goals, Habits, Events, Choices, Principles, Submissions | User | Owner only | Yes (returns 404 if not owner) |
 | **SHARED** | KU, LS, LP | Admin only | All users | No (content is public) |
 | **ADMIN_ONLY** | Finance | Admin only | Admin only | No (admin-gated at route) |
 
-**Key distinction**: Regular users create Activity Domains + Reports. Admins build the knowledge architecture (KU, LS, LP). Finance is admin-only for both reads and writes.
+**Key distinction**: Regular users create Activity Domains + Submissions. Admins build the knowledge architecture (KU, LS, LP). Finance is admin-only for both reads and writes.
 
 **See:** `/docs/patterns/OWNERSHIP_VERIFICATION.md`
 
@@ -743,7 +745,7 @@ EntityType.AI_REPORT.content_origin()  # ContentOrigin.FEEDBACK
 
 **See:** `ContentOrigin` in `/core/models/enums/entity_enums.py`
 
-## Content Sharing (Phase 1: Reports)
+## Content Sharing (Phase 1: Submissions)
 
 **Core Principle:** "Three-level visibility with relationship-based access control"
 
@@ -760,7 +762,7 @@ PUBLIC            → Anyone (portfolio showcase)
 
 **Service:**
 ```python
-from core.services.reports import ReportsSharingService
+from core.services.submissions import SubmissionsSharingService
 
 # Manual share
 await sharing_service.share_report(
@@ -779,7 +781,7 @@ await sharing_service.set_visibility(ku_uid, owner_uid, Visibility.PUBLIC)
 
 **Teacher Review (ADR-040):**
 ```python
-from core.services.reports import TeacherReviewService
+from core.services.feedback import TeacherReviewService
 
 # Get pending reviews (queries SHARES_WITH role='teacher')
 queue = await teacher_review.get_review_queue(teacher_uid)
@@ -791,10 +793,10 @@ await teacher_review.approve_report(report_uid, teacher_uid)
 ```
 
 **UI Routes:**
-- `/reports/{uid}` - Sharing controls (owner only)
+- `/submissions/{uid}` - Sharing controls (owner only)
 - `/profile/shared` - "Shared With Me" inbox
-- `/api/reports/share` - Share with user
-- `/api/reports/shared-with-me` - Inbox API
+- `/api/submissions/share` - Share with user
+- `/api/submissions/shared-with-me` - Inbox API
 - `/api/teaching/review-queue` - Teacher's pending reviews
 - `/api/teaching/review/{uid}/feedback` - Submit feedback
 - `/api/teaching/review/{uid}/approve` - Approve report
@@ -877,7 +879,7 @@ result: PrerequisiteResult = PrerequisiteHelper.check_prerequisites(
 
 **Evolution (2026-02-16):** Events moved from main navbar to profile dropdown — all 6 Activity Domains now live in the avatar menu.
 
-**Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage` from `ui/patterns/sidebar.py`). Custom CSS/JS files deleted. Mobile uses horizontal DaisyUI tabs.
+**Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Submissions, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage` from `ui/patterns/sidebar.py`). Custom CSS/JS files deleted. Mobile uses horizontal DaisyUI tabs.
 
 **Key Files:**
 - `/ui/layouts/base_page.py` - Unified page wrapper (`BasePage`)
@@ -1426,7 +1428,7 @@ POST (Create) -> 201, GET/PUT/DELETE -> 200, POST (Action) -> 200
 All support `scope=ContentScope.USER_OWNED` (default) for multi-tenant security.
 
 **ContentScope Values:**
-- `ContentScope.USER_OWNED` - User-specific content with ownership verification (Activity domains + Reports)
+- `ContentScope.USER_OWNED` - User-specific content with ownership verification (Activity domains + Submissions)
 - `ContentScope.SHARED` - Public reading, admin-only creation (Curriculum domains: KU, LS, LP)
 
 **Example:**
@@ -1521,7 +1523,7 @@ TASKS_CONFIG = create_activity_domain_route_config(
 - Phase 3 migrations (9): transcription, visualization, admin, auth, journals, system, ingestion, insights, nous
 - Phase 5 migration (1): calendar
 - Phase 6 migrations (2): orchestration, advanced
-- Phase 7 migration (1): reports (Multi-factory — sharing routes use separate primary service)
+- Phase 7 migration (1): submissions (Multi-factory — sharing routes use separate primary service)
 
 **Patterns proven:** Standard (API+UI), API-only, UI-only, Multi-factory, Config-Driven Factories
 

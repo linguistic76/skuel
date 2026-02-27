@@ -23,17 +23,17 @@ from typing import Any
 
 from core.events import publish_event
 from core.models.entity import Entity
-from core.models.reports.journal import Journal
+from core.models.submissions.journal import Journal
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
-from core.models.reports.submission import Submission
-from core.models.reports.submission_dto import SubmissionDTO
+from core.models.submissions.submission import Submission
+from core.models.submissions.submission_dto import SubmissionDTO
 from core.ports import BackendOperations, BaseUpdatePayload
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
-from core.services.reports.report_processing_types import (
-    ReportsAIInsights,
-    ReportsProcessingContext,
+from core.services.submissions.submission_processing_types import (
+    SubmissionAIInsights,
+    SubmissionProcessingContext,
 )
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -137,7 +137,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         raw_transcript: str,
         instructions_uid: str | None = None,
         user_uid: str | None = None,
-    ) -> Result[ReportsAIInsights]:
+    ) -> Result[SubmissionAIInsights]:
         """
         Process raw transcript into formatted journal using Neo4j context.
 
@@ -145,9 +145,9 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         REFACTORED (November 10, 2025) - Option A Implementation:
         - No longer creates or stores entities directly
-        - Returns ReportsAIInsights (formatted data only)
-        - ReportsProcessingService stores insights in Report.processed_content
-        - ReportsRelationshipService creates graph relationships
+        - Returns SubmissionAIInsights (formatted data only)
+        - SubmissionsProcessingService stores insights in Report.processed_content
+        - SubmissionsRelationshipService creates graph relationships
 
         Steps:
         1. Pull relevant context from Neo4j (UserContext, recent journals, goals, tasks)
@@ -161,7 +161,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             user_uid: User identifier (optional, enables context-aware processing)
 
         Returns:
-            Result containing ReportsAIInsights (formatted content, title, summary, themes, actions)
+            Result containing SubmissionAIInsights (formatted content, title, summary, themes, actions)
         """
         # Step 1: Pull context from Neo4j (optional, but improves quality)
         context_obj = await self._gather_context(user_uid) if user_uid else None
@@ -195,11 +195,11 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         audio_file_path: str,
         instructions_uid: str | None = None,
         user_uid: str | None = None,
-    ) -> Result[ReportsAIInsights]:
+    ) -> Result[SubmissionAIInsights]:
         """
         Process audio file into formatted journal insights (full pipeline).
 
-        Pipeline: Audio → Transcription → Processing → ReportsAIInsights
+        Pipeline: Audio → Transcription → Processing → SubmissionAIInsights
 
         Args:
             audio_file_path: Path to audio file,
@@ -207,7 +207,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             user_uid: User identifier (REQUIRED for context-aware processing)
 
         Returns:
-            Result containing ReportsAIInsights (formatted content, title, summary, themes)
+            Result containing SubmissionAIInsights (formatted content, title, summary, themes)
         """
         if not user_uid:
             return Result.fail(
@@ -249,7 +249,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
     )
     async def get_journal_context_for_processing(
         self, user_uid: str
-    ) -> Result[ReportsProcessingContext]:
+    ) -> Result[SubmissionProcessingContext]:
         """
         Get comprehensive context for intelligent journal processing.
 
@@ -269,7 +269,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             user_uid: User identifier
 
         Returns:
-            Result containing ReportsProcessingContext with all contextual data
+            Result containing SubmissionProcessingContext with all contextual data
         """
         cypher = """
         MATCH (u:User {uid: $user_uid})
@@ -330,7 +330,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         if not records:
             # No data found - return empty context
             return Result.ok(
-                ReportsProcessingContext(
+                SubmissionProcessingContext(
                     user_uid=user_uid,
                     gathered_at=datetime.now().isoformat(),
                     recent_journals=[],
@@ -437,7 +437,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         }
 
         return Result.ok(
-            ReportsProcessingContext(
+            SubmissionProcessingContext(
                 user_uid=user_uid,
                 gathered_at=datetime.now().isoformat(),
                 recent_journals=recent_journals_list,
@@ -447,14 +447,14 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             )
         )
 
-    async def _gather_context(self, user_uid: str) -> ReportsProcessingContext:
+    async def _gather_context(self, user_uid: str) -> SubmissionProcessingContext:
         """
         Gather relevant context from Neo4j for intelligent editing.
 
         Step 3 Implementation (November 2025): Uses optimized single-query approach
         via get_journal_context_for_processing() instead of multiple separate queries.
 
-        This is a convenience wrapper that returns ReportsProcessingContext directly (not Result[T])
+        This is a convenience wrapper that returns SubmissionProcessingContext directly (not Result[T])
         for backward compatibility with existing code.
 
         Legacy multi-query helpers (_get_recent_journals, etc.) are kept for
@@ -471,7 +471,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         if result.is_error:
             self.logger.warning(f"Failed to gather context: {result.error}")
             # Return empty context on error
-            return ReportsProcessingContext(
+            return SubmissionProcessingContext(
                 user_uid=user_uid,
                 gathered_at=datetime.now().isoformat(),
                 recent_journals=[],
@@ -680,7 +680,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
     @with_error_handling("create_journal_relationships", error_type="database")
     async def _create_journal_relationships(
-        self, journal: Journal, context: ReportsProcessingContext | None
+        self, journal: Journal, context: SubmissionProcessingContext | None
     ) -> Result[dict[str, int]]:
         """
         Create graph relationships connecting journal to context.
@@ -694,7 +694,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         Args:
             journal: The newly created Journal
-            context: ReportsProcessingContext with recent data
+            context: SubmissionProcessingContext with recent data
 
         Returns:
             Result containing counts of relationships created
@@ -746,7 +746,9 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         records = result.value or []
         return records[0]["count"] if records else 0
 
-    async def _create_thematic_relationships(self, journal: Journal, recent_topics: list[str]) -> int:
+    async def _create_thematic_relationships(
+        self, journal: Journal, recent_topics: list[str]
+    ) -> int:
         """Create RELATED_TO relationships for journal reports sharing topics."""
 
         # Get journal's topics (key_topics is only on Submission)
@@ -967,7 +969,7 @@ Preserve the author's voice and authenticity while improving readability.
     @with_error_handling("apply_intelligent_editing", error_type="integration")
     async def _apply_intelligent_editing(
         self, raw_transcript: str, instructions: str, context: dict[str, Any] | None = None
-    ) -> Result[ReportsAIInsights]:
+    ) -> Result[SubmissionAIInsights]:
         """
         Apply AI-powered editing with context awareness.
 
@@ -977,7 +979,7 @@ Preserve the author's voice and authenticity while improving readability.
         3. Returns formatted, context-aware insights
 
         REFACTORED (November 10, 2025) - Option A Implementation:
-        - Returns ReportsAIInsights directly (not dict)
+        - Returns SubmissionAIInsights directly (not dict)
         - No entity creation
 
         Args:
@@ -986,7 +988,7 @@ Preserve the author's voice and authenticity while improving readability.
             context: Neo4j context (goals, tasks, recent journals)
 
         Returns:
-            Result containing ReportsAIInsights (formatted content, metadata)
+            Result containing SubmissionAIInsights (formatted content, metadata)
         """
         # Fail-fast: AI service is required for journal formatting
         if not self.ai_service:
@@ -1025,7 +1027,7 @@ Preserve the author's voice and authenticity while improving readability.
             f"Parsed AI response: title={insights.title[:50] if insights.title else 'None'}"
         )
 
-        # Return ReportsAIInsights directly (not dict)
+        # Return SubmissionAIInsights directly (not dict)
         return Result.ok(insights)
 
     def _build_editing_prompt(
@@ -1239,7 +1241,7 @@ Return ONLY Markdown in this structure:
 - [ ] Action 1
 """
 
-    def _parse_ai_response(self, ai_response: str) -> ReportsAIInsights:
+    def _parse_ai_response(self, ai_response: str) -> SubmissionAIInsights:
         """
         Parse AI response from Markdown format into structured format.
 
@@ -1258,7 +1260,7 @@ Return ONLY Markdown in this structure:
         # Defensive check: handle None or empty response
         if not ai_response:
             self.logger.warning("AI response is None or empty")
-            return ReportsAIInsights(
+            return SubmissionAIInsights(
                 title="Journal Entry",
                 formatted_content="",
                 summary="AI response was empty",
@@ -1327,7 +1329,7 @@ Return ONLY Markdown in this structure:
                 f"Parsed Markdown: title='{title[:50]}', themes={len(themes)}, actions={len(action_items)}"
             )
 
-            return ReportsAIInsights(
+            return SubmissionAIInsights(
                 title=title,
                 formatted_content=formatted_content,
                 summary=summary if summary else formatted_content[:200] + "...",
@@ -1340,7 +1342,7 @@ Return ONLY Markdown in this structure:
         except Exception as e:
             self.logger.error(f"Error parsing Markdown response: {e}", exc_info=True)
             # Fallback: treat entire response as formatted content
-            return ReportsAIInsights(
+            return SubmissionAIInsights(
                 title="Journal Entry",
                 formatted_content=ai_response,
                 summary=ai_response[:200] + "..." if len(ai_response) > 200 else ai_response,

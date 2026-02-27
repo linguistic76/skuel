@@ -1065,10 +1065,10 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
         Example:
             >>> from core.models.enums.activity_enums import ProductivityLevel
             >>> result = await service.assess_productivity_dual_track(
-            ... user_uid="user_mike",
-            ... user_productivity_level=ProductivityLevel.PRODUCTIVE,
-            ... user_evidence="I complete most tasks on time",
-            ... user_reflection="Could improve on complex tasks",
+            ...     user_uid="user_mike",
+            ...     user_productivity_level=ProductivityLevel.PRODUCTIVE,
+            ...     user_evidence="I complete most tasks on time",
+            ...     user_reflection="Could improve on complex tasks",
             ... )
             >>> if result.is_ok:
             ... dual_track = result.value

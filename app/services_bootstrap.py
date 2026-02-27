@@ -27,7 +27,7 @@ THE 14 DOMAINS COMPOSED HERE
     10. lp → LpService - Learning Paths (lp:)
 
 **Content/Organization Domain Services (4):**
-    11. reports → ReportsCoreService - File processing + journals
+    11. submissions → SubmissionsCoreService - File processing + journals
     12. life_path → AnalyticsLifePathService - Life goal alignment
     14. analytics → AnalyticsService - Statistical aggregation
 
@@ -120,7 +120,7 @@ if TYPE_CHECKING:
     from core.services.analytics_service import AnalyticsService
     from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
-    from core.services.background.progress_report_worker import ProgressReportWorker
+    from core.services.background.progress_report_worker import ProgressFeedbackWorker
     from core.services.calendar_optimization_service import CalendarOptimizationService
     from core.services.content_enrichment_service import ContentEnrichmentService
     from core.services.context_aware_ai_service import ContextAwareAIService
@@ -132,8 +132,8 @@ if TYPE_CHECKING:
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.notifications.notification_service import NotificationService
     from core.services.performance_optimization_service import PerformanceOptimizationService
-    from core.services.reports.progress_report_generator import ProgressReportGenerator
-    from core.services.reports.report_schedule_service import ReportsScheduleService
+    from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
+    from core.services.feedback.progress_schedule_service import ProgressScheduleService
     from core.services.transcription.transcription_service import TranscriptionService
     from core.services.user.intelligence.factory import (
         UserContextIntelligenceFactory,
@@ -238,8 +238,8 @@ class Services:
     transcription: "TranscriptionService | None" = None
 
     # Reports feedback services (LLM-based processing)
-    report_feedback: FeedbackOperations | None = (
-        None  # ReportsFeedbackService - LLM feedback on report content
+    feedback: FeedbackOperations | None = (
+        None  # FeedbackService - LLM feedback on report content
     )
     exercises: ExerciseOperations | None = (
         None  # ExerciseService - Reusable LLM instruction templates
@@ -251,22 +251,22 @@ class Services:
     )
 
     # Submission pipeline services
-    reports: SubmissionOperations | None = (
-        None  # ReportsSubmissionService - File upload and submission content management
+    submissions: SubmissionOperations | None = (
+        None  # SubmissionsService - File upload and submission content management
     )
-    reports_core: SubmissionOperations | None = (
-        None  # ReportsCoreService - Content management (categories, tags, bulk operations)
+    submissions_core: SubmissionOperations | None = (
+        None  # SubmissionsCoreService - Content management (categories, tags, bulk operations)
     )
-    reports_sharing: SubmissionSharingOperations | None = (
-        None  # ReportsSharingService - Content sharing and visibility control
+    submissions_sharing: SubmissionSharingOperations | None = (
+        None  # SubmissionsSharingService - Content sharing and visibility control
     )
-    report_processor: SubmissionProcessingOperations | None = (
-        None  # ReportsProcessingService - Orchestrates processing (LLM enrichment, transcription)
+    submissions_processor: SubmissionProcessingOperations | None = (
+        None  # SubmissionsProcessingService - Orchestrates processing (LLM enrichment, transcription)
     )
 
     # Submission search service (unified query interface)
-    reports_query: SubmissionSearchOperations | None = (
-        None  # ReportsSearchService - Query all submission types (journals, essays, projects, etc.)
+    submissions_search: SubmissionSearchOperations | None = (
+        None  # SubmissionsSearchService - Query all submission types (journals, essays, projects, etc.)
     )
 
     # ========================================================================
@@ -378,11 +378,11 @@ class Services:
 
     # Background workers (January 2026)
     embedding_worker: "EmbeddingBackgroundWorker | None" = None
-    progress_report_worker: "ProgressReportWorker | None" = None
+    progress_report_worker: "ProgressFeedbackWorker | None" = None
 
     # Progress report generation (February 2026)
-    progress_generator: "ProgressReportGenerator | None" = None
-    report_schedule: "ReportsScheduleService | None" = None
+    progress_feedback_generator: "ProgressFeedbackGenerator | None" = None
+    progress_schedule: "ProgressScheduleService | None" = None
 
     # ========================================================================
     # LATERAL RELATIONSHIP SERVICES (January 2026) - Core Graph Architecture
@@ -1132,10 +1132,10 @@ async def compose_services(
         progress_backend = UniversalNeo4jBackend[UserProgress](
             driver, NeoLabel.USER_PROGRESS, UserProgress, prometheus_metrics=prometheus_metrics
         )
-        from core.models.reports.submission import Submission
+        from core.models.submissions.submission import Submission
 
         # NOTE: vectors_backend REMOVED (January 2026) - was unused dead code
-        # reports_backend uses :Entity label for cross-domain queries (reports span multiple EntityTypes)
+        # submissions_backend uses :Entity label for cross-domain queries (reports span multiple EntityTypes)
         # entity_class=Submission: base class for all 4 report types (SUBMISSION, JOURNAL, AI_REPORT, FEEDBACK_REPORT)
         reports_backend = UniversalNeo4jBackend[Submission](
             driver, NeoLabel.ENTITY, Submission, prometheus_metrics=prometheus_metrics
@@ -1552,9 +1552,9 @@ async def compose_services(
         # Create Reports feedback and exercise services
         from core.models.curriculum.exercise import Exercise
         from core.services.exercises import ExerciseService
-        from core.services.reports import ReportsFeedbackService
+        from core.services.feedback import FeedbackService
 
-        report_feedback_service = ReportsFeedbackService(
+        report_feedback_service = FeedbackService(
             openai_service=ai_service,
             anthropic_service=None,  # Only OpenAI configured for now
             executor=query_executor,  # Creates FEEDBACK_REPORT entity + FEEDBACK_FOR relationship
@@ -1586,7 +1586,7 @@ async def compose_services(
         logger.info("✅ GroupService created (ADR-040)")
 
         # Create teacher review service (ADR-040: Teacher Assignment Workflow)
-        from core.services.reports.teacher_review_service import TeacherReviewService
+        from core.services.feedback.teacher_review_service import TeacherReviewService
 
         teacher_review_service = TeacherReviewService(
             executor=query_executor,
@@ -1626,29 +1626,29 @@ async def compose_services(
         except Exception as e:
             logger.warning(f"Failed to load default transcript project: {e}")
 
-        # Create reports submission and processing pipeline services
-        from core.services.reports import (
-            ReportsCoreService,
-            ReportsProcessingService,
-            ReportsSearchService,
-            ReportsSubmissionService,
+        # Create submissions submission and processing pipeline services
+        from core.services.submissions import (
+            SubmissionsCoreService,
+            SubmissionsProcessingService,
+            SubmissionsSearchService,
+            SubmissionsService,
         )
 
-        # Get storage path from environment (default: /tmp/skuel_reports)
+        # Get storage path from environment (default: /tmp/skuel_submissions)
         storage_path = os.getenv("SKUEL_REPORT_STORAGE", "/tmp/skuel_reports")
 
-        report_service = ReportsSubmissionService(
+        report_service = SubmissionsService(
             backend=reports_backend, storage_path=storage_path, event_bus=event_bus
         )
 
         # Create Reports sharing service (content sharing)
-        from core.services.reports import ReportsSharingService
+        from core.services.submissions import SubmissionsSharingService
 
-        report_sharing_service = ReportsSharingService(executor=query_executor)
+        report_sharing_service = SubmissionsSharingService(executor=query_executor)
 
         # Create Reports core service (content management: categories, tags, bulk operations)
         # February 2026: content_enrichment for handle_transcription_completed
-        reports_core_service = ReportsCoreService(
+        reports_core_service = SubmissionsCoreService(
             backend=reports_backend,
             event_bus=event_bus,
             sharing_service=report_sharing_service,
@@ -1706,7 +1706,7 @@ async def compose_services(
         )
         logger.info(f"✅ Journal output generator created (storage: {journal_storage})")
 
-        report_processor = ReportsProcessingService(
+        report_processor = SubmissionsProcessingService(
             ku_submission_service=report_service,
             transcription_service=core_services["transcription"],  # Simplified TranscriptionService
             content_enrichment=content_enrichment,  # For LLM formatting
@@ -1716,7 +1716,7 @@ async def compose_services(
         )
 
         # Create Reports search service (unified query interface)
-        reports_query_service = ReportsSearchService(
+        reports_query_service = SubmissionsSearchService(
             ku_backend=reports_backend, event_bus=event_bus
         )
 
@@ -1729,16 +1729,16 @@ async def compose_services(
         )
 
         # Create progress report generator and schedule service
-        from core.models.reports.ku_schedule import KuSchedule
-        from core.services.reports.progress_report_generator import ProgressReportGenerator
-        from core.services.reports.report_schedule_service import ReportsScheduleService
+        from core.models.submissions.ku_schedule import KuSchedule
+        from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
+        from core.services.feedback.progress_schedule_service import ProgressScheduleService
 
         report_schedule_backend = UniversalNeo4jBackend[KuSchedule](
             driver, NeoLabel.KU_SCHEDULE, KuSchedule, prometheus_metrics=prometheus_metrics
         )
-        report_schedule_service = ReportsScheduleService(backend=report_schedule_backend)
+        report_schedule_service = ProgressScheduleService(backend=report_schedule_backend)
 
-        progress_generator = ProgressReportGenerator(
+        progress_generator = ProgressFeedbackGenerator(
             executor=query_executor,
             ku_backend=reports_backend,
             user_service=core_services["user"],
@@ -1748,11 +1748,11 @@ async def compose_services(
 
         # Create progress report background worker (February 2026)
         # Worker checks hourly for due schedules and generates AI_REPORT Entity nodes
-        from core.services.background.progress_report_worker import ProgressReportWorker
+        from core.services.background.progress_report_worker import ProgressFeedbackWorker
 
-        progress_report_worker = ProgressReportWorker(
+        progress_report_worker = ProgressFeedbackWorker(
             schedule_service=report_schedule_service,
-            progress_generator=progress_generator,
+            progress_feedback_generator=progress_generator,
             check_interval_seconds=3600,  # Hourly check
         )
         logger.info("✅ Progress report generator, schedule service, and background worker created")
@@ -2012,7 +2012,7 @@ async def compose_services(
             reports_core_service.handle_transcription_completed,
         )
         logger.info(
-            "✅ ReportsCoreService subscribed to TranscriptionCompleted "
+            "✅ SubmissionsCoreService subscribed to TranscriptionCompleted "
             "(automatic journal report creation from voice transcriptions)"
         )
 
@@ -2345,7 +2345,7 @@ async def compose_services(
             cross_domain=learning_services["cross_domain"],
             # Content
             content_enrichment=content_enrichment,
-            report_feedback=report_feedback_service,  # LLM feedback on reports/journals
+            feedback=report_feedback_service,  # LLM feedback on submissions/journals
             exercises=exercise_service,  # Reusable LLM instruction templates
             journal_generator=journal_generator,  # je_output formatting and disk storage
             # Group & Teaching (ADR-040: Teacher exercise workflow)
@@ -2355,14 +2355,14 @@ async def compose_services(
             notification_service=notification_service,
             # Note: audio_service removed (Dec 2025) - use transcription service directly
             # Reports
-            reports=report_service,
-            reports_core=reports_core_service,  # Content management (categories, tags, bulk ops)
-            reports_sharing=report_sharing_service,  # Report portfolio sharing
-            report_processor=report_processor,
-            reports_query=reports_query_service,  # Unified report queries
-            # Progress reports (February 2026)
-            progress_generator=progress_generator,
-            report_schedule=report_schedule_service,
+            submissions=report_service,
+            submissions_core=reports_core_service,  # Content management (categories, tags, bulk ops)
+            submissions_sharing=report_sharing_service,  # Submission portfolio sharing
+            submissions_processor=report_processor,
+            submissions_search=reports_query_service,  # Unified submission queries
+            # Progress feedback (February 2026)
+            progress_feedback_generator=progress_generator,
+            progress_schedule=report_schedule_service,
             # System
             # Note: sync field removed (January 2026) - use unified_ingestion
             unified_ingestion=unified_ingestion,  # ADR-014: Merged MD + YAML ingestion
@@ -2432,13 +2432,13 @@ async def compose_services(
         # - Temporal Domain (1): Calendar
 
         from core.services.analytics_relationship_service import AnalyticsRelationshipService
-        from core.services.reports import ReportsRelationshipService
+        from core.services.submissions import SubmissionsRelationshipService
         from core.services.user.intelligence import UserContextIntelligenceFactory
 
         # Create processing domain relationship services
         # NOTE: JournalRelationshipService REMOVED (February 2026) - Journal merged into Entity model
-        # ReportsRelationshipService handles all report content relationships
-        report_relationship_service = ReportsRelationshipService(backend=reports_backend)
+        # SubmissionsRelationshipService handles all report content relationships
+        report_relationship_service = SubmissionsRelationshipService(backend=reports_backend)
         analytics_relationship_service = AnalyticsRelationshipService(driver)
         logger.info("✅ Processing domain relationship services created (Reports, Analytics)")
 
@@ -2459,8 +2459,8 @@ async def compose_services(
             lp=learning_services[
                 "learning_paths"
             ].relationships,  # Factory expects 'lp' parameter name
-            # Processing Domains (2) - journals merged into reports Feb 2026
-            reports=report_relationship_service,  # ReportsRelationshipService
+            # Processing Domains (2) - journals merged into submissions Feb 2026
+            submissions=report_relationship_service,  # SubmissionsRelationshipService
             analytics=analytics_relationship_service,  # AnalyticsRelationshipService
             # Temporal Domain (1)
             calendar=calendar_service,

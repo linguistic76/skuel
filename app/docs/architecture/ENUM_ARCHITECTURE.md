@@ -19,7 +19,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `habit_enums.py` | Habit classification and completion | HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus |
 | `choice_enums.py` | Decision types | ChoiceType |
 | `principle_enums.py` | Principle classification and alignment | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel |
-| `reports_enums.py` | Report processing and scheduling | ExerciseScope, FormattingStyle, AnalysisDepth, ScheduleType, ProgressDepth |
+| `submissions_enums.py` | Report processing and scheduling | ExerciseScope, FormattingStyle, AnalysisDepth, ScheduleType, ProgressDepth |
 | `curriculum_enums.py` | Learning path and step types | LpType, StepDifficulty |
 | `lifepath_enums.py` | Vision theme classification | ThemeCategory |
 | `scheduling_enums.py` | Time, recurrence, energy | RecurrencePattern, TimeOfDay, EnergyLevel |
@@ -222,7 +222,7 @@ CompletionStatus has dynamic methods: `counts_as_success()` (DONE and PARTIAL co
 
 AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track assessment pattern.
 
-**Reports** (`reports_enums.py`):
+**Submissions + Feedback** (`submissions_enums.py`):
 
 | Enum | Values | Purpose |
 |------|--------|---------|

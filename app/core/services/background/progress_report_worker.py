@@ -32,7 +32,7 @@ class ProgressReportWorker:
     def __init__(
         self,
         schedule_service: Any,  # ReportScheduleService
-        progress_generator: Any,  # ProgressReportGenerator
+        progress_generator: Any,  # ProgressFeedbackGenerator
         check_interval_seconds: int = 3600,
     ) -> None:
         self.schedule_service = schedule_service
@@ -109,7 +109,7 @@ class ProgressReportWorker:
     @staticmethod
     def _schedule_type_to_period(schedule_type: Any) -> str:
         """Map schedule type to time period string."""
-        from core.models.enums.reports_enums import ScheduleType
+        from core.models.enums.submissions_enums import ScheduleType
 
         mapping = {
             ScheduleType.WEEKLY: "7d",

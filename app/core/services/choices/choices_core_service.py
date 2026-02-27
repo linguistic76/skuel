@@ -219,7 +219,9 @@ class ChoicesCoreService(BaseService["BackendOperations[Choice]", Choice]):
 
         return None  # All validations passed
 
-    async def create_choice(self, choice_request: ChoiceCreateRequest, user_uid: str) -> Result[Choice]:
+    async def create_choice(
+        self, choice_request: ChoiceCreateRequest, user_uid: str
+    ) -> Result[Choice]:
         """
         Create a basic choice.
 

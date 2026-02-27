@@ -13,13 +13,13 @@ REST API for file submission and processing pipeline.
 - Report statistics
 
 Routes:
-- POST /api/reports/upload - Upload file
+- POST /api/submissions/upload - Upload file
 - GET /api/reports - List reports
-- GET /api/reports/{uid} - Get report details
-- POST /api/reports/{uid}/process - Process report
-- GET /api/reports/{uid}/download - Download original file
-- GET /api/reports/{uid}/download-processed - Download processed file
-- GET /api/reports/statistics - Get user statistics
+- GET /api/submissions/{uid} - Get report details
+- POST /api/submissions/{uid}/process - Process report
+- GET /api/submissions/{uid}/download - Download original file
+- GET /api/submissions/{uid}/download-processed - Download processed file
+- GET /api/submissions/statistics - Get user statistics
 """
 
 import tempfile
@@ -52,7 +52,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorTy
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-logger = get_logger("skuel.routes.reports.api")
+logger = get_logger("skuel.routes.submissions.api")
 
 
 # ============================================================================
@@ -73,7 +73,7 @@ def cleanup_temp_file(filepath: str):
 # ============================================================================
 
 
-def create_reports_api_routes(
+def create_submissions_api_routes(
     _app: Any,
     rt: Any,
     report_service: "SubmissionOperations",
@@ -88,9 +88,9 @@ def create_reports_api_routes(
         app: FastHTML application instance
         rt: Router instance
         report_service: ReportSubmissionService
-        processing_service: ReportsProcessingService
-        reports_query_service: ReportsSearchService for cross-domain queries
-        reports_core_service: ReportsCoreService for content management
+        processing_service: SubmissionsProcessingService
+        reports_query_service: SubmissionsSearchService for cross-domain queries
+        reports_core_service: SubmissionsCoreService for content management
     """
 
     # FAIL-FAST: Validate required services BEFORE any route registration
@@ -108,7 +108,7 @@ def create_reports_api_routes(
     # FILE UPLOAD
     # ========================================================================
 
-    @rt("/api/reports/upload")
+    @rt("/api/submissions/upload")
     @boundary_handler(success_status=201)
     async def upload_report_route(request: Request) -> Result[Any]:
         """
@@ -269,9 +269,9 @@ def create_reports_api_routes(
     # LIST & QUERY
     # ========================================================================
 
-    @rt("/api/reports")
+    @rt("/api/submissions")
     @boundary_handler()
-    async def list_reports_route(
+    async def list_submissions_route(
         request: Request,
         user_uid: str | None = None,
         report_type: str | None = None,
@@ -313,7 +313,7 @@ def create_reports_api_routes(
                 return Result.fail(Errors.validation(f"Invalid status: {status}", field="status"))
 
         # List reports
-        result = await report_service.list_reports(
+        result = await report_service.list_submissions(
             user_uid=user_uid,
             ku_type=parsed_report_type,
             status=parsed_status,
@@ -339,7 +339,7 @@ def create_reports_api_routes(
     # GET REPORT DETAILS
     # ========================================================================
 
-    @rt("/api/reports/get")
+    @rt("/api/submissions/get")
     @boundary_handler()
     async def get_report_route(request: Request, uid: str) -> Result[Any]:
         """
@@ -366,7 +366,7 @@ def create_reports_api_routes(
     # GET REPORT PROCESSED CONTENT
     # ========================================================================
 
-    @rt("/api/reports/content")
+    @rt("/api/submissions/content")
     @boundary_handler()
     async def get_report_content_route(request: Request, uid: str) -> Result[Any]:
         """
@@ -410,7 +410,7 @@ def create_reports_api_routes(
     # PROCESS REPORT
     # ========================================================================
 
-    @rt("/api/reports/process")
+    @rt("/api/submissions/process")
     @boundary_handler()
     async def process_report_route(request: Request, uid: str) -> Result[Any]:
         """
@@ -452,7 +452,7 @@ def create_reports_api_routes(
     # FILE DOWNLOADS
     # ========================================================================
 
-    @rt("/api/reports/download")
+    @rt("/api/submissions/download")
     async def download_original_file_route(request: Request, uid: str):
         """
         Download original uploaded file.
@@ -506,7 +506,7 @@ def create_reports_api_routes(
             background=BackgroundTask(cleanup_temp_file, temp_file_path),
         )
 
-    @rt("/api/reports/download-processed")
+    @rt("/api/submissions/download-processed")
     async def download_processed_file_route(request: Request, uid: str):
         """
         Download processed file (if available).
@@ -571,7 +571,7 @@ def create_reports_api_routes(
     # STATISTICS
     # ========================================================================
 
-    @rt("/api/reports/statistics")
+    @rt("/api/submissions/statistics")
     @boundary_handler()
     async def get_statistics_route(request: Request, user_uid: str | None = None) -> Result[Any]:
         """
@@ -599,7 +599,7 @@ def create_reports_api_routes(
 
     if reports_core_service:
 
-        @rt("/api/reports/categorize")
+        @rt("/api/submissions/categorize")
         @boundary_handler()
         async def categorize_report_route(
             request: Request, report_uid: str, user_uid: str
@@ -630,7 +630,7 @@ def create_reports_api_routes(
                 uid=report_uid, category=req.category
             )
 
-        @rt("/api/reports/tags/add")
+        @rt("/api/submissions/tags/add")
         @boundary_handler()
         async def add_tags_route(request: Request, report_uid: str, user_uid: str) -> Result[Any]:
             """
@@ -657,7 +657,7 @@ def create_reports_api_routes(
 
             return await reports_core_service.add_tags(uid=report_uid, tags=req.tags)
 
-        @rt("/api/reports/tags/remove")
+        @rt("/api/submissions/tags/remove")
         @boundary_handler()
         async def remove_tags_route(
             request: Request, report_uid: str, user_uid: str
@@ -686,7 +686,7 @@ def create_reports_api_routes(
 
             return await reports_core_service.remove_tags(uid=report_uid, tags=req.tags)
 
-        @rt("/api/reports/publish")
+        @rt("/api/submissions/publish")
         @boundary_handler()
         async def publish_report_route(
             request: Request, report_uid: str, user_uid: str
@@ -709,7 +709,7 @@ def create_reports_api_routes(
 
             return await reports_core_service.publish_report(uid=report_uid)
 
-        @rt("/api/reports/archive")
+        @rt("/api/submissions/archive")
         @boundary_handler()
         async def archive_report_route(
             request: Request, report_uid: str, user_uid: str
@@ -732,7 +732,7 @@ def create_reports_api_routes(
 
             return await reports_core_service.archive_report(uid=report_uid)
 
-        @rt("/api/reports/draft")
+        @rt("/api/submissions/draft")
         @boundary_handler()
         async def mark_as_draft_route(
             request: Request, report_uid: str, user_uid: str
@@ -755,7 +755,7 @@ def create_reports_api_routes(
 
             return await reports_core_service.mark_as_draft(uid=report_uid)
 
-        @rt("/api/reports/bulk/categorize")
+        @rt("/api/submissions/bulk/categorize")
         @boundary_handler()
         async def bulk_categorize_route(request: Request, user_uid: str) -> Result[Any]:
             """
@@ -787,7 +787,7 @@ def create_reports_api_routes(
                 uids=req.ku_uids, category=req.category
             )
 
-        @rt("/api/reports/bulk/tag")
+        @rt("/api/submissions/bulk/tag")
         @boundary_handler()
         async def bulk_tag_route(request: Request, user_uid: str) -> Result[Any]:
             """
@@ -817,7 +817,7 @@ def create_reports_api_routes(
 
             return await reports_core_service.bulk_tag(uids=req.ku_uids, tags=req.tags)
 
-        @rt("/api/reports/bulk/delete")
+        @rt("/api/submissions/bulk/delete")
         @boundary_handler()
         async def bulk_delete_route(request: Request, user_uid: str) -> Result[Any]:
             """
@@ -849,7 +849,7 @@ def create_reports_api_routes(
                 uids=req.ku_uids, soft_delete=req.soft_delete
             )
 
-        @rt("/api/reports/by-category")
+        @rt("/api/submissions/by-category")
         @boundary_handler()
         async def get_by_category_route(
             request: Request, user_uid: str, category: str, limit: int = 50
@@ -866,7 +866,7 @@ def create_reports_api_routes(
                 category=category, limit=limit, user_uid=user_uid
             )
 
-        @rt("/api/reports/recent")
+        @rt("/api/submissions/recent")
         @boundary_handler()
         async def get_recent_route(request: Request, user_uid: str, limit: int = 10) -> Result[Any]:
             """
@@ -876,7 +876,7 @@ def create_reports_api_routes(
             - user_uid: User UID
             - limit: Max results (default 10)
             """
-            return await reports_core_service.get_recent_reports(limit=limit, user_uid=user_uid)
+            return await reports_core_service.get_recent_submissions(limit=limit, user_uid=user_uid)
 
         logger.info("Report content management routes registered (12 new routes)")
 
@@ -884,7 +884,7 @@ def create_reports_api_routes(
 
     return [
         upload_report_route,
-        list_reports_route,
+        list_submissions_route,
         get_report_route,
         process_report_route,
         download_original_file_route,

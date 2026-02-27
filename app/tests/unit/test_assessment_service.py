@@ -3,7 +3,7 @@ Unit Tests for Assessment Service Methods
 ============================================
 
 Tests create_assessment, get_assessments_for_student,
-and get_assessments_by_teacher on ReportsCoreService.
+and get_assessments_by_teacher on SubmissionsCoreService.
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums.entity_enums import EntityType
-from core.models.reports.feedback import Feedback
+from core.models.feedback.feedback import Feedback
 from core.utils.result_simplified import Errors, Result
 
 # Helpers for mocking execute_query call sequence (returns Result[list[dict]])
@@ -47,10 +47,10 @@ def mock_sharing_service():
 
 @pytest.fixture
 def core_service(mock_backend, mock_event_bus, mock_sharing_service):
-    """Create ReportsCoreService with mocked deps."""
-    from core.services.reports.reports_core_service import ReportsCoreService
+    """Create SubmissionsCoreService with mocked deps."""
+    from core.services.submissions.submissions_core_service import SubmissionsCoreService
 
-    return ReportsCoreService(
+    return SubmissionsCoreService(
         backend=mock_backend,
         event_bus=mock_event_bus,
         sharing_service=mock_sharing_service,

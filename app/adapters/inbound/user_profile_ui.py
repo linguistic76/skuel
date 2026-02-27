@@ -880,8 +880,8 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         from fasthtml.common import H2, H4, A, Button, Div, P, Span
 
         shared_reports = []
-        if services.reports_sharing:
-            reports_result = await services.reports_sharing.get_reports_shared_with_me(
+        if services.submissions_sharing:
+            reports_result = await services.submissions_sharing.get_reports_shared_with_me(
                 user_uid=user_uid,
                 limit=50,
             )
@@ -918,7 +918,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                     Div(
                         A(
                             "View",
-                            href=f"/reports/{report.uid}",
+                            href=f"/submissions/{report.uid}",
                             cls="btn btn-xs btn-primary",
                         ),
                         cls="mt-3",

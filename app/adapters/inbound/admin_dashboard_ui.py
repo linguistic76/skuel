@@ -288,7 +288,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                 active_section="users",
                 admin_username=current_user.display_name or current_user.title,
                 title="User Not Found",
-            request=request,
+                request=request,
             )
 
         user = result.value
@@ -312,8 +312,8 @@ def create_admin_dashboard_routes(_app, rt, services):
         # Fetch user's reports
         reports_data: list = []
         try:
-            if services.reports_core:
-                reports_result = await services.reports_core.get_recent_reports(
+            if services.submissions_core:
+                reports_result = await services.submissions_core.get_recent_submissions(
                     user_uid=uid, limit=20
                 )
                 if not reports_result.is_error and reports_result.value:
@@ -678,7 +678,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                 active_section="learning",
                 admin_username=current_user.display_name or current_user.title,
                 title="User Not Found",
-            request=request,
+                request=request,
             )
 
         user = user_result.value

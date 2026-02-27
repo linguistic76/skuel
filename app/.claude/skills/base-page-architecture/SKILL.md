@@ -217,12 +217,12 @@ async def get_admin_dashboard(request: Request):
 ```python
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
-@rt("/reports")
+@rt("/submissions")
 async def reports_hub(request: Request):
     items = [
-        SidebarItem("Submit", "/reports/submit", "submit", icon="📤"),
-        SidebarItem("Browse", "/reports/browse", "browse", icon="📂"),
-        SidebarItem("Projects", "/reports/projects", "projects", icon="📋"),
+        SidebarItem("Submit", "/submissions/submit", "submit", icon="📤"),
+        SidebarItem("Browse", "/submissions/browse", "browse", icon="📂"),
+        SidebarItem("Projects", "/submissions/projects", "projects", icon="📋"),
     ]
 
     content = Div(

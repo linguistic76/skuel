@@ -30,6 +30,7 @@ import pytest
 
 from core.events import GoalEmbeddingRequested, TaskEmbeddingRequested
 
+
 class TestEmbeddingWorkerLifecycle:
     """Test worker startup and shutdown."""
 

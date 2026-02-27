@@ -108,14 +108,14 @@ def create_curriculum_ui_routes(app: Any, rt: Any, services: Any) -> None:
             _curriculum_card(
                 icon="📄",
                 name="Submissions",
-                href="/reports",
+                href="/submissions",
                 primary_count=0,
                 primary_label="submitted",
             ),
             _curriculum_card(
                 icon="💬",
                 name="Feedback",
-                href="/reports/feedback",
+                href="/submissions/feedback",
                 primary_count=0,
                 primary_label="received",
             ),

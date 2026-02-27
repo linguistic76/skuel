@@ -5,12 +5,12 @@ Report Sharing API Routes
 REST API for report sharing, visibility control, and access management.
 
 Routes:
-- POST /api/reports/share - Share report with user
-- POST /api/reports/unshare - Revoke sharing
-- POST /api/reports/set-visibility - Set visibility level
-- GET /api/reports/shared-with-me - Get reports shared with current user
-- GET /api/reports/shared-users - Get users report is shared with
-- GET /api/reports/public - Browse public reports (portfolio showcase)
+- POST /api/submissions/share - Share report with user
+- POST /api/submissions/unshare - Revoke sharing
+- POST /api/submissions/set-visibility - Set visibility level
+- GET /api/submissions/shared-with-me - Get reports shared with current user
+- GET /api/submissions/shared-users - Get users report is shared with
+- GET /api/submissions/public - Browse public reports (portfolio showcase)
 
 See: /docs/patterns/SHARING_PATTERNS.md (to be created)
 """
@@ -32,7 +32,7 @@ from core.models.enums.metadata_enums import Visibility
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
-logger = get_logger("skuel.routes.reports.sharing")
+logger = get_logger("skuel.routes.submissions.sharing")
 
 
 # ============================================================================
@@ -67,7 +67,7 @@ class SetVisibilityRequest(BaseModel):
 # ============================================================================
 
 
-def create_reports_sharing_api_routes(
+def create_submissions_sharing_api_routes(
     _app: Any,
     rt: Any,
     sharing_service: "SubmissionSharingOperations",
@@ -80,13 +80,13 @@ def create_reports_sharing_api_routes(
         _app: FastHTML app instance
         rt: Route decorator
         sharing_service: ReportSharingService instance
-        core_service: Optional ReportsCoreService for additional operations
+        core_service: Optional SubmissionsCoreService for additional operations
 
     Returns:
         List of route handlers
     """
 
-    @rt("/api/reports/share", methods=["POST"])
+    @rt("/api/submissions/share", methods=["POST"])
     @boundary_handler(success_status=200)
     async def share_report(
         request: Request,
@@ -127,7 +127,7 @@ def create_reports_sharing_api_routes(
             }
         )
 
-    @rt("/api/reports/unshare", methods=["POST"])
+    @rt("/api/submissions/unshare", methods=["POST"])
     @boundary_handler(success_status=200)
     async def unshare_report(
         request: Request,
@@ -165,7 +165,7 @@ def create_reports_sharing_api_routes(
             }
         )
 
-    @rt("/api/reports/set-visibility", methods=["POST"])
+    @rt("/api/submissions/set-visibility", methods=["POST"])
     @boundary_handler(success_status=200)
     async def set_visibility(
         request: Request,
@@ -214,7 +214,7 @@ def create_reports_sharing_api_routes(
             }
         )
 
-    @rt("/api/reports/shared-with-me")
+    @rt("/api/submissions/shared-with-me")
     @boundary_handler(success_status=200)
     async def get_shared_with_me(request: Request) -> Result[dict[str, Any]]:
         """
@@ -267,7 +267,7 @@ def create_reports_sharing_api_routes(
             }
         )
 
-    @rt("/api/reports/shared-users")
+    @rt("/api/submissions/shared-users")
     @boundary_handler(success_status=200)
     async def get_shared_users(request: Request) -> Result[dict[str, Any]]:
         """
@@ -335,7 +335,7 @@ def create_reports_sharing_api_routes(
             }
         )
 
-    @rt("/api/reports/public")
+    @rt("/api/submissions/public")
     @boundary_handler(success_status=200)
     async def get_public_reports(request: Request) -> Result[dict[str, Any]]:
         """

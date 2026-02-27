@@ -193,7 +193,9 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[LearningPath, GraphContext]]:
+    async def get_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[LearningPath, GraphContext]]:
         """
         Get learning path with full graph context.
 

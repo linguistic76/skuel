@@ -11,7 +11,7 @@ Responsibilities:
 - Query by type, status, user
 
 Does NOT handle:
-- Processing logic (ReportsProcessingService)
+- Processing logic (SubmissionsProcessingService)
 - AI content enrichment (ContentEnrichmentService)
 """
 
@@ -26,8 +26,8 @@ from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.relationship_names import RelationshipName
-from core.models.reports.submission import Submission
-from core.models.reports.submission_dto import SubmissionDTO
+from core.models.submissions.submission import Submission
+from core.models.submissions.submission_dto import SubmissionDTO
 from core.ports import BackendOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -37,7 +37,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class ReportsSubmissionService(BaseService[BackendOperations[Entity], Entity]):
+class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
     """
     Service for file submission and report management.
 
@@ -72,7 +72,7 @@ class ReportsSubmissionService(BaseService[BackendOperations[Entity], Entity]):
             storage_path: Base path for file storage (default: /tmp/skuel_reports)
             event_bus: Event bus for domain events (optional)
         """
-        super().__init__(backend, "ReportsSubmissionService")
+        super().__init__(backend, "SubmissionsService")
         self.storage_path = Path(storage_path)
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.ku_submission")
@@ -254,8 +254,8 @@ class ReportsSubmissionService(BaseService[BackendOperations[Entity], Entity]):
     # KU QUERIES
     # ========================================================================
 
-    @with_error_handling("list_reports")
-    async def list_reports(
+    @with_error_handling("list_submissions")
+    async def list_submissions(
         self,
         user_uid: str,
         ku_type: EntityType | None = None,

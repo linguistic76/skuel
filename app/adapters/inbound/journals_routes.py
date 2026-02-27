@@ -3,7 +3,7 @@ Journals Routes — Admin-Only AI Submission
 =============================================
 
 Wires Journal UI routes using DomainRouteConfig.
-No separate API factory — reuses existing /api/reports/* endpoints.
+No separate API factory — reuses existing /api/submissions/* endpoints.
 
 Admin uploads files → processed by AI using Assignment instructions.
 """
@@ -15,17 +15,17 @@ from adapters.inbound.route_factories import DomainRouteConfig, register_domain_
 
 
 def _noop_api_factory(_app: Any, _rt: Any, _primary: Any, **_kw: Any) -> list[Any]:
-    """No-op API factory — journals reuse /api/reports/* endpoints."""
+    """No-op API factory — journals reuse /api/submissions/* endpoints."""
     return []
 
 
 JOURNALS_CONFIG = DomainRouteConfig(
     domain_name="journals",
-    primary_service_attr="reports",
+    primary_service_attr="submissions",
     api_factory=_noop_api_factory,
     ui_factory=create_journals_ui_routes,
     ui_related_services={
-        "processing_service": "report_processor",
+        "processing_service": "submissions_processor",
         "report_projects_service": "exercises",
         "user_service": "user_service",
         "journal_generator": "journal_generator",

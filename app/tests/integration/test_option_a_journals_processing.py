@@ -6,7 +6,7 @@ Tests the entity processing pipeline for file submissions.
 
 NOTE (February 2026): Tests updated for domain-first Entity model.
 Reports use EntityType.SUBMISSION discrimination.
-The ReportsProcessingService:
+The SubmissionsProcessingService:
 - Routes files to appropriate processors based on file type
 - Audio files: transcribed via TranscriptionService
 - Text files: read directly from storage
@@ -31,8 +31,8 @@ import pytest_asyncio
 
 from core.models.curriculum.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.reports.submission import Submission
-from core.services.reports import ReportsProcessingService
+from core.models.submissions.submission import Submission
+from core.services.submissions import SubmissionsProcessingService
 from core.utils.result_simplified import Errors, Result
 
 
@@ -46,7 +46,7 @@ class TestOptionAJournalsProcessing:
 
     @pytest_asyncio.fixture
     async def mock_report_service(self):
-        """Mock ReportsSubmissionService."""
+        """Mock SubmissionsService."""
         service = AsyncMock()
 
         # Mock entity with transcript type
@@ -151,12 +151,12 @@ class TestOptionAJournalsProcessing:
         mock_report_service,
         mock_transcription_service,
     ):
-        """Create ReportsProcessingService with mocked dependencies.
+        """Create SubmissionsProcessingService with mocked dependencies.
 
         Note: content_enrichment and report_relationship_service are NOT passed
         because they are NOT used after the January 2026 domain separation.
         """
-        return ReportsProcessingService(
+        return SubmissionsProcessingService(
             ku_submission_service=mock_report_service,
             transcription_service=mock_transcription_service,
             content_enrichment=None,  # Not used - journals have their own domain
@@ -256,7 +256,7 @@ class TestOptionAJournalsProcessing:
             b"This is the text file content."
         )
 
-        pipeline = ReportsProcessingService(
+        pipeline = SubmissionsProcessingService(
             ku_submission_service=mock_report_service,
             transcription_service=None,  # Not needed for text
         )
@@ -288,7 +288,7 @@ class TestOptionAJournalsProcessing:
             Errors.system(message="Transcription service unavailable", operation="create")
         )
 
-        pipeline = ReportsProcessingService(
+        pipeline = SubmissionsProcessingService(
             ku_submission_service=mock_report_service,
             transcription_service=mock_transcription_service,
         )
@@ -326,7 +326,7 @@ class TestOptionAJournalsProcessing:
         mock_service = AsyncMock()
         mock_service.get_report.return_value = Result.ok(processing_ku)
 
-        pipeline = ReportsProcessingService(
+        pipeline = SubmissionsProcessingService(
             ku_submission_service=mock_service,
         )
 
@@ -359,7 +359,7 @@ class TestOptionAJournalsProcessing:
         mock_service = AsyncMock()
         mock_service.get_report.return_value = Result.ok(pdf_ku)
 
-        pipeline = ReportsProcessingService(
+        pipeline = SubmissionsProcessingService(
             ku_submission_service=mock_service,
         )
 

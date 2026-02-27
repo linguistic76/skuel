@@ -19,7 +19,7 @@ from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
-from core.models.reports.submission_dto import SubmissionDTO
+from core.models.submissions.submission_dto import SubmissionDTO
 from core.ports import BackendOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -30,7 +30,7 @@ from core.utils.result_simplified import Result
 logger = get_logger("skuel.services.ku_search")
 
 
-class ReportsSearchService(BaseService[BackendOperations[Entity], Entity]):
+class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     """
     Ku search service — unified interface for all Ku types.
 
@@ -42,9 +42,9 @@ class ReportsSearchService(BaseService[BackendOperations[Entity], Entity]):
     - Search report content
 
     Does NOT handle:
-    - File uploads (use ReportsSubmissionService)
+    - File uploads (use SubmissionsService)
     - Audio processing (use TranscriptionService)
-    - Content processing (use ReportsProcessingService)
+    - Content processing (use SubmissionsProcessingService)
     """
 
     # =========================================================================
@@ -68,7 +68,7 @@ class ReportsSearchService(BaseService[BackendOperations[Entity], Entity]):
             ku_backend: Backend for Ku storage
             event_bus: Event bus for domain events (optional)
         """
-        super().__init__(ku_backend, "ReportsSearchService")
+        super().__init__(ku_backend, "SubmissionsSearchService")
         self.event_bus = event_bus
         self.logger = logger
 
@@ -256,8 +256,8 @@ class ReportsSearchService(BaseService[BackendOperations[Entity], Entity]):
 
         return Result.ok(filtered)
 
-    @with_error_handling("search_reports")
-    async def search_reports(
+    @with_error_handling("search_submissions")
+    async def search_submissions(
         self,
         user_uid: str,
         query: str,
@@ -446,8 +446,8 @@ class ReportsSearchService(BaseService[BackendOperations[Entity], Entity]):
     # RECENT KU
     # ========================================================================
 
-    @with_error_handling("get_recent_reports")
-    async def get_recent_reports(
+    @with_error_handling("get_recent_submissions")
+    async def get_recent_submissions(
         self,
         user_uid: str,
         ku_type: EntityType | None = None,

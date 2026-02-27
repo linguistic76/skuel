@@ -1296,11 +1296,11 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         Example:
             ```python
             # These calls are equivalent:
-            await backend.create_task(task) # Via __getattr__
-            await backend.create(task) # Direct call
+            await backend.create_task(task)  # Via __getattr__
+            await backend.create(task)  # Direct call
 
-            await backend.get_task_by_uid(uid) # Via __getattr__
-            await backend.get(uid) # Direct call
+            await backend.get_task_by_uid(uid)  # Via __getattr__
+            await backend.get(uid)  # Direct call
             ```
 
         Note:
@@ -2064,8 +2064,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         Example:
             >>> result = await backend._get_node_labels("task:123", "ku.python")
             >>> source_labels, target_labels = result.value
-            >>> print(source_labels) # ["Task"]
-            >>> print(target_labels) # ["Entity", "Entity"]
+            >>> print(source_labels)  # ["Task"]
+            >>> print(target_labels)  # ["Entity", "Entity"]
         """
         try:
             query = """

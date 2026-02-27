@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations
 
 
-class ReportsRelationshipService:
+class SubmissionsRelationshipService:
     """Service for creating graph relationships on Entity nodes."""
 
     def __init__(self, backend: "BackendOperations[Any]") -> None:

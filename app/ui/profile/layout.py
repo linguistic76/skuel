@@ -203,8 +203,8 @@ def _build_profile_sidebar_items(
         )
 
     # Curriculum section (includes Submissions and Feedback)
-    submissions_item = SidebarItem("Submissions", "/reports", "reports", icon="📄")
-    feedback_item = SidebarItem("Feedback", "/reports/feedback", "feedback", icon="💬")
+    submissions_item = SidebarItem("Submissions", "/submissions", "reports", icon="📄")
+    feedback_item = SidebarItem("Feedback", "/submissions/feedback", "feedback", icon="💬")
 
     extra_sections.append(_section_header("Curriculum"))
 

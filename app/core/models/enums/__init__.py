@@ -12,8 +12,8 @@ Module Organization:
 - habit_enums: HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus
 - choice_enums: ChoiceType
 - principle_enums: PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel
-- reports_enums: ExerciseScope, FormattingStyle, AnalysisDepth, ContextEnrichmentLevel,
-                 ScheduleType, ProgressDepth
+- submissions_enums: ExerciseScope, FormattingStyle, AnalysisDepth, ContextEnrichmentLevel,
+                     ScheduleType, ProgressDepth
 - curriculum_enums: LpType, StepDifficulty
 - lifepath_enums: ThemeCategory
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
@@ -108,8 +108,8 @@ from .neo_labels import NeoLabel
 # Principle enums
 from .principle_enums import AlignmentLevel, PrincipleCategory, PrincipleSource, PrincipleStrength
 
-# Reports enums - processing, scheduling, and assignment
-from .reports_enums import (
+# Submissions enums - processing, scheduling, and assignment
+from .submissions_enums import (
     AnalysisDepth,
     ContextEnrichmentLevel,
     ExerciseScope,

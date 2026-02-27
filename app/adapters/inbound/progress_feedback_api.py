@@ -5,12 +5,12 @@ Reports Progress & Schedule API Routes
 REST API for progress report generation and scheduling.
 
 Routes:
-- POST /api/reports/progress/generate — on-demand generation
-- GET /api/reports/progress — list user's progress reports
-- POST /api/reports/schedule — create/update schedule
-- GET /api/reports/schedule — get user's schedule
-- PUT /api/reports/schedule/{uid} — update schedule
-- DELETE /api/reports/schedule/{uid} — deactivate schedule
+- POST /api/feedback/progress/generate — on-demand generation
+- GET /api/feedback/progress — list user's progress reports
+- POST /api/feedback/schedule — create/update schedule
+- GET /api/feedback/schedule — get user's schedule
+- PUT /api/feedback/schedule/{uid} — update schedule
+- DELETE /api/feedback/schedule/{uid} — deactivate schedule
 """
 
 from typing import TYPE_CHECKING, Any
@@ -35,10 +35,10 @@ from core.models.entity_requests import (
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
-logger = get_logger("skuel.routes.reports.progress")
+logger = get_logger("skuel.routes.submissions.progress")
 
 
-def create_reports_progress_api_routes(
+def create_progress_feedback_api_routes(
     _app: Any,
     rt: Any,
     progress_generator: "ProgressFeedbackOperations",
@@ -51,7 +51,7 @@ def create_reports_progress_api_routes(
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        progress_generator: ProgressReportGenerator for on-demand generation
+        progress_generator: ProgressFeedbackGenerator for on-demand generation
         report_service: ReportSubmissionService for listing reports
         schedule_service: ReportScheduleService for schedule CRUD
     """
@@ -62,7 +62,7 @@ def create_reports_progress_api_routes(
     # PROGRESS REPORT GENERATION
     # ========================================================================
 
-    @rt("/api/reports/progress/generate")
+    @rt("/api/feedback/progress/generate")
     @boundary_handler(success_status=201)
     async def generate_progress_report(request: Request) -> Result[Any]:
         """Generate a progress report on demand."""
@@ -89,14 +89,14 @@ def create_reports_progress_api_routes(
             }
         )
 
-    @rt("/api/reports/progress")
+    @rt("/api/feedback/progress")
     @boundary_handler()
     async def list_progress_reports(request: Request) -> Result[Any]:
         """List user's progress reports."""
         user_uid = require_authenticated_user(request)
         limit = int(request.query_params.get("limit", "20"))
 
-        result = await report_service.list_reports(
+        result = await report_service.list_submissions(
             user_uid=user_uid,
             ku_type="ai_report",
             limit=limit,
@@ -121,7 +121,7 @@ def create_reports_progress_api_routes(
 
     if schedule_service:
 
-        @rt("/api/reports/schedule")
+        @rt("/api/feedback/schedule")
         @boundary_handler(success_status=201)
         async def create_schedule(request: Request) -> Result[Any]:
             """Create or update a report generation schedule."""
@@ -147,7 +147,7 @@ def create_reports_progress_api_routes(
                 }
             )
 
-        @rt("/api/reports/schedule/get")
+        @rt("/api/feedback/schedule/get")
         @boundary_handler()
         async def get_schedule(request: Request) -> Result[Any]:
             """Get user's report schedule."""
@@ -159,7 +159,7 @@ def create_reports_progress_api_routes(
 
             return Result.ok({"schedule": result.value})
 
-        @rt("/api/reports/schedule/update")
+        @rt("/api/feedback/schedule/update")
         @boundary_handler()
         async def update_schedule(request: Request, uid: str) -> Result[Any]:
             """Update a report schedule."""
@@ -180,7 +180,7 @@ def create_reports_progress_api_routes(
                 }
             )
 
-        @rt("/api/reports/schedule/delete")
+        @rt("/api/feedback/schedule/delete")
         @boundary_handler()
         async def deactivate_schedule(request: Request, uid: str) -> Result[Any]:
             """Deactivate a report schedule."""

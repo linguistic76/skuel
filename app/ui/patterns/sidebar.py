@@ -9,8 +9,8 @@ Usage:
     from ui.patterns.sidebar import SidebarItem, SidebarPage
 
     items = [
-        SidebarItem("Submit", "/reports/submit", "submit", icon="📤"),
-        SidebarItem("Browse", "/reports/browse", "browse", icon="📂"),
+        SidebarItem("Submit", "/submissions/submit", "submit", icon="📤"),
+        SidebarItem("Browse", "/submissions/browse", "browse", icon="📂"),
     ]
 
     return await SidebarPage(

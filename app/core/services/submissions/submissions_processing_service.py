@@ -23,14 +23,14 @@ from typing import Any
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.reports.journal import Journal
-from core.models.reports.submission import Submission
-from core.services.reports.reports_submission_service import ReportsSubmissionService
+from core.models.submissions.journal import Journal
+from core.models.submissions.submission import Submission
+from core.services.submissions.submissions_service import SubmissionsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 
-class ReportsProcessingService:
+class SubmissionsProcessingService:
     """
     Orchestrator service for Ku processing.
 
@@ -40,7 +40,7 @@ class ReportsProcessingService:
 
     def __init__(
         self,
-        ku_submission_service: ReportsSubmissionService,
+        ku_submission_service: SubmissionsService,
         transcription_service=None,
         content_enrichment=None,
         ku_relationship_service=None,
@@ -52,10 +52,10 @@ class ReportsProcessingService:
         Initialize Ku processing service.
 
         Args:
-            ku_submission_service: ReportsSubmissionService for status updates
+            ku_submission_service: SubmissionsService for status updates
             transcription_service: TranscriptionService for audio transcription
             content_enrichment: ContentEnrichmentService for LLM formatting
-            ku_relationship_service: ReportsRelationshipService for graph relationships
+            ku_relationship_service: SubmissionsRelationshipService for graph relationships
             activity_extractor: ReportActivityExtractorService for DSL-based entity extraction
             journal_generator: JournalOutputGenerator for je_output file generation
             event_bus: Event bus for domain events (optional)

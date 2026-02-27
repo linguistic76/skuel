@@ -11,8 +11,8 @@ Following SKUEL's three-tier type system:
 from typing import Any
 
 from core.models.entity import Entity
-from core.models.reports.feedback import Feedback
-from core.models.reports.submission import Submission
+from core.models.feedback.feedback import Feedback
+from core.models.submissions.submission import Submission
 from core.models.user_owned_entity import UserOwnedEntity
 
 

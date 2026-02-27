@@ -376,7 +376,7 @@ The transcript processor was refactored to streamline journal processing:
    - **New:** `BaseService[JournalsOperations, Report]`
    - Uses protocol-based backend for zero port dependencies
 
-> **Note:** JournalPure was merged into Report (February 2026). The Journal domain was absorbed into the Reports domain. See `/docs/domains/reports.md`.
+> **Note:** JournalPure was merged into Report (February 2026). The Journal domain was absorbed into the Reports domain. See `/docs/domains/submissions.md`.
 
 ### Updated Architecture
 

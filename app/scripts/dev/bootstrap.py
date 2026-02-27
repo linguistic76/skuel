@@ -586,16 +586,16 @@ async def _wire_all_routes(
         create_finance_routes(app, rt, services, None)  # sync removed Jan 2026
         logger.info("✅ Finance routes registered")
 
-    # Reports routes (Primary interface for file submission and processing)
-    if services.reports and services.report_processor:
-        from adapters.inbound.reports_routes import create_reports_routes
+    # Submissions routes (Primary interface for file submission and processing)
+    if services.submissions and services.submissions_processor:
+        from adapters.inbound.submissions_routes import create_submissions_routes
 
-        create_reports_routes(app, rt, services, None)
+        create_submissions_routes(app, rt, services, None)
 
-        logger.info("✅ Reports routes registered (Primary interface for audio/text processing)")
+        logger.info("✅ Submissions routes registered (Primary interface for audio/text processing)")
 
     # Journals routes (Admin-only AI submission via ReportProject instructions)
-    if services.reports and services.report_processor and services.exercises:
+    if services.submissions and services.submissions_processor and services.exercises:
         from adapters.inbound.journals_routes import create_journals_routes
 
         create_journals_routes(app, rt, services)

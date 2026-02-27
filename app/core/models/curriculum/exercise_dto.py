@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 from core.models.curriculum.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.enums.reports_enums import ExerciseScope
+from core.models.enums.submissions_enums import ExerciseScope
 from core.ports import get_enum_value
 
 

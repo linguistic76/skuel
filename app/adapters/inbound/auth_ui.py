@@ -87,7 +87,9 @@ def create_auth_ui_routes(
         """Show registration page"""
         # If already logged in, redirect to appropriate hub
         if is_authenticated(request):
-            return RedirectResponse("/admin" if get_is_admin(request) else "/profile", status_code=303)
+            return RedirectResponse(
+                "/admin" if get_is_admin(request) else "/profile", status_code=303
+            )
 
         return AuthComponents.render_registration_page()
 
@@ -211,7 +213,9 @@ def create_auth_ui_routes(
         """Show login page"""
         # If already logged in, redirect to appropriate hub
         if is_authenticated(request):
-            return RedirectResponse("/admin" if get_is_admin(request) else "/profile", status_code=303)
+            return RedirectResponse(
+                "/admin" if get_is_admin(request) else "/profile", status_code=303
+            )
 
         return AuthComponents.render_login_page()
 
@@ -320,7 +324,9 @@ def create_auth_ui_routes(
         """Show reset password form where users enter token and new password"""
         # If already logged in, redirect to appropriate hub
         if is_authenticated(request):
-            return RedirectResponse("/admin" if get_is_admin(request) else "/profile", status_code=303)
+            return RedirectResponse(
+                "/admin" if get_is_admin(request) else "/profile", status_code=303
+            )
 
         return AuthComponents.render_reset_password_page(token=token)
 

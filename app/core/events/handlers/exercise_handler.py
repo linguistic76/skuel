@@ -32,7 +32,7 @@ async def handle_exercise_submission(
 
     Args:
         event: The SubmissionCreated event
-        reports_core_service: ReportsCoreService with process_exercise_submission()
+        reports_core_service: SubmissionsCoreService with process_exercise_submission()
     """
     if not event.fulfills_exercise_uid:
         return

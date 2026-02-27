@@ -532,7 +532,7 @@ Map to the **Feedback** stage of the educational loop. Both human and AI feedbac
 | `ProgressScheduleOperations` | `report_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `reports_progress_api.py` |
 
 **Why `FeedbackOperations` unifies human + AI feedback:**
-`TeacherReviewService.create_assessment()` (processor_type=HUMAN) and `ReportsFeedbackService.generate_feedback()` (processor_type=LLM) both create `FEEDBACK_REPORT` entities linked via `FEEDBACK_FOR`. The protocol captures what routes need regardless of which processor created it.
+`TeacherReviewService.create_assessment()` (processor_type=HUMAN) and `FeedbackService.generate_feedback()` (processor_type=LLM) both create `FEEDBACK_REPORT` entities linked via `FEEDBACK_FOR`. The protocol captures what routes need regardless of which processor created it.
 
 **Note on `AssignmentOperations`:** `AssignmentOperations` remains in `curriculum_protocols.py` — Assignments are curriculum entities (Exercise scope=assigned), not feedback.
 

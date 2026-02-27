@@ -38,8 +38,8 @@ class SubmissionOperations(Protocol):
     submission-side of the former ReportsContentOperations (tags, categories,
     journals). Assessment methods belong to FeedbackOperations.
 
-    Route consumers: reports_api.py (primary), reports_sharing_api.py
-    Implementation: ReportsSubmissionService (CRUD/files) + ReportsCoreService (content)
+    Route consumers: submissions_api.py (primary), submissions_sharing_api.py
+    Implementation: SubmissionsService (CRUD/files) + SubmissionsCoreService (content)
     """
 
     # ------------------------------------------------------------------
@@ -65,7 +65,7 @@ class SubmissionOperations(Protocol):
         """Get submission entity by UID. Returns Result[Submission | None]."""
         ...
 
-    async def list_reports(
+    async def list_submissions(
         self,
         user_uid: str,
         ku_type: Any | None = None,
@@ -134,7 +134,7 @@ class SubmissionOperations(Protocol):
         """Get submissions by category. Returns Result[list[Submission]]."""
         ...
 
-    async def get_recent_reports(
+    async def get_recent_submissions(
         self,
         limit: int = 10,
         user_uid: str | None = None,
@@ -199,7 +199,7 @@ class SubmissionProcessingOperations(Protocol):
     This is enrichment OF the submission itself, not feedback ON the submission.
 
     Route consumers: reports_api.py, reports_ui.py
-    Implementation: ReportsProcessingService
+    Implementation: SubmissionsProcessingService
     """
 
     async def process_report(
@@ -226,8 +226,8 @@ class SubmissionSharingOperations(Protocol):
     Manages who can see a submission — SHARES_WITH relationships and
     visibility levels (PRIVATE / SHARED / PUBLIC).
 
-    Route consumer: reports_sharing_api.py (primary service)
-    Implementation: ReportsSharingService
+    Route consumer: submissions_sharing_api.py (primary service)
+    Implementation: SubmissionsSharingService
     """
 
     async def share_report(
@@ -286,11 +286,11 @@ class SubmissionSharingOperations(Protocol):
 class SubmissionSearchOperations(Protocol):
     """Cross-type search and statistics across submission entity types.
 
-    Route consumer: reports_api.py
-    Implementation: ReportsSearchService
+    Route consumer: submissions_api.py
+    Implementation: SubmissionsSearchService
     """
 
-    async def search_reports(
+    async def search_submissions(
         self,
         user_uid: str,
         query: str,
@@ -310,7 +310,7 @@ class SubmissionSearchOperations(Protocol):
         """Get submission statistics for a date range. Returns Result[dict]."""
         ...
 
-    async def get_recent_reports(
+    async def get_recent_submissions(
         self,
         user_uid: str,
         ku_type: Any | None = None,

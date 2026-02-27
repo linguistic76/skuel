@@ -1,55 +1,55 @@
-"""Reports Routes - File Submission and Processing Pipeline
+"""Submissions Routes - File Submission and Processing Pipeline
 ================================================================
 
-Wires Reports API, UI, and Sharing routes using DomainRouteConfig
+Wires Submissions API, UI, and Sharing routes using DomainRouteConfig
 (Multi-Factory variant).
 
 Standard factories (via DomainRouteConfig):
-- create_reports_api_routes: Upload, list, process, download, content management
-- create_reports_ui_routes: Dashboard, detail view, HTMX fragments
+- create_submissions_api_routes: Upload, list, process, download, content management
+- create_submissions_ui_routes: Dashboard, detail view, HTMX fragments
 
 Extension factory (manual -- different primary service):
-- create_reports_sharing_api_routes: Share, unshare, visibility, portfolio
+- create_submissions_sharing_api_routes: Share, unshare, visibility, portfolio
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
 
 from typing import Any
 
-from adapters.inbound.reports_api import create_reports_api_routes
-from adapters.inbound.reports_assessment_api import create_reports_assessment_api_routes
-from adapters.inbound.reports_progress_api import create_reports_progress_api_routes
-from adapters.inbound.reports_sharing_api import create_reports_sharing_api_routes
-from adapters.inbound.reports_ui import create_reports_ui_routes
+from adapters.inbound.submissions_api import create_submissions_api_routes
+from adapters.inbound.feedback_assessment_api import create_feedback_assessment_api_routes
+from adapters.inbound.progress_feedback_api import create_progress_feedback_api_routes
+from adapters.inbound.submissions_sharing_api import create_submissions_sharing_api_routes
+from adapters.inbound.submissions_ui import create_submissions_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.utils.logging import get_logger
 
-logger = get_logger("skuel.routes.reports")
+logger = get_logger("skuel.routes.submissions")
 
-REPORTS_CONFIG = DomainRouteConfig(
-    domain_name="reports",
-    primary_service_attr="reports",
-    api_factory=create_reports_api_routes,
-    ui_factory=create_reports_ui_routes,
+SUBMISSIONS_CONFIG = DomainRouteConfig(
+    domain_name="submissions",
+    primary_service_attr="submissions",
+    api_factory=create_submissions_api_routes,
+    ui_factory=create_submissions_ui_routes,
     api_related_services={
-        "processing_service": "report_processor",
-        "reports_query_service": "reports_query",
-        "reports_core_service": "reports_core",
+        "processing_service": "submissions_processor",
+        "reports_query_service": "submissions_search",
+        "reports_core_service": "submissions_core",
     },
     ui_related_services={
-        "_processing_service": "report_processor",
+        "_processing_service": "submissions_processor",
         "_report_projects_service": "assignments",
     },
 )
 
 
-def create_reports_routes(app: Any, rt: Any, services: Any, _sync_service=None) -> list[Any]:
+def create_submissions_routes(app: Any, rt: Any, services: Any, _sync_service=None) -> list[Any]:
     """
-    Wire reports API, UI, and sharing routes using configuration-driven registration.
+    Wire submissions API, UI, and sharing routes using configuration-driven registration.
 
     Uses DomainRouteConfig for standard API + UI routes (shared primary service).
-    Sharing routes appended manually: their primary service (reports_sharing)
-    differs from the API/UI primary (reports).
+    Sharing routes appended manually: their primary service (submissions_sharing)
+    differs from the API/UI primary (submissions).
 
     Args:
         app: FastHTML app instance
@@ -60,49 +60,49 @@ def create_reports_routes(app: Any, rt: Any, services: Any, _sync_service=None) 
     Returns:
         List of all registered route functions
     """
-    routes = register_domain_routes(app, rt, services, REPORTS_CONFIG)
+    routes = register_domain_routes(app, rt, services, SUBMISSIONS_CONFIG)
 
     # Extension: sharing routes use a different primary service
-    if services and services.reports_sharing:
-        sharing_routes = create_reports_sharing_api_routes(
+    if services and services.submissions_sharing:
+        sharing_routes = create_submissions_sharing_api_routes(
             app,
             rt,
-            services.reports_sharing,
-            services.reports_core,
+            services.submissions_sharing,
+            services.submissions_core,
         )
         routes.extend(sharing_routes or [])
-        logger.info("Report sharing routes registered (Portfolio feature)")
+        logger.info("Submission sharing routes registered (Portfolio feature)")
 
-    # Extension: progress report generation routes
-    progress_generator = getattr(services, "progress_generator", None)
-    if progress_generator and services.reports:
-        schedule_service = getattr(services, "report_schedule", None)
-        progress_routes = create_reports_progress_api_routes(
+    # Extension: progress feedback generation routes
+    progress_feedback_generator = getattr(services, "progress_feedback_generator", None)
+    if progress_feedback_generator and services.submissions:
+        schedule_service = getattr(services, "progress_schedule", None)
+        progress_routes = create_progress_feedback_api_routes(
             app,
             rt,
-            progress_generator,
-            services.reports,
+            progress_feedback_generator,
+            services.submissions,
             schedule_service=schedule_service,
         )
         routes.extend(progress_routes or [])
-        logger.info("Report progress routes registered")
+        logger.info("Progress feedback routes registered")
 
     # Extension: assessment routes (require TEACHER role)
-    if services and services.reports_core:
+    if services and services.submissions_core:
 
         def get_user_service():
             return services.user_service
 
-        assessment_routes = create_reports_assessment_api_routes(
+        assessment_routes = create_feedback_assessment_api_routes(
             app,
             rt,
-            services.reports_core,
+            services.submissions_core,
             user_service_getter=get_user_service,
         )
         routes.extend(assessment_routes or [])
-        logger.info("Report assessment routes registered")
+        logger.info("Feedback assessment routes registered")
 
     return routes
 
 
-__all__ = ["create_reports_routes"]
+__all__ = ["create_submissions_routes"]

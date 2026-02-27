@@ -20,8 +20,8 @@ SKUEL's content processing domain implements a learning loop where **students cr
 **SUBMISSION** (not "assignment") because:
 - "Assignment" in plain English is what a **teacher gives** — that's `Assignment` with `scope=ASSIGNED`
 - "Submission" is what a **student uploads** — file content going through a processing pipeline
-- Matches service names: `ReportsSubmissionService`, protocol: `SubmissionOperations`
-- Matches existing route language: `/reports/submit`
+- Matches service names: `SubmissionsService`, protocol: `SubmissionOperations`
+- Matches existing route language: `/submissions/submit`
 
 ### AI Feedback Symmetry
 
@@ -30,7 +30,7 @@ Both teacher feedback and AI feedback produce `FEEDBACK_REPORT` entities — sam
 | Feedback Source | Service | ProcessorType | Entity Created |
 |----------------|---------|---------------|----------------|
 | Teacher | `TeacherReviewService.submit_feedback()` | `HUMAN` | `FEEDBACK_REPORT` |
-| AI (via Exercise) | `ReportsFeedbackService.generate_feedback()` | `LLM` | `FEEDBACK_REPORT` |
+| AI (via Exercise) | `FeedbackService.generate_feedback()` | `LLM` | `FEEDBACK_REPORT` |
 
 Both use atomic Cypher: create entity + `FEEDBACK_FOR` relationship + denormalize to `submission.feedback` in one transaction.
 
@@ -57,7 +57,7 @@ Assignment (scope=ASSIGNED)
 1. Teacher creates Assignment (scope=ASSIGNED, targets Group)
        |
        v
-2. Student submits file → ReportsSubmissionService.submit_file()
+2. Student submits file → SubmissionsService.submit_file()
        |                   Creates Entity with ku_type=SUBMISSION
        v
 3. Processing routes by MIME type (not EntityType):
@@ -113,10 +113,10 @@ Only `COMPLETED` Ku can be shared (prevents sharing incomplete/failed work).
 
 | Service | Protocol | Responsibility |
 |---------|----------|---------------|
-| `ReportsSubmissionService` | `SubmissionOperations` | File upload, storage, report record creation |
-| `ReportsProcessingService` | `SubmissionProcessingOperations` | Routes files to processors, manages status transitions |
-| `ReportsSharingService` | `SubmissionSharingOperations` | Visibility control, SHARES_WITH management |
-| `ReportsFeedbackService` | `FeedbackOperations` | AI feedback generation → creates `FEEDBACK_REPORT` entity |
+| `SubmissionsService` | `SubmissionOperations` | File upload, storage, report record creation |
+| `SubmissionsProcessingService` | `SubmissionProcessingOperations` | Routes files to processors, manages status transitions |
+| `SubmissionsSharingService` | `SubmissionSharingOperations` | Visibility control, SHARES_WITH management |
+| `FeedbackService` | `FeedbackOperations` | AI feedback generation → creates `FEEDBACK_REPORT` entity |
 | `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval |
 | `ContentEnrichmentService` | — | Audio transcription + AI formatting |
 
@@ -124,8 +124,8 @@ Only `COMPLETED` Ku can be shared (prevents sharing incomplete/failed work).
 
 | Route | Who | What |
 |-------|-----|------|
-| `/reports/submit` | Student | Upload files for processing |
-| `/reports/{uid}` | Owner | View submission, sharing controls |
+| `/submissions/submit` | Student | Upload files for processing |
+| `/submissions/{uid}` | Owner | View submission, sharing controls |
 | `/journals/submit` | Admin | Upload files for AI (LLM) processing |
 | `/profile/shared` | Any user | "Shared With Me" inbox |
 | `/api/teaching/review-queue` | Teacher | Pending review queue |

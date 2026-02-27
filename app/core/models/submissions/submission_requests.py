@@ -1,18 +1,17 @@
 """
-Report & LifePath Domain Request Models
-=========================================
+Submission & LifePath Domain Request Models
+============================================
 
 Pydantic models for:
-- Reports domain: Submissions, AI Reports, Feedback
-- LifePath domain: Life path creation
-- Assessment: Teacher assessments
+- Submissions domain: file uploads, AI reports
+- LifePath domain: life path creation
+
+Feedback request models live in core.models.feedback.feedback_requests.
 
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
-from typing import Any
-
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from core.models.enums import Domain
 from core.models.enums.entity_enums import ProcessorType
@@ -68,19 +67,6 @@ class AiReportCreateRequest(CreateRequestBase):
     instructions: str | None = Field(None, description="Instructions used for generation")
 
 
-class FeedbackCreateRequest(CreateRequestBase):
-    """Create teacher feedback on an assignment (FEEDBACK_REPORT type)."""
-
-    title: str = Field(min_length=1, max_length=200, description="Feedback title")
-    parent_ku_uid: str = Field(description="Assignment Ku being reviewed")
-    subject_uid: str | None = Field(None, description="Student UID the feedback is about")
-
-    # Content
-    feedback: str = Field(min_length=1, description="Feedback text")
-    content: str | None = Field(None, description="Additional content")
-    domain: Domain = Field(default=Domain.KNOWLEDGE, description="Knowledge domain")
-
-
 # =============================================================================
 # CREATE REQUESTS — Destination (LifePath)
 # =============================================================================
@@ -96,15 +82,3 @@ class LifePathCreateRequest(CreateRequestBase):
     tags: list[str] = Field(default_factory=list, description="Tags")
 
 
-# =============================================================================
-# ASSESSMENT (Teacher feedback)
-# =============================================================================
-
-
-class AssessmentCreateRequest(BaseModel):
-    """Request model for creating a teacher assessment (FEEDBACK_REPORT entity)."""
-
-    subject_uid: str = Field(..., description="Student being assessed")
-    title: str = Field(..., min_length=1, max_length=500, description="Assessment title")
-    content: str = Field(..., min_length=1, description="Assessment content (markdown)")
-    metadata: dict[str, Any] | None = Field(None, description="Additional metadata")

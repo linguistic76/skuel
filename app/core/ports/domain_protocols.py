@@ -684,7 +684,7 @@ class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Pr
 
 
 # NOTE: JournalsOperations REMOVED (February 2026) - Journal merged into Reports
-# Use ReportsCoreService for journal CRUD (report_type=JOURNAL)
+# Use SubmissionsCoreService for journal CRUD (report_type=JOURNAL)
 
 
 @runtime_checkable

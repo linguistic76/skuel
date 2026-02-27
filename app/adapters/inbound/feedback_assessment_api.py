@@ -5,9 +5,9 @@ Reports Assessment API Routes
 REST API for teacher assessments of students.
 
 Routes:
-- POST /api/reports/assessments — create assessment (requires TEACHER role)
-- GET /api/reports/assessments/given — teacher's authored assessments
-- GET /api/reports/assessments/received — student's received assessments
+- POST /api/feedback/assessments — create assessment (requires TEACHER role)
+- GET /api/feedback/assessments/given — teacher's authored assessments
+- GET /api/feedback/assessments/received — student's received assessments
 """
 
 from typing import TYPE_CHECKING, Any
@@ -20,14 +20,14 @@ from starlette.requests import Request
 from adapters.inbound.auth import require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
 from core.models.entity_converters import ku_to_response
-from core.models.reports.report_requests import AssessmentCreateRequest
+from core.models.feedback.feedback_requests import AssessmentCreateRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
-logger = get_logger("skuel.routes.reports.assessment")
+logger = get_logger("skuel.routes.submissions.assessment")
 
 
-def create_reports_assessment_api_routes(
+def create_feedback_assessment_api_routes(
     _app: Any,
     rt: Any,
     reports_core_service: "FeedbackOperations",
@@ -39,7 +39,7 @@ def create_reports_assessment_api_routes(
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        reports_core_service: ReportsCoreService for assessment CRUD
+        reports_core_service: SubmissionsCoreService for assessment CRUD
         user_service_getter: Named function returning user_service (for role checks)
     """
 
@@ -49,7 +49,7 @@ def create_reports_assessment_api_routes(
     # ASSESSMENT CRUD
     # ========================================================================
 
-    @rt("/api/reports/assessments")
+    @rt("/api/feedback/assessments")
     @require_teacher(user_service_getter)
     @boundary_handler(success_status=201)
     async def create_assessment(request: Request, current_user: Any) -> Result[Any]:
@@ -76,7 +76,7 @@ def create_reports_assessment_api_routes(
             }
         )
 
-    @rt("/api/reports/assessments/given")
+    @rt("/api/feedback/assessments/given")
     @boundary_handler()
     async def get_given_assessments(request: Request) -> Result[Any]:
         """Get assessments authored by the current teacher."""
@@ -99,7 +99,7 @@ def create_reports_assessment_api_routes(
             }
         )
 
-    @rt("/api/reports/assessments/received")
+    @rt("/api/feedback/assessments/received")
     @boundary_handler()
     async def get_received_assessments(request: Request) -> Result[Any]:
         """Get assessments received by the current student."""

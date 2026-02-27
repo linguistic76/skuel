@@ -1,1 +1,1 @@
-"""Reports domain models — Submissions, Journals, AI Reports, Feedback."""
+"""Submissions domain models — Submission, Journal (student work products)."""

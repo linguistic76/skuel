@@ -8,10 +8,10 @@ is_processable, subject_uid on submission subclasses, and converter logic.
 
 from core.models.curriculum.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.reports.ai_report import AiReport
-from core.models.reports.feedback import Feedback
-from core.models.reports.feedback_dto import FeedbackDTO
-from core.models.reports.submission import Submission
+from core.models.feedback.ai_report import AiReport
+from core.models.feedback.feedback import Feedback
+from core.models.feedback.feedback_dto import FeedbackDTO
+from core.models.submissions.submission import Submission
 
 # ============================================================================
 # ENUM TESTS

@@ -65,7 +65,7 @@ class TranscriptionService(MetadataManagerMixin):
     - Return results
 
     Event-driven: Publishes TranscriptionCompleted for downstream services
-    (e.g., ReportsCoreService subscribes to create journal-type reports from transcripts).
+    (e.g., SubmissionsCoreService subscribes to create journal-type reports from transcripts).
     """
 
     def __init__(

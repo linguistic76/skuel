@@ -241,7 +241,9 @@ class ChoicesService(BaseService["BackendOperations[Choice]", Choice]):
     # Note: Simple delegations (get_choice, get_user_choices, get_user_items_in_range)
     # delegated via explicit methods below.
 
-    async def create_choice(self, choice_request: ChoiceCreateRequest, user_uid: str) -> Result[Choice]:
+    async def create_choice(
+        self, choice_request: ChoiceCreateRequest, user_uid: str
+    ) -> Result[Choice]:
         """Create a basic choice.
 
         Args:

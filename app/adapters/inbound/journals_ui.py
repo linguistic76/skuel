@@ -107,7 +107,7 @@ def _render_upload_status(
             P(f"Status: {status}", cls="mb-0"),
             A(
                 "View Report",
-                href=f"/reports/{report_uid}",
+                href=f"/submissions/{report_uid}",
                 cls="btn btn-sm btn-ghost mt-2",
             )
             if report_uid
@@ -157,7 +157,7 @@ def _render_report_card(report: Any) -> Any:
     action_buttons = [
         A(
             "View",
-            href=f"/reports/{report.uid}",
+            href=f"/submissions/{report.uid}",
             cls="btn btn-sm btn-ghost",
         ),
     ]
@@ -602,7 +602,7 @@ def create_journals_ui_routes(
         _app: FastHTML application instance
         rt: Router instance
         report_service: ReportSubmissionService
-        processing_service: ReportsProcessingService
+        processing_service: SubmissionsProcessingService
         report_projects_service: ExerciseService
         user_service: UserService for admin role checks
         journal_generator: JournalOutputGenerator for cleanup operations
@@ -823,7 +823,7 @@ def create_journals_ui_routes(
             if status:
                 kwargs["status"] = status
 
-            result = await report_service.list_reports(**kwargs)
+            result = await report_service.list_submissions(**kwargs)
 
             if result.is_error:
                 return Div(

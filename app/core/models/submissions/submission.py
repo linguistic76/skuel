@@ -42,7 +42,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
-    from core.models.reports.submission_dto import SubmissionDTO
+    from core.models.submissions.submission_dto import SubmissionDTO
 
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.models.user_owned_entity import UserOwnedEntity
@@ -146,7 +146,7 @@ class Submission(UserOwnedEntity):
         import dataclasses
         from typing import Any
 
-        from core.models.reports.submission_dto import SubmissionDTO
+        from core.models.submissions.submission_dto import SubmissionDTO
 
         dto_field_names = {f.name for f in dataclasses.fields(SubmissionDTO)}
         kwargs: dict[str, Any] = {}
