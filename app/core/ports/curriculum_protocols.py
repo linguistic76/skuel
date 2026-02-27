@@ -4,9 +4,9 @@ Curriculum Protocols - Consistent Protocol Hierarchy for KU, LS, LP
 
 *Last updated: 2026-02-27*
 
-This module provides a CONSISTENT protocol hierarchy for the three
-curriculum domains (KU, LS, LP), parallel to BackendOperations for
-Activity domains.
+This module provides a CONSISTENT protocol hierarchy for the four
+curriculum domains (KU, LS, LP, Exercise), parallel to BackendOperations
+for Activity domains.
 
 Any Ku can organize other Kus via ORGANIZES relationships (emergent identity).
 Organization methods are part of KuOperations protocol.
@@ -14,10 +14,11 @@ Organization methods are part of KuOperations protocol.
 Design Principle: "Curriculum domains follow the same patterns as Activity domains"
 -------------------------------------------------------------------------------
 
-The Three Curriculum Domains:
+The Four Curriculum Domains:
     - KU (Point topology): Atomic knowledge unit
     - LS (Edge topology): Sequential step aggregating KUs
     - LP (Path topology): Complete learning sequence of LSs
+    - Exercise (Template): LLM instruction template for student submissions
 
 Protocol Hierarchy:
     - CurriculumOperations[T]: Base protocol inheriting BackendOperations
@@ -87,8 +88,6 @@ if TYPE_CHECKING:
     from core.models.curriculum.learning_path import LearningPath
     from core.models.curriculum.learning_step import LearningStep
 
-    # NOTE: MapOfContent, MOCSection, MOCStats imports removed January 2026
-    # MOC is now KU-based - no separate MOC models exist
     from core.utils.result_simplified import Result
 
 
