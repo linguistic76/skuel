@@ -85,6 +85,7 @@ from .base_protocols import BackendOperations, GraphRelationshipOperations
 
 if TYPE_CHECKING:
     from core.models.curriculum.curriculum import Curriculum
+    from core.models.curriculum.exercise import Exercise
     from core.models.curriculum.learning_path import LearningPath
     from core.models.curriculum.learning_step import LearningStep
 
@@ -1046,8 +1047,8 @@ class ExerciseOperations(Protocol):
         """Create an Exercise. Returns Result[Exercise]."""
         ...
 
-    async def get_exercise(self, uid: str) -> Result[Any | None]:
-        """Get exercise by UID. Returns Result[Exercise | None]."""
+    async def get_exercise(self, uid: str) -> Result[Exercise]:
+        """Get exercise by UID. Returns Result[Exercise], or not-found error."""
         ...
 
     async def list_user_exercises(
@@ -1077,7 +1078,7 @@ class ExerciseOperations(Protocol):
         ...
 
     # Backward-compatible aliases for route consumers
-    async def get_project(self, uid: str) -> Result[Any | None]:
+    async def get_project(self, uid: str) -> Result[Exercise]:
         """Alias for get_exercise."""
         ...
 

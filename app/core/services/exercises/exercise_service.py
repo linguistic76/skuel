@@ -174,11 +174,13 @@ class ExerciseService(BaseService):
     # ========================================================================
 
     @with_error_handling("get_exercise", error_type="database")
-    async def get_exercise(self, uid: str) -> Result[Exercise | None]:
+    async def get_exercise(self, uid: str) -> Result[Exercise]:
         """Get a specific Exercise by UID."""
         result = await self.backend.get(uid)
         if result.is_error:
             return result
+        if result.value is None:
+            return Result.fail(Errors.not_found(resource="Exercise", identifier=uid))
         return Result.ok(result.value)
 
     @with_error_handling("list_user_exercises", error_type="database")
@@ -211,7 +213,7 @@ class ExerciseService(BaseService):
         return Result.ok(exercises)
 
     # Backward-compatible aliases for route consumers
-    async def get_project(self, uid: str) -> Result[Exercise | None]:
+    async def get_project(self, uid: str) -> Result[Exercise]:
         """Alias for get_exercise (backward compatibility with route consumers)."""
         return await self.get_exercise(uid)
 
