@@ -696,6 +696,234 @@ class TeacherReviewService:
 
         return Result.ok(items)
 
+    async def get_submission_detail(
+        self,
+        submission_uid: str,
+        teacher_uid: str,
+    ) -> Result[dict[str, Any]]:
+        """
+        Get full detail of a submission for teacher review.
+
+        Verifies teacher has SHARES_WITH access. Returns submission content,
+        student info, and linked exercise (if any).
+
+        Args:
+            submission_uid: Submission UID
+            teacher_uid: Teacher UID (access checked)
+
+        Returns:
+            Result containing submission detail dict
+        """
+        query = """
+        MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(s:Entity {uid: $submission_uid})
+        OPTIONAL MATCH (student:User)-[:OWNS]->(s)
+        OPTIONAL MATCH (s)-[:FULFILLS_EXERCISE]->(ex:Entity {ku_type: 'exercise'})
+        RETURN s.uid AS uid,
+               s.title AS title,
+               s.content AS content,
+               s.processed_content AS processed_content,
+               s.original_filename AS original_filename,
+               s.ku_type AS ku_type,
+               s.status AS status,
+               s.created_at AS created_at,
+               student.uid AS student_uid,
+               student.name AS student_name,
+               ex.uid AS exercise_uid,
+               ex.title AS exercise_title,
+               ex.instructions AS exercise_instructions
+        """
+
+        result = await self.executor.execute_query(
+            query, {"submission_uid": submission_uid, "teacher_uid": teacher_uid}
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        records = result.value
+        if not records:
+            return Result.fail(
+                Errors.not_found(
+                    f"Submission {submission_uid} not found or not shared with teacher"
+                )
+            )
+
+        record = records[0]
+        return Result.ok(
+            {
+                "uid": record["uid"],
+                "title": record["title"],
+                "content": record["content"],
+                "processed_content": record["processed_content"],
+                "original_filename": record["original_filename"],
+                "ku_type": record["ku_type"],
+                "status": record["status"],
+                "created_at": record["created_at"],
+                "student_uid": record["student_uid"],
+                "student_name": record["student_name"],
+                "exercise_uid": record["exercise_uid"],
+                "exercise_title": record["exercise_title"],
+                "exercise_instructions": record["exercise_instructions"],
+            }
+        )
+
+    async def get_dashboard_stats(
+        self,
+        teacher_uid: str,
+    ) -> Result[dict[str, Any]]:
+        """
+        Get at-a-glance stats for the teacher dashboard.
+
+        Returns pending review count, total submissions, distinct students,
+        exercises owned, and groups owned.
+
+        Args:
+            teacher_uid: Teacher UID
+
+        Returns:
+            Result containing stats dict
+        """
+        query = """
+        MATCH (teacher:User {uid: $teacher_uid})
+        OPTIONAL MATCH (teacher)-[:SHARES_WITH {role: 'teacher'}]->(ku:Entity)
+        OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
+        OPTIONAL MATCH (teacher)-[:OWNS]->(ex:Entity {ku_type: 'exercise'})
+        OPTIONAL MATCH (teacher)-[:OWNS]->(g:Group)
+        RETURN
+          count(CASE WHEN ku.status IN ['submitted', 'active', 'revision_requested'] THEN 1 END) AS pending_count,
+          count(DISTINCT ku) AS total_submissions,
+          count(DISTINCT student) AS total_students,
+          count(DISTINCT ex) AS total_exercises,
+          count(DISTINCT g) AS total_groups
+        """
+
+        result = await self.executor.execute_query(query, {"teacher_uid": teacher_uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        records = result.value
+        if not records:
+            return Result.ok(
+                {
+                    "pending_count": 0,
+                    "total_submissions": 0,
+                    "total_students": 0,
+                    "total_exercises": 0,
+                    "total_groups": 0,
+                }
+            )
+
+        record = records[0]
+        return Result.ok(
+            {
+                "pending_count": record["pending_count"] or 0,
+                "total_submissions": record["total_submissions"] or 0,
+                "total_students": record["total_students"] or 0,
+                "total_exercises": record["total_exercises"] or 0,
+                "total_groups": record["total_groups"] or 0,
+            }
+        )
+
+    async def get_teacher_groups_with_stats(
+        self,
+        teacher_uid: str,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Get teacher's groups with member, exercise, and pending submission counts.
+
+        Args:
+            teacher_uid: Teacher UID
+
+        Returns:
+            Result containing list of group stat dicts
+        """
+        query = """
+        MATCH (teacher:User {uid: $teacher_uid})-[:OWNS]->(g:Group)
+        OPTIONAL MATCH (member:User)-[:MEMBER_OF]->(g)
+        OPTIONAL MATCH (ex:Entity {ku_type: 'exercise'})-[:FOR_GROUP]->(g)
+        OPTIONAL MATCH (sub:Entity)-[:FULFILLS_EXERCISE]->(ex)
+          WHERE sub.status NOT IN ['completed', 'archived']
+        RETURN g.uid AS uid,
+               g.name AS name,
+               g.description AS description,
+               g.is_active AS is_active,
+               count(DISTINCT member) AS member_count,
+               count(DISTINCT ex) AS exercise_count,
+               count(DISTINCT sub) AS pending_count
+        ORDER BY g.created_at DESC
+        """
+
+        result = await self.executor.execute_query(query, {"teacher_uid": teacher_uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        items = [
+            {
+                "uid": record["uid"],
+                "name": record["name"],
+                "description": record["description"],
+                "is_active": record["is_active"],
+                "member_count": record["member_count"] or 0,
+                "exercise_count": record["exercise_count"] or 0,
+                "pending_count": record["pending_count"] or 0,
+            }
+            for record in result.value
+        ]
+
+        return Result.ok(items)
+
+    async def get_group_detail(
+        self,
+        group_uid: str,
+        teacher_uid: str,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Get members of a teacher's group with their submission progress.
+
+        Access-checked: only succeeds if teacher owns the group.
+
+        Args:
+            group_uid: Group UID
+            teacher_uid: Teacher UID (ownership checked)
+
+        Returns:
+            Result containing list of member dicts with progress stats
+        """
+        query = """
+        MATCH (teacher:User {uid: $teacher_uid})-[:OWNS]->(g:Group {uid: $group_uid})
+        MATCH (member:User)-[r:MEMBER_OF]->(g)
+        OPTIONAL MATCH (teacher)-[:SHARES_WITH {role: 'teacher'}]->(sub:Entity)
+          WHERE (member)-[:OWNS]->(sub)
+        RETURN member.uid AS user_uid,
+               member.name AS user_name,
+               r.role AS role,
+               r.joined_at AS joined_at,
+               count(sub) AS submission_count,
+               count(CASE WHEN sub.status = 'completed' THEN 1 END) AS reviewed_count,
+               count(CASE WHEN sub.status IN ['submitted', 'active', 'revision_requested'] THEN 1 END) AS pending_count
+        ORDER BY r.joined_at
+        """
+
+        result = await self.executor.execute_query(
+            query, {"group_uid": group_uid, "teacher_uid": teacher_uid}
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        items = [
+            {
+                "user_uid": record["user_uid"],
+                "user_name": record["user_name"],
+                "role": record["role"],
+                "joined_at": record["joined_at"],
+                "submission_count": record["submission_count"] or 0,
+                "reviewed_count": record["reviewed_count"] or 0,
+                "pending_count": record["pending_count"] or 0,
+            }
+            for record in result.value
+        ]
+
+        return Result.ok(items)
+
     # ========================================================================
     # PRIVATE HELPERS
     # ========================================================================

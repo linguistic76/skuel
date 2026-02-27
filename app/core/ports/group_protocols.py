@@ -153,3 +153,27 @@ class TeacherReviewOperations(Protocol):
     ) -> Result[list[dict[str, Any]]]:
         """Get all submissions from student shared with teacher. Returns Result[list[dict]]."""
         ...
+
+    async def get_submission_detail(
+        self, submission_uid: str, teacher_uid: str
+    ) -> Result[dict[str, Any]]:
+        """Get full submission detail for teacher review (access-checked). Returns Result[dict]."""
+        ...
+
+    async def get_dashboard_stats(
+        self, teacher_uid: str
+    ) -> Result[dict[str, Any]]:
+        """Get at-a-glance stats for dashboard. Returns Result[dict]."""
+        ...
+
+    async def get_teacher_groups_with_stats(
+        self, teacher_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get teacher's groups with member/exercise/pending counts. Returns Result[list[dict]]."""
+        ...
+
+    async def get_group_detail(
+        self, group_uid: str, teacher_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get group members with submission progress stats. Returns Result[list[dict]]."""
+        ...

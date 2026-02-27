@@ -141,5 +141,33 @@ def create_teaching_api_routes(
             student_uid=uid,
         )
 
+    @rt("/api/teaching/dashboard", methods=["GET"])
+    @require_role(UserRole.TEACHER, get_user_service)
+    @boundary_handler()
+    async def get_dashboard_stats(request: Request, current_user: Any) -> Result[Any]:
+        """Get at-a-glance stats for the teacher dashboard."""
+        return await teacher_review_service.get_dashboard_stats(
+            teacher_uid=current_user.uid,
+        )
+
+    @rt("/api/teaching/classes", methods=["GET"])
+    @require_role(UserRole.TEACHER, get_user_service)
+    @boundary_handler()
+    async def get_classes(request: Request, current_user: Any) -> Result[Any]:
+        """Get teacher's groups with member, exercise, and pending submission counts."""
+        return await teacher_review_service.get_teacher_groups_with_stats(
+            teacher_uid=current_user.uid,
+        )
+
+    @rt("/api/teaching/classes/{uid}", methods=["GET"])
+    @require_role(UserRole.TEACHER, get_user_service)
+    @boundary_handler()
+    async def get_class_detail(request: Request, uid: str, current_user: Any) -> Result[Any]:
+        """Get members of a specific class with their submission progress."""
+        return await teacher_review_service.get_group_detail(
+            group_uid=uid,
+            teacher_uid=current_user.uid,
+        )
+
     logger.info("✅ Teaching API routes registered")
     return []
