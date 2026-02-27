@@ -1098,7 +1098,7 @@ async def compose_services(
 
         users_backend = UserBackend(driver)
         knowledge_backend = UniversalNeo4jBackend[Ku](
-            driver, NeoLabel.ENTITY, Ku, prometheus_metrics=prometheus_metrics
+            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics, base_label=NeoLabel.ENTITY
         )
         from core.models.principle.principle import Principle
 
