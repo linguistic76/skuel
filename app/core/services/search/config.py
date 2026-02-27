@@ -14,10 +14,10 @@ Usage:
     from core.services.search.config import SEARCH_FIELD_CONFIG, SearchFieldConfig
 
     # Get search fields for an entity type
-    fields = SEARCH_FIELD_CONFIG[EntityType.CURRICULUM].text_fields
+    fields = SEARCH_FIELD_CONFIG[EntityType.KU].text_fields
 
     # Check if a field is searchable
-    if "content" in SEARCH_FIELD_CONFIG[EntityType.CURRICULUM].text_fields:
+    if "content" in SEARCH_FIELD_CONFIG[EntityType.KU].text_fields:
         # Field is text-searchable
 
 Graph-Aware Search:
@@ -60,7 +60,7 @@ Unified Search API:
 
         request = SearchRequest(
             query_text="machine learning",
-            entity_types=[EntityType.CURRICULUM, EntityType.TASK],
+            entity_types=[EntityType.KU, EntityType.TASK],
             connected_to_uid="ku.python-basics",
             connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
             tags_contain=["python", "beginner"],
@@ -122,7 +122,7 @@ SEARCH_FIELD_CONFIG: dict[EntityType | NonKuDomain, SearchFieldConfig] = {
     # =========================================================================
     # CURRICULUM DOMAINS (4) - Content-rich entities
     # =========================================================================
-    EntityType.CURRICULUM: SearchFieldConfig(
+    EntityType.KU: SearchFieldConfig(
         # Matches KuCoreService._search_fields = ["title", "content", "tags"]
         # Note: tags is stored as array but searched as text (JSON string match)
         text_fields=("title", "content", "tags"),

@@ -285,7 +285,7 @@ class UnifiedIngestionService:
 
         # For KU: pop content before Neo4j storage — content lives on :Content node, not :Entity node
         ku_content_body = ""
-        if entity_type == EntityType.CURRICULUM:
+        if entity_type == EntityType.KU:
             ku_content_body = entity_data.pop("content", "")
             if ku_content_body:
                 entity_data["word_count"] = len(ku_content_body.split())
@@ -312,7 +312,7 @@ class UnifiedIngestionService:
         # Automatic chunking for KU entities (January 2026)
         # Generate chunks immediately after successful KU ingestion for RAG-readiness
         chunks_generated = False
-        if entity_type == EntityType.CURRICULUM and self.chunking:
+        if entity_type == EntityType.KU and self.chunking:
             content_body = ku_content_body  # Already popped above
             if content_body:
                 chunk_result = await self.chunking.process_content_for_ingestion(

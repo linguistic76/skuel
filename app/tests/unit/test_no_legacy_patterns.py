@@ -145,12 +145,14 @@ class TestNoLegacyEnumValues:
             "NeoLabel.JOURNAL_PROJECT is legacy — use REPORT_PROJECT"
         )
 
-    def test_no_legacy_ku_neo_label(self) -> None:
-        """NeoLabel.KU was removed — all code uses NeoLabel.ENTITY now."""
+    def test_no_legacy_curriculum_neo_label(self) -> None:
+        """NeoLabel.CURRICULUM was renamed to NeoLabel.KU (atomic Knowledge Unit label)."""
         from core.models.enums.neo_labels import NeoLabel
 
         members = [m.name for m in NeoLabel]
-        assert "KU" not in members, "NeoLabel.KU is legacy — use ENTITY"
+        # NeoLabel.KU is now valid (EntityType.KU → :Ku label in Neo4j)
+        assert "KU" in members, "NeoLabel.KU must exist — it's the atomic knowledge unit label"
+        assert "CURRICULUM" not in members, "NeoLabel.CURRICULUM was renamed to NeoLabel.KU"
 
     def test_no_legacy_relationship_name_learning(self) -> None:
         """RelationshipName.LEARNING was replaced by IN_PROGRESS — must not exist."""

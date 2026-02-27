@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 
 class ReportsFeedbackService:
     """
-    Generates AI feedback for report entries using project instructions.
+    Generates AI feedback for report entries using exercise instructions.
 
     Supports both OpenAI and Anthropic models.
     User selects which model to use via Exercise.model field.
@@ -55,16 +55,16 @@ class ReportsFeedbackService:
     async def generate_feedback(
         self,
         entry: Submission,
-        project: Exercise,
+        exercise: Exercise,
         temperature: float = 0.7,
         max_tokens: int = 4000,
     ) -> Result[str]:
         """
-        Generate AI feedback for a report entry using project instructions.
+        Generate AI feedback for a report entry using exercise instructions.
 
         Args:
-            entry: Ku to analyze (uses content or processed_content)
-            project: Exercise with instructions and model selection
+            entry: Submission to analyze (uses content or processed_content)
+            exercise: Exercise with instructions and model selection
             temperature: Sampling temperature (0-1, default 0.7)
             max_tokens: Maximum tokens to generate (default 4000)
 
@@ -72,25 +72,25 @@ class ReportsFeedbackService:
             Result[str] containing the generated feedback
         """
         try:
-            if not project.is_valid():
+            if not exercise.is_valid():
                 return Result.fail(
-                    Errors.validation("Invalid project: missing required fields", field="project")
+                    Errors.validation("Invalid exercise: missing required fields", field="exercise")
                 )
 
             entry_content = entry.content or entry.processed_content or ""
             if not entry_content:
                 return Result.fail(
-                    Errors.validation("Ku has no content for feedback", field="content")
+                    Errors.validation("Submission has no content for feedback", field="content")
                 )
 
-            prompt = project.get_feedback_prompt(entry_content)
+            prompt = exercise.get_feedback_prompt(entry_content)
 
             self.logger.info(
-                f"Generating feedback for entry {entry.uid} using project {project.uid}"
+                f"Generating feedback for entry {entry.uid} using exercise {exercise.uid}"
             )
-            self.logger.debug(f"Model: {project.model}, Prompt length: {len(prompt)} chars")
+            self.logger.debug(f"Model: {exercise.model}, Prompt length: {len(prompt)} chars")
 
-            if project.model.startswith("gpt"):
+            if exercise.model.startswith("gpt"):
                 if not self.openai:
                     return Result.fail(
                         Errors.integration(
@@ -103,10 +103,10 @@ class ReportsFeedbackService:
                     prompt=prompt,
                     max_tokens=max_tokens,
                     temperature=temperature,
-                    model=project.model,
+                    model=exercise.model,
                 )
 
-            elif project.model.startswith("claude"):
+            elif exercise.model.startswith("claude"):
                 if not self.anthropic:
                     return Result.fail(
                         Errors.integration(
@@ -119,13 +119,13 @@ class ReportsFeedbackService:
                     prompt=prompt,
                     max_tokens=max_tokens,
                     temperature=temperature,
-                    model=project.model,
+                    model=exercise.model,
                 )
 
             else:
                 return Result.fail(
                     Errors.validation(
-                        f"Unknown model: {project.model}. Must start with 'gpt' or 'claude'",
+                        f"Unknown model: {exercise.model}. Must start with 'gpt' or 'claude'",
                         field="model",
                     )
                 )

@@ -30,7 +30,7 @@ from typing import Any
 
 from core.events import publish_event
 from core.models.curriculum.curriculum_dto import CurriculumDTO
-from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum.ku import Ku
 from core.models.entity import Entity
 from core.models.enums import Domain, KnowledgeStatus
 from core.models.relationship_names import RelationshipName
@@ -323,7 +323,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
 
     @track_query_metrics("ku_get")
     @with_error_handling("get", error_type="database", uid_param="uid")
-    async def get(self, uid: str) -> Result[Curriculum]:
+    async def get(self, uid: str) -> Result[Ku]:
         """
         Get a knowledge unit with its content.
 
@@ -479,7 +479,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
 
     @track_query_metrics("ku_get_with_content")
     @with_error_handling("get_with_content", error_type="database", uid_param="uid")
-    async def get_with_content(self, uid: str) -> Result[tuple[Curriculum, str]]:
+    async def get_with_content(self, uid: str) -> Result[tuple[Ku, str]]:
         """
         Get a knowledge unit with its full content body.
 
@@ -547,7 +547,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         # Return updated DTO
         return await self.get(uid)
 
-    async def _update_content(self, uid: str, new_body: str, existing_dto: Curriculum) -> None:
+    async def _update_content(self, uid: str, new_body: str, existing_dto: Ku) -> None:
         """
         Update content with optional re-chunking.
 
@@ -756,7 +756,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
     @with_error_handling("get_subkus", error_type="database", uid_param="parent_uid")
     async def get_subkus(
         self, parent_uid: str, depth: int = 1, include_metadata: bool = False
-    ) -> Result[list[Curriculum]]:
+    ) -> Result[list[Ku]]:
         """
         Get all KUs organized under this parent KU (MOC pattern).
 
@@ -793,14 +793,14 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         # Convert to Ku domain objects using from_neo4j_node (picks up ALL fields)
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        kus = [from_neo4j_node(record["child"], Curriculum) for record in result.value]
+        kus = [from_neo4j_node(record["child"], Ku) for record in result.value]
 
         self.logger.info(f"Found {len(kus)} subKUs for parent {parent_uid} (depth={depth})")
         return Result.ok(kus)
 
     @track_query_metrics("ku_get_parent_kus")
     @with_error_handling("get_parent_kus", error_type="database", uid_param="ku_uid")
-    async def get_parent_kus(self, ku_uid: str) -> Result[list[Curriculum]]:
+    async def get_parent_kus(self, ku_uid: str) -> Result[list[Ku]]:
         """
         Get all parent KUs (can have multiple via MOC pattern).
 
@@ -833,7 +833,7 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
         # Convert to Ku domain objects using from_neo4j_node (picks up ALL fields)
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        parents = [from_neo4j_node(record["parent"], Curriculum) for record in result.value]
+        parents = [from_neo4j_node(record["parent"], Ku) for record in result.value]
 
         self.logger.info(f"Found {len(parents)} parent KUs for {ku_uid}")
         return Result.ok(parents)

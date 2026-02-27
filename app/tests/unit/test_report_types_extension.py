@@ -40,13 +40,13 @@ class TestKuTypeEnum:
         assert EntityType.FEEDBACK_REPORT.is_processable() is False
 
     def test_curriculum_not_processable(self):
-        assert EntityType.CURRICULUM.is_processable() is False
+        assert EntityType.KU.is_processable() is False
 
     def test_assignment_is_processable(self):
         assert EntityType.SUBMISSION.is_processable() is True
 
     def test_curriculum_not_user_owned(self):
-        assert EntityType.CURRICULUM.is_user_owned() is False
+        assert EntityType.KU.is_user_owned() is False
 
     def test_assignment_is_user_owned(self):
         assert EntityType.SUBMISSION.is_user_owned() is True
@@ -58,7 +58,7 @@ class TestKuTypeEnum:
         assert EntityType.SUBMISSION.is_derived() is True
         assert EntityType.AI_REPORT.is_derived() is True
         assert EntityType.FEEDBACK_REPORT.is_derived() is True
-        assert EntityType.CURRICULUM.is_derived() is False
+        assert EntityType.KU.is_derived() is False
 
 
 # ============================================================================
@@ -125,7 +125,7 @@ class TestKuSubjectUid:
         ku = Curriculum(
             uid="ku_test_123",
             title="Shared Knowledge",
-            ku_type=EntityType.CURRICULUM,
+            ku_type=EntityType.KU,
         )
         assert ku.is_user_owned is False
 

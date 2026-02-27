@@ -437,7 +437,7 @@ class TeacherReviewService:
             ku.updated_at = datetime($now)
         WITH ku
         OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
-        OPTIONAL MATCH (ku)-[:APPLIES_KNOWLEDGE]->(curriculum:Entity {ku_type: 'curriculum'})
+        OPTIONAL MATCH (ku)-[:APPLIES_KNOWLEDGE]->(curriculum:Entity {ku_type: 'ku'})
         RETURN ku.uid as uid,
                ku.status as status,
                student.uid as student_uid,

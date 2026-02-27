@@ -12,7 +12,7 @@ Module Organization:
 - habit_enums: HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus
 - choice_enums: ChoiceType
 - principle_enums: PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel
-- reports_enums: ProjectScope, FormattingStyle, AnalysisDepth, ContextEnrichmentLevel,
+- reports_enums: ExerciseScope, FormattingStyle, AnalysisDepth, ContextEnrichmentLevel,
                  ScheduleType, ProgressDepth
 - curriculum_enums: LpType, StepDifficulty
 - lifepath_enums: ThemeCategory
@@ -22,7 +22,7 @@ Module Organization:
 
 Usage:
     from core.models.enums import Priority, EntityStatus, EntityType
-    from core.models.enums import EntityType, EntityStatus, ProcessorType, ProjectScope
+    from core.models.enums import EntityType, EntityStatus, ProcessorType, ExerciseScope
 """
 
 # Activity enums - priority, calendar types, and assessment levels
@@ -112,9 +112,9 @@ from .principle_enums import AlignmentLevel, PrincipleCategory, PrincipleSource,
 from .reports_enums import (
     AnalysisDepth,
     ContextEnrichmentLevel,
+    ExerciseScope,
     FormattingStyle,
     ProgressDepth,
-    ProjectScope,
     ScheduleType,
 )
 
@@ -188,7 +188,7 @@ __all__ = [
     "ProductivityLevel",
     "ProgressDepth",
     "ProgressLevel",
-    "ProjectScope",
+    "ExerciseScope",
     "RecurrencePattern",
     "RelationshipType",
     "ResponseTone",

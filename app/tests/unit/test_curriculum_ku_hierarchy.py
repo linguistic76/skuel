@@ -2,19 +2,20 @@
 Curriculum Hierarchy Tests
 =============================
 
-Tests for the Curriculum intermediate class introduced in
-of the Ku decomposition. Verifies:
+Tests for the Curriculum base class and Ku leaf class hierarchy. Verifies:
 
-1. Curriculum field inheritance from Entity
-2. LearningStep and LearningPath inherit from Curriculum (not Entity)
-3. Substance methods work with real data (not stubs)
-4. Learning methods (complexity, SEL, level) work correctly
-5. DTO round-trip for Curriculum subclasses
+1. Curriculum base class field inheritance from Entity (no type forcing)
+2. Ku leaf class forces EntityType.KU in __post_init__
+3. LearningStep and LearningPath inherit from Curriculum (not Entity)
+4. Substance methods work with real data (not stubs)
+5. Learning methods (complexity, SEL, level) work correctly
+6. DTO round-trip for Curriculum subclasses
 """
 
 from datetime import datetime, timedelta
 
 from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum.ku import Ku
 from core.models.curriculum.learning_path import LearningPath
 from core.models.curriculum.learning_path_dto import LearningPathDTO
 from core.models.curriculum.learning_step import LearningStep
@@ -32,16 +33,31 @@ class TestCurriculumKuCreation:
     """Test Curriculum instantiation and defaults."""
 
     def test_basic_creation(self):
-        """Curriculum can be created with minimal fields."""
+        """Curriculum base class can be created with minimal fields."""
         cu = Curriculum(uid="ku_test_abc", title="Test Curriculum")
         assert cu.uid == "ku_test_abc"
         assert cu.title == "Test Curriculum"
-        assert cu.ku_type == EntityType.CURRICULUM
+        # Curriculum base class uses Entity's default ku_type (EntityType.KU)
+        assert cu.ku_type == EntityType.KU
 
-    def test_forces_ku_type_curriculum(self):
-        """__post_init__ forces ku_type=CURRICULUM."""
+    def test_does_not_force_ku_type(self):
+        """Curriculum base class does NOT force ku_type — only leaf classes do."""
+        # Passing ku_type=TASK is preserved (Curriculum is a base class, not a leaf)
         cu = Curriculum(uid="ku_test", title="Test", ku_type=EntityType.TASK)
-        assert cu.ku_type == EntityType.CURRICULUM
+        assert cu.ku_type == EntityType.TASK  # Not overridden
+
+    def test_ku_leaf_forces_ku_type(self):
+        """Ku leaf class forces ku_type=EntityType.KU in __post_init__."""
+        ku = Ku(uid="ku_test", title="Test", ku_type=EntityType.TASK)
+        assert ku.ku_type == EntityType.KU  # Ku always forces KU type
+
+    def test_ku_basic_creation(self):
+        """Ku can be created and is a Curriculum instance."""
+        ku = Ku(uid="ku_python_abc123", title="Python Basics")
+        assert ku.uid == "ku_python_abc123"
+        assert ku.ku_type == EntityType.KU
+        assert isinstance(ku, Curriculum)
+        assert isinstance(ku, Entity)
 
     def test_learning_field_defaults(self):
         """Learning metadata fields have correct defaults."""

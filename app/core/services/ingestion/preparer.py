@@ -116,7 +116,7 @@ async def prepare_entity_data_async(
         entity_data["uid"] = generate_uid(entity_type, file_path)
 
     # Handle content for markdown files (type-safe check)
-    if body is not None and entity_type in (EntityType.CURRICULUM, EntityType.SUBMISSION):
+    if body is not None and entity_type in (EntityType.KU, EntityType.SUBMISSION):
         entity_data["content"] = body
 
     # Handle title fallback from filename
@@ -210,7 +210,7 @@ def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> bool:
         EntityType.CHOICE,
         EntityType.PRINCIPLE,
     ]
-    return entity_type == EntityType.CURRICULUM or entity_type in activity_domains
+    return entity_type == EntityType.KU or entity_type in activity_domains
 
 
 def prepare_entity_data_sync(
@@ -246,7 +246,7 @@ def prepare_entity_data_sync(
         entity_data["uid"] = generate_uid(entity_type, file_path)
 
     # Handle content for markdown files
-    if body is not None and entity_type in (EntityType.CURRICULUM, EntityType.SUBMISSION):
+    if body is not None and entity_type in (EntityType.KU, EntityType.SUBMISSION):
         entity_data["content"] = body
 
     # Handle title fallback from filename

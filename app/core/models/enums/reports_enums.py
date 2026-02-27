@@ -9,7 +9,7 @@ scheduling, and project/assignment scope.
 from enum import Enum
 
 
-class ProjectScope(str, Enum):
+class ExerciseScope(str, Enum):
     """
     Scope of an exercise (instruction template).
 

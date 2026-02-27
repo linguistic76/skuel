@@ -33,7 +33,7 @@ from core.ports import get_enum_value
 @dataclass
 class CurriculumDTO(EntityDTO):
     """
-    Mutable DTO for curriculum entities (EntityType.CURRICULUM).
+    Mutable DTO for curriculum entities (EntityType.KU).
 
     Extends EntityDTO (NOT UserOwnedDTO) with 21 curriculum-specific fields:
     - Learning metadata (9): complexity, learning_level, sel_category, quality_score,

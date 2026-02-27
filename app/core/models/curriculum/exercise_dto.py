@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 from core.models.curriculum.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.enums.reports_enums import ProjectScope
+from core.models.enums.reports_enums import ExerciseScope
 from core.ports import get_enum_value
 
 
@@ -48,7 +48,7 @@ class ExerciseDTO(CurriculumDTO):
     # =========================================================================
     instructions: str | None = None
     model: str = "claude-3-5-sonnet-20241022"
-    scope: ProjectScope = ProjectScope.PERSONAL
+    scope: ExerciseScope = ExerciseScope.PERSONAL
     due_date: date | None = None
     group_uid: str | None = None
     enrichment_mode: str | None = None
@@ -99,7 +99,7 @@ class ExerciseDTO(CurriculumDTO):
                 "complexity": KuComplexity,
                 "learning_level": LearningLevel,
                 "sel_category": SELCategory,
-                "scope": ProjectScope,
+                "scope": ExerciseScope,
             },
             date_fields=["due_date"],
             datetime_fields=[
@@ -169,7 +169,7 @@ class ExerciseDTO(CurriculumDTO):
                 "complexity": KuComplexity,
                 "learning_level": LearningLevel,
                 "sel_category": SELCategory,
-                "scope": ProjectScope,
+                "scope": ExerciseScope,
             },
         )
 

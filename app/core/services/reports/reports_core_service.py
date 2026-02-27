@@ -1,31 +1,45 @@
 """
-Ku Core Service
+Reports Core Service
 ========================
 
-Content management operations for Ku entities.
+Content management operations for report entities.
 Handles categories, tags, publish/archive workflow, bulk operations,
-and journal-specific CRUD (create_journal_ku, FIFO cleanup, etc.).
+journal CRUD, and the Exercise → Submission link that drives the
+core educational loop.
 
-ARCHITECTURE (February 2026):
-------------------------------
-Entity nodes are the SINGLE SOURCE OF TRUTH for all knowledge.
-"Ku is the heartbeat of SKUEL."
+The Core Educational Loop
+--------------------------
+SKUEL's fundamental process for applied learning:
 
-Four manifestations:
-    CURRICULUM      → Admin-created shared knowledge (no owner)
-    SUBMISSION      → Student submission (user-owned), including journals
-    AI_REPORT       → AI-derived from submission (user-owned)
-    FEEDBACK_REPORT → Teacher feedback on submission (teacher-owned)
+    Exercise (shared template, admin/teacher-created)
+        ↓  user submits work against it
+    Submission (user-owned, EntityType.SUBMISSION)
+        ↓  process_exercise_submission() called with exercise_uid
+        ↓  creates FULFILLS_EXERCISE relationship
+        ↓  auto-shares with teacher (SHARES_WITH role='teacher')
+    Teacher review → Feedback (EntityType.FEEDBACK_REPORT)
+
+The Exercise is a shared curriculum template. The moment a user creates
+a Submission against it, the Submission is exclusively their own work product —
+user-owned, privately scoped by default.
+
+Four Report Entity Types
+--------------------------
+    SUBMISSION      → Student's work submitted against an Exercise (user-owned)
+    JOURNAL         → Voice/text journal entries with metadata (user-owned)
+    AI_REPORT       → System-generated progress reports (user-owned)
+    FEEDBACK_REPORT → Teacher feedback on a Submission (teacher-owned)
 
 Journal-specific fields (mood, energy_level, entry_date, etc.) live in metadata.
-max_retention is a first-class Ku field controlling FIFO cleanup (None = permanent).
+max_retention controls FIFO cleanup for voice journals (None = permanent).
 
-Services:
+Service Responsibilities
+--------------------------
 - ReportsSubmissionService: File upload and storage
 - ReportsProcessingService: Content processing orchestration
-- ReportsCoreService: Content management + journal CRUD (THIS FILE)
+- ReportsCoreService: Content management + journal CRUD + exercise linking (THIS FILE)
 - ReportsSearchService: Read-only queries
-- ExerciseService: LLM instruction templates (in exercises package)
+- ExerciseService: Exercise CRUD (in exercises package)
 - ReportsFeedbackService: AI feedback generation
 """
 

@@ -402,7 +402,7 @@ class TestOptionAJournalsProcessing:
         )
 
         assert curriculum_ku.ku_type != EntityType.SUBMISSION
-        assert curriculum_ku.ku_type == EntityType.CURRICULUM
+        assert curriculum_ku.ku_type == EntityType.KU
 
     async def test_no_llm_processing_in_report_pipeline(
         self, processing_pipeline, mock_report_service

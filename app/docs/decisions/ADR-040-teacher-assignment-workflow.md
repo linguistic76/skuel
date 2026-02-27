@@ -38,7 +38,7 @@ Group uses Three-Tier type system (Pattern A): Pydantic request → GroupDTO →
 ### 2. Assignment (Instruction Template)
 
 Assignment provides fields for both personal and teacher-assigned workflows:
-- `scope: ProjectScope` — PERSONAL (default) or ASSIGNED
+- `scope: ExerciseScope` — PERSONAL (default) or ASSIGNED
 - `due_date: date | None` — only for ASSIGNED scope
 - `processor_type: ProcessorType` — LLM, HUMAN, or HYBRID
 - `group_uid: str | None` — target group for ASSIGNED scope

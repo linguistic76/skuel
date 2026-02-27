@@ -22,7 +22,7 @@ The Four Curriculum Domains:
 
 Protocol Hierarchy:
     - CurriculumOperations[T]: Base protocol inheriting BackendOperations
-    - KuOperations: Extends CurriculumOperations[Curriculum] with KU-specific methods
+    - KuOperations: Extends CurriculumOperations[Ku] with KU-specific methods
     - LsOperations: Extends CurriculumOperations[LearningStep] with LS-specific methods
     - LpOperations: Extends CurriculumOperations[LearningPath] with LP-specific methods
     - ExerciseOperations: Standalone protocol for Exercise instruction templates
@@ -40,8 +40,8 @@ Protocol Hierarchy
             └── get_hierarchy() → Result[dict]
 
 Domain-Specific Protocols:
-    KuOperations(CurriculumOperations[Curriculum], Protocol):
-        ├── get_enables() → Result[list[Curriculum]]
+    KuOperations(CurriculumOperations[Ku], Protocol):
+        ├── get_enables() → Result[list[Ku]]
         ├── get_semantic_links() → Result[list[str]]
         └── get_substance_score() → Result[float]
 
@@ -63,7 +63,7 @@ Usage
 -----
     from core.ports import CurriculumOperations, KuOperations
 
-    class KuCoreService(BaseService[KuOperations, Curriculum]):
+    class KuCoreService(BaseService[KuOperations, Ku]):
         @property
         def entity_label(self) -> str:
             return "Entity"
@@ -86,6 +86,7 @@ from .base_protocols import BackendOperations, GraphRelationshipOperations
 if TYPE_CHECKING:
     from core.models.curriculum.curriculum import Curriculum
     from core.models.curriculum.exercise import Exercise
+    from core.models.curriculum.ku import Ku
     from core.models.curriculum.learning_path import LearningPath
     from core.models.curriculum.learning_step import LearningStep
 
@@ -126,8 +127,8 @@ class CurriculumOperations[T](BackendOperations[T], GraphRelationshipOperations,
         PLUS these curriculum-specific additions.
 
     Example:
-        class KuUniversalBackend(UniversalNeo4jBackend[Curriculum], CurriculumOperations[Curriculum]):
-            async def get_with_content(self, uid: str) -> Result[Curriculum]:
+        class KuUniversalBackend(UniversalNeo4jBackend[Ku], CurriculumOperations[Ku]):
+            async def get_with_content(self, uid: str) -> Result[Ku]:
                 # Implementation
                 ...
     """
@@ -293,7 +294,7 @@ class KuInteractionOperations(Protocol):
 
 
 @runtime_checkable
-class KuOperations(CurriculumOperations["Curriculum"], Protocol):
+class KuOperations(CurriculumOperations["Ku"], Protocol):
     """
     Knowledge Unit (KU) specific operations.
 
@@ -302,7 +303,7 @@ class KuOperations(CurriculumOperations["Curriculum"], Protocol):
     - Substance tracking (applied knowledge measurement)
     - Domain-specific queries
 
-    Neo4j: KU nodes are :Entity:Curriculum{entity_type='curriculum'}
+    Neo4j: KU nodes are :Entity:Ku{ku_type='ku'}
     UID Format: "ku_{slug}_{random}" (e.g., "ku_python-basics_a1b2c3d4")
     """
 
@@ -319,7 +320,7 @@ class KuOperations(CurriculumOperations["Curriculum"], Protocol):
     # KU-SPECIFIC RETRIEVAL
     # =========================================================================
 
-    async def get_ku(self, uid: str) -> Result[Curriculum]:
+    async def get_ku(self, uid: str) -> Result[Ku]:
         """
         Get a Knowledge Unit by UID.
 
@@ -329,11 +330,11 @@ class KuOperations(CurriculumOperations["Curriculum"], Protocol):
             uid: KU UID (e.g., "ku_python-basics_a1b2c3d4")
 
         Returns:
-            Result[Curriculum]: The knowledge unit or not-found error
+            Result[Ku]: The knowledge unit or not-found error
         """
         ...
 
-    async def get_user_kus(self, user_uid: str) -> Result[list[Curriculum]]:
+    async def get_user_kus(self, user_uid: str) -> Result[list[Ku]]:
         """
         Get all KUs accessible to a user.
 
@@ -341,7 +342,7 @@ class KuOperations(CurriculumOperations["Curriculum"], Protocol):
             user_uid: User UID
 
         Returns:
-            Result[list[Curriculum]]: User's knowledge units
+            Result[list[Ku]]: User's knowledge units
         """
         ...
 
@@ -368,7 +369,7 @@ class KuOperations(CurriculumOperations["Curriculum"], Protocol):
         self,
         uid: str,
         domain: str,
-    ) -> Result[list[Curriculum]]:
+    ) -> Result[list[Ku]]:
         """
         Get related KUs filtered by domain.
 
@@ -377,7 +378,7 @@ class KuOperations(CurriculumOperations["Curriculum"], Protocol):
             domain: Domain filter (e.g., "TECH", "HEALTH")
 
         Returns:
-            Result[list[Curriculum]]: Related KUs in specified domain
+            Result[list[Ku]]: Related KUs in specified domain
         """
         ...
 
@@ -554,7 +555,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
         """
         ...
 
-    async def get_primary_knowledge(self, uid: str) -> Result[list[Curriculum]]:
+    async def get_primary_knowledge(self, uid: str) -> Result[list[Ku]]:
         """
         Get primary (core) knowledge units for this step.
 
@@ -562,11 +563,11 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
             uid: LS UID
 
         Returns:
-            Result[list[Curriculum]]: Primary knowledge units
+            Result[list[Ku]]: Primary knowledge units
         """
         ...
 
-    async def get_supporting_knowledge(self, uid: str) -> Result[list[Curriculum]]:
+    async def get_supporting_knowledge(self, uid: str) -> Result[list[Ku]]:
         """
         Get supporting (optional) knowledge units for this step.
 
@@ -574,7 +575,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
             uid: LS UID
 
         Returns:
-            Result[list[Curriculum]]: Supporting knowledge units
+            Result[list[Ku]]: Supporting knowledge units
         """
         ...
 

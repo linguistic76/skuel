@@ -47,7 +47,7 @@ class TestCurriculumRichContext:
         primary_ku = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Functions",
-            ku_type=EntityType.CURRICULUM,
+            ku_type=EntityType.KU,
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(primary_ku.to_dict())
@@ -55,7 +55,7 @@ class TestCurriculumRichContext:
         supporting_ku = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Variables",
-            ku_type=EntityType.CURRICULUM,
+            ku_type=EntityType.KU,
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(supporting_ku.to_dict())
@@ -64,7 +64,7 @@ class TestCurriculumRichContext:
         prereq_ku = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Basics",
-            ku_type=EntityType.CURRICULUM,
+            ku_type=EntityType.KU,
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(prereq_ku.to_dict())
@@ -226,7 +226,7 @@ class TestCurriculumRichContext:
         prereq_ku = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Programming Fundamentals",
-            ku_type=EntityType.CURRICULUM,
+            ku_type=EntityType.KU,
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(prereq_ku.to_dict())
@@ -387,7 +387,7 @@ class TestCurriculumRichContext:
         ku = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Functions",
-            ku_type=EntityType.CURRICULUM,
+            ku_type=EntityType.KU,
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(ku.to_dict())

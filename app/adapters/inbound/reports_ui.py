@@ -937,7 +937,7 @@ def create_reports_ui_routes(
                 ku_type=EntityType.SUBMISSION,
                 processor_type=ProcessorType.HUMAN,
                 metadata={"identifier": identifier},
-                fulfills_project_uid=fulfills_exercise_uid,
+                fulfills_exercise_uid=fulfills_exercise_uid,
             )
 
             if result.is_error:

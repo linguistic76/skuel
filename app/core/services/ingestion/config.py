@@ -74,11 +74,11 @@ class EntityIngestionConfig:
 # See: core/models/relationship_registry.py (single source of truth)
 # See: /docs/decisions/ADR-026-unified-relationship-registry.md
 ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
-    EntityType.CURRICULUM: EntityIngestionConfig(
+    EntityType.KU: EntityIngestionConfig(
         entity_label="Entity",
         uid_prefix="ku",
         required_fields=("title", "content"),
-        relationship_config=generate_ingestion_relationship_config(EntityType.CURRICULUM),
+        relationship_config=generate_ingestion_relationship_config(EntityType.KU),
     ),
     EntityType.TASK: EntityIngestionConfig(
         entity_label="Task",

@@ -25,7 +25,7 @@ NOTE: KU is a Curriculum domain - content is SHARED (no user_uid ownership).
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum.ku import Ku
 from core.ports import KuOperations
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
 
-class KuAIService(BaseAIService[KuOperations, Curriculum]):
+class KuAIService(BaseAIService[KuOperations, Ku]):
     """
     AI-powered features for Knowledge Units domain.
 

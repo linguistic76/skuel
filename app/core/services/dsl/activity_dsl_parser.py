@@ -247,9 +247,9 @@ class ParsedActivityLine:
         Check if this is a KnowledgeUnit activity.
 
         Returns:
-            True if EntityType.CURRICULUM is in contexts
+            True if EntityType.KU is in contexts
         """
-        return EntityType.CURRICULUM in self.contexts
+        return EntityType.KU in self.contexts
 
     def is_ls(self) -> bool:
         """
@@ -344,7 +344,7 @@ class ParsedActivityLine:
         if self.primary_ku:
             uids.append(self.primary_ku)
         uids.extend(
-            [link["id"] for link in self.links if link.get("type") == EntityType.CURRICULUM.value]
+            [link["id"] for link in self.links if link.get("type") == EntityType.KU.value]
         )
         return uids
 
@@ -1011,7 +1011,7 @@ class ActivityDSLParser:
                     link_id = parts[1].strip()
 
                     # Normalize DSL prefix to EntityType value
-                    # e.g. @link(ku:...) -> type="curriculum" (EntityType.CURRICULUM)
+                    # e.g. @link(ku:...) -> type="curriculum" (EntityType.KU)
                     normalized = EntityType.from_string(link_type)
                     if normalized is not None:
                         link_type = normalized.value

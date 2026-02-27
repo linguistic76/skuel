@@ -1094,11 +1094,11 @@ async def compose_services(
         # User is NOT an activity domain - it's the identity layer all domains reference
         # See: CLAUDE.md §2.11 Domain Architecture Categories
         from adapters.persistence.neo4j.user_backend import UserBackend
-        from core.models.curriculum.curriculum import Curriculum
+        from core.models.curriculum.ku import Ku
 
         users_backend = UserBackend(driver)
-        knowledge_backend = UniversalNeo4jBackend[Curriculum](
-            driver, NeoLabel.ENTITY, Curriculum, prometheus_metrics=prometheus_metrics
+        knowledge_backend = UniversalNeo4jBackend[Ku](
+            driver, NeoLabel.ENTITY, Ku, prometheus_metrics=prometheus_metrics
         )
         from core.models.principle.principle import Principle
 

@@ -410,7 +410,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
 
             // 2. Prerequisite knowledge
             OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(prereq_ku:Entity)
-            WHERE prereq_ku.ku_type IS NULL OR prereq_ku.ku_type = 'curriculum'
+            WHERE prereq_ku.ku_type IS NULL OR prereq_ku.ku_type IN ['ku', 'curriculum']
             WITH lp, steps_data, collect({
                 uid: prereq_ku.uid,
                 title: prereq_ku.title,

@@ -19,7 +19,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `habit_enums.py` | Habit classification and completion | HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus |
 | `choice_enums.py` | Decision types | ChoiceType |
 | `principle_enums.py` | Principle classification and alignment | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel |
-| `reports_enums.py` | Report processing and scheduling | ProjectScope, FormattingStyle, AnalysisDepth, ScheduleType, ProgressDepth |
+| `reports_enums.py` | Report processing and scheduling | ExerciseScope, FormattingStyle, AnalysisDepth, ScheduleType, ProgressDepth |
 | `curriculum_enums.py` | Learning path and step types | LpType, StepDifficulty |
 | `lifepath_enums.py` | Vision theme classification | ThemeCategory |
 | `scheduling_enums.py` | Time, recurrence, energy | RecurrencePattern, TimeOfDay, EnergyLevel |
@@ -226,7 +226,7 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 
 | Enum | Values | Purpose |
 |------|--------|---------|
-| ProjectScope | PERSONAL, ASSIGNED | Exercise scope (user's own vs teacher-assigned) |
+| ExerciseScope | PERSONAL, ASSIGNED | Exercise scope (user's own vs teacher-assigned) |
 | FormattingStyle | STRUCTURED, NARRATIVE, BULLET_POINTS, CONVERSATIONAL, EXECUTIVE_SUMMARY | Transcript formatting |
 | AnalysisDepth | BASIC, DETAILED, COMPREHENSIVE | LLM processing depth |
 | ContextEnrichmentLevel | NONE, BASIC, STANDARD, DEEP | SKUEL context integration |

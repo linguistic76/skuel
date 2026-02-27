@@ -43,7 +43,7 @@ class TestRichContextPattern:
         prereq_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Basics",
-            ku_type=EntityType.CURRICULUM,
+            ku_type=EntityType.KU,
             domain=Domain.TECH,
         )
         prereq_result = await services.ku.core.backend.create(prereq_dto.to_dict())
@@ -54,7 +54,7 @@ class TestRichContextPattern:
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Advanced Python",
-            ku_type=EntityType.CURRICULUM,
+            ku_type=EntityType.KU,
             domain=Domain.TECH,
         )
         main_ku_result = await services.ku.core.backend.create(ku_dto.to_dict())
@@ -134,7 +134,7 @@ class TestRichContextPattern:
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Deployment Best Practices",
-            ku_type=EntityType.CURRICULUM,
+            ku_type=EntityType.KU,
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(ku_dto.to_dict())
@@ -255,7 +255,7 @@ class TestRichContextPattern:
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Test Knowledge",
-            ku_type=EntityType.CURRICULUM,
+            ku_type=EntityType.KU,
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(ku_dto.to_dict())

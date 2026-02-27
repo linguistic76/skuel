@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.constants import QueryLimit
 from core.models.curriculum.curriculum_dto import CurriculumDTO
-from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum.ku import Ku
 from core.models.entity import Entity
 from core.models.enums import KuComplexity
 from core.models.enums.neo_labels import NeoLabel
@@ -137,7 +137,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
 
     def __init__(
         self,
-        backend: UniversalNeo4jBackend[Curriculum],
+        backend: UniversalNeo4jBackend[Ku],
         content_repo: Any | None = None,  # Was ContentOperations (deleted January 2026)
         intelligence: IntelligenceOperations | None = None,
         query_builder: QueryBuilderOperations | None = None,
@@ -754,7 +754,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
     # HELPER METHODS
     # =========================================================================
 
-    def _to_dto(self, entity: Curriculum) -> CurriculumDTO:
+    def _to_dto(self, entity: Ku) -> CurriculumDTO:
         """Convert a Ku entity to CurriculumDTO."""
         if isinstance(entity, CurriculumDTO):
             return entity

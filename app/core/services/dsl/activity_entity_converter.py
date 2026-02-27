@@ -1547,7 +1547,7 @@ class ActivityEntityConverter:
             # ================================================================
             # CURRICULUM DOMAINS (3) - EntityType
             # ================================================================
-            case EntityType.CURRICULUM:
+            case EntityType.KU:
                 return activity_to_ku_dict(activity)
 
             case EntityType.LEARNING_STEP:

@@ -2,7 +2,7 @@
 Exercise Submission Handler
 =============================
 
-Listens for SubmissionCreated events with a fulfills_project_uid.
+Listens for SubmissionCreated events with a fulfills_exercise_uid.
 When present, calls process_exercise_submission() to create
 FULFILLS_EXERCISE + SHARES_WITH relationships.
 
@@ -24,7 +24,7 @@ async def handle_exercise_submission(
     """
     Handle SubmissionCreated events that fulfill an exercise.
 
-    When fulfills_project_uid is present, delegates to
+    When fulfills_exercise_uid is present, delegates to
     reports_core_service.process_exercise_submission() which:
     1. Creates FULFILLS_EXERCISE relationship
     2. Auto-shares with teacher via SHARES_WITH
@@ -34,26 +34,26 @@ async def handle_exercise_submission(
         event: The SubmissionCreated event
         reports_core_service: ReportsCoreService with process_exercise_submission()
     """
-    if not event.fulfills_project_uid:
+    if not event.fulfills_exercise_uid:
         return
 
     logger.info(
         f"Exercise submission detected: ku={event.submission_uid} "
-        f"-> exercise={event.fulfills_project_uid}"
+        f"-> exercise={event.fulfills_exercise_uid}"
     )
 
     result = await reports_core_service.process_exercise_submission(  # type: ignore[attr-defined]
         ku_uid=event.submission_uid,
-        exercise_uid=event.fulfills_project_uid,
+        exercise_uid=event.fulfills_exercise_uid,
     )
 
     if result.is_error:
         logger.error(
             f"Failed to process exercise submission: ku={event.submission_uid}, "
-            f"exercise={event.fulfills_project_uid}, error={result.error}"
+            f"exercise={event.fulfills_exercise_uid}, error={result.error}"
         )
     elif result.value:
         logger.info(
             f"Exercise submission processed: ku={event.submission_uid} "
-            f"-> exercise={event.fulfills_project_uid}"
+            f"-> exercise={event.fulfills_exercise_uid}"
         )

@@ -42,7 +42,7 @@ class EntityDTO:
     # =========================================================================
     uid: str = ""
     title: str = ""
-    ku_type: EntityType = EntityType.CURRICULUM
+    ku_type: EntityType = EntityType.KU
     parent_ku_uid: str | None = None
     domain: Domain = Domain.KNOWLEDGE
     created_by: str | None = None

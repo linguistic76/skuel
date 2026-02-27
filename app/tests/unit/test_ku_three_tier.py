@@ -291,9 +291,9 @@ class TestKuTypeDispatch:
         assert not isinstance(ku, Curriculum)
 
     def test_curriculum_dispatches_to_curriculum_ku(self):
-        """EntityType.CURRICULUM still dispatches to Curriculum."""
+        """EntityType.KU still dispatches to Curriculum."""
         dto = CurriculumDTO(
-            uid="ku_test_cur", title="Test Curriculum", ku_type=EntityType.CURRICULUM
+            uid="ku_test_cur", title="Test Curriculum", ku_type=EntityType.KU
         )
         ku = Entity.from_dto(dto)
         assert isinstance(ku, Curriculum)
@@ -415,7 +415,7 @@ class TestCurriculumFieldSeparation:
         dto = CurriculumDTO(
             uid="ku_test_crt",
             title="Curriculum RT",
-            ku_type=EntityType.CURRICULUM,
+            ku_type=EntityType.KU,
             complexity=KuComplexity.ADVANCED,
             learning_level=LearningLevel.EXPERT,
             sel_category=SELCategory.SELF_AWARENESS,

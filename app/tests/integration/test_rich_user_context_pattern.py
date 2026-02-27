@@ -45,7 +45,7 @@ class TestRichUserContextPattern:
         # Create prerequisite knowledge
         prereq_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
-            ku_type=EntityType.CURRICULUM,
+            ku_type=EntityType.KU,
             title="Python Basics",
             domain=Domain.TECH,
         )
@@ -54,7 +54,7 @@ class TestRichUserContextPattern:
         # Create main knowledge unit
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
-            ku_type=EntityType.CURRICULUM,
+            ku_type=EntityType.KU,
             title="Advanced Python",
             domain=Domain.TECH,
         )
@@ -216,7 +216,7 @@ class TestRichUserContextPattern:
         # Create test data
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
-            ku_type=EntityType.CURRICULUM,
+            ku_type=EntityType.KU,
             title="Test Knowledge",
             domain=Domain.TECH,
         )
@@ -341,7 +341,7 @@ class TestRichUserContextPattern:
         # Create cross-domain test data
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
-            ku_type=EntityType.CURRICULUM,
+            ku_type=EntityType.KU,
             title="Test Knowledge",
             domain=Domain.TECH,
         )

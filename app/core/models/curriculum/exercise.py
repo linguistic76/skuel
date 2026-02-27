@@ -6,11 +6,26 @@ Frozen dataclass for exercise instruction templates. Inherits from Curriculum
 since exercises are curriculum-carrying entities (they contain learning metadata
 and substance tracking).
 
-Formerly 'Assignment' — renamed to Exercise for clarity:
-- Exercise = what teacher creates (instruction template)
-- Submission = what student uploads (EntityType.SUBMISSION)
+The Educational Loop
+---------------------
+Exercise is the shared, reusable instruction template side of SKUEL's core loop:
 
-Pipeline role: EXERCISE stage (Exercise → Submit → Analyze → Review)
+    Exercise (shared template — this file)
+        ↓  user submits work against it
+    Submission (user-owned work product — EntityType.SUBMISSION)
+        ↓  FULFILLS_EXERCISE relationship in Neo4j
+        ↓  auto-shared with teacher
+    Feedback (teacher's response — EntityType.FEEDBACK_REPORT)
+
+The Exercise belongs to curriculum (shared, admin/teacher-created).
+The Submission is entirely user-owned the moment it is created.
+
+Terminology
+-----------
+- Exercise = what the teacher/admin creates (instruction template, scope=ASSIGNED)
+             or what a user creates for personal AI feedback (scope=PERSONAL)
+- Submission = the user's work product in response to an Exercise
+- Feedback = the teacher's or AI's response to the Submission
 
 Hierarchy:
     Entity (~29 fields)
@@ -26,7 +41,7 @@ from typing import TYPE_CHECKING
 
 from core.models.curriculum.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.reports_enums import ProjectScope
+from core.models.enums.reports_enums import ExerciseScope
 
 if TYPE_CHECKING:
     from core.models.curriculum.exercise_dto import ExerciseDTO
@@ -51,7 +66,7 @@ class Exercise(Curriculum):
     Exercise-specific fields (7):
     - instructions: LLM prompt for processing
     - model: Which LLM to use
-    - scope: PERSONAL or ASSIGNED (teacher assignment)
+    - scope: ExerciseScope.PERSONAL (user's own template) or ASSIGNED (teacher → group)
     - due_date: Due date for ASSIGNED scope
     - group_uid: Target group for ASSIGNED scope
     - enrichment_mode: Processing strategy
@@ -68,7 +83,7 @@ class Exercise(Curriculum):
     # =========================================================================
     instructions: str | None = None  # LLM prompt for processing
     model: str = "claude-3-5-sonnet-20241022"  # Which LLM to use
-    scope: ProjectScope = ProjectScope.PERSONAL
+    scope: ExerciseScope = ExerciseScope.PERSONAL
     due_date: date | None = None
     group_uid: str | None = None  # Target group for ASSIGNED scope
     enrichment_mode: str | None = None  # activity_tracking, idea_articulation, etc.
@@ -110,13 +125,13 @@ class Exercise(Curriculum):
     def is_valid(self) -> bool:
         """Check if exercise has minimum required fields."""
         base_valid = bool(self.title and self.instructions and self.model)
-        if self.scope == ProjectScope.ASSIGNED:
+        if self.scope == ExerciseScope.ASSIGNED:
             return base_valid and bool(self.group_uid)
         return base_valid
 
-    def is_exercise(self) -> bool:
-        """Check if this is a teacher-assigned exercise."""
-        return self.scope == ProjectScope.ASSIGNED
+    def is_assigned(self) -> bool:
+        """Check if this is a teacher-assigned exercise (scope == ASSIGNED)."""
+        return self.scope == ExerciseScope.ASSIGNED
 
     def is_overdue(self) -> bool:
         """Check if exercise is past due date."""

@@ -107,7 +107,7 @@ class ReportsSubmissionService(BaseService[BackendOperations[Entity], Entity]):
         parent_ku_uid: str | None = None,
         metadata: dict[str, Any] | None = None,
         applies_knowledge_uids: list[str] | None = None,
-        fulfills_project_uid: str | None = None,
+        fulfills_exercise_uid: str | None = None,
     ) -> Result[Entity]:
         """
         Submit a file for processing.
@@ -128,9 +128,12 @@ class ReportsSubmissionService(BaseService[BackendOperations[Entity], Entity]):
             parent_ku_uid: Optional parent report UID for derivation chain
             metadata: Additional metadata (optional)
             applies_knowledge_uids: Knowledge Units being applied
+            fulfills_exercise_uid: Exercise UID if this submission responds to an
+                assigned exercise. Triggers FULFILLS_EXERCISE relationship and
+                auto-sharing with the teacher.
 
         Returns:
-            Result containing created Ku
+            Result containing created submission entity
         """
         uid = UIDGenerator.generate_random_uid("ku")
 
@@ -204,7 +207,7 @@ class ReportsSubmissionService(BaseService[BackendOperations[Entity], Entity]):
             file_size=len(file_content),
             file_type=file_type,
             original_filename=original_filename,
-            fulfills_project_uid=fulfills_project_uid,
+            fulfills_exercise_uid=fulfills_exercise_uid,
             occurred_at=datetime.now(),
             metadata=metadata,
         )

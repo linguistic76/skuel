@@ -2234,7 +2234,7 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 # Static mappings to avoid circular imports with ingestion config.py
 # All domain entities are :Entity nodes; virtual config keys kept for lookup
 _ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
-    EntityType.CURRICULUM: "Entity",
+    EntityType.KU: "Entity",
     EntityType.TASK: "Task",
     EntityType.GOAL: "Goal",
     EntityType.HABIT: "Habit",  # Virtual key — config lookup key for 'habit'}
@@ -2247,7 +2247,7 @@ _ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
 }
 
 _LABEL_TO_DEFAULT_KU_TYPE: dict[str, EntityType] = {
-    "Entity": EntityType.CURRICULUM,
+    "Entity": EntityType.KU,
     "Task": EntityType.TASK,
     "Goal": EntityType.GOAL,
     "Habit": EntityType.HABIT,

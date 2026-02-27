@@ -2,17 +2,19 @@
 Exercise Service
 =================
 
-CRUD operations for Exercises (instruction templates).
+CRUD operations for Exercises (instruction templates for the core educational loop).
 
-An Exercise is like Claude/ChatGPT Projects - simple, transparent:
-- User creates exercise with visible instructions
-- User can edit instructions anytime
+An Exercise is the shared, transparent instruction template:
+- Teacher/admin creates exercise with visible instructions
+- Instructions are editable and always shown to the user (no black box)
 - User controls which LLM model to use
-- No hidden logic, no black boxes
+- scope=PERSONAL: user's own feedback template
+- scope=ASSIGNED: teacher assigns to a group via FOR_GROUP relationship
 
-Works with any Ku type (exercises, curriculum, etc.)
+When a student submits work against an ASSIGNED exercise, the submission handler
+creates the FULFILLS_EXERCISE relationship and auto-shares with the teacher.
 
-Formerly AssignmentService — renamed per of Ku hierarchy refactoring.
+Formerly AssignmentService — renamed to Exercise for domain clarity.
 """
 
 import json
@@ -23,7 +25,7 @@ from core.models.curriculum.exercise import Exercise
 from core.models.curriculum.exercise_dto import ExerciseDTO
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType, ProcessorType
-from core.models.enums.reports_enums import ProjectScope
+from core.models.enums.reports_enums import ExerciseScope
 from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
@@ -83,7 +85,7 @@ class ExerciseService(BaseService):
         model: str = "claude-3-5-sonnet-20241022",
         context_notes: list[str] | None = None,
         domain: Domain | None = None,
-        scope: ProjectScope = ProjectScope.PERSONAL,
+        scope: ExerciseScope = ExerciseScope.PERSONAL,
         due_date: date | None = None,
         processor_type: ProcessorType = ProcessorType.LLM,
         group_uid: str | None = None,
@@ -110,7 +112,7 @@ class ExerciseService(BaseService):
         Returns:
             Result[Exercise] - The created exercise
         """
-        if scope == ProjectScope.ASSIGNED and not group_uid:
+        if scope == ExerciseScope.ASSIGNED and not group_uid:
             return Result.fail(
                 Errors.validation("group_uid is required for assigned exercises", field="group_uid")
             )
@@ -151,7 +153,7 @@ class ExerciseService(BaseService):
             self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
 
         # Create FOR_GROUP relationship for ASSIGNED scope
-        if scope == ProjectScope.ASSIGNED and group_uid:
+        if scope == ExerciseScope.ASSIGNED and group_uid:
             rel_result = await self.backend.execute_query(
                 f"""
                 MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
@@ -439,7 +441,7 @@ class ExerciseService(BaseService):
 
         Args:
             exercise_uid: Exercise UID (ku_type='exercise')
-            curriculum_uid: Curriculum KU UID (ku_type='curriculum')
+            curriculum_uid: Curriculum KU UID (ku_type='ku')
 
         Returns:
             Result[bool] - True if relationship created
@@ -448,7 +450,7 @@ class ExerciseService(BaseService):
             f"""
             MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
             MATCH (curriculum:Entity {{uid: $curriculum_uid}})
-            WHERE curriculum.ku_type IN ['curriculum', 'resource']
+            WHERE curriculum.ku_type IN ['ku', 'resource']
             MERGE (exercise)-[r:{RelationshipName.REQUIRES_KNOWLEDGE}]->(curriculum)
             ON CREATE SET r.created_at = datetime()
             RETURN true as success

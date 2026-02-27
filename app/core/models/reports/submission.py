@@ -2,20 +2,37 @@
 Submission - Content Processing Domain Model (Intermediate Base)
 ===================================================================
 
-Frozen dataclass for all content-processing entities:
-EntityType.SUBMISSION, EntityType.JOURNAL, EntityType.AI_REPORT, EntityType.FEEDBACK_REPORT.
+Frozen dataclass base for all content-processing entities.
+Accepted entity types: SUBMISSION, JOURNAL, AI_REPORT, FEEDBACK_REPORT.
 
-Inherits ~48 common fields from Entity. Adds 13 submission-specific fields:
+Role in the Educational Loop
+------------------------------
+A Submission (EntityType.SUBMISSION) is the user's work product in response
+to an Exercise. It is the user-owned half of the core loop:
+
+    Exercise (shared template) → user submits → Submission (user-owned)
+                                                 └─ FULFILLS_EXERCISE → Exercise
+                                                 └─ SHARES_WITH → teacher
+
+The Submission is created by and belongs to the student. The teacher receives
+access only via the SHARES_WITH relationship created at submission time.
+
+The four leaf types all share this base:
+    SUBMISSION      → Student's file upload / text submitted against an Exercise
+    JOURNAL         → Voice or text journal entry (user's own reflections)
+    AI_REPORT       → System-generated progress summary (ProcessorType.AUTOMATIC)
+    FEEDBACK_REPORT → Teacher's feedback on a Submission (teacher-owned)
+
+Fields
+-------
 - File (4): original_filename, file_path, file_size, file_type
-- Processing (8): processor_type, timestamps, error, content, instructions, max_retention
-- Subject (1): subject_uid — who this report is about
-
-Submission-specific methods: get_processing_duration, get_summary.
+- Processing (8): processor_type, timestamps, error, processed_content,
+                  instructions, max_retention
+- Subject (1): subject_uid — who this report is about (student, for feedback)
 
 Leaf subclasses (Journal, AiReport, Feedback) inherit from Submission
-and force their specific ku_type. Feedback adds 2 extra fields.
+and force their specific entity_type. Feedback adds 2 extra fields.
 
-See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
