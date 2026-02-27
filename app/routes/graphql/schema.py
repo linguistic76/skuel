@@ -30,7 +30,7 @@ from routes.graphql.config import get_graphql_config, validate_list_limit
 from routes.graphql.context import GraphQLContext
 
 if TYPE_CHECKING:
-    from core.models.entity_types import CurriculumEntity
+    from core.models.curriculum.learning_step import LearningStep as LsModel
     from core.utils.result_simplified import Result
     from routes.graphql.protocols import KnowledgeUnitLike, LearningStepLike
 from routes.graphql.types import (
@@ -564,8 +564,8 @@ class Query:
             return None
 
         # Get path steps with type safety
-        steps_result: Result[list[CurriculumEntity]] = await context.services.lp.get_steps(path_uid)
-        steps: list[CurriculumEntity] = steps_result.value if steps_result.is_ok else []
+        steps_result: Result[list[LsModel]] = await context.services.lp.get_steps(path_uid)
+        steps: list[LsModel] = steps_result.value if steps_result.is_ok else []
 
         # Calculate progress from steps
         # Note: unified_progress DELETED (January 2026) - steps_completed now derived from user mastery

@@ -18,7 +18,7 @@ from routes.graphql.context import GraphQLContext
 from routes.graphql.query_helpers import GraphQLQueryHelpers
 
 if TYPE_CHECKING:
-    from core.models.entity_types import CurriculumEntity
+    from core.models.curriculum.learning_step import LearningStep as LsModel
     from core.utils.result_simplified import Result
 
 
@@ -102,12 +102,12 @@ class LearningPath:
             return []
 
         # Get steps with type safety
-        result: Result[list[CurriculumEntity]] = await context.services.lp.get_steps(self.uid)
+        result: Result[list[LsModel]] = await context.services.lp.get_steps(self.uid)
 
         if result.is_error or not result.value:
             return []
 
-        steps: list[CurriculumEntity] = result.value
+        steps: list[LsModel] = result.value
 
         # Convert domain models to GraphQL DTOs using explicit from_domain()
         return [LearningStep.from_domain(step, i + 1) for i, step in enumerate(steps)]
