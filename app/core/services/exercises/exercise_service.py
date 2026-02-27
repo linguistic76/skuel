@@ -212,16 +212,6 @@ class ExerciseService(BaseService):
         self.logger.info(f"Found {len(exercises)} exercises for user {user_uid}")
         return Result.ok(exercises)
 
-    # Backward-compatible aliases for route consumers
-    async def get_project(self, uid: str) -> Result[Exercise]:
-        """Alias for get_exercise (backward compatibility with route consumers)."""
-        return await self.get_exercise(uid)
-
-    async def list_user_projects(
-        self, user_uid: str, active_only: bool = True
-    ) -> Result[list[Exercise]]:
-        """Alias for list_user_exercises (backward compatibility with route consumers)."""
-        return await self.list_user_exercises(user_uid, active_only)
 
     # ========================================================================
     # UPDATE
@@ -272,22 +262,6 @@ class ExerciseService(BaseService):
         self.logger.info(f"Exercise updated: {uid}")
         return result
 
-    # Backward-compatible alias
-    async def update_project(
-        self,
-        uid: str,
-        name: str | None = None,
-        instructions: str | None = None,
-        model: str | None = None,
-        context_notes: list[str] | None = None,
-        domain: Domain | None = None,
-        is_active: bool | None = None,
-        metadata: dict[str, Any] | None = None,
-    ) -> Result[Exercise]:
-        """Alias for update_exercise (backward compatibility with route consumers)."""
-        return await self.update_exercise(
-            uid, name, instructions, model, context_notes, domain, is_active, metadata
-        )
 
     # ========================================================================
     # EXERCISE QUERIES (ADR-040)
@@ -441,11 +415,6 @@ class ExerciseService(BaseService):
             return result
         self.logger.info(f"Exercise deleted: {uid}")
         return Result.ok(True)
-
-    # Backward-compatible alias
-    async def delete_project(self, uid: str) -> Result[bool]:
-        """Alias for delete_exercise (backward compatibility)."""
-        return await self.delete_exercise(uid)
 
     async def deactivate_exercise(self, uid: str) -> Result[Exercise]:
         """Soft-delete by archiving exercise."""

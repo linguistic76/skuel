@@ -1077,35 +1077,6 @@ class ExerciseOperations(Protocol):
         """Delete an exercise. Returns Result[bool]."""
         ...
 
-    # Backward-compatible aliases for route consumers
-    async def get_project(self, uid: str) -> Result[Exercise]:
-        """Alias for get_exercise."""
-        ...
-
-    async def list_user_projects(
-        self, user_uid: str, active_only: bool = True
-    ) -> Result[list[Any]]:
-        """Alias for list_user_exercises."""
-        ...
-
-    async def update_project(
-        self,
-        uid: str,
-        name: str | None = None,
-        instructions: str | None = None,
-        model: str | None = None,
-        context_notes: list[str] | None = None,
-        domain: Any | None = None,
-        is_active: bool | None = None,
-        metadata: dict[str, Any] | None = None,
-    ) -> Result[Any]:
-        """Alias for update_exercise."""
-        ...
-
-    async def delete_project(self, uid: str) -> Result[bool]:
-        """Alias for delete_exercise."""
-        ...
-
     # Curriculum linking
     async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
         """Link exercise to curriculum KU via REQUIRES_KNOWLEDGE."""
