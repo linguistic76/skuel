@@ -47,6 +47,8 @@ logger = get_logger("skuel.routes.teaching.ui")
 TEACHING_SIDEBAR_ITEMS = [
     SidebarItem("Review Queue", "/teaching", "queue", icon="📥"),
     SidebarItem("Approved", "/teaching/approved", "approved", icon="✅"),
+    SidebarItem("By Exercise", "/teaching/exercises", "exercises", icon="📋"),
+    SidebarItem("By Student", "/teaching/students", "students", icon="👥"),
 ]
 
 
@@ -175,6 +177,202 @@ def _render_queue_empty() -> Div:
             ),
             cls="text-center py-12",
         ),
+    )
+
+
+def _render_exercise_summary_card(item: dict[str, Any]) -> Div:
+    """Render an exercise card with submission counts and a link."""
+    title = item.get("title") or "Untitled Exercise"
+    uid = item.get("uid", "")
+    scope = item.get("scope")
+    total_count = item.get("total_count", 0)
+    reviewed_count = item.get("reviewed_count", 0)
+    pending_count = item.get("pending_count", 0)
+
+    scope_badge = Span(scope, cls="badge badge-outline badge-sm") if scope else ""
+    pending_badge_cls = "badge-warning" if pending_count > 0 else "badge-ghost"
+
+    return Div(
+        Div(
+            Div(
+                Div(
+                    H4(title, cls="mb-0 font-semibold"),
+                    Div(scope_badge, cls="mt-1") if scope else "",
+                    cls="flex-1",
+                ),
+                Div(
+                    Span(f"{pending_count} pending", cls=f"badge {pending_badge_cls}"),
+                    Span(f"{reviewed_count}/{total_count} reviewed", cls="badge badge-ghost"),
+                    cls="flex gap-2 items-center",
+                ),
+                cls="flex items-center justify-between gap-4",
+            ),
+            Div(
+                A(
+                    "View Submissions",
+                    href=f"/teaching/exercises/{uid}/submissions",
+                    cls="btn btn-sm btn-primary",
+                    **{"hx-boost": "false"},
+                ),
+                cls="flex justify-end mt-3",
+            ),
+            cls="card-body p-4",
+        ),
+        cls="card bg-base-100 shadow-sm mb-2",
+    )
+
+
+def _render_exercise_submission_row(item: dict[str, Any]) -> Div:
+    """Render a submission row in the exercise-detail view."""
+    title = item.get("title") or item.get("original_filename") or "Untitled"
+    student_name = item.get("student_name") or item.get("student_uid") or "Unknown"
+    status = item.get("status") or "unknown"
+    uid = item.get("uid", "")
+    feedback_count = item.get("feedback_count", 0)
+
+    feedback_indicator = ""
+    if feedback_count > 0:
+        feedback_indicator = Span(
+            f"{feedback_count} feedback",
+            cls="badge badge-sm badge-info",
+        )
+
+    return Div(
+        Div(
+            Div(
+                Div(
+                    H4(title, cls="mb-0 font-semibold"),
+                    P(f"by {student_name}", cls="text-sm text-base-content/60 mb-0"),
+                    cls="flex-1",
+                ),
+                Div(
+                    feedback_indicator,
+                    _status_badge(status),
+                    cls="flex gap-2 items-center",
+                ),
+                cls="flex items-center justify-between gap-4",
+            ),
+            Div(
+                A(
+                    "Review",
+                    href=f"/teaching/review/{uid}",
+                    cls="btn btn-sm btn-primary",
+                    **{"hx-boost": "false"},
+                ),
+                cls="flex justify-end mt-3",
+            ),
+            cls="card-body p-4",
+        ),
+        cls="card bg-base-100 shadow-sm mb-2",
+    )
+
+
+def _render_student_summary_card(item: dict[str, Any]) -> Div:
+    """Render a student card with submission counts and a link."""
+    student_name = item.get("student_name") or item.get("student_uid") or "Unknown"
+    student_uid = item.get("student_uid", "")
+    submission_count = item.get("submission_count", 0)
+    reviewed_count = item.get("reviewed_count", 0)
+    pending_count = item.get("pending_count", 0)
+
+    pending_badge_cls = "badge-warning" if pending_count > 0 else "badge-ghost"
+
+    return Div(
+        Div(
+            Div(
+                Div(
+                    H4(student_name, cls="mb-0 font-semibold"),
+                    P(student_uid, cls="text-xs text-base-content/40 mb-0"),
+                    cls="flex-1",
+                ),
+                Div(
+                    Span(f"{pending_count} pending", cls=f"badge {pending_badge_cls}"),
+                    Span(
+                        f"{reviewed_count}/{submission_count} reviewed",
+                        cls="badge badge-ghost",
+                    ),
+                    cls="flex gap-2 items-center",
+                ),
+                cls="flex items-center justify-between gap-4",
+            ),
+            Div(
+                A(
+                    "View Student",
+                    href=f"/teaching/students/{student_uid}",
+                    cls="btn btn-sm btn-primary",
+                    **{"hx-boost": "false"},
+                ),
+                cls="flex justify-end mt-3",
+            ),
+            cls="card-body p-4",
+        ),
+        cls="card bg-base-100 shadow-sm mb-2",
+    )
+
+
+def _render_student_submission_row(item: dict[str, Any]) -> Div:
+    """Render a submission row in the student-detail view with feedback toggle."""
+    title = item.get("title") or item.get("original_filename") or "Untitled"
+    status = item.get("status") or "unknown"
+    uid = item.get("uid", "")
+    feedback_count = item.get("feedback_count", 0)
+    exercise_title = item.get("exercise_title")
+
+    exercise_label = ""
+    if exercise_title:
+        exercise_label = Span(f"Exercise: {exercise_title}", cls="text-xs text-base-content/50")
+
+    feedback_indicator = ""
+    if feedback_count > 0:
+        feedback_indicator = Span(
+            f"{feedback_count} feedback",
+            cls="badge badge-sm badge-info",
+        )
+
+    feedback_toggle = ""
+    if feedback_count > 0:
+        feedback_toggle = Div(
+            A(
+                "View Feedback",
+                cls="btn btn-xs btn-ghost",
+                **{
+                    "hx-get": f"/api/submissions/{uid}/feedback",
+                    "hx-target": f"#feedback-{uid}",
+                    "hx-swap": "innerHTML",
+                },
+            ),
+            Div(id=f"feedback-{uid}"),
+            cls="mt-2",
+        )
+
+    return Div(
+        Div(
+            Div(
+                Div(
+                    H4(title, cls="mb-0 font-semibold"),
+                    exercise_label,
+                    cls="flex-1",
+                ),
+                Div(
+                    feedback_indicator,
+                    _status_badge(status),
+                    cls="flex gap-2 items-center",
+                ),
+                cls="flex items-center justify-between gap-4",
+            ),
+            Div(
+                A(
+                    "Review",
+                    href=f"/teaching/review/{uid}",
+                    cls="btn btn-sm btn-primary",
+                    **{"hx-boost": "false"},
+                ),
+                cls="flex justify-end mt-3",
+            ),
+            feedback_toggle,
+            cls="card-body p-4",
+        ),
+        cls="card bg-base-100 shadow-sm mb-2",
     )
 
 
@@ -372,6 +570,185 @@ def create_teaching_ui_routes(
             subtitle="Review student work",
             storage_key="teaching-sidebar",
             page_title="Review Submission",
+            request=request,
+            active_page="teaching",
+            title_href="/teaching",
+        )
+
+    @rt("/teaching/exercises")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_exercises_page(request: Request, current_user: Any = None) -> Any:
+        """By Exercise page — teacher's exercises with submission counts."""
+        user_uid = require_authenticated_user(request)
+
+        result = await teacher_review_service.get_exercises_with_submission_counts(
+            teacher_uid=user_uid
+        )
+
+        if result.is_error:
+            page_content: Any = Div(
+                P("Failed to load exercises", cls="text-center text-error"),
+            )
+        elif not result.value:
+            page_content = Div(
+                Div(
+                    H3("No exercises yet", cls="text-lg font-medium mb-2"),
+                    P(
+                        "Exercises you create will appear here with submission counts.",
+                        cls="text-base-content/60",
+                    ),
+                    cls="text-center py-12",
+                ),
+            )
+        else:
+            page_content = Div(*[_render_exercise_summary_card(item) for item in result.value])
+
+        content = Div(
+            PageHeader("By Exercise", subtitle="Submissions grouped by exercise"),
+            page_content,
+        )
+        return await SidebarPage(
+            content=content,
+            items=TEACHING_SIDEBAR_ITEMS,
+            active="exercises",
+            title="Teaching",
+            subtitle="Review student work",
+            storage_key="teaching-sidebar",
+            page_title="By Exercise",
+            request=request,
+            active_page="teaching",
+            title_href="/teaching",
+        )
+
+    @rt("/teaching/exercises/{uid}/submissions")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_exercise_submissions_page(
+        request: Request, uid: str, current_user: Any = None
+    ) -> Any:
+        """Exercise submissions page — all submissions against a specific exercise."""
+        result = await teacher_review_service.get_submissions_for_exercise(exercise_uid=uid)
+
+        if result.is_error:
+            rows: Any = Div(P("Failed to load submissions", cls="text-center text-error"))
+        elif not result.value:
+            rows = Div(
+                P("No submissions yet for this exercise.", cls="text-center text-base-content/60 py-8")
+            )
+        else:
+            rows = Div(*[_render_exercise_submission_row(item) for item in result.value])
+
+        back_link = Div(
+            A("← By Exercise", href="/teaching/exercises", cls="btn btn-ghost btn-sm mt-4",
+              **{"hx-boost": "false"}),
+        )
+
+        content = Div(
+            PageHeader("Exercise Submissions", subtitle=f"Exercise: {uid}"),
+            rows,
+            back_link,
+        )
+        return await SidebarPage(
+            content=content,
+            items=TEACHING_SIDEBAR_ITEMS,
+            active="exercises",
+            title="Teaching",
+            subtitle="Review student work",
+            storage_key="teaching-sidebar",
+            page_title="Exercise Submissions",
+            request=request,
+            active_page="teaching",
+            title_href="/teaching",
+        )
+
+    @rt("/teaching/students")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_students_page(request: Request, current_user: Any = None) -> Any:
+        """By Student page — students who shared work with the teacher."""
+        user_uid = require_authenticated_user(request)
+
+        result = await teacher_review_service.get_students_summary(teacher_uid=user_uid)
+
+        if result.is_error:
+            students_content: Any = Div(
+                P("Failed to load students", cls="text-center text-error"),
+            )
+        elif not result.value:
+            students_content = Div(
+                Div(
+                    H3("No students yet", cls="text-lg font-medium mb-2"),
+                    P(
+                        "Students who share work with you will appear here.",
+                        cls="text-base-content/60",
+                    ),
+                    cls="text-center py-12",
+                ),
+            )
+        else:
+            students_content = Div(*[_render_student_summary_card(item) for item in result.value])
+
+        content = Div(
+            PageHeader("By Student", subtitle="Students who have shared work with you"),
+            students_content,
+        )
+        return await SidebarPage(
+            content=content,
+            items=TEACHING_SIDEBAR_ITEMS,
+            active="students",
+            title="Teaching",
+            subtitle="Review student work",
+            storage_key="teaching-sidebar",
+            page_title="By Student",
+            request=request,
+            active_page="teaching",
+            title_href="/teaching",
+        )
+
+    @rt("/teaching/students/{uid}")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_student_detail_page(
+        request: Request, uid: str, current_user: Any = None
+    ) -> Any:
+        """Student detail page — all submissions from a specific student."""
+        user_uid = require_authenticated_user(request)
+
+        result = await teacher_review_service.get_student_submissions(
+            teacher_uid=user_uid, student_uid=uid
+        )
+
+        if result.is_error:
+            submission_rows: Any = Div(
+                P("Failed to load submissions", cls="text-center text-error")
+            )
+        elif not result.value:
+            submission_rows = Div(
+                P(
+                    "No submissions from this student.",
+                    cls="text-center text-base-content/60 py-8",
+                )
+            )
+        else:
+            submission_rows = Div(
+                *[_render_student_submission_row(item) for item in result.value]
+            )
+
+        back_link = Div(
+            A("← By Student", href="/teaching/students", cls="btn btn-ghost btn-sm mt-4",
+              **{"hx-boost": "false"}),
+        )
+
+        content = Div(
+            PageHeader(f"Student: {uid}", subtitle="All submissions shared with you"),
+            submission_rows,
+            back_link,
+        )
+        return await SidebarPage(
+            content=content,
+            items=TEACHING_SIDEBAR_ITEMS,
+            active="students",
+            title="Teaching",
+            subtitle="Review student work",
+            storage_key="teaching-sidebar",
+            page_title="Student Detail",
             request=request,
             active_page="teaching",
             title_href="/teaching",

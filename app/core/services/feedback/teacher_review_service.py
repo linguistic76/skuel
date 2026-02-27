@@ -511,6 +511,191 @@ class TeacherReviewService:
             }
         )
 
+    async def get_exercises_with_submission_counts(
+        self,
+        teacher_uid: str,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Get teacher's exercises with submission and reviewed counts.
+
+        Args:
+            teacher_uid: Teacher UID
+
+        Returns:
+            Result containing list of exercise dicts with uid, title, scope,
+            created_at, total_count, reviewed_count, pending_count
+        """
+        query = """
+        MATCH (user:User {uid: $teacher_uid})-[:OWNS]->(exercise:Entity {ku_type: 'exercise'})
+        OPTIONAL MATCH (s:Entity {ku_type: 'submission'})-[:FULFILLS_EXERCISE]->(exercise)
+        WITH exercise, count(s) AS total_count,
+             count(CASE WHEN s.status = 'completed' THEN 1 END) AS reviewed_count
+        RETURN exercise.uid AS uid, exercise.title AS title,
+               exercise.scope AS scope, exercise.created_at AS created_at,
+               total_count, reviewed_count,
+               total_count - reviewed_count AS pending_count
+        ORDER BY exercise.created_at DESC
+        """
+
+        result = await self.executor.execute_query(query, {"teacher_uid": teacher_uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        items = [
+            {
+                "uid": record["uid"],
+                "title": record["title"],
+                "scope": record["scope"],
+                "created_at": record["created_at"],
+                "total_count": record["total_count"],
+                "reviewed_count": record["reviewed_count"],
+                "pending_count": record["pending_count"],
+            }
+            for record in result.value
+        ]
+
+        return Result.ok(items)
+
+    async def get_submissions_for_exercise(
+        self,
+        exercise_uid: str,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Get all submissions against a specific exercise.
+
+        Args:
+            exercise_uid: Exercise UID to fetch submissions for
+
+        Returns:
+            Result containing list of submission dicts with student info
+            and feedback count
+        """
+        query = """
+        MATCH (s:Entity {ku_type: 'submission'})-[:FULFILLS_EXERCISE]->(e:Entity {uid: $exercise_uid})
+        OPTIONAL MATCH (student:User)-[:OWNS]->(s)
+        OPTIONAL MATCH (fb:Entity {ku_type: 'feedback_report'})-[:FEEDBACK_FOR]->(s)
+        WITH s, student, count(fb) AS feedback_count
+        RETURN s.uid AS uid, s.title AS title,
+               s.original_filename AS original_filename, s.status AS status,
+               s.created_at AS created_at, student.uid AS student_uid,
+               student.name AS student_name, feedback_count
+        ORDER BY s.created_at DESC
+        """
+
+        result = await self.executor.execute_query(query, {"exercise_uid": exercise_uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        items = [
+            {
+                "uid": record["uid"],
+                "title": record["title"],
+                "original_filename": record["original_filename"],
+                "status": record["status"],
+                "created_at": record["created_at"],
+                "student_uid": record["student_uid"],
+                "student_name": record["student_name"],
+                "feedback_count": record["feedback_count"],
+            }
+            for record in result.value
+        ]
+
+        return Result.ok(items)
+
+    async def get_students_summary(
+        self,
+        teacher_uid: str,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Get students who have shared work with this teacher, with counts.
+
+        Args:
+            teacher_uid: Teacher UID
+
+        Returns:
+            Result containing list of student dicts with submission_count,
+            reviewed_count, pending_count, ordered by pending descending
+        """
+        query = """
+        MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(ku:Entity)
+        OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
+        WITH student, count(ku) AS submission_count,
+             count(CASE WHEN ku.status = 'completed' THEN 1 END) AS reviewed_count
+        WHERE student IS NOT NULL
+        RETURN student.uid AS student_uid, student.name AS student_name,
+               submission_count, reviewed_count,
+               submission_count - reviewed_count AS pending_count
+        ORDER BY pending_count DESC, submission_count DESC
+        """
+
+        result = await self.executor.execute_query(query, {"teacher_uid": teacher_uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        items = [
+            {
+                "student_uid": record["student_uid"],
+                "student_name": record["student_name"],
+                "submission_count": record["submission_count"],
+                "reviewed_count": record["reviewed_count"],
+                "pending_count": record["pending_count"],
+            }
+            for record in result.value
+        ]
+
+        return Result.ok(items)
+
+    async def get_student_submissions(
+        self,
+        teacher_uid: str,
+        student_uid: str,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Get all submissions from a student that were shared with this teacher.
+
+        Args:
+            teacher_uid: Teacher UID
+            student_uid: Student UID
+
+        Returns:
+            Result containing list of submission dicts with exercise context
+            and feedback count
+        """
+        query = """
+        MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(ku:Entity)
+        MATCH (student:User {uid: $student_uid})-[:OWNS]->(ku)
+        OPTIONAL MATCH (fb:Entity {ku_type: 'feedback_report'})-[:FEEDBACK_FOR]->(ku)
+        OPTIONAL MATCH (ku)-[:FULFILLS_EXERCISE]->(ex:Entity {ku_type: 'exercise'})
+        WITH ku, count(fb) AS feedback_count, ex
+        RETURN ku.uid AS uid, ku.title AS title,
+               ku.original_filename AS original_filename, ku.status AS status,
+               ku.created_at AS created_at,
+               feedback_count, ex.uid AS exercise_uid, ex.title AS exercise_title
+        ORDER BY ku.created_at DESC
+        """
+
+        result = await self.executor.execute_query(
+            query, {"teacher_uid": teacher_uid, "student_uid": student_uid}
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        items = [
+            {
+                "uid": record["uid"],
+                "title": record["title"],
+                "original_filename": record["original_filename"],
+                "status": record["status"],
+                "created_at": record["created_at"],
+                "feedback_count": record["feedback_count"],
+                "exercise_uid": record["exercise_uid"],
+                "exercise_title": record["exercise_title"],
+            }
+            for record in result.value
+        ]
+
+        return Result.ok(items)
+
     # ========================================================================
     # PRIVATE HELPERS
     # ========================================================================

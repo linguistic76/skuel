@@ -102,5 +102,44 @@ def create_teaching_api_routes(
             teacher_uid=current_user.uid,
         )
 
+    @rt("/api/teaching/exercises", methods=["GET"])
+    @require_role(UserRole.TEACHER, get_user_service)
+    @boundary_handler()
+    async def get_exercises(request: Request, current_user: Any) -> Result[Any]:
+        """Get teacher's exercises with submission counts."""
+        return await teacher_review_service.get_exercises_with_submission_counts(
+            teacher_uid=current_user.uid,
+        )
+
+    @rt("/api/teaching/exercises/{uid}/submissions", methods=["GET"])
+    @require_role(UserRole.TEACHER, get_user_service)
+    @boundary_handler()
+    async def get_exercise_submissions(
+        request: Request, uid: str, current_user: Any
+    ) -> Result[Any]:
+        """Get all submissions against an exercise."""
+        return await teacher_review_service.get_submissions_for_exercise(exercise_uid=uid)
+
+    @rt("/api/teaching/students", methods=["GET"])
+    @require_role(UserRole.TEACHER, get_user_service)
+    @boundary_handler()
+    async def get_students(request: Request, current_user: Any) -> Result[Any]:
+        """Get students who shared work with the teacher."""
+        return await teacher_review_service.get_students_summary(
+            teacher_uid=current_user.uid,
+        )
+
+    @rt("/api/teaching/students/{uid}/submissions", methods=["GET"])
+    @require_role(UserRole.TEACHER, get_user_service)
+    @boundary_handler()
+    async def get_student_submissions(
+        request: Request, uid: str, current_user: Any
+    ) -> Result[Any]:
+        """Get all submissions from a specific student."""
+        return await teacher_review_service.get_student_submissions(
+            teacher_uid=current_user.uid,
+            student_uid=uid,
+        )
+
     logger.info("✅ Teaching API routes registered")
     return []

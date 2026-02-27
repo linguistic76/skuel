@@ -129,3 +129,27 @@ class TeacherReviewOperations(Protocol):
     ) -> Result[dict[str, Any]]:
         """Approve a student report. Returns Result[dict]."""
         ...
+
+    async def get_exercises_with_submission_counts(
+        self, teacher_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get teacher's exercises with submission/reviewed counts. Returns Result[list[dict]]."""
+        ...
+
+    async def get_submissions_for_exercise(
+        self, exercise_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get all submissions against an exercise. Returns Result[list[dict]]."""
+        ...
+
+    async def get_students_summary(
+        self, teacher_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get students who shared work with teacher, with counts. Returns Result[list[dict]]."""
+        ...
+
+    async def get_student_submissions(
+        self, teacher_uid: str, student_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get all submissions from student shared with teacher. Returns Result[list[dict]]."""
+        ...
