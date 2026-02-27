@@ -20,7 +20,6 @@ from core.events.choice_events import (
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_option import ChoiceOption
-from core.models.entity_types import Ku
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
@@ -41,7 +40,7 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations
 
 
-class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
+class ChoicesCoreService(BaseService["BackendOperations[Choice]", Choice]):
     """
     Core CRUD operations for choices.
 
@@ -70,7 +69,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
     """
 
     def __init__(
-        self, backend: BackendOperations[Ku], event_bus=None, relationship_service=None
+        self, backend: BackendOperations[Choice], event_bus=None, relationship_service=None
     ) -> None:
         """
         Initialize choices core service.
@@ -117,7 +116,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, choice: Ku) -> Result[None] | None:
+    def _validate_create(self, choice: Choice) -> Result[None] | None:
         """
         Validate choice creation with business rules.
 
@@ -172,7 +171,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
         return None  # All validations passed
 
-    def _validate_update(self, current: Ku, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: Choice, updates: dict[str, Any]) -> Result[None] | None:
         """
         Validate choice updates with business rules.
 
@@ -220,7 +219,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
         return None  # All validations passed
 
-    async def create_choice(self, choice_request: ChoiceCreateRequest, user_uid: str) -> Result[Ku]:
+    async def create_choice(self, choice_request: ChoiceCreateRequest, user_uid: str) -> Result[Choice]:
         """
         Create a basic choice.
 
@@ -229,7 +228,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             user_uid: User UID (REQUIRED - fail-fast philosophy)
 
         Returns:
-            Result containing created Ku (choice type)
+            Result containing created Choice
         """
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "choice creation")
@@ -308,7 +307,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
         return Result.ok(choice)
 
-    async def get_choice(self, choice_uid: str) -> Result[Ku]:
+    async def get_choice(self, choice_uid: str) -> Result[Choice]:
         """
         Get a specific choice by UID.
 
@@ -319,11 +318,11 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             choice_uid: UID of the choice
 
         Returns:
-            Result[Ku] - success contains Choice, not found is an error
+            Result[Choice] - success contains Choice, not found is an error
         """
         return await self.get(choice_uid)
 
-    async def get_user_choices(self, user_uid: str) -> Result[list[Ku]]:
+    async def get_user_choices(self, user_uid: str) -> Result[list[Choice]]:
         """
         Get all choices for a user.
 
@@ -341,7 +340,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         return Result.ok(choices)
 
     @with_error_handling("get_choices_for_goal", error_type="database", uid_param="goal_uid")
-    async def get_choices_for_goal(self, goal_uid: str) -> Result[list[Ku]]:
+    async def get_choices_for_goal(self, goal_uid: str) -> Result[list[Choice]]:
         """
         Get all choices motivated by a specific goal.
 
@@ -381,7 +380,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
     async def update_choice(
         self, choice_uid: str, choice_update: EntityUpdateRequest
-    ) -> Result[Ku]:
+    ) -> Result[Choice]:
         """
         Update a choice.
 
@@ -482,7 +481,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
     async def evaluate_choice_outcome(
         self, choice_uid: str, evaluation: ChoiceEvaluationRequest
-    ) -> Result[Ku]:
+    ) -> Result[Choice]:
         """
         Record the outcome evaluation for a choice.
 
@@ -540,7 +539,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         selected_option_uid: str,
         decision_rationale: str | None = None,
         confidence: float = 0.5,
-    ) -> Result[Ku]:
+    ) -> Result[Choice]:
         """
         Record a decision for a choice (selects an option).
 
@@ -591,7 +590,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         offset: int = 0,
         order_by: str | None = None,
         order_desc: bool = False,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Choice]]:
         """
         Find choices with filters and pagination.
 
@@ -667,7 +666,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         estimated_duration: int | None = None,
         dependencies: list[str] | None = None,
         tags: list[str] | None = None,
-    ) -> Result[Ku]:
+    ) -> Result[Choice]:
         """
         Add a new option to an existing choice.
 
@@ -778,7 +777,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         estimated_duration: int | None = None,
         dependencies: list[str] | None = None,
         tags: list[str] | None = None,
-    ) -> Result[Ku]:
+    ) -> Result[Choice]:
         """
         Update an existing option in a choice.
 
@@ -899,7 +898,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         self,
         choice_uid: str,
         option_uid: str,
-    ) -> Result[Ku]:
+    ) -> Result[Choice]:
         """
         Remove an option from a choice.
 
@@ -1004,7 +1003,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
     # ========================================================================
 
     @with_error_handling("get_subchoices", error_type="database", uid_param="parent_uid")
-    async def get_subchoices(self, parent_uid: str, depth: int = 1) -> Result[list[Ku]]:
+    async def get_subchoices(self, parent_uid: str, depth: int = 1) -> Result[list[Choice]]:
         """
         Get all subchoices of a parent choice.
 
@@ -1046,7 +1045,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         return Result.ok(choices)
 
     @with_error_handling("get_parent_choice", error_type="database", uid_param="subchoice_uid")
-    async def get_parent_choice(self, subchoice_uid: str) -> Result[Ku | None]:
+    async def get_parent_choice(self, subchoice_uid: str) -> Result[Choice | None]:
         """
         Get immediate parent of a subchoice (if any).
 

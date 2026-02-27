@@ -14,7 +14,6 @@ They enhance the user experience but are not required for core functionality.
 from typing import TYPE_CHECKING, Any
 
 from core.models.choice.choice import Choice
-from core.models.entity_types import Ku
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
@@ -24,7 +23,7 @@ if TYPE_CHECKING:
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
 
-class ChoicesAIService(BaseAIService["BackendOperations[Ku]", Ku]):
+class ChoicesAIService(BaseAIService["BackendOperations[Choice]", Choice]):
     """
     AI-powered features for Choices domain.
 
@@ -42,7 +41,7 @@ class ChoicesAIService(BaseAIService["BackendOperations[Ku]", Ku]):
 
     def __init__(
         self,
-        backend: "BackendOperations[Ku]",
+        backend: "BackendOperations[Choice]",
         llm_service: "LLMService",
         embeddings_service: "Neo4jGenAIEmbeddingsService",
         event_bus: Any | None = None,

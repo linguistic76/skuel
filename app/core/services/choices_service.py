@@ -16,9 +16,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.entity import Entity
-from core.models.entity_types import Ku
 from core.models.enums import EntityStatus
 from core.ports import BackendOperations
 from core.services.base_service import BaseService
@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
 
 
-class ChoicesService(BaseService["BackendOperations[Ku]", Ku]):
+class ChoicesService(BaseService["BackendOperations[Choice]", Choice]):
     """
     Choices service facade with specialized sub-services.
 
@@ -172,7 +172,7 @@ class ChoicesService(BaseService["BackendOperations[Ku]", Ku]):
 
     def __init__(
         self,
-        backend: BackendOperations[Ku],
+        backend: BackendOperations[Choice],
         graph_intelligence_service: GraphIntelligenceService,
         event_bus: EventBusOperations | None = None,
         ai_service: ChoicesAIService | None = None,
@@ -241,7 +241,7 @@ class ChoicesService(BaseService["BackendOperations[Ku]", Ku]):
     # Note: Simple delegations (get_choice, get_user_choices, get_user_items_in_range)
     # delegated via explicit methods below.
 
-    async def create_choice(self, choice_request: ChoiceCreateRequest, user_uid: str) -> Result[Ku]:
+    async def create_choice(self, choice_request: ChoiceCreateRequest, user_uid: str) -> Result[Choice]:
         """Create a basic choice.
 
         Args:
@@ -252,7 +252,7 @@ class ChoicesService(BaseService["BackendOperations[Ku]", Ku]):
 
     async def update_choice(
         self, choice_uid: str, choice_update: EntityUpdateRequest
-    ) -> Result[Ku]:
+    ) -> Result[Choice]:
         """Update a choice."""
         return await self.core.update_choice(choice_uid, choice_update)
 
@@ -267,7 +267,7 @@ class ChoicesService(BaseService["BackendOperations[Ku]", Ku]):
         offset: int = 0,
         order_by: str | None = None,
         order_desc: bool = False,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Choice]]:
         """Find choices with filters and pagination."""
         return await self.core.find_choices(filters, limit, offset, order_by, order_desc)
 
@@ -291,7 +291,7 @@ class ChoicesService(BaseService["BackendOperations[Ku]", Ku]):
         estimated_duration: int | None = None,
         dependencies: list[str] | None = None,
         tags: list[str] | None = None,
-    ) -> Result[Ku]:
+    ) -> Result[Choice]:
         """Add a new option to an existing choice."""
         return await self.core.add_option(
             choice_uid=choice_uid,
@@ -319,7 +319,7 @@ class ChoicesService(BaseService["BackendOperations[Ku]", Ku]):
         estimated_duration: int | None = None,
         dependencies: list[str] | None = None,
         tags: list[str] | None = None,
-    ) -> Result[Ku]:
+    ) -> Result[Choice]:
         """Update an existing option in a choice."""
         return await self.core.update_option(
             choice_uid=choice_uid,
@@ -339,7 +339,7 @@ class ChoicesService(BaseService["BackendOperations[Ku]", Ku]):
         self,
         choice_uid: str,
         option_uid: str,
-    ) -> Result[Ku]:
+    ) -> Result[Choice]:
         """Remove an option from a choice."""
         return await self.core.remove_option(choice_uid=choice_uid, option_uid=option_uid)
 
@@ -349,7 +349,7 @@ class ChoicesService(BaseService["BackendOperations[Ku]", Ku]):
         selected_option_uid: str,
         decision_rationale: str | None = None,
         confidence: float = 0.5,
-    ) -> Result[Ku]:
+    ) -> Result[Choice]:
         """Make a decision on a choice (select an option)."""
         return await self.core.make_decision(
             choice_uid=choice_uid,
@@ -407,7 +407,7 @@ class ChoicesService(BaseService["BackendOperations[Ku]", Ku]):
 
     async def find_choices_aligned_with_principle(
         self, principle_uid: str, min_confidence: float = 0.8
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Choice]]:
         """Find choices aligned with specific principle."""
         return await self.relationships.find_by_semantic_filter(
             target_uid=principle_uid, min_confidence=min_confidence, direction="incoming"

@@ -25,7 +25,7 @@ from __future__ import annotations
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
-from core.models.entity_types import Ku
+from core.models.principle.principle import Principle
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_planning_service import BasePlanningService
 from core.utils.decorators import with_error_handling
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from core.services.user.unified_user_context import UserContext
 
 
-class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Ku]):
+class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Principle]):
     """
     Context-aware principle planning service.
 

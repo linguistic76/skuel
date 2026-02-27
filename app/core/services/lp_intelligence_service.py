@@ -32,9 +32,9 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
+from core.models.curriculum.learning_path import LearningPath
 from core.models.curriculum.learning_path_dto import LearningPathDTO
 from core.models.entity import Entity
-from core.models.entity_types import Ku
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
 from core.models.query import QueryIntent
@@ -193,7 +193,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[LearningPath, GraphContext]]:
         """
         Get learning path with full graph context.
 
@@ -205,7 +205,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
             depth: Graph traversal depth (default: 2)
 
         Returns:
-            Result containing (Ku, GraphContext) tuple
+            Result containing (LearningPath, GraphContext) tuple
         """
         if self.orchestrator is None:
             return Result.fail(
