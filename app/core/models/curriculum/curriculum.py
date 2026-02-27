@@ -1,9 +1,14 @@
 """
-Curriculum - Curriculum Domain Model (Intermediate Class)
-============================================================
+Curriculum - Curriculum Domain Base Class
+==========================================
 
-Frozen dataclass for curriculum-carrying entities. Intermediate class between
-Entity and curriculum-specific subclasses (LearningStep, LearningPath).
+Frozen dataclass base for all curriculum-carrying entities. This is a BASE CLASS
+only — it does NOT represent a concrete entity type. Concrete leaf classes are:
+
+    Ku(Curriculum)           → EntityType.KU      — atomic knowledge unit
+    LearningStep(Curriculum) → EntityType.LEARNING_STEP
+    LearningPath(Curriculum) → EntityType.LEARNING_PATH
+    Exercise(Curriculum)     → EntityType.EXERCISE
 
 Adds 21 fields to Entity:
 - Learning metadata (9): complexity, learning_level, sel_category, quality_score,
@@ -14,13 +19,17 @@ Adds 21 fields to Entity:
 
 Hierarchy:
     Entity (~29 fields)
-    └── Curriculum(Entity) +21 fields, ~30 methods
+    └── Curriculum(Entity) +21 fields, ~30 methods   ← BASE CLASS
+        ├── Ku(Curriculum)                             ← EntityType.KU
         ├── LearningStep(Curriculum) +9 fields
         ├── LearningPath(Curriculum) +4 fields
-        └── Resource(Entity) — NOT Curriculum (Tier A raw content)
+        └── Exercise(Curriculum) +7 fields
+
+Note: Resource(Entity) is NOT a Curriculum subclass (Tier A raw content).
 
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 See: /docs/architecture/knowledge_substance_philosophy.md
+See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 """
 
 from dataclasses import dataclass
@@ -41,23 +50,20 @@ from core.models.query import QueryIntent
 @dataclass(frozen=True)
 class Curriculum(Entity):
     """
-    Immutable domain model for curriculum knowledge (EntityType.CURRICULUM).
+    Base class for curriculum domain entities.
 
     Intermediate class adding learning metadata, substance tracking, and
-    curriculum-specific methods to Entity. LearningStep and LearningPath
-    inherit from Curriculum.
+    curriculum-specific methods to Entity. Leaf classes (Ku, LearningStep,
+    LearningPath, Exercise) inherit from Curriculum and set their own ku_type.
 
-    Zero extra fields beyond the 21 inherited additions — CURRICULUM is the
-    base knowledge carrier. All curriculum-specific structure lives in Neo4j
-    graph relationships (ORGANIZES, PRIMARY_KNOWLEDGE, SUPPORTING_KNOWLEDGE).
+    All curriculum-specific structure lives in Neo4j graph relationships
+    (ORGANIZES, PRIMARY_KNOWLEDGE, SUPPORTING_KNOWLEDGE).
 
-    Note: EntityType.RESOURCE uses Resource (Tier A raw content, inherits Entity directly).
+    Note: Resource(Entity) is NOT a Curriculum subclass (Tier A raw content).
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=CURRICULUM if not already set, then delegate to Entity."""
-        if self.ku_type != EntityType.CURRICULUM:
-            object.__setattr__(self, "ku_type", EntityType.CURRICULUM)
+        """Delegate to Entity. Leaf classes (Ku, LearningStep, etc.) set their own ku_type."""
         super().__post_init__()
 
     # =========================================================================
