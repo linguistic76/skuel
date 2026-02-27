@@ -11,25 +11,26 @@ Each domain has an Operations protocol that services must implement.
 THE 14 DOMAINS AND THEIR PROTOCOLS
 ----------------------------------
 
-**Activity Domain Protocols (7):**
+**Activity Domain Protocols (6):**
     1. TasksOperations[Task]               - Work items and dependencies
     2. GoalsOperations[Goal]               - Objectives and milestones
     3. HabitsOperations[Habit]             - Recurring behaviors and streaks
     4. EventsOperations[Event]             - Calendar items and scheduling
     5. ChoicesOperations[Choice]           - Decisions and outcomes
     6. PrinciplesOperations[Principle]     - Values and alignment
-    7. FinancesOperations[ExpensePure]     - Expenses and budgets
+
+**Finance Domain Protocol (1):**
+    7. FinancesOperations[ExpensePure]     - Expenses and budgets (admin-only, not an Activity Domain)
 
 **Curriculum Domain Protocols (3):**
-    8. KuOperations[KnowledgeUnit]     - Knowledge Units (ku:)
-    9. LearningStepOperations[LS]      - Learning Steps (ls:)
-    10. LearningPathsOperations[LP]    - Learning Paths (lp:)
+    8. KuOperations[Curriculum]            - Knowledge Units (ku:)
+    9. LsOperations[LearningStep]          - Learning Steps (ls:)
+    10. LpOperations[LearningPath]         - Learning Paths (lp:)
 
-**Content/Organization Domain Protocols (2):**
-    11. (JournalsOperations removed Feb 2026 — Journal merged into Reports)
-    12. (MocOperations removed Jan 2026 — MOC is KU-based, uses KuOperations)
-    13. (AnalyticsLifePathService)       - Life goal alignment (no protocol)
-    14. (AnalyticsService)              - Statistical aggregation (no protocol)
+**Removed protocols (historical note):**
+    - JournalsOperations removed Feb 2026 — Journal merged into Reports domain
+    - MocOperations removed Jan 2026 — MOC is emergent identity, uses KuOperations
+    - AnalyticsLifePathService, AnalyticsService — no protocol (internal services)
 
 THE 4 CROSS-CUTTING SYSTEMS
 ---------------------------
@@ -50,9 +51,9 @@ All protocols share these characteristics:
     - BackendOperations as base (CRUD + queries)
 
 Implementation Pattern:
-    class TasksService(TasksOperations[Ku]):
-        def __init__(self, backend: BackendOperations[Ku]):
-            self.backend = backend  # UniversalNeo4jBackend[Ku]
+    class TasksService(TasksOperations[Task]):
+        def __init__(self, backend: BackendOperations[Task]):
+            self.backend = backend  # UniversalNeo4jBackend[Task]
 
 Architectural Note (Updated 2025-10-19):
     Protocols now use Result[T] return types to match actual implementations.
@@ -61,7 +62,7 @@ Architectural Note (Updated 2025-10-19):
     must declare Result[T] to maintain Liskov Substitution Principle.
 
 See Also:
-    /core/models/shared_enums.py - Domain enum definitions
+    /core/models/enums/ - Domain enum definitions (entity_enums.py, activity_enums.py, etc.)
     /services_bootstrap.py - Service composition
     /adapters/persistence/neo4j/universal_backend.py - Generic backend
 """
@@ -101,11 +102,11 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
 
     **Two Entry Point Patterns (by design):**
 
-    1. **BackendOperations[Ku] (Generic CRUD):**
+    1. **BackendOperations[Task] (Generic CRUD):**
        Use when you have a domain model instance.
-       - `create(ku: Ku)` → `Result[Ku]`
-       - `get(uid: str)` → `Result[Ku | None]`
-       - `update(ku: Ku)` → `Result[Ku]`
+       - `create(task: Task)` → `Result[Task]`
+       - `get(uid: str)` → `Result[Task | None]`
+       - `update(task: Task)` → `Result[Task]`
        - `delete(uid: str)` → `Result[bool]`
 
     2. **Domain Entry Points (Request Processing):**
@@ -486,7 +487,7 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
     ) -> Result[bool]:
         """
         Link expense to project/task it funds.
-        Creates: (Expense)-[:FUNDS_PROJECT {allocation_percentage}]->(Ku)
+        Creates: (Expense)-[:FUNDS_PROJECT {allocation_percentage}]->(Entity)
 
         Args:
             expense_uid: UID of the expense

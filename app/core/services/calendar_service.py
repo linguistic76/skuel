@@ -83,23 +83,9 @@ class CalendarService:
     - Habit recurrence projection
     - Color and icon styling
 
-
-    Source Tag: "calendar_service_explicit"
-    - Format: "calendar_service_explicit" for user-created relationships
-    - Format: "calendar_service_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from calendar metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
-
+    This is a meta-service: it delegates all graph queries to the injected domain
+    services (TasksOperations, EventsOperations, HabitsOperations). It does not
+    write Cypher directly. Returns Result[T] for error handling.
     """
 
     def __init__(
@@ -304,7 +290,7 @@ class CalendarService:
             result = await self.events_service.create(event_dto)
             if result.is_ok:
                 return Result.ok(self._event_to_calendar_item(result.value))
-            # Type boundary: Extract error from Result[Ku] for Result[CalendarItem]
+            # Type boundary: Extract error from Result[Event] for Result[CalendarItem]
             return Result.fail(result.expect_error())
 
         elif item_type == EntityType.HABIT.value and self.habits_service:
@@ -315,7 +301,7 @@ class CalendarService:
                 title=title,
                 description=kwargs.get("description", ""),
                 target_days_per_week=kwargs.get("frequency", 7),
-                status=EntityStatus.ACTIVE,  # Use EntityStatus, not EntityStatus
+                status=EntityStatus.ACTIVE,
             )
             result = await self.habits_service.create(habit_dto)
             if result.is_ok:
@@ -396,7 +382,7 @@ class CalendarService:
                     result = await self.events_service.update(source_uid, updated_dto)
                     if result.is_ok:
                         return Result.ok(self._event_to_calendar_item(result.value))
-                    # Type boundary: Extract error from Result[Ku] for Result[CalendarItem]
+                    # Type boundary: Extract error from Result[Event] for Result[CalendarItem]
                     return Result.fail(result.expect_error())
 
         return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))

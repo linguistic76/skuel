@@ -1,17 +1,17 @@
 """
-Knowledge Chunking Service
-==========================
+Entity Chunking Service
+=======================
 
 **UTILITY SERVICE** - Injected dependency, not a standalone service.
 This service is used BY ReportsCoreService for content processing, not a duplicate.
 
-Service for processing knowledge content with automatic chunking,
+Service for processing curriculum entity content with automatic chunking,
 metadata extraction, and search optimization.
 
 Handles the separation of concerns:
-- KnowledgeUnit: Lean graph metadata
-- KuContent: Rich content with chunks
-- KuMetadata: Analytics and search optimization
+- Curriculum: Lean graph metadata (the domain model)
+- KuContent: Rich content with chunks (content FOR Knowledge Units)
+- KuMetadata: Analytics and search optimization (metadata FOR Knowledge Units)
 
 Architecture:
 - Lives at `/core/services/` level (not in `/ku/` directory)
@@ -69,31 +69,18 @@ class ContentStatistics(TypedDict):
 
 class EntityChunkingService:
     """
-    Service for processing knowledge content into chunks and metadata.
+    Service for processing curriculum entity content into chunks and metadata.
 
     This service handles:
     1. Creating KuContent with automatic chunking
     2. Generating KuMetadata for search and analytics
-    3. Managing the relationship between Knowledge, Content, and Metadata
+    3. Managing the relationship between Curriculum, Content, and Metadata
     4. Providing search and retrieval operations on chunks
 
+    This is a pure in-memory processing service — it does not query Neo4j directly.
+    All graph persistence is handled by the calling service (ReportsCoreService).
 
-    Source Tag: "ku_chunking_service_explicit"
-    - Format: "ku_chunking_service_explicit" for user-created relationships
-    - Format: "ku_chunking_service_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from ku_chunking metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
-
+    Returns Result[T] for error handling. Logs operations with structured logging.
     """
 
     def __init__(self) -> None:
@@ -497,7 +484,7 @@ class EntityChunkingService:
         Process multiple knowledge items in batch.
 
         Args:
-            knowledge_items: List of (Ku, content_body) tuples,
+            knowledge_items: List of (Curriculum, content_body) tuples,
             format: Content format for all items
 
         Returns:
