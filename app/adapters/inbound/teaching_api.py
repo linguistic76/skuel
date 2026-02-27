@@ -136,9 +136,7 @@ def create_teaching_api_routes(
     @rt("/api/teaching/students/{uid}/submissions", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
-    async def get_student_submissions(
-        request: Request, uid: str, current_user: Any
-    ) -> Result[Any]:
+    async def get_student_submissions(request: Request, uid: str, current_user: Any) -> Result[Any]:
         """Get all submissions from a specific student."""
         return await teacher_review_service.get_student_submissions(
             teacher_uid=current_user.uid,
@@ -179,7 +177,11 @@ def create_teaching_api_routes(
     async def create_teaching_exercise(request: Request, current_user: Any = None) -> Result[Any]:
         """Create a new exercise owned by the authenticated teacher."""
         if not exercises_service:
-            return Result.fail(Errors.system("exercises_service not available", operation="create_teaching_exercise"))
+            return Result.fail(
+                Errors.system(
+                    "exercises_service not available", operation="create_teaching_exercise"
+                )
+            )
 
         body = await request.form()
         name = (body.get("name") or "").strip()
@@ -198,7 +200,9 @@ def create_teaching_api_routes(
 
         group_uid = body.get("group_uid") or None
         if scope == ExerciseScope.ASSIGNED and not group_uid:
-            return Result.fail(Errors.validation("group_uid is required for assigned exercises", field="group_uid"))
+            return Result.fail(
+                Errors.validation("group_uid is required for assigned exercises", field="group_uid")
+            )
 
         due_date: date | None = None
         due_date_str = body.get("due_date") or ""
@@ -206,7 +210,9 @@ def create_teaching_api_routes(
             try:
                 due_date = date.fromisoformat(due_date_str)
             except ValueError:
-                return Result.fail(Errors.validation("Invalid due_date format (use YYYY-MM-DD)", field="due_date"))
+                return Result.fail(
+                    Errors.validation("Invalid due_date format (use YYYY-MM-DD)", field="due_date")
+                )
 
         processor_type_str = body.get("processor_type") or "llm"
         try:
@@ -229,16 +235,22 @@ def create_teaching_api_routes(
             context_notes=context_notes,
         )
         if result.is_error:
-            return result
+            return result  # type: ignore[no-any-return]
         return Result.ok(result.value.to_dto().to_dict())
 
     @rt("/api/teaching/exercises/{uid}", methods=["POST"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
-    async def update_teaching_exercise(request: Request, uid: str, current_user: Any = None) -> Result[Any]:
+    async def update_teaching_exercise(
+        request: Request, uid: str, current_user: Any = None
+    ) -> Result[Any]:
         """Update an existing exercise."""
         if not exercises_service:
-            return Result.fail(Errors.system("exercises_service not available", operation="update_teaching_exercise"))
+            return Result.fail(
+                Errors.system(
+                    "exercises_service not available", operation="update_teaching_exercise"
+                )
+            )
 
         body = await request.form()
 
@@ -259,7 +271,7 @@ def create_teaching_api_routes(
             context_notes=context_notes,
         )
         if result.is_error:
-            return result
+            return result  # type: ignore[no-any-return]
         return Result.ok(result.value.to_dto().to_dict())
 
     logger.info("✅ Teaching API routes registered")

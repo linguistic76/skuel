@@ -420,6 +420,7 @@ class SkuelLinter:
         "lp_backend.py",
         "moc_backend.py",
         "ku_backend.py",
+        "domain_backends.py",  # HabitsBackend/GoalsBackend legitimately extend for domain methods
     ]
 
     def __init__(

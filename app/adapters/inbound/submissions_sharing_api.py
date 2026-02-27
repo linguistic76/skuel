@@ -311,7 +311,7 @@ def create_submissions_sharing_api_routes(
                 return Result.fail(report_result)
 
             report = report_result.value
-            if report.user_uid != user_uid:
+            if report is None or report.user_uid != user_uid:
                 return Result.fail(
                     {
                         "error": "forbidden",

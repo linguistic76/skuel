@@ -66,11 +66,11 @@ class Ku(Curriculum):
         super().__post_init__()
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | CurriculumDTO | KuDTO") -> "Ku":
+    def from_dto(cls, dto: EntityDTO | CurriculumDTO | KuDTO) -> Ku:
         """Create Ku from an EntityDTO, CurriculumDTO, or KuDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "KuDTO":  # type: ignore[override]
+    def to_dto(self) -> KuDTO:  # type: ignore[override]
         """Convert Ku to domain-specific KuDTO."""
         from core.models.curriculum.ku_dto import KuDTO
 

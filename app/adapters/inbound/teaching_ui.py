@@ -123,8 +123,12 @@ def _render_dashboard(stats: dict[str, Any]) -> Div:
     return Div(
         Div(
             _render_stat_card("Pending Reviews", pending, "📥", "/teaching/queue", pending_badge),
-            _render_stat_card("Students", stats.get("total_students", 0), "👥", "/teaching/students"),
-            _render_stat_card("Exercises", stats.get("total_exercises", 0), "📋", "/teaching/exercises"),
+            _render_stat_card(
+                "Students", stats.get("total_students", 0), "👥", "/teaching/students"
+            ),
+            _render_stat_card(
+                "Exercises", stats.get("total_exercises", 0), "📋", "/teaching/exercises"
+            ),
             _render_stat_card("Classes", stats.get("total_groups", 0), "🏫", "/teaching/classes"),
             cls="grid grid-cols-2 gap-4 mb-6",
         ),
@@ -290,8 +294,14 @@ def _render_submission_content(detail: dict[str, Any]) -> Div:
     if exercise_instructions:
         exercise_section = Div(
             Div(
-                Span("Exercise instructions", cls="text-xs font-semibold text-base-content/50 uppercase tracking-wide"),
-                P(exercise_instructions, cls="text-sm text-base-content/70 whitespace-pre-wrap mt-1"),
+                Span(
+                    "Exercise instructions",
+                    cls="text-xs font-semibold text-base-content/50 uppercase tracking-wide",
+                ),
+                P(
+                    exercise_instructions,
+                    cls="text-sm text-base-content/70 whitespace-pre-wrap mt-1",
+                ),
                 cls="p-3 bg-base-200/50 rounded",
             ),
             cls="mb-3",
@@ -314,7 +324,10 @@ def _render_submission_content(detail: dict[str, Any]) -> Div:
             ),
             exercise_section,
             Div(
-                Span("Submission content", cls="text-xs font-semibold text-base-content/50 uppercase tracking-wide"),
+                Span(
+                    "Submission content",
+                    cls="text-xs font-semibold text-base-content/50 uppercase tracking-wide",
+                ),
                 P(display_content, cls="text-sm whitespace-pre-wrap mt-1"),
                 cls="p-3 bg-base-200/30 rounded border border-base-300",
             ),
@@ -385,7 +398,9 @@ def _render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) ->
 
     name_val = getattr(exercise, "title", "") or ""
     instructions_val = getattr(exercise, "instructions", "") or ""
-    model_val = getattr(exercise, "model", "claude-3-5-sonnet-20241022") or "claude-3-5-sonnet-20241022"
+    model_val = (
+        getattr(exercise, "model", "claude-3-5-sonnet-20241022") or "claude-3-5-sonnet-20241022"
+    )
 
     scope_raw = getattr(exercise, "scope", None)
     _no_value = object()
@@ -415,8 +430,7 @@ def _render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) ->
         ("gpt-4o-mini", "GPT-4o Mini (Cheaper)"),
     ]
     model_options: list[Any] = [
-        Option(label, value=val, selected=(val == model_val))
-        for val, label in model_choices
+        Option(label, value=val, selected=(val == model_val)) for val, label in model_choices
     ]
 
     after_request_js = (
@@ -436,9 +450,12 @@ def _render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) ->
             Div(
                 Label("Name", cls="label-text font-medium"),
                 Input(
-                    type="text", name="name", value=name_val,
+                    type="text",
+                    name="name",
+                    value=name_val,
                     placeholder="e.g., Daily Reflection, Principle Mining",
-                    cls="input input-bordered w-full", required=True,
+                    cls="input input-bordered w-full",
+                    required=True,
                 ),
                 cls="form-control mb-4",
             ),
@@ -462,14 +479,24 @@ def _render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) ->
                 Label("Scope", cls="label-text font-medium"),
                 Div(
                     Label(
-                        Input(type="radio", name="scope", value="personal",
-                              cls="radio radio-sm mr-2", **{"x-model": "scope"}),
+                        Input(
+                            type="radio",
+                            name="scope",
+                            value="personal",
+                            cls="radio radio-sm mr-2",
+                            **{"x-model": "scope"},
+                        ),
                         "Personal",
                         cls="label cursor-pointer gap-2 justify-start",
                     ),
                     Label(
-                        Input(type="radio", name="scope", value="assigned",
-                              cls="radio radio-sm mr-2", **{"x-model": "scope"}),
+                        Input(
+                            type="radio",
+                            name="scope",
+                            value="assigned",
+                            cls="radio radio-sm mr-2",
+                            **{"x-model": "scope"},
+                        ),
                         "Assigned to group",
                         cls="label cursor-pointer gap-2 justify-start",
                     ),
@@ -485,21 +512,32 @@ def _render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) ->
                 ),
                 Div(
                     Label("Due Date", cls="label-text font-medium"),
-                    Input(type="date", name="due_date", value=due_date_val,
-                          cls="input input-bordered w-full"),
+                    Input(
+                        type="date",
+                        name="due_date",
+                        value=due_date_val,
+                        cls="input input-bordered w-full",
+                    ),
                     cls="form-control mb-3",
                 ),
                 **{"x-show": "scope === 'assigned'"},
             ),
             Div(
                 Div(
-                    P("▶ Context Notes (optional)", cls="font-medium text-sm mb-1 cursor-pointer",
-                      **{"x-on:click": "notesOpen = !notesOpen",
-                         "x-text": "notesOpen ? '▼ Context Notes (optional)' : '▶ Context Notes (optional)'"}),
+                    P(
+                        "▶ Context Notes (optional)",
+                        cls="font-medium text-sm mb-1 cursor-pointer",
+                        **{
+                            "x-on:click": "notesOpen = !notesOpen",
+                            "x-text": "notesOpen ? '▼ Context Notes (optional)' : '▶ Context Notes (optional)'",
+                        },
+                    ),
                 ),
                 Div(
-                    P("One note per line — reference materials the LLM should consider.",
-                      cls="text-xs text-base-content/60 mb-1"),
+                    P(
+                        "One note per line — reference materials the LLM should consider.",
+                        cls="text-xs text-base-content/60 mb-1",
+                    ),
                     Textarea(
                         context_notes_str,
                         name="context_notes",
@@ -1162,14 +1200,21 @@ def create_teaching_ui_routes(
             rows: Any = Div(P("Failed to load submissions", cls="text-center text-error"))
         elif not result.value:
             rows = Div(
-                P("No submissions yet for this exercise.", cls="text-center text-base-content/60 py-8")
+                P(
+                    "No submissions yet for this exercise.",
+                    cls="text-center text-base-content/60 py-8",
+                )
             )
         else:
             rows = Div(*[_render_exercise_submission_row(item) for item in result.value])
 
         back_link = Div(
-            A("← By Exercise", href="/teaching/exercises", cls="btn btn-ghost btn-sm mt-4",
-              **{"hx-boost": "false"}),
+            A(
+                "← By Exercise",
+                href="/teaching/exercises",
+                cls="btn btn-ghost btn-sm mt-4",
+                **{"hx-boost": "false"},
+            ),
         )
 
         content = Div(
@@ -1253,13 +1298,15 @@ def create_teaching_ui_routes(
                 )
             )
         else:
-            submission_rows = Div(
-                *[_render_student_submission_row(item) for item in result.value]
-            )
+            submission_rows = Div(*[_render_student_submission_row(item) for item in result.value])
 
         back_link = Div(
-            A("← By Student", href="/teaching/students", cls="btn btn-ghost btn-sm mt-4",
-              **{"hx-boost": "false"}),
+            A(
+                "← By Student",
+                href="/teaching/students",
+                cls="btn btn-ghost btn-sm mt-4",
+                **{"hx-boost": "false"},
+            ),
         )
 
         content = Div(
@@ -1333,9 +1380,7 @@ def create_teaching_ui_routes(
         """Class detail page — members with submission progress stats."""
         user_uid = require_authenticated_user(request)
 
-        result = await teacher_review_service.get_group_detail(
-            group_uid=uid, teacher_uid=user_uid
-        )
+        result = await teacher_review_service.get_group_detail(group_uid=uid, teacher_uid=user_uid)
 
         if result.is_error:
             members_content: Any = Div(
@@ -1349,8 +1394,12 @@ def create_teaching_ui_routes(
             members_content = Div(*[_render_class_member_row(item) for item in result.value])
 
         back_link = Div(
-            A("← Classes", href="/teaching/classes", cls="btn btn-ghost btn-sm mt-4",
-              **{"hx-boost": "false"}),
+            A(
+                "← Classes",
+                href="/teaching/classes",
+                cls="btn btn-ghost btn-sm mt-4",
+                **{"hx-boost": "false"},
+            ),
         )
 
         content = Div(

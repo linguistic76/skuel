@@ -592,7 +592,9 @@ async def _wire_all_routes(
 
         create_submissions_routes(app, rt, services, None)
 
-        logger.info("✅ Submissions routes registered (Primary interface for audio/text processing)")
+        logger.info(
+            "✅ Submissions routes registered (Primary interface for audio/text processing)"
+        )
 
     # Journals routes (Admin-only AI submission via ReportProject instructions)
     if services.submissions and services.submissions_processor and services.exercises:

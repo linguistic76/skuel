@@ -125,6 +125,8 @@ if TYPE_CHECKING:
     from core.services.content_enrichment_service import ContentEnrichmentService
     from core.services.context_aware_ai_service import ContextAwareAIService
     from core.services.cross_domain_queries import CrossDomainQueries
+    from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
+    from core.services.feedback.progress_schedule_service import ProgressScheduleService
     from core.services.insight.insight_store import InsightStore
     from core.services.journals.journal_output_generator import JournalOutputGenerator
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
@@ -132,8 +134,6 @@ if TYPE_CHECKING:
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.notifications.notification_service import NotificationService
     from core.services.performance_optimization_service import PerformanceOptimizationService
-    from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
-    from core.services.feedback.progress_schedule_service import ProgressScheduleService
     from core.services.transcription.transcription_service import TranscriptionService
     from core.services.user.intelligence.factory import (
         UserContextIntelligenceFactory,
@@ -153,6 +153,8 @@ from core.ports import (
     EventBusOperations,
     EventsOperations,
     ExerciseOperations,
+    # Submission + Feedback protocols
+    FeedbackOperations,
     FinancesOperations,
     GoalsOperations,
     GoalTaskGeneratorOperations,
@@ -172,15 +174,11 @@ from core.ports import (
     LsOperations,
     PrinciplesOperations,
     QueryExecutor,
-    # Submission + Feedback protocols
-    FeedbackOperations,
-    ProgressFeedbackOperations,
-    ProgressScheduleOperations,
+    SearchOperations,
     SubmissionOperations,
     SubmissionProcessingOperations,
     SubmissionSearchOperations,
     SubmissionSharingOperations,
-    SearchOperations,
     SystemServiceOperations,
     # Domain operations
     TasksOperations,
@@ -238,9 +236,7 @@ class Services:
     transcription: "TranscriptionService | None" = None
 
     # Reports feedback services (LLM-based processing)
-    feedback: FeedbackOperations | None = (
-        None  # FeedbackService - LLM feedback on report content
-    )
+    feedback: FeedbackOperations | None = None  # FeedbackService - LLM feedback on report content
     exercises: ExerciseOperations | None = (
         None  # ExerciseService - Reusable LLM instruction templates
     )
@@ -1558,7 +1554,9 @@ async def compose_services(
             openai_service=ai_service,
             anthropic_service=None,  # Only OpenAI configured for now
             executor=query_executor,  # Creates FEEDBACK_REPORT entity + FEEDBACK_FOR relationship
-            ku_interaction_service=learning_services["ku_service"].interaction,  # Closes mastery loop
+            ku_interaction_service=learning_services[
+                "ku_service"
+            ].interaction,  # Closes mastery loop
         )
 
         exercise_backend = UniversalNeo4jBackend[Exercise](

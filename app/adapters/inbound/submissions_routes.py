@@ -16,12 +16,12 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 
 from typing import Any
 
-from adapters.inbound.submissions_api import create_submissions_api_routes
 from adapters.inbound.feedback_assessment_api import create_feedback_assessment_api_routes
 from adapters.inbound.progress_feedback_api import create_progress_feedback_api_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from adapters.inbound.submissions_api import create_submissions_api_routes
 from adapters.inbound.submissions_sharing_api import create_submissions_sharing_api_routes
 from adapters.inbound.submissions_ui import create_submissions_ui_routes
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.submissions")

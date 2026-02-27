@@ -816,7 +816,7 @@ def _render_submission_history_row(item: dict) -> Any:
         try:
             from datetime import datetime
 
-            dt = datetime.fromisoformat(str(created_raw).replace("Z", "+00:00"))
+            dt = datetime.fromisoformat(str(created_raw))
             created_str = dt.strftime("%d %b %Y")
         except (ValueError, TypeError):
             created_str = str(created_raw)[:10]
@@ -893,9 +893,9 @@ def _render_feedback_card(assessment: Any) -> Any:
     processor_type = getattr(assessment, "processor_type", None)
     if processor_type:
         # Use getattr sentinel pattern (SKUEL011: no hasattr)
-        _MISSING = object()
-        ptype_val = getattr(processor_type, "value", _MISSING)
-        ptype_str = ptype_val if ptype_val is not _MISSING else str(processor_type)
+        _missing = object()
+        ptype_val = getattr(processor_type, "value", _missing)
+        ptype_str = ptype_val if ptype_val is not _missing else str(processor_type)
         source_label = "AI" if ptype_str == "llm" else "Teacher"
     else:
         source_label = "Teacher"
@@ -905,7 +905,7 @@ def _render_feedback_card(assessment: Any) -> Any:
         try:
             from datetime import datetime
 
-            dt = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+            dt = datetime.fromisoformat(str(created_at))
             date_str = dt.strftime("%d %b %Y")
         except (ValueError, TypeError):
             date_str = str(created_at)[:10]

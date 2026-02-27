@@ -78,18 +78,17 @@ See Also
 
 from __future__ import annotations
 
-from datetime import date
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from .base_protocols import BackendOperations, GraphRelationshipOperations
 
 if TYPE_CHECKING:
-    from core.models.curriculum.curriculum import Curriculum
+    from datetime import date
+
     from core.models.curriculum.exercise import Exercise
     from core.models.curriculum.ku import Ku
     from core.models.curriculum.learning_path import LearningPath
     from core.models.curriculum.learning_step import LearningStep
-
     from core.utils.result_simplified import Result
 
 

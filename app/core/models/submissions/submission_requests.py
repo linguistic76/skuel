@@ -80,5 +80,3 @@ class LifePathCreateRequest(CreateRequestBase):
     vision_statement: str = Field(min_length=10, max_length=2000, description="Vision statement")
     domain: Domain = Field(default=Domain.PERSONAL, description="Domain")
     tags: list[str] = Field(default_factory=list, description="Tags")
-
-

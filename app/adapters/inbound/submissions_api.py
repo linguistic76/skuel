@@ -879,7 +879,9 @@ def create_submissions_api_routes(
             - user_uid: User UID
             - limit: Max results (default 10)
             """
-            return await submissions_core_service.get_recent_submissions(limit=limit, user_uid=user_uid)
+            return await submissions_core_service.get_recent_submissions(
+                limit=limit, user_uid=user_uid
+            )
 
         logger.info("Submission content management routes registered (12 new routes)")
 

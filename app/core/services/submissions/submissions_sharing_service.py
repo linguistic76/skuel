@@ -22,6 +22,7 @@ See: /docs/patterns/SHARING_PATTERNS.md
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.submissions.submission_dto import SubmissionDTO
 from core.utils.logging import get_logger
@@ -339,7 +340,7 @@ class SubmissionsSharingService:
         has_share = record["has_share_relationship"]
 
         # KU entities are always accessible (shared content)
-        if ku_type == "ku":
+        if ku_type == EntityType.KU.value:
             return Result.ok(True)
         # Owner always has access
         if user_uid == owner_uid:

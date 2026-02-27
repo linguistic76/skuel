@@ -23,10 +23,10 @@ Architecture:
 from operator import itemgetter
 from typing import Any, TypedDict
 
+from core.models.curriculum.ku import Ku
 from core.models.curriculum.ku_chunks import KuChunk, KuChunkType
 from core.models.curriculum.ku_content import KuContent
 from core.models.curriculum.ku_metadata import KuMetadata
-from core.models.curriculum.ku import Ku
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

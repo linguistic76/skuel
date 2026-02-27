@@ -342,9 +342,7 @@ class FeedbackService:
         RETURN ku.uid AS ku_uid, student.uid AS student_uid
         """
 
-        result = await self.executor.execute_query(
-            query, {"submission_uid": submission.uid}
-        )
+        result = await self.executor.execute_query(query, {"submission_uid": submission.uid})
 
         if result.is_error or not result.value:
             return

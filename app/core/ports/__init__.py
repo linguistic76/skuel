@@ -197,6 +197,13 @@ from .domain_protocols import (
     UserContextOperations,
 )
 
+# Feedback protocols — Feedback stage of the educational loop
+from .feedback_protocols import (
+    FeedbackOperations,
+    ProgressFeedbackOperations,
+    ProgressScheduleOperations,
+)
+
 # Graph protocols - entity relationships (consolidated)
 from .graph_protocols import GraphEntity, GraphEntityBase
 
@@ -245,21 +252,6 @@ from .query_types import (
     WhereClauseSpec,
 )
 
-# Submission protocols — Submission stage of the educational loop
-from .submission_protocols import (
-    SubmissionOperations,
-    SubmissionProcessingOperations,
-    SubmissionSearchOperations,
-    SubmissionSharingOperations,
-)
-
-# Feedback protocols — Feedback stage of the educational loop
-from .feedback_protocols import (
-    FeedbackOperations,
-    ProgressFeedbackOperations,
-    ProgressScheduleOperations,
-)
-
 # Knowledge operation protocols
 # NOTE: KuOperationsLegacy, KuQueryOperations DELETED January 2026
 # Use KuOperations from curriculum_protocols.py
@@ -294,6 +286,14 @@ from .service_protocols import (
     LifePathOperations,
     SystemServiceOperations,
     VisualizationOperations,
+)
+
+# Submission protocols — Submission stage of the educational loop
+from .submission_protocols import (
+    SubmissionOperations,
+    SubmissionProcessingOperations,
+    SubmissionSearchOperations,
+    SubmissionSharingOperations,
 )
 
 # ============================================================================

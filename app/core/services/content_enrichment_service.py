@@ -23,9 +23,9 @@ from typing import Any
 
 from core.events import publish_event
 from core.models.entity import Entity
-from core.models.submissions.journal import Journal
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
+from core.models.submissions.journal import Journal
 from core.models.submissions.submission import Submission
 from core.models.submissions.submission_dto import SubmissionDTO
 from core.ports import BackendOperations, BaseUpdatePayload

@@ -725,7 +725,7 @@ class CrossDomainQueries:
         entity_type_str = node_dict.get("ku_type", "ku")
         entity_type = EntityType.from_string(entity_type_str) or EntityType.KU
         model_class = ENTITY_TYPE_CLASS_MAP.get(entity_type, Ku)
-        return from_neo4j_node(node_dict, model_class)
+        return from_neo4j_node(node_dict, model_class)  # type: ignore[return-value]
 
     def _neo4j_node_to_expense(self, node) -> ExpensePure:
         """Convert Neo4j node to ExpensePure domain model."""

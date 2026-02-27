@@ -182,6 +182,10 @@ class SubmissionOperations(Protocol):
         """Create a journal entry (EntityType.JOURNAL). Returns Result[Journal]."""
         ...
 
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Any]:
+        """Verify that user_uid owns the submission. Returns 404 if not found or not owner."""
+        ...
+
     async def search(
         self,
         query: str,

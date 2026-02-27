@@ -21,8 +21,8 @@ from typing import Any
 
 from core.constants import QueryLimit
 from core.events import publish_event
-from core.models.goal.goal import Goal
 from core.models.enums.principle_enums import AlignmentLevel, PrincipleStrength
+from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.principle.principle import Principle
 from core.models.principle.principle_types import (

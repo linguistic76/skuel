@@ -43,7 +43,6 @@ if TYPE_CHECKING:
 
 from core.models.entity import Entity
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory, SystemConstants
-from core.models.enums.entity_enums import EntityType
 from core.models.query import QueryIntent
 
 

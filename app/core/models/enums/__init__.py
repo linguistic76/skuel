@@ -108,6 +108,13 @@ from .neo_labels import NeoLabel
 # Principle enums
 from .principle_enums import AlignmentLevel, PrincipleCategory, PrincipleSource, PrincipleStrength
 
+# Scheduling enums - time, recurrence, and energy management
+from .scheduling_enums import (
+    EnergyLevel,
+    RecurrencePattern,
+    TimeOfDay,
+)
+
 # Submissions enums - processing, scheduling, and assignment
 from .submissions_enums import (
     AnalysisDepth,
@@ -116,13 +123,6 @@ from .submissions_enums import (
     FormattingStyle,
     ProgressDepth,
     ScheduleType,
-)
-
-# Scheduling enums - time, recurrence, and energy management
-from .scheduling_enums import (
-    EnergyLevel,
-    RecurrencePattern,
-    TimeOfDay,
 )
 
 # User enums - roles, health scoring, and account management

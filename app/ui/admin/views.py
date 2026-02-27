@@ -675,11 +675,8 @@ class AdminUIComponents:
             created = ""
             raw_created = getattr(project, "created_at", None)
             if raw_created:
-                created = (
-                    raw_created.strftime("%Y-%m-%d")
-                    if hasattr(raw_created, "strftime")
-                    else str(raw_created)[:10]
-                )
+                strftime_fn = getattr(raw_created, "strftime", None)
+                created = strftime_fn("%Y-%m-%d") if strftime_fn else str(raw_created)[:10]
 
             active_badge = (
                 Span("Active", cls="badge badge-success badge-sm")

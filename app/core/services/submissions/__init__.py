@@ -29,7 +29,9 @@ from core.services.submissions.submission_processing_types import (
 )
 from core.services.submissions.submissions_core_service import SubmissionsCoreService
 from core.services.submissions.submissions_processing_service import SubmissionsProcessingService
-from core.services.submissions.submissions_relationship_service import SubmissionsRelationshipService
+from core.services.submissions.submissions_relationship_service import (
+    SubmissionsRelationshipService,
+)
 from core.services.submissions.submissions_search_service import SubmissionsSearchService
 from core.services.submissions.submissions_service import SubmissionsService
 from core.services.submissions.submissions_sharing_service import SubmissionsSharingService
