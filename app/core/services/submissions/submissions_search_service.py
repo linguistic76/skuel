@@ -303,6 +303,61 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
 
         return Result.ok(filtered)
 
+    @with_error_handling("get_submissions_with_feedback_status")
+    async def get_submissions_with_feedback_status(
+        self,
+        user_uid: str,
+        limit: int = 50,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Get a student's submissions enriched with teacher feedback status.
+
+        Returns each SUBMISSION entity alongside its FEEDBACK_FOR feedback count,
+        enabling the UI to show review badges without N+1 queries.
+
+        Args:
+            user_uid: Student user UID
+            limit: Max results (default 50)
+
+        Returns:
+            Result containing list of dicts with uid, title, original_filename,
+            status, ku_type, created_at, and feedback_count.
+        """
+        query = """
+        MATCH (user:User {uid: $user_uid})-[:OWNS]->(s:Entity)
+        WHERE s.ku_type = 'submission'
+        OPTIONAL MATCH (fb:Entity {ku_type: 'feedback_report'})-[:FEEDBACK_FOR]->(s)
+        WITH s, count(fb) AS feedback_count
+        RETURN s.uid AS uid,
+               s.title AS title,
+               s.original_filename AS original_filename,
+               s.status AS status,
+               s.ku_type AS ku_type,
+               s.created_at AS created_at,
+               feedback_count
+        ORDER BY s.created_at DESC
+        LIMIT $limit
+        """
+
+        result = await self.backend.execute_query(query, {"user_uid": user_uid, "limit": limit})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        return Result.ok(
+            [
+                {
+                    "uid": record["uid"],
+                    "title": record["title"],
+                    "original_filename": record["original_filename"],
+                    "status": record["status"],
+                    "ku_type": record["ku_type"],
+                    "created_at": record["created_at"],
+                    "feedback_count": record["feedback_count"] or 0,
+                }
+                for record in result.value
+            ]
+        )
+
     # ========================================================================
     # STATISTICS
     # ========================================================================

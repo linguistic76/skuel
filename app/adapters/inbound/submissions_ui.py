@@ -789,12 +789,174 @@ def _render_reports_grid_container() -> Any:
 
 
 # ============================================================================
+# STUDENT SUBMISSION HISTORY HELPERS
+# ============================================================================
+
+
+def _render_review_status_badge(status: str, feedback_count: int) -> Any:
+    """Return a DaisyUI badge indicating the teacher review outcome."""
+    if feedback_count > 0 and status == "completed":
+        return Span("Reviewed", cls="badge badge-success badge-sm")
+    if status == "revision_requested":
+        return Span("Revision Needed", cls="badge badge-warning badge-sm")
+    if feedback_count == 0 and status == "submitted":
+        return Span("Awaiting Review", cls="badge badge-neutral badge-sm")
+    return Span(status.replace("_", " ").title(), cls="badge badge-ghost badge-sm")
+
+
+def _render_submission_history_row(item: dict) -> Any:
+    """Render a single submission row with review status for the history list."""
+    filename = item.get("original_filename") or item.get("title") or "Untitled"
+    status = item.get("status") or "submitted"
+    feedback_count = item.get("feedback_count") or 0
+    uid = item.get("uid", "")
+
+    created_raw = item.get("created_at")
+    if created_raw:
+        try:
+            from datetime import datetime
+
+            dt = datetime.fromisoformat(str(created_raw).replace("Z", "+00:00"))
+            created_str = dt.strftime("%d %b %Y")
+        except (ValueError, TypeError):
+            created_str = str(created_raw)[:10]
+    else:
+        created_str = ""
+
+    feedback_chip: Any = ""
+    if feedback_count > 0:
+        label = f"{feedback_count} feedback round{'s' if feedback_count != 1 else ''}"
+        feedback_chip = Span(label, cls="badge badge-outline badge-sm ml-2")
+
+    return Div(
+        Div(
+            Div(
+                P(filename, cls="font-semibold mb-0"),
+                P(created_str, cls="text-xs text-base-content/50 mb-0"),
+                cls="flex-1",
+            ),
+            Div(
+                _render_review_status_badge(status, feedback_count),
+                feedback_chip,
+                cls="flex items-center gap-2",
+            ),
+            A(
+                "View",
+                href=f"/submissions/{uid}",
+                cls="btn btn-sm btn-ghost ml-3",
+            ),
+            cls="flex items-center gap-4",
+        ),
+        cls="card bg-base-100 shadow-sm mb-2",
+    )
+
+
+def _render_yours_list(items: list[dict]) -> Any:
+    """Render the full list of submissions with feedback status (HTMX swap target)."""
+    if not items:
+        return Div(
+            P(
+                "No submissions yet.",
+                cls="text-center text-base-content/60 py-8",
+            ),
+            id="submissions-yours-list",
+        )
+    return Div(
+        *[_render_submission_history_row(item) for item in items],
+        id="submissions-yours-list",
+    )
+
+
+def _render_yours_list_container() -> Any:
+    """HTMX-loading container for the submissions history list."""
+    return Div(
+        P("Loading your submissions...", cls="text-center text-base-content/60"),
+        id="submissions-yours-list",
+        cls="mt-4",
+        **{
+            "hx-get": "/submissions/yours/list",
+            "hx-trigger": "load",
+            "hx-swap": "outerHTML",
+        },
+    )
+
+
+def _render_feedback_card(assessment: Any) -> Any:
+    """Render a single received-feedback card (server-side, no inline JS)."""
+    uid = getattr(assessment, "uid", "") or ""
+    title = getattr(assessment, "title", "") or "Assessment"
+    content = getattr(assessment, "content", "") or ""
+    preview = content[:200] + ("..." if len(content) > 200 else "")
+    created_at = getattr(assessment, "created_at", None)
+    user_uid = getattr(assessment, "user_uid", "") or ""
+
+    processor_type = getattr(assessment, "processor_type", None)
+    if processor_type:
+        # Use getattr sentinel pattern (SKUEL011: no hasattr)
+        _MISSING = object()
+        ptype_val = getattr(processor_type, "value", _MISSING)
+        ptype_str = ptype_val if ptype_val is not _MISSING else str(processor_type)
+        source_label = "AI" if ptype_str == "llm" else "Teacher"
+    else:
+        source_label = "Teacher"
+
+    date_str = ""
+    if created_at:
+        try:
+            from datetime import datetime
+
+            dt = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+            date_str = dt.strftime("%d %b %Y")
+        except (ValueError, TypeError):
+            date_str = str(created_at)[:10]
+
+    return Div(
+        Div(
+            Div(
+                H4(title, cls="font-semibold mb-1"),
+                P(
+                    f"From: {user_uid} · {date_str} · {source_label}",
+                    cls="text-sm text-base-content/60 mb-2",
+                ),
+                P(preview, cls="text-sm"),
+                A("View Full", href=f"/submissions/{uid}", cls="btn btn-sm btn-ghost mt-2"),
+                cls="card-body p-4",
+            ),
+            cls="card bg-base-100 shadow-sm mb-3",
+        ),
+    )
+
+
+def _render_received_feedback_list(items: list[Any]) -> Any:
+    """Render the full list of received feedback (HTMX swap target)."""
+    if not items:
+        return Div(
+            P("No feedback yet.", cls="text-center text-base-content/60 py-6"),
+            P(
+                "Assessments from teachers will appear here once submitted.",
+                cls="text-sm text-center text-base-content/40",
+            ),
+            id="feedback-list",
+        )
+    return Div(
+        *[_render_feedback_card(a) for a in items],
+        id="feedback-list",
+    )
+
+
+# ============================================================================
 # ROUTE CREATION
 # ============================================================================
 
 
 def create_submissions_ui_routes(
-    _app, rt, _report_service, _processing_service, _report_projects_service=None
+    _app,
+    rt,
+    _report_service,
+    _processing_service,
+    _report_projects_service=None,
+    _submissions_search_service=None,
+    _submissions_core_service=None,
 ):
     """
     Create all report UI routes.
@@ -805,6 +967,8 @@ def create_submissions_ui_routes(
         report_service: ReportSubmissionService
         processing_service: ReportProcessorService
         _report_projects_service: ExerciseService for exercise dropdown (optional)
+        _submissions_search_service: SubmissionsSearchService for feedback status queries (optional)
+        _submissions_core_service: SubmissionsCoreService for received assessments (optional)
     """
 
     logger.info("Creating Submissions UI routes")
@@ -877,11 +1041,14 @@ def create_submissions_ui_routes(
 
     @rt("/submissions/yours")
     async def reports_yours_page(request: Request) -> Any:
-        """Your Reports page: full listing without filters."""
+        """Your Submissions page: list with teacher review status badges."""
         require_authenticated_user(request)
         content = Div(
-            PageHeader("Your Submissions", subtitle="View and manage your submitted files"),
-            _render_reports_grid_container(),
+            PageHeader(
+                "Your Submissions",
+                subtitle="See which submissions have been reviewed by a teacher",
+            ),
+            _render_yours_list_container(),
         )
         return await SidebarPage(
             content=content,
@@ -899,6 +1066,28 @@ def create_submissions_ui_routes(
     # ========================================================================
     # HTMX ENDPOINTS
     # ========================================================================
+
+    @rt("/submissions/yours/list")
+    async def submissions_yours_list(request: Request) -> Any:
+        """HTMX fragment: student's submissions with teacher review status."""
+        try:
+            user_uid = require_authenticated_user(request)
+            if not _submissions_search_service:
+                return Div(
+                    P("Submissions service unavailable.", cls="text-center text-error"),
+                    id="submissions-yours-list",
+                )
+            result = await _submissions_search_service.get_submissions_with_feedback_status(
+                user_uid
+            )
+            items = result.value if not result.is_error else []
+            return _render_yours_list(items)
+        except Exception as e:
+            logger.error(f"Error loading submissions history: {e}", exc_info=True)
+            return Div(
+                P("Error loading submissions.", cls="text-center text-error"),
+                id="submissions-yours-list",
+            )
 
     @rt("/submissions/upload")
     async def upload_report(request: Request) -> Any:
@@ -1081,7 +1270,7 @@ def create_submissions_ui_routes(
 
     @rt("/submissions/feedback")
     async def reports_feedback_page(request: Request) -> Any:
-        """Feedback page: assessments received from teachers."""
+        """Feedback page: assessments received from teachers (server-rendered)."""
         require_authenticated_user(request)
         content = Div(
             PageHeader("Feedback", subtitle="Assessments and feedback from teachers"),
@@ -1090,38 +1279,10 @@ def create_submissions_ui_routes(
                 id="feedback-list",
                 cls="mt-4",
                 **{
-                    "hx-get": "/api/feedback/assessments/received",
+                    "hx-get": "/submissions/feedback/list",
                     "hx-trigger": "load",
-                    "hx-swap": "innerHTML",
+                    "hx-swap": "outerHTML",
                 },
-            ),
-            Script(
-                NotStr("""
-                document.body.addEventListener('htmx:afterRequest', function(evt) {
-                    if (evt.detail.elt.id === 'feedback-list') {
-                        try {
-                            var data = JSON.parse(evt.detail.xhr.responseText);
-                            var container = document.getElementById('feedback-list');
-                            if (!data.assessments || data.assessments.length === 0) {
-                                container.innerHTML = '<div class="text-center py-8"><p class="text-base-content/60">No feedback yet</p><p class="text-sm text-base-content/40 mt-2">Assessments from teachers will appear here</p></div>';
-                                return;
-                            }
-                            var html = '';
-                            data.assessments.forEach(function(a) {
-                                var date = a.created_at ? new Date(a.created_at).toLocaleDateString() : '';
-                                var summary = a.summary || (a.content ? a.content.substring(0, 200) + '...' : '');
-                                html += '<div class="card bg-base-100 shadow-sm mb-3"><div class="card-body p-4">';
-                                html += '<h4 class="font-semibold mb-1">' + (a.title || 'Assessment') + '</h4>';
-                                html += '<p class="text-sm text-base-content/60 mb-2">From: ' + (a.user_uid || '') + ' &bull; ' + date + '</p>';
-                                html += '<p class="text-sm">' + summary + '</p>';
-                                html += '<a href="/submissions/' + a.uid + '" class="btn btn-sm btn-ghost mt-2">View Full</a>';
-                                html += '</div></div>';
-                            });
-                            container.innerHTML = html;
-                        } catch(e) { /* non-JSON response handled by HTMX */ }
-                    }
-                });
-            """)
             ),
         )
         return await SidebarPage(
@@ -1136,6 +1297,28 @@ def create_submissions_ui_routes(
             active_page="reports",
             title_href="/submissions",
         )
+
+    @rt("/submissions/feedback/list")
+    async def submissions_feedback_list(request: Request) -> Any:
+        """HTMX fragment: server-rendered list of teacher assessments received."""
+        try:
+            user_uid = require_authenticated_user(request)
+            if not _submissions_core_service:
+                return Div(
+                    P("Feedback service unavailable.", cls="text-center text-error"),
+                    id="feedback-list",
+                )
+            result = await _submissions_core_service.get_assessments_for_student(
+                student_uid=user_uid
+            )
+            items = result.value if not result.is_error else []
+            return _render_received_feedback_list(items)
+        except Exception as e:
+            logger.error(f"Error loading feedback list: {e}", exc_info=True)
+            return Div(
+                P("Error loading feedback.", cls="text-center text-error"),
+                id="feedback-list",
+            )
 
     # ========================================================================
     # PROGRESS PAGE (generate + view progress reports)

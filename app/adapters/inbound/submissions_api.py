@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from core.ports.group_protocols import TeacherReviewOperations
     from core.ports.submission_protocols import (
         SubmissionOperations,
         SubmissionProcessingOperations,
@@ -37,6 +38,7 @@ from starlette.datastructures import UploadFile
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
+from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from core.models.entity_converters import ku_to_response
 from core.models.entity_requests import (
@@ -79,6 +81,7 @@ def create_submissions_api_routes(
     processing_service: "SubmissionProcessingOperations",
     submissions_search_service: "SubmissionSearchOperations | None" = None,
     submissions_core_service: "SubmissionOperations | None" = None,
+    teacher_review_service: "TeacherReviewOperations | None" = None,
 ) -> list[Any]:
     """
     Create all submissions API routes.
@@ -90,6 +93,7 @@ def create_submissions_api_routes(
         processing_service: SubmissionsProcessingService for content processing
         submissions_search_service: SubmissionsSearchService for cross-domain queries
         submissions_core_service: SubmissionsCoreService for content management
+        teacher_review_service: TeacherReviewService for feedback history queries
     """
 
     # FAIL-FAST: Validate required services BEFORE any route registration
@@ -878,6 +882,46 @@ def create_submissions_api_routes(
             return await submissions_core_service.get_recent_submissions(limit=limit, user_uid=user_uid)
 
         logger.info("Submission content management routes registered (12 new routes)")
+
+    # ========================================================================
+    # STUDENT FEEDBACK HISTORY (student-accessible, ownership-verified)
+    # ========================================================================
+
+    if teacher_review_service:
+
+        @rt("/api/submissions/{uid}/feedback")
+        @boundary_handler()
+        async def get_submission_feedback_route(request: Request, uid: str) -> Result[Any]:
+            """
+            Get all feedback rounds for a specific submission (student-facing).
+
+            Ownership-verified: returns 404 if the requesting user does not own
+            the submission — no information leakage about other students' work.
+
+            Returns:
+            - 200 with {submission_uid, feedback: [...], count: N}
+            - 404 if submission not found or not owned by requester
+            """
+            user_uid = require_authenticated_user(request)
+
+            ownership = await submission_service.verify_ownership(uid, user_uid)
+            if ownership.is_error:
+                return Result.fail(Errors.not_found("submission", uid))
+
+            result = await teacher_review_service.get_feedback_history(uid)
+            if result.is_error:
+                return Result.fail(result.expect_error())
+
+            feedback = result.value or []
+            return Result.ok(
+                {
+                    "submission_uid": uid,
+                    "feedback": feedback,
+                    "count": len(feedback),
+                }
+            )
+
+        logger.info("Student feedback history route registered (/api/submissions/{uid}/feedback)")
 
     logger.info("Submissions API routes created successfully")
 
