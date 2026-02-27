@@ -8,6 +8,7 @@ User-facing routes for reading Knowledge Units with:
 - Mark as read / bookmark actions
 - Next/prev navigation via MOC ORGANIZES order
 - KU metadata display (domain, complexity, tags)
+- Exercises practicing this knowledge (Ku → Exercise loop entry point)
 - Lateral relationships visualization
 
 Routes:
@@ -36,6 +37,36 @@ def _metadata_badge(label: str, value: str, color: str = "badge-ghost") -> Span:
         Span(label, cls="font-medium mr-1"),
         value,
         cls=f"badge {color} gap-1",
+    )
+
+
+def _exercises_for_ku_section(exercises: list[dict]) -> Any:
+    """Exercises that practice this knowledge — Ku → Exercise loop entry point."""
+    if not exercises:
+        return Div()
+
+    rows = []
+    for e in exercises:
+        scope = e.get("scope", "personal")
+        scope_cls = "badge-secondary" if scope == "assigned" else "badge-ghost"
+        due = e.get("due_date")
+        due_span = Span(f" · due {due}", cls="text-xs text-base-content/50") if due else None
+        row_parts = [
+            Span(e.get("title", "Untitled Exercise"), cls="text-sm font-medium"),
+            Span(scope.title(), cls=f"badge badge-sm {scope_cls} ml-2"),
+        ]
+        if due_span:
+            row_parts.append(due_span)
+        rows.append(Div(*row_parts, cls="flex items-center py-1.5"))
+
+    return Div(
+        H3("Practice This Knowledge", cls="text-base font-semibold mb-3"),
+        P(
+            "These exercises develop understanding of this knowledge unit.",
+            cls="text-sm text-base-content/60 mb-3",
+        ),
+        Div(*rows, cls="space-y-0.5"),
+        cls="border-t border-base-200 pt-6 mt-8",
     )
 
 
@@ -79,6 +110,7 @@ def create_ku_reading_ui_routes(
     rt: Any,
     ku_service: Any,
     ku_interaction_service: Any,
+    exercises_service: Any,
 ) -> list[Any]:
     """
     Create KU reading UI routes.
@@ -88,6 +120,7 @@ def create_ku_reading_ui_routes(
         rt: FastHTML route decorator
         ku_service: KU service facade (with organization methods for breadcrumbs/navigation)
         ku_interaction_service: Interaction tracking service
+        exercises_service: Exercise service (for REQUIRES_KNOWLEDGE reverse lookup)
 
     Returns:
         List of registered route functions
@@ -136,6 +169,10 @@ def create_ku_reading_ui_routes(
         is_marked_read = state_result.value.is_marked_as_read if state_result.is_ok else False
         is_bookmarked = state_result.value.is_bookmarked if state_result.is_ok else False
         view_count = state_result.value.view_count if state_result.is_ok else 0
+
+        # Exercises that practice this knowledge (Ku → Exercise loop)
+        exercises_result = await exercises_service.get_exercises_for_curriculum(uid)
+        exercises_for_ku = exercises_result.value if exercises_result.is_ok else []
 
         # Get organization context for breadcrumbs + navigation
         organizers_result = await ku_service.find_organizers(uid)
@@ -265,6 +302,7 @@ def create_ku_reading_ui_routes(
             ),
             metadata_footer,
             nav_section,
+            _exercises_for_ku_section(exercises_for_ku),
             Div(
                 EntityRelationshipsSection(
                     entity_uid=uid,

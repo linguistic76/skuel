@@ -42,6 +42,7 @@ def create_ku_reading_routes(app, rt, services, _sync_service=None):
         rt=rt,
         ku_service=services.ku,
         ku_interaction_service=services.ku.interaction,
+        exercises_service=services.exercises,
     )
     routes.extend(ui_routes)
 

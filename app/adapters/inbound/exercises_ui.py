@@ -15,7 +15,7 @@ Formerly assignments_ui.py — renamed per of Ku hierarchy refactoring.
 
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, Code, Form, Li, P, Pre, Ul
+from fasthtml.common import H1, H2, H3, A, Code, Form, Li, P, Pre, Ul
 
 from adapters.inbound.auth import require_teacher
 from core.utils.logging import get_logger
@@ -306,7 +306,7 @@ class ExerciseUIComponents:
         )
 
     @staticmethod
-    def render_exercise_view(exercise) -> Any:
+    def render_exercise_view(exercise, required_knowledge: list | None = None) -> Any:
         """View exercise details - TRANSPARENCY: Show exact prompt."""
         # Example entry for preview
         example_entry = "Today I felt overwhelmed by all the tasks on my plate..."
@@ -314,8 +314,34 @@ class ExerciseUIComponents:
         # Show what the actual prompt would look like
         example_prompt = exercise.get_feedback_prompt(example_entry)
 
+        # Knowledge Foundation section — shows which Kus anchor this exercise
+        knowledge_section: Any = ""
+        if required_knowledge:
+            ku_links = [
+                A(
+                    ku.get("title") or ku.get("uid", "Untitled"),
+                    href=f"/ku/{ku.get('uid')}",
+                    cls="link link-primary mr-3",
+                )
+                for ku in required_knowledge
+            ]
+            knowledge_section = Card(
+                Div(
+                    H3("Knowledge Foundation (Ku)", cls="text-lg font-semibold mb-2"),
+                    P(
+                        "This exercise develops understanding of:",
+                        cls="text-gray-600 mb-2",
+                    ),
+                    Div(*ku_links),
+                    cls="p-4",
+                ),
+                cls="mb-4",
+            )
+
         return Div(
             H2(exercise.title, cls="text-xl font-bold mb-4"),
+            # Knowledge Foundation — Ku origin of this exercise
+            knowledge_section,
             # Transparency notice
             Card(
                 Div(
@@ -463,7 +489,7 @@ def create_exercises_ui_routes(
     @app.get("/ui/exercises/{uid}/view")
     @require_teacher(get_user_service_instance)
     async def view_exercise(_request, uid: str, current_user=None) -> Any:
-        """View exercise with transparency."""
+        """View exercise with transparency and required Ku foundation."""
         try:
             result = await exercises_service.get_exercise(uid)
 
@@ -472,7 +498,12 @@ def create_exercises_ui_routes(
 
             exercise = result.value
 
-            return ExerciseUIComponents.render_exercise_view(exercise)
+            knowledge_result = await exercises_service.get_required_knowledge(uid)
+            required_knowledge = knowledge_result.value if knowledge_result.is_ok else []
+
+            return ExerciseUIComponents.render_exercise_view(
+                exercise, required_knowledge=required_knowledge
+            )
 
         except Exception as e:
             logger.error(f"Error viewing exercise: {e}")
