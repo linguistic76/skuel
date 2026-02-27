@@ -484,14 +484,20 @@ class KuInteractionService:
         """
         Mark a KU as mastered by the user.
 
-        Creates or updates a MASTERED relationship. Called when a teacher
-        approves a report that APPLIES_KNOWLEDGE to this KU.
+        Creates or updates a MASTERED relationship. The Cypher uses
+        CASE WHEN new > existing so higher scores always win — teacher
+        approval at 0.8 will upgrade an AI feedback score of 0.6.
+
+        Two callers in the educational loop:
+        - TeacherReviewService.approve_report(): score=0.8, method="ku_approval"
+        - FeedbackService._update_mastery_for_linked_ku(): score=0.6, method="ai_feedback"
+          (used for PERSONAL scope exercises where no teacher approval step exists)
 
         Args:
             user_uid: User's unique identifier
             ku_uid: Knowledge unit identifier
             mastery_score: Mastery confidence score (0.0-1.0, default 0.8)
-            method: How mastery was achieved (e.g., "report_approval")
+            method: How mastery was achieved (e.g., "ku_approval", "ai_feedback")
 
         Returns:
             Result[bool]: True if mastered successfully

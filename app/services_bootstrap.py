@@ -1558,6 +1558,7 @@ async def compose_services(
             openai_service=ai_service,
             anthropic_service=None,  # Only OpenAI configured for now
             executor=query_executor,  # Creates FEEDBACK_REPORT entity + FEEDBACK_FOR relationship
+            ku_interaction_service=learning_services["ku_service"].interaction,  # Closes mastery loop
         )
 
         exercise_backend = UniversalNeo4jBackend[Exercise](

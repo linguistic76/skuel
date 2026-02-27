@@ -31,6 +31,7 @@ from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
+    from core.services.ku.ku_interaction_service import KuInteractionService
 
 logger = get_logger(__name__)
 
@@ -51,6 +52,7 @@ class FeedbackService:
         openai_service: OpenAIService | None = None,
         anthropic_service: AnthropicService | None = None,
         executor: "QueryExecutor | None" = None,
+        ku_interaction_service: "KuInteractionService | None" = None,
     ) -> None:
         """
         Initialize with AI services and query executor.
@@ -59,6 +61,9 @@ class FeedbackService:
             openai_service: OpenAI service for GPT models
             anthropic_service: Anthropic service for Claude models
             executor: QueryExecutor for creating FEEDBACK_REPORT entity in Neo4j
+            ku_interaction_service: Optional — updates MASTERED relationships on linked Ku nodes
+                after feedback is persisted, closing the mastery loop for PERSONAL scope
+                exercises where no teacher approval step exists
         """
         if not openai_service and not anthropic_service:
             raise ValueError("At least one AI service (OpenAI or Anthropic) must be provided")
@@ -66,6 +71,7 @@ class FeedbackService:
         self.openai = openai_service
         self.anthropic = anthropic_service
         self.executor = executor
+        self.ku_interaction_service = ku_interaction_service
         self.logger = logger
 
         available = []
@@ -75,6 +81,8 @@ class FeedbackService:
             available.append("Anthropic")
         if self.executor:
             available.append("Neo4j")
+        if self.ku_interaction_service:
+            available.append("MasteryLoop")
 
         logger.info(f"FeedbackService initialized with: {', '.join(available)}")
 
@@ -286,6 +294,12 @@ class FeedbackService:
                 feedback=feedback_text,
                 subject_uid=submission.uid,
             )
+
+            # Close the mastery loop: update MASTERED relationships on any Ku nodes
+            # linked to the submission via APPLIES_KNOWLEDGE. Mirrors approve_report()
+            # in TeacherReviewService but uses score=0.6 (AI-validated, not teacher-approved).
+            await self._update_mastery_for_linked_ku(submission, user_uid)
+
             return Result.ok(feedback_entity)
 
         except Exception as e:
@@ -296,6 +310,66 @@ class FeedbackService:
                     f"Failed to persist feedback entity: {e!s}",
                 )
             )
+
+    async def _update_mastery_for_linked_ku(
+        self,
+        submission: Submission,
+        user_uid: str,
+    ) -> None:
+        """
+        Update MASTERED relationships on Ku nodes linked to the submission.
+
+        Queries APPLIES_KNOWLEDGE from the submission to find which Ku nodes
+        the student demonstrated knowledge of, then calls mark_mastered() on each.
+
+        Uses mastery_score=0.6 (AI-validated applied knowledge). Teacher approval
+        via approve_report() uses 0.8. The MASTERED Cypher uses CASE WHEN new >
+        existing, so teacher approval later will correctly upgrade 0.6 → 0.8.
+
+        This closes the mastery loop for PERSONAL scope exercises where there
+        is no teacher approval step. For ASSIGNED scope exercises, both this
+        and approve_report() may run — the higher teacher score wins.
+
+        Failure is logged but never propagates — mastery update is best-effort
+        and must not abort the feedback response.
+        """
+        if not self.ku_interaction_service or not self.executor:
+            return
+
+        query = """
+        MATCH (submission:Entity {uid: $submission_uid})-[:APPLIES_KNOWLEDGE]->(ku:Entity {ku_type: 'ku'})
+        OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
+        RETURN ku.uid AS ku_uid, student.uid AS student_uid
+        """
+
+        result = await self.executor.execute_query(
+            query, {"submission_uid": submission.uid}
+        )
+
+        if result.is_error or not result.value:
+            return
+
+        for record in result.value:
+            ku_uid = record.get("ku_uid")
+            student_uid = record.get("student_uid") or user_uid
+            if not ku_uid:
+                continue
+
+            mastery_result = await self.ku_interaction_service.mark_mastered(
+                user_uid=student_uid,
+                ku_uid=ku_uid,
+                mastery_score=0.6,
+                method="ai_feedback",
+            )
+            if mastery_result.is_error:
+                self.logger.warning(
+                    f"Mastery update failed for KU {ku_uid} after AI feedback: "
+                    f"{mastery_result.error}"
+                )
+            else:
+                self.logger.info(
+                    f"Mastery updated via AI feedback: {student_uid} -> {ku_uid} (score=0.6)"
+                )
 
     def _build_transient_feedback(
         self,
