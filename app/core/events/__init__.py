@@ -177,12 +177,13 @@ from core.events.principle_events import (
 # Submission events
 from core.events.submission_events import (
     AssessmentCreated,
+    FeedbackSubmitted,
+    SubmissionApproved,
     SubmissionCreated,
     SubmissionDeleted,
     SubmissionProcessingCompleted,
     SubmissionProcessingFailed,
     SubmissionProcessingStarted,
-    SubmissionReviewed,
     SubmissionRevisionRequested,
 )
 
@@ -214,12 +215,13 @@ from core.events.user_events import (
 __all__ = [
     # Submission events
     "AssessmentCreated",
+    "FeedbackSubmitted",
+    "SubmissionApproved",
     "SubmissionCreated",
     "SubmissionDeleted",
     "SubmissionProcessingCompleted",
     "SubmissionProcessingFailed",
     "SubmissionProcessingStarted",
-    "SubmissionReviewed",
     "SubmissionRevisionRequested",
     # Base
     "BaseEvent",
@@ -329,7 +331,8 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "submission.processing_completed": SubmissionProcessingCompleted,
     "submission.processing_failed": SubmissionProcessingFailed,
     "submission.deleted": SubmissionDeleted,
-    "submission.reviewed": SubmissionReviewed,
+    "submission.feedback_submitted": FeedbackSubmitted,
+    "submission.approved": SubmissionApproved,
     "submission.assessment_created": AssessmentCreated,
     "submission.revision_requested": SubmissionRevisionRequested,
     # Chunk embedding events (async background generation for RAG)
@@ -505,7 +508,8 @@ SUBMISSION_EVENTS = [
     SubmissionProcessingCompleted,
     SubmissionProcessingFailed,
     SubmissionDeleted,
-    SubmissionReviewed,
+    FeedbackSubmitted,
+    SubmissionApproved,
     AssessmentCreated,
     SubmissionRevisionRequested,
 ]

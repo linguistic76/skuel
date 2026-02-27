@@ -21,7 +21,11 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
-from core.events.submission_events import SubmissionReviewed, SubmissionRevisionRequested
+from core.events.submission_events import (
+    FeedbackSubmitted,
+    SubmissionApproved,
+    SubmissionRevisionRequested,
+)
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -276,12 +280,12 @@ class TeacherReviewService:
 
         await publish_event(
             self.event_bus,
-            SubmissionReviewed(
+            FeedbackSubmitted(
                 submission_uid=report_uid,
                 teacher_uid=teacher_uid,
                 student_uid=student_uid,
+                feedback_uid=feedback_uid,
                 occurred_at=datetime.now(),
-                metadata={"feedback_uid": feedback_uid},
             ),
             logger,
         )
@@ -488,11 +492,12 @@ class TeacherReviewService:
 
         await publish_event(
             self.event_bus,
-            SubmissionReviewed(
+            SubmissionApproved(
                 submission_uid=report_uid,
                 teacher_uid=teacher_uid,
                 student_uid=student_uid,
                 occurred_at=datetime.now(),
+                mastered_ku_count=mastered_count,
             ),
             logger,
         )

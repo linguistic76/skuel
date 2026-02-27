@@ -2035,24 +2035,34 @@ async def compose_services(
 
         # Subscribe to feedback events for student notifications
         from core.events.handlers.feedback_notification_handler import (
-            handle_report_reviewed,
+            handle_feedback_submitted,
             handle_revision_requested,
+            handle_submission_approved,
         )
-        from core.events.submission_events import SubmissionReviewed, SubmissionRevisionRequested
+        from core.events.submission_events import (
+            FeedbackSubmitted,
+            SubmissionApproved,
+            SubmissionRevisionRequested,
+        )
 
-        feedback_reviewed_handler = functools.partial(
-            handle_report_reviewed,
+        feedback_submitted_handler = functools.partial(
+            handle_feedback_submitted,
+            notification_service=notification_service,
+        )
+        submission_approved_handler = functools.partial(
+            handle_submission_approved,
             notification_service=notification_service,
         )
         revision_requested_handler = functools.partial(
             handle_revision_requested,
             notification_service=notification_service,
         )
-        event_bus.subscribe(SubmissionReviewed, feedback_reviewed_handler)
+        event_bus.subscribe(FeedbackSubmitted, feedback_submitted_handler)
+        event_bus.subscribe(SubmissionApproved, submission_approved_handler)
         event_bus.subscribe(SubmissionRevisionRequested, revision_requested_handler)
         logger.info(
-            "✅ Feedback notification handlers subscribed to SubmissionReviewed + "
-            "SubmissionRevisionRequested (student notifications)"
+            "✅ Feedback notification handlers subscribed to FeedbackSubmitted + "
+            "SubmissionApproved + SubmissionRevisionRequested (student notifications)"
         )
 
         # Subscribe to learning events

@@ -4,46 +4,50 @@ Feedback Notification Handler
 
 Creates Notification nodes when teachers provide feedback or request revisions.
 
+Two distinct teacher actions produce two distinct student notifications:
+
+  FeedbackSubmitted   → "New feedback on your submission"
+  SubmissionApproved  → "Your submission was approved"
+                        + "You mastered N knowledge units!" when mastered_ku_count > 0
+
 Event handlers are registered in bootstrap via functools.partial for dependency injection.
 
 See: /docs/architecture/SUBMISSION_FEEDBACK_LOOP.md
 """
 
-from core.events.submission_events import SubmissionReviewed, SubmissionRevisionRequested
+from core.events.submission_events import (
+    FeedbackSubmitted,
+    SubmissionApproved,
+    SubmissionRevisionRequested,
+)
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.events.feedback_notification_handler")
 
 
-async def handle_report_reviewed(
-    event: SubmissionReviewed,
+async def handle_feedback_submitted(
+    event: FeedbackSubmitted,
     notification_service: object,
 ) -> None:
     """
-    Create notification when teacher provides feedback on a submission.
+    Create notification when teacher submits written feedback on a submission.
 
     Args:
-        event: The SubmissionReviewed event (contains submission_uid, teacher_uid, student_uid)
+        event: FeedbackSubmitted event (submission_uid, teacher_uid, student_uid, feedback_uid)
         notification_service: NotificationService instance (injected via functools.partial)
     """
     if not event.student_uid:
         logger.debug(
-            f"No student_uid on SubmissionReviewed for {event.submission_uid}, skipping notification"
+            f"No student_uid on FeedbackSubmitted for {event.submission_uid}, skipping notification"
         )
         return
-
-    feedback_uid = ""
-    if event.metadata:
-        feedback_uid = event.metadata.get("feedback_uid", "")
-
-    source_uid = feedback_uid or event.submission_uid
 
     result = await notification_service.create_notification(  # type: ignore[attr-defined]
         user_uid=event.student_uid,
         notification_type="feedback_received",
         title="New feedback on your submission",
-        message="Your teacher reviewed your submission and provided feedback.",
-        source_uid=source_uid,
+        message="Your teacher reviewed your submission and left feedback.",
+        source_uid=event.feedback_uid,
         source_type="feedback_report",
     )
 
@@ -56,6 +60,56 @@ async def handle_report_reviewed(
         logger.info(
             f"Feedback notification created for student {event.student_uid} "
             f"on submission {event.submission_uid}"
+        )
+
+
+async def handle_submission_approved(
+    event: SubmissionApproved,
+    notification_service: object,
+) -> None:
+    """
+    Create notification when teacher approves a submission.
+
+    Includes mastery count in the message when Ku nodes were marked mastered,
+    closing the loop visibly for the student.
+
+    Args:
+        event: SubmissionApproved event (includes mastered_ku_count)
+        notification_service: NotificationService instance (injected via functools.partial)
+    """
+    if not event.student_uid:
+        logger.debug(
+            f"No student_uid on SubmissionApproved for {event.submission_uid}, skipping notification"
+        )
+        return
+
+    if event.mastered_ku_count > 0:
+        message = (
+            f"Your teacher approved your work. "
+            f"You mastered {event.mastered_ku_count} knowledge unit(s)!"
+        )
+    else:
+        message = "Your teacher approved your work on this submission."
+
+    result = await notification_service.create_notification(  # type: ignore[attr-defined]
+        user_uid=event.student_uid,
+        notification_type="submission_approved",
+        title="Your submission was approved",
+        message=message,
+        source_uid=event.submission_uid,
+        source_type="submission",
+    )
+
+    if result.is_error:
+        logger.error(
+            f"Failed to create approval notification for student {event.student_uid}: "
+            f"{result.error}"
+        )
+    else:
+        logger.info(
+            f"Approval notification created for student {event.student_uid} "
+            f"on submission {event.submission_uid}"
+            + (f" ({event.mastered_ku_count} KUs mastered)" if event.mastered_ku_count else "")
         )
 
 

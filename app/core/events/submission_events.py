@@ -141,13 +141,52 @@ class SubmissionDeleted(BaseEvent):
 
 
 @dataclass(frozen=True)
-class SubmissionReviewed(BaseEvent):
+class FeedbackSubmitted(BaseEvent):
     """
-    Published when a teacher provides feedback on a submission.
+    Published when a teacher submits written feedback on a submission.
+
+    Distinct from SubmissionApproved: this fires when the teacher writes
+    feedback text (creating a FEEDBACK_REPORT entity) but the submission
+    is not necessarily approved. The student is informed their work has
+    been reviewed and feedback is waiting.
 
     Triggers:
-    - Student notification
-    - Submission status update
+    - "feedback_received" notification to student
+    - Submission status set to COMPLETED (teacher reviewed)
+
+    feedback_uid is first-class (not buried in metadata) because it is
+    the primary reference the notification handler needs.
+
+    See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+    """
+
+    submission_uid: str
+    teacher_uid: str
+    student_uid: str
+    feedback_uid: str
+    occurred_at: datetime
+    metadata: dict[str, Any] | None = None
+
+    @property
+    def event_type(self) -> str:
+        return "submission.feedback_submitted"
+
+
+@dataclass(frozen=True)
+class SubmissionApproved(BaseEvent):
+    """
+    Published when a teacher explicitly approves a submission.
+
+    Distinct from FeedbackSubmitted: approval is the definitive "this
+    work is good enough" signal. It triggers mastery updates for any
+    Ku nodes linked via APPLIES_KNOWLEDGE and carries mastered_ku_count
+    so the notification handler can produce a richer message when the
+    student has levelled up.
+
+    Triggers:
+    - "submission_approved" notification to student (with mastery count)
+    - Submission status set to COMPLETED
+    - MASTERED relationships updated (score=0.8) for linked Ku nodes
 
     See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
     """
@@ -156,11 +195,12 @@ class SubmissionReviewed(BaseEvent):
     teacher_uid: str
     student_uid: str
     occurred_at: datetime
+    mastered_ku_count: int = 0
     metadata: dict[str, Any] | None = None
 
     @property
     def event_type(self) -> str:
-        return "submission.reviewed"
+        return "submission.approved"
 
 
 @dataclass(frozen=True)

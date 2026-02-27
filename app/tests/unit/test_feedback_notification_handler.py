@@ -2,8 +2,8 @@
 Unit Tests for Feedback Notification Handler
 ==============================================
 
-Tests that SubmissionReviewed and SubmissionRevisionRequested events
-create the correct notifications via NotificationService.
+Tests that FeedbackSubmitted, SubmissionApproved, and SubmissionRevisionRequested
+events create the correct notifications via NotificationService.
 """
 
 from datetime import datetime
@@ -12,10 +12,15 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.events.handlers.feedback_notification_handler import (
-    handle_report_reviewed,
+    handle_feedback_submitted,
     handle_revision_requested,
+    handle_submission_approved,
 )
-from core.events.submission_events import SubmissionReviewed, SubmissionRevisionRequested
+from core.events.submission_events import (
+    FeedbackSubmitted,
+    SubmissionApproved,
+    SubmissionRevisionRequested,
+)
 from core.utils.result_simplified import Result
 
 
@@ -28,62 +33,106 @@ def mock_notification_service():
 
 
 # ============================================================================
-# SUBMISSION REVIEWED HANDLER TESTS
+# FEEDBACK SUBMITTED HANDLER TESTS
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_handle_report_reviewed_creates_notification(mock_notification_service):
-    """Should create a feedback_received notification for the student."""
-    event = SubmissionReviewed(
+async def test_handle_feedback_submitted_creates_notification(mock_notification_service):
+    """Should create a feedback_received notification pointing to the feedback entity."""
+    event = FeedbackSubmitted(
         submission_uid="ku_submission_123",
         teacher_uid="user_teacher",
         student_uid="user_student",
+        feedback_uid="ku_feedback_456",
         occurred_at=datetime.now(),
-        metadata={"feedback_uid": "ku_feedback_456"},
     )
 
-    await handle_report_reviewed(event, notification_service=mock_notification_service)
+    await handle_feedback_submitted(event, notification_service=mock_notification_service)
 
     mock_notification_service.create_notification.assert_called_once_with(
         user_uid="user_student",
         notification_type="feedback_received",
         title="New feedback on your submission",
-        message="Your teacher reviewed your submission and provided feedback.",
+        message="Your teacher reviewed your submission and left feedback.",
         source_uid="ku_feedback_456",
         source_type="feedback_report",
     )
 
 
 @pytest.mark.asyncio
-async def test_handle_report_reviewed_uses_submission_uid_when_no_feedback_uid(
-    mock_notification_service,
-):
-    """Should fall back to submission_uid when metadata has no feedback_uid."""
-    event = SubmissionReviewed(
+async def test_handle_feedback_submitted_skips_when_no_student(mock_notification_service):
+    """Should skip notification when student_uid is empty."""
+    event = FeedbackSubmitted(
+        submission_uid="ku_submission_123",
+        teacher_uid="user_teacher",
+        student_uid="",
+        feedback_uid="ku_feedback_456",
+        occurred_at=datetime.now(),
+    )
+
+    await handle_feedback_submitted(event, notification_service=mock_notification_service)
+
+    mock_notification_service.create_notification.assert_not_called()
+
+
+# ============================================================================
+# SUBMISSION APPROVED HANDLER TESTS
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_handle_submission_approved_creates_notification(mock_notification_service):
+    """Should create a submission_approved notification."""
+    event = SubmissionApproved(
         submission_uid="ku_submission_123",
         teacher_uid="user_teacher",
         student_uid="user_student",
         occurred_at=datetime.now(),
+        mastered_ku_count=0,
     )
 
-    await handle_report_reviewed(event, notification_service=mock_notification_service)
+    await handle_submission_approved(event, notification_service=mock_notification_service)
 
-    call_kwargs = mock_notification_service.create_notification.call_args[1]
-    assert call_kwargs["source_uid"] == "ku_submission_123"
+    mock_notification_service.create_notification.assert_called_once_with(
+        user_uid="user_student",
+        notification_type="submission_approved",
+        title="Your submission was approved",
+        message="Your teacher approved your work on this submission.",
+        source_uid="ku_submission_123",
+        source_type="submission",
+    )
 
 
 @pytest.mark.asyncio
-async def test_handle_report_reviewed_skips_when_no_student(mock_notification_service):
+async def test_handle_submission_approved_includes_mastery_count(mock_notification_service):
+    """Should include mastered Ku count in message when mastered_ku_count > 0."""
+    event = SubmissionApproved(
+        submission_uid="ku_submission_123",
+        teacher_uid="user_teacher",
+        student_uid="user_student",
+        occurred_at=datetime.now(),
+        mastered_ku_count=3,
+    )
+
+    await handle_submission_approved(event, notification_service=mock_notification_service)
+
+    call_kwargs = mock_notification_service.create_notification.call_args[1]
+    assert "3 knowledge unit(s)" in call_kwargs["message"]
+    assert call_kwargs["notification_type"] == "submission_approved"
+
+
+@pytest.mark.asyncio
+async def test_handle_submission_approved_skips_when_no_student(mock_notification_service):
     """Should skip notification when student_uid is empty."""
-    event = SubmissionReviewed(
+    event = SubmissionApproved(
         submission_uid="ku_submission_123",
         teacher_uid="user_teacher",
         student_uid="",
         occurred_at=datetime.now(),
     )
 
-    await handle_report_reviewed(event, notification_service=mock_notification_service)
+    await handle_submission_approved(event, notification_service=mock_notification_service)
 
     mock_notification_service.create_notification.assert_not_called()
 
