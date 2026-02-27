@@ -1,9 +1,8 @@
 """
-Ku - Union Type for Domain-Specific Knowledge Types
-=====================================================
+Entity Type Aliases and Class Dispatch Map
+==========================================
 
-After decomposition, Ku is a Union type alias representing any of the
-16 domain-specific frozen dataclasses. The God Object is gone.
+Union type aliases and the EntityType→class map for all 16 domain models.
 
 For construction: Use the specific subclass (Task, Goal, etc.)
 For dispatched deserialization: Use Entity.from_dto(dto)
@@ -11,7 +10,6 @@ For type annotations: Use Ku (union of all subclasses) or Entity (common base)
 
 ENTITY_TYPE_CLASS_MAP maps each EntityType enum to its domain-specific subclass.
 
-See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
