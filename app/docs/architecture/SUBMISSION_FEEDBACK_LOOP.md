@@ -18,7 +18,7 @@ SKUEL's content processing domain implements a learning loop where **students cr
 ### Naming Rationale
 
 **SUBMISSION** (not "assignment") because:
-- "Assignment" in plain English is what a **teacher gives** — that's `Assignment` with `scope=ASSIGNED`
+- "Assignment" in plain English is what a **teacher gives** — that's an `Exercise` with `scope=ASSIGNED`
 - "Submission" is what a **student uploads** — file content going through a processing pipeline
 - Matches service names: `SubmissionsService`, protocol: `SubmissionOperations`
 - Matches existing route language: `/submissions/submit`
@@ -34,27 +34,27 @@ Both teacher feedback and AI feedback produce `FEEDBACK_REPORT` entities — sam
 
 Both use atomic Cypher: create entity + `FEEDBACK_FOR` relationship + denormalize to `submission.feedback` in one transaction.
 
-## The Assignment
+## The Exercise
 
-An `Assignment` is the teacher's directive — instructions for what students should produce.
+An `Exercise` is the teacher's directive — instructions for what students should produce.
 
 ```
-Assignment (scope=ASSIGNED)
+Exercise (scope=ASSIGNED)
     |
-    +-- instructions: str        # What to do
+    +-- instructions: str        # What to do (LLM prompt for AI feedback)
     +-- due_date: date           # When it's due
     +-- group_uid: str           # Which class
-    +-- processor_type: str      # How to process submissions
+    +-- model: str               # Which LLM to use for AI feedback
 ```
 
 **Two scopes:**
-- `PERSONAL` — User's own AI template for journal processing
+- `PERSONAL` — User's own AI template for self-directed feedback
 - `ASSIGNED` — Teacher-created directive targeting a Group
 
 ## The Pipeline
 
 ```
-1. Teacher creates Assignment (scope=ASSIGNED, targets Group)
+1. Teacher creates Exercise (scope=ASSIGNED, targets Group)
        |
        v
 2. Student submits file → SubmissionsService.submit_file()
@@ -68,8 +68,8 @@ Assignment (scope=ASSIGNED)
 4. Ku status: SUBMITTED → QUEUED → PROCESSING → COMPLETED
        |
        v
-5. Auto-sharing: FULFILLS_PROJECT + SHARES_WITH created
-       |                            (student → teacher)
+5. Auto-sharing: FULFILLS_EXERCISE + SHARES_WITH created
+       |                             (student → teacher)
        v
 6. Teacher reviews in queue → writes FEEDBACK_REPORT
        |                       or requests REVISION
@@ -80,14 +80,14 @@ Assignment (scope=ASSIGNED)
 ## Relationship Graph
 
 ```cypher
-// The assignment directive
-(teacher:User)-[:OWNS]->(project:Assignment {scope: "assigned"})
-(project)-[:FOR_GROUP]->(group:Group)
+// The exercise directive
+(teacher:User)-[:OWNS]->(exercise:Exercise {scope: "assigned"})
+(exercise)-[:FOR_GROUP]->(group:Group)
 (student:User)-[:MEMBER_OF]->(group)
 
 // The submission
 (student)-[:OWNS]->(submission:Entity {ku_type: "submission"})
-(submission)-[:FULFILLS_PROJECT]->(project)
+(submission)-[:FULFILLS_EXERCISE]->(exercise)
 
 // Sharing for review
 (student)-[:SHARES_WITH {role: "teacher"}]->(submission)
@@ -113,7 +113,7 @@ Only `COMPLETED` Ku can be shared (prevents sharing incomplete/failed work).
 
 | Service | Protocol | Responsibility |
 |---------|----------|---------------|
-| `SubmissionsService` | `SubmissionOperations` | File upload, storage, report record creation |
+| `SubmissionsService` | `SubmissionOperations` | File upload, storage, submission record creation |
 | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | Routes files to processors, manages status transitions |
 | `SubmissionsSharingService` | `SubmissionSharingOperations` | Visibility control, SHARES_WITH management |
 | `FeedbackService` | `FeedbackOperations` | AI feedback generation → creates `FEEDBACK_REPORT` entity |
