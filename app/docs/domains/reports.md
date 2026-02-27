@@ -80,7 +80,7 @@ Reports is the primary user-facing interface for all content submissions and sys
 | Assignments API | `assignments_api.py` |
 | Assignments Routes | `assignments_routes.py` |
 | Journals UI | `journals_ui.py` |
-| **Protocols** | `/core/ports/reports_protocols.py` (9 protocols) |
+| **Protocols** | `/core/ports/submission_protocols.py` (4 protocols), `/core/ports/feedback_protocols.py` (3 protocols) |
 
 ## Model Fields
 
@@ -135,4 +135,4 @@ Students see assessments at `/reports/feedback`.
 - [14-Domain Architecture](../architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) - Content/Processing section
 - [Sharing Patterns](../patterns/SHARING_PATTERNS.md) - Three-level visibility
 - [ADR-040](../decisions/ADR-040-teacher-assignment-workflow.md) - Teacher assignment workflow
-- [Protocol Reference](../reference/PROTOCOL_REFERENCE.md) - 9 Reports protocols
+- [Protocol Reference](../reference/PROTOCOL_REFERENCE.md) - Submission + Feedback protocols

@@ -37,7 +37,8 @@ related: [ADR-025, ADR-027]
 | **Domain Protocols** | `/core/ports/domain_protocols.py` | Domain service operations |
 | **Curriculum Protocols** | `/core/ports/curriculum_protocols.py` | KU, LS, LP, MOC operations |
 | **Askesis Protocols** | `/core/ports/askesis_protocols.py` | Cross-cutting intelligence + CRUD |
-| **Reports Protocols** | `/core/ports/reports_protocols.py` | Submission, sharing, processing, feedback |
+| **Submission Protocols** | `/core/ports/submission_protocols.py` | Submission CRUD, processing, sharing, search |
+| **Feedback Protocols** | `/core/ports/feedback_protocols.py` | Human + AI feedback, progress reports, scheduling |
 | **Group Protocols** | `/core/ports/group_protocols.py` | Group CRUD, teacher review queue |
 | **Service Protocols** | `/core/ports/service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration |
 | **Search Protocols** | `/core/ports/search_protocols.py` | Search operations |
@@ -502,25 +503,38 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 
 | File | Protocols | Route Consumers |
 |------|-----------|-----------------|
-| `reports_protocols.py` | 9 protocols | `reports_api.py`, `reports_sharing_api.py`, `assignments_api.py`, `reports_progress_api.py`, `reports_assessment_api.py` |
+| `submission_protocols.py` | 4 protocols | `reports_api.py`, `reports_sharing_api.py`, `reports_progress_api.py` |
+| `feedback_protocols.py` | 3 protocols | `exercises_api.py`, `reports_assessment_api.py`, `reports_progress_api.py` |
 | `group_protocols.py` | 2 protocols | `groups_api.py`, `teaching_api.py` |
 | `service_protocols.py` | 10 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
 
 Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
 
-### Reports Domain Protocols (9)
+### Submission Protocols (4) — `submission_protocols.py`
+
+Map to the **Submission** stage of the educational loop (`Ku → Exercise → Submission → Feedback`).
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `ReportsSubmissionOperations` | `reports` | 7 (submit_file, get_report, list_reports, get_file_content, get_processed_file_content, get_report_statistics, update_processed_content) | `reports_api.py` |
-| `ReportsContentOperations` | `reports_core` | 17 (get_report, categorize, tags, publish, archive, draft, bulk ops, create_journal_report, create_assessment, get_assessments_for_student, get_assessments_by_teacher) | `reports_api.py`, `reports_assessment_api.py` |
-| `ReportsContentSearchOperations` | `reports_query` | 4 (search_reports, get_report_statistics, get_recent_reports, get_journal_for_report) | `reports_api.py` |
-| `ReportsSharingOperations` | `reports_sharing` | 6 (share_report, unshare_report, get_shared_with_users, get_reports_shared_with_me, set_visibility, check_access) | `reports_api.py` |
-| `ReportsProcessingOperations` | `processing_pipeline` | 2 (process_report, reprocess_report) | `reports_api.py` |
-| `AssignmentOperations` | `assignments` | 5 (create, get, list, update, delete) | `assignments_api.py` |
-| `ReportsFeedbackOperations` | `report_feedback` | 1 (generate_feedback) | `assignments_api.py` |
-| `ProgressReportGeneratorOperations` | `progress_generator` | 1 (generate) | `reports_progress_api.py` |
-| `ReportsScheduleOperations` | `report_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `reports_progress_api.py` |
+| `SubmissionOperations` | `reports`, `reports_core` | submit_file, get_report, list_reports, get_file_content, get_processed_file_content, get_report_statistics, update_processed_content, categorize, tags, bulk ops, create_journal_report | `reports_api.py`, `reports_assessment_api.py` |
+| `SubmissionProcessingOperations` | `report_processor` | 2 (process_report, reprocess_report) | `reports_api.py` |
+| `SubmissionSharingOperations` | `reports_sharing` | 6 (share_report, unshare_report, get_shared_with_users, get_reports_shared_with_me, set_visibility, check_access) | `reports_sharing_api.py` |
+| `SubmissionSearchOperations` | `reports_query` | 4 (search_reports, get_report_statistics, get_recent_reports, get_journal_for_report) | `reports_api.py` |
+
+### Feedback Protocols (3) — `feedback_protocols.py`
+
+Map to the **Feedback** stage of the educational loop. Both human and AI feedback create `FEEDBACK_REPORT` entities — `processor_type` distinguishes the source.
+
+| Protocol | Services Field | Methods | Route Consumer |
+|----------|---------------|---------|----------------|
+| `FeedbackOperations` | `report_feedback`, `reports_core` | generate_feedback (→ `FEEDBACK_REPORT` entity, `LLM`), create_assessment (→ `FEEDBACK_REPORT`, `HUMAN`), get_assessments_for_student, get_assessments_by_teacher | `exercises_api.py`, `reports_assessment_api.py` |
+| `ProgressFeedbackOperations` | `progress_generator` | 1 (generate → `AI_REPORT` entity) | `reports_progress_api.py` |
+| `ProgressScheduleOperations` | `report_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `reports_progress_api.py` |
+
+**Why `FeedbackOperations` unifies human + AI feedback:**
+`TeacherReviewService.create_assessment()` (processor_type=HUMAN) and `ReportsFeedbackService.generate_feedback()` (processor_type=LLM) both create `FEEDBACK_REPORT` entities linked via `FEEDBACK_FOR`. The protocol captures what routes need regardless of which processor created it.
+
+**Note on `AssignmentOperations`:** `AssignmentOperations` remains in `curriculum_protocols.py` — Assignments are curriculum entities (Exercise scope=assigned), not feedback.
 
 ### Group & Teaching Protocols (2)
 
@@ -585,13 +599,13 @@ class VisualizationOperations(Protocol):
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports import ReportsSharingOperations, ReportsContentOperations
+    from core.ports.submission_protocols import SubmissionSharingOperations, SubmissionOperations
 
 def create_reports_sharing_api_routes(
     _app: Any,
     rt: Any,
-    reports_sharing: "ReportsSharingOperations",
-    reports_core: "ReportsContentOperations",
+    sharing_service: "SubmissionSharingOperations",
+    core_service: "SubmissionOperations | None" = None,
 ) -> list[Any]:
     # MyPy verifies .share_report(), .check_access() etc. exist
     ...
@@ -606,7 +620,8 @@ Every field on the `Services` dataclass is typed — zero `Any` fields remain. T
 @dataclass
 class Services:
     # Route-facing: ISP protocols (19 fields)
-    reports: ReportsSubmissionOperations | None = None
+    reports: SubmissionOperations | None = None          # was ReportsSubmissionOperations
+    report_feedback: FeedbackOperations | None = None    # was ReportsFeedbackOperations
     calendar: CalendarServiceOperations | None = None
     graph_auth: GraphAuthOperations | None = None
 

@@ -87,7 +87,8 @@ core/
         ├── infrastructure_protocols.py # EventBus, User, Ingestion (6 protocols)
         ├── intelligence_protocols.py  # Analytics operations (1 protocol)
         ├── query_types.py             # TypedDicts for queries
-        ├── reports_protocols.py       # Reports domain (7 protocols) [Feb 2026]
+        ├── submission_protocols.py    # Submission stage (4 protocols) [Feb 2026]
+        ├── feedback_protocols.py      # Feedback stage (3 protocols) [Feb 2026]
         ├── search_protocols.py        # Search operations (8 protocols)
         └── service_protocols.py       # Route-facing services (10 protocols) [Feb 2026]
 ```
@@ -103,7 +104,8 @@ core/
 | **Infrastructure** | `infrastructure_protocols.py` | EventBus, UserOperations, Ingestion | 6 |
 | **Intelligence** | `intelligence_protocols.py` | Analytics and intelligence operations | 1 |
 | **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence + CRUD | 6 |
-| **Reports** | `reports_protocols.py` | Submission, sharing, processing, feedback | 7 |
+| **Submission** | `submission_protocols.py` | Submission CRUD, processing, sharing, search | 4 |
+| **Feedback** | `feedback_protocols.py` | Human + AI feedback, progress reports, scheduling | 3 |
 | **Groups** | `group_protocols.py` | Group CRUD, teacher review queue | 2 |
 | **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration | 9 |
 
@@ -346,7 +348,8 @@ class Services:
 
 | File | Protocols | Purpose |
 |------|-----------|---------|
-| `reports_protocols.py` | 9 | ReportsSubmission, ReportsContent, ReportsContentSearch, ReportsSharing, ReportsProcessing, Assignment, ReportsFeedback, ProgressReportGenerator, ReportsSchedule |
+| `submission_protocols.py` | 4 | SubmissionOperations, SubmissionProcessingOperations, SubmissionSharingOperations, SubmissionSearchOperations |
+| `feedback_protocols.py` | 3 | FeedbackOperations (human + AI unified), ProgressFeedbackOperations, ProgressScheduleOperations |
 | `group_protocols.py` | 2 | GroupOperations (9 methods), TeacherReviewOperations (5 methods) |
 | `service_protocols.py` | 9 | CalendarService, Visualization, System, CrossDomainAnalytics, LifePath+Alignment, GraphAuth, GoalTaskGenerator, HabitEventScheduler |
 

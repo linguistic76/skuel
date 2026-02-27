@@ -407,7 +407,7 @@ All report types store as `:Submission` (or subtype) nodes with `entity_type` / 
 | `SUBMISSION` | User upload | LLM/Human/Hybrid | `Submission` | Teacher-assigned work |
 | `JOURNAL` | User input | LLM | `Journal` | Daily reflections (ephemeral or permanent) |
 | `AI_REPORT` | System | Automatic | `AiReport` | System-generated activity summaries |
-| `FEEDBACK_REPORT` | Teacher | Human | `Feedback` | Teacher-authored evaluations |
+| `FEEDBACK_REPORT` | Teacher or AI | Human or LLM | `Feedback` | Teacher-authored **or AI-generated** evaluations; `processor_type` distinguishes source |
 
 **Content Origin Tiers:** User submissions (SUBMISSION, JOURNAL) are `ContentOrigin.USER_CREATED`; system-generated content (AI_REPORT, FEEDBACK_REPORT) is `ContentOrigin.FEEDBACK`. See `EntityType.content_origin()` for the full mapping.
 

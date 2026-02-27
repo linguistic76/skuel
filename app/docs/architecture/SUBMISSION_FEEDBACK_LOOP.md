@@ -13,15 +13,26 @@ SKUEL's content processing domain implements a learning loop where **students cr
 | `SUBMISSION` | Student uploads file | Raw student work (audio, text, images) | `HUMAN` |
 | `JOURNAL` | Admin uploads file | AI-processed reflective writing | `LLM` |
 | `AI_REPORT` | System generates | Automated progress summaries | `AUTOMATIC` |
-| `FEEDBACK_REPORT` | Teacher writes | Assessment with `subject_uid` pointing to student's Ku | `HUMAN` |
+| `FEEDBACK_REPORT` | Teacher **or AI** | Assessment with `subject_uid` pointing to student's Ku | `HUMAN` (teacher) or `LLM` (AI) |
 
 ### Naming Rationale
 
 **SUBMISSION** (not "assignment") because:
 - "Assignment" in plain English is what a **teacher gives** — that's `Assignment` with `scope=ASSIGNED`
 - "Submission" is what a **student uploads** — file content going through a processing pipeline
-- Matches existing service names: `ReportsSubmissionService`, `ReportsSubmissionOperations` (class names retain `Ku` prefix; methods use domain names like `submit_file()`, `get_report()`)
+- Matches service names: `ReportsSubmissionService`, protocol: `SubmissionOperations`
 - Matches existing route language: `/reports/submit`
+
+### AI Feedback Symmetry
+
+Both teacher feedback and AI feedback produce `FEEDBACK_REPORT` entities — same entity type, different `processor_type`:
+
+| Feedback Source | Service | ProcessorType | Entity Created |
+|----------------|---------|---------------|----------------|
+| Teacher | `TeacherReviewService.submit_feedback()` | `HUMAN` | `FEEDBACK_REPORT` |
+| AI (via Exercise) | `ReportsFeedbackService.generate_feedback()` | `LLM` | `FEEDBACK_REPORT` |
+
+Both use atomic Cypher: create entity + `FEEDBACK_FOR` relationship + denormalize to `submission.feedback` in one transaction.
 
 ## The Assignment
 
@@ -100,13 +111,14 @@ Only `COMPLETED` Ku can be shared (prevents sharing incomplete/failed work).
 
 ## Services
 
-| Service | Responsibility |
-|---------|---------------|
-| `ReportsSubmissionService` | File upload, storage, report record creation |
-| `ReportsProcessingService` | Routes files to processors, manages status transitions |
-| `ReportsSharingService` | Visibility control, SHARES_WITH management |
-| `TeacherReviewService` | Review queue, feedback, revision requests, approval |
-| `ContentEnrichmentService` | Audio transcription + AI formatting |
+| Service | Protocol | Responsibility |
+|---------|----------|---------------|
+| `ReportsSubmissionService` | `SubmissionOperations` | File upload, storage, report record creation |
+| `ReportsProcessingService` | `SubmissionProcessingOperations` | Routes files to processors, manages status transitions |
+| `ReportsSharingService` | `SubmissionSharingOperations` | Visibility control, SHARES_WITH management |
+| `ReportsFeedbackService` | `FeedbackOperations` | AI feedback generation → creates `FEEDBACK_REPORT` entity |
+| `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval |
+| `ContentEnrichmentService` | — | Audio transcription + AI formatting |
 
 ## UI Surfaces
 
