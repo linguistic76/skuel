@@ -23,7 +23,7 @@ from typing import Any
 
 from core.events import publish_event
 from core.models.entity import Entity
-from core.models.entity_types import Ku
+from core.models.reports.journal import Journal
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.reports.submission import Submission
@@ -98,7 +98,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
     def __init__(
         self,
-        backend: BackendOperations[Ku] | None = None,
+        backend: BackendOperations[Entity] | None = None,
         transcription_service=None,
         ai_service=None,  # For intelligent editing (OpenAI/Anthropic)
         event_bus=None,  # For publishing domain events
@@ -680,7 +680,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
     @with_error_handling("create_journal_relationships", error_type="database")
     async def _create_journal_relationships(
-        self, journal: Ku, context: ReportsProcessingContext | None
+        self, journal: Journal, context: ReportsProcessingContext | None
     ) -> Result[dict[str, int]]:
         """
         Create graph relationships connecting journal to context.
@@ -693,7 +693,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         3. SUPPORTS_GOAL → Goals mentioned in content (goal progress tracking)
 
         Args:
-            journal: The newly created journal
+            journal: The newly created Journal
             context: ReportsProcessingContext with recent data
 
         Returns:
@@ -746,7 +746,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         records = result.value or []
         return records[0]["count"] if records else 0
 
-    async def _create_thematic_relationships(self, journal: Ku, recent_topics: list[str]) -> int:
+    async def _create_thematic_relationships(self, journal: Journal, recent_topics: list[str]) -> int:
         """Create RELATED_TO relationships for journal reports sharing topics."""
 
         # Get journal's topics (key_topics is only on Submission)
@@ -787,7 +787,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         return records[0]["count"] if records else 0
 
     async def _create_goal_relationships(
-        self, journal: Ku, active_goals: list[dict[str, str]]
+        self, journal: Journal, active_goals: list[dict[str, str]]
     ) -> int:
         """Create SUPPORTS_GOAL relationships for mentioned goals."""
         # Extract goal mentions from journal content
@@ -1407,7 +1407,7 @@ Return ONLY Markdown in this structure:
 
         return result
 
-    async def list_kus(self, limit: int = 100, offset: int = 0) -> Result[list[Ku]]:
+    async def list_kus(self, limit: int = 100, offset: int = 0) -> Result[list[Entity]]:
         """List entities with pagination."""
         result = await self.backend.list(
             limit=limit, offset=offset, sort_by="entry_date", sort_order="desc"
@@ -1485,7 +1485,7 @@ Return ONLY Markdown in this structure:
         user_uid: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> Result[tuple[list[Ku], int]]:
+    ) -> Result[tuple[list[Entity], int]]:
         """
         Search journal-type reports by content text.
 

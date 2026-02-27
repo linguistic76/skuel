@@ -141,12 +141,12 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
     Usage:
         ```python
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+        from core.models.entity import Entity
         from core.models.enums import NeoLabel
-        from core.models.entity_types import Ku
 
         # All domain entities use NeoLabel.ENTITY (universal label)
-        tasks_backend = UniversalNeo4jBackend[Ku](
-            driver=neo4j_driver, label=NeoLabel.ENTITY, entity_class=Ku,
+        tasks_backend = UniversalNeo4jBackend[Entity](
+            driver=neo4j_driver, label=NeoLabel.ENTITY, entity_class=Entity,
             default_filters={"ku_type": "task"},
         )
 

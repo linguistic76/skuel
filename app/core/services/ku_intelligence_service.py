@@ -25,7 +25,7 @@ from core.constants import GraphDepth
 from core.events.curriculum_events import LearningStepCompleted
 from core.models.curriculum.curriculum_dto import CurriculumDTO
 from core.models.entity import Entity
-from core.models.entity_types import Ku
+from core.models.curriculum.curriculum import Curriculum
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
 from core.models.relationship_names import RelationshipName
@@ -105,7 +105,7 @@ class KuIntelligenceService(BaseAnalyticsService[KuOperations, Entity]):
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Curriculum, GraphContext]]:
         """
         Get knowledge unit with full graph context.
 

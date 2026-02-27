@@ -84,7 +84,6 @@ if TYPE_CHECKING:
     from datetime import date, datetime
 
     from core.models.choice.choice import Choice
-    from core.models.entity_types import Ku
     from core.models.event.event import Event
     from core.models.finance.finance_pure import BudgetPure, ExpensePure
     from core.models.finance.invoice import InvoicePure
@@ -214,7 +213,7 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Task]]:
         """
         Get user's tasks in date range - unified interface for meta-services.
 
@@ -228,7 +227,7 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
             include_completed: Include completed tasks (default: False)
 
         Returns:
-            Result[list[Ku]] filtered by user, date range, and completion status
+            Result[list[Task]] filtered by user, date range, and completion status
 
         Implementation:
             Filters by user_uid, due_date field, and excludes completed status
@@ -294,7 +293,7 @@ class EventsOperations(BackendOperations["Event"], GraphRelationshipOperations, 
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Event]]:
         """
         Get user's events in date range - unified interface for meta-services.
 
@@ -305,7 +304,7 @@ class EventsOperations(BackendOperations["Event"], GraphRelationshipOperations, 
             include_completed: Include completed/cancelled events (default: False)
 
         Returns:
-            Result[list[Ku]] filtered by user, event_date, and completion status
+            Result[list[Event]] filtered by user, event_date, and completion status
 
         Implementation:
             Filters by user_uid, event_date field, excludes completed/cancelled
@@ -659,7 +658,7 @@ class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Pr
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Goal]]:
         """
         Get user's goals in date range - unified interface for meta-services.
 
@@ -670,7 +669,7 @@ class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Pr
             include_completed: Include completed/abandoned goals (default: False)
 
         Returns:
-            Result[list[Ku]] filtered by user, target_date, and completion status
+            Result[list[Goal]] filtered by user, target_date, and completion status
 
         Implementation:
             Filters by user_uid, target_date field, excludes completed/abandoned
@@ -742,7 +741,7 @@ class ChoicesOperations(BackendOperations["Choice"], GraphRelationshipOperations
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Choice]]:
         """
         Get user's choices in date range - unified interface for meta-services.
 
@@ -812,7 +811,7 @@ class PrinciplesOperations(BackendOperations["Principle"], GraphRelationshipOper
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Principle]]:
         """
         Get user's principles in date range - unified interface for meta-services.
 
@@ -823,7 +822,7 @@ class PrinciplesOperations(BackendOperations["Principle"], GraphRelationshipOper
             include_completed: Not applicable for principles (always included)
 
         Returns:
-            Result[list[Ku]] filtered by user
+            Result[list[Principle]] filtered by user
 
         Implementation:
             Filters by user_uid only (principles are timeless)

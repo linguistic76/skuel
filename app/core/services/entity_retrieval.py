@@ -22,7 +22,7 @@ from operator import attrgetter
 from typing import Any, Protocol, runtime_checkable
 
 from core.constants import GraphDepth
-from core.models.entity_types import Ku
+from core.models.curriculum.curriculum import Curriculum
 from core.models.query import (
     IndexStrategy,
     QueryElements,
@@ -72,7 +72,7 @@ logger = get_logger(__name__)
 class EnhancedResult:
     """A knowledge unit with retrieval enhancements"""
 
-    unit: Ku
+    unit: Curriculum
     base_score: float  # Original search score
     vector_score: float  # Semantic similarity score
     graph_score: float  # Graph relevance score

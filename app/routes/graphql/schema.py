@@ -30,7 +30,7 @@ from routes.graphql.config import get_graphql_config, validate_list_limit
 from routes.graphql.context import GraphQLContext
 
 if TYPE_CHECKING:
-    from core.models.entity_types import Ku
+    from core.models.entity_types import CurriculumEntity
     from core.utils.result_simplified import Result
     from routes.graphql.protocols import KnowledgeUnitLike, LearningStepLike
 from routes.graphql.types import (
@@ -564,8 +564,8 @@ class Query:
             return None
 
         # Get path steps with type safety
-        steps_result: Result[list[Ku]] = await context.services.lp.get_steps(path_uid)
-        steps: list[Ku] = steps_result.value if steps_result.is_ok else []
+        steps_result: Result[list[CurriculumEntity]] = await context.services.lp.get_steps(path_uid)
+        steps: list[CurriculumEntity] = steps_result.value if steps_result.is_ok else []
 
         # Calculate progress from steps
         # Note: unified_progress DELETED (January 2026) - steps_completed now derived from user mastery
@@ -1077,7 +1077,7 @@ class Query:
             # Knowledge units can have metadata indicating deprecation or last_updated
             is_deprecated, is_outdated = check_deprecated_content(
                 ku
-            )  # Ku satisfies KnowledgeUnitLike protocol
+            )  # CurriculumEntity satisfies KnowledgeUnitLike protocol
 
             if is_deprecated:
                 blockers.append(

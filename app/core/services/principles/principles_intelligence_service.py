@@ -23,7 +23,6 @@ from core.events.principle_events import (
     PrincipleReflectionRecorded,
     PrincipleStrengthChanged,
 )
-from core.models.entity_types import Ku
 from core.models.enums import Domain
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
@@ -143,7 +142,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Principle, GraphContext]]:
         """
         Get principle with full graph context.
 
@@ -237,7 +236,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
     @requires_graph_intelligence("get_principle_with_context")
     async def get_principle_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[Ku, GraphContext]]:
+    ) -> Result[tuple[Principle, GraphContext]]:
         """
         Get principle with full graph context using pure Cypher graph intelligence.
 

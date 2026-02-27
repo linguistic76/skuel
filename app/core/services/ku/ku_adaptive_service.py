@@ -29,7 +29,7 @@ from core.models.curriculum.ku_intelligence import (
     MasteryLevel,
 )
 from core.models.curriculum.ku_progress import KuLearningJourney, ReportCategoryProgress
-from core.models.entity_types import Ku
+from core.models.curriculum.learning_path import LearningPath
 from core.models.enums import Domain, LearningLevel, SELCategory
 from core.models.relationship_names import RelationshipName
 from core.models.user.user_intelligence import IntelligenceSource, UserLearningIntelligence
@@ -56,7 +56,7 @@ class KuAdaptiveService:
 
     def __init__(
         self,
-        ku_backend: "BackendOperations[Ku]",
+        ku_backend: "BackendOperations[Curriculum]",
         user_service=None,
     ) -> None:
         if not ku_backend:
@@ -73,7 +73,7 @@ class KuAdaptiveService:
     @with_error_handling(error_type="system", operation="get_personalized_curriculum")
     async def get_personalized_curriculum(
         self, user_uid: str, sel_category: SELCategory, limit: int = 10
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Curriculum]]:
         """
         Get personalized curriculum for user in an SEL category.
 
@@ -105,7 +105,7 @@ class KuAdaptiveService:
         # 5. Return top N
         return Result.ok(ranked_kus[:limit])
 
-    async def _is_user_ready(self, user_intel: UserLearningIntelligence, ku: Ku) -> bool:
+    async def _is_user_ready(self, user_intel: UserLearningIntelligence, ku: Curriculum) -> bool:
         """Check if user is ready for this KU (not mastered, prereqs met, level ok)."""
         if ku.uid in user_intel.current_masteries:
             return False
@@ -122,7 +122,7 @@ class KuAdaptiveService:
         user_level = self._determine_user_level(user_intel, ku.sel_category)
         return ku.is_appropriate_for_level(user_level)
 
-    async def _check_prerequisites_met(self, user_intel: UserLearningIntelligence, ku: Ku) -> bool:
+    async def _check_prerequisites_met(self, user_intel: UserLearningIntelligence, ku: Curriculum) -> bool:
         """Check if user has mastered all prerequisites for this KU."""
         try:
             prereq_result = await self.ku_backend.get_related_uids(
@@ -160,8 +160,8 @@ class KuAdaptiveService:
             return LearningLevel.BEGINNER
 
     async def _rank_by_learning_value(
-        self, user_intel: UserLearningIntelligence, kus: list[Ku]
-    ) -> list[Ku]:
+        self, user_intel: UserLearningIntelligence, kus: list[Curriculum]
+    ) -> list[Curriculum]:
         """Rank KUs by learning value for this user (highest first)."""
         ku_scores = []
         for ku in kus:
@@ -174,7 +174,7 @@ class KuAdaptiveService:
         return [ku for ku, _score in sorted_ku_scores]
 
     async def _calculate_learning_value(
-        self, user_intel: UserLearningIntelligence, ku: Ku
+        self, user_intel: UserLearningIntelligence, ku: Curriculum
     ) -> float:
         """
         Calculate learning value score for a KU.
@@ -222,7 +222,7 @@ class KuAdaptiveService:
 
         return score
 
-    async def _count_enables(self, ku: Ku) -> int:
+    async def _count_enables(self, ku: Curriculum) -> int:
         """Count how many KUs this one enables."""
         try:
             enables_result = await self.ku_backend.get_related_uids(
@@ -233,7 +233,7 @@ class KuAdaptiveService:
         except (AttributeError, Exception):
             return 0
 
-    async def _count_prerequisites(self, ku: Ku) -> int:
+    async def _count_prerequisites(self, ku: Curriculum) -> int:
         """Count how many prerequisites this KU has."""
         try:
             prereq_result = await self.ku_backend.get_related_uids(
@@ -513,7 +513,7 @@ class KuAdaptiveService:
             )
             return {}
 
-    async def _query_active_learning_paths(self, user_uid: str) -> list[Ku]:
+    async def _query_active_learning_paths(self, user_uid: str) -> list[LearningPath]:
         """Query user's active learning paths."""
         try:
             query = """
@@ -532,7 +532,7 @@ class KuAdaptiveService:
                 lp_node = record.get("lp")
                 if lp_node:
                     try:
-                        learning_path = from_neo4j_node(lp_node, Ku)
+                        learning_path = from_neo4j_node(lp_node, LearningPath)
                         learning_paths.append(learning_path)
                     except Exception:
                         continue

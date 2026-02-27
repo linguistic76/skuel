@@ -7,11 +7,11 @@ Creates a knowledge graph with evidence-backed relationships from:
 - James Clear's "Atomic Habits" (2018)
 - Ray Dalio's "Principles" (2017)
 
-This demonstrates Phase 4's evidence infrastructure with real book citations.
+This demonstrates 's evidence infrastructure with real book citations.
 
 Usage:
-    poetry run python scripts/seed_evidence_mock_data.py --dry-run  # Preview
-    poetry run python scripts/seed_evidence_mock_data.py --apply    # Create data
+    poetry run python scripts/seed_evidence_mock_data.py --dry-run # Preview
+    poetry run python scripts/seed_evidence_mock_data.py --apply # Create data
 """
 
 import asyncio

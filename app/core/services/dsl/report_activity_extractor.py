@@ -49,7 +49,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
-from core.models.entity_types import Ku
+from core.models.entity_types import SubmissionEntity
 from core.ports.base_protocols import HasUID
 from core.services.dsl.activity_dsl_parser import (
     ActivityDSLParser,
@@ -500,7 +500,7 @@ class ReportActivityExtractorService:
 
     async def extract_and_create(
         self,
-        report: Ku,
+        report: SubmissionEntity,
         user_uid: str,
         create_relationships: bool = True,
     ) -> Result[ActivityExtractionResult]:

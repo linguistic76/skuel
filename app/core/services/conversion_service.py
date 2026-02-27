@@ -23,8 +23,8 @@ from core.models.activity_requests import (
 from core.models.choice.choice import Choice
 from core.models.choice.choice_option import ChoiceOption
 from core.models.curriculum.curriculum_requests import CurriculumCreateRequest as KuCreateRequest
+from core.models.entity import Entity
 from core.models.entity_requests import EntityUpdateRequest
-from core.models.entity_types import Ku
 
 # Import domain models (Tier 3 - Core)
 from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
@@ -43,12 +43,12 @@ from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.ports import HasUpdated, HasUpdatedAt, PydanticModel
 
 # Create aliases for Pure models (backward compatibility)
-Task = Ku  # Alias for Entity union type (domain-first model)
+Task = Entity  # Alias for Entity base type (domain-first model)
 TaskPure = Task
-EventPure = Ku
+EventPure = Entity
 HabitPure = Habit
-GoalPure = Ku  # Alias for Entity union type (domain-first model)
-KuPure = Ku  # Knowledge Unit (Curriculum entity)
+GoalPure = Entity  # Alias for Entity base type (domain-first model)
+KuPure = Entity  # Knowledge Unit (Entity base type)
 
 # Type variables for generic methods
 T = TypeVar("T")

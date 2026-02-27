@@ -21,7 +21,6 @@ from typing import Any
 
 from fasthtml.common import H2, H3, A, Form, P
 
-from core.models.entity_types import Ku
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarView,
@@ -610,7 +609,7 @@ class GoalsViewComponents:
     @staticmethod
     def render_hierarchy_view(
         root_uid: str,
-        root_goal: Ku,
+        root_goal: Goal,
     ) -> Div:
         """
         Render goal hierarchy tree view.

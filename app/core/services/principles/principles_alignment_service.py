@@ -21,7 +21,7 @@ from typing import Any
 
 from core.constants import QueryLimit
 from core.events import publish_event
-from core.models.entity_types import Ku
+from core.models.goal.goal import Goal
 from core.models.enums.principle_enums import AlignmentLevel, PrincipleStrength
 from core.models.habit.habit import Habit
 from core.models.principle.principle import Principle
@@ -858,7 +858,7 @@ class PrinciplesAlignmentService:
         ]
 
     def _generate_alignment_recommendations(
-        self, goal: Ku, alignments: list[PrincipleAlignment], principles: list[Principle]
+        self, goal: Goal, alignments: list[PrincipleAlignment], principles: list[Principle]
     ) -> list[str]:
         """Generate recommendations for improving goal alignment"""
         recommendations = []

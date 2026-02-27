@@ -26,7 +26,7 @@ from typing import Any, TypedDict
 from core.models.curriculum.ku_chunks import KuChunk, KuChunkType
 from core.models.curriculum.ku_content import KuContent
 from core.models.curriculum.ku_metadata import KuMetadata
-from core.models.entity_types import Ku
+from core.models.curriculum.curriculum import Curriculum
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -161,7 +161,7 @@ class EntityChunkingService:
 
     async def process_ku_content(
         self,
-        knowledge: Ku,
+        knowledge: Curriculum,
         content_body: str,
         format: str = "markdown",
         source_path: str | None = None,
@@ -207,7 +207,7 @@ class EntityChunkingService:
             )
 
     async def update_ku_content(
-        self, knowledge: Ku, new_content_body: str
+        self, knowledge: Curriculum, new_content_body: str
     ) -> Result[tuple[KuContent, KuMetadata]]:
         """
         Update existing knowledge content with new text.
@@ -491,7 +491,7 @@ class EntityChunkingService:
     # ==========================================================================
 
     async def process_batch(
-        self, knowledge_items: list[tuple[Ku, str]], format: str = "markdown"
+        self, knowledge_items: list[tuple[Curriculum, str]], format: str = "markdown"
     ) -> Result[dict[str, Any]]:
         """
         Process multiple knowledge items in batch.

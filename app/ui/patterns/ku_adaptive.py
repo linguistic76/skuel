@@ -16,7 +16,7 @@ from typing import Any
 from fasthtml.common import H1, H2, P
 
 from core.models.curriculum.ku_progress import KuLearningJourney, ReportCategoryProgress
-from core.models.entity_types import Ku
+from core.models.entity_types import CurriculumEntity
 from core.models.enums import SELCategory
 from ui.daisy_components import Div, Progress
 from ui.enum_helpers import get_sel_icon
@@ -66,7 +66,7 @@ def SELCategoryCard(category: SELCategory, progress: ReportCategoryProgress) -> 
     return Div(card, progress_section, cls="mb-4")
 
 
-def AdaptiveKUCard(ku: Ku, prerequisites_met: bool = True) -> Any:
+def AdaptiveKUCard(ku: CurriculumEntity, prerequisites_met: bool = True) -> Any:
     """Card for one KU in personalized curriculum."""
     metadata = []
 

@@ -23,7 +23,7 @@ from datetime import date, datetime, timedelta
 from neo4j import AsyncGraphDatabase
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.entity_types import Ku
+from core.models.entity import Entity
 from core.models.enums import (
     ContentType,
     Domain,
@@ -266,11 +266,11 @@ PRINCIPLES = [
 
 async def seed_knowledge_units(driver):
     """Seed knowledge units with SEL categories"""
-    backend = UniversalNeo4jBackend(driver, "Curriculum", Ku)
+    backend = UniversalNeo4jBackend(driver, "Curriculum", Entity)
 
     logger.info("Seeding knowledge units...")
     for ku_data in KNOWLEDGE_UNITS:
-        ku = Ku(**ku_data)
+        ku = Entity(**ku_data)
         result = await backend.create(ku)
         if result.is_ok:
             logger.info(f"  ✓ Created: {ku.title}")
@@ -298,11 +298,11 @@ async def seed_tasks(driver):
 
 async def seed_events(driver):
     """Seed sample events"""
-    backend = UniversalNeo4jBackend(driver, "Event", Ku)
+    backend = UniversalNeo4jBackend(driver, "Event", Entity)
 
     logger.info("Seeding events...")
     for event_data in EVENTS:
-        event = Ku(**event_data)
+        event = Entity(**event_data)
         result = await backend.create(event)
         if result.is_ok:
             logger.info(f"  ✓ Created: {event.title}")
@@ -330,11 +330,11 @@ async def seed_habits(driver):
 
 async def seed_goals(driver):
     """Seed sample goals"""
-    backend = UniversalNeo4jBackend(driver, "Goal", Ku)
+    backend = UniversalNeo4jBackend(driver, "Goal", Entity)
 
     logger.info("Seeding goals...")
     for goal_data in GOALS:
-        goal = Ku(**goal_data)
+        goal = Entity(**goal_data)
         result = await backend.create(goal)
         if result.is_ok:
             logger.info(f"  ✓ Created: {goal.title}")
@@ -346,12 +346,12 @@ async def seed_goals(driver):
 
 async def seed_choices(driver):
     """Seed sample choices"""
-    backend = UniversalNeo4jBackend(driver, "Choice", Ku, default_filters={"ku_type": "choice"})
+    backend = UniversalNeo4jBackend(driver, "Choice", Entity, default_filters={"ku_type": "choice"})
 
     logger.info("Seeding choices...")
     for choice_data in CHOICES:
         choice_data["ku_type"] = "choice"
-        choice = Ku(**choice_data)
+        choice = Entity(**choice_data)
         result = await backend.create(choice)
         if result.is_ok:
             logger.info(f"  ✓ Created: {choice.title}")
@@ -364,12 +364,12 @@ async def seed_choices(driver):
 async def seed_principles(driver):
     """Seed sample principles"""
     backend = UniversalNeo4jBackend(
-        driver, "Principle", Ku, default_filters={"ku_type": "principle"}
+        driver, "Principle", Entity, default_filters={"ku_type": "principle"}
     )
 
     logger.info("Seeding principles...")
     for principle_data in PRINCIPLES:
-        principle = Ku(**principle_data)
+        principle = Entity(**principle_data)
         result = await backend.create(principle)
         if result.is_ok:
             logger.info(f"  ✓ Created: {principle.title}")

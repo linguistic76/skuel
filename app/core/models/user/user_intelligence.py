@@ -30,7 +30,7 @@ from core.models.curriculum.ku_intelligence import (
 )
 from core.models.curriculum.ku_intelligence import KuMastery as KnowledgeMastery
 from core.models.curriculum.ku_intelligence import KuRecommendation as KnowledgeRecommendation
-from core.models.entity_types import Ku
+from core.models.curriculum.learning_path import LearningPath
 from core.models.enums import Domain
 from core.services.user import UserContext
 
@@ -65,7 +65,7 @@ class UserLearningIntelligence:
     knowledge_recommendations: list[KnowledgeRecommendation] = field(default_factory=list)
 
     # Learning Path Intelligence
-    active_learning_paths: list[Ku] = (field(default_factory=list),)
+    active_learning_paths: list[LearningPath] = (field(default_factory=list),)
     completed_learning_paths: list[str] = (field(default_factory=list),)
     learning_velocity_by_domain: dict[Domain, LearningVelocity] = field(default_factory=dict)
 
@@ -232,7 +232,7 @@ class UserLearningIntelligence:
         new_masteries: list[KnowledgeMastery] | None = None,
         new_preferences: LearningPreference = None,
         new_searches: list[dict[str, Any]] | None = None,
-        new_paths: list[Ku] | None = None,
+        new_paths: list[LearningPath] | None = None,
     ) -> None:
         """Update intelligence with new data from persistent entities."""
         sources_updated = []
@@ -416,7 +416,7 @@ class EnhancedUserContext(UserContext):
         masteries: list[KnowledgeMastery] | None = None,
         preferences: LearningPreference = None,
         searches: list[dict[str, Any]] | None = None,
-        paths: list[Ku] | None = None,
+        paths: list[LearningPath] | None = None,
     ) -> None:
         """Update context with new intelligence data."""
         if not self.learning_intelligence:
