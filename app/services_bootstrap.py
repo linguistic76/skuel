@@ -172,13 +172,14 @@ from core.ports import (
     LsOperations,
     PrinciplesOperations,
     QueryExecutor,
-    # Reports domain protocols
-    ReportsContentOperations,
-    ReportsContentSearchOperations,
-    ReportsFeedbackOperations,
-    ReportsProcessingOperations,
-    ReportsSharingOperations,
-    ReportsSubmissionOperations,
+    # Submission + Feedback protocols
+    FeedbackOperations,
+    ProgressFeedbackOperations,
+    ProgressScheduleOperations,
+    SubmissionOperations,
+    SubmissionProcessingOperations,
+    SubmissionSearchOperations,
+    SubmissionSharingOperations,
     SearchOperations,
     SystemServiceOperations,
     # Domain operations
@@ -237,7 +238,7 @@ class Services:
     transcription: "TranscriptionService | None" = None
 
     # Reports feedback services (LLM-based processing)
-    report_feedback: ReportsFeedbackOperations | None = (
+    report_feedback: FeedbackOperations | None = (
         None  # ReportsFeedbackService - LLM feedback on report content
     )
     exercises: ExerciseOperations | None = (
@@ -249,23 +250,23 @@ class Services:
         None  # JournalOutputGenerator - je_output formatting and disk storage
     )
 
-    # Reports content services (submission pipeline)
-    reports: ReportsSubmissionOperations | None = (
-        None  # ReportsSubmissionService - File upload and report content management
+    # Submission pipeline services
+    reports: SubmissionOperations | None = (
+        None  # ReportsSubmissionService - File upload and submission content management
     )
-    reports_core: ReportsContentOperations | None = (
+    reports_core: SubmissionOperations | None = (
         None  # ReportsCoreService - Content management (categories, tags, bulk operations)
     )
-    reports_sharing: ReportsSharingOperations | None = (
+    reports_sharing: SubmissionSharingOperations | None = (
         None  # ReportsSharingService - Content sharing and visibility control
     )
-    report_processor: ReportsProcessingOperations | None = (
-        None  # ReportsProcessingService - Orchestrates processing (LLM, human, hybrid)
+    report_processor: SubmissionProcessingOperations | None = (
+        None  # ReportsProcessingService - Orchestrates processing (LLM enrichment, transcription)
     )
 
-    # Reports search service (unified query interface)
-    reports_query: ReportsContentSearchOperations | None = (
-        None  # ReportsSearchService - Query all report types (journals, essays, projects, etc.)
+    # Submission search service (unified query interface)
+    reports_query: SubmissionSearchOperations | None = (
+        None  # ReportsSearchService - Query all submission types (journals, essays, projects, etc.)
     )
 
     # ========================================================================
@@ -1098,7 +1099,11 @@ async def compose_services(
 
         users_backend = UserBackend(driver)
         knowledge_backend = UniversalNeo4jBackend[Ku](
-            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics, base_label=NeoLabel.ENTITY
+            driver,
+            NeoLabel.KU,
+            Ku,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
         )
         from core.models.principle.principle import Principle
 
@@ -1552,6 +1557,7 @@ async def compose_services(
         report_feedback_service = ReportsFeedbackService(
             openai_service=ai_service,
             anthropic_service=None,  # Only OpenAI configured for now
+            executor=query_executor,  # Creates FEEDBACK_REPORT entity + FEEDBACK_FOR relationship
         )
 
         exercise_backend = UniversalNeo4jBackend[Exercise](
@@ -1715,8 +1721,12 @@ async def compose_services(
         )
 
         logger.info("✅ Reports submission and processing pipeline services created")
-        logger.info("✅ Reports core service created (content management: categories, tags, bulk ops)")
-        logger.info("✅ Reports search service created (unified query interface for all report types)")
+        logger.info(
+            "✅ Reports core service created (content management: categories, tags, bulk ops)"
+        )
+        logger.info(
+            "✅ Reports search service created (unified query interface for all report types)"
+        )
 
         # Create progress report generator and schedule service
         from core.models.reports.ku_schedule import KuSchedule

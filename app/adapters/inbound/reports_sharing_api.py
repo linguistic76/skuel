@@ -18,9 +18,9 @@ See: /docs/patterns/SHARING_PATTERNS.md (to be created)
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports.reports_protocols import (
-        ReportsContentOperations,
-        ReportsSharingOperations,
+    from core.ports.submission_protocols import (
+        SubmissionOperations,
+        SubmissionSharingOperations,
     )
 
 from pydantic import BaseModel
@@ -70,8 +70,8 @@ class SetVisibilityRequest(BaseModel):
 def create_reports_sharing_api_routes(
     _app: Any,
     rt: Any,
-    sharing_service: "ReportsSharingOperations",
-    core_service: "ReportsContentOperations | None" = None,
+    sharing_service: "SubmissionSharingOperations",
+    core_service: "SubmissionOperations | None" = None,
 ) -> list[Any]:
     """
     Create all report sharing API routes.

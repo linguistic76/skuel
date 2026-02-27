@@ -245,16 +245,19 @@ from .query_types import (
     WhereClauseSpec,
 )
 
-# Reports protocols — submission, processing, sharing, feedback, scheduling
-from .reports_protocols import (
-    ProgressReportGeneratorOperations,
-    ReportsContentOperations,
-    ReportsContentSearchOperations,
-    ReportsFeedbackOperations,
-    ReportsProcessingOperations,
-    ReportsScheduleOperations,
-    ReportsSharingOperations,
-    ReportsSubmissionOperations,
+# Submission protocols — Submission stage of the educational loop
+from .submission_protocols import (
+    SubmissionOperations,
+    SubmissionProcessingOperations,
+    SubmissionSearchOperations,
+    SubmissionSharingOperations,
+)
+
+# Feedback protocols — Feedback stage of the educational loop
+from .feedback_protocols import (
+    FeedbackOperations,
+    ProgressFeedbackOperations,
+    ProgressScheduleOperations,
 )
 
 # Knowledge operation protocols
@@ -454,16 +457,17 @@ __all__ = [
     "PydanticFieldInfo",
     "PydanticModel",
     "QueryBuilderOperations",
-    # ========== KU CONTENT PROTOCOLS (9 - February 2026) ==========
-    "ReportsContentOperations",
-    "ReportsContentSearchOperations",
-    "ReportsFeedbackOperations",
-    "ReportsProcessingOperations",
+    # ========== SUBMISSION PROTOCOLS (4) ==========
+    "SubmissionOperations",
+    "SubmissionProcessingOperations",
+    "SubmissionSearchOperations",
+    "SubmissionSharingOperations",
+    # ========== FEEDBACK PROTOCOLS (3) ==========
+    "FeedbackOperations",
+    "ProgressFeedbackOperations",
+    "ProgressScheduleOperations",
+    # ========== EXERCISE PROTOCOL ==========
     "ExerciseOperations",
-    "ReportsScheduleOperations",
-    "ReportsSharingOperations",
-    "ReportsSubmissionOperations",
-    "ProgressReportGeneratorOperations",
     "RelationshipCrudOperations",  # Edge CRUD (6 methods)
     "RelationshipMetadata",
     "RelationshipMetadataOperations",  # Edge properties (3 methods)

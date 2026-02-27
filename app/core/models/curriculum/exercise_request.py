@@ -93,9 +93,12 @@ class ExerciseUpdateRequest(BaseModel):
 
 
 class FeedbackGenerateRequest(BaseModel):
-    """Request to generate feedback for a report entry using an Exercise."""
+    """Request to generate AI feedback for a submission using an Exercise.
 
-    entry_uid: str = Field(..., description="UID of the report entry to analyze")
+    Always creates a FEEDBACK_REPORT entity (processor_type=LLM) in Neo4j.
+    """
+
+    entry_uid: str = Field(..., description="UID of the submission to analyze")
 
     project_uid: str = Field(..., description="UID of the Exercise with instructions")
 
@@ -105,8 +108,4 @@ class FeedbackGenerateRequest(BaseModel):
 
     max_tokens: int | None = Field(
         default=4000, ge=100, le=8000, description="Maximum tokens to generate"
-    )
-
-    save_feedback: bool = Field(
-        default=True, description="Whether to save feedback to the report entry"
     )

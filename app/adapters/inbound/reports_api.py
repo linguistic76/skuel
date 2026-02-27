@@ -27,11 +27,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports.reports_protocols import (
-        ReportsContentOperations,
-        ReportsContentSearchOperations,
-        ReportsProcessingOperations,
-        ReportsSubmissionOperations,
+    from core.ports.submission_protocols import (
+        SubmissionOperations,
+        SubmissionProcessingOperations,
+        SubmissionSearchOperations,
     )
 
 from starlette.background import BackgroundTask
@@ -77,10 +76,10 @@ def cleanup_temp_file(filepath: str):
 def create_reports_api_routes(
     _app: Any,
     rt: Any,
-    report_service: "ReportsSubmissionOperations",
-    processing_service: "ReportsProcessingOperations",
-    reports_query_service: "ReportsContentSearchOperations | None" = None,
-    reports_core_service: "ReportsContentOperations | None" = None,
+    report_service: "SubmissionOperations",
+    processing_service: "SubmissionProcessingOperations",
+    reports_query_service: "SubmissionSearchOperations | None" = None,
+    reports_core_service: "SubmissionOperations | None" = None,
 ) -> list[Any]:
     """
     Create all report API routes.

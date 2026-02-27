@@ -13,7 +13,7 @@ Routes:
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports.reports_protocols import ReportsContentOperations
+    from core.ports.feedback_protocols import FeedbackOperations
 
 from starlette.requests import Request
 
@@ -30,7 +30,7 @@ logger = get_logger("skuel.routes.reports.assessment")
 def create_reports_assessment_api_routes(
     _app: Any,
     rt: Any,
-    reports_core_service: "ReportsContentOperations",
+    reports_core_service: "FeedbackOperations",
     user_service_getter: Any,
 ) -> list[Any]:
     """

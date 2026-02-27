@@ -7,12 +7,11 @@ Provides:
 - Domain-specific feedback generation (manual route)
 """
 
-from datetime import datetime
 from typing import Any, cast
 
 from fasthtml.common import Request
 
-from adapters.inbound.auth import require_teacher
+from adapters.inbound.auth import require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import CRUDRouteFactory
 from core.models.curriculum.exercise_request import (
@@ -87,15 +86,17 @@ def create_exercises_api_routes(
         """
         Generate AI feedback for an entry using an exercise.
 
+        Creates a FEEDBACK_REPORT entity (processor_type=LLM) linked to the
+        submission via FEEDBACK_FOR — symmetric with human teacher feedback.
+
         Body (JSON):
         - entry_uid: Entry UID (required)
         - project_uid: Exercise UID (required)
         - temperature: Sampling temperature 0-1 (optional, default 0.7)
         - max_tokens: Max tokens to generate (optional, default 4000)
-        - save_feedback: Whether to save to entry (optional, default true)
 
         Returns:
-        - 200: Feedback generated
+        - 200: Feedback entity created {feedback_uid, entry_uid, project_uid, feedback}
         - 400: Invalid input
         - 404: Entry or exercise not found
         - 503: Service not available
@@ -112,6 +113,8 @@ def create_exercises_api_routes(
                     service="ContentEnrichmentService",
                 )
             )
+
+        user_uid = require_authenticated_user(request)
 
         # Parse request body
         try:
@@ -132,41 +135,27 @@ def create_exercises_api_routes(
         entry = entry_result.value
         exercise = exercise_result.value
 
-        # Generate feedback
+        # Generate feedback — creates FEEDBACK_REPORT entity + FEEDBACK_FOR relationship
         feedback_result = await report_feedback_service.generate_feedback(
             entry=entry,
-            project=exercise,
+            exercise=exercise,
+            user_uid=user_uid,
             temperature=feedback_request.temperature,
             max_tokens=feedback_request.max_tokens,
         )
 
         if feedback_result.is_error:
             logger.error(f"Failed to generate feedback: {feedback_result.error}")
-            return Result.fail(feedback_result)
+            return Result.fail(feedback_result.expect_error())
 
-        feedback_text = feedback_result.value
-
-        # Optionally save feedback to the submission
-        if feedback_request.save_feedback:
-            update_result = await transcript_service.update(
-                feedback_request.entry_uid,
-                {
-                    "project_uid": feedback_request.project_uid,
-                    "feedback": feedback_text,
-                    "feedback_generated_at": datetime.now().isoformat(),
-                },
-            )
-
-            if update_result.is_error:
-                logger.warning(f"Generated feedback but failed to save: {update_result.error}")
+        feedback_entity = feedback_result.value
 
         return Result.ok(
             {
+                "feedback_uid": feedback_entity.uid,
                 "entry_uid": feedback_request.entry_uid,
                 "project_uid": feedback_request.project_uid,
-                "feedback": feedback_text,
-                "generated_at": datetime.now().isoformat(),
-                "saved": feedback_request.save_feedback,
+                "feedback": feedback_entity.feedback,
             }
         )
 

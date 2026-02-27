@@ -468,7 +468,9 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """Mark an entity as draft."""
         return await self._update_report_status(uid, EntityStatus.DRAFT)
 
-    async def _update_report_status(self, uid: str, status: EntityStatus) -> Result[SubmissionEntity]:
+    async def _update_report_status(
+        self, uid: str, status: EntityStatus
+    ) -> Result[SubmissionEntity]:
         """Update entity status."""
         result = await self.backend.update(uid, {"status": status.value})
 
