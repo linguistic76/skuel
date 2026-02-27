@@ -15,12 +15,15 @@ TEACHER role required for all endpoints.
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
+from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.boundary import boundary_handler
+from core.models.enums.entity_enums import ProcessorType
+from core.models.enums.submissions_enums import ExerciseScope
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -35,6 +38,7 @@ def create_teaching_api_routes(
     rt: Any,
     teacher_review_service: "TeacherReviewOperations",
     user_service: Any,
+    exercises_service: Any = None,
 ) -> list[Any]:
     """
     Create teaching API routes.
@@ -168,6 +172,95 @@ def create_teaching_api_routes(
             group_uid=uid,
             teacher_uid=current_user.uid,
         )
+
+    @rt("/api/teaching/exercises", methods=["POST"])
+    @require_role(UserRole.TEACHER, get_user_service)
+    @boundary_handler(success_status=201)
+    async def create_teaching_exercise(request: Request, current_user: Any = None) -> Result[Any]:
+        """Create a new exercise owned by the authenticated teacher."""
+        if not exercises_service:
+            return Result.fail(Errors.system("exercises_service not available", operation="create_teaching_exercise"))
+
+        body = await request.form()
+        name = (body.get("name") or "").strip()
+        instructions = (body.get("instructions") or "").strip()
+
+        if not name:
+            return Result.fail(Errors.validation("name is required", field="name"))
+        if not instructions:
+            return Result.fail(Errors.validation("instructions is required", field="instructions"))
+
+        scope_str = body.get("scope") or "personal"
+        try:
+            scope = ExerciseScope(scope_str)
+        except ValueError:
+            return Result.fail(Errors.validation(f"Invalid scope: {scope_str}", field="scope"))
+
+        group_uid = body.get("group_uid") or None
+        if scope == ExerciseScope.ASSIGNED and not group_uid:
+            return Result.fail(Errors.validation("group_uid is required for assigned exercises", field="group_uid"))
+
+        due_date: date | None = None
+        due_date_str = body.get("due_date") or ""
+        if due_date_str:
+            try:
+                due_date = date.fromisoformat(due_date_str)
+            except ValueError:
+                return Result.fail(Errors.validation("Invalid due_date format (use YYYY-MM-DD)", field="due_date"))
+
+        processor_type_str = body.get("processor_type") or "llm"
+        try:
+            processor_type = ProcessorType(processor_type_str)
+        except ValueError:
+            processor_type = ProcessorType.LLM
+
+        context_notes_raw = body.get("context_notes") or ""
+        context_notes = [n.strip() for n in context_notes_raw.splitlines() if n.strip()]
+
+        result = await exercises_service.create_exercise(
+            user_uid=current_user.uid,
+            name=name,
+            instructions=instructions,
+            model=body.get("model") or "claude-3-5-sonnet-20241022",
+            scope=scope,
+            group_uid=group_uid,
+            due_date=due_date,
+            processor_type=processor_type,
+            context_notes=context_notes,
+        )
+        if result.is_error:
+            return result
+        return Result.ok(result.value.to_dto().to_dict())
+
+    @rt("/api/teaching/exercises/{uid}", methods=["POST"])
+    @require_role(UserRole.TEACHER, get_user_service)
+    @boundary_handler()
+    async def update_teaching_exercise(request: Request, uid: str, current_user: Any = None) -> Result[Any]:
+        """Update an existing exercise."""
+        if not exercises_service:
+            return Result.fail(Errors.system("exercises_service not available", operation="update_teaching_exercise"))
+
+        body = await request.form()
+
+        name = (body.get("name") or "").strip() or None
+        instructions = (body.get("instructions") or "").strip() or None
+        model = body.get("model") or None
+
+        context_notes: list[str] | None = None
+        context_notes_raw = body.get("context_notes")
+        if context_notes_raw is not None:
+            context_notes = [n.strip() for n in context_notes_raw.splitlines() if n.strip()]
+
+        result = await exercises_service.update_exercise(
+            uid=uid,
+            name=name,
+            instructions=instructions,
+            model=model,
+            context_notes=context_notes,
+        )
+        if result.is_error:
+            return result
+        return Result.ok(result.value.to_dto().to_dict())
 
     logger.info("✅ Teaching API routes registered")
     return []

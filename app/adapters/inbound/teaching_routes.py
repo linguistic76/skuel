@@ -18,9 +18,11 @@ TEACHING_CONFIG = DomainRouteConfig(
     ui_factory=create_teaching_ui_routes,
     api_related_services={
         "user_service": "user_service",
+        "exercises_service": "exercises",
     },
     ui_related_services={
         "user_service": "user_service",
+        "exercises_service": "exercises",
     },
 )
 

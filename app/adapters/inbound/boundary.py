@@ -143,7 +143,7 @@ def boundary_handler(
                 # Log unexpected errors
                 logger.error(f"Unexpected error in {func.__name__}: {e}")
                 # Return generic error response
-                return {"error": str(e)}, 500
+                return JSONResponse({"error": str(e)}, status_code=500)
 
         return wrapper
 
