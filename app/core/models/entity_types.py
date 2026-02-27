@@ -2,11 +2,12 @@
 Entity Type Aliases and Class Dispatch Map
 ==========================================
 
-Union type aliases and the EntityType→class map for all 16 domain models.
+Type aliases and the EntityType→class map for all 16 domain models.
 
 For construction: Use the specific subclass (Task, Goal, etc.)
 For dispatched deserialization: Use Entity.from_dto(dto)
-For type annotations: Use Ku (union of all subclasses) or Entity (common base)
+For type annotations: Use Entity (or Ku, which is an alias for Entity)
+For domain-specific annotations: Use ActivityEntity, CurriculumEntity, SubmissionEntity
 
 ENTITY_TYPE_CLASS_MAP maps each EntityType enum to its domain-specific subclass.
 
@@ -33,35 +34,18 @@ from core.models.resource.resource import Resource
 from core.models.task.task import Task
 
 # =============================================================================
-# UNION TYPE — for type annotations
+# KU — alias for Entity
 #
-# Ku can appear in type hints wherever any Entity subclass is acceptable.
+# Ku is the Knowledge Unit concept. All domain models are Entity subclasses,
+# so Ku = Entity. Prefer Entity in new code; Ku preserved for existing call sites.
 # For isinstance checks, use isinstance(x, Entity).
 # =============================================================================
-Ku = (
-    Task
-    | Goal
-    | Habit
-    | Event
-    | Choice
-    | Principle
-    | Curriculum
-    | Resource
-    | LearningStep
-    | LearningPath
-    | Exercise
-    | Submission
-    | Journal
-    | AiReport
-    | Feedback
-    | LifePath
-)
+Ku = Entity
 
 # =============================================================================
 # NARROWER TYPE ALIASES — for services that handle a subset of entity types
 #
-# Use these instead of the full 16-member Ku union when a service only handles
-# curriculum entities or submission entities.
+# Use these instead of Entity when a service only handles a specific domain group.
 # =============================================================================
 
 # Activity entities — user-owned entities with user_uid and priority
