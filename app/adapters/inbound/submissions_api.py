@@ -1,24 +1,23 @@
 """
-Reports API Routes
+Submissions API Routes
 ======================
 
 REST API for file submission and processing pipeline.
 
-
 - File upload (audio, text)
-- List reports with filters
-- Get report details
-- Process report
+- List submissions with filters
+- Get submission details
+- Process submission
 - Download original and processed files
-- Report statistics
+- Submission statistics
 
 Routes:
 - POST /api/submissions/upload - Upload file
-- GET /api/reports - List reports
-- GET /api/submissions/{uid} - Get report details
-- POST /api/submissions/{uid}/process - Process report
-- GET /api/submissions/{uid}/download - Download original file
-- GET /api/submissions/{uid}/download-processed - Download processed file
+- GET /api/submissions - List submissions
+- GET /api/submissions/get?uid=... - Get submission details
+- POST /api/submissions/process?uid=... - Process submission
+- GET /api/submissions/download?uid=... - Download original file
+- GET /api/submissions/download-processed?uid=... - Download processed file
 - GET /api/submissions/statistics - Get user statistics
 """
 
@@ -76,33 +75,33 @@ def cleanup_temp_file(filepath: str):
 def create_submissions_api_routes(
     _app: Any,
     rt: Any,
-    report_service: "SubmissionOperations",
+    submission_service: "SubmissionOperations",
     processing_service: "SubmissionProcessingOperations",
-    reports_query_service: "SubmissionSearchOperations | None" = None,
-    reports_core_service: "SubmissionOperations | None" = None,
+    submissions_search_service: "SubmissionSearchOperations | None" = None,
+    submissions_core_service: "SubmissionOperations | None" = None,
 ) -> list[Any]:
     """
-    Create all report API routes.
+    Create all submissions API routes.
 
     Args:
-        app: FastHTML application instance
+        _app: FastHTML application instance
         rt: Router instance
-        report_service: ReportSubmissionService
-        processing_service: SubmissionsProcessingService
-        reports_query_service: SubmissionsSearchService for cross-domain queries
-        reports_core_service: SubmissionsCoreService for content management
+        submission_service: SubmissionsService for upload and retrieval
+        processing_service: SubmissionsProcessingService for content processing
+        submissions_search_service: SubmissionsSearchService for cross-domain queries
+        submissions_core_service: SubmissionsCoreService for content management
     """
 
     # FAIL-FAST: Validate required services BEFORE any route registration
     missing = []
-    if not report_service:
-        missing.append("report_service")
+    if not submission_service:
+        missing.append("submission_service")
     if not processing_service:
         missing.append("processing_service")
     if missing:
-        raise ValueError(f"Required services missing for reports API: {', '.join(missing)}")
+        raise ValueError(f"Required services missing for submissions API: {', '.join(missing)}")
 
-    logger.info("Creating Reports API routes")
+    logger.info("Creating Submissions API routes")
 
     # ========================================================================
     # FILE UPLOAD
@@ -220,7 +219,7 @@ def create_submissions_api_routes(
         )
 
         # Submit file
-        result = await report_service.submit_file(
+        result = await submission_service.submit_file(
             file_content=file_content,
             original_filename=filename,
             user_uid=user_uid,
@@ -313,7 +312,7 @@ def create_submissions_api_routes(
                 return Result.fail(Errors.validation(f"Invalid status: {status}", field="status"))
 
         # List reports
-        result = await report_service.list_submissions(
+        result = await submission_service.list_submissions(
             user_uid=user_uid,
             ku_type=parsed_report_type,
             status=parsed_status,
@@ -351,7 +350,7 @@ def create_submissions_api_routes(
         Returns:
         - Report details
         """
-        result = await report_service.get_report(uid)
+        result = await submission_service.get_report(uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -379,7 +378,7 @@ def create_submissions_api_routes(
         - Processed content (transcript text)
         """
         # Get report
-        report_result = await report_service.get_report(uid)
+        report_result = await submission_service.get_report(uid)
         if report_result.is_error or not report_result.value:
             return Result.fail(Errors.not_found(resource="Report", identifier=uid))
 
@@ -466,7 +465,7 @@ def create_submissions_api_routes(
         from starlette.responses import Response
 
         # Get report
-        report_result = await report_service.get_report(uid)
+        report_result = await submission_service.get_report(uid)
         if report_result.is_error:
             return Response(
                 content=f"Error: {report_result.error.user_message if report_result.error else 'Report not found'}",
@@ -481,7 +480,7 @@ def create_submissions_api_routes(
             )
 
         # Get file content
-        file_result = await report_service.get_file_content(uid)
+        file_result = await submission_service.get_file_content(uid)
         if file_result.is_error:
             return Response(
                 content=f"Error: {file_result.error.user_message if file_result.error else 'File not found'}",
@@ -520,7 +519,7 @@ def create_submissions_api_routes(
         from starlette.responses import Response
 
         # Get report
-        report_result = await report_service.get_report(uid)
+        report_result = await submission_service.get_report(uid)
         if report_result.is_error:
             return Response(
                 content=f"Error: {report_result.error.user_message if report_result.error else 'Report not found'}",
@@ -542,7 +541,7 @@ def create_submissions_api_routes(
             )
 
         # Get processed file content
-        file_result = await report_service.get_processed_file_content(uid)
+        file_result = await submission_service.get_processed_file_content(uid)
         if file_result.is_error:
             return Response(
                 content=f"Error: {file_result.error.user_message if file_result.error else 'Processed file not found'}",
@@ -586,7 +585,7 @@ def create_submissions_api_routes(
         if not user_uid:
             return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
 
-        result = await report_service.get_report_statistics(user_uid)
+        result = await submission_service.get_report_statistics(user_uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -597,7 +596,7 @@ def create_submissions_api_routes(
     # CONTENT MANAGEMENT ROUTES
     # ========================================================================
 
-    if reports_core_service:
+    if submissions_core_service:
 
         @rt("/api/submissions/categorize")
         @boundary_handler()
@@ -618,7 +617,7 @@ def create_submissions_api_routes(
             req = CategorizeEntityRequest.model_validate(body)
 
             # Verify ownership through get_report
-            report_result = await report_service.get_report(report_uid)
+            report_result = await submission_service.get_report(report_uid)
             if report_result.is_error:
                 return Result.fail(report_result.expect_error())
 
@@ -626,7 +625,7 @@ def create_submissions_api_routes(
             if report is None or report.user_uid != user_uid:
                 return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
 
-            return await reports_core_service.categorize_report(
+            return await submissions_core_service.categorize_report(
                 uid=report_uid, category=req.category
             )
 
@@ -647,7 +646,7 @@ def create_submissions_api_routes(
             req = AddTagsRequest.model_validate(body)
 
             # Verify ownership
-            report_result = await report_service.get_report(report_uid)
+            report_result = await submission_service.get_report(report_uid)
             if report_result.is_error:
                 return Result.fail(report_result.expect_error())
 
@@ -655,7 +654,7 @@ def create_submissions_api_routes(
             if report is None or report.user_uid != user_uid:
                 return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
 
-            return await reports_core_service.add_tags(uid=report_uid, tags=req.tags)
+            return await submissions_core_service.add_tags(uid=report_uid, tags=req.tags)
 
         @rt("/api/submissions/tags/remove")
         @boundary_handler()
@@ -676,7 +675,7 @@ def create_submissions_api_routes(
             req = RemoveTagsRequest.model_validate(body)
 
             # Verify ownership
-            report_result = await report_service.get_report(report_uid)
+            report_result = await submission_service.get_report(report_uid)
             if report_result.is_error:
                 return Result.fail(report_result.expect_error())
 
@@ -684,7 +683,7 @@ def create_submissions_api_routes(
             if report is None or report.user_uid != user_uid:
                 return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
 
-            return await reports_core_service.remove_tags(uid=report_uid, tags=req.tags)
+            return await submissions_core_service.remove_tags(uid=report_uid, tags=req.tags)
 
         @rt("/api/submissions/publish")
         @boundary_handler()
@@ -699,7 +698,7 @@ def create_submissions_api_routes(
             - user_uid: User UID
             """
             # Verify ownership
-            report_result = await report_service.get_report(report_uid)
+            report_result = await submission_service.get_report(report_uid)
             if report_result.is_error:
                 return Result.fail(report_result.expect_error())
 
@@ -707,7 +706,7 @@ def create_submissions_api_routes(
             if report is None or report.user_uid != user_uid:
                 return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
 
-            return await reports_core_service.publish_report(uid=report_uid)
+            return await submissions_core_service.publish_report(uid=report_uid)
 
         @rt("/api/submissions/archive")
         @boundary_handler()
@@ -722,7 +721,7 @@ def create_submissions_api_routes(
             - user_uid: User UID
             """
             # Verify ownership
-            report_result = await report_service.get_report(report_uid)
+            report_result = await submission_service.get_report(report_uid)
             if report_result.is_error:
                 return Result.fail(report_result.expect_error())
 
@@ -730,7 +729,7 @@ def create_submissions_api_routes(
             if report is None or report.user_uid != user_uid:
                 return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
 
-            return await reports_core_service.archive_report(uid=report_uid)
+            return await submissions_core_service.archive_report(uid=report_uid)
 
         @rt("/api/submissions/draft")
         @boundary_handler()
@@ -745,7 +744,7 @@ def create_submissions_api_routes(
             - user_uid: User UID
             """
             # Verify ownership
-            report_result = await report_service.get_report(report_uid)
+            report_result = await submission_service.get_report(report_uid)
             if report_result.is_error:
                 return Result.fail(report_result.expect_error())
 
@@ -753,7 +752,7 @@ def create_submissions_api_routes(
             if report is None or report.user_uid != user_uid:
                 return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
 
-            return await reports_core_service.mark_as_draft(uid=report_uid)
+            return await submissions_core_service.mark_as_draft(uid=report_uid)
 
         @rt("/api/submissions/bulk/categorize")
         @boundary_handler()
@@ -773,7 +772,7 @@ def create_submissions_api_routes(
 
             # Verify user owns all reports
             for uid in req.ku_uids:
-                report_result = await report_service.get_report(uid)
+                report_result = await submission_service.get_report(uid)
                 if report_result.is_error:
                     return Result.fail(report_result.expect_error())
 
@@ -783,7 +782,7 @@ def create_submissions_api_routes(
                         Errors.validation(f"You do not own report {uid}", field="report_uids")
                     )
 
-            return await reports_core_service.bulk_categorize(
+            return await submissions_core_service.bulk_categorize(
                 uids=req.ku_uids, category=req.category
             )
 
@@ -805,7 +804,7 @@ def create_submissions_api_routes(
 
             # Verify ownership
             for uid in req.ku_uids:
-                report_result = await report_service.get_report(uid)
+                report_result = await submission_service.get_report(uid)
                 if report_result.is_error:
                     return Result.fail(report_result.expect_error())
 
@@ -815,7 +814,7 @@ def create_submissions_api_routes(
                         Errors.validation(f"You do not own report {uid}", field="report_uids")
                     )
 
-            return await reports_core_service.bulk_tag(uids=req.ku_uids, tags=req.tags)
+            return await submissions_core_service.bulk_tag(uids=req.ku_uids, tags=req.tags)
 
         @rt("/api/submissions/bulk/delete")
         @boundary_handler()
@@ -835,7 +834,7 @@ def create_submissions_api_routes(
 
             # Verify ownership
             for uid in req.ku_uids:
-                report_result = await report_service.get_report(uid)
+                report_result = await submission_service.get_report(uid)
                 if report_result.is_error:
                     return Result.fail(report_result.expect_error())
 
@@ -845,7 +844,7 @@ def create_submissions_api_routes(
                         Errors.validation(f"You do not own report {uid}", field="report_uids")
                     )
 
-            return await reports_core_service.bulk_delete(
+            return await submissions_core_service.bulk_delete(
                 uids=req.ku_uids, soft_delete=req.soft_delete
             )
 
@@ -862,7 +861,7 @@ def create_submissions_api_routes(
             - category: Category string
             - limit: Max results (default 50)
             """
-            return await reports_core_service.get_reports_by_category(
+            return await submissions_core_service.get_reports_by_category(
                 category=category, limit=limit, user_uid=user_uid
             )
 
@@ -876,11 +875,11 @@ def create_submissions_api_routes(
             - user_uid: User UID
             - limit: Max results (default 10)
             """
-            return await reports_core_service.get_recent_submissions(limit=limit, user_uid=user_uid)
+            return await submissions_core_service.get_recent_submissions(limit=limit, user_uid=user_uid)
 
-        logger.info("Report content management routes registered (12 new routes)")
+        logger.info("Submission content management routes registered (12 new routes)")
 
-    logger.info("Reports API routes created successfully")
+    logger.info("Submissions API routes created successfully")
 
     return [
         upload_report_route,

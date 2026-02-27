@@ -33,8 +33,8 @@ SUBMISSIONS_CONFIG = DomainRouteConfig(
     ui_factory=create_submissions_ui_routes,
     api_related_services={
         "processing_service": "submissions_processor",
-        "reports_query_service": "submissions_search",
-        "reports_core_service": "submissions_core",
+        "submissions_search_service": "submissions_search",
+        "submissions_core_service": "submissions_core",
     },
     ui_related_services={
         "_processing_service": "submissions_processor",

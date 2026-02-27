@@ -1,5 +1,5 @@
 """
-Reports Assessment API Routes
+Feedback Assessment API Routes
 ================================
 
 REST API for teacher assessments of students.
@@ -30,7 +30,7 @@ logger = get_logger("skuel.routes.submissions.assessment")
 def create_feedback_assessment_api_routes(
     _app: Any,
     rt: Any,
-    reports_core_service: "FeedbackOperations",
+    feedback_service: "FeedbackOperations",
     user_service_getter: Any,
 ) -> list[Any]:
     """
@@ -39,7 +39,7 @@ def create_feedback_assessment_api_routes(
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        reports_core_service: SubmissionsCoreService for assessment CRUD
+        feedback_service: FeedbackOperations service for assessment CRUD
         user_service_getter: Named function returning user_service (for role checks)
     """
 
@@ -58,7 +58,7 @@ def create_feedback_assessment_api_routes(
         body = await request.json()
         req = AssessmentCreateRequest.model_validate(body)
 
-        result = await reports_core_service.create_assessment(
+        result = await feedback_service.create_assessment(
             teacher_uid=teacher_uid,
             subject_uid=req.subject_uid,
             title=req.title,
@@ -83,7 +83,7 @@ def create_feedback_assessment_api_routes(
         user_uid = require_authenticated_user(request)
         limit = int(request.query_params.get("limit", "50"))
 
-        result = await reports_core_service.get_assessments_by_teacher(
+        result = await feedback_service.get_assessments_by_teacher(
             teacher_uid=user_uid,
             limit=limit,
         )
@@ -106,7 +106,7 @@ def create_feedback_assessment_api_routes(
         user_uid = require_authenticated_user(request)
         limit = int(request.query_params.get("limit", "50"))
 
-        result = await reports_core_service.get_assessments_for_student(
+        result = await feedback_service.get_assessments_for_student(
             student_uid=user_uid,
             limit=limit,
         )
