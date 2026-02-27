@@ -493,10 +493,10 @@ GraphDepth.DEFAULT                             # Named constants
 **Core Principle:** "Clear domain language -> clear types -> enforceable contracts"
 
 ```python
-# EntityType — 15 domain types (multi-label :Entity nodes in Neo4j)
+# EntityType — 16 domain types (multi-label :Entity nodes in Neo4j)
 class EntityType(str, Enum):
     TASK, HABIT, GOAL, EVENT, PRINCIPLE, CHOICE = ...  # Activity
-    CURRICULUM, RESOURCE, LEARNING_STEP, LEARNING_PATH = ...  # Curriculum
+    CURRICULUM, RESOURCE, LEARNING_STEP, LEARNING_PATH, EXERCISE = ...  # Curriculum
     JOURNAL, SUBMISSION, AI_REPORT, FEEDBACK_REPORT = ...  # Reports
     LIFE_PATH = "life_path"  # Destination
 

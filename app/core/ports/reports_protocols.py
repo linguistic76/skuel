@@ -13,7 +13,6 @@ handles backend CRUD. These protocols cover the higher-level content lifecycle:
     ReportsContentSearchOperations — Cross-type search and statistics
     ReportsSharingOperations — Visibility and sharing control
     ReportsProcessingOperations — Processing pipeline (transcription, LLM)
-    ExerciseOperations — LLM instruction templates (exercises)
     ReportsFeedbackOperations — LLM-based feedback generation
     ProgressReportGeneratorOperations — Progress Ku generation
     ReportsScheduleOperations — Recurring progress Ku scheduling
@@ -342,109 +341,6 @@ class ReportsProcessingOperations(Protocol):
         new_instructions: dict[str, Any] | None = None,
     ) -> Result[Any]:
         """Reprocess an entity with new instructions. Returns Result[Ku]."""
-        ...
-
-
-@runtime_checkable
-class ExerciseOperations(Protocol):
-    """Reusable LLM instruction template operations.
-
-    Route consumer: exercises_api.py (via CRUDRouteFactory)
-    Implementation: ExerciseService
-    """
-
-    async def create_exercise(
-        self,
-        user_uid: str,
-        name: str,
-        instructions: str,
-        model: str = "claude-3-5-sonnet-20241022",
-        context_notes: list[str] | None = None,
-        domain: Any | None = None,
-        scope: Any = ...,
-        due_date: date | None = None,
-        processor_type: Any = ...,
-        group_uid: str | None = None,
-    ) -> Result[Any]:
-        """Create an Exercise. Returns Result[Exercise]."""
-        ...
-
-    async def get_exercise(self, uid: str) -> Result[Any | None]:
-        """Get exercise by UID. Returns Result[Exercise | None]."""
-        ...
-
-    async def list_user_exercises(
-        self,
-        user_uid: str,
-        active_only: bool = True,
-    ) -> Result[list[Any]]:
-        """List user's exercises. Returns Result[list[Exercise]]."""
-        ...
-
-    async def update_exercise(
-        self,
-        uid: str,
-        name: str | None = None,
-        instructions: str | None = None,
-        model: str | None = None,
-        context_notes: list[str] | None = None,
-        domain: Any | None = None,
-        is_active: bool | None = None,
-        metadata: dict[str, Any] | None = None,
-    ) -> Result[Any]:
-        """Update an exercise. Returns Result[Exercise]."""
-        ...
-
-    async def delete_exercise(self, uid: str) -> Result[bool]:
-        """Delete an exercise. Returns Result[bool]."""
-        ...
-
-    # Backward-compatible aliases for route consumers
-    async def get_project(self, uid: str) -> Result[Any | None]:
-        """Alias for get_exercise."""
-        ...
-
-    async def list_user_projects(
-        self, user_uid: str, active_only: bool = True
-    ) -> Result[list[Any]]:
-        """Alias for list_user_exercises."""
-        ...
-
-    async def update_project(
-        self,
-        uid: str,
-        name: str | None = None,
-        instructions: str | None = None,
-        model: str | None = None,
-        context_notes: list[str] | None = None,
-        domain: Any | None = None,
-        is_active: bool | None = None,
-        metadata: dict[str, Any] | None = None,
-    ) -> Result[Any]:
-        """Alias for update_exercise."""
-        ...
-
-    async def delete_project(self, uid: str) -> Result[bool]:
-        """Alias for delete_exercise."""
-        ...
-
-    # Curriculum linking
-    async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
-        """Link exercise to curriculum KU via REQUIRES_KNOWLEDGE."""
-        ...
-
-    async def unlink_from_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
-        """Remove REQUIRES_KNOWLEDGE relationship."""
-        ...
-
-    async def get_required_knowledge(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get curriculum KUs required by an exercise."""
-        ...
-
-    async def get_exercises_for_curriculum(
-        self, curriculum_uid: str
-    ) -> Result[list[dict[str, Any]]]:
-        """Get exercises that require a specific curriculum KU."""
         ...
 
 

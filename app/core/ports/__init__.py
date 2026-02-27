@@ -178,6 +178,7 @@ from .context_awareness_protocols import (
 # NOTE: MOC is KU-based (January 2026) - no separate MocOperations protocol
 from .curriculum_protocols import (
     CurriculumOperations,
+    ExerciseOperations,
     KuOperations,
     LpOperations,
     LsOperations,
@@ -246,7 +247,6 @@ from .query_types import (
 
 # Reports protocols — submission, processing, sharing, feedback, scheduling
 from .reports_protocols import (
-    ExerciseOperations,
     ProgressReportGeneratorOperations,
     ReportsContentOperations,
     ReportsContentSearchOperations,

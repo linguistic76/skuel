@@ -20,7 +20,7 @@ from core.models.relationship_registry import (
     EXERCISE_CONFIG,
     LABEL_CONFIGS,
 )
-from core.ports.reports_protocols import ExerciseOperations
+from core.ports.curriculum_protocols import ExerciseOperations
 from core.services.exercises.exercise_service import ExerciseService
 from core.utils.result_simplified import Result
 

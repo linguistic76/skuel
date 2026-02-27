@@ -3,7 +3,7 @@ Ku - Union Type for Domain-Specific Knowledge Types
 =====================================================
 
 After decomposition, Ku is a Union type alias representing any of the
-15 domain-specific frozen dataclasses. The God Object is gone.
+16 domain-specific frozen dataclasses. The God Object is gone.
 
 For construction: Use the specific subclass (Task, Goal, etc.)
 For dispatched deserialization: Use Entity.from_dto(dto)

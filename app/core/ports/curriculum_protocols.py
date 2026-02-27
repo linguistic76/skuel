@@ -21,9 +21,10 @@ The Three Curriculum Domains:
 
 Protocol Hierarchy:
     - CurriculumOperations[T]: Base protocol inheriting BackendOperations
-    - KuOperations: Extends CurriculumOperations[Ku] with KU-specific methods
-    - LsOperations: Extends CurriculumOperations[Ku] with LS-specific methods
-    - LpOperations: Extends CurriculumOperations[Ku] with LP-specific methods
+    - KuOperations: Extends CurriculumOperations[Curriculum] with KU-specific methods
+    - LsOperations: Extends CurriculumOperations[LearningStep] with LS-specific methods
+    - LpOperations: Extends CurriculumOperations[LearningPath] with LP-specific methods
+    - ExerciseOperations: Standalone protocol for Exercise instruction templates
 
 Protocol Hierarchy
 ------------------
@@ -38,18 +39,18 @@ Protocol Hierarchy
             └── get_hierarchy() → Result[dict]
 
 Domain-Specific Protocols:
-    KuOperations(CurriculumOperations[Ku], Protocol):
-        ├── get_enables() → Result[list[Ku]]
+    KuOperations(CurriculumOperations[Curriculum], Protocol):
+        ├── get_enables() → Result[list[Curriculum]]
         ├── get_semantic_links() → Result[list[str]]
         └── get_substance_score() → Result[float]
 
-    LsOperations(CurriculumOperations[Ku], Protocol):
+    LsOperations(CurriculumOperations[LearningStep], Protocol):
         ├── get_knowledge_uids() → Result[list[str]]
-        ├── get_path_steps() → Result[list[Ku]]
+        ├── get_path_steps() → Result[list[LearningStep]]
         └── get_practice_summary() → Result[dict]
 
-    LpOperations(CurriculumOperations[Ku], Protocol):
-        ├── get_next_step() → Result[Ku | None]
+    LpOperations(CurriculumOperations[LearningPath], Protocol):
+        ├── get_next_step() → Result[LearningStep | None]
         ├── calculate_progress() → Result[float]
 
 Return Type Consistency
@@ -61,7 +62,7 @@ Usage
 -----
     from core.ports import CurriculumOperations, KuOperations
 
-    class KuCoreService(BaseService[KuOperations, Ku]):
+    class KuCoreService(BaseService[KuOperations, Curriculum]):
         @property
         def entity_label(self) -> str:
             return "Entity"
@@ -76,15 +77,15 @@ See Also
 
 from __future__ import annotations
 
+from datetime import date
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from .base_protocols import BackendOperations, GraphRelationshipOperations
 
 if TYPE_CHECKING:
+    from core.models.curriculum.curriculum import Curriculum
     from core.models.curriculum.learning_path import LearningPath
     from core.models.curriculum.learning_step import LearningStep
-    from core.models.entity import Entity  # noqa: F401 — used as forward ref in KuOperations base
-    from core.models.entity_types import Ku
 
     # NOTE: MapOfContent, MOCSection, MOCStats imports removed January 2026
     # MOC is now KU-based - no separate MOC models exist
@@ -112,7 +113,7 @@ class CurriculumOperations[T](BackendOperations[T], GraphRelationshipOperations,
         - get_hierarchy(): Fetch hierarchical structure
 
     Type Parameter:
-        T: The domain model (Ku for all curriculum domains)
+        T: The domain model (Curriculum, LearningStep, or LearningPath)
 
     Design Rationale:
         Curriculum domains share patterns that Activity domains don't need:
@@ -125,8 +126,8 @@ class CurriculumOperations[T](BackendOperations[T], GraphRelationshipOperations,
         PLUS these curriculum-specific additions.
 
     Example:
-        class KuUniversalBackend(UniversalNeo4jBackend[Ku], CurriculumOperations[Ku]):
-            async def get_with_content(self, uid: str) -> Result[Ku]:
+        class KuUniversalBackend(UniversalNeo4jBackend[Curriculum], CurriculumOperations[Curriculum]):
+            async def get_with_content(self, uid: str) -> Result[Curriculum]:
                 # Implementation
                 ...
     """
@@ -292,7 +293,7 @@ class KuInteractionOperations(Protocol):
 
 
 @runtime_checkable
-class KuOperations(CurriculumOperations["Entity"], Protocol):
+class KuOperations(CurriculumOperations["Curriculum"], Protocol):
     """
     Knowledge Unit (KU) specific operations.
 
@@ -301,8 +302,8 @@ class KuOperations(CurriculumOperations["Entity"], Protocol):
     - Substance tracking (applied knowledge measurement)
     - Domain-specific queries
 
-    Graph Label: "Entity" (or "KnowledgeUnit" for backward compatibility)
-    UID Prefix: "ku:"
+    Neo4j: KU nodes are :Entity:Curriculum{entity_type='curriculum'}
+    UID Format: "ku_{slug}_{random}" (e.g., "ku_python-basics_a1b2c3d4")
     """
 
     # =========================================================================
@@ -318,21 +319,21 @@ class KuOperations(CurriculumOperations["Entity"], Protocol):
     # KU-SPECIFIC RETRIEVAL
     # =========================================================================
 
-    async def get_ku(self, uid: str) -> Result[Ku]:
+    async def get_ku(self, uid: str) -> Result[Curriculum]:
         """
         Get a Knowledge Unit by UID.
 
         Semantic alias for get() - provides domain-specific naming.
 
         Args:
-            uid: KU UID (e.g., "ku:python.basics")
+            uid: KU UID (e.g., "ku_python-basics_a1b2c3d4")
 
         Returns:
-            Result[Ku]: The knowledge unit or not-found error
+            Result[Curriculum]: The knowledge unit or not-found error
         """
         ...
 
-    async def get_user_kus(self, user_uid: str) -> Result[list[Ku]]:
+    async def get_user_kus(self, user_uid: str) -> Result[list[Curriculum]]:
         """
         Get all KUs accessible to a user.
 
@@ -340,7 +341,7 @@ class KuOperations(CurriculumOperations["Entity"], Protocol):
             user_uid: User UID
 
         Returns:
-            Result[list[Ku]]: User's knowledge units
+            Result[list[Curriculum]]: User's knowledge units
         """
         ...
 
@@ -367,7 +368,7 @@ class KuOperations(CurriculumOperations["Entity"], Protocol):
         self,
         uid: str,
         domain: str,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Curriculum]]:
         """
         Get related KUs filtered by domain.
 
@@ -376,7 +377,7 @@ class KuOperations(CurriculumOperations["Entity"], Protocol):
             domain: Domain filter (e.g., "TECH", "HEALTH")
 
         Returns:
-            Result[list[Ku]]: Related KUs in specified domain
+            Result[list[Curriculum]]: Related KUs in specified domain
         """
         ...
 
@@ -490,8 +491,8 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
     - Practice integration (habits, tasks, events)
     - Path integration (LS can be standalone or part of LP)
 
-    Neo4j: LS nodes are :Entity{entity_type='learning_step'}
-    UID Prefix: "ls:"
+    Neo4j: LS nodes are :Entity:LearningStep{entity_type='learning_step'}
+    UID Format: "ls:{random}" (e.g., "ls:a1b2c3d4")
     """
 
     # =========================================================================
@@ -503,7 +504,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
         Get a Learning Step by UID.
 
         Args:
-            uid: LS UID (e.g., "ls:python.basics.step1")
+            uid: LS UID (e.g., "ls:a1b2c3d4")
 
         Returns:
             Result[LearningStep]: The learning step or not-found error
@@ -553,7 +554,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
         """
         ...
 
-    async def get_primary_knowledge(self, uid: str) -> Result[list[Ku]]:
+    async def get_primary_knowledge(self, uid: str) -> Result[list[Curriculum]]:
         """
         Get primary (core) knowledge units for this step.
 
@@ -561,11 +562,11 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
             uid: LS UID
 
         Returns:
-            Result[list[Ku]]: Primary knowledge units
+            Result[list[Curriculum]]: Primary knowledge units
         """
         ...
 
-    async def get_supporting_knowledge(self, uid: str) -> Result[list[Ku]]:
+    async def get_supporting_knowledge(self, uid: str) -> Result[list[Curriculum]]:
         """
         Get supporting (optional) knowledge units for this step.
 
@@ -573,7 +574,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
             uid: LS UID
 
         Returns:
-            Result[list[Ku]]: Supporting knowledge units
+            Result[list[Curriculum]]: Supporting knowledge units
         """
         ...
 
@@ -711,8 +712,8 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
     - Motivational alignment (goals, principles)
     - Milestone and checkpoint management
 
-    Neo4j: LP nodes are :Entity{entity_type='learning_path'}
-    UID Prefix: "lp:"
+    Neo4j: LP nodes are :Entity:LearningPath{entity_type='learning_path'}
+    UID Format: "lp:{random}" (e.g., "lp:a1b2c3d4")
     """
 
     # =========================================================================
@@ -724,7 +725,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         Get a Learning Path by UID.
 
         Args:
-            uid: LP UID (e.g., "lp:python.mastery")
+            uid: LP UID (e.g., "lp:a1b2c3d4")
 
         Returns:
             Result[LearningPath]: The learning path or not-found error
@@ -790,7 +791,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
             user_uid: User UID
 
         Returns:
-            Result[list[Ku]]: Paths with progress but not completed
+            Result[list[LearningPath]]: Paths with progress but not completed
         """
         ...
 
@@ -1009,6 +1010,119 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         Returns:
             Result[int | None]: Next checkpoint week or None
         """
+        ...
+
+
+# =============================================================================
+# EXERCISE OPERATIONS
+# =============================================================================
+
+
+@runtime_checkable
+class ExerciseOperations(Protocol):
+    """Reusable LLM instruction template operations.
+
+    Exercise is a Curriculum subclass (EntityType.EXERCISE) — instruction
+    templates for LLM-based feedback on student submissions.
+
+    Route consumer: exercises_api.py (via CRUDRouteFactory)
+    Implementation: ExerciseService
+
+    See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+    """
+
+    async def create_exercise(
+        self,
+        user_uid: str,
+        name: str,
+        instructions: str,
+        model: str = "claude-3-5-sonnet-20241022",
+        context_notes: list[str] | None = None,
+        domain: Any | None = None,
+        scope: Any = ...,
+        due_date: date | None = None,
+        processor_type: Any = ...,
+        group_uid: str | None = None,
+    ) -> Result[Any]:
+        """Create an Exercise. Returns Result[Exercise]."""
+        ...
+
+    async def get_exercise(self, uid: str) -> Result[Any | None]:
+        """Get exercise by UID. Returns Result[Exercise | None]."""
+        ...
+
+    async def list_user_exercises(
+        self,
+        user_uid: str,
+        active_only: bool = True,
+    ) -> Result[list[Any]]:
+        """List user's exercises. Returns Result[list[Exercise]]."""
+        ...
+
+    async def update_exercise(
+        self,
+        uid: str,
+        name: str | None = None,
+        instructions: str | None = None,
+        model: str | None = None,
+        context_notes: list[str] | None = None,
+        domain: Any | None = None,
+        is_active: bool | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Result[Any]:
+        """Update an exercise. Returns Result[Exercise]."""
+        ...
+
+    async def delete_exercise(self, uid: str) -> Result[bool]:
+        """Delete an exercise. Returns Result[bool]."""
+        ...
+
+    # Backward-compatible aliases for route consumers
+    async def get_project(self, uid: str) -> Result[Any | None]:
+        """Alias for get_exercise."""
+        ...
+
+    async def list_user_projects(
+        self, user_uid: str, active_only: bool = True
+    ) -> Result[list[Any]]:
+        """Alias for list_user_exercises."""
+        ...
+
+    async def update_project(
+        self,
+        uid: str,
+        name: str | None = None,
+        instructions: str | None = None,
+        model: str | None = None,
+        context_notes: list[str] | None = None,
+        domain: Any | None = None,
+        is_active: bool | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Result[Any]:
+        """Alias for update_exercise."""
+        ...
+
+    async def delete_project(self, uid: str) -> Result[bool]:
+        """Alias for delete_exercise."""
+        ...
+
+    # Curriculum linking
+    async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
+        """Link exercise to curriculum KU via REQUIRES_KNOWLEDGE."""
+        ...
+
+    async def unlink_from_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
+        """Remove REQUIRES_KNOWLEDGE relationship."""
+        ...
+
+    async def get_required_knowledge(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get curriculum KUs required by an exercise."""
+        ...
+
+    async def get_exercises_for_curriculum(
+        self, curriculum_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get exercises that require a specific curriculum KU."""
         ...
 
 
