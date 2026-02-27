@@ -12,7 +12,7 @@ Relationships Created:
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.entity_types import Ku
+from core.models.entity_types import SubmissionEntity
 from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -40,7 +40,7 @@ class ReportsRelationshipService:
 
     async def create_report_relationships(
         self,
-        entity: Ku,
+        entity: SubmissionEntity,
         themes: list[str] | None = None,
         active_goals: list[dict[str, str]] | None = None,
     ) -> Result[dict[str, int]]:

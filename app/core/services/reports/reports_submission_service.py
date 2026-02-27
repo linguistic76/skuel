@@ -23,7 +23,7 @@ from typing import Any
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.entity import Entity
-from core.models.entity_types import Ku
+from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.relationship_names import RelationshipName
 from core.models.reports.submission import Submission
@@ -60,7 +60,7 @@ class ReportsSubmissionService(BaseService[BackendOperations[Entity], Entity]):
 
     def __init__(
         self,
-        backend: BackendOperations[Ku],
+        backend: BackendOperations[SubmissionEntity],
         storage_path: str = "/tmp/skuel_reports",
         event_bus=None,
     ) -> None:

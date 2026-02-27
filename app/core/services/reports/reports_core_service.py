@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 from core.events import publish_event
 from core.events.submission_events import AssessmentCreated, SubmissionDeleted
 from core.models.entity import Entity
-from core.models.entity_types import Ku
+from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.relationship_names import RelationshipName
 from core.models.reports.feedback import Feedback
@@ -152,7 +152,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
     def __init__(
         self,
-        backend: BackendOperations[Ku] | None = None,
+        backend: BackendOperations[SubmissionEntity] | None = None,
         event_bus: EventBusOperations | None = None,
         sharing_service: Any | None = None,
         content_enrichment: Any | None = None,
@@ -180,7 +180,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """Return the graph label for Entity nodes."""
         return "Entity"
 
-    def _validate_report_exists(self, report: Ku | None) -> Result[Ku]:
+    def _validate_report_exists(self, report: SubmissionEntity | None) -> Result[SubmissionEntity]:
         """Validate entity exists."""
         if report:
             return Result.ok(report)
@@ -190,7 +190,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
     # RETRIEVE
     # ========================================================================
 
-    async def get_report(self, uid: str) -> Result[Ku]:
+    async def get_report(self, uid: str) -> Result[SubmissionEntity]:
         """
         Get a report by UID.
 
@@ -211,7 +211,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         return Result.ok(report)
 
-    async def get_with_access_check(self, uid: str, user_uid: str) -> Result[Ku]:
+    async def get_with_access_check(self, uid: str, user_uid: str) -> Result[SubmissionEntity]:
         """
         Get a report with access control verification.
 
@@ -244,7 +244,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
     async def get_report_for_date(
         self, target_date: date, user_uid: str | None = None
-    ) -> Result[Ku | None]:
+    ) -> Result[SubmissionEntity | None]:
         """
         Get the report for a specific date.
 
@@ -284,7 +284,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         limit: int = 10,
         user_uid: str | None = None,
         ku_type: EntityType | None = None,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[SubmissionEntity]]:
         """
         Get recent Ku entities.
 
@@ -326,7 +326,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
     # UPDATE
     # ========================================================================
 
-    async def update_report(self, uid: str, updates: dict[str, Any]) -> Result[Ku]:
+    async def update_report(self, uid: str, updates: dict[str, Any]) -> Result[SubmissionEntity]:
         """
         Update an entity.
 
@@ -428,11 +428,11 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
     # STATUS MANAGEMENT
     # ========================================================================
 
-    async def publish_report(self, uid: str) -> Result[Ku]:
+    async def publish_report(self, uid: str) -> Result[SubmissionEntity]:
         """Publish an entity (set status to completed/published)."""
         return await self._update_report_status(uid, EntityStatus.COMPLETED)
 
-    async def archive_report(self, uid: str) -> Result[Ku]:
+    async def archive_report(self, uid: str) -> Result[SubmissionEntity]:
         """Archive a report by updating status in metadata."""
         # Get current entity
         get_result = await self.backend.get(uid)
@@ -450,11 +450,11 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         return await self.update_report(uid, {"metadata": current_metadata})
 
-    async def mark_as_draft(self, uid: str) -> Result[Ku]:
+    async def mark_as_draft(self, uid: str) -> Result[SubmissionEntity]:
         """Mark an entity as draft."""
         return await self._update_report_status(uid, EntityStatus.DRAFT)
 
-    async def _update_report_status(self, uid: str, status: EntityStatus) -> Result[Ku]:
+    async def _update_report_status(self, uid: str, status: EntityStatus) -> Result[SubmissionEntity]:
         """Update entity status."""
         result = await self.backend.update(uid, {"status": status.value})
 
@@ -472,7 +472,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
     # CATEGORY MANAGEMENT
     # ========================================================================
 
-    async def categorize_report(self, uid: str, category: str) -> Result[Ku]:
+    async def categorize_report(self, uid: str, category: str) -> Result[SubmissionEntity]:
         """
         Categorize an entity.
 
@@ -506,7 +506,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
     async def get_reports_by_category(
         self, category: str, limit: int = 50, user_uid: str | None = None
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[SubmissionEntity]]:
         """
         Get Ku entities by category.
 
@@ -549,7 +549,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
     # TAG MANAGEMENT
     # ========================================================================
 
-    async def add_tags(self, uid: str, tags: list[str]) -> Result[Ku]:
+    async def add_tags(self, uid: str, tags: list[str]) -> Result[SubmissionEntity]:
         """
         Add tags to an entity.
 
@@ -580,7 +580,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         return await self.update_report(uid, {"metadata": current_metadata})
 
-    async def remove_tags(self, uid: str, tags: list[str]) -> Result[Ku]:
+    async def remove_tags(self, uid: str, tags: list[str]) -> Result[SubmissionEntity]:
         """
         Remove tags from an entity.
 
@@ -611,7 +611,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
     async def get_reports_by_tag(
         self, tag: str, limit: int = 50, user_uid: str | None = None
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[SubmissionEntity]]:
         """
         Get Ku entities with a specific tag.
 
@@ -836,7 +836,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         source_type: str | None = None,
         source_file: str | None = None,
         transcription_uid: str | None = None,
-    ) -> Result[Ku]:
+    ) -> Result[Journal]:
         """
         Create a journal-type Ku (JOURNAL with journal metadata).
 
@@ -909,7 +909,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         return Result.ok(journal)
 
     @with_error_handling("get_ephemeral_journals", error_type="database")
-    async def get_ephemeral_journals(self, user_uid: str, limit: int = 10) -> Result[list[Ku]]:
+    async def get_ephemeral_journals(self, user_uid: str, limit: int = 10) -> Result[list[Journal]]:
         """Get journals with FIFO retention (max_retention is set) for a user."""
         result = await self.backend.find_by(
             user_uid=user_uid,
@@ -923,7 +923,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         return Result.ok(journals[:limit])
 
     @with_error_handling("get_permanent_journals", error_type="database")
-    async def get_permanent_journals(self, user_uid: str, limit: int = 50) -> Result[list[Ku]]:
+    async def get_permanent_journals(self, user_uid: str, limit: int = 50) -> Result[list[Journal]]:
         """Get permanent journals (no FIFO retention) for a user."""
         result = await self.backend.find_by(
             user_uid=user_uid,
@@ -943,7 +943,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         start_date: date,
         end_date: date,
         limit: int = 100,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[Journal]]:
         """
         Get journal report entities within a date range.
 
@@ -979,7 +979,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         return Result.ok(journals[:limit])
 
     @with_error_handling("make_permanent", error_type="database")
-    async def make_permanent(self, uid: str) -> Result[Ku]:
+    async def make_permanent(self, uid: str) -> Result[SubmissionEntity]:
         """
         Make a journal permanent by clearing its max_retention.
 
@@ -1001,7 +1001,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         return await self.update_report(uid, {"max_retention": None})
 
-    async def get_journal_with_insights(self, uid: str) -> Result[Ku | None]:
+    async def get_journal_with_insights(self, uid: str) -> Result[Journal | None]:
         """
         Get a journal report with its extracted insights.
 
@@ -1203,7 +1203,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
         title: str,
         content: str,
         metadata: dict[str, Any] | None = None,
-    ) -> Result[Ku]:
+    ) -> Result[Feedback]:
         """
         Create a teacher assessment (feedback) for a student.
 
@@ -1332,7 +1332,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
     @with_error_handling("get_assessments_for_student", error_type="database")
     async def get_assessments_for_student(
         self, student_uid: str, limit: int = 50
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[SubmissionEntity]]:
         """
         Get assessments received by a student.
 
@@ -1367,7 +1367,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
     @with_error_handling("get_assessments_by_teacher", error_type="database")
     async def get_assessments_by_teacher(
         self, teacher_uid: str, limit: int = 50
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[SubmissionEntity]]:
         """
         Get assessments authored by a teacher.
 
@@ -1479,7 +1479,7 @@ class ReportsCoreService(BaseService[BackendOperations[Entity], Entity]):
             )
 
 
-def _get_entry_date_key(report: Ku) -> date:
+def _get_entry_date_key(report: SubmissionEntity) -> date:
     """Get entry_date from entity metadata for sorting, with fallback to date.min."""
     if report.metadata:
         entry_date_str = report.metadata.get("entry_date")
@@ -1491,6 +1491,6 @@ def _get_entry_date_key(report: Ku) -> date:
     return date.min
 
 
-def _get_created_at_key(report: Ku) -> datetime:
+def _get_created_at_key(report: SubmissionEntity) -> datetime:
     """Get created_at from entity for sorting, with fallback to datetime.min."""
     return report.created_at if report.created_at else datetime.min

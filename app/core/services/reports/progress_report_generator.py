@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
-from core.models.entity_types import Ku
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.enums.reports_enums import ProgressDepth
 from core.models.reports.ai_report import AiReport
@@ -53,7 +52,7 @@ class ProgressReportGenerator:
     def __init__(
         self,
         executor: "QueryExecutor",
-        ku_backend: "BackendOperations[Ku]",
+        ku_backend: "BackendOperations[AiReport]",
         user_service: Any | None = None,
         insight_store: "InsightStore | None" = None,
         event_bus: EventBusOperations | None = None,
@@ -71,7 +70,7 @@ class ProgressReportGenerator:
         domains: list[str] | None = None,
         depth: str = "standard",
         include_insights: bool = True,
-    ) -> Result[Ku]:
+    ) -> Result[AiReport]:
         """
         Generate a progress Ku for a user.
 

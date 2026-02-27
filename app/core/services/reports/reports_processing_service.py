@@ -21,8 +21,9 @@ When `extract_activities=True` in instructions, the processor will:
 from typing import Any
 
 from core.models.entity import Entity
-from core.models.entity_types import Ku
+from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.reports.journal import Journal
 from core.models.reports.submission import Submission
 from core.services.reports.reports_submission_service import ReportsSubmissionService
 from core.utils.logging import get_logger
@@ -319,7 +320,7 @@ class ReportsProcessingService:
     # ========================================================================
 
     async def _process_journal(
-        self, report: Ku, content: str, instructions: dict[str, Any] | None
+        self, report: Journal, content: str, instructions: dict[str, Any] | None
     ) -> None:
         """
         Process journal-type Ku with enrichment pipeline.
@@ -384,7 +385,7 @@ class ReportsProcessingService:
     # ========================================================================
 
     async def _extract_activities(
-        self, report: Ku, user_uid: str, instructions: dict[str, Any] | None
+        self, report: SubmissionEntity, user_uid: str, instructions: dict[str, Any] | None
     ) -> None:
         """
         Extract Activity Lines from processed content and create entities.

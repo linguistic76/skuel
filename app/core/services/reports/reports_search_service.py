@@ -16,7 +16,7 @@ from typing import Any
 
 from core.constants import QueryLimit
 from core.models.entity import Entity
-from core.models.entity_types import Ku
+from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.reports.submission_dto import SubmissionDTO
@@ -60,7 +60,7 @@ class ReportsSearchService(BaseService[BackendOperations[Entity], Entity]):
         user_ownership_relationship=RelationshipName.OWNS,
     )
 
-    def __init__(self, ku_backend: BackendOperations[Ku], event_bus=None) -> None:
+    def __init__(self, ku_backend: BackendOperations[SubmissionEntity], event_bus=None) -> None:
         """
         Initialize Ku search service.
 
