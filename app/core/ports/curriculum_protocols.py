@@ -2,7 +2,7 @@
 Curriculum Protocols - Consistent Protocol Hierarchy for KU, LS, LP
 ====================================================================
 
-*Last updated: 2026-01-20*
+*Last updated: 2026-02-27*
 
 This module provides a CONSISTENT protocol hierarchy for the three
 curriculum domains (KU, LS, LP), parallel to BackendOperations for
