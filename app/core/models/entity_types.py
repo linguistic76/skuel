@@ -4,9 +4,9 @@ Entity Type Aliases and Class Dispatch Map
 
 Type aliases and the EntityType→class map for all 16 domain models.
 
-For construction: Use the specific subclass (Task, Goal, etc.)
+For construction: Use the specific subclass (Task, Ku, Goal, etc.)
 For dispatched deserialization: Use Entity.from_dto(dto)
-For type annotations: Use Entity (or Ku, which is an alias for Entity)
+For type annotations: Use Entity (base type for all domain models)
 For domain-specific annotations: Use ActivityEntity, CurriculumEntity, SubmissionEntity
 
 ENTITY_TYPE_CLASS_MAP maps each EntityType enum to its domain-specific subclass.
@@ -17,6 +17,7 @@ See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 from core.models.choice.choice import Choice
 from core.models.curriculum.curriculum import Curriculum
 from core.models.curriculum.exercise import Exercise
+from core.models.curriculum.ku import Ku
 from core.models.curriculum.learning_path import LearningPath
 from core.models.curriculum.learning_step import LearningStep
 from core.models.entity import Entity
@@ -34,15 +35,6 @@ from core.models.resource.resource import Resource
 from core.models.task.task import Task
 
 # =============================================================================
-# KU — alias for Entity
-#
-# Ku is the Knowledge Unit concept. All domain models are Entity subclasses,
-# so Ku = Entity. Prefer Entity in new code; Ku preserved for existing call sites.
-# For isinstance checks, use isinstance(x, Entity).
-# =============================================================================
-Ku = Entity
-
-# =============================================================================
 # NARROWER TYPE ALIASES — for services that handle a subset of entity types
 #
 # Use these instead of Entity when a service only handles a specific domain group.
@@ -52,13 +44,14 @@ Ku = Entity
 ActivityEntity = Task | Goal | Habit | Event | Choice | Principle
 
 # Curriculum entities — carry learning_level, quality_score, sel_category, etc.
-CurriculumEntity = Curriculum | LearningStep | LearningPath | Exercise
+# Ku is the atomic leaf; Curriculum is the base class.
+CurriculumEntity = Ku | LearningStep | LearningPath | Exercise
 
 # Submission entities — carry file_path, processed_content, file_type, etc.
 SubmissionEntity = Submission | Journal | AiReport | Feedback
 
 # =============================================================================
-# TYPE CLASS MAP — dispatcher for Ku decomposition
+# TYPE CLASS MAP — dispatcher for entity deserialization
 #
 # Maps EntityType to domain-specific subclass. Used by Entity.from_dto() dispatcher
 # and cross-domain deserialization.
@@ -70,7 +63,7 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.EVENT: Event,
     EntityType.CHOICE: Choice,
     EntityType.PRINCIPLE: Principle,
-    EntityType.CURRICULUM: Curriculum,
+    EntityType.KU: Ku,
     EntityType.RESOURCE: Resource,
     EntityType.LEARNING_STEP: LearningStep,
     EntityType.LEARNING_PATH: LearningPath,

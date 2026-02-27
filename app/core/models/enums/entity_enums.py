@@ -32,7 +32,7 @@ class EntityType(str, Enum):
 
     Five groups:
         Knowledge (shared curriculum):
-            CURRICULUM      → Admin-created shared knowledge
+            KU              → Admin-created atomic knowledge unit (lecture, book, doc)
             RESOURCE        → Books, talks, films, music (admin-only)
         Curriculum Structure:
             LEARNING_STEP   → Step in a learning path
@@ -58,7 +58,7 @@ class EntityType(str, Enum):
 
     Content origin tiers (see ContentOrigin):
         A  CURATED      → RESOURCE
-        B  CURRICULUM   → CURRICULUM, LEARNING_STEP, LEARNING_PATH, EXERCISE
+        B  CURRICULUM   → KU, LEARNING_STEP, LEARNING_PATH, EXERCISE
         C  USER_CREATED → Activities, SUBMISSION, JOURNAL, LIFE_PATH
         D  FEEDBACK     → AI_REPORT, FEEDBACK_REPORT
 
@@ -71,7 +71,7 @@ class EntityType(str, Enum):
     """
 
     # Knowledge (shared curriculum)
-    CURRICULUM = "curriculum"
+    KU = "ku"
     RESOURCE = "resource"
 
     # Curriculum structure
@@ -185,8 +185,9 @@ class EntityType(str, Enum):
         Parse EntityType from string (case-insensitive, alias-aware).
 
         Supports aliases for backward compatibility with DSL and ingestion:
-            "knowledge" -> CURRICULUM
-            "ku" -> CURRICULUM
+            "ku" -> KU (canonical)
+            "curriculum" -> KU (backward compat alias — migrated from old value)
+            "knowledge" -> KU
             "ls" -> LEARNING_STEP
             "lp" -> LEARNING_PATH
             "report" -> AI_REPORT
@@ -197,7 +198,7 @@ class EntityType(str, Enum):
 
 # EntityType lookup tables (module-level for performance)
 _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
-    EntityType.CURRICULUM: "Curriculum",
+    EntityType.KU: "Ku",
     EntityType.RESOURCE: "Resource",
     EntityType.LEARNING_STEP: "Learning Step",
     EntityType.LEARNING_PATH: "Learning Path",
@@ -215,7 +216,7 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.LIFE_PATH: "Life Path",
 }
 
-_KNOWLEDGE_TYPES = frozenset({EntityType.CURRICULUM, EntityType.RESOURCE})
+_KNOWLEDGE_TYPES = frozenset({EntityType.KU, EntityType.RESOURCE})
 _CURRICULUM_STRUCTURE_TYPES = frozenset(
     {EntityType.LEARNING_STEP, EntityType.LEARNING_PATH, EntityType.EXERCISE}
 )
@@ -234,7 +235,7 @@ _ACTIVITY_TYPES = frozenset(
 )
 _SHARED_TYPES = frozenset(
     {
-        EntityType.CURRICULUM,
+        EntityType.KU,
         EntityType.RESOURCE,
         EntityType.LEARNING_STEP,
         EntityType.LEARNING_PATH,
@@ -265,7 +266,7 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     # A — Admin-curated resources
     EntityType.RESOURCE: ContentOrigin.CURATED,
     # B — Curriculum structure and organization
-    EntityType.CURRICULUM: ContentOrigin.CURRICULUM,
+    EntityType.KU: ContentOrigin.CURRICULUM,
     EntityType.LEARNING_STEP: ContentOrigin.CURRICULUM,
     EntityType.LEARNING_PATH: ContentOrigin.CURRICULUM,
     EntityType.EXERCISE: ContentOrigin.CURRICULUM,
@@ -286,9 +287,8 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
 
 _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     # Canonical values
-    "curriculum": EntityType.CURRICULUM,
+    "ku": EntityType.KU,
     "resource": EntityType.RESOURCE,
-    "moc": EntityType.CURRICULUM,
     "learning_step": EntityType.LEARNING_STEP,
     "learning_path": EntityType.LEARNING_PATH,
     "journal": EntityType.JOURNAL,
@@ -302,13 +302,14 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "choice": EntityType.CHOICE,
     "principle": EntityType.PRINCIPLE,
     "life_path": EntityType.LIFE_PATH,
-    # Aliases
-    "knowledge": EntityType.CURRICULUM,
-    "ku": EntityType.CURRICULUM,
+    # Aliases (backward compat — "curriculum" stored in Neo4j migrated to "ku")
+    "curriculum": EntityType.KU,
+    "knowledge": EntityType.KU,
+    "moc": EntityType.KU,
+    "map_of_content": EntityType.KU,
     "book": EntityType.RESOURCE,
     "film": EntityType.RESOURCE,
     "talk": EntityType.RESOURCE,
-    "map_of_content": EntityType.CURRICULUM,
     "ls": EntityType.LEARNING_STEP,
     "step": EntityType.LEARNING_STEP,
     "lp": EntityType.LEARNING_PATH,
@@ -584,7 +585,7 @@ _VALID_TRANSITIONS: dict[EntityStatus, set[EntityStatus]] = {
 
 # Valid statuses per EntityType (from plan specification)
 _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
-    EntityType.CURRICULUM: frozenset(
+    EntityType.KU: frozenset(
         {
             EntityStatus.DRAFT,
             EntityStatus.COMPLETED,
@@ -727,7 +728,7 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
 }
 
 _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
-    EntityType.CURRICULUM: EntityStatus.COMPLETED,
+    EntityType.KU: EntityStatus.COMPLETED,
     EntityType.RESOURCE: EntityStatus.COMPLETED,
     EntityType.LEARNING_STEP: EntityStatus.DRAFT,
     EntityType.LEARNING_PATH: EntityStatus.DRAFT,
