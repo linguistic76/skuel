@@ -9,32 +9,43 @@ This module provides the universal backend for the 14 domains in SKUEL.
 A single generic implementation replaces what would otherwise be 14+
 separate domain-specific backend classes.
 
-DOMAINS SERVED BY THIS BACKEND (12 of 14)
------------------------------------------
+BACKENDS IN USE (services_bootstrap.py)
+----------------------------------------
 
-**Activity Domains (7):**
+**Activity Domains (6):**
+    HabitsBackend[Habit] - habits_backend
+    GoalsBackend[Goal] - goals_backend
     UniversalNeo4jBackend[Task] - tasks_backend
-    UniversalNeo4jBackend[Goal] - goals_backend
-    UniversalNeo4jBackend[Habit] - habits_backend
     UniversalNeo4jBackend[Event] - events_backend
-    UniversalNeo4jBackend[Choice] - choices_backend
-    UniversalNeo4jBackend[Principle] - principles_backend
-    UniversalNeo4jBackend[ExpensePure] - finance_backend
+    UniversalNeo4jBackend[Choice] - choice_backend
+    UniversalNeo4jBackend[Principle] - principle_backend
 
 **Curriculum Domains (3):**
-    UniversalNeo4jBackend[KnowledgeUnit] - knowledge_backend (ku:)
+    UniversalNeo4jBackend[Ku] - knowledge_backend (ku:)
     UniversalNeo4jBackend[LearningStep] - ls_backend (ls:)
     UniversalNeo4jBackend[LearningPath] - lp_backend (lp:)
 
-**Content/Organization Domains (2 of 4):**
-    UniversalNeo4jBackend[Report] - reports_backend (journals are Report with report_type=JOURNAL)
-    UniversalNeo4jBackend[Moc] - moc_backend
+**Finance Domains (2):**
+    UniversalNeo4jBackend[ExpensePure] - finance_backend
+    UniversalNeo4jBackend[InvoicePure] - invoice_backend
 
-DOMAINS NOT USING THIS BACKEND (2 of 14)
-----------------------------------------
+**Content/Submissions (2):**
+    UniversalNeo4jBackend[Submission] - submissions_backend
+    UniversalNeo4jBackend[AiFeedback] - ai_feedback_backend
 
-    13. LifePath - Uses cross-domain queries (AnalyticsLifePathService)
-    14. Analytics - Read-only aggregation (no entity storage)
+**Supporting (5):**
+    UniversalNeo4jBackend[HabitCompletion] - habit_completions_backend
+    UniversalNeo4jBackend[Transcription] - transcription_backend
+    UniversalNeo4jBackend[PrincipleReflection] - reflection_backend
+    UniversalNeo4jBackend[UserProgress] - progress_backend
+    UniversalNeo4jBackend[Askesis] - askesis_backend
+
+NOT USING THIS BACKEND
+----------------------
+
+    UserContext - UserBackend (dedicated, with graph traversal extensions)
+    LifePath - Cross-domain queries (AnalyticsLifePathService)
+    Analytics - Read-only aggregation (no entity storage)
 
 THE 4 CROSS-CUTTING SYSTEMS
 ---------------------------
@@ -65,7 +76,7 @@ Key Features:
     - Protocol compliance for all domain operations
 
 See Also:
-    /core/models/shared_enums.py - Domain enum definitions
+    /core/models/enums/entity_enums.py - EntityType, EntityStatus
     /core/ports/domain_protocols.py - Service interfaces
     /services_bootstrap.py - Service composition
 """
@@ -547,40 +558,3 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
             f"'{type(self).__name__}' has no attribute '{name}'. "
             f"This may be a domain-specific method that should have an explicit implementation."
         )
-
-
-# ============================================================================
-# CONVENIENCE FACTORY FUNCTIONS
-# ============================================================================
-
-
-def create_tasks_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
-    """Create universal backend for tasks."""
-    from core.models.task.task import Task as TaskPure
-
-    return UniversalNeo4jBackend[TaskPure](driver, "Task", TaskPure)
-
-
-def create_events_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
-    """Create universal backend for events."""
-    from core.models.event.event import Event as EventPure
-
-    return UniversalNeo4jBackend[EventPure](driver, "Event", EventPure)
-
-
-def create_finance_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
-    """Create universal backend for finance."""
-    from core.models.finance.finance_pure import ExpensePure
-
-    return UniversalNeo4jBackend[ExpensePure](driver, "Expense", ExpensePure)
-
-
-def create_habits_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
-    """Create universal backend for habits."""
-    from core.models.habit.habit import Habit as HabitPure
-
-    return UniversalNeo4jBackend[HabitPure](driver, "Habit", HabitPure)
-
-
-# Pattern continues for all domains...
-# 12+ domain-specific files replaced by 12 simple factory functions
