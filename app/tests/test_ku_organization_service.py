@@ -22,7 +22,7 @@ from core.services.ku.ku_organization_service import (
     OrganizationView,
     OrganizedKu,
 )
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 # ============================================================================
 # FIXTURES
@@ -38,17 +38,23 @@ def mock_ku_service() -> Mock:
 
 
 @pytest.fixture
-def mock_driver() -> Mock:
-    """Create mock Neo4j driver."""
-    driver = Mock()
-    driver.execute_query = AsyncMock()
-    return driver
+def mock_backend() -> Mock:
+    """Create mock KuBackend with all organization methods."""
+    backend = Mock()
+    backend.is_organizer = AsyncMock()
+    backend.organize = AsyncMock()
+    backend.unorganize = AsyncMock()
+    backend.reorder = AsyncMock()
+    backend.get_organized_children = AsyncMock()
+    backend.find_organizers = AsyncMock()
+    backend.list_root_organizers = AsyncMock()
+    return backend
 
 
 @pytest.fixture
-def organization_service(mock_ku_service, mock_driver) -> KuOrganizationService:
+def organization_service(mock_ku_service, mock_backend) -> KuOrganizationService:
     """Create KuOrganizationService instance for testing."""
-    return KuOrganizationService(ku_service=mock_ku_service, executor=mock_driver)
+    return KuOrganizationService(ku_service=mock_ku_service, backend=mock_backend)
 
 
 @pytest.fixture
@@ -66,20 +72,21 @@ def sample_ku() -> Mock:
 
 
 @pytest.mark.asyncio
-async def test_is_organizer_true(organization_service, mock_driver):
+async def test_is_organizer_true(organization_service, mock_backend):
     """Test is_organizer returns True when Ku has organized children."""
-    mock_driver.execute_query.return_value = Result.ok([{"ku_exists": True, "is_organizer": True}])
+    mock_backend.is_organizer.return_value = Result.ok(True)
 
     result = await organization_service.is_organizer("ku.python-reference")
 
     assert result.is_ok
     assert result.value is True
+    mock_backend.is_organizer.assert_called_once_with("ku.python-reference")
 
 
 @pytest.mark.asyncio
-async def test_is_organizer_false(organization_service, mock_driver):
+async def test_is_organizer_false(organization_service, mock_backend):
     """Test is_organizer returns False when Ku has no children."""
-    mock_driver.execute_query.return_value = Result.ok([{"ku_exists": True, "is_organizer": False}])
+    mock_backend.is_organizer.return_value = Result.ok(False)
 
     result = await organization_service.is_organizer("ku.standalone")
 
@@ -88,10 +95,10 @@ async def test_is_organizer_false(organization_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_is_organizer_not_found(organization_service, mock_driver):
+async def test_is_organizer_not_found(organization_service, mock_backend):
     """Test is_organizer returns error when Ku doesn't exist."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [{"ku_exists": False, "is_organizer": False}]
+    mock_backend.is_organizer.return_value = Result.fail(
+        Errors.not_found(resource="Ku", identifier="ku.nonexistent")
     )
 
     result = await organization_service.is_organizer("ku.nonexistent")
@@ -106,12 +113,12 @@ async def test_is_organizer_not_found(organization_service, mock_driver):
 
 @pytest.mark.asyncio
 async def test_get_organization_view_success(
-    organization_service, mock_ku_service, mock_driver, sample_ku
+    organization_service, mock_ku_service, mock_backend, sample_ku
 ):
     """Test get_organization_view returns hierarchy."""
     mock_ku_service.get.return_value = Result.ok(sample_ku)
 
-    mock_driver.execute_query.return_value = Result.ok(
+    mock_backend.get_organized_children.return_value = Result.ok(
         [
             {"uid": "ku.python-basics", "title": "Python Basics", "order": 0},
             {"uid": "ku.python-advanced", "title": "Python Advanced", "order": 1},
@@ -143,7 +150,7 @@ async def test_get_organization_view_not_found(organization_service, mock_ku_ser
 
 
 @pytest.mark.asyncio
-async def test_organize_success(organization_service, mock_ku_service, mock_driver, sample_ku):
+async def test_organize_success(organization_service, mock_ku_service, mock_backend, sample_ku):
     """Test organize creates ORGANIZES relationship."""
     child_ku = Mock()
     child_ku.uid = "ku.python-basics"
@@ -154,12 +161,13 @@ async def test_organize_success(organization_service, mock_ku_service, mock_driv
         Result.ok(child_ku),
     ]
 
-    mock_driver.execute_query.return_value = Result.ok([{"success": True}])
+    mock_backend.organize.return_value = Result.ok(True)
 
     result = await organization_service.organize("ku.python-reference", "ku.python-basics", order=1)
 
     assert result.is_ok
     assert result.value is True
+    mock_backend.organize.assert_called_once_with("ku.python-reference", "ku.python-basics", 1)
 
 
 @pytest.mark.asyncio
@@ -173,20 +181,21 @@ async def test_organize_parent_not_found(organization_service, mock_ku_service):
 
 
 @pytest.mark.asyncio
-async def test_unorganize_success(organization_service, mock_driver):
+async def test_unorganize_success(organization_service, mock_backend):
     """Test unorganize removes ORGANIZES relationship."""
-    mock_driver.execute_query.return_value = Result.ok([{"success": True}])
+    mock_backend.unorganize.return_value = Result.ok(True)
 
     result = await organization_service.unorganize("ku.python-reference", "ku.python-basics")
 
     assert result.is_ok
     assert result.value is True
+    mock_backend.unorganize.assert_called_once_with("ku.python-reference", "ku.python-basics")
 
 
 @pytest.mark.asyncio
-async def test_reorder_success(organization_service, mock_driver):
+async def test_reorder_success(organization_service, mock_backend):
     """Test reorder updates relationship order."""
-    mock_driver.execute_query.return_value = Result.ok([{"success": True}])
+    mock_backend.reorder.return_value = Result.ok(True)
 
     result = await organization_service.reorder(
         "ku.python-reference", "ku.python-basics", new_order=5
@@ -194,6 +203,7 @@ async def test_reorder_success(organization_service, mock_driver):
 
     assert result.is_ok
     assert result.value is True
+    mock_backend.reorder.assert_called_once_with("ku.python-reference", "ku.python-basics", 5)
 
 
 # ============================================================================
@@ -202,9 +212,9 @@ async def test_reorder_success(organization_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_find_organizers_success(organization_service, mock_driver):
+async def test_find_organizers_success(organization_service, mock_backend):
     """Test find_organizers returns parent organizers."""
-    mock_driver.execute_query.return_value = Result.ok(
+    mock_backend.find_organizers.return_value = Result.ok(
         [
             {"uid": "ku.python-reference", "title": "Python Reference", "order": 0},
             {"uid": "ku.web-development", "title": "Web Development", "order": 2},
@@ -221,9 +231,9 @@ async def test_find_organizers_success(organization_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_list_root_organizers_success(organization_service, mock_driver):
+async def test_list_root_organizers_success(organization_service, mock_backend):
     """Test list_root_organizers returns top-level organizers."""
-    mock_driver.execute_query.return_value = Result.ok(
+    mock_backend.list_root_organizers.return_value = Result.ok(
         [
             {"uid": "ku.python-reference", "title": "Python Reference", "child_count": 5},
             {"uid": "ku.javascript-guide", "title": "JavaScript Guide", "child_count": 3},
@@ -239,9 +249,9 @@ async def test_list_root_organizers_success(organization_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_get_organized_children_success(organization_service, mock_driver):
+async def test_get_organized_children_success(organization_service, mock_backend):
     """Test get_organized_children returns direct children."""
-    mock_driver.execute_query.return_value = Result.ok(
+    mock_backend.get_organized_children.return_value = Result.ok(
         [
             {"uid": "ku.python-basics", "title": "Python Basics", "order": 0},
             {"uid": "ku.python-advanced", "title": "Python Advanced", "order": 1},
@@ -299,7 +309,7 @@ def test_organization_view_not_organizer_when_no_children():
     """Test OrganizationView.is_organizer is False when no children."""
     view = OrganizationView(
         root_uid="ku.standalone",
-        root_title="Standalone KU",
+        root_title="Standalone Ku",
         children=[],
         total_kus=0,
     )
@@ -307,7 +317,3 @@ def test_organization_view_not_organizer_when_no_children():
     result = view.to_dict()
 
     assert result["is_organizer"] is False
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

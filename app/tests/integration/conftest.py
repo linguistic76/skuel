@@ -235,7 +235,6 @@ def ku_service(ku_backend, mock_graph_intel):
     mock_content_repo = AsyncMock()
     mock_query_builder = MagicMock()
     mock_neo4j_adapter = MagicMock()
-    mock_executor = MagicMock()  # Required for KuSearchService
 
     # January 2026: graph_intelligence_service now REQUIRED for unified Curriculum architecture
     return KuService(
@@ -244,7 +243,6 @@ def ku_service(ku_backend, mock_graph_intel):
         graph_intelligence_service=mock_graph_intel,  # REQUIRED for cross-domain queries
         query_builder=mock_query_builder,
         neo4j_adapter=mock_neo4j_adapter,
-        executor=mock_executor,
     )
 
 
@@ -576,7 +574,6 @@ async def services(neo4j_driver):
         content_repo=mock_content_repo,
         query_builder=mock_query_builder,
         neo4j_adapter=mock_neo4j_adapter,
-        executor=query_executor,
         graph_intelligence_service=mock_graph_intel,
     )
 

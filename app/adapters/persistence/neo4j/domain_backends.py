@@ -40,6 +40,7 @@ from typing import Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
+from core.models.curriculum.ku import Ku
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
@@ -587,11 +588,199 @@ class PrinciplesBackend(UniversalNeo4jBackend[Principle]):
         return await self.create_user_relationship(user_uid, principle_uid)
 
 
+class KuBackend(UniversalNeo4jBackend[Ku]):
+    """
+    Domain backend for Ku (Knowledge Unit) entities.
+
+    Extends UniversalNeo4jBackend[Ku] with explicit implementations of
+    ORGANIZES relationship operations previously handled by QueryExecutor
+    in KuOrganizationService:
+    - is_organizer(ku_uid)                        → check ORGANIZES existence + ku_exists
+    - organize(parent_uid, child_uid, order)       → MERGE ORGANIZES relationship
+    - unorganize(parent_uid, child_uid)            → DELETE ORGANIZES relationship
+    - reorder(parent_uid, child_uid, new_order)    → SET r.order on ORGANIZES
+    - get_organized_children(parent_uid, limit)   → fetch direct ORGANIZES children
+    - find_organizers(ku_uid)                      → find parent Kus
+    - list_root_organizers(limit)                  → Kus not organized by anyone
+    """
+
+    async def is_organizer(self, ku_uid: str) -> Result[bool]:
+        """Check if a Ku has organized children. Returns error if Ku not found."""
+        query = """
+        MATCH (ku:Entity {uid: $ku_uid})
+        OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Entity)
+        RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_organizer
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(query, {"ku_uid": ku_uid})
+                records = await result.data()
+            if not records:
+                return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
+            record = records[0]
+            if not record["ku_exists"]:
+                return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
+            return Result.ok(record["is_organizer"])
+        except Exception as e:
+            self.logger.error(f"Failed is_organizer check for {ku_uid}: {e}")
+            return Result.fail(Errors.database(operation="is_organizer", message=str(e)))
+
+    async def organize(
+        self, parent_uid: str, child_uid: str, order: int = 0
+    ) -> Result[bool]:
+        """Create ORGANIZES relationship between two Kus."""
+        query = """
+        MATCH (parent:Entity {uid: $parent_uid})
+        MATCH (child:Entity {uid: $child_uid})
+        MERGE (parent)-[r:ORGANIZES]->(child)
+        SET r.order = $order
+        RETURN true AS success
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query,
+                    {"parent_uid": parent_uid, "child_uid": child_uid, "order": order},
+                )
+                records = await result.data()
+            success = bool(records and records[0]["success"])
+            if success:
+                self.logger.info(
+                    f"Organized Ku {child_uid} under {parent_uid} at position {order}"
+                )
+            return Result.ok(success)
+        except Exception as e:
+            self.logger.error(f"Failed organize {child_uid} under {parent_uid}: {e}")
+            return Result.fail(Errors.database(operation="organize", message=str(e)))
+
+    async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
+        """Remove ORGANIZES relationship between two Kus."""
+        query = """
+        MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
+        DELETE r
+        RETURN true AS success
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query,
+                    {"parent_uid": parent_uid, "child_uid": child_uid},
+                )
+                records = await result.data()
+            success = bool(records and records[0]["success"])
+            if success:
+                self.logger.info(f"Removed organization of {child_uid} from {parent_uid}")
+            return Result.ok(success)
+        except Exception as e:
+            self.logger.error(f"Failed unorganize {child_uid} from {parent_uid}: {e}")
+            return Result.fail(Errors.database(operation="unorganize", message=str(e)))
+
+    async def reorder(
+        self, parent_uid: str, child_uid: str, new_order: int
+    ) -> Result[bool]:
+        """Change the order of a child Ku within its parent organizer."""
+        query = """
+        MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
+        SET r.order = $new_order
+        RETURN true AS success
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query,
+                    {
+                        "parent_uid": parent_uid,
+                        "child_uid": child_uid,
+                        "new_order": new_order,
+                    },
+                )
+                records = await result.data()
+            return Result.ok(bool(records and records[0]["success"]))
+        except Exception as e:
+            self.logger.error(f"Failed reorder {child_uid} under {parent_uid}: {e}")
+            return Result.fail(Errors.database(operation="reorder", message=str(e)))
+
+    async def get_organized_children(
+        self, parent_uid: str, limit: int | None = None
+    ) -> Result[list[dict[str, Any]]]:
+        """Get direct ORGANIZES children of a Ku, ordered by position."""
+        query = """
+        MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity)
+        RETURN child.uid AS uid, child.title AS title, r.order AS order
+        ORDER BY r.order ASC
+        """
+        params: dict[str, Any] = {"parent_uid": parent_uid}
+        if limit is not None:
+            query += "\nLIMIT $limit"
+            params["limit"] = limit
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(query, params)
+                records = await result.data()
+            children = [
+                {"uid": r["uid"], "title": r["title"], "order": r["order"]}
+                for r in records
+            ]
+            return Result.ok(children)
+        except Exception as e:
+            self.logger.error(f"Failed get_organized_children for {parent_uid}: {e}")
+            return Result.fail(
+                Errors.database(operation="get_organized_children", message=str(e))
+            )
+
+    async def find_organizers(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+        """Find all parent Kus that organize the given Ku."""
+        query = """
+        MATCH (parent:Entity)-[r:ORGANIZES]->(ku:Entity {uid: $ku_uid})
+        RETURN parent.uid AS uid, parent.title AS title, r.order AS order
+        ORDER BY parent.title
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(query, {"ku_uid": ku_uid})
+                records = await result.data()
+            organizers = [
+                {"uid": r["uid"], "title": r["title"], "order": r["order"]}
+                for r in records
+            ]
+            return Result.ok(organizers)
+        except Exception as e:
+            self.logger.error(f"Failed find_organizers for {ku_uid}: {e}")
+            return Result.fail(Errors.database(operation="find_organizers", message=str(e)))
+
+    async def list_root_organizers(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
+        """List Kus that organize others but are not themselves organized (root organizers)."""
+        query = """
+        MATCH (root:Entity)-[:ORGANIZES]->(:Entity)
+        WHERE NOT EXISTS((:Entity)-[:ORGANIZES]->(root))
+        WITH DISTINCT root
+        OPTIONAL MATCH (root)-[:ORGANIZES]->(child:Entity)
+        RETURN root.uid AS uid, root.title AS title, count(child) AS child_count
+        ORDER BY root.title
+        LIMIT $limit
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(query, {"limit": limit})
+                records = await result.data()
+            roots = [
+                {"uid": r["uid"], "title": r["title"], "child_count": r["child_count"]}
+                for r in records
+            ]
+            return Result.ok(roots)
+        except Exception as e:
+            self.logger.error(f"Failed list_root_organizers: {e}")
+            return Result.fail(
+                Errors.database(operation="list_root_organizers", message=str(e))
+            )
+
+
 __all__ = [
     "ChoicesBackend",
     "EventsBackend",
     "GoalsBackend",
     "HabitsBackend",
+    "KuBackend",
     "PrinciplesBackend",
     "TasksBackend",
 ]

@@ -302,7 +302,7 @@ class KuService:
         graph_intelligence_service: "Any | None" = None,
         query_builder: "QueryBuilderOperations | None" = None,
         event_bus: "EventBusOperations | None" = None,
-        executor: "Any | None" = None,
+        _executor: "Any | None" = None,  # Placeholder - KuOrganizationService now uses backend
         user_service: "Any | None" = None,
         ai_service: KuAIService | None = None,
         vector_search_service: "Any | None" = None,
@@ -358,7 +358,7 @@ class KuService:
             graph_intelligence_service=graph_intelligence_service,
             query_builder=query_builder,
             event_bus=event_bus,
-            _driver=executor,  # Dead param in factory (no sub-service uses it)
+            _driver=_executor,  # Dead param in factory (no sub-service uses it)
             user_service=user_service,
             vector_search_service=vector_search_service,  # NEW: January 2026 GenAI
             embeddings_service=embeddings_service,  # NEW: January 2026 GenAI
@@ -390,9 +390,7 @@ class KuService:
         # Organization service (ORGANIZES relationships — any Ku can organize others)
         from core.services.ku.ku_organization_service import KuOrganizationService
 
-        self.organization = (
-            KuOrganizationService(ku_service=self, executor=executor) if executor else None
-        )
+        self.organization = KuOrganizationService(ku_service=self, backend=repo)  # type: ignore[arg-type]
 
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: KuAIService | None = ai_service

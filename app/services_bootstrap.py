@@ -650,7 +650,7 @@ def _create_learning_services(
         graph_intelligence_service=graph_intelligence,
         query_builder=unified_query_builder,  # QueryBuilder is now REQUIRED
         event_bus=event_bus,  # Event-driven architecture
-        executor=query_executor,  # For KuOrganizationService
+        # executor removed: KuOrganizationService now uses backend directly
         user_service=user_service,  # January 2026: KU-Activity Integration
         vector_search_service=vector_search_service,  # January 2026: GenAI vector search
         embeddings_service=embeddings_service,  # January 2026: GenAI embeddings (THE ONLY service)
@@ -1020,6 +1020,7 @@ async def compose_services(
             EventsBackend,
             GoalsBackend,
             HabitsBackend,
+            KuBackend,
             PrinciplesBackend,
             TasksBackend,
         )
@@ -1105,7 +1106,7 @@ async def compose_services(
         from core.models.curriculum.ku import Ku
 
         users_backend = UserBackend(driver)
-        knowledge_backend = UniversalNeo4jBackend[Ku](
+        knowledge_backend = KuBackend(
             driver,
             NeoLabel.KU,
             Ku,

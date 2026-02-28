@@ -23,7 +23,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from adapters.persistence.neo4j.domain_backends import KuBackend
     from core.services.ku_service import KuService
 
 logger = get_logger(__name__)
@@ -80,10 +80,10 @@ class KuOrganizationService:
     def __init__(
         self,
         ku_service: "KuService",
-        executor: "QueryExecutor",
+        backend: "KuBackend",
     ) -> None:
         self.ku_service = ku_service
-        self.executor = executor
+        self.backend = backend
         self.logger = logger
 
     # =========================================================================
@@ -92,25 +92,7 @@ class KuOrganizationService:
 
     async def is_organizer(self, ku_uid: str) -> Result[bool]:
         """Check if a Ku has organized children (outgoing ORGANIZES relationships)."""
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})
-        OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Entity)
-        RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_organizer
-        """
-
-        result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        records = result.value
-        if not records:
-            return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
-
-        record = records[0]
-        if not record["ku_exists"]:
-            return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
-
-        return Result.ok(record["is_organizer"])
+        return await self.backend.is_organizer(ku_uid)
 
     async def get_organization_view(
         self, ku_uid: str, max_depth: int = 3
@@ -142,13 +124,7 @@ class KuOrganizationService:
         if current_depth >= max_depth:
             return [], 0
 
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity)
-        RETURN child.uid AS uid, child.title AS title, r.order AS order
-        ORDER BY r.order ASC
-        """
-
-        result = await self.executor.execute_query(query, {"parent_uid": parent_uid})
+        result = await self.backend.get_organized_children(parent_uid)
         if result.is_error:
             self.logger.error(
                 "Error getting organized children - returning empty",
@@ -208,67 +184,15 @@ class KuOrganizationService:
         if not child_result.value:
             return Result.fail(Errors.not_found(resource="Ku (child)", identifier=child_uid))
 
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})
-        MATCH (child:Entity {uid: $child_uid})
-        MERGE (parent)-[r:ORGANIZES]->(child)
-        SET r.order = $order
-        RETURN true AS success
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {"parent_uid": parent_uid, "child_uid": child_uid, "order": order},
-        )
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        records = result.value
-        if records and records[0]["success"]:
-            self.logger.info(f"Organized Ku {child_uid} under {parent_uid} at position {order}")
-            return Result.ok(True)
-
-        return Result.ok(False)
+        return await self.backend.organize(parent_uid, child_uid, order)
 
     async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
         """Remove organization relationship between Kus."""
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
-        DELETE r
-        RETURN true AS success
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {"parent_uid": parent_uid, "child_uid": child_uid},
-        )
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        records = result.value
-        success = bool(records and records[0]["success"])
-        if success:
-            self.logger.info(f"Removed organization of {child_uid} from {parent_uid}")
-
-        return Result.ok(success)
+        return await self.backend.unorganize(parent_uid, child_uid)
 
     async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
         """Change the order of a child Ku within its parent."""
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
-        SET r.order = $new_order
-        RETURN true AS success
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {"parent_uid": parent_uid, "child_uid": child_uid, "new_order": new_order},
-        )
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        records = result.value
-        return Result.ok(bool(records and records[0]["success"]))
+        return await self.backend.reorder(parent_uid, child_uid, new_order)
 
     # =========================================================================
     # DISCOVERY OPERATIONS
@@ -276,59 +200,12 @@ class KuOrganizationService:
 
     async def find_organizers(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
         """Find all parent Kus that organize the given Ku."""
-        query = """
-        MATCH (parent:Entity)-[r:ORGANIZES]->(ku:Entity {uid: $ku_uid})
-        RETURN parent.uid AS uid, parent.title AS title, r.order AS order
-        ORDER BY parent.title
-        """
-
-        result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
-        if result.is_error:
-            return result
-
-        organizers = [
-            {"uid": r["uid"], "title": r["title"], "order": r["order"]} for r in result.value
-        ]
-
-        return Result.ok(organizers)
+        return await self.backend.find_organizers(ku_uid)
 
     async def list_root_organizers(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
         """List Kus that organize others but are not themselves organized (root organizers)."""
-        query = """
-        MATCH (root:Entity)-[:ORGANIZES]->(:Entity)
-        WHERE NOT EXISTS((:Entity)-[:ORGANIZES]->(root))
-        WITH DISTINCT root
-        OPTIONAL MATCH (root)-[:ORGANIZES]->(child:Entity)
-        RETURN root.uid AS uid, root.title AS title, count(child) AS child_count
-        ORDER BY root.title
-        LIMIT $limit
-        """
-
-        result = await self.executor.execute_query(query, {"limit": limit})
-        if result.is_error:
-            return result
-
-        roots = [
-            {"uid": r["uid"], "title": r["title"], "child_count": r["child_count"]}
-            for r in result.value
-        ]
-
-        return Result.ok(roots)
+        return await self.backend.list_root_organizers(limit)
 
     async def get_organized_children(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
         """Get direct children of a Ku organized by ORGANIZES relationship."""
-        query = """
-        MATCH (parent:Entity {uid: $ku_uid})-[r:ORGANIZES]->(child:Entity)
-        RETURN child.uid AS uid, child.title AS title, r.order AS order
-        ORDER BY r.order ASC
-        """
-
-        result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
-        if result.is_error:
-            return result
-
-        children = [
-            {"uid": r["uid"], "title": r["title"], "order": r["order"]} for r in result.value
-        ]
-
-        return Result.ok(children)
+        return await self.backend.get_organized_children(ku_uid)
