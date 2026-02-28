@@ -41,7 +41,7 @@ class EntityType(str, Enum):
         Content Processing:
             JOURNAL         → Raw student submission (voice/text, informal)
             SUBMISSION      → Student-uploaded work (file submissions)
-            AI_REPORT       → AI-derived from submission/journal
+            AI_FEEDBACK       → AI-derived from submission/journal
             FEEDBACK_REPORT → Teacher feedback on submission
         Activity (user-owned):
             TASK            → Knowledge about what needs doing
@@ -60,7 +60,7 @@ class EntityType(str, Enum):
         A  CURATED      → RESOURCE
         B  CURRICULUM   → KU, LEARNING_STEP, LEARNING_PATH, EXERCISE
         C  USER_CREATED → Activities, SUBMISSION, JOURNAL, LIFE_PATH
-        D  FEEDBACK     → AI_REPORT, FEEDBACK_REPORT
+        D  FEEDBACK     → AI_FEEDBACK, FEEDBACK_REPORT
 
     Ownership rules:
         Knowledge group:     user_uid = None (shared content, admin-created)
@@ -81,7 +81,7 @@ class EntityType(str, Enum):
     # Content processing (derivation chain)
     JOURNAL = "journal"
     SUBMISSION = "submission"
-    AI_REPORT = "ai_report"
+    AI_FEEDBACK = "ai_feedback"
     FEEDBACK_REPORT = "feedback_report"
 
     # Activity (user-owned)
@@ -155,13 +155,13 @@ class EntityType(str, Enum):
         return self in {
             EntityType.JOURNAL,
             EntityType.SUBMISSION,
-            EntityType.AI_REPORT,
+            EntityType.AI_FEEDBACK,
             EntityType.FEEDBACK_REPORT,
         }
 
     def is_processable(self) -> bool:
         """Check if this EntityType goes through a processing pipeline."""
-        return self in {EntityType.JOURNAL, EntityType.SUBMISSION, EntityType.AI_REPORT}
+        return self in {EntityType.JOURNAL, EntityType.SUBMISSION, EntityType.AI_FEEDBACK}
 
     # -------------------------------------------------------------------------
     # Status validation
@@ -189,7 +189,7 @@ class EntityType(str, Enum):
             "knowledge" -> KU
             "ls" -> LEARNING_STEP
             "lp" -> LEARNING_PATH
-            "report" -> AI_REPORT
+            "report" -> AI_FEEDBACK
         """
         normalized = text.strip().lower().replace("-", "_").replace(" ", "_")
         return _ENTITY_TYPE_ALIASES.get(normalized)
@@ -203,7 +203,7 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.LEARNING_PATH: "Learning Path",
     EntityType.JOURNAL: "Journal",
     EntityType.SUBMISSION: "Submission",
-    EntityType.AI_REPORT: "AI Report",
+    EntityType.AI_FEEDBACK: "AI Feedback",
     EntityType.FEEDBACK_REPORT: "Feedback Report",
     EntityType.TASK: "Task",
     EntityType.GOAL: "Goal",
@@ -220,7 +220,7 @@ _CURRICULUM_STRUCTURE_TYPES = frozenset(
     {EntityType.LEARNING_STEP, EntityType.LEARNING_PATH, EntityType.EXERCISE}
 )
 _CONTENT_PROCESSING_TYPES = frozenset(
-    {EntityType.JOURNAL, EntityType.SUBMISSION, EntityType.AI_REPORT, EntityType.FEEDBACK_REPORT}
+    {EntityType.JOURNAL, EntityType.SUBMISSION, EntityType.AI_FEEDBACK, EntityType.FEEDBACK_REPORT}
 )
 _ACTIVITY_TYPES = frozenset(
     {
@@ -280,7 +280,7 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.JOURNAL: ContentOrigin.USER_CREATED,
     EntityType.LIFE_PATH: ContentOrigin.USER_CREATED,
     # D — Feedback that acts on user content
-    EntityType.AI_REPORT: ContentOrigin.FEEDBACK,
+    EntityType.AI_FEEDBACK: ContentOrigin.FEEDBACK,
     EntityType.FEEDBACK_REPORT: ContentOrigin.FEEDBACK,
 }
 
@@ -292,7 +292,7 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "learning_path": EntityType.LEARNING_PATH,
     "journal": EntityType.JOURNAL,
     "submission": EntityType.SUBMISSION,
-    "ai_report": EntityType.AI_REPORT,
+    "ai_feedback": EntityType.AI_FEEDBACK,
     "feedback_report": EntityType.FEEDBACK_REPORT,
     "task": EntityType.TASK,
     "goal": EntityType.GOAL,
@@ -312,7 +312,7 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "step": EntityType.LEARNING_STEP,
     "lp": EntityType.LEARNING_PATH,
     "path": EntityType.LEARNING_PATH,
-    "report": EntityType.AI_REPORT,
+    "report": EntityType.AI_FEEDBACK,
     "exercise": EntityType.EXERCISE,
     "assignment": EntityType.EXERCISE,
     "feedback": EntityType.FEEDBACK_REPORT,
@@ -637,7 +637,7 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
-    EntityType.AI_REPORT: frozenset(
+    EntityType.AI_FEEDBACK: frozenset(
         {
             EntityStatus.DRAFT,
             EntityStatus.PROCESSING,
@@ -733,7 +733,7 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
     EntityType.EXERCISE: EntityStatus.DRAFT,
     EntityType.JOURNAL: EntityStatus.DRAFT,
     EntityType.SUBMISSION: EntityStatus.DRAFT,
-    EntityType.AI_REPORT: EntityStatus.DRAFT,
+    EntityType.AI_FEEDBACK: EntityStatus.DRAFT,
     EntityType.FEEDBACK_REPORT: EntityStatus.DRAFT,
     EntityType.TASK: EntityStatus.DRAFT,
     EntityType.GOAL: EntityStatus.DRAFT,

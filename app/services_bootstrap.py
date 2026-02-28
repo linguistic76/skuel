@@ -120,11 +120,12 @@ if TYPE_CHECKING:
     from core.services.analytics_service import AnalyticsService
     from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
-    from core.services.background.progress_report_worker import ProgressReportWorker
+    from core.services.background.progress_feedback_worker import ProgressFeedbackWorker
     from core.services.calendar_optimization_service import CalendarOptimizationService
     from core.services.content_enrichment_service import ContentEnrichmentService
     from core.services.context_aware_ai_service import ContextAwareAIService
     from core.services.cross_domain_queries import CrossDomainQueries
+    from core.services.feedback.activity_review_service import ActivityReviewService
     from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
     from core.services.feedback.progress_schedule_service import ProgressScheduleService
     from core.services.insight.insight_store import InsightStore
@@ -374,11 +375,14 @@ class Services:
 
     # Background workers (January 2026)
     embedding_worker: "EmbeddingBackgroundWorker | None" = None
-    progress_report_worker: "ProgressReportWorker | None" = None
+    progress_feedback_worker: "ProgressFeedbackWorker | None" = None
 
     # Progress report generation (February 2026)
     progress_feedback_generator: "ProgressFeedbackGenerator | None" = None
     progress_schedule: "ProgressScheduleService | None" = None
+
+    # Activity review — human admin feedback on Activity Domains (February 2026)
+    activity_review: "ActivityReviewService | None" = None
 
     # ========================================================================
     # LATERAL RELATIONSHIP SERVICES (January 2026) - Core Graph Architecture
@@ -1131,10 +1135,21 @@ async def compose_services(
         from core.models.submissions.submission import Submission
 
         # NOTE: vectors_backend REMOVED (January 2026) - was unused dead code
-        # submissions_backend uses :Entity label for cross-domain queries (submissions span multiple EntityTypes)
-        # entity_class=Submission: base class for all 4 submission types (SUBMISSION, JOURNAL, AI_REPORT, FEEDBACK_REPORT)
+        # submissions_backend uses :Entity label for cross-domain queries (submissions span 3 EntityTypes)
+        # entity_class=Submission: base class for SUBMISSION, JOURNAL, FEEDBACK_REPORT
+        # AI_FEEDBACK excluded: uses dedicated ai_feedback_backend (AiFeedback inherits UserOwnedEntity)
         submissions_backend = UniversalNeo4jBackend[Submission](
             driver, NeoLabel.ENTITY, Submission, prometheus_metrics=prometheus_metrics
+        )
+        from core.models.feedback.ai_feedback import AiFeedback
+
+        # Dedicated backend for AiFeedback (activity-level feedback — no file fields)
+        ai_feedback_backend = UniversalNeo4jBackend[AiFeedback](
+            driver,
+            NeoLabel.AI_FEEDBACK,
+            AiFeedback,
+            base_label=NeoLabel.ENTITY,
+            prometheus_metrics=prometheus_metrics,
         )
         askesis_backend = UniversalNeo4jBackend[Askesis](
             driver, NeoLabel.ASKESIS, Askesis, prometheus_metrics=prometheus_metrics
@@ -1670,9 +1685,9 @@ async def compose_services(
         logger.info("✅ LifePath service created (Vision→Action bridge)")
 
         # Create report activity extractor (DSL integration for journal → entity extraction)
-        from core.services.dsl import ReportActivityExtractorService
+        from core.services.dsl import ActivityExtractorService
 
-        activity_extractor = ReportActivityExtractorService(
+        activity_extractor = ActivityExtractorService(
             # Activity Domains (6) - access .core for CRUD operations
             tasks_service=activity_services["tasks"].core,
             habits_service=activity_services["habits"].core,
@@ -1739,22 +1754,32 @@ async def compose_services(
 
         progress_generator = ProgressFeedbackGenerator(
             executor=query_executor,
-            ku_backend=submissions_backend,
+            ku_backend=ai_feedback_backend,
+            openai_service=ai_service,   # LLM-powered qualitative feedback (Phase 3)
             user_service=core_services["user"],
             insight_store=insight_store,
             event_bus=event_bus,
         )
 
         # Create progress report background worker (February 2026)
-        # Worker checks hourly for due schedules and generates AI_REPORT Entity nodes
-        from core.services.background.progress_report_worker import ProgressReportWorker
+        # Worker checks hourly for due schedules and generates AI_FEEDBACK Entity nodes
+        from core.services.background.progress_feedback_worker import ProgressFeedbackWorker
 
-        progress_report_worker = ProgressReportWorker(
+        progress_feedback_worker = ProgressFeedbackWorker(
             schedule_service=progress_schedule_service,
             progress_generator=progress_generator,
             check_interval_seconds=3600,  # Hourly check
         )
         logger.info("✅ Progress report generator, schedule service, and background worker created")
+
+        # Create activity review service (admin writes human feedback on Activity Domains)
+        from core.services.feedback.activity_review_service import ActivityReviewService
+
+        activity_review_service = ActivityReviewService(
+            executor=query_executor,
+            ai_feedback_backend=ai_feedback_backend,
+        )
+        logger.info("✅ ActivityReviewService created (human activity feedback)")
 
         # Create analytics service
         from core.services.analytics_service import AnalyticsService
@@ -2372,6 +2397,7 @@ async def compose_services(
             # Progress feedback (February 2026)
             progress_feedback_generator=progress_generator,
             progress_schedule=progress_schedule_service,
+            activity_review=activity_review_service,
             # System
             # Note: sync field removed (January 2026) - use unified_ingestion
             unified_ingestion=unified_ingestion,  # ADR-014: Merged MD + YAML ingestion
@@ -2406,7 +2432,7 @@ async def compose_services(
             vector_search_service=vector_search_service,
             # Background workers (January 2026)
             embedding_worker=embedding_worker,
-            progress_report_worker=progress_report_worker,
+            progress_feedback_worker=progress_feedback_worker,
             # Analytics
             analytics=analytics_service,
             cross_domain_analytics=advanced["cross_domain_analytics"],

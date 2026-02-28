@@ -101,15 +101,17 @@ def create_submissions_routes(app: Any, rt: Any, services: Any, _sync_service=No
     progress_feedback_generator = getattr(services, "progress_feedback_generator", None)
     if progress_feedback_generator and services.submissions:
         schedule_service = getattr(services, "progress_schedule", None)
+        activity_review = getattr(services, "activity_review", None)
         progress_routes = create_progress_feedback_api_routes(
             app,
             rt,
             progress_feedback_generator,
             services.submissions,
             schedule_service=schedule_service,
+            activity_review=activity_review,
         )
         routes.extend(progress_routes or [])
-        logger.info("Progress feedback routes registered")
+        logger.info("Progress feedback + activity review routes registered")
 
     # Extension: assessment routes (require TEACHER role)
     if services and services.submissions_core:

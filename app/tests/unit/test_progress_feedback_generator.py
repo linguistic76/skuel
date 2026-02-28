@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.feedback.ai_report import AiReport
+from core.models.feedback.ai_feedback import AiFeedback
 from core.services.feedback.progress_feedback_generator import (
     TIME_PERIOD_DAYS,
     ProgressFeedbackGenerator,
@@ -113,8 +113,8 @@ class TestGenerate:
         # Verify backend.create was called
         assert mock_backend.create.call_count == 1
         created_ku = mock_backend.create.call_args[0][0]
-        assert isinstance(created_ku, AiReport)
-        assert created_ku.ku_type == EntityType.AI_REPORT
+        assert isinstance(created_ku, AiFeedback)
+        assert created_ku.ku_type == EntityType.AI_FEEDBACK
         assert created_ku.status == EntityStatus.COMPLETED
         assert created_ku.processor_type == ProcessorType.AUTOMATIC
         assert created_ku.user_uid == "user_alice"

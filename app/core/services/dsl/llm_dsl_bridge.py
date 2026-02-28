@@ -33,7 +33,7 @@ ActivityDSLParser.parse_journal()
         ↓
 ParsedJournal with typed activities
         ↓
-ReportActivityExtractorService.extract_and_create()
+ActivityExtractorService.extract_and_create()
         ↓
 SKUEL Entities (Tasks, Habits, Goals, etc.)
 ```

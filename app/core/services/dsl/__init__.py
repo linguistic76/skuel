@@ -31,7 +31,7 @@ The @context() tag values are now parsed to `EntityType` or `NonKuDomain` enum v
 - `ParsedActivityLine`: Intermediate representation with type-safe contexts
 - `ParsedJournal`: Collection of parsed activities from a document
 - `LLMDSLBridgeService`: LLM-powered natural text to DSL converter
-- `ReportActivityExtractorService`: Extracts activities and creates entities
+- `ActivityExtractorService`: Extracts activities and creates entities
 - `ActivityEntityConverter`: Converts parsed activities to create requests
 - `DSLKnowledgeConnector`: Plans semantic graph connections from DSL tags
 - `DSLConnectionExecutor`: Executes planned connections via relationship services
@@ -81,9 +81,9 @@ if result.is_ok:
         print(f"Task: {task.description}")
 
 # === PHASE 3: Entity Extraction (ParsedActivities -> SKUEL Entities) ===
-from core.services.dsl import ReportActivityExtractorService
+from core.services.dsl import ActivityExtractorService
 
-extractor = ReportActivityExtractorService(
+extractor = ActivityExtractorService(
     tasks_service=tasks_service,
     habits_service=habits_service,
     ku_service=ku_service,
@@ -111,7 +111,7 @@ ActivityDSLParser.parse_journal()
         |
 ParsedJournal with EntityType/NonKuDomain contexts (type-safe!)
         |
-ReportActivityExtractorService.extract_and_create()
+ActivityExtractorService.extract_and_create()
         |
 SKUEL Entities (Tasks, Habits, Goals, KUs, etc.)
         |
@@ -157,9 +157,9 @@ from core.services.dsl.llm_dsl_bridge import (
     LLMDSLBridgeService,
     create_llm_dsl_bridge,
 )
-from core.services.dsl.report_activity_extractor import (
+from core.services.dsl.activity_extractor import (
     ActivityExtractionResult,
-    ReportActivityExtractorService,
+    ActivityExtractorService,
 )
 
 __all__ = [
@@ -188,7 +188,7 @@ __all__ = [
     "ParsedJournal",
     "PrincipleConnection",
     # Extractor
-    "ReportActivityExtractorService",
+    "ActivityExtractorService",
     "TypedConversionResult",
     "activity_to_event_dict",
     "activity_to_goal_dict",

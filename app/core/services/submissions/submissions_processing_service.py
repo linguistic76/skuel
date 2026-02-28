@@ -56,7 +56,7 @@ class SubmissionsProcessingService:
             transcription_service: TranscriptionService for audio transcription
             content_enrichment: ContentEnrichmentService for LLM formatting
             ku_relationship_service: SubmissionsRelationshipService for graph relationships
-            activity_extractor: ReportActivityExtractorService for DSL-based entity extraction
+            activity_extractor: ActivityExtractorService for DSL-based entity extraction
             journal_generator: JournalOutputGenerator for je_output file generation
             event_bus: Event bus for domain events (optional)
         """

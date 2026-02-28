@@ -835,12 +835,12 @@ async def startup_skuel(container: AppContainer) -> None:
         logger.info("⏭️  Embedding background worker not available (embeddings only via ingestion)")
 
     # Start progress report background worker (February 2026)
-    # Worker checks hourly for due schedules and generates AI_REPORT Entity nodes
-    if container.services.progress_report_worker:
+    # Worker checks hourly for due schedules and generates AI_FEEDBACK Entity nodes
+    if container.services.progress_feedback_worker:
         progress_task = asyncio.create_task(
-            container.services.progress_report_worker.start(), name="progress_report_worker"
+            container.services.progress_feedback_worker.start(), name="progress_feedback_worker"
         )
-        container.app.state.progress_report_worker_task = progress_task
+        container.app.state.progress_feedback_worker_task = progress_task
         logger.info("✅ Progress report worker started (hourly schedule check)")
     else:
         logger.info("⏭️  Progress report worker not available")
@@ -864,7 +864,7 @@ async def shutdown_skuel(container: AppContainer) -> None:
                 logger.warning(f"⚠️  Error stopping embedding worker: {e}")
 
         # Stop progress report background worker if running (February 2026)
-        progress_worker_task = getattr(container.app.state, "progress_report_worker_task", None)
+        progress_worker_task = getattr(container.app.state, "progress_feedback_worker_task", None)
         if progress_worker_task and not progress_worker_task.done():
             logger.info("🛑 Stopping progress report worker...")
             progress_worker_task.cancel()

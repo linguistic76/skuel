@@ -27,7 +27,7 @@ Four Entity Types
 --------------------------
     SUBMISSION      → Student's work submitted against an Exercise (user-owned)
     JOURNAL         → Voice/text journal entries with metadata (user-owned)
-    AI_REPORT       → System-generated progress reports (user-owned)
+    AI_FEEDBACK       → System-generated progress reports (user-owned)
     FEEDBACK_REPORT → Teacher feedback on a Submission (teacher-owned)
 
 Journal-specific fields (mood, energy_level, entry_date, etc.) live in metadata.
@@ -307,7 +307,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Args:
             limit: Maximum number of Ku entities to return
             user_uid: Optional user filter
-            ku_type: Optional type filter (e.g., SUBMISSION, AI_REPORT)
+            ku_type: Optional type filter (e.g., SUBMISSION, AI_FEEDBACK)
 
         Returns:
             Result containing list of Ku entities

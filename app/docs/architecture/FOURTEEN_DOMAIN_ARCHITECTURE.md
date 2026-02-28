@@ -37,7 +37,7 @@ SKUEL is built on a **15-domain + 5 cross-cutting systems architecture** that re
 - **Activity Domains (6)** - What I DO
 - **Finance Domain (1)** - What I MANAGE (standalone)
 - **Curriculum Domains (3)** - What I LEARN (three grouping patterns: KU, LS, LP)
-- **Content/Processing Domains (2)** - How I PROCESS (Journals, Reports)
+- **Content/Processing Domains (2)** - How I PROCESS (Submissions + Feedback)
 - **Organizational Domains (2)** - How I ORGANIZE (Groups for classes, MOC for knowledge)
 - **LifePath (1)** - Where I'm GOING (The Destination)
 - **Cross-Cutting Systems (5)** - The infrastructure that enables everything (4 active + 1 planned)
@@ -63,7 +63,8 @@ Entity (~19 fields: uid, entity_type, title, description, status, tags, ...)
 ├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
 │   ├── Task, Goal, Habit, Event, Choice, Principle  (Activity Domains)
 │   ├── LifePath                                      (Destination)
-│   └── Submission → Journal, AiReport, Feedback      (Reports)
+│   ├── AiFeedback                                    (Activity feedback)
+│   └── Submission → Journal, Feedback               (Submissions + Feedback)
 ├── Curriculum(Entity) +21 fields → LearningStep, LearningPath, Exercise
 └── Resource(Entity) +7 fields                        (Curated content)
 ```
@@ -78,7 +79,8 @@ Entity (~19 fields: uid, entity_type, title, description, status, tags, ...)
 ```
 EntityDTO (~18 fields)
 ├── UserOwnedDTO(EntityDTO) +3 → TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO, LifePathDTO
-├── UserOwnedDTO → SubmissionDTO → JournalDTO, AiReportDTO, FeedbackDTO
+├── UserOwnedDTO → AiFeedbackDTO                  (Activity feedback — no file fields)
+├── UserOwnedDTO → SubmissionDTO → JournalDTO, FeedbackDTO
 ├── CurriculumDTO(EntityDTO) → LearningStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO(EntityDTO)
 ```
@@ -103,7 +105,7 @@ CREATE (n:Entity:LearningStep {uid: $uid, ...})
 | **Universal** | `:Entity` (all domain entities) |
 | **Activity (6)** | `:Task`, `:Goal`, `:Habit`, `:Event`, `:Choice`, `:Principle` |
 | **Curriculum (4)** | `:Curriculum`, `:Resource`, `:LearningStep`, `:LearningPath` |
-| **Content (4)** | `:Submission`, `:Journal`, `:AiReport`, `:Feedback` |
+| **Content (4)** | `:Submission`, `:Journal`, `:AiFeedback`, `:FeedbackReport` |
 | **Instruction** | `:Exercise` |
 | **Destination** | `:LifePath` |
 
@@ -391,63 +393,60 @@ SKUEL measures knowledge by how it's **LIVED**, not just learned:
 
 ### 4. Content/Processing Domains (2) - How I PROCESS
 
-Content/Processing domains handle **input processing and AI transformation** across the system. Report models inherit from `Submission(UserOwnedEntity)`.
+Content/Processing domains handle **input processing, AI transformation, and feedback** — the educational loop `Ku → Exercise → Submission → Feedback`. Activity Domains are equal entry points for feedback via `AI_FEEDBACK`.
 
-| Domain | Type | Purpose | Data Flow |
-|--------|------|---------|-----------|
-| **Submissions + Feedback** | Processing | User-facing report interface | Input -> Processing -> Activities |
-| **Journals** | Processing | Two-tier journal system | Voice/Text -> AI -> Formatted Output |
+**Entity Types (February 2026):**
 
-**Report Types (February 2026):**
+| EntityType | Who Creates | Inherits | ProcessorType | Description |
+|------------|------------|---------|---------------|-------------|
+| `SUBMISSION` | Student | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Student work against an Exercise |
+| `JOURNAL` | Admin | `Submission(UserOwnedEntity)` | `LLM` | AI-processed reflective writing |
+| `FEEDBACK_REPORT` | Teacher or AI | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Assessment tied to a specific submission via `subject_uid` |
+| `AI_FEEDBACK` | System or Admin | `UserOwnedEntity` **directly** | `AUTOMATIC`, `LLM`, or `HUMAN` | Activity-level feedback (no file fields; covers a time window) |
 
-All report types store as `:Submission` (or subtype) nodes with `entity_type` / `ku_type` distinguishing them. Report models inherit from `Submission(UserOwnedEntity)`:
+**Key design rule:** `AI_FEEDBACK` does **not** inherit from `Submission`. It has no file fields (`file_path`, `file_size`, etc.). It responds to a user's aggregate activity patterns over a time period, not to a specific artifact.
 
-| EntityType | Created By | Processor | Model Class | Description |
-|------------|-----------|-----------|-------------|-------------|
-| `SUBMISSION` | User upload | LLM/Human/Hybrid | `Submission` | Teacher-assigned work |
-| `JOURNAL` | User input | LLM | `Journal` | Daily reflections (ephemeral or permanent) |
-| `AI_REPORT` | System | Automatic | `AiReport` | System-generated activity summaries |
-| `FEEDBACK_REPORT` | Teacher or AI | Human or LLM | `Feedback` | Teacher-authored **or AI-generated** evaluations; `processor_type` distinguishes source |
+**Content Origin Tiers:** User submissions (SUBMISSION, JOURNAL) are `ContentOrigin.USER_CREATED`; feedback (AI_FEEDBACK, FEEDBACK_REPORT) is `ContentOrigin.FEEDBACK`. See `EntityType.content_origin()` for the full mapping.
 
-**Content Origin Tiers:** User submissions (SUBMISSION, JOURNAL) are `ContentOrigin.USER_CREATED`; system-generated content (AI_REPORT, FEEDBACK_REPORT) is `ContentOrigin.FEEDBACK`. See `EntityType.content_origin()` for the full mapping.
-
-**Progress Reports** are generated by `ProgressFeedbackGenerator` -- queries historical completions across tasks, goals, habits, and choices within a time window, cross-references active insights, and builds structured markdown. Can be generated on-demand or on a recurring schedule via `ReportScheduleService`.
-
-**Teacher Assessments** are created by teachers via `SubmissionsCoreService.create_assessment()` -- creates Report with `ASSESSMENT_OF` relationship to student and auto-shares via `SHARES_WITH`.
-
-**Reports Architecture**:
+**Submission Pipeline:**
 ```
-User Upload -> ReportSubmissionService
+User Upload -> SubmissionsService.submit_file()
                     |
             SubmissionsProcessingService
                     |
-            [Processor Selection]
+            [Processor Selection by MIME type]
             |-> Audio -> TranscriptionService (Deepgram) -> ContentEnrichmentService
             |-> Text -> ContentEnrichmentService
-            |-> Other -> Future processors
                     |
-            Activity Extraction (DSL Parser)
-                    |
-            Entity Creation (14 domains)
+            Entity: SUBMITTED → QUEUED → PROCESSING → COMPLETED
+```
 
-System-Generated:
-            ProgressFeedbackGenerator
-            |-> Query completions (Tasks, Goals, Habits, Choices)
-            |-> Reference active Insights
-            |-> Build markdown -> Report(type=AI_REPORT)
-                    |
-            ReportScheduleService (optional recurring generation)
-                    |
-            ProgressReportWorker (background hourly check)
+**AI Feedback Generation (Activity Domains):**
+```
+ProgressFeedbackGenerator
+|-> Query completions (Tasks, Goals, Habits, Choices) in time window
+|-> Reference active Insights
+|-> LLM: stats as JSON context → qualitative insights text
+|-> AiFeedback(processor_type=LLM, processed_content=LLM output)
+        |
+ProgressScheduleService (optional recurring generation)
+        |
+ProgressFeedbackWorker (background hourly check)
+```
+
+**Human Activity Review (Admin):**
+```
+ActivityReviewService
+|-> create_activity_snapshot() — queries user's activity graph data
+|-> submit_activity_feedback() — admin writes assessment
+|-> AiFeedback(processor_type=HUMAN, subject_uid=reviewed_user_uid)
 ```
 
 **Note:** TranscriptionService (ADR-019) is a simplified 8-method service that handles
 audio -> Deepgram -> transcript. It publishes TranscriptionCompleted events for downstream
 processing. See `/docs/decisions/ADR-019-transcription-service-standalone.md`.
 
-**Key Distinction**:
-- **Submissions + Feedback** = User-facing interface (file uploads, submissions, progress, feedback)
-- **Journals** = AI processing engine (returns `JournalAIInsights`, no entity creation)
+**See:** `/docs/architecture/FEEDBACK_ARCHITECTURE.md` — canonical reference for all feedback types and UIs.
 
 ---
 
@@ -1266,11 +1265,13 @@ Every entity node has TWO+ labels: `:Entity` (universal) + domain-specific (`:Ta
 (:Entity:LearningStep {uid, ku_type, title, intent, estimated_hours, ...})
 (:Entity:LearningPath {uid, ku_type, name, goal, difficulty, ...})
 
-// Content/Processing Domains — inherit from Submission(UserOwnedEntity)
+// Content/Processing Domains
+// SUBMISSION, JOURNAL, FEEDBACK_REPORT inherit from Submission(UserOwnedEntity)
 (:Entity:Submission {uid, ku_type, status, user_uid, ...})
 (:Entity:Journal {uid, ku_type, content, processed_at, user_uid, ...})
-(:Entity:AiReport {uid, ku_type, user_uid, ...})
-(:Entity:Feedback {uid, ku_type, subject_uid, user_uid, ...})
+(:Entity:FeedbackReport {uid, ku_type, subject_uid, user_uid, processor_type, ...})
+// AI_FEEDBACK inherits UserOwnedEntity DIRECTLY (no file fields)
+(:Entity:AiFeedback {uid, ku_type, subject_uid, user_uid, time_period, processor_type, ...})
 
 // Organizational Domains (2) — Groups + MOC
 (:Group {uid, name, description, owner_uid, is_active, max_members, created_at, ...})
@@ -1617,7 +1618,7 @@ The **15-domain + 5 cross-cutting systems architecture** provides a complete fra
 1. **What I DO** (Activity Domains) - 6 domains for concrete action
 2. **What I MANAGE** (Finance) - 1 domain for resource management
 3. **What I LEARN** (Curriculum Domains) - 3 domains for knowledge acquisition
-4. **How I PROCESS** (Content/Processing) - 2 domains for input processing (Reports, Journals)
+4. **How I PROCESS** (Content/Processing) - 2 domains: Submissions + Feedback (curriculum work + activity feedback)
 5. **How I ORGANIZE** (Organizational Domains) - 2 domains (Groups for classes, MOC for knowledge)
 6. **Where I'm GOING** (LifePath) - Domain #15, the destination
 7. **The Infrastructure** (Cross-Cutting Systems) - 4 active + 1 planned system
@@ -1626,7 +1627,7 @@ The **15-domain + 5 cross-cutting systems architecture** provides a complete fra
 - Activity: 6 (Tasks, Habits, Goals, Events, Principles, Choices)
 - Finance: 1 (standalone)
 - Curriculum: 3 (KU, LS, LP)
-- Content/Processing: 2 (Reports, Journals)
+- Content/Processing: 2 (Submissions + Feedback, Journals)
 - Organizational: 2 (Groups for teacher-student classes, MOC for knowledge navigation)
 - LifePath: 1 (The Destination)
 - **Total: 15 domains**

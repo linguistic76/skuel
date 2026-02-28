@@ -344,7 +344,7 @@ class ActivityExtractionResult:
 # ============================================================================
 
 
-class ReportActivityExtractorService:
+class ActivityExtractorService:
     """
     Extracts Activity Lines from submission content and creates SKUEL entities
     across ALL 13 SKUEL domains + 1 destination.
@@ -374,7 +374,7 @@ class ReportActivityExtractorService:
     **Usage:**
 
     ```python
-    extractor = ReportActivityExtractorService(
+    extractor = ActivityExtractorService(
         # Activity Domains (7)
         tasks_service=tasks_service,
         habits_service=habits_service,

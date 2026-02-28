@@ -1,32 +1,44 @@
 """
-Progress Ku Generator
-==========================
+Progress Feedback Generator
+============================
 
-Generates system-created progress Ku by querying historical
-completions from Neo4j, cross-referencing with UserContext, and
-building structured markdown content.
+Generates AI-powered activity feedback by querying historical completions
+from Neo4j, then sending those stats as LLM context for qualitative analysis.
 
-Progress reports are stored as Entity nodes with ku_type=AI_REPORT.
+Two-stage pipeline:
+    1. Graph queries → activity stats dict (raw data)
+    2. LLM call     → qualitative insights (interpreted data)
+
+Result stored as AiFeedback entity (EntityType.AI_FEEDBACK):
+    processed_content = LLM-generated qualitative feedback text
+    metadata          = raw activity stats dict
+
+When no LLM is configured, falls back to programmatic markdown (AUTOMATIC).
+
+See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
 """
 
+import json
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.ports import BackendOperations, QueryExecutor
+    from core.services.ai_service import OpenAIService
     from core.services.insight.insight_store import InsightStore
 
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.enums.submissions_enums import ProgressDepth
-from core.models.feedback.ai_report import AiReport
+from core.models.feedback.ai_feedback import AiFeedback
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
-logger = get_logger("skuel.services.report.progress_generator")
+logger = get_logger("skuel.services.feedback.progress_generator")
 
 # Time period mapping
 TIME_PERIOD_DAYS = {
@@ -36,29 +48,41 @@ TIME_PERIOD_DAYS = {
     "90d": 90,
 }
 
+_PROMPT_TEMPLATE_PATH = Path(__file__).parent / "prompts" / "activity_feedback.md"
+
 
 class ProgressFeedbackGenerator:
     """
-    Generates progress Ku by querying historical activity completions.
+    Generates activity feedback for users by querying historical completions
+    and sending those stats as LLM context for qualitative analysis.
 
     Constructor dependencies:
-        driver: Query executor for direct Cypher queries
-        ku_backend: Backend for creating Entity nodes
-        user_service: UserOperations for building UserContext
-        insight_store: InsightStore for referencing active insights
-        event_bus: EventBusOperations for publishing events
+        executor: QueryExecutor for Cypher queries
+        ku_backend: BackendOperations[AiFeedback] for creating AiFeedback entities
+        openai_service: Optional OpenAI service (enables LLM generation)
+        user_service: Optional UserOperations for building UserContext
+        insight_store: Optional InsightStore for referencing active insights
+        event_bus: Optional EventBusOperations for publishing events
+
+    When openai_service is provided:
+        processor_type = LLM, processed_content = LLM-generated text
+
+    When openai_service is NOT provided:
+        processor_type = AUTOMATIC, processed_content = programmatic markdown
     """
 
     def __init__(
         self,
         executor: "QueryExecutor",
-        ku_backend: "BackendOperations[AiReport]",
+        ku_backend: "BackendOperations[AiFeedback]",
+        openai_service: "OpenAIService | None" = None,
         user_service: Any | None = None,
         insight_store: "InsightStore | None" = None,
         event_bus: EventBusOperations | None = None,
     ) -> None:
         self.executor = executor
         self.ku_backend = ku_backend
+        self.openai_service = openai_service
         self.user_service = user_service
         self.insight_store = insight_store
         self.event_bus = event_bus
@@ -70,29 +94,35 @@ class ProgressFeedbackGenerator:
         domains: list[str] | None = None,
         depth: str = "standard",
         include_insights: bool = True,
-    ) -> Result[AiReport]:
+    ) -> Result[AiFeedback]:
         """
-        Generate a progress Ku for a user.
+        Generate activity feedback for a user.
+
+        Pipeline:
+            1. Query activity stats from Neo4j
+            2. If LLM available: send stats as context → qualitative feedback text
+               Else: build programmatic markdown summary
+            3. Create and persist AiFeedback entity
 
         Args:
-            user_uid: User to generate progress Ku for
+            user_uid: User to generate activity feedback for
             time_period: Time window (7d, 14d, 30d, 90d)
             domains: Domains to include (empty = all activity domains)
             depth: Detail level (summary, standard, detailed)
             include_insights: Whether to include active insights
 
         Returns:
-            Result containing the created Ku
+            Result[AiFeedback] — the created feedback entity
         """
         days = TIME_PERIOD_DAYS.get(time_period, 7)
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
         progress_depth = ProgressDepth(depth) if depth else ProgressDepth.STANDARD
 
-        logger.info(f"Generating progress Ku for {user_uid}: period={time_period}, depth={depth}")
+        logger.info(f"Generating activity feedback for {user_uid}: period={time_period}, depth={depth}")
 
         try:
-            # 1. Query historical completions
+            # 1. Query historical completions (raw stats)
             completions = await self._query_completions(user_uid, start_date, end_date, domains)
 
             # 2. Get active insights if requested
@@ -102,13 +132,32 @@ class ProgressFeedbackGenerator:
                 if insights_result.is_ok:
                     insights = insights_result.value or []
 
-            # 3. Build content
-            title = f"Progress Report — {start_date.strftime('%b %d')} to {end_date.strftime('%b %d, %Y')}"
-            content = self._build_report_content(
-                completions, insights, start_date, end_date, progress_depth
-            )
+            # 3. Build content — LLM when available, programmatic fallback
+            title = f"Activity Feedback — {start_date.strftime('%b %d')} to {end_date.strftime('%b %d, %Y')}"
+            processor_type = ProcessorType.AUTOMATIC
+            processing_error: str | None = None
 
-            # 4. Build metadata stats
+            if self.openai_service:
+                llm_result = await self._generate_llm_feedback(
+                    completions, insights, time_period, depth
+                )
+                if llm_result.is_ok:
+                    content = llm_result.value
+                    processor_type = ProcessorType.LLM
+                    logger.info(f"LLM feedback generated for {user_uid}: {len(content)} chars")
+                else:
+                    # LLM failed — fall back to programmatic, record the error
+                    processing_error = f"LLM generation failed: {llm_result.expect_error()}"
+                    logger.warning(f"LLM fallback for {user_uid}: {processing_error}")
+                    content = self._build_report_content(
+                        completions, insights, start_date, end_date, progress_depth
+                    )
+            else:
+                content = self._build_report_content(
+                    completions, insights, start_date, end_date, progress_depth
+                )
+
+            # 4. Build metadata stats (raw data — preserved regardless of LLM use)
             metadata = {
                 "time_period": time_period,
                 "start_date": start_date.isoformat(),
@@ -117,20 +166,31 @@ class ProgressFeedbackGenerator:
                 "tasks_completed": completions.get("tasks_completed", 0),
                 "goals_progressed": completions.get("goals_progressed", 0),
                 "habits_completed": completions.get("habits_completed", 0),
+                "choices_made": completions.get("choices_made", 0),
                 "insights_referenced": len(insights),
+                "llm_generated": processor_type == ProcessorType.LLM,
             }
 
-            # 5. Create Entity nodes
+            # 5. Create AiFeedback entity
             uid = UIDGenerator.generate_uid("ku")
-            report = AiReport(
+            report = AiFeedback(
                 uid=uid,
                 title=title,
-                ku_type=EntityType.AI_REPORT,
+                ku_type=EntityType.AI_FEEDBACK,
                 user_uid=user_uid,
                 status=EntityStatus.COMPLETED,
-                processor_type=ProcessorType.AUTOMATIC,
+                processor_type=processor_type,
                 processed_content=content,
+                processing_error=processing_error,
                 subject_uid=user_uid,
+                time_period=time_period,
+                period_start=start_date,
+                period_end=end_date,
+                domains_covered=tuple(domains) if domains else (),
+                depth=depth,
+                insights_referenced=tuple(
+                    getattr(i, "uid", "") for i in insights if getattr(i, "uid", None)
+                ),
                 metadata=metadata,
             )
 
@@ -146,8 +206,8 @@ class ProgressFeedbackGenerator:
             event = SubmissionCreated(
                 submission_uid=uid,
                 user_uid=user_uid,
-                ku_type=EntityType.AI_REPORT.value,
-                processor_type=ProcessorType.AUTOMATIC.value,
+                ku_type=EntityType.AI_FEEDBACK.value,
+                processor_type=processor_type.value,
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, logger)
@@ -158,6 +218,103 @@ class ProgressFeedbackGenerator:
         except Exception as e:
             logger.error(f"Failed to generate progress Ku for {user_uid}: {e}")
             return Result.fail(Errors.system(f"Failed to generate progress Ku: {e}"))
+
+    # =========================================================================
+    # LLM GENERATION
+    # =========================================================================
+
+    async def _generate_llm_feedback(
+        self,
+        completions: dict[str, Any],
+        insights: list[Any],
+        time_period: str,
+        depth: str,
+    ) -> Result[str]:
+        """Send activity stats to LLM and return qualitative feedback text.
+
+        Args:
+            completions: Raw activity stats from _query_completions()
+            insights: Active insights for the user
+            time_period: e.g. "7d"
+            depth: "summary" | "standard" | "detailed"
+
+        Returns:
+            Result[str] — LLM-generated feedback text
+        """
+        if not self.openai_service:
+            return Result.fail(Errors.integration("OpenAI", "generate", "No LLM service configured"))
+
+        prompt = self._build_llm_prompt(completions, insights, time_period, depth)
+        return await self.openai_service.generate_completion(
+            prompt=prompt,
+            max_tokens=2000 if depth == "detailed" else 1000,
+            temperature=0.7,
+            model="gpt-4o-mini",
+        )
+
+    def _build_llm_prompt(
+        self,
+        completions: dict[str, Any],
+        insights: list[Any],
+        time_period: str,
+        depth: str,
+    ) -> str:
+        """Build the LLM prompt from activity stats and prompt template.
+
+        Loads the Markdown template, substitutes stats and configuration,
+        returns the final prompt string.
+        """
+        try:
+            template = _PROMPT_TEMPLATE_PATH.read_text()
+        except FileNotFoundError:
+            # Fallback inline template if file not found
+            template = (
+                "You are a personal development coach. Analyze this activity data "
+                "from the past {time_period} and write a {depth} feedback report:\n\n"
+                "Activity Data:\n{stats_json}\n\nActive Insights:\n{insights_section}"
+            )
+
+        # Serialize stats (exclude large detail lists for prompt efficiency)
+        stats_summary = {
+            "tasks_completed": completions.get("tasks_completed", 0),
+            "tasks_total": completions.get("tasks_total", 0),
+            "goals_progressed": completions.get("goals_progressed", 0),
+            "habits_completed": completions.get("habits_completed", 0),
+            "choices_made": completions.get("choices_made", 0),
+            "goal_alignments": completions.get("goal_alignments", [])[:10],
+            "knowledge_applications": completions.get("knowledge_applications", [])[:10],
+            "task_titles": [t.get("title", "") for t in completions.get("tasks_details", [])[:10]],
+            "goal_titles": [g.get("title", "") for g in completions.get("goals_details", [])[:10]],
+            "habit_summary": [
+                {"title": h.get("title", ""), "streak": h.get("streak", 0)}
+                for h in completions.get("habits_details", [])[:10]
+            ],
+            "principled_choices": [
+                {"title": c.get("title", ""), "principles": c.get("principles", [])}
+                for c in completions.get("choices_details", [])
+                if c.get("principles")
+            ][:5],
+        }
+
+        insights_section = "No active insights."
+        if insights:
+            insight_lines = []
+            for insight in insights[:5]:
+                title = getattr(insight, "title", "Untitled")
+                impact = getattr(insight, "impact", "medium")
+                insight_lines.append(f"- [{impact}] {title}")
+            insights_section = "\n".join(insight_lines)
+
+        return template.format(
+            time_period=time_period,
+            depth=depth,
+            stats_json=json.dumps(stats_summary, indent=2),
+            insights_section=insights_section,
+        )
+
+    # =========================================================================
+    # GRAPH QUERIES
+    # =========================================================================
 
     async def _query_completions(
         self,

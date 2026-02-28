@@ -14,7 +14,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorTy
 from core.models.submissions.submission import Submission
 from core.services.dsl import (
     ActivityExtractionResult,
-    ReportActivityExtractorService,
+    ActivityExtractorService,
     activity_to_task_request,
     parse_journal_text,
 )
@@ -106,7 +106,7 @@ class TestActivityToTaskConversion:
 
 
 class TestJournalActivityExtractor:
-    """Test the ReportActivityExtractorService."""
+    """Test the ActivityExtractorService."""
 
     @pytest.fixture
     def mock_tasks_service(self):
@@ -155,7 +155,7 @@ Some reflections on the day...
     @pytest.fixture
     def extractor(self, mock_tasks_service):
         """Create extractor with mock services."""
-        return ReportActivityExtractorService(
+        return ActivityExtractorService(
             tasks_service=mock_tasks_service,
             habits_service=None,  # Not testing habit creation
             goals_service=None,

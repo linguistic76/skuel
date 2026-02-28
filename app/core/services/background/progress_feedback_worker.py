@@ -17,10 +17,10 @@ from typing import Any
 
 from core.utils.logging import get_logger
 
-logger = get_logger("skuel.background.progress_reports")
+logger = get_logger("skuel.background.progress_feedback")
 
 
-class ProgressReportWorker:
+class ProgressFeedbackWorker:
     """
     Background worker that checks for due report schedules and generates progress reports.
 

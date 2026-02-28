@@ -50,8 +50,8 @@ class SubmissionCreateRequest(CreateRequestBase):
     file_type: str | None = Field(None, description="MIME type")
 
 
-class AiReportCreateRequest(CreateRequestBase):
-    """Create an AI-derived report (AI_REPORT type). System-initiated."""
+class AiFeedbackCreateRequest(CreateRequestBase):
+    """Create an AI-derived report (AI_FEEDBACK type). System-initiated."""
 
     title: str = Field(min_length=1, max_length=200, description="Report title")
     parent_ku_uid: str = Field(description="Assignment Ku this report derives from")

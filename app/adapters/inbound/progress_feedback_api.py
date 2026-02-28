@@ -1,22 +1,30 @@
 """
-Reports Progress & Schedule API Routes
-========================================
+Feedback Progress, Schedule & Activity Review API Routes
+=========================================================
 
-REST API for progress report generation and scheduling.
+REST API for progress feedback generation, scheduling, and admin activity review.
 
-Routes:
+Progress/Schedule Routes:
 - POST /api/feedback/progress/generate — on-demand generation
-- GET /api/feedback/progress — list user's progress reports
+- GET /api/feedback/progress — list user's activity feedback
 - POST /api/feedback/schedule — create/update schedule
 - GET /api/feedback/schedule — get user's schedule
 - PUT /api/feedback/schedule/{uid} — update schedule
 - DELETE /api/feedback/schedule/{uid} — deactivate schedule
+
+Activity Review Routes (admin):
+- GET  /api/activity-review/snapshot — generate activity snapshot for review
+- POST /api/activity-review/submit — admin submits written feedback
+- POST /api/activity-review/request — user requests a review
+- GET  /api/activity-review/queue — admin's pending review queue
+- GET  /api/activity-review/history — user's received activity feedback
 """
 
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.ports.feedback_protocols import (
+        ActivityReviewOperations,
         ProgressFeedbackOperations,
         ProgressScheduleOperations,
     )
@@ -33,7 +41,7 @@ from core.models.entity_requests import (
     ScheduleUpdateRequest,
 )
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.routes.submissions.progress")
 
@@ -44,16 +52,18 @@ def create_progress_feedback_api_routes(
     progress_generator: "ProgressFeedbackOperations",
     report_service: "SubmissionOperations",
     schedule_service: "ProgressScheduleOperations | None" = None,
+    activity_review: "ActivityReviewOperations | None" = None,
 ) -> list[Any]:
     """
-    Create progress report and schedule API routes.
+    Create progress feedback, schedule, and activity review API routes.
 
     Args:
         _app: FastHTML application instance
         rt: Router instance
         progress_generator: ProgressFeedbackGenerator for on-demand generation
-        report_service: ReportSubmissionService for listing reports
-        schedule_service: ReportScheduleService for schedule CRUD
+        report_service: SubmissionsService for listing feedback entities
+        schedule_service: ProgressScheduleService for schedule CRUD
+        activity_review: ActivityReviewService for admin human feedback
     """
 
     logger.info("Creating Reports Progress API routes")
@@ -98,7 +108,7 @@ def create_progress_feedback_api_routes(
 
         result = await report_service.list_submissions(
             user_uid=user_uid,
-            ku_type="ai_report",
+            ku_type="ai_feedback",
             limit=limit,
         )
 
@@ -195,5 +205,150 @@ def create_progress_feedback_api_routes(
         routes.extend([create_schedule, get_schedule, update_schedule, deactivate_schedule])
         logger.info("Report schedule routes registered")
 
-    logger.info("Reports Progress API routes created successfully")
+    # ========================================================================
+    # ACTIVITY REVIEW ROUTES (admin writes human feedback on Activity Domains)
+    # ========================================================================
+
+    if activity_review:
+
+        @rt("/api/activity-review/snapshot")
+        @boundary_handler()
+        async def get_activity_snapshot(request: Request) -> Result[Any]:
+            """Generate activity snapshot for admin review.
+
+            Admin-initiated path: admin selects a user + time window,
+            system returns structured activity data for human assessment.
+            """
+            user_uid = require_authenticated_user(request)
+            subject_uid = request.query_params.get("subject_uid", user_uid)
+            time_period = request.query_params.get("time_period", "7d")
+            domains_param = request.query_params.get("domains", "")
+            domains = [d.strip() for d in domains_param.split(",") if d.strip()] or None
+
+            result = await activity_review.create_activity_snapshot(
+                subject_uid=subject_uid,
+                time_period=time_period,
+                domains=domains,
+            )
+            if result.is_error:
+                return Result.fail(result.expect_error())
+
+            return Result.ok({"snapshot": result.value})
+
+        @rt("/api/activity-review/submit", methods=["POST"])
+        @boundary_handler(success_status=201)
+        async def submit_activity_feedback(request: Request) -> Result[Any]:
+            """Admin submits written activity feedback.
+
+            Creates AiFeedback entity with ProcessorType.HUMAN.
+            Requires ADMIN role.
+            """
+            admin_uid = require_authenticated_user(request)
+            body = await request.json()
+
+            subject_uid = body.get("subject_uid")
+            feedback_text = body.get("feedback_text", "").strip()
+            time_period = body.get("time_period", "7d")
+            domains = body.get("domains") or None
+            snapshot_context = body.get("snapshot_context")
+
+            if not subject_uid:
+                return Result.fail(Errors.validation("subject_uid is required", field="subject_uid"))
+            if not feedback_text:
+                return Result.fail(Errors.validation("feedback_text is required", field="feedback_text"))
+
+            result = await activity_review.submit_activity_feedback(
+                admin_uid=admin_uid,
+                subject_uid=subject_uid,
+                feedback_text=feedback_text,
+                time_period=time_period,
+                domains=domains,
+                snapshot_context=snapshot_context,
+            )
+            if result.is_error:
+                return Result.fail(result.expect_error())
+
+            return Result.ok(
+                {
+                    "feedback": ku_to_response(result.value),
+                    "message": "Activity feedback submitted successfully",
+                }
+            )
+
+        @rt("/api/activity-review/request", methods=["POST"])
+        @boundary_handler(success_status=201)
+        async def request_activity_review(request: Request) -> Result[Any]:
+            """User requests an activity review from an admin."""
+            user_uid = require_authenticated_user(request)
+            body = await request.json()
+
+            time_period = body.get("time_period", "7d")
+            domains = body.get("domains") or None
+            message = body.get("message")
+
+            result = await activity_review.request_review(
+                user_uid=user_uid,
+                time_period=time_period,
+                domains=domains,
+                message=message,
+            )
+            if result.is_error:
+                return Result.fail(result.expect_error())
+
+            return Result.ok(
+                {
+                    "request": result.value,
+                    "message": "Review request submitted. An admin will be in touch.",
+                }
+            )
+
+        @rt("/api/activity-review/queue")
+        @boundary_handler()
+        async def get_review_queue(request: Request) -> Result[Any]:
+            """Admin's pending review queue."""
+            admin_uid = require_authenticated_user(request)
+            limit = int(request.query_params.get("limit", "20"))
+
+            result = await activity_review.get_pending_reviews(
+                admin_uid=admin_uid,
+                limit=limit,
+            )
+            if result.is_error:
+                return Result.fail(result.expect_error())
+
+            return Result.ok({"queue": result.value, "count": len(result.value or [])})
+
+        @rt("/api/activity-review/history")
+        @boundary_handler()
+        async def get_activity_feedback_history(request: Request) -> Result[Any]:
+            """User's received activity feedback (both LLM and human)."""
+            user_uid = require_authenticated_user(request)
+            subject_uid = request.query_params.get("subject_uid", user_uid)
+            limit = int(request.query_params.get("limit", "20"))
+
+            result = await activity_review.get_activity_reviews_for_user(
+                subject_uid=subject_uid,
+                limit=limit,
+            )
+            if result.is_error:
+                return Result.fail(result.expect_error())
+
+            feedbacks = result.value or []
+            return Result.ok(
+                {
+                    "feedback": [ku_to_response(f) for f in feedbacks],
+                    "count": len(feedbacks),
+                }
+            )
+
+        routes.extend([
+            get_activity_snapshot,
+            submit_activity_feedback,
+            request_activity_review,
+            get_review_queue,
+            get_activity_feedback_history,
+        ])
+        logger.info("Activity review routes registered")
+
+    logger.info("Feedback Progress API routes created successfully")
     return routes

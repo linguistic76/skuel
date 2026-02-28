@@ -8,7 +8,7 @@ is_processable, subject_uid on submission subclasses, and converter logic.
 
 from core.models.curriculum.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.feedback.ai_report import AiReport
+from core.models.feedback.ai_feedback import AiFeedback
 from core.models.feedback.feedback import Feedback
 from core.models.feedback.feedback_dto import FeedbackDTO
 from core.models.submissions.submission import Submission
@@ -21,20 +21,20 @@ from core.models.submissions.submission import Submission
 class TestKuTypeEnum:
     """Test EntityType enum extensions."""
 
-    def test_ai_report_enum_exists(self):
-        assert EntityType.AI_REPORT.value == "ai_report"
+    def test_ai_feedback_enum_exists(self):
+        assert EntityType.AI_FEEDBACK.value == "ai_feedback"
 
     def test_feedback_report_enum_exists(self):
         assert EntityType.FEEDBACK_REPORT.value == "feedback_report"
 
-    def test_ai_report_display_name(self):
-        assert EntityType.AI_REPORT.get_display_name() == "AI Report"
+    def test_ai_feedback_display_name(self):
+        assert EntityType.AI_FEEDBACK.get_display_name() == "AI Feedback"
 
     def test_feedback_report_display_name(self):
         assert EntityType.FEEDBACK_REPORT.get_display_name() == "Feedback Report"
 
-    def test_ai_report_is_processable(self):
-        assert EntityType.AI_REPORT.is_processable() is True
+    def test_ai_feedback_is_processable(self):
+        assert EntityType.AI_FEEDBACK.is_processable() is True
 
     def test_feedback_report_not_processable(self):
         assert EntityType.FEEDBACK_REPORT.is_processable() is False
@@ -56,7 +56,7 @@ class TestKuTypeEnum:
 
     def test_is_derived(self):
         assert EntityType.SUBMISSION.is_derived() is True
-        assert EntityType.AI_REPORT.is_derived() is True
+        assert EntityType.AI_FEEDBACK.is_derived() is True
         assert EntityType.FEEDBACK_REPORT.is_derived() is True
         assert EntityType.KU.is_derived() is False
 
@@ -90,15 +90,15 @@ class TestKuSubjectUid:
         )
         assert ku.subject_uid == "user_student"
 
-    def test_is_ai_report_by_type(self):
-        ku = AiReport(
+    def test_is_ai_feedback_by_type(self):
+        ku = AiFeedback(
             uid="ku_test_123",
             title="Progress Summary",
-            ku_type=EntityType.AI_REPORT,
+            ku_type=EntityType.AI_FEEDBACK,
             user_uid="user_alice",
             status=EntityStatus.COMPLETED,
         )
-        assert ku.ku_type == EntityType.AI_REPORT
+        assert ku.ku_type == EntityType.AI_FEEDBACK
 
     def test_is_feedback_report_by_type(self):
         ku = Feedback(

@@ -2,8 +2,12 @@
 Submission - Content Processing Domain Model (Intermediate Base)
 ===================================================================
 
-Frozen dataclass base for all content-processing entities.
-Accepted entity types: SUBMISSION, JOURNAL, AI_REPORT, FEEDBACK_REPORT.
+Frozen dataclass base for content-processing entities with file/artifact semantics.
+Accepted entity types: SUBMISSION, JOURNAL, FEEDBACK_REPORT.
+
+Note: AI_FEEDBACK (EntityType.AI_FEEDBACK) does NOT inherit from Submission.
+AiFeedback responds to aggregate activity patterns (no file fields), and inherits
+from UserOwnedEntity directly.
 
 Role in the Educational Loop
 ------------------------------
@@ -17,11 +21,10 @@ to an Exercise. It is the user-owned half of the core loop:
 The Submission is created by and belongs to the student. The teacher receives
 access only via the SHARES_WITH relationship created at submission time.
 
-The four leaf types all share this base:
+The three leaf types that share this base:
     SUBMISSION      → Student's file upload / text submitted against an Exercise
     JOURNAL         → Voice or text journal entry (user's own reflections)
-    AI_REPORT       → System-generated progress summary (ProcessorType.AUTOMATIC)
-    FEEDBACK_REPORT → Teacher's feedback on a Submission (teacher-owned)
+    FEEDBACK_REPORT → Teacher's or AI's feedback on a Submission (teacher-owned)
 
 Fields
 -------
@@ -30,8 +33,8 @@ Fields
                   instructions, max_retention
 - Subject (1): subject_uid — who this report is about (student, for feedback)
 
-Leaf subclasses (Journal, AiReport, Feedback) inherit from Submission
-and force their specific entity_type. Feedback adds 2 extra fields.
+Leaf subclasses (Journal, Feedback) inherit from Submission and force their
+specific entity_type. Feedback adds 2 extra fields.
 
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
@@ -51,8 +54,8 @@ _SUBMISSION_KU_TYPES = frozenset(
     {
         EntityType.SUBMISSION,
         EntityType.JOURNAL,
-        EntityType.AI_REPORT,
         EntityType.FEEDBACK_REPORT,
+        # AI_FEEDBACK intentionally excluded: AiFeedback inherits UserOwnedEntity directly
     }
 )
 
@@ -62,7 +65,8 @@ class Submission(UserOwnedEntity):
     """
     Immutable domain model for content-processing entities.
 
-    Accepts 4 ku_types: SUBMISSION, JOURNAL, AI_REPORT, FEEDBACK_REPORT.
+    Accepts 3 ku_types: SUBMISSION, JOURNAL, FEEDBACK_REPORT.
+    (AI_FEEDBACK uses AiFeedback(UserOwnedEntity) — no file fields.)
 
     Inherits common fields from UserOwnedEntity (identity, content, status,
     sharing, meta, embedding, user_uid, priority).
