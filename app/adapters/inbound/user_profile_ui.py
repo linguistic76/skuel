@@ -881,7 +881,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         shared_reports = []
         if services.submissions_sharing:
-            reports_result = await services.submissions_sharing.get_reports_shared_with_me(
+            reports_result = await services.submissions_sharing.get_submissions_shared_with_me(
                 user_uid=user_uid,
                 limit=50,
             )

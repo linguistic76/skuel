@@ -24,9 +24,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.ports.feedback_protocols import ActivityReviewOperations
 
-from starlette.requests import Request
-from starlette.responses import RedirectResponse
-
 from fasthtml.common import (
     H3,
     H4,
@@ -43,11 +40,12 @@ from fasthtml.common import (
     Span,
     Textarea,
 )
+from starlette.requests import Request
+from starlette.responses import RedirectResponse
 
-from adapters.inbound.auth import require_admin, require_authenticated_user
+from adapters.inbound.auth import require_admin
 from core.utils.logging import get_logger
 from ui.daisy_components import Button, ButtonT
-from ui.layouts.base_page import BasePage
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -96,9 +94,7 @@ def _render_queue_item(item: dict[str, Any]) -> Any:
         except (ValueError, TypeError):
             date_str = str(created_at)[:10]
 
-    domain_badges = [
-        Span(d, cls="badge badge-ghost badge-xs") for d in (domains or [])
-    ]
+    domain_badges = [Span(d, cls="badge badge-ghost badge-xs") for d in (domains or [])]
 
     review_href = f"/activity-review/new?subject_uid={subject_uid}&time_period={time_period}"
 
@@ -326,7 +322,7 @@ def create_activity_review_ui_routes(
 
         snapshot_display = Div(
             P(
-                "Enter a user UID and click \"Load Snapshot\" to preview their activity data.",
+                'Enter a user UID and click "Load Snapshot" to preview their activity data.',
                 cls="text-center text-base-content/50 py-6",
             ),
             id="snapshot-display",
@@ -335,8 +331,12 @@ def create_activity_review_ui_routes(
         feedback_form = Div(
             H3("Write Feedback", cls="font-semibold mb-4"),
             Form(
-                Input(type="hidden", name="subject_uid", id="feedback-subject-uid", value=subject_uid),
-                Input(type="hidden", name="time_period", id="feedback-time-period", value=time_period),
+                Input(
+                    type="hidden", name="subject_uid", id="feedback-subject-uid", value=subject_uid
+                ),
+                Input(
+                    type="hidden", name="time_period", id="feedback-time-period", value=time_period
+                ),
                 Div(
                     Label("Feedback", cls="label label-text"),
                     Textarea(
@@ -381,7 +381,10 @@ def create_activity_review_ui_routes(
         )
 
         content = Div(
-            PageHeader("New Activity Review", subtitle="Review a user's Activity Domain data and write feedback"),
+            PageHeader(
+                "New Activity Review",
+                subtitle="Review a user's Activity Domain data and write feedback",
+            ),
             snapshot_form,
             snapshot_display,
             feedback_form,
@@ -433,14 +436,17 @@ def create_activity_review_ui_routes(
 
         if result.is_error:
             return Div(
-                P(f"Could not load snapshot: {result.error.message}", cls="text-error text-sm"),
+                P(
+                    f"Could not load snapshot: {result.error.message if result.error else 'Unknown error'}",
+                    cls="text-error text-sm",
+                ),
             )
 
         snapshot = result.value or {}
 
         # Build domain cards from snapshot data
         domain_cards = []
-        for domain_name in (domains or [d for d, _ in _DOMAIN_CHOICES]):
+        for domain_name in domains or [d for d, _ in _DOMAIN_CHOICES]:
             items = snapshot.get(domain_name) or []
             domain_cards.append(_render_snapshot_domain_card(domain_name, items))
 
@@ -499,7 +505,10 @@ def create_activity_review_ui_routes(
         if result.is_error:
             return Div(
                 Div(
-                    P(f"Failed: {result.error.message}", cls="mb-0"),
+                    P(
+                        f"Failed: {result.error.message if result.error else 'Unknown error'}",
+                        cls="mb-0",
+                    ),
                     cls="alert alert-error",
                 ),
             )

@@ -20,8 +20,10 @@ See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
@@ -46,12 +48,12 @@ class AiFeedbackDTO(UserOwnedDTO):
     # =========================================================================
     # SUBJECT
     # =========================================================================
-    subject_uid: str | None = None          # user_uid this feedback is about
+    subject_uid: str | None = None  # user_uid this feedback is about
 
     # =========================================================================
     # TIME WINDOW
     # =========================================================================
-    time_period: str | None = None          # "7d" | "14d" | "30d" | "90d"
+    time_period: str | None = None  # "7d" | "14d" | "30d" | "90d"
     period_start: datetime | None = None
     period_end: datetime | None = None
 
@@ -59,12 +61,12 @@ class AiFeedbackDTO(UserOwnedDTO):
     # ANALYSIS CONFIGURATION
     # =========================================================================
     domains_covered: list[str] = field(default_factory=list)  # activity domain names
-    depth: str | None = None                # summary | standard | detailed
+    depth: str | None = None  # summary | standard | detailed
 
     # =========================================================================
     # CONTENT
     # =========================================================================
-    processed_content: str | None = None    # LLM output or human-written feedback
+    processed_content: str | None = None  # LLM output or human-written feedback
     processing_error: str | None = None
 
     # =========================================================================
@@ -81,6 +83,7 @@ class AiFeedbackDTO(UserOwnedDTO):
         data = super().to_dict()
         if self.processor_type is not None:
             from core.ports import get_enum_value
+
             data["processor_type"] = get_enum_value(self.processor_type)
         data["subject_uid"] = self.subject_uid
         data["time_period"] = self.time_period

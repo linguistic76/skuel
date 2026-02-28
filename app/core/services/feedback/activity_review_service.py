@@ -246,7 +246,7 @@ class ActivityReviewService:
             uid = UIDGenerator.generate_uid("ku")
             title = (
                 f"Activity Review — {subject_uid} "
-                f"({start_date.strftime('%b %d')} – {end_date.strftime('%b %d, %Y')})"
+                f"({start_date.strftime('%b %d')} - {end_date.strftime('%b %d, %Y')})"
             )
             metadata: dict[str, Any] = {
                 "reviewed_by": admin_uid,
