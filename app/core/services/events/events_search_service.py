@@ -25,7 +25,7 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import EventsOperations
 
 from core.models.enums import EntityStatus
 from core.models.event.event import Event
@@ -40,7 +40,7 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
 
 
-class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
+class EventsSearchService(BaseService["EventsOperations", Event]):
     """
     Event search and discovery operations.
 
@@ -99,7 +99,7 @@ class EventsSearchService(BaseService["BackendOperations[Event]", Event]):
         search_order_by="event_date",  # Events ordered by event date, not created_at
     )
 
-    def __init__(self, backend: BackendOperations[Event]) -> None:
+    def __init__(self, backend: EventsOperations) -> None:
         """Initialize service with required backend."""
         super().__init__(backend=backend, service_name="events.search")
 

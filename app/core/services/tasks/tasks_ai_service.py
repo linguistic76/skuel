@@ -30,12 +30,12 @@ from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import TasksOperations
     from core.services.llm_service import LLMService
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
 
-class TasksAIService(BaseAIService["BackendOperations[Task]", Task]):
+class TasksAIService(BaseAIService["TasksOperations", Task]):
     """
     AI-powered features for Tasks domain.
 
@@ -60,7 +60,7 @@ class TasksAIService(BaseAIService["BackendOperations[Task]", Task]):
 
     def __init__(
         self,
-        backend: BackendOperations[Task],
+        backend: TasksOperations,
         llm_service: LLMService,
         embeddings_service: Neo4jGenAIEmbeddingsService,
         event_bus: Any | None = None,

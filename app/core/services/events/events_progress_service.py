@@ -30,10 +30,10 @@ from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import EventsOperations
 
 
-class EventsProgressService(BaseService["BackendOperations[Event]", Event]):
+class EventsProgressService(BaseService["EventsOperations", Event]):
     """
     Progress tracking and completion for events.
 
@@ -68,7 +68,7 @@ class EventsProgressService(BaseService["BackendOperations[Event]", Event]):
     _date_field = "event_date"
     _completed_statuses = (EntityStatus.COMPLETED.value, EntityStatus.CANCELLED.value)
 
-    def __init__(self, backend: "BackendOperations[Event]", event_bus=None) -> None:
+    def __init__(self, backend: "EventsOperations", event_bus=None) -> None:
         """
         Initialize progress service.
 

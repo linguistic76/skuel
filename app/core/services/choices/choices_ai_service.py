@@ -18,12 +18,12 @@ from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import ChoicesOperations
     from core.services.llm_service import LLMService
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
 
-class ChoicesAIService(BaseAIService["BackendOperations[Choice]", Choice]):
+class ChoicesAIService(BaseAIService["ChoicesOperations", Choice]):
     """
     AI-powered features for Choices domain.
 
@@ -41,7 +41,7 @@ class ChoicesAIService(BaseAIService["BackendOperations[Choice]", Choice]):
 
     def __init__(
         self,
-        backend: "BackendOperations[Choice]",
+        backend: "ChoicesOperations",
         llm_service: "LLMService",
         embeddings_service: "Neo4jGenAIEmbeddingsService",
         event_bus: Any | None = None,

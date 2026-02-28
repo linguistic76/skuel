@@ -24,7 +24,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import ChoicesOperations
 
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
@@ -40,7 +40,7 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
 
 
-class ChoicesSearchService(BaseService["BackendOperations[Choice]", Choice]):
+class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
     """
     Choice search and discovery operations.
 
@@ -96,7 +96,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Choice]", Choice]):
         completed_statuses=(EntityStatus.COMPLETED.value,),
     )
 
-    def __init__(self, backend: BackendOperations[Choice]) -> None:
+    def __init__(self, backend: ChoicesOperations) -> None:
         """Initialize service with required backend."""
         super().__init__(backend=backend, service_name="choices.search")
 

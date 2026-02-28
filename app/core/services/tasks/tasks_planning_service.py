@@ -39,11 +39,11 @@ from core.utils.sort_functions import get_priority_score, get_relevance_score
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualDependencies, ContextualTask
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import TasksOperations
     from core.services.user.unified_user_context import UserContext
 
 
-class TasksPlanningService(BasePlanningService["BackendOperations[Task]", Task]):
+class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
     """
     Context-aware task planning service.
 
@@ -63,7 +63,7 @@ class TasksPlanningService(BasePlanningService["BackendOperations[Task]", Task])
 
     def __init__(
         self,
-        backend: BackendOperations[Task],
+        backend: TasksOperations,
         relationship_service: Any | None = None,
     ) -> None:
         """

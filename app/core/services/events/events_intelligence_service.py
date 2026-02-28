@@ -32,11 +32,10 @@ from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
-    from core.ports.domain_protocols import EventsRelationshipOperations
+    from core.ports.domain_protocols import EventsOperations, EventsRelationshipOperations
 
 
-class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Event]", Event]):
+class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event]):
     """
     Graph intelligence service for events using pure Cypher graph intelligence.
 
@@ -73,7 +72,7 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Event]",
 
     def __init__(
         self,
-        backend: "BackendOperations[Event]",
+        backend: "EventsOperations",
         graph_intelligence_service=None,
         relationship_service: "EventsRelationshipOperations | None" = None,
     ) -> None:

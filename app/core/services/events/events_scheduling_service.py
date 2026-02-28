@@ -32,10 +32,10 @@ from core.utils.sort_functions import get_tuple_first
 
 if TYPE_CHECKING:
     from core.models.event.event_request import EventCreateRequest
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import EventsOperations
 
 
-class EventsSchedulingService(BaseService["BackendOperations[Event]", Event]):
+class EventsSchedulingService(BaseService["EventsOperations", Event]):
     """
     Smart event scheduling and calendar management.
 
@@ -69,7 +69,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Event]", Event]):
     # Configure BaseService
     _date_field = "event_date"
 
-    def __init__(self, backend: "BackendOperations[Event]", event_bus=None) -> None:
+    def __init__(self, backend: "EventsOperations", event_bus=None) -> None:
         """
         Initialize scheduling service.
 

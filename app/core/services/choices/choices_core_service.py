@@ -37,10 +37,10 @@ if TYPE_CHECKING:
         ChoiceEvaluationRequest,
     )
     from core.models.entity_requests import EntityUpdateRequest
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import ChoicesOperations
 
 
-class ChoicesCoreService(BaseService["BackendOperations[Choice]", Choice]):
+class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
     """
     Core CRUD operations for choices.
 
@@ -69,7 +69,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Choice]", Choice]):
     """
 
     def __init__(
-        self, backend: BackendOperations[Choice], event_bus=None, relationship_service=None
+        self, backend: ChoicesOperations, event_bus=None, relationship_service=None
     ) -> None:
         """
         Initialize choices core service.

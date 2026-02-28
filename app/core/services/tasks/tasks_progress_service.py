@@ -24,7 +24,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import TasksOperations
 
 from core.events import TaskCompleted, publish_event
 from core.models.enums import Domain, EntityStatus, Priority
@@ -41,7 +41,7 @@ from core.utils.result_simplified import Result
 RichTaskData = dict[str, Any]
 
 
-class TasksProgressService(BaseService["BackendOperations[Task]", Task]):
+class TasksProgressService(BaseService["TasksOperations", Task]):
     """
     Progress tracking and completion for tasks.
 
@@ -79,7 +79,7 @@ class TasksProgressService(BaseService["BackendOperations[Task]", Task]):
 
     def __init__(
         self,
-        backend: BackendOperations[Task],
+        backend: TasksOperations,
         analytics_engine: Any | None = None,
         event_bus: Any | None = None,
     ) -> None:

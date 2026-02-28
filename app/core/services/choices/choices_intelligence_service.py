@@ -45,12 +45,11 @@ from core.utils.sort_functions import get_aligned_count, get_domain_choice_count
 
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
-    from core.ports import BackendOperations
-    from core.ports.domain_protocols import ChoicesRelationshipOperations
+    from core.ports.domain_protocols import ChoicesOperations, ChoicesRelationshipOperations
     from core.services.insight.insight_store import InsightStore
 
 
-class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]", Choice]):
+class ChoicesIntelligenceService(BaseAnalyticsService["ChoicesOperations", Choice]):
     """
     Pure Cypher graph intelligence queries for choices.
 
@@ -88,7 +87,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Choice]
 
     def __init__(
         self,
-        backend: BackendOperations[Choice],
+        backend: ChoicesOperations,
         graph_intelligence_service=None,
         relationship_service: ChoicesRelationshipOperations | None = None,
         insight_store: InsightStore | None = None,

@@ -22,10 +22,10 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.curriculum.lp_position import LpPosition
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import ChoicesOperations
 
 
-class ChoicesLearningService(BaseService["BackendOperations[Choice]", Choice]):
+class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
     """
     Learning path integration and guidance for choices.
 
@@ -67,7 +67,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Choice]", Choice]):
         completed_statuses=(EntityStatus.COMPLETED.value,),
     )
 
-    def __init__(self, backend: BackendOperations[Choice]) -> None:
+    def __init__(self, backend: ChoicesOperations) -> None:
         """
         Initialize choices learning service.
 

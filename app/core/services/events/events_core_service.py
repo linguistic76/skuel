@@ -39,10 +39,10 @@ from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import EventsOperations
 
 
-class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
+class EventsCoreService(BaseService["EventsOperations", Event]):
     """
     Core CRUD service for events.
 
@@ -79,7 +79,7 @@ class EventsCoreService(BaseService["BackendOperations[Event]", Event]):
 
     """
 
-    def __init__(self, backend: BackendOperations[Event], event_bus=None) -> None:
+    def __init__(self, backend: EventsOperations, event_bus=None) -> None:
         """
         Initialize events core service.
 

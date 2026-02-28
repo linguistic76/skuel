@@ -30,7 +30,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import EventsOperations
 
 
 @dataclass(frozen=True)
@@ -80,7 +80,7 @@ class EventsHabitIntegrationService:
 
     """
 
-    def __init__(self, backend: "BackendOperations[Event]", event_bus=None) -> None:
+    def __init__(self, backend: "EventsOperations", event_bus=None) -> None:
         """
         Initialize events habit integration service.
 

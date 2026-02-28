@@ -22,7 +22,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import TasksOperations
 
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
 from core.models.enums import EntityStatus, Priority
@@ -39,7 +39,7 @@ from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
 
 
-class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
+class TasksCoreService(BaseService["TasksOperations", Task]):
     """
     Core CRUD operations for tasks.
 
@@ -64,7 +64,7 @@ class TasksCoreService(BaseService["BackendOperations[Task]", Task]):
 
     def __init__(
         self,
-        backend: BackendOperations[Task],
+        backend: TasksOperations,
         ku_inference_service: Any | None = None,
         event_bus: Any | None = None,
     ) -> None:

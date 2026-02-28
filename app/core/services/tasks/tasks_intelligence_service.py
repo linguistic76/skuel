@@ -58,8 +58,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_second_item
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
-    from core.ports.domain_protocols import TasksRelationshipOperations
+    from core.ports.domain_protocols import TasksOperations, TasksRelationshipOperations
 
 
 # =============================================================================
@@ -95,7 +94,7 @@ def _extract_completion_hour(task: Any) -> int | None:
     return task.completed_at.hour if task.completed_at else None
 
 
-class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", Task]):
+class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
     """
     Tasks intelligence service using shared utilities (graph-based, no AI).
 
@@ -128,7 +127,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Task]", T
 
     def __init__(
         self,
-        backend: BackendOperations[Task],
+        backend: TasksOperations,
         graph_intelligence_service: GraphIntelligenceService | None = None,
         relationship_service: TasksRelationshipOperations | None = None,
         event_bus: Any | None = None,

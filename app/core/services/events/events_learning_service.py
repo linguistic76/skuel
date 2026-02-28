@@ -27,11 +27,11 @@ from core.services.infrastructure.learning_alignment_helper import LearningAlign
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import EventsOperations
     from core.services.relationships import UnifiedRelationshipService
 
 
-class EventsLearningService(BaseService["BackendOperations[Event]", Event]):
+class EventsLearningService(BaseService["EventsOperations", Event]):
     """
     Learning integration service for events.
 
@@ -75,7 +75,7 @@ class EventsLearningService(BaseService["BackendOperations[Event]", Event]):
 
     def __init__(
         self,
-        backend: "BackendOperations[Event]",
+        backend: "EventsOperations",
         relationships: "UnifiedRelationshipService | None" = None,
         event_bus=None,
     ) -> None:

@@ -23,7 +23,7 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import TasksOperations
 
 from core.models.curriculum.lp_position import LpPosition
 from core.models.enums import Domain, EntityStatus, Priority
@@ -70,7 +70,7 @@ def _validate_task_prerequisites(
     )
 
 
-class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
+class TasksSchedulingService(BaseService["TasksOperations", Task]):
     """
     Task scheduling and learning path integration.
 
@@ -106,7 +106,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Task]", Task]):
         entity_label="Entity",
     )
 
-    def __init__(self, backend: BackendOperations[Task]) -> None:
+    def __init__(self, backend: TasksOperations) -> None:
         """
         Initialize scheduling service with required dependencies.
 

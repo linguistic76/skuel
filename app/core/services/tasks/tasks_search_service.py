@@ -26,7 +26,7 @@ from operator import attrgetter, itemgetter, methodcaller
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import TasksOperations
 
 from core.constants import QueryLimit
 from core.models.curriculum.lp_position import LpPosition
@@ -42,7 +42,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 
 
-class TasksSearchService(BaseService["BackendOperations[Task]", Task]):
+class TasksSearchService(BaseService["TasksOperations", Task]):
     """
     Advanced search and discovery for tasks.
 
@@ -76,7 +76,7 @@ class TasksSearchService(BaseService["BackendOperations[Task]", Task]):
         entity_label="Entity",
     )
 
-    def __init__(self, backend: BackendOperations[Task]) -> None:
+    def __init__(self, backend: TasksOperations) -> None:
         """Initialize service with required backend."""
         super().__init__(backend=backend, service_name="tasks.search")
 
