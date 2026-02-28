@@ -39,8 +39,10 @@ from __future__ import annotations
 from typing import Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.models.event.event import Event
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
+from core.models.task.task import Task
 from core.utils.result_simplified import Errors, Result
 
 
@@ -281,4 +283,224 @@ class GoalsBackend(UniversalNeo4jBackend[Goal]):
             return Result.fail(Errors.database(operation="link_goal_to_principle", message=str(e)))
 
 
-__all__ = ["HabitsBackend", "GoalsBackend"]
+class TasksBackend(UniversalNeo4jBackend[Task]):
+    """
+    Domain backend for Task entities.
+
+    Extends UniversalNeo4jBackend[Task] with explicit implementations of
+    TasksOperations methods that require domain-specific Cypher:
+    - get_task(uid)              → wraps get() with NotFound check
+    - link_task_to_knowledge(…)  → Cypher MERGE REQUIRES_KNOWLEDGE
+    - link_task_to_goal(…)       → Cypher MERGE CONTRIBUTES_TO_GOAL
+    """
+
+    async def get_task(self, task_id: str) -> Result[Task]:
+        """Get task by ID. Returns error if not found (contrast with get() → None)."""
+        get_result: Result[Task | None] = await self.get(task_id)
+        if get_result.is_error:
+            return Result.fail(get_result.expect_error())
+        if not get_result.value:
+            return Result.fail(Errors.not_found(resource="Task", identifier=task_id))
+        return Result.ok(get_result.value)
+
+    async def link_task_to_knowledge(
+        self,
+        task_uid: str,
+        knowledge_uid: str,
+        knowledge_score_required: float = 0.8,
+        is_learning_opportunity: bool = False,
+    ) -> Result[bool]:
+        """
+        Link task to required knowledge unit.
+        Creates: (Task)-[:REQUIRES_KNOWLEDGE]->(Knowledge)
+        """
+        try:
+            query = """
+            MATCH (t:Task {uid: $task_uid})
+            MATCH (k:Entity {uid: $knowledge_uid})
+            MERGE (t)-[r:REQUIRES_KNOWLEDGE]->(k)
+            SET r.knowledge_score_required = $knowledge_score_required,
+                r.is_learning_opportunity = $is_learning_opportunity
+            RETURN r
+            """
+            params = {
+                "task_uid": task_uid,
+                "knowledge_uid": knowledge_uid,
+                "knowledge_score_required": knowledge_score_required,
+                "is_learning_opportunity": is_learning_opportunity,
+            }
+
+            async with self.driver.session() as session:
+                result = await session.run(query, params)
+                await result.single()
+
+            self.logger.info(f"Linked Task:{task_uid} to Knowledge:{knowledge_uid}")
+            return Result.ok(True)
+
+        except Exception as e:
+            self.logger.error(f"Failed to link task to knowledge: {e}")
+            return Result.fail(Errors.database(operation="link_task_to_knowledge", message=str(e)))
+
+    async def link_task_to_goal(
+        self,
+        task_uid: str,
+        goal_uid: str,
+        contribution_percentage: float = 0.1,
+        milestone_uid: str | None = None,
+    ) -> Result[bool]:
+        """
+        Link task to goal it contributes to.
+        Creates: (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)
+        """
+        try:
+            query = """
+            MATCH (t:Task {uid: $task_uid})
+            MATCH (g:Goal {uid: $goal_uid})
+            MERGE (t)-[r:CONTRIBUTES_TO_GOAL]->(g)
+            SET r.contribution_percentage = $contribution_percentage,
+                r.milestone_uid = $milestone_uid
+            RETURN r
+            """
+            params = {
+                "task_uid": task_uid,
+                "goal_uid": goal_uid,
+                "contribution_percentage": contribution_percentage,
+                "milestone_uid": milestone_uid,
+            }
+
+            async with self.driver.session() as session:
+                result = await session.run(query, params)
+                await result.single()
+
+            self.logger.info(f"Linked Task:{task_uid} to Goal:{goal_uid}")
+            return Result.ok(True)
+
+        except Exception as e:
+            self.logger.error(f"Failed to link task to goal: {e}")
+            return Result.fail(Errors.database(operation="link_task_to_goal", message=str(e)))
+
+
+class EventsBackend(UniversalNeo4jBackend[Event]):
+    """
+    Domain backend for Event entities.
+
+    Extends UniversalNeo4jBackend[Event] with explicit implementations of
+    EventsOperations methods that require domain-specific Cypher:
+    - get_event(uid)             → wraps get() with NotFound check
+    - list_by_user(uid, limit)   → wraps get_user_entities(), extracts list
+    - get_user_events(uid)       → alias for list_by_user()
+    - link_event_to_goal(…)      → Cypher MERGE SUPPORTS_GOAL
+    - link_event_to_habit(…)     → Cypher MERGE REINFORCES_HABIT
+    - link_event_to_knowledge(…) → Cypher MERGE REINFORCES_KNOWLEDGE (batch)
+    """
+
+    async def get_event(self, event_id: str) -> Result[Event]:
+        """Get event by ID. Returns error if not found (contrast with get() → None)."""
+        get_result: Result[Event | None] = await self.get(event_id)
+        if get_result.is_error:
+            return Result.fail(get_result.expect_error())
+        if not get_result.value:
+            return Result.fail(Errors.not_found(resource="Event", identifier=event_id))
+        return Result.ok(get_result.value)
+
+    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[list[Event]]:
+        """List all events for a user. Returns flat list (not paginated tuple)."""
+        page_result: Result[tuple[list[Event], int]] = await self.get_user_entities(
+            user_uid, limit=limit
+        )
+        if page_result.is_error:
+            return Result.fail(page_result.expect_error())
+        events, _ = page_result.value
+        return Result.ok(events)
+
+    async def get_user_events(self, user_uid: str) -> Result[list[Event]]:
+        """Get all events for a user. Alias for list_by_user."""
+        return await self.list_by_user(user_uid)
+
+    async def link_event_to_goal(
+        self, event_uid: str, goal_uid: str, contribution_weight: float = 1.0
+    ) -> Result[bool]:
+        """
+        Link event to goal it supports.
+        Creates: (Event)-[:SUPPORTS_GOAL {contribution_weight}]->(Goal)
+        """
+        try:
+            query = """
+            MATCH (e:Event {uid: $event_uid})
+            MATCH (g:Goal {uid: $goal_uid})
+            MERGE (e)-[r:SUPPORTS_GOAL]->(g)
+            SET r.contribution_weight = $contribution_weight
+            RETURN r
+            """
+            params = {
+                "event_uid": event_uid,
+                "goal_uid": goal_uid,
+                "contribution_weight": contribution_weight,
+            }
+
+            async with self.driver.session() as session:
+                result = await session.run(query, params)
+                await result.single()
+
+            self.logger.info(f"Linked Event:{event_uid} to Goal:{goal_uid}")
+            return Result.ok(True)
+
+        except Exception as e:
+            self.logger.error(f"Failed to link event to goal: {e}")
+            return Result.fail(Errors.database(operation="link_event_to_goal", message=str(e)))
+
+    async def link_event_to_habit(self, event_uid: str, habit_uid: str) -> Result[bool]:
+        """
+        Link event to habit it reinforces.
+        Creates: (Event)-[:REINFORCES_HABIT]->(Habit)
+        """
+        try:
+            query = """
+            MATCH (e:Event {uid: $event_uid})
+            MATCH (h:Habit {uid: $habit_uid})
+            MERGE (e)-[r:REINFORCES_HABIT]->(h)
+            RETURN r
+            """
+            params = {"event_uid": event_uid, "habit_uid": habit_uid}
+
+            async with self.driver.session() as session:
+                result = await session.run(query, params)
+                await result.single()
+
+            self.logger.info(f"Linked Event:{event_uid} to Habit:{habit_uid}")
+            return Result.ok(True)
+
+        except Exception as e:
+            self.logger.error(f"Failed to link event to habit: {e}")
+            return Result.fail(Errors.database(operation="link_event_to_habit", message=str(e)))
+
+    async def link_event_to_knowledge(
+        self, event_uid: str, knowledge_uids: list[str]
+    ) -> Result[bool]:
+        """
+        Link event to knowledge units it reinforces.
+        Creates: (Event)-[:REINFORCES_KNOWLEDGE]->(Knowledge) for each UID
+        """
+        try:
+            query = """
+            MATCH (e:Event {uid: $event_uid})
+            UNWIND $knowledge_uids AS ku_uid
+            MATCH (k:Entity {uid: ku_uid})
+            MERGE (e)-[r:REINFORCES_KNOWLEDGE]->(k)
+            RETURN count(r) as relationship_count
+            """
+            params = {"event_uid": event_uid, "knowledge_uids": knowledge_uids}
+
+            async with self.driver.session() as session:
+                result = await session.run(query, params)
+                await result.single()
+
+            self.logger.info(f"Linked Event:{event_uid} to {len(knowledge_uids)} knowledge units")
+            return Result.ok(True)
+
+        except Exception as e:
+            self.logger.error(f"Failed to link event to knowledge: {e}")
+            return Result.fail(Errors.database(operation="link_event_to_knowledge", message=str(e)))
+
+
+__all__ = ["EventsBackend", "GoalsBackend", "HabitsBackend", "TasksBackend"]

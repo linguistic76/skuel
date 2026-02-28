@@ -1015,7 +1015,12 @@ async def compose_services(
 
         # 100% Dynamic Pattern: Instantiate UniversalNeo4jBackend directly at point of use
         # "The plant (models) grows on the lattice (UniversalNeo4jBackend)"
-        from adapters.persistence.neo4j.domain_backends import GoalsBackend, HabitsBackend
+        from adapters.persistence.neo4j.domain_backends import (
+            EventsBackend,
+            GoalsBackend,
+            HabitsBackend,
+            TasksBackend,
+        )
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.askesis.askesis import Askesis
         from core.models.event.event import Event
@@ -1045,14 +1050,14 @@ async def compose_services(
         # Domain-specific labels (NeoLabel.TASK, NeoLabel.GOAL, etc.) with
         # base_label=NeoLabel.ENTITY for multi-label CREATE: (n:Entity:Task)
         # (January 2026): Pass prometheus_metrics for database instrumentation
-        tasks_backend = UniversalNeo4jBackend[Task](
+        tasks_backend = TasksBackend(
             driver,
             NeoLabel.TASK,
             Task,
             prometheus_metrics=prometheus_metrics,
             base_label=NeoLabel.ENTITY,
         )
-        events_backend = UniversalNeo4jBackend[Event](
+        events_backend = EventsBackend(
             driver,
             NeoLabel.EVENT,
             Event,

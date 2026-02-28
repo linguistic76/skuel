@@ -15,8 +15,8 @@ BACKENDS IN USE (services_bootstrap.py)
 **Activity Domains (6):**
     HabitsBackend[Habit] - habits_backend
     GoalsBackend[Goal] - goals_backend
-    UniversalNeo4jBackend[Task] - tasks_backend
-    UniversalNeo4jBackend[Event] - events_backend
+    TasksBackend[Task] - tasks_backend
+    EventsBackend[Event] - events_backend
     UniversalNeo4jBackend[Choice] - choice_backend
     UniversalNeo4jBackend[Principle] - principle_backend
 
@@ -104,7 +104,7 @@ from adapters.persistence.neo4j._crud_mixin import _CrudMixin
 from adapters.persistence.neo4j._relationship_mixin import _RelationshipMixin
 from adapters.persistence.neo4j._search_mixin import _SearchMixin
 from adapters.persistence.neo4j._traversal_mixin import _TraversalMixin
-from adapters.persistence.neo4j._user_mixin import _UserMixin
+from adapters.persistence.neo4j._user_entity_mixin import _UserEntityMixin
 
 logger = get_logger(__name__)
 
@@ -113,7 +113,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
     _CrudMixin[T],
     _SearchMixin[T],
     _RelationshipMixin[T],
-    _UserMixin[T],
+    _UserEntityMixin[T],
     _TraversalMixin,
 ):
     """

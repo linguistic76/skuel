@@ -58,7 +58,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         _default_filter_params: method
         _inject_default_filters: method
         _is_driver_closed: method
-        create_user_relationship: async method (from _UserMixin)
+        create_user_relationship: async method (from _UserEntityMixin)
     """
 
     if TYPE_CHECKING:
