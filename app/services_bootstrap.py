@@ -128,12 +128,12 @@ if TYPE_CHECKING:
     from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
     from core.services.feedback.progress_schedule_service import ProgressScheduleService
     from core.services.insight.insight_store import InsightStore
-    from core.services.journals.journal_output_generator import JournalOutputGenerator
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.notifications.notification_service import NotificationService
     from core.services.performance_optimization_service import PerformanceOptimizationService
+    from core.services.submissions.journal_output_generator import JournalOutputGenerator
     from core.services.transcription.transcription_service import TranscriptionService
     from core.services.user.intelligence.factory import (
         UserContextIntelligenceFactory,
@@ -1696,7 +1696,7 @@ async def compose_services(
         logger.info("✅ Report activity extractor created (DSL journal → entity extraction)")
 
         # Create journal processing services
-        from core.services.journals import JournalOutputGenerator
+        from core.services.submissions import JournalOutputGenerator
 
         # Get journal storage path from environment (default: /tmp/skuel_journals)
         journal_storage = os.getenv("SKUEL_JOURNAL_STORAGE", "/tmp/skuel_journals")

@@ -298,9 +298,9 @@ Three ways to specify processing instructions:
 ## Data Model
 
 ```python
-from core.models.report.report import Report
-from core.models.enums.report_enums import ReportType, ProcessorType
-from core.services.journals.journal_types import JournalWeights
+from core.models.submissions.journal import Journal
+from core.models.enums.entity_enums import EntityType, ProcessorType
+from core.services.submissions.journal_output_generator import JournalOutputGenerator
 
 @dataclass(frozen=True)
 class Report:

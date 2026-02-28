@@ -1,15 +1,16 @@
 """Submissions Routes - File Submission and Processing Pipeline
 ================================================================
 
-Wires Submissions API, UI, and Sharing routes using DomainRouteConfig
+Wires Submissions API, UI, Sharing, and Journals routes using DomainRouteConfig
 (Multi-Factory variant).
 
 Standard factories (via DomainRouteConfig):
 - create_submissions_api_routes: Upload, list, process, download, content management
 - create_submissions_ui_routes: Dashboard, detail view, HTMX fragments
 
-Extension factory (manual -- different primary service):
+Extension factories (manual):
 - create_submissions_sharing_api_routes: Share, unshare, visibility, portfolio
+- journals UI: /journals/* admin upload interface (EntityType.JOURNAL is a Submission subtype)
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
@@ -17,6 +18,7 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 from typing import Any
 
 from adapters.inbound.feedback_assessment_api import create_feedback_assessment_api_routes
+from adapters.inbound.journals_ui import create_journals_ui_routes
 from adapters.inbound.progress_feedback_api import create_progress_feedback_api_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.submissions_api import create_submissions_api_routes
@@ -42,6 +44,25 @@ SUBMISSIONS_CONFIG = DomainRouteConfig(
         "_report_projects_service": "assignments",
         "_submissions_search_service": "submissions_search",
         "_submissions_core_service": "submissions_core",
+    },
+)
+
+
+def _journals_noop_api_factory(_app: Any, _rt: Any, _primary: Any, **_kw: Any) -> list[Any]:
+    """No-op — journals reuse /api/submissions/* endpoints."""
+    return []
+
+
+JOURNALS_CONFIG = DomainRouteConfig(
+    domain_name="journals",
+    primary_service_attr="submissions",
+    api_factory=_journals_noop_api_factory,
+    ui_factory=create_journals_ui_routes,
+    ui_related_services={
+        "processing_service": "submissions_processor",
+        "report_projects_service": "exercises",
+        "user_service": "user_service",
+        "journal_generator": "journal_generator",
     },
 )
 
@@ -104,6 +125,13 @@ def create_submissions_routes(app: Any, rt: Any, services: Any, _sync_service=No
         )
         routes.extend(assessment_routes or [])
         logger.info("Feedback assessment routes registered")
+
+    # Extension: journals UI routes (EntityType.JOURNAL is a Submission subtype)
+    exercises_service = getattr(services, "exercises", None)
+    if exercises_service and getattr(services, "submissions_processor", None):
+        journal_routes = register_domain_routes(app, rt, services, JOURNALS_CONFIG)
+        routes.extend(journal_routes or [])
+        logger.info("Journals UI routes registered (Admin-only AI submission)")
 
     return routes
 

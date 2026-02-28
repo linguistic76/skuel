@@ -48,7 +48,7 @@ class JournalOutputGenerator:
         )
 
         # Load formatter prompts
-        prompts_dir = Path(__file__).parent / "prompts"
+        prompts_dir = Path(__file__).parent / "journal_prompts"
         self.activity_prompt = (prompts_dir / "activity_formatter.md").read_text()
         self.articulation_prompt = (prompts_dir / "articulation_formatter.md").read_text()
         self.exploration_prompt = (prompts_dir / "exploration_formatter.md").read_text()

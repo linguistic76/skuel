@@ -2,10 +2,9 @@
 Journals UI Routes — AI-Processed Submissions
 =================================================
 
+Journal is a Submission subtype (EntityType.JOURNAL extends Submission).
 Users upload files here to be processed by AI using default instructions.
-Distinct from /reports which sends files to human review.
-
-Processor type is auto-set to LLM — human review lives at /reports.
+Registered from submissions_routes.py — journals share /api/submissions/* endpoints.
 
 Layout: Unified sidebar (Tailwind + Alpine) with 2 nav items.
 Desktop: collapsible sidebar. Mobile: horizontal tabs.

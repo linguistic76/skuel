@@ -23,6 +23,7 @@ Sub-services:
 Feedback services live in core.services.feedback.
 """
 
+from core.services.submissions.journal_output_generator import JournalOutputGenerator
 from core.services.submissions.submission_processing_types import (
     SubmissionAIInsights,
     SubmissionProcessingContext,
@@ -37,6 +38,7 @@ from core.services.submissions.submissions_service import SubmissionsService
 from core.services.submissions.submissions_sharing_service import SubmissionsSharingService
 
 __all__ = [
+    "JournalOutputGenerator",
     "SubmissionAIInsights",
     "SubmissionProcessingContext",
     "SubmissionsCoreService",

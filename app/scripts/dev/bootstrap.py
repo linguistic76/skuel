@@ -586,22 +586,15 @@ async def _wire_all_routes(
         create_finance_routes(app, rt, services, None)  # sync removed Jan 2026
         logger.info("✅ Finance routes registered")
 
-    # Submissions routes (Primary interface for file submission and processing)
+    # Submissions routes (includes Journals UI — EntityType.JOURNAL is a Submission subtype)
     if services.submissions and services.submissions_processor:
         from adapters.inbound.submissions_routes import create_submissions_routes
 
         create_submissions_routes(app, rt, services, None)
 
         logger.info(
-            "✅ Submissions routes registered (Primary interface for audio/text processing)"
+            "✅ Submissions routes registered (includes /journals/* UI when exercises available)"
         )
-
-    # Journals routes (Admin-only AI submission via ReportProject instructions)
-    if services.submissions and services.submissions_processor and services.exercises:
-        from adapters.inbound.journals_routes import create_journals_routes
-
-        create_journals_routes(app, rt, services)
-        logger.info("✅ Journals routes registered (Admin-only AI submission)")
 
     if services.habits:
         from adapters.inbound.habits_routes import create_habits_routes
