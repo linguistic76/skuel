@@ -290,7 +290,8 @@
       "Bash(./dev quality-fix 2>&1)",
       "Bash(cd /home/mike/skuel/app/adapters/inbound && for f in *_api.py; do if ! grep -q \"boundary_handler\" \"$f\"; then echo \"$f\"; fi; done)",
       "Bash(grep -rn \"HTMX_ACCESSIBILITY_CHEAT_SHEET\\\\|HTMX_ACCESSIBILITY_MIGRATION\" /home/mike/skuel/app/docs/ --include=\"*.md\" | head -10\ngrep -rn \"HTMX_ACCESSIBILITY_CHEAT_SHEET\\\\|HTMX_ACCESSIBILITY_MIGRATION\" /home/mike/skuel/app/.claude/ --include=\"*.md\" 2>/dev/null | head -10)",
-      "Bash(cypher-shell -u neo4j -p neo4j_password_skuel \"MATCH \\(n:Entity {ku_type: 'curriculum'}\\) SET n.ku_type = 'ku' RETURN count\\(n\\) AS nodes_updated\" 2>&1)"
+      "Bash(cypher-shell -u neo4j -p neo4j_password_skuel \"MATCH \\(n:Entity {ku_type: 'curriculum'}\\) SET n.ku_type = 'ku' RETURN count\\(n\\) AS nodes_updated\" 2>&1)",
+      "Bash(sudo kill 3376 2>/dev/null || kill 3376 2>/dev/null; sleep 2 && echo \"killed\")"
     ]
   }
 }
