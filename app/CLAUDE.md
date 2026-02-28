@@ -96,7 +96,7 @@ async def get_learning_opportunities(
 | Skill | Primary Documentation | Related Patterns |
 |-------|----------------------|------------------|
 | **Foundation Layer** | | |
-| python | `/docs/patterns/three_tier_type_system.md`, `/docs/patterns/protocol_architecture.md` | ASYNC_SYNC_DESIGN_PATTERN.md |
+| python | `/docs/patterns/TYPE_SAFETY_OVERVIEW.md`, `/docs/patterns/three_tier_type_system.md`, `/docs/patterns/protocol_architecture.md` | ASYNC_SYNC_DESIGN_PATTERN.md, ANY_USAGE_POLICY.md |
 | pydantic | `/docs/patterns/three_tier_type_system.md`, `/docs/patterns/API_VALIDATION_PATTERNS.md` | DOMAIN_PATTERNS_CATALOG.md |
 | tailwind-css | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | — |
 | daisyui | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | — |
@@ -350,6 +350,43 @@ LifePath <--> All Domains
 | Generic Backend | `/adapters/persistence/neo4j/universal_backend.py` |
 
 **See:** `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`, `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md`
+
+## Type Safety Architecture
+
+**Core Principle:** "A type error from MyPy reveals a real design problem, not an annotation oversight"
+
+SKUEL treats type safety as infrastructure — enforced at every layer from HTTP boundaries to database writes. Three interlocking systems work together:
+
+| System | What it does |
+|--------|-------------|
+| **Three-Tier Type System** | Pydantic at edges, frozen dataclasses at core, DTOs between |
+| **Protocol-Based DI** | Zero concrete dependencies in route signatures — all services injected as protocols |
+| **Any Usage Policy** | Every `Any` is justified (Category C boundary) or eliminated (Categories A + B) |
+
+**Key type aliases** (from `core/models/type_hints.py`):
+```python
+Neo4jProperties  # dict[str, str | int | float | bool | list | None | datetime]
+FilterParams     # dict[str, str | int | float | bool | list | None]
+RelationshipMetadata  # TypedDict in core/ports/base_protocols.py
+```
+
+**FastHTML boundary** (library has no type stubs):
+```python
+from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp, Request, RouteList
+```
+
+**`Any` policy in brief:**
+- Category A (lazy typing — eliminate): `logger: Any`, `driver: Any`, `priority: Any`
+- Category B (reducible — use specific type): `dict[str, Any]` → `Neo4jProperties` or `FilterParams`
+- Category C (permanent boundary — add `# boundary:` comment): FastHTML elements, error metadata, Neo4j primitives
+
+**See:**
+- `docs/patterns/TYPE_SAFETY_OVERVIEW.md` — unified entry point (start here)
+- `docs/patterns/ANY_USAGE_POLICY.md` — complete `Any` classification + quick-reference table
+- `docs/patterns/MYPY_TYPE_SAFETY_PATTERNS.md` — common MyPy error patterns and fixes
+- `docs/patterns/mypy_pragmatic_strategy.md` — per-module strictness configuration
+
+---
 
 ## Three-Tier Type System
 
@@ -816,13 +853,34 @@ await teacher_review.approve_report(report_uid, teacher_uid)
 
 ## Generic Programming Patterns
 
-**Key Patterns:**
-1. Generic Repository[T] - `/core/patterns/repository.py`
-2. CypherGenerator - Pure Cypher query building
-3. Result[T] Pattern - Results internally, `@boundary_handler` at boundaries
-4. BaseAdapter Pattern - Single `update_to_dict` for all adapters
+**Core Principle:** "One generic backend serves all 15 entity types"
 
-**See:** `/docs/patterns/query_architecture.md`, `/docs/patterns/CLEAN_PATTERNS.md`
+```python
+# Generic type aliases (core/models/type_hints.py)
+type Validator[T] = Callable[[T], list[str]]      # validate(entity) -> error list
+type EntityFilter[T] = Callable[[T], bool]          # filter(entity) -> keep/reject
+type Scorer[T] = Callable[[T], Score]               # score(entity) -> 0.0..1.0
+type Updater[T] = Callable[[T, dict[str, Any]], T]  # apply update to entity
+
+# Generic backend — T constrained by DomainModelProtocol
+backend = UniversalNeo4jBackend[Task](driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
+
+# Generic service base — B=protocol, T=domain model
+class GoalsCoreService(BaseService[GoalsOperations, Goal]):
+    _config = create_activity_domain_config(dto_class=GoalDTO, model_class=Goal, ...)
+
+# Type guard for runtime narrowing
+if is_valid_uid(raw_uid):  # TypeGuard[EntityUID]
+    uid = EntityUID(raw_uid)
+```
+
+**Key Patterns:**
+1. `UniversalNeo4jBackend[T]` - One backend, all entities; no per-entity wrappers
+2. `BaseService[B, T]` - Service facade typed to protocol + domain model
+3. `Result[T]` Pattern - Results internally, `@boundary_handler` at boundaries
+4. Generic type aliases - Avoid `Callable[[Any], bool]`; use `EntityFilter[Task]`
+
+**See:** `docs/patterns/TYPE_SAFETY_OVERVIEW.md` (Generic Types section), `/docs/patterns/query_architecture.md`
 
 ## Infrastructure Helpers
 
@@ -1278,7 +1336,11 @@ def by_score(item: Item) -> int:
 sorted(items, key=by_score)
 ```
 
-**See:** `/docs/patterns/linter_rules.md`
+**MyPy Configuration:** Strict where it matters, gradual everywhere else. Per-module overrides in `pyproject.toml` — `core.models.*` at medium strictness, `core.services.*` gradual. Three globally-disabled codes: `type-var`, `assignment` (frozen dataclass `__post_init__` limitation), `arg-type`.
+
+**Any discipline:** Every new `Any` in a PR must have a `# boundary:` comment or be a Category B type that should use `Neo4jProperties` / `FilterParams` / `RelationshipMetadata`. See `docs/patterns/ANY_USAGE_POLICY.md`.
+
+**See:** `/docs/patterns/linter_rules.md`, `docs/patterns/mypy_pragmatic_strategy.md`, `docs/patterns/MYPY_TYPE_SAFETY_PATTERNS.md`
 
 ## Observability & Monitoring
 

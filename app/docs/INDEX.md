@@ -146,6 +146,9 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Service Decomposition - Implementation Guide](patterns/SERVICE_DECOMPOSITION_IMPLEMENTATION_GUIDE.md) | 2025-11-27 | 554 |
 | [Service Integration Guide - Relationship Helpers](patterns/SERVICE_INTEGRATION_RELATIONSHIP_HELPERS.md) | 2025-11-18 | 468 |
 | **[Three-Tier Type System](patterns/three_tier_type_system.md)** | **2026-01-24** | **468** |
+| **[Type Safety Architecture Overview](patterns/TYPE_SAFETY_OVERVIEW.md)** | **2026-02-28** | **247** |
+| **[Any Usage Policy](patterns/ANY_USAGE_POLICY.md)** | **2026-02-28** | **169** |
+| **[MyPy Type Safety Patterns](patterns/MYPY_TYPE_SAFETY_PATTERNS.md)** | **2026-02-28** | — |
 | [Trial Limits Infrastructure](patterns/TRIAL_LIMITS.md) | 2026-01-04 | 180 |
 | [Service Consolidation Patterns](patterns/SERVICE_CONSOLIDATION_PATTERNS.md) | 2026-01-07 | 350 |
 | [Unified Ingestion Guide](patterns/UNIFIED_INGESTION_GUIDE.md) | 2026-01-07 | 300 |
