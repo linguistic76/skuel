@@ -480,39 +480,53 @@ async def services(neo4j_driver):
             """Forward all other calls to backend."""
             return getattr(self.backend, name)
 
+    from core.models.choice.choice import Choice
+    from core.models.event.event import Event
+    from core.models.goal.goal import Goal
+    from core.models.habit.habit import Habit
+    from core.models.task.task import Task
+    from core.models.principle.principle import Principle
+    from core.models.enums.neo_labels import NeoLabel
+
     # Create backends with test wrappers
-    raw_ku_backend = UniversalNeo4jBackend[EntityDTO](neo4j_driver, "Entity", EntityDTO)
+    raw_ku_backend = UniversalNeo4jBackend[EntityDTO](
+        neo4j_driver, NeoLabel.KU, EntityDTO, base_label=NeoLabel.ENTITY
+    )
     ku_backend = TestBackendWrapper(raw_ku_backend, EntityDTO)
 
-    raw_tasks_backend = UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "task"}
+    raw_tasks_backend = UniversalNeo4jBackend[Task](
+        neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
     )
-    tasks_backend = TestBackendWrapper(raw_tasks_backend, Entity)
+    tasks_backend = TestBackendWrapper(raw_tasks_backend, Task)
 
-    raw_goals_backend = UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "goal"}
+    raw_goals_backend = UniversalNeo4jBackend[Goal](
+        neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY
     )
-    goals_backend = TestBackendWrapper(raw_goals_backend, Entity)
+    goals_backend = TestBackendWrapper(raw_goals_backend, Goal)
 
-    raw_events_backend = UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "event"}
+    raw_events_backend = UniversalNeo4jBackend[Event](
+        neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY
     )
-    events_backend = TestBackendWrapper(raw_events_backend, Entity)
+    events_backend = TestBackendWrapper(raw_events_backend, Event)
 
-    raw_ls_backend = UniversalNeo4jBackend[Entity](neo4j_driver, "Entity", Entity)
+    raw_ls_backend = UniversalNeo4jBackend[Entity](
+        neo4j_driver, NeoLabel.LEARNING_STEP, Entity, base_label=NeoLabel.ENTITY
+    )
     ls_backend = TestBackendWrapper(raw_ls_backend, Entity)
 
-    raw_lp_backend = UniversalNeo4jBackend[Entity](neo4j_driver, "Entity", Entity)
+    raw_lp_backend = UniversalNeo4jBackend[Entity](
+        neo4j_driver, NeoLabel.LEARNING_PATH, Entity, base_label=NeoLabel.ENTITY
+    )
     lp_backend = TestBackendWrapper(raw_lp_backend, Entity)
 
-    raw_principles_backend = UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "principle"}
+    raw_principles_backend = UniversalNeo4jBackend[Principle](
+        neo4j_driver, NeoLabel.PRINCIPLE, Principle, base_label=NeoLabel.ENTITY
     )
-    principles_backend = TestBackendWrapper(raw_principles_backend, Entity)
+    principles_backend = TestBackendWrapper(raw_principles_backend, Principle)
 
     # These backends aren't used by tests, create without wrapper
-    choices_backend = UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "choice"}
+    choices_backend = UniversalNeo4jBackend[Choice](
+        neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY
     )
     users_backend = UniversalNeo4jBackend[User](neo4j_driver, "User", User)
 
@@ -862,11 +876,12 @@ def user_uid():
 
 @pytest_asyncio.fixture
 async def tasks_backend(neo4j_driver):
-    """Create tasks backend for testing — domain-first Entity model with entity_type filter."""
-    from core.models.entity import Entity
+    """Create tasks backend for testing."""
+    from core.models.task.task import Task
+    from core.models.enums.neo_labels import NeoLabel
 
-    return UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "task"}
+    return UniversalNeo4jBackend[Task](
+        neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
     )
 
 
@@ -880,11 +895,12 @@ async def tasks_service(tasks_backend, event_bus):
 
 @pytest_asyncio.fixture
 async def goals_backend(neo4j_driver):
-    """Create goals backend for testing — domain-first Entity model with entity_type filter."""
-    from core.models.entity import Entity
+    """Create goals backend for testing."""
+    from core.models.goal.goal import Goal
+    from core.models.enums.neo_labels import NeoLabel
 
-    return UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "goal"}
+    return UniversalNeo4jBackend[Goal](
+        neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY
     )
 
 
@@ -898,11 +914,12 @@ async def goals_service(goals_backend, event_bus):
 
 @pytest_asyncio.fixture
 async def habits_backend(neo4j_driver):
-    """Create habits backend for testing — domain-first Entity model with entity_type filter."""
-    from core.models.entity import Entity
+    """Create habits backend for testing."""
+    from core.models.habit.habit import Habit
+    from core.models.enums.neo_labels import NeoLabel
 
-    return UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "habit"}
+    return UniversalNeo4jBackend[Habit](
+        neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY
     )
 
 
@@ -916,11 +933,12 @@ async def habits_service(habits_backend, event_bus):
 
 @pytest_asyncio.fixture
 async def events_backend(neo4j_driver):
-    """Create events backend for testing — domain-first Entity model with entity_type filter."""
+    """Create events backend for testing."""
     from core.models.event.event import Event
+    from core.models.enums.neo_labels import NeoLabel
 
     return UniversalNeo4jBackend[Event](
-        neo4j_driver, "Entity", Event, default_filters={"ku_type": "event"}
+        neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY
     )
 
 
@@ -934,11 +952,12 @@ async def events_service(events_backend, event_bus):
 
 @pytest_asyncio.fixture
 async def choices_backend(neo4j_driver):
-    """Create choices backend for testing — domain-first Entity model with entity_type filter."""
-    from core.models.entity import Entity
+    """Create choices backend for testing."""
+    from core.models.choice.choice import Choice
+    from core.models.enums.neo_labels import NeoLabel
 
-    return UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "choice"}
+    return UniversalNeo4jBackend[Choice](
+        neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY
     )
 
 
@@ -953,10 +972,11 @@ async def choices_service(choices_backend, event_bus):
 @pytest_asyncio.fixture
 async def principles_backend(neo4j_driver):
     """Create principles backend for testing."""
-    from core.models.entity import Entity
+    from core.models.principle.principle import Principle
+    from core.models.enums.neo_labels import NeoLabel
 
-    return UniversalNeo4jBackend[Entity](
-        neo4j_driver, "Entity", Entity, default_filters={"ku_type": "principle"}
+    return UniversalNeo4jBackend[Principle](
+        neo4j_driver, NeoLabel.PRINCIPLE, Principle, base_label=NeoLabel.ENTITY
     )
 
 
