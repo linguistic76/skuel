@@ -265,9 +265,8 @@ async def test_boundary_handler_unexpected_exception():
     async def mock_route_with_exception():
         raise ValueError("Something went wrong")
 
-    result = await mock_route_with_exception()
-    # Unexpected exceptions return tuple (dict, status_code)
-    body, status = result
+    response = await mock_route_with_exception()
+    body, status = extract_response(response)
 
     assert status == 500
     assert "error" in body
