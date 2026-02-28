@@ -50,12 +50,21 @@ async def event_bus():
 
 
 @pytest_asyncio.fixture
-async def embeddings_service(neo4j_driver):
-    """Create embeddings service for e2e tests."""
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-    from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+async def embeddings_service():
+    """Mock embeddings service for e2e tests — avoids real OpenAI calls."""
+    from unittest.mock import Mock
 
-    return Neo4jGenAIEmbeddingsService(Neo4jQueryExecutor(neo4j_driver))
+    from core.utils.result_simplified import Result
+
+    mock = Mock()
+    mock.model = "text-embedding-3-small"
+
+    async def fake_batch_embeddings(texts: list[str]) -> Result:
+        fake_vector = [0.1] * 1536
+        return Result.ok([fake_vector for _ in texts])
+
+    mock.create_batch_embeddings = fake_batch_embeddings
+    return mock
 
 
 @pytest_asyncio.fixture
