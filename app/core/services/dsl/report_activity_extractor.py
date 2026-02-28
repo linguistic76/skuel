@@ -1394,7 +1394,7 @@ class ReportActivityExtractorService:
         Note: Uses suppress_errors=True since metadata updates are non-critical.
         """
         # Get current report
-        get_result = await self.report_service.get_report(report_uid)
+        get_result = await self.report_service.get_submission(report_uid)
         if get_result.is_error:
             self.logger.warning(f"Could not get report for metadata update: {get_result.error}")
             return
@@ -1408,7 +1408,7 @@ class ReportActivityExtractorService:
         current_metadata["activity_extraction"] = extraction.to_dict()
 
         # Update report
-        await self.report_service.update_report(
+        await self.report_service.update_submission(
             uid=report_uid,
             updates={"metadata": current_metadata},
         )

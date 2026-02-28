@@ -205,12 +205,12 @@ def _render_reports_grid(reports: list[Any]) -> Any:
     if not reports:
         return Div(
             P("No AI-processed reports found.", cls="text-center text-base-content/60"),
-            id="reports-grid-container",
+            id="submissions-grid-container",
         )
 
     return Div(
         *[_render_report_card(r) for r in reports],
-        id="reports-grid-container",
+        id="submissions-grid-container",
     )
 
 
@@ -554,7 +554,7 @@ def _render_filters_section() -> Any:
                 ),
                 **{
                     "hx-get": "/journals/grid",
-                    "hx-target": "#reports-grid-container",
+                    "hx-target": "#submissions-grid-container",
                     "hx-swap": "outerHTML",
                     "hx-trigger": "change from:select",
                 },
@@ -570,7 +570,7 @@ def _render_reports_grid_container() -> Any:
     """Render the HTMX-loading reports grid container."""
     return Div(
         P("Loading AI reports...", cls="text-center text-base-content/60"),
-        id="reports-grid-container",
+        id="submissions-grid-container",
         cls="mt-4",
         **{
             "hx-get": "/journals/grid",
@@ -827,7 +827,7 @@ def create_journals_ui_routes(
             if result.is_error:
                 return Div(
                     P("Failed to load reports", cls="text-center text-error"),
-                    id="reports-grid-container",
+                    id="submissions-grid-container",
                 )
 
             reports = result.value or []
@@ -843,7 +843,7 @@ def create_journals_ui_routes(
             logger.error(f"Error loading AI reports: {e}", exc_info=True)
             return Div(
                 P(f"Error: {e}", cls="text-center text-error"),
-                id="reports-grid-container",
+                id="submissions-grid-container",
             )
 
     @rt("/journals/{uid}/download")
@@ -857,7 +857,7 @@ def create_journals_ui_routes(
             user_uid = require_authenticated_user(request)
 
             # Fetch the report
-            result = await report_service.get_report(uid)
+            result = await report_service.get_submission(uid)
 
             if result.is_error:
                 logger.warning(f"Report {uid} not found for download")

@@ -45,7 +45,7 @@ class TestOptionAJournalsProcessing:
     # ==========================================================================
 
     @pytest_asyncio.fixture
-    async def mock_report_service(self):
+    async def mock_submissions_service(self):
         """Mock SubmissionsService."""
         service = AsyncMock()
 
@@ -66,50 +66,50 @@ class TestOptionAJournalsProcessing:
         )
 
         # Track state changes (mutable reference)
-        current_state = {"report": ku}
+        current_state = {"submission": ku}
 
         # get_submission returns current state
         def mock_get_submission(uid):
-            return Result.ok(current_state["report"])
+            return Result.ok(current_state["submission"])
 
-        # update_report_status tracks status changes
+        # update_submission_status tracks status changes
         def mock_update_status(uid, status, error_message=None):
             updated = Submission(
-                uid=current_state["report"].uid,
-                title=current_state["report"].title,
-                user_uid=current_state["report"].user_uid,
-                ku_type=current_state["report"].ku_type,
+                uid=current_state["submission"].uid,
+                title=current_state["submission"].title,
+                user_uid=current_state["submission"].user_uid,
+                ku_type=current_state["submission"].ku_type,
                 status=status,
-                file_path=current_state["report"].file_path,
-                file_type=current_state["report"].file_type,
-                file_size=current_state["report"].file_size,
-                original_filename=current_state["report"].original_filename,
-                processor_type=current_state["report"].processor_type,
-                created_at=current_state["report"].created_at,
+                file_path=current_state["submission"].file_path,
+                file_type=current_state["submission"].file_type,
+                file_size=current_state["submission"].file_size,
+                original_filename=current_state["submission"].original_filename,
+                processor_type=current_state["submission"].processor_type,
+                created_at=current_state["submission"].created_at,
                 updated_at=datetime.now(),
-                processed_content=current_state["report"].processed_content,
+                processed_content=current_state["submission"].processed_content,
             )
-            current_state["report"] = updated
+            current_state["submission"] = updated
             return Result.ok(updated)
 
         # update_processed_content stores the content
         def mock_update_content(uid, processed_content):
             updated = Submission(
-                uid=current_state["report"].uid,
-                title=current_state["report"].title,
-                user_uid=current_state["report"].user_uid,
-                ku_type=current_state["report"].ku_type,
-                status=current_state["report"].status,
-                file_path=current_state["report"].file_path,
-                file_type=current_state["report"].file_type,
-                file_size=current_state["report"].file_size,
-                original_filename=current_state["report"].original_filename,
-                processor_type=current_state["report"].processor_type,
-                created_at=current_state["report"].created_at,
+                uid=current_state["submission"].uid,
+                title=current_state["submission"].title,
+                user_uid=current_state["submission"].user_uid,
+                ku_type=current_state["submission"].ku_type,
+                status=current_state["submission"].status,
+                file_path=current_state["submission"].file_path,
+                file_type=current_state["submission"].file_type,
+                file_size=current_state["submission"].file_size,
+                original_filename=current_state["submission"].original_filename,
+                processor_type=current_state["submission"].processor_type,
+                created_at=current_state["submission"].created_at,
                 updated_at=datetime.now(),
                 processed_content=processed_content,
             )
-            current_state["report"] = updated
+            current_state["submission"] = updated
             return Result.ok(updated)
 
         service.get_submission.side_effect = mock_get_submission
@@ -148,7 +148,7 @@ class TestOptionAJournalsProcessing:
     @pytest_asyncio.fixture
     async def processing_pipeline(
         self,
-        mock_report_service,
+        mock_submissions_service,
         mock_transcription_service,
     ):
         """Create SubmissionsProcessingService with mocked dependencies.
@@ -157,7 +157,7 @@ class TestOptionAJournalsProcessing:
         because they are NOT used after the January 2026 domain separation.
         """
         return SubmissionsProcessingService(
-            ku_submission_service=mock_report_service,
+            ku_submission_service=mock_submissions_service,
             transcription_service=mock_transcription_service,
             content_enrichment=None,  # Not used - journals have their own domain
             ku_relationship_service=None,  # Not used - journals have their own domain
@@ -186,7 +186,7 @@ class TestOptionAJournalsProcessing:
         assert mock_transcription_service.process.called
 
     async def test_audio_processing_stores_raw_transcript(
-        self, processing_pipeline, mock_report_service
+        self, processing_pipeline, mock_submissions_service
     ):
         """Test that audio processing stores the raw transcript (no LLM formatting)."""
         # Arrange
@@ -199,14 +199,14 @@ class TestOptionAJournalsProcessing:
         assert result.is_ok
 
         # Verify update_processed_content was called with raw transcript
-        assert mock_report_service.update_processed_content.called
-        call_args = mock_report_service.update_processed_content.call_args
+        assert mock_submissions_service.update_processed_content.called
+        call_args = mock_submissions_service.update_processed_content.call_args
 
         # Should be raw transcript text, not LLM-formatted
         assert call_args[1]["processed_content"] == "This is the transcribed meeting content."
 
     async def test_audio_processing_status_transitions(
-        self, processing_pipeline, mock_report_service
+        self, processing_pipeline, mock_submissions_service
     ):
         """Test that audio processing follows correct status transitions."""
         # Arrange
@@ -219,7 +219,7 @@ class TestOptionAJournalsProcessing:
         assert result.is_ok
 
         # Verify status update calls
-        status_calls = mock_report_service.update_submission_status.call_args_list
+        status_calls = mock_submissions_service.update_submission_status.call_args_list
 
         # Should have: QUEUED, PROCESSING, COMPLETED
         assert len(status_calls) >= 2
@@ -233,7 +233,7 @@ class TestOptionAJournalsProcessing:
     # TEXT PROCESSING TESTS
     # ==========================================================================
 
-    async def test_text_processing_reads_content(self, mock_report_service):
+    async def test_text_processing_reads_content(self, mock_submissions_service):
         """Test that text files are read directly from storage."""
         # Arrange - Create text file entity
         text_ku = Submission(
@@ -251,13 +251,13 @@ class TestOptionAJournalsProcessing:
             updated_at=datetime.now(),
         )
 
-        mock_report_service.get_submission.side_effect = lambda _uid: Result.ok(text_ku)
-        mock_report_service.get_file_content.return_value = Result.ok(
+        mock_submissions_service.get_submission.side_effect = lambda _uid: Result.ok(text_ku)
+        mock_submissions_service.get_file_content.return_value = Result.ok(
             b"This is the text file content."
         )
 
         pipeline = SubmissionsProcessingService(
-            ku_submission_service=mock_report_service,
+            ku_submission_service=mock_submissions_service,
             transcription_service=None,  # Not needed for text
         )
 
@@ -268,11 +268,11 @@ class TestOptionAJournalsProcessing:
         assert result.is_ok
 
         # Verify file content was read
-        assert mock_report_service.get_file_content.called
+        assert mock_submissions_service.get_file_content.called
 
         # Verify content was stored
-        assert mock_report_service.update_processed_content.called
-        call_args = mock_report_service.update_processed_content.call_args
+        assert mock_submissions_service.update_processed_content.called
+        call_args = mock_submissions_service.update_processed_content.call_args
         assert call_args[1]["processed_content"] == "This is the text file content."
 
     # ==========================================================================
@@ -280,7 +280,7 @@ class TestOptionAJournalsProcessing:
     # ==========================================================================
 
     async def test_transcription_failure_marks_report_failed(
-        self, mock_report_service, mock_transcription_service
+        self, mock_submissions_service, mock_transcription_service
     ):
         """Test that transcription failure marks entity as FAILED."""
         # Arrange
@@ -289,7 +289,7 @@ class TestOptionAJournalsProcessing:
         )
 
         pipeline = SubmissionsProcessingService(
-            ku_submission_service=mock_report_service,
+            ku_submission_service=mock_submissions_service,
             transcription_service=mock_transcription_service,
         )
 
@@ -300,7 +300,7 @@ class TestOptionAJournalsProcessing:
         assert result.is_error
 
         # Verify status was set to FAILED
-        status_calls = mock_report_service.update_submission_status.call_args_list
+        status_calls = mock_submissions_service.update_submission_status.call_args_list
         final_status = status_calls[-1][0][1]
         assert final_status == EntityStatus.FAILED
 
@@ -374,7 +374,7 @@ class TestOptionAJournalsProcessing:
     # ARCHITECTURE VALIDATION TESTS
     # ==========================================================================
 
-    async def test_ku_type_discriminator_works(self, mock_report_service):
+    async def test_ku_type_discriminator_works(self, mock_submissions_service):
         """Test that ku_type discriminator works correctly."""
         # Arrange
         assignment_ku = Submission(
@@ -405,7 +405,7 @@ class TestOptionAJournalsProcessing:
         assert curriculum_ku.ku_type == EntityType.KU
 
     async def test_no_llm_processing_in_report_pipeline(
-        self, processing_pipeline, mock_report_service
+        self, processing_pipeline, mock_submissions_service
     ):
         """Test that entity pipeline does NOT do LLM processing (domain separation)."""
         # Arrange
@@ -418,21 +418,21 @@ class TestOptionAJournalsProcessing:
         assert result.is_ok
 
         # Verify raw content stored, not LLM-formatted
-        call_args = mock_report_service.update_processed_content.call_args
+        call_args = mock_submissions_service.update_processed_content.call_args
         content = call_args[1]["processed_content"]
 
         # Raw transcript should be stored as-is
         assert content == "This is the transcribed meeting content."
         # NOT something like "# Meeting Notes\n\n## Summary\n..."
 
-    async def test_reprocess_ku_resets_status(self, processing_pipeline, mock_report_service):
+    async def test_reprocess_ku_resets_status(self, processing_pipeline, mock_submissions_service):
         """Test that reprocessing an entity resets its status."""
         # First, complete initial processing
         report_uid = "report.test_transcript"
         await processing_pipeline.process_submission(report_uid)
 
         # Reset the mock to track reprocessing calls
-        mock_report_service.update_submission_status.reset_mock()
+        mock_submissions_service.update_submission_status.reset_mock()
 
         # Now, update the entity to COMPLETED state for reprocessing test
         completed_ku = Submission(
@@ -450,7 +450,7 @@ class TestOptionAJournalsProcessing:
             updated_at=datetime.now(),
             processed_content="Old content",
         )
-        mock_report_service.get_submission.return_value = Result.ok(completed_ku)
+        mock_submissions_service.get_submission.return_value = Result.ok(completed_ku)
 
         # Act - reprocess
         result = await processing_pipeline.reprocess_submission(report_uid)
@@ -459,6 +459,6 @@ class TestOptionAJournalsProcessing:
         assert result.is_ok
 
         # Verify status was reset to SUBMITTED first
-        status_calls = mock_report_service.update_submission_status.call_args_list
+        status_calls = mock_submissions_service.update_submission_status.call_args_list
         first_status = status_calls[0][0][1]
         assert first_status == EntityStatus.SUBMITTED

@@ -151,12 +151,12 @@ def _render_reports_grid(reports: list[Any]) -> Any:
     if not reports:
         return Div(
             P("No reports found.", cls="text-center text-base-content/60"),
-            id="reports-grid-container",
+            id="submissions-grid-container",
         )
 
     return Div(
         *[_render_report_card(a) for a in reports],
-        id="reports-grid-container",
+        id="submissions-grid-container",
     )
 
 
@@ -201,7 +201,7 @@ def _render_report_detail(report: Any) -> Any:
             ),
             cls="grid grid-cols-1 md:grid-cols-2 gap-4",
         ),
-        id="report-info",
+        id="submission-info",
     )
 
 
@@ -716,7 +716,7 @@ def _upload_form_script() -> Any:
                     btn.disabled = false;
                     btn.textContent = 'Submit for Review';
                 }
-                htmx.trigger('#reports-grid-container', 'load');
+                htmx.trigger('#submissions-grid-container', 'load');
             }
         });
     """)
@@ -762,7 +762,7 @@ def _render_filters_section() -> Any:
                 ),
                 **{
                     "hx-get": "/submissions/grid",
-                    "hx-target": "#reports-grid-container",
+                    "hx-target": "#submissions-grid-container",
                     "hx-swap": "outerHTML",
                     "hx-trigger": "change from:select",
                 },
@@ -778,7 +778,7 @@ def _render_reports_grid_container() -> Any:
     """Render the HTMX-loading reports grid container."""
     return Div(
         P("Loading reports...", cls="text-center text-base-content/60"),
-        id="reports-grid-container",
+        id="submissions-grid-container",
         cls="mt-4",
         **{
             "hx-get": "/submissions/grid",
@@ -1010,10 +1010,10 @@ def create_submissions_ui_routes(
             active="submit",
             title="Submissions",
             subtitle="Submit and manage files",
-            storage_key="reports-sidebar",
+            storage_key="submissions-sidebar",
             page_title="Submit",
             request=request,
-            active_page="reports",
+            active_page="submissions",
             title_href="/submissions",
         )
 
@@ -1032,10 +1032,10 @@ def create_submissions_ui_routes(
             active="browse",
             title="Submissions",
             subtitle="Submit and manage files",
-            storage_key="reports-sidebar",
+            storage_key="submissions-sidebar",
             page_title="Browse Submissions",
             request=request,
-            active_page="reports",
+            active_page="submissions",
             title_href="/submissions",
         )
 
@@ -1056,10 +1056,10 @@ def create_submissions_ui_routes(
             active="yours",
             title="Submissions",
             subtitle="Submit and manage files",
-            storage_key="reports-sidebar",
+            storage_key="submissions-sidebar",
             page_title="Your Submissions",
             request=request,
-            active_page="reports",
+            active_page="submissions",
             title_href="/submissions",
         )
 
@@ -1164,7 +1164,7 @@ def create_submissions_ui_routes(
             if result.is_error:
                 return Div(
                     P("Failed to load reports", cls="text-center text-error"),
-                    id="reports-grid-container",
+                    id="submissions-grid-container",
                 )
 
             reports = result.value or []
@@ -1174,7 +1174,7 @@ def create_submissions_ui_routes(
             logger.error(f"Error loading reports: {e}", exc_info=True)
             return Div(
                 P(f"Error: {e}", cls="text-center text-error"),
-                id="reports-grid-container",
+                id="submissions-grid-container",
             )
 
     @rt("/submissions/{uid}/info")
@@ -1189,7 +1189,7 @@ def create_submissions_ui_routes(
                         P(f"Failed to load report: {result.error}"),
                         cls="alert alert-error",
                     ),
-                    id="report-info",
+                    id="submission-info",
                 )
 
             submission = result.value
@@ -1199,7 +1199,7 @@ def create_submissions_ui_routes(
                         P(f"Report {uid} not found"),
                         cls="alert alert-warning",
                     ),
-                    id="report-info",
+                    id="submission-info",
                 )
             return _render_report_detail(submission)
 
@@ -1210,7 +1210,7 @@ def create_submissions_ui_routes(
                     P(f"Error: {e}"),
                     cls="alert alert-error",
                 ),
-                id="report-info",
+                id="submission-info",
             )
 
     @rt("/submissions/{uid}/content")
@@ -1291,10 +1291,10 @@ def create_submissions_ui_routes(
             active="feedback",
             title="Submissions",
             subtitle="Submit and manage files",
-            storage_key="reports-sidebar",
+            storage_key="submissions-sidebar",
             page_title="Feedback",
             request=request,
-            active_page="reports",
+            active_page="submissions",
             title_href="/submissions",
         )
 
@@ -1382,7 +1382,7 @@ def create_submissions_ui_routes(
             H3("Recent Progress Reports", cls="font-semibold mb-4"),
             Div(
                 P("Loading...", cls="text-center text-base-content/60"),
-                id="progress-reports-list",
+                id="progress-list",
                 **{
                     "hx-get": "/api/feedback/progress?limit=10",
                     "hx-trigger": "load",
@@ -1392,10 +1392,10 @@ def create_submissions_ui_routes(
             Script(
                 NotStr("""
                 document.body.addEventListener('htmx:afterRequest', function(evt) {
-                    if (evt.detail.elt.id === 'progress-reports-list') {
+                    if (evt.detail.elt.id === 'progress-list') {
                         try {
                             var data = JSON.parse(evt.detail.xhr.responseText);
-                            var container = document.getElementById('progress-reports-list');
+                            var container = document.getElementById('progress-list');
                             if (!data.reports || data.reports.length === 0) {
                                 container.innerHTML = '<p class="text-center text-base-content/60 py-4">No progress reports yet. Generate your first one above!</p>';
                                 return;
@@ -1435,10 +1435,10 @@ def create_submissions_ui_routes(
             active="progress",
             title="Submissions",
             subtitle="Submit and manage files",
-            storage_key="reports-sidebar",
+            storage_key="submissions-sidebar",
             page_title="Progress Reports",
             request=request,
-            active_page="reports",
+            active_page="submissions",
             title_href="/submissions",
         )
 
@@ -1470,7 +1470,7 @@ def create_submissions_ui_routes(
     # ========================================================================
     # REPORT DETAIL VIEW - HTMX-powered
     # ========================================================================
-    # IMPORTANT: This route MUST be defined LAST because /reports/{uid}
+    # IMPORTANT: This route MUST be defined LAST because /submissions/{uid}
     # is a catch-all pattern that would match specific routes like
     # /reports/grid, /reports/upload, etc.
     # ========================================================================
@@ -1503,7 +1503,7 @@ def create_submissions_ui_routes(
                 # Report info container (loaded via HTMX)
                 Div(
                     P("Loading report details...", cls="text-center text-base-content/60"),
-                    id="report-info",
+                    id="submission-info",
                     cls="mb-4",
                     **{
                         "hx-get": f"/submissions/{uid}/info",
@@ -1561,13 +1561,13 @@ def create_submissions_ui_routes(
             content,
             title="Submission Details",
             request=request,
-            active_page="reports",
+            active_page="submissions",
         )
 
     logger.info("Submissions UI routes created successfully")
 
     # Route order matters! Specific routes must come BEFORE parameterized routes.
-    # Otherwise /reports/grid would match /reports/{uid} with uid="grid"
+    # Otherwise /submissions/grid would match /submissions/{uid} with uid="grid"
     return [
         submissions_landing,  # /reports (exact)
         submissions_submit_page,  # /reports/submit (specific)
@@ -1577,10 +1577,10 @@ def create_submissions_ui_routes(
         submissions_progress_page,  # /reports/progress (specific)
         upload_submission,  # /reports/upload (specific, HTMX POST)
         get_submissions_grid,  # /reports/grid (specific, HTMX GET)
-        get_submission_info,  # /reports/{uid}/info (pattern + suffix)
-        get_submission_content,  # /reports/{uid}/content (pattern + suffix)
-        get_category_selector,  # /reports/{uid}/category-selector (pattern + suffix)
-        get_tags_manager,  # /reports/{uid}/tags-manager (pattern + suffix)
-        get_shared_users_ui,  # /reports/{uid}/shared-users (pattern + suffix)
-        submission_detail,  # /reports/{uid} (catch-all - MUST BE LAST)
+        get_submission_info,  # /submissions/{uid}/info (pattern + suffix)
+        get_submission_content,  # /submissions/{uid}/content (pattern + suffix)
+        get_category_selector,  # /submissions/{uid}/category-selector (pattern + suffix)
+        get_tags_manager,  # /submissions/{uid}/tags-manager (pattern + suffix)
+        get_shared_users_ui,  # /submissions/{uid}/shared-users (pattern + suffix)
+        submission_detail,  # /submissions/{uid} (catch-all - MUST BE LAST)
     ]

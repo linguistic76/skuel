@@ -3,7 +3,7 @@
 Desktop: Collapsible fixed sidebar with toggle button.
 Mobile: Horizontal DaisyUI tabs at top of content area.
 
-One pattern for all sidebar pages (Profile, KU, Reports, Journals, Askesis).
+One pattern for all sidebar pages (Profile, KU, Submissions, Journals, Askesis).
 
 Usage:
     from ui.patterns.sidebar import SidebarItem, SidebarPage
@@ -17,10 +17,10 @@ Usage:
         content=my_content,
         items=items,
         active="submit",
-        title="Reports",
-        storage_key="reports-sidebar",
+        title="Submissions",
+        storage_key="submissions-sidebar",
         request=request,
-        active_page="reports",
+        active_page="submissions",
     )
 """
 

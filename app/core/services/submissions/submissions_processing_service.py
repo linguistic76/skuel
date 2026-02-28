@@ -377,7 +377,7 @@ class SubmissionsProcessingService:
         current_metadata["enrichment_mode"] = effective_mode
         current_metadata["je_output_path"] = je_output_path
 
-        await self.ku_submission_service.update_report(
+        await self.ku_submission_service.update_submission(
             uid=report.uid,
             updates={"metadata": current_metadata},
         )
