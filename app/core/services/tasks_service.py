@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 if TYPE_CHECKING:
     from datetime import date
 
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import TasksOperations
     from core.ports.search_protocols import TasksSearchOperations
 
 # Domain models
@@ -116,7 +116,7 @@ class TaskAnalyticsDashboard(TypedDict):
     analytics_status: AnalyticsStatus
 
 
-class TasksService(BaseService["BackendOperations[Task]", Task]):
+class TasksService(BaseService["TasksOperations", Task]):
     """
     Tasks service facade with specialized sub-services.
 
@@ -184,7 +184,7 @@ class TasksService(BaseService["BackendOperations[Task]", Task]):
 
     def __init__(
         self,
-        backend: BackendOperations[Task],
+        backend: TasksOperations,
         ku_inference_service=None,
         analytics_engine=None,
         ku_generation_service=None,

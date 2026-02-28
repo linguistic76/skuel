@@ -1089,7 +1089,7 @@ tasks = await backend.find_by(priority='high', due_date__gte=date.today())
 
 **File Layout (February 2026):** `universal_backend.py` is a shell (~586 lines); methods live in 5 focused mixin files in the same directory: `_crud_mixin.py`, `_search_mixin.py`, `_relationship_mixin.py`, `_user_entity_mixin.py`, `_traversal_mixin.py`. Public API unchanged.
 
-**Domain Backends (February 2026):** `TasksBackend` and `EventsBackend` added to `domain_backends.py`. Domain-specific link methods (`link_task_to_knowledge`, `link_task_to_goal`, `link_event_to_*`) live on these backends, not on `UniversalNeo4jBackend`. Finance link methods removed (dead code).
+**Domain Backends (February 2026):** All 6 Activity Domain backends in `domain_backends.py`: `TasksBackend`, `EventsBackend`, `GoalsBackend`, `HabitsBackend`, `ChoicesBackend`, `PrinciplesBackend`. Domain-specific link methods (`link_task_to_knowledge`, `link_task_to_goal`, `link_event_to_*`) live on these backends, not on `UniversalNeo4jBackend`. Finance link methods removed (dead code). Used directly in `services_bootstrap.py` — domain backends replace `UniversalNeo4jBackend[T]` for Activity Domains.
 
 **See:** `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`
 

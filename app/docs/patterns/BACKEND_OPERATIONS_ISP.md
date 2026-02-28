@@ -137,12 +137,24 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
 ### Services Use Domain Protocols
 
 ```python
-class TasksService(BaseService[BackendOperations[Task], Task]):
+class TasksService(BaseService[TasksOperations, Task]):
     """Task service with full backend capabilities."""
 
-    def __init__(self, backend: BackendOperations[Task]) -> None:
+    def __init__(self, backend: TasksOperations) -> None:
         super().__init__(backend)
 ```
+
+All 6 Activity Domain facades and their sub-services use domain-specific protocols, not the
+generic `BackendOperations[T]`:
+
+| Facade | Protocol | Sub-services |
+|--------|----------|-------------|
+| `TasksService` | `TasksOperations` | `TasksCoreService`, `TasksSearchService`, etc. |
+| `GoalsService` | `GoalsOperations` | `GoalsCoreService`, `GoalsSearchService`, etc. |
+| `HabitsService` | `HabitsOperations` | `HabitsCoreService`, `HabitsSearchService`, etc. |
+| `EventsService` | `EventsOperations` | `EventsCoreService`, `EventsSearchService`, etc. |
+| `ChoicesService` | `ChoicesOperations` | `ChoicesCoreService`, `ChoicesSearchService`, etc. |
+| `PrinciplesService` | `PrinciplesOperations` | `PrinciplesCoreService`, `PrinciplesSearchService`, etc. |
 
 ### Focused Dependencies (ISP-Compliant)
 

@@ -45,7 +45,7 @@ These sub-services exist across **all 6 Activity Domains** (Tasks, Goals, Habits
 - Publishing domain events after state changes
 
 **Dependencies:**
-- `backend: UniversalNeo4jBackend[T]`
+- `backend: {Domain}Operations` (e.g., `TasksOperations`, `GoalsOperations`)
 - `event_bus: EventBus` (optional)
 - Domain-specific services (e.g., `entity_inference_service` for TasksCoreService)
 
