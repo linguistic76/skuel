@@ -39,9 +39,11 @@ from __future__ import annotations
 from typing import Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.models.choice.choice import Choice
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
+from core.models.principle.principle import Principle
 from core.models.task.task import Task
 from core.utils.result_simplified import Errors, Result
 
@@ -503,4 +505,93 @@ class EventsBackend(UniversalNeo4jBackend[Event]):
             return Result.fail(Errors.database(operation="link_event_to_knowledge", message=str(e)))
 
 
-__all__ = ["EventsBackend", "GoalsBackend", "HabitsBackend", "TasksBackend"]
+class ChoicesBackend(UniversalNeo4jBackend[Choice]):
+    """
+    Domain backend for Choice entities.
+
+    Extends UniversalNeo4jBackend[Choice] with explicit implementations of
+    ChoicesOperations methods that don't resolve via __getattr__:
+    - get_choice(uid)                      → wraps get() with NotFound check
+    - list_by_user(uid, limit)             → wraps get_user_entities(), extracts list
+    - get_user_choices(uid)                → alias for list_by_user()
+    - create_user_choice_relationship(...) → wraps create_user_relationship()
+    """
+
+    async def get_choice(self, choice_id: str) -> Result[Choice]:
+        """Get choice by ID. Returns error if not found (contrast with get() → None)."""
+        get_result: Result[Choice | None] = await self.get(choice_id)
+        if get_result.is_error:
+            return Result.fail(get_result.expect_error())
+        if not get_result.value:
+            return Result.fail(Errors.not_found(resource="Choice", identifier=choice_id))
+        return Result.ok(get_result.value)
+
+    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[list[Choice]]:
+        """List all choices for a user. Returns flat list (not paginated tuple)."""
+        page_result: Result[tuple[list[Choice], int]] = await self.get_user_entities(
+            user_uid, limit=limit
+        )
+        if page_result.is_error:
+            return Result.fail(page_result.expect_error())
+        choices, _ = page_result.value
+        return Result.ok(choices)
+
+    async def get_user_choices(self, user_uid: str) -> Result[list[Choice]]:
+        """Get all choices for a user. Alias for list_by_user."""
+        return await self.list_by_user(user_uid)
+
+    async def create_user_choice_relationship(self, user_uid: str, choice_uid: str) -> Result[bool]:
+        """Create User→Choice OWNS relationship in the graph."""
+        return await self.create_user_relationship(user_uid, choice_uid)
+
+
+class PrinciplesBackend(UniversalNeo4jBackend[Principle]):
+    """
+    Domain backend for Principle entities.
+
+    Extends UniversalNeo4jBackend[Principle] with explicit implementations of
+    PrinciplesOperations methods that don't resolve via __getattr__:
+    - get_principle(uid)                        → wraps get() with NotFound check
+    - list_by_user(uid, limit)                  → wraps get_user_entities(), extracts list
+    - get_user_principles(uid)                  → alias for list_by_user()
+    - create_user_principle_relationship(...)   → wraps create_user_relationship()
+    """
+
+    async def get_principle(self, principle_uid: str) -> Result[Principle]:
+        """Get principle by ID. Returns error if not found (contrast with get() → None)."""
+        get_result: Result[Principle | None] = await self.get(principle_uid)
+        if get_result.is_error:
+            return Result.fail(get_result.expect_error())
+        if not get_result.value:
+            return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
+        return Result.ok(get_result.value)
+
+    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[list[Principle]]:
+        """List all principles for a user. Returns flat list (not paginated tuple)."""
+        page_result: Result[tuple[list[Principle], int]] = await self.get_user_entities(
+            user_uid, limit=limit
+        )
+        if page_result.is_error:
+            return Result.fail(page_result.expect_error())
+        principles, _ = page_result.value
+        return Result.ok(principles)
+
+    async def get_user_principles(self, user_uid: str) -> Result[list[Principle]]:
+        """Get all principles for a user. Alias for list_by_user."""
+        return await self.list_by_user(user_uid)
+
+    async def create_user_principle_relationship(
+        self, user_uid: str, principle_uid: str
+    ) -> Result[bool]:
+        """Create User→Principle OWNS relationship in the graph."""
+        return await self.create_user_relationship(user_uid, principle_uid)
+
+
+__all__ = [
+    "ChoicesBackend",
+    "EventsBackend",
+    "GoalsBackend",
+    "HabitsBackend",
+    "PrinciplesBackend",
+    "TasksBackend",
+]

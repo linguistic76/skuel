@@ -1016,9 +1016,11 @@ async def compose_services(
         # 100% Dynamic Pattern: Instantiate UniversalNeo4jBackend directly at point of use
         # "The plant (models) grows on the lattice (UniversalNeo4jBackend)"
         from adapters.persistence.neo4j.domain_backends import (
+            ChoicesBackend,
             EventsBackend,
             GoalsBackend,
             HabitsBackend,
+            PrinciplesBackend,
             TasksBackend,
         )
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
@@ -1112,7 +1114,7 @@ async def compose_services(
         )
         from core.models.principle.principle import Principle
 
-        principle_backend = UniversalNeo4jBackend[Principle](
+        principle_backend = PrinciplesBackend(
             driver,
             NeoLabel.PRINCIPLE,
             Principle,
@@ -1127,7 +1129,7 @@ async def compose_services(
         )
         from core.models.choice.choice import Choice
 
-        choice_backend = UniversalNeo4jBackend[Choice](
+        choice_backend = ChoicesBackend(
             driver,
             NeoLabel.CHOICE,
             Choice,
