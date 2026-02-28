@@ -92,10 +92,9 @@ from core.models.context_types import (
 | 7 | KU | `KuGraphService` | `self.ku` |
 | 8 | LS | `UnifiedRelationshipService` | `self.ls` |
 | 9 | LP | `UnifiedRelationshipService` | `self.lp` |
-| **Processing (3)** |
-| 10 | Assignments | `AssignmentRelationshipService` | `self.assignments` |
-| 11 | Journals | `JournalRelationshipService` | `self.journals` |
-| 12 | Reports | `ReportRelationshipService` | `self.reports` |
+| **Processing (2)** |
+| 10 | Reports | `SubmissionsRelationshipService` | `self.reports` |
+| 11 | Analytics | `AnalyticsRelationshipService` | `self.analytics` |
 | **Temporal (1)** |
 | 13 | Calendar | `CalendarService` | `self.calendar` |
 
@@ -298,10 +297,9 @@ class UserContextIntelligenceFactory:
         ku: KuGraphService,
         ls: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
-        # Processing Domains (3)
-        assignments: AssignmentRelationshipService,
-        journals: JournalRelationshipService,
-        reports: ReportRelationshipService,
+        # Processing Domains (2) — journals merged into reports Feb 2026
+        reports: SubmissionsRelationshipService,
+        analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
         calendar: CalendarService,
     ) -> None: ...

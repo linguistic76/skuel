@@ -665,7 +665,7 @@ result.log_if_error("Failed to process user request")
 - unified_knowledge_service.py
 
 ### Routes Migrated (✅ Complete)
-- journals_routes.py
+- submissions_routes.py (includes JOURNALS_CONFIG — journal routes merged here Feb 2026)
 - tasks_routes.py
 - events_routes.py
 - habits_routes.py

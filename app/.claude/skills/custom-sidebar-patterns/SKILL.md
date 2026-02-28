@@ -459,8 +459,8 @@ poetry run python -c "from ui.patterns.sidebar import SidebarItem, SidebarNav, S
 |------|-------|----------------|-------------|
 | Profile | 4-6 | Custom renderer (badges), title link | `profile-sidebar` |
 | KU List | 5-6 | HTMX MOC section via extra_sidebar_sections | `ku-sidebar` |
-| Reports | 3 | Basic (simplest case) | `reports-sidebar` |
-| Journals | 2 | Admin-only | `journals-sidebar` |
+| Submissions | 3 | Basic (simplest case) | `submissions-sidebar` |
+| Journals | 2 | Admin-only (registered via submissions_routes.py) | `journals-sidebar` |
 | Askesis | 3-5 | Description items (two-line layout) | `askesis-sidebar` |
 
 ## Key Files

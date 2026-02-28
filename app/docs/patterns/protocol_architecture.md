@@ -253,7 +253,6 @@ class Services:
     context_service: Any = None
 
     # After: Protocol types (January 2026) / concrete types (February 2026 for facades)
-    journals_core: JournalsOperations | None = None
     learning: "LpService | None" = None  # February 2026: concrete class (was LpFacadeProtocol)
     learning_steps: LsOperations | None = None
     learning_intelligence: IntelligenceOperations | None = None
@@ -291,17 +290,15 @@ Service classes now use protocol types for backend parameters:
 
 ```python
 # Before: Concrete backend type
-class JournalsCoreService(BaseService[UniversalNeo4jBackend[Report], Report]):
+class SubmissionsCoreService(BaseService[UniversalNeo4jBackend[Entity], Entity]):
     ...
 
 # After: Protocol type
-class JournalsCoreService(BaseService[JournalsOperations, Report]):
+class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     ...
 ```
 
 **Updated Services:**
-- `JournalsCoreService` → `JournalsOperations`
-- `ContentEnrichmentService` → `JournalsOperations`
 - `KuSearchService` → `KuOperations`
 - `SubmissionsCoreService` → `BackendOperations[Entity]`
 - `SubmissionsSearchService` → `BackendOperations[Entity]`

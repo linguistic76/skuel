@@ -59,7 +59,6 @@ Infrastructure modules that don't need a facade.
 | `dsl/` | Activity DSL parser & engine |
 | `mixins/` | Reusable mixins |
 | `assignments/` | Assignments domain |
-| `journals/` | Journals domain |
 | `lifepath/` | LifePath domain |
 | `reports/` | Reports meta-service |
 | `transcription/` | Deepgram transcription |

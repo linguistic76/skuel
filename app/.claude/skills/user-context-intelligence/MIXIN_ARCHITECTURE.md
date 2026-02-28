@@ -293,14 +293,13 @@ class UserContextIntelligence(...):
         ku: KuGraphService,
         ls: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
-        # Processing Domains (3)
-        assignments: AssignmentRelationshipService,
-        journals: JournalRelationshipService,
-        reports: ReportRelationshipService,
+        # Processing Domains (2) — journals merged into reports Feb 2026
+        reports: SubmissionsRelationshipService,
+        analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
         calendar: CalendarService,
     ):
-        # Validate all 13 services present
+        # Validate all 12 services present
         required = {
             "context": context,
             "tasks": tasks,

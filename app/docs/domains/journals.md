@@ -1,30 +1,32 @@
 ---
 title: Journals Domain
 created: 2025-12-04
-updated: 2026-02-09
+updated: 2026-02-28
 status: current
 category: domains
-tags: [journals, content-domain, reports, multi-modal, ai-processing, lp-integration]
+tags: [journals, content-domain, submissions, multi-modal, ai-processing, lp-integration]
 ---
 
 # Journals Domain
 
-**Type:** Content/Processing Domain (part of Reports)
-**UID Prefix:** `report_`
-**Entity Label:** `:Report` (with `report_type=JOURNAL`)
-**UI Route:** `/journals` (admin-only)
+**Type:** Submission subtype (`EntityType.JOURNAL`, extends `Submission`)
+**UID Prefix:** `journal_`
+**Entity Label:** `:Entity:Journal`
+**UI Route:** `/journals` (admin-only, registered via `submissions_routes.py`)
 **API Route:** Reuses `/api/submissions/*` endpoints
 
 ## Domain Architecture (February 2026)
 
-Journals are **absorbed into the Reports domain** as a specialized report type:
+Journals are a **Submission subtype** — `Journal(Submission)` in the model hierarchy.
 
-| Entity | Report Type | Processor Type | Use Case |
-|--------|-------------|----------------|----------|
-| `:Report` | `JOURNAL` | `LLM` | Admin AI processing with multi-modal pipeline |
-| `:Report` | `ASSIGNMENT`, `TRANSCRIPT`, etc. | `HUMAN` | User file submissions |
+| EntityType | ProcessorType | Use Case |
+|------------|---------------|----------|
+| `JOURNAL` | `LLM` | Admin AI processing with multi-modal pipeline |
+| `SUBMISSION` | `HUMAN` | User file uploads against an Exercise |
 
-**Key insight:** Journals are NOT a separate domain—they're a processing mode within Reports that uses AI (LLM) instead of human review.
+**Key insight:** Journal is NOT a separate domain. It is `EntityType.JOURNAL`, a distinct entity
+type within the Submissions domain. The `/journals/*` UI is a domain-specific entry point;
+route registration, services, and API all live inside submissions.
 
 ## Multi-Modal Journal Processing
 
@@ -45,23 +47,23 @@ Journals support **three modes** with weighted distribution:
 ## Processing Pipeline
 
 ```
-1. Admin uploads file → ReportSubmissionService.submit_file()
-   ├─ report_type: JOURNAL
-   └─ processor_type: LLM
+1. Admin uploads file → SubmissionsService.submit_file()
+   ├─ entity_type: EntityType.JOURNAL
+   └─ processor_type: ProcessorType.LLM
 
 2. AI processing triggered → SubmissionsProcessingService.process_report()
    ├─ Audio: transcribe → process_journal()
    └─ Text: direct → process_journal()
 
 3. Multi-modal pipeline → _process_journal()
-   ├─ JournalModeClassifier.infer_weights() → {activity: 0.7, articulation: 0.2, exploration: 0.1}
-   ├─ JournalOutputGenerator.generate() → format using primary mode's prompt
+   ├─ Read enrichment_mode from instructions (activity / articulation / exploration)
+   ├─ JournalOutputGenerator.generate(content, enrichment_mode, journal_uid) → formatted content
    │  ├─ activity_formatter.md → structured DSL format
    │  ├─ articulation_formatter.md → verbatim preservation
    │  └─ exploration_formatter.md → question-organized
-   ├─ Save je_output file → {SKUEL_JOURNAL_STORAGE}/{YYYY-MM}/report_{uid}_output.md
-   ├─ Extract activities (if activity weight > threshold) → ReportActivityExtractorService
-   └─ Store metadata → {journal_weights, je_output_path, mode_threshold}
+   ├─ Save je_output file → {SKUEL_JOURNAL_STORAGE}/{YYYY-MM}/journal_{uid}_output.md
+   ├─ Extract activities (if enrichment_mode == 'activity_tracking') → DSL activity extractor
+   └─ Store metadata → {enrichment_mode, je_output_path}
 
 4. Human decomposition (post-processing)
    ├─ Download je_output file → /journals/{uid}/download
@@ -181,41 +183,19 @@ Journals support **three modes** with weighted distribution:
 
 ## Service Architecture
 
-### JournalModeClassifier
-
-**Location:** `/core/services/journals/journal_mode_classifier.py`
-
-```python
-class JournalModeClassifier:
-    async def infer_weights(
-        content: str,
-        user_declared_mode: str | None = None
-    ) -> Result[JournalWeights]:
-        # Uses LLM if no declared mode
-        # Applies 80/10/10 distribution if mode declared
-        # Falls back to balanced (33/33/33) on error
-
-    def get_threshold_from_instructions(
-        instructions: dict | None
-    ) -> float:
-        # Extracts mode_threshold, default 0.2
-```
-
-**LLM Prompt:** `/core/services/journals/prompts/mode_classification.md`
-
 ### JournalOutputGenerator
 
-**Location:** `/core/services/journals/journal_output_generator.py`
+**Location:** `/core/services/submissions/journal_output_generator.py`
 
 ```python
 class JournalOutputGenerator:
     async def generate(
         content: str,
-        weights: JournalWeights,
+        enrichment_mode: str,       # "activity_tracking" | "articulation" | "exploration"
         report_uid: str,
-        threshold: float = 0.2
+        custom_instructions: str | None = None
     ) -> Result[str]:
-        # Selects formatter based on primary mode
+        # Selects formatter based on enrichment_mode
         # Saves to disk with date subdirectory
         # Returns file path
 
@@ -228,9 +208,9 @@ class JournalOutputGenerator:
 ```
 
 **Formatter Prompts:**
-- `/core/services/journals/prompts/activity_formatter.md`
-- `/core/services/journals/prompts/articulation_formatter.md`
-- `/core/services/journals/prompts/exploration_formatter.md`
+- `/core/services/submissions/journal_prompts/activity_formatter.md`
+- `/core/services/submissions/journal_prompts/articulation_formatter.md`
+- `/core/services/submissions/journal_prompts/exploration_formatter.md`
 
 ### ReportActivityExtractorService
 
@@ -382,25 +362,21 @@ When a journal is processed, these fields are stored in `report.metadata`:
 | Component | Location |
 |-----------|----------|
 | **Models** | |
-| Domain Model | `/core/models/report/report.py` |
-| DTOs | `/core/models/report/report_dto.py` |
-| Enums | `/core/models/enums/report_enums.py` |
+| Domain Model | `/core/models/submissions/journal.py` |
+| DTO | `/core/models/submissions/journal_dto.py` |
+| Base (Submission) | `/core/models/submissions/submission.py` |
+| EntityType | `EntityType.JOURNAL` in `/core/models/enums/entity_enums.py` |
 | **Services** | |
-| Mode Classifier | `/core/services/journals/journal_mode_classifier.py` |
-| Output Generator | `/core/services/journals/journal_output_generator.py` |
-| Activity Extractor | `/core/services/dsl/report_activity_extractor.py` |
-| Processing Service | `/core/services/submissions/ + core/services/feedback/submissions_processing_service.py` |
-| Assignments | `/core/services/submissions/ + core/services/feedback/assignment_service.py` |
-| **Types** | |
-| Journal Types | `/core/services/journals/journal_types.py` |
+| Output Generator | `/core/services/submissions/journal_output_generator.py` |
+| Processing Service | `/core/services/submissions/submissions_processing_service.py` |
+| Core CRUD | `/core/services/submissions/submissions_core_service.py` |
 | **Prompts** | |
-| Mode Classification | `/core/services/journals/prompts/mode_classification.md` |
-| Activity Formatter | `/core/services/journals/prompts/activity_formatter.md` |
-| Articulation Formatter | `/core/services/journals/prompts/articulation_formatter.md` |
-| Exploration Formatter | `/core/services/journals/prompts/exploration_formatter.md` |
+| Activity Formatter | `/core/services/submissions/journal_prompts/activity_formatter.md` |
+| Articulation Formatter | `/core/services/submissions/journal_prompts/articulation_formatter.md` |
+| Exploration Formatter | `/core/services/submissions/journal_prompts/exploration_formatter.md` |
 | **Routes** | |
-| UI Routes | `/adapters/inbound/journals_ui.py` |
-| Route Config | `/adapters/inbound/journals_routes.py` |
+| UI Implementation | `/adapters/inbound/journals_ui.py` |
+| Route Registration | `JOURNALS_CONFIG` in `/adapters/inbound/submissions_routes.py` |
 
 ## Environment Configuration
 

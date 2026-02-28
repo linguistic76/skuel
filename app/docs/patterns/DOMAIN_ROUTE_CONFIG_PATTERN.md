@@ -616,7 +616,7 @@ TRANSCRIPTION_CONFIG = DomainRouteConfig(
 - API-only domain (no UI routes needed)
 - `ui_factory=None` explicitly indicates no UI component
 - Demonstrates single-purpose API services (audio transcription)
-- Pattern used by: transcription, visualization, admin, journals
+- Pattern used by: transcription, visualization, admin
 
 ### Example 6: UI-Only Pattern (NOUS)
 
@@ -1008,7 +1008,7 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
 15. `/adapters/inbound/visualization_routes.py` (31 lines) - Chart.js/Vis.js visualization
 16. `/adapters/inbound/admin_routes.py` (28 lines) - Admin user management
 17. `/adapters/inbound/auth_routes.py` (32 lines) - Authentication (API + UI)
-18. `/adapters/inbound/journals_routes.py` (58 lines) - Journal processing
+18. `JOURNALS_CONFIG` in `/adapters/inbound/submissions_routes.py` - Journal UI (merged into submissions)
 19. `/adapters/inbound/system_routes.py` (36 lines) - System health/metrics
 20. `/adapters/inbound/ingestion_routes.py` (34 lines) - Content ingestion
 21. `/adapters/inbound/insights_routes.py` (67 lines) - Insights dashboard (multi-factory)

@@ -137,13 +137,12 @@ UserContextIntelligence requires ALL 13 domain services because each contributes
 - `LpRelationshipService` DELETED → LP now uses `UnifiedRelationshipService` with LP domain config
 - All curriculum relationships now use the same unified service pattern as Activity domains
 
-### Processing Domains (3)
+### Processing Domains (2)
 
 | Service | Purpose | Implementation |
 |---------|---------|----------------|
-| **assignments** | Student submissions | AssignmentRelationshipService |
-| **journals** | Reflection (fire in the engine) | JournalRelationshipService |
-| **reports** | System feedback (report cards) | ReportRelationshipService |
+| **reports** | Submissions + Journals (EntityType.JOURNAL merged Feb 2026) | SubmissionsRelationshipService |
+| **analytics** | Cross-domain analytics | AnalyticsRelationshipService |
 
 ### Temporal Domain (1)
 
@@ -170,25 +169,24 @@ class UserContextIntelligenceFactory:
         ku: KuGraphService,
         ls: UnifiedRelationshipService,  # January 2026: Unified
         lp: UnifiedRelationshipService,  # January 2026: Unified
-        # Processing Domains (3)
-        assignments: AssignmentRelationshipService,
-        journals: JournalRelationshipService,
-        reports: ReportRelationshipService,
+        # Processing Domains (2) — journals merged into reports Feb 2026
+        reports: SubmissionsRelationshipService,
+        analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
         calendar: CalendarService,
     ) -> None:
-        # Fail-fast validation: ALL 13 services REQUIRED
+        # Fail-fast validation: ALL 12 services REQUIRED
         required = {
             "tasks": tasks, "goals": goals, "habits": habits,
             "events": events, "choices": choices, "principles": principles,
             "ku": ku, "ls": ls, "lp": lp,
-            "assignments": assignments, "journals": journals, "reports": reports,
+            "reports": reports, "analytics": analytics,
             "calendar": calendar,
         }
         missing = [name for name, service in required.items() if service is None]
         if missing:
             raise ValueError(
-                f"UserContextIntelligenceFactory requires all 13 domain services. "
+                f"UserContextIntelligenceFactory requires all 12 domain services. "
                 f"Missing: {', '.join(missing)}"
             )
 

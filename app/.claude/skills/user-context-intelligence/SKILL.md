@@ -87,13 +87,12 @@ All use `UnifiedRelationshipService` with domain configs:
 | LS | `self.ls` | Learning step sequencing (UnifiedRelationshipService) |
 | LP | `self.lp` | Life path analysis (UnifiedRelationshipService) |
 
-### Processing Domains (3)
+### Processing Domains (2)
 
 | Service | Attribute | Purpose |
 |---------|-----------|---------|
-| Assignments | `self.assignments` | Student submissions |
-| Journals | `self.journals` | Reflection (fire in the engine) |
-| Reports | `self.reports` | System feedback (report cards) |
+| Reports | `self.reports` | Submissions + Journals (EntityType.JOURNAL merged Feb 2026) |
+| Analytics | `self.analytics` | Cross-domain analytics |
 
 ### Temporal Domain (1)
 
@@ -171,10 +170,9 @@ factory = UserContextIntelligenceFactory(
     ku=ku_service.graph,
     ls=ls_service.relationships,
     lp=lp_service.relationships,
-    # Processing Domains (3)
-    assignments=assignment_relationship_service,
-    journals=journal_relationship_service,
-    reports=report_relationship_service,
+    # Processing Domains (2) — journals merged into reports Feb 2026
+    reports=submissions_relationship_service,
+    analytics=analytics_relationship_service,
     # Temporal Domain (1)
     calendar=calendar_service,
 )
