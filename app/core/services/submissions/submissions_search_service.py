@@ -7,7 +7,7 @@ Service for querying Ku across all types (assignments, curriculum, feedback, etc
 Core Capabilities:
 - Query Ku by type, date range, status
 - Filter by metadata (category, mood, tags)
-- Search report content
+- Search submission content
 - Calculate statistics (streaks, word count, etc.)
 """
 
@@ -39,7 +39,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     - List Ku by date range
     - Filter by type, category, mood, tags
     - Calculate statistics (streaks, word count)
-    - Search report content
+    - Search submission content
 
     Does NOT handle:
     - File uploads (use SubmissionsService)
@@ -112,11 +112,11 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         if result.is_error:
             return Result.fail(result)
 
-        reports = result.value
+        submissions = result.value
 
-        for report in reports:
-            if report.created_at.date() == target_date:
-                return Result.ok(report)
+        for submission in submissions:
+            if submission.created_at.date() == target_date:
+                return Result.ok(submission)
 
         return Result.ok(None)
 
@@ -265,7 +265,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         limit: int = 50,
     ) -> Result[list[Entity]]:
         """
-        Search report content using text search.
+        Search submission content using text search.
 
         Searches in processed_content field.
 

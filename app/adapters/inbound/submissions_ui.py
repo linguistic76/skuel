@@ -77,18 +77,18 @@ def _render_upload_status(
     )
 
 
-def _get_report_identifier(report: Any) -> str:
-    """Extract the identifier from report metadata, falling back to report_type."""
-    metadata = getattr(report, "metadata", None)
+def _get_submission_identifier(submission: Any) -> str:
+    """Extract the identifier from submission metadata, falling back to report_type."""
+    metadata = getattr(submission, "metadata", None)
     if isinstance(metadata, dict):
         identifier = metadata.get("identifier")
         if identifier:
             return str(identifier)
-    return getattr(report, "report_type", "unknown")
+    return getattr(submission, "report_type", "unknown")
 
 
 def _get_status_badge_class(status: str) -> str:
-    """Get DaisyUI badge class for report status."""
+    """Get DaisyUI badge class for submission status."""
     classes = {
         "submitted": "badge-warning",
         "queued": "badge-warning",
@@ -100,23 +100,23 @@ def _get_status_badge_class(status: str) -> str:
     return classes.get(status, "badge-ghost")
 
 
-def _render_report_card(report: Any, is_pinned: bool = False) -> Any:
+def _render_submission_card(submission: Any, is_pinned: bool = False) -> Any:
     """
-    Render a single report card.
+    Render a single submission card.
 
     Args:
-        report: Report entity
-        is_pinned: Whether this report is pinned
+        submission: Submission entity
+        is_pinned: Whether this submission is pinned
     """
     from ui.patterns.pin_button import PinButton
 
-    file_size_mb = (report.file_size / 1024 / 1024) if report.file_size else 0
-    identifier = _get_report_identifier(report)
+    file_size_mb = (submission.file_size / 1024 / 1024) if submission.file_size else 0
+    identifier = _get_submission_identifier(submission)
     return Div(
         Div(
             Div(
                 Div(
-                    H4(report.original_filename, cls="mb-0 font-semibold"),
+                    H4(submission.original_filename, cls="mb-0 font-semibold"),
                     P(
                         f"{identifier} \u2022 {file_size_mb:.2f} MB",
                         cls="text-sm text-base-content/60 mb-0",
@@ -125,15 +125,15 @@ def _render_report_card(report: Any, is_pinned: bool = False) -> Any:
                 ),
                 Div(
                     Span(
-                        report.status,
-                        cls=f"badge {_get_status_badge_class(report.status)}",
+                        submission.status,
+                        cls=f"badge {_get_status_badge_class(submission.status)}",
                     ),
                 ),
                 Div(
-                    PinButton(entity_uid=report.uid, is_pinned=is_pinned, size="xs"),
+                    PinButton(entity_uid=submission.uid, is_pinned=is_pinned, size="xs"),
                     A(
                         "View",
-                        href=f"/submissions/{report.uid}",
+                        href=f"/submissions/{submission.uid}",
                         cls="btn btn-sm btn-ghost",
                     ),
                     cls="flex gap-2",
@@ -146,32 +146,32 @@ def _render_report_card(report: Any, is_pinned: bool = False) -> Any:
     )
 
 
-def _render_reports_grid(reports: list[Any]) -> Any:
-    """Render reports grid as HTML fragment for HTMX swap."""
-    if not reports:
+def _render_submissions_grid(submissions: list[Any]) -> Any:
+    """Render submissions grid as HTML fragment for HTMX swap."""
+    if not submissions:
         return Div(
-            P("No reports found.", cls="text-center text-base-content/60"),
+            P("No submissions found.", cls="text-center text-base-content/60"),
             id="submissions-grid-container",
         )
 
     return Div(
-        *[_render_report_card(a) for a in reports],
+        *[_render_submission_card(a) for a in submissions],
         id="submissions-grid-container",
     )
 
 
-def _render_report_detail(report: Any) -> Any:
-    """Render report detail info as HTML fragment."""
-    file_size_mb = (report.file_size / 1024 / 1024) if report.file_size else 0
-    processing_duration = getattr(report, "processing_duration_seconds", None)
-    created_at = getattr(report, "created_at", None)
-    identifier = _get_report_identifier(report)
+def _render_submission_detail(submission: Any) -> Any:
+    """Render submission detail info as HTML fragment."""
+    file_size_mb = (submission.file_size / 1024 / 1024) if submission.file_size else 0
+    processing_duration = getattr(submission, "processing_duration_seconds", None)
+    created_at = getattr(submission, "created_at", None)
+    identifier = _get_submission_identifier(submission)
 
     return Div(
         Div(
             Div(
                 P("Filename", cls="text-xs text-base-content/60 mb-0"),
-                P(report.original_filename, cls="mb-0 font-bold"),
+                P(submission.original_filename, cls="mb-0 font-bold"),
             ),
             Div(
                 P("Identifier", cls="text-xs text-base-content/60 mb-0"),
@@ -181,8 +181,8 @@ def _render_report_detail(report: Any) -> Any:
                 P("Status", cls="text-xs text-base-content/60 mb-0"),
                 P(
                     Span(
-                        report.status,
-                        cls=f"badge {_get_status_badge_class(report.status)}",
+                        submission.status,
+                        cls=f"badge {_get_status_badge_class(submission.status)}",
                     ),
                     cls="mb-0",
                 ),
@@ -222,9 +222,9 @@ def _render_processed_content(content: str | None, has_content: bool) -> Any:
     )
 
 
-def _render_category_selector(report: Any) -> Any:
-    """Render category selector for report."""
-    current_category = report.metadata.get("category") if report.metadata else None
+def _render_category_selector(submission: Any) -> Any:
+    """Render category selector for submission."""
+    current_category = submission.metadata.get("category") if submission.metadata else None
     categories = ["daily", "weekly", "reflection", "work", "personal", "other"]
 
     return Div(
@@ -235,37 +235,39 @@ def _render_category_selector(report: Any) -> Any:
                 for cat in categories
             ],
             cls="select select-bordered w-full",
-            hx_post=f"/api/submissions/categorize?submission_uid={report.uid}&user_uid={report.user_uid}",
+            hx_post=f"/api/submissions/categorize?submission_uid={submission.uid}&user_uid={submission.user_uid}",
             hx_trigger="change",
-            hx_target=f"#category-display-{report.uid}",
+            hx_target=f"#category-display-{submission.uid}",
             hx_swap="outerHTML",
             hx_vals="js:{category: event.target.value}",
         ),
-        id=f"category-selector-{report.uid}",
+        id=f"category-selector-{submission.uid}",
         cls="form-control",
     )
 
 
-def _render_category_display(report: Any) -> Any:
+def _render_category_display(submission: Any) -> Any:
     """Render category display with edit button."""
-    current_category = report.metadata.get("category", "none") if report.metadata else "none"
+    current_category = (
+        submission.metadata.get("category", "none") if submission.metadata else "none"
+    )
 
     return Div(
         Span(f"Category: {current_category.title()}", cls="badge badge-primary"),
         Button(
             "Change",
             cls="btn btn-xs btn-ghost ml-2",
-            hx_get=f"/submissions/{report.uid}/category-selector",
-            hx_target=f"#category-display-{report.uid}",
+            hx_get=f"/submissions/{submission.uid}/category-selector",
+            hx_target=f"#category-display-{submission.uid}",
             hx_swap="outerHTML",
         ),
-        id=f"category-display-{report.uid}",
+        id=f"category-display-{submission.uid}",
     )
 
 
-def _render_tags_manager(report: Any) -> Any:
-    """Render tags manager for report."""
-    tags = report.metadata.get("tags", []) if report.metadata else []
+def _render_tags_manager(submission: Any) -> Any:
+    """Render tags manager for submission."""
+    tags = submission.metadata.get("tags", []) if submission.metadata else []
 
     tag_elements = [
         Span(
@@ -273,9 +275,9 @@ def _render_tags_manager(report: Any) -> Any:
             Button(
                 "\u00d7",
                 cls="btn btn-xs btn-ghost ml-1",
-                hx_post=f"/api/submissions/tags/remove?submission_uid={report.uid}&user_uid={report.user_uid}",
+                hx_post=f"/api/submissions/tags/remove?submission_uid={submission.uid}&user_uid={submission.user_uid}",
                 hx_vals=f'js:{{tags: ["{tag}"]}}',
-                hx_target=f"#tags-manager-{report.uid}",
+                hx_target=f"#tags-manager-{submission.uid}",
                 hx_swap="outerHTML",
             ),
             cls="badge badge-secondary mr-2 mb-2",
@@ -296,43 +298,43 @@ def _render_tags_manager(report: Any) -> Any:
             ),
             Button("Add Tag", type="submit", cls="btn btn-primary btn-sm ml-2"),
             cls="flex items-center mt-2",
-            hx_post=f"/api/submissions/tags/add?submission_uid={report.uid}&user_uid={report.user_uid}",
+            hx_post=f"/api/submissions/tags/add?submission_uid={submission.uid}&user_uid={submission.user_uid}",
             hx_vals="js:{tags: [document.querySelector('[name=\"new_tag\"]').value]}",
-            hx_target=f"#tags-manager-{report.uid}",
+            hx_target=f"#tags-manager-{submission.uid}",
             hx_swap="outerHTML",
         ),
-        id=f"tags-manager-{report.uid}",
+        id=f"tags-manager-{submission.uid}",
         cls="p-4 bg-base-200 rounded-lg",
     )
 
 
-def _render_status_buttons(report: Any) -> Any:
+def _render_status_buttons(submission: Any) -> Any:
     """Render status workflow buttons (publish/archive/draft)."""
-    current_status = report.status
+    current_status = submission.status
 
     return Div(
         Div(
             Button(
                 "Publish",
                 cls="btn btn-success btn-sm",
-                hx_post=f"/api/submissions/publish?submission_uid={report.uid}&user_uid={report.user_uid}",
-                hx_target=f"#status-buttons-{report.uid}",
+                hx_post=f"/api/submissions/publish?submission_uid={submission.uid}&user_uid={submission.user_uid}",
+                hx_target=f"#status-buttons-{submission.uid}",
                 hx_swap="outerHTML",
                 disabled=(current_status == "published"),
             ),
             Button(
                 "Archive",
                 cls="btn btn-warning btn-sm ml-2",
-                hx_post=f"/api/submissions/archive?submission_uid={report.uid}&user_uid={report.user_uid}",
-                hx_target=f"#status-buttons-{report.uid}",
+                hx_post=f"/api/submissions/archive?submission_uid={submission.uid}&user_uid={submission.user_uid}",
+                hx_target=f"#status-buttons-{submission.uid}",
                 hx_swap="outerHTML",
                 disabled=(current_status == "archived"),
             ),
             Button(
                 "Mark as Draft",
                 cls="btn btn-ghost btn-sm ml-2",
-                hx_post=f"/api/submissions/draft?submission_uid={report.uid}&user_uid={report.user_uid}",
-                hx_target=f"#status-buttons-{report.uid}",
+                hx_post=f"/api/submissions/draft?submission_uid={submission.uid}&user_uid={submission.user_uid}",
+                hx_target=f"#status-buttons-{submission.uid}",
                 hx_swap="outerHTML",
                 disabled=(current_status == "draft"),
             ),
@@ -343,7 +345,7 @@ def _render_status_buttons(report: Any) -> Any:
                 f"Current status: {current_status}", cls="text-xs text-base-content/60 mt-2 block"
             ),
         ),
-        id=f"status-buttons-{report.uid}",
+        id=f"status-buttons-{submission.uid}",
         cls="p-4 bg-base-200 rounded-lg",
     )
 
@@ -355,7 +357,7 @@ def _render_status_buttons(report: Any) -> Any:
 
 @dataclass
 class SubmissionFilters:
-    """Typed filters for report list queries."""
+    """Typed filters for submission list queries."""
 
     report_type: str
     status: str
@@ -363,7 +365,7 @@ class SubmissionFilters:
 
 def parse_submission_filters(request: Request) -> SubmissionFilters:
     """
-    Extract report filter parameters from request query params.
+    Extract submission filter parameters from request query params.
 
     Args:
         request: Starlette request object
@@ -382,15 +384,15 @@ def parse_submission_filters(request: Request) -> SubmissionFilters:
 # ============================================================================
 
 
-def _render_visibility_dropdown(report: Any) -> Any:
+def _render_visibility_dropdown(submission: Any) -> Any:
     """
     Render visibility level dropdown.
 
     Only shows for completed reports (quality control).
     Uses HTMX for instant updates.
     """
-    current_visibility = getattr(report, "visibility", "private")
-    is_shareable = getattr(report, "status", "") == "completed"
+    current_visibility = getattr(submission, "visibility", "private")
+    is_shareable = getattr(submission, "status", "") == "completed"
 
     if not is_shareable:
         return Div(
@@ -423,7 +425,7 @@ def _render_visibility_dropdown(report: Any) -> Any:
             cls="select select-bordered w-full",
             hx_post="/api/submissions/set-visibility",
             hx_trigger="change",
-            hx_vals=f"js:{{report_uid: '{report.uid}', visibility: event.target.value}}",
+            hx_vals=f"js:{{report_uid: '{submission.uid}', visibility: event.target.value}}",
             hx_target="#visibility-status",
             hx_swap="innerHTML",
         ),
@@ -444,7 +446,7 @@ def _render_visibility_dropdown(report: Any) -> Any:
 
 def _render_share_modal(report_uid: str) -> Any:
     """
-    Render modal for sharing report with a user.
+    Render modal for sharing submission with a user.
 
     Uses Alpine.js for modal state management.
     HTMX for form submission.
@@ -532,7 +534,7 @@ def _render_share_modal(report_uid: str) -> Any:
 
 def _render_shared_users_list(report_uid: str) -> Any:
     """
-    Render list of users report is shared with.
+    Render list of users submission is shared with.
 
     Loaded dynamically via HTMX on page load.
     """
@@ -549,29 +551,29 @@ def _render_shared_users_list(report_uid: str) -> Any:
     )
 
 
-def _render_sharing_section(report: Any) -> Any:
+def _render_sharing_section(submission: Any) -> Any:
     """
-    Render complete sharing section for report detail page.
+    Render complete sharing section for submission detail page.
 
     Includes:
     - Visibility dropdown
     - Share button (opens modal)
     - Shared users list
 
-    Only shown for report owner.
+    Only shown for submission owner.
     """
     return Div(
         H4("Sharing & Visibility", cls="font-bold text-lg mb-4"),
         Div(
             # Visibility controls
-            _render_visibility_dropdown(report),
+            _render_visibility_dropdown(submission),
             # Share modal and button
             Div(
-                _render_share_modal(report.uid),
+                _render_share_modal(submission.uid),
                 cls="mb-4",
             ),
             # Shared users list
-            _render_shared_users_list(report.uid),
+            _render_shared_users_list(submission.uid),
             cls="space-y-2",
         ),
         id="sharing-section",
@@ -586,7 +588,7 @@ def _render_sharing_section(report: Any) -> Any:
 # SIDEBAR NAVIGATION
 # ============================================================================
 
-REPORTS_SIDEBAR_ITEMS = [
+SUBMISSIONS_SIDEBAR_ITEMS = [
     SidebarItem("Submit", "/submissions/submit", "submit", icon="📤"),
     SidebarItem("Browse", "/submissions/browse", "browse", icon="📂"),
     SidebarItem("Your Submissions", "/submissions/yours", "yours", icon="📋"),
@@ -774,7 +776,7 @@ def _render_filters_section() -> Any:
     )
 
 
-def _render_reports_grid_container() -> Any:
+def _render_submissions_grid_container() -> Any:
     """Render the HTMX-loading reports grid container."""
     return Div(
         P("Loading reports...", cls="text-center text-base-content/60"),
@@ -959,13 +961,13 @@ def create_submissions_ui_routes(
     _submissions_core_service=None,
 ):
     """
-    Create all report UI routes.
+    Create all submission UI routes.
 
     Args:
         app: FastHTML application instance
         rt: Router instance
-        report_service: ReportSubmissionService
-        processing_service: ReportProcessorService
+        report_service: SubmissionsService
+        processing_service: SubmissionsProcessingService
         _exercises_service: ExerciseService for exercise dropdown (optional)
         _submissions_search_service: SubmissionsSearchService for feedback status queries (optional)
         _submissions_core_service: SubmissionsCoreService for received assessments (optional)
@@ -979,7 +981,7 @@ def create_submissions_ui_routes(
 
     @rt("/submissions")
     async def submissions_landing(request: Request) -> Any:
-        """Reports landing — defaults to Submit page."""
+        """Submissions landing — defaults to Submit page."""
         return await _render_submit_page(request)
 
     @rt("/submissions/submit")
@@ -1006,7 +1008,7 @@ def create_submissions_ui_routes(
         )
         return await SidebarPage(
             content=content,
-            items=REPORTS_SIDEBAR_ITEMS,
+            items=SUBMISSIONS_SIDEBAR_ITEMS,
             active="submit",
             title="Submissions",
             subtitle="Submit and manage files",
@@ -1024,11 +1026,11 @@ def create_submissions_ui_routes(
         content = Div(
             PageHeader("Browse Submissions", subtitle="Filter and find submissions"),
             _render_filters_section(),
-            _render_reports_grid_container(),
+            _render_submissions_grid_container(),
         )
         return await SidebarPage(
             content=content,
-            items=REPORTS_SIDEBAR_ITEMS,
+            items=SUBMISSIONS_SIDEBAR_ITEMS,
             active="browse",
             title="Submissions",
             subtitle="Submit and manage files",
@@ -1052,7 +1054,7 @@ def create_submissions_ui_routes(
         )
         return await SidebarPage(
             content=content,
-            items=REPORTS_SIDEBAR_ITEMS,
+            items=SUBMISSIONS_SIDEBAR_ITEMS,
             active="yours",
             title="Submissions",
             subtitle="Submit and manage files",
@@ -1091,7 +1093,7 @@ def create_submissions_ui_routes(
 
     @rt("/submissions/upload")
     async def upload_submission(request: Request) -> Any:
-        """HTMX endpoint for report file upload (human review)."""
+        """HTMX endpoint for submission file upload (human review)."""
         try:
             form = await request.form()
             uploaded_file = form.get("file")
@@ -1140,7 +1142,7 @@ def create_submissions_ui_routes(
             )
 
         except Exception as e:
-            logger.error(f"Error uploading report: {e}", exc_info=True)
+            logger.error(f"Error uploading submission: {e}", exc_info=True)
             return _render_upload_status("error", f"Upload failed: {e}", is_error=True)
 
     @rt("/submissions/grid")
@@ -1168,7 +1170,7 @@ def create_submissions_ui_routes(
                 )
 
             reports = result.value or []
-            return _render_reports_grid(reports)
+            return _render_submissions_grid(reports)
 
         except Exception as e:
             logger.error(f"Error loading reports: {e}", exc_info=True)
@@ -1179,14 +1181,14 @@ def create_submissions_ui_routes(
 
     @rt("/submissions/{uid}/info")
     async def get_submission_info(request: Request, uid: str) -> Any:
-        """HTMX endpoint for loading report detail info."""
+        """HTMX endpoint for loading submission detail info."""
         try:
             result = await _submissions_service.get_submission(uid)
 
             if result.is_error:
                 return Div(
                     Div(
-                        P(f"Failed to load report: {result.error}"),
+                        P(f"Failed to load submission: {result.error}"),
                         cls="alert alert-error",
                     ),
                     id="submission-info",
@@ -1201,10 +1203,10 @@ def create_submissions_ui_routes(
                     ),
                     id="submission-info",
                 )
-            return _render_report_detail(submission)
+            return _render_submission_detail(submission)
 
         except Exception as e:
-            logger.error(f"Error loading report info: {e}", exc_info=True)
+            logger.error(f"Error loading submission info: {e}", exc_info=True)
             return Div(
                 Div(
                     P(f"Error: {e}"),
@@ -1215,7 +1217,7 @@ def create_submissions_ui_routes(
 
     @rt("/submissions/{uid}/content")
     async def get_submission_content(request: Request, uid: str) -> Any:
-        """HTMX endpoint for loading report processed content."""
+        """HTMX endpoint for loading submission processed content."""
         try:
             result = await _submissions_service.get_submission(uid)
 
@@ -1227,7 +1229,7 @@ def create_submissions_ui_routes(
             return _render_processed_content(content, bool(content))
 
         except Exception as e:
-            logger.error(f"Error loading report content: {e}", exc_info=True)
+            logger.error(f"Error loading submission content: {e}", exc_info=True)
             return _render_processed_content(None, False)
 
     # ========================================================================
@@ -1287,7 +1289,7 @@ def create_submissions_ui_routes(
         )
         return await SidebarPage(
             content=content,
-            items=REPORTS_SIDEBAR_ITEMS,
+            items=SUBMISSIONS_SIDEBAR_ITEMS,
             active="feedback",
             title="Submissions",
             subtitle="Submit and manage files",
@@ -1431,7 +1433,7 @@ def create_submissions_ui_routes(
         )
         return await SidebarPage(
             content=content,
-            items=REPORTS_SIDEBAR_ITEMS,
+            items=SUBMISSIONS_SIDEBAR_ITEMS,
             active="progress",
             title="Submissions",
             subtitle="Submit and manage files",
@@ -1447,7 +1449,7 @@ def create_submissions_ui_routes(
         """
         HTMX endpoint for rendering shared users list.
 
-        Returns HTML fragment showing users the report is shared with.
+        Returns HTML fragment showing users the submission is shared with.
         """
         try:
             _user_uid = require_authenticated_user(request)
@@ -1489,7 +1491,7 @@ def create_submissions_ui_routes(
         """
         user_uid = require_authenticated_user(request)  # Enforce authentication
 
-        # Fetch report to determine if user is owner (for sharing controls)
+        # Fetch submission to determine if user is owner (for sharing controls)
         # Note: In production, this would use get_with_access_check()
         submission_result = await _submissions_service.get_submission(uid)
         is_owner = False
@@ -1502,7 +1504,7 @@ def create_submissions_ui_routes(
                 H3("Submission Details", cls="card-title"),
                 # Report info container (loaded via HTMX)
                 Div(
-                    P("Loading report details...", cls="text-center text-base-content/60"),
+                    P("Loading submission details...", cls="text-center text-base-content/60"),
                     id="submission-info",
                     cls="mb-4",
                     **{

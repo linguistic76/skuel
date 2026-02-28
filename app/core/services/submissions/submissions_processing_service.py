@@ -84,35 +84,35 @@ class SubmissionsProcessingService:
         SUBMITTED -> QUEUED -> PROCESSING -> COMPLETED (or FAILED)
 
         Args:
-            ku_uid: Report UID to process
+            ku_uid: Submission UID to process
             instructions: Processor-specific instructions (optional)
 
         Returns:
-            Result containing processed report
+            Result containing processed submission
         """
-        report_result = await self.ku_submission_service.get_submission(ku_uid)
+        submission_result = await self.ku_submission_service.get_submission(ku_uid)
 
-        if report_result.is_error:
-            return Result.fail(report_result.expect_error())
+        if submission_result.is_error:
+            return Result.fail(submission_result.expect_error())
 
-        report = report_result.value
-        if not report:
-            return Result.fail(Errors.not_found("Report", ku_uid))
+        submission = submission_result.value
+        if not submission:
+            return Result.fail(Errors.not_found("Submission", ku_uid))
 
-        if not isinstance(report, Submission):
+        if not isinstance(submission, Submission):
             return Result.fail(
                 Errors.validation(
-                    message="Only submission-type reports can be processed",
+                    message="Only submission-type entities can be processed",
                     field="ku_type",
                 )
             )
 
-        if report.status in {EntityStatus.COMPLETED, EntityStatus.PROCESSING}:
+        if submission.status in {EntityStatus.COMPLETED, EntityStatus.PROCESSING}:
             return Result.fail(
                 Errors.validation(
-                    message=f"Report already {report.status.value}",
+                    message=f"Submission already {submission.status.value}",
                     field="status",
-                    value=report.status.value,
+                    value=submission.status.value,
                 )
             )
 
@@ -120,7 +120,7 @@ class SubmissionsProcessingService:
         await self.ku_submission_service.update_submission_status(ku_uid, EntityStatus.QUEUED)
 
         try:
-            result = await self._route_to_processor(report, instructions)
+            result = await self._route_to_processor(submission, instructions)
 
             if result.is_error:
                 await self.ku_submission_service.update_submission_status(
@@ -142,11 +142,13 @@ class SubmissionsProcessingService:
             if updated_result.is_error:
                 return Result.fail(updated_result.expect_error())
             if not updated_result.value:
-                return Result.fail(Errors.not_found("Report", ku_uid))
+                return Result.fail(Errors.not_found("Submission", ku_uid))
             return Result.ok(updated_result.value)
 
         except Exception as e:
-            self.logger.error(f"Unexpected error processing report {ku_uid}: {e}", exc_info=True)
+            self.logger.error(
+                f"Unexpected error processing submission {ku_uid}: {e}", exc_info=True
+            )
 
             await self.ku_submission_service.update_submission_status(
                 ku_uid, EntityStatus.FAILED, error_message=str(e)
@@ -163,28 +165,28 @@ class SubmissionsProcessingService:
     # ========================================================================
 
     async def _route_to_processor(
-        self, report: Submission, instructions: dict[str, Any] | None
+        self, submission: Submission, instructions: dict[str, Any] | None
     ) -> Result[Entity]:
-        """Route report to appropriate processor based on file type."""
+        """Route submission to appropriate processor based on file type."""
         await self.ku_submission_service.update_submission_status(
-            report.uid, EntityStatus.PROCESSING
+            submission.uid, EntityStatus.PROCESSING
         )
 
-        if not report.file_type:
-            return Result.fail(Errors.validation("Cannot process report without file_type"))
-        file_type = report.file_type.lower()
+        if not submission.file_type:
+            return Result.fail(Errors.validation("Cannot process submission without file_type"))
+        file_type = submission.file_type.lower()
 
         if file_type.startswith("audio/"):
-            return await self._process_audio(report, instructions)
+            return await self._process_audio(submission, instructions)
 
         if file_type.startswith("text/"):
-            return await self._process_text(report, instructions)
+            return await self._process_text(submission, instructions)
 
         return Result.fail(
             Errors.validation(
-                message=f"File type not yet supported: {report.file_type}",
+                message=f"File type not yet supported: {submission.file_type}",
                 field="file_type",
-                value=report.file_type,
+                value=submission.file_type,
             )
         )
 
@@ -193,7 +195,7 @@ class SubmissionsProcessingService:
     # ========================================================================
 
     async def _process_audio(
-        self, report: Submission, instructions: dict[str, Any] | None
+        self, submission: Submission, instructions: dict[str, Any] | None
     ) -> Result[Entity]:
         """
         Process audio file: transcribe + LLM formatting.
@@ -211,16 +213,16 @@ class SubmissionsProcessingService:
                 )
             )
 
-        self.logger.info(f"Processing audio report: {report.uid}")
+        self.logger.info(f"Processing audio submission: {submission.uid}")
 
         # Step 1: Create transcription record
         from core.models.transcription.transcription import TranscriptionCreateRequest
 
         create_request = TranscriptionCreateRequest(
-            audio_file_path=report.file_path,
-            original_filename=report.original_filename,
+            audio_file_path=submission.file_path,
+            original_filename=submission.original_filename,
         )
-        create_result = await self.transcription_service.create(create_request, report.user_uid)
+        create_result = await self.transcription_service.create(create_request, submission.user_uid)
 
         if create_result.is_error:
             return create_result
@@ -235,44 +237,46 @@ class SubmissionsProcessingService:
         transcription = process_result.value
         transcript_text = transcription.transcript_text
 
-        self.logger.info(f"Audio transcribed: {report.uid} ({len(transcript_text)} chars)")
+        self.logger.info(f"Audio transcribed: {submission.uid} ({len(transcript_text)} chars)")
 
         processed_content = transcript_text
 
         # Update entity with processed content
         update_result = await self.ku_submission_service.update_processed_content(
-            uid=report.uid, processed_content=processed_content
+            uid=submission.uid, processed_content=processed_content
         )
 
         if update_result.is_error:
             return update_result
 
-        updated_report = update_result.value
+        updated_submission = update_result.value
 
         # Check if journal processing is needed
-        is_journal = report.ku_type == EntityType.JOURNAL
+        is_journal = submission.ku_type == EntityType.JOURNAL
 
         if is_journal:
-            await self._process_journal(updated_report, transcript_text, instructions)
-            refresh_result = await self.ku_submission_service.get_submission(report.uid)
+            await self._process_journal(updated_submission, transcript_text, instructions)
+            refresh_result = await self.ku_submission_service.get_submission(submission.uid)
             if not refresh_result.is_error and refresh_result.value:
-                updated_report = refresh_result.value
+                updated_submission = refresh_result.value
         elif instructions and instructions.get("extract_activities", False):
             if self.activity_extractor:
-                await self._extract_activities(updated_report, report.user_uid, instructions)
+                await self._extract_activities(
+                    updated_submission, submission.user_uid, instructions
+                )
             else:
                 self.logger.warning(
-                    f"Activity extraction requested but extractor not configured for {report.uid}"
+                    f"Activity extraction requested but extractor not configured for {submission.uid}"
                 )
 
-        return Result.ok(updated_report)
+        return Result.ok(updated_submission)
 
     # ========================================================================
     # TEXT PROCESSING
     # ========================================================================
 
     async def _process_text(
-        self, report: Submission, instructions: dict[str, Any] | None
+        self, submission: Submission, instructions: dict[str, Any] | None
     ) -> Result[Entity]:
         """
         Process text file: read content and store.
@@ -281,10 +285,10 @@ class SubmissionsProcessingService:
         1. Read text file content
         2. Update entity with processed content
         """
-        self.logger.info(f"Processing text report: {report.uid}")
+        self.logger.info(f"Processing text submission: {submission.uid}")
 
         # Step 1: Read text content
-        file_content_result = await self.ku_submission_service.get_file_content(report.uid)
+        file_content_result = await self.ku_submission_service.get_file_content(submission.uid)
 
         if file_content_result.is_error:
             return Result.fail(file_content_result.expect_error())
@@ -293,38 +297,40 @@ class SubmissionsProcessingService:
 
         # Step 2: Update entity with processed content
         update_result = await self.ku_submission_service.update_processed_content(
-            uid=report.uid, processed_content=text_content
+            uid=submission.uid, processed_content=text_content
         )
 
         if update_result.is_error:
             return update_result
 
-        updated_report = update_result.value
+        updated_submission = update_result.value
 
         # Check if journal processing is needed
-        is_journal = report.ku_type == EntityType.JOURNAL
+        is_journal = submission.ku_type == EntityType.JOURNAL
 
         if is_journal:
-            await self._process_journal(updated_report, text_content, instructions)
-            refresh_result = await self.ku_submission_service.get_submission(report.uid)
+            await self._process_journal(updated_submission, text_content, instructions)
+            refresh_result = await self.ku_submission_service.get_submission(submission.uid)
             if not refresh_result.is_error and refresh_result.value:
-                updated_report = refresh_result.value
+                updated_submission = refresh_result.value
         elif instructions and instructions.get("extract_activities", False):
             if self.activity_extractor:
-                await self._extract_activities(updated_report, report.user_uid, instructions)
+                await self._extract_activities(
+                    updated_submission, submission.user_uid, instructions
+                )
             else:
                 self.logger.warning(
-                    f"Activity extraction requested but extractor not configured for {report.uid}"
+                    f"Activity extraction requested but extractor not configured for {submission.uid}"
                 )
 
-        return Result.ok(updated_report)
+        return Result.ok(updated_submission)
 
     # ========================================================================
     # JOURNAL PROCESSING
     # ========================================================================
 
     async def _process_journal(
-        self, report: Journal, content: str, instructions: dict[str, Any] | None
+        self, submission: Journal, content: str, instructions: dict[str, Any] | None
     ) -> None:
         """
         Process journal-type Ku with enrichment pipeline.
@@ -337,7 +343,7 @@ class SubmissionsProcessingService:
         """
         if not self.journal_generator:
             self.logger.warning(
-                f"Journal processing requested but generator not configured for {report.uid}"
+                f"Journal processing requested but generator not configured for {submission.uid}"
             )
             return
 
@@ -346,17 +352,19 @@ class SubmissionsProcessingService:
         custom_instructions = instructions.get("custom_instructions") if instructions else None
 
         if custom_instructions:
-            self.logger.info(f"Processing journal report {report.uid} with custom instructions")
+            self.logger.info(
+                f"Processing journal submission {submission.uid} with custom instructions"
+            )
         else:
             self.logger.info(
-                f"Processing journal report {report.uid} (enrichment_mode: {enrichment_mode or 'activity_tracking'})"
+                f"Processing journal submission {submission.uid} (enrichment_mode: {enrichment_mode or 'activity_tracking'})"
             )
 
         # Step 2: Generate je_output file
         output_result = await self.journal_generator.generate(
             content=content,
             enrichment_mode=enrichment_mode,
-            report_uid=report.uid,
+            report_uid=submission.uid,
             custom_instructions=custom_instructions,
         )
 
@@ -369,41 +377,41 @@ class SubmissionsProcessingService:
         # Step 3: Extract activities if mode is activity_tracking (default)
         effective_mode = enrichment_mode or "activity_tracking"
         if effective_mode == "activity_tracking" and self.activity_extractor:
-            self.logger.info(f"Extracting activities for {report.uid}")
-            await self._extract_activities(report, report.user_uid, instructions)
+            self.logger.info(f"Extracting activities for {submission.uid}")
+            await self._extract_activities(submission, submission.user_uid, instructions)
 
         # Step 4: Store journal processing metadata
-        current_metadata = report.metadata or {}
+        current_metadata = submission.metadata or {}
         current_metadata["enrichment_mode"] = effective_mode
         current_metadata["je_output_path"] = je_output_path
 
         await self.ku_submission_service.update_submission(
-            uid=report.uid,
+            uid=submission.uid,
             updates={"metadata": current_metadata},
         )
 
-        self.logger.info(f"Journal processing complete: {report.uid} - {effective_mode}")
+        self.logger.info(f"Journal processing complete: {submission.uid} - {effective_mode}")
 
     # ========================================================================
     # ACTIVITY EXTRACTION (DSL Integration)
     # ========================================================================
 
     async def _extract_activities(
-        self, report: SubmissionEntity, user_uid: str, instructions: dict[str, Any] | None
+        self, submission: SubmissionEntity, user_uid: str, instructions: dict[str, Any] | None
     ) -> None:
         """
         Extract Activity Lines from processed content and create entities.
 
         Args:
-            ku: Processed report with content
+            ku: Processed submission with content
             user_uid: User UID for entity ownership
             instructions: Processing instructions
         """
-        self.logger.info(f"Extracting activities from report {report.uid}")
+        self.logger.info(f"Extracting activities from submission {submission.uid}")
 
         try:
             result = await self.activity_extractor.extract_and_create(
-                report=report,
+                report=submission,
                 user_uid=user_uid,
                 create_relationships=instructions.get("create_activity_relationships", True)
                 if instructions
@@ -413,7 +421,7 @@ class SubmissionsProcessingService:
             if result.is_ok:
                 extraction = result.value
                 self.logger.info(
-                    f"Activity extraction complete for {report.uid}: "
+                    f"Activity extraction complete for {submission.uid}: "
                     f"found {extraction.activities_found} activities, "
                     f"created {extraction.total_created} entities "
                     f"(tasks={extraction.tasks_created}, habits={extraction.habits_created}, "
@@ -422,16 +430,18 @@ class SubmissionsProcessingService:
 
                 if extraction.has_errors:
                     self.logger.warning(
-                        f"Activity extraction had errors for {report.uid}: "
+                        f"Activity extraction had errors for {submission.uid}: "
                         f"{len(extraction.parse_errors)} parse errors, "
                         f"{len(extraction.creation_errors)} creation errors"
                     )
             else:
-                self.logger.warning(f"Activity extraction failed for {report.uid}: {result.error}")
+                self.logger.warning(
+                    f"Activity extraction failed for {submission.uid}: {result.error}"
+                )
 
         except Exception as e:
             self.logger.error(
-                f"Unexpected error during activity extraction for {report.uid}: {e}",
+                f"Unexpected error during activity extraction for {submission.uid}: {e}",
                 exc_info=True,
             )
 

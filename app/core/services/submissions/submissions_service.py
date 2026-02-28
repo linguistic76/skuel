@@ -167,7 +167,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         )
 
         # Store in Neo4j
-        create_result = await self.backend.create(report)
+        create_result = await self.backend.create(submission)
 
         if create_result.is_error:
             # Clean up file if Neo4j storage fails
@@ -380,7 +380,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         self, uid: str, processed_content: str, processed_file_path: str | None = None
     ) -> Result[Entity]:
         """
-        Update report with processed content.
+        Update submission with processed content.
 
         Args:
             uid: Submission UID
@@ -419,7 +419,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             Result containing True if deleted successfully
         """
-        report_result = await self.get_submission(uid)
+        submission_result = await self.get_submission(uid)
         if submission_result.is_error:
             return Result.fail(submission_result.expect_error())
 
@@ -428,7 +428,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             return Result.fail(Errors.not_found("Submission", uid))
 
         submission_file_path = getattr(submission, "file_path", None)
-        file_path = Path(submission_file_path) if report_file_path else None
+        file_path = Path(submission_file_path) if submission_file_path else None
         ku_dir = file_path.parent if file_path else None
 
         # Delete Neo4j record first
@@ -514,7 +514,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         if not submission:
             return Result.fail(Errors.not_found("Submission", ku_uid))
 
-        processed_path = getattr(report, "processed_file_path", None)
+        processed_path = getattr(submission, "processed_file_path", None)
         if not processed_path:
             return Result.fail(
                 Errors.validation(

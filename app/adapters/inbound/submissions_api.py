@@ -125,7 +125,7 @@ def create_submissions_api_routes(
         - auto_process: Automatically process after upload (default: false)
 
         Returns:
-        - 201 Created with report details
+        - 201 Created with submission details
         """
         # Get form data
         form = await request.form()
@@ -346,7 +346,7 @@ def create_submissions_api_routes(
     @boundary_handler()
     async def get_submission_route(request: Request, uid: str) -> Result[Any]:
         """
-        Get report details by UID.
+        Get submission details by UID.
 
         Query parameters:
         - uid: Report UID
@@ -373,7 +373,7 @@ def create_submissions_api_routes(
     @boundary_handler()
     async def get_submission_content_route(request: Request, uid: str) -> Result[Any]:
         """
-        Get processed content for a report.
+        Get processed content for a submission.
 
         Query parameters:
         - uid: Report UID
@@ -417,7 +417,7 @@ def create_submissions_api_routes(
     @boundary_handler()
     async def process_submission_route(request: Request, uid: str) -> Result[Any]:
         """
-        Process a report.
+        Process a submission.
 
         Query parameters:
         - uid: Report UID
@@ -426,7 +426,7 @@ def create_submissions_api_routes(
         - instructions: Processor-specific instructions
 
         Returns:
-        - Updated report with processed content
+        - Updated submission with processed content
         """
         # Get optional instructions
         instructions = None
@@ -578,7 +578,7 @@ def create_submissions_api_routes(
     @boundary_handler()
     async def get_statistics_route(request: Request, user_uid: str | None = None) -> Result[Any]:
         """
-        Get report statistics for a user.
+        Get submission statistics for a user.
 
         Query parameters:
         - user_uid: User identifier (required)
@@ -608,7 +608,7 @@ def create_submissions_api_routes(
             request: Request, submission_uid: str, user_uid: str
         ) -> Result[Any]:
             """
-            Categorize a report.
+            Categorize a submission.
 
             Query parameters:
             - report_uid: Report UID
@@ -641,7 +641,7 @@ def create_submissions_api_routes(
             request: Request, submission_uid: str, user_uid: str
         ) -> Result[Any]:
             """
-            Add tags to a report.
+            Add tags to a submission.
 
             Query parameters:
             - report_uid: Report UID
@@ -672,7 +672,7 @@ def create_submissions_api_routes(
             request: Request, submission_uid: str, user_uid: str
         ) -> Result[Any]:
             """
-            Remove tags from a report.
+            Remove tags from a submission.
 
             Query parameters:
             - report_uid: Report UID
@@ -703,7 +703,7 @@ def create_submissions_api_routes(
             request: Request, submission_uid: str, user_uid: str
         ) -> Result[Any]:
             """
-            Publish a report.
+            Publish a submission.
 
             Query parameters:
             - report_uid: Report UID
@@ -728,7 +728,7 @@ def create_submissions_api_routes(
             request: Request, submission_uid: str, user_uid: str
         ) -> Result[Any]:
             """
-            Archive a report.
+            Archive a submission.
 
             Query parameters:
             - report_uid: Report UID
@@ -753,7 +753,7 @@ def create_submissions_api_routes(
             request: Request, submission_uid: str, user_uid: str
         ) -> Result[Any]:
             """
-            Mark report as draft.
+            Mark submission as draft.
 
             Query parameters:
             - report_uid: Report UID
@@ -782,7 +782,7 @@ def create_submissions_api_routes(
             - user_uid: User UID
 
             JSON body:
-            - report_uids: List of report UIDs
+            - ku_uids: List of submission UIDs
             - category: Category string
             """
             body = await request.json()
@@ -816,7 +816,7 @@ def create_submissions_api_routes(
             - user_uid: User UID
 
             JSON body:
-            - report_uids: List of report UIDs
+            - ku_uids: List of submission UIDs
             - tags: List of tag strings
             """
             body = await request.json()
@@ -848,7 +848,7 @@ def create_submissions_api_routes(
             - user_uid: User UID
 
             JSON body:
-            - report_uids: List of report UIDs
+            - ku_uids: List of submission UIDs
             - soft_delete: Boolean (default True)
             """
             body = await request.json()

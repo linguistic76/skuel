@@ -76,7 +76,7 @@ from core.utils.uid_generator import UIDGenerator
 
 class ReportCategory:
     """
-    Categories for report content organization.
+    Categories for submission content organization.
 
     Stored in Ku.metadata['category'].
     Using constants instead of Enum for flexibility with existing data.
@@ -225,7 +225,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if not submission:
             return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
-        return Result.ok(report)
+        return Result.ok(submission)
 
     async def get_with_access_check(self, uid: str, user_uid: str) -> Result[SubmissionEntity]:
         """
@@ -262,7 +262,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         self, target_date: date, user_uid: str | None = None
     ) -> Result[SubmissionEntity | None]:
         """
-        Get the report for a specific date.
+        Get the submission for a specific date.
 
         Args:
             target_date: Date to find submission for
@@ -412,13 +412,13 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             Result indicating success or failure
         """
-        # Get report for event data before deletion
+        # Get submission for event data before deletion
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        report = get_result.value
-        if not report:
+        submission = get_result.value
+        if not submission:
             return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         # Delete
@@ -432,8 +432,8 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
             event = SubmissionDeleted(
                 submission_uid=uid,
-                user_uid=report.user_uid if isinstance(report, UserOwnedEntity) else None,
-                ku_type=report.ku_type.value,
+                user_uid=submission.user_uid if isinstance(submission, UserOwnedEntity) else None,
+                ku_type=submission.ku_type.value,
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
@@ -451,18 +451,18 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         return await self._update_submission_status(uid, EntityStatus.COMPLETED)
 
     async def archive_submission(self, uid: str) -> Result[SubmissionEntity]:
-        """Archive a report by updating status in metadata."""
+        """Archive a submission by updating status in metadata."""
         # Get current entity
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        report = get_result.value
-        if not report:
+        submission = get_result.value
+        if not submission:
             return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         # Update metadata to include archived flag
-        current_metadata = report.metadata or {}
+        current_metadata = submission.metadata or {}
         current_metadata["archived"] = True
         current_metadata["archived_at"] = datetime.now().isoformat()
 
@@ -485,7 +485,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if not updated:
             return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
-        self.logger.info(f"Updated report {uid} status to {status.value}")
+        self.logger.info(f"Updated submission {uid} status to {status.value}")
         return Result.ok(updated)
 
     # ========================================================================
@@ -503,23 +503,23 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             category: Category to assign (use ReportCategory constants)
 
         Returns:
-            Updated report
+            Updated submission
         """
         # Validate category
         if category not in ReportCategory.all_categories():
             self.logger.warning(f"Unknown category '{category}', using anyway")
 
-        # Get current report to preserve metadata
+        # Get current submission to preserve metadata
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        report = get_result.value
-        if not report:
+        submission = get_result.value
+        if not submission:
             return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         # Update metadata with category
-        current_metadata = report.metadata or {}
+        current_metadata = submission.metadata or {}
         current_metadata["category"] = category
 
         return await self.update_submission(uid, {"metadata": current_metadata})
@@ -580,18 +580,18 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             tags: Tags to add
 
         Returns:
-            Updated report
+            Updated submission
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        report = get_result.value
-        if not report:
+        submission = get_result.value
+        if not submission:
             return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         # Merge with existing tags
-        current_metadata = report.metadata or {}
+        current_metadata = submission.metadata or {}
         current_tags = current_metadata.get("tags", [])
         if not isinstance(current_tags, list):
             current_tags = []
@@ -609,18 +609,18 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             tags: Tags to remove
 
         Returns:
-            Updated report
+            Updated submission
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        report = get_result.value
-        if not report:
+        submission = get_result.value
+        if not submission:
             return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         # Remove specified tags
-        current_metadata = report.metadata or {}
+        current_metadata = submission.metadata or {}
         current_tags = current_metadata.get("tags", [])
         if not isinstance(current_tags, list):
             current_tags = []
@@ -679,13 +679,15 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Bulk categorize multiple Ku entities.
 
         Args:
-            uids: List of report UIDs to categorize
+            uids: List of submission UIDs to categorize
             category: Category to assign to all entities
 
         Returns:
             Result containing count of successfully updated entities
         """
-        self.logger.info(f"Bulk categorizing {len(uids)} report entities to category: {category}")
+        self.logger.info(
+            f"Bulk categorizing {len(uids)} submission entities to category: {category}"
+        )
 
         updated_count = 0
         errors = []
@@ -694,7 +696,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             result = await self.categorize_submission(uid, category)
             if result.is_ok:
                 updated_count += 1
-                self.logger.debug(f"Updated report {uid} to category {category}")
+                self.logger.debug(f"Updated submission {uid} to category {category}")
             else:
                 error_msg = f"Failed to update Ku {uid}: {result.error}"
                 errors.append(error_msg)
@@ -704,7 +706,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             self.logger.warning(f"Bulk categorization completed with {len(errors)} errors")
 
         self.logger.info(
-            f"Bulk categorization completed: {updated_count}/{len(uids)} report entities updated"
+            f"Bulk categorization completed: {updated_count}/{len(uids)} submission entities updated"
         )
         return Result.ok(updated_count)
 
@@ -713,13 +715,13 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Bulk add tags to multiple Ku entities.
 
         Args:
-            uids: List of report UIDs to tag
+            uids: List of submission UIDs to tag
             tags: List of tags to add to all entities
 
         Returns:
             Result containing count of successfully updated entities
         """
-        self.logger.info(f"Bulk tagging {len(uids)} report entities with tags: {tags}")
+        self.logger.info(f"Bulk tagging {len(uids)} submission entities with tags: {tags}")
 
         updated_count = 0
         errors = []
@@ -738,7 +740,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             self.logger.warning(f"Bulk tagging completed with {len(errors)} errors")
 
         self.logger.info(
-            f"Bulk tagging completed: {updated_count}/{len(uids)} report entities updated"
+            f"Bulk tagging completed: {updated_count}/{len(uids)} submission entities updated"
         )
         return Result.ok(updated_count)
 
@@ -747,13 +749,15 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Bulk delete multiple Ku entities.
 
         Args:
-            uids: List of report UIDs to delete
+            uids: List of submission UIDs to delete
             soft_delete: If True, archive instead of permanent delete
 
         Returns:
             Result containing count of successfully deleted entities
         """
-        self.logger.info(f"Bulk deleting {len(uids)} report entities (soft_delete={soft_delete})")
+        self.logger.info(
+            f"Bulk deleting {len(uids)} submission entities (soft_delete={soft_delete})"
+        )
 
         deleted_count = 0
         errors = []
@@ -768,7 +772,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
             if success:
                 deleted_count += 1
-                self.logger.debug(f"Deleted report {uid}")
+                self.logger.debug(f"Deleted submission {uid}")
             else:
                 error_msg = f"Failed to delete Ku {uid}"
                 errors.append(error_msg)
@@ -778,7 +782,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             self.logger.warning(f"Bulk deletion completed with {len(errors)} errors")
 
         self.logger.info(
-            f"Bulk deletion completed: {deleted_count}/{len(uids)} report entities deleted"
+            f"Bulk deletion completed: {deleted_count}/{len(uids)} submission entities deleted"
         )
         return Result.ok(deleted_count)
 
@@ -788,38 +792,38 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
     async def export_to_markdown(self, uid: str) -> Result[str]:
         """
-        Export report to markdown format.
+        Export submission to markdown format.
 
         Args:
             uid: Submission UID
 
         Returns:
-            Markdown formatted report content
+            Markdown formatted submission content
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        report = get_result.value
-        if not report:
+        submission = get_result.value
+        if not submission:
             return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         # Extract metadata
-        metadata = report.metadata or {}
+        metadata = submission.metadata or {}
         category = metadata.get("category", "")
         tags_list = metadata.get("tags", [])
 
         # Format as markdown
         md_lines = [
-            f"# {report.title}",
-            f"*{report.created_at.strftime('%Y-%m-%d')}*" if report.created_at else "",
+            f"# {submission.title}",
+            f"*{submission.created_at.strftime('%Y-%m-%d')}*" if submission.created_at else "",
             "",
-            getattr(report, "processed_content", None) or report.content or "",
+            getattr(submission, "processed_content", None) or submission.content or "",
             "",
-            f"**Type:** {report.ku_type.value}" if report.ku_type else "",
+            f"**Type:** {submission.ku_type.value}" if submission.ku_type else "",
             f"**Category:** {category}" if category else "",
             f"**Tags:** {', '.join(tags_list)}" if tags_list else "",
-            f"**Status:** {report.status.value}" if report.status else "",
+            f"**Status:** {submission.status.value}" if submission.status else "",
         ]
 
         markdown = "\n".join(line for line in md_lines if line)
@@ -828,7 +832,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     # ========================================================================
     # JOURNAL CRUD (merged from JournalsCoreService — February 2026)
     #
-    # Journals are SUBMISSION report with journal-specific fields in metadata:
+    # Journals are SUBMISSION entities with journal-specific fields in metadata:
     #   metadata['journal_type'], metadata['journal_category'],
     #   metadata['entry_date'], metadata['mood'], metadata['energy_level'],
     #   metadata['key_topics'], metadata['action_items'],
@@ -880,7 +884,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             enforce_fifo: If True, enforce FIFO cleanup when max_retention is set
 
         Returns:
-            Result containing the created report
+            Result containing the created submission
         """
         uid = UIDGenerator.generate_uid("je", title)
 
@@ -920,7 +924,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        self.logger.info(f"Created journal report: {uid} - {title}")
+        self.logger.info(f"Created journal submission: {uid} - {title}")
 
         # Enforce FIFO for ephemeral journals
         if enforce_fifo and max_retention is not None:
@@ -965,7 +969,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         limit: int = 100,
     ) -> Result[list[Journal]]:
         """
-        Get journal report entities within a date range.
+        Get journal submission entities within a date range.
 
         Args:
             user_uid: User identifier
@@ -974,7 +978,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             limit: Maximum number to return
 
         Returns:
-            Result containing list of journal report entities
+            Result containing list of journal submission entities
         """
         result = await self.backend.find_by(
             user_uid=user_uid,
@@ -983,15 +987,15 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        reports = result.value or []
+        submissions = result.value or []
         journals = []
-        for report in reports:
-            entry_date_str = (report.metadata or {}).get("entry_date")
+        for submission in submissions:
+            entry_date_str = (submission.metadata or {}).get("entry_date")
             if entry_date_str:
                 try:
                     entry = date.fromisoformat(entry_date_str)
                     if start_date <= entry <= end_date:
-                        journals.append(report)
+                        journals.append(submission)
                 except (ValueError, TypeError):
                     pass
 
@@ -1009,21 +1013,21 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             uid: Report UID to make permanent
 
         Returns:
-            Result containing the updated report
+            Result containing the updated submission
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        report = get_result.value
-        if not report:
+        submission = get_result.value
+        if not submission:
             return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         return await self.update_submission(uid, {"max_retention": None})
 
     async def get_journal_with_insights(self, uid: str) -> Result[Journal | None]:
         """
-        Get a journal report with its extracted insights.
+        Get a journal submission with its extracted insights.
 
         Args:
             uid: Submission UID
@@ -1035,11 +1039,11 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        report = result.value
-        if not report or report.ku_type != EntityType.JOURNAL:
+        submission = result.value
+        if not submission or submission.ku_type != EntityType.JOURNAL:
             return Result.ok(None)
 
-        return Result.ok(report)
+        return Result.ok(submission)
 
     # ========================================================================
     # FIFO CLEANUP FOR VOICE JOURNALS
@@ -1062,7 +1066,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Called by routes after Ku creation when exercise_uid is provided.
 
         Args:
-            ku_uid: The submitted report UID
+            ku_uid: The submitted submission UID
             exercise_uid: The Exercise UID this Ku fulfills
 
         Returns:
@@ -1186,7 +1190,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         )
 
         if result.is_error:
-            self.logger.warning(f"Failed to get report entities for FIFO: {result.error}")
+            self.logger.warning(f"Failed to get submission entities for FIFO: {result.error}")
             return Result.ok(0)
 
         reports = result.value or []
@@ -1227,7 +1231,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         Create a teacher assessment (feedback) for a student.
 
-        Creates a report with ku_type=FEEDBACK_REPORT, auto-shares with student.
+        Creates a submission with ku_type=FEEDBACK_REPORT, auto-shares with student.
         Verifies teacher has authority over student via shared group membership.
 
         Args:
@@ -1238,7 +1242,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             metadata: Optional additional metadata
 
         Returns:
-            Result containing the created report, or forbidden error if no shared group
+            Result containing the created submission, or forbidden error if no shared group
         """
         from core.models.enums.metadata_enums import Visibility
 
@@ -1499,10 +1503,10 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             )
 
 
-def _get_entry_date_key(report: SubmissionEntity) -> date:
+def _get_entry_date_key(submission: SubmissionEntity) -> date:
     """Get entry_date from entity metadata for sorting, with fallback to date.min."""
-    if report.metadata:
-        entry_date_str = report.metadata.get("entry_date")
+    if submission.metadata:
+        entry_date_str = submission.metadata.get("entry_date")
         if entry_date_str:
             try:
                 return date.fromisoformat(entry_date_str)
@@ -1511,6 +1515,6 @@ def _get_entry_date_key(report: SubmissionEntity) -> date:
     return date.min
 
 
-def _get_created_at_key(report: SubmissionEntity) -> datetime:
+def _get_created_at_key(submission: SubmissionEntity) -> datetime:
     """Get created_at from entity for sorting, with fallback to datetime.min."""
-    return report.created_at if report.created_at else datetime.min
+    return submission.created_at if submission.created_at else datetime.min

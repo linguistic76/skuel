@@ -45,10 +45,10 @@ class SubmissionsRelationshipService:
         active_goals: list[dict[str, str]] | None = None,
     ) -> Result[dict[str, int]]:
         """
-        Create graph relationships for a report entity.
+        Create graph relationships for a submission entity.
 
         Args:
-            entity: The newly created/updated report entity
+            entity: The newly created/updated submission entity
             themes: Optional list of themes for thematic relationships
             active_goals: Optional list of active goals for goal-support relationships
 
@@ -211,7 +211,7 @@ class SubmissionsRelationshipService:
 
         Args:
             ku_uid: UID of the Ku
-            processed_content: Processed report content
+            processed_content: Processed submission content
             active_goals: List of active goals from context
 
         Returns:
