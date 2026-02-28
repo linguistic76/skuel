@@ -387,32 +387,22 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         return Result.ok(updated_principle)
 
     @with_error_handling("get_user_principles", error_type="database", uid_param="user_uid")
-    async def get_user_principles(
-        self, user_uid: str, strength_filter: PrincipleStrength | None = None
-    ) -> Result[list[Principle]]:
+    async def get_user_principles(self, user_uid: str) -> Result[list[Principle]]:
         """
-        Get all principles for a user, optionally filtered by strength.
+        Get all principles for a user.
 
         Args:
-            user_uid: User UID,
-            strength_filter: Optional strength filter
+            user_uid: User UID
 
         Returns:
-            List of user's principles
+            List of user's principles sorted by priority
         """
-        # Get all principles for user using find_by
         result = await self.backend.find_by(user_uid=user_uid)
 
         if result.is_error:
             return result
 
         principles: list[Principle] = [p for p in result.value if isinstance(p, Principle)]
-
-        # Filter by strength if requested
-        if strength_filter:
-            principles = [p for p in principles if p.strength == strength_filter]
-
-        # Sort by priority rank (using to_numeric() method)
         principles.sort(key=get_principle_priority, reverse=True)
 
         return Result.ok(principles)

@@ -21,8 +21,8 @@ Real-World Usage Examples
         service: BaseServiceInterface[Any, Any]
     ) -> dict[str, Any]:
         '''Check if service has required data for analysis.'''
-        # IDE autocompletes: search, get_by_status, list_categories, etc.
-        categories = service.list_categories()  # Type-checked!
+        # IDE autocompletes: search, get_by_status, list_all_categories, etc.
+        categories = service.list_all_categories()  # Type-checked!
         if categories.is_error:
             return {"healthy": False, "reason": "No categories"}
         return {"healthy": True, "categories": categories.value}
@@ -53,7 +53,7 @@ Real-World Usage Examples
         health_report = {}
         for domain_name, service in services:
             # IDE provides autocomplete for all BaseService methods
-            categories = await service.list_categories()
+            categories = await service.list_all_categories()
             statuses = await service.get_by_status("active")
             health_report[domain_name] = {
                 "category_count": len(categories.value or []),

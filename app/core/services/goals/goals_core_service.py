@@ -644,27 +644,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # QUERY OPERATIONS
     # ========================================================================
 
-    async def list_goal_categories(self) -> Result[list[str]]:
-        """
-        List all unique goal categories.
-
-        Returns:
-            Result containing list of category strings
-        """
-        # Query Neo4j for distinct domain values
-        query = """
-        MATCH (g:Entity {ku_type: 'goal'})
-        RETURN DISTINCT g.domain as category
-        ORDER BY category
-        """
-
-        result = await self.backend.execute_query(query, {})
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        categories = [record["category"] for record in result.value if record.get("category")]
-        return Result.ok(categories)
-
     async def get_goals_by_category(self, category: str, limit: int = 100) -> Result[list[Goal]]:
         """
         Get goals in a specific category.

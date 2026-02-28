@@ -195,7 +195,7 @@ def create_principles_api_routes(
     async def get_principle_categories_route(request: Request) -> Result[Any]:
         """Get principle categories for the authenticated user."""
         user_uid = require_authenticated_user(request)
-        return await principles_service.get_principle_categories(user_uid)
+        return await principles_service.list_principle_categories(user_uid)
 
     @rt("/api/principles/sources")
     @boundary_handler()

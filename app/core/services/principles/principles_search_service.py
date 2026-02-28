@@ -56,7 +56,6 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     - get_inspiring_habits() - Principles inspiring specific habits
     - get_for_choice() - Principles relevant to a decision
     - get_active_principles() - Get all active principles for user
-    - list_categories() - Get all PrincipleCategory values
     - get_needing_review() - Principles past review threshold
 
     Semantic Types Used:
@@ -538,20 +537,6 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
 
         self.logger.debug(f"Found {len(principles)} active principles for user {user_uid}")
         return Result.ok(principles)
-
-    @with_error_handling("list_categories", error_type="database")
-    async def list_categories(self) -> Result[list[str]]:
-        """
-        List all PrincipleCategory values.
-
-        Returns:
-            Result containing list of category strings
-        """
-        # Return all PrincipleCategory enum values
-        categories = [c.value for c in PrincipleCategory]
-
-        self.logger.debug(f"Returning {len(categories)} principle categories")
-        return Result.ok(categories)
 
     @with_error_handling("get_needing_review", error_type="database")
     async def get_needing_review(

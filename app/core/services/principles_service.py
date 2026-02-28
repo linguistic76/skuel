@@ -79,7 +79,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
     - Alignment: assess_goal_alignment, assess_habit_alignment, get_motivational_profile, etc.
     - Learning: frame_principle_practice_with_learning, assess_principle_learning_alignment, etc.
     - Intelligence: get_principle_with_context, assess_principle_alignment, etc.
-    - Search: get_principle_categories, get_principles_by_status, etc.
+    - Search: list_principle_categories, get_principles_by_status, etc.
 
     Explicit Methods (custom logic):
     - create_principle (many parameters)
@@ -167,7 +167,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
         return await self.intelligence.get_principle_conflict_analysis(*args, **kwargs)
 
     # Search delegations
-    async def get_principle_categories(self, *args: Any, **kwargs: Any) -> Result[Any]:
+    async def list_principle_categories(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.search.list_user_categories(*args, **kwargs)
 
     async def list_all_principle_categories(self, *args: Any, **kwargs: Any) -> Result[Any]:
