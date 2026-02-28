@@ -91,7 +91,7 @@ All use `UnifiedRelationshipService` with domain configs:
 
 | Service | Attribute | Purpose |
 |---------|-----------|---------|
-| Reports | `self.reports` | Submissions + Journals (EntityType.JOURNAL merged Feb 2026) |
+| Submissions | `self.reports` | Submissions + Journals (EntityType.JOURNAL merged Feb 2026) |
 | Analytics | `self.analytics` | Cross-domain analytics |
 
 ### Temporal Domain (1)
@@ -170,7 +170,7 @@ factory = UserContextIntelligenceFactory(
     ku=ku_service.graph,
     ls=ls_service.relationships,
     lp=lp_service.relationships,
-    # Processing Domains (2) — journals merged into reports Feb 2026
+    # Processing Domains (2) — journals merged into submissions Feb 2026
     reports=submissions_relationship_service,
     analytics=analytics_relationship_service,
     # Temporal Domain (1)

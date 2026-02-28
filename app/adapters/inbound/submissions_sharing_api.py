@@ -5,12 +5,12 @@ Submission Sharing API Routes
 REST API for submission sharing, visibility control, and access management.
 
 Routes:
-- POST /api/submissions/share - Share report with user
+- POST /api/submissions/share - Share submission with user
 - POST /api/submissions/unshare - Revoke sharing
 - POST /api/submissions/set-visibility - Set visibility level
-- GET /api/submissions/shared-with-me - Get reports shared with current user
-- GET /api/submissions/shared-users - Get users report is shared with
-- GET /api/submissions/public - Browse public reports (portfolio showcase)
+- GET /api/submissions/shared-with-me - Get submissions shared with current user
+- GET /api/submissions/shared-users - Get users submission is shared with
+- GET /api/submissions/public - Browse public submissions (portfolio showcase)
 
 See: /docs/patterns/SHARING_PATTERNS.md (to be created)
 """
@@ -56,7 +56,7 @@ class UnshareSubmissionRequest(BaseModel):
 
 
 class SetVisibilityRequest(BaseModel):
-    """Request to set report visibility."""
+    """Request to set submission visibility."""
 
     submission_uid: str
     visibility: str  # private, shared, public
@@ -74,12 +74,12 @@ def create_submissions_sharing_api_routes(
     core_service: "SubmissionOperations | None" = None,
 ) -> list[Any]:
     """
-    Create all report sharing API routes.
+    Create all submission sharing API routes.
 
     Args:
         _app: FastHTML app instance
         rt: Route decorator
-        sharing_service: ReportSharingService instance
+        sharing_service: SubmissionsSharingService instance
         core_service: Optional SubmissionsCoreService for additional operations
 
     Returns:
@@ -93,10 +93,10 @@ def create_submissions_sharing_api_routes(
         body: ShareSubmissionRequest,
     ) -> Result[dict[str, Any]]:
         """
-        Share a report with a specific user.
+        Share a submission with a specific user.
 
         Creates SHARES_WITH relationship and notifies recipient.
-        Only completed reports can be shared.
+        Only completed submissions can be shared.
 
         Request body:
             {
@@ -106,7 +106,7 @@ def create_submissions_sharing_api_routes(
             }
 
         Returns:
-            {"success": true, "message": "Report shared successfully"}
+            {"success": true, "message": "Submission shared successfully"}
         """
         user_uid: UserUID = require_authenticated_user(request)
 
@@ -172,9 +172,9 @@ def create_submissions_sharing_api_routes(
         body: SetVisibilityRequest,
     ) -> Result[dict[str, Any]]:
         """
-        Set report visibility level.
+        Set submission visibility level.
 
-        Only completed reports can be made SHARED or PUBLIC.
+        Only completed submissions can be made SHARED or PUBLIC.
 
         Request body:
             {
@@ -218,14 +218,14 @@ def create_submissions_sharing_api_routes(
     @boundary_handler(success_status=200)
     async def get_shared_with_me(request: Request) -> Result[dict[str, Any]]:
         """
-        Get reports shared with current user.
+        Get submissions shared with current user.
 
         Query params:
-            limit: Maximum reports to return (default: 50)
+            limit: Maximum submissions to return (default: 50)
 
         Returns:
             {
-                "submissions": [ReportDTO, ...],
+                "submissions": [SubmissionDTO, ...],
                 "count": 5
             }
         """
@@ -271,10 +271,10 @@ def create_submissions_sharing_api_routes(
     @boundary_handler(success_status=200)
     async def get_shared_users(request: Request) -> Result[dict[str, Any]]:
         """
-        Get list of users a report is shared with.
+        Get list of users a submission is shared with.
 
         Query params:
-            uid: Report UID
+            uid: Submission UID
 
         Returns:
             {
@@ -304,7 +304,7 @@ def create_submissions_sharing_api_routes(
                 }
             )
 
-        # Verify ownership (only owner can see who report is shared with)
+        # Verify ownership (only owner can see who submission is shared with)
         if core_service:
             submission_result = await core_service.get_submission(submission_uid)
             if submission_result.is_error:
@@ -339,15 +339,15 @@ def create_submissions_sharing_api_routes(
     @boundary_handler(success_status=200)
     async def get_public_reports(request: Request) -> Result[dict[str, Any]]:
         """
-        Browse public reports (portfolio showcase).
+        Browse public submissions (portfolio showcase).
 
         Query params:
             user_uid: Optional filter by owner
-            limit: Maximum reports to return (default: 50)
+            limit: Maximum submissions to return (default: 50)
 
         Returns:
             {
-                "submissions": [ReportDTO, ...],
+                "submissions": [SubmissionDTO, ...],
                 "count": 10
             }
         """
@@ -358,7 +358,7 @@ def create_submissions_sharing_api_routes(
         filter_user_uid = params.get("user_uid")
         limit = int(params.get("limit", 50))
 
-        # Query public reports
+        # Query public submissions
         # Note: This uses the core service's search capabilities
         # We filter by visibility=public
         if not core_service:

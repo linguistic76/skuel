@@ -1,8 +1,8 @@
 """
-Report Activity Extractor Service
-==================================
+Submission Activity Extractor Service
+======================================
 
-Extracts Activity Lines from processed report content and creates
+Extracts Activity Lines from processed submission content and creates
 corresponding SKUEL entities across ALL 13 SKUEL domains:
 
 **Activity Domains (7) - What I DO:**
@@ -13,12 +13,12 @@ corresponding SKUEL entities across ALL 13 SKUEL domains:
 - KnowledgeUnit (KU), LearningStep (LS), LearningPath (LP)
 
 **Meta Domains (3) - How I ORGANIZE:**
-- Reports, Analytics, Calendar
+- Submissions, Analytics, Calendar
 
 **The Destination (+1) - Where I'm GOING:**
 - LifePath (the ultimate life goal)
 
-This service integrates with the ReportProcessorService pipeline:
+This service integrates with the SubmissionsProcessingService pipeline:
 
 ```
 Audio/Text → Transcription → LLM Formatting → **Activity Extraction** → Entity Creation
@@ -26,15 +26,15 @@ Audio/Text → Transcription → LLM Formatting → **Activity Extraction** → 
 
 **Design Principles:**
 
-1. **Non-destructive**: Extraction doesn't modify the report content
+1. **Non-destructive**: Extraction doesn't modify the submission content
 2. **Idempotent**: Re-extraction updates existing entities, doesn't duplicate
-3. **Graph-aware**: Creates relationships between entities and the source report
+3. **Graph-aware**: Creates relationships between entities and the source submission
 4. **Optional**: Activity extraction is opt-in via instructions
 5. **13-Domain Complete**: Covers all SKUEL domains for complete DSL support
 
 **Integration Point:**
 
-Called after LLM formatting in ReportProcessorService._process_audio/text():
+Called after LLM formatting in SubmissionsProcessingService._process_audio/text():
 ```python
 # After LLM formatting succeeds
 if instructions.get("extract_activities", False):
@@ -130,7 +130,7 @@ class HasCreateEventMethod(Protocol):
 @dataclass
 class ActivityExtractionResult:
     """
-    Result of activity extraction from a report.
+    Result of activity extraction from a submission.
 
     Contains counts of created entities across ALL 13 SKUEL domains
     and any errors encountered.
@@ -138,7 +138,7 @@ class ActivityExtractionResult:
     **Domain Categories:**
     - Activity Domains (7): Tasks, Habits, Goals, Events, Principles, Choices, Finance
     - Curriculum Domains (3): KU, LS, LP
-    - Meta Domains (3): Reports, Analytics, Calendar
+    - Meta Domains (3): Submissions, Analytics, Calendar
     - The Destination (+1): LifePath
     """
 
@@ -263,7 +263,7 @@ class ActivityExtractionResult:
         return len(self.parse_errors) > 0 or len(self.creation_errors) > 0
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for storage in report metadata."""
+        """Convert to dictionary for storage in submission metadata."""
         return {
             "activities_found": self.activities_found,
             # ================================================================
@@ -340,13 +340,13 @@ class ActivityExtractionResult:
 
 
 # ============================================================================
-# REPORT ACTIVITY EXTRACTOR SERVICE
+# SUBMISSION ACTIVITY EXTRACTOR SERVICE
 # ============================================================================
 
 
 class ReportActivityExtractorService:
     """
-    Extracts Activity Lines from report content and creates SKUEL entities
+    Extracts Activity Lines from submission content and creates SKUEL entities
     across ALL 13 SKUEL domains + 1 destination.
 
     **Activity Domains (7) - What I DO:**
@@ -364,8 +364,8 @@ class ReportActivityExtractorService:
     - LearningPath (LP): Complete learning sequence
 
     **Meta Domains (3) - How I ORGANIZE:**
-    - Reports: File uploads and processing requests
-    - Reports: Statistical aggregation and analysis
+    - Submissions: File uploads and processing requests
+    - Analytics: Statistical aggregation and analysis
     - Calendar: Scheduled activity views
 
     **The Destination (+1) - Where I'm GOING:**
@@ -395,7 +395,7 @@ class ReportActivityExtractorService:
         lifepath_service=lifepath_service,
     )
 
-    # Extract and create entities from a processed report
+    # Extract and create entities from a processed submission
     result = await extractor.extract_and_create(
         report=report,
         user_uid="user:mike",
@@ -414,8 +414,8 @@ class ReportActivityExtractorService:
     1. Parse processed_content for Activity Lines (@context)
     2. Convert each activity to domain-specific create request
     3. Call appropriate service to create entity
-    4. Create EXTRACTED_FROM relationship: Entity → Report
-    5. Store extraction results in report metadata
+    4. Create EXTRACTED_FROM relationship: Entity → Submission
+    5. Store extraction results in submission metadata
     """
 
     def __init__(
@@ -433,7 +433,7 @@ class ReportActivityExtractorService:
         ls_service=None,  # LsCoreService
         lp_service=None,  # LpCoreService
         # Meta Domains (3)
-        report_service=None,  # ReportSubmissionService (for metadata updates)
+        report_service=None,  # SubmissionsCoreService (for metadata updates)
         analytics_service=None,  # AnalyticsService
         calendar_service=None,  # CalendarService
         # The Destination (+1)
@@ -461,7 +461,7 @@ class ReportActivityExtractorService:
             lp_service: Service for creating learning paths
 
             # Meta Domains (3)
-            report_service: Service for updating report metadata
+            report_service: Service for updating submission metadata
             analytics_service: Service for generating analytics
             calendar_service: Service for creating calendar items
 
@@ -505,12 +505,12 @@ class ReportActivityExtractorService:
         create_relationships: bool = True,
     ) -> Result[ActivityExtractionResult]:
         """
-        Extract Activity Lines from report and create corresponding entities.
+        Extract Activity Lines from submission and create corresponding entities.
 
         This is the main entry point for the extraction pipeline.
 
         Args:
-            report: Processed report with content to extract from
+            report: Processed submission with content to extract from
             user_uid: User UID for entity ownership
             create_relationships: Whether to create EXTRACTED_FROM relationships
 
@@ -717,9 +717,9 @@ class ReportActivityExtractorService:
         # META DOMAINS (3) - How I ORGANIZE
         # ================================================================
 
-        # Note: Reports extracted from report content create new reports
-        # This is a recursive pattern - content extracted from one report
-        # can trigger creation of new reports
+        # Note: Submissions extracted from submission content create new submissions
+        # This is a recursive pattern - content extracted from one submission
+        # can trigger creation of new submissions
         if self.report_service and extraction.reports_found > 0:
             for activity in parsed.get_reports():
                 result = await self._create_report(activity, user_uid, report.uid)
@@ -728,7 +728,7 @@ class ReportActivityExtractorService:
                     extraction.created_report_uids.append(result.value)
                 elif result.is_error:
                     extraction.creation_errors.append(
-                        f"Report '{activity.description[:30]}...': {result.error}"
+                        f"Submission '{activity.description[:30]}...': {result.error}"
                     )
 
         # Calendar Items
@@ -761,7 +761,7 @@ class ReportActivityExtractorService:
 
         extraction.extraction_completed_at = datetime.now()
 
-        # Step 3: Store extraction results in report metadata
+        # Step 3: Store extraction results in submission metadata
         if self.report_service:
             await self._update_report_metadata(report.uid, extraction)
 
@@ -1205,13 +1205,13 @@ class ReportActivityExtractorService:
         self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
     ) -> Result[str | None]:
         """
-        Create a Report from parsed activity.
+        Create a Submission from parsed activity.
 
-        Note: This creates NEW reports extracted from report content.
-        This is a recursive pattern where reports can contain
-        requests for more reports (e.g., "Process my voice memo").
+        Note: This creates NEW submissions extracted from submission content.
+        This is a recursive pattern where submissions can contain
+        requests for more submissions (e.g., "Process my voice memo").
 
-        Returns the created report UID or None if creation failed.
+        Returns the created submission UID or None if creation failed.
         """
         convert_result = activity_to_report_dict(activity)
         if convert_result.is_error:
@@ -1219,7 +1219,7 @@ class ReportActivityExtractorService:
 
         report_dict = convert_result.value
 
-        # Create report via service
+        # Create submission via service
         if getattr(self.report_service, "create_report", None):
             create_result = await self.report_service.create_report(report_dict, user_uid)
         elif getattr(self.report_service, "create", None):
@@ -1239,7 +1239,7 @@ class ReportActivityExtractorService:
         new_report_uid = (
             new_report.uid if getattr(new_report, "uid", None) else new_report.get("uid")
         )
-        self.logger.debug(f"Created Report: {new_report_uid}")
+        self.logger.debug(f"Created Submission: {new_report_uid}")
 
         return Result.ok(new_report_uid)
 
@@ -1388,15 +1388,15 @@ class ReportActivityExtractorService:
         self, report_uid: str, extraction: ActivityExtractionResult
     ) -> None:
         """
-        Store extraction results in report metadata.
+        Store extraction results in submission metadata.
 
-        This allows tracking which entities were extracted from which report.
+        This allows tracking which entities were extracted from which submission.
         Note: Uses suppress_errors=True since metadata updates are non-critical.
         """
-        # Get current report
+        # Get current submission
         get_result = await self.report_service.get_submission(report_uid)
         if get_result.is_error:
-            self.logger.warning(f"Could not get report for metadata update: {get_result.error}")
+            self.logger.warning(f"Could not get submission for metadata update: {get_result.error}")
             return
 
         report = get_result.value
@@ -1407,13 +1407,13 @@ class ReportActivityExtractorService:
         current_metadata = report.metadata or {}
         current_metadata["activity_extraction"] = extraction.to_dict()
 
-        # Update report
+        # Update submission
         await self.report_service.update_submission(
             uid=report_uid,
             updates={"metadata": current_metadata},
         )
 
-        self.logger.debug(f"Updated report metadata with extraction results: {report_uid}")
+        self.logger.debug(f"Updated submission metadata with extraction results: {report_uid}")
 
     # ========================================================================
     # EXTRACTION-ONLY (NO ENTITY CREATION)
@@ -1426,7 +1426,7 @@ class ReportActivityExtractorService:
         Useful for preview/validation before committing to entity creation.
 
         Args:
-            content: Report content to parse
+            content: Submission content to parse
 
         Returns:
             Result containing ParsedJournal with all activities
@@ -1440,7 +1440,7 @@ class ReportActivityExtractorService:
         Returns a summary dict suitable for UI display covering ALL 13 SKUEL domains.
 
         Args:
-            content: Report content to parse
+            content: Submission content to parse
 
         Returns:
             Dict with activity counts and previews for all 13 domains + 1
