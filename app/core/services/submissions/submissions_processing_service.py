@@ -73,7 +73,7 @@ class SubmissionsProcessingService:
     # MAIN PROCESSING ENTRY POINT
     # ========================================================================
 
-    async def process_report(
+    async def process_submission(
         self, ku_uid: str, instructions: dict[str, Any] | None = None
     ) -> Result[Entity]:
         """
@@ -90,7 +90,7 @@ class SubmissionsProcessingService:
         Returns:
             Result containing processed report
         """
-        report_result = await self.ku_submission_service.get_report(ku_uid)
+        report_result = await self.ku_submission_service.get_submission(ku_uid)
 
         if report_result.is_error:
             return Result.fail(report_result.expect_error())
@@ -117,13 +117,13 @@ class SubmissionsProcessingService:
             )
 
         # Update status to QUEUED
-        await self.ku_submission_service.update_report_status(ku_uid, EntityStatus.QUEUED)
+        await self.ku_submission_service.update_submission_status(ku_uid, EntityStatus.QUEUED)
 
         try:
             result = await self._route_to_processor(report, instructions)
 
             if result.is_error:
-                await self.ku_submission_service.update_report_status(
+                await self.ku_submission_service.update_submission_status(
                     ku_uid,
                     EntityStatus.FAILED,
                     error_message=result.error.user_message
@@ -133,10 +133,12 @@ class SubmissionsProcessingService:
                 return result
 
             # Mark as completed
-            await self.ku_submission_service.update_report_status(ku_uid, EntityStatus.COMPLETED)
+            await self.ku_submission_service.update_submission_status(
+                ku_uid, EntityStatus.COMPLETED
+            )
 
             # Get updated entity
-            updated_result = await self.ku_submission_service.get_report(ku_uid)
+            updated_result = await self.ku_submission_service.get_submission(ku_uid)
             if updated_result.is_error:
                 return Result.fail(updated_result.expect_error())
             if not updated_result.value:
@@ -146,7 +148,7 @@ class SubmissionsProcessingService:
         except Exception as e:
             self.logger.error(f"Unexpected error processing report {ku_uid}: {e}", exc_info=True)
 
-            await self.ku_submission_service.update_report_status(
+            await self.ku_submission_service.update_submission_status(
                 ku_uid, EntityStatus.FAILED, error_message=str(e)
             )
 
@@ -164,7 +166,9 @@ class SubmissionsProcessingService:
         self, report: Submission, instructions: dict[str, Any] | None
     ) -> Result[Entity]:
         """Route report to appropriate processor based on file type."""
-        await self.ku_submission_service.update_report_status(report.uid, EntityStatus.PROCESSING)
+        await self.ku_submission_service.update_submission_status(
+            report.uid, EntityStatus.PROCESSING
+        )
 
         if not report.file_type:
             return Result.fail(Errors.validation("Cannot process report without file_type"))
@@ -250,7 +254,7 @@ class SubmissionsProcessingService:
 
         if is_journal:
             await self._process_journal(updated_report, transcript_text, instructions)
-            refresh_result = await self.ku_submission_service.get_report(report.uid)
+            refresh_result = await self.ku_submission_service.get_submission(report.uid)
             if not refresh_result.is_error and refresh_result.value:
                 updated_report = refresh_result.value
         elif instructions and instructions.get("extract_activities", False):
@@ -302,7 +306,7 @@ class SubmissionsProcessingService:
 
         if is_journal:
             await self._process_journal(updated_report, text_content, instructions)
-            refresh_result = await self.ku_submission_service.get_report(report.uid)
+            refresh_result = await self.ku_submission_service.get_submission(report.uid)
             if not refresh_result.is_error and refresh_result.value:
                 updated_report = refresh_result.value
         elif instructions and instructions.get("extract_activities", False):
@@ -435,7 +439,7 @@ class SubmissionsProcessingService:
     # REPROCESSING
     # ========================================================================
 
-    async def reprocess_report(
+    async def reprocess_submission(
         self, ku_uid: str, new_instructions: dict[str, Any] | None = None
     ) -> Result[Entity]:
         """
@@ -450,5 +454,5 @@ class SubmissionsProcessingService:
         Returns:
             Result containing reprocessed Ku
         """
-        await self.ku_submission_service.update_report_status(ku_uid, EntityStatus.SUBMITTED)
-        return await self.process_report(ku_uid, new_instructions)
+        await self.ku_submission_service.update_submission_status(ku_uid, EntityStatus.SUBMITTED)
+        return await self.process_submission(ku_uid, new_instructions)

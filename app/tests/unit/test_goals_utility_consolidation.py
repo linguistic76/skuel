@@ -194,12 +194,8 @@ class TestAllDomainsHaveListCategoriesMethods:
         module = importlib.import_module(service_module)
         cls = getattr(module, service_class)
 
-        assert hasattr(cls, user_method), (
-            f"{service_class}.{user_method} is missing"
-        )
-        assert hasattr(cls, all_method), (
-            f"{service_class}.{all_method} is missing"
-        )
+        assert hasattr(cls, user_method), f"{service_class}.{user_method} is missing"
+        assert hasattr(cls, all_method), f"{service_class}.{all_method} is missing"
 
     def test_no_core_service_defines_list_goal_categories(self):
         """list_goal_categories must not be defined directly on GoalsCoreService."""

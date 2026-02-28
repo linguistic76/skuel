@@ -52,7 +52,7 @@ logger = get_logger("skuel.routes.submissions.ui")
 def _render_upload_status(
     status: str,
     message: str,
-    report_uid: str | None = None,
+    submission_uid: str | None = None,
     is_error: bool = False,
 ) -> Any:
     """Render upload status as HTML fragment for HTMX swap."""
@@ -69,7 +69,7 @@ def _render_upload_status(
     return Div(
         Div(
             H4("File Uploaded Successfully!", cls="mb-0"),
-            P(f"Report ID: {report_uid}", cls="mb-0") if report_uid else None,
+            P(f"Submission ID: {submission_uid}", cls="mb-0") if submission_uid else None,
             P(f"Status: {status}", cls="mb-0"),
             cls="alert alert-success",
         ),
@@ -235,7 +235,7 @@ def _render_category_selector(report: Any) -> Any:
                 for cat in categories
             ],
             cls="select select-bordered w-full",
-            hx_post=f"/api/submissions/categorize?report_uid={report.uid}&user_uid={report.user_uid}",
+            hx_post=f"/api/submissions/categorize?submission_uid={report.uid}&user_uid={report.user_uid}",
             hx_trigger="change",
             hx_target=f"#category-display-{report.uid}",
             hx_swap="outerHTML",
@@ -273,7 +273,7 @@ def _render_tags_manager(report: Any) -> Any:
             Button(
                 "\u00d7",
                 cls="btn btn-xs btn-ghost ml-1",
-                hx_post=f"/api/submissions/tags/remove?report_uid={report.uid}&user_uid={report.user_uid}",
+                hx_post=f"/api/submissions/tags/remove?submission_uid={report.uid}&user_uid={report.user_uid}",
                 hx_vals=f'js:{{tags: ["{tag}"]}}',
                 hx_target=f"#tags-manager-{report.uid}",
                 hx_swap="outerHTML",
@@ -296,7 +296,7 @@ def _render_tags_manager(report: Any) -> Any:
             ),
             Button("Add Tag", type="submit", cls="btn btn-primary btn-sm ml-2"),
             cls="flex items-center mt-2",
-            hx_post=f"/api/submissions/tags/add?report_uid={report.uid}&user_uid={report.user_uid}",
+            hx_post=f"/api/submissions/tags/add?submission_uid={report.uid}&user_uid={report.user_uid}",
             hx_vals="js:{tags: [document.querySelector('[name=\"new_tag\"]').value]}",
             hx_target=f"#tags-manager-{report.uid}",
             hx_swap="outerHTML",
@@ -315,7 +315,7 @@ def _render_status_buttons(report: Any) -> Any:
             Button(
                 "Publish",
                 cls="btn btn-success btn-sm",
-                hx_post=f"/api/submissions/publish?report_uid={report.uid}&user_uid={report.user_uid}",
+                hx_post=f"/api/submissions/publish?submission_uid={report.uid}&user_uid={report.user_uid}",
                 hx_target=f"#status-buttons-{report.uid}",
                 hx_swap="outerHTML",
                 disabled=(current_status == "published"),
@@ -323,7 +323,7 @@ def _render_status_buttons(report: Any) -> Any:
             Button(
                 "Archive",
                 cls="btn btn-warning btn-sm ml-2",
-                hx_post=f"/api/submissions/archive?report_uid={report.uid}&user_uid={report.user_uid}",
+                hx_post=f"/api/submissions/archive?submission_uid={report.uid}&user_uid={report.user_uid}",
                 hx_target=f"#status-buttons-{report.uid}",
                 hx_swap="outerHTML",
                 disabled=(current_status == "archived"),
@@ -331,7 +331,7 @@ def _render_status_buttons(report: Any) -> Any:
             Button(
                 "Mark as Draft",
                 cls="btn btn-ghost btn-sm ml-2",
-                hx_post=f"/api/submissions/draft?report_uid={report.uid}&user_uid={report.user_uid}",
+                hx_post=f"/api/submissions/draft?submission_uid={report.uid}&user_uid={report.user_uid}",
                 hx_target=f"#status-buttons-{report.uid}",
                 hx_swap="outerHTML",
                 disabled=(current_status == "draft"),
@@ -354,14 +354,14 @@ def _render_status_buttons(report: Any) -> Any:
 
 
 @dataclass
-class ReportFilters:
+class SubmissionFilters:
     """Typed filters for report list queries."""
 
     report_type: str
     status: str
 
 
-def parse_report_filters(request: Request) -> ReportFilters:
+def parse_submission_filters(request: Request) -> SubmissionFilters:
     """
     Extract report filter parameters from request query params.
 
@@ -369,9 +369,9 @@ def parse_report_filters(request: Request) -> ReportFilters:
         request: Starlette request object
 
     Returns:
-        Typed ReportFilters with defaults applied
+        Typed SubmissionFilters with defaults applied
     """
-    return ReportFilters(
+    return SubmissionFilters(
         report_type=request.query_params.get("report_type", ""),
         status=request.query_params.get("status", ""),
     )
@@ -952,9 +952,9 @@ def _render_received_feedback_list(items: list[Any]) -> Any:
 def create_submissions_ui_routes(
     _app,
     rt,
-    _report_service,
+    _submissions_service,
     _processing_service,
-    _report_projects_service=None,
+    _exercises_service=None,
     _submissions_search_service=None,
     _submissions_core_service=None,
 ):
@@ -966,7 +966,7 @@ def create_submissions_ui_routes(
         rt: Router instance
         report_service: ReportSubmissionService
         processing_service: ReportProcessorService
-        _report_projects_service: ExerciseService for exercise dropdown (optional)
+        _exercises_service: ExerciseService for exercise dropdown (optional)
         _submissions_search_service: SubmissionsSearchService for feedback status queries (optional)
         _submissions_core_service: SubmissionsCoreService for received assessments (optional)
     """
@@ -978,12 +978,12 @@ def create_submissions_ui_routes(
     # ========================================================================
 
     @rt("/submissions")
-    async def reports_landing(request: Request) -> Any:
+    async def submissions_landing(request: Request) -> Any:
         """Reports landing — defaults to Submit page."""
         return await _render_submit_page(request)
 
     @rt("/submissions/submit")
-    async def reports_submit_page(request: Request) -> Any:
+    async def submissions_submit_page(request: Request) -> Any:
         """Submit page: upload form."""
         return await _render_submit_page(request)
 
@@ -992,8 +992,8 @@ def create_submissions_ui_routes(
 
         # Fetch assigned exercises for exercise dropdown
         assigned_exercises: list[Any] = []
-        if _report_projects_service:
-            projects_result = await _report_projects_service.list_user_exercises(user_uid)
+        if _exercises_service:
+            projects_result = await _exercises_service.list_user_exercises(user_uid)
             if not projects_result.is_error and projects_result.value:
                 assigned_exercises = [
                     p for p in projects_result.value if getattr(p, "scope", None) == "assigned"
@@ -1018,7 +1018,7 @@ def create_submissions_ui_routes(
         )
 
     @rt("/submissions/browse")
-    async def reports_browse_page(request: Request) -> Any:
+    async def submissions_browse_page(request: Request) -> Any:
         """Browse page: filters + results grid."""
         require_authenticated_user(request)
         content = Div(
@@ -1040,7 +1040,7 @@ def create_submissions_ui_routes(
         )
 
     @rt("/submissions/yours")
-    async def reports_yours_page(request: Request) -> Any:
+    async def submissions_yours_page(request: Request) -> Any:
         """Your Submissions page: list with teacher review status badges."""
         require_authenticated_user(request)
         content = Div(
@@ -1090,7 +1090,7 @@ def create_submissions_ui_routes(
             )
 
     @rt("/submissions/upload")
-    async def upload_report(request: Request) -> Any:
+    async def upload_submission(request: Request) -> Any:
         """HTMX endpoint for report file upload (human review)."""
         try:
             form = await request.form()
@@ -1119,7 +1119,7 @@ def create_submissions_ui_routes(
             )
 
             # Submit for human review — processor_type always HUMAN for regular users
-            result = await _report_service.submit_file(
+            result = await _submissions_service.submit_file(
                 file_content=file_content,
                 original_filename=filename,
                 user_uid=user_uid,
@@ -1132,11 +1132,11 @@ def create_submissions_ui_routes(
             if result.is_error:
                 return _render_upload_status("error", str(result.error), is_error=True)
 
-            report = result.value
+            submission = result.value
             return _render_upload_status(
-                status=report.status,
+                status=submission.status,
                 message="File uploaded successfully",
-                report_uid=report.uid,
+                submission_uid=submission.uid,
             )
 
         except Exception as e:
@@ -1144,13 +1144,13 @@ def create_submissions_ui_routes(
             return _render_upload_status("error", f"Upload failed: {e}", is_error=True)
 
     @rt("/submissions/grid")
-    async def get_reports_grid(request: Request) -> Any:
+    async def get_submissions_grid(request: Request) -> Any:
         """HTMX endpoint for loading reports grid with filters."""
         try:
             user_uid = require_authenticated_user(request)  # Enforce authentication
 
             # Parse typed filter parameters
-            filters = parse_report_filters(request)
+            filters = parse_submission_filters(request)
 
             # Build filter kwargs
             kwargs = {"user_uid": user_uid, "limit": 50}
@@ -1159,7 +1159,7 @@ def create_submissions_ui_routes(
             if filters.status:
                 kwargs["status"] = filters.status
 
-            result = await _report_service.list_submissions(**kwargs)
+            result = await _submissions_service.list_submissions(**kwargs)
 
             if result.is_error:
                 return Div(
@@ -1178,10 +1178,10 @@ def create_submissions_ui_routes(
             )
 
     @rt("/submissions/{uid}/info")
-    async def get_report_info(request: Request, uid: str) -> Any:
+    async def get_submission_info(request: Request, uid: str) -> Any:
         """HTMX endpoint for loading report detail info."""
         try:
-            result = await _report_service.get_report(uid)
+            result = await _submissions_service.get_submission(uid)
 
             if result.is_error:
                 return Div(
@@ -1192,8 +1192,8 @@ def create_submissions_ui_routes(
                     id="report-info",
                 )
 
-            report = result.value
-            if not report:
+            submission = result.value
+            if not submission:
                 return Div(
                     Div(
                         P(f"Report {uid} not found"),
@@ -1201,7 +1201,7 @@ def create_submissions_ui_routes(
                     ),
                     id="report-info",
                 )
-            return _render_report_detail(report)
+            return _render_report_detail(submission)
 
         except Exception as e:
             logger.error(f"Error loading report info: {e}", exc_info=True)
@@ -1214,16 +1214,16 @@ def create_submissions_ui_routes(
             )
 
     @rt("/submissions/{uid}/content")
-    async def get_report_content(request: Request, uid: str) -> Any:
+    async def get_submission_content(request: Request, uid: str) -> Any:
         """HTMX endpoint for loading report processed content."""
         try:
-            result = await _report_service.get_report(uid)
+            result = await _submissions_service.get_submission(uid)
 
             if result.is_error or not result.value:
                 return _render_processed_content(None, False)
 
-            report = result.value
-            content = report.processed_content if report else None
+            submission = result.value
+            content = submission.processed_content if submission else None
             return _render_processed_content(content, bool(content))
 
         except Exception as e:
@@ -1238,12 +1238,12 @@ def create_submissions_ui_routes(
     async def get_category_selector(request: Request, uid: str) -> Any:
         """HTMX endpoint for category selector."""
         try:
-            result = await _report_service.get_report(uid)
+            result = await _submissions_service.get_submission(uid)
             if result.is_error:
                 return Div("Report not found", cls="text-error")
 
-            report = result.value
-            return _render_category_selector(report)
+            submission = result.value
+            return _render_category_selector(submission)
 
         except Exception as e:
             logger.error(f"Error loading category selector: {e}", exc_info=True)
@@ -1253,12 +1253,12 @@ def create_submissions_ui_routes(
     async def get_tags_manager(request: Request, uid: str) -> Any:
         """HTMX endpoint for tags manager."""
         try:
-            result = await _report_service.get_report(uid)
+            result = await _submissions_service.get_submission(uid)
             if result.is_error:
                 return Div("Report not found", cls="text-error")
 
-            report = result.value
-            return _render_tags_manager(report)
+            submission = result.value
+            return _render_tags_manager(submission)
 
         except Exception as e:
             logger.error(f"Error loading tags manager: {e}", exc_info=True)
@@ -1269,7 +1269,7 @@ def create_submissions_ui_routes(
     # ========================================================================
 
     @rt("/submissions/feedback")
-    async def reports_feedback_page(request: Request) -> Any:
+    async def submissions_feedback_page(request: Request) -> Any:
         """Feedback page: assessments received from teachers (server-rendered)."""
         require_authenticated_user(request)
         content = Div(
@@ -1325,7 +1325,7 @@ def create_submissions_ui_routes(
     # ========================================================================
 
     @rt("/submissions/progress")
-    async def reports_progress_page(request: Request) -> Any:
+    async def submissions_progress_page(request: Request) -> Any:
         """Progress page: generate and view progress reports."""
         require_authenticated_user(request)
 
@@ -1476,7 +1476,7 @@ def create_submissions_ui_routes(
     # ========================================================================
 
     @rt("/submissions/{uid}")
-    async def report_detail(request: Request, uid: str) -> Any:
+    async def submission_detail(request: Request, uid: str) -> Any:
         """
         Report detail view.
 
@@ -1491,10 +1491,10 @@ def create_submissions_ui_routes(
 
         # Fetch report to determine if user is owner (for sharing controls)
         # Note: In production, this would use get_with_access_check()
-        report_result = await _report_service.get_report(uid)
+        submission_result = await _submissions_service.get_submission(uid)
         is_owner = False
-        if not report_result.is_error and report_result.value is not None:
-            is_owner = report_result.value.user_uid == user_uid
+        if not submission_result.is_error and submission_result.value is not None:
+            is_owner = submission_result.value.user_uid == user_uid
 
         # Detail view card with HTMX loading
         detail_card = Div(
@@ -1530,8 +1530,8 @@ def create_submissions_ui_routes(
                 ),
                 # Sharing section (only for owner)
                 (
-                    _render_sharing_section(report_result.value)
-                    if is_owner and not report_result.is_error
+                    _render_sharing_section(submission_result.value)
+                    if is_owner and not submission_result.is_error
                     else None
                 ),
                 # Action buttons - use proper link instead of onclick
@@ -1569,18 +1569,18 @@ def create_submissions_ui_routes(
     # Route order matters! Specific routes must come BEFORE parameterized routes.
     # Otherwise /reports/grid would match /reports/{uid} with uid="grid"
     return [
-        reports_landing,  # /reports (exact)
-        reports_submit_page,  # /reports/submit (specific)
-        reports_browse_page,  # /reports/browse (specific)
-        reports_yours_page,  # /reports/yours (specific)
-        reports_feedback_page,  # /reports/feedback (specific)
-        reports_progress_page,  # /reports/progress (specific)
-        upload_report,  # /reports/upload (specific, HTMX POST)
-        get_reports_grid,  # /reports/grid (specific, HTMX GET)
-        get_report_info,  # /reports/{uid}/info (pattern + suffix)
-        get_report_content,  # /reports/{uid}/content (pattern + suffix)
+        submissions_landing,  # /reports (exact)
+        submissions_submit_page,  # /reports/submit (specific)
+        submissions_browse_page,  # /reports/browse (specific)
+        submissions_yours_page,  # /reports/yours (specific)
+        submissions_feedback_page,  # /reports/feedback (specific)
+        submissions_progress_page,  # /reports/progress (specific)
+        upload_submission,  # /reports/upload (specific, HTMX POST)
+        get_submissions_grid,  # /reports/grid (specific, HTMX GET)
+        get_submission_info,  # /reports/{uid}/info (pattern + suffix)
+        get_submission_content,  # /reports/{uid}/content (pattern + suffix)
         get_category_selector,  # /reports/{uid}/category-selector (pattern + suffix)
         get_tags_manager,  # /reports/{uid}/tags-manager (pattern + suffix)
         get_shared_users_ui,  # /reports/{uid}/shared-users (pattern + suffix)
-        report_detail,  # /reports/{uid} (catch-all - MUST BE LAST)
+        submission_detail,  # /reports/{uid} (catch-all - MUST BE LAST)
     ]

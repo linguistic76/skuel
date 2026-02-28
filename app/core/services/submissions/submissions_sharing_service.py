@@ -1,11 +1,11 @@
 """
-Ku Sharing Service
-====================
+Submission Sharing Service
+==========================
 
-Manages Ku sharing, access control, and visibility settings.
+Manages submission sharing, access control, and visibility settings.
 
 Core Responsibilities:
-- Share/unshare Ku with specific users
+- Share/unshare submissions with specific users
 - Set visibility levels (PRIVATE, SHARED, PUBLIC)
 - Check access permissions
 - Query shared Ku
@@ -46,7 +46,7 @@ class SubmissionsSharingService:
         """
         self.executor = executor
 
-    async def share_report(
+    async def share_submission(
         self,
         ku_uid: str,
         owner_uid: str,
@@ -54,10 +54,10 @@ class SubmissionsSharingService:
         role: str = "viewer",
     ) -> Result[bool]:
         """
-        Share an entity with a specific user.
+        Share a submission with a specific user.
 
-        Creates a SHARES_WITH relationship from recipient to Ku.
-        Only the owner can share their Ku.
+        Creates a SHARES_WITH relationship from recipient to submission.
+        Only the owner can share their submission.
         Only completed entities can be shared.
 
         Args:
@@ -104,17 +104,17 @@ class SubmissionsSharingService:
         logger.info(f"Ku {ku_uid} shared with {recipient_uid} as {role}")
         return Result.ok(True)
 
-    async def unshare_report(
+    async def unshare_submission(
         self,
         ku_uid: str,
         owner_uid: str,
         recipient_uid: str,
     ) -> Result[bool]:
         """
-        Revoke access to a shared Ku.
+        Revoke access to a shared submission.
 
         Deletes the SHARES_WITH relationship.
-        Only the owner can unshare their Ku.
+        Only the owner can unshare their submission.
 
         Args:
             ku_uid: Ku to unshare
@@ -193,13 +193,13 @@ class SubmissionsSharingService:
 
         return Result.ok(users)
 
-    async def get_reports_shared_with_me(
+    async def get_submissions_shared_with_me(
         self,
         user_uid: str,
         limit: int = 50,
     ) -> Result[list[SubmissionDTO]]:
         """
-        Get Ku shared with a specific user.
+        Get submissions shared with a specific user.
 
         Returns Ku where user has SHARES_WITH relationship.
 
@@ -226,13 +226,13 @@ class SubmissionsSharingService:
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        reports = []
+        submissions = []
         for record in result.value:
             props = record["ku"]
             dto = SubmissionDTO.from_dict(props)
-            reports.append(dto)
+            submissions.append(dto)
 
-        return Result.ok(reports)
+        return Result.ok(submissions)
 
     async def set_visibility(
         self,
@@ -397,7 +397,7 @@ class SubmissionsSharingService:
     ) -> Result[bool]:
         """Verify that an entity can be shared.
 
-        For report/journal types: only completed Ku can be shared.
+        For submission/journal types: only completed entities can be shared.
         For activity types (task, goal, etc.): active or completed Ku can be shared.
         Draft Ku can never be shared.
         """

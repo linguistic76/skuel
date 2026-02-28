@@ -1,13 +1,13 @@
 """
-Report Submission Service
-==============================
+Submission Service
+==================
 
-Handles file uploads and report record creation.
+Handles file uploads and submission record creation.
 
 Responsibilities:
 - Store uploaded files (local or cloud)
-- Create report records in Neo4j
-- Basic CRUD for user-owned reports (SUBMISSION, AI_REPORT, FEEDBACK_REPORT)
+- Create submission records in Neo4j
+- Basic CRUD for user-owned submissions (SUBMISSION, AI_REPORT, FEEDBACK_REPORT)
 - Query by type, status, user
 
 Does NOT handle:
@@ -39,10 +39,10 @@ from core.utils.uid_generator import UIDGenerator
 
 class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
     """
-    Service for file submission and report management.
+    Service for file submission and submission management.
 
-    Handles file upload, storage, and report record creation for
-    user-owned report types (SUBMISSION, AI_REPORT, FEEDBACK_REPORT).
+    Handles file upload, storage, and submission record creation for
+    user-owned submission types (SUBMISSION, AI_REPORT, FEEDBACK_REPORT).
     """
 
     # =========================================================================
@@ -65,11 +65,11 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         event_bus=None,
     ) -> None:
         """
-        Initialize report submission service.
+        Initialize submission service.
 
         Args:
-            backend: Backend for report storage
-            storage_path: Base path for file storage (default: /tmp/skuel_reports)
+            backend: Backend for submission storage
+            storage_path: Base path for file storage (default: /tmp/skuel_submissions)
             event_bus: Event bus for domain events (optional)
         """
         super().__init__(backend, "SubmissionsService")
@@ -79,7 +79,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
 
         # Ensure storage directory exists
         self.storage_path.mkdir(parents=True, exist_ok=True)
-        self.logger.info(f"Report storage path: {self.storage_path}")
+        self.logger.info(f"Submission storage path: {self.storage_path}")
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
@@ -87,7 +87,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for report entities."""
+        """Return the graph label for submission entities."""
         return "Entity"
 
     # ========================================================================
@@ -114,18 +114,18 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
 
         Steps:
         1. Store file to disk/cloud
-        2. Create report record in Neo4j
-        3. Return report with SUBMITTED status
+        2. Create submission record in Neo4j
+        3. Return submission with SUBMITTED status
 
         Args:
             file_content: Raw file bytes
             original_filename: Original filename from upload
             user_uid: User submitting the file
-            ku_type: Type of report (default: SUBMISSION)
+            ku_type: Type of submission (default: SUBMISSION)
             processor_type: Processor to use (default: AUTOMATIC)
             file_type: MIME type (optional, will detect from filename)
             title: Optional title (defaults to filename)
-            parent_ku_uid: Optional parent report UID for derivation chain
+            parent_ku_uid: Optional parent submission UID for derivation chain
             metadata: Additional metadata (optional)
             applies_knowledge_uids: Knowledge Units being applied
             fulfills_exercise_uid: Exercise UID if this submission responds to an
@@ -150,8 +150,8 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
 
         file_path = file_path_result.value
 
-        # Create report record — Submission accepts all 4 content-processing types
-        report = Submission(
+        # Create submission record — Submission accepts all 4 content-processing types
+        submission = Submission(
             uid=uid,
             title=title or original_filename,
             ku_type=ku_type,
@@ -193,7 +193,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
                 )
 
         self.logger.info(
-            f"Report submitted: {uid} "
+            f"Submission submitted: {uid} "
             f"(type={ku_type.value}, size={len(file_content)} bytes, "
             f"applies_knowledge={len(applies_knowledge_uids or [])} KUs)"
         )
@@ -264,7 +264,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         offset: int = 0,
     ) -> Result[list[Entity]]:
         """
-        List reports for a user with optional filters.
+        List submissions for a user with optional filters.
 
         Args:
             user_uid: User UID
@@ -293,19 +293,19 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
 
         return Result.ok(result.value)
 
-    @with_error_handling("get_report")
-    async def get_report(self, uid: str) -> Result[Entity | None]:
-        """Get report by UID."""
+    @with_error_handling("get_submission")
+    async def get_submission(self, uid: str) -> Result[Entity | None]:
+        """Get submission by UID."""
         return await self.backend.get(uid)
 
-    @with_error_handling("count_reports")
-    async def count_reports(
+    @with_error_handling("count_submissions")
+    async def count_submissions(
         self,
         user_uid: str,
         ku_type: EntityType | None = None,
         status: EntityStatus | None = None,
     ) -> Result[int]:
-        """Count reports for a user with optional filters."""
+        """Count submissions for a user with optional filters."""
         filters: dict[str, Any] = {"user_uid": user_uid}
 
         if ku_type:
@@ -320,15 +320,15 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
     # KU UPDATES
     # ========================================================================
 
-    @with_error_handling("update_report_status")
-    async def update_report_status(
+    @with_error_handling("update_submission_status")
+    async def update_submission_status(
         self, uid: str, new_status: EntityStatus, error_message: str | None = None
     ) -> Result[Entity]:
         """
-        Update report status.
+        Update submission status.
 
         Args:
-            uid: Report UID
+            uid: Submission UID
             new_status: New status
             error_message: Error message if status is FAILED
 
@@ -348,16 +348,16 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         result = await self.backend.update(uid, updates)
 
         if result.is_ok:
-            self.logger.info(f"Report {uid} status updated: {new_status.value}")
+            self.logger.info(f"Submission {uid} status updated: {new_status.value}")
 
         return result
 
-    async def update_report(self, uid: str, updates: dict[str, Any]) -> Result[Entity]:
+    async def update_submission(self, uid: str, updates: dict[str, Any]) -> Result[Entity]:
         """
-        Update report with arbitrary fields.
+        Update submission with arbitrary fields.
 
         Args:
-            uid: Report UID
+            uid: Submission UID
             updates: Dictionary of field updates
 
         Returns:
@@ -371,7 +371,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
 
         if result.is_ok:
             field_names = ", ".join(updates.keys())
-            self.logger.info(f"Report {uid} updated: {field_names}")
+            self.logger.info(f"Submission {uid} updated: {field_names}")
 
         return result
 
@@ -383,7 +383,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         Update report with processed content.
 
         Args:
-            uid: Report UID
+            uid: Submission UID
             processed_content: Processed text content
             processed_file_path: Path to processed file (optional)
 
@@ -398,7 +398,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         result = await self.backend.update(uid, updates)
 
         if result.is_ok:
-            self.logger.info(f"Report {uid} processed content updated")
+            self.logger.info(f"Submission {uid} processed content updated")
 
         return result
 
@@ -406,29 +406,29 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
     # DELETION AND CLEANUP
     # ========================================================================
 
-    @with_error_handling("delete_report_with_file")
-    async def delete_report_with_file(self, uid: str) -> Result[bool]:
+    @with_error_handling("delete_submission_with_file")
+    async def delete_submission_with_file(self, uid: str) -> Result[bool]:
         """
-        Delete report record AND its associated file from disk.
+        Delete submission record AND its associated file from disk.
 
         This is a hard delete - both the Neo4j record and the file are permanently removed.
 
         Args:
-            uid: Report UID to delete
+            uid: Submission UID to delete
 
         Returns:
             Result containing True if deleted successfully
         """
-        report_result = await self.get_report(uid)
-        if report_result.is_error:
-            return Result.fail(report_result.expect_error())
+        report_result = await self.get_submission(uid)
+        if submission_result.is_error:
+            return Result.fail(submission_result.expect_error())
 
-        report = report_result.value
-        if not report:
-            return Result.fail(Errors.not_found("Report", uid))
+        submission = submission_result.value
+        if not submission:
+            return Result.fail(Errors.not_found("Submission", uid))
 
-        report_file_path = getattr(report, "file_path", None)
-        file_path = Path(report_file_path) if report_file_path else None
+        submission_file_path = getattr(submission, "file_path", None)
+        file_path = Path(submission_file_path) if report_file_path else None
         ku_dir = file_path.parent if file_path else None
 
         # Delete Neo4j record first
@@ -449,7 +449,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             except Exception as e:
                 self.logger.warning(f"Failed to delete file {file_path}: {e}")
 
-        self.logger.info(f"Ku deleted with file: {uid}")
+        self.logger.info(f"Submission deleted with file: {uid}")
         return Result.ok(True)
 
     # ========================================================================
@@ -462,25 +462,25 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         Retrieve original file content.
 
         Args:
-            ku_uid: Report UID
+            ku_uid: Submission UID
 
         Returns:
             Result containing file bytes
         """
-        report_result = await self.get_report(ku_uid)
+        submission_result = await self.get_submission(ku_uid)
 
-        if report_result.is_error:
-            return Result.fail(report_result.expect_error())
+        if submission_result.is_error:
+            return Result.fail(submission_result.expect_error())
 
-        report = report_result.value
-        if not report:
-            return Result.fail(Errors.not_found("Report", ku_uid))
+        submission = submission_result.value
+        if not submission:
+            return Result.fail(Errors.not_found("Submission", ku_uid))
 
         try:
-            report_file_path = getattr(report, "file_path", None)
-            if not report_file_path:
+            submission_file_path = getattr(submission, "file_path", None)
+            if not submission_file_path:
                 return Result.fail(Errors.not_found(resource="File", identifier="no file_path"))
-            file_path = Path(report_file_path)
+            file_path = Path(submission_file_path)
             if not file_path.exists():
                 return Result.fail(Errors.not_found(resource="File", identifier=str(file_path)))
 
@@ -500,19 +500,19 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         Retrieve processed file content.
 
         Args:
-            ku_uid: Report UID
+            ku_uid: Submission UID
 
         Returns:
             Result containing processed file bytes
         """
-        report_result = await self.get_report(ku_uid)
+        submission_result = await self.get_submission(ku_uid)
 
-        if report_result.is_error:
-            return Result.fail(report_result.expect_error())
+        if submission_result.is_error:
+            return Result.fail(submission_result.expect_error())
 
-        report = report_result.value
-        if not report:
-            return Result.fail(Errors.not_found("Report", ku_uid))
+        submission = submission_result.value
+        if not submission:
+            return Result.fail(Errors.not_found("Submission", ku_uid))
 
         processed_path = getattr(report, "processed_file_path", None)
         if not processed_path:
@@ -546,26 +546,26 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
     # STATISTICS
     # ========================================================================
 
-    @with_error_handling("get_report_statistics")
-    async def get_report_statistics(self, user_uid: str) -> Result[dict[str, Any]]:
+    @with_error_handling("get_submission_statistics")
+    async def get_submission_statistics(self, user_uid: str) -> Result[dict[str, Any]]:
         """
-        Get Ku statistics for a user.
+        Get submission statistics for a user.
 
         Returns counts by type and status.
         """
-        total_result = await self.count_reports(user_uid)
+        total_result = await self.count_submissions(user_uid)
         if total_result.is_error:
             return Result.fail(total_result.expect_error())
 
         statistics: dict[str, Any] = {"total": total_result.value, "by_type": {}, "by_status": {}}
 
         for ku_type in EntityType:
-            count_result = await self.count_reports(user_uid, ku_type=ku_type)
+            count_result = await self.count_submissions(user_uid, ku_type=ku_type)
             if count_result.is_ok:
                 statistics["by_type"][ku_type.value] = count_result.value
 
         for status in EntityStatus:
-            count_result = await self.count_reports(user_uid, status=status)
+            count_result = await self.count_submissions(user_uid, status=status)
             if count_result.is_ok:
                 statistics["by_status"][status.value] = count_result.value
 

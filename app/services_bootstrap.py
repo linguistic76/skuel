@@ -1131,9 +1131,9 @@ async def compose_services(
         from core.models.submissions.submission import Submission
 
         # NOTE: vectors_backend REMOVED (January 2026) - was unused dead code
-        # submissions_backend uses :Entity label for cross-domain queries (reports span multiple EntityTypes)
-        # entity_class=Submission: base class for all 4 report types (SUBMISSION, JOURNAL, AI_REPORT, FEEDBACK_REPORT)
-        reports_backend = UniversalNeo4jBackend[Submission](
+        # submissions_backend uses :Entity label for cross-domain queries (submissions span multiple EntityTypes)
+        # entity_class=Submission: base class for all 4 submission types (SUBMISSION, JOURNAL, AI_REPORT, FEEDBACK_REPORT)
+        submissions_backend = UniversalNeo4jBackend[Submission](
             driver, NeoLabel.ENTITY, Submission, prometheus_metrics=prometheus_metrics
         )
         askesis_backend = UniversalNeo4jBackend[Askesis](
@@ -1538,7 +1538,7 @@ async def compose_services(
         ai_service = OpenAIService(api_key=openai_api_key)
 
         content_enrichment = ContentEnrichmentService(
-            backend=reports_backend,  # February 2026: Uses Entity backend (domain-first model)
+            backend=submissions_backend,  # February 2026: Uses Entity backend (domain-first model)
             transcription_service=core_services["transcription"],
             ai_service=ai_service,  # REQUIRED - always available
             event_bus=event_bus,  # Event-driven architecture
@@ -1550,7 +1550,7 @@ async def compose_services(
         from core.services.exercises import ExerciseService
         from core.services.feedback import FeedbackService
 
-        report_feedback_service = FeedbackService(
+        feedback_service = FeedbackService(
             openai_service=ai_service,
             anthropic_service=None,  # Only OpenAI configured for now
             executor=query_executor,  # Creates FEEDBACK_REPORT entity + FEEDBACK_FOR relationship
@@ -1634,23 +1634,23 @@ async def compose_services(
         )
 
         # Get storage path from environment (default: /tmp/skuel_submissions)
-        storage_path = os.getenv("SKUEL_REPORT_STORAGE", "/tmp/skuel_reports")
+        storage_path = os.getenv("SKUEL_SUBMISSIONS_STORAGE", "/tmp/skuel_submissions")
 
-        report_service = SubmissionsService(
-            backend=reports_backend, storage_path=storage_path, event_bus=event_bus
+        submissions_service = SubmissionsService(
+            backend=submissions_backend, storage_path=storage_path, event_bus=event_bus
         )
 
-        # Create Reports sharing service (content sharing)
+        # Create Submissions sharing service (content sharing)
         from core.services.submissions import SubmissionsSharingService
 
-        report_sharing_service = SubmissionsSharingService(executor=query_executor)
+        submissions_sharing_service = SubmissionsSharingService(executor=query_executor)
 
-        # Create Reports core service (content management: categories, tags, bulk operations)
+        # Create Submissions core service (content management: categories, tags, bulk operations)
         # February 2026: content_enrichment for handle_transcription_completed
-        reports_core_service = SubmissionsCoreService(
-            backend=reports_backend,
+        submissions_core_service = SubmissionsCoreService(
+            backend=submissions_backend,
             event_bus=event_bus,
-            sharing_service=report_sharing_service,
+            sharing_service=submissions_sharing_service,
             content_enrichment=content_enrichment,
         )
 
@@ -1687,13 +1687,13 @@ async def compose_services(
             ls_service=learning_services["learning_steps"],
             lp_service=learning_services["learning_paths"],
             # Meta Domains (3)
-            report_service=report_service,  # For metadata updates
+            report_service=submissions_service,  # For metadata updates
             analytics_service=None,  # Not needed for extraction
             calendar_service=None,  # Not needed for extraction
             # The Destination (+1)
             lifepath_service=lifepath_service,
         )
-        logger.info("✅ Report activity extractor created (DSL journal → entity extraction)")
+        logger.info("✅ Submission activity extractor created (DSL journal → entity extraction)")
 
         # Create journal processing services
         from core.services.submissions import JournalOutputGenerator
@@ -1705,8 +1705,8 @@ async def compose_services(
         )
         logger.info(f"✅ Journal output generator created (storage: {journal_storage})")
 
-        report_processor = SubmissionsProcessingService(
-            ku_submission_service=report_service,
+        submissions_processor = SubmissionsProcessingService(
+            ku_submission_service=submissions_service,
             transcription_service=core_services["transcription"],  # Simplified TranscriptionService
             content_enrichment=content_enrichment,  # For LLM formatting
             activity_extractor=activity_extractor,  # DSL entity extraction
@@ -1714,17 +1714,17 @@ async def compose_services(
             event_bus=event_bus,
         )
 
-        # Create Reports search service (unified query interface)
-        reports_query_service = SubmissionsSearchService(
-            ku_backend=reports_backend, event_bus=event_bus
+        # Create Submissions search service (unified query interface)
+        submissions_search_service = SubmissionsSearchService(
+            ku_backend=submissions_backend, event_bus=event_bus
         )
 
-        logger.info("✅ Reports submission and processing pipeline services created")
+        logger.info("✅ Submissions pipeline services created")
         logger.info(
-            "✅ Reports core service created (content management: categories, tags, bulk ops)"
+            "✅ Submissions core service created (content management: categories, tags, bulk ops)"
         )
         logger.info(
-            "✅ Reports search service created (unified query interface for all report types)"
+            "✅ Submissions search service created (unified query interface for all submission types)"
         )
 
         # Create progress report generator and schedule service
@@ -1732,14 +1732,14 @@ async def compose_services(
         from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
         from core.services.feedback.progress_schedule_service import ProgressScheduleService
 
-        report_schedule_backend = UniversalNeo4jBackend[KuSchedule](
+        progress_schedule_backend = UniversalNeo4jBackend[KuSchedule](
             driver, NeoLabel.KU_SCHEDULE, KuSchedule, prometheus_metrics=prometheus_metrics
         )
-        report_schedule_service = ProgressScheduleService(backend=report_schedule_backend)
+        progress_schedule_service = ProgressScheduleService(backend=progress_schedule_backend)
 
         progress_generator = ProgressFeedbackGenerator(
             executor=query_executor,
-            ku_backend=reports_backend,
+            ku_backend=submissions_backend,
             user_service=core_services["user"],
             insight_store=insight_store,
             event_bus=event_bus,
@@ -1750,7 +1750,7 @@ async def compose_services(
         from core.services.background.progress_report_worker import ProgressReportWorker
 
         progress_report_worker = ProgressReportWorker(
-            schedule_service=report_schedule_service,
+            schedule_service=progress_schedule_service,
             progress_generator=progress_generator,
             check_interval_seconds=3600,  # Hourly check
         )
@@ -2008,7 +2008,7 @@ async def compose_services(
 
         event_bus.subscribe(
             TranscriptionCompleted,
-            reports_core_service.handle_transcription_completed,
+            submissions_core_service.handle_transcription_completed,
         )
         logger.info(
             "✅ SubmissionsCoreService subscribed to TranscriptionCompleted "
@@ -2023,7 +2023,7 @@ async def compose_services(
 
         exercise_handler = functools.partial(
             handle_exercise_submission,
-            reports_core_service=reports_core_service,
+            reports_core_service=submissions_core_service,
         )
         event_bus.subscribe(SubmissionCreated, exercise_handler)
         logger.info(
@@ -2354,7 +2354,7 @@ async def compose_services(
             cross_domain=learning_services["cross_domain"],
             # Content
             content_enrichment=content_enrichment,
-            feedback=report_feedback_service,  # LLM feedback on submissions/journals
+            feedback=feedback_service,  # LLM feedback on submissions/journals
             exercises=exercise_service,  # Reusable LLM instruction templates
             journal_generator=journal_generator,  # je_output formatting and disk storage
             # Group & Teaching (ADR-040: Teacher exercise workflow)
@@ -2364,14 +2364,14 @@ async def compose_services(
             notification_service=notification_service,
             # Note: audio_service removed (Dec 2025) - use transcription service directly
             # Reports
-            submissions=report_service,
-            submissions_core=reports_core_service,  # Content management (categories, tags, bulk ops)
-            submissions_sharing=report_sharing_service,  # Submission portfolio sharing
-            submissions_processor=report_processor,
-            submissions_search=reports_query_service,  # Unified submission queries
+            submissions=submissions_service,
+            submissions_core=submissions_core_service,  # Content management (categories, tags, bulk ops)
+            submissions_sharing=submissions_sharing_service,  # Submission portfolio sharing
+            submissions_processor=submissions_processor,
+            submissions_search=submissions_search_service,  # Unified submission queries
             # Progress feedback (February 2026)
             progress_feedback_generator=progress_generator,
-            progress_schedule=report_schedule_service,
+            progress_schedule=progress_schedule_service,
             # System
             # Note: sync field removed (January 2026) - use unified_ingestion
             unified_ingestion=unified_ingestion,  # ADR-014: Merged MD + YAML ingestion
@@ -2446,10 +2446,12 @@ async def compose_services(
 
         # Create processing domain relationship services
         # NOTE: JournalRelationshipService REMOVED (February 2026) - Journal merged into Entity model
-        # SubmissionsRelationshipService handles all report content relationships
-        report_relationship_service = SubmissionsRelationshipService(backend=reports_backend)
+        # SubmissionsRelationshipService handles all submission content relationships
+        submissions_relationship_service = SubmissionsRelationshipService(
+            backend=submissions_backend
+        )
         analytics_relationship_service = AnalyticsRelationshipService(driver)
-        logger.info("✅ Processing domain relationship services created (Reports, Analytics)")
+        logger.info("✅ Processing domain relationship services created (Submissions, Analytics)")
 
         # Create factory with all 12 domain services
         context_intelligence_factory = UserContextIntelligenceFactory(
@@ -2469,7 +2471,7 @@ async def compose_services(
                 "learning_paths"
             ].relationships,  # Factory expects 'lp' parameter name
             # Processing Domains (2) - journals merged into submissions Feb 2026
-            reports=report_relationship_service,  # SubmissionsRelationshipService
+            reports=submissions_relationship_service,  # SubmissionsRelationshipService
             analytics=analytics_relationship_service,  # AnalyticsRelationshipService
             # Temporal Domain (1)
             calendar=calendar_service,

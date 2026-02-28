@@ -1,8 +1,8 @@
 """
-Report Sharing API Routes
+Submission Sharing API Routes
 ==============================
 
-REST API for report sharing, visibility control, and access management.
+REST API for submission sharing, visibility control, and access management.
 
 Routes:
 - POST /api/submissions/share - Share report with user
@@ -40,25 +40,25 @@ logger = get_logger("skuel.routes.submissions.sharing")
 # ============================================================================
 
 
-class ShareReportRequest(BaseModel):
-    """Request to share a report with a user."""
+class ShareSubmissionRequest(BaseModel):
+    """Request to share a submission with a user."""
 
-    report_uid: str
+    submission_uid: str
     recipient_uid: str
     role: str = "viewer"  # Role: teacher, peer, mentor, viewer
 
 
-class UnshareReportRequest(BaseModel):
+class UnshareSubmissionRequest(BaseModel):
     """Request to revoke sharing access."""
 
-    report_uid: str
+    submission_uid: str
     recipient_uid: str
 
 
 class SetVisibilityRequest(BaseModel):
     """Request to set report visibility."""
 
-    report_uid: str
+    submission_uid: str
     visibility: str  # private, shared, public
 
 
@@ -88,9 +88,9 @@ def create_submissions_sharing_api_routes(
 
     @rt("/api/submissions/share", methods=["POST"])
     @boundary_handler(success_status=200)
-    async def share_report(
+    async def share_submission(
         request: Request,
-        body: ShareReportRequest,
+        body: ShareSubmissionRequest,
     ) -> Result[dict[str, Any]]:
         """
         Share a report with a specific user.
@@ -100,7 +100,7 @@ def create_submissions_sharing_api_routes(
 
         Request body:
             {
-                "report_uid": "report_abc123",
+                "submission_uid": "submission_abc123",
                 "recipient_uid": "user_teacher",
                 "role": "teacher"  // Optional: teacher, peer, mentor, viewer
             }
@@ -110,8 +110,8 @@ def create_submissions_sharing_api_routes(
         """
         user_uid: UserUID = require_authenticated_user(request)
 
-        result = await sharing_service.share_report(
-            ku_uid=body.report_uid,
+        result = await sharing_service.share_submission(
+            ku_uid=body.submission_uid,
             owner_uid=user_uid,
             recipient_uid=body.recipient_uid,
             role=body.role,
@@ -123,15 +123,15 @@ def create_submissions_sharing_api_routes(
         return Result.ok(
             {
                 "success": True,
-                "message": f"Report shared with {body.recipient_uid}",
+                "message": f"Submission shared with {body.recipient_uid}",
             }
         )
 
     @rt("/api/submissions/unshare", methods=["POST"])
     @boundary_handler(success_status=200)
-    async def unshare_report(
+    async def unshare_submission(
         request: Request,
-        body: UnshareReportRequest,
+        body: UnshareSubmissionRequest,
     ) -> Result[dict[str, Any]]:
         """
         Revoke sharing access for a user.
@@ -140,7 +140,7 @@ def create_submissions_sharing_api_routes(
 
         Request body:
             {
-                "report_uid": "report_abc123",
+                "submission_uid": "submission_abc123",
                 "recipient_uid": "user_teacher"
             }
 
@@ -149,8 +149,8 @@ def create_submissions_sharing_api_routes(
         """
         user_uid: UserUID = require_authenticated_user(request)
 
-        result = await sharing_service.unshare_report(
-            ku_uid=body.report_uid,
+        result = await sharing_service.unshare_submission(
+            ku_uid=body.submission_uid,
             owner_uid=user_uid,
             recipient_uid=body.recipient_uid,
         )
@@ -178,7 +178,7 @@ def create_submissions_sharing_api_routes(
 
         Request body:
             {
-                "report_uid": "report_abc123",
+                "submission_uid": "submission_abc123",
                 "visibility": "public"  // private, shared, public
             }
 
@@ -199,7 +199,7 @@ def create_submissions_sharing_api_routes(
             )
 
         result = await sharing_service.set_visibility(
-            ku_uid=body.report_uid,
+            ku_uid=body.submission_uid,
             owner_uid=user_uid,
             visibility=visibility,
         )
@@ -225,7 +225,7 @@ def create_submissions_sharing_api_routes(
 
         Returns:
             {
-                "reports": [ReportDTO, ...],
+                "submissions": [ReportDTO, ...],
                 "count": 5
             }
         """
@@ -235,7 +235,7 @@ def create_submissions_sharing_api_routes(
         params = dict(request.query_params)
         limit = int(params.get("limit", 50))
 
-        result = await sharing_service.get_reports_shared_with_me(
+        result = await sharing_service.get_submissions_shared_with_me(
             user_uid=user_uid,
             limit=limit,
         )
@@ -243,11 +243,11 @@ def create_submissions_sharing_api_routes(
         if result.is_error:
             return Result.fail(result)
 
-        reports = result.value
+        submissions = result.value
 
         return Result.ok(
             {
-                "reports": [
+                "submissions": [
                     {
                         "uid": a.uid,
                         "user_uid": a.user_uid,
@@ -261,9 +261,9 @@ def create_submissions_sharing_api_routes(
                         "shared_role": getattr(a, "shared_role", None),
                         "shared_at": getattr(a, "shared_at", None),
                     }
-                    for a in reports
+                    for a in submissions
                 ],
-                "count": len(reports),
+                "count": len(submissions),
             }
         )
 
@@ -294,9 +294,9 @@ def create_submissions_sharing_api_routes(
 
         # Parse query params
         params = dict(request.query_params)
-        report_uid = params.get("uid")
+        submission_uid = params.get("uid")
 
-        if not report_uid:
+        if not submission_uid:
             return Result.fail(
                 {
                     "error": "validation",
@@ -306,21 +306,21 @@ def create_submissions_sharing_api_routes(
 
         # Verify ownership (only owner can see who report is shared with)
         if core_service:
-            report_result = await core_service.get_report(report_uid)
-            if report_result.is_error:
-                return Result.fail(report_result)
+            submission_result = await core_service.get_submission(submission_uid)
+            if submission_result.is_error:
+                return Result.fail(submission_result)
 
-            report = report_result.value
-            if report is None or report.user_uid != user_uid:
+            submission = submission_result.value
+            if submission is None or submission.user_uid != user_uid:
                 return Result.fail(
                     {
                         "error": "forbidden",
-                        "message": "You do not own this report",
+                        "message": "You do not own this submission",
                     }
                 )
 
         result = await sharing_service.get_shared_with_users(
-            ku_uid=report_uid,
+            ku_uid=submission_uid,
         )
 
         if result.is_error:
@@ -347,7 +347,7 @@ def create_submissions_sharing_api_routes(
 
         Returns:
             {
-                "reports": [ReportDTO, ...],
+                "submissions": [ReportDTO, ...],
                 "count": 10
             }
         """
@@ -379,15 +379,15 @@ def create_submissions_sharing_api_routes(
         if search_result.is_error:
             return Result.fail(search_result)
 
-        reports = search_result.value
+        submissions = search_result.value
 
         # Filter by user if specified
         if filter_user_uid:
-            reports = [a for a in reports if a.user_uid == filter_user_uid]
+            submissions = [a for a in submissions if a.user_uid == filter_user_uid]
 
         return Result.ok(
             {
-                "reports": [
+                "submissions": [
                     {
                         "uid": a.uid,
                         "user_uid": a.user_uid,
@@ -398,16 +398,16 @@ def create_submissions_sharing_api_routes(
                         "created_at": a.created_at.isoformat() if a.created_at else None,
                         "visibility": a.visibility,
                     }
-                    for a in reports
+                    for a in submissions
                 ],
-                "count": len(reports),
+                "count": len(submissions),
             }
         )
 
     # Return route handlers
     return [
-        share_report,
-        unshare_report,
+        share_submission,
+        unshare_submission,
         set_visibility,
         get_shared_with_me,
         get_shared_users,

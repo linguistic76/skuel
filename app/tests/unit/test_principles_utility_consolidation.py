@@ -106,9 +106,7 @@ class TestPrinciplesServiceMethodRename:
         # Mock the search sub-service's list_user_categories
         from core.utils.result_simplified import Result
 
-        service.search.list_user_categories = AsyncMock(
-            return_value=Result.ok(expected_categories)
-        )
+        service.search.list_user_categories = AsyncMock(return_value=Result.ok(expected_categories))
 
         result = await service.list_principle_categories("user_test")
 

@@ -229,9 +229,7 @@ class TestGoalsCoreOperations:
     # BASESERVICE.list_all_categories() — verifies dead code was correctly removed
     # =========================================================================
 
-    async def test_list_all_categories_accessible_on_search_service(
-        self, goals_search
-    ):
+    async def test_list_all_categories_accessible_on_search_service(self, goals_search):
         """GoalsSearchService inherits list_all_categories() from BaseService.
 
         The now-deleted GoalsCoreService.list_goal_categories() used a raw Cypher

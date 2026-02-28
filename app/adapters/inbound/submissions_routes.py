@@ -41,7 +41,7 @@ SUBMISSIONS_CONFIG = DomainRouteConfig(
     },
     ui_related_services={
         "_processing_service": "submissions_processor",
-        "_report_projects_service": "assignments",
+        "_exercises_service": "assignments",
         "_submissions_search_service": "submissions_search",
         "_submissions_core_service": "submissions_core",
     },

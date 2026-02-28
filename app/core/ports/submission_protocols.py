@@ -61,7 +61,7 @@ class SubmissionOperations(Protocol):
         """Submit a file for processing. Returns Result[Submission]."""
         ...
 
-    async def get_report(self, uid: str) -> Result[Any | None]:
+    async def get_submission(self, uid: str) -> Result[Any | None]:
         """Get submission entity by UID. Returns Result[Submission | None]."""
         ...
 
@@ -84,7 +84,7 @@ class SubmissionOperations(Protocol):
         """Get processed file content. Returns Result[bytes]."""
         ...
 
-    async def get_report_statistics(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_submission_statistics(self, user_uid: str) -> Result[dict[str, Any]]:
         """Get submission statistics for a user. Returns Result[dict]."""
         ...
 
@@ -101,7 +101,7 @@ class SubmissionOperations(Protocol):
     # CONTENT MANAGEMENT
     # ------------------------------------------------------------------
 
-    async def categorize_report(self, uid: str, category: str) -> Result[Any]:
+    async def categorize_submission(self, uid: str, category: str) -> Result[Any]:
         """Set category on a submission. Returns Result[Submission]."""
         ...
 
@@ -113,11 +113,11 @@ class SubmissionOperations(Protocol):
         """Remove tags from a submission. Returns Result[Submission]."""
         ...
 
-    async def publish_report(self, uid: str) -> Result[Any]:
+    async def publish_submission(self, uid: str) -> Result[Any]:
         """Publish a submission (set status to COMPLETED). Returns Result[Submission]."""
         ...
 
-    async def archive_report(self, uid: str) -> Result[Any]:
+    async def archive_submission(self, uid: str) -> Result[Any]:
         """Archive a submission. Returns Result[Submission]."""
         ...
 
@@ -125,7 +125,7 @@ class SubmissionOperations(Protocol):
         """Mark submission as draft. Returns Result[Submission]."""
         ...
 
-    async def get_reports_by_category(
+    async def get_submissions_by_category(
         self,
         category: str,
         limit: int = 50,
@@ -159,7 +159,7 @@ class SubmissionOperations(Protocol):
     # JOURNAL CREATION (EntityType.JOURNAL — specialized submission)
     # ------------------------------------------------------------------
 
-    async def create_journal_report(
+    async def create_journal_entry(
         self,
         user_uid: str,
         title: str,
@@ -202,11 +202,11 @@ class SubmissionProcessingOperations(Protocol):
     Processes the submission content — transcribes audio, enriches text with LLM.
     This is enrichment OF the submission itself, not feedback ON the submission.
 
-    Route consumers: reports_api.py, reports_ui.py
+    Route consumers: submissions_api.py, submissions_ui.py
     Implementation: SubmissionsProcessingService
     """
 
-    async def process_report(
+    async def process_submission(
         self,
         ku_uid: str,
         instructions: dict[str, Any] | None = None,
@@ -214,7 +214,7 @@ class SubmissionProcessingOperations(Protocol):
         """Process a submission through the pipeline. Returns Result[Submission]."""
         ...
 
-    async def reprocess_report(
+    async def reprocess_submission(
         self,
         ku_uid: str,
         new_instructions: dict[str, Any] | None = None,
@@ -234,7 +234,7 @@ class SubmissionSharingOperations(Protocol):
     Implementation: SubmissionsSharingService
     """
 
-    async def share_report(
+    async def share_submission(
         self,
         ku_uid: str,
         owner_uid: str,
@@ -244,7 +244,7 @@ class SubmissionSharingOperations(Protocol):
         """Share a submission with a user. Returns Result[bool]."""
         ...
 
-    async def unshare_report(
+    async def unshare_submission(
         self,
         ku_uid: str,
         owner_uid: str,
@@ -260,7 +260,7 @@ class SubmissionSharingOperations(Protocol):
         """Get users a submission is shared with. Returns Result[list[dict]]."""
         ...
 
-    async def get_reports_shared_with_me(
+    async def get_submissions_shared_with_me(
         self,
         user_uid: str,
         limit: int = 50,
@@ -304,7 +304,7 @@ class SubmissionSearchOperations(Protocol):
         """Search submissions with text and type filters. Returns Result[list[Submission]]."""
         ...
 
-    async def get_report_statistics(
+    async def get_submission_statistics(
         self,
         user_uid: str,
         start_date: date,
@@ -323,7 +323,7 @@ class SubmissionSearchOperations(Protocol):
         """Get recent submissions. Returns Result[list[Submission]]."""
         ...
 
-    async def get_journal_for_report(
+    async def get_journal_for_submission(
         self,
         ku_uid: str,
         user_uid: str,

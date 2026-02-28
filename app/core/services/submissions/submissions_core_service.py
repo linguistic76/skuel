@@ -1,8 +1,8 @@
 """
-Reports Core Service
+Submissions Core Service
 ========================
 
-Content management operations for report entities.
+Content management operations for submission entities.
 Handles categories, tags, publish/archive workflow, bulk operations,
 journal CRUD, and the Exercise → Submission link that drives the
 core educational loop.
@@ -23,7 +23,7 @@ The Exercise is a shared curriculum template. The moment a user creates
 a Submission against it, the Submission is exclusively their own work product —
 user-owned, privately scoped by default.
 
-Four Report Entity Types
+Four Entity Types
 --------------------------
     SUBMISSION      → Student's work submitted against an Exercise (user-owned)
     JOURNAL         → Voice/text journal entries with metadata (user-owned)
@@ -127,7 +127,7 @@ class ReportCategory:
 
 class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     """
-    Core Ku service for content management operations.
+    Core submission service for content management operations.
 
     This service focuses on:
     - Retrieving Ku entities with content
@@ -194,19 +194,21 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """Return the graph label for Entity nodes."""
         return "Entity"
 
-    def _validate_report_exists(self, report: SubmissionEntity | None) -> Result[SubmissionEntity]:
+    def _validate_submission_exists(
+        self, submission: SubmissionEntity | None
+    ) -> Result[SubmissionEntity]:
         """Validate entity exists."""
-        if report:
-            return Result.ok(report)
-        return Result.fail(Errors.not_found("Report not found"))
+        if submission:
+            return Result.ok(submission)
+        return Result.fail(Errors.not_found("Submission not found"))
 
     # ========================================================================
     # RETRIEVE
     # ========================================================================
 
-    async def get_report(self, uid: str) -> Result[SubmissionEntity]:
+    async def get_submission(self, uid: str) -> Result[SubmissionEntity]:
         """
-        Get a report by UID.
+        Get a submission by UID.
 
         Args:
             uid: Ku unique identifier
@@ -219,20 +221,20 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        report = result.value
-        if not report:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+        submission = result.value
+        if not submission:
+            return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         return Result.ok(report)
 
     async def get_with_access_check(self, uid: str, user_uid: str) -> Result[SubmissionEntity]:
         """
-        Get a report with access control verification.
+        Get a submission with access control verification.
 
         Checks if the user can view the entity based on:
         - Ownership (user owns the Ku)
         - Visibility (PUBLIC Ku visible to all)
-        - Sharing (SHARED report with SHARES_WITH relationship)
+        - Sharing (SHARED submission with SHARES_WITH relationship)
 
         Args:
             uid: Ku unique identifier
@@ -243,7 +245,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         if not self.sharing_service:
             # Fall back to simple get if no sharing service
-            return await self.get_report(uid)
+            return await self.get_submission(uid)
 
         # Check access
         access_result = await self.sharing_service.check_access(uid, user_uid)
@@ -251,19 +253,19 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             return Result.fail(access_result.expect_error())
 
         if not access_result.value:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         # User has access, fetch the entity
-        return await self.get_report(uid)
+        return await self.get_submission(uid)
 
-    async def get_report_for_date(
+    async def get_submission_for_date(
         self, target_date: date, user_uid: str | None = None
     ) -> Result[SubmissionEntity | None]:
         """
         Get the report for a specific date.
 
         Args:
-            target_date: Date to find report for
+            target_date: Date to find submission for
             user_uid: Optional user filter
 
         Returns:
@@ -280,16 +282,16 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        reports = result.value
-        if not reports:
+        submissions = result.value
+        if not submissions:
             return Result.ok(None)
 
         # Filter by date (checking created_at date portion)
-        for report in reports:
-            if report.created_at:
-                report_date = report.created_at.date()
-                if report_date == target_date:
-                    return Result.ok(report)
+        for submission in submissions:
+            if submission.created_at:
+                submission_date = submission.created_at.date()
+                if submission_date == target_date:
+                    return Result.ok(submission)
 
         return Result.ok(None)
 
@@ -330,26 +332,28 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        reports = result.value or []
+        submissions = result.value or []
         # Sort by created_at descending
-        reports.sort(key=get_report_date, reverse=True)
+        submissions.sort(key=get_report_date, reverse=True)
 
-        return Result.ok(reports[:limit])
+        return Result.ok(submissions[:limit])
 
     # ========================================================================
     # UPDATE
     # ========================================================================
 
-    async def update_report(self, uid: str, updates: dict[str, Any]) -> Result[SubmissionEntity]:
+    async def update_submission(
+        self, uid: str, updates: dict[str, Any]
+    ) -> Result[SubmissionEntity]:
         """
         Update an entity.
 
         Args:
-            uid: Report UID
+            uid: Submission UID
             updates: Dictionary of updates to apply
 
         Returns:
-            Result containing updated report or error
+            Result containing updated submission or error
         """
         # Define allowed fields (Entity model first-class fields only)
         allowed_fields = {
@@ -390,7 +394,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         updated = result.value
         if not updated:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         return Result.ok(updated)
 
@@ -398,7 +402,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     # DELETE
     # ========================================================================
 
-    async def delete_report(self, uid: str) -> Result[bool]:
+    async def delete_submission(self, uid: str) -> Result[bool]:
         """
         Delete an entity.
 
@@ -415,7 +419,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         report = get_result.value
         if not report:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         # Delete
         delete_result = await self.backend.delete(uid)
@@ -442,11 +446,11 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     # STATUS MANAGEMENT
     # ========================================================================
 
-    async def publish_report(self, uid: str) -> Result[SubmissionEntity]:
+    async def publish_submission(self, uid: str) -> Result[SubmissionEntity]:
         """Publish an entity (set status to completed/published)."""
-        return await self._update_report_status(uid, EntityStatus.COMPLETED)
+        return await self._update_submission_status(uid, EntityStatus.COMPLETED)
 
-    async def archive_report(self, uid: str) -> Result[SubmissionEntity]:
+    async def archive_submission(self, uid: str) -> Result[SubmissionEntity]:
         """Archive a report by updating status in metadata."""
         # Get current entity
         get_result = await self.backend.get(uid)
@@ -455,20 +459,20 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         report = get_result.value
         if not report:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         # Update metadata to include archived flag
         current_metadata = report.metadata or {}
         current_metadata["archived"] = True
         current_metadata["archived_at"] = datetime.now().isoformat()
 
-        return await self.update_report(uid, {"metadata": current_metadata})
+        return await self.update_submission(uid, {"metadata": current_metadata})
 
     async def mark_as_draft(self, uid: str) -> Result[SubmissionEntity]:
         """Mark an entity as draft."""
-        return await self._update_report_status(uid, EntityStatus.DRAFT)
+        return await self._update_submission_status(uid, EntityStatus.DRAFT)
 
-    async def _update_report_status(
+    async def _update_submission_status(
         self, uid: str, status: EntityStatus
     ) -> Result[SubmissionEntity]:
         """Update entity status."""
@@ -479,7 +483,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         updated = result.value
         if not updated:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         self.logger.info(f"Updated report {uid} status to {status.value}")
         return Result.ok(updated)
@@ -488,14 +492,14 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     # CATEGORY MANAGEMENT
     # ========================================================================
 
-    async def categorize_report(self, uid: str, category: str) -> Result[SubmissionEntity]:
+    async def categorize_submission(self, uid: str, category: str) -> Result[SubmissionEntity]:
         """
         Categorize an entity.
 
         Categories are stored in Ku.metadata['category'].
 
         Args:
-            uid: Report UID
+            uid: Submission UID
             category: Category to assign (use ReportCategory constants)
 
         Returns:
@@ -512,15 +516,15 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         report = get_result.value
         if not report:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         # Update metadata with category
         current_metadata = report.metadata or {}
         current_metadata["category"] = category
 
-        return await self.update_report(uid, {"metadata": current_metadata})
+        return await self.update_submission(uid, {"metadata": current_metadata})
 
-    async def get_reports_by_category(
+    async def get_submissions_by_category(
         self, category: str, limit: int = 50, user_uid: str | None = None
     ) -> Result[list[SubmissionEntity]]:
         """
@@ -572,7 +576,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Tags are stored in Ku.metadata['tags'].
 
         Args:
-            uid: Report UID
+            uid: Submission UID
             tags: Tags to add
 
         Returns:
@@ -584,7 +588,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         report = get_result.value
         if not report:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         # Merge with existing tags
         current_metadata = report.metadata or {}
@@ -594,14 +598,14 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         new_tags = list(set(current_tags + tags))
         current_metadata["tags"] = new_tags
 
-        return await self.update_report(uid, {"metadata": current_metadata})
+        return await self.update_submission(uid, {"metadata": current_metadata})
 
     async def remove_tags(self, uid: str, tags: list[str]) -> Result[SubmissionEntity]:
         """
         Remove tags from an entity.
 
         Args:
-            uid: Report UID
+            uid: Submission UID
             tags: Tags to remove
 
         Returns:
@@ -613,7 +617,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         report = get_result.value
         if not report:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         # Remove specified tags
         current_metadata = report.metadata or {}
@@ -623,9 +627,9 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         updated_tags = [t for t in current_tags if t not in tags]
         current_metadata["tags"] = updated_tags
 
-        return await self.update_report(uid, {"metadata": current_metadata})
+        return await self.update_submission(uid, {"metadata": current_metadata})
 
-    async def get_reports_by_tag(
+    async def get_submissions_by_tag(
         self, tag: str, limit: int = 50, user_uid: str | None = None
     ) -> Result[list[SubmissionEntity]]:
         """
@@ -687,7 +691,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         errors = []
 
         for uid in uids:
-            result = await self.categorize_report(uid, category)
+            result = await self.categorize_submission(uid, category)
             if result.is_ok:
                 updated_count += 1
                 self.logger.debug(f"Updated report {uid} to category {category}")
@@ -756,10 +760,10 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         for uid in uids:
             if soft_delete:
-                result = await self.archive_report(uid)
+                result = await self.archive_submission(uid)
                 success = result.is_ok
             else:
-                delete_result = await self.delete_report(uid)
+                delete_result = await self.delete_submission(uid)
                 success = delete_result.is_ok and bool(delete_result.value)
 
             if success:
@@ -787,7 +791,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Export report to markdown format.
 
         Args:
-            uid: Report UID
+            uid: Submission UID
 
         Returns:
             Markdown formatted report content
@@ -798,7 +802,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         report = get_result.value
         if not report:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
         # Extract metadata
         metadata = report.metadata or {}
@@ -832,8 +836,8 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     #   metadata['transcription_uid']
     # ========================================================================
 
-    @with_error_handling("create_journal_report", error_type="database")
-    async def create_journal_report(
+    @with_error_handling("create_journal_entry", error_type="database")
+    async def create_journal_entry(
         self,
         user_uid: str,
         title: str,
@@ -1013,16 +1017,16 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         report = get_result.value
         if not report:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
 
-        return await self.update_report(uid, {"max_retention": None})
+        return await self.update_submission(uid, {"max_retention": None})
 
     async def get_journal_with_insights(self, uid: str) -> Result[Journal | None]:
         """
         Get a journal report with its extracted insights.
 
         Args:
-            uid: Report UID
+            uid: Submission UID
 
         Returns:
             Result containing the entity (includes insights in metadata)
@@ -1416,7 +1420,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Pipeline:
         1. Try AI processing via ContentEnrichmentService (if available)
         2. Fall back to raw transcript if AI fails
-        3. Create Ku with ku_type=JOURNAL and journal metadata via create_journal_report()
+        3. Create Ku with ku_type=JOURNAL and journal metadata via create_journal_entry()
         4. Triggers FIFO cleanup for VOICE journals
 
         Args:
@@ -1466,7 +1470,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                 journal_metadata["summary"] = summary
 
             # Create journal entity (triggers FIFO for VOICE journals)
-            result = await self.create_journal_report(
+            result = await self.create_journal_entry(
                 user_uid=event.user_uid,
                 title=title,
                 content=content,
