@@ -1,6 +1,6 @@
 ---
 title: BackendOperations Protocol Architecture
-updated: 2026-01-07
+updated: 2026-02-28
 category: patterns
 related_skills: []
 related_docs:
@@ -11,7 +11,7 @@ related_docs:
 
 # BackendOperations Protocol Architecture
 
-*Last updated: 2026-01-07*
+*Last updated: 2026-02-28*
 
 ## Core Principle
 
@@ -179,13 +179,26 @@ class RelationshipAnalyzer:
 
 ## Implementation
 
-`UniversalNeo4jBackend[T]` is the single implementation that satisfies `BackendOperations[T]`:
+`UniversalNeo4jBackend[T]` is the single implementation that satisfies `BackendOperations[T]`.
+
+### February 2026: Mixin Decomposition
+
+`universal_backend.py` was decomposed from a 4,214-line monolith into a shell + 5 focused mixin files, following the same pattern used for `BaseService` in January 2026. The class declaration now uses multiple inheritance:
 
 ```python
-class UniversalNeo4jBackend[T: DomainModelProtocol]:
+class UniversalNeo4jBackend[T: DomainModelProtocol](
+    _CrudMixin[T],
+    _SearchMixin[T],
+    _RelationshipMixin[T],
+    _UserMixin[T],
+    _TraversalMixin,
+):
     """
     100% dynamic backend for all domain entities.
     Implements BackendOperations[T] protocol.
+
+    Methods live in focused mixin files (_*_mixin.py).
+    Shell retains: __init__, helpers, factory functions.
     """
 
     def __init__(self, driver: AsyncDriver, label: str, model_class: type[T]) -> None:
@@ -194,34 +207,31 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         self.model_class = model_class
 ```
 
-### Internal Helper Methods (January 2026)
+**Mixin Boundary Map:**
 
-The backend includes internal helpers to reduce duplication:
+| File | Protocol(s) | Key Methods |
+|------|-------------|-------------|
+| `_crud_mixin.py` | `CrudOperations[T]` | `create`, `get`, `get_many`, `update`, `delete`, `list` |
+| `_search_mixin.py` | `EntitySearchOperations[T]` | `find_by_date_range`, `search`, `find_by`, `count`, `health_check`, `get_domain_context_raw`, `execute_query` |
+| `_relationship_mixin.py` | `RelationshipCrud*`, `RelationshipMetadata*`, `RelationshipQuery*` | `create_relationship`, `delete_relationship`, `get_related_entities`, `relate()`, `_build_direction_pattern`, helpers |
+| `_user_mixin.py` | User operations + domain links | `create_user_relationship`, `get_user_entities`, `link_task_to_*`, user protocol methods |
+| `_traversal_mixin.py` | `GraphTraversalOperations` | `add_relationship`, `get_relationships`, `traverse`, `find_path` |
+| `universal_backend.py` (shell) | Coordination | `__init__`, `_track_db_metrics`, `_default_filter_*`, `_inject_default_filters`, `get_with_graph_context`, `__getattr__` |
 
-**`_build_direction_pattern()`** - Consolidates ~30 lines of duplicated Cypher pattern building:
+**Cross-mixin dependencies** are declared via `TYPE_CHECKING` stubs (zero runtime cost):
 
 ```python
-def _build_direction_pattern(
-    self,
-    relationship_type: str,
-    direction: Direction,
-    source_var: str = "n",
-    target_var: str = "related",
-    rel_var: str | None = None,
-    target_label: str | None = None,
-) -> Result[str]:
-    """Build Cypher pattern for directional relationship traversal.
+# In _crud_mixin.py — declares stubs for methods it calls from other mixins
+if TYPE_CHECKING:
+    async def create_user_relationship(  # from _UserMixin
+        self, user_uid: str, entity_uid: str, ...
+    ) -> Result[bool]: ...
 
-    Used by: get_related_entities(), get_related_uids(), count_related()
-    """
-    match direction:
-        case "outgoing":
-            return Result.ok(f"({source_var})-[:{rel_type}]->({target_var})")
-        case "incoming":
-            return Result.ok(f"({source_var})<-[:{rel_type}]-({target_var})")
-        case "both":
-            return Result.ok(f"({source_var})-[:{rel_type}]-({target_var})")
+    def _track_db_metrics(self, op: str, dur: float, is_error: bool = False) -> None: ...
+    def _default_filter_clause(self, node_var: str = "n") -> str: ...
 ```
+
+MRO is left-to-right. Mixins are stateless method containers — no `super().__init__()` required.
 
 ### Driver Access Patterns
 
@@ -238,7 +248,13 @@ def _build_direction_pattern(
 | File | Purpose |
 |------|---------|
 | `/core/ports/base_protocols.py` | Protocol definitions |
-| `/adapters/persistence/neo4j/universal_backend.py` | UniversalNeo4jBackend implementation |
+| `/adapters/persistence/neo4j/universal_backend.py` | Shell: `__init__`, helpers, factory functions (~586 lines) |
+| `/adapters/persistence/neo4j/_crud_mixin.py` | `CrudOperations[T]` implementation |
+| `/adapters/persistence/neo4j/_search_mixin.py` | `EntitySearchOperations[T]` implementation |
+| `/adapters/persistence/neo4j/_relationship_mixin.py` | Relationship CRUD + Metadata + Query implementation |
+| `/adapters/persistence/neo4j/_user_mixin.py` | User operations + domain link methods |
+| `/adapters/persistence/neo4j/_traversal_mixin.py` | `GraphTraversalOperations` implementation |
+| `/adapters/persistence/neo4j/domain_backends.py` | Thin domain subclasses (HabitsBackend, GoalsBackend) |
 | `/core/services/base_service.py` | BaseService using BackendOperations |
 | `/core/ports/domain_protocols.py` | Domain-specific protocols |
 

@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-01-06
+updated: 2026-02-28
 category: patterns
 related_skills: []
 related_docs:
@@ -8,12 +8,48 @@ related_docs:
 ---
 
 # Model-to-Adapter Dynamic Architecture
-**Date:** October 3, 2025 (Updated: January 6, 2026)
+**Date:** October 3, 2025 (Updated: February 28, 2026)
 **Status:** 100% Dynamic - All domains use UniversalNeo4jBackend[T]
 
 ## Executive Summary
 
 The architecture is **100% dynamic** for model-to-adapter connections. The introspection-based design with `UniversalNeo4jBackend` and `Neo4jGenericMapper` means changes to domain models automatically ripple to adapters.
+
+---
+
+## February 2026 Update: Backend Mixin Decomposition
+
+`universal_backend.py` grew to 4,214 lines and was decomposed into a shell + 5 focused mixin files, mirroring the `BaseService` mixin decomposition done in January 2026.
+
+**Result:** The same `UniversalNeo4jBackend[T]` API — unchanged for all 25+ callers in `services_bootstrap.py`. Only the internal file layout changed.
+
+```
+adapters/persistence/neo4j/
+    universal_backend.py      # ~586 lines (shell: __init__, helpers)
+    _crud_mixin.py            # CrudOperations[T]
+    _search_mixin.py          # EntitySearchOperations[T]
+    _relationship_mixin.py    # RelationshipCrud + Metadata + Query
+    _user_mixin.py            # User operations + domain link methods
+    _traversal_mixin.py       # GraphTraversalOperations
+    domain_backends.py        # Thin domain subclasses (unchanged)
+```
+
+**Class declaration:**
+```python
+class UniversalNeo4jBackend[T: DomainModelProtocol](
+    _CrudMixin[T],
+    _SearchMixin[T],
+    _RelationshipMixin[T],
+    _UserMixin[T],
+    _TraversalMixin,
+):
+```
+
+**Cross-mixin dependencies** use `TYPE_CHECKING` stubs (zero runtime cost, MyPy-verified).
+
+**Commit:** `dc77a7a` — 2675/2677 tests pass (2 pre-existing failures).
+
+**See:** `/docs/patterns/BACKEND_OPERATIONS_ISP.md` for full mixin boundary map.
 
 ---
 
