@@ -29,9 +29,9 @@ adapters/persistence/neo4j/
     _crud_mixin.py            # CrudOperations[T]
     _search_mixin.py          # EntitySearchOperations[T]
     _relationship_mixin.py    # RelationshipCrud + Metadata + Query
-    _user_mixin.py            # User operations + domain link methods
+    _user_entity_mixin.py     # Generic user-entity ops (5 methods)
     _traversal_mixin.py       # GraphTraversalOperations
-    domain_backends.py        # Thin domain subclasses (unchanged)
+    domain_backends.py        # Domain subclasses: HabitsBackend, GoalsBackend, TasksBackend, EventsBackend
 ```
 
 **Class declaration:**
@@ -40,7 +40,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
     _CrudMixin[T],
     _SearchMixin[T],
     _RelationshipMixin[T],
-    _UserMixin[T],
+    _UserEntityMixin[T],
     _TraversalMixin,
 ):
 ```
