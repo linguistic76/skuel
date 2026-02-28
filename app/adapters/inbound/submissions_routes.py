@@ -113,6 +113,20 @@ def create_submissions_routes(app: Any, rt: Any, services: Any, _sync_service=No
         routes.extend(progress_routes or [])
         logger.info("Progress feedback + activity review routes registered")
 
+    # Extension: activity review UI routes (admin-only)
+    activity_review_svc = getattr(services, "activity_review", None)
+    if activity_review_svc:
+        from adapters.inbound.activity_review_ui import create_activity_review_ui_routes
+
+        ar_routes = create_activity_review_ui_routes(
+            app,
+            rt,
+            activity_review_svc,
+            getattr(services, "user_service", None),
+        )
+        routes.extend(ar_routes or [])
+        logger.info("Activity review UI routes registered")
+
     # Extension: assessment routes (require TEACHER role)
     if services and services.submissions_core:
 

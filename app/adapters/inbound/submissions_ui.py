@@ -19,6 +19,7 @@ from fasthtml.common import (
     H3,
     H4,
     A,
+    Details,
     Div,
     Form,
     Input,
@@ -29,6 +30,7 @@ from fasthtml.common import (
     Script,
     Select,
     Span,
+    Summary,
 )
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
@@ -1272,20 +1274,84 @@ def create_submissions_ui_routes(
 
     @rt("/submissions/feedback")
     async def submissions_feedback_page(request: Request) -> Any:
-        """Feedback page: assessments received from teachers (server-rendered)."""
+        """Feedback page: assessments received from teachers + AI activity feedback."""
         require_authenticated_user(request)
-        content = Div(
-            PageHeader("Feedback", subtitle="Assessments and feedback from teachers"),
+
+        teacher_section = Div(
+            H3("Teacher Assessments", cls="font-semibold mb-4"),
             Div(
                 P("Loading feedback...", cls="text-center text-base-content/60"),
                 id="feedback-list",
-                cls="mt-4",
+                cls="mt-2",
                 **{
                     "hx-get": "/submissions/feedback/list",
                     "hx-trigger": "load",
                     "hx-swap": "outerHTML",
                 },
             ),
+            cls="card bg-base-100 shadow-sm p-4 mb-6",
+        )
+
+        activity_feedback_section = Div(
+            H3("Activity Feedback", cls="font-semibold mb-4"),
+            Div(
+                P("Loading activity feedback...", cls="text-center text-base-content/60"),
+                id="activity-feedback-list",
+                cls="mt-2",
+                **{
+                    "hx-get": "/api/activity-review/history?limit=10",
+                    "hx-trigger": "load",
+                    "hx-swap": "innerHTML",
+                },
+            ),
+            Script(
+                NotStr("""
+                document.body.addEventListener('htmx:afterRequest', function(evt) {
+                    if (evt.detail.elt.id === 'activity-feedback-list') {
+                        try {
+                            var data = JSON.parse(evt.detail.xhr.responseText);
+                            var container = document.getElementById('activity-feedback-list');
+                            var items = data.items || data.reports || [];
+                            if (items.length === 0) {
+                                container.innerHTML = '<p class="text-center text-base-content/60 py-4">No activity feedback yet.</p>';
+                                return;
+                            }
+                            var processorLabels = {'llm': 'LLM', 'automatic': 'Scheduled', 'human': 'Admin'};
+                            var processorBadgeClass = {'llm': 'badge-info', 'automatic': 'badge-ghost', 'human': 'badge-primary'};
+                            var html = '';
+                            items.forEach(function(r) {
+                                var date = r.created_at ? new Date(r.created_at).toLocaleDateString() : '';
+                                var ptype = (r.processor_type || '').toLowerCase();
+                                var ptypeLabel = processorLabels[ptype] || ptype || 'AI';
+                                var ptypeCls = processorBadgeClass[ptype] || 'badge-ghost';
+                                var content = r.processed_content || '';
+                                var truncated = content.length > 200 ? content.slice(0, 200) + '...' : content;
+                                html += '<div class="card bg-base-100 border border-base-200 mb-2"><div class="card-body p-3">';
+                                html += '<div class="flex items-start justify-between gap-2">';
+                                html += '<div>';
+                                html += '<p class="font-semibold mb-0 text-sm">' + (r.title || 'Activity Feedback') + '</p>';
+                                html += '<p class="text-xs text-base-content/50 mb-1">' + date + (r.time_period ? ' &bull; ' + r.time_period : '') + '</p>';
+                                html += '</div>';
+                                html += '<span class="badge ' + ptypeCls + ' badge-sm shrink-0">' + ptypeLabel + '</span>';
+                                html += '</div>';
+                                if (truncated) {
+                                    html += '<p class="text-xs text-base-content/70 mt-1">' + truncated.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>';
+                                }
+                                html += '</div></div>';
+                            });
+                            container.innerHTML = html;
+                        } catch(e) { /* non-JSON response handled by HTMX */ }
+                    }
+                });
+                """)
+            ),
+            cls="card bg-base-100 shadow-sm p-4",
+        )
+
+        content = Div(
+            PageHeader("Feedback", subtitle="Assessments and feedback from teachers"),
+            teacher_section,
+            activity_feedback_section,
         )
         return await SidebarPage(
             content=content,
@@ -1399,24 +1465,65 @@ def create_submissions_ui_routes(
                             var data = JSON.parse(evt.detail.xhr.responseText);
                             var container = document.getElementById('progress-list');
                             if (!data.reports || data.reports.length === 0) {
-                                container.innerHTML = '<p class="text-center text-base-content/60 py-4">No progress reports yet. Generate your first one above!</p>';
+                                container.innerHTML = '<p class="text-center text-base-content/60 py-4">No activity feedback yet. Generate your first one above!</p>';
                                 return;
                             }
+                            var processorLabels = {
+                                'llm': 'LLM',
+                                'automatic': 'Scheduled',
+                                'human': 'Admin'
+                            };
+                            var processorBadgeClass = {
+                                'llm': 'badge-info',
+                                'automatic': 'badge-ghost',
+                                'human': 'badge-primary'
+                            };
                             var html = '';
                             data.reports.forEach(function(r) {
                                 var date = r.created_at ? new Date(r.created_at).toLocaleDateString() : '';
-                                var stats = r.stats || r.metadata || {};
-                                var tasks = stats.tasks_completed || 0;
-                                var goals = stats.goals_progressed || 0;
-                                html += '<div class="card bg-base-100 shadow-sm mb-2"><div class="card-body p-4">';
-                                html += '<div class="flex items-center justify-between">';
-                                html += '<div><h4 class="font-semibold mb-0">' + (r.title || 'Progress Report') + '</h4>';
-                                html += '<p class="text-xs text-base-content/60">' + date + '</p></div>';
-                                html += '<div class="flex gap-2">';
-                                html += '<span class="badge badge-info">' + tasks + ' tasks</span>';
-                                html += '<span class="badge badge-success">' + goals + ' goals</span>';
-                                html += '<a href="/submissions/' + r.uid + '" class="btn btn-xs btn-ghost">View</a>';
-                                html += '</div></div></div></div>';
+                                var ptype = (r.processor_type || '').toLowerCase();
+                                var ptypeLabel = processorLabels[ptype] || ptype || 'Unknown';
+                                var ptypeCls = processorBadgeClass[ptype] || 'badge-ghost';
+                                var timePeriod = r.time_period || '';
+                                var depth = r.depth || '';
+                                var domains = r.domains_covered || [];
+                                var content = r.processed_content || '';
+                                var truncated = content.length > 300 ? content.slice(0, 300) + '...' : content;
+
+                                html += '<div class="card bg-base-100 shadow-sm mb-3"><div class="card-body p-4">';
+
+                                // Title row
+                                html += '<div class="flex items-start justify-between gap-4 mb-2">';
+                                html += '<div><h4 class="font-semibold mb-0">' + (r.title || 'Activity Feedback') + '</h4>';
+                                html += '<p class="text-xs text-base-content/60 mb-0">' + date + '</p></div>';
+                                html += '</div>';
+
+                                // Badges row
+                                html += '<div class="flex flex-wrap gap-1 mb-2">';
+                                if (timePeriod) html += '<span class="badge badge-outline badge-sm">' + timePeriod + '</span>';
+                                if (depth) html += '<span class="badge badge-outline badge-sm">' + depth + '</span>';
+                                html += '<span class="badge ' + ptypeCls + ' badge-sm">' + ptypeLabel + '</span>';
+                                html += '</div>';
+
+                                // Domains covered
+                                if (domains.length > 0) {
+                                    html += '<div class="flex flex-wrap gap-1 mb-2">';
+                                    domains.forEach(function(d) {
+                                        html += '<span class="badge badge-ghost badge-xs">' + d + '</span>';
+                                    });
+                                    html += '</div>';
+                                }
+
+                                // Collapsible content
+                                if (content) {
+                                    html += '<details class="mt-2"><summary class="cursor-pointer text-sm text-base-content/70 select-none">Read insights</summary>';
+                                    html += '<p class="text-sm mt-2 whitespace-pre-wrap">' + content.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>';
+                                    html += '</details>';
+                                } else {
+                                    html += '<p class="text-sm text-base-content/40 mt-1">No insights generated yet.</p>';
+                                }
+
+                                html += '</div></div>';
                             });
                             container.innerHTML = html;
                         } catch(e) { /* non-JSON response handled by HTMX */ }
