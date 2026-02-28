@@ -452,12 +452,12 @@ class UnifiedQueryBuilder:
 
     **Pure Cypher architecture - no APOC dependencies.**
 
-
+    **Phase 1 Features:**
     - Template discovery via list_templates()
     - Automatic QueryBuilder initialization
     - Template validation before execution
 
-
+    **Phase 2 Improvements:**
     - Query optimization via optimize_query()
     - Query validation via validate_query()
     - Query explanation via explain_query()
@@ -477,13 +477,13 @@ class UnifiedQueryBuilder:
         # Templates (auto-initialized, validated)
         await UnifiedQueryBuilder(executor).template("search").params(...).execute()
 
-        # Query optimization (NEW in !)
+        # Query optimization (NEW in Phase 2!)
         result = await UnifiedQueryBuilder(executor).optimize_query(cypher_query)
 
-        # Query validation (NEW in !)
+        # Query validation (NEW in Phase 2!)
         validation = await UnifiedQueryBuilder(executor).validate_query(cypher_query)
 
-        # Query explanation (NEW in !)
+        # Query explanation (NEW in Phase 2!)
         explanation = UnifiedQueryBuilder(executor).explain_query(cypher_query)
 
         # Graph context
