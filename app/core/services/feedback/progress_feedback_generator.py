@@ -119,7 +119,9 @@ class ProgressFeedbackGenerator:
         start_date = end_date - timedelta(days=days)
         progress_depth = ProgressDepth(depth) if depth else ProgressDepth.STANDARD
 
-        logger.info(f"Generating activity feedback for {user_uid}: period={time_period}, depth={depth}")
+        logger.info(
+            f"Generating activity feedback for {user_uid}: period={time_period}, depth={depth}"
+        )
 
         try:
             # 1. Query historical completions (raw stats)
@@ -242,7 +244,9 @@ class ProgressFeedbackGenerator:
             Result[str] — LLM-generated feedback text
         """
         if not self.openai_service:
-            return Result.fail(Errors.integration("OpenAI", "generate", "No LLM service configured"))
+            return Result.fail(
+                Errors.integration("OpenAI", "generate", "No LLM service configured")
+            )
 
         prompt = self._build_llm_prompt(completions, insights, time_period, depth)
         return await self.openai_service.generate_completion(

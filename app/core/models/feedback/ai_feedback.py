@@ -68,12 +68,12 @@ class AiFeedback(UserOwnedEntity):
     # =========================================================================
     # SUBJECT
     # =========================================================================
-    subject_uid: str | None = None          # user_uid this feedback is about
+    subject_uid: str | None = None  # user_uid this feedback is about
 
     # =========================================================================
     # TIME WINDOW
     # =========================================================================
-    time_period: str | None = None          # "7d" | "14d" | "30d" | "90d"
+    time_period: str | None = None  # "7d" | "14d" | "30d" | "90d"
     period_start: datetime | None = None
     period_end: datetime | None = None
 
@@ -81,12 +81,12 @@ class AiFeedback(UserOwnedEntity):
     # ANALYSIS CONFIGURATION
     # =========================================================================
     domains_covered: tuple[str, ...] = field(default_factory=tuple)  # activity domain names
-    depth: str | None = None                # summary | standard | detailed
+    depth: str | None = None  # summary | standard | detailed
 
     # =========================================================================
     # CONTENT
     # =========================================================================
-    processed_content: str | None = None    # LLM output or human-written feedback
+    processed_content: str | None = None  # LLM output or human-written feedback
     processing_error: str | None = None
 
     # =========================================================================

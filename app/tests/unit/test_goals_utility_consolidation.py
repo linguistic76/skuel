@@ -16,14 +16,12 @@ Changes verified:
 
 from __future__ import annotations
 
-import inspect
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.goals_service import GoalsService
-
 
 # ============================================================================
 # HELPERS

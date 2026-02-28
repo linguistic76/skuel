@@ -141,6 +141,10 @@ from core.services.dsl.activity_entity_converter import (
     activity_to_habit_dict,
     activity_to_task_request,
 )
+from core.services.dsl.activity_extractor import (
+    ActivityExtractionResult,
+    ActivityExtractorService,
+)
 from core.services.dsl.dsl_knowledge_connector import (
     DSLConnectionExecutor,
     DSLConnectionPlan,
@@ -156,10 +160,6 @@ from core.services.dsl.llm_dsl_bridge import (
     DSLTransformResult,
     LLMDSLBridgeService,
     create_llm_dsl_bridge,
-)
-from core.services.dsl.activity_extractor import (
-    ActivityExtractionResult,
-    ActivityExtractorService,
 )
 
 __all__ = [

@@ -19,7 +19,6 @@ from fasthtml.common import (
     H3,
     H4,
     A,
-    Details,
     Div,
     Form,
     Input,
@@ -30,7 +29,6 @@ from fasthtml.common import (
     Script,
     Select,
     Span,
-    Summary,
 )
 from starlette.datastructures import UploadFile
 from starlette.requests import Request

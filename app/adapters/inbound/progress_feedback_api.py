@@ -253,9 +253,13 @@ def create_progress_feedback_api_routes(
             snapshot_context = body.get("snapshot_context")
 
             if not subject_uid:
-                return Result.fail(Errors.validation("subject_uid is required", field="subject_uid"))
+                return Result.fail(
+                    Errors.validation("subject_uid is required", field="subject_uid")
+                )
             if not feedback_text:
-                return Result.fail(Errors.validation("feedback_text is required", field="feedback_text"))
+                return Result.fail(
+                    Errors.validation("feedback_text is required", field="feedback_text")
+                )
 
             result = await activity_review.submit_activity_feedback(
                 admin_uid=admin_uid,
@@ -341,13 +345,15 @@ def create_progress_feedback_api_routes(
                 }
             )
 
-        routes.extend([
-            get_activity_snapshot,
-            submit_activity_feedback,
-            request_activity_review,
-            get_review_queue,
-            get_activity_feedback_history,
-        ])
+        routes.extend(
+            [
+                get_activity_snapshot,
+                submit_activity_feedback,
+                request_activity_review,
+                get_review_queue,
+                get_activity_feedback_history,
+            ]
+        )
         logger.info("Activity review routes registered")
 
     logger.info("Feedback Progress API routes created successfully")

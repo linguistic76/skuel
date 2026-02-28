@@ -20,7 +20,6 @@ Changes verified:
 from __future__ import annotations
 
 import inspect
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -28,7 +27,6 @@ import pytest
 from core.services.principles.principles_core_service import PrinciplesCoreService
 from core.services.principles.principles_search_service import PrinciplesSearchService
 from core.services.principles_service import PrinciplesService
-
 
 # ============================================================================
 # HELPERS
@@ -47,7 +45,7 @@ def _make_mock_backend() -> AsyncMock:
 
 def _make_principles_service() -> PrinciplesService:
     """Construct a PrinciplesService with all mocked dependencies."""
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
 
     mock_backend = MagicMock()
     mock_graph_intel = _make_mock_graph_intel()
@@ -239,7 +237,6 @@ class TestGetUserPrinciplesSignature:
         core = _make_principles_core_service()
 
         # Simulate a backend that returns an empty list
-        from core.models.principle.principle import Principle
 
         core.backend.find_by = AsyncMock(return_value=Result.ok([]))
 

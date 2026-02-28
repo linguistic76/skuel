@@ -121,7 +121,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(Errors.not_found(f"Entity {uid} not found"))
 
         # At this point, result is either an error or has a non-None value
-        return cast(Result[T], result)
+        return cast("Result[T]", result)
 
     async def update(self, uid: str, updates: dict[str, Any]) -> Result[T]:
         """
