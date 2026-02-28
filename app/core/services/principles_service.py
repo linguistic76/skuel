@@ -18,7 +18,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.entity import Entity
 from core.models.enums.principle_enums import PrincipleCategory
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
@@ -64,7 +63,7 @@ def _by_assessed_date(item: dict[str, Any]) -> str:
     return item.get("assessed_date", "")
 
 
-class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
+class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     """
     Principles service facade with specialized sub-services.
 
@@ -101,7 +100,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
         dto_class=PrincipleDTO,
-        model_class=Entity,
+        model_class=Principle,
         domain_name="principles",
         date_field="created_at",
         completed_statuses=(),  # Principles don't have completion status
@@ -315,7 +314,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Principle entities."""
-        return "Entity"
+        return "Principle"
 
     # ========================================================================
     # CORE CRUD OPERATIONS - Delegate to PrinciplesCoreService
@@ -409,7 +408,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
         query: str,
         filters: dict[str, Any] | None = None,
         limit: int = 50,
-    ) -> Result[list[Entity]]:
+    ) -> Result[list[Principle]]:
         """
         Search principles by text query. Delegates to PrinciplesSearchService.
 
@@ -468,7 +467,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Entity]):
 
     async def get_prioritized_principles(
         self, user_uid: str, limit: int = 10
-    ) -> Result[list[Entity]]:
+    ) -> Result[list[Principle]]:
         """
         Get principles prioritized for user context. Delegates to PrinciplesSearchService.
 

@@ -59,14 +59,14 @@ if TYPE_CHECKING:
         RecurringInstancesRequest,
         RemoveAttendeeRequest,
     )
-    from core.ports import BackendOperations
+    from core.ports.domain_protocols import EventsOperations
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.search_protocols import EventsSearchOperations
     from core.services.events.events_intelligence_service import EventsIntelligenceService
     from core.services.user import UserContext
 
 
-class EventsService(BaseService["BackendOperations[Event]", Event]):
+class EventsService(BaseService["EventsOperations", Event]):
     """
     Events service facade with specialized sub-services.
 
@@ -305,7 +305,7 @@ class EventsService(BaseService["BackendOperations[Event]", Event]):
 
     def __init__(
         self,
-        backend: BackendOperations[Event],
+        backend: EventsOperations,
         graph_intelligence_service: GraphIntelligenceService,
         event_bus: EventBusOperations | None = None,
         ai_service: EventsAIService | None = None,

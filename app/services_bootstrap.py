@@ -1114,7 +1114,7 @@ async def compose_services(
         )
         from core.models.principle.principle import Principle
 
-        principle_backend = PrinciplesBackend(
+        principles_backend = PrinciplesBackend(
             driver,
             NeoLabel.PRINCIPLE,
             Principle,
@@ -1129,7 +1129,7 @@ async def compose_services(
         )
         from core.models.choice.choice import Choice
 
-        choice_backend = ChoicesBackend(
+        choices_backend = ChoicesBackend(
             driver,
             NeoLabel.CHOICE,
             Choice,
@@ -1243,8 +1243,8 @@ async def compose_services(
             habits_backend=habits_backend,
             habit_completions_backend=habit_completions_backend,
             goals_backend=goals_backend,
-            choices_backend=choice_backend,
-            principles_backend=principle_backend,
+            choices_backend=choices_backend,
+            principles_backend=principles_backend,
             reflection_backend=reflection_backend,
             graph_intelligence=graph_intelligence,
             event_bus=event_bus,

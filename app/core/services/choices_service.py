@@ -18,9 +18,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
-from core.models.entity import Entity
 from core.models.enums import EntityStatus
-from core.ports import BackendOperations
+from core.ports.domain_protocols import ChoicesOperations
 from core.services.base_service import BaseService
 
 # Import sub-services
@@ -44,7 +43,7 @@ if TYPE_CHECKING:
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
 
 
-class ChoicesService(BaseService["BackendOperations[Choice]", Choice]):
+class ChoicesService(BaseService["ChoicesOperations", Choice]):
     """
     Choices service facade with specialized sub-services.
 
@@ -77,7 +76,7 @@ class ChoicesService(BaseService["BackendOperations[Choice]", Choice]):
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
         dto_class=ChoiceDTO,
-        model_class=Entity,
+        model_class=Choice,
         domain_name="choices",
         date_field="decision_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
@@ -172,7 +171,7 @@ class ChoicesService(BaseService["BackendOperations[Choice]", Choice]):
 
     def __init__(
         self,
-        backend: BackendOperations[Choice],
+        backend: ChoicesOperations,
         graph_intelligence_service: GraphIntelligenceService,
         event_bus: EventBusOperations | None = None,
         ai_service: ChoicesAIService | None = None,
@@ -230,7 +229,7 @@ class ChoicesService(BaseService["BackendOperations[Choice]", Choice]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Choice entities."""
-        return "Entity"
+        return "Choice"
 
     # Note: Backend access uses inherited BaseService._backend property
     # Custom backend property removed November 2025 - was unnecessary indirection
