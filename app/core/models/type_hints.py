@@ -104,7 +104,9 @@ MarkdownSource = NewType("MarkdownSource", str)
 type TagList = list[Tag]
 type UIDSet = set[EntityUID]
 type UIDList = list[EntityUID]
-type Metadata = dict[str, Any]  # boundary: use only for truly dynamic data; prefer specific types below
+type Metadata = dict[
+    str, Any
+]  # boundary: use only for truly dynamic data; prefer specific types below
 
 # Neo4j boundary types — primitives the driver returns from node properties.
 # boundary: neo4j-primitives — Neo4j maps graph properties to Python scalars.

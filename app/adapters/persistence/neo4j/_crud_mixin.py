@@ -21,7 +21,6 @@ Requires on concrete class:
 
 from __future__ import annotations
 
-import logging
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -33,6 +32,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     import builtins
+    import logging
 
     from neo4j import AsyncDriver
 

@@ -88,7 +88,9 @@ class ErrorContext:
     message: str  # Developer-facing error message
     code: str  # Searchable error code (e.g., "DB_CONN_TIMEOUT")
     severity: ErrorSeverity = ErrorSeverity.MEDIUM
-    details: dict[str, Any] = field(default_factory=dict)  # boundary: error-metadata — diagnostic data is heterogeneous per error type
+    details: dict[str, Any] = field(
+        default_factory=dict
+    )  # boundary: error-metadata — diagnostic data is heterogeneous per error type
     source_location: str | None = None  # Where error originated (file:function:line)
     user_message: str | None = None  # Safe message for end users
     timestamp: datetime = field(default_factory=_utcnow)

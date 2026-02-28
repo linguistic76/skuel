@@ -26,7 +26,6 @@ from fasthtml.common import H1, H2, H3, Form, P, Script
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.models.enums import Priority
 from core.models.goal.goal_request import GoalCreateRequest

@@ -16,6 +16,7 @@ import asyncio
 from typing import Any
 
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Result
 
 logger = get_logger("skuel.background.progress_feedback")
 
@@ -42,10 +43,11 @@ class ProgressFeedbackWorker:
         self._reports_generated = 0
         self._errors = 0
 
-    async def start(self) -> None:
+    async def start(self) -> Result[None]:
         """Start the background processing loop."""
         logger.info(f"Progress report worker started (check_interval={self.check_interval}s)")
         await self._process_loop()
+        return Result.ok(None)
 
     async def _process_loop(self) -> None:
         """Check for due schedules on each cycle."""

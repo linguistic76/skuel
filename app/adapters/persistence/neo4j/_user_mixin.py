@@ -28,7 +28,6 @@ Requires on concrete class:
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -39,6 +38,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     import builtins
+    import logging
 
     from neo4j import AsyncDriver
 
@@ -447,10 +447,8 @@ class _UserMixin[T: DomainModelProtocol]:
                 deleted = (record and record["deleted"] > 0) if record else False
 
                 if deleted:
-                    (
-                        self.logger.info(
-                            f"Deleted user relationship: {user_uid} --[{relationship_type}]-> {entity_uid}"
-                        ),
+                    self.logger.info(
+                        f"Deleted user relationship: {user_uid} --[{relationship_type}]-> {entity_uid}"
                     )
                 else:
                     self.logger.warning(
