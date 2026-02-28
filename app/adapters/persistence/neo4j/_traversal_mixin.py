@@ -16,6 +16,7 @@ Requires on concrete class:
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 from core.models.relationship_names import RelationshipName
@@ -35,13 +36,13 @@ class _TraversalMixin:
 
     Requires on concrete class:
         driver: AsyncDriver — Neo4j async driver
-        logger: Any — Logger instance
+        logger: logging.Logger — Logger instance
         create_relationship: async method
     """
 
     if TYPE_CHECKING:
         driver: AsyncDriver
-        logger: Any
+        logger: logging.Logger
 
         async def create_relationship(
             self,

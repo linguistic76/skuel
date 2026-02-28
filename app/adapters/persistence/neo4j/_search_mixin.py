@@ -21,6 +21,7 @@ Requires on concrete class:
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
+    from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
     from core.models.query import UnifiedQueryBuilder
     from core.ports.base_protocols import GraphContextNode
 
@@ -46,12 +48,12 @@ class _SearchMixin[T: DomainModelProtocol]:
 
     Requires on concrete class:
         driver: AsyncDriver
-        logger: Any
+        logger: logging.Logger
         entity_class: type[T]
         label: str
         default_filters: dict[str, Any]
         query_builder: UnifiedQueryBuilder
-        prometheus_metrics: Any | None
+        prometheus_metrics: PrometheusMetrics | None
         _default_filter_clause: method
         _default_filter_params: method
         _inject_default_filters: method
@@ -62,12 +64,12 @@ class _SearchMixin[T: DomainModelProtocol]:
 
     if TYPE_CHECKING:
         driver: AsyncDriver
-        logger: Any
+        logger: logging.Logger
         entity_class: type[T]
         label: str
         default_filters: dict[str, Any]
         query_builder: UnifiedQueryBuilder
-        prometheus_metrics: Any
+        prometheus_metrics: PrometheusMetrics | None
 
         def _default_filter_clause(self, node_var: str = "n") -> str: ...
 

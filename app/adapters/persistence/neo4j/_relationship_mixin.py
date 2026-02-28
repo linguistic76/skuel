@@ -36,6 +36,7 @@ Requires on concrete class:
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.relationship_builders import RelationshipBuilder
@@ -59,7 +60,7 @@ class _RelationshipMixin[T: DomainModelProtocol]:
 
     Requires on concrete class:
         driver: AsyncDriver
-        logger: Any
+        logger: logging.Logger
         label: str
         entity_class: type[T]
         default_filters: dict[str, Any]
@@ -69,7 +70,7 @@ class _RelationshipMixin[T: DomainModelProtocol]:
 
     if TYPE_CHECKING:
         driver: AsyncDriver
-        logger: Any
+        logger: logging.Logger
         label: str
         entity_class: type[T]
         default_filters: dict[str, Any]

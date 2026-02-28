@@ -20,12 +20,13 @@ import contextlib
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
-from typing import Any, Protocol
+from typing import Any
 
 from fasthtml.common import H1, H2, H3, Form, P, Script
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.models.enums import Priority
 from core.models.goal.goal_request import GoalCreateRequest
@@ -65,24 +66,7 @@ from ui.tokens import Container, Spacing
 logger = get_logger("skuel.routes.goals.ui")
 
 
-# ============================================================================
-# TYPE PROTOCOLS
-# ============================================================================
-
-
-class RouteDecorator(Protocol):
-    """Protocol for FastHTML route decorator."""
-
-    def __call__(self, path: str, methods: list[str] | None = None) -> Any: ...
-
-
-class Request(Protocol):
-    """Protocol for Starlette Request (lightweight)."""
-
-    query_params: dict[str, str]
-
-    async def form(self) -> dict[str, Any]: ...
-
+# RouteDecorator and Request imported from adapters.inbound.fasthtml_types
 
 # ============================================================================
 # UI COMPONENT LIBRARY - Reusable goal components

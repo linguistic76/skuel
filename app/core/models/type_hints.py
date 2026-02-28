@@ -29,6 +29,7 @@ from typing import (
 
 if TYPE_CHECKING:
     from core.models.base_models_consolidated import BaseEntity
+    from core.models.enums.activity_enums import Priority
     from core.ports.calendar_protocol import CalendarTrackable
     from core.utils.result_simplified import Result as _Result
 
@@ -103,7 +104,18 @@ MarkdownSource = NewType("MarkdownSource", str)
 type TagList = list[Tag]
 type UIDSet = set[EntityUID]
 type UIDList = list[EntityUID]
-type Metadata = dict[str, Any]
+type Metadata = dict[str, Any]  # boundary: use only for truly dynamic data; prefer specific types below
+
+# Neo4j boundary types — primitives the driver returns from node properties.
+# boundary: neo4j-primitives — Neo4j maps graph properties to Python scalars.
+# Strings represent unknown-shape values stored as JSON in Neo4j.
+type Neo4jValue = str | int | float | bool | list[str | int | float] | None | datetime
+type Neo4jProperties = dict[str, Neo4jValue]
+
+# Typed filter/query parameters.
+# Filter values in SKUEL are always scalars or lists of scalars — never arbitrary objects.
+type FilterValue = str | int | float | bool | list[str | int | float] | None
+type FilterParams = dict[str, FilterValue]
 
 # Relationship mappings
 type UIDMapping = dict[EntityUID, EntityUID]
@@ -119,17 +131,17 @@ type DateRange = tuple[date, date]
 # FUNCTION TYPES
 # ============================================================================
 
-# Validator function signature
-type Validator = Callable[[Any], list[str]]
+# Validator function signature — T is the entity type being validated
+type Validator[T] = Callable[[T], list[str]]
 
-# Filter function signature
-type EntityFilter = Callable[[Any], bool]
+# Filter function signature — T is the entity type being filtered
+type EntityFilter[T] = Callable[[T], bool]
 
-# Scorer function signature
-type Scorer = Callable[[Any], Score]
+# Scorer function signature — T is the entity type being scored
+type Scorer[T] = Callable[[T], Score]
 
-# Update function signature
-type Updater = Callable[[Any, dict[str, Any]], Any]
+# Update function signature (boundary: second arg is raw update data)
+type Updater[T] = Callable[[T, dict[str, Any]], T]
 
 
 # ============================================================================
@@ -187,7 +199,7 @@ class Timestamped(Protocol):
 class Prioritizable(Protocol):
     """Protocol for entities with priority"""
 
-    priority: Any  # Should be Priority enum
+    priority: "Priority"  # Forward ref: imported under TYPE_CHECKING above
 
 
 @runtime_checkable
@@ -506,9 +518,13 @@ __all__ = [
     "LearningUID",
     "MarkdownSource",
     "MasteryLevel",
+    "FilterParams",
+    "FilterValue",
     "Metadata",
     # Value types
     "Minutes",
+    "Neo4jProperties",
+    "Neo4jValue",
     "NodeUID",
     "Percentage",
     "Prioritizable",

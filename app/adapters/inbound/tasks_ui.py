@@ -20,11 +20,12 @@ import contextlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Any, Protocol
+from typing import Any
 
 from fasthtml.common import H1, H2, Div, JSONResponse, P, Response, Span
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.scheduling_enums import RecurrencePattern
@@ -51,23 +52,7 @@ from ui.tokens import Container, Spacing
 logger = get_logger("skuel.routes.tasks.todoist")
 
 
-# ========================================================================
-# TYPE PROTOCOLS
-# ========================================================================
-
-
-class RouteDecorator(Protocol):
-    """Protocol for FastHTML route decorator."""
-
-    def __call__(self, path: str, methods: list[str] | None = None) -> Any: ...
-
-
-class Request(Protocol):
-    """Protocol for Starlette Request (lightweight)."""
-
-    query_params: dict[str, str]
-
-    async def form(self) -> dict[str, Any]: ...
+# RouteDecorator and Request imported from adapters.inbound.fasthtml_types
 
 
 def create_tasks_ui_routes(

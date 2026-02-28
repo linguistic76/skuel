@@ -19,6 +19,7 @@ See Also:
 from datetime import datetime
 from typing import Any, cast
 
+from neo4j import AsyncDriver
 from neo4j.time import DateTime as Neo4jDateTime
 
 from core.models.auth.auth_event import AuthEvent
@@ -46,7 +47,7 @@ class SessionBackend:
     - Password reset token management
     """
 
-    def __init__(self, driver: Any) -> None:
+    def __init__(self, driver: AsyncDriver) -> None:
         """
         Initialize session backend.
 

@@ -28,6 +28,7 @@ Requires on concrete class:
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -48,7 +49,7 @@ class _UserMixin[T: DomainModelProtocol]:
 
     Requires on concrete class:
         driver: AsyncDriver
-        logger: Any
+        logger: logging.Logger
         label: str
         entity_class: type[T]
         _inject_default_filters: method (from shell)
@@ -60,7 +61,7 @@ class _UserMixin[T: DomainModelProtocol]:
 
     if TYPE_CHECKING:
         driver: AsyncDriver
-        logger: Any
+        logger: logging.Logger
         label: str
         entity_class: type[T]
 

@@ -28,6 +28,8 @@ See Also:
 
 from typing import Any
 
+from neo4j import AsyncDriver
+
 from core.models.user import User
 from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import from_neo4j_node, to_neo4j_node
@@ -52,12 +54,12 @@ class UserBackend:
     - Statistical aggregation (handled by ProfileHubData)
     """
 
-    def __init__(self, driver: Any) -> None:
+    def __init__(self, driver: AsyncDriver) -> None:
         """
         Initialize User backend.
 
         Args:
-            driver: Neo4j driver for database operations
+            driver: Neo4j async driver
         """
         self.driver = driver
         self.label = "User"

@@ -573,7 +573,7 @@ def _create_orchestration_services(
 
 
 def _create_learning_services(
-    driver: Any,
+    driver: "AsyncDriver",
     neo4j_adapter: Any,
     progress_backend: Any,
     knowledge_backend: Any,
@@ -587,7 +587,7 @@ def _create_learning_services(
     _goals_service: Any = None,  # Placeholder: GoalsService for entity extraction
     _events_service: Any = None,  # Placeholder: EventsService for entity extraction
     event_bus: Any = None,
-    prometheus_metrics: Any = None,
+    prometheus_metrics: "PrometheusMetrics | None" = None,
     query_executor: Any = None,
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
@@ -845,7 +845,7 @@ async def compose_services(
     neo4j_adapter: Any,
     event_bus: EventBusOperations = None,
     config: Any = None,
-    prometheus_metrics: Any = None,
+    prometheus_metrics: "PrometheusMetrics | None" = None,
     metrics_cache: Any = None,
 ) -> Result[tuple[Services, Any, Any]]:
     """
@@ -1755,7 +1755,7 @@ async def compose_services(
         progress_generator = ProgressFeedbackGenerator(
             executor=query_executor,
             ku_backend=ai_feedback_backend,
-            openai_service=ai_service,   # LLM-powered qualitative feedback (Phase 3)
+            openai_service=ai_service,  # LLM-powered qualitative feedback (Phase 3)
             user_service=core_services["user"],
             insight_store=insight_store,
             event_bus=event_bus,

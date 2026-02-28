@@ -21,6 +21,7 @@ Requires on concrete class:
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
+    from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
     from core.models.query import UnifiedQueryBuilder
 
 
@@ -44,13 +46,13 @@ class _CrudMixin[T: DomainModelProtocol]:
 
     Requires on concrete class:
         driver: AsyncDriver
-        logger: Any
+        logger: logging.Logger
         entity_class: type[T]
         label: str
         default_filters: dict[str, Any]
         _create_labels: str
         query_builder: UnifiedQueryBuilder
-        prometheus_metrics: Any | None
+        prometheus_metrics: PrometheusMetrics | None
         _track_db_metrics: method
         _default_filter_clause: method
         _default_filter_params: method
@@ -61,13 +63,13 @@ class _CrudMixin[T: DomainModelProtocol]:
 
     if TYPE_CHECKING:
         driver: AsyncDriver
-        logger: Any
+        logger: logging.Logger
         entity_class: type[T]
         label: str
         default_filters: dict[str, Any]
         _create_labels: str
         query_builder: UnifiedQueryBuilder
-        prometheus_metrics: Any
+        prometheus_metrics: PrometheusMetrics | None
 
         def _track_db_metrics(
             self, operation: str, duration: float, is_error: bool = False

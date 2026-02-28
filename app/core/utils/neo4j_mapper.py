@@ -22,6 +22,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any, TypeVar, Union, get_args, get_origin, get_type_hints
 
+from core.models.type_hints import Neo4jProperties
 from core.utils.logging import get_logger
 
 T = TypeVar("T")
@@ -626,7 +627,7 @@ def to_neo4j_node(entity: Any) -> dict[str, Any]:
     return _mapper.to_node(entity)
 
 
-def from_neo4j_node[T](data: dict[str, Any], entity_class: type[T]) -> T:
+def from_neo4j_node[T](data: Neo4jProperties, entity_class: type[T]) -> T:
     """
     Convert Neo4j node data to domain entity.
 

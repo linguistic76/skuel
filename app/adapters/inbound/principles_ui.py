@@ -21,12 +21,13 @@ to avoid the path parameter matching "quick-add" as a uid value.
 __version__ = "2.0"
 
 from dataclasses import dataclass
-from typing import Any, Protocol, cast
+from typing import Any, cast
 
 from fasthtml.common import H1, H2, H3, P
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from core.constants import QueryLimit
 from core.ports.query_types import PrinciplesFilterSpec
@@ -46,24 +47,7 @@ from ui.tokens import Container, Spacing
 logger = get_logger("skuel.routes.principles.ui")
 
 
-# ============================================================================
-# TYPE PROTOCOLS
-# ============================================================================
-
-
-class RouteDecorator(Protocol):
-    """Protocol for FastHTML route decorator."""
-
-    def __call__(self, path: str, methods: list[str] | None = None) -> Any: ...
-
-
-class Request(Protocol):
-    """Protocol for Starlette Request (lightweight type hint)."""
-
-    query_params: dict[str, str]
-
-    async def form(self) -> dict[str, Any]: ...
-
+# RouteDecorator and Request imported from adapters.inbound.fasthtml_types
 
 # ============================================================================
 # UI ROUTES

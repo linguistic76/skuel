@@ -43,9 +43,13 @@ Usage:
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
 
 # ============================================================================
 # Sub-config dataclasses (frozen — static, module-level safe)
@@ -130,11 +134,11 @@ class DomainRouteConfig:
 
 
 def register_domain_routes(
-    app: Any,
-    rt: Any,
-    services: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
+    services: "Services | None",
     config: DomainRouteConfig,
-) -> list[Any]:
+) -> RouteList:
     """
     Register domain routes using configuration.
 
@@ -188,7 +192,7 @@ def register_domain_routes(
             )
         api_related[kwarg_name] = value
 
-    registered: list[Any] = []
+    registered: RouteList = []
 
     # 3. Config-driven factory instantiation (order: CRUD → Query → Intelligence)
     if config.crud:
