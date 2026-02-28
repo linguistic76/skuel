@@ -503,8 +503,8 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 
 | File | Protocols | Route Consumers |
 |------|-----------|-----------------|
-| `submission_protocols.py` | 4 protocols | `reports_api.py`, `reports_sharing_api.py`, `reports_progress_api.py` |
-| `feedback_protocols.py` | 3 protocols | `exercises_api.py`, `reports_assessment_api.py`, `reports_progress_api.py` |
+| `submission_protocols.py` | 4 protocols | `submissions_api.py`, `submissions_sharing_api.py`, `progress_feedback_api.py` |
+| `feedback_protocols.py` | 4 protocols | `exercises_api.py`, `feedback_assessment_api.py`, `progress_feedback_api.py` |
 | `group_protocols.py` | 2 protocols | `groups_api.py`, `teaching_api.py` |
 | `service_protocols.py` | 10 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
 
@@ -516,20 +516,21 @@ Map to the **Submission** stage of the educational loop (`Ku → Exercise → Su
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `SubmissionOperations` | `reports`, `reports_core` | submit_file, get_report, list_reports, get_file_content, get_processed_file_content, get_report_statistics, update_processed_content, categorize, tags, bulk ops, create_journal_report | `reports_api.py`, `reports_assessment_api.py` |
-| `SubmissionProcessingOperations` | `report_processor` | 2 (process_report, reprocess_report) | `reports_api.py` |
-| `SubmissionSharingOperations` | `reports_sharing` | 6 (share_report, unshare_report, get_shared_with_users, get_reports_shared_with_me, set_visibility, check_access) | `reports_sharing_api.py` |
-| `SubmissionSearchOperations` | `reports_query` | 4 (search_reports, get_report_statistics, get_recent_reports, get_journal_for_report) | `reports_api.py` |
+| `SubmissionOperations` | `submissions`, `submissions_core` | submit_file, list_submissions, get_file_content, get_processed_file_content, update_processed_content, categorize, tags, bulk ops | `submissions_api.py`, `feedback_assessment_api.py` |
+| `SubmissionProcessingOperations` | `submissions_processor` | 2 (process_submission, reprocess_submission) | `submissions_api.py` |
+| `SubmissionSharingOperations` | `submissions_sharing` | 6 (share_submission, unshare_submission, get_shared_with_users, get_submissions_shared_with_me, set_visibility, check_access) | `submissions_sharing_api.py` |
+| `SubmissionSearchOperations` | `submissions_search` | 4 (search_submissions, get_submission_statistics, get_recent_submissions, get_journal_for_submission) | `submissions_api.py` |
 
 ### Feedback Protocols (3) — `feedback_protocols.py`
 
-Map to the **Feedback** stage of the educational loop. Both human and AI feedback create `FEEDBACK_REPORT` entities — `processor_type` distinguishes the source.
+Map to the **Feedback** stage of the educational loop. `processor_type` discriminates source: `HUMAN` (teacher/admin), `LLM` (AI via Exercise or on-demand), `AUTOMATIC` (scheduled).
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `FeedbackOperations` | `report_feedback`, `reports_core` | generate_feedback (→ `FEEDBACK_REPORT` entity, `LLM`), create_assessment (→ `FEEDBACK_REPORT`, `HUMAN`), get_assessments_for_student, get_assessments_by_teacher | `exercises_api.py`, `reports_assessment_api.py` |
-| `ProgressFeedbackOperations` | `progress_generator` | 1 (generate → `AI_REPORT` entity) | `reports_progress_api.py` |
-| `ProgressScheduleOperations` | `report_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `reports_progress_api.py` |
+| `FeedbackOperations` | `feedback`, `submissions_core` | generate_feedback (→ `FEEDBACK_REPORT`, `LLM`), create_assessment (→ `FEEDBACK_REPORT`, `HUMAN`), get_assessments_for_student, get_assessments_by_teacher | `exercises_api.py`, `feedback_assessment_api.py` |
+| `ProgressFeedbackOperations` | `progress_feedback_generator` | 1 (generate → `AI_FEEDBACK` entity, `LLM` or `AUTOMATIC`) | `progress_feedback_api.py` |
+| `ProgressScheduleOperations` | `progress_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `progress_feedback_api.py` |
+| `ActivityReviewOperations` | `activity_review` | 5 (create_activity_snapshot, submit_activity_feedback → `AI_FEEDBACK` `HUMAN`, get_activity_reviews_for_user, request_review, get_pending_reviews) | `progress_feedback_api.py` |
 
 **Why `FeedbackOperations` unifies human + AI feedback:**
 `TeacherReviewService.create_assessment()` (processor_type=HUMAN) and `FeedbackService.generate_feedback()` (processor_type=LLM) both create `FEEDBACK_REPORT` entities linked via `FEEDBACK_FOR`. The protocol captures what routes need regardless of which processor created it.

@@ -120,7 +120,7 @@ Journals support **three modes** with weighted distribution:
 **Behavior:**
 - Preserves all `@context()`, `@priority()`, `@when()` tags EXACTLY
 - Suggests tags for untagged actionable items
-- Triggers `ReportActivityExtractorService` if weight > threshold (default: 0.2)
+- Triggers `ActivityExtractorService` if weight > threshold (default: 0.2)
 
 ### 2. Idea Articulation Formatter
 
@@ -212,12 +212,12 @@ class JournalOutputGenerator:
 - `/core/services/submissions/journal_prompts/articulation_formatter.md`
 - `/core/services/submissions/journal_prompts/exploration_formatter.md`
 
-### ReportActivityExtractorService
+### ActivityExtractorService
 
-**Location:** `/core/services/dsl/report_activity_extractor.py`
+**Location:** `/core/services/dsl/activity_extractor.py`
 
 ```python
-class ReportActivityExtractorService:
+class ActivityExtractorService:
     async def extract_and_create(
         content: str,
         report_uid: str,

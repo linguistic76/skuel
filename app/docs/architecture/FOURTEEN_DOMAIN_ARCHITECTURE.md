@@ -1019,7 +1019,7 @@ The complete pipeline from natural text to SKUEL entities:
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ PHASE 4: Entity Creation (Domain Dicts -> SKUEL Entities)                │
 │                           |                                              │
-│       ReportActivityExtractorService.extract_and_create()               │
+│       ActivityExtractorService.extract_and_create()                     │
 │                           |                                              │
 │ Created Entities:                                                        │
 │   - Task(uid="task:abc123", title="Finish report", ...)                 │
