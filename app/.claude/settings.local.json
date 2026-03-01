@@ -291,7 +291,10 @@
       "Bash(cd /home/mike/skuel/app/adapters/inbound && for f in *_api.py; do if ! grep -q \"boundary_handler\" \"$f\"; then echo \"$f\"; fi; done)",
       "Bash(grep -rn \"HTMX_ACCESSIBILITY_CHEAT_SHEET\\\\|HTMX_ACCESSIBILITY_MIGRATION\" /home/mike/skuel/app/docs/ --include=\"*.md\" | head -10\ngrep -rn \"HTMX_ACCESSIBILITY_CHEAT_SHEET\\\\|HTMX_ACCESSIBILITY_MIGRATION\" /home/mike/skuel/app/.claude/ --include=\"*.md\" 2>/dev/null | head -10)",
       "Bash(cypher-shell -u neo4j -p neo4j_password_skuel \"MATCH \\(n:Entity {ku_type: 'curriculum'}\\) SET n.ku_type = 'ku' RETURN count\\(n\\) AS nodes_updated\" 2>&1)",
-      "Bash(sudo kill 3376 2>/dev/null || kill 3376 2>/dev/null; sleep 2 && echo \"killed\")"
+      "Bash(sudo kill 3376 2>/dev/null || kill 3376 2>/dev/null; sleep 2 && echo \"killed\")",
+      "Skill(learning-loop)",
+      "Bash(grep -r \"class.*Service\" /home/mike/skuel/app/core/services/ku_service.py | head -5\ngrep -r \"domain_name\\\\|ku:\\\\|task:\\\\|goal:\" /home/mike/skuel/app/core/services/ku_service.py | head -10)",
+      "Bash(grep -r \"uid_prefix\\\\|ku_\\\\|task_\\\\|goal_\" /home/mike/skuel/app/core/models/task/task.py 2>/dev/null | head -10\ngrep -r \"uid.*ku\\\\|ku.*uid\" /home/mike/skuel/app/core/models/curriculum/ku.py 2>/dev/null | head -10)"
     ]
   }
 }
