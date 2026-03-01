@@ -13,7 +13,6 @@ from core.infrastructure.relationships.semantic_relationships import SemanticRel
 from core.services.ku_service import KuService
 from core.utils.result_simplified import Errors, Result
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

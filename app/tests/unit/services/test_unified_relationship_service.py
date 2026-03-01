@@ -11,12 +11,11 @@ DomainRelationshipConfig, RelationshipCreationHelper, etc.). Sub-attributes are 
 directly — the same pattern used for KuService in Phase 2.
 """
 
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from core.utils.result_simplified import Errors, Result
-
 
 # ---------------------------------------------------------------------------
 # Helpers — build a minimal UnifiedRelationshipService without __init__

@@ -12,7 +12,6 @@ import pytest
 from core.services.habits_service import HabitsService
 from core.utils.result_simplified import Errors, Result
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

@@ -12,7 +12,6 @@ from core.models.enums import EntityStatus
 from core.services.events_service import EventsService
 from core.utils.result_simplified import Errors, Result
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

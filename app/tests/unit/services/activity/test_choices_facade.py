@@ -11,7 +11,6 @@ import pytest
 from core.services.choices_service import ChoicesService
 from core.utils.result_simplified import Result
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

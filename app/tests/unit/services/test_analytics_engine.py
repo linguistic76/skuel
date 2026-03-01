@@ -18,9 +18,13 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.models.task.task import Task
-from core.services.analytics_engine import AnalyticsEngine, KuMasteryProgression, LearningPattern, LearningPatternType
-from core.utils.result_simplified import Errors, Result
-
+from core.services.analytics_engine import (
+    AnalyticsEngine,
+    KuMasteryProgression,
+    LearningPattern,
+    LearningPatternType,
+)
+from core.utils.result_simplified import Result
 
 # ---------------------------------------------------------------------------
 # Fixtures

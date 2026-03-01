@@ -12,7 +12,6 @@ import pytest
 from core.services.goals_service import GoalsService
 from core.utils.result_simplified import Errors, Result
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

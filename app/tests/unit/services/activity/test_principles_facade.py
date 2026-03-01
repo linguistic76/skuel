@@ -13,7 +13,6 @@ from core.models.principle.principle import Principle
 from core.services.principles_service import PrinciplesService
 from core.utils.result_simplified import Errors, Result
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

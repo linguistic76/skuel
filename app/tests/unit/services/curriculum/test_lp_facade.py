@@ -17,7 +17,6 @@ import pytest
 from core.services.lp_service import LpService
 from core.utils.result_simplified import Errors, Result
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

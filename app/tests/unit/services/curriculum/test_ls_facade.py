@@ -12,7 +12,6 @@ import pytest
 from core.services.ls_service import LsService
 from core.utils.result_simplified import Errors, Result
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
