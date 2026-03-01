@@ -8,14 +8,12 @@ See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel, Field
 
 from core.models.enums import Domain, Priority
 from core.models.enums.choice_enums import ChoiceType
 from core.models.request_base import CreateRequestBase
-
 
 # =============================================================================
 # NESTED REQUEST MODELS (used by create requests)

@@ -197,15 +197,11 @@ class SubmissionOperations(Protocol):
         """Create SHARES_WITH relationship. Returns Result[bool]."""
         ...
 
-    async def unshare_submission(
-        self, entity_uid: str, recipient_uid: str
-    ) -> Result[bool]:
+    async def unshare_submission(self, entity_uid: str, recipient_uid: str) -> Result[bool]:
         """Delete SHARES_WITH relationship. Returns Result[bool]."""
         ...
 
-    async def get_shared_with_users(
-        self, entity_uid: str
-    ) -> Result[list[dict[str, Any]]]:
+    async def get_shared_with_users(self, entity_uid: str) -> Result[list[dict[str, Any]]]:
         """List users with SHARES_WITH on entity. Returns Result[list[dict]]."""
         ...
 

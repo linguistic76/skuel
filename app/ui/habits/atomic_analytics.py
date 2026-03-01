@@ -290,7 +290,10 @@ class AtomicHabitsAnalytics:
         return Card(
             CardBody(
                 H2("🔍 System Comparison", cls="text-2xl font-bold mb-4"),
-                P("Compare habit systems across all your active goals", cls="text-base-content/70 mb-6"),
+                P(
+                    "Compare habit systems across all your active goals",
+                    cls="text-base-content/70 mb-6",
+                ),
                 Table(
                     Thead(
                         Tr(
@@ -445,7 +448,10 @@ class AtomicHabitsAnalytics:
                         ),
                         cls="text-center",
                     ),
-                    Td(migration.migration_date.strftime("%b %d, %Y"), cls="text-sm text-base-content/70"),
+                    Td(
+                        migration.migration_date.strftime("%b %d, %Y"),
+                        cls="text-sm text-base-content/70",
+                    ),
                     Td(migration.reason, cls="text-sm italic text-base-content/70"),
                 )
             )
@@ -453,7 +459,10 @@ class AtomicHabitsAnalytics:
         return Card(
             CardBody(
                 H2("🔄 Habit Migration Tracking", cls="text-2xl font-bold mb-4"),
-                P("See how your habits evolve in importance over time", cls="text-base-content/70 mb-6"),
+                P(
+                    "See how your habits evolve in importance over time",
+                    cls="text-base-content/70 mb-6",
+                ),
                 Table(
                     Thead(
                         Tr(
@@ -591,7 +600,10 @@ class AtomicHabitsAnalytics:
             Card(
                 CardBody(
                     H2("📥 Export Analytics", cls="text-2xl font-bold mb-4"),
-                    P("Download your complete habit analytics data", cls="text-base-content/70 mb-6"),
+                    P(
+                        "Download your complete habit analytics data",
+                        cls="text-base-content/70 mb-6",
+                    ),
                     # Export options
                     Div(
                         Label("Format:", cls="font-medium mb-2"),

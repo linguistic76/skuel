@@ -220,7 +220,12 @@ _CURRICULUM_STRUCTURE_TYPES = frozenset(
     {EntityType.LEARNING_STEP, EntityType.LEARNING_PATH, EntityType.EXERCISE}
 )
 _CONTENT_PROCESSING_TYPES = frozenset(
-    {EntityType.JOURNAL, EntityType.SUBMISSION, EntityType.ACTIVITY_REPORT, EntityType.SUBMISSION_FEEDBACK}
+    {
+        EntityType.JOURNAL,
+        EntityType.SUBMISSION,
+        EntityType.ACTIVITY_REPORT,
+        EntityType.SUBMISSION_FEEDBACK,
+    }
 )
 _ACTIVITY_TYPES = frozenset(
     {

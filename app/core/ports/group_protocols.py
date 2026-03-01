@@ -81,5 +81,3 @@ class GroupOperations(Protocol):
     async def get_members(self, group_uid: str) -> Result[list[dict[str, Any]]]:
         """Get group members. Returns Result[list[dict]]."""
         ...
-
-

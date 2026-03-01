@@ -198,7 +198,10 @@ class AtomicHabitsComponents:
                 # Progress
                 Div(Span("Step 2 of 4", cls="text-sm text-base-content/60"), cls="mb-4 text-right"),
                 H2("⚙️ Behavior Design", cls="text-2xl font-bold mb-2"),
-                P("Design your habit using the Atomic Habits framework", cls="text-base-content/70 mb-6"),
+                P(
+                    "Design your habit using the Atomic Habits framework",
+                    cls="text-base-content/70 mb-6",
+                ),
                 Form(
                     # Cue
                     Div(
@@ -226,7 +229,10 @@ class AtomicHabitsComponents:
                             _for="routine",
                             cls="label font-semibold",
                         ),
-                        P("The specific behavior you'll perform", cls="text-sm text-base-content/60 mb-2"),
+                        P(
+                            "The specific behavior you'll perform",
+                            cls="text-sm text-base-content/60 mb-2",
+                        ),
                         Input(
                             type="text",
                             id="routine",
@@ -244,7 +250,10 @@ class AtomicHabitsComponents:
                             _for="reward",
                             cls="label font-semibold",
                         ),
-                        P("The immediate satisfaction you feel", cls="text-sm text-base-content/60 mb-2"),
+                        P(
+                            "The immediate satisfaction you feel",
+                            cls="text-sm text-base-content/60 mb-2",
+                        ),
                         Input(
                             type="text",
                             id="reward",
@@ -419,7 +428,10 @@ class AtomicHabitsComponents:
                             Span("OPTIONAL", cls="ml-2 font-semibold"),
                             cls="flex items-center cursor-pointer",
                         ),
-                        P("🟢 Habit is TANGENTIALLY helpful", cls="text-xs text-base-content/70 ml-6"),
+                        P(
+                            "🟢 Habit is TANGENTIALLY helpful",
+                            cls="text-xs text-base-content/70 ml-6",
+                        ),
                         cls="space-y-2",
                     ),
                     cls="mb-3",

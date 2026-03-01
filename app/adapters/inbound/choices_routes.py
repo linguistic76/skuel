@@ -6,8 +6,8 @@ Activity Domain: CRUD, Query, and Intelligence factories declared in config.
 No Status or Analytics factories — all remaining routes are manual.
 """
 
-from adapters.inbound.choices_ui import create_choice_ui_routes
 from adapters.inbound.choices_api import create_choices_api_routes
+from adapters.inbound.choices_ui import create_choice_ui_routes
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,

@@ -22,7 +22,6 @@ from core.models.enums.principle_enums import (
 )
 from core.models.request_base import CreateRequestBase
 
-
 # =============================================================================
 # NESTED REQUEST MODELS (used by create requests)
 # =============================================================================

@@ -118,7 +118,9 @@ class TestExerciseServiceCurriculumLinking:
         from core.utils.result_simplified import Errors
 
         backend.link_to_curriculum.return_value = Result.fail(
-            Errors.not_found(resource="Exercise or Curriculum KU", identifier="ex_missing -> ku_missing")
+            Errors.not_found(
+                resource="Exercise or Curriculum KU", identifier="ex_missing -> ku_missing"
+            )
         )
 
         result = await service.link_to_curriculum("ex_missing", "ku_missing")
@@ -144,7 +146,9 @@ class TestExerciseServiceCurriculumLinking:
         from core.utils.result_simplified import Errors
 
         backend.unlink_from_curriculum.return_value = Result.fail(
-            Errors.not_found(resource="REQUIRES_KNOWLEDGE relationship", identifier="ex_test_123 -> ku_missing")
+            Errors.not_found(
+                resource="REQUIRES_KNOWLEDGE relationship", identifier="ex_test_123 -> ku_missing"
+            )
         )
 
         result = await service.unlink_from_curriculum("ex_test_123", "ku_missing")

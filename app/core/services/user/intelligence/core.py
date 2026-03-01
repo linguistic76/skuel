@@ -56,11 +56,11 @@ from core.services.user.intelligence.synergy_intelligence import SynergyIntellig
 if TYPE_CHECKING:
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.calendar_service import CalendarService
-    from core.services.ku.ku_graph_service import KuGraphService
 
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService
     # LsRelationshipService deleted - LS now uses UnifiedRelationshipService
     from core.services.feedback import FeedbackRelationshipService
+    from core.services.ku.ku_graph_service import KuGraphService
     from core.services.relationships import UnifiedRelationshipService
     from core.services.submissions import SubmissionsRelationshipService
     from core.services.user.unified_user_context import UserContext

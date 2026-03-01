@@ -105,7 +105,8 @@ class AtomicHabitsMobile:
         """
         if not habits:
             return Div(
-                P("No habits for today! 🎉", cls="text-center text-base-content/60 py-12"), cls="px-4"
+                P("No habits for today! 🎉", cls="text-center text-base-content/60 py-12"),
+                cls="px-4",
             )
 
         habit_cards = []
@@ -173,9 +174,7 @@ class AtomicHabitsMobile:
         return Card(
             CardBody(
                 # Essentiality badge
-                Span(
-                    essentiality.upper(), cls=f"badge badge-sm {badge_color}"
-                ),
+                Span(essentiality.upper(), cls=f"badge badge-sm {badge_color}"),
                 # Habit name
                 H2(name, cls="text-xl font-bold text-base-content my-3"),
                 # Identity (if applicable)

@@ -133,7 +133,8 @@ class GoalUIComponents:
             )
             if goals
             else P(
-                "No goals yet. Create one to get started!", cls="text-base-content/60 text-center py-8"
+                "No goals yet. Create one to get started!",
+                cls="text-base-content/60 text-center py-8",
             ),
             Div(id="modal"),  # Modal container for HTMX
         )
@@ -201,7 +202,9 @@ class GoalUIComponents:
             Div(
                 Span(category.title(), cls="badge badge-outline badge-sm") if category else "",
                 Span(priority.title(), cls="badge badge-ghost badge-sm") if priority else "",
-                Span(f"📅 {target_date}", cls="text-xs text-base-content/60") if target_date else "",
+                Span(f"📅 {target_date}", cls="text-xs text-base-content/60")
+                if target_date
+                else "",
                 cls="flex gap-2 items-center mb-3",
             ),
         ]
@@ -1143,7 +1146,9 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
             ),
             # Explanation Section
             Card(
-                H2("💡 Why This Goal Exists", cls="text-xl font-semibold mb-4 text-base-content/70"),
+                H2(
+                    "💡 Why This Goal Exists", cls="text-xl font-semibold mb-4 text-base-content/70"
+                ),
                 # Main explanation
                 Div(
                     P(
@@ -1330,7 +1335,10 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         """Progress update form fragment"""
         return Card(
             H2("📈 Update Progress", cls="text-xl font-bold mb-4"),
-            P(f"Progress update form for goal {uid} will be implemented here", cls="text-base-content/60"),
+            P(
+                f"Progress update form for goal {uid} will be implemented here",
+                cls="text-base-content/60",
+            ),
             cls="p-6",
         )
 

@@ -75,7 +75,9 @@ class SubmissionFeedback(Submission):
         return SubmissionFeedbackDTO(**kwargs)
 
     def __str__(self) -> str:
-        return f"SubmissionFeedback(uid={self.uid}, title='{self.title}', subject={self.subject_uid})"
+        return (
+            f"SubmissionFeedback(uid={self.uid}, title='{self.title}', subject={self.subject_uid})"
+        )
 
     def __repr__(self) -> str:
         return (

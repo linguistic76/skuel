@@ -731,7 +731,10 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         if len(options) < 2:
             return Div(
                 Div(
-                    P("You need at least 2 options to make a decision.", cls="text-base-content/70 mb-4"),
+                    P(
+                        "You need at least 2 options to make a decision.",
+                        cls="text-base-content/70 mb-4",
+                    ),
                     Button(
                         "Add Options",
                         variant=ButtonT.primary,

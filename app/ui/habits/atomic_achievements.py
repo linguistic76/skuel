@@ -428,7 +428,10 @@ class AtomicHabitsBadges:
                 # Title and description
                 H3(badge.title, cls=f"font-bold text-lg mb-2 {locked_opacity}"),
                 P(badge.description, cls=f"text-sm text-base-content/70 mb-2 {locked_opacity}"),
-                P(f"📋 {badge.unlock_criteria}", cls=f"text-xs text-base-content/60 {locked_opacity}"),
+                P(
+                    f"📋 {badge.unlock_criteria}",
+                    cls=f"text-xs text-base-content/60 {locked_opacity}",
+                ),
                 # Points value
                 Div(
                     Span("⭐", cls="text-yellow-500"),

@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
+from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.curriculum.learning_step import LearningStep
 from core.models.enums import Domain, EntityStatus, Priority
 from core.services.base_service import BaseService

@@ -298,7 +298,11 @@ class ProgressFeedbackGenerator:
                 for h in completions.get("habits_details", [])[:10]
             ],
             "event_summary": [
-                {"title": e.get("title", ""), "type": e.get("event_type", ""), "milestone": e.get("is_milestone", False)}
+                {
+                    "title": e.get("title", ""),
+                    "type": e.get("event_type", ""),
+                    "milestone": e.get("is_milestone", False),
+                }
                 for e in completions.get("events_details", [])[:10]
             ],
             "principled_choices": [
@@ -307,7 +311,11 @@ class ProgressFeedbackGenerator:
                 if c.get("principles")
             ][:5],
             "principle_summary": [
-                {"title": p.get("title", ""), "alignment": p.get("alignment", ""), "strength": p.get("strength", "")}
+                {
+                    "title": p.get("title", ""),
+                    "alignment": p.get("alignment", ""),
+                    "strength": p.get("strength", ""),
+                }
                 for p in completions.get("principles_details", [])[:10]
             ],
         }
@@ -664,8 +672,12 @@ class ProgressFeedbackGenerator:
         # Principles reviewed
         principles_details = completions.get("principles_details", [])
         if principles_details:
-            well_aligned = [p for p in principles_details if p.get("alignment") in ("aligned", "flourishing")]
-            needs_attention = [p for p in principles_details if p.get("alignment") in ("drifting", "misaligned")]
+            well_aligned = [
+                p for p in principles_details if p.get("alignment") in ("aligned", "flourishing")
+            ]
+            needs_attention = [
+                p for p in principles_details if p.get("alignment") in ("drifting", "misaligned")
+            ]
             sections.append("## Principles")
             sections.append(f"- **Principles active this period:** {len(principles_details)}")
             if well_aligned:

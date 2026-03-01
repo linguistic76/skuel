@@ -21,7 +21,6 @@ import pytest
 
 from core.models.enums.metadata_enums import Visibility
 from core.services.sharing.unified_sharing_service import UnifiedSharingService
-from core.utils.result_simplified import Errors, Result
 
 
 @pytest.fixture
@@ -70,9 +69,7 @@ async def test_share_success(mock_driver, sharing_service):
     share_result = AsyncMock()
     share_result.data = AsyncMock(return_value=[{"success": True}])
 
-    session.run = AsyncMock(
-        side_effect=[ownership_result, shareable_result, share_result]
-    )
+    session.run = AsyncMock(side_effect=[ownership_result, shareable_result, share_result])
 
     result = await sharing_service.share(
         entity_uid="report_123",
@@ -345,9 +342,7 @@ async def test_set_visibility_to_public_success(mock_driver, sharing_service):
     )
     visibility_result = AsyncMock()
     visibility_result.data = AsyncMock(return_value=[{"uid": "report_123"}])
-    session.run = AsyncMock(
-        side_effect=[ownership_result, shareable_result, visibility_result]
-    )
+    session.run = AsyncMock(side_effect=[ownership_result, shareable_result, visibility_result])
 
     result = await sharing_service.set_visibility(
         entity_uid="report_123",
@@ -549,9 +544,7 @@ async def test_verify_shareable_completed(mock_driver, sharing_service):
     driver, session = mock_driver
 
     query_result = AsyncMock()
-    query_result.data = AsyncMock(
-        return_value=[{"status": "completed", "ku_type": "submission"}]
-    )
+    query_result.data = AsyncMock(return_value=[{"status": "completed", "ku_type": "submission"}])
     session.run = AsyncMock(return_value=query_result)
 
     result = await sharing_service.verify_shareable(entity_uid="report_123")
@@ -566,9 +559,7 @@ async def test_verify_shareable_activity_active(mock_driver, sharing_service):
     driver, session = mock_driver
 
     query_result = AsyncMock()
-    query_result.data = AsyncMock(
-        return_value=[{"status": "active", "ku_type": "task"}]
-    )
+    query_result.data = AsyncMock(return_value=[{"status": "active", "ku_type": "task"}])
     session.run = AsyncMock(return_value=query_result)
 
     result = await sharing_service.verify_shareable(entity_uid="task_123")
@@ -583,9 +574,7 @@ async def test_verify_shareable_not_completed(mock_driver, sharing_service):
     driver, session = mock_driver
 
     query_result = AsyncMock()
-    query_result.data = AsyncMock(
-        return_value=[{"status": "processing", "ku_type": "submission"}]
-    )
+    query_result.data = AsyncMock(return_value=[{"status": "processing", "ku_type": "submission"}])
     session.run = AsyncMock(return_value=query_result)
 
     result = await sharing_service.verify_shareable(entity_uid="report_123")

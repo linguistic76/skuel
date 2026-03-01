@@ -61,7 +61,10 @@ class AtomicHabitsIntelligence:
             CardBody(
                 H3("🧠 Pattern Recognition", cls="text-xl font-bold mb-4"),
                 # Overview
-                P(f"{name} - {total_completions} completions analyzed", cls="text-base-content/70 mb-6"),
+                P(
+                    f"{name} - {total_completions} completions analyzed",
+                    cls="text-base-content/70 mb-6",
+                ),
                 # Success patterns
                 Div(
                     H4("✅ SUCCESS PATTERNS", cls="text-lg font-semibold text-green-700 mb-3"),
@@ -94,7 +97,8 @@ class AtomicHabitsIntelligence:
                         )
                         if failure_patterns
                         else P(
-                            "No failure patterns detected yet.", cls="text-sm text-base-content/60 italic"
+                            "No failure patterns detected yet.",
+                            cls="text-sm text-base-content/60 italic",
                         )
                     ),
                     cls="mb-6",
@@ -524,7 +528,8 @@ class AtomicHabitsIntelligence:
                         cls="flex-1 bg-base-300 rounded h-4 mx-2",
                     ),
                     Span(
-                        f"{velocity:.1f}", cls="text-xs font-semibold text-base-content/70 w-12 text-right"
+                        f"{velocity:.1f}",
+                        cls="text-xs font-semibold text-base-content/70 w-12 text-right",
                     ),
                     cls="flex items-center mb-2",
                 )
@@ -633,7 +638,8 @@ class AtomicHabitsIntelligence:
                         )
                         if habits
                         else P(
-                            "No habits linked to this goal yet.", cls="text-sm text-base-content/60 italic"
+                            "No habits linked to this goal yet.",
+                            cls="text-sm text-base-content/60 italic",
                         )
                     ),
                     cls="mb-6",

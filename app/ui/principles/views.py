@@ -384,7 +384,10 @@ class PrinciplesViewComponents:
                     placeholder="A short, memorable statement (e.g., 'Act with integrity')",
                     cls="input input-bordered w-full",
                 ),
-                P("A concise statement you can recall easily", cls="text-xs text-base-content/60 mt-1"),
+                P(
+                    "A concise statement you can recall easily",
+                    cls="text-xs text-base-content/60 mt-1",
+                ),
                 cls="mb-4",
             ),
             cls="flex-1",
@@ -432,7 +435,10 @@ class PrinciplesViewComponents:
                     "Active Principle",
                     cls="label cursor-pointer justify-start",
                 ),
-                P("Active principles guide your daily decisions", cls="text-xs text-base-content/60 mt-1"),
+                P(
+                    "Active principles guide your daily decisions",
+                    cls="text-xs text-base-content/60 mt-1",
+                ),
                 cls="mb-4",
             ),
             cls="flex-1",
@@ -735,7 +741,10 @@ class PrinciplesViewComponents:
         return Div(
             Div(
                 H2(f"Reflect on: {name}", cls="text-xl font-bold mb-4"),
-                P("How well did you align with this principle today?", cls="text-base-content/70 mb-4"),
+                P(
+                    "How well did you align with this principle today?",
+                    cls="text-base-content/70 mb-4",
+                ),
                 Form(
                     # Alignment level
                     Div(
@@ -787,7 +796,8 @@ class PrinciplesViewComponents:
                     Div(
                         Div(
                             Span(
-                                "What triggered this reflection?", cls="font-semibold text-base-content/70"
+                                "What triggered this reflection?",
+                                cls="font-semibold text-base-content/70",
                             ),
                             Span("(Optional)", cls="text-xs text-base-content/50 ml-2"),
                             cls="mb-2",
@@ -955,9 +965,7 @@ class PrinciplesViewComponents:
             AlignmentLevel.MISALIGNED: ("badge-error", "Misaligned"),
             AlignmentLevel.UNKNOWN: ("badge-ghost", "Unknown"),
         }
-        color_cls, alignment_text = alignment_colors.get(
-            alignment, ("badge-ghost", "Unknown")
-        )
+        color_cls, alignment_text = alignment_colors.get(alignment, ("badge-ghost", "Unknown"))
 
         # Quality badge
         quality_label = "deep" if quality >= 0.7 else "moderate" if quality >= 0.4 else "shallow"
@@ -1025,7 +1033,9 @@ class PrinciplesViewComponents:
             "declining": ("text-red-600", "↓ Declining"),
             "stable": ("text-base-content/70", "→ Stable"),
         }
-        trend_cls, trend_text = trend_styles.get(trend_direction, ("text-base-content/70", "→ Stable"))
+        trend_cls, trend_text = trend_styles.get(
+            trend_direction, ("text-base-content/70", "→ Stable")
+        )
 
         # Header with back button
         header = Div(
@@ -1085,7 +1095,9 @@ class PrinciplesViewComponents:
         trigger_section = (
             Div(
                 H3("Reflection Triggers", cls="text-lg font-semibold mb-3"),
-                *trigger_items if trigger_items else [P("No trigger data", cls="text-base-content/60")],
+                *trigger_items
+                if trigger_items
+                else [P("No trigger data", cls="text-base-content/60")],
                 cls="card bg-base-100 shadow p-4",
             )
             if trigger_dist

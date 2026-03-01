@@ -12,8 +12,8 @@ from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
 )
-from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.entity_requests import EntityUpdateRequest
+from core.models.principle.principle_request import PrincipleCreateRequest
 
 PRINCIPLES_CONFIG = create_activity_domain_route_config(
     domain_name="principles",

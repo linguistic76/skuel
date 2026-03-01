@@ -144,7 +144,8 @@ class HabitUIComponents:
             )
             if habits
             else P(
-                "No habits yet. Create one to get started!", cls="text-base-content/60 text-center py-8"
+                "No habits yet. Create one to get started!",
+                cls="text-base-content/60 text-center py-8",
             ),
             Div(id="modal"),  # Modal container for HTMX
         )
@@ -379,9 +380,7 @@ def get_status_color(status) -> Any:
 # ============================================================================
 
 
-def create_habits_ui_routes(
-    _app, rt, habits_service: HabitsService, services: Any = None
-):
+def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: Any = None):
     """
     Create three-view habit UI routes (standalone, no drawer).
 
@@ -1147,7 +1146,10 @@ def create_habits_ui_routes(
         """Show completion celebration (legacy route - redirects to POST /complete)"""
         # Redirect to the actual completion handler
         return Div(
-            P("Please use the Complete button to mark habit as done", cls="text-base-content/70 p-4")
+            P(
+                "Please use the Complete button to mark habit as done",
+                cls="text-base-content/70 p-4",
+            )
         )
 
     # ========================================================================
@@ -1798,7 +1800,10 @@ def create_habits_ui_routes(
         return Card(
             CardBody(
                 H2("📊 Habit Details", cls="text-xl font-bold mb-4"),
-                P(f"Detailed view for habit {uid} will be implemented here", cls="text-base-content/60"),
+                P(
+                    f"Detailed view for habit {uid} will be implemented here",
+                    cls="text-base-content/60",
+                ),
             ),
         )
 

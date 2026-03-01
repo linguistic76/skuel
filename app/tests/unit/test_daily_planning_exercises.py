@@ -24,7 +24,6 @@ from core.models.context_types import ContextualExercise, DailyWorkPlan
 from core.services.user.intelligence.daily_planning import DailyPlanningMixin
 from core.utils.result_simplified import Errors, Result
 
-
 # =============================================================================
 # HELPERS
 # =============================================================================
@@ -258,15 +257,10 @@ async def test_exercises_skipped_when_capacity_full() -> None:
 @pytest.mark.asyncio
 async def test_max_3_exercises_even_if_5_returned() -> None:
     """Only 3 exercises are included in the plan even when 5 are returned."""
-    today = date.today()
-
     feedback = make_no_op_service()
     feedback.get_unsubmitted_exercises = AsyncMock(
         return_value=Result.ok(
-            [
-                {"uid": f"exercise_{i}", "title": f"Exercise {i}", "due_date": None}
-                for i in range(5)
-            ]
+            [{"uid": f"exercise_{i}", "title": f"Exercise {i}", "due_date": None} for i in range(5)]
         )
     )
 

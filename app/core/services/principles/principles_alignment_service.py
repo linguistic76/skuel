@@ -363,8 +363,8 @@ class PrinciplesAlignmentService:
         """
         from datetime import date
 
-        from core.models.principle.principle_request import PrincipleAlignmentAssessmentResult
         from core.models.principle.principle_dto import PrincipleDTO
+        from core.models.principle.principle_request import PrincipleAlignmentAssessmentResult
 
         # 1. Get the principle
         principle_result = await self.backend.get(principle_uid)

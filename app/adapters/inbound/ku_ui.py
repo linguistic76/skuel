@@ -313,7 +313,10 @@ class KuUIComponents:
             # Recommended knowledge
             Card(
                 H3("💡 Recommended for You", cls="text-lg font-semibold mb-4"),
-                P("Personalized knowledge recommendations will appear here", cls="text-base-content/60"),
+                P(
+                    "Personalized knowledge recommendations will appear here",
+                    cls="text-base-content/60",
+                ),
                 cls="p-6 mb-6",
             ),
             # Knowledge paths
@@ -339,13 +342,19 @@ class KuUIComponents:
             # Connection analysis
             Card(
                 H3("🕸️ Connection Analysis", cls="text-lg font-semibold mb-4"),
-                P("Knowledge graph connectivity and relationship insights", cls="text-base-content/60"),
+                P(
+                    "Knowledge graph connectivity and relationship insights",
+                    cls="text-base-content/60",
+                ),
                 cls="p-6 mb-6",
             ),
             # Domain insights
             Card(
                 H3("🎯 Domain Insights", cls="text-lg font-semibold mb-4"),
-                P("Knowledge distribution and domain expertise mapping", cls="text-base-content/60"),
+                P(
+                    "Knowledge distribution and domain expertise mapping",
+                    cls="text-base-content/60",
+                ),
                 cls="p-6",
             ),
             cls="container mx-auto p-6",
@@ -620,7 +629,10 @@ def create_ku_ui_routes(_app, rt, ku_service):
         """Edit knowledge form fragment"""
         return Card(
             H2("✏️ Edit Knowledge", cls="text-xl font-bold mb-4"),
-            P(f"Edit form for knowledge unit {uid} will be implemented here", cls="text-base-content/60"),
+            P(
+                f"Edit form for knowledge unit {uid} will be implemented here",
+                cls="text-base-content/60",
+            ),
             cls="p-6",
         )
 

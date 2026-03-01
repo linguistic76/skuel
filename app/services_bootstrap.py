@@ -678,9 +678,7 @@ def _create_learning_services(
     # Backend created here (composition root) — core services never import adapters
     from adapters.persistence.neo4j.domain_backends import LpBackend
 
-    lp_backend = LpBackend(
-        driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
-    )
+    lp_backend = LpBackend(driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
     learning_paths = LpService(
         backend=lp_backend,
         executor=query_executor,
@@ -2489,11 +2487,11 @@ async def compose_services(
         submissions_relationship_service = SubmissionsRelationshipService(
             backend=submissions_backend
         )
-        feedback_relationship_service = FeedbackRelationshipService(
-            backend=submissions_backend
-        )
+        feedback_relationship_service = FeedbackRelationshipService(backend=submissions_backend)
         analytics_relationship_service = AnalyticsRelationshipService(driver)
-        logger.info("✅ Processing domain relationship services created (Submissions, Feedback, Analytics)")
+        logger.info(
+            "✅ Processing domain relationship services created (Submissions, Feedback, Analytics)"
+        )
 
         # Create factory with all 12 domain services
         context_intelligence_factory = UserContextIntelligenceFactory(

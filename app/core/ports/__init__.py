@@ -290,15 +290,15 @@ from .service_protocols import (
     VisualizationOperations,
 )
 
+# Sharing protocol — cross-cutting, any entity type can be shared
+from .sharing_protocols import SharingOperations
+
 # Submission protocols — Submission stage of the educational loop
 from .submission_protocols import (
     SubmissionOperations,
     SubmissionProcessingOperations,
     SubmissionSearchOperations,
 )
-
-# Sharing protocol — cross-cutting, any entity type can be shared
-from .sharing_protocols import SharingOperations
 
 # ============================================================================
 # EXPLICIT EXPORTS - Protocol Catalog (ISP-compliant Nov 2025)
@@ -467,7 +467,8 @@ __all__ = [
     "SubmissionSearchOperations",
     # ========== SHARING PROTOCOL ==========
     "SharingOperations",
-    # ========== FEEDBACK PROTOCOLS (3) ==========
+    # ========== FEEDBACK PROTOCOLS (4) ==========
+    "ActivityReviewOperations",
     "FeedbackOperations",
     "ProgressFeedbackOperations",
     "ProgressScheduleOperations",

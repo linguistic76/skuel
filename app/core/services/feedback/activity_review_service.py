@@ -470,9 +470,7 @@ class ActivityReviewService:
             records = result.value or []
             if not records:
                 return Result.fail(
-                    Errors.not_found(
-                        f"ActivityReport {uid} not found or not owned by {user_uid}"
-                    )
+                    Errors.not_found(f"ActivityReport {uid} not found or not owned by {user_uid}")
                 )
             record = records[0] if isinstance(records[0], dict) else dict(records[0])
             return Result.ok(
@@ -513,9 +511,7 @@ class ActivityReviewService:
             records = result.value or []
             if not records:
                 return Result.fail(
-                    Errors.not_found(
-                        f"ActivityReport {uid} not found or not owned by {user_uid}"
-                    )
+                    Errors.not_found(f"ActivityReport {uid} not found or not owned by {user_uid}")
                 )
             record = records[0] if isinstance(records[0], dict) else dict(records[0])
             annotation_updated_at = record.get("annotation_updated_at")

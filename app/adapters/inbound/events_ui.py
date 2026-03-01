@@ -112,7 +112,8 @@ class EventUIComponents:
             )
             if events
             else P(
-                "No events yet. Create one to get started!", cls="text-base-content/60 text-center py-8"
+                "No events yet. Create one to get started!",
+                cls="text-base-content/60 text-center py-8",
             ),
         )
 
@@ -152,8 +153,12 @@ class EventUIComponents:
                     Span(f"Start: {start_time}", cls="text-sm text-base-content/60 mr-4")
                     if start_time
                     else "",
-                    Span(f"End: {end_time}", cls="text-sm text-base-content/60 mr-4") if end_time else "",
-                    Span(f"Location: {location}", cls="text-sm text-base-content/60") if location else "",
+                    Span(f"End: {end_time}", cls="text-sm text-base-content/60 mr-4")
+                    if end_time
+                    else "",
+                    Span(f"Location: {location}", cls="text-sm text-base-content/60")
+                    if location
+                    else "",
                     cls="flex flex-wrap",
                 ),
                 cls="p-4",

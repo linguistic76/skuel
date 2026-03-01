@@ -347,7 +347,9 @@ def ProgressMetric(
     return Div(
         Div(
             Span(name, cls="font-medium"),
-            Span(f"{percentage:.0f}%", cls="text-sm text-base-content/70") if show_percentage else None,
+            Span(f"{percentage:.0f}%", cls="text-sm text-base-content/70")
+            if show_percentage
+            else None,
             cls="flex justify-between mb-1",
         ),
         Progress(value=int(percentage), variant=progress_variant),

@@ -1094,7 +1094,9 @@ def render_entity_card(
     header = Div(*header_components, cls="flex justify-between items-start gap-2")
 
     # Description
-    description_elem = P(description, cls="text-sm text-base-content/70 mb-3") if description else ""
+    description_elem = (
+        P(description, cls="text-sm text-base-content/70 mb-3") if description else ""
+    )
 
     # Metadata row
     metadata_components = []
@@ -1313,7 +1315,10 @@ def render_event_card(
     if calendar_type:
         icon = get_calendar_icon(calendar_type)
         custom_metadata.append(
-            Span(f"{icon} {calendar_type.replace('_', ' ').title()}", cls="text-sm text-base-content/70")
+            Span(
+                f"{icon} {calendar_type.replace('_', ' ').title()}",
+                cls="text-sm text-base-content/70",
+            )
         )
     if location:
         custom_metadata.append(Span(f"📍 {location}", cls="text-sm text-base-content/70"))

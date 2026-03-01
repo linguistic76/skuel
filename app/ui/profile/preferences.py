@@ -332,7 +332,10 @@ class UserPreferencesComponents:
                     max=100,
                     cls="input input-bordered w-full",
                 ),
-                P("Target number of tasks to complete each week", cls="text-sm text-base-content/60 mt-1"),
+                P(
+                    "Target number of tasks to complete each week",
+                    cls="text-sm text-base-content/60 mt-1",
+                ),
                 cls="form-control mb-4",
             ),
             Div(
@@ -345,7 +348,10 @@ class UserPreferencesComponents:
                     max=20,
                     cls="input input-bordered w-full",
                 ),
-                P("Target number of habits to complete each day", cls="text-sm text-base-content/60 mt-1"),
+                P(
+                    "Target number of habits to complete each day",
+                    cls="text-sm text-base-content/60 mt-1",
+                ),
                 cls="form-control mb-4",
             ),
             Div(

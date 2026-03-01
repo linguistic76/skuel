@@ -40,9 +40,7 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.services.sharing")
 
 # Entity types that can be shared while active (not just completed)
-_ACTIVITY_ENTITY_TYPES = frozenset(
-    {"task", "goal", "habit", "event", "choice", "principle"}
-)
+_ACTIVITY_ENTITY_TYPES = frozenset({"task", "goal", "habit", "event", "choice", "principle"})
 
 
 class UnifiedSharingService:
@@ -124,9 +122,7 @@ class UnifiedSharingService:
                 records = await result.data()
             if not records:
                 return Result.fail(
-                    Errors.not_found(
-                        f"User {recipient_uid} or Entity {entity_uid} not found"
-                    )
+                    Errors.not_found(f"User {recipient_uid} or Entity {entity_uid} not found")
                 )
             logger.info(f"Entity {entity_uid} shared with {recipient_uid} as {role}")
             return Result.ok(True)
@@ -235,17 +231,13 @@ class UnifiedSharingService:
                 records = await result.data()
             if not records:
                 return Result.fail(
-                    Errors.not_found(
-                        f"Entity {entity_uid} not found or not owned by {owner_uid}"
-                    )
+                    Errors.not_found(f"Entity {entity_uid} not found or not owned by {owner_uid}")
                 )
             logger.info(f"Entity {entity_uid} visibility set to {visibility.value}")
             return Result.ok(True)
         except Exception as e:
             logger.error(f"Failed set_visibility for {entity_uid}: {e}")
-            return Result.fail(
-                Errors.database(operation="set_visibility", message=str(e))
-            )
+            return Result.fail(Errors.database(operation="set_visibility", message=str(e)))
 
     # =========================================================================
     # ACCESS CHECKING
@@ -285,20 +277,14 @@ class UnifiedSharingService:
         """
         try:
             async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"entity_uid": entity_uid, "user_uid": user_uid}
-                )
+                result = await session.run(query, {"entity_uid": entity_uid, "user_uid": user_uid})
                 records = await result.data()
             if not records:
-                return Result.fail(
-                    Errors.not_found(resource="Entity", identifier=entity_uid)
-                )
+                return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
             record = records[0]
             owner_uid_val = record["owner_uid"]
             visibility = (
-                Visibility(record["visibility"])
-                if record["visibility"]
-                else Visibility.PRIVATE
+                Visibility(record["visibility"]) if record["visibility"] else Visibility.PRIVATE
             )
             ku_type = record["ku_type"]
             has_share = record["has_direct_share"] or record["has_group_share"]
@@ -314,9 +300,7 @@ class UnifiedSharingService:
             return Result.ok(False)
         except Exception as e:
             logger.error(f"Failed check_access for {entity_uid}: {e}")
-            return Result.fail(
-                Errors.database(operation="check_access", message=str(e))
-            )
+            return Result.fail(Errors.database(operation="check_access", message=str(e)))
 
     async def verify_shareable(
         self,
@@ -344,9 +328,7 @@ class UnifiedSharingService:
                 result = await session.run(query, {"entity_uid": entity_uid})
                 records = await result.data()
             if not records:
-                return Result.fail(
-                    Errors.not_found(resource="Entity", identifier=entity_uid)
-                )
+                return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
             status = records[0]["status"]
             ku_type = records[0]["ku_type"]
             if ku_type in _ACTIVITY_ENTITY_TYPES:
@@ -359,16 +341,12 @@ class UnifiedSharingService:
                 )
             if status != "completed":
                 return Result.fail(
-                    Errors.validation(
-                        f"Only completed Ku can be shared. Current status: {status}"
-                    )
+                    Errors.validation(f"Only completed Ku can be shared. Current status: {status}")
                 )
             return Result.ok(True)
         except Exception as e:
             logger.error(f"Failed verify_shareable for {entity_uid}: {e}")
-            return Result.fail(
-                Errors.database(operation="verify_shareable", message=str(e))
-            )
+            return Result.fail(Errors.database(operation="verify_shareable", message=str(e)))
 
     # =========================================================================
     # QUERY
@@ -415,9 +393,7 @@ class UnifiedSharingService:
             return Result.ok(users)
         except Exception as e:
             logger.error(f"Failed get_shared_with for {entity_uid}: {e}")
-            return Result.fail(
-                Errors.database(operation="get_shared_with", message=str(e))
-            )
+            return Result.fail(Errors.database(operation="get_shared_with", message=str(e)))
 
     async def get_shared_with_me(
         self,
@@ -447,17 +423,13 @@ class UnifiedSharingService:
         """
         try:
             async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"user_uid": user_uid, "limit": limit}
-                )
+                result = await session.run(query, {"user_uid": user_uid, "limit": limit})
                 records = await result.data()
             entities = [SubmissionDTO.from_dict(record["ku"]) for record in records]
             return Result.ok(entities)
         except Exception as e:
             logger.error(f"Failed get_shared_with_me for {user_uid}: {e}")
-            return Result.fail(
-                Errors.database(operation="get_shared_with_me", message=str(e))
-            )
+            return Result.fail(Errors.database(operation="get_shared_with_me", message=str(e)))
 
     # =========================================================================
     # GROUP SHARING
@@ -516,17 +488,13 @@ class UnifiedSharingService:
                 records = await result.data()
             if not records:
                 return Result.fail(
-                    Errors.not_found(
-                        f"Entity {entity_uid} or Group {group_uid} not found"
-                    )
+                    Errors.not_found(f"Entity {entity_uid} or Group {group_uid} not found")
                 )
             logger.info(f"Entity {entity_uid} shared with group {group_uid}")
             return Result.ok(True)
         except Exception as e:
             logger.error(f"Failed share_with_group {entity_uid} → {group_uid}: {e}")
-            return Result.fail(
-                Errors.database(operation="share_with_group", message=str(e))
-            )
+            return Result.fail(Errors.database(operation="share_with_group", message=str(e)))
 
     async def unshare_from_group(
         self,
@@ -574,9 +542,7 @@ class UnifiedSharingService:
             return Result.ok(True)
         except Exception as e:
             logger.error(f"Failed unshare_from_group {entity_uid} ← {group_uid}: {e}")
-            return Result.fail(
-                Errors.database(operation="unshare_from_group", message=str(e))
-            )
+            return Result.fail(Errors.database(operation="unshare_from_group", message=str(e)))
 
     async def get_groups_shared_with(
         self,
@@ -617,9 +583,7 @@ class UnifiedSharingService:
             return Result.ok(groups)
         except Exception as e:
             logger.error(f"Failed get_groups_shared_with for {entity_uid}: {e}")
-            return Result.fail(
-                Errors.database(operation="get_groups_shared_with", message=str(e))
-            )
+            return Result.fail(Errors.database(operation="get_groups_shared_with", message=str(e)))
 
     async def get_shared_with_me_via_groups(
         self,
@@ -654,9 +618,7 @@ class UnifiedSharingService:
         """
         try:
             async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"user_uid": user_uid, "limit": limit}
-                )
+                result = await session.run(query, {"user_uid": user_uid, "limit": limit})
                 records = await result.data()
             entities = [
                 {
@@ -672,9 +634,7 @@ class UnifiedSharingService:
         except Exception as e:
             logger.error(f"Failed get_shared_with_me_via_groups for {user_uid}: {e}")
             return Result.fail(
-                Errors.database(
-                    operation="get_shared_with_me_via_groups", message=str(e)
-                )
+                Errors.database(operation="get_shared_with_me_via_groups", message=str(e))
             )
 
     # =========================================================================
@@ -696,19 +656,13 @@ class UnifiedSharingService:
                 result = await session.run(query, {"entity_uid": entity_uid})
                 records = await result.data()
             if not records:
-                return Result.fail(
-                    Errors.not_found(resource="Entity", identifier=entity_uid)
-                )
+                return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
             actual_owner = records[0]["actual_owner"]
             if actual_owner != owner_uid:
                 return Result.fail(
-                    Errors.validation(
-                        f"User {owner_uid} does not own entity {entity_uid}"
-                    )
+                    Errors.validation(f"User {owner_uid} does not own entity {entity_uid}")
                 )
             return Result.ok(True)
         except Exception as e:
             logger.error(f"Failed _verify_ownership for {entity_uid}: {e}")
-            return Result.fail(
-                Errors.database(operation="verify_ownership", message=str(e))
-            )
+            return Result.fail(Errors.database(operation="verify_ownership", message=str(e)))

@@ -238,7 +238,9 @@ class ChoicesViewComponents:
                 # Meta row
                 Div(
                     Span(f"Priority: {priority_str.title()}", cls=f"text-xs {priority_color} mr-4"),
-                    Span(f"Deadline: {deadline}", cls="text-xs text-base-content/60") if deadline else "",
+                    Span(f"Deadline: {deadline}", cls="text-xs text-base-content/60")
+                    if deadline
+                    else "",
                     cls="flex items-center mt-2",
                 ),
                 # Actions

@@ -224,8 +224,7 @@ class ExerciseUIComponents:
                             Option(
                                 "Claude Sonnet 4.6 (Recommended)",
                                 value="claude-sonnet-4-6",
-                                selected=not exercise
-                                or exercise.model == "claude-sonnet-4-6",
+                                selected=not exercise or exercise.model == "claude-sonnet-4-6",
                             ),
                             Option(
                                 "Claude Opus 4.6 (Most Capable)",

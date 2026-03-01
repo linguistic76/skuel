@@ -398,9 +398,7 @@ def _render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) ->
 
     name_val = getattr(exercise, "title", "") or ""
     instructions_val = getattr(exercise, "instructions", "") or ""
-    model_val = (
-        getattr(exercise, "model", "claude-sonnet-4-6") or "claude-sonnet-4-6"
-    )
+    model_val = getattr(exercise, "model", "claude-sonnet-4-6") or "claude-sonnet-4-6"
 
     scope_raw = getattr(exercise, "scope", None)
     _no_value = object()
