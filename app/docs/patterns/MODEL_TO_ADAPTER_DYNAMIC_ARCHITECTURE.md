@@ -25,14 +25,15 @@ The architecture is **100% dynamic** for model-to-adapter connections. The intro
 
 ```
 adapters/persistence/neo4j/
-    universal_backend.py      # ~586 lines (shell: __init__, helpers)
-    _crud_mixin.py            # CrudOperations[T]
-    _search_mixin.py          # EntitySearchOperations[T]
-    _relationship_mixin.py    # RelationshipCrud + Metadata + Query
-    _user_entity_mixin.py     # Generic user-entity ops (5 methods)
-    _traversal_mixin.py       # GraphTraversalOperations
-    domain_backends.py        # 10 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
-                              #   ChoicesBackend, PrinciplesBackend, KuBackend, SubmissionsBackend, LpBackend, ExerciseBackend
+    universal_backend.py          # ~527 lines (shell: __init__, helpers)
+    _crud_mixin.py                # CrudOperations[T]
+    _search_mixin.py              # EntitySearchOperations[T]
+    _relationship_query_mixin.py  # RelationshipQuery + EdgeMetadata + fluent API
+    _relationship_crud_mixin.py   # RelationshipCrud + validation helpers
+    _user_entity_mixin.py         # Generic user-entity ops (5 methods)
+    _traversal_mixin.py           # GraphTraversalOperations
+    domain_backends.py            # 10 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
+                                  #   ChoicesBackend, PrinciplesBackend, KuBackend, SubmissionsBackend, LpBackend, ExerciseBackend
 ```
 
 **Class declaration:**
@@ -40,7 +41,8 @@ adapters/persistence/neo4j/
 class UniversalNeo4jBackend[T: DomainModelProtocol](
     _CrudMixin[T],
     _SearchMixin[T],
-    _RelationshipMixin[T],
+    _RelationshipQueryMixin[T],
+    _RelationshipCrudMixin[T],
     _UserEntityMixin[T],
     _TraversalMixin,
 ):

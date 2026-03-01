@@ -102,7 +102,8 @@ if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
 
 from adapters.persistence.neo4j._crud_mixin import _CrudMixin
-from adapters.persistence.neo4j._relationship_mixin import _RelationshipMixin
+from adapters.persistence.neo4j._relationship_crud_mixin import _RelationshipCrudMixin
+from adapters.persistence.neo4j._relationship_query_mixin import _RelationshipQueryMixin
 from adapters.persistence.neo4j._search_mixin import _SearchMixin
 from adapters.persistence.neo4j._traversal_mixin import _TraversalMixin
 from adapters.persistence.neo4j._user_entity_mixin import _UserEntityMixin
@@ -113,7 +114,8 @@ logger = get_logger(__name__)
 class UniversalNeo4jBackend[T: DomainModelProtocol](
     _CrudMixin[T],
     _SearchMixin[T],
-    _RelationshipMixin[T],
+    _RelationshipQueryMixin[T],
+    _RelationshipCrudMixin[T],
     _UserEntityMixin[T],
     _TraversalMixin,
 ):

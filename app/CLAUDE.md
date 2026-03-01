@@ -1101,7 +1101,7 @@ tasks = await backend.find_by(priority='high', due_date__gte=date.today())
 
 **Cascade Deletion:** Use `cascade=True` for Activity Domains (auto-created user relationships exist).
 
-**File Layout (February 2026):** `universal_backend.py` is a shell (~586 lines); methods live in 5 focused mixin files in the same directory: `_crud_mixin.py`, `_search_mixin.py`, `_relationship_mixin.py`, `_user_entity_mixin.py`, `_traversal_mixin.py`. Public API unchanged.
+**File Layout (March 2026):** `universal_backend.py` is a shell (~527 lines); methods live in 6 focused mixin files in the same directory: `_crud_mixin.py`, `_search_mixin.py`, `_relationship_query_mixin.py`, `_relationship_crud_mixin.py`, `_user_entity_mixin.py`, `_traversal_mixin.py`. Public API unchanged.
 
 **Domain Backends (all in `domain_backends.py`):**
 

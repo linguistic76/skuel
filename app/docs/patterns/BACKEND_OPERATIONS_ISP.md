@@ -201,7 +201,8 @@ class RelationshipAnalyzer:
 class UniversalNeo4jBackend[T: DomainModelProtocol](
     _CrudMixin[T],
     _SearchMixin[T],
-    _RelationshipMixin[T],
+    _RelationshipQueryMixin[T],
+    _RelationshipCrudMixin[T],
     _UserEntityMixin[T],
     _TraversalMixin,
 ):
@@ -225,7 +226,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 |------|-------------|-------------|
 | `_crud_mixin.py` | `CrudOperations[T]` | `create`, `get`, `get_many`, `update`, `delete`, `list` |
 | `_search_mixin.py` | `EntitySearchOperations[T]` | `find_by_date_range`, `search`, `find_by`, `count`, `health_check`, `get_domain_context_raw`, `execute_query` |
-| `_relationship_mixin.py` | `RelationshipCrud*`, `RelationshipMetadata*`, `RelationshipQuery*` | `create_relationship`, `delete_relationship`, `get_related_entities`, `relate()`, `_build_direction_pattern`, helpers |
+| `_relationship_query_mixin.py` | `RelationshipMetadata*`, `RelationshipQuery*` | `get_related_entities`, `get_related_uids`, `get_relationship_metadata`, `get_edge_metadata`, `relate()`, batch queries |
+| `_relationship_crud_mixin.py` | `RelationshipCrud*` | `create_relationship`, `delete_relationship`, `has_relationship`, `count_related`, `create_relationships_batch`, `_build_direction_pattern`, helpers |
 | `_user_entity_mixin.py` | Generic user-entity ops | `create_user_relationship`, `get_user_entities`, `count_user_entities`, `update_relationship_access`, `delete_user_relationship` |
 | `_traversal_mixin.py` | `GraphTraversalOperations` | `add_relationship`, `get_relationships`, `traverse`, `find_path` |
 | `universal_backend.py` (shell) | Coordination | `__init__`, `_track_db_metrics`, `_default_filter_*`, `_inject_default_filters`, `get_with_graph_context`, `__getattr__` |
@@ -263,7 +265,8 @@ MRO is left-to-right. Mixins are stateless method containers — no `super().__i
 | `/adapters/persistence/neo4j/universal_backend.py` | Shell: `__init__`, helpers, factory functions (~586 lines) |
 | `/adapters/persistence/neo4j/_crud_mixin.py` | `CrudOperations[T]` implementation |
 | `/adapters/persistence/neo4j/_search_mixin.py` | `EntitySearchOperations[T]` implementation |
-| `/adapters/persistence/neo4j/_relationship_mixin.py` | Relationship CRUD + Metadata + Query implementation |
+| `/adapters/persistence/neo4j/_relationship_query_mixin.py` | Relationship query + edge metadata + fluent API |
+| `/adapters/persistence/neo4j/_relationship_crud_mixin.py` | Relationship CRUD + validation helpers |
 | `/adapters/persistence/neo4j/_user_entity_mixin.py` | Generic user-entity relationship ops (5 methods) |
 | `/adapters/persistence/neo4j/_traversal_mixin.py` | `GraphTraversalOperations` implementation |
 | `/adapters/persistence/neo4j/domain_backends.py` | All 10 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend, ChoicesBackend, PrinciplesBackend, KuBackend, SubmissionsBackend, LpBackend, ExerciseBackend |
