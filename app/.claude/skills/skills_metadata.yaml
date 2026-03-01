@@ -6,9 +6,13 @@
 # Skills are organized by foundation layer (base dependencies).
 #
 # New in Phase 2.2 (2026-02-02):
-# - Added 8 missing skills (accessibility-guide, base-page-architecture, custom-sidebar-patterns,
-#   neo4j-genai-plugin, prometheus-grafana, skuel-component-composition, skuel-form-patterns, ui-error-handling)
-# - Added related_adrs and patterns fields to all skills for bidirectional linking
+# - Added 8 missing skills; added related_adrs and patterns fields for bidirectional linking
+#
+# New in Phase 2.4 (2026-03-01):
+# - Consolidated 9 UI skills into 3: ui-css (Tailwind+DaisyUI), ui-browser (Alpine+HTMX), skuel-ui (all SKUEL patterns)
+# - Deleted: tailwind-css, daisyui, js-alpine, html-htmx, html-navigation, base-page-architecture, custom-sidebar-patterns,
+#   skuel-component-composition, skuel-form-patterns
+# - Total: 31 → 25 skills
 #
 # New in Phase 2.3 (2026-02-02):
 # - Added library_package and library_version fields for library upgrade detection
@@ -75,8 +79,8 @@ skills:
       - /docs/patterns/PERFORMANCE_MONITORING.md
     keywords: [pydantic, validation, basemodel, serialization]
 
-  - name: tailwind-css
-    description: Utility-first CSS with Tailwind
+  - name: ui-css
+    description: SKUEL CSS layer — DaisyUI semantic components + Tailwind utility classes
     foundation: []
     dependencies: []
     library_package: null  # CDN/static, not PyPI package
@@ -85,19 +89,7 @@ skills:
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
     related_adrs: []
     patterns: []
-    keywords: [tailwind, css, styling, responsive, utility-first]
-
-  - name: daisyui
-    description: DaisyUI component library
-    foundation: []
-    dependencies: [tailwind-css]
-    library_package: null  # CDN/static, not PyPI package
-    library_version: null
-    primary_docs:
-      - /docs/patterns/UI_COMPONENT_PATTERNS.md
-    related_adrs: []
-    patterns: []
-    keywords: [daisyui, components, ui, semantic, accessible]
+    keywords: [tailwind, daisyui, css, styling, responsive, utility-first, components, ui, semantic, accessible]
 
   - name: chartjs
     description: Chart.js data visualization in SKUEL
@@ -164,45 +156,21 @@ skills:
       - /docs/patterns/FASTHTML_ROUTE_REGISTRATION.md
     keywords: [domain-route-config, route-registration, configuration-driven, DomainRouteConfig, register_domain_routes]
 
-  - name: html-htmx
-    description: Semantic HTML and HTMX (HTTP-complete HTML)
+  - name: ui-browser
+    description: SKUEL browser interactivity — HTMX for server communication + Alpine.js for client-side state
     foundation: [fasthtml]
     dependencies: [fasthtml]
-    library_package: null  # Bundled with FastHTML, vendored static
+    library_package: null  # Vendored static files
     library_version: null
     primary_docs:
+      - /docs/architecture/ALPINE_JS_ARCHITECTURE.md
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
-      - /docs/guides/HTMX_VERSION_STANDARDIZATION.md
+      - /docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md
     related_adrs: []
     patterns:
       - /docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md
       - /docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md
-    keywords: [html, htmx, hypermedia, hx-*, ajax]
-
-  - name: html-navigation
-    description: Building navigation components
-    foundation: [fasthtml, html-htmx, js-alpine]
-    dependencies: [fasthtml, html-htmx, js-alpine]
-    library_package: null  # SKUEL pattern, not external library
-    library_version: null
-    primary_docs:
-      - /docs/patterns/UI_COMPONENT_PATTERNS.md
-    related_adrs: []
-    patterns: []
-    keywords: [navigation, navbar, sidebar, menu, breadcrumbs]
-
-  - name: js-alpine
-    description: Alpine.js - lightweight reactive JavaScript for HTML
-    foundation: []
-    dependencies: []
-    library_package: null  # Vendored static file
-    library_version: "3.14.8"  # From /static/vendor/alpinejs/
-    primary_docs:
-      - /docs/architecture/ALPINE_JS_ARCHITECTURE.md
-      - /docs/patterns/UI_COMPONENT_PATTERNS.md
-    related_adrs: []
-    patterns: []
-    keywords: [alpine, javascript, reactivity, x-data, client-state]
+    keywords: [htmx, alpine, javascript, hypermedia, hx-*, x-data, ajax, reactivity, client-state, navigation, navbar, menu]
 
   # ============================================================================
   # UX & ACCESSIBILITY LAYER
@@ -210,8 +178,8 @@ skills:
 
   - name: accessibility-guide
     description: Expert guide for building accessible web applications following WCAG standards
-    foundation: [html-htmx, daisyui]
-    dependencies: [html-htmx, daisyui]
+    foundation: [ui-browser, ui-css]
+    dependencies: [ui-browser, ui-css]
     library_package: null  # SKUEL pattern, not external library
     library_version: null
     primary_docs:
@@ -221,34 +189,10 @@ skills:
     patterns: []
     keywords: [accessibility, a11y, wcag, screen-reader, aria, keyboard-navigation]
 
-  - name: base-page-architecture
-    description: Expert guide for BasePage layout system and page types
-    foundation: [fasthtml, html-htmx, daisyui, tailwind-css]
-    dependencies: [fasthtml, html-htmx, daisyui, tailwind-css]
-    library_package: null  # SKUEL pattern, not external library
-    library_version: null
-    primary_docs:
-      - /docs/patterns/UI_COMPONENT_PATTERNS.md
-    related_adrs: []
-    patterns: []
-    keywords: [basepage, layout, page-types, hub, standard, custom]
-
-  - name: custom-sidebar-patterns
-    description: Expert guide for building custom sidebar navigation patterns
-    foundation: [base-page-architecture, html-htmx, js-alpine]
-    dependencies: [base-page-architecture, html-htmx, js-alpine]
-    library_package: null  # SKUEL pattern, not external library
-    library_version: null
-    primary_docs:
-      - /docs/patterns/UI_COMPONENT_PATTERNS.md
-    related_adrs: []
-    patterns: []
-    keywords: [sidebar, navigation, drawer, collapsible, persistent-state]
-
-  - name: skuel-component-composition
-    description: Expert guide for composing reusable UI components in SKUEL
-    foundation: [base-page-architecture, daisyui, tailwind-css]
-    dependencies: [base-page-architecture, daisyui, tailwind-css]
+  - name: skuel-ui
+    description: SKUEL UI patterns — BasePage, components, navigation, sidebars, forms (self-contained)
+    foundation: [fasthtml, ui-css, ui-browser, pydantic]
+    dependencies: [fasthtml, ui-css, ui-browser, pydantic]
     library_package: null  # SKUEL pattern, not external library
     library_version: null
     primary_docs:
@@ -256,25 +200,13 @@ skills:
     related_adrs: []
     patterns:
       - /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
-    keywords: [component-composition, reusable-patterns, ui-primitives, design-system]
-
-  - name: skuel-form-patterns
-    description: Expert guide for building accessible, validated forms in SKUEL
-    foundation: [pydantic, html-htmx, daisyui]
-    dependencies: [pydantic, html-htmx, daisyui]
-    library_package: null  # SKUEL pattern, not external library
-    library_version: null
-    primary_docs:
       - /docs/patterns/API_VALIDATION_PATTERNS.md
-    related_adrs: []
-    patterns:
-      - /docs/patterns/PERFORMANCE_MONITORING.md
-    keywords: [forms, validation, error-handling, input, submission]
+    keywords: [basepage, layout, page-types, hub, standard, custom, sidebar, navigation, drawer, collapsible, component-composition, reusable-patterns, ui-primitives, design-system, forms, validation, error-handling, input, submission, navbar, menu]
 
   - name: ui-error-handling
     description: Expert guide for UI error handling patterns and user feedback
-    foundation: [result-pattern, daisyui]
-    dependencies: [result-pattern, daisyui]
+    foundation: [result-pattern, ui-css]
+    dependencies: [result-pattern, ui-css]
     library_package: null  # SKUEL pattern, not external library
     library_version: null
     primary_docs:
@@ -493,20 +425,16 @@ skills:
 # ============================================================================
 #
 # Foundation (no dependencies):
-#   python, pydantic, tailwind-css, daisyui, chartjs, vis-network, js-alpine, neo4j-cypher-patterns, prometheus-grafana
+#   python, pydantic, ui-css, chartjs, vis-network, neo4j-cypher-patterns, prometheus-grafana
 #
 # Web Framework:
-#   fasthtml → html-htmx → html-navigation
+#   fasthtml → ui-browser
 #   fasthtml → domain-route-config
-#   (html-navigation also depends on js-alpine)
 #
 # UX & Accessibility:
-#   accessibility-guide (depends on html-htmx, daisyui)
-#   base-page-architecture (depends on fasthtml, html-htmx, daisyui, tailwind-css)
-#   custom-sidebar-patterns (depends on base-page-architecture, html-htmx, js-alpine)
-#   skuel-component-composition (depends on base-page-architecture, daisyui, tailwind-css)
-#   skuel-form-patterns (depends on pydantic, html-htmx, daisyui)
-#   ui-error-handling (depends on result-pattern, daisyui)
+#   accessibility-guide (depends on ui-browser, ui-css)
+#   skuel-ui (depends on fasthtml, ui-css, ui-browser, pydantic)
+#   ui-error-handling (depends on result-pattern, ui-css)
 #
 # Database:
 #   neo4j-genai-plugin (depends on neo4j-cypher-patterns)
@@ -523,5 +451,5 @@ skills:
 # Testing:
 #   pytest (depends on python, result-pattern)
 #
-# Total skills: 29
+# Total skills: 25
 # No cycles detected - graph is valid ✓

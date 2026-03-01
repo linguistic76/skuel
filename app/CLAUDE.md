@@ -98,21 +98,15 @@ async def get_learning_opportunities(
 | **Foundation Layer** | | |
 | python | `/docs/patterns/TYPE_SAFETY_OVERVIEW.md`, `/docs/patterns/three_tier_type_system.md`, `/docs/patterns/protocol_architecture.md` | ASYNC_SYNC_DESIGN_PATTERN.md, ANY_USAGE_POLICY.md |
 | pydantic | `/docs/patterns/three_tier_type_system.md`, `/docs/patterns/API_VALIDATION_PATTERNS.md` | DOMAIN_PATTERNS_CATALOG.md |
-| tailwind-css | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | — |
-| daisyui | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | — |
+| ui-css | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | — |
 | chartjs | `/docs/architecture/ADMIN_DASHBOARD_ARCHITECTURE.md` | — |
 | **Web Framework** | | |
 | fasthtml | `/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md`, `/docs/patterns/ROUTE_FACTORIES.md` | DOMAIN_ROUTE_CONFIG_PATTERN.md |
 | domain-route-config | `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md`, `/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md` | ROUTE_FACTORIES.md |
-| html-htmx | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | HTMX_ACCESSIBILITY_PATTERNS.md |
-| html-navigation | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | — |
-| js-alpine | `/docs/architecture/ALPINE_JS_ARCHITECTURE.md` | UI_COMPONENT_PATTERNS.md |
+| ui-browser | `/docs/architecture/ALPINE_JS_ARCHITECTURE.md` | HTMX_ACCESSIBILITY_PATTERNS.md |
 | **UX & Accessibility** | | |
 | accessibility-guide | `/docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md` | UI_COMPONENT_PATTERNS.md |
-| base-page-architecture | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | — |
-| custom-sidebar-patterns | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | — |
-| skuel-component-composition | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | HIERARCHY_COMPONENTS_GUIDE.md |
-| skuel-form-patterns | `/docs/patterns/API_VALIDATION_PATTERNS.md` | PERFORMANCE_MONITORING.md |
+| skuel-ui | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | HIERARCHY_COMPONENTS_GUIDE.md |
 | ui-error-handling | `/docs/patterns/ERROR_HANDLING.md` | RETURN_TYPE_ERROR_PROPAGATION.md |
 | **Database** | | |
 | neo4j-cypher-patterns | `/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md`, `/docs/patterns/query_architecture.md` | CYPHER_VS_APOC_STRATEGY.md |
@@ -135,7 +129,7 @@ async def get_learning_opportunities(
 | **Meta** | | |
 | docs-skills-evolution | `/docs/patterns/DOCSTRING_STANDARDS.md`, `/docs/decisions/ADR-TEMPLATE.md` | Cross-reference validation |
 
-**Total:** 31 skills with comprehensive documentation mappings
+**Total:** 25 skills with comprehensive documentation mappings
 
 ## Documentation Architecture
 
