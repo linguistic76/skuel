@@ -47,7 +47,7 @@ class UserContextIntelligence(
 ```python
 class LearningIntelligenceMixin:
     context: UserContext  # User state
-    tasks: Any            # TasksRelationshipService
+    tasks: Any            # UnifiedRelationshipService
     ku: Any               # KuGraphService
 ```
 
@@ -86,8 +86,8 @@ async def get_optimal_next_learning_steps(
 ```python
 class LifePathIntelligenceMixin:
     context: UserContext
-    goals: Any      # GoalsRelationshipService
-    habits: Any     # HabitsRelationshipService
+    goals: Any      # UnifiedRelationshipService
+    habits: Any     # UnifiedRelationshipService
     ku: Any         # KuGraphService
 ```
 
@@ -123,9 +123,9 @@ async def calculate_life_path_alignment(self) -> Result[LifePathAlignment]:
 ```python
 class SynergyIntelligenceMixin:
     context: UserContext
-    habits: Any     # HabitsRelationshipService
-    goals: Any      # GoalsRelationshipService
-    tasks: Any      # TasksRelationshipService
+    habits: Any     # UnifiedRelationshipService
+    goals: Any      # UnifiedRelationshipService
+    tasks: Any      # UnifiedRelationshipService
     ku: Any         # KuGraphService
 ```
 
@@ -164,9 +164,9 @@ async def get_cross_domain_synergies(self) -> Result[list[CrossDomainSynergy]]:
 class ScheduleIntelligenceMixin:
     context: UserContext
     calendar: Any   # CalendarService
-    events: Any     # EventsRelationshipService
-    tasks: Any      # TasksRelationshipService
-    habits: Any     # HabitsRelationshipService
+    events: Any     # UnifiedRelationshipService
+    tasks: Any      # UnifiedRelationshipService
+    habits: Any     # UnifiedRelationshipService
 ```
 
 **Key Logic:**
@@ -204,15 +204,17 @@ async def get_schedule_aware_recommendations(
 ```python
 class DailyPlanningMixin:
     context: UserContext
-    tasks: Any          # TasksRelationshipService
-    habits: Any         # HabitsRelationshipService
-    goals: Any          # GoalsRelationshipService
-    events: Any         # EventsRelationshipService
-    choices: Any        # ChoicesRelationshipService
-    principles: Any     # PrinciplesRelationshipService
+    tasks: Any          # UnifiedRelationshipService
+    habits: Any         # UnifiedRelationshipService
+    goals: Any          # UnifiedRelationshipService
+    events: Any         # UnifiedRelationshipService
+    choices: Any        # UnifiedRelationshipService
+    principles: Any     # UnifiedRelationshipService
     ku: Any             # KuGraphService
     feedback: Any       # FeedbackRelationshipService
 ```
+
+**Note:** The 6 domain-specific planning methods this mixin calls (`get_at_risk_habits_for_user`, `get_upcoming_events_for_user`, `get_actionable_tasks_for_user`, `get_advancing_goals_for_user`, `get_pending_decisions_for_user`, `get_aligned_principles_for_user`) are provided by `_domain_planning_mixin.py` via the `UnifiedRelationshipService` MRO — they are not on the `UnifiedRelationshipService` shell itself.
 
 **Key Logic:**
 - Synthesizes 10 entity domains into one daily plan
@@ -229,6 +231,7 @@ async def get_ready_to_work_on_today(
     Priority Order:
     1. At-risk habits (maintain streaks)
     2. Today's events (can't reschedule)
+    2.5. Unsubmitted exercises (teacher assignments — external accountability)
     3. Overdue and actionable tasks
     4. Daily habits (consistency)
     5. Learning (if capacity allows)

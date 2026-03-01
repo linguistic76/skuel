@@ -35,7 +35,11 @@ SearchRouter (THE Orchestrator):
 | **Models** | `/core/models/search_request.py` | SearchRequest/SearchResponse |
 | **Routes** | `/adapters/inbound/search_routes.py` | HTTP handling |
 | **Domain Services** | `/core/services/{domain}/{domain}_search_service.py` | Domain logic |
-| **Backends** | `/adapters/persistence/neo4j/{ls,lp,moc}_backend.py` | Protocol implementations |
+| **Domain Backends** | `/adapters/persistence/neo4j/domain_backends.py` | Domain-specific relationship Cypher |
+| **Universal Backend** | `/adapters/persistence/neo4j/universal_backend.py` | Shell (~527 lines); methods in 6 mixin files |
+| **Backend Mixins** | `_crud_mixin.py`, `_search_mixin.py`, `_relationship_query_mixin.py`, `_relationship_crud_mixin.py`, `_user_entity_mixin.py`, `_traversal_mixin.py` | One file per protocol group |
+
+**Backend structure (March 2026):** `universal_backend.py` is a shell; all persistence operations live in 6 focused mixin files. `_relationship_mixin.py` was split into `_relationship_query_mixin.py` (graph-native queries, `relate()` fluent API, edge metadata) and `_relationship_crud_mixin.py` (create/delete/validate, `has_relationship`, batch ops). Public API unchanged.
 
 ## Searchable Domains (9 — No MOC)
 

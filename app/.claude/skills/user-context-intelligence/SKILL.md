@@ -362,6 +362,8 @@ class DailyPlanningMixin:
     ku: Any                        # KuGraphService
 ```
 
+**Domain-specific planning methods** (`get_at_risk_habits_for_user`, `get_actionable_tasks_for_user`, `get_upcoming_events_for_user`, `get_advancing_goals_for_user`, `get_pending_decisions_for_user`, `get_aligned_principles_for_user`) are provided by `_domain_planning_mixin.py` in the URS package via MRO — `DailyPlanningMixin` calls them on `self.tasks`, `self.habits`, etc.
+
 ---
 
 ## UserContext Integration
@@ -556,6 +558,7 @@ intelligence = factory.create(context)
 | `/core/services/submissions/submissions_relationship_service.py` | Level 1 — submission graph queries |
 | `/core/services/feedback/feedback_relationship_service.py` | Level 1 — feedback loop graph queries |
 | `/core/services/analytics_relationship_service.py` | Level 1 — cross-domain analytics queries |
+| `/core/services/relationships/_domain_planning_mixin.py` | 6 domain-specific planning methods called by DailyPlanningMixin on URS instances |
 | `/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md` | Documentation |
 
 ## Deep Dive Resources

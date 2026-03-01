@@ -76,6 +76,8 @@ api_factory(
 - Shared services use full names: `services.user_service`
 - Special cases: `services.event_bus`, `services.driver`
 
+**What these service attributes are:** `services.tasks`, `services.goals`, etc. are `TasksService`/`GoalsService` facade instances. Their `.relationships` attribute is a `UnifiedRelationshipService` (URS) — a shell + 6 focused mixins (`PlanningMixin`, `DomainPlanningMixin`, `LifePathMixin`, `IntelligenceMixin`, `OrderedRelationshipsMixin`, `BatchOperationsMixin`). DomainRouteConfig wires the facade; the URS methods are used by intelligence services internally. Public API unchanged across the decomposition.
+
 **None is valid.** If `getattr(services, attr)` returns `None` (service not yet bootstrapped), the `None` is passed through. The factory must handle optional dependencies with default parameters:
 
 ```python
