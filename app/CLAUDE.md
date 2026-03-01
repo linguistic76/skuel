@@ -125,8 +125,6 @@ async def get_learning_opportunities(
 | result-pattern | `/docs/patterns/ERROR_HANDLING.md` | RETURN_TYPE_ERROR_PROPAGATION.md |
 | base-analytics-service | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md` | 7 pattern docs |
 | base-ai-service | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` | — |
-| activity-domains | `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` | OWNERSHIP_VERIFICATION.md |
-| curriculum-domains | `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` | OWNERSHIP_VERIFICATION.md |
 | **learning-loop** | `/docs/architecture/FEEDBACK_ARCHITECTURE.md`, `/docs/architecture/SUBMISSION_FEEDBACK_LOOP.md` | ADR-038, ADR-040 |
 | skuel-search-architecture | `/docs/architecture/SEARCH_ARCHITECTURE.md` | query_architecture.md |
 | user-context-intelligence | `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` | — |
