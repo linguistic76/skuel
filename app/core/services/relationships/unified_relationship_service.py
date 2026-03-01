@@ -68,6 +68,7 @@ from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
 from core.services.infrastructure import RelationshipCreationHelper, SemanticRelationshipHelper
 from core.services.relationships._batch_operations_mixin import BatchOperationsMixin
+from core.services.relationships._domain_planning_mixin import DomainPlanningMixin
 from core.services.relationships._intelligence_mixin import IntelligenceMixin
 from core.services.relationships._life_path_mixin import LifePathMixin
 from core.services.relationships._ordered_relationships_mixin import OrderedRelationshipsMixin
@@ -86,6 +87,7 @@ D = TypeVar("D")  # DTO type
 
 class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProtocol, DtoType](
     PlanningMixin,
+    DomainPlanningMixin,
     LifePathMixin,
     IntelligenceMixin,
     OrderedRelationshipsMixin,
