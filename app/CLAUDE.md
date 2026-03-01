@@ -127,6 +127,7 @@ async def get_learning_opportunities(
 | base-ai-service | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` | — |
 | activity-domains | `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` | OWNERSHIP_VERIFICATION.md |
 | curriculum-domains | `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` | OWNERSHIP_VERIFICATION.md |
+| **learning-loop** | `/docs/architecture/FEEDBACK_ARCHITECTURE.md`, `/docs/architecture/SUBMISSION_FEEDBACK_LOOP.md` | ADR-038, ADR-040 |
 | skuel-search-architecture | `/docs/architecture/SEARCH_ARCHITECTURE.md` | query_architecture.md |
 | user-context-intelligence | `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` | — |
 | **Testing** | | |
@@ -136,7 +137,7 @@ async def get_learning_opportunities(
 | **Meta** | | |
 | docs-skills-evolution | `/docs/patterns/DOCSTRING_STANDARDS.md`, `/docs/decisions/ADR-TEMPLATE.md` | Cross-reference validation |
 
-**Total:** 30 skills with comprehensive documentation mappings
+**Total:** 31 skills with comprehensive documentation mappings
 
 ## Documentation Architecture
 
@@ -262,6 +263,7 @@ Future collaborators — human or AI — should read SKUEL's plain-English domai
 - **Services split:** `core/services/submissions/` (student work) + `core/services/feedback/` (responses)
 - **Models split:** `core/models/submissions/` + `core/models/feedback/`
 - **See:** `/docs/architecture/FEEDBACK_ARCHITECTURE.md` — canonical feedback reference
+- **See:** `@learning-loop` skill — four-phase development lens (Ku → Exercise → Submission → Feedback)
 
 **Organizational Domains (2)**:
 - **Groups** - Teacher-student class management (ADR-040). Teacher creates group, adds students via MEMBER_OF. Exercises target groups via FOR_GROUP.
