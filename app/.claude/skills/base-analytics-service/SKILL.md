@@ -33,21 +33,23 @@ SKUEL separates analytics from AI with two base classes:
 - Template methods for context-based analysis
 - Dual-track assessment (user vision vs system measurement)
 
-### The 10 Domain Intelligence Services
+### The 9 Domain Intelligence Services
 
 | Domain | Service | Inherits | Key Focus |
 |--------|---------|----------|-----------|
 | **Activity (6)** |
-| Tasks | `TasksIntelligenceService` | `BaseAnalyticsService[BackendOperations[Ku], Ku]` | Knowledge generation, learning |
-| Goals | `GoalsIntelligenceService` | `BaseAnalyticsService[GoalsOperations, Ku]` | Progress forecasting |
-| Habits | `HabitsIntelligenceService` | `BaseAnalyticsService[HabitsOperations, Ku]` | Streak patterns |
-| Events | `EventsIntelligenceService` | `BaseAnalyticsService[BackendOperations[Ku], Ku]` | Cross-domain impact |
-| Choices | `ChoicesIntelligenceService` | `BaseAnalyticsService[BackendOperations[Ku], Ku]` | Decision support |
-| Principles | `PrinciplesIntelligenceService` | `BaseAnalyticsService[PrinciplesOperations, Ku]` | Alignment analysis |
+| Tasks | `TasksIntelligenceService` | `BaseAnalyticsService["TasksOperations", Task]` | Knowledge generation, learning |
+| Goals | `GoalsIntelligenceService` | `BaseAnalyticsService[GoalsOperations, Goal]` | Progress forecasting |
+| Habits | `HabitsIntelligenceService` | `BaseAnalyticsService[HabitsOperations, Habit]` | Streak patterns |
+| Events | `EventsIntelligenceService` | `BaseAnalyticsService["EventsOperations", Event]` | Cross-domain impact |
+| Choices | `ChoicesIntelligenceService` | `BaseAnalyticsService["ChoicesOperations", Choice]` | Decision support |
+| Principles | `PrinciplesIntelligenceService` | `BaseAnalyticsService[PrinciplesOperations, Principle]` | Alignment analysis |
 | **Curriculum (3)** |
-| KU | `KuIntelligenceService` | `BaseAnalyticsService[KuOperations, Ku]` | Knowledge graph analytics |
-| LS | `LsIntelligenceService` | `BaseAnalyticsService[BackendOperations[Ku], Ku]` | Readiness checks |
-| LP | `LpIntelligenceService` | `BaseAnalyticsService[Any, Ku]` | Learning state analysis |
+| KU | `KuIntelligenceService` | `BaseAnalyticsService[KuOperations, Entity]` | Knowledge graph analytics |
+| LS | `LsIntelligenceService` | `BaseAnalyticsService["BackendOperations[LearningStep]", LearningStep]` | Readiness checks |
+| LP | `LpIntelligenceService` | `BaseAnalyticsService[Any, Entity]` | Learning state analysis |
+
+**Key pattern:** The second type parameter is the domain's own model (`Task`, `Goal`, `Habit`, etc.), not the generic `Ku`. Curriculum services use `Entity` as the second param since Ku nodes are base-class entities.
 
 ---
 

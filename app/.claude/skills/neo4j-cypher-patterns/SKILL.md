@@ -12,32 +12,48 @@ SKUEL uses Neo4j as its graph database with a 14-domain architecture. All domain
 
 ### Entity Labels (Neo4j Node Labels)
 
+All domain entities use **multi-label architecture**: every entity gets `:Entity` (universal base) plus a domain-specific label. Match on the domain label for fast indexed queries, or `:Entity` for cross-domain queries.
+
 | Domain | Label | UID Format | Example |
 |--------|-------|------------|---------|
+| **Activity (6) — user-owned** | | | |
 | Tasks | `Task` | `task_{slug}_{random}` | `task_fix-bug_abc123` |
 | Goals | `Goal` | `goal_{slug}_{random}` | `goal_launch-product_def456` |
 | Habits | `Habit` | `habit_{slug}_{random}` | `habit_daily-run_xyz789` |
 | Events | `Event` | `event_{slug}_{random}` | `event_team-standup_ghi012` |
 | Choices | `Choice` | `choice_{slug}_{random}` | `choice_accept-offer_jkl345` |
 | Principles | `Principle` | `principle_{slug}_{random}` | `principle_small-steps_mno678` |
-| Knowledge Units | `Curriculum` | `ku_{slug}_{random}` | `ku_python-basics_abc123` |
+| **Curriculum (4) — shared content** | | | |
+| Knowledge Units | `Ku` | `ku_{slug}_{random}` | `ku_python-basics_abc123` |
+| Resources | `Resource` | *(no fixed format)* | |
 | Learning Steps | `LearningStep` | `ls:{random}` | `ls:intro-to-python` |
 | Learning Paths | `LearningPath` | `lp:{random}` | `lp:become-python-developer` |
+| **Submissions/Feedback (4)** | | | |
+| Submissions | `Submission` | `ku_{slug}_{random}` | `ku_my-essay_abc123` |
+| Journals | `Journal` | `ku_{slug}_{random}` | |
+| Activity Reports | `ActivityReport` | `ku_{slug}_{random}` | |
+| Submission Feedback | `SubmissionFeedback` | `ku_{slug}_{random}` | |
+| **Instruction** | | | |
+| Exercises | `Exercise` | `ku_{slug}_{random}` | |
+| **Destination** | | | |
+| Life Path | `LifePath` | `lp_{random}` | `lp_abc123` |
+| **Other** | | | |
 | Users | `User` | `user_{name}` | `user_mike` |
 | Finance | `Expense` | `expense_{random}` | `expense_abc123` |
+| Groups | `Group` | `group_{slug}_{random}` | |
 
 ### Core Relationships (Most Common)
 
 ```cypher
-// Ownership - User owns entities
-(user:User)-[:HAS_TASK]->(task:Task)
-(user:User)-[:HAS_GOAL]->(goal:Goal)
-(user:User)-[:HAS_HABIT]->(habit:Habit)
+// Ownership - Universal OWNS relationship (all Activity Domains)
+(user:User)-[:OWNS]->(task:Task)
+(user:User)-[:OWNS]->(goal:Goal)
+(user:User)-[:OWNS]->(habit:Habit)
 
 // Knowledge application
-(task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
-(goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku:Curriculum)
-(habit:Habit)-[:REINFORCES_KNOWLEDGE]->(ku:Curriculum)
+(task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+(goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku:Ku)
+(habit:Habit)-[:REINFORCES_KNOWLEDGE]->(ku:Ku)
 
 // Goal hierarchy
 (task:Task)-[:FULFILLS_GOAL]->(goal:Goal)
@@ -45,13 +61,20 @@ SKUEL uses Neo4j as its graph database with a 14-domain architecture. All domain
 (goal:Goal)-[:SUBGOAL_OF]->(parent:Goal)
 
 // Knowledge structure
-(ku:Curriculum)-[:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
-(ku:Curriculum)-[:ENABLES]->(enabled:Curriculum)
-(ku:Curriculum)-[:RELATED_TO]->(related:Curriculum)
+(ku:Ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+(ku:Ku)-[:ENABLES_KNOWLEDGE]->(enabled:Ku)
+(ku:Ku)-[:RELATED_TO]->(related:Ku)
+
+// MOC organization — any Ku can organize other Kus (emergent identity)
+(moc:Ku)-[:ORGANIZES {order: 1}]->(child:Ku)
 
 // Principles guidance
 (goal:Goal)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
 (choice:Choice)-[:ALIGNED_WITH_PRINCIPLE]->(principle:Principle)
+
+// Life path (everything flows toward the life path)
+(user:User)-[:ULTIMATE_PATH]->(lp:LifePath)
+(entity:Entity)-[:SERVES_LIFE_PATH]->(lp:LifePath)
 ```
 
 ## Query Patterns
@@ -59,8 +82,8 @@ SKUEL uses Neo4j as its graph database with a 14-domain architecture. All domain
 ### Pattern 1: Get User's Entities
 
 ```cypher
-// Get all active tasks for a user
-MATCH (u:User {uid: $user_uid})-[:HAS_TASK]->(t:Task)
+// Get all active tasks for a user via universal OWNS relationship
+MATCH (u:User {uid: $user_uid})-[:OWNS]->(t:Task)
 WHERE t.status IN ['pending', 'in_progress']
 RETURN t
 ORDER BY t.priority DESC, t.due_date ASC
@@ -71,7 +94,7 @@ ORDER BY t.priority DESC, t.due_date ASC
 ```cypher
 // Get task with its full neighborhood
 MATCH (t:Task {uid: $uid})
-OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
+OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
 OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
 OPTIONAL MATCH (t)-[:DEPENDS_ON]->(dep:Task)
 RETURN t,
@@ -85,7 +108,7 @@ RETURN t,
 ```cypher
 // Find all knowledge required for a goal (including transitive)
 MATCH (g:Goal {uid: $goal_uid})
-MATCH path = (g)-[:REQUIRES_KNOWLEDGE*1..3]->(ku:Curriculum)
+MATCH path = (g)-[:REQUIRES_KNOWLEDGE*1..3]->(ku:Ku)
 RETURN DISTINCT ku
 ORDER BY length(path)
 ```
@@ -96,7 +119,7 @@ ORDER BY length(path)
 // Search tasks with relationship filter
 MATCH (t:Task)
 WHERE t.title CONTAINS $query OR t.description CONTAINS $query
-OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
+OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
 WITH t, collect(ku) as knowledge
 WHERE size(knowledge) > 0  // Only tasks that apply knowledge
 RETURN t, knowledge
@@ -115,24 +138,25 @@ RETURN ku.uid,
 
 ## Query Builders (SKUEL Infrastructure)
 
-SKUEL has three query builders with clear responsibilities:
+SKUEL has two query builders for domain services (SKUEL001: no APOC in domain services):
 
 | Builder | Location | Use Case |
 |---------|----------|----------|
-| **CypherGenerator** | `core/models/query/cypher/` | Pure Cypher, semantic traversal (modular package) |
-| **ApocQueryBuilder** | `core/models/query/query_models.py` | Batch ops, schema-aware merges |
 | **UnifiedQueryBuilder** | `core/models/query/` | Generic CRUD (used by backends) |
+| **CypherGenerator** | `core/models/query/cypher/` | Pure Cypher, semantic traversal |
+
+**SKUEL001 linter rule:** APOC is scoped to `apoc.meta.*` (schema introspection only). Domain services use pure Cypher — never APOC in `core/services/`.
 
 ### Two-Layer Architecture
 
 ```
 Layer 1: Backend (Generic CRUD)
 ├── UniversalNeo4jBackend uses UnifiedQueryBuilder
-└── Powers ALL 12+ domains with generic operations
+└── Powers ALL 15+ domain entity types with generic operations
 
 Layer 2: Services (Semantic Queries)
-├── Domain services use CypherGenerator
-└── Specialized queries for business logic
+├── Domain services use direct driver.execute_query() + CypherGenerator
+└── Specialized business logic queries
 ```
 
 ## Filter Operators
@@ -217,14 +241,16 @@ query = "MATCH (a)-[:REQURES_KNOWLEDGE]->(b)"  # typo!
 ### 5. Check Ownership for Multi-Tenant Security
 
 ```cypher
-// GOOD - ownership verified
-MATCH (u:User {uid: $user_uid})-[:HAS_TASK]->(t:Task {uid: $task_uid})
+// GOOD - ownership verified via universal OWNS relationship
+MATCH (u:User {uid: $user_uid})-[:OWNS]->(t:Task {uid: $task_uid})
 RETURN t
 
 // BAD - no ownership check (security risk)
 MATCH (t:Task {uid: $task_uid})
 RETURN t
 ```
+
+**Note:** The OWNS relationship is the universal ownership pattern. Domain-specific variants (HAS_TASK, HAS_GOAL, etc.) exist in RelationshipName but OWNS is what the backends use.
 
 ## Additional Resources
 

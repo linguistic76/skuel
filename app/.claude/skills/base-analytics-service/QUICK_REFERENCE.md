@@ -17,18 +17,17 @@
 
 ### Domain Intelligence Services
 
-| Domain | File | Lines |
+| Domain | File | Notes |
 |--------|------|-------|
-| Tasks | `/core/services/tasks/tasks_intelligence_service.py` | ~935 |
-| Goals | `/core/services/goals/goals_intelligence_service.py` | ~1,139 |
-| Habits | `/core/services/habits/habits_intelligence_service.py` | ~539 |
-| Events | `/core/services/events/events_intelligence_service.py` | ~492 |
-| Choices | `/core/services/choices/choices_intelligence_service.py` | ~679 |
-| Principles | `/core/services/principles/principles_intelligence_service.py` | ~650 |
-| KU | `/core/services/ku/ku_intelligence_service.py` | ~390 |
-| LS | `/core/services/ls/ls_intelligence_service.py` | ~394 |
-| LP | `/core/services/lp/lp_intelligence_service.py` | ~378 (facade) |
-| MOC | `/core/services/moc/moc_intelligence_service.py` | ~777 |
+| Tasks | `/core/services/tasks/tasks_intelligence_service.py` | |
+| Goals | `/core/services/goals/goals_intelligence_service.py` | |
+| Habits | `/core/services/habits/habits_intelligence_service.py` | |
+| Events | `/core/services/events/events_intelligence_service.py` | |
+| Choices | `/core/services/choices/choices_intelligence_service.py` | |
+| Principles | `/core/services/principles/principles_intelligence_service.py` | |
+| KU | `/core/services/ku_intelligence_service.py` | top-level (not in ku/ subdir) |
+| LS | `/core/services/ls/ls_intelligence_service.py` | |
+| LP | `/core/services/lp_intelligence_service.py` | top-level (not in lp/ subdir) |
 
 ### Documentation
 
@@ -168,7 +167,7 @@ async def _dual_track_assessment(
 
 ---
 
-## Three Standardized Methods (All 10 Services)
+## Three Standardized Methods (All 9 Services)
 
 ```python
 async def get_with_context(

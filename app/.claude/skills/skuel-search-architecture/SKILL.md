@@ -3,7 +3,7 @@ name: skuel-search-architecture
 description: Explains SKUEL's unified search architecture, SearchRouter orchestration, graph-aware search, and BaseService pattern. Use when implementing search features, optimizing search queries, understanding SearchRouter, working with domain search services, or discussing unified search across all domains.
 ---
 
-# SKUEL Search Architecture (January 2026 - Unified)
+# SKUEL Search Architecture (February 2026 - EntityType-Driven)
 
 ## Core Principle
 
@@ -11,20 +11,20 @@ description: Explains SKUEL's unified search architecture, SearchRouter orchestr
 
 **One Path Forward:** Never call domain search services directly from routes. Always use SearchRouter.
 
-**Unified Architecture (ADR-023):** All 14 domains are peers - no Activity/Curriculum distinction. All search services extend `BaseService[Backend, Model]`.
+**Unified Architecture (ADR-023, v3.0.0 Feb 2026):** SearchRouter dispatches by `EntityType`/`NonKuDomain` enum — type-safe, no stringly-typed domain checks. All search services extend `BaseService[Backend, Model]`.
 
 ## Architecture Overview
 
 ```
 External Callers (One Path Forward):
-├── /search routes      → SearchRouter.faceted_search()
-├── /api/search/unified → SearchRouter.advanced_search()
-└── GraphQL queries     → SearchRouter.faceted_search()
+├── /search routes      → SearchRouter.search() or search_domains()
+├── /api/search/unified → SearchRouter.advanced_search(SearchRequest)
+└── Cross-domain        → SearchRouter.unified_search()
 
 SearchRouter (THE Orchestrator):
-├── Graph-Aware Domains → domain.search.graph_aware_faceted_search()
-│   └── ALL 10 searchable domains (January 2026 - Unified)
-└── Cross-domain        → self.search_domains() (aggregation)
+├── EntityType/NonKuDomain → domain search service (type-safe dispatch)
+│   └── ALL 9 searchable domains
+└── Cross-domain           → self.search_domains() (aggregation)
 ```
 
 ## Key Files
@@ -37,128 +37,122 @@ SearchRouter (THE Orchestrator):
 | **Domain Services** | `/core/services/{domain}/{domain}_search_service.py` | Domain logic |
 | **Backends** | `/adapters/persistence/neo4j/{ls,lp,moc}_backend.py` | Protocol implementations |
 
-## Searchable Domains (January 2026 - All Unified)
+## Searchable Domains (9 — No MOC)
 
 | Domain | Entities | Search Mode | Pattern |
 |--------|----------|-------------|---------|
-| **All 10 Domains** | Task, Goal, Habit, Event, Choice, Principle, KU, LS, LP, MOC | Graph-Aware | BaseService |
+| **All 9 Domains** | Task, Goal, Habit, Event, Choice, Principle, KU, LS, LP | Graph-Aware | BaseService |
 
-**Note:** The Activity/Curriculum distinction has been eliminated. All domains are peers.
+**Note:** MOC is NOT a searchable domain — it is emergent identity (any Ku with ORGANIZES relationships). The Activity/Curriculum distinction has been eliminated; all 9 domains are peers.
 
-## Unified BaseService Pattern (ADR-023)
+## Unified BaseService Pattern (ADR-023, January 2026 DomainConfig)
 
-All search services extend `BaseService[Backend, Model]`:
+All search services extend `BaseService[Backend, Model]` using **DomainConfig** — the single source of truth for configuration. Direct class-attribute style (`_dto_class`, `_model_class`, etc.) was migrated to DomainConfig in January 2026.
 
 ```python
-class LsSearchService(BaseService["LsUniversalBackend", Ls]):
-    # Required - DTO and model classes
-    _dto_class = LearningStepDTO
-    _model_class = Ls
+# Curriculum domain example (shared content, admin creates, all users read)
+class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningStep]):
+    _config = create_curriculum_domain_config(
+        dto_class=LearningStepDTO,
+        model_class=LearningStep,
+        domain_name="ls",
+        search_fields=("title", "intent", "description"),
+        category_field="domain",
+    )
+    # _user_ownership_relationship = None by default for curriculum
 
-    # Search configuration
-    _search_fields: ClassVar[list[str]] = ["title", "intent", "description"]
-    _search_order_by: str = "updated_at"
-
-    # Curriculum features (opt-in via configuration)
-    _content_field: str = "description"
-    _supports_user_progress: bool = True  # Enable mastery tracking
-    _prerequisite_relationships: ClassVar[list[str]] = ["REQUIRES_STEP"]
-    _enables_relationships: ClassVar[list[str]] = ["ENABLES_STEP"]
-
-    # Ownership (None = shared content, no user filter)
-    _user_ownership_relationship: ClassVar[str | None] = None
-
-    # Graph enrichment for faceted search
-    _graph_enrichment_patterns: ClassVar[list[tuple[str, str, str, str]]] = [
-        ("CONTAINS_KNOWLEDGE", "Ku", "knowledge_units", "outgoing"),
-    ]
+# Activity domain example (user-owned content)
+class TasksSearchService(BaseService[TasksOperations, Task]):
+    _config = create_activity_domain_config(
+        dto_class=TaskDTO,
+        model_class=Task,
+        domain_name="tasks",
+        date_field="due_date",
+        completed_statuses=(EntityStatus.COMPLETED.value,),
+    )
 ```
 
 **All methods inherited from BaseService:**
-- `search(query, limit)` - Text search on `_search_fields`
-- `graph_aware_faceted_search(request)` - Unified filter interface
-- `get_by_domain()`, `get_by_status()`, `get_by_category()`
-- `get_with_content()`, `get_with_context()`
-- `get_prerequisites()`, `get_enables()`, `get_hierarchy()`
-- `get_user_progress()`, `update_user_mastery()`
+- `search(query, limit)` - Text search on configured `search_fields`
+- `get_by_status()`, `get_by_category()`, `list_categories()`
+- `get_prerequisites()`, `get_enables()`
+- `verify_ownership()` — Activity domains only (OWNS relationship)
 
 ## Common Implementation Patterns
 
-### Text Search + Property Filters
+### Single Domain Search
 
 ```python
-# Unified via SearchRequest - frontend uses one model for all domains
-request = SearchRequest(
-    query="python",
-    domains=[Domain.TECH],
-    status="active",
-)
-response = await search_router.faceted_search(request, user_uid)
-```
-
-### Graph-Aware Search (All Domains)
-
-```python
-# Graph patterns applied to ALL 10 searchable domains
-request = SearchRequest(
-    query="python",
-    ready_to_learn=True,      # Graph pattern: prerequisites met
-    supports_goals=True,       # Graph pattern: linked to user goals
-)
-response = await search_router.faceted_search(request, user_uid)
-# Results include _graph_context with relationship summaries
+# Route by EntityType - type-safe dispatch
+result = await search_router.search(EntityType.TASK, "urgent deadline")
+result = await search_router.search(EntityType.KU, "python basics")
 ```
 
 ### Cross-Domain Search
 
 ```python
 # SearchRouter aggregates from multiple domains
-request = SearchRequest(
-    query="machine learning",
-    entity_types=[EntityType.TASK, EntityType.KU, EntityType.LP],
+results = await search_router.search_domains(
+    [EntityType.TASK, EntityType.KU, EntityType.LP],
+    "machine learning"
 )
-response = await search_router.faceted_search(request, user_uid)
+```
+
+### Unified Search (All 9 Domains)
+
+```python
+# Search across everything
+result = await search_router.unified_search("health fitness")
+# Returns UnifiedSearchResult with results_by_domain + top_results
+```
+
+### Advanced Search with Graph Filters
+
+```python
+# Advanced search with graph and tag filters via SearchRequest
+request = SearchRequest(
+    query_text="machine learning",
+    entity_types=[EntityType.KU],
+    connected_to_uid="ku.python-basics",
+    connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
+    tags_contain=["python"],
+)
+result = await search_router.advanced_search(request)
 ```
 
 ### Domain-Specific Methods
 
 ```python
-# LS-specific
+# LS-specific (call on service directly, not via SearchRouter)
 await ls_service.search.get_for_learning_path("lp:python-mastery")
-await ls_service.search.get_standalone_steps()
 
 # LP-specific
-await lp_service.search.get_by_path_type(LpType.ADAPTIVE)
 await lp_service.search.get_aligned_with_goal("goal:learn-python")
-
-# MOC-specific
-await moc_service.search.get_templates(domain=Domain.TECH)
-await moc_service.search.get_related_mocs(moc_uid)
 ```
 
-## Graph-Aware Domains Configuration
+## SearchRouter Method Reference (v3.0.0)
 
-```python
-# January 2026 - All 10 searchable domains are graph-aware
-_GRAPH_AWARE_DOMAINS: frozenset[str] = frozenset(
-    {"tasks", "goals", "habits", "events", "choices", "principles", "ku", "ls", "lp", "moc"}
-)
-```
+| Method | Use Case |
+|--------|----------|
+| `search(entity_type, query)` | Single-domain text search |
+| `search_domains(entity_types, query)` | Multi-domain aggregation |
+| `unified_search(query)` | All 9 domains |
+| `advanced_search(SearchRequest)` | Filters, graph patterns, tags |
+| `faceted_search(request, user_uid)` | Legacy; prefer `advanced_search` |
 
 | Aspect | Value |
 |--------|-------|
-| **Domains** | All 10 searchable domains |
+| **Domains** | 9 (Task, Goal, Habit, Event, Choice, Principle, KU, LS, LP) |
 | **User Ownership** | Activity domains use OWNS; Curriculum uses None (shared) |
-| **Graph Patterns** | ready_to_learn, supports_goals, etc. |
-| **Result Context** | `_graph_context` with relationships |
-| **Method** | `graph_aware_faceted_search()` |
+| **Result Type** | `UnifiedSearchResult` with `results_by_domain` + `top_results` |
+| **Dispatch** | EntityType/NonKuDomain enum (type-safe, no string checks) |
 
 ## Common Gotchas
 
-1. **Always use SearchRouter** for external access - never call domain services directly from routes
-2. **Curriculum content is shared** - `_user_ownership_relationship = None` (no OWNS filter)
-3. **Use SearchRequest unified filters** - custom filter classes were removed in ADR-023
-4. **All domains use graph-aware search** - the Activity/Curriculum distinction no longer exists
+1. **Always use SearchRouter** for external access — never call domain services directly from routes
+2. **Curriculum content is shared** — `_user_ownership_relationship = None` (no OWNS filter)
+3. **MOC is not a searchable domain** — it's emergent identity via ORGANIZES relationships on Ku nodes
+4. **9 searchable domains, not 10** — there is no MOC EntityType
 
 ## Related Skills
 
