@@ -186,6 +186,48 @@ class SubmissionOperations(Protocol):
         """Verify that user_uid owns the submission. Returns 404 if not found or not owner."""
         ...
 
+    # ------------------------------------------------------------------
+    # SHARING OPERATIONS (implemented by SubmissionsBackend)
+    # ------------------------------------------------------------------
+
+    async def share_submission(
+        self, entity_uid: str, recipient_uid: str, role: str
+    ) -> Result[bool]:
+        """Create SHARES_WITH relationship. Returns Result[bool]."""
+        ...
+
+    async def unshare_submission(
+        self, entity_uid: str, recipient_uid: str
+    ) -> Result[bool]:
+        """Delete SHARES_WITH relationship. Returns Result[bool]."""
+        ...
+
+    async def get_shared_with_users(
+        self, entity_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """List users with SHARES_WITH on entity. Returns Result[list[dict]]."""
+        ...
+
+    async def get_submissions_shared_with_me(
+        self, user_uid: str, limit: int = 50
+    ) -> Result[list[Any]]:
+        """List submissions shared with user. Returns Result[list[SubmissionDTO]]."""
+        ...
+
+    async def set_visibility(
+        self, entity_uid: str, owner_uid: str, visibility: Any
+    ) -> Result[bool]:
+        """Set entity visibility level. Returns Result[bool]."""
+        ...
+
+    async def check_access(self, entity_uid: str, user_uid: str) -> Result[bool]:
+        """Check if user can access entity. Returns Result[bool]."""
+        ...
+
+    async def verify_shareable(self, entity_uid: str) -> Result[bool]:
+        """Verify entity is in a shareable state. Returns Result[bool]."""
+        ...
+
     async def search(
         self,
         query: str,

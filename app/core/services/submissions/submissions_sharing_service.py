@@ -19,17 +19,15 @@ Access Control Rules:
 See: /docs/patterns/SHARING_PATTERNS.md
 """
 
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.submissions.submission_dto import SubmissionDTO
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from core.ports.submission_protocols import SubmissionOperations
 
 logger = get_logger("skuel.services.ku_sharing")
 
@@ -37,14 +35,14 @@ logger = get_logger("skuel.services.ku_sharing")
 class SubmissionsSharingService:
     """Service for managing entity sharing and access control."""
 
-    def __init__(self, executor: "QueryExecutor") -> None:
+    def __init__(self, backend: "SubmissionOperations") -> None:
         """
         Initialize the sharing service.
 
         Args:
-            executor: Query executor for database operations
+            backend: Submission operations backend for database operations
         """
-        self.executor = executor
+        self.backend = backend
 
     async def share_submission(
         self,
@@ -77,29 +75,9 @@ class SubmissionsSharingService:
         if shareable_check.is_error:
             return shareable_check
 
-        query = """
-        MATCH (recipient:User {uid: $recipient_uid})
-        MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (recipient)-[r:SHARES_WITH]->(ku)
-        SET r.shared_at = datetime($shared_at),
-            r.role = $role
-        RETURN true as success
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {
-                "recipient_uid": recipient_uid,
-                "ku_uid": ku_uid,
-                "shared_at": datetime.now().isoformat(),
-                "role": role,
-            },
-        )
+        result = await self.backend.share_submission(ku_uid, recipient_uid, role)
         if result.is_error:
-            return Result.fail(result.expect_error())
-
-        if not result.value:
-            return Result.fail(Errors.not_found(f"User {recipient_uid} or Ku {ku_uid} not found"))
+            return result
 
         logger.info(f"Ku {ku_uid} shared with {recipient_uid} as {role}")
         return Result.ok(True)
@@ -128,27 +106,9 @@ class SubmissionsSharingService:
         if ownership_check.is_error:
             return ownership_check
 
-        query = """
-        MATCH (recipient:User {uid: $recipient_uid})-[r:SHARES_WITH]->(ku:Entity {uid: $ku_uid})
-        DELETE r
-        RETURN count(r) as deleted_count
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {"recipient_uid": recipient_uid, "ku_uid": ku_uid},
-        )
+        result = await self.backend.unshare_submission(ku_uid, recipient_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
-
-        records = result.value
-        deleted_count = records[0]["deleted_count"] if records else 0
-        if deleted_count == 0:
-            return Result.fail(
-                Errors.not_found(
-                    f"No sharing relationship found between {recipient_uid} and {ku_uid}"
-                )
-            )
+            return result
 
         logger.info(f"Ku {ku_uid} unshared from {recipient_uid}")
         return Result.ok(True)
@@ -168,30 +128,7 @@ class SubmissionsSharingService:
         Returns:
             Result[list[dict]]: List of users with access
         """
-        query = """
-        MATCH (user:User)-[r:SHARES_WITH]->(ku:Entity {uid: $ku_uid})
-        RETURN user.uid as user_uid,
-               user.name as user_name,
-               r.role as role,
-               r.shared_at as shared_at
-        ORDER BY r.shared_at DESC
-        """
-
-        result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        users = [
-            {
-                "user_uid": record["user_uid"],
-                "user_name": record["user_name"],
-                "role": record["role"],
-                "shared_at": record["shared_at"],
-            }
-            for record in result.value
-        ]
-
-        return Result.ok(users)
+        return await self.backend.get_shared_with_users(ku_uid)
 
     async def get_submissions_shared_with_me(
         self,
@@ -210,29 +147,7 @@ class SubmissionsSharingService:
         Returns:
             Result[list[SubmissionDTO]]: Shared Ku
         """
-        query = """
-        MATCH (user:User {uid: $user_uid})-[r:SHARES_WITH]->(ku:Entity)
-        RETURN ku,
-               r.role as role,
-               r.shared_at as shared_at
-        ORDER BY r.shared_at DESC
-        LIMIT $limit
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {"user_uid": user_uid, "limit": limit},
-        )
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        submissions = []
-        for record in result.value:
-            props = record["ku"]
-            dto = SubmissionDTO.from_dict(props)
-            submissions.append(dto)
-
-        return Result.ok(submissions)
+        return await self.backend.get_submissions_shared_with_me(user_uid, limit)
 
     async def set_visibility(
         self,
@@ -263,29 +178,9 @@ class SubmissionsSharingService:
             if shareable_check.is_error:
                 return shareable_check
 
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})
-        WHERE ku.user_uid = $owner_uid
-        SET ku.visibility = $visibility,
-            ku.updated_at = datetime()
-        RETURN ku.uid as uid
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {
-                "ku_uid": ku_uid,
-                "owner_uid": owner_uid,
-                "visibility": visibility.value,
-            },
-        )
+        result = await self.backend.set_visibility(ku_uid, owner_uid, visibility)
         if result.is_error:
-            return Result.fail(result.expect_error())
-
-        if not result.value:
-            return Result.fail(
-                Errors.not_found(f"Ku {ku_uid} not found or not owned by {owner_uid}")
-            )
+            return result
 
         logger.info(f"Ku {ku_uid} visibility set to {visibility.value}")
         return Result.ok(True)
@@ -311,46 +206,7 @@ class SubmissionsSharingService:
         Returns:
             Result[bool]: True if access granted, False otherwise
         """
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})
-        OPTIONAL MATCH (user:User {uid: $user_uid})-[:SHARES_WITH]->(ku)
-        RETURN ku.user_uid as owner_uid,
-               ku.visibility as visibility,
-               ku.ku_type as ku_type,
-               count(user) > 0 as has_share_relationship
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {"ku_uid": ku_uid, "user_uid": user_uid},
-        )
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        records = result.value
-        if not records:
-            return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
-
-        record = records[0]
-        owner_uid = record["owner_uid"]
-        visibility = (
-            Visibility(record["visibility"]) if record["visibility"] else Visibility.PRIVATE
-        )
-        ku_type = record["ku_type"]
-        has_share = record["has_share_relationship"]
-
-        # KU entities are always accessible (shared content)
-        if ku_type == EntityType.KU.value:
-            return Result.ok(True)
-        # Owner always has access
-        if user_uid == owner_uid:
-            return Result.ok(True)
-        if visibility == Visibility.PUBLIC:
-            return Result.ok(True)
-        if visibility == Visibility.SHARED and has_share:
-            return Result.ok(True)
-
-        return Result.ok(False)
+        return await self.backend.check_access(ku_uid, user_uid)
 
     # Private helper methods
 
@@ -360,77 +216,11 @@ class SubmissionsSharingService:
         owner_uid: str,
     ) -> Result[bool]:
         """Verify that a user owns an entity."""
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})
-        RETURN ku.user_uid as actual_owner
-        """
-
-        result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        records = result.value
-        if not records:
-            return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
-
-        actual_owner = records[0]["actual_owner"]
-        if actual_owner != owner_uid:
-            return Result.fail(Errors.validation(f"User {owner_uid} does not own Ku {ku_uid}"))
-
-        return Result.ok(True)
-
-    # Activity entity types that can be shared when active (not just completed)
-    _ACTIVITY_ENTITY_TYPES = frozenset(
-        {
-            "task",
-            "goal",
-            "habit",
-            "event",
-            "choice",
-            "principle",
-        }
-    )
+        return await self.backend.verify_ownership(ku_uid, owner_uid)
 
     async def _verify_shareable(
         self,
         ku_uid: str,
     ) -> Result[bool]:
-        """Verify that an entity can be shared.
-
-        For submission/journal types: only completed entities can be shared.
-        For activity types (task, goal, etc.): active or completed Ku can be shared.
-        Draft Ku can never be shared.
-        """
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})
-        RETURN ku.status as status, ku.ku_type as ku_type
-        """
-
-        result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        records = result.value
-        if not records:
-            return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
-
-        status = records[0]["status"]
-        ku_type = records[0]["ku_type"]
-
-        # Activity types can be shared when active or completed
-        if ku_type in self._ACTIVITY_ENTITY_TYPES:
-            if status in ("active", "completed"):
-                return Result.ok(True)
-            return Result.fail(
-                Errors.validation(
-                    f"Activity Ku can be shared when active or completed. Current status: {status}"
-                )
-            )
-
-        # All other types: only completed
-        if status != "completed":
-            return Result.fail(
-                Errors.validation(f"Only completed Ku can be shared. Current status: {status}")
-            )
-
-        return Result.ok(True)
+        """Verify that an entity can be shared."""
+        return await self.backend.verify_shareable(ku_uid)

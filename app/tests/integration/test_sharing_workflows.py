@@ -16,16 +16,18 @@ These tests use the actual service implementation with real Neo4j driver.
 
 import pytest
 
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from adapters.persistence.neo4j.domain_backends import SubmissionsBackend
+from adapters.persistence.neo4j.universal_backend import NeoLabel
 from core.models.enums.metadata_enums import Visibility
+from core.models.submissions.submission import Submission
 from core.services.submissions.submissions_sharing_service import SubmissionsSharingService
 
 
 @pytest.fixture
 async def sharing_service(neo4j_driver):
-    """Create SubmissionsSharingService with real Neo4j driver via QueryExecutor."""
-    executor = Neo4jQueryExecutor(neo4j_driver)
-    return SubmissionsSharingService(executor=executor)
+    """Create SubmissionsSharingService with real Neo4j driver via SubmissionsBackend."""
+    backend = SubmissionsBackend(neo4j_driver, NeoLabel.ENTITY, Submission)
+    return SubmissionsSharingService(backend=backend)
 
 
 @pytest.fixture

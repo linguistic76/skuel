@@ -1022,6 +1022,7 @@ async def compose_services(
             HabitsBackend,
             KuBackend,
             PrinciplesBackend,
+            SubmissionsBackend,
             TasksBackend,
         )
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
@@ -1146,7 +1147,7 @@ async def compose_services(
         # submissions_backend uses :Entity label for cross-domain queries (submissions span 3 EntityTypes)
         # entity_class=Submission: base class for SUBMISSION, JOURNAL, FEEDBACK_REPORT
         # AI_FEEDBACK excluded: uses dedicated ai_feedback_backend (AiFeedback inherits UserOwnedEntity)
-        submissions_backend = UniversalNeo4jBackend[Submission](
+        submissions_backend = SubmissionsBackend(
             driver, NeoLabel.ENTITY, Submission, prometheus_metrics=prometheus_metrics
         )
         from core.models.feedback.ai_feedback import AiFeedback
@@ -1666,7 +1667,7 @@ async def compose_services(
         # Create Submissions sharing service (content sharing)
         from core.services.submissions import SubmissionsSharingService
 
-        submissions_sharing_service = SubmissionsSharingService(executor=query_executor)
+        submissions_sharing_service = SubmissionsSharingService(backend=submissions_backend)
 
         # Create Submissions core service (content management: categories, tags, bulk operations)
         # February 2026: content_enrichment for handle_transcription_completed

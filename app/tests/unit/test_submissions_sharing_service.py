@@ -2,13 +2,13 @@
 Unit Tests for SubmissionsSharingService
 =================================
 
-Tests all 6 service methods with mocked Neo4j driver:
-- share_ku()
-- unshare_ku()
+Tests all 6 service methods with a mocked SubmissionsBackend:
+- share_submission()
+- unshare_submission()
 - set_visibility()
 - check_access()
 - get_shared_with_users()
-- get_kus_shared_with_me()
+- get_submissions_shared_with_me()
 
 Also tests helper methods:
 - _verify_ownership()
@@ -25,17 +25,24 @@ from core.utils.result_simplified import Errors, Result
 
 
 @pytest.fixture
-def mock_driver():
-    """Create a mock Neo4j driver."""
-    driver = MagicMock()
-    driver.execute_query = AsyncMock()
-    return driver
+def mock_backend():
+    """Create a mock SubmissionsBackend with all sharing methods as AsyncMocks."""
+    backend = MagicMock()
+    backend.verify_ownership = AsyncMock()
+    backend.verify_shareable = AsyncMock()
+    backend.share_submission = AsyncMock()
+    backend.unshare_submission = AsyncMock()
+    backend.get_shared_with_users = AsyncMock()
+    backend.get_submissions_shared_with_me = AsyncMock()
+    backend.set_visibility = AsyncMock()
+    backend.check_access = AsyncMock()
+    return backend
 
 
 @pytest.fixture
-def sharing_service(mock_driver):
-    """Create SubmissionsSharingService with mocked driver."""
-    return SubmissionsSharingService(executor=mock_driver)
+def sharing_service(mock_backend):
+    """Create SubmissionsSharingService with mocked backend."""
+    return SubmissionsSharingService(backend=mock_backend)
 
 
 # ============================================================================
@@ -44,17 +51,11 @@ def sharing_service(mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_share_ku_success(sharing_service, mock_driver):
+async def test_share_ku_success(sharing_service, mock_backend):
     """Test successfully sharing a report."""
-    # Mock verify_ownership (success)
-    mock_driver.execute_query.side_effect = [
-        # _verify_ownership query
-        Result.ok([{"actual_owner": "user_owner"}]),
-        # _verify_shareable query
-        Result.ok([{"status": "completed", "ku_type": "submission"}]),
-        # share_ku query
-        Result.ok([{"success": True}]),
-    ]
+    mock_backend.verify_ownership.return_value = Result.ok(True)
+    mock_backend.verify_shareable.return_value = Result.ok(True)
+    mock_backend.share_submission.return_value = Result.ok(True)
 
     result = await sharing_service.share_submission(
         ku_uid="report_123",
@@ -65,16 +66,19 @@ async def test_share_ku_success(sharing_service, mock_driver):
 
     assert not result.is_error
     assert result.value is True
-
-    # Verify all 3 queries were called
-    assert mock_driver.execute_query.call_count == 3
+    mock_backend.verify_ownership.assert_called_once_with("report_123", "user_owner")
+    mock_backend.verify_shareable.assert_called_once_with("report_123")
+    mock_backend.share_submission.assert_called_once_with(
+        "report_123", "user_teacher", "teacher"
+    )
 
 
 @pytest.mark.asyncio
-async def test_share_ku_not_owner(sharing_service, mock_driver):
+async def test_share_ku_not_owner(sharing_service, mock_backend):
     """Test sharing fails if user is not owner."""
-    # Mock ownership check (failure)
-    mock_driver.execute_query.return_value = Result.ok([{"actual_owner": "user_other"}])
+    mock_backend.verify_ownership.return_value = Result.fail(
+        Errors.validation("User user_not_owner does not own entity report_123")
+    )
 
     result = await sharing_service.share_submission(
         ku_uid="report_123",
@@ -85,17 +89,16 @@ async def test_share_ku_not_owner(sharing_service, mock_driver):
 
     assert result.is_error
     assert "does not own" in str(result.error)
+    mock_backend.verify_shareable.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_share_ku_not_completed(sharing_service, mock_driver):
+async def test_share_ku_not_completed(sharing_service, mock_backend):
     """Test sharing fails if report is not completed."""
-    mock_driver.execute_query.side_effect = [
-        # _verify_ownership query (success)
-        Result.ok([{"actual_owner": "user_owner"}]),
-        # _verify_shareable query (failure - not completed)
-        Result.ok([{"status": "processing", "ku_type": "submission"}]),
-    ]
+    mock_backend.verify_ownership.return_value = Result.ok(True)
+    mock_backend.verify_shareable.return_value = Result.fail(
+        Errors.validation("Only completed Ku can be shared. Current status: processing")
+    )
 
     result = await sharing_service.share_submission(
         ku_uid="report_123",
@@ -106,13 +109,15 @@ async def test_share_ku_not_completed(sharing_service, mock_driver):
 
     assert result.is_error
     assert "Only completed Ku" in str(result.error)
+    mock_backend.share_submission.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_share_ku_not_found(sharing_service, mock_driver):
+async def test_share_ku_not_found(sharing_service, mock_backend):
     """Test sharing fails if report doesn't exist."""
-    # Mock ownership check (report not found)
-    mock_driver.execute_query.return_value = Result.ok([])
+    mock_backend.verify_ownership.return_value = Result.fail(
+        Errors.not_found(resource="Entity", identifier="report_nonexistent")
+    )
 
     result = await sharing_service.share_submission(
         ku_uid="report_nonexistent",
@@ -131,14 +136,10 @@ async def test_share_ku_not_found(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_unshare_ku_success(sharing_service, mock_driver):
+async def test_unshare_ku_success(sharing_service, mock_backend):
     """Test successfully unsharing a report."""
-    mock_driver.execute_query.side_effect = [
-        # _verify_ownership query
-        Result.ok([{"actual_owner": "user_owner"}]),
-        # unshare query (1 relationship deleted)
-        Result.ok([{"deleted_count": 1}]),
-    ]
+    mock_backend.verify_ownership.return_value = Result.ok(True)
+    mock_backend.unshare_submission.return_value = Result.ok(True)
 
     result = await sharing_service.unshare_submission(
         ku_uid="report_123",
@@ -151,14 +152,14 @@ async def test_unshare_ku_success(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_unshare_ku_not_shared(sharing_service, mock_driver):
+async def test_unshare_ku_not_shared(sharing_service, mock_backend):
     """Test unsharing fails if no relationship exists."""
-    mock_driver.execute_query.side_effect = [
-        # _verify_ownership query
-        Result.ok([{"actual_owner": "user_owner"}]),
-        # unshare query (0 relationships deleted)
-        Result.ok([{"deleted_count": 0}]),
-    ]
+    mock_backend.verify_ownership.return_value = Result.ok(True)
+    mock_backend.unshare_submission.return_value = Result.fail(
+        Errors.not_found(
+            "No sharing relationship found between user_teacher and report_123"
+        )
+    )
 
     result = await sharing_service.unshare_submission(
         ku_uid="report_123",
@@ -171,9 +172,11 @@ async def test_unshare_ku_not_shared(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_unshare_ku_not_owner(sharing_service, mock_driver):
+async def test_unshare_ku_not_owner(sharing_service, mock_backend):
     """Test unsharing fails if user is not owner."""
-    mock_driver.execute_query.return_value = Result.ok([{"actual_owner": "user_other"}])
+    mock_backend.verify_ownership.return_value = Result.fail(
+        Errors.validation("User user_not_owner does not own entity report_123")
+    )
 
     result = await sharing_service.unshare_submission(
         ku_uid="report_123",
@@ -183,6 +186,7 @@ async def test_unshare_ku_not_owner(sharing_service, mock_driver):
 
     assert result.is_error
     assert "does not own" in str(result.error)
+    mock_backend.unshare_submission.assert_not_called()
 
 
 # ============================================================================
@@ -191,9 +195,9 @@ async def test_unshare_ku_not_owner(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_get_shared_with_users_success(sharing_service, mock_driver):
+async def test_get_shared_with_users_success(sharing_service, mock_backend):
     """Test getting list of users report is shared with."""
-    mock_driver.execute_query.return_value = Result.ok(
+    mock_backend.get_shared_with_users.return_value = Result.ok(
         [
             {
                 "user_uid": "user_teacher",
@@ -220,9 +224,9 @@ async def test_get_shared_with_users_success(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_get_shared_with_users_empty(sharing_service, mock_driver):
+async def test_get_shared_with_users_empty(sharing_service, mock_backend):
     """Test getting shared users when none exist."""
-    mock_driver.execute_query.return_value = Result.ok([])
+    mock_backend.get_shared_with_users.return_value = Result.ok([])
 
     result = await sharing_service.get_shared_with_users(ku_uid="report_123")
 
@@ -236,28 +240,12 @@ async def test_get_shared_with_users_empty(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_get_kus_shared_with_me_success(sharing_service, mock_driver):
+async def test_get_kus_shared_with_me_success(sharing_service, mock_backend):
     """Test getting reports shared with a user."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [
-            {
-                "ku": {
-                    "uid": "report_123",
-                    "user_uid": "user_owner",
-                    "original_filename": "report.pdf",
-                    "ku_type": "submission",
-                    "status": "completed",
-                    "file_path": "/path/to/file",
-                    "file_size": 1024,
-                    "file_type": "application/pdf",
-                    "processor_type": "llm",
-                    "visibility": "shared",
-                },
-                "role": "teacher",
-                "shared_at": "2026-02-02T12:00:00",
-            },
-        ]
-    )
+    submission = MagicMock()
+    submission.uid = "report_123"
+    submission.original_filename = "report.pdf"
+    mock_backend.get_submissions_shared_with_me.return_value = Result.ok([submission])
 
     result = await sharing_service.get_submissions_shared_with_me(
         user_uid="user_teacher",
@@ -271,9 +259,9 @@ async def test_get_kus_shared_with_me_success(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_get_kus_shared_with_me_empty(sharing_service, mock_driver):
+async def test_get_kus_shared_with_me_empty(sharing_service, mock_backend):
     """Test getting shared reports when none exist."""
-    mock_driver.execute_query.return_value = Result.ok([])
+    mock_backend.get_submissions_shared_with_me.return_value = Result.ok([])
 
     result = await sharing_service.get_submissions_shared_with_me(
         user_uid="user_teacher",
@@ -290,16 +278,11 @@ async def test_get_kus_shared_with_me_empty(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_set_visibility_to_public_success(sharing_service, mock_driver):
+async def test_set_visibility_to_public_success(sharing_service, mock_backend):
     """Test setting report visibility to PUBLIC."""
-    mock_driver.execute_query.side_effect = [
-        # _verify_ownership query
-        Result.ok([{"actual_owner": "user_owner"}]),
-        # _verify_shareable query (PUBLIC requires completed)
-        Result.ok([{"status": "completed", "ku_type": "submission"}]),
-        # set_visibility query
-        Result.ok([{"uid": "report_123"}]),
-    ]
+    mock_backend.verify_ownership.return_value = Result.ok(True)
+    mock_backend.verify_shareable.return_value = Result.ok(True)
+    mock_backend.set_visibility.return_value = Result.ok(True)
 
     result = await sharing_service.set_visibility(
         ku_uid="report_123",
@@ -309,18 +292,14 @@ async def test_set_visibility_to_public_success(sharing_service, mock_driver):
 
     assert not result.is_error
     assert result.value is True
+    mock_backend.verify_shareable.assert_called_once_with("report_123")
 
 
 @pytest.mark.asyncio
-async def test_set_visibility_to_private_no_shareable_check(sharing_service, mock_driver):
+async def test_set_visibility_to_private_no_shareable_check(sharing_service, mock_backend):
     """Test setting visibility to PRIVATE doesn't require shareability check."""
-    mock_driver.execute_query.side_effect = [
-        # _verify_ownership query
-        Result.ok([{"actual_owner": "user_owner"}]),
-        # No _verify_shareable query (PRIVATE doesn't need it)
-        # set_visibility query
-        Result.ok([{"uid": "report_123"}]),
-    ]
+    mock_backend.verify_ownership.return_value = Result.ok(True)
+    mock_backend.set_visibility.return_value = Result.ok(True)
 
     result = await sharing_service.set_visibility(
         ku_uid="report_123",
@@ -330,14 +309,15 @@ async def test_set_visibility_to_private_no_shareable_check(sharing_service, moc
 
     assert not result.is_error
     assert result.value is True
-    # Only 2 queries (ownership + set_visibility, no shareable check)
-    assert mock_driver.execute_query.call_count == 2
+    mock_backend.verify_shareable.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_set_visibility_not_owner(sharing_service, mock_driver):
+async def test_set_visibility_not_owner(sharing_service, mock_backend):
     """Test setting visibility fails if user is not owner."""
-    mock_driver.execute_query.return_value = Result.ok([{"actual_owner": "user_other"}])
+    mock_backend.verify_ownership.return_value = Result.fail(
+        Errors.validation("User user_not_owner does not own entity report_123")
+    )
 
     result = await sharing_service.set_visibility(
         ku_uid="report_123",
@@ -350,14 +330,12 @@ async def test_set_visibility_not_owner(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_set_visibility_shared_not_completed(sharing_service, mock_driver):
+async def test_set_visibility_shared_not_completed(sharing_service, mock_backend):
     """Test setting visibility to SHARED fails if not completed."""
-    mock_driver.execute_query.side_effect = [
-        # _verify_ownership query
-        Result.ok([{"actual_owner": "user_owner"}]),
-        # _verify_shareable query (not completed)
-        Result.ok([{"status": "processing", "ku_type": "submission"}]),
-    ]
+    mock_backend.verify_ownership.return_value = Result.ok(True)
+    mock_backend.verify_shareable.return_value = Result.fail(
+        Errors.validation("Only completed Ku can be shared. Current status: processing")
+    )
 
     result = await sharing_service.set_visibility(
         ku_uid="report_123",
@@ -375,18 +353,9 @@ async def test_set_visibility_shared_not_completed(sharing_service, mock_driver)
 
 
 @pytest.mark.asyncio
-async def test_check_access_owner(sharing_service, mock_driver):
+async def test_check_access_owner(sharing_service, mock_backend):
     """Test owner always has access."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [
-            {
-                "owner_uid": "user_owner",
-                "visibility": "private",
-                "ku_type": "submission",
-                "has_share_relationship": False,
-            }
-        ]
-    )
+    mock_backend.check_access.return_value = Result.ok(True)
 
     result = await sharing_service.check_access(
         ku_uid="report_123",
@@ -398,18 +367,9 @@ async def test_check_access_owner(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_check_access_public(sharing_service, mock_driver):
+async def test_check_access_public(sharing_service, mock_backend):
     """Test anyone can access PUBLIC entity."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [
-            {
-                "owner_uid": "user_owner",
-                "visibility": "public",
-                "ku_type": "submission",
-                "has_share_relationship": False,
-            }
-        ]
-    )
+    mock_backend.check_access.return_value = Result.ok(True)
 
     result = await sharing_service.check_access(
         ku_uid="report_123",
@@ -421,18 +381,9 @@ async def test_check_access_public(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_check_access_shared_with_relationship(sharing_service, mock_driver):
+async def test_check_access_shared_with_relationship(sharing_service, mock_backend):
     """Test user with SHARES_WITH relationship can access SHARED entity."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [
-            {
-                "owner_uid": "user_owner",
-                "visibility": "shared",
-                "ku_type": "submission",
-                "has_share_relationship": True,
-            }
-        ]
-    )
+    mock_backend.check_access.return_value = Result.ok(True)
 
     result = await sharing_service.check_access(
         ku_uid="report_123",
@@ -444,18 +395,9 @@ async def test_check_access_shared_with_relationship(sharing_service, mock_drive
 
 
 @pytest.mark.asyncio
-async def test_check_access_shared_without_relationship(sharing_service, mock_driver):
+async def test_check_access_shared_without_relationship(sharing_service, mock_backend):
     """Test user without SHARES_WITH relationship cannot access SHARED entity."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [
-            {
-                "owner_uid": "user_owner",
-                "visibility": "shared",
-                "ku_type": "submission",
-                "has_share_relationship": False,
-            }
-        ]
-    )
+    mock_backend.check_access.return_value = Result.ok(False)
 
     result = await sharing_service.check_access(
         ku_uid="report_123",
@@ -467,18 +409,9 @@ async def test_check_access_shared_without_relationship(sharing_service, mock_dr
 
 
 @pytest.mark.asyncio
-async def test_check_access_private_not_owner(sharing_service, mock_driver):
+async def test_check_access_private_not_owner(sharing_service, mock_backend):
     """Test non-owner cannot access PRIVATE entity."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [
-            {
-                "owner_uid": "user_owner",
-                "visibility": "private",
-                "ku_type": "submission",
-                "has_share_relationship": False,
-            }
-        ]
-    )
+    mock_backend.check_access.return_value = Result.ok(False)
 
     result = await sharing_service.check_access(
         ku_uid="report_123",
@@ -490,9 +423,11 @@ async def test_check_access_private_not_owner(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_check_access_report_not_found(sharing_service, mock_driver):
+async def test_check_access_report_not_found(sharing_service, mock_backend):
     """Test check_access returns error if report doesn't exist."""
-    mock_driver.execute_query.return_value = Result.ok([])
+    mock_backend.check_access.return_value = Result.fail(
+        Errors.not_found(resource="Entity", identifier="report_nonexistent")
+    )
 
     result = await sharing_service.check_access(
         ku_uid="report_nonexistent",
@@ -509,9 +444,9 @@ async def test_check_access_report_not_found(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_verify_ownership_success(sharing_service, mock_driver):
+async def test_verify_ownership_success(sharing_service, mock_backend):
     """Test _verify_ownership succeeds when user is owner."""
-    mock_driver.execute_query.return_value = Result.ok([{"actual_owner": "user_owner"}])
+    mock_backend.verify_ownership.return_value = Result.ok(True)
 
     result = await sharing_service._verify_ownership(
         ku_uid="report_123",
@@ -523,9 +458,11 @@ async def test_verify_ownership_success(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_verify_ownership_failure(sharing_service, mock_driver):
+async def test_verify_ownership_failure(sharing_service, mock_backend):
     """Test _verify_ownership fails when user is not owner."""
-    mock_driver.execute_query.return_value = Result.ok([{"actual_owner": "user_other"}])
+    mock_backend.verify_ownership.return_value = Result.fail(
+        Errors.validation("User user_not_owner does not own entity report_123")
+    )
 
     result = await sharing_service._verify_ownership(
         ku_uid="report_123",
@@ -537,11 +474,9 @@ async def test_verify_ownership_failure(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_verify_shareable_completed(sharing_service, mock_driver):
+async def test_verify_shareable_completed(sharing_service, mock_backend):
     """Test _verify_shareable succeeds for completed reports."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [{"status": "completed", "ku_type": "submission"}]
-    )
+    mock_backend.verify_shareable.return_value = Result.ok(True)
 
     result = await sharing_service._verify_shareable(
         ku_uid="report_123",
@@ -552,10 +487,10 @@ async def test_verify_shareable_completed(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_verify_shareable_not_completed(sharing_service, mock_driver):
+async def test_verify_shareable_not_completed(sharing_service, mock_backend):
     """Test _verify_shareable fails for non-completed reports."""
-    mock_driver.execute_query.return_value = Result.ok(
-        [{"status": "processing", "ku_type": "submission"}]
+    mock_backend.verify_shareable.return_value = Result.fail(
+        Errors.validation("Only completed Ku can be shared. Current status: processing")
     )
 
     result = await sharing_service._verify_shareable(
@@ -572,9 +507,9 @@ async def test_verify_shareable_not_completed(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_share_ku_database_error(sharing_service, mock_driver):
-    """Test share_ku handles database errors gracefully."""
-    mock_driver.execute_query.return_value = Result.fail(
+async def test_share_ku_database_error(sharing_service, mock_backend):
+    """Test share_submission handles database errors gracefully."""
+    mock_backend.verify_ownership.return_value = Result.fail(
         Errors.database("share_ku", "Database connection failed")
     )
 
@@ -590,9 +525,9 @@ async def test_share_ku_database_error(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_check_access_database_error(sharing_service, mock_driver):
+async def test_check_access_database_error(sharing_service, mock_backend):
     """Test check_access handles database errors gracefully."""
-    mock_driver.execute_query.return_value = Result.fail(
+    mock_backend.check_access.return_value = Result.fail(
         Errors.database("check_access", "Query timeout")
     )
 
