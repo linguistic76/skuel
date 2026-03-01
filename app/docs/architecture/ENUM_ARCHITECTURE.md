@@ -49,8 +49,8 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 |-------|-------------|-----------|--------------|
 | **Knowledge** (shared curriculum) | CURRICULUM, RESOURCE | Admin-created, no user_uid | :Entity:Curriculum, :Entity:Resource |
 | **Curriculum Structure** | LEARNING_STEP, LEARNING_PATH, EXERCISE | Admin-created, no user_uid | :Entity:LearningStep, :Entity:LearningPath, :Entity:Exercise |
-| **Content Processing** | JOURNAL, SUBMISSION, FEEDBACK_REPORT | User-owned | :Entity:Journal, :Entity:Submission, :Entity:FeedbackReport |
-| **Activity Feedback** | AI_FEEDBACK | User-owned (no file fields) | :Entity:AiFeedback |
+| **Content Processing** | JOURNAL, SUBMISSION, SUBMISSION_FEEDBACK | User-owned | :Entity:Journal, :Entity:Submission, :Entity:SubmissionFeedback |
+| **Activity Feedback** | ACTIVITY_REPORT | User-owned (no file fields) | :Entity:ActivityReport |
 | **Activity** (user-owned) | TASK, GOAL, HABIT, EVENT, CHOICE, PRINCIPLE | User-owned | :Entity:Task, :Entity:Goal, etc. |
 | **Destination** | LIFE_PATH | User-owned | :Entity:LifePath |
 
@@ -61,7 +61,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | A | CURATED | Resource |
 | B | CURRICULUM | Curriculum, LearningStep, LearningPath, Exercise |
 | C | USER_CREATED | All 6 Activity types + Submission, Journal, LifePath |
-| D | FEEDBACK | AiFeedback, FeedbackReport |
+| D | FEEDBACK | ActivityReport, SubmissionFeedback |
 
 **Key methods:**
 
@@ -110,10 +110,10 @@ Activity:
 
 | EntityType | Valid Statuses | Default |
 |------------|---------------|---------|
-| Curriculum, Resource, FeedbackReport | DRAFT, COMPLETED, ARCHIVED | COMPLETED |
+| Curriculum, Resource, SubmissionFeedback | DRAFT, COMPLETED, ARCHIVED | COMPLETED |
 | LearningStep, LearningPath, Exercise, Choice | DRAFT, ACTIVE, COMPLETED, ARCHIVED | DRAFT |
 | Journal, Submission | DRAFT, SUBMITTED, QUEUED, PROCESSING, COMPLETED, FAILED, REVISION_REQUESTED, ARCHIVED | DRAFT |
-| AiFeedback | COMPLETED (always — created already complete) | COMPLETED |
+| ActivityReport | COMPLETED (always — created already complete) | COMPLETED |
 | Task | DRAFT, SCHEDULED, ACTIVE, PAUSED, BLOCKED, COMPLETED, CANCELLED, POSTPONED, FAILED | DRAFT |
 | Goal | DRAFT, ACTIVE, PAUSED, COMPLETED, CANCELLED, FAILED, ARCHIVED | DRAFT |
 | Habit | ACTIVE, PAUSED, COMPLETED, CANCELLED, ARCHIVED | ACTIVE |

@@ -69,9 +69,9 @@ Entity (~19 fields: uid, title, ku_type, status, visibility, tags, domain,
 │   ├── Principle ────── + principle_category, principle_source, strength, current_alignment
 │   │
 │   ├── Submission ───── + processor_type, file_path, file_type, processed_content
-│   │   ├── Journal        (forces ku_type=JOURNAL)
-│   │   └── Feedback       (forces ku_type=FEEDBACK_REPORT, +subject_uid)
-│   ├── AiFeedback ─────── (forces ku_type=AI_FEEDBACK, NO file fields)
+│   │   ├── Journal              (forces ku_type=JOURNAL)
+│   │   └── SubmissionFeedback   (forces ku_type=SUBMISSION_FEEDBACK, +subject_uid)
+│   ├── ActivityReport ─── (forces ku_type=ACTIVITY_REPORT, NO file fields)
 │   │
 │   └── LifePath ─────── + alignment_level, vision_statement, alignment_score
 │
@@ -96,8 +96,8 @@ DTOs mirror the domain model hierarchy with mutable fields:
 EntityDTO (~18 fields)
 ├── UserOwnedDTO (+user_uid, visibility, priority)
 │   ├── TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO
-│   ├── AiFeedbackDTO                          (no file fields — activity patterns)
-│   ├── SubmissionDTO → JournalDTO, FeedbackDTO
+│   ├── ActivityReportDTO                      (no file fields — activity patterns)
+│   ├── SubmissionDTO → JournalDTO, SubmissionFeedbackDTO
 │   └── LifePathDTO
 ├── CurriculumDTO (+complexity, learning_level, ...)
 │   ├── LearningStepDTO, LearningPathDTO, ExerciseDTO
@@ -135,8 +135,8 @@ core/models/{domain}/
 | `principle/` | Principle + PrincipleDTO + requests | Activity | + Reflection sub-entity, PrincipleIntelligence |
 | `curriculum/` | Curriculum, LS, LP, Exercise + DTOs | Curriculum | + KU content/metadata/chunks, 14 files |
 | `resource/` | Resource + ResourceDTO | Shared | Curated content (books, talks) |
-| `submissions/` | Submission, Journal, Feedback + DTOs | Submissions | + submission_requests.py, ku_schedule.py |
-| `feedback/` | AiFeedback + AiFeedbackDTO | Feedback | AiFeedback inherits UserOwnedEntity directly (no file fields) |
+| `submissions/` | Submission, Journal, SubmissionFeedback + DTOs | Submissions | + submission_requests.py, ku_schedule.py |
+| `feedback/` | ActivityReport + ActivityReportDTO | Feedback | ActivityReport inherits UserOwnedEntity directly (no file fields) |
 | `life_path/` | LifePath + LifePathDTO | Destination | |
 | `group/` | Group + request | Organizational | Teacher-student classes (ADR-040) |
 | `finance/` | Finance + FinanceDTO + requests | Finance | + Invoice, FinanceIntelligence |
@@ -202,8 +202,8 @@ Ku = Task | Goal | Habit | Event | Choice | Principle | Curriculum | ...
 # Narrower aliases for services that handle subsets
 ActivityEntity = Task | Goal | Habit | Event | Choice | Principle
 CurriculumEntity = Curriculum | LearningStep | LearningPath | Exercise
-SubmissionEntity = Submission | Journal | Feedback
-AiFeedbackEntity = AiFeedback  # inherits UserOwnedEntity directly, not Submission
+SubmissionEntity = Submission | Journal | SubmissionFeedback
+ActivityReportEntity = ActivityReport  # inherits UserOwnedEntity directly, not Submission
 ```
 
 Cross-domain deserialization uses the dispatcher:

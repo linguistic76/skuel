@@ -1,13 +1,13 @@
 ---
 title: Feedback Architecture
-updated: 2026-02-28
+updated: 2026-03-01
 status: current
 category: architecture
-version: 1.0.0
+version: 1.1.0
 tags:
 - feedback
-- ai_feedback
-- feedback_report
+- activity_report
+- submission_feedback
 - activity_domains
 - submissions
 related:
@@ -45,21 +45,21 @@ Curriculum Work                 Activity Domains
                  │
                  ▼
            [FEEDBACK]
-            ├── FEEDBACK_REPORT  (response to a specific submission)
-            └── AI_FEEDBACK      (response to activity patterns)
+            ├── SUBMISSION_FEEDBACK  (response to a specific submission)
+            └── ACTIVITY_REPORT      (response to activity patterns)
 ```
 
 ---
 
 ## Three Feedback EntityTypes
 
-### 1. `FEEDBACK_REPORT` — Response to a Specific Submission
+### 1. `SUBMISSION_FEEDBACK` — Response to a Specific Submission
 
-`FEEDBACK_REPORT` is created in response to a **specific submitted artifact** (a `SUBMISSION` or `JOURNAL` entity).
+`SUBMISSION_FEEDBACK` is created in response to a **specific submitted artifact** (a `SUBMISSION` or `JOURNAL` entity).
 
 | Field | Value |
 |-------|-------|
-| `ku_type` | `"feedback_report"` |
+| `ku_type` | `"submission_feedback"` |
 | Inherits | `Submission(UserOwnedEntity)` |
 | `subject_uid` | UID of the submission being evaluated |
 | `processor_type` | `HUMAN` or `LLM` |
@@ -73,24 +73,24 @@ Curriculum Work                 Activity Domains
 
 **Graph pattern:**
 ```cypher
-(teacher:User)-[:OWNS]->(feedback:Entity:FeedbackReport {ku_type: 'feedback_report'})
+(teacher:User)-[:OWNS]->(feedback:Entity:SubmissionFeedback {ku_type: 'submission_feedback'})
 (feedback)-[:FEEDBACK_FOR]->(submission:Entity {ku_type: 'submission'})
 ```
 
 ---
 
-### 2. `AI_FEEDBACK` — Response to Activity Patterns
+### 2. `ACTIVITY_REPORT` — Response to Activity Patterns
 
-`AI_FEEDBACK` is **not** a response to a specific artifact. It is a response to a user's aggregate activity over a time window.
+`ACTIVITY_REPORT` is **not** a response to a specific artifact. It is a response to a user's aggregate activity over a time window.
 
 | Field | Value |
 |-------|-------|
-| `ku_type` | `"ai_feedback"` |
+| `ku_type` | `"activity_report"` |
 | Inherits | `UserOwnedEntity` **directly** (no file fields) |
 | `subject_uid` | UID of the user whose activity was reviewed |
 | `processor_type` | `AUTOMATIC`, `LLM`, or `HUMAN` |
 
-**`AiFeedback` has no `Submission` ancestry by design** — it has no file fields (`original_filename`, `file_path`, `file_size`). It is about a user over time, not a submitted artifact.
+**`ActivityReport` has no `Submission` ancestry by design** — it has no file fields (`original_filename`, `file_path`, `file_size`). It is about a user over time, not a submitted artifact.
 
 **Three sources — same entity type:**
 
@@ -102,8 +102,8 @@ Curriculum Work                 Activity Domains
 
 **Graph pattern:**
 ```cypher
-(owner:User)-[:OWNS]->(feedback:Entity:AiFeedback {
-    ku_type: 'ai_feedback',
+(owner:User)-[:OWNS]->(feedback:Entity:ActivityReport {
+    ku_type: 'activity_report',
     subject_uid: 'user_student_uid',
     time_period: '7d',
     processor_type: 'human'  // or 'llm' or 'automatic'
@@ -113,7 +113,7 @@ Curriculum Work                 Activity Domains
 **Key fields:**
 ```python
 @dataclass(frozen=True)
-class AiFeedback(UserOwnedEntity):
+class ActivityReport(UserOwnedEntity):
     processor_type: ProcessorType | None = None
     subject_uid: str | None = None        # user whose activity was reviewed
     time_period: str | None = None        # "7d" | "14d" | "30d" | "90d"
@@ -134,11 +134,11 @@ class AiFeedback(UserOwnedEntity):
 
 | ProcessorType | Who | Applies To |
 |---------------|-----|-----------|
-| `HUMAN` | Teacher writes | `FEEDBACK_REPORT` (teacher assessment) |
-| `HUMAN` | Admin writes | `AI_FEEDBACK` (activity review) |
-| `LLM` | AI via Exercise | `FEEDBACK_REPORT` (AI assessment of submission) |
-| `LLM` | AI on demand | `AI_FEEDBACK` (activity summary with LLM insights) |
-| `AUTOMATIC` | Scheduled system | `AI_FEEDBACK` (periodic progress report) |
+| `HUMAN` | Teacher writes | `SUBMISSION_FEEDBACK` (teacher assessment) |
+| `HUMAN` | Admin writes | `ACTIVITY_REPORT` (activity review) |
+| `LLM` | AI via Exercise | `SUBMISSION_FEEDBACK` (AI assessment of submission) |
+| `LLM` | AI on demand | `ACTIVITY_REPORT` (activity summary with LLM insights) |
+| `AUTOMATIC` | Scheduled system | `ACTIVITY_REPORT` (periodic progress report) |
 
 ---
 
@@ -146,10 +146,10 @@ class AiFeedback(UserOwnedEntity):
 
 | Service | Protocol | Produces | Notes |
 |---------|----------|---------|-------|
-| `SubmissionsCoreService` | `FeedbackOperations` | `FEEDBACK_REPORT` (HUMAN) | Teacher assessment; verifies group membership |
-| `FeedbackService` | `FeedbackOperations` | `FEEDBACK_REPORT` (LLM) | AI evaluation via Exercise instructions |
-| `ProgressFeedbackGenerator` | `ProgressFeedbackOperations` | `AI_FEEDBACK` (AUTOMATIC or LLM) | Activity summary; LLM adds qualitative insights |
-| `ActivityReviewService` | `ActivityReviewOperations` | `AI_FEEDBACK` (HUMAN) | Admin reads snapshot → writes feedback |
+| `SubmissionsCoreService` | `FeedbackOperations` | `SUBMISSION_FEEDBACK` (HUMAN) | Teacher assessment; verifies group membership |
+| `FeedbackService` | `FeedbackOperations` | `SUBMISSION_FEEDBACK` (LLM) | AI evaluation via Exercise instructions |
+| `ProgressFeedbackGenerator` | `ProgressFeedbackOperations` | `ACTIVITY_REPORT` (AUTOMATIC or LLM) | Activity summary; LLM adds qualitative insights |
+| `ActivityReviewService` | `ActivityReviewOperations` | `ACTIVITY_REPORT` (HUMAN) | Admin reads snapshot → writes feedback |
 
 **Protocols:** `core/ports/feedback_protocols.py`
 
@@ -171,27 +171,27 @@ SubmissionsBackend ← owns SHARES_WITH, access control Cypher
 
 Feedback splits into two structurally different positions:
 
-### FEEDBACK_REPORT — Leaf Domain
+### SUBMISSION_FEEDBACK — Leaf Domain
 
-`FEEDBACK_REPORT` fits the leaf domain model. One submission goes in, one FeedbackReport node comes out. The generating services (`FeedbackService`, `SubmissionsCoreService`) operate against a focused backend — the scope is a single artifact and its owner.
+`SUBMISSION_FEEDBACK` fits the leaf domain model. One submission goes in, one SubmissionFeedback node comes out. The generating services (`FeedbackService`, `SubmissionsCoreService`) operate against a focused backend — the scope is a single artifact and its owner.
 
 ```
-Submission  →  FeedbackService / SubmissionsCoreService  →  FEEDBACK_REPORT node
+Submission  →  FeedbackService / SubmissionsCoreService  →  SUBMISSION_FEEDBACK node
                (one artifact in, one feedback node out)
 ```
 
 This fits the 4-layer pattern cleanly. The services are protocol-driven and backend-scoped.
 
-### AI_FEEDBACK — Cross-Domain Aggregator
+### ACTIVITY_REPORT — Cross-Domain Aggregator
 
-`AI_FEEDBACK` cannot fit the leaf domain model because it does not read from one domain — it reads **across all 6 Activity Domain backends** to produce a synthesis.
+`ACTIVITY_REPORT` cannot fit the leaf domain model because it does not read from one domain — it reads **across all 6 Activity Domain backends** to produce a synthesis.
 
 ```
 Tasks + Goals + Habits + Events + Choices + Principles
     ↓ (historical completions, time window)
-ProgressFeedbackGenerator
+ ProgressFeedbackGenerator
     ↓ (LLM or programmatic markdown)
-AI_FEEDBACK node
+ACTIVITY_REPORT node
 ```
 
 `ProgressFeedbackGenerator` accepts a `QueryExecutor` (raw Cypher access) rather than a single typed domain backend precisely because no single domain backend spans the Activity Domains. Per SKUEL's architecture rule: **domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services.** `ProgressFeedbackGenerator` is the cross-domain aggregation service — it sits above the domain backends by design.
@@ -202,10 +202,10 @@ This is why it does not have a `FeedbackBackend` with domain-specific Cypher met
 
 | Feedback Mode | Structural Position | Why |
 |---------------|--------------------|----|
-| `FEEDBACK_REPORT` | Leaf domain — fits 4-layer pattern | One artifact in, one node out; single-domain scope |
-| `AI_FEEDBACK` | Cross-domain aggregator — sits above domain backends | Reads from 6 Activity Domain backends; no single domain owns it |
+| `SUBMISSION_FEEDBACK` | Leaf domain — fits 4-layer pattern | One artifact in, one node out; single-domain scope |
+| `ACTIVITY_REPORT` | Cross-domain aggregator — sits above domain backends | Reads from 6 Activity Domain backends; no single domain owns it |
 
-The learning loop does not end at a leaf domain — it fans back out across the user's entire lived activity. That is what makes `AI_FEEDBACK` architecturally distinct from the other three stages of the loop.
+The learning loop does not end at a leaf domain — it fans back out across the user's entire lived activity. That is what makes `ACTIVITY_REPORT` architecturally distinct from the other three stages of the loop.
 
 ---
 
@@ -216,13 +216,13 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 - **Who:** Students
 - **Route:** `/submissions/submit`
 - **Creates:** `SUBMISSION` entity → processed → feedback via Exercise
-- **Feedback:** `FEEDBACK_REPORT` (teacher human or LLM via Exercise)
+- **Feedback:** `SUBMISSION_FEEDBACK` (teacher human or LLM via Exercise)
 
 ### UI 2 — AI Feedback UI (activity patterns)
 
 - **Who:** Users (self-review)
 - **Routes:** `GET /api/feedback/progress`, `POST /api/feedback/progress/generate`
-- **Shows:** `AI_FEEDBACK` entities (both LLM-generated and scheduled)
+- **Shows:** `ACTIVITY_REPORT` entities (both LLM-generated and scheduled)
 - **Trigger:** On-demand generation or scheduled delivery
 
 ### UI 3 — Activity Review UI (admin human feedback)
@@ -232,13 +232,13 @@ The learning loop does not end at a leaf domain — it fans back out across the 
   - `GET /api/activity-review/snapshot` — view a user's activity snapshot
   - `POST /api/activity-review/submit` — write and submit feedback
   - `GET /api/activity-review/queue` — pending review requests
-- **Creates:** `AI_FEEDBACK` with `ProcessorType.HUMAN`
+- **Creates:** `ACTIVITY_REPORT` with `ProcessorType.HUMAN`
 
 ### UI 4 — Activity Feedback History (user-facing)
 
 - **Who:** Users
 - **Route:** `GET /api/activity-review/history`
-- **Shows:** All `AI_FEEDBACK` received (LLM-generated + human-written)
+- **Shows:** All `ACTIVITY_REPORT` received (LLM-generated + human-written)
 
 ---
 
@@ -257,7 +257,7 @@ Admin writes qualitative assessment
         ↓
 POST /api/activity-review/submit → ActivityReviewService.submit_activity_feedback()
         ↓
-AiFeedback(ProcessorType.HUMAN) created in Neo4j
+ActivityReport(ProcessorType.HUMAN) created in Neo4j
 ```
 
 ### User-Initiated
@@ -284,7 +284,7 @@ When `openai_service` is available, the generator:
 2. Cross-references active Insights
 3. Sends stats as JSON context to LLM via `activity_feedback.md` prompt template
 4. LLM returns qualitative analysis with patterns, trends, recommendations
-5. Creates `AiFeedback` with `processed_content = LLM output`, `metadata = raw stats`
+5. Creates `ActivityReport` with `processed_content = LLM output`, `metadata = raw stats`
 
 **Graceful fallback:** If LLM call fails, falls back to programmatic markdown with `ProcessorType.AUTOMATIC` and logs `processing_error`.
 
@@ -296,8 +296,8 @@ When `openai_service` is available, the generator:
 
 | Route | Method | Who | What |
 |-------|--------|-----|------|
-| `/api/feedback/progress/generate` | POST | User | On-demand AI_FEEDBACK generation |
-| `/api/feedback/progress` | GET | User | List user's AI_FEEDBACK history |
+| `/api/feedback/progress/generate` | POST | User | On-demand `ACTIVITY_REPORT` generation |
+| `/api/feedback/progress` | GET | User | List user's `ACTIVITY_REPORT` history |
 | `/api/feedback/schedule` | POST | User | Create/update generation schedule |
 | `/api/feedback/schedule/get` | GET | User | Get user's schedule |
 | `/api/feedback/schedule/update` | POST | User | Update schedule |
@@ -307,7 +307,7 @@ When `openai_service` is available, the generator:
 | `/api/activity-review/request` | POST | User | Request an activity review from admin |
 | `/api/activity-review/queue` | GET | Admin | Pending review queue |
 | `/api/activity-review/history` | GET | User/Admin | Received activity feedback history |
-| `/api/feedback/assessments` | POST | Teacher | Create teacher assessment (FEEDBACK_REPORT) |
+| `/api/feedback/assessments` | POST | Teacher | Create teacher assessment (`SUBMISSION_FEEDBACK`) |
 | `/api/feedback/assessments/for-student` | GET | Teacher | Student's received assessments |
 | `/api/feedback/assessments/by-teacher` | GET | Teacher | Teacher's authored assessments |
 
@@ -316,9 +316,9 @@ When `openai_service` is available, the generator:
 ## Neo4j Schema
 
 ```cypher
-// FEEDBACK_REPORT — tied to a specific submission
-(:Entity:FeedbackReport {
-    uid, ku_type: 'feedback_report',
+// SUBMISSION_FEEDBACK — tied to a specific submission
+(:Entity:SubmissionFeedback {
+    uid, ku_type: 'submission_feedback',
     user_uid,        // owner (teacher or AI agent)
     subject_uid,     // submission being evaluated
     processor_type,  // 'human' or 'llm'
@@ -326,9 +326,9 @@ When `openai_service` is available, the generator:
     created_at, updated_at
 })
 
-// AI_FEEDBACK — tied to a user's activity patterns
-(:Entity:AiFeedback {
-    uid, ku_type: 'ai_feedback',
+// ACTIVITY_REPORT — tied to a user's activity patterns
+(:Entity:ActivityReport {
+    uid, ku_type: 'activity_report',
     user_uid,        // owner (admin or system)
     subject_uid,     // user whose activity was reviewed
     processor_type,  // 'human', 'llm', or 'automatic'

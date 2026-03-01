@@ -254,11 +254,11 @@ Future collaborators — human or AI — should read SKUEL's plain-English domai
 - **Detail pages:** `/ku/{uid}`, `/ls/{uid}`, `/lp/{uid}` routes with lateral relationships (Phase 5, placeholder data)
 
 **Content/Processing Domain (1)**:
-- **Submissions + Feedback** - The educational loop `Ku → Exercise → Submission → Feedback`. Activity Domains are equal entry points via `AI_FEEDBACK`. EntityType discriminator:
+- **Submissions + Feedback** - The educational loop `Ku → Exercise → Submission → Feedback`. Activity Domains are equal entry points via `ACTIVITY_REPORT`. EntityType discriminator:
   - **File submissions** (EntityType.SUBMISSION) — student uploads via `/submissions/submit`, `ProcessorType.HUMAN` or `LLM`
   - **AI-processed** (EntityType.JOURNAL) — admin uploads via `/journals/submit`, `ProcessorType.LLM`, uses Exercise instructions
-  - **Teacher/AI feedback** (EntityType.FEEDBACK_REPORT) — tied to a specific submission via `subject_uid`; `ProcessorType.HUMAN` (teacher) or `LLM` (AI via Exercise)
-  - **Activity feedback** (EntityType.AI_FEEDBACK) — NOT tied to a submission; responds to activity patterns over a time window; `ProcessorType.AUTOMATIC` (scheduled), `LLM` (on-demand), or `HUMAN` (admin-written); inherits `UserOwnedEntity` directly (no file fields)
+  - **Teacher/AI feedback** (EntityType.SUBMISSION_FEEDBACK) — tied to a specific submission via `subject_uid`; `ProcessorType.HUMAN` (teacher) or `LLM` (AI via Exercise)
+  - **Activity feedback** (EntityType.ACTIVITY_REPORT) — NOT tied to a submission; responds to activity patterns over a time window; `ProcessorType.AUTOMATIC` (scheduled), `LLM` (on-demand), or `HUMAN` (admin-written); inherits `UserOwnedEntity` directly (no file fields)
 - **Services split:** `core/services/submissions/` (student work) + `core/services/feedback/` (responses)
 - **Models split:** `core/models/submissions/` + `core/models/feedback/`
 - **See:** `/docs/architecture/FEEDBACK_ARCHITECTURE.md` — canonical feedback reference
@@ -421,8 +421,8 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 ├── UserOwnedEntity(Entity) +3 fields (user_uid, visibility, priority)
 │   ├── Task, Goal, Habit, Event, Choice, Principle  (Activity)
 │   ├── LifePath                                      (Destination)
-│   ├── AiFeedback                                    (Activity feedback — no file fields)
-│   └── Submission → Journal, Feedback                (Submissions/Feedback)
+│   ├── ActivityReport                                (Activity feedback — no file fields)
+│   └── Submission → Journal, SubmissionFeedback      (Submissions/Feedback)
 ├── Curriculum(Entity) +21 fields (base class only)
 │   ├── Ku(Curriculum) — atomic knowledge unit (EntityType.KU)
 │   └── LearningStep, LearningPath, Exercise
@@ -551,7 +551,7 @@ GraphDepth.DEFAULT                             # Named constants
 class EntityType(str, Enum):
     TASK, HABIT, GOAL, EVENT, PRINCIPLE, CHOICE = ...  # Activity
     KU, RESOURCE, LEARNING_STEP, LEARNING_PATH, EXERCISE = ...  # Curriculum
-    JOURNAL, SUBMISSION, AI_FEEDBACK, FEEDBACK_REPORT = ...  # Submissions + Feedback
+    JOURNAL, SUBMISSION, ACTIVITY_REPORT, SUBMISSION_FEEDBACK = ...  # Submissions + Feedback
     LIFE_PATH = "life_path"  # Destination
 
 # NonKuDomain — 4 non-Entity domains
@@ -790,7 +790,7 @@ from core.models.enums.entity_enums import EntityType, ContentOrigin
 
 EntityType.TASK.content_origin()         # ContentOrigin.USER_CREATED
 EntityType.RESOURCE.content_origin()     # ContentOrigin.CURATED
-EntityType.AI_FEEDBACK.content_origin()  # ContentOrigin.FEEDBACK
+EntityType.ACTIVITY_REPORT.content_origin()  # ContentOrigin.FEEDBACK
 ```
 
 **See:** `ContentOrigin` in `/core/models/enums/entity_enums.py`

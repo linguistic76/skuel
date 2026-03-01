@@ -173,8 +173,8 @@ class Task(UserOwnedEntity):
 Entity (~19 fields)
 ├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
 │   ├── Task, Goal, Habit, Event, Choice, Principle
-│   ├── AiFeedback                               (activity feedback — no file fields)
-│   ├── Submission → Journal, Feedback
+│   ├── ActivityReport                           (activity feedback — no file fields)
+│   ├── Submission → Journal, SubmissionFeedback
 │   └── LifePath
 ├── Curriculum(Entity) +21 fields → LearningStep, LearningPath, Exercise
 └── Resource(Entity) +7 fields
@@ -185,8 +185,8 @@ Entity (~19 fields)
 ```
 EntityDTO (~18 fields)
 ├── UserOwnedDTO(EntityDTO) +3 fields → TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO, LifePathDTO
-├── UserOwnedDTO → AiFeedbackDTO                  (activity feedback — no file fields)
-├── UserOwnedDTO → SubmissionDTO → JournalDTO, FeedbackDTO
+├── UserOwnedDTO → ActivityReportDTO              (activity feedback — no file fields)
+├── UserOwnedDTO → SubmissionDTO → JournalDTO, SubmissionFeedbackDTO
 ├── CurriculumDTO(EntityDTO) → LearningStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO(EntityDTO)
 ```
@@ -219,8 +219,8 @@ core/models/ku/                    # Domain models (Tier 3) + DTOs (Tier 2)
 ├── life_path.py / life_path_dto.py # LifePath domain
 ├── submission.py / submission_dto.py # Submission base
 ├── journal.py / journal_dto.py    # Journal(Submission)
-├── ai_feedback.py / ai_feedback_dto.py # AiFeedback(UserOwnedEntity) — no file fields
-├── feedback.py / feedback_dto.py  # Feedback(Submission)
+├── activity_report.py / activity_report_dto.py # ActivityReport(UserOwnedEntity) — no file fields
+├── submission_feedback.py / submission_feedback_dto.py  # SubmissionFeedback(Submission)
 ├── curriculum.py / curriculum_dto.py # Curriculum base
 ├── learning_step.py / learning_step_dto.py # LearningStep(Curriculum)
 ├── learning_path.py / learning_path_dto.py # LearningPath(Curriculum)
@@ -567,8 +567,8 @@ As of February 2026 (domain-first architecture complete):
 - All 6 Activity domains: Task, Goal, Habit, Event, Choice, Principle (extend `UserOwnedEntity`)
 - All 3 Curriculum domains: LearningStep, LearningPath, Exercise (extend `Curriculum`)
 - Resource domain (extends `Entity`)
-- Submissions: Submission, Journal, Feedback (extend `Submission(UserOwnedEntity)`)
-- Feedback: AiFeedback (extends `UserOwnedEntity` directly — no file fields)
+- Submissions: Submission, Journal, SubmissionFeedback (extend `Submission(UserOwnedEntity)`)
+- Feedback: ActivityReport (extends `UserOwnedEntity` directly — no file fields)
 - LifePath (extends `UserOwnedEntity`)
 - Each domain has a corresponding per-domain DTO (e.g., `TaskDTO`, `GoalDTO`)
 - Finance: Pattern B (Two-Tier) -- no domain model, DTO only

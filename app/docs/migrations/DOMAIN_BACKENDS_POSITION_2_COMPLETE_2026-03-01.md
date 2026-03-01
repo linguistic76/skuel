@@ -130,7 +130,7 @@ Cross-domain aggregation stays in services — not raw persistence:
 - `SubmissionsBackend` — SHARES_WITH access control
 
 **Supporting (uses UniversalNeo4jBackend[T] directly):**
-- `HabitCompletion`, `Transcription`, `PrincipleReflection`, `UserProgress`, `Askesis`, `AiFeedback`, `ExpensePure`, `InvoicePure`
+- `HabitCompletion`, `Transcription`, `PrincipleReflection`, `UserProgress`, `Askesis`, `ActivityReport`, `ExpensePure`, `InvoicePure`
 
 ## Commits
 

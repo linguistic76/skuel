@@ -63,8 +63,8 @@ Entity (~19 fields: uid, entity_type, title, description, status, tags, ...)
 ├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
 │   ├── Task, Goal, Habit, Event, Choice, Principle  (Activity Domains)
 │   ├── LifePath                                      (Destination)
-│   ├── AiFeedback                                    (Activity feedback)
-│   └── Submission → Journal, Feedback               (Submissions + Feedback)
+│   ├── ActivityReport                                (Activity feedback)
+│   └── Submission → Journal, SubmissionFeedback     (Submissions + Feedback)
 ├── Curriculum(Entity) +21 fields → LearningStep, LearningPath, Exercise
 └── Resource(Entity) +7 fields                        (Curated content)
 ```
@@ -79,8 +79,8 @@ Entity (~19 fields: uid, entity_type, title, description, status, tags, ...)
 ```
 EntityDTO (~18 fields)
 ├── UserOwnedDTO(EntityDTO) +3 → TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO, LifePathDTO
-├── UserOwnedDTO → AiFeedbackDTO                  (Activity feedback — no file fields)
-├── UserOwnedDTO → SubmissionDTO → JournalDTO, FeedbackDTO
+├── UserOwnedDTO → ActivityReportDTO              (Activity feedback — no file fields)
+├── UserOwnedDTO → SubmissionDTO → JournalDTO, SubmissionFeedbackDTO
 ├── CurriculumDTO(EntityDTO) → LearningStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO(EntityDTO)
 ```
@@ -105,7 +105,7 @@ CREATE (n:Entity:LearningStep {uid: $uid, ...})
 | **Universal** | `:Entity` (all domain entities) |
 | **Activity (6)** | `:Task`, `:Goal`, `:Habit`, `:Event`, `:Choice`, `:Principle` |
 | **Curriculum (4)** | `:Curriculum`, `:Resource`, `:LearningStep`, `:LearningPath` |
-| **Content (4)** | `:Submission`, `:Journal`, `:AiFeedback`, `:FeedbackReport` |
+| **Content (4)** | `:Submission`, `:Journal`, `:ActivityReport`, `:SubmissionFeedback` |
 | **Instruction** | `:Exercise` |
 | **Destination** | `:LifePath` |
 
@@ -393,7 +393,7 @@ SKUEL measures knowledge by how it's **LIVED**, not just learned:
 
 ### 4. Content/Processing Domains (2) - How I PROCESS
 
-Content/Processing domains handle **input processing, AI transformation, and feedback** — the educational loop `Ku → Exercise → Submission → Feedback`. Activity Domains are equal entry points for feedback via `AI_FEEDBACK`.
+Content/Processing domains handle **input processing, AI transformation, and feedback** — the educational loop `Ku → Exercise → Submission → Feedback`. Activity Domains are equal entry points for feedback via `ACTIVITY_REPORT`.
 
 **Entity Types (February 2026):**
 
@@ -401,12 +401,12 @@ Content/Processing domains handle **input processing, AI transformation, and fee
 |------------|------------|---------|---------------|-------------|
 | `SUBMISSION` | Student | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Student work against an Exercise |
 | `JOURNAL` | Admin | `Submission(UserOwnedEntity)` | `LLM` | AI-processed reflective writing |
-| `FEEDBACK_REPORT` | Teacher or AI | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Assessment tied to a specific submission via `subject_uid` |
-| `AI_FEEDBACK` | System or Admin | `UserOwnedEntity` **directly** | `AUTOMATIC`, `LLM`, or `HUMAN` | Activity-level feedback (no file fields; covers a time window) |
+| `SUBMISSION_FEEDBACK` | Teacher or AI | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Assessment tied to a specific submission via `subject_uid` |
+| `ACTIVITY_REPORT` | System or Admin | `UserOwnedEntity` **directly** | `AUTOMATIC`, `LLM`, or `HUMAN` | Activity-level feedback (no file fields; covers a time window) |
 
-**Key design rule:** `AI_FEEDBACK` does **not** inherit from `Submission`. It has no file fields (`file_path`, `file_size`, etc.). It responds to a user's aggregate activity patterns over a time period, not to a specific artifact.
+**Key design rule:** `ACTIVITY_REPORT` does **not** inherit from `Submission`. It has no file fields (`file_path`, `file_size`, etc.). It responds to a user's aggregate activity patterns over a time period, not to a specific artifact.
 
-**Content Origin Tiers:** User submissions (SUBMISSION, JOURNAL) are `ContentOrigin.USER_CREATED`; feedback (AI_FEEDBACK, FEEDBACK_REPORT) is `ContentOrigin.FEEDBACK`. See `EntityType.content_origin()` for the full mapping.
+**Content Origin Tiers:** User submissions (SUBMISSION, JOURNAL) are `ContentOrigin.USER_CREATED`; feedback (ACTIVITY_REPORT, SUBMISSION_FEEDBACK) is `ContentOrigin.FEEDBACK`. See `EntityType.content_origin()` for the full mapping.
 
 **Submission Pipeline:**
 ```
@@ -427,7 +427,7 @@ ProgressFeedbackGenerator
 |-> Query completions (Tasks, Goals, Habits, Choices) in time window
 |-> Reference active Insights
 |-> LLM: stats as JSON context → qualitative insights text
-|-> AiFeedback(processor_type=LLM, processed_content=LLM output)
+|-> ActivityReport(processor_type=LLM, processed_content=LLM output)
         |
 ProgressScheduleService (optional recurring generation)
         |
@@ -439,7 +439,7 @@ ProgressFeedbackWorker (background hourly check)
 ActivityReviewService
 |-> create_activity_snapshot() — queries user's activity graph data
 |-> submit_activity_feedback() — admin writes assessment
-|-> AiFeedback(processor_type=HUMAN, subject_uid=reviewed_user_uid)
+|-> ActivityReport(processor_type=HUMAN, subject_uid=reviewed_user_uid)
 ```
 
 **Note:** TranscriptionService (ADR-019) is a simplified 8-method service that handles
@@ -1266,12 +1266,12 @@ Every entity node has TWO+ labels: `:Entity` (universal) + domain-specific (`:Ta
 (:Entity:LearningPath {uid, ku_type, name, goal, difficulty, ...})
 
 // Content/Processing Domains
-// SUBMISSION, JOURNAL, FEEDBACK_REPORT inherit from Submission(UserOwnedEntity)
+// SUBMISSION, JOURNAL, SUBMISSION_FEEDBACK inherit from Submission(UserOwnedEntity)
 (:Entity:Submission {uid, ku_type, status, user_uid, ...})
 (:Entity:Journal {uid, ku_type, content, processed_at, user_uid, ...})
-(:Entity:FeedbackReport {uid, ku_type, subject_uid, user_uid, processor_type, ...})
-// AI_FEEDBACK inherits UserOwnedEntity DIRECTLY (no file fields)
-(:Entity:AiFeedback {uid, ku_type, subject_uid, user_uid, time_period, processor_type, ...})
+(:Entity:SubmissionFeedback {uid, ku_type, subject_uid, user_uid, processor_type, ...})
+// ACTIVITY_REPORT inherits UserOwnedEntity DIRECTLY (no file fields)
+(:Entity:ActivityReport {uid, ku_type, subject_uid, user_uid, time_period, processor_type, ...})
 
 // Organizational Domains (2) — Groups + MOC
 (:Group {uid, name, description, owner_uid, is_active, max_members, created_at, ...})
