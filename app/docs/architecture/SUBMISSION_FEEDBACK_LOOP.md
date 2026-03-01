@@ -121,7 +121,7 @@ Only `COMPLETED` Ku can be shared (prevents sharing incomplete/failed work).
 |---------|----------|---------------|
 | `SubmissionsService` | `SubmissionOperations` | File upload, storage, submission record creation |
 | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | Routes files to processors, manages status transitions |
-| `SubmissionsSharingService` | `SubmissionSharingOperations` | Visibility control, SHARES_WITH management |
+| `UnifiedSharingService` | `SharingOperations` | Visibility control, SHARES_WITH + SHARED_WITH_GROUP management |
 | `FeedbackService` | `FeedbackOperations` | AI feedback generation → creates `SUBMISSION_FEEDBACK` entity |
 | `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval |
 | `ContentEnrichmentService` | — | Audio transcription + AI formatting |

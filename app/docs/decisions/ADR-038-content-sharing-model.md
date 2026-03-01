@@ -72,13 +72,18 @@ This prevents users from sharing failed/processing reports, ensuring portfolio q
 
 ### Service Layer
 
-**ReportSharingService** (`/core/services/submissions/ + core/services/feedback/report_sharing_service.py`):
-- `share_report()` - Create SHARES_WITH relationship
-- `unshare_report()` - Delete SHARES_WITH relationship
+**UnifiedSharingService** (`core/services/sharing/unified_sharing_service.py`):
+> *Supersedes `ReportSharingService` (Phase 3, 2026-03-01) — sharing extracted into an entity-agnostic cross-cutting service.*
+
+- `share()` - Create SHARES_WITH relationship
+- `unshare()` - Delete SHARES_WITH relationship
 - `set_visibility()` - Update visibility level
-- `check_access()` - Verify user can view report
-- `get_shared_with_users()` - List users with access
-- `get_reports_shared_with_me()` - Query shared reports
+- `check_access()` - Verify user can view entity (direct + group membership)
+- `get_shared_with()` - List users with access
+- `get_shared_with_me()` - Query entities shared with user
+- `share_with_group()` - Create SHARED_WITH_GROUP relationship
+- `unshare_from_group()` - Delete SHARED_WITH_GROUP relationship
+- `get_shared_with_me_via_groups()` - Query entities shared via group membership
 
 **SubmissionsCoreService** integration:
 - Added `get_with_access_check()` method that wraps `get_report()` with access verification
@@ -137,11 +142,22 @@ All routes use `@boundary_handler` for Result[T] -> HTTP conversion.
 ## Implementation Status
 
 **Phase 1 (Completed - 2026-02-02):**
-- Data model changes (Report.visibility, SHARES_WITH relationship)
-- ReportSharingService with 6 methods
+- Data model changes (Entity.visibility, SHARES_WITH relationship)
+- ReportSharingService with 6 methods (superseded — see Phase 3)
 - 6 API routes for sharing operations
 - Service bootstrapping in services_bootstrap.py
-- Route registration in scripts/dev/bootstrap.py
+
+**Phase 3 (Completed - 2026-03-01 — ADR-042):**
+- `ReportSharingService` absorbed into `UnifiedSharingService` (`core/services/sharing/`)
+- Sharing is now entity-agnostic — works across all EntityTypes
+- `SharingOperations` protocol in `core/ports/sharing_protocols.py`
+- `services.sharing` on Services dataclass
+
+**Phase 4 (Completed - 2026-03-01 — ADR-042):**
+- `SHARED_WITH_GROUP` relationship type added
+- Group sharing methods on `UnifiedSharingService`
+- `check_access()` extended to traverse group membership
+- 3 new routes: `/api/share/group`, `/api/share/ungroup`, `/api/shared-with-me/groups`
 - UI components (pending)
 - "Shared With Me" profile tab (pending)
 - Tests (pending)

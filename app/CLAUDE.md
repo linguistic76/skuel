@@ -207,7 +207,7 @@ SKUEL is built through an explicit human-AI partnership where neither role is su
 - **Domain authority (human):** Clarity of intent, plain-English expression of what the system should do and why. The human brings vision, philosophy, and domain understanding. The Activity DSL exists precisely because this kind of expression is treated as first-class input, not a preliminary step to be discarded.
 - **Technical translation (AI):** Architectural judgment, type system design, Cypher query construction, protocol design, and enforcement of SKUEL's own patterns and rules. The AI brings implementation fluency and pattern consistency.
 
-This is not a limitation to apologize for — it is the intended architecture of how SKUEL is built. The human does not need to know how `BackendOperations[T]` works to specify that "a teacher should be able to review student submissions before they are visible to the class." That intent is the input. The typed protocol, the `SHARES_WITH` relationship, and the `SubmissionSharingOperations` interface are the output.
+This is not a limitation to apologize for — it is the intended architecture of how SKUEL is built. The human does not need to know how `BackendOperations[T]` works to specify that "a teacher should be able to review student submissions before they are visible to the class." That intent is the input. The typed protocol, the `SHARES_WITH` relationship, and the `SharingOperations` interface are the output.
 
 Future collaborators — human or AI — should read SKUEL's plain-English domain descriptions and ADRs as the authoritative specification. The code is the translation, not the source of truth.
 
@@ -806,17 +806,18 @@ SHARED            → Owner + users with SHARES_WITH relationship
 PUBLIC            → Anyone (portfolio showcase)
 ```
 
-**Two Sharing Modes:**
+**Three Sharing Modes:**
 1. **Manual sharing** — Student completes Ku → shares with teacher → teacher views in "Shared With Me" inbox
-2. **Assignment auto-sharing (ADR-040)** — Student submits Ku against ASSIGNED Assignment → SHARES_WITH auto-created to teacher → appears in teacher review queue
+2. **Assignment auto-sharing (ADR-040)** — Student submits Ku against ASSIGNED Exercise → SHARES_WITH auto-created to teacher → appears in teacher review queue
+3. **Group sharing** — Share with all current (and future) members of a group via `SHARED_WITH_GROUP`
 
 **Service:**
 ```python
-from core.services.submissions import SubmissionsSharingService
+from core.services.sharing import UnifiedSharingService
 
 # Manual share
-await sharing_service.share_report(
-    ku_uid="ku_assignment_123",
+await sharing_service.share(
+    entity_uid="ku_assignment_123",
     owner_uid="user_student",
     recipient_uid="user_teacher",
     role="teacher"  # teacher, peer, mentor, viewer
@@ -844,9 +845,13 @@ await teacher_review.approve_report(report_uid, teacher_uid)
 
 **UI Routes:**
 - `/submissions/{uid}` - Sharing controls (owner only)
-- `/profile/shared` - "Shared With Me" inbox
+- `/profile/shared` - "Shared With Me" inbox (direct shares)
 - `/api/submissions/share` - Share with user
-- `/api/submissions/shared-with-me` - Inbox API
+- `/api/submissions/unshare` - Revoke user sharing
+- `/api/submissions/shared-with-me` - Inbox API (direct)
+- `/api/share/group` - Share with group
+- `/api/share/ungroup` - Revoke group sharing
+- `/api/shared-with-me/groups` - Inbox API (via group membership)
 - `/api/teaching/review-queue` - Teacher's pending reviews
 - `/api/teaching/review/{uid}/feedback` - Submit feedback
 - `/api/teaching/review/{uid}/approve` - Approve report
@@ -856,9 +861,8 @@ await teacher_review.approve_report(report_uid, teacher_uid)
 **Graph Pattern:**
 ```cypher
 (user:User)-[:SHARES_WITH {shared_at, role, share_version}]->(entity:Entity)
+(entity:Entity)-[:SHARED_WITH_GROUP {shared_at, share_version}]->(group:Group)
 ```
-
-**Phase 2:** Extend to Events (same infrastructure, different entity type).
 
 **See:** `/docs/patterns/SHARING_PATTERNS.md`, `/docs/decisions/ADR-038-content-sharing-model.md`, `/docs/decisions/ADR-040-teacher-assignment-workflow.md`
 

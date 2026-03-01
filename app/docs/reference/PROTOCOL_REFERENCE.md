@@ -499,18 +499,19 @@ async def analyze_tasks(tasks_service: "TasksService") -> dict:
 
 These protocols replace `Any` types on the `Services` dataclass fields, giving route files type-safe contracts without coupling to concrete implementations.
 
-### Three Protocol Files
+### Four Protocol Files
 
 | File | Protocols | Route Consumers |
 |------|-----------|-----------------|
-| `submission_protocols.py` | 4 protocols | `submissions_api.py`, `submissions_sharing_api.py`, `progress_feedback_api.py` |
+| `submission_protocols.py` | 3 protocols | `submissions_api.py`, `progress_feedback_api.py` |
+| `sharing_protocols.py` | 1 protocol | `submissions_sharing_api.py` |
 | `feedback_protocols.py` | 4 protocols | `exercises_api.py`, `feedback_assessment_api.py`, `progress_feedback_api.py` |
 | `group_protocols.py` | 2 protocols | `groups_api.py`, `teaching_api.py` |
 | `service_protocols.py` | 10 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
 
 Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
 
-### Submission Protocols (4) — `submission_protocols.py`
+### Submission Protocols (3) — `submission_protocols.py`
 
 Map to the **Submission** stage of the educational loop (`Ku → Exercise → Submission → Feedback`).
 
@@ -518,8 +519,15 @@ Map to the **Submission** stage of the educational loop (`Ku → Exercise → Su
 |----------|---------------|---------|----------------|
 | `SubmissionOperations` | `submissions`, `submissions_core` | submit_file, list_submissions, get_file_content, get_processed_file_content, update_processed_content, categorize, tags, bulk ops | `submissions_api.py`, `feedback_assessment_api.py` |
 | `SubmissionProcessingOperations` | `submissions_processor` | 2 (process_submission, reprocess_submission) | `submissions_api.py` |
-| `SubmissionSharingOperations` | `submissions_sharing` | 6 (share_submission, unshare_submission, get_shared_with_users, get_submissions_shared_with_me, set_visibility, check_access) | `submissions_sharing_api.py` |
 | `SubmissionSearchOperations` | `submissions_search` | 4 (search_submissions, get_submission_statistics, get_recent_submissions, get_journal_for_submission) | `submissions_api.py` |
+
+### Sharing Protocol (1) — `sharing_protocols.py`
+
+Entity-agnostic sharing. `UnifiedSharingService` implements this protocol and works across all EntityTypes.
+
+| Protocol | Services Field | Methods | Route Consumer |
+|----------|---------------|---------|----------------|
+| `SharingOperations` | `sharing` | share, unshare, get_shared_with, get_shared_with_me, set_visibility, check_access, verify_shareable, share_with_group, unshare_from_group, get_groups_shared_with, get_shared_with_me_via_groups (11 methods) | `submissions_sharing_api.py` |
 
 ### Feedback Protocols (3) — `feedback_protocols.py`
 
@@ -600,15 +608,16 @@ class VisualizationOperations(Protocol):
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports.submission_protocols import SubmissionSharingOperations, SubmissionOperations
+    from core.ports.sharing_protocols import SharingOperations
+    from core.ports.submission_protocols import SubmissionOperations
 
-def create_reports_sharing_api_routes(
+def create_submissions_sharing_api_routes(
     _app: Any,
     rt: Any,
-    sharing_service: "SubmissionSharingOperations",
+    sharing_service: "SharingOperations",
     core_service: "SubmissionOperations | None" = None,
 ) -> list[Any]:
-    # MyPy verifies .share_report(), .check_access() etc. exist
+    # MyPy verifies .share(), .check_access() etc. exist
     ...
 ```
 
