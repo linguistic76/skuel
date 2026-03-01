@@ -2,13 +2,12 @@
 """
 Contextual Documentation Checker (v2 — slimmed)
 
-Two high-signal detection methods:
+One high-signal detection method:
 1. Detects new documentation files and suggests INDEX updates
-2. Cross-reference analysis via ripgrep (docs that reference changed files)
 
-Noisy detectors (numerical references, broad keyword patterns) removed —
-those are now handled by the Claude Code PostToolUse hook which has
-semantic understanding of what actually changed.
+Cross-reference analysis removed — too many false positives (flagged every
+doc mentioning a changed filename regardless of whether the API changed).
+Semantic doc-update awareness is handled by the Claude Code PostToolUse hook.
 
 Usage:
     poetry run python scripts/docs_contextual_check_v2.py
@@ -18,7 +17,6 @@ Usage:
 
 import argparse
 import json
-import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -129,62 +127,6 @@ def detect_new_documentation_files(changed_files: list[str]) -> list[DocSuggesti
     return suggestions
 
 
-def analyze_cross_references(changed_files: list[str], project_root: Path) -> list[DocSuggestion]:
-    """
-    Find docs that directly reference changed file paths.
-
-    More accurate than keyword search - looks for explicit file path mentions.
-    """
-    suggestions = []
-
-    # Build search patterns from file paths
-    file_patterns = []
-    for file_path in changed_files:
-        if file_path.endswith(".py"):
-            # Add the full path
-            file_patterns.append(file_path)
-            # Add just the filename
-            file_patterns.append(Path(file_path).name)
-
-    if not file_patterns:
-        return suggestions
-
-    # Search docs for these file paths
-    docs_dir = project_root / "docs"
-
-    try:
-        # Use ripgrep to find file path mentions
-        pattern = "|".join(re.escape(p) for p in file_patterns[:20])  # Limit to avoid huge regex
-
-        result = subprocess.run(
-            ["rg", "-l", pattern, str(docs_dir), str(project_root / "CLAUDE.md")],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-
-        if result.returncode == 0:
-            matching_docs = result.stdout.strip().split("\n")
-
-            for doc_path in matching_docs:
-                if doc_path:
-                    rel_path = str(Path(doc_path).relative_to(project_root))
-                    suggestions.append(
-                        DocSuggestion(
-                            doc_path=rel_path,
-                            reason="Contains explicit reference to modified file path",
-                            confidence="high",
-                            source="cross_reference",
-                            action="Verify file path references and examples are still accurate",
-                        )
-                    )
-
-    except Exception:
-        pass
-
-    return suggestions
-
-
 def merge_and_deduplicate(all_suggestions: list[DocSuggestion]) -> list[DocSuggestion]:
     """Merge suggestions for same doc, keeping highest confidence."""
     by_doc: dict[str, DocSuggestion] = {}
@@ -281,9 +223,6 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    # Find project root
-    project_root = Path(__file__).parent.parent
-
     # Get changed files
     changed_files = get_changed_files(args.since)
 
@@ -294,14 +233,8 @@ def main() -> int:
             print(f"{DIM}📄 No files changed{RESET}")
         return 0
 
-    # Run high-signal detection methods only
-    all_suggestions: list[DocSuggestion] = []
-
-    # 1. Detect new documentation files (CRITICAL)
-    all_suggestions.extend(detect_new_documentation_files(changed_files))
-
-    # 2. Cross-reference analysis (HIGH)
-    all_suggestions.extend(analyze_cross_references(changed_files, project_root))
+    # Detect new documentation files (CRITICAL)
+    all_suggestions: list[DocSuggestion] = detect_new_documentation_files(changed_files)
 
     # Merge and deduplicate
     suggestions = merge_and_deduplicate(all_suggestions)

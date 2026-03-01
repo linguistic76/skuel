@@ -13,6 +13,7 @@
 # - Deleted: tailwind-css, daisyui, js-alpine, html-htmx, html-navigation, base-page-architecture, custom-sidebar-patterns,
 #   skuel-component-composition, skuel-form-patterns
 # - Total: 31 → 25 skills
+# - Added last_reviewed field to all skills for staleness detection
 #
 # New in Phase 2.3 (2026-02-02):
 # - Added library_package and library_version fields for library upgrade detection
@@ -26,6 +27,7 @@ skills:
 
   - name: docs-skills-evolution
     description: How SKUEL's documentation and skills evolve in rhythm with the ecosystem
+    last_reviewed: "2026-03-01"
     foundation: []
     dependencies: []
     library_package: null  # Meta-skill, not tied to specific library
@@ -44,6 +46,7 @@ skills:
 
   - name: python
     description: Python development patterns in SKUEL
+    last_reviewed: "2026-03-01"
     foundation: []
     dependencies: []
     library_package: null  # Language, not a package
@@ -65,6 +68,7 @@ skills:
 
   - name: pydantic
     description: Pydantic V2 validation models
+    last_reviewed: "2026-03-01"
     foundation: []
     dependencies: []
     library_package: pydantic
@@ -81,6 +85,7 @@ skills:
 
   - name: ui-css
     description: SKUEL CSS layer — DaisyUI semantic components + Tailwind utility classes
+    last_reviewed: "2026-03-01"
     foundation: []
     dependencies: []
     library_package: null  # CDN/static, not PyPI package
@@ -93,6 +98,7 @@ skills:
 
   - name: chartjs
     description: Chart.js data visualization in SKUEL
+    last_reviewed: "2026-03-01"
     foundation: []
     dependencies: []
     library_package: null  # Vendored static file
@@ -105,6 +111,7 @@ skills:
 
   - name: vis-network
     description: Expert guide to Vis.js Network for interactive graph visualization in SKUEL. Use when visualizing lateral relationships, building force-directed graphs, creating relationship network diagrams, or when the user mentions vis.js, graph visualization, relationship networks, interactive graphs, or lateral relationships.
+    last_reviewed: "2026-03-01"
     foundation: []
     dependencies: []
     library_package: null  # Self-hosted vendor library
@@ -124,6 +131,7 @@ skills:
 
   - name: fasthtml
     description: FastHTML - Python's server-rendered hypermedia framework
+    last_reviewed: "2026-03-01"
     foundation: [python]
     dependencies: [python]
     library_package: python-fasthtml
@@ -142,6 +150,7 @@ skills:
 
   - name: domain-route-config
     description: Configuration-driven route registration for *_routes.py files using DomainRouteConfig
+    last_reviewed: "2026-03-01"
     foundation: [fasthtml, python]
     dependencies: [fasthtml, python]
     library_package: null  # SKUEL pattern, not external library
@@ -158,6 +167,7 @@ skills:
 
   - name: ui-browser
     description: SKUEL browser interactivity — HTMX for server communication + Alpine.js for client-side state
+    last_reviewed: "2026-03-01"
     foundation: [fasthtml]
     dependencies: [fasthtml]
     library_package: null  # Vendored static files
@@ -178,6 +188,7 @@ skills:
 
   - name: accessibility-guide
     description: Expert guide for building accessible web applications following WCAG standards
+    last_reviewed: "2026-03-01"
     foundation: [ui-browser, ui-css]
     dependencies: [ui-browser, ui-css]
     library_package: null  # SKUEL pattern, not external library
@@ -191,6 +202,7 @@ skills:
 
   - name: skuel-ui
     description: SKUEL UI patterns — BasePage, components, navigation, sidebars, forms (self-contained)
+    last_reviewed: "2026-03-01"
     foundation: [fasthtml, ui-css, ui-browser, pydantic]
     dependencies: [fasthtml, ui-css, ui-browser, pydantic]
     library_package: null  # SKUEL pattern, not external library
@@ -205,6 +217,7 @@ skills:
 
   - name: ui-error-handling
     description: Expert guide for UI error handling patterns and user feedback
+    last_reviewed: "2026-03-01"
     foundation: [result-pattern, ui-css]
     dependencies: [result-pattern, ui-css]
     library_package: null  # SKUEL pattern, not external library
@@ -223,12 +236,12 @@ skills:
 
   - name: neo4j-cypher-patterns
     description: Neo4j Cypher queries and SKUEL's graph patterns
+    last_reviewed: "2026-03-01"
     foundation: []
     dependencies: []
     library_package: neo4j
     library_version: "5.26.0"
     primary_docs:
-      - /docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md
       - /docs/patterns/query_architecture.md
       - /docs/patterns/GRAPH_ACCESS_PATTERNS.md
       - /docs/patterns/CYPHER_VS_APOC_STRATEGY.md
@@ -249,6 +262,7 @@ skills:
 
   - name: neo4j-genai-plugin
     description: Neo4j GenAI plugin integration for AI-powered graph features
+    last_reviewed: "2026-03-01"
     foundation: [neo4j-cypher-patterns]
     dependencies: [neo4j-cypher-patterns]
     library_package: null  # Neo4j plugin, not PyPI package
@@ -268,13 +282,13 @@ skills:
 
   - name: prometheus-grafana
     description: Prometheus metrics and Grafana dashboards in SKUEL
+    last_reviewed: "2026-03-01"
     foundation: []
     dependencies: []
     library_package: prometheus-client
     library_version: "0.21.1"
     primary_docs:
       - /monitoring/README.md
-      - /OBSERVABILITY_PHASE1_COMPLETE.md
     related_adrs:
       - ADR-036  # Prometheus-primary cache pattern
     patterns:
@@ -287,6 +301,7 @@ skills:
 
   - name: result-pattern
     description: Result[T] error handling pattern
+    last_reviewed: "2026-03-01"
     foundation: [python]
     dependencies: [python]
     library_package: null  # SKUEL pattern, not external library
@@ -303,6 +318,7 @@ skills:
 
   - name: base-analytics-service
     description: BaseAnalyticsService for domain analytics
+    last_reviewed: "2026-03-01"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library
@@ -325,6 +341,7 @@ skills:
 
   - name: base-ai-service
     description: BaseAIService for AI/LLM features (optional)
+    last_reviewed: "2026-03-01"
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern]
     library_package: openai
@@ -338,6 +355,7 @@ skills:
 
   - name: activity-domains
     description: Activity domain patterns (Tasks, Goals, Habits, Events, Choices, Principles)
+    last_reviewed: "2026-03-01"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns, base-analytics-service]
     library_package: null  # SKUEL pattern, not external library
@@ -355,6 +373,7 @@ skills:
 
   - name: curriculum-domains
     description: Curriculum domain patterns (KU, LS, LP)
+    last_reviewed: "2026-03-01"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library
@@ -373,6 +392,7 @@ skills:
 
   - name: skuel-search-architecture
     description: SKUEL's unified search architecture and SearchRouter
+    last_reviewed: "2026-03-01"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library
@@ -388,6 +408,7 @@ skills:
 
   - name: user-context-intelligence
     description: UserContextIntelligence - central cross-domain intelligence hub
+    last_reviewed: "2026-03-01"
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern, activity-domains]
     library_package: null  # SKUEL pattern, not external library
@@ -406,6 +427,7 @@ skills:
 
   - name: pytest
     description: SKUEL testing patterns - fixtures, async testing, mocking with Result[T]
+    last_reviewed: "2026-03-01"
     foundation: [python, result-pattern]
     dependencies: [python, result-pattern]
     library_package: pytest
@@ -451,5 +473,5 @@ skills:
 # Testing:
 #   pytest (depends on python, result-pattern)
 #
-# Total skills: 25
+# Total skills: 23
 # No cycles detected - graph is valid ✓

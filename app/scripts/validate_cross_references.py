@@ -7,6 +7,7 @@ Validates bidirectional consistency between skills and documentation:
 2. Finds missing reverse links (A→B exists but B→A missing)
 3. Reports orphaned links
 4. Suggests missing cross-references
+5. Detects stale skills (primary docs updated after last_reviewed date)
 
 Usage:
     poetry run python scripts/validate_cross_references.py [--fix-suggestions]
@@ -14,7 +15,8 @@ Usage:
 
 import argparse
 import re
-from dataclasses import dataclass
+import subprocess
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +28,7 @@ class ValidationIssue:
     """Represents a validation issue."""
 
     severity: str  # "error" | "warning" | "info"
-    category: str  # "broken_link" | "missing_reverse" | "orphaned" | "suggestion"
+    category: str  # "broken_link" | "missing_reverse" | "orphaned" | "suggestion" | "stale_skill"
     source: str  # File or skill that has the issue
     message: str
     suggestion: str | None = None
@@ -43,37 +45,7 @@ class CrossRefStats:
     bidirectional_links: int = 0
     broken_links: int = 0
     missing_reverse_links: int = 0
-
-
-# Valid skills (from directory)
-VALID_SKILLS = {
-    "accessibility-guide",
-    "activity-domains",
-    "base-ai-service",
-    "base-analytics-service",
-    "base-page-architecture",
-    "chartjs",
-    "curriculum-domains",
-    "custom-sidebar-patterns",
-    "daisyui",
-    "fasthtml",
-    "html-htmx",
-    "html-navigation",
-    "js-alpine",
-    "neo4j-cypher-patterns",
-    "neo4j-genai-plugin",
-    "prometheus-grafana",
-    "pydantic",
-    "pytest",
-    "python",
-    "result-pattern",
-    "skuel-component-composition",
-    "skuel-form-patterns",
-    "skuel-search-architecture",
-    "tailwind-css",
-    "ui-error-handling",
-    "user-context-intelligence",
-}
+    stale_skills: int = 0
 
 
 def load_skills_metadata(base_path: Path) -> dict[str, Any]:
@@ -83,13 +55,18 @@ def load_skills_metadata(base_path: Path) -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
-def find_skill_references_in_file(file_path: Path) -> set[str]:
+def get_valid_skills(skills_data: dict[str, Any]) -> set[str]:
+    """Derive valid skill names dynamically from loaded metadata."""
+    return {skill["name"] for skill in skills_data["skills"]}
+
+
+def find_skill_references_in_file(file_path: Path, valid_skills: set[str]) -> set[str]:
     """Find all @skill-name references in a file."""
     content = file_path.read_text()
     # Find @skill-name patterns (but not in code blocks)
     matches = re.findall(r"@([a-z0-9-]+)", content)
     # Validate against known skills
-    return {m for m in matches if m in VALID_SKILLS}
+    return {m for m in matches if m in valid_skills}
 
 
 def find_actual_adr_files(base_path: Path) -> dict[str, str]:
@@ -141,6 +118,7 @@ def find_doc_references_in_skills(
 
 def collect_doc_to_skills_mapping(
     base_path: Path,
+    valid_skills: set[str],
 ) -> tuple[dict[str, set[str]], set[Path]]:
     """
     Scan all docs and find which skills they reference.
@@ -158,7 +136,7 @@ def collect_doc_to_skills_mapping(
             if "archive" in file_path.parts:
                 continue
 
-            skills = find_skill_references_in_file(file_path)
+            skills = find_skill_references_in_file(file_path, valid_skills)
             # Store with path relative to base (e.g., /docs/development/GENAI_SETUP.md)
             rel_path = f"/{file_path.relative_to(base_path)}"
             doc_to_skills[rel_path] = skills
@@ -166,7 +144,7 @@ def collect_doc_to_skills_mapping(
 
     # Also scan root-level markdown files
     for file_path in base_path.glob("*.md"):
-        skills = find_skill_references_in_file(file_path)
+        skills = find_skill_references_in_file(file_path, valid_skills)
         rel_path = f"/{file_path.relative_to(base_path)}"
         doc_to_skills[rel_path] = skills
         scanned_files.add(file_path)
@@ -175,12 +153,76 @@ def collect_doc_to_skills_mapping(
     monitoring_dir = base_path / "monitoring"
     if monitoring_dir.exists():
         for file_path in monitoring_dir.rglob("*.md"):
-            skills = find_skill_references_in_file(file_path)
+            skills = find_skill_references_in_file(file_path, valid_skills)
             rel_path = f"/{file_path.relative_to(base_path)}"
             doc_to_skills[rel_path] = skills
             scanned_files.add(file_path)
 
     return doc_to_skills, scanned_files
+
+
+def get_doc_last_modified(doc_path: str, base_path: Path) -> str | None:
+    """
+    Get the last git commit date for a doc file (YYYY-MM-DD).
+
+    Returns None if the file has no git history or git fails.
+    """
+    full_path = base_path / doc_path.lstrip("/")
+    try:
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%Y-%m-%d", "--", str(full_path)],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=str(base_path),
+        )
+        date = result.stdout.strip()
+        return date if date else None
+    except Exception:
+        return None
+
+
+def check_skill_staleness(
+    skill: dict[str, Any],
+    base_path: Path,
+) -> list[ValidationIssue]:
+    """
+    Check if a skill's primary docs have been updated since last_reviewed.
+
+    Only checks primary_docs (the docs the skill directly teaches from).
+    Skips docs that don't exist — those are caught as broken links.
+    """
+    last_reviewed = skill.get("last_reviewed")
+    if not last_reviewed:
+        return []
+
+    last_reviewed_str = str(last_reviewed)
+    stale_docs: list[tuple[str, str]] = []
+
+    for doc_path in skill.get("primary_docs", []):
+        doc_file = base_path / doc_path.lstrip("/")
+        if not doc_file.exists():
+            continue  # Already caught as broken link
+
+        last_modified = get_doc_last_modified(doc_path, base_path)
+        if last_modified and last_modified > last_reviewed_str:
+            stale_docs.append((doc_path, last_modified))
+
+    if not stale_docs:
+        return []
+
+    doc_summary = "; ".join(
+        f"{Path(p).name} (modified {d})" for p, d in stale_docs[:3]
+    )
+    return [
+        ValidationIssue(
+            severity="warning",
+            category="stale_skill",
+            source=f"@{skill['name']}",
+            message=f"Primary docs updated since last review ({last_reviewed_str}): {doc_summary}",
+            suggestion=f"Review @{skill['name']} SKILL.md, then update last_reviewed in skills_metadata.yaml",
+        )
+    ]
 
 
 def validate_cross_references(base_path: Path) -> tuple[list[ValidationIssue], CrossRefStats]:
@@ -194,9 +236,10 @@ def validate_cross_references(base_path: Path) -> tuple[list[ValidationIssue], C
 
     # Load data
     skills_data = load_skills_metadata(base_path)
+    valid_skills = get_valid_skills(skills_data)
     adr_map = find_actual_adr_files(base_path)
     skill_to_docs = find_doc_references_in_skills(skills_data, adr_map)
-    doc_to_skills, scanned_files = collect_doc_to_skills_mapping(base_path)
+    doc_to_skills, scanned_files = collect_doc_to_skills_mapping(base_path, valid_skills)
 
     stats.total_skills = len(skills_data["skills"])
     stats.total_docs = len(scanned_files)
@@ -302,6 +345,12 @@ def validate_cross_references(base_path: Path) -> tuple[list[ValidationIssue], C
                 )
             )
 
+    # Check skill staleness — primary docs updated after last_reviewed
+    for skill in skills_data["skills"]:
+        stale_issues = check_skill_staleness(skill, base_path)
+        issues.extend(stale_issues)
+        stats.stale_skills += len(stale_issues)
+
     return issues, stats
 
 
@@ -333,11 +382,13 @@ def print_report(
 
     print(f"❌ Broken Links: {stats.broken_links}")
     print(f"⚠️  Missing Reverse Links: {stats.missing_reverse_links}")
+    print(f"🔵 Stale Skills: {stats.stale_skills}")
     print()
 
     # Issues by category
     errors = [i for i in issues if i.severity == "error"]
-    warnings = [i for i in issues if i.severity == "warning"]
+    stale = [i for i in issues if i.category == "stale_skill"]
+    warnings = [i for i in issues if i.severity == "warning" and i.category != "stale_skill"]
     infos = [i for i in issues if i.severity == "info"]
 
     if errors:
@@ -350,8 +401,17 @@ def print_report(
                 print(f"    💡 {issue.suggestion}")
             print()
 
+    if stale:
+        print(f"🔵 STALE SKILLS — primary docs updated since last review ({len(stale)}):")
+        print()
+        for issue in stale:
+            print(f"  {issue.source}")
+            print(f"    {issue.message}")
+            print(f"    💡 {issue.suggestion}")
+            print()
+
     if warnings:
-        print("🟡 WARNINGS (Should Fix):")
+        print(f"🟡 WARNINGS (Should Fix) ({len(warnings)}):")
         print()
         for issue in warnings[: 10 if not verbose else None]:  # Limit to 10 unless verbose
             print(f"  [{issue.category.upper()}] {issue.source}")
@@ -382,6 +442,8 @@ def print_report(
     print("=" * 80)
     if errors:
         print(f"❌ FAILED: {len(errors)} error(s) must be fixed")
+    elif stale:
+        print(f"🔵 PASSED WITH STALE SKILLS: {len(stale)} skill(s) may need review")
     elif warnings:
         print(f"⚠️  PASSED WITH WARNINGS: {len(warnings)} warning(s) should be addressed")
     else:
@@ -422,7 +484,7 @@ def main() -> None:
     else:
         print_report(issues, stats, verbose=args.verbose)
 
-        # Exit code based on errors
+        # Exit code based on errors only (staleness is informational)
         errors = [i for i in issues if i.severity == "error"]
         exit(1 if errors else 0)
 

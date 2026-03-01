@@ -64,7 +64,7 @@ the framework's intended usage.
 - Fundamental pattern shifts across many files
 - New cross-cutting concerns emerge
 
-**Pre-commit validation prioritizes documentation** (blocks broken doc links, warns on skill issues).
+**Post-commit hook detects new documentation files** and prompts INDEX updates. Cross-reference validation (`validate_cross_references.py`) is a manual tool — run it after major changes.
 
 ---
 
@@ -289,9 +289,8 @@ rg "@old-pattern" docs/ | # Find all references
 #### 6. Validate
 
 ```bash
-# Pre-commit hook catches broken links
-git add .
-git commit  # Hook validates automatically
+# Run cross-reference validator manually
+poetry run python scripts/validate_cross_references.py
 
 # Run tests
 poetry run pytest
@@ -321,7 +320,7 @@ Write the code, tests, then docs.
 | Major decision | `/docs/decisions/ADR-XXX.md` |
 | Implementation detail | Docstrings only (no separate doc) |
 
-**Three-Layer Documentation** (see @docstring-standards):
+**Three-Layer Documentation** (see `/docs/patterns/DOCSTRING_STANDARDS.md`):
 
 | Layer | Purpose | Location |
 |-------|---------|----------|
@@ -383,10 +382,10 @@ See /docs/patterns/FEATURE_X.md for usage.
 
 Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 
-# Pre-commit hook runs:
-# ✅ Validates cross-references
-# ✅ Checks for broken links
-# ⚠️  Warns on missing reverse links
+# Post-commit hook runs:
+# ✅ Detects new .md files → prompts INDEX.md update
+# ✅ Detects new skill docs → prompts CLAUDE.md update
+# (Cross-reference analysis removed — too many false positives)
 ```
 
 #### 6. Update Index (If Needed)
@@ -445,24 +444,24 @@ poetry run python scripts/validate_cross_references.py
 
 ## Part 5: Validation & Tooling
 
-### Pre-Commit Hook (Automatic)
+### Post-Commit Hook (Automatic)
 
-**Location**: `.git/hooks/pre-commit` → `scripts/hooks/pre-commit`
+**Location**: `scripts/hooks/post-commit`
 
-**Validates on every commit:**
-- ✅ **Broken skill references** - `@skill-name` exists?
-- ✅ **Broken doc links** - `/docs/...` file exists?
-- ✅ **Missing frontmatter** - Pattern docs have metadata?
-- ⚠️  **Missing reverse links** - Warns but doesn't block
+**Runs after every commit — new file detection only:**
+- ✅ New `.md` in `docs/` → prompts `docs/INDEX.md` update (CRITICAL)
+- ✅ New `.md` in `.claude/skills/` → prompts `CLAUDE.md` update (HIGH)
 
-**Blocks commits if errors found:**
+Cross-reference analysis was removed (flagged every doc mentioning a changed
+filename, regardless of whether the API changed — too many false positives).
+Semantic doc awareness is handled by the Claude Code PostToolUse hook.
+
 ```bash
-❌ Cross-reference validation failed
+# Disable if needed:
+git config skuel.docs-check false
 
-Your commit contains broken cross-references:
-  - docs/patterns/NEW.md references @nonexistent-skill (not found)
-
-Fix errors and try again, or bypass: git commit --no-verify
+# Re-enable:
+git config skuel.docs-check true
 ```
 
 ### Post-Merge Hook (Automatic)
@@ -492,7 +491,7 @@ $ git pull
 # Full validation with warnings
 poetry run python scripts/validate_cross_references.py
 
-# Errors only (used by pre-commit)
+# Errors only
 poetry run python scripts/validate_cross_references.py --errors-only
 
 # Verbose (show all issues including info)
@@ -516,7 +515,7 @@ poetry run python scripts/detect_library_changes.py --from-ref HEAD~5
 ### When to Run Validation
 
 **Automatic** (already in place):
-- ✅ **On every commit** - Pre-commit hook validates staged docs
+- ✅ **On every commit** - Post-commit hook prompts INDEX update when new `.md` files added
 - ✅ **After git pull** - Post-merge hook detects library changes
 
 **Manual** (after major changes):
@@ -536,12 +535,20 @@ poetry run python scripts/detect_library_changes.py --from-ref HEAD~5
 
 ### What Validators Check
 
-| Check | Severity | Action |
-|-------|----------|--------|
-| **Broken skill references** | ❌ Error | Blocks commit |
-| **Broken doc links** | ❌ Error | Blocks commit |
-| **Missing frontmatter** | ❌ Error | Blocks commit |
-| **Missing reverse links** | ⚠️  Warning | Warns but allows commit |
+**Post-commit hook** (automatic — `docs_contextual_check_v2.py`):
+
+| Check | Confidence | Action |
+|-------|------------|--------|
+| New `.md` in `docs/` | CRITICAL | Prompts INDEX.md update |
+| New `.md` in `.claude/skills/` | HIGH | Prompts CLAUDE.md update |
+
+**Manual validator** (`validate_cross_references.py`):
+
+| Check | Severity | Notes |
+|-------|----------|-------|
+| **Broken skill references** | ❌ Error | `@skill-name` in docs exists? |
+| **Broken doc links** | ❌ Error | `/docs/...` file exists? |
+| **Missing reverse links** | ⚠️  Warning | Bidirectional coverage |
 | **Orphaned docs** | ℹ️  Info | Suggests improvements |
 
 ---
@@ -656,8 +663,8 @@ Does the pattern exist in the library's official docs?
 | Purpose | Location |
 |---------|----------|
 | Skills metadata | `.claude/skills/skills_metadata.yaml` |
-| Pre-commit hook | `.git/hooks/pre-commit` → `scripts/hooks/pre-commit` |
-| Post-merge hook | `.git/hooks/post-merge` → `scripts/hooks/post-merge` |
+| Post-commit hook | `scripts/hooks/post-commit` → `scripts/docs_contextual_check_v2.py` |
+| Post-merge hook | `scripts/hooks/post-merge` |
 | Cross-reference validator | `scripts/validate_cross_references.py` |
 | Library change detector | `scripts/detect_library_changes.py` |
 | Cross-reference index | `docs/CROSS_REFERENCE_INDEX.md` (auto-generated) |
@@ -685,7 +692,7 @@ poetry run python scripts/validate_cross_references.py --verbose
 2. **One path forward** - No backward compatibility, no legacy wrappers
 3. **Preserve context** - ADRs show *why* we changed (external forces)
 4. **Documentation focus** - 70% docs evolve, 30% skills evolve
-5. **Validate early** - Pre-commit catches issues, post-merge suggests reviews
+5. **Validate early** - Post-commit detects new docs; post-merge detects library changes; run `validate_cross_references.py` manually after major changes
 6. **Fundamentals vs adaptive** - Respect library patterns, adapt SKUEL patterns
 
 ---
@@ -708,6 +715,4 @@ poetry run python scripts/validate_cross_references.py --verbose
 
 ---
 
-**Last Updated:** 2026-02-02
-
-**Version:** 1.0.0 (initial implementation)
+**Last Updated:** 2026-03-01
