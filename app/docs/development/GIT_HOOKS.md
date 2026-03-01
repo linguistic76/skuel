@@ -1,153 +1,148 @@
 # Git Hooks for SKUEL
 
-**Purpose:** Automated validation of code quality and documentation consistency before commits.
-
-## Installation
-
-```bash
-./scripts/install_git_hooks.sh
-```
-
-This installs all SKUEL git hooks to `.git/hooks/`.
+**Purpose:** Automated documentation prompts and library-change detection after commits.
 
 ---
 
-## Pre-Commit Hook: Cross-Reference Validation
+## Installed Hooks
 
-**File:** `.git/hooks/pre-commit`
+| Hook | Trigger | Script | Blocks? |
+|------|---------|--------|---------|
+| `post-commit` | After every commit | `scripts/hooks/post-commit` | No |
+| `post-merge` | After `git pull` / merge | `scripts/hooks/post-merge` | No |
 
-**Purpose:** Prevents commits with broken cross-references between skills and documentation.
+Neither hook blocks commits. They surface information you'd otherwise miss.
 
-### What It Validates
+---
 
-The hook runs automatically before each commit and checks:
+## Post-Commit Hook: New Documentation Detection
 
-✅ **Blocks commits with errors:**
-- Broken skill references in metadata (skill doesn't exist)
-- Broken doc links (file doesn't exist)
-- Missing frontmatter in pattern docs
+**Script:** `scripts/hooks/post-commit` → `scripts/docs_contextual_check_v2.py`
 
-⚠️ **Warns (but doesn't block):**
-- Missing reverse links (one-way references)
+Runs after every commit. Checks whether any newly added `.md` files need INDEX entries.
 
-### How It Works
+### What It Detects
 
-1. Detects staged `.md` files
-2. Runs validation script in `--errors-only` mode
-3. Blocks commit if errors found (exit code 1)
-4. Allows commit if only warnings
+| Trigger | Confidence | Action |
+|---------|------------|--------|
+| New `.md` in `docs/` | CRITICAL | Prompt to update `docs/INDEX.md` |
+| New `.md` in `.claude/skills/` | HIGH | Prompt to update `CLAUDE.md` |
 
-### Usage
+Only detects **new files** (added, not modified). Cross-reference analysis was removed
+(it flagged every doc mentioning a changed filename — too many false positives).
+Semantic doc-update awareness is handled by the Claude Code PostToolUse hook.
 
-**Normal workflow:**
+### Disable / Re-enable
+
 ```bash
-git add docs/patterns/NEW_PATTERN.md
-git commit -m "Add new pattern"
-# Hook runs automatically and validates
+git config skuel.docs-check false   # disable
+git config skuel.docs-check true    # re-enable
 ```
 
-**If validation fails:**
-```bash
-❌ Cross-reference validation failed
+---
 
-Your commit contains broken cross-references that must be fixed.
+## Post-Merge Hook: Library Change Detection
 
-To see details:
-  poetry run python scripts/validate_cross_references.py
+**Script:** `scripts/hooks/post-merge`
 
-To bypass this check (not recommended):
-  git commit --no-verify
+Runs after `git pull` or merge. Detects when `poetry.lock` changed and reports
+which library versions changed and which skills may be affected.
+
 ```
+⚠️  Library versions changed. Consider reviewing:
 
-**Bypass hook (not recommended):**
-```bash
-git commit --no-verify -m "Skip validation"
+📦 python-fasthtml: 0.12.21 → 0.12.39
+   Skills potentially affected:
+   - @fasthtml (primary)
 ```
-
-### Performance
-
-- **Fast:** Only validates when .md files are staged
-- **Efficient:** Uses `--errors-only` mode for speed
-- **Non-intrusive:** Skips validation if no docs staged
 
 ---
 
 ## Manual Validation
 
-Run validation manually at any time:
+Run at any time, especially after major changes:
 
 ```bash
-# Full report
+# Full report (broken links + missing reverse links + stale skills)
 poetry run python scripts/validate_cross_references.py
 
-# Errors only (same as pre-commit)
-poetry run python scripts/validate_cross_references.py --errors-only
-
-# Verbose (all warnings)
+# Verbose (includes orphaned docs)
 poetry run python scripts/validate_cross_references.py --verbose
+
+# Errors only (zero exit if clean)
+poetry run python scripts/validate_cross_references.py --errors-only
 ```
+
+### What the Validator Checks
+
+**Broken links** (❌ Error — must fix):
+- Skill referenced in a doc doesn't exist in `skills_metadata.yaml`
+- Doc referenced in `skills_metadata.yaml` doesn't exist on disk
+
+**Missing reverse links** (⚠️ Warning):
+- Doc references `@skill` but skill doesn't list that doc in its metadata
+- Skill lists a doc but doc doesn't reference `@skill`
+
+**Stale skills** (🔵 Info):
+- A skill's `primary_docs` have git commits after the skill's `last_reviewed` date
+- Indicates the skill content may be out of sync with its documentation
+
+```
+🔵 STALE SKILLS — primary docs updated since last review (1):
+
+  @domain-route-config
+    Primary docs updated since last review (2026-03-01):
+    DOMAIN_ROUTE_CONFIG_PATTERN.md (modified 2026-03-15)
+    💡 Review @domain-route-config SKILL.md, then update last_reviewed in skills_metadata.yaml
+```
+
+**Skill counts are derived dynamically** — `VALID_SKILLS` is no longer hardcoded.
+Adding a skill to `skills_metadata.yaml` is all that's needed for it to be recognised.
 
 ---
 
-## Troubleshooting
+## Updating `last_reviewed`
 
-### Hook not running
+When you update a skill after a staleness warning:
 
-Check if hook is executable:
-```bash
-ls -la .git/hooks/pre-commit
+1. Review the skill's `SKILL.md` against its updated primary docs
+2. Make any needed changes to the skill content
+3. Update `last_reviewed` in `.claude/skills/skills_metadata.yaml`:
+
+```yaml
+- name: domain-route-config
+  last_reviewed: "2026-03-15"   # ← bump to today
+  ...
 ```
-
-Should show `-rwxr-xr-x` permissions. If not:
-```bash
-chmod +x .git/hooks/pre-commit
-```
-
-### Hook always passes
-
-The hook only validates STAGED files. Check what's staged:
-```bash
-git diff --cached --name-only | grep '\.md$'
-```
-
-### Re-install hooks
-
-If hooks are corrupted or outdated:
-```bash
-./scripts/install_git_hooks.sh
-```
-
----
-
-## Future Enhancements
-
-Potential additions to pre-commit validation:
-
-- [ ] Validate skill references in frontmatter
-- [ ] Check for duplicate skill references
-- [ ] Validate ADR number format
-- [ ] Check for broken internal links
-- [ ] Validate YAML frontmatter syntax
-- [ ] Run linter on modified Python files
 
 ---
 
 ## Related Files
 
-- `.git/hooks/pre-commit` - The actual hook (not tracked)
-- `scripts/install_git_hooks.sh` - Installation script (tracked)
-- `scripts/validate_cross_references.py` - Validation logic
-- `docs/development/GIT_HOOKS.md` - This documentation
+| File | Purpose |
+|------|---------|
+| `scripts/hooks/post-commit` | Post-commit hook (new file detection) |
+| `scripts/hooks/post-merge` | Post-merge hook (library change detection) |
+| `scripts/docs_contextual_check_v2.py` | New documentation file detector |
+| `scripts/validate_cross_references.py` | Full cross-reference + staleness validator |
+| `.claude/skills/skills_metadata.yaml` | Skill registry (source of truth for valid skills) |
 
 ---
 
-## Maintenance
+## Troubleshooting
 
-**After pulling changes:**
-
-If hooks are updated in the repository, re-run installation:
+**Hook not running** — check permissions:
 ```bash
-./scripts/install_git_hooks.sh
+ls -la .git/hooks/post-commit   # should show -rwxr-xr-x
+chmod +x .git/hooks/post-commit
 ```
 
-**Note:** Git hooks are NOT tracked by git (they're in `.git/hooks/`), so each developer must install them locally.
+**Too noisy** — disable the post-commit docs check:
+```bash
+git config skuel.docs-check false
+```
+
+**Stale skills showing unexpectedly** — check git dates vs `last_reviewed`:
+```bash
+git log -1 --format="%Y-%m-%d" -- docs/patterns/YOUR_DOC.md
+```
