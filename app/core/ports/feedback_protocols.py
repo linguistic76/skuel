@@ -13,16 +13,16 @@ Feedback has two implementations — the mechanism differs, the concept is the s
     Human feedback  (teacher reviews and writes)  → processor_type = HUMAN
     AI feedback     (LLM evaluates via Exercise)   → processor_type = LLM
 
-Both create FEEDBACK_REPORT entities (EntityType.FEEDBACK_REPORT) linked to the
+Both create SUBMISSION_FEEDBACK entities (EntityType.SUBMISSION_FEEDBACK) linked to the
 submission via FEEDBACK_FOR. The processor_type field discriminates the source.
 
-Progress feedback (EntityType.AI_FEEDBACK) is macro-level AI feedback — the system
+Progress feedback (EntityType.ACTIVITY_REPORT) is macro-level AI feedback — the system
 summarises cross-domain activity over a time window. Still feedback, broader scope.
 
 Protocol Responsibilities
 --------------------------
-    FeedbackOperations           — Human + AI feedback CRUD (FEEDBACK_REPORT entities)
-    ProgressFeedbackOperations   — Auto-generated progress reports (AI_FEEDBACK entities)
+    FeedbackOperations           — Human + AI feedback CRUD (SUBMISSION_FEEDBACK entities)
+    ProgressFeedbackOperations   — Auto-generated progress reports (ACTIVITY_REPORT entities)
     ProgressScheduleOperations   — Recurring progress report scheduling
 
 ISP-compliant: each protocol captures only the methods called from routes.
@@ -38,7 +38,7 @@ from core.utils.result_simplified import Result
 
 @runtime_checkable
 class FeedbackOperations(Protocol):
-    """Human + AI feedback on submissions. Both create FEEDBACK_REPORT entities.
+    """Human + AI feedback on submissions. Both create SUBMISSION_FEEDBACK entities.
 
     processor_type discriminates the source:
         ProcessorType.HUMAN — teacher writes feedback (create_assessment)
@@ -64,12 +64,12 @@ class FeedbackOperations(Protocol):
         content: str,
         metadata: dict[str, Any] | None = None,
     ) -> Result[Any]:
-        """Create a teacher assessment (EntityType.FEEDBACK_REPORT, processor_type=HUMAN).
+        """Create a teacher assessment (EntityType.SUBMISSION_FEEDBACK, processor_type=HUMAN).
 
         Verifies teacher-student group membership before creating.
         Auto-shares with student via SHARES_WITH {role: 'student'}.
 
-        Returns Result[Feedback].
+        Returns Result[SubmissionFeedback].
         """
         ...
 
@@ -78,7 +78,7 @@ class FeedbackOperations(Protocol):
         student_uid: str,
         limit: int = 50,
     ) -> Result[list[Any]]:
-        """Get feedback reports received by a student. Returns Result[list[Feedback]]."""
+        """Get feedback reports received by a student. Returns Result[list[SubmissionFeedback]]."""
         ...
 
     async def get_assessments_by_teacher(
@@ -86,7 +86,7 @@ class FeedbackOperations(Protocol):
         teacher_uid: str,
         limit: int = 50,
     ) -> Result[list[Any]]:
-        """Get feedback reports authored by a teacher. Returns Result[list[Feedback]]."""
+        """Get feedback reports authored by a teacher. Returns Result[list[SubmissionFeedback]]."""
         ...
 
     # ------------------------------------------------------------------
@@ -103,7 +103,7 @@ class FeedbackOperations(Protocol):
     ) -> Result[Any]:
         """Generate AI feedback for a submission using exercise instructions.
 
-        Creates FEEDBACK_REPORT entity (processor_type=LLM) in Neo4j, linked
+        Creates SUBMISSION_FEEDBACK entity (processor_type=LLM) in Neo4j, linked
         to the submission via FEEDBACK_FOR. Also updates the submission's
         denormalized feedback field for quick access.
 
@@ -114,18 +114,18 @@ class FeedbackOperations(Protocol):
             temperature: LLM sampling temperature (0-1)
             max_tokens: Maximum tokens to generate
 
-        Returns Result[Feedback] — the created FEEDBACK_REPORT entity.
+        Returns Result[SubmissionFeedback] — the created SUBMISSION_FEEDBACK entity.
         """
         ...
 
 
 @runtime_checkable
 class ProgressFeedbackOperations(Protocol):
-    """Auto-generated activity feedback (EntityType.AI_FEEDBACK).
+    """Auto-generated activity feedback (EntityType.ACTIVITY_REPORT).
 
     Macro-level AI feedback — the system summarises a user's cross-domain activity
     over a time window. NOT tied to a specific submission artifact.
-    AiFeedback inherits UserOwnedEntity directly (not Submission).
+    ActivityReport inherits UserOwnedEntity directly (not Submission).
 
     processor_type discriminates source:
         ProcessorType.AUTOMATIC — scheduled system generation
@@ -144,7 +144,7 @@ class ProgressFeedbackOperations(Protocol):
         depth: str = "standard",
         include_insights: bool = True,
     ) -> Result[Any]:
-        """Generate activity feedback (EntityType.AI_FEEDBACK). Returns Result[AiFeedback]."""
+        """Generate activity feedback (EntityType.ACTIVITY_REPORT). Returns Result[ActivityReport]."""
         ...
 
 
@@ -184,7 +184,7 @@ class ProgressScheduleOperations(Protocol):
 class ActivityReviewOperations(Protocol):
     """Admin-facing activity review operations — human feedback on Activity Domains.
 
-    Produces AiFeedback entities with ProcessorType.HUMAN. Admin reads a user's
+    Produces ActivityReport entities with ProcessorType.HUMAN. Admin reads a user's
     activity snapshot and writes qualitative feedback.
 
     Route consumer: progress_feedback_api.py (activity-review routes)
@@ -209,7 +209,7 @@ class ActivityReviewOperations(Protocol):
         domains: list[str] | None = None,
         snapshot_context: dict[str, Any] | None = None,
     ) -> Result[Any]:
-        """Create AiFeedback entity from admin-written assessment. Returns Result[AiFeedback]."""
+        """Create ActivityReport entity from admin-written assessment. Returns Result[ActivityReport]."""
         ...
 
     async def get_activity_reviews_for_user(
@@ -217,7 +217,7 @@ class ActivityReviewOperations(Protocol):
         subject_uid: str,
         limit: int = 20,
     ) -> Result[list[Any]]:
-        """Get all AiFeedback for a user (LLM + human). Returns Result[list[AiFeedback]]."""
+        """Get all ActivityReport for a user (LLM + human). Returns Result[list[ActivityReport]]."""
         ...
 
     async def request_review(

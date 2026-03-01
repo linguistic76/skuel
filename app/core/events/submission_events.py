@@ -146,7 +146,7 @@ class FeedbackSubmitted(BaseEvent):
     Published when a teacher submits written feedback on a submission.
 
     Distinct from SubmissionApproved: this fires when the teacher writes
-    feedback text (creating a FEEDBACK_REPORT entity) but the submission
+    feedback text (creating a SUBMISSION_FEEDBACK entity) but the submission
     is not necessarily approved. The student is informed their work has
     been reviewed and feedback is waiting.
 

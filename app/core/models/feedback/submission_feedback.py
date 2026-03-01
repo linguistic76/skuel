@@ -1,15 +1,14 @@
 """
-Feedback - Feedback Report Domain Model
-============================================
+SubmissionFeedback - Submission Feedback Domain Model
+=====================================================
 
-Frozen dataclass for teacher feedback entities (EntityType.FEEDBACK_REPORT).
+Frozen dataclass for teacher feedback entities (EntityType.SUBMISSION_FEEDBACK).
 
 Inherits all fields from Submission (Entity ~48 + 13 submission fields).
 Adds 2 feedback-specific fields:
 - feedback: str | None — the feedback text
 - feedback_generated_at: datetime | None — when feedback was generated
 
-See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
@@ -19,25 +18,25 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
-    from core.models.feedback.feedback_dto import FeedbackDTO
+    from core.models.feedback.submission_feedback_dto import SubmissionFeedbackDTO
 
 from core.models.enums.entity_enums import EntityType
 from core.models.submissions.submission import Submission
 
 
 @dataclass(frozen=True)
-class Feedback(Submission):
+class SubmissionFeedback(Submission):
     """
-    Immutable domain model for teacher feedback (EntityType.FEEDBACK_REPORT).
+    Immutable domain model for teacher feedback (EntityType.SUBMISSION_FEEDBACK).
 
     Inherits all fields from Submission. Adds 2 feedback-specific fields.
     Uses subject_uid (from Submission) for "who this feedback is about".
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=FEEDBACK_REPORT, then delegate to Submission."""
-        if self.ku_type != EntityType.FEEDBACK_REPORT:
-            object.__setattr__(self, "ku_type", EntityType.FEEDBACK_REPORT)
+        """Force ku_type=SUBMISSION_FEEDBACK, then delegate to Submission."""
+        if self.ku_type != EntityType.SUBMISSION_FEEDBACK:
+            object.__setattr__(self, "ku_type", EntityType.SUBMISSION_FEEDBACK)
         super().__post_init__()
 
     # =========================================================================
@@ -51,18 +50,18 @@ class Feedback(Submission):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | FeedbackDTO") -> "Feedback":  # type: ignore[override]
-        """Create Feedback from an EntityDTO or FeedbackDTO."""
+    def from_dto(cls, dto: "EntityDTO | SubmissionFeedbackDTO") -> "SubmissionFeedback":  # type: ignore[override]
+        """Create SubmissionFeedback from an EntityDTO or SubmissionFeedbackDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "FeedbackDTO":  # type: ignore[override]
-        """Convert Feedback to domain-specific FeedbackDTO."""
+    def to_dto(self) -> "SubmissionFeedbackDTO":  # type: ignore[override]
+        """Convert SubmissionFeedback to domain-specific SubmissionFeedbackDTO."""
         import dataclasses
         from typing import Any
 
-        from core.models.feedback.feedback_dto import FeedbackDTO
+        from core.models.feedback.submission_feedback_dto import SubmissionFeedbackDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(FeedbackDTO)}
+        dto_field_names = {f.name for f in dataclasses.fields(SubmissionFeedbackDTO)}
         kwargs: dict[str, Any] = {}
         for f in dataclasses.fields(self):
             if f.name.startswith("_"):
@@ -73,14 +72,14 @@ class Feedback(Submission):
             if isinstance(value, tuple):
                 value = list(value)
             kwargs[f.name] = value
-        return FeedbackDTO(**kwargs)
+        return SubmissionFeedbackDTO(**kwargs)
 
     def __str__(self) -> str:
-        return f"Feedback(uid={self.uid}, title='{self.title}', subject={self.subject_uid})"
+        return f"SubmissionFeedback(uid={self.uid}, title='{self.title}', subject={self.subject_uid})"
 
     def __repr__(self) -> str:
         return (
-            f"Feedback(uid='{self.uid}', title='{self.title}', "
+            f"SubmissionFeedback(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, subject_uid={self.subject_uid}, "
             f"feedback={'yes' if self.feedback else 'no'}, "
             f"user_uid={self.user_uid})"

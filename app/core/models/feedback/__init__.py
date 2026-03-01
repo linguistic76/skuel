@@ -1,1 +1,1 @@
-"""Feedback domain models — AiFeedback, Feedback (responses to student submissions)."""
+"""Feedback domain models — ActivityReport, SubmissionFeedback (responses to student submissions)."""

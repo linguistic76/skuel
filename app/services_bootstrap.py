@@ -154,7 +154,7 @@ from core.ports import (
     EventBusOperations,
     EventsOperations,
     ExerciseOperations,
-    # Submission + Feedback protocols
+    # Submission + SubmissionFeedback protocols
     FeedbackOperations,
     FinancesOperations,
     GoalsOperations,
@@ -1148,17 +1148,17 @@ async def compose_services(
         # NOTE: vectors_backend REMOVED (January 2026) - was unused dead code
         # submissions_backend uses :Entity label for cross-domain queries (submissions span 3 EntityTypes)
         # entity_class=Submission: base class for SUBMISSION, JOURNAL, FEEDBACK_REPORT
-        # AI_FEEDBACK excluded: uses dedicated ai_feedback_backend (AiFeedback inherits UserOwnedEntity)
+        # AI_FEEDBACK excluded: uses dedicated ai_feedback_backend (ActivityReport inherits UserOwnedEntity)
         submissions_backend = SubmissionsBackend(
             driver, NeoLabel.ENTITY, Submission, prometheus_metrics=prometheus_metrics
         )
-        from core.models.feedback.ai_feedback import AiFeedback
+        from core.models.feedback.activity_report import ActivityReport
 
-        # Dedicated backend for AiFeedback (activity-level feedback — no file fields)
-        ai_feedback_backend = UniversalNeo4jBackend[AiFeedback](
+        # Dedicated backend for ActivityReport (activity-level feedback — no file fields)
+        ai_feedback_backend = UniversalNeo4jBackend[ActivityReport](
             driver,
-            NeoLabel.AI_FEEDBACK,
-            AiFeedback,
+            NeoLabel.ACTIVITY_REPORT,
+            ActivityReport,
             base_label=NeoLabel.ENTITY,
             prometheus_metrics=prometheus_metrics,
         )
@@ -1580,7 +1580,7 @@ async def compose_services(
         feedback_service = FeedbackService(
             openai_service=ai_service,
             anthropic_service=None,  # Only OpenAI configured for now
-            executor=query_executor,  # Creates FEEDBACK_REPORT entity + FEEDBACK_FOR relationship
+            executor=query_executor,  # Creates SUBMISSION_FEEDBACK entity + FEEDBACK_FOR relationship
             ku_interaction_service=learning_services[
                 "ku_service"
             ].interaction,  # Closes mastery loop
@@ -2096,7 +2096,7 @@ async def compose_services(
         event_bus.subscribe(SubmissionApproved, submission_approved_handler)
         event_bus.subscribe(SubmissionRevisionRequested, revision_requested_handler)
         logger.info(
-            "✅ Feedback notification handlers subscribed to FeedbackSubmitted + "
+            "✅ SubmissionFeedback notification handlers subscribed to FeedbackSubmitted + "
             "SubmissionApproved + SubmissionRevisionRequested (student notifications)"
         )
 

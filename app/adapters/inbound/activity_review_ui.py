@@ -3,7 +3,7 @@ Activity Review UI Routes — Admin Human Feedback on Activity Domains
 =====================================================================
 
 Admin-facing UI for reviewing a user's Activity Domain data and writing
-structured feedback. Feedback stored as AiFeedback with ProcessorType.HUMAN.
+structured feedback. Feedback stored as ActivityReport with ProcessorType.HUMAN.
 
 Two trigger paths:
 1. Admin-initiated: admin navigates to /activity-review/new?subject_uid=...
@@ -338,7 +338,7 @@ def create_activity_review_ui_routes(
                     type="hidden", name="time_period", id="feedback-time-period", value=time_period
                 ),
                 Div(
-                    Label("Feedback", cls="label label-text"),
+                    Label("SubmissionFeedback", cls="label label-text"),
                     Textarea(
                         name="feedback_text",
                         placeholder="Write your qualitative feedback here. What patterns do you notice? What recommendations do you have?",

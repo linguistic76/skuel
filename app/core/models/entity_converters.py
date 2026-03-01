@@ -11,7 +11,7 @@ Following SKUEL's three-tier type system:
 from typing import Any
 
 from core.models.entity import Entity
-from core.models.feedback.feedback import Feedback
+from core.models.feedback.submission_feedback import SubmissionFeedback
 from core.models.submissions.submission import Submission
 from core.models.user_owned_entity import UserOwnedEntity
 
@@ -20,7 +20,7 @@ def ku_to_response(ku: Entity) -> dict[str, Any]:
     """
     Convert any Entity subclass to API response format.
 
-    Uses isinstance checks for subclass-specific fields (Submission, Feedback).
+    Uses isinstance checks for subclass-specific fields (Submission, SubmissionFeedback).
     user_uid and priority only exist on UserOwnedEntity subclasses.
     """
     response: dict[str, Any] = {
@@ -67,8 +67,8 @@ def ku_to_response(ku: Entity) -> dict[str, Any]:
             }
         )
 
-    # Feedback-specific fields
-    if isinstance(ku, Feedback):
+    # SubmissionFeedback-specific fields
+    if isinstance(ku, SubmissionFeedback):
         response.update(
             {
                 "feedback": ku.feedback,

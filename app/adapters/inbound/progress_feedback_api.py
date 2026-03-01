@@ -108,7 +108,7 @@ def create_progress_feedback_api_routes(
 
         result = await report_service.list_submissions(
             user_uid=user_uid,
-            ku_type="ai_feedback",
+            ku_type="activity_report",
             limit=limit,
         )
 
@@ -240,7 +240,7 @@ def create_progress_feedback_api_routes(
         async def submit_activity_feedback(request: Request) -> Result[Any]:
             """Admin submits written activity feedback.
 
-            Creates AiFeedback entity with ProcessorType.HUMAN.
+            Creates ActivityReport entity with ProcessorType.HUMAN.
             Requires ADMIN role.
             """
             admin_uid = require_authenticated_user(request)

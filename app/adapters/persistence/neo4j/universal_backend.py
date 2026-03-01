@@ -32,7 +32,7 @@ BACKENDS IN USE (services_bootstrap.py)
 
 **Content/Submissions (2):**
     SubmissionsBackend[Submission] - submissions_backend
-    UniversalNeo4jBackend[AiFeedback] - ai_feedback_backend
+    UniversalNeo4jBackend[ActivityReport] - ai_feedback_backend
 
 **Supporting (5):**
     UniversalNeo4jBackend[HabitCompletion] - habit_completions_backend

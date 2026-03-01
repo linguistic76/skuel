@@ -4,14 +4,14 @@ Activity Review Service
 
 Enables admin-written activity feedback for users. Admin reviews a user's
 Activity Domain data (a "snapshot") and writes structured feedback stored
-as EntityType.AI_FEEDBACK with ProcessorType.HUMAN.
+as EntityType.ACTIVITY_REPORT with ProcessorType.HUMAN.
 
 Two trigger paths:
     Admin-initiated: Admin views a user's snapshot → writes feedback
     User-initiated:  User requests a review → appears in admin queue
 
 This is the "human" counterpart to ProgressFeedbackGenerator (which uses
-ProcessorType.AUTOMATIC or LLM). Both produce AiFeedback entities.
+ProcessorType.AUTOMATIC or LLM). Both produce ActivityReport entities.
 
 See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
 """
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations, QueryExecutor
 
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.feedback.ai_feedback import AiFeedback
+from core.models.feedback.activity_report import ActivityReport
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -42,17 +42,17 @@ class ActivityReviewService:
     """
     Admin-facing service for human activity domain feedback.
 
-    Creates AiFeedback entities with ProcessorType.HUMAN — the admin reads
+    Creates ActivityReport entities with ProcessorType.HUMAN — the admin reads
     a user's activity snapshot and writes qualitative feedback.
 
     Complements ProgressFeedbackGenerator (automated/LLM path) with the
-    human-review path for the same AiFeedback entity type.
+    human-review path for the same ActivityReport entity type.
     """
 
     def __init__(
         self,
         executor: "QueryExecutor",
-        ai_feedback_backend: "BackendOperations[AiFeedback]",
+        ai_feedback_backend: "BackendOperations[ActivityReport]",
     ) -> None:
         self.executor = executor
         self.ai_feedback_backend = ai_feedback_backend
@@ -220,11 +220,11 @@ class ActivityReviewService:
         time_period: str = "7d",
         domains: list[str] | None = None,
         snapshot_context: dict[str, Any] | None = None,
-    ) -> Result[AiFeedback]:
+    ) -> Result[ActivityReport]:
         """
-        Create an AiFeedback entity from admin-written activity assessment.
+        Create an ActivityReport entity from admin-written activity assessment.
 
-        Stores as EntityType.AI_FEEDBACK with ProcessorType.HUMAN.
+        Stores as EntityType.ACTIVITY_REPORT with ProcessorType.HUMAN.
         The admin_uid becomes owner (user_uid), subject_uid tracks who was reviewed.
 
         Args:
@@ -236,7 +236,7 @@ class ActivityReviewService:
             snapshot_context: Optional snapshot data to store in metadata
 
         Returns:
-            Result[AiFeedback] — the created feedback entity
+            Result[ActivityReport] — the created feedback entity
         """
         days = TIME_PERIOD_DAYS.get(time_period, 7)
         end_date = datetime.now()
@@ -256,10 +256,10 @@ class ActivityReviewService:
             if snapshot_context:
                 metadata["snapshot"] = snapshot_context
 
-            feedback = AiFeedback(
+            feedback = ActivityReport(
                 uid=uid,
                 title=title,
-                ku_type=EntityType.AI_FEEDBACK,
+                ku_type=EntityType.ACTIVITY_REPORT,
                 user_uid=admin_uid,
                 status=EntityStatus.COMPLETED,
                 processor_type=ProcessorType.HUMAN,
@@ -288,9 +288,9 @@ class ActivityReviewService:
         self,
         subject_uid: str,
         limit: int = 20,
-    ) -> Result[list[AiFeedback]]:
+    ) -> Result[list[ActivityReport]]:
         """
-        Get all AiFeedback entities where subject_uid matches the user.
+        Get all ActivityReport entities where subject_uid matches the user.
 
         Returns both LLM-generated (AUTOMATIC/LLM) and human-written (HUMAN)
         feedback for the given user.
@@ -300,12 +300,12 @@ class ActivityReviewService:
             limit: Maximum number of results
 
         Returns:
-            Result[list[AiFeedback]]
+            Result[list[ActivityReport]]
         """
         try:
             query_result = await self.executor.execute_query(
                 """
-                MATCH (n:Entity {ku_type: 'ai_feedback', subject_uid: $subject_uid})
+                MATCH (n:Entity {ku_type: 'activity_report', subject_uid: $subject_uid})
                 RETURN n
                 ORDER BY n.created_at DESC
                 LIMIT $limit
@@ -322,7 +322,7 @@ class ActivityReviewService:
                 node = record.get("n") if isinstance(record, dict) else record
                 if node:
                     props = dict(node) if not isinstance(node, dict) else node
-                    feedbacks.append(AiFeedback._from_dict(props))  # type: ignore[attr-defined]
+                    feedbacks.append(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
 
             return Result.ok(feedbacks)
 

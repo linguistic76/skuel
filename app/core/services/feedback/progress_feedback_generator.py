@@ -9,7 +9,7 @@ Two-stage pipeline:
     1. Graph queries → activity stats dict (raw data)
     2. LLM call     → qualitative insights (interpreted data)
 
-Result stored as AiFeedback entity (EntityType.AI_FEEDBACK):
+Result stored as ActivityReport entity (EntityType.ACTIVITY_REPORT):
     processed_content = LLM-generated qualitative feedback text
     metadata          = raw activity stats dict
 
@@ -32,7 +32,7 @@ from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.enums.submissions_enums import ProgressDepth
-from core.models.feedback.ai_feedback import AiFeedback
+from core.models.feedback.activity_report import ActivityReport
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -58,7 +58,7 @@ class ProgressFeedbackGenerator:
 
     Constructor dependencies:
         executor: QueryExecutor for Cypher queries
-        ku_backend: BackendOperations[AiFeedback] for creating AiFeedback entities
+        ku_backend: BackendOperations[ActivityReport] for creating ActivityReport entities
         openai_service: Optional OpenAI service (enables LLM generation)
         user_service: Optional UserOperations for building UserContext
         insight_store: Optional InsightStore for referencing active insights
@@ -74,7 +74,7 @@ class ProgressFeedbackGenerator:
     def __init__(
         self,
         executor: "QueryExecutor",
-        ku_backend: "BackendOperations[AiFeedback]",
+        ku_backend: "BackendOperations[ActivityReport]",
         openai_service: "OpenAIService | None" = None,
         user_service: Any | None = None,
         insight_store: "InsightStore | None" = None,
@@ -94,7 +94,7 @@ class ProgressFeedbackGenerator:
         domains: list[str] | None = None,
         depth: str = "standard",
         include_insights: bool = True,
-    ) -> Result[AiFeedback]:
+    ) -> Result[ActivityReport]:
         """
         Generate activity feedback for a user.
 
@@ -102,7 +102,7 @@ class ProgressFeedbackGenerator:
             1. Query activity stats from Neo4j
             2. If LLM available: send stats as context → qualitative feedback text
                Else: build programmatic markdown summary
-            3. Create and persist AiFeedback entity
+            3. Create and persist ActivityReport entity
 
         Args:
             user_uid: User to generate activity feedback for
@@ -112,7 +112,7 @@ class ProgressFeedbackGenerator:
             include_insights: Whether to include active insights
 
         Returns:
-            Result[AiFeedback] — the created feedback entity
+            Result[ActivityReport] — the created feedback entity
         """
         days = TIME_PERIOD_DAYS.get(time_period, 7)
         end_date = datetime.now()
@@ -135,7 +135,7 @@ class ProgressFeedbackGenerator:
                     insights = insights_result.value or []
 
             # 3. Build content — LLM when available, programmatic fallback
-            title = f"Activity Feedback — {start_date.strftime('%b %d')} to {end_date.strftime('%b %d, %Y')}"
+            title = f"Activity Report — {start_date.strftime('%b %d')} to {end_date.strftime('%b %d, %Y')}"
             processor_type = ProcessorType.AUTOMATIC
             processing_error: str | None = None
 
@@ -175,12 +175,12 @@ class ProgressFeedbackGenerator:
                 "llm_generated": processor_type == ProcessorType.LLM,
             }
 
-            # 5. Create AiFeedback entity
+            # 5. Create ActivityReport entity
             uid = UIDGenerator.generate_uid("ku")
-            report = AiFeedback(
+            report = ActivityReport(
                 uid=uid,
                 title=title,
-                ku_type=EntityType.AI_FEEDBACK,
+                ku_type=EntityType.ACTIVITY_REPORT,
                 user_uid=user_uid,
                 status=EntityStatus.COMPLETED,
                 processor_type=processor_type,
@@ -210,7 +210,7 @@ class ProgressFeedbackGenerator:
             event = SubmissionCreated(
                 submission_uid=uid,
                 user_uid=user_uid,
-                ku_type=EntityType.AI_FEEDBACK.value,
+                ku_type=EntityType.ACTIVITY_REPORT.value,
                 processor_type=processor_type.value,
                 occurred_at=datetime.now(),
             )

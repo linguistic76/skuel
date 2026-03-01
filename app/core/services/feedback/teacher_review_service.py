@@ -8,7 +8,7 @@ Reuses SHARES_WITH infrastructure. When a student submits an entity against
 an ASSIGNED Exercise, the entity is auto-shared with the teacher.
 The teacher's review queue = Ku shared with them via role="teacher".
 
-When providing feedback or requesting revision, a FEEDBACK_REPORT Entity nodes
+When providing feedback or requesting revision, a SUBMISSION_FEEDBACK Entity nodes
 is created and linked to the submission via FEEDBACK_FOR. This makes every
 feedback round a first-class graph entity — searchable, queryable, and
 supporting revision cycles.
@@ -97,7 +97,7 @@ class TeacherReviewService:
         {where_clause}
         OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
         OPTIONAL MATCH (ku)-[:FULFILLS_EXERCISE]->(project:Entity {{ku_type: 'exercise'}})
-        OPTIONAL MATCH (fb:Entity {{ku_type: 'feedback_report'}})-[:FEEDBACK_FOR]->(ku)
+        OPTIONAL MATCH (fb:Entity {{ku_type: 'submission_feedback'}})-[:FEEDBACK_FOR]->(ku)
         WITH ku, student, project, r, count(fb) as feedback_count
         RETURN ku.uid as ku_uid,
                ku.title as title,
@@ -143,7 +143,7 @@ class TeacherReviewService:
         submission_uid: str,
     ) -> Result[list[dict[str, Any]]]:
         """
-        Get all FEEDBACK_REPORT nodes linked to a submission via FEEDBACK_FOR.
+        Get all SUBMISSION_FEEDBACK nodes linked to a submission via FEEDBACK_FOR.
 
         Args:
             submission_uid: The submission Ku UID
@@ -152,7 +152,7 @@ class TeacherReviewService:
             Result containing list of feedback items ordered by creation date
         """
         query = """
-        MATCH (fb:Entity {ku_type: 'feedback_report'})-[:FEEDBACK_FOR]->(submission:Entity {uid: $submission_uid})
+        MATCH (fb:Entity {ku_type: 'submission_feedback'})-[:FEEDBACK_FOR]->(submission:Entity {uid: $submission_uid})
         OPTIONAL MATCH (teacher:User)-[:OWNS]->(fb)
         RETURN fb.uid as uid,
                fb.title as title,
@@ -192,14 +192,14 @@ class TeacherReviewService:
         """
         Submit teacher feedback for an entity.
 
-        Creates a FEEDBACK_REPORT Entity nodes linked to the submission via FEEDBACK_FOR.
+        Creates a SUBMISSION_FEEDBACK Entity nodes linked to the submission via FEEDBACK_FOR.
         Also writes feedback to submission's feedback field (denormalized for quick access)
         and sets submission status to COMPLETED.
 
         Args:
             report_uid: Submission Ku UID to provide feedback for
             teacher_uid: Teacher providing feedback
-            feedback: Feedback text
+            feedback: SubmissionFeedback text
 
         Returns:
             Result containing feedback Ku info
@@ -211,7 +211,7 @@ class TeacherReviewService:
         feedback_uid = UIDGenerator.generate_uid("ku")
         now = datetime.now().isoformat()
 
-        # Create FEEDBACK_REPORT node, link via FEEDBACK_FOR, share with student,
+        # Create SUBMISSION_FEEDBACK node, link via FEEDBACK_FOR, share with student,
         # and update submission status — all in one transaction
         query = """
         MATCH (submission:Entity {uid: $report_uid})
@@ -223,7 +223,7 @@ class TeacherReviewService:
             submission.status = $completed_status,
             submission.updated_at = datetime($now)
 
-        // Create FEEDBACK_REPORT Entity nodes
+        // Create SUBMISSION_FEEDBACK Entity nodes
         CREATE (fb:Entity {
             uid: $feedback_uid,
             title: $title,
@@ -262,7 +262,7 @@ class TeacherReviewService:
                 "teacher_uid": teacher_uid,
                 "feedback": feedback,
                 "title": f"Feedback: {report_uid[:30]}",
-                "ku_type": EntityType.FEEDBACK_REPORT.value,
+                "ku_type": EntityType.SUBMISSION_FEEDBACK.value,
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,
                 "now": now,
@@ -308,7 +308,7 @@ class TeacherReviewService:
         """
         Request revision for a student Ku.
 
-        Creates a FEEDBACK_REPORT Entity nodes with revision notes, linked via FEEDBACK_FOR.
+        Creates a SUBMISSION_FEEDBACK Entity nodes with revision notes, linked via FEEDBACK_FOR.
         Sets submission status to REVISION_REQUESTED.
 
         Args:
@@ -336,7 +336,7 @@ class TeacherReviewService:
             submission.status = $revision_status,
             submission.updated_at = datetime($now)
 
-        // Create FEEDBACK_REPORT Entity nodes for revision request
+        // Create SUBMISSION_FEEDBACK Entity nodes for revision request
         CREATE (fb:Entity {
             uid: $feedback_uid,
             title: $title,
@@ -375,7 +375,7 @@ class TeacherReviewService:
                 "teacher_uid": teacher_uid,
                 "notes": notes,
                 "title": f"Revision request: {report_uid[:30]}",
-                "ku_type": EntityType.FEEDBACK_REPORT.value,
+                "ku_type": EntityType.SUBMISSION_FEEDBACK.value,
                 "revision_status": EntityStatus.REVISION_REQUESTED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,
@@ -573,7 +573,7 @@ class TeacherReviewService:
         query = """
         MATCH (s:Entity {ku_type: 'submission'})-[:FULFILLS_EXERCISE]->(e:Entity {uid: $exercise_uid})
         OPTIONAL MATCH (student:User)-[:OWNS]->(s)
-        OPTIONAL MATCH (fb:Entity {ku_type: 'feedback_report'})-[:FEEDBACK_FOR]->(s)
+        OPTIONAL MATCH (fb:Entity {ku_type: 'submission_feedback'})-[:FEEDBACK_FOR]->(s)
         WITH s, student, count(fb) AS feedback_count
         RETURN s.uid AS uid, s.title AS title,
                s.original_filename AS original_filename, s.status AS status,
@@ -664,7 +664,7 @@ class TeacherReviewService:
         query = """
         MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(ku:Entity)
         MATCH (student:User {uid: $student_uid})-[:OWNS]->(ku)
-        OPTIONAL MATCH (fb:Entity {ku_type: 'feedback_report'})-[:FEEDBACK_FOR]->(ku)
+        OPTIONAL MATCH (fb:Entity {ku_type: 'submission_feedback'})-[:FEEDBACK_FOR]->(ku)
         OPTIONAL MATCH (ku)-[:FULFILLS_EXERCISE]->(ex:Entity {ku_type: 'exercise'})
         WITH ku, count(fb) AS feedback_count, ex
         RETURN ku.uid AS uid, ku.title AS title,

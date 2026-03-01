@@ -1,16 +1,16 @@
 """
-AiFeedbackDTO - AI Feedback-Specific DTO (Tier 2 - Transfer)
-=============================================================
+ActivityReportDTO - Activity Report-Specific DTO (Tier 2 - Transfer)
+=====================================================================
 
-Extends UserOwnedDTO with fields specific to AiFeedback (activity-level
-AI or human feedback). Mirrors AiFeedback frozen dataclass (Tier 3).
+Extends UserOwnedDTO with fields specific to ActivityReport (activity-level
+AI or human feedback). Mirrors ActivityReport frozen dataclass (Tier 3).
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields (user_uid, visibility, priority)
-        └── AiFeedbackDTO(UserOwnedDTO) +10 fields
+        └── ActivityReportDTO(UserOwnedDTO) +10 fields
 
-AiFeedback is NOT a Submission subtype — it has no file fields. It
+ActivityReport is NOT a Submission subtype — it has no file fields. It
 responds to a user's aggregate activity patterns over a time window.
 
 See: /docs/patterns/three_tier_type_system.md
@@ -32,9 +32,9 @@ from core.models.user_owned_dto import UserOwnedDTO
 
 
 @dataclass
-class AiFeedbackDTO(UserOwnedDTO):
+class ActivityReportDTO(UserOwnedDTO):
     """
-    Mutable DTO for AI Feedback entities (EntityType.AI_FEEDBACK).
+    Mutable DTO for Activity Report entities (EntityType.ACTIVITY_REPORT).
 
     Extends UserOwnedDTO with activity-feedback-specific fields.
     No file fields (original_filename, file_path, etc.) — those belong to Submission.
@@ -79,7 +79,7 @@ class AiFeedbackDTO(UserOwnedDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including AiFeedback-specific fields."""
+        """Convert to dictionary, including ActivityReport-specific fields."""
         data = super().to_dict()
         if self.processor_type is not None:
             from core.ports import get_enum_value
@@ -103,8 +103,8 @@ class AiFeedbackDTO(UserOwnedDTO):
     # =========================================================================
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> AiFeedbackDTO:
-        """Create AiFeedbackDTO from dictionary (from database)."""
+    def from_dict(cls, data: dict[str, Any]) -> ActivityReportDTO:
+        """Create ActivityReportDTO from dictionary (from database)."""
         from core.models.dto_helpers import dto_from_dict
 
         return dto_from_dict(
@@ -130,6 +130,6 @@ class AiFeedbackDTO(UserOwnedDTO):
 
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
-        if not isinstance(other, AiFeedbackDTO):
+        if not isinstance(other, ActivityReportDTO):
             return False
         return self.uid == other.uid

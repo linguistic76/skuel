@@ -211,7 +211,7 @@ class EntityResponse(ResponseBase):
     processing_error: str | None = None
     priority: Priority | None = None
 
-    # Feedback
+    # SubmissionFeedback
     feedback: str | None = None
     feedback_generated_at: datetime | None = None
     subject_uid: str | None = None
@@ -341,7 +341,7 @@ class EntityResponse(ResponseBase):
             processor_type=dto.processor_type,
             processing_error=dto.processing_error,
             priority=dto.priority,
-            # Feedback
+            # SubmissionFeedback
             feedback=dto.feedback,
             feedback_generated_at=dto.feedback_generated_at,
             subject_uid=dto.subject_uid,

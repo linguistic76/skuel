@@ -29,6 +29,6 @@ class Notification:
     title: str  # Short display title
     message: str  # Longer description
     source_uid: str  # The entity UID that triggered this notification
-    source_type: str  # Entity type (e.g., "feedback_report", "submission")
+    source_type: str  # Entity type (e.g., "submission_feedback", "submission")
     read: bool = False
     created_at: datetime = field(default_factory=datetime.now)

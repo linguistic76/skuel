@@ -240,7 +240,7 @@ def _render_feedback_item(fb: dict[str, Any]) -> Div:
 
     is_revision = "revision" in title.lower() if title else False
     border_cls = "border-l-warning" if is_revision else "border-l-info"
-    type_label = "Revision Request" if is_revision else "Feedback"
+    type_label = "Revision Request" if is_revision else "SubmissionFeedback"
 
     return Div(
         Div(

@@ -592,7 +592,7 @@ SUBMISSIONS_SIDEBAR_ITEMS = [
     SidebarItem("Submit", "/submissions/submit", "submit", icon="📤"),
     SidebarItem("Browse", "/submissions/browse", "browse", icon="📂"),
     SidebarItem("Your Submissions", "/submissions/yours", "yours", icon="📋"),
-    SidebarItem("Feedback", "/submissions/feedback", "feedback", icon="💬"),
+    SidebarItem("SubmissionFeedback", "/submissions/feedback", "feedback", icon="💬"),
     SidebarItem("Progress", "/submissions/progress", "progress", icon="📊"),
 ]
 
@@ -1347,7 +1347,7 @@ def create_submissions_ui_routes(
         )
 
         content = Div(
-            PageHeader("Feedback", subtitle="Assessments and feedback from teachers"),
+            PageHeader("SubmissionFeedback", subtitle="Assessments and feedback from teachers"),
             teacher_section,
             activity_feedback_section,
         )
@@ -1358,7 +1358,7 @@ def create_submissions_ui_routes(
             title="Submissions",
             subtitle="Submit and manage files",
             storage_key="submissions-sidebar",
-            page_title="Feedback",
+            page_title="SubmissionFeedback",
             request=request,
             active_page="submissions",
             title_href="/submissions",

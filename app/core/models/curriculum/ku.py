@@ -53,7 +53,7 @@ class Ku(Curriculum):
 
     The 4-part educational loop:
         Ku (atomic knowledge) → Exercise (instruction template)
-          → Submission (student work) → Feedback (teacher/AI response)
+          → Submission (student work) → SubmissionFeedback (teacher/AI response)
 
     Any Ku can also organize other Kus via ORGANIZES relationships
     (emergent MOC identity — no separate type needed).

@@ -95,7 +95,7 @@ class ExerciseUpdateRequest(BaseModel):
 class FeedbackGenerateRequest(BaseModel):
     """Request to generate AI feedback for a submission using an Exercise.
 
-    Always creates a FEEDBACK_REPORT entity (processor_type=LLM) in Neo4j.
+    Always creates a SUBMISSION_FEEDBACK entity (processor_type=LLM) in Neo4j.
     """
 
     entry_uid: str = Field(..., description="UID of the submission to analyze")

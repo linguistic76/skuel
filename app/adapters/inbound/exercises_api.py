@@ -86,7 +86,7 @@ def create_exercises_api_routes(
         """
         Generate AI feedback for an entry using an exercise.
 
-        Creates a FEEDBACK_REPORT entity (processor_type=LLM) linked to the
+        Creates a SUBMISSION_FEEDBACK entity (processor_type=LLM) linked to the
         submission via FEEDBACK_FOR — symmetric with human teacher feedback.
 
         Body (JSON):
@@ -96,7 +96,7 @@ def create_exercises_api_routes(
         - max_tokens: Max tokens to generate (optional, default 4000)
 
         Returns:
-        - 200: Feedback entity created {feedback_uid, entry_uid, project_uid, feedback}
+        - 200: SubmissionFeedback entity created {feedback_uid, entry_uid, project_uid, feedback}
         - 400: Invalid input
         - 404: Entry or exercise not found
         - 503: Service not available
@@ -135,7 +135,7 @@ def create_exercises_api_routes(
         entry = entry_result.value
         exercise = exercise_result.value
 
-        # Generate feedback — creates FEEDBACK_REPORT entity + FEEDBACK_FOR relationship
+        # Generate feedback — creates SUBMISSION_FEEDBACK entity + FEEDBACK_FOR relationship
         feedback_result = await report_feedback_service.generate_feedback(
             entry=entry,
             exercise=exercise,

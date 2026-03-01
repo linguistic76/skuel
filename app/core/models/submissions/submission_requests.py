@@ -6,7 +6,7 @@ Pydantic models for:
 - Submissions domain: file uploads, AI reports
 - LifePath domain: life path creation
 
-Feedback request models live in core.models.feedback.feedback_requests.
+SubmissionFeedback request models live in core.models.feedback.feedback_requests.
 
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
@@ -50,7 +50,7 @@ class SubmissionCreateRequest(CreateRequestBase):
     file_type: str | None = Field(None, description="MIME type")
 
 
-class AiFeedbackCreateRequest(CreateRequestBase):
+class ActivityReportCreateRequest(CreateRequestBase):
     """Create an AI-derived report (AI_FEEDBACK type). System-initiated."""
 
     title: str = Field(min_length=1, max_length=200, description="Report title")

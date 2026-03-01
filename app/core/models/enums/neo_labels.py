@@ -80,8 +80,8 @@ class NeoLabel(str, Enum):
     # Content Processing (4) — user submissions and reports
     SUBMISSION = "Submission"
     JOURNAL = "Journal"
-    AI_FEEDBACK = "AiFeedback"
-    FEEDBACK = "Feedback"
+    ACTIVITY_REPORT = "ActivityReport"
+    SUBMISSION_FEEDBACK = "SubmissionFeedback"
 
     # Instruction Templates (1)
     EXERCISE = "Exercise"  # Domain label for :Entity nodes with ku_type="exercise"
@@ -240,8 +240,8 @@ def _init_ku_type_mapping() -> None:
             EntityType.EXERCISE: NeoLabel.EXERCISE,
             EntityType.SUBMISSION: NeoLabel.SUBMISSION,
             EntityType.JOURNAL: NeoLabel.JOURNAL,
-            EntityType.AI_FEEDBACK: NeoLabel.AI_FEEDBACK,
-            EntityType.FEEDBACK_REPORT: NeoLabel.FEEDBACK,
+            EntityType.ACTIVITY_REPORT: NeoLabel.ACTIVITY_REPORT,
+            EntityType.SUBMISSION_FEEDBACK: NeoLabel.SUBMISSION_FEEDBACK,
             EntityType.LIFE_PATH: NeoLabel.LIFE_PATH,
         }
     )

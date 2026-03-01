@@ -101,7 +101,7 @@ class TeacherReviewOperations(Protocol):
         self,
         submission_uid: str,
     ) -> Result[list[dict[str, Any]]]:
-        """Get FEEDBACK_REPORT nodes linked to a submission. Returns Result[list[dict]]."""
+        """Get SUBMISSION_FEEDBACK nodes linked to a submission. Returns Result[list[dict]]."""
         ...
 
     async def submit_feedback(

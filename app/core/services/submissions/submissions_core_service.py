@@ -17,7 +17,7 @@ SKUEL's fundamental process for applied learning:
         ↓  process_exercise_submission() called with exercise_uid
         ↓  creates FULFILLS_EXERCISE relationship
         ↓  auto-shares with teacher (SHARES_WITH role='teacher')
-    Teacher review → Feedback (EntityType.FEEDBACK_REPORT)
+    Teacher review → SubmissionFeedback (EntityType.SUBMISSION_FEEDBACK)
 
 The Exercise is a shared curriculum template. The moment a user creates
 a Submission against it, the Submission is exclusively their own work product —
@@ -27,8 +27,8 @@ Four Entity Types
 --------------------------
     SUBMISSION      → Student's work submitted against an Exercise (user-owned)
     JOURNAL         → Voice/text journal entries with metadata (user-owned)
-    AI_FEEDBACK       → System-generated progress reports (user-owned)
-    FEEDBACK_REPORT → Teacher feedback on a Submission (teacher-owned)
+    ACTIVITY_REPORT     → System-generated progress reports (user-owned)
+    SUBMISSION_FEEDBACK → Teacher feedback on a Submission (teacher-owned)
 
 Journal-specific fields (mood, energy_level, entry_date, etc.) live in metadata.
 max_retention controls FIFO cleanup for voice journals (None = permanent).
@@ -55,7 +55,7 @@ from core.events.submission_events import AssessmentCreated, SubmissionDeleted
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.feedback.feedback import Feedback
+from core.models.feedback.submission_feedback import SubmissionFeedback
 from core.models.relationship_names import RelationshipName
 from core.models.submissions.journal import Journal
 from core.models.submissions.submission_dto import SubmissionDTO
@@ -307,7 +307,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Args:
             limit: Maximum number of Ku entities to return
             user_uid: Optional user filter
-            ku_type: Optional type filter (e.g., SUBMISSION, AI_FEEDBACK)
+            ku_type: Optional type filter (e.g., SUBMISSION, ACTIVITY_REPORT)
 
         Returns:
             Result containing list of Ku entities
@@ -1216,7 +1216,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         return Result.ok(deleted_count)
 
     # ========================================================================
-    # ASSESSMENT CRUD (Teacher Assessments → FEEDBACK_REPORT entity)
+    # ASSESSMENT CRUD (Teacher Assessments → SUBMISSION_FEEDBACK entity)
     # ========================================================================
 
     @with_error_handling("create_assessment", error_type="database")
@@ -1227,11 +1227,11 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         title: str,
         content: str,
         metadata: dict[str, Any] | None = None,
-    ) -> Result[Feedback]:
+    ) -> Result[SubmissionFeedback]:
         """
         Create a teacher assessment (feedback) for a student.
 
-        Creates a submission with ku_type=FEEDBACK_REPORT, auto-shares with student.
+        Creates a submission with ku_type=SUBMISSION_FEEDBACK, auto-shares with student.
         Verifies teacher has authority over student via shared group membership.
 
         Args:
@@ -1275,10 +1275,10 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         uid = UIDGenerator.generate_uid("ku")
 
-        assessment = Feedback(
+        assessment = SubmissionFeedback(
             uid=uid,
             title=title,
-            ku_type=EntityType.FEEDBACK_REPORT,
+            ku_type=EntityType.SUBMISSION_FEEDBACK,
             user_uid=teacher_uid,
             status=EntityStatus.COMPLETED,
             processor_type=ProcessorType.HUMAN,
@@ -1365,12 +1365,12 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             limit: Maximum number of assessments to return
 
         Returns:
-            Result containing list of FEEDBACK_REPORT entity entities
+            Result containing list of SUBMISSION_FEEDBACK entity entities
         """
         result = await self.backend.execute_query(
             """
             MATCH (k:Entity)-[:ASSESSMENT_OF]->(u:User {uid: $student_uid})
-            WHERE k.ku_type = 'feedback_report'
+            WHERE k.ku_type = 'submission_feedback'
             RETURN k
             ORDER BY k.created_at DESC
             LIMIT $limit
@@ -1400,11 +1400,11 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             limit: Maximum number of assessments to return
 
         Returns:
-            Result containing list of FEEDBACK_REPORT entity entities
+            Result containing list of SUBMISSION_FEEDBACK entity entities
         """
         result = await self.backend.find_by(
             user_uid=teacher_uid,
-            ku_type=EntityType.FEEDBACK_REPORT.value,
+            ku_type=EntityType.SUBMISSION_FEEDBACK.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())

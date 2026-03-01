@@ -1,15 +1,15 @@
 """
-Report Feedback Service
+Feedback Service
 ========================
 
 Generates AI feedback for report entries using Exercises.
 
-AI feedback creates a first-class FEEDBACK_REPORT entity (processor_type=LLM),
+AI feedback creates a first-class SUBMISSION_FEEDBACK entity (processor_type=LLM),
 symmetric with human teacher feedback (processor_type=HUMAN). Both are stored
-as FEEDBACK_REPORT entities linked to the submission via FEEDBACK_FOR.
+as SUBMISSION_FEEDBACK entities linked to the submission via FEEDBACK_FOR.
 
 The core educational loop:
-    Exercise (instructions) + Submission (student work) → LLM → FEEDBACK_REPORT entity
+    Exercise (instructions) + Submission (student work) → LLM → SUBMISSION_FEEDBACK entity
 
 Following SKUEL principles:
 - Transparent: User sees exact prompt sent to LLM
@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.curriculum.exercise import Exercise
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.feedback.feedback import Feedback
+from core.models.feedback.submission_feedback import SubmissionFeedback
 from core.models.submissions.submission import Submission
 from core.services.ai_service import AnthropicService, OpenAIService
 from core.utils.logging import get_logger
@@ -40,7 +40,7 @@ class FeedbackService:
     """
     Generates AI feedback for report entries using exercise instructions.
 
-    Creates a FEEDBACK_REPORT entity (processor_type=LLM) linked to the
+    Creates a SUBMISSION_FEEDBACK entity (processor_type=LLM) linked to the
     submission via FEEDBACK_FOR — symmetric with teacher feedback.
 
     Supports both OpenAI and Anthropic models.
@@ -60,7 +60,7 @@ class FeedbackService:
         Args:
             openai_service: OpenAI service for GPT models
             anthropic_service: Anthropic service for Claude models
-            executor: QueryExecutor for creating FEEDBACK_REPORT entity in Neo4j
+            executor: QueryExecutor for creating SUBMISSION_FEEDBACK entity in Neo4j
             ku_interaction_service: Optional — updates MASTERED relationships on linked Ku nodes
                 after feedback is persisted, closing the mastery loop for PERSONAL scope
                 exercises where no teacher approval step exists
@@ -93,11 +93,11 @@ class FeedbackService:
         user_uid: str,
         temperature: float = 0.7,
         max_tokens: int = 4000,
-    ) -> Result[Feedback]:
+    ) -> Result[SubmissionFeedback]:
         """
         Generate AI feedback for a report entry using exercise instructions.
 
-        Creates a FEEDBACK_REPORT entity (processor_type=LLM) in Neo4j, linked
+        Creates a SUBMISSION_FEEDBACK entity (processor_type=LLM) in Neo4j, linked
         to the submission via FEEDBACK_FOR. Also updates the submission's
         denormalized feedback field for quick access.
 
@@ -109,7 +109,7 @@ class FeedbackService:
             max_tokens: Maximum tokens to generate (default 4000)
 
         Returns:
-            Result[Feedback] containing the created FEEDBACK_REPORT entity
+            Result[SubmissionFeedback] containing the created SUBMISSION_FEEDBACK entity
         """
         try:
             if not exercise.is_valid():
@@ -178,7 +178,7 @@ class FeedbackService:
             feedback_text = llm_result.value
             self.logger.info(f"Feedback generated: {len(feedback_text)} chars")
 
-            # Persist as FEEDBACK_REPORT entity
+            # Persist as SUBMISSION_FEEDBACK entity
             return await self._persist_feedback_entity(
                 submission=entry,
                 exercise=exercise,
@@ -198,9 +198,9 @@ class FeedbackService:
         exercise: Exercise,
         feedback_text: str,
         user_uid: str,
-    ) -> Result[Feedback]:
+    ) -> Result[SubmissionFeedback]:
         """
-        Persist AI feedback as a FEEDBACK_REPORT entity in Neo4j.
+        Persist AI feedback as a SUBMISSION_FEEDBACK entity in Neo4j.
 
         Creates the entity, OWNS relationship, FEEDBACK_FOR relationship,
         and updates the submission's denormalized feedback field — atomically.
@@ -212,7 +212,7 @@ class FeedbackService:
                 "No executor configured — AI feedback generated but not persisted as entity. "
                 "Configure executor in FeedbackService to enable full persistence."
             )
-            # Return a transient Feedback object for graceful degradation
+            # Return a transient SubmissionFeedback object for graceful degradation
             return self._build_transient_feedback(submission, exercise, feedback_text, user_uid)
 
         feedback_uid = UIDGenerator.generate_uid("ku")
@@ -266,7 +266,7 @@ class FeedbackService:
                     "user_uid": user_uid,
                     "feedback_text": feedback_text,
                     "title": title,
-                    "ku_type": EntityType.FEEDBACK_REPORT.value,
+                    "ku_type": EntityType.SUBMISSION_FEEDBACK.value,
                     "completed_status": EntityStatus.COMPLETED.value,
                     "processor_type": ProcessorType.LLM.value,
                     "now": now,
@@ -277,15 +277,15 @@ class FeedbackService:
                 return Result.fail(
                     Errors.database(
                         "create_feedback_entity",
-                        "Failed to create FEEDBACK_REPORT entity",
+                        "Failed to create SUBMISSION_FEEDBACK entity",
                     )
                 )
 
-            self.logger.info(f"FEEDBACK_REPORT entity created: {feedback_uid}")
+            self.logger.info(f"SUBMISSION_FEEDBACK entity created: {feedback_uid}")
 
-            feedback_entity = Feedback(
+            feedback_entity = SubmissionFeedback(
                 uid=feedback_uid,
-                ku_type=EntityType.FEEDBACK_REPORT,
+                ku_type=EntityType.SUBMISSION_FEEDBACK,
                 title=title,
                 user_uid=user_uid,
                 status=EntityStatus.COMPLETED,
@@ -357,7 +357,7 @@ class FeedbackService:
                 user_uid=student_uid,
                 ku_uid=ku_uid,
                 mastery_score=0.6,
-                method="ai_feedback",
+                method="activity_report",
             )
             if mastery_result.is_error:
                 self.logger.warning(
@@ -375,16 +375,16 @@ class FeedbackService:
         exercise: Exercise,
         feedback_text: str,
         user_uid: str,
-    ) -> Result[Feedback]:
-        """Build a non-persisted Feedback object for graceful degradation."""
+    ) -> Result[SubmissionFeedback]:
+        """Build a non-persisted SubmissionFeedback object for graceful degradation."""
         title = (
             f"AI Feedback: {exercise.title[:50]}"
             if exercise.title
             else f"AI Feedback: {exercise.uid[:20]}"
         )
-        feedback_entity = Feedback(
+        feedback_entity = SubmissionFeedback(
             uid=f"transient_{submission.uid}",
-            ku_type=EntityType.FEEDBACK_REPORT,
+            ku_type=EntityType.SUBMISSION_FEEDBACK,
             title=title,
             user_uid=user_uid,
             status=EntityStatus.COMPLETED,

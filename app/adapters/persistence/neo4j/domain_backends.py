@@ -800,7 +800,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     - check_access(entity_uid, user_uid)           → multi-rule access check
 
     Note: Uses NeoLabel.ENTITY (not NeoLabel.SUBMISSION) because submissions span
-    3 EntityTypes: SUBMISSION, JOURNAL, FEEDBACK_REPORT.
+    3 EntityTypes: SUBMISSION, JOURNAL, SUBMISSION_FEEDBACK.
     """
 
     _ACTIVITY_ENTITY_TYPES = frozenset(

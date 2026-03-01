@@ -490,14 +490,14 @@ class KuInteractionService:
 
         Two callers in the educational loop:
         - TeacherReviewService.approve_report(): score=0.8, method="ku_approval"
-        - FeedbackService._update_mastery_for_linked_ku(): score=0.6, method="ai_feedback"
+        - FeedbackService._update_mastery_for_linked_ku(): score=0.6, method="activity_report"
           (used for PERSONAL scope exercises where no teacher approval step exists)
 
         Args:
             user_uid: User's unique identifier
             ku_uid: Knowledge unit identifier
             mastery_score: Mastery confidence score (0.0-1.0, default 0.8)
-            method: How mastery was achieved (e.g., "ku_approval", "ai_feedback")
+            method: How mastery was achieved (e.g., "ku_approval", "activity_report")
 
         Returns:
             Result[bool]: True if mastered successfully

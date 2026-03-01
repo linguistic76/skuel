@@ -1,5 +1,5 @@
 """
-Feedback Domain Request Models
+SubmissionFeedback Domain Request Models
 ================================
 
 Pydantic models for teacher/AI feedback on student submissions.
@@ -27,7 +27,7 @@ class FeedbackCreateRequest(CreateRequestBase):
 
 
 class AssessmentCreateRequest(BaseModel):
-    """Request model for creating a teacher assessment (FEEDBACK_REPORT entity)."""
+    """Request model for creating a teacher assessment (SUBMISSION_FEEDBACK entity)."""
 
     subject_uid: str = Field(..., description="Student being assessed")
     title: str = Field(..., min_length=1, max_length=500, description="Assessment title")

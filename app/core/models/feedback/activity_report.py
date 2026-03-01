@@ -1,12 +1,12 @@
 """
-AiFeedback - AI Feedback Domain Model
-======================================
+ActivityReport - Activity Report Domain Model
+==============================================
 
 Frozen dataclass for AI-generated (or human-written) feedback about a user's
-activity patterns over a time period (EntityType.AI_FEEDBACK).
+activity patterns over a time period (EntityType.ACTIVITY_REPORT).
 
-Distinct from FEEDBACK_REPORT — which responds to a specific submitted artifact.
-AiFeedback responds to a user's aggregate behavior over a time window.
+Distinct from SUBMISSION_FEEDBACK — which responds to a specific submitted artifact.
+ActivityReport responds to a user's aggregate behavior over a time window.
 
 ProcessorType discriminates the source:
     ProcessorType.AUTOMATIC — system-generated on a schedule (default)
@@ -25,19 +25,19 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
-    from core.models.feedback.ai_feedback_dto import AiFeedbackDTO
+    from core.models.feedback.activity_report_dto import ActivityReportDTO
 
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.user_owned_entity import UserOwnedEntity
 
 
 @dataclass(frozen=True)
-class AiFeedback(UserOwnedEntity):
+class ActivityReport(UserOwnedEntity):
     """
-    Immutable domain model for AI Feedback entities (EntityType.AI_FEEDBACK).
+    Immutable domain model for Activity Report entities (EntityType.ACTIVITY_REPORT).
 
     Represents feedback about a user's aggregate activity patterns over a time period.
-    Distinct from FEEDBACK_REPORT (which responds to a specific submission artifact).
+    Distinct from SUBMISSION_FEEDBACK (which responds to a specific submission artifact).
 
     Fields:
         processor_type: Source of the feedback (AUTOMATIC/LLM/HUMAN)
@@ -53,9 +53,9 @@ class AiFeedback(UserOwnedEntity):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=AI_FEEDBACK, then delegate to UserOwnedEntity."""
-        if self.ku_type != EntityType.AI_FEEDBACK:
-            object.__setattr__(self, "ku_type", EntityType.AI_FEEDBACK)
+        """Force ku_type=ACTIVITY_REPORT, then delegate to UserOwnedEntity."""
+        if self.ku_type != EntityType.ACTIVITY_REPORT:
+            object.__setattr__(self, "ku_type", EntityType.ACTIVITY_REPORT)
         if self.status is None:
             object.__setattr__(self, "status", EntityStatus.COMPLETED)
         super().__post_init__()
@@ -99,18 +99,18 @@ class AiFeedback(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | AiFeedbackDTO") -> "AiFeedback":  # type: ignore[override]
-        """Create AiFeedback from an EntityDTO or AiFeedbackDTO."""
+    def from_dto(cls, dto: "EntityDTO | ActivityReportDTO") -> "ActivityReport":  # type: ignore[override]
+        """Create ActivityReport from an EntityDTO or ActivityReportDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "AiFeedbackDTO":  # type: ignore[override]
-        """Convert AiFeedback to domain-specific AiFeedbackDTO."""
+    def to_dto(self) -> "ActivityReportDTO":  # type: ignore[override]
+        """Convert ActivityReport to domain-specific ActivityReportDTO."""
         import dataclasses
         from typing import Any
 
-        from core.models.feedback.ai_feedback_dto import AiFeedbackDTO
+        from core.models.feedback.activity_report_dto import ActivityReportDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(AiFeedbackDTO)}
+        dto_field_names = {f.name for f in dataclasses.fields(ActivityReportDTO)}
         kwargs: dict[str, Any] = {}
         for f in dataclasses.fields(self):
             if f.name.startswith("_"):
@@ -121,14 +121,14 @@ class AiFeedback(UserOwnedEntity):
             if isinstance(value, tuple):
                 value = list(value)
             kwargs[f.name] = value
-        return AiFeedbackDTO(**kwargs)
+        return ActivityReportDTO(**kwargs)
 
     def __str__(self) -> str:
-        return f"AiFeedback(uid={self.uid}, title='{self.title}')"
+        return f"ActivityReport(uid={self.uid}, title='{self.title}')"
 
     def __repr__(self) -> str:
         return (
-            f"AiFeedback(uid='{self.uid}', title='{self.title}', "
+            f"ActivityReport(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, subject_uid={self.subject_uid}, "
             f"time_period={self.time_period}, processor_type={self.processor_type})"
         )

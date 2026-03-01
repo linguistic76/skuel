@@ -43,7 +43,7 @@ async def test_create_notification_success(service, mock_driver):
         title="New feedback",
         message="Your teacher provided feedback.",
         source_uid="ku_feedback_xyz",
-        source_type="feedback_report",
+        source_type="submission_feedback",
     )
 
     assert not result.is_error
@@ -117,7 +117,7 @@ async def test_get_notifications(service, mock_driver):
                 "title": "New feedback",
                 "message": "Your teacher reviewed your work.",
                 "source_uid": "ku_fb_1",
-                "source_type": "feedback_report",
+                "source_type": "submission_feedback",
                 "read": False,
                 "created_at": "2026-02-15T10:00:00",
             },
@@ -127,7 +127,7 @@ async def test_get_notifications(service, mock_driver):
                 "title": "Revision needed",
                 "message": "Your teacher requested changes.",
                 "source_uid": "ku_fb_2",
-                "source_type": "feedback_report",
+                "source_type": "submission_feedback",
                 "read": True,
                 "created_at": "2026-02-14T10:00:00",
             },

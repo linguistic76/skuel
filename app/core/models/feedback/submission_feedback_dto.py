@@ -1,15 +1,15 @@
 """
-FeedbackDTO - Feedback Report-Specific DTO (Tier 2 - Transfer)
-================================================================
+SubmissionFeedbackDTO - Submission Feedback-Specific DTO (Tier 2 - Transfer)
+=============================================================================
 
 Extends SubmissionDTO with 2 feedback-specific fields matching the
-Feedback frozen dataclass (Tier 3).
+SubmissionFeedback frozen dataclass (Tier 3).
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields
         └── SubmissionDTO(UserOwnedDTO) +13 fields
-            └── FeedbackDTO(SubmissionDTO) +2 fields
+            └── SubmissionFeedbackDTO(SubmissionDTO) +2 fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -29,9 +29,9 @@ from core.models.submissions.submission_dto import SubmissionDTO
 
 
 @dataclass
-class FeedbackDTO(SubmissionDTO):
+class SubmissionFeedbackDTO(SubmissionDTO):
     """
-    Mutable DTO for teacher feedback (EntityType.FEEDBACK_REPORT).
+    Mutable DTO for teacher feedback (EntityType.SUBMISSION_FEEDBACK).
 
     Extends SubmissionDTO with 2 feedback-specific fields:
     - feedback: str | None — the feedback text
@@ -70,8 +70,8 @@ class FeedbackDTO(SubmissionDTO):
     # =========================================================================
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> FeedbackDTO:
-        """Create FeedbackDTO from dictionary (from database)."""
+    def from_dict(cls, data: dict[str, Any]) -> SubmissionFeedbackDTO:
+        """Create SubmissionFeedbackDTO from dictionary (from database)."""
         from core.models.dto_helpers import dto_from_dict
 
         return dto_from_dict(
@@ -150,6 +150,6 @@ class FeedbackDTO(SubmissionDTO):
 
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
-        if not isinstance(other, FeedbackDTO):
+        if not isinstance(other, SubmissionFeedbackDTO):
             return False
         return self.uid == other.uid

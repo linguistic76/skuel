@@ -326,7 +326,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         query = """
         MATCH (user:User {uid: $user_uid})-[:OWNS]->(s:Entity)
         WHERE s.ku_type = 'submission'
-        OPTIONAL MATCH (fb:Entity {ku_type: 'feedback_report'})-[:FEEDBACK_FOR]->(s)
+        OPTIONAL MATCH (fb:Entity {ku_type: 'submission_feedback'})-[:FEEDBACK_FOR]->(s)
         WITH s, count(fb) AS feedback_count
         RETURN s.uid AS uid,
                s.title AS title,

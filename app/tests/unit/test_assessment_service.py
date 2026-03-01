@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums.entity_enums import EntityType
-from core.models.feedback.feedback import Feedback
+from core.models.feedback.submission_feedback import SubmissionFeedback
 from core.utils.result_simplified import Errors, Result
 
 # Helpers for mocking execute_query call sequence (returns Result[list[dict]])
@@ -84,11 +84,11 @@ class TestCreateAssessment:
         )
 
         assert not result.is_error
-        # Verify backend.create was called with a Feedback
+        # Verify backend.create was called with a SubmissionFeedback
         assert mock_backend.create.call_count == 1
         created_ku = mock_backend.create.call_args[0][0]
-        assert isinstance(created_ku, Feedback)
-        assert created_ku.ku_type == EntityType.FEEDBACK_REPORT
+        assert isinstance(created_ku, SubmissionFeedback)
+        assert created_ku.ku_type == EntityType.SUBMISSION_FEEDBACK
         assert created_ku.user_uid == "user_teacher"
         assert created_ku.subject_uid == "user_student"
         assert created_ku.title == "Midterm Assessment"
@@ -227,7 +227,7 @@ class TestGetAssessments:
                     "k": {
                         "uid": "report_123",
                         "user_uid": "user_teacher",
-                        "ku_type": "feedback_report",
+                        "ku_type": "submission_feedback",
                         "title": "Assessment 1",
                         "subject_uid": "user_student",
                     }
