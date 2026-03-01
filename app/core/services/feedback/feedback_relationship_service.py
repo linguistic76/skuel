@@ -89,6 +89,51 @@ class FeedbackRelationshipService:
 
         return Result.ok([r["uid"] for r in (result.value or []) if r["uid"]])
 
+    async def get_unsubmitted_exercises(
+        self, user_uid: str, limit: int = 5
+    ) -> Result[list[dict[str, str | None]]]:
+        """
+        Exercises assigned to this user (via group) with no submission yet.
+
+        Graph traversal:
+        (User)-[:MEMBER_OF]->(Group)<-[:FOR_GROUP]-(Exercise)
+        WHERE NOT (User)-[:OWNS]->(:Submission)-[:FULFILLS_EXERCISE]->(Exercise)
+
+        Args:
+            user_uid: User identifier
+            limit: Maximum exercises to return (default 5, ordered by due_date ASC)
+
+        Returns:
+            Result containing list of dicts with: uid, title, due_date (ISO string or None)
+        """
+        cypher = """
+        MATCH (user:User {uid: $user_uid})-[:MEMBER_OF]->(group:Group)
+        MATCH (exercise:Entity {ku_type: 'exercise', scope: 'assigned'})-[:FOR_GROUP]->(group)
+        WHERE NOT (:Entity {user_uid: $user_uid})-[:FULFILLS_EXERCISE]->(exercise)
+        RETURN exercise.uid AS uid,
+               exercise.title AS title,
+               exercise.due_date AS due_date
+        ORDER BY exercise.due_date ASC
+        LIMIT $limit
+        """
+        result = await self.backend.execute_query(
+            cypher,
+            {"user_uid": user_uid, "limit": limit},
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        return Result.ok(
+            [
+                {
+                    "uid": r["uid"],
+                    "title": r["title"] or "Untitled Exercise",
+                    "due_date": str(r["due_date"]) if r["due_date"] else None,
+                }
+                for r in (result.value or [])
+                if r["uid"]
+            ]
+        )
+
     async def get_feedback_summary(self, user_uid: str) -> Result[dict[str, int]]:
         """
         Get feedback completion summary for a user.

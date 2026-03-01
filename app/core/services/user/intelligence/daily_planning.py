@@ -7,17 +7,19 @@ Method 5 of UserContextIntelligence:
 
 This is the core value proposition: "What should I work on next?"
 
-**Synthesizes ALL 9 domains:**
+**Synthesizes 10 domains:**
 - Activity Domains (6): tasks, habits, goals, events, choices, principles
 - Curriculum Domains (3): ku, ls, lp
+- Submissions Domain (1): self.feedback — Priority 2.5: unsubmitted exercises
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import date
 from typing import TYPE_CHECKING, Any
 
-from core.models.context_types import DailyWorkPlan
+from core.models.context_types import ContextualExercise, DailyWorkPlan
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -34,10 +36,11 @@ class DailyPlanningMixin:
     """
     Mixin providing daily planning methods.
 
-    Requires self.context (UserContext) and all 9 domain relationship services:
+    Requires self.context (UserContext) and domain relationship services:
     - self.tasks, self.habits, self.goals, self.events
     - self.choices, self.principles
     - self.ku
+    - self.feedback  (FeedbackRelationshipService — for unsubmitted exercises)
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
     """
 
@@ -49,6 +52,7 @@ class DailyPlanningMixin:
     choices: Any  # ChoicesRelationshipService
     principles: Any  # PrinciplesRelationshipService
     ku: Any  # KuGraphService
+    feedback: Any  # FeedbackRelationshipService
     vector_search: Any = None  # Neo4jVectorSearchService (optional)
 
     # =========================================================================
@@ -96,6 +100,8 @@ class DailyPlanningMixin:
         habits_uids: list[str] = []
         contextual_habits_list: list[ContextualHabit] = []
         events_uids: list[str] = []
+        exercises_uids: list[str] = []
+        contextual_exercises_list: list[ContextualExercise] = []
         tasks_uids: list[str] = []
         contextual_tasks_list: list[ContextualTask] = []
         learning_uids: list[str] = []
@@ -125,6 +131,45 @@ class DailyPlanningMixin:
             for contextual_event in events_result.value:
                 events_uids.append(contextual_event.uid)
                 estimated_time += 30  # ~30 min per event
+
+        # =====================================================================
+        # PRIORITY 2.5: Unsubmitted exercises (teacher assignments)
+        # =====================================================================
+        exercises_result = await self.feedback.get_unsubmitted_exercises(
+            self.context.user_uid, limit=5
+        )
+        if exercises_result.is_ok and exercises_result.value:
+            today = date.today()
+            overdue_count = 0
+            for ex_dict in exercises_result.value[:3]:
+                est_time = 60  # ~60 min to complete an exercise submission
+                if not respect_capacity or estimated_time + est_time <= available_time:
+                    due_date: date | None = None
+                    days_until_due: int | None = None
+                    is_overdue = False
+                    if ex_dict["due_date"]:
+                        due_date = date.fromisoformat(ex_dict["due_date"])
+                        delta = (due_date - today).days
+                        days_until_due = delta
+                        is_overdue = delta < 0
+                        if is_overdue:
+                            overdue_count += 1
+
+                    contextual_ex = ContextualExercise(
+                        uid=ex_dict["uid"],
+                        title=ex_dict["title"],
+                        due_date=due_date,
+                        is_overdue=is_overdue,
+                        days_until_due=days_until_due,
+                    )
+                    exercises_uids.append(ex_dict["uid"])
+                    contextual_exercises_list.append(contextual_ex)
+                    estimated_time += est_time
+
+            if overdue_count:
+                warnings_list.append(
+                    f"{overdue_count} exercise submission{'s' if overdue_count > 1 else ''} overdue"
+                )
 
         # =====================================================================
         # PRIORITY 3: Overdue and actionable tasks
@@ -246,10 +291,12 @@ class DailyPlanningMixin:
             goals=tuple(goals_uids),
             choices=tuple(choices_uids),
             principles=tuple(principles_uids),
+            exercises=tuple(exercises_uids),
             contextual_tasks=tuple(contextual_tasks_list),
             contextual_habits=tuple(contextual_habits_list),
             contextual_goals=tuple(contextual_goals_list),
             contextual_knowledge=tuple(contextual_knowledge_list),
+            contextual_exercises=tuple(contextual_exercises_list),
             estimated_time_minutes=estimated_time,
             fits_capacity=fits_capacity,
             workload_utilization=workload_utilization,
@@ -277,6 +324,17 @@ class DailyPlanningMixin:
         if plan.events:
             priorities.append(f"Attend {len(plan.events)} scheduled events")
 
+        if plan.exercises:
+            overdue_ex = [e for e in plan.contextual_exercises if e.is_overdue]
+            if overdue_ex:
+                priorities.append(
+                    f"Submit {len(overdue_ex)} overdue exercise{'s' if len(overdue_ex) > 1 else ''} (teacher assignment)"
+                )
+            else:
+                priorities.append(
+                    f"Complete {len(plan.exercises)} exercise submission{'s' if len(plan.exercises) > 1 else ''}"
+                )
+
         if any("overdue" in w.lower() for w in plan.warnings):
             priorities.append("Catch up on overdue tasks (high priority)")
 
@@ -301,6 +359,10 @@ class DailyPlanningMixin:
         # Habits focus
         if len(plan.habits) >= 3:
             rationale_parts.append("Strong focus on habit consistency")
+
+        # Exercise focus
+        if plan.exercises:
+            rationale_parts.append("Teacher assignment submissions due")
 
         # Task focus
         if plan.tasks:

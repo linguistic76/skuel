@@ -1458,6 +1458,31 @@ class LearningStep:
 
 
 @dataclass(frozen=True)
+class ContextualExercise:
+    """
+    An assigned exercise enriched with urgency context.
+
+    Used by DailyPlanningMixin to present teacher assignments with
+    deadline awareness in the daily work plan.
+    """
+
+    uid: str
+    title: str
+    due_date: date | None = None
+    is_overdue: bool = False
+    days_until_due: int | None = None  # None = no deadline set
+
+    @property
+    def entity_type(self) -> str:
+        return "exercise"
+
+    @property
+    def is_urgent(self) -> bool:
+        """Due within 3 days."""
+        return self.days_until_due is not None and 0 <= self.days_until_due <= 3
+
+
+@dataclass(frozen=True)
 class DailyWorkPlan:
     """
     Comprehensive plan for what to work on today.
@@ -1467,6 +1492,7 @@ class DailyWorkPlan:
     **Synthesizes ALL domains:**
     - Activity Domains (6): tasks, habits, goals, events, choices, principles
     - Curriculum Domains (3): ku, ls, lp
+    - Submissions Domain (1): exercises assigned but not yet submitted
 
     **Respects:**
     - User's available time (capacity)
@@ -1482,12 +1508,14 @@ class DailyWorkPlan:
     goals: tuple[str, ...] = ()  # Goal UIDs to advance
     choices: tuple[str, ...] = ()  # Choice UIDs to consider
     principles: tuple[str, ...] = ()  # Principle UIDs to embody
+    exercises: tuple[str, ...] = ()  # Exercise UIDs assigned but not submitted
 
     # Contextual items (enriched with user context)
     contextual_tasks: tuple[ContextualTask, ...] = ()
     contextual_habits: tuple[ContextualHabit, ...] = ()
     contextual_goals: tuple[ContextualGoal, ...] = ()
     contextual_knowledge: tuple[ContextualKnowledge, ...] = ()
+    contextual_exercises: tuple[ContextualExercise, ...] = ()
 
     # Capacity metrics
     estimated_time_minutes: int = 0
@@ -1571,6 +1599,7 @@ __all__ = [
     "ContextualEvent",
     "ContextualChoice",
     "ContextualPrinciple",
+    "ContextualExercise",
     # Aggregate types
     "ContextualDependencies",
     "PracticeOpportunity",

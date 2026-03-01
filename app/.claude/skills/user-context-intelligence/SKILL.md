@@ -96,13 +96,14 @@ All use `UnifiedRelationshipService` with domain configs:
 | Analytics | `self.analytics` | Cross-domain analytics (`AnalyticsRelationshipService`) |
 
 > **Wired, Not Yet Called**
-> These 3 services are required at construction and stored on `self`, but no mixin currently invokes them. The intelligence methods for the processing domain are architecturally reserved — the slots exist, the calling code has not been written yet:
+> These 2 services are required at construction and stored on `self`, but no mixin currently invokes them. The intelligence methods for the processing domain are architecturally reserved — the slots exist, the calling code has not been written yet:
 >
 > | Service | Will power | Status |
 > |---------|-----------|--------|
-> | `self.submissions` | "You have pending exercise submissions" in `get_ready_to_work_on_today()` | Wired, not called |
-> | `self.feedback` | "N submissions awaiting feedback review" in daily planning | Wired, not called |
+> | `self.submissions` | Cross-domain submission state (planned) | Wired, not called |
 > | `self.analytics` | Cross-domain pattern queries in synergy detection | Wired, not called |
+>
+> `self.feedback` is now active — `DailyPlanningMixin` calls `get_unsubmitted_exercises()` at Priority 2.5.
 
 ### Temporal Domain (1)
 
@@ -245,7 +246,7 @@ Note: `factory.create()` also accepts an optional `vector_search=` service for s
 
 ## The Flagship Method: get_ready_to_work_on_today()
 
-This is THE core value proposition of SKUEL. It currently synthesizes 9 domains and has slot reservations for 3 more:
+This is THE core value proposition of SKUEL. It currently synthesizes 10 domains and has slot reservations for 2 more:
 
 ### Method Signature
 
@@ -258,13 +259,13 @@ async def get_ready_to_work_on_today(
     """
     THE FLAGSHIP METHOD - What should I focus on TODAY?
 
-    Currently synthesizes 9 of 13 wired domains:
+    Currently synthesizes 10 of 13 wired domains:
     - Activity Domains (6): tasks, habits, goals, events, choices, principles
     - Curriculum Domains (3): ku, ls, lp
+    - Submissions Domain (1): self.feedback — Priority 2.5: unsubmitted exercises
 
-    Processing Domains (3): wired, not yet called
-    - self.submissions: pending exercise submissions (planned)
-    - self.feedback: unreviewed feedback awareness (planned)
+    Processing Domains (2): wired, not yet called
+    - self.submissions: cross-domain submission state (planned)
     - self.analytics: cross-domain pattern scoring (planned)
 
     Respects:
@@ -280,6 +281,7 @@ The method prioritizes work in this order:
 
 1. **At-risk habits** (maintain streaks - highest priority)
 2. **Today's events** (can't reschedule)
+2.5. **Unsubmitted exercises** (teacher assignments — external accountability)
 3. **Overdue and actionable tasks**
 4. **Daily habits** (consistency)
 5. **Learning** (if capacity allows)

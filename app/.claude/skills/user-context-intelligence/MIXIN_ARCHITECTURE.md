@@ -211,10 +211,11 @@ class DailyPlanningMixin:
     choices: Any        # ChoicesRelationshipService
     principles: Any     # PrinciplesRelationshipService
     ku: Any             # KuGraphService
+    feedback: Any       # FeedbackRelationshipService
 ```
 
 **Key Logic:**
-- Synthesizes ALL 9 entity domains into one daily plan
+- Synthesizes 10 entity domains into one daily plan
 - Respects user capacity and energy
 - Generates warnings for overload or missed learning
 
@@ -271,7 +272,7 @@ UserContextIntelligence.__init__()
 | `LifePathIntelligenceMixin` | context, goals, habits, ku |
 | `SynergyIntelligenceMixin` | context, habits, goals, tasks, ku |
 | `ScheduleIntelligenceMixin` | context, calendar, events, tasks, habits |
-| `DailyPlanningMixin` | context, tasks, habits, goals, events, choices, principles, ku |
+| `DailyPlanningMixin` | context, tasks, habits, goals, events, choices, principles, ku, feedback |
 
 ### All Services Required
 
