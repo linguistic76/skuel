@@ -155,6 +155,60 @@ class AiFeedback(UserOwnedEntity):
 
 ---
 
+## Where Feedback Sits in the 4-Layer Architecture
+
+The 4-phase learning loop is: **Curriculum/KU → Exercise → Submission → Feedback**
+
+The first three stages are all **leaf domains** — each owns its own Neo4j nodes and fits the standard 4-layer pattern:
+
+```
+*Operations protocol → *Backend subclass → *Service facade → sub-services
+
+KuBackend         ← owns ORGANIZES, KU curriculum queries
+ExerciseBackend   ← owns curriculum linking Cypher
+SubmissionsBackend ← owns SHARES_WITH, access control Cypher
+```
+
+Feedback splits into two structurally different positions:
+
+### FEEDBACK_REPORT — Leaf Domain
+
+`FEEDBACK_REPORT` fits the leaf domain model. One submission goes in, one FeedbackReport node comes out. The generating services (`FeedbackService`, `SubmissionsCoreService`) operate against a focused backend — the scope is a single artifact and its owner.
+
+```
+Submission  →  FeedbackService / SubmissionsCoreService  →  FEEDBACK_REPORT node
+               (one artifact in, one feedback node out)
+```
+
+This fits the 4-layer pattern cleanly. The services are protocol-driven and backend-scoped.
+
+### AI_FEEDBACK — Cross-Domain Aggregator
+
+`AI_FEEDBACK` cannot fit the leaf domain model because it does not read from one domain — it reads **across all 6 Activity Domain backends** to produce a synthesis.
+
+```
+Tasks + Goals + Habits + Events + Choices + Principles
+    ↓ (historical completions, time window)
+ProgressFeedbackGenerator
+    ↓ (LLM or programmatic markdown)
+AI_FEEDBACK node
+```
+
+`ProgressFeedbackGenerator` accepts a `QueryExecutor` (raw Cypher access) rather than a single typed domain backend precisely because no single domain backend spans the Activity Domains. Per SKUEL's architecture rule: **domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services.** `ProgressFeedbackGenerator` is the cross-domain aggregation service — it sits above the domain backends by design.
+
+This is why it does not have a `FeedbackBackend` with domain-specific Cypher methods. Its Cypher queries are inherently cross-domain and belong in the service layer.
+
+### Summary
+
+| Feedback Mode | Structural Position | Why |
+|---------------|--------------------|----|
+| `FEEDBACK_REPORT` | Leaf domain — fits 4-layer pattern | One artifact in, one node out; single-domain scope |
+| `AI_FEEDBACK` | Cross-domain aggregator — sits above domain backends | Reads from 6 Activity Domain backends; no single domain owns it |
+
+The learning loop does not end at a leaf domain — it fans back out across the user's entire lived activity. That is what makes `AI_FEEDBACK` architecturally distinct from the other three stages of the loop.
+
+---
+
 ## Three Distinct UIs
 
 ### UI 1 — Ku Submission UI (curriculum work)

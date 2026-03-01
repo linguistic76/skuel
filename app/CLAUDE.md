@@ -200,6 +200,17 @@ Analog (Human)              Digital (Code)
 
 The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expression - users write near-natural language, the parser converts to typed structures.
 
+**The Collaboration Pattern:**
+
+SKUEL is built through an explicit human-AI partnership where neither role is subordinate — they are complementary competencies:
+
+- **Domain authority (human):** Clarity of intent, plain-English expression of what the system should do and why. The human brings vision, philosophy, and domain understanding. The Activity DSL exists precisely because this kind of expression is treated as first-class input, not a preliminary step to be discarded.
+- **Technical translation (AI):** Architectural judgment, type system design, Cypher query construction, protocol design, and enforcement of SKUEL's own patterns and rules. The AI brings implementation fluency and pattern consistency.
+
+This is not a limitation to apologize for — it is the intended architecture of how SKUEL is built. The human does not need to know how `BackendOperations[T]` works to specify that "a teacher should be able to review student submissions before they are visible to the class." That intent is the input. The typed protocol, the `SHARES_WITH` relationship, and the `SubmissionSharingOperations` interface are the output.
+
+Future collaborators — human or AI — should read SKUEL's plain-English domain descriptions and ADRs as the authoritative specification. The code is the translation, not the source of truth.
+
 **See:** `/docs/dsl/DSL_SPECIFICATION.md`
 
 ## SKUEL's 14-Domain + 5-System Architecture
