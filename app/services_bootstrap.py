@@ -2479,6 +2479,7 @@ async def compose_services(
         # - Temporal Domain (1): Calendar
 
         from core.services.analytics_relationship_service import AnalyticsRelationshipService
+        from core.services.feedback import FeedbackRelationshipService
         from core.services.submissions import SubmissionsRelationshipService
         from core.services.user.intelligence import UserContextIntelligenceFactory
 
@@ -2488,8 +2489,11 @@ async def compose_services(
         submissions_relationship_service = SubmissionsRelationshipService(
             backend=submissions_backend
         )
+        feedback_relationship_service = FeedbackRelationshipService(
+            backend=submissions_backend
+        )
         analytics_relationship_service = AnalyticsRelationshipService(driver)
-        logger.info("✅ Processing domain relationship services created (Submissions, Analytics)")
+        logger.info("✅ Processing domain relationship services created (Submissions, Feedback, Analytics)")
 
         # Create factory with all 12 domain services
         context_intelligence_factory = UserContextIntelligenceFactory(
@@ -2508,8 +2512,9 @@ async def compose_services(
             lp=learning_services[
                 "learning_paths"
             ].relationships,  # Factory expects 'lp' parameter name
-            # Processing Domains (2) - journals merged into submissions Feb 2026
-            reports=submissions_relationship_service,  # SubmissionsRelationshipService
+            # Processing Domains (3)
+            submissions=submissions_relationship_service,  # SubmissionsRelationshipService
+            feedback=feedback_relationship_service,  # FeedbackRelationshipService
             analytics=analytics_relationship_service,  # AnalyticsRelationshipService
             # Temporal Domain (1)
             calendar=calendar_service,
@@ -2517,7 +2522,7 @@ async def compose_services(
             vector_search_service=vector_search_service,
         )
         services.context_intelligence = context_intelligence_factory
-        logger.info("✅ UserContextIntelligence factory created (12 domain services wired)")
+        logger.info("✅ UserContextIntelligence factory created (13 domain services wired)")
 
         # Wire intelligence factory to UserService (post-construction wiring)
         user_service.intelligence_factory = context_intelligence_factory

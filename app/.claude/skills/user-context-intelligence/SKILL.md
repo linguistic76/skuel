@@ -87,12 +87,22 @@ All use `UnifiedRelationshipService` with domain configs:
 | LS | `self.ls` | Learning step sequencing (UnifiedRelationshipService) |
 | LP | `self.lp` | Life path analysis (UnifiedRelationshipService) |
 
-### Processing Domains (2)
+### Processing Domains (3)
 
 | Service | Attribute | Purpose |
 |---------|-----------|---------|
-| Submissions | `self.reports` | Submissions + Journals (EntityType.JOURNAL merged Feb 2026) |
-| Analytics | `self.analytics` | Cross-domain analytics |
+| Submissions | `self.submissions` | Student work relationship graph — FOLLOWS, RELATED_TO, SUPPORTS_GOAL (`SubmissionsRelationshipService`) |
+| Feedback | `self.feedback` | Feedback loop graph queries — pending submissions, completion rate (`FeedbackRelationshipService`) |
+| Analytics | `self.analytics` | Cross-domain analytics (`AnalyticsRelationshipService`) |
+
+> **Wired, Not Yet Called**
+> These 3 services are required at construction and stored on `self`, but no mixin currently invokes them. The intelligence methods for the processing domain are architecturally reserved — the slots exist, the calling code has not been written yet:
+>
+> | Service | Will power | Status |
+> |---------|-----------|--------|
+> | `self.submissions` | "You have pending exercise submissions" in `get_ready_to_work_on_today()` | Wired, not called |
+> | `self.feedback` | "N submissions awaiting feedback review" in daily planning | Wired, not called |
+> | `self.analytics` | Cross-domain pattern queries in synergy detection | Wired, not called |
 
 ### Temporal Domain (1)
 
@@ -143,6 +153,44 @@ class DailyWorkPlan:
 
 ---
 
+## Two-Level Architecture
+
+SKUEL's intelligence services are designed so the app runs at full capability without any LLM dependency.
+
+### Level 1 — Graph Analytics (Always Runs)
+
+`UserContextIntelligence` and its 5 mixins are **pure graph analytics** — Cypher queries, relationship traversals, scoring. No LLM, no embeddings.
+
+```
+UserContextIntelligence (Level 1)
+├── DailyPlanningMixin            → Pure Cypher: tasks, habits, goals, events, ku
+├── LearningIntelligenceMixin     → Pure Cypher: ku graph traversal, prerequisite chains
+├── LifePathIntelligenceMixin     → Pure Cypher: SERVES_LIFE_PATH relationships
+├── SynergyIntelligenceMixin      → Pure Cypher: cross-domain relationship patterns
+└── ScheduleIntelligenceMixin     → Pure Cypher: calendar + capacity scoring
+```
+
+All 13 required services are Level 1. `SubmissionsRelationshipService`, `FeedbackRelationshipService`, and `AnalyticsRelationshipService` are pure Cypher — no LLM required.
+
+### Level 2 — AI Enhancement (Optional)
+
+AI features live in separate `*_ai_service.py` files, one per domain. These extend `BaseAIService` and depend on LLM/embeddings:
+
+```
+tasks_intelligence_service.py  ← Level 1: BaseAnalyticsService (always available)
+tasks_ai_service.py            ← Level 2: BaseAIService (optional, requires LLM)
+```
+
+13 such pairs exist in the codebase. `UserContextIntelligence` is Level 1. The optional `vector_search=` parameter is the only Level 2 hook in the constructor.
+
+### Why the Processing Domains Are Wired But Not Called
+
+`self.submissions`, `self.feedback`, and `self.analytics` are Level 1 services stored on the instance. The mixin methods that CALL them have not been written yet — the architecture is established, the implementation is next.
+
+This is by design. The slot reservation ensures future implementation is a fill-in, not a redesign.
+
+---
+
 ## Factory Pattern
 
 ### Why a Factory?
@@ -170,8 +218,9 @@ factory = UserContextIntelligenceFactory(
     ku=ku_service.graph,
     ls=ls_service.relationships,
     lp=lp_service.relationships,
-    # Processing Domains (2) — journals merged into submissions Feb 2026
-    reports=submissions_relationship_service,
+    # Processing Domains (3)
+    submissions=submissions_relationship_service,
+    feedback=feedback_relationship_service,
     analytics=analytics_relationship_service,
     # Temporal Domain (1)
     calendar=calendar_service,
@@ -190,11 +239,13 @@ intelligence = factory.create(context)
 plan = await intelligence.get_ready_to_work_on_today()
 ```
 
+Note: `factory.create()` also accepts an optional `vector_search=` service for semantic search enhancements.
+
 ---
 
 ## The Flagship Method: get_ready_to_work_on_today()
 
-This is THE core value proposition of SKUEL. It synthesizes ALL 9 entity domains:
+This is THE core value proposition of SKUEL. It currently synthesizes 9 domains and has slot reservations for 3 more:
 
 ### Method Signature
 
@@ -207,9 +258,14 @@ async def get_ready_to_work_on_today(
     """
     THE FLAGSHIP METHOD - What should I focus on TODAY?
 
-    Synthesizes ALL 9 domains:
+    Currently synthesizes 9 of 13 wired domains:
     - Activity Domains (6): tasks, habits, goals, events, choices, principles
     - Curriculum Domains (3): ku, ls, lp
+
+    Processing Domains (3): wired, not yet called
+    - self.submissions: pending exercise submissions (planned)
+    - self.feedback: unreviewed feedback awareness (planned)
+    - self.analytics: cross-domain pattern scoring (planned)
 
     Respects:
     - context.available_minutes_daily (capacity)
@@ -487,14 +543,17 @@ intelligence = factory.create(context)
 | File | Purpose |
 |------|---------|
 | `/core/services/user/intelligence/__init__.py` | Package exports |
-| `/core/services/user/intelligence/core.py` | Main class (~234 lines) |
-| `/core/services/user/intelligence/factory.py` | Factory pattern (~222 lines) |
-| `/core/services/user/intelligence/types.py` | Return types (~206 lines) |
-| `/core/services/user/intelligence/daily_planning.py` | Flagship method (~256 lines) |
-| `/core/services/user/intelligence/learning_intelligence.py` | Methods 1-4 (~470 lines) |
-| `/core/services/user/intelligence/life_path_intelligence.py` | Method 7 (~150 lines) |
-| `/core/services/user/intelligence/synergy_intelligence.py` | Method 6 (~200 lines) |
-| `/core/services/user/intelligence/schedule_intelligence.py` | Method 8 (~180 lines) |
+| `/core/services/user/intelligence/core.py` | Main class |
+| `/core/services/user/intelligence/factory.py` | Factory pattern |
+| `/core/models/context_types.py` | Return types (LearningStep, DailyWorkPlan, etc.) |
+| `/core/services/user/intelligence/daily_planning.py` | Flagship method |
+| `/core/services/user/intelligence/learning_intelligence.py` | Methods 1-4 |
+| `/core/services/user/intelligence/life_path_intelligence.py` | Method 7 |
+| `/core/services/user/intelligence/synergy_intelligence.py` | Method 6 |
+| `/core/services/user/intelligence/schedule_intelligence.py` | Method 8 |
+| `/core/services/submissions/submissions_relationship_service.py` | Level 1 — submission graph queries |
+| `/core/services/feedback/feedback_relationship_service.py` | Level 1 — feedback loop graph queries |
+| `/core/services/analytics_relationship_service.py` | Level 1 — cross-domain analytics queries |
 | `/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md` | Documentation |
 
 ## Deep Dive Resources
@@ -514,11 +573,9 @@ intelligence = factory.create(context)
 
 ## Related Skills
 
-- **[base-analytics-service](../base-analytics-service/SKILL.md)** - Domain analytics pattern (no AI)
-- **[base-ai-service](../base-ai-service/SKILL.md)** - Optional AI features (LLM/embeddings)
+- **[base-analytics-service](../base-analytics-service/SKILL.md)** - Level 1 domain analytics (BaseAnalyticsService, no AI) — same tier as UserContextIntelligence
+- **[learning-loop](../learning-loop/SKILL.md)** - The four-phased loop (Ku → Exercise → Submission → Feedback) — context for why submissions/feedback slots exist
 - **[result-pattern](../result-pattern/SKILL.md)** - Result[T] error handling
-- **[activity-domains](../activity-domains/SKILL.md)** - Activity domain services
-- **[curriculum-domains](../curriculum-domains/SKILL.md)** - Curriculum domain services
 
 ## See Also
 

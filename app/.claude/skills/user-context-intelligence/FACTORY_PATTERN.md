@@ -77,13 +77,14 @@ class UserContextIntelligenceFactory:
         ku: KuGraphService,
         ls: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
-        # Processing Domains (2) — journals merged into reports Feb 2026
-        reports: SubmissionsRelationshipService,
+        # Processing Domains (3)
+        submissions: SubmissionsRelationshipService,
+        feedback: FeedbackRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
         calendar: CalendarService,
     ) -> None:
-        # Validate all 12 services present
+        # Validate all 13 services present
         required = {
             "tasks": tasks,
             "goals": goals,
@@ -94,7 +95,8 @@ class UserContextIntelligenceFactory:
             "ku": ku,
             "ls": ls,
             "lp": lp,
-            "reports": reports,
+            "submissions": submissions,
+            "feedback": feedback,
             "analytics": analytics,
             "calendar": calendar,
         }
@@ -116,9 +118,9 @@ class UserContextIntelligenceFactory:
         self._ku = ku
         self._ls = ls
         self._lp = lp
-        self._assignments = assignments
-        self._journals = journals
-        self._reports = reports
+        # Processing domains (2)
+        self._submissions = submissions
+        self._analytics = analytics
         self._calendar = calendar
 
     def create(self, context: UserContext) -> UserContextIntelligence:
@@ -136,10 +138,9 @@ class UserContextIntelligenceFactory:
             ku=self._ku,
             ls=self._ls,
             lp=self._lp,
-            # Processing domains (3)
-            assignments=self._assignments,
-            journals=self._journals,
-            reports=self._reports,
+            # Processing domains (2)
+            submissions=self._submissions,
+            analytics=self._analytics,
             # Temporal domain (1)
             calendar=self._calendar,
         )
@@ -171,9 +172,9 @@ async def compose_services(neo4j_driver, event_bus=None) -> Result[Services]:
         ls=ls_service.relationships,   # UnifiedRelationshipService
         lp=lp_service.relationships,   # UnifiedRelationshipService
         # Processing Domains (3)
-        assignments=assignment_relationship_service,
-        journals=journal_relationship_service,
-        reports=report_relationship_service,
+        submissions=submissions_relationship_service,
+        feedback=feedback_relationship_service,
+        analytics=analytics_relationship_service,
         # Temporal Domain (1)
         calendar=calendar_service,
     )
@@ -276,9 +277,9 @@ def mock_factory():
         ku=MagicMock(),
         ls=MagicMock(),
         lp=MagicMock(),
-        assignments=MagicMock(),
-        journals=MagicMock(),
-        reports=MagicMock(),
+        submissions=MagicMock(),
+        feedback=MagicMock(),
+        analytics=MagicMock(),
         calendar=MagicMock(),
     )
 

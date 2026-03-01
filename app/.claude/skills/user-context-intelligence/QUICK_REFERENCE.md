@@ -7,14 +7,15 @@
 ```
 core/services/user/intelligence/
 ├── __init__.py                    # Package exports
-├── core.py                        # UserContextIntelligence class (~234 lines)
-├── factory.py                     # UserContextIntelligenceFactory (~222 lines)
-├── types.py                       # Data classes (~206 lines)
-├── daily_planning.py              # DailyPlanningMixin (~256 lines)
-├── learning_intelligence.py       # LearningIntelligenceMixin (~470 lines)
-├── life_path_intelligence.py      # LifePathIntelligenceMixin (~150 lines)
-├── synergy_intelligence.py        # SynergyIntelligenceMixin (~200 lines)
-└── schedule_intelligence.py       # ScheduleIntelligenceMixin (~180 lines)
+├── core.py                        # UserContextIntelligence class
+├── factory.py                     # UserContextIntelligenceFactory
+├── daily_planning.py              # DailyPlanningMixin
+├── learning_intelligence.py       # LearningIntelligenceMixin
+├── life_path_intelligence.py      # LifePathIntelligenceMixin
+├── synergy_intelligence.py        # SynergyIntelligenceMixin
+└── schedule_intelligence.py       # ScheduleIntelligenceMixin
+
+core/models/context_types.py       # Return types (LearningStep, DailyWorkPlan, etc.)
 ```
 
 ### Documentation
@@ -42,7 +43,17 @@ from core.services.user.intelligence import (
 ### Return Types
 
 ```python
+# Via package (re-exported from core.models.context_types)
 from core.services.user.intelligence import (
+    LifePathAlignment,
+    CrossDomainSynergy,
+    LearningStep,
+    DailyWorkPlan,
+    ScheduleAwareRecommendation,
+)
+
+# Or import directly from their canonical location
+from core.models.context_types import (
     LifePathAlignment,
     CrossDomainSynergy,
     LearningStep,
@@ -77,7 +88,7 @@ from core.models.context_types import (
 
 ---
 
-## The 13 Required Services
+## The 12 Required Services
 
 | # | Domain | Service Type | Attribute |
 |---|--------|--------------|-----------|
@@ -92,9 +103,10 @@ from core.models.context_types import (
 | 7 | KU | `KuGraphService` | `self.ku` |
 | 8 | LS | `UnifiedRelationshipService` | `self.ls` |
 | 9 | LP | `UnifiedRelationshipService` | `self.lp` |
-| **Processing (2)** |
-| 10 | Reports | `SubmissionsRelationshipService` | `self.reports` |
-| 11 | Analytics | `AnalyticsRelationshipService` | `self.analytics` |
+| **Processing (3)** |
+| 10 | Submissions | `SubmissionsRelationshipService` | `self.submissions` |
+| 11 | Feedback | `FeedbackRelationshipService` | `self.feedback` |
+| 12 | Analytics | `AnalyticsRelationshipService` | `self.analytics` |
 | **Temporal (1)** |
 | 13 | Calendar | `CalendarService` | `self.calendar` |
 
@@ -297,8 +309,9 @@ class UserContextIntelligenceFactory:
         ku: KuGraphService,
         ls: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
-        # Processing Domains (2) — journals merged into reports Feb 2026
-        reports: SubmissionsRelationshipService,
+        # Processing Domains (3)
+        submissions: SubmissionsRelationshipService,
+        feedback: FeedbackRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
         calendar: CalendarService,

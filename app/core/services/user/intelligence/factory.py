@@ -4,19 +4,19 @@ User Context Intelligence Factory
 
 Factory for creating UserContextIntelligence instances.
 
-This factory holds all 12 required domain services and creates
+This factory holds all 13 required domain services and creates
 UserContextIntelligence instances when given a UserContext.
 
 **Why a Factory?**
 - UserContextIntelligence requires a context at construction
 - The context is user-specific and built on-demand
-- The 12 domain services are singletons (created once at bootstrap)
+- The 13 domain services are singletons (created once at bootstrap)
 - Factory pattern separates service wiring from context binding
 
-**The 12 Domains:**
+**The 13 Domains:**
 - Activity Domains (6): tasks, goals, habits, events, choices, principles
 - Curriculum Domains (3): ku, ls, lp
-- Processing Domains (2): reports, analytics (journals merged into reports Feb 2026)
+- Processing Domains (3): submissions, feedback, analytics
 - Temporal Domain (1): calendar
 
 **Usage:**
@@ -45,11 +45,11 @@ from core.services.user.intelligence.core import UserContextIntelligence
 if TYPE_CHECKING:
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.calendar_service import CalendarService
+    from core.services.feedback import FeedbackRelationshipService
     from core.services.ku.ku_graph_service import KuGraphService
 
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService
     # LsRelationshipService deleted - LS now uses UnifiedRelationshipService
-    # JournalRelationshipService deleted - Journal merged into Reports (February 2026)
     from core.services.relationships import UnifiedRelationshipService
     from core.services.submissions import SubmissionsRelationshipService
     from core.services.user.unified_user_context import UserContext
@@ -71,7 +71,7 @@ class UserContextIntelligenceFactory:
     **The 13 Domains:**
     - Activity Domains (6): tasks, goals, habits, events, choices, principles
     - Curriculum Domains (3): ku, ls, lp
-    - Processing Domains (3): reports, journals, analytics
+    - Processing Domains (3): submissions, feedback, analytics
     - Temporal Domain (1): calendar
 
     **Usage:**
@@ -104,8 +104,9 @@ class UserContextIntelligenceFactory:
         ku: KuGraphService,
         ls: UnifiedRelationshipService,  # January 2026: Unified
         lp: UnifiedRelationshipService,  # January 2026: Unified
-        # Processing Domains (2) - REQUIRED (journals merged into reports Feb 2026)
-        reports: SubmissionsRelationshipService,
+        # Processing Domains (3) - REQUIRED
+        submissions: SubmissionsRelationshipService,
+        feedback: FeedbackRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
@@ -113,7 +114,7 @@ class UserContextIntelligenceFactory:
         vector_search_service: Any = None,
     ) -> None:
         """
-        Initialize factory with all 12 required domain services.
+        Initialize factory with all 13 required domain services.
 
         Args:
             Activity Domains (6) - All UnifiedRelationshipService with domain configs:
@@ -129,9 +130,10 @@ class UserContextIntelligenceFactory:
                 ls: Learning step relationship service
                 lp: Learning path relationship service
 
-            Processing Domains (2):
-                reports: Report relationship service (includes journal relationships)
-                analytics: Analytics relationship service (report cards)
+            Processing Domains (3):
+                submissions: Submission relationship service (student work + journals)
+                feedback: Feedback relationship service (pending submissions, completion rate)
+                analytics: Analytics relationship service (cross-domain)
 
             Temporal Domain (1):
                 calendar: Calendar service for schedule awareness
@@ -154,8 +156,9 @@ class UserContextIntelligenceFactory:
             "ku": ku,
             "ls": ls,
             "lp": lp,
-            # Processing Domains (2) - journals merged into reports Feb 2026
-            "reports": reports,
+            # Processing Domains (3)
+            "submissions": submissions,
+            "feedback": feedback,
             "analytics": analytics,
             # Temporal Domain (1)
             "calendar": calendar,
@@ -164,7 +167,7 @@ class UserContextIntelligenceFactory:
         missing = [name for name, service in required.items() if service is None]
         if missing:
             raise ValueError(
-                f"UserContextIntelligenceFactory requires all 12 domain services. "
+                f"UserContextIntelligenceFactory requires all 13 domain services. "
                 f"Missing: {', '.join(missing)}"
             )
 
@@ -180,8 +183,9 @@ class UserContextIntelligenceFactory:
         self._ku = ku
         self._ls = ls
         self._lp = lp
-        # Processing domains (2) - journals merged into reports Feb 2026
-        self._reports = reports
+        # Processing domains (3)
+        self._submissions = submissions
+        self._feedback = feedback
         self._analytics = analytics
         # Temporal domain (1)
         self._calendar = calendar
@@ -211,8 +215,9 @@ class UserContextIntelligenceFactory:
             ku=self._ku,
             ls=self._ls,
             lp=self._lp,
-            # Processing domains (2) - journals merged into reports Feb 2026
-            reports=self._reports,
+            # Processing domains (3)
+            submissions=self._submissions,
+            feedback=self._feedback,
             analytics=self._analytics,
             # Temporal domain (1)
             calendar=self._calendar,

@@ -1,13 +1,16 @@
 """
-Ku Relationship Service
-========================
+Submission Relationship Service
+================================
 
-Creates graph relationships for Entity nodes.
+Creates graph relationships for Submission entity nodes.
+
+In the graph, Submissions are Entities (ku_type=submission/journal). This service
+creates the relationships that connect a Submission to its context:
 
 Relationships Created:
-1. FOLLOWS -> Previous Ku of same type (temporal continuity)
-2. RELATED_TO -> Ku with shared topics (thematic connections)
-3. SUPPORTS_GOAL -> Goals mentioned in content (goal progress tracking)
+1. FOLLOWS -> Previous Submission of same type (temporal continuity)
+2. RELATED_TO -> Submissions with shared topics (thematic connections)
+3. SUPPORTS_GOAL -> Goals mentioned in submission content (goal progress tracking)
 """
 
 from typing import TYPE_CHECKING, Any
@@ -38,7 +41,7 @@ class SubmissionsRelationshipService:
     # RELATIONSHIP CREATION
     # ========================================================================
 
-    async def create_report_relationships(
+    async def create_submission_relationships(
         self,
         entity: SubmissionEntity,
         themes: list[str] | None = None,
@@ -58,7 +61,7 @@ class SubmissionsRelationshipService:
         relationships_created = {"temporal": 0, "thematic": 0, "goal_support": 0}
 
         try:
-            # 1. Temporal Relationship: FOLLOWS (previous entity of same type)
+            # 1. Temporal Relationship: FOLLOWS (previous submission of same type)
             temporal_result = await self._create_temporal_relationship(
                 entity.uid,
                 entity.user_uid,
@@ -84,7 +87,7 @@ class SubmissionsRelationshipService:
                 relationships_created["goal_support"] = goal_result
 
             self.logger.info(
-                f"Created Ku relationships: {relationships_created['temporal']} temporal, "
+                f"Created submission relationships: {relationships_created['temporal']} temporal, "
                 f"{relationships_created['thematic']} thematic, {relationships_created['goal_support']} goal_support"
             )
 
@@ -93,7 +96,7 @@ class SubmissionsRelationshipService:
         except Exception as e:
             return Result.fail(
                 Errors.database(
-                    operation="create_report_relationships",
+                    operation="create_submission_relationships",
                     message=f"Failed to create relationships: {e!s}",
                 )
             )
@@ -251,17 +254,17 @@ class SubmissionsRelationshipService:
     # RELATIONSHIP QUERIES
     # ========================================================================
 
-    async def get_related_reports(self, ku_uid: str) -> Result[list[str]]:
+    async def get_related_submissions(self, ku_uid: str) -> Result[list[str]]:
         """
-        Get UIDs of related Ku.
+        Get UIDs of submissions related to this one.
 
-        Graph relationship: (ku)-[:RELATED_TO]->(ku)
+        Graph relationship: (submission)-[:RELATED_TO]->(submission)
 
         Args:
-            ku_uid: UID of the Ku
+            ku_uid: UID of the submission entity
 
         Returns:
-            Result containing list of related Ku UIDs
+            Result containing list of related submission UIDs
         """
         cypher = """
         MATCH (a:Entity {uid: $ku_uid})-[:RELATED_TO]->(related:Entity)
@@ -299,14 +302,14 @@ class SubmissionsRelationshipService:
 
         return Result.ok([r["uid"] for r in (result.value or []) if r["uid"]])
 
-    async def get_report_summary(self, ku_uid: str) -> Result[dict[str, int]]:
+    async def get_submission_summary(self, ku_uid: str) -> Result[dict[str, int]]:
         """
-        Get comprehensive relationship summary for an entity.
+        Get comprehensive relationship summary for a submission entity.
 
-        Returns counts for all relationship types.
+        Returns counts for all relationship types (RELATED_TO, SUPPORTS_GOAL, FOLLOWS).
 
         Args:
-            ku_uid: UID of the Ku
+            ku_uid: UID of the submission entity
 
         Returns:
             Result containing dict with relationship counts
