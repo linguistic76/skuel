@@ -4,24 +4,33 @@
 
 ## BaseService Inheritance
 
-All core and search services extend `BaseService[Backend, Model]`:
+All core and search services extend `BaseService[Backend, Model]` using `DomainConfig` — THE single source of truth for configuration (ONE PATH FORWARD since January 2026):
 
 ```python
+from core.services.domain_config import create_activity_domain_config
+
 class TasksCoreService(BaseService[TasksOperations, Task]):
-    _dto_class = TaskDTO
-    _model_class = Task
-    _search_fields = ["title", "description"]
-    _user_ownership_relationship = "OWNS"  # Multi-tenant security
+    _config = create_activity_domain_config(
+        dto_class=TaskDTO,
+        model_class=Task,
+        domain_name="tasks",
+        date_field="due_date",
+        completed_statuses=(EntityStatus.COMPLETED.value,),
+    )
 ```
 
-**Class attributes configure behavior:**
-| Attribute | Purpose | Default |
+**`create_activity_domain_config` parameters:**
+| Parameter | Purpose | Default |
 |-----------|---------|---------|
-| `_dto_class` | DTO for serialization | Required |
-| `_model_class` | Domain model class | Required |
-| `_search_fields` | Fields for text search | `["title", "description"]` |
-| `_category_field` | Field for categorization | `"domain"` |
-| `_user_ownership_relationship` | Ownership check | `"OWNS"` |
+| `dto_class` | DTO for serialization | Required |
+| `model_class` | Domain model class | Required |
+| `domain_name` | Domain identifier | Required |
+| `date_field` | Date field for time queries | Required |
+| `completed_statuses` | Terminal statuses | Required |
+| `category_field` | Field for categorization | `"domain"` |
+| `search_fields` | Fields for text search | `("title", "description")` |
+
+All Activity Domains set `_user_ownership_relationship = "OWNS"` automatically via `create_activity_domain_config`. Do NOT use bare class attributes (`_dto_class`, `_model_class`) — that's the old pattern, fully migrated away.
 
 ## Event Publishing
 

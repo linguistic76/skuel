@@ -4,7 +4,49 @@ Fast lookup for copy-paste templates and common pitfalls.
 
 ---
 
-## Template 1: Standard (API + UI)
+## Template 0: Activity Domain — Use for ALL 6 Activity Domains
+
+The highest-level convenience. Pre-populates CRUD, Query, and Intelligence route factories automatically. Use for Tasks, Goals, Habits, Events, Choices, Principles.
+
+```python
+from adapters.inbound.route_factories import (
+    create_activity_domain_route_config,
+    register_domain_routes,
+)
+from adapters.inbound.{domain}_api import create_{domain}_api_routes
+from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
+from core.models.entity_requests import EntityUpdateRequest as {Domain}UpdateRequest
+from core.models.{domain}.{domain}_request import {Domain}CreateRequest
+
+{DOMAIN}_CONFIG = create_activity_domain_route_config(
+    domain_name="{domain}",
+    primary_service_attr="{domain}",
+    api_factory=create_{domain}_api_routes,
+    ui_factory=create_{domain}_ui_routes,
+    create_schema={Domain}CreateRequest,
+    update_schema={Domain}UpdateRequest,
+    uid_prefix="{domain}",
+    supports_goal_filter=False,
+    supports_habit_filter=False,
+    api_related_services={
+        # "goals_service": "goals",  # add as needed
+    },
+    prometheus_metrics_attr="prometheus_metrics",
+)
+
+
+def create_{domain}_routes(app, rt, services, _sync_service=None):
+    return register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+
+
+__all__ = ["create_{domain}_routes"]
+```
+
+**Exemplar:** `adapters/inbound/tasks_routes.py` (copy for any Activity Domain)
+
+---
+
+## Template 1: Standard (API + UI) — Non-Activity Domains
 
 Default for any domain with both API and UI routes.
 

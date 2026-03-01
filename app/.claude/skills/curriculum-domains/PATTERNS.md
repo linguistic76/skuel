@@ -1,130 +1,68 @@
-# Curriculum Domains - Common Patterns
+# Curriculum Domain Patterns
 
-> **Implementation patterns** for typical use cases
-
----
-
-## Pattern Catalog
-
-### Pattern 1: [Pattern Name]
-
-**Problem**: [What problem does this solve?]
-
-**Context**: [When would you encounter this?]
-
-**Solution**:
-```python
-# Complete working implementation
-def pattern_example():
-    """
-    [Docstring explaining what this does]
-    """
-    pass
-```
-
-**Trade-offs**:
-- ✅ **Pro**: [Advantage 1]
-- ✅ **Pro**: [Advantage 2]
-- ⚠️ **Con**: [Limitation 1]
-
-**Real-world usage**: [Where this is used in SKUEL]
+> Implementation patterns for KU, LS, LP features.
 
 ---
 
-### Pattern 2: [Pattern Name]
+## Pattern: Adding a Curriculum Domain Service Config
 
-**Problem**: [What problem does this solve?]
-
-**Context**: [When would you encounter this?]
-
-**Solution**:
-```python
-# Complete working implementation
-```
-
-**Trade-offs**:
-- ✅ **Pro**: [Advantage 1]
-- ✅ **Pro**: [Advantage 2]
-- ⚠️ **Con**: [Limitation 1]
-
-**Real-world usage**: [Where this is used in SKUEL]
-
----
-
-### Pattern 3: [Pattern Name]
-
-**Problem**: [What problem does this solve?]
-
-**Context**: [When would you encounter this?]
-
-**Solution**:
-```python
-# Complete working implementation
-```
-
-**Trade-offs**:
-- ✅ **Pro**: [Advantage 1]
-- ✅ **Pro**: [Advantage 2]
-- ⚠️ **Con**: [Limitation 1]
-
-**Real-world usage**: [Where this is used in SKUEL]
-
----
-
-## Pattern Comparison
-
-| Pattern | Use Case | Complexity | Performance |
-|---------|----------|------------|-------------|
-| Pattern 1 | [Scenario] | Low | Fast |
-| Pattern 2 | [Scenario] | Medium | Moderate |
-| Pattern 3 | [Scenario] | High | Optimized |
-
----
-
-## Decision Guide
-
-**Choose Pattern 1 when:**
-- [Condition A]
-- [Condition B]
-
-**Choose Pattern 2 when:**
-- [Condition C]
-- [Condition D]
-
-**Choose Pattern 3 when:**
-- [Condition E]
-- [Condition F]
-
----
-
-## Integration with Other Patterns
-
-### Combining with [Related Skill]
+All core/search services use `_config = create_curriculum_domain_config(...)` (not bare class attributes).
 
 ```python
-# Example showing how patterns work together
+from core.services.domain_config import create_curriculum_domain_config
+
+class KuCoreService(BaseService[KuOperations, Curriculum]):
+    _config = create_curriculum_domain_config(
+        dto_class=CurriculumDTO,
+        model_class=Curriculum,
+        domain_name="ku",
+        search_fields=("title", "description", "content"),
+        category_field="domain",
+    )
 ```
 
-**Why this works**: [Explanation of synergy]
+**Key difference from Activity Domains:** No `user_ownership_relationship` — curriculum content is shared (`_user_ownership_relationship = None` is set automatically by `create_curriculum_domain_config`).
 
 ---
 
-## Advanced Patterns
+## Pattern: KU Organization (Non-Linear Navigation)
 
-### Advanced Pattern 1: [Pattern Name]
+Any Ku can organize other Kus via `ORGANIZES` relationships. There is no `MocService` — this is `KuOrganizationService`:
 
-**For experienced users only**
-
-**Problem**: [Complex scenario]
-
-**Solution**:
 ```python
-# Advanced implementation
+# Create non-linear structure
+await ku_service.organize_ku(
+    parent_uid="ku_yoga-fundamentals_abc123",
+    child_uid="ku_meditation-basics_xyz789",
+    order=1,
+    importance="core",
+)
+
+# Navigate the structure
+subkus = await ku_service.get_subkus("ku_yoga-fundamentals_abc123", depth=2)
+parents = await ku_service.get_parent_kus("ku_meditation-basics_xyz789")
+root_organizers = await ku_service.list_root_organizers()
+
+# Check if a KU acts as an organizer
+is_org = await ku_service.is_organizer("ku_yoga-fundamentals_abc123")
 ```
 
-**Caution**: [When to avoid this pattern]
+**When to use this pattern:** When users want to navigate knowledge non-linearly (exploring a topic map rather than following a prescribed sequence). This replaces the old MOC domain entirely.
 
 ---
 
-**See Also**: [SKILL.md](SKILL.md) for foundational concepts
-**See Also**: [EXAMPLES.md](EXAMPLES.md) for complete implementations
+## Pattern: Cross-Domain LP → LS Dependency
+
+LP requires LsService injected at construction — the only cross-domain service dependency in the curriculum stack:
+
+```python
+# In services_bootstrap.py (order matters!)
+ls_service = LsService(driver, graph_intel, event_bus)
+lp_service = LpService(driver, ls_service, graph_intel, event_bus)  # ← ls_service required
+```
+
+When adding a new LP feature that needs LS data, access it via `self.ls_service` (available on `LpCoreService`), not via direct Neo4j queries.
+
+---
+
+**See Also**: [SKILL.md](SKILL.md) for domain overview, [DOMAIN_SPECIFICS.md](DOMAIN_SPECIFICS.md) for per-domain details

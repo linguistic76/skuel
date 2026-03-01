@@ -16,12 +16,12 @@ All 6 follow **identical architecture** - learn one, know all:
 
 | Domain | Purpose | UID Prefix | Special Features |
 |--------|---------|------------|------------------|
-| **Tasks** | Work items with dependencies | `task:` | Progress tracking, scheduling |
-| **Goals** | Desired outcomes | `goal:` | Milestones, progress percentage |
-| **Habits** | Recurring behaviors | `habit:` | Streak tracking, habit loop (cue/craving/response/reward) |
-| **Events** | Calendar items | `event:` | Scheduling, conflict detection |
-| **Choices** | Decisions | `choice:` | Options at creation, outcome tracking |
-| **Principles** | Core values | `principle:` | Reflections, alignment tracking |
+| **Tasks** | Work items with dependencies | `task_{slug}_{random}` | Progress tracking, scheduling |
+| **Goals** | Desired outcomes | `goal_{slug}_{random}` | Milestones, progress percentage |
+| **Habits** | Recurring behaviors | `habit_{slug}_{random}` | Streak tracking, habit loop (cue/craving/response/reward) |
+| **Events** | Calendar items | `event_{slug}_{random}` | Scheduling, conflict detection |
+| **Choices** | Decisions | `choice_{slug}_{random}` | Options at creation, outcome tracking |
+| **Principles** | Core values | `principle_{slug}_{random}` | Reflections, alignment tracking |
 
 ## Architecture Overview
 

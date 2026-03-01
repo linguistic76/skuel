@@ -4,48 +4,58 @@
 
 ## File Locations
 
-### Models
+### Models (all in `core/models/curriculum/`)
 | Domain | Model | DTO | Request |
 |--------|-------|-----|---------|
-| KU | `core/models/curriculum/curriculum.py` | `curriculum_dto.py` | `curriculum_requests.py` |
-| LS | `core/models/ls/ls.py` | `ls_dto.py` | `ls_request.py` |
-| LP | `core/models/lp/lp.py` | `lp_dto.py` | `lp_request.py` |
-| MOC | `core/models/moc/moc.py` | `moc_dto.py` | `moc_request.py` |
+| **Base** | `curriculum.py` | `curriculum_dto.py` | `curriculum_requests.py` |
+| **KU** | `ku.py` (leaf) | `ku_dto.py` | `curriculum_requests.py` |
+| **LS** | `learning_step.py` | `learning_step_dto.py` | `curriculum_requests.py` |
+| **LP** | `learning_path.py` | `learning_path_dto.py` | `curriculum_requests.py` |
+| **Exercise** | `exercise.py` | `exercise_dto.py` | `exercise_request.py` |
 
 ### Services (Facade + Sub-services)
 | Domain | Facade | Core | Search | Intelligence |
 |--------|--------|------|--------|--------------|
-| KU | `core/services/ku_service.py` | `ku/ku_core_service.py` | `ku_search_service.py` | `ku_intelligence_service.py` |
+| KU | `core/services/ku_service.py` | `ku/ku_core_service.py` | `ku/ku_search_service.py` | (via `ku_adaptive_service.py`) |
 | LS | `core/services/ls_service.py` | `ls/ls_core_service.py` | `ls/ls_search_service.py` | `ls/ls_intelligence_service.py` |
-| LP | `core/services/lp_service.py` | `lp/lp_core_service.py` | `lp/lp_search_service.py` | `lp_intelligence_service.py` |
-| MOC | `core/services/moc_service.py` | `moc/moc_core_service.py` | `moc/moc_search_service.py` | `moc/moc_intelligence_service.py` |
+| LP | `core/services/lp_service.py` | `lp/lp_core_service.py` | `lp/lp_search_service.py` | `lp_intelligence_service.py` (top-level) |
+
+### KU Sub-services (`core/services/ku/`)
+| Service | Purpose |
+|---------|---------|
+| `ku_core_service.py` | CRUD operations |
+| `ku_search_service.py` | Text search, filtering |
+| `ku_graph_service.py` | Graph navigation |
+| `ku_semantic_service.py` | Semantic relationship management |
+| `ku_practice_service.py` | Practice tracking |
+| `ku_interaction_service.py` | Pedagogical tracking (VIEWED → IN_PROGRESS → MASTERED) |
+| `ku_adaptive_service.py` | Adaptive learning recommendations |
+| `ku_organization_service.py` | ORGANIZES relationships (non-linear nav / MOC pattern) |
+| `ku_ai_service.py` | AI-powered KU operations |
 
 ### Factory Functions
 | Domain | Factory | Location |
 |--------|---------|----------|
-| KU | `create_ku_sub_services()` | `core/utils/curriculum_domain_config.py` |
-| LS | `create_curriculum_sub_services()` | `core/utils/curriculum_domain_config.py` |
-| LP | `create_lp_sub_services()` | `core/utils/curriculum_domain_config.py` |
-| MOC | Manual in `__init__()` | `core/services/moc_service.py` |
+| **KU** | `create_ku_sub_services()` | `core/utils/curriculum_domain_config.py` |
+| **LS** | `create_curriculum_sub_services()` | `core/utils/curriculum_domain_config.py` |
+| **LP** | `create_lp_sub_services()` | `core/utils/curriculum_domain_config.py` |
 
-### UI
-| Domain | Routes | Views |
-|--------|--------|-------|
-| KU | `adapters/inbound/ku_routes.py` | `ui/patterns/ku_adaptive.py` |
-| LS | `adapters/inbound/ls_routes.py` | `ui/patterns/ku_adaptive.py` |
-| LP | `adapters/inbound/lp_routes.py` | `ui/patterns/ku_adaptive.py` |
-| MOC | `adapters/inbound/moc_routes.py` | `ui/patterns/ku_adaptive.py` |
+### Routes
+All curriculum domain routes are consolidated under:
+- `adapters/inbound/ku_routes.py` — KU domain (all 9 sub-services)
+- `adapters/inbound/learning_routes.py` — LS and LP routes
+
+**Note**: No separate `ls_routes.py`, `lp_routes.py`, or `moc_routes.py` files exist.
 
 ## UID Formats
 
 | Domain | Format | Example |
 |--------|--------|---------|
-| KU | `ku.{filename}` | `ku.python-basics` |
-| LS | `ls.{path-slug}.{step-name}` | `ls.python-fundamentals.variables` |
-| LP | `lp.{path-name}` | `lp.python-fundamentals` |
-| MOC | `moc.{map-name}` | `moc.python-ecosystem` |
+| KU | `ku_{slug}_{random}` | `ku_meditation-basics_a1b2c3d4` |
+| LS | `ls:{random}` | `ls:a1b2c3d4` |
+| LP | `lp:{random}` | `lp:x9y8z7w6` |
 
-**Note:** KU uses flat identity (ADR-013) - filename only, NOT hierarchical path.
+**KU uses flat identity (ADR-013)** - slug from title, no hierarchical path. Hierarchy is in `ORGANIZES` relationships, not UIDs.
 
 ## Key Relationships
 
@@ -56,6 +66,7 @@
 | `ENABLES` | outgoing | KU | Unlocks next concepts |
 | `HAS_NARROWER` | outgoing | KU | Subconcepts |
 | `RELATED_TO` | both | KU | Related topics |
+| `ORGANIZES` | outgoing | KU | Non-linear organization (MOC pattern) |
 
 ### LS Relationships
 | Relationship | Direction | Target | Purpose |
@@ -76,32 +87,21 @@
 | `HAS_MILESTONE_EVENT` | outgoing | Event | Milestone tracking |
 | `SERVES_LIFE_PATH` | incoming | User | Life path designation |
 
-### MOC Relationships
-| Relationship | Direction | Target | Purpose |
-|--------------|-----------|--------|---------|
-| `CONTAINS_PATH` | outgoing | LP | Contains learning paths |
-| `CONTAINS_PRINCIPLE` | outgoing | Principle | Contains principles |
-| `BRIDGES_TO` | both | MOC | Cross-domain bridges |
-| `HAS_SECTION` | outgoing | Section | Hierarchical structure |
-
 ## Common Imports
 
 ```python
-# Models
+# Models (all in core/models/curriculum/)
 from core.models.curriculum.curriculum import Curriculum
 from core.models.curriculum.curriculum_dto import CurriculumDTO
-from core.models.ls.ls import Ls
-from core.models.ls.ls_dto import LearningStepDTO
-from core.models.lp.lp import Lp
-from core.models.lp.lp_dto import LearningPathDTO
-from core.models.moc.moc import Moc, MapOfContent
-from core.models.moc.moc_dto import MocDTO
+from core.models.curriculum.ku import Ku
+from core.models.curriculum.ku_dto import KuDTO
+from core.models.curriculum.learning_step import LearningStep
+from core.models.curriculum.learning_step_dto import LearningStepDTO
+from core.models.curriculum.learning_path import LearningPath
+from core.models.curriculum.learning_path_dto import LearningPathDTO
 
 # Results
 from core.utils.result_simplified import Result
-
-# Relationship configs (direct from registry)
-from core.models.relationship_registry import KU_CONFIG, LS_CONFIG, LP_CONFIG, LABEL_CONFIGS
 
 # Factory functions
 from core.utils.curriculum_domain_config import (
@@ -117,56 +117,40 @@ Services wired in: `services_bootstrap.py`
 
 ```python
 async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
-    # Curriculum services use factories or manual creation
+    # Curriculum services use factories
     ku_service = KuService(ku_backend, graph_intel, event_bus)
-    ls_service = LsService(driver, graph_intel, event_bus)  # Creates backend internally
+    ls_service = LsService(driver, graph_intel, event_bus)
     lp_service = LpService(driver, ls_service, graph_intel, event_bus)  # Cross-domain dep
-    moc_service = MocService(moc_backend, driver, graph_intel, event_bus)  # Manual creation
 ```
 
 ## Intelligence Service Access
 
-All Curriculum domains create intelligence internally:
-
 ```python
-# KU - 8 sub-services, specialized factory
-# Intelligence created BEFORE core (circular dependency)
-ku_service.intelligence.get_ku_with_context(uid)
-ku_service.intelligence.calculate_user_substance(ku_uid, user_uid)
+# KU - adaptive recommendations (9 sub-services)
+ku_service.adaptive.get_recommendations(user_uid)
+ku_service.organization.get_subkus(parent_uid)  # Non-linear nav
 
-# LS - 4 sub-services, generic factory (simplest)
+# LS - 4 sub-services, generic factory
 ls_service.intelligence.is_ready(ls_uid, completed_uids)
-ls_service.intelligence.calculate_guidance_strength(ls_uid)
-ls_service.intelligence.practice_completeness_score(ls_uid)
 
 # LP - 5 sub-services, specialized factory
-# Intelligence consolidates validation, analysis, adaptive, context
 lp_service.intelligence.validate_path_prerequisites(lp_uid)
 lp_service.intelligence.get_adaptive_sequence(lp_uid, user_uid)
-lp_service.intelligence.identify_path_blockers(lp_uid, user_uid)
-
-# MOC - 8 sub-services, manual creation (circular core↔section)
-moc_service.intelligence.suggest_navigation(moc_uid, user_context)
-moc_service.intelligence.calculate_coverage(moc_uid)
 ```
 
 ## Sub-service Summary
 
-| Domain | Count | Pattern | Key Services |
-|--------|-------|---------|--------------|
-| **KU** | 8 | Specialized factory | core, search, graph, semantic, practice, interaction, relationships, intelligence |
-| **LS** | 4 | Generic factory | core, search, relationships, intelligence |
-| **LP** | 5 | Specialized factory | core, search, relationships, progress, intelligence |
-| **MOC** | 8 | Manual | core, section, content, discovery, search, intelligence, relationships (x2) |
+| Domain | Count | Key Services |
+|--------|-------|--------------|
+| **KU** | 9 | core, search, graph, semantic, practice, interaction, adaptive, organization, ai |
+| **LS** | 4 | core, search, intelligence, (ai) |
+| **LP** | 5 | core, search, progress, intelligence, (ai) |
 
 ## Documentation
 
-| Domain | Doc File |
-|--------|----------|
-| KU | `/docs/intelligence/KU_INTELLIGENCE.md` |
-| LS | `/docs/intelligence/LS_INTELLIGENCE.md` |
-| LP | `/docs/intelligence/LP_INTELLIGENCE.md` |
-| MOC | `/docs/intelligence/MOC_INTELLIGENCE.md` |
+| Topic | Doc File |
+|-------|----------|
 | Architecture | `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` |
-| ADR-023 | `/docs/decisions/ADR-023-curriculum-baseservice-migration.md` |
-| ADR-026 | `/docs/decisions/ADR-026-unified-relationship-registry.md` |
+| MOC/Organization | `/docs/domains/moc.md` |
+| ADR-013 (flat UID) | `/docs/decisions/ADR-013-ku-uid-flat-identity.md` |
+| ADR-023 (BaseService) | `/docs/decisions/ADR-023-curriculum-baseservice-migration.md` |

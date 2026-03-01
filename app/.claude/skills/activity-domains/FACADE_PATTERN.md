@@ -128,13 +128,20 @@ class TasksService(BaseService[...]):
 
 ## Backend Sharing
 
-All sub-services share ONE backend instance (no wrappers):
+All sub-services share ONE domain-specific backend instance (no wrappers). Activity Domains use `domain_backends.py` subclasses, which add domain-specific relationship Cypher on top of `UniversalNeo4jBackend`:
 
 ```python
 # In services_bootstrap.py
-tasks_backend = UniversalNeo4jBackend[Task](driver, NeoLabel.TASK, Task)
+from adapters.persistence.neo4j.domain_backends import TasksBackend
 
-# Passed to all sub-services
+tasks_backend = TasksBackend(
+    driver, NeoLabel.TASK, Task,
+    base_label=NeoLabel.ENTITY,  # Produces :Entity:Task multi-label nodes
+)
+
+# Shared across all sub-services — passed via TasksService.__init__
 self.core = TasksCoreService(backend=tasks_backend)
 self.search = TasksSearchService(backend=tasks_backend)
 ```
+
+`base_label=NeoLabel.ENTITY` is required for all Activity Domains — it's what makes Neo4j create `(n:Entity:Task)` multi-label nodes, enabling universal Entity queries to work.

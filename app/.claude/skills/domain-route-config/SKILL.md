@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob
 
 > "Configuration over code for route registration"
 
-DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80 lines of manual service extraction, validation, and wiring with a ~15-line declarative config. Used by 25 of 35 route files (71% adoption). Four proven pattern variants cover every route registration scenario in SKUEL.
+DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80 lines of manual service extraction, validation, and wiring with a ~15-line declarative config. Used by 29 of 37 route files (78% adoption). Five proven pattern variants cover every route registration scenario in SKUEL.
 
 ---
 
@@ -30,10 +30,14 @@ DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80
 ### Import Surface
 
 ```python
+# For all domains
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+
+# For Activity Domains — use this instead
+from adapters.inbound.route_factories import create_activity_domain_route_config, register_domain_routes
 ```
 
-Both are exported from `adapters/inbound/route_factories/__init__.py`. The implementation lives in `adapters/inbound/route_factories/domain_route_factory.py` (119 lines).
+All three are exported from `adapters/inbound/route_factories/__init__.py`. The implementation lives in `adapters/inbound/route_factories/domain_route_factory.py`.
 
 ---
 
@@ -121,29 +125,40 @@ __all__ = ["create_{domain}_routes"]
 
 ---
 
-## The 4 Pattern Variants
+## The 5 Pattern Variants
 
-### 1. Standard (API + UI) — Default
+### 0. Activity Domain — THE Standard for All 6 Activity Domains
 
-**When to use:** Any domain with both API endpoints and UI pages. This is the default for all Activity Domains and most other domains.
+**When to use:** Any of the 6 Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles). This is the highest-level convenience — pre-populates CRUD, Query, and Intelligence factory configs automatically.
 
 **Exemplar:** `adapters/inbound/tasks_routes.py`
 
 ```python
+from adapters.inbound.route_factories import (
+    create_activity_domain_route_config,
+    register_domain_routes,
+)
 from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from core.models.entity_requests import EntityUpdateRequest as TaskUpdateRequest
+from core.models.task.task_request import TaskCreateRequest
 
-TASKS_CONFIG = DomainRouteConfig(
+TASKS_CONFIG = create_activity_domain_route_config(
     domain_name="tasks",
     primary_service_attr="tasks",
     api_factory=create_tasks_api_routes,
     ui_factory=create_tasks_ui_routes,
+    create_schema=TaskCreateRequest,
+    update_schema=TaskUpdateRequest,
+    uid_prefix="task",
+    supports_goal_filter=True,
+    supports_habit_filter=True,
     api_related_services={
         "user_service": "user_service",
         "goals_service": "goals",
         "habits_service": "habits",
     },
+    prometheus_metrics_attr="prometheus_metrics",
 )
 
 
@@ -155,9 +170,24 @@ def create_tasks_routes(app, rt, services, _sync_service=None):
 __all__ = ["create_tasks_routes"]
 ```
 
-**Zero related services variant** (simplest form): `adapters/inbound/ku_routes.py`
+**What `create_activity_domain_route_config` registers automatically (before `api_factory`):**
+- `CRUDRouteFactory` — create, get, list, update, delete
+- `CommonQueryRouteFactory` — filter by status, domain, goal, habit
+- `IntelligenceRouteFactory` — context, recommendations
+
+**What stays in `api_factory`:** Status transitions (runtime closures), Analytics routes, manual domain-specific routes.
+
+---
+
+### 1. Standard (API + UI) — For Non-Activity Domains
+
+**When to use:** Any domain with both API endpoints and UI pages that is NOT an Activity Domain (e.g., KU, Groups, Askesis). The Activity Domain pattern (above) is preferred for Tasks/Goals/Habits/Events/Choices/Principles.
+
+**Exemplar:** `adapters/inbound/ku_routes.py`
 
 ```python
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+
 KU_CONFIG = DomainRouteConfig(
     domain_name="ku",
     primary_service_attr="ku",
