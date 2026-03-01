@@ -133,7 +133,7 @@ class GoalUIComponents:
             )
             if goals
             else P(
-                "No goals yet. Create one to get started!", cls="text-gray-500 text-center py-8"
+                "No goals yet. Create one to get started!", cls="text-base-content/60 text-center py-8"
             ),
             Div(id="modal"),  # Modal container for HTMX
         )
@@ -171,7 +171,7 @@ class GoalUIComponents:
             target_date = getattr(goal, "target_date", "")
 
         # Determine border color based on status
-        border_color = "border-blue-500" if str(status) == "active" else "border-gray-300"
+        border_color = "border-blue-500" if str(status) == "active" else "border-base-300"
 
         # Build card content
         card_content = [
@@ -182,10 +182,10 @@ class GoalUIComponents:
                 cls="flex justify-between items-start mb-2",
             ),
             # Description
-            P(description, cls="text-sm text-gray-600 mb-3") if description else "",
+            P(description, cls="text-sm text-base-content/70 mb-3") if description else "",
             # Progress bar
             Div(
-                P(f"Progress: {progress}%", cls="text-sm text-gray-600 mb-1"),
+                P(f"Progress: {progress}%", cls="text-sm text-base-content/70 mb-1"),
                 Div(
                     Div(
                         cls="h-2 bg-primary rounded-full transition-all",
@@ -201,7 +201,7 @@ class GoalUIComponents:
             Div(
                 Span(category.title(), cls="badge badge-outline badge-sm") if category else "",
                 Span(priority.title(), cls="badge badge-ghost badge-sm") if priority else "",
-                Span(f"📅 {target_date}", cls="text-xs text-gray-500") if target_date else "",
+                Span(f"📅 {target_date}", cls="text-xs text-base-content/60") if target_date else "",
                 cls="flex gap-2 items-center mb-3",
             ),
         ]
@@ -360,7 +360,7 @@ class GoalUIComponents:
 
         # Generate form sections
         basic_section = Div(
-            H3("📋 Basic Information", cls="text-lg font-semibold mb-3 text-gray-700"),
+            H3("📋 Basic Information", cls="text-lg font-semibold mb-3 text-base-content/70"),
             *[
                 form_gen._generate_field(
                     field_name,
@@ -370,14 +370,14 @@ class GoalUIComponents:
                 for field_name, config in field_configs.items()
                 if config.get("section") == "basic"
             ],
-            cls="mb-6 pb-6 border-b border-gray-200",
+            cls="mb-6 pb-6 border-b border-base-200",
         )
 
         connections_section = Div(
-            H3("🔗 Connection Reasoning", cls="text-lg font-semibold mb-2 text-gray-700"),
+            H3("🔗 Connection Reasoning", cls="text-lg font-semibold mb-2 text-base-content/70"),
             P(
                 "Help yourself understand WHY and HOW this goal connects to your values",
-                cls="text-sm text-gray-500 mb-3",
+                cls="text-sm text-base-content/60 mb-3",
             ),
             *[
                 Div(
@@ -386,7 +386,7 @@ class GoalUIComponents:
                         GoalCreateRequest.model_fields[field_name],
                         GoalCreateRequest.__annotations__[field_name],
                     ),
-                    P(config.get("help_text", ""), cls="text-xs text-gray-400 mt-1")
+                    P(config.get("help_text", ""), cls="text-xs text-base-content/50 mt-1")
                     if config.get("help_text")
                     else None,
                     cls="mb-3",
@@ -394,7 +394,7 @@ class GoalUIComponents:
                 for field_name, config in field_configs.items()
                 if config.get("section") == "connections"
             ],
-            cls="mb-6 pb-6 border-b border-gray-200",
+            cls="mb-6 pb-6 border-b border-base-200",
         )
 
         return Card(
@@ -404,7 +404,7 @@ class GoalUIComponents:
                 connections_section,
                 # Classification Section
                 Div(
-                    H3("🏷️ Classification", cls="text-lg font-semibold mb-3 text-gray-700"),
+                    H3("🏷️ Classification", cls="text-lg font-semibold mb-3 text-base-content/70"),
                     Div(
                         Label("Priority", htmlfor="priority", cls="block text-sm font-medium mb-1"),
                         Select(
@@ -455,19 +455,19 @@ class GoalUIComponents:
             # Progress overview
             Card(
                 H3("📈 Progress Overview", cls="text-lg font-semibold mb-4"),
-                P("Goal progress charts will be loaded here", cls="text-gray-500"),
+                P("Goal progress charts will be loaded here", cls="text-base-content/60"),
                 cls="p-6 mb-6",
             ),
             # Achievement patterns
             Card(
                 H3("🏆 Achievement Patterns", cls="text-lg font-semibold mb-4"),
-                P("Success patterns and trends analysis", cls="text-gray-500"),
+                P("Success patterns and trends analysis", cls="text-base-content/60"),
                 cls="p-6 mb-6",
             ),
             # Goal insights
             Card(
                 H3("🧠 Goal Insights", cls="text-lg font-semibold mb-4"),
-                P("AI-powered insights from your goal patterns", cls="text-gray-500"),
+                P("AI-powered insights from your goal patterns", cls="text-base-content/60"),
                 cls="p-6",
             ),
             cls="container mx-auto p-6",
@@ -481,13 +481,13 @@ class GoalUIComponents:
             # Progress tracking
             Card(
                 H3("📊 Progress Tracking", cls="text-lg font-semibold mb-4"),
-                P("Detailed progress tracking charts", cls="text-gray-500"),
+                P("Detailed progress tracking charts", cls="text-base-content/60"),
                 cls="p-6 mb-6",
             ),
             # Milestone tracking
             Card(
                 H3("🎯 Milestone Tracking", cls="text-lg font-semibold mb-4"),
-                P("Track your goal milestones and achievements", cls="text-gray-500"),
+                P("Track your goal milestones and achievements", cls="text-base-content/60"),
                 cls="p-6",
             ),
             cls="container mx-auto p-6",
@@ -997,7 +997,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         return Div(
             *goal_items
             if goal_items
-            else [P("No goals found.", cls="text-gray-500 text-center py-8")],
+            else [P("No goals found.", cls="text-base-content/60 text-center py-8")],
             id="goal-list",
             cls="space-y-3",
         )
@@ -1143,7 +1143,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
             ),
             # Explanation Section
             Card(
-                H2("💡 Why This Goal Exists", cls="text-xl font-semibold mb-4 text-gray-700"),
+                H2("💡 Why This Goal Exists", cls="text-xl font-semibold mb-4 text-base-content/70"),
                 # Main explanation
                 Div(
                     P(
@@ -1153,7 +1153,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                             if callable(getattr(goal, "explain_existence", None))
                             else "No explanation available"
                         ),
-                        cls="text-lg text-gray-800 italic mb-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded",
+                        cls="text-lg text-base-content italic mb-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded",
                     ),
                     cls="mb-6",
                 ),
@@ -1162,12 +1162,12 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                     Div(
                         H3(
                             "🎯 The Choice That Created This",
-                            cls="text-lg font-medium mb-2 text-gray-600",
+                            cls="text-lg font-medium mb-2 text-base-content/70",
                         ),
                         Div(
-                            P("Reasoning:", cls="text-sm font-semibold text-gray-500 mb-1"),
-                            P(derivation.reasoning, cls="text-gray-700 mb-2"),
-                            P("Confidence:", cls="text-sm font-semibold text-gray-500 mb-1"),
+                            P("Reasoning:", cls="text-sm font-semibold text-base-content/60 mb-1"),
+                            P(derivation.reasoning, cls="text-base-content/70 mb-2"),
+                            P("Confidence:", cls="text-sm font-semibold text-base-content/60 mb-1"),
                             Div(
                                 Progress(
                                     value=int(derivation.confidence * 100),
@@ -1176,7 +1176,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                                 ),
                                 Span(
                                     f"{int(derivation.confidence * 100)}% - {derivation.get_confidence_label()}",
-                                    cls="text-sm text-gray-600 mt-1",
+                                    cls="text-sm text-base-content/70 mt-1",
                                 ),
                                 cls="mb-2",
                             ),
@@ -1191,14 +1191,14 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                 Div(
                     H3(
                         "🧭 How Principles Guide This Goal",
-                        cls="text-lg font-medium mb-2 text-gray-600",
+                        cls="text-lg font-medium mb-2 text-base-content/70",
                     ),
                     Div(
                         *[
                             Div(
                                 Div(
                                     Span("💎 ", cls="text-xl"),
-                                    Span(g.manifestation, cls="text-gray-700 font-medium"),
+                                    Span(g.manifestation, cls="text-base-content/70 font-medium"),
                                     cls="mb-2",
                                 ),
                                 Div(
@@ -1220,14 +1220,14 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                         cls="space-y-2",
                     )
                     if guidances
-                    else P("No principle guidances defined yet", cls="text-gray-500 italic"),
+                    else P("No principle guidances defined yet", cls="text-base-content/60 italic"),
                     cls="mb-4",
                 ),
                 cls="p-6 mb-4",
             ),
             # Goal Details Section
             Card(
-                H2("📋 Goal Details", cls="text-xl font-semibold mb-4 text-gray-700"),
+                H2("📋 Goal Details", cls="text-xl font-semibold mb-4 text-base-content/70"),
                 Div(
                     # Why Important
                     (
@@ -1321,7 +1321,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         """Edit goal form fragment"""
         return Card(
             H2("✏️ Edit Goal", cls="text-xl font-bold mb-4"),
-            P(f"Edit form for goal {uid} will be implemented here", cls="text-gray-500"),
+            P(f"Edit form for goal {uid} will be implemented here", cls="text-base-content/60"),
             cls="p-6",
         )
 
@@ -1330,7 +1330,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         """Progress update form fragment"""
         return Card(
             H2("📈 Update Progress", cls="text-xl font-bold mb-4"),
-            P(f"Progress update form for goal {uid} will be implemented here", cls="text-gray-500"),
+            P(f"Progress update form for goal {uid} will be implemented here", cls="text-base-content/60"),
             cls="p-6",
         )
 

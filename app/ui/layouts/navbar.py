@@ -353,7 +353,7 @@ def create_navbar(
         mobile_links,
         # Alpine.js state management
         **{"x-data": "navbar()"},
-        cls="navbar bg-white border-b border-gray-200 sticky top-0 z-50",
+        cls="navbar bg-base-100 border-b border-base-200 sticky top-0 z-50",
     )
 
 

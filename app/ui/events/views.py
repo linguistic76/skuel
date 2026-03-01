@@ -207,17 +207,17 @@ class EventsViewComponents:
         # Stats bar
         stats_bar = Div(
             Div(
-                Span("Total: ", cls="text-gray-500"),
+                Span("Total: ", cls="text-base-content/60"),
                 Span(str(stats.get("total", 0)), cls="font-bold"),
                 cls="mr-4",
             ),
             Div(
-                Span("Upcoming: ", cls="text-gray-500"),
+                Span("Upcoming: ", cls="text-base-content/60"),
                 Span(str(stats.get("upcoming", 0)), cls="font-bold text-green-600"),
                 cls="mr-4",
             ),
             Div(
-                Span("Today: ", cls="text-gray-500"),
+                Span("Today: ", cls="text-base-content/60"),
                 Span(str(stats.get("today", 0)), cls="font-bold text-blue-600"),
             ),
             cls="flex items-center mb-4 text-sm",
@@ -275,7 +275,7 @@ class EventsViewComponents:
             else [
                 P(
                     "No events found. Create one to get started!",
-                    cls="text-gray-500 text-center py-8",
+                    cls="text-base-content/60 text-center py-8",
                 )
             ],
             id="event-list",
@@ -316,19 +316,19 @@ class EventsViewComponents:
                     description[:100] + "..."
                     if description and len(description) > 100
                     else description,
-                    cls="text-gray-600 text-sm mt-1",
+                    cls="text-base-content/70 text-sm mt-1",
                 )
                 if description
                 else "",
                 # Date and time
                 Div(
-                    Span(f"📅 {event_date}", cls="text-sm text-gray-600 mr-4")
+                    Span(f"📅 {event_date}", cls="text-sm text-base-content/70 mr-4")
                     if event_date
                     else "",
-                    Span(f"🕐 {start_time} - {end_time}", cls="text-sm text-gray-600 mr-4")
+                    Span(f"🕐 {start_time} - {end_time}", cls="text-sm text-base-content/70 mr-4")
                     if start_time
                     else "",
-                    Span(f"📍 {location}", cls="text-sm text-gray-500") if location else "",
+                    Span(f"📍 {location}", cls="text-sm text-base-content/60") if location else "",
                     cls="flex flex-wrap items-center mt-2",
                 ),
                 # Actions

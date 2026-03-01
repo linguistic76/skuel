@@ -92,17 +92,17 @@ class ChoicesViewComponents:
         # Stats bar
         stats_bar = Div(
             Div(
-                Span("Total: ", cls="text-gray-500"),
+                Span("Total: ", cls="text-base-content/60"),
                 Span(str(stats.get("total", 0)), cls="font-bold"),
                 cls="mr-4",
             ),
             Div(
-                Span("Pending: ", cls="text-gray-500"),
+                Span("Pending: ", cls="text-base-content/60"),
                 Span(str(stats.get("pending", 0)), cls="font-bold text-yellow-600"),
                 cls="mr-4",
             ),
             Div(
-                Span("Decided: ", cls="text-gray-500"),
+                Span("Decided: ", cls="text-base-content/60"),
                 Span(str(stats.get("decided", 0)), cls="font-bold text-green-600"),
             ),
             cls="flex items-center mb-4 text-sm",
@@ -172,7 +172,7 @@ class ChoicesViewComponents:
             else [
                 P(
                     "No decisions found. Create one to get started!",
-                    cls="text-gray-500 text-center py-8",
+                    cls="text-base-content/60 text-center py-8",
                 )
             ],
             id="choice-list",
@@ -214,9 +214,9 @@ class ChoicesViewComponents:
             "critical": "text-red-600",
             "high": "text-orange-600",
             "medium": "text-blue-600",
-            "low": "text-gray-600",
+            "low": "text-base-content/70",
         }
-        priority_color = priority_colors.get(priority_str, "text-gray-600")
+        priority_color = priority_colors.get(priority_str, "text-base-content/70")
 
         return Div(
             Div(
@@ -231,14 +231,14 @@ class ChoicesViewComponents:
                     description[:100] + "..."
                     if description and len(description) > 100
                     else description,
-                    cls="text-gray-600 text-sm mt-1",
+                    cls="text-base-content/70 text-sm mt-1",
                 )
                 if description
                 else "",
                 # Meta row
                 Div(
                     Span(f"Priority: {priority_str.title()}", cls=f"text-xs {priority_color} mr-4"),
-                    Span(f"Deadline: {deadline}", cls="text-xs text-gray-500") if deadline else "",
+                    Span(f"Deadline: {deadline}", cls="text-xs text-base-content/60") if deadline else "",
                     cls="flex items-center mt-2",
                 ),
                 # Actions
@@ -328,7 +328,7 @@ class ChoicesViewComponents:
                 ),
                 P(
                     "Binary (yes/no), Multiple options, Ranking, etc.",
-                    cls="text-xs text-gray-500 mt-1",
+                    cls="text-xs text-base-content/60 mt-1",
                 ),
                 cls="mb-4",
             ),
@@ -368,7 +368,7 @@ class ChoicesViewComponents:
                     name="decision_deadline",
                     cls="input input-bordered w-full",
                 ),
-                P("When do you need to decide by?", cls="text-xs text-gray-500 mt-1"),
+                P("When do you need to decide by?", cls="text-xs text-base-content/60 mt-1"),
                 cls="mb-4",
             ),
             cls="flex-1",
@@ -377,7 +377,7 @@ class ChoicesViewComponents:
         # Options section (Alpine.js managed)
         options_section = Div(
             H3("Decision Options", cls="text-lg font-semibold mb-4"),
-            P("Add at least 2 options for this decision.", cls="text-sm text-gray-500 mb-4"),
+            P("Add at least 2 options for this decision.", cls="text-sm text-base-content/60 mb-4"),
             # Options container with x-for loop
             Div(
                 # Template for each option (Alpine x-for)
@@ -519,7 +519,7 @@ class ChoicesViewComponents:
             Div(
                 # Satisfaction rate
                 Div(
-                    P("Satisfaction Rate", cls="text-sm text-gray-500"),
+                    P("Satisfaction Rate", cls="text-sm text-base-content/60"),
                     P(
                         f"{analytics_data.get('satisfaction_rate', 0):.0%}",
                         cls="text-3xl font-bold text-green-600",
@@ -528,7 +528,7 @@ class ChoicesViewComponents:
                 ),
                 # Decisions made
                 Div(
-                    P("Decisions Made", cls="text-sm text-gray-500"),
+                    P("Decisions Made", cls="text-sm text-base-content/60"),
                     P(
                         str(analytics_data.get("total_decisions", 0)),
                         cls="text-3xl font-bold text-blue-600",
@@ -537,7 +537,7 @@ class ChoicesViewComponents:
                 ),
                 # On-time decisions
                 Div(
-                    P("On-Time Rate", cls="text-sm text-gray-500"),
+                    P("On-Time Rate", cls="text-sm text-base-content/60"),
                     P(
                         f"{analytics_data.get('on_time_rate', 0):.0%}",
                         cls="text-3xl font-bold text-purple-600",
@@ -555,13 +555,13 @@ class ChoicesViewComponents:
             Div(
                 P(
                     "Pattern analysis helps you understand your decision-making tendencies.",
-                    cls="text-gray-500 mb-4",
+                    cls="text-base-content/60 mb-4",
                 ),
                 # Placeholder for charts
                 Div(
                     P(
                         "Charts will be displayed here",
-                        cls="text-gray-400 text-center py-12 border border-dashed border-gray-300 rounded-lg",
+                        cls="text-base-content/50 text-center py-12 border border-dashed border-base-300 rounded-lg",
                     ),
                     cls="mb-4",
                 ),
@@ -573,8 +573,8 @@ class ChoicesViewComponents:
         outcomes_section = Div(
             H3("Recent Outcomes", cls="text-lg font-semibold mb-4"),
             Div(
-                P("Track how your past decisions turned out.", cls="text-gray-500 mb-4"),
-                P("No outcomes recorded yet.", cls="text-gray-400 text-center py-8")
+                P("Track how your past decisions turned out.", cls="text-base-content/60 mb-4"),
+                P("No outcomes recorded yet.", cls="text-base-content/50 text-center py-8")
                 if not analytics_data.get("outcomes")
                 else "",
             ),

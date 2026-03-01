@@ -313,13 +313,13 @@ class KuUIComponents:
             # Recommended knowledge
             Card(
                 H3("💡 Recommended for You", cls="text-lg font-semibold mb-4"),
-                P("Personalized knowledge recommendations will appear here", cls="text-gray-500"),
+                P("Personalized knowledge recommendations will appear here", cls="text-base-content/60"),
                 cls="p-6 mb-6",
             ),
             # Knowledge paths
             Card(
                 H3("🛤️ Learning Paths", cls="text-lg font-semibold mb-4"),
-                P("Suggested learning paths based on your interests", cls="text-gray-500"),
+                P("Suggested learning paths based on your interests", cls="text-base-content/60"),
                 cls="p-6",
             ),
             cls="container mx-auto p-6",
@@ -333,19 +333,19 @@ class KuUIComponents:
             # Growth metrics
             Card(
                 H3("📈 Growth Metrics", cls="text-lg font-semibold mb-4"),
-                P("Knowledge base growth and usage analytics", cls="text-gray-500"),
+                P("Knowledge base growth and usage analytics", cls="text-base-content/60"),
                 cls="p-6 mb-6",
             ),
             # Connection analysis
             Card(
                 H3("🕸️ Connection Analysis", cls="text-lg font-semibold mb-4"),
-                P("Knowledge graph connectivity and relationship insights", cls="text-gray-500"),
+                P("Knowledge graph connectivity and relationship insights", cls="text-base-content/60"),
                 cls="p-6 mb-6",
             ),
             # Domain insights
             Card(
                 H3("🎯 Domain Insights", cls="text-lg font-semibold mb-4"),
-                P("Knowledge distribution and domain expertise mapping", cls="text-gray-500"),
+                P("Knowledge distribution and domain expertise mapping", cls="text-base-content/60"),
                 cls="p-6",
             ),
             cls="container mx-auto p-6",
@@ -532,7 +532,7 @@ def create_ku_ui_routes(_app, rt, ku_service):
             H1("🕸️ Knowledge Graph", cls="text-2xl font-bold mb-6"),
             P(
                 "Interactive knowledge graph visualization will be implemented here",
-                cls="text-gray-500",
+                cls="text-base-content/60",
             ),
             cls="p-6 container mx-auto",
         )
@@ -610,7 +610,7 @@ def create_ku_ui_routes(_app, rt, ku_service):
             H2("🧠 Knowledge Details", cls="text-xl font-bold mb-4"),
             P(
                 f"Detailed view for knowledge unit {uid} will be implemented here",
-                cls="text-gray-500",
+                cls="text-base-content/60",
             ),
             cls="p-6",
         )
@@ -620,7 +620,7 @@ def create_ku_ui_routes(_app, rt, ku_service):
         """Edit knowledge form fragment"""
         return Card(
             H2("✏️ Edit Knowledge", cls="text-xl font-bold mb-4"),
-            P(f"Edit form for knowledge unit {uid} will be implemented here", cls="text-gray-500"),
+            P(f"Edit form for knowledge unit {uid} will be implemented here", cls="text-base-content/60"),
             cls="p-6",
         )
 
@@ -631,7 +631,7 @@ def create_ku_ui_routes(_app, rt, ku_service):
             H2("🕸️ Knowledge Graph", cls="text-xl font-bold mb-4"),
             P(
                 f"Graph view centered on knowledge unit {uid} will be implemented here",
-                cls="text-gray-500",
+                cls="text-base-content/60",
             ),
             cls="p-6",
         )

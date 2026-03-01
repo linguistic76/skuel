@@ -61,7 +61,7 @@ class AtomicHabitsIntelligence:
             CardBody(
                 H3("🧠 Pattern Recognition", cls="text-xl font-bold mb-4"),
                 # Overview
-                P(f"{name} - {total_completions} completions analyzed", cls="text-gray-600 mb-6"),
+                P(f"{name} - {total_completions} completions analyzed", cls="text-base-content/70 mb-6"),
                 # Success patterns
                 Div(
                     H4("✅ SUCCESS PATTERNS", cls="text-lg font-semibold text-green-700 mb-3"),
@@ -76,7 +76,7 @@ class AtomicHabitsIntelligence:
                         if success_patterns
                         else P(
                             "No success patterns detected yet. Complete more habits to build pattern data.",
-                            cls="text-sm text-gray-500 italic",
+                            cls="text-sm text-base-content/60 italic",
                         )
                     ),
                     cls="mb-6",
@@ -94,7 +94,7 @@ class AtomicHabitsIntelligence:
                         )
                         if failure_patterns
                         else P(
-                            "No failure patterns detected yet.", cls="text-sm text-gray-500 italic"
+                            "No failure patterns detected yet.", cls="text-sm text-base-content/60 italic"
                         )
                     ),
                     cls="mb-6",
@@ -110,7 +110,7 @@ class AtomicHabitsIntelligence:
                                     success_patterns, failure_patterns
                                 )
                             ],
-                            cls="list-disc list-inside space-y-2 text-gray-700",
+                            cls="list-disc list-inside space-y-2 text-base-content/70",
                         ),
                         cls="bg-yellow-50 p-4 rounded-lg",
                     )
@@ -137,11 +137,11 @@ class AtomicHabitsIntelligence:
         return Div(
             Div(
                 P(text, cls="font-medium mb-1"),
-                P(f"Confidence: {int(confidence * 100)}%", cls="text-xs text-gray-500"),
+                P(f"Confidence: {int(confidence * 100)}%", cls="text-xs text-base-content/60"),
                 cls="mb-2",
             ),
             (
-                P(f"→ {recommendation}", cls="text-sm text-gray-700 italic")
+                P(f"→ {recommendation}", cls="text-sm text-base-content/70 italic")
                 if recommendation
                 else None
             ),
@@ -213,10 +213,10 @@ class AtomicHabitsIntelligence:
                             f"{severity_icon} {int(strength * 100)}%",
                             cls=f"text-3xl font-bold text-{severity_color}-700",
                         ),
-                        P("System Strength", cls="text-sm text-gray-600"),
+                        P("System Strength", cls="text-sm text-base-content/70"),
                         cls="text-center",
                     ),
-                    P(diagnosis, cls="text-center text-gray-700 font-medium mt-2"),
+                    P(diagnosis, cls="text-center text-base-content/70 font-medium mt-2"),
                     cls=f"p-6 {severity_bg} rounded-lg mb-6",
                 ),
                 # Warnings (if any)
@@ -270,7 +270,7 @@ class AtomicHabitsIntelligence:
                                 Td(
                                     Span(
                                         f"{breakdown.get('supporting', 0)} habits",
-                                        cls="text-gray-600",
+                                        cls="text-base-content/70",
                                     )
                                 ),
                             ),
@@ -280,7 +280,7 @@ class AtomicHabitsIntelligence:
                                 Td(
                                     Span(
                                         f"{breakdown.get('optional', 0)} habits",
-                                        cls="text-gray-600",
+                                        cls="text-base-content/70",
                                     )
                                 ),
                             ),
@@ -296,7 +296,7 @@ class AtomicHabitsIntelligence:
                         ),
                         cls="w-full text-sm",
                     ),
-                    cls="bg-gray-50 p-4 rounded-lg mb-6",
+                    cls="bg-base-200 p-4 rounded-lg mb-6",
                 ),
                 # Recommendations
                 (
@@ -304,7 +304,7 @@ class AtomicHabitsIntelligence:
                         H4("💡 RECOMMENDATIONS", cls="text-lg font-semibold text-blue-700 mb-3"),
                         Ul(
                             *[Li(rec, cls="text-sm") for rec in recommendations],
-                            cls="list-disc list-inside space-y-2 text-gray-700",
+                            cls="list-disc list-inside space-y-2 text-base-content/70",
                         ),
                         cls="bg-blue-50 p-4 rounded-lg",
                     )
@@ -323,13 +323,13 @@ class AtomicHabitsIntelligence:
                     H3("❌ No Habit System Defined", cls="text-xl font-bold text-red-700 mb-4"),
                     P(
                         "This goal has no supporting habits. Without a system, achievement is wishful thinking.",
-                        cls="text-gray-700 mb-4",
+                        cls="text-base-content/70 mb-4",
                     ),
                     P(
                         '"You do not rise to the level of your goals. You fall to the level of your systems."',
-                        cls="italic text-gray-600 mb-4",
+                        cls="italic text-base-content/70 mb-4",
                     ),
-                    P("— James Clear, Atomic Habits", cls="text-sm text-gray-500 mb-6"),
+                    P("— James Clear, Atomic Habits", cls="text-sm text-base-content/60 mb-6"),
                     Button(
                         "Define Essential Habits →",
                         cls="btn btn-primary",
@@ -392,7 +392,7 @@ class AtomicHabitsIntelligence:
                 Div(
                     Div(
                         Span(f"{current:.1f}", cls=f"text-4xl font-bold {rating_color}"),
-                        P("Current Velocity", cls="text-sm text-gray-600"),
+                        P("Current Velocity", cls="text-sm text-base-content/70"),
                         cls="text-center mb-2",
                     ),
                     Div(
@@ -408,7 +408,7 @@ class AtomicHabitsIntelligence:
                     H4("📊 Weighted Breakdown", cls="text-lg font-semibold mb-3"),
                     P(
                         "Velocity measures progress rate using weighted habit completions:",
-                        cls="text-sm text-gray-600 mb-3",
+                        cls="text-sm text-base-content/70 mb-3",
                     ),
                     Table(
                         Tbody(
@@ -470,9 +470,9 @@ class AtomicHabitsIntelligence:
                     ),
                     P(
                         f"Velocity = Total Points / 2 = {total_weighted} / 2 = {current:.1f}",
-                        cls="text-xs text-gray-500 mt-3 italic text-right",
+                        cls="text-xs text-base-content/60 mt-3 italic text-right",
                     ),
-                    cls="bg-gray-50 p-4 rounded-lg mb-6",
+                    cls="bg-base-200 p-4 rounded-lg mb-6",
                 ),
                 # Velocity trend (if available)
                 (
@@ -494,7 +494,7 @@ class AtomicHabitsIntelligence:
                                 current, breakdown
                             )
                         ],
-                        cls="list-disc list-inside space-y-2 text-gray-700",
+                        cls="list-disc list-inside space-y-2 text-base-content/70",
                     ),
                     cls="bg-blue-50 p-4 rounded-lg",
                 ),
@@ -505,7 +505,7 @@ class AtomicHabitsIntelligence:
     def _render_velocity_chart(trend: list[dict]) -> Any:
         """Render simple text-based velocity trend chart"""
         if not trend:
-            return P("No trend data available yet", cls="text-sm text-gray-500 italic")
+            return P("No trend data available yet", cls="text-sm text-base-content/60 italic")
 
         # Find max velocity for scaling
         max_velocity = max([t["velocity"] for t in trend], default=1)
@@ -518,13 +518,13 @@ class AtomicHabitsIntelligence:
 
             chart_rows.append(
                 Div(
-                    Span(week, cls="text-xs text-gray-600 w-16"),
+                    Span(week, cls="text-xs text-base-content/70 w-16"),
                     Div(
                         Div(style=f"width: {bar_width}%", cls="bg-blue-500 h-4 rounded"),
-                        cls="flex-1 bg-gray-200 rounded h-4 mx-2",
+                        cls="flex-1 bg-base-300 rounded h-4 mx-2",
                     ),
                     Span(
-                        f"{velocity:.1f}", cls="text-xs font-semibold text-gray-700 w-12 text-right"
+                        f"{velocity:.1f}", cls="text-xs font-semibold text-base-content/70 w-12 text-right"
                     ),
                     cls="flex items-center mb-2",
                 )
@@ -606,7 +606,7 @@ class AtomicHabitsIntelligence:
         return Card(
             CardBody(
                 H3("🎯 Goal Impact Analysis", cls="text-xl font-bold mb-4"),
-                P(title, cls="text-lg text-gray-700 mb-6"),
+                P(title, cls="text-lg text-base-content/70 mb-6"),
                 # Achievement probability
                 Div(
                     Div(
@@ -614,7 +614,7 @@ class AtomicHabitsIntelligence:
                             f"{int(probability * 100)}%",
                             cls=f"text-4xl font-bold text-{prob_color}-700",
                         ),
-                        P("Achievement Probability", cls="text-sm text-gray-600"),
+                        P("Achievement Probability", cls="text-sm text-base-content/70"),
                         cls="text-center mb-2",
                     ),
                     Span(
@@ -633,7 +633,7 @@ class AtomicHabitsIntelligence:
                         )
                         if habits
                         else P(
-                            "No habits linked to this goal yet.", cls="text-sm text-gray-500 italic"
+                            "No habits linked to this goal yet.", cls="text-sm text-base-content/60 italic"
                         )
                     ),
                     cls="mb-6",
@@ -643,10 +643,10 @@ class AtomicHabitsIntelligence:
                     H4("💪 Overall Habit System Impact", cls="text-lg font-semibold mb-3"),
                     P(
                         f"Your habit system is contributing {int(overall * 100)}% toward goal achievement.",
-                        cls="text-sm text-gray-700 mb-3",
+                        cls="text-sm text-base-content/70 mb-3",
                     ),
                     Progress(value=int(overall * 100), cls="progress progress-primary w-full"),
-                    cls="bg-gray-50 p-4 rounded-lg",
+                    cls="bg-base-200 p-4 rounded-lg",
                 ),
             ),
         )
@@ -668,19 +668,19 @@ class AtomicHabitsIntelligence:
         }
 
         icon, border, bg = essentiality_colors.get(
-            essentiality, ("⚪", "border-gray-500", "bg-gray-50")
+            essentiality, ("⚪", "border-base-300", "bg-base-200")
         )
 
         return Div(
             Div(
                 Span(f"{icon} {name}", cls="font-medium text-sm"),
-                Span(essentiality.upper(), cls="text-xs text-gray-500"),
+                Span(essentiality.upper(), cls="text-xs text-base-content/60"),
                 cls="flex justify-between items-center mb-2",
             ),
             Div(
-                P(f"Impact Score: {int(impact * 100)}%", cls="text-xs text-gray-600 mb-1"),
+                P(f"Impact Score: {int(impact * 100)}%", cls="text-xs text-base-content/70 mb-1"),
                 Progress(value=int(impact * 100), cls="progress progress-sm w-full mb-1"),
-                P(f"Consistency: {int(consistency * 100)}%", cls="text-xs text-gray-600"),
+                P(f"Consistency: {int(consistency * 100)}%", cls="text-xs text-base-content/70"),
                 cls="px-2",
             ),
             cls=f"p-3 {bg} rounded border-l-4 {border}",

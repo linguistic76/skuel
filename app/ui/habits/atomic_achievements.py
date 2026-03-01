@@ -323,7 +323,7 @@ class AtomicHabitsBadges:
             sections.append(
                 Div(
                     H3(title, cls="text-xl font-bold mb-2"),
-                    P(subtitle, cls="text-sm text-gray-600 mb-4"),
+                    P(subtitle, cls="text-sm text-base-content/70 mb-4"),
                     Div(
                         *badge_cards,
                         cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8",
@@ -345,12 +345,12 @@ class AtomicHabitsBadges:
                     Div(
                         Div(
                             Span(str(total_unlocked), cls="text-3xl font-bold text-blue-600"),
-                            P(f"/ {total_badges} Badges", cls="text-sm text-gray-600"),
+                            P(f"/ {total_badges} Badges", cls="text-sm text-base-content/70"),
                             cls="text-center",
                         ),
                         Div(
                             Span(str(total_points), cls="text-3xl font-bold text-yellow-600"),
-                            P("Points", cls="text-sm text-gray-600"),
+                            P("Points", cls="text-sm text-base-content/70"),
                             cls="text-center",
                         ),
                         Div(
@@ -358,7 +358,7 @@ class AtomicHabitsBadges:
                                 f"{(total_unlocked / total_badges * 100):.0f}%",
                                 cls="text-3xl font-bold text-green-600",
                             ),
-                            P("Completion", cls="text-sm text-gray-600"),
+                            P("Completion", cls="text-sm text-base-content/70"),
                             cls="text-center",
                         ),
                         cls="flex justify-around items-center",
@@ -397,7 +397,7 @@ class AtomicHabitsBadges:
         progress_section = None
         if not badge.is_unlocked:
             progress_section = Div(
-                P(f"Progress: {badge.progress_display()}", cls="text-xs text-gray-600 mb-1"),
+                P(f"Progress: {badge.progress_display()}", cls="text-xs text-base-content/70 mb-1"),
                 Progress(
                     value=int(badge.progress_percentage()),
                     cls="progress progress-primary w-full h-2",
@@ -427,8 +427,8 @@ class AtomicHabitsBadges:
                 ),
                 # Title and description
                 H3(badge.title, cls=f"font-bold text-lg mb-2 {locked_opacity}"),
-                P(badge.description, cls=f"text-sm text-gray-600 mb-2 {locked_opacity}"),
-                P(f"📋 {badge.unlock_criteria}", cls=f"text-xs text-gray-500 {locked_opacity}"),
+                P(badge.description, cls=f"text-sm text-base-content/70 mb-2 {locked_opacity}"),
+                P(f"📋 {badge.unlock_criteria}", cls=f"text-xs text-base-content/60 {locked_opacity}"),
                 # Points value
                 Div(
                     Span("⭐", cls="text-yellow-500"),
@@ -463,7 +463,7 @@ class AtomicHabitsBadges:
                         cls="flex flex-col items-center mb-4",
                     ),
                     # Description
-                    P(badge.description, cls="text-center text-gray-700 mb-6"),
+                    P(badge.description, cls="text-center text-base-content/70 mb-6"),
                     # Points earned
                     Card(
                         CardBody(
@@ -474,7 +474,7 @@ class AtomicHabitsBadges:
                                         f"+{badge.points} Points",
                                         cls="text-2xl font-bold text-yellow-600",
                                     ),
-                                    P("Added to your total", cls="text-sm text-gray-600"),
+                                    P("Added to your total", cls="text-sm text-base-content/70"),
                                     cls="text-center",
                                 ),
                                 cls="flex items-center justify-center gap-4",
@@ -523,8 +523,8 @@ class AtomicHabitsBadges:
 
         if not sorted_badges:
             return Div(
-                P("No badges in progress", cls="text-sm text-gray-500 text-center py-4"),
-                cls="bg-gray-50 rounded-lg",
+                P("No badges in progress", cls="text-sm text-base-content/60 text-center py-4"),
+                cls="bg-base-200 rounded-lg",
             )
 
         badge_items = [
@@ -533,7 +533,7 @@ class AtomicHabitsBadges:
                     Span(badge.icon, cls="text-2xl"),
                     Div(
                         P(badge.title, cls="font-medium text-sm"),
-                        P(badge.progress_display(), cls="text-xs text-gray-600"),
+                        P(badge.progress_display(), cls="text-xs text-base-content/70"),
                         cls="flex-1",
                     ),
                     cls="flex items-center gap-3 mb-2",

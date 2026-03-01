@@ -597,7 +597,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         return Div(
             *choice_items
             if choice_items
-            else [P("No decisions found.", cls="text-gray-500 text-center py-8")],
+            else [P("No decisions found.", cls="text-base-content/60 text-center py-8")],
             id="choice-list",
             cls="space-y-3",
         )
@@ -731,7 +731,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         if len(options) < 2:
             return Div(
                 Div(
-                    P("You need at least 2 options to make a decision.", cls="text-gray-600 mb-4"),
+                    P("You need at least 2 options to make a decision.", cls="text-base-content/70 mb-4"),
                     Button(
                         "Add Options",
                         variant=ButtonT.primary,
@@ -776,7 +776,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
                             opt_desc[:100] + "..."
                             if opt_desc and len(opt_desc) > 100
                             else opt_desc,
-                            cls="text-sm text-gray-500",
+                            cls="text-sm text-base-content/60",
                         ),
                         cls="ml-3",
                     ),
@@ -788,7 +788,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
             Div(
                 H3(f"Decide: {choice.title}", cls="text-lg font-bold mb-4"),
                 Form(
-                    P("Select the option you've decided on:", cls="text-gray-600 mb-4"),
+                    P("Select the option you've decided on:", cls="text-base-content/70 mb-4"),
                     Div(*option_buttons, cls="mb-4"),
                     Div(
                         Label("Rationale (optional)", cls="label"),

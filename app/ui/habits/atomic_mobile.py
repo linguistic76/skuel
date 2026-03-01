@@ -47,7 +47,7 @@ class AtomicHabitsMobile:
             AtomicHabitsMobile._render_quick_actions_mobile(),
             # Bottom navigation
             AtomicHabitsMobile._render_bottom_nav(),
-            cls="min-h-screen bg-gray-50 mobile-bottom-nav",  # Safe zone support for iOS
+            cls="min-h-screen bg-base-200 mobile-bottom-nav",  # Safe zone support for iOS
             **{"x-data": "{ swipeIndex: 0 }"},  # Alpine.js for swipe state
         )
 
@@ -61,8 +61,8 @@ class AtomicHabitsMobile:
         return Div(
             # Compact header
             Div(
-                H1("Today's Habits", cls="text-xl font-bold text-gray-800"),
-                Span(f"{date.today().strftime('%a, %b %d')}", cls="text-sm text-gray-600"),
+                H1("Today's Habits", cls="text-xl font-bold text-base-content"),
+                Span(f"{date.today().strftime('%a, %b %d')}", cls="text-sm text-base-content/70"),
                 cls="flex justify-between items-center mb-3",
             ),
             # Progress ring (completion %)
@@ -74,7 +74,7 @@ class AtomicHabitsMobile:
                             f"{completion_today}/{total_today}",
                             cls="text-2xl font-bold text-blue-600",
                         ),
-                        P("completed", cls="text-xs text-gray-600"),
+                        P("completed", cls="text-xs text-base-content/70"),
                         cls="absolute inset-0 flex flex-col items-center justify-center",
                     ),
                     cls="relative w-24 h-24 mx-auto mb-2",
@@ -92,7 +92,7 @@ class AtomicHabitsMobile:
                 else None,
                 cls="text-center py-4",
             ),
-            cls="bg-white p-4 shadow-sm sticky top-0 z-10",
+            cls="bg-base-100 p-4 shadow-sm sticky top-0 z-10",
         )
 
     @staticmethod
@@ -105,7 +105,7 @@ class AtomicHabitsMobile:
         """
         if not habits:
             return Div(
-                P("No habits for today! 🎉", cls="text-center text-gray-500 py-12"), cls="px-4"
+                P("No habits for today! 🎉", cls="text-center text-base-content/60 py-12"), cls="px-4"
             )
 
         habit_cards = []
@@ -115,7 +115,7 @@ class AtomicHabitsMobile:
         return Div(
             # Swipe instruction (first time users)
             Div(
-                P("← Swipe to navigate →", cls="text-center text-sm text-gray-500"),
+                P("← Swipe to navigate →", cls="text-center text-sm text-base-content/60"),
                 cls="mb-2",
                 **{"x-show": "swipeIndex === 0", "x-transition": ""},
             ),
@@ -133,9 +133,9 @@ class AtomicHabitsMobile:
             Div(
                 *[
                     Span(
-                        cls=f"w-2 h-2 rounded-full {'bg-blue-600' if i == 0 else 'bg-gray-300'}",
+                        cls=f"w-2 h-2 rounded-full {'bg-blue-600' if i == 0 else 'bg-base-300'}",
                         **{
-                            "x-bind:class": f"{{'bg-blue-600': swipeIndex === {i}, 'bg-gray-300': swipeIndex !== {i}}}"
+                            "x-bind:class": f"{{'bg-blue-600': swipeIndex === {i}, 'bg-base-300': swipeIndex !== {i}}}"
                         },
                     )
                     for i in range(len(habits))
@@ -163,21 +163,21 @@ class AtomicHabitsMobile:
 
         # Essentiality badge color
         essentiality_colors = {
-            "essential": "bg-red-100 text-red-700",
-            "critical": "bg-orange-100 text-orange-700",
-            "supporting": "bg-blue-100 text-blue-700",
-            "optional": "bg-gray-100 text-gray-700",
+            "essential": "badge-error",
+            "critical": "badge-warning",
+            "supporting": "badge-info",
+            "optional": "badge-ghost",
         }
-        badge_color = essentiality_colors.get(essentiality, "bg-gray-100 text-gray-700")
+        badge_color = essentiality_colors.get(essentiality, "badge-ghost")
 
         return Card(
             CardBody(
                 # Essentiality badge
                 Span(
-                    essentiality.upper(), cls=f"text-xs font-bold px-2 py-1 rounded {badge_color}"
+                    essentiality.upper(), cls=f"badge badge-sm {badge_color}"
                 ),
                 # Habit name
-                H2(name, cls="text-xl font-bold text-gray-800 my-3"),
+                H2(name, cls="text-xl font-bold text-base-content my-3"),
                 # Identity (if applicable)
                 (
                     Div(
@@ -192,7 +192,7 @@ class AtomicHabitsMobile:
                 (
                     Div(
                         Span("💡", cls="text-lg"),
-                        P(f"Cue: {cue}", cls="text-sm text-gray-700"),
+                        P(f"Cue: {cue}", cls="text-sm text-base-content/70"),
                         cls="flex items-center gap-2 mb-4 p-2 bg-yellow-50 rounded",
                     )
                     if cue
@@ -209,7 +209,7 @@ class AtomicHabitsMobile:
                 ),
                 # Swipe indicator
                 Div(
-                    P("Swipe for next →", cls="text-xs text-gray-500 text-center mt-2"),
+                    P("Swipe for next →", cls="text-xs text-base-content/60 text-center mt-2"),
                     cls="",
                     **{"x-show": f"swipeIndex === {index}"},
                 ),
@@ -294,7 +294,7 @@ class AtomicHabitsMobile:
                 hx_get="/profile",
                 hx_target="#main-content",
             ),
-            cls="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-stretch h-16 z-20 shadow-lg",
+            cls="fixed bottom-0 left-0 right-0 bg-base-100 border-t border-base-200 flex items-stretch h-16 z-20 shadow-lg",
         )
 
     @staticmethod
@@ -342,7 +342,7 @@ class AtomicHabitsMobile:
                             Span("🔥", cls="text-3xl"),
                             Div(
                                 P(str(current_streak), cls="text-2xl font-bold text-orange-600"),
-                                P("day streak", cls="text-xs text-gray-600"),
+                                P("day streak", cls="text-xs text-base-content/70"),
                                 cls="text-center",
                             ),
                             cls="flex items-center gap-3",
@@ -355,7 +355,7 @@ class AtomicHabitsMobile:
                             Span("🎯", cls="text-3xl"),
                             Div(
                                 P(str(identity_votes), cls="text-2xl font-bold text-purple-600"),
-                                P("identity votes", cls="text-xs text-gray-600"),
+                                P("identity votes", cls="text-xs text-base-content/70"),
                                 cls="text-center",
                             ),
                             cls="flex items-center gap-3",
@@ -370,8 +370,8 @@ class AtomicHabitsMobile:
                     Button(
                         Div(
                             H3("Behavior Design", cls="text-lg font-semibold"),
-                            Span("▼", cls="text-gray-500", **{"x-show": "!showBehavior"}),
-                            Span("▲", cls="text-gray-500", **{"x-show": "showBehavior"}),
+                            Span("▼", cls="text-base-content/60", **{"x-show": "!showBehavior"}),
+                            Span("▲", cls="text-base-content/60", **{"x-show": "showBehavior"}),
                             cls="flex justify-between items-center w-full",
                         ),
                         cls="w-full text-left",
@@ -380,18 +380,18 @@ class AtomicHabitsMobile:
                     # Collapsible content
                     Div(
                         Div(
-                            P("💡 Cue:", cls="font-semibold text-sm text-gray-700"),
-                            P(cue or "Not specified", cls="text-gray-600"),
+                            P("💡 Cue:", cls="font-semibold text-sm text-base-content/70"),
+                            P(cue or "Not specified", cls="text-base-content/70"),
                             cls="mb-3 p-3 bg-yellow-50 rounded",
                         ),
                         Div(
-                            P("🎬 Routine:", cls="font-semibold text-sm text-gray-700"),
-                            P(routine or "Not specified", cls="text-gray-600"),
+                            P("🎬 Routine:", cls="font-semibold text-sm text-base-content/70"),
+                            P(routine or "Not specified", cls="text-base-content/70"),
                             cls="mb-3 p-3 bg-green-50 rounded",
                         ),
                         Div(
-                            P("🎁 Reward:", cls="font-semibold text-sm text-gray-700"),
-                            P(reward or "Not specified", cls="text-gray-600"),
+                            P("🎁 Reward:", cls="font-semibold text-sm text-base-content/70"),
+                            P(reward or "Not specified", cls="text-base-content/70"),
                             cls="p-3 bg-purple-50 rounded",
                         ),
                         cls="mt-4",

@@ -141,7 +141,7 @@ class ActivityLayout:
                 ),
                 # Modal container for edit forms and other modals
                 Div(id="modal"),
-                cls="bg-white",
+                cls="bg-base-100",
             ),
             **{"data-theme": "light"},
         )

@@ -175,7 +175,7 @@ class TasksViewComponents:
                     name="scheduled_date",
                     cls="input input-bordered w-full",
                 ),
-                P("When to start working on this task", cls="text-xs text-gray-500 mt-1"),
+                P("When to start working on this task", cls="text-xs text-base-content/60 mt-1"),
                 cls="mb-4",
             ),
             # Due date
@@ -186,7 +186,7 @@ class TasksViewComponents:
                     name="due_date",
                     cls="input input-bordered w-full",
                 ),
-                P("Deadline for completion", cls="text-xs text-gray-500 mt-1"),
+                P("Deadline for completion", cls="text-xs text-base-content/60 mt-1"),
                 cls="mb-4",
             ),
             # Duration

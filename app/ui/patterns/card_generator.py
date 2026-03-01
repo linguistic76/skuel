@@ -435,7 +435,7 @@ class CardGenerator:
             display_fields=display_fields,
             title_field=title_field,
             card_attrs={
-                "cls": "card bg-base-100 border border-gray-200 p-3 hover:shadow-md transition-shadow"
+                "cls": "card bg-base-100 border border-base-200 p-3 hover:shadow-md transition-shadow"
             },
         )
 

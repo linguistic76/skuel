@@ -98,15 +98,15 @@ def MetricCard(
     """
     # Dynamic enum methods - updates when shared_enums.py changes
     trend_icon = get_trend_icon(trend) if trend else ""
-    trend_color = get_trend_color(trend) if trend else "text-gray-600"
+    trend_color = get_trend_color(trend) if trend else "text-base-content/70"
 
     return Card(
         CardBody(
             Div(
                 Div(
-                    P(title, cls="text-sm text-gray-600 mb-1"),
+                    P(title, cls="text-sm text-base-content/70 mb-1"),
                     H3(value, cls=f"text-3xl font-bold text-{color}-600 mb-1"),
-                    P(subtitle, cls="text-xs text-gray-500") if subtitle else None,
+                    P(subtitle, cls="text-xs text-base-content/60") if subtitle else None,
                 ),
                 Span(trend_icon, cls=f"text-2xl {trend_color}") if trend else None,
                 cls="flex justify-between items-start",
@@ -191,7 +191,7 @@ def HealthStatusCard(health_data: dict[str, Any]) -> Any:
     components_section = None
     if components:
         components_section = Div(
-            H4("Components", cls="text-sm font-medium text-gray-700 mb-2"),
+            H4("Components", cls="text-sm font-medium text-base-content/70 mb-2"),
             Div(
                 *[
                     Div(
@@ -214,7 +214,7 @@ def HealthStatusCard(health_data: dict[str, Any]) -> Any:
     alerts_section = None
     if alerts:
         alerts_section = Div(
-            H4(f"Alerts ({len(alerts)})", cls="text-sm font-medium text-gray-700 mb-2"),
+            H4(f"Alerts ({len(alerts)})", cls="text-sm font-medium text-base-content/70 mb-2"),
             Div(
                 *[
                     Alert(alert, variant=AlertT.warning, cls="text-xs p-2")
@@ -235,7 +235,7 @@ def HealthStatusCard(health_data: dict[str, Any]) -> Any:
             ),
             Div(
                 *[P(f"* {rec}", cls="pl-4 text-xs") for rec in recommendations],
-                cls="mt-2 space-y-1 text-gray-700",
+                cls="mt-2 space-y-1 text-base-content/70",
             ),
             cls="text-sm",
         )
@@ -251,7 +251,7 @@ def HealthStatusCard(health_data: dict[str, Any]) -> Any:
                 ),
                 P(
                     f"Last checked: {health_data.get('timestamp', 'Never')}",
-                    cls="text-sm text-gray-600",
+                    cls="text-sm text-base-content/70",
                 ),
                 cls="mb-4",
             ),
@@ -347,7 +347,7 @@ def ProgressMetric(
     return Div(
         Div(
             Span(name, cls="font-medium"),
-            Span(f"{percentage:.0f}%", cls="text-sm text-gray-600") if show_percentage else None,
+            Span(f"{percentage:.0f}%", cls="text-sm text-base-content/70") if show_percentage else None,
             cls="flex justify-between mb-1",
         ),
         Progress(value=int(percentage), variant=progress_variant),
@@ -386,9 +386,9 @@ def InsightCard(
         Div(
             Span(icon, cls="text-xl mr-3"),
             Div(
-                P(text, cls="text-gray-900 mb-2"),
+                P(text, cls="text-base-content mb-2"),
                 Div(
-                    Span(f"Confidence: {confidence:.0%}", cls="text-gray-600"),
+                    Span(f"Confidence: {confidence:.0%}", cls="text-base-content/70"),
                     Span(category, cls="text-primary font-medium"),
                     cls="flex gap-4 text-sm",
                 ),
@@ -396,7 +396,7 @@ def InsightCard(
             ),
             cls="flex items-start",
         ),
-        cls="p-4 bg-gray-50 rounded shadow-sm",
+        cls="p-4 bg-base-200 rounded shadow-sm",
     )
 
 
@@ -436,8 +436,8 @@ def RecommendationCard(
         ... )
     """
     return Div(
-        H4(title, cls="font-semibold text-gray-900 mb-2"),
-        P(description, cls="text-gray-600 text-sm mb-3"),
+        H4(title, cls="font-semibold text-base-content mb-2"),
+        P(description, cls="text-base-content/70 text-sm mb-3"),
         # Impact/Effort metrics
         Div(
             Span(f"Impact: {impact}", cls="text-green-600 font-medium"),
@@ -450,7 +450,7 @@ def RecommendationCard(
             Button("Learn More", cls="btn btn-sm btn-outline") if learn_more else None,
             cls="flex gap-2",
         ),
-        cls="p-4 border border-gray-200 rounded bg-white shadow-sm",
+        cls="p-4 border border-base-200 rounded bg-base-100 shadow-sm",
     )
 
 
@@ -486,22 +486,22 @@ def TrendIndicator(
 
     return Div(
         Div(
-            P(label, cls="text-sm font-medium text-gray-700"),
+            P(label, cls="text-sm font-medium text-base-content/70"),
             Span(direction_icon, cls=f"text-lg {direction_color}"),
             cls="flex justify-between items-center mb-2",
         ),
         Div(
             Div(
-                P("Current", cls="text-gray-500"),
+                P("Current", cls="text-base-content/60"),
                 P(f"{current:.1f}{unit}", cls="font-medium"),
             ),
             Div(
-                P("Average", cls="text-gray-500"),
+                P("Average", cls="text-base-content/60"),
                 P(f"{average:.1f}{unit}", cls="font-medium"),
             ),
             cls="grid grid-cols-2 gap-2 text-xs",
         ),
-        cls="p-3 bg-gray-50 rounded",
+        cls="p-3 bg-base-200 rounded",
     )
 
 
@@ -529,7 +529,7 @@ def SettingToggle(name: str, description: str, enabled: bool = True) -> Div:
         ...     enabled=True,
         ... )
     """
-    status_color = "text-green-600" if enabled else "text-gray-500"
+    status_color = "text-green-600" if enabled else "text-base-content/60"
     status_text = "Enabled" if enabled else "Disabled"
 
     return Div(
@@ -538,8 +538,8 @@ def SettingToggle(name: str, description: str, enabled: bool = True) -> Div:
             Span(status_text, cls=f"text-sm {status_color}"),
             cls="flex justify-between items-center",
         ),
-        P(description, cls="text-sm text-gray-500 mt-1"),
-        cls="p-3 border border-gray-200 rounded cursor-pointer hover:bg-gray-50",
+        P(description, cls="text-sm text-base-content/60 mt-1"),
+        cls="p-3 border border-base-200 rounded cursor-pointer hover:bg-base-200",
     )
 
 
@@ -573,12 +573,12 @@ def QuickStatsBar(metrics: dict[str, Any]) -> Div:
     # Build metric items conditionally
     items = [
         Div(
-            P("Queries", cls="text-xs text-gray-400 uppercase tracking-wide"),
+            P("Queries", cls="text-xs text-base-content/50 uppercase tracking-wide"),
             P(str(metrics.get("queries", 0)), cls="text-2xl font-bold"),
             cls="text-center",
         ),
         Div(
-            P("Avg Response", cls="text-xs text-gray-400 uppercase tracking-wide"),
+            P("Avg Response", cls="text-xs text-base-content/50 uppercase tracking-wide"),
             P(f"{metrics.get('avg_response_ms', 0)}ms", cls="text-2xl font-bold"),
             cls="text-center",
         ),
@@ -587,7 +587,7 @@ def QuickStatsBar(metrics: dict[str, Any]) -> Div:
     if metrics.get("cache_hit_rate") is not None:
         items.append(
             Div(
-                P("Cache Hit", cls="text-xs text-gray-400 uppercase tracking-wide"),
+                P("Cache Hit", cls="text-xs text-base-content/50 uppercase tracking-wide"),
                 P(f"{metrics.get('cache_hit_rate', 0):.0%}", cls="text-2xl font-bold"),
                 cls="text-center",
             )
@@ -596,7 +596,7 @@ def QuickStatsBar(metrics: dict[str, Any]) -> Div:
     if metrics.get("semantic_rate") is not None:
         items.append(
             Div(
-                P("Semantic", cls="text-xs text-gray-400 uppercase tracking-wide"),
+                P("Semantic", cls="text-xs text-base-content/50 uppercase tracking-wide"),
                 P(f"{metrics.get('semantic_rate', 0):.0%}", cls="text-2xl font-bold"),
                 cls="text-center",
             )
@@ -605,7 +605,7 @@ def QuickStatsBar(metrics: dict[str, Any]) -> Div:
     if metrics.get("cross_domain_rate") is not None:
         items.append(
             Div(
-                P("Cross-Domain", cls="text-xs text-gray-400 uppercase tracking-wide"),
+                P("Cross-Domain", cls="text-xs text-base-content/50 uppercase tracking-wide"),
                 P(f"{metrics.get('cross_domain_rate', 0):.0%}", cls="text-2xl font-bold"),
                 cls="text-center",
             )

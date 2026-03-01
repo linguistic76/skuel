@@ -96,19 +96,19 @@ def create_auth_api_routes(
                     H2("Session Information", cls="text-xl font-semibold mb-4"),
                     Div(
                         P("User UID:", cls="font-medium"),
-                        P(user_uid or "None", cls="text-gray-600 font-mono"),
+                        P(user_uid or "None", cls="text-base-content/70 font-mono"),
                         cls="mb-3",
                     ),
                     Div(
                         P("Authenticated:", cls="font-medium"),
-                        P("Yes" if is_auth else "No", cls="text-gray-600"),
+                        P("Yes" if is_auth else "No", cls="text-base-content/70"),
                         cls="mb-3",
                     ),
                     Div(
                         P("Session Status:", cls="font-medium"),
                         P(
                             "Active session" if is_auth else "No session",
-                            cls="text-gray-600",
+                            cls="text-base-content/70",
                         ),
                         cls="mb-6",
                     ),

@@ -78,7 +78,7 @@ class ActivityViewTabs:
                         ":aria-selected": f"activeTab === '{view_id}' ? 'true' : 'false'",
                         ":tabindex": f"activeTab === '{view_id}' ? 0 : -1",
                         # Dynamic classes for active state
-                        ":class": f"{{'bg-blue-600 text-white rounded-lg': activeTab === '{view_id}', 'text-gray-700 hover:bg-gray-100 rounded-lg': activeTab !== '{view_id}'}}",
+                        ":class": f"{{'bg-blue-600 text-white rounded-lg': activeTab === '{view_id}', 'text-base-content/70 hover:bg-base-200 rounded-lg': activeTab !== '{view_id}'}}",
                         # Alpine.js event handlers
                         "@click": f"setActiveTab('{view_id}')",
                         "@keydown": f"handleTabKeydown($event, '{view_id}')",

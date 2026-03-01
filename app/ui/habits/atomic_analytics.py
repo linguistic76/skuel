@@ -132,7 +132,7 @@ class AtomicHabitsAnalytics:
                     ),
                     Span(
                         f"{start_date.strftime('%b %d, %Y')} - {end_date.strftime('%b %d, %Y')}",
-                        cls="text-sm text-gray-600 ml-4",
+                        cls="text-sm text-base-content/70 ml-4",
                     ),
                     Button(
                         "Export Data",
@@ -166,7 +166,7 @@ class AtomicHabitsAnalytics:
                             f"{stats['avg_system_strength']:.1f}%",
                             cls="text-3xl font-bold text-blue-600",
                         ),
-                        P("Avg System Strength", cls="text-sm text-gray-600"),
+                        P("Avg System Strength", cls="text-sm text-base-content/70"),
                         cls="text-center",
                     ),
                 ),
@@ -178,7 +178,7 @@ class AtomicHabitsAnalytics:
                             str(stats["total_identity_votes"]),
                             cls="text-3xl font-bold text-purple-600",
                         ),
-                        P("Total Identity Votes", cls="text-sm text-gray-600"),
+                        P("Total Identity Votes", cls="text-sm text-base-content/70"),
                         cls="text-center",
                     ),
                 ),
@@ -190,7 +190,7 @@ class AtomicHabitsAnalytics:
                             f"{stats['habits_in_optimal_essentiality']}/{stats['total_habits']}",
                             cls="text-3xl font-bold text-green-600",
                         ),
-                        P("Optimal Essentiality", cls="text-sm text-gray-600"),
+                        P("Optimal Essentiality", cls="text-sm text-base-content/70"),
                         cls="text-center",
                     ),
                 ),
@@ -199,7 +199,7 @@ class AtomicHabitsAnalytics:
                 CardBody(
                     Div(
                         Span(stats["velocity_trend"], cls="text-3xl font-bold text-orange-600"),
-                        P("Velocity Trend", cls="text-sm text-gray-600"),
+                        P("Velocity Trend", cls="text-sm text-base-content/70"),
                         cls="text-center",
                     ),
                 ),
@@ -270,10 +270,10 @@ class AtomicHabitsAnalytics:
                 Tr(
                     Td(goal.goal_title, cls="font-medium"),
                     Td(f"{goal.system_strength * 100:.1f}%", cls=f"font-bold {strength_color}"),
-                    Td(f"{goal.velocity:.1f}", cls="text-gray-700"),
+                    Td(f"{goal.velocity:.1f}", cls="text-base-content/70"),
                     Td(
                         f"{goal.essential_count}/{goal.critical_count}/{goal.supporting_count}/{goal.optional_count}",
-                        cls="text-sm text-gray-600",
+                        cls="text-sm text-base-content/70",
                     ),
                     Td(str(goal.identity_votes), cls="text-purple-600"),
                     Td(
@@ -290,7 +290,7 @@ class AtomicHabitsAnalytics:
         return Card(
             CardBody(
                 H2("🔍 System Comparison", cls="text-2xl font-bold mb-4"),
-                P("Compare habit systems across all your active goals", cls="text-gray-600 mb-6"),
+                P("Compare habit systems across all your active goals", cls="text-base-content/70 mb-6"),
                 Table(
                     Thead(
                         Tr(
@@ -321,7 +321,7 @@ class AtomicHabitsAnalytics:
                             '🎯 Consider migrating 1 supporting habit in "Master Python" to critical tier',
                             cls="text-sm text-blue-700",
                         ),
-                        cls="p-4 bg-gray-50 rounded-lg",
+                        cls="p-4 bg-base-200 rounded-lg",
                     ),
                 ),
             ),
@@ -352,7 +352,7 @@ class AtomicHabitsAnalytics:
                 H2("📈 Historical Trends", cls="text-2xl font-bold mb-4"),
                 P(
                     f"System performance from {start_date.strftime('%b %d')} to {end_date.strftime('%b %d')}",
-                    cls="text-gray-600 mb-6",
+                    cls="text-base-content/70 mb-6",
                 ),
                 # System Strength Trend
                 Div(
@@ -437,7 +437,7 @@ class AtomicHabitsAnalytics:
                         ),
                         cls="text-center",
                     ),
-                    Td("→", cls="text-2xl text-gray-400 text-center"),
+                    Td("→", cls="text-2xl text-base-content/50 text-center"),
                     Td(
                         Span(
                             migration.to_level.upper(),
@@ -445,15 +445,15 @@ class AtomicHabitsAnalytics:
                         ),
                         cls="text-center",
                     ),
-                    Td(migration.migration_date.strftime("%b %d, %Y"), cls="text-sm text-gray-600"),
-                    Td(migration.reason, cls="text-sm italic text-gray-700"),
+                    Td(migration.migration_date.strftime("%b %d, %Y"), cls="text-sm text-base-content/70"),
+                    Td(migration.reason, cls="text-sm italic text-base-content/70"),
                 )
             )
 
         return Card(
             CardBody(
                 H2("🔄 Habit Migration Tracking", cls="text-2xl font-bold mb-4"),
-                P("See how your habits evolve in importance over time", cls="text-gray-600 mb-6"),
+                P("See how your habits evolve in importance over time", cls="text-base-content/70 mb-6"),
                 Table(
                     Thead(
                         Tr(
@@ -517,11 +517,11 @@ class AtomicHabitsAnalytics:
                 Tr(
                     Td(benchmark.metric, cls="font-medium"),
                     Td(f"{user_val:.1f}", cls=f"font-bold {comparison}"),
-                    Td(f"{community_val:.1f}", cls="text-gray-600"),
+                    Td(f"{community_val:.1f}", cls="text-base-content/70"),
                     Td(
                         Span(
                             f"{percentile}th",
-                            cls=f"px-3 py-1 rounded-full text-sm font-bold {'bg-green-100 text-green-700' if percentile >= 75 else 'bg-blue-100 text-blue-700' if percentile >= 50 else 'bg-gray-100 text-gray-700'}",
+                            cls=f"badge {'badge-success' if percentile >= 75 else 'badge-info' if percentile >= 50 else 'badge-ghost'} font-bold",
                         ),
                         cls="text-center",
                     ),
@@ -534,9 +534,9 @@ class AtomicHabitsAnalytics:
                 H2("🌍 Community Benchmarking", cls="text-2xl font-bold mb-4"),
                 P(
                     "Compare your performance against anonymized community averages",
-                    cls="text-gray-600 mb-2",
+                    cls="text-base-content/70 mb-2",
                 ),
-                P("Data from 12,487 active SKUEL users", cls="text-xs text-gray-500 mb-6"),
+                P("Data from 12,487 active SKUEL users", cls="text-xs text-base-content/60 mb-6"),
                 Table(
                     Thead(
                         Tr(
@@ -577,12 +577,12 @@ class AtomicHabitsAnalytics:
     def _get_essentiality_color(essentiality: str) -> str:
         """Get color class for essentiality level."""
         colors = {
-            "essential": "bg-red-100 text-red-700",
-            "critical": "bg-orange-100 text-orange-700",
-            "supporting": "bg-blue-100 text-blue-700",
-            "optional": "bg-gray-100 text-gray-700",
+            "essential": "badge-error",
+            "critical": "badge-warning",
+            "supporting": "badge-info",
+            "optional": "badge-ghost",
         }
-        return colors.get(essentiality.lower(), "bg-gray-100 text-gray-700")
+        return colors.get(essentiality.lower(), "badge-ghost")
 
     @staticmethod
     def render_export_modal(export_format: str = "csv") -> Div:
@@ -591,7 +591,7 @@ class AtomicHabitsAnalytics:
             Card(
                 CardBody(
                     H2("📥 Export Analytics", cls="text-2xl font-bold mb-4"),
-                    P("Download your complete habit analytics data", cls="text-gray-600 mb-6"),
+                    P("Download your complete habit analytics data", cls="text-base-content/70 mb-6"),
                     # Export options
                     Div(
                         Label("Format:", cls="font-medium mb-2"),

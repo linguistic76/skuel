@@ -1776,7 +1776,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
                     hx_swap="innerHTML",
                     cls="min-h-[100px]",
                 ),
-                cls="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
+                cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
             )
         )
 
@@ -1804,7 +1804,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
             Div(knowledge_secondary, cls="mt-1 min-h-[1.25rem]")
             if knowledge_secondary
             else Div(cls="mt-1 min-h-[1.25rem]"),
-            cls="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
+            cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
         )
     )
 
@@ -1836,7 +1836,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
                 href="/journals/submit",
                 cls="text-xs text-primary hover:underline mt-2 inline-block",
             ),
-            cls="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
+            cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
         )
     )
 

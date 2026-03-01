@@ -48,13 +48,6 @@ class AdminUIComponents:
         "registered": "badge-info",
     }
 
-    ROLE_BG_COLORS: ClassVar[dict[str, str]] = {
-        "admin": "bg-red-100 text-red-800",
-        "teacher": "bg-orange-100 text-orange-800",
-        "member": "bg-green-100 text-green-800",
-        "registered": "bg-blue-100 text-blue-800",
-    }
-
     @staticmethod
     def render_role_badge(role: str) -> Span:
         """Render a role badge with appropriate color."""
@@ -840,7 +833,7 @@ class AdminSystemComponents:
         "healthy": "text-green-600",
         "warning": "text-yellow-600",
         "critical": "text-red-600",
-        "unknown": "text-gray-600",
+        "unknown": "text-base-content/70",
     }
 
     @staticmethod
@@ -876,7 +869,7 @@ class AdminSystemComponents:
     def render_overall_status(status: str) -> Div:
         """Render overall system status indicator."""
         bg_color = AdminSystemComponents.STATUS_COLORS.get(status, "bg-gray-400")
-        text_color = AdminSystemComponents.STATUS_TEXT_COLORS.get(status, "text-gray-600")
+        text_color = AdminSystemComponents.STATUS_TEXT_COLORS.get(status, "text-base-content/70")
 
         return Div(
             Div(
@@ -911,7 +904,7 @@ class AdminSystemComponents:
         response_time = data.get("response_time_ms")
 
         bg_color = AdminSystemComponents.STATUS_COLORS.get(status, "bg-gray-400")
-        text_color = AdminSystemComponents.STATUS_TEXT_COLORS.get(status, "text-gray-600")
+        text_color = AdminSystemComponents.STATUS_TEXT_COLORS.get(status, "text-base-content/70")
 
         return Div(
             Div(

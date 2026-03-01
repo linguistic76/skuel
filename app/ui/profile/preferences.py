@@ -37,7 +37,7 @@ class UserPreferencesComponents:
 
         return Div(
             H1("User Settings & Preferences", cls="text-3xl font-bold mb-6"),
-            P("Customize your SKUEL experience", cls="text-lg text-gray-600 mb-8"),
+            P("Customize your SKUEL experience", cls="text-lg text-base-content/70 mb-8"),
             # Learning Preferences Section
             Div(
                 H2("🎓 Learning Preferences", cls="text-2xl font-semibold mb-4"),
@@ -115,7 +115,7 @@ class UserPreferencesComponents:
                 ),
                 P(
                     "Your current skill level helps us recommend appropriate content",
-                    cls="text-sm text-gray-500 mt-1",
+                    cls="text-sm text-base-content/60 mt-1",
                 ),
                 cls="form-control mb-4",
             ),
@@ -222,7 +222,7 @@ class UserPreferencesComponents:
                 ),
                 P(
                     f"{prefs.get('available_minutes_daily', 60)} minutes = {prefs.get('available_minutes_daily', 60) / 60:.1f} hours",
-                    cls="text-sm text-gray-500 mt-1",
+                    cls="text-sm text-base-content/60 mt-1",
                 ),
                 cls="form-control mb-4",
             ),
@@ -309,7 +309,7 @@ class UserPreferencesComponents:
                 ),
                 P(
                     "e.g., America/New_York, Europe/London, Asia/Tokyo",
-                    cls="text-sm text-gray-500 mt-1",
+                    cls="text-sm text-base-content/60 mt-1",
                 ),
                 cls="form-control mb-4",
             ),
@@ -332,7 +332,7 @@ class UserPreferencesComponents:
                     max=100,
                     cls="input input-bordered w-full",
                 ),
-                P("Target number of tasks to complete each week", cls="text-sm text-gray-500 mt-1"),
+                P("Target number of tasks to complete each week", cls="text-sm text-base-content/60 mt-1"),
                 cls="form-control mb-4",
             ),
             Div(
@@ -345,7 +345,7 @@ class UserPreferencesComponents:
                     max=20,
                     cls="input input-bordered w-full",
                 ),
-                P("Target number of habits to complete each day", cls="text-sm text-gray-500 mt-1"),
+                P("Target number of habits to complete each day", cls="text-sm text-base-content/60 mt-1"),
                 cls="form-control mb-4",
             ),
             Div(
@@ -358,7 +358,7 @@ class UserPreferencesComponents:
                     max=500,
                     cls="input input-bordered w-full",
                 ),
-                P("Target learning hours per month", cls="text-sm text-gray-500 mt-1"),
+                P("Target learning hours per month", cls="text-sm text-base-content/60 mt-1"),
                 cls="form-control mb-4",
             ),
             id="goal-prefs-form",

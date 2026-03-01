@@ -103,17 +103,17 @@ class PrinciplesViewComponents:
         # Stats bar
         stats_bar = Div(
             Div(
-                Span("Total: ", cls="text-gray-500"),
+                Span("Total: ", cls="text-base-content/60"),
                 Span(str(stats.get("total", 0)), cls="font-bold"),
                 cls="mr-4",
             ),
             Div(
-                Span("Core: ", cls="text-gray-500"),
+                Span("Core: ", cls="text-base-content/60"),
                 Span(str(stats.get("core", 0)), cls="font-bold text-purple-600"),
                 cls="mr-4",
             ),
             Div(
-                Span("Active: ", cls="text-gray-500"),
+                Span("Active: ", cls="text-base-content/60"),
                 Span(str(stats.get("active", 0)), cls="font-bold text-green-600"),
             ),
             cls="flex items-center mb-4 text-sm",
@@ -202,7 +202,7 @@ class PrinciplesViewComponents:
             else [
                 P(
                     "No principles found. Create one to get started!",
-                    cls="text-gray-500 text-center py-8",
+                    cls="text-base-content/60 text-center py-8",
                 )
             ],
             id="principle-list",
@@ -256,7 +256,7 @@ class PrinciplesViewComponents:
             "health": "text-red-600",
             "creative": "text-yellow-600",
         }
-        category_color = category_colors.get(category_str, "text-gray-600")
+        category_color = category_colors.get(category_str, "text-base-content/70")
 
         return Div(
             Div(
@@ -274,14 +274,14 @@ class PrinciplesViewComponents:
                     description[:100] + "..."
                     if description and len(description) > 100
                     else description,
-                    cls="text-gray-600 text-sm mt-1",
+                    cls="text-base-content/70 text-sm mt-1",
                 )
                 if description
                 else "",
                 # Meta row
                 Div(
                     Span(f"Category: {category_str.title()}", cls=f"text-xs {category_color} mr-4"),
-                    Span(f"Strength: {strength_label}", cls="text-xs text-gray-500"),
+                    Span(f"Strength: {strength_label}", cls="text-xs text-base-content/60"),
                     cls="flex items-center mt-2",
                 ),
                 # Actions
@@ -384,7 +384,7 @@ class PrinciplesViewComponents:
                     placeholder="A short, memorable statement (e.g., 'Act with integrity')",
                     cls="input input-bordered w-full",
                 ),
-                P("A concise statement you can recall easily", cls="text-xs text-gray-500 mt-1"),
+                P("A concise statement you can recall easily", cls="text-xs text-base-content/60 mt-1"),
                 cls="mb-4",
             ),
             cls="flex-1",
@@ -415,7 +415,7 @@ class PrinciplesViewComponents:
                 ),
                 P(
                     "How established is this principle in your life?",
-                    cls="text-xs text-gray-500 mt-1",
+                    cls="text-xs text-base-content/60 mt-1",
                 ),
                 cls="mb-4",
             ),
@@ -432,7 +432,7 @@ class PrinciplesViewComponents:
                     "Active Principle",
                     cls="label cursor-pointer justify-start",
                 ),
-                P("Active principles guide your daily decisions", cls="text-xs text-gray-500 mt-1"),
+                P("Active principles guide your daily decisions", cls="text-xs text-base-content/60 mt-1"),
                 cls="mb-4",
             ),
             cls="flex-1",
@@ -504,7 +504,7 @@ class PrinciplesViewComponents:
             Div(
                 # Overall adherence
                 Div(
-                    P("Overall Adherence", cls="text-sm text-gray-500"),
+                    P("Overall Adherence", cls="text-sm text-base-content/60"),
                     P(
                         f"{analytics_data.get('overall_adherence', 0):.0%}",
                         cls="text-3xl font-bold text-green-600",
@@ -513,7 +513,7 @@ class PrinciplesViewComponents:
                 ),
                 # Core principles
                 Div(
-                    P("Core Principles", cls="text-sm text-gray-500"),
+                    P("Core Principles", cls="text-sm text-base-content/60"),
                     P(
                         str(analytics_data.get("core_count", 0)),
                         cls="text-3xl font-bold text-purple-600",
@@ -522,7 +522,7 @@ class PrinciplesViewComponents:
                 ),
                 # Active principles
                 Div(
-                    P("Active Principles", cls="text-sm text-gray-500"),
+                    P("Active Principles", cls="text-sm text-base-content/60"),
                     P(
                         str(analytics_data.get("active_count", 0)),
                         cls="text-3xl font-bold text-blue-600",
@@ -540,13 +540,13 @@ class PrinciplesViewComponents:
             Div(
                 P(
                     "Track how your principles influence your goals and choices.",
-                    cls="text-gray-500 mb-4",
+                    cls="text-base-content/60 mb-4",
                 ),
                 # Placeholder for charts
                 Div(
                     P(
                         "Impact charts will be displayed here",
-                        cls="text-gray-400 text-center py-12 border border-dashed border-gray-300 rounded-lg",
+                        cls="text-base-content/50 text-center py-12 border border-dashed border-base-300 rounded-lg",
                     ),
                     cls="mb-4",
                 ),
@@ -558,7 +558,7 @@ class PrinciplesViewComponents:
         reflections = analytics_data.get("reflections", [])
         if reflections:
             reflection_content = Div(
-                P("Your recent principle reflections:", cls="text-gray-500 mb-4"),
+                P("Your recent principle reflections:", cls="text-base-content/60 mb-4"),
                 Div(
                     *[PrinciplesViewComponents._render_reflection_card(r) for r in reflections[:5]],
                     cls="space-y-3",
@@ -566,8 +566,8 @@ class PrinciplesViewComponents:
             )
         else:
             reflection_content = Div(
-                P("Track your principle reflections and growth.", cls="text-gray-500 mb-4"),
-                P("No reflections recorded yet.", cls="text-gray-400 text-center py-8"),
+                P("Track your principle reflections and growth.", cls="text-base-content/60 mb-4"),
+                P("No reflections recorded yet.", cls="text-base-content/50 text-center py-8"),
             )
 
         reflection_section = Div(
@@ -735,7 +735,7 @@ class PrinciplesViewComponents:
         return Div(
             Div(
                 H2(f"Reflect on: {name}", cls="text-xl font-bold mb-4"),
-                P("How well did you align with this principle today?", cls="text-gray-600 mb-4"),
+                P("How well did you align with this principle today?", cls="text-base-content/70 mb-4"),
                 Form(
                     # Alignment level
                     Div(
@@ -767,7 +767,7 @@ class PrinciplesViewComponents:
                         ),
                         P(
                             "Describe what happened that relates to this principle.",
-                            cls="text-xs text-gray-500 mt-1",
+                            cls="text-xs text-base-content/60 mt-1",
                         ),
                         cls="mb-4",
                     ),
@@ -787,9 +787,9 @@ class PrinciplesViewComponents:
                     Div(
                         Div(
                             Span(
-                                "What triggered this reflection?", cls="font-semibold text-gray-700"
+                                "What triggered this reflection?", cls="font-semibold text-base-content/70"
                             ),
-                            Span("(Optional)", cls="text-xs text-gray-400 ml-2"),
+                            Span("(Optional)", cls="text-xs text-base-content/50 ml-2"),
                             cls="mb-2",
                         ),
                         # Trigger type selector
@@ -822,7 +822,7 @@ class PrinciplesViewComponents:
                             ),
                             P(
                                 "UID of the goal, habit, event, or choice that prompted this reflection",
-                                cls="text-xs text-gray-400 mt-1",
+                                cls="text-xs text-base-content/50 mt-1",
                             ),
                             cls="mb-2",
                             id="trigger-uid-container",
@@ -924,7 +924,7 @@ class PrinciplesViewComponents:
             reflection_cards = [
                 P(
                     "No reflections yet. Click 'Reflect' on the principle to record your first reflection.",
-                    cls="text-gray-500 text-center py-8",
+                    cls="text-base-content/60 text-center py-8",
                 )
             ]
 
@@ -949,14 +949,14 @@ class PrinciplesViewComponents:
 
         # Alignment level styling
         alignment_colors = {
-            AlignmentLevel.ALIGNED: ("bg-green-100 text-green-800", "Fully Aligned"),
-            AlignmentLevel.MOSTLY_ALIGNED: ("bg-blue-100 text-blue-800", "Mostly Aligned"),
-            AlignmentLevel.PARTIAL: ("bg-yellow-100 text-yellow-800", "Partial"),
-            AlignmentLevel.MISALIGNED: ("bg-red-100 text-red-800", "Misaligned"),
-            AlignmentLevel.UNKNOWN: ("bg-gray-100 text-gray-800", "Unknown"),
+            AlignmentLevel.ALIGNED: ("badge-success", "Fully Aligned"),
+            AlignmentLevel.MOSTLY_ALIGNED: ("badge-info", "Mostly Aligned"),
+            AlignmentLevel.PARTIAL: ("badge-warning", "Partial"),
+            AlignmentLevel.MISALIGNED: ("badge-error", "Misaligned"),
+            AlignmentLevel.UNKNOWN: ("badge-ghost", "Unknown"),
         }
         color_cls, alignment_text = alignment_colors.get(
-            alignment, ("bg-gray-100 text-gray-800", "Unknown")
+            alignment, ("badge-ghost", "Unknown")
         )
 
         # Quality badge
@@ -971,7 +971,7 @@ class PrinciplesViewComponents:
             Div(
                 # Date and alignment
                 Div(
-                    Span(str(reflection_date), cls="text-sm text-gray-500"),
+                    Span(str(reflection_date), cls="text-sm text-base-content/60"),
                     Span(alignment_text, cls=f"badge {color_cls} ml-2"),
                     Span(
                         quality_label,
@@ -980,19 +980,19 @@ class PrinciplesViewComponents:
                     cls="flex items-center gap-2 mb-2",
                 ),
                 # Evidence
-                P(evidence, cls="text-gray-700 mb-2") if evidence else None,
+                P(evidence, cls="text-base-content/70 mb-2") if evidence else None,
                 # Notes (if present)
-                P(notes, cls="text-gray-600 text-sm italic") if notes else None,
+                P(notes, cls="text-base-content/70 text-sm italic") if notes else None,
                 # Trigger info
                 Span(
                     f"Triggered by: {trigger_type}",
-                    cls="text-xs text-gray-400 mt-2 block",
+                    cls="text-xs text-base-content/50 mt-2 block",
                 )
                 if trigger_type != "manual"
                 else None,
                 cls="p-4",
             ),
-            cls="card bg-base-100 shadow border border-gray-200",
+            cls="card bg-base-100 shadow border border-base-200",
         )
 
     # ========================================================================
@@ -1023,9 +1023,9 @@ class PrinciplesViewComponents:
         trend_styles = {
             "improving": ("text-green-600", "↑ Improving"),
             "declining": ("text-red-600", "↓ Declining"),
-            "stable": ("text-gray-600", "→ Stable"),
+            "stable": ("text-base-content/70", "→ Stable"),
         }
-        trend_cls, trend_text = trend_styles.get(trend_direction, ("text-gray-600", "→ Stable"))
+        trend_cls, trend_text = trend_styles.get(trend_direction, ("text-base-content/70", "→ Stable"))
 
         # Header with back button
         header = Div(
@@ -1038,7 +1038,7 @@ class PrinciplesViewComponents:
                 },
             ),
             H2("Alignment Trend", cls="text-xl font-bold mt-4 mb-4"),
-            P(f"Period: {period_start} to {period_end}", cls="text-gray-500 mb-4"),
+            P(f"Period: {period_start} to {period_end}", cls="text-base-content/60 mb-4"),
             cls="mb-4",
         )
 
@@ -1046,25 +1046,25 @@ class PrinciplesViewComponents:
         stats_row = Div(
             # Reflection count
             Div(
-                Span("Reflections", cls="text-sm text-gray-500 block"),
+                Span("Reflections", cls="text-sm text-base-content/60 block"),
                 Span(str(reflection_count), cls="text-2xl font-bold"),
                 cls="card bg-base-100 shadow p-4 text-center",
             ),
             # Average alignment
             Div(
-                Span("Avg Alignment", cls="text-sm text-gray-500 block"),
+                Span("Avg Alignment", cls="text-sm text-base-content/60 block"),
                 Span(f"{avg_alignment:.1f}/4", cls="text-2xl font-bold"),
                 cls="card bg-base-100 shadow p-4 text-center",
             ),
             # Trend direction
             Div(
-                Span("Trend", cls="text-sm text-gray-500 block"),
+                Span("Trend", cls="text-sm text-base-content/60 block"),
                 Span(trend_text, cls=f"text-2xl font-bold {trend_cls}"),
                 cls="card bg-base-100 shadow p-4 text-center",
             ),
             # Quality average
             Div(
-                Span("Quality", cls="text-sm text-gray-500 block"),
+                Span("Quality", cls="text-sm text-base-content/60 block"),
                 Span(f"{quality_avg:.0%}", cls="text-2xl font-bold"),
                 cls="card bg-base-100 shadow p-4 text-center",
             ),
@@ -1076,7 +1076,7 @@ class PrinciplesViewComponents:
         for trigger_type, count in trigger_dist.items():
             trigger_items.append(
                 Div(
-                    Span(trigger_type.title(), cls="text-gray-600"),
+                    Span(trigger_type.title(), cls="text-base-content/70"),
                     Span(str(count), cls="font-bold ml-auto"),
                     cls="flex justify-between py-2 border-b",
                 )
@@ -1085,7 +1085,7 @@ class PrinciplesViewComponents:
         trigger_section = (
             Div(
                 H3("Reflection Triggers", cls="text-lg font-semibold mb-3"),
-                *trigger_items if trigger_items else [P("No trigger data", cls="text-gray-500")],
+                *trigger_items if trigger_items else [P("No trigger data", cls="text-base-content/60")],
                 cls="card bg-base-100 shadow p-4",
             )
             if trigger_dist

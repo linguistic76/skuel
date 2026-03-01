@@ -79,7 +79,7 @@ def _wrap_calendar_page(navbar: Any, content: Any, title: str = "Calendar") -> A
         Body(
             navbar,
             content,
-            cls="bg-white min-h-screen",
+            cls="bg-base-100 min-h-screen",
             **{"x-data": "calendarPage()"},
         ),
     )

@@ -500,7 +500,7 @@ class FormGeneratorExamples:
                 "hx_post": "/api/tasks",
                 "hx_target": "#task-list",
                 "hx_swap": "beforeend",
-                "cls": "space-y-4 p-4 bg-white rounded shadow",
+                "cls": "space-y-4 p-4 bg-base-100 rounded shadow",
             },
         )
 

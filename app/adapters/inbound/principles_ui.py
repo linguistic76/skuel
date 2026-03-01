@@ -650,7 +650,7 @@ def create_principles_ui_routes(
         return Div(
             *principle_items
             if principle_items
-            else [P("No principles found.", cls="text-gray-500 text-center py-8")],
+            else [P("No principles found.", cls="text-base-content/60 text-center py-8")],
             id="principle-list",
             cls="space-y-3",
         )
@@ -834,7 +834,7 @@ def create_principles_ui_routes(
             ]
         else:
             reflection_cards = [
-                P("No reflections recorded yet.", cls="text-gray-500 text-center py-4")
+                P("No reflections recorded yet.", cls="text-base-content/60 text-center py-4")
             ]
 
         reflection_section = Div(
@@ -864,7 +864,7 @@ def create_principles_ui_routes(
                 Span(category_str.title(), cls="badge badge-outline"),
                 Span("Inactive", cls="badge badge-ghost ml-2") if not is_active else "",
                 # Statement
-                P(statement, cls="text-lg text-gray-700 mt-4 italic") if statement else "",
+                P(statement, cls="text-lg text-base-content/70 mt-4 italic") if statement else "",
                 # Description
                 (
                     Div(

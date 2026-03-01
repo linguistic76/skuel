@@ -112,7 +112,7 @@ class EventUIComponents:
             )
             if events
             else P(
-                "No events yet. Create one to get started!", cls="text-gray-500 text-center py-8"
+                "No events yet. Create one to get started!", cls="text-base-content/60 text-center py-8"
             ),
         )
 
@@ -144,21 +144,21 @@ class EventUIComponents:
                 ),
                 P(
                     description[:100] + "..." if len(description) > 100 else description,
-                    cls="text-gray-600 mb-2",
+                    cls="text-base-content/70 mb-2",
                 )
                 if description
                 else "",
                 Div(
-                    Span(f"Start: {start_time}", cls="text-sm text-gray-500 mr-4")
+                    Span(f"Start: {start_time}", cls="text-sm text-base-content/60 mr-4")
                     if start_time
                     else "",
-                    Span(f"End: {end_time}", cls="text-sm text-gray-500 mr-4") if end_time else "",
-                    Span(f"Location: {location}", cls="text-sm text-gray-500") if location else "",
+                    Span(f"End: {end_time}", cls="text-sm text-base-content/60 mr-4") if end_time else "",
+                    Span(f"Location: {location}", cls="text-sm text-base-content/60") if location else "",
                     cls="flex flex-wrap",
                 ),
                 cls="p-4",
             ),
-            cls="border border-gray-200 rounded-lg hover:shadow-md transition-shadow",
+            cls="border border-base-200 rounded-lg hover:shadow-md transition-shadow",
         )
 
 
@@ -577,7 +577,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
         return Div(
             *event_items
             if event_items
-            else [P("No events found.", cls="text-gray-500 text-center py-8")],
+            else [P("No events found.", cls="text-base-content/60 text-center py-8")],
             id="event-list",
             cls="space-y-3",
         )

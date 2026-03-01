@@ -47,7 +47,7 @@ PRIORITY_TO_P = {
     Priority.CRITICAL: ("P1", "text-red-500", "fill-red-500"),
     Priority.HIGH: ("P2", "text-orange-500", "fill-orange-500"),
     Priority.MEDIUM: ("P3", "text-blue-500", "fill-blue-500"),
-    Priority.LOW: ("P4", "text-gray-400", "fill-gray-400"),
+    Priority.LOW: ("P4", "text-base-content/50", "fill-gray-400"),
 }
 
 
@@ -83,7 +83,7 @@ class TodoistTaskComponents:
                 priority = Priority.LOW
 
         p_label, text_class, _fill_class = PRIORITY_TO_P.get(
-            priority, ("P4", "text-gray-400", "fill-gray-400")
+            priority, ("P4", "text-base-content/50", "fill-gray-400")
         )
 
         # Flag icon SVG - use NotStr to render raw HTML
@@ -109,7 +109,7 @@ class TodoistTaskComponents:
         if not project:
             return ""
 
-        return Span(f"@{project}", cls="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded")
+        return Span(f"@{project}", cls="badge badge-ghost badge-sm")
 
     # ========================================================================
     # ASSIGNEE TAG
@@ -152,7 +152,7 @@ class TodoistTaskComponents:
         today = date.today()
 
         if is_completed:
-            cls = "text-xs text-gray-400 line-through"
+            cls = "text-xs text-base-content/50 line-through"
             label = due_date.strftime("%b %d")
         elif due_date < today:
             cls = "text-xs text-red-500 font-medium"
@@ -162,7 +162,7 @@ class TodoistTaskComponents:
             cls = "text-xs text-orange-500 font-medium"
             label = "Today"
         else:
-            cls = "text-xs text-gray-500"
+            cls = "text-xs text-base-content/60"
             days_until = (due_date - today).days
             if days_until == 1:
                 label = "Tomorrow"
@@ -213,14 +213,14 @@ class TodoistTaskComponents:
         # Title (with strikethrough if completed)
         title_cls = "text-sm"
         if is_completed:
-            title_cls += " line-through text-gray-400"
+            title_cls += " line-through text-base-content/50"
 
         # Title with optional description
         description = getattr(task, "description", None)
         if description:
             title_section = Div(
                 Span(task.title, cls=title_cls),
-                P(description, cls="text-xs text-gray-500 mt-0.5 line-clamp-1"),
+                P(description, cls="text-xs text-base-content/60 mt-0.5 line-clamp-1"),
                 cls="flex-1 min-w-0",
             )
         else:
@@ -647,30 +647,30 @@ class TodoistTaskComponents:
 
         # Second row: Assignee + Start + Due (more visible labels)
         row2 = Div(
-            Label("Assignee:", cls="text-sm text-gray-600 font-medium"),
+            Label("Assignee:", cls="text-sm text-base-content/70 font-medium"),
             assignee_input,
-            Label("Start:", cls="text-sm text-gray-600 font-medium ml-3"),
+            Label("Start:", cls="text-sm text-base-content/70 font-medium ml-3"),
             start_date_input,
-            Label("Due:", cls="text-sm text-gray-600 font-medium ml-3"),
+            Label("Due:", cls="text-sm text-base-content/70 font-medium ml-3"),
             due_date_input,
             cls="flex items-center gap-3 mt-4 pt-4 border-t border-base-200",
         )
 
         # Third row: Description
         row3 = Div(
-            Label("Description:", cls="text-sm text-gray-600 font-medium"),
+            Label("Description:", cls="text-sm text-base-content/70 font-medium"),
             description_input,
             cls="mt-3",
         )
 
         # Fourth row: Parent task (subtasks) + Recurrence
         row4 = Div(
-            Label("Subtask of:", cls="text-sm text-gray-600 font-medium"),
+            Label("Subtask of:", cls="text-sm text-base-content/70 font-medium"),
             parent_input,
             parent_datalist,  # Hidden datalist for autocomplete
-            Label("Repeat:", cls="text-sm text-gray-600 font-medium ml-3"),
+            Label("Repeat:", cls="text-sm text-base-content/70 font-medium ml-3"),
             recurrence_select,
-            Label("Until:", cls="text-sm text-gray-600 font-medium ml-3"),
+            Label("Until:", cls="text-sm text-base-content/70 font-medium ml-3"),
             recurrence_end_input,
             cls="flex items-center gap-3 mt-4 pt-4 border-t border-base-200",
         )
@@ -774,27 +774,27 @@ class TodoistTaskComponents:
 
         return Div(
             Div(
-                Label("Project:", cls="text-xs text-gray-500"),
+                Label("Project:", cls="text-xs text-base-content/60"),
                 project_filter,
                 cls="flex items-center gap-1",
             ),
             Div(
-                Label("Assignee:", cls="text-xs text-gray-500"),
+                Label("Assignee:", cls="text-xs text-base-content/60"),
                 assignee_filter,
                 cls="flex items-center gap-1",
             ),
             Div(
-                Label("Due:", cls="text-xs text-gray-500"),
+                Label("Due:", cls="text-xs text-base-content/60"),
                 due_filter,
                 cls="flex items-center gap-1",
             ),
             Div(
-                Label("Status:", cls="text-xs text-gray-500"),
+                Label("Status:", cls="text-xs text-base-content/60"),
                 status_filter,
                 cls="flex items-center gap-1",
             ),
             Div(
-                Label("Sort:", cls="text-xs text-gray-500"),
+                Label("Sort:", cls="text-xs text-base-content/60"),
                 sort_select,
                 cls="flex items-center gap-1",
             ),
@@ -835,13 +835,13 @@ class TodoistTaskComponents:
         overdue = stats.get("overdue", 0)
 
         return Div(
-            Span(f"{total} tasks", cls="text-sm text-gray-600"),
-            Span("|", cls="text-gray-300 mx-2"),
+            Span(f"{total} tasks", cls="text-sm text-base-content/70"),
+            Span("|", cls="text-base-content/30 mx-2"),
             Span(f"{completed} completed", cls="text-sm text-green-600"),
-            Span("|", cls="text-gray-300 mx-2"),
+            Span("|", cls="text-base-content/30 mx-2"),
             Span(
                 f"{overdue} overdue",
-                cls=f"text-sm {'text-red-500 font-medium' if overdue > 0 else 'text-gray-500'}",
+                cls=f"text-sm {'text-red-500 font-medium' if overdue > 0 else 'text-base-content/60'}",
             ),
             cls="flex items-center mb-4",
         )

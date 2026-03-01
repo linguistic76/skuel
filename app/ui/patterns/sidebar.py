@@ -165,7 +165,7 @@ def SidebarNav(
             Button(
                 _chevron_svg(),
                 cls="absolute right-2 top-4 w-11 h-11 flex items-center justify-center"
-                " rounded-md border border-base-300 bg-white hover:bg-base-200"
+                " rounded-md border border-base-300 bg-base-100 hover:bg-base-200"
                 " transition-all duration-300 cursor-pointer z-10",
                 type="button",
                 aria_label="Toggle sidebar",
@@ -191,7 +191,7 @@ def SidebarNav(
             ),
             cls="h-full relative overflow-y-auto",
         ),
-        cls="hidden lg:block fixed top-16 left-0 bottom-0 w-64 bg-white"
+        cls="hidden lg:block fixed top-16 left-0 bottom-0 w-64 bg-base-100"
         " border-r border-base-300 z-40 transition-transform duration-300"
         " overflow-hidden",
         **{":class": "collapsed ? '-translate-x-52' : 'translate-x-0'"},

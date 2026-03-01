@@ -122,7 +122,7 @@ def create_graphql_routes_manual(
                 Card(
                     H3("Result"),
                     Div(
-                        P("Execute a query to see results here...", cls="text-gray-500"),
+                        P("Execute a query to see results here...", cls="text-base-content/60"),
                         id="graphql-result",
                         cls="font-mono text-sm",
                     ),

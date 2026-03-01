@@ -64,7 +64,7 @@ class ExerciseUIComponents:
                 "Create instruction sets for AI feedback on your entries. "
                 "Full transparency - you write the instructions, select the model, "
                 "and see exactly what's sent to the LLM.",
-                cls="text-gray-600 mb-6",
+                cls="text-base-content/70 mb-6",
             ),
             # Action button
             Div(
@@ -90,7 +90,7 @@ class ExerciseUIComponents:
             return Card(
                 P(
                     "No exercises yet. Create your first exercise to get started!",
-                    cls="text-gray-500 text-center py-8",
+                    cls="text-base-content/60 text-center py-8",
                 ),
                 cls="mb-4",
             )
@@ -116,7 +116,7 @@ class ExerciseUIComponents:
                     cls="flex justify-between items-start mb-2",
                 ),
                 # Instructions preview
-                P(instructions_preview, cls="text-gray-600 text-sm mb-3"),
+                P(instructions_preview, cls="text-base-content/70 text-sm mb-3"),
                 # Model badge
                 Span(
                     f"{exercise.model}",
@@ -127,7 +127,7 @@ class ExerciseUIComponents:
                     Div(
                         Span(
                             f"{len(exercise.context_notes)} context notes",
-                            cls="text-sm text-gray-500",
+                            cls="text-sm text-base-content/60",
                         ),
                         cls="mb-3",
                     )
@@ -201,7 +201,7 @@ class ExerciseUIComponents:
                         P(
                             "These are the exact instructions sent to the LLM. "
                             "Be clear and specific about what kind of feedback you want.",
-                            cls="text-sm text-gray-600 mb-2",
+                            cls="text-sm text-base-content/70 mb-2",
                         ),
                         Textarea(
                             exercise.instructions if exercise else "",
@@ -257,7 +257,7 @@ class ExerciseUIComponents:
                         Label("Context Notes (Optional)", cls="label-text"),
                         P(
                             "Reference materials or context the LLM should consider. One per line.",
-                            cls="text-sm text-gray-600 mb-2",
+                            cls="text-sm text-base-content/70 mb-2",
                         ),
                         Textarea(
                             "\n".join(exercise.context_notes)
@@ -335,7 +335,7 @@ class ExerciseUIComponents:
                     H3("Knowledge Foundation (Ku)", cls="text-lg font-semibold mb-2"),
                     P(
                         "This exercise develops understanding of:",
-                        cls="text-gray-600 mb-2",
+                        cls="text-base-content/70 mb-2",
                     ),
                     Div(*ku_links),
                     cls="p-4",
@@ -355,7 +355,7 @@ class ExerciseUIComponents:
                         "Below you can see exactly what gets sent to the "
                         "LLM when you request feedback. "
                         "No hidden prompts, no black boxes.",
-                        cls="text-gray-600",
+                        cls="text-base-content/70",
                     ),
                     cls="bg-blue-50 p-4 rounded mb-4",
                 )
@@ -365,14 +365,14 @@ class ExerciseUIComponents:
                 H3("Instructions", cls="text-lg font-semibold mb-3"),
                 Pre(
                     Code(exercise.instructions, cls="text-sm"),
-                    cls="bg-gray-50 p-4 rounded overflow-x-auto",
+                    cls="bg-base-200 p-4 rounded overflow-x-auto",
                 ),
                 cls="mb-4",
             ),
             # Model
             Card(
                 H3("Model", cls="text-lg font-semibold mb-3"),
-                P(f"{exercise.model}", cls="text-gray-700"),
+                P(f"{exercise.model}", cls="text-base-content/70"),
                 cls="mb-4",
             ),
             # Context notes
@@ -380,7 +380,7 @@ class ExerciseUIComponents:
                 Card(
                     H3("Context Notes", cls="text-lg font-semibold mb-3"),
                     Ul(
-                        *[Li(note, cls="text-gray-700") for note in exercise.context_notes],
+                        *[Li(note, cls="text-base-content/70") for note in exercise.context_notes],
                         cls="list-disc list-inside",
                     ),
                     cls="mb-4",
@@ -393,11 +393,11 @@ class ExerciseUIComponents:
                 H3("Example Prompt Preview", cls="text-lg font-semibold mb-3"),
                 P(
                     "Here's what the complete prompt would look like with an example entry:",
-                    cls="text-gray-600 mb-3",
+                    cls="text-base-content/70 mb-3",
                 ),
                 Pre(
                     Code(example_prompt, cls="text-sm"),
-                    cls="bg-gray-50 p-4 rounded overflow-x-auto",
+                    cls="bg-base-200 p-4 rounded overflow-x-auto",
                 ),
                 cls="mb-4",
             ),

@@ -56,7 +56,7 @@ def _curriculum_card(
         if secondary_el
         else Div(cls="mt-1 min-h-[1.25rem]"),
         href=href,
-        cls="block bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
+        cls="block bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
         **{"hx-boost": "false"},
     )
 

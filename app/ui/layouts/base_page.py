@@ -171,7 +171,7 @@ async def BasePage(
             # Sidebar (always visible on lg+)
             Div(
                 sidebar,
-                cls=f"hidden lg:block {config['sidebar_width']} shrink-0 bg-white border-r border-gray-200 min-h-[calc(100vh-64px)] sticky top-16",
+                cls=f"hidden lg:block {config['sidebar_width']} shrink-0 bg-base-100 border-r border-base-200 min-h-[calc(100vh-64px)] sticky top-16",
             ),
             # Content area
             Div(
@@ -253,7 +253,7 @@ async def BasePage(
                     )
                 )
             ),
-            cls="bg-white",
+            cls="bg-base-100",
         ),
         **{"data-theme": "light"},
     )
