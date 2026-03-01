@@ -498,64 +498,30 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 
     def __getattr__(self, name: str) -> Any:
         """
-        Dynamic protocol compliance via attribute lookup.
+        Dynamic protocol compliance for simple CRUD method name aliases.
 
-        Automatically handles domain-specific protocol methods by delegating to
-        universal methods. This eliminates ~1000 lines of boilerplate code.
-
-        Supported Patterns:
-            - create_{domain}(entity) → create(entity)
-            - get_{domain}_by_uid(uid) → get(uid)
+        Delegates domain-named methods to their universal equivalents:
+            - create_{domain}(entity)       → create(entity)
+            - get_{domain}_by_uid(uid)      → get(uid)
             - update_{domain}(uid, updates) → update(uid, updates)
-            - delete_{domain}(uid) → DETACH DELETE(uid)
-            - list_{domain}s(limit, **filters) → list(limit, filters=filters)
+            - delete_{domain}(uid)          → delete(uid)
 
-        Example:
-            ```python
-            # These calls are equivalent:
-            await backend.create_task(task)  # Via __getattr__
-            await backend.create(task)  # Direct call
-
-            await backend.get_task_by_uid(uid)  # Via __getattr__
-            await backend.get(uid)  # Direct call
-            ```
-
-        Note:
-            - Only handles simple CRUD delegation
-            - Domain-specific methods (link_X_to_Y, get_X_cross_domain_context)
-              are NOT handled here - they have explicit implementations
-            - Raises AttributeError if method doesn't match any pattern
-
-        See Also:
-            - Protocol definitions in core/ports/domain_protocols.py
-            - A documentation in /docs/improvements/
+        Domain-specific methods (link_X_to_Y, get_user_X, archive_X, etc.)
+        have explicit implementations on domain backend subclasses.
         """
-        # Pattern 1: create_{domain}(entity) → create(entity)
         if name.startswith("create_") and not name.endswith("_relationship"):
             return self.create
 
-        # Pattern 2: get_{domain}_by_uid(uid) → get(uid)
         if name.startswith("get_") and name.endswith("_by_uid"):
             return self.get
 
-        # Pattern 3: update_{domain}(uid, updates) → update(uid, updates)
         if name.startswith("update_") and not name.startswith("update_user"):
             return self.update
 
-        # Pattern 4: delete_{domain}(uid) → delete(uid)
         if name.startswith("delete_") and not name.startswith("delete_user"):
             return self.delete
 
-        # Pattern 5: list_{domain}s(limit, **filters) → list(limit, filters=filters)
-        if name.startswith("list_") and name.endswith("s"):
-            # For list_tasks, list_events, etc., we need a wrapper to handle **filters
-            async def list_wrapper(limit: int = 100, **filters: Any) -> Result[builtins.list[T]]:
-                return await self.list(limit=limit, filters=filters)  # type: ignore[no-any-return]
-
-            return list_wrapper
-
-        # No pattern matched - attribute doesn't exist
         raise AttributeError(
             f"'{type(self).__name__}' has no attribute '{name}'. "
-            f"This may be a domain-specific method that should have an explicit implementation."
+            f"Domain-specific methods require explicit implementation on the backend subclass."
         )
