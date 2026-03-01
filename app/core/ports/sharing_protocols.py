@@ -92,3 +92,37 @@ class SharingOperations(Protocol):
     ) -> Result[bool]:
         """Verify entity can be shared (status + type check). Returns Result[bool]."""
         ...
+
+    async def share_with_group(
+        self,
+        entity_uid: str,
+        owner_uid: str,
+        group_uid: str,
+        share_version: str = "original",
+    ) -> Result[bool]:
+        """Share an entity with all members of a group. Returns Result[bool]."""
+        ...
+
+    async def unshare_from_group(
+        self,
+        entity_uid: str,
+        owner_uid: str,
+        group_uid: str,
+    ) -> Result[bool]:
+        """Revoke group-level access to an entity. Returns Result[bool]."""
+        ...
+
+    async def get_groups_shared_with(
+        self,
+        entity_uid: str,
+    ) -> Result[list[dict[str, Any]]]:
+        """Get groups an entity is shared with. Returns Result[list[dict]]."""
+        ...
+
+    async def get_shared_with_me_via_groups(
+        self,
+        user_uid: str,
+        limit: int = 50,
+    ) -> Result[list[Any]]:
+        """Get entities shared via group membership. Returns Result[list[dict]]."""
+        ...

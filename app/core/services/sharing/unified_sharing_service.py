@@ -263,6 +263,7 @@ class UnifiedSharingService:
         - User is the owner
         - Entity is PUBLIC
         - Entity is SHARED and user has SHARES_WITH relationship
+        - Entity is SHARED and user is a member of a group with SHARED_WITH_GROUP
         - Entity is KU type (curriculum — always accessible)
 
         Args:
@@ -274,11 +275,13 @@ class UnifiedSharingService:
         """
         query = """
         MATCH (ku:Entity {uid: $entity_uid})
-        OPTIONAL MATCH (user:User {uid: $user_uid})-[:SHARES_WITH]->(ku)
+        OPTIONAL MATCH (viewer:User {uid: $user_uid})-[:SHARES_WITH]->(ku)
+        OPTIONAL MATCH (viewer2:User {uid: $user_uid})-[:MEMBER_OF]->(g:Group)<-[:SHARED_WITH_GROUP]-(ku)
         RETURN ku.user_uid as owner_uid,
                ku.visibility as visibility,
                ku.ku_type as ku_type,
-               count(user) > 0 as has_share_relationship
+               count(viewer) > 0 as has_direct_share,
+               count(viewer2) > 0 as has_group_share
         """
         try:
             async with self.driver.session() as session:
@@ -298,7 +301,7 @@ class UnifiedSharingService:
                 else Visibility.PRIVATE
             )
             ku_type = record["ku_type"]
-            has_share = record["has_share_relationship"]
+            has_share = record["has_direct_share"] or record["has_group_share"]
             # KU entities are always accessible (shared curriculum content)
             if ku_type == EntityType.KU.value:
                 return Result.ok(True)
@@ -454,6 +457,224 @@ class UnifiedSharingService:
             logger.error(f"Failed get_shared_with_me for {user_uid}: {e}")
             return Result.fail(
                 Errors.database(operation="get_shared_with_me", message=str(e))
+            )
+
+    # =========================================================================
+    # GROUP SHARING
+    # =========================================================================
+
+    async def share_with_group(
+        self,
+        entity_uid: str,
+        owner_uid: str,
+        group_uid: str,
+        share_version: str = "original",
+    ) -> Result[bool]:
+        """
+        Share an entity with all members of a group.
+
+        Creates a SHARED_WITH_GROUP relationship from entity to group.
+        All current and future members of the group gain access when the
+        entity visibility is SHARED.
+
+        Args:
+            entity_uid: Entity to share
+            owner_uid: Entity owner (must match actual owner)
+            group_uid: Group to share with
+            share_version: Version label (original, revised)
+
+        Returns:
+            Result[bool]: True if shared, error if validation fails
+        """
+        ownership_check = await self._verify_ownership(entity_uid, owner_uid)
+        if ownership_check.is_error:
+            return ownership_check
+
+        shareable_check = await self.verify_shareable(entity_uid)
+        if shareable_check.is_error:
+            return shareable_check
+
+        query = """
+        MATCH (entity:Entity {uid: $entity_uid})
+        MATCH (group:Group {uid: $group_uid})
+        MERGE (entity)-[r:SHARED_WITH_GROUP]->(group)
+        SET r.shared_at = datetime($shared_at),
+            r.share_version = $share_version
+        RETURN true as success
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query,
+                    {
+                        "entity_uid": entity_uid,
+                        "group_uid": group_uid,
+                        "shared_at": datetime.now().isoformat(),
+                        "share_version": share_version,
+                    },
+                )
+                records = await result.data()
+            if not records:
+                return Result.fail(
+                    Errors.not_found(
+                        f"Entity {entity_uid} or Group {group_uid} not found"
+                    )
+                )
+            logger.info(f"Entity {entity_uid} shared with group {group_uid}")
+            return Result.ok(True)
+        except Exception as e:
+            logger.error(f"Failed share_with_group {entity_uid} → {group_uid}: {e}")
+            return Result.fail(
+                Errors.database(operation="share_with_group", message=str(e))
+            )
+
+    async def unshare_from_group(
+        self,
+        entity_uid: str,
+        owner_uid: str,
+        group_uid: str,
+    ) -> Result[bool]:
+        """
+        Revoke group-level access to an entity.
+
+        Deletes the SHARED_WITH_GROUP relationship. Existing direct
+        SHARES_WITH relationships are not affected.
+
+        Args:
+            entity_uid: Entity to unshare
+            owner_uid: Entity owner (must match actual owner)
+            group_uid: Group to remove access from
+
+        Returns:
+            Result[bool]: True if unshared, error if validation fails
+        """
+        ownership_check = await self._verify_ownership(entity_uid, owner_uid)
+        if ownership_check.is_error:
+            return ownership_check
+
+        query = """
+        MATCH (entity:Entity {uid: $entity_uid})-[r:SHARED_WITH_GROUP]->(group:Group {uid: $group_uid})
+        DELETE r
+        RETURN count(r) as deleted_count
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query, {"entity_uid": entity_uid, "group_uid": group_uid}
+                )
+                records = await result.data()
+            deleted_count = records[0]["deleted_count"] if records else 0
+            if deleted_count == 0:
+                return Result.fail(
+                    Errors.not_found(
+                        f"No group sharing relationship found between {entity_uid} and {group_uid}"
+                    )
+                )
+            logger.info(f"Entity {entity_uid} unshared from group {group_uid}")
+            return Result.ok(True)
+        except Exception as e:
+            logger.error(f"Failed unshare_from_group {entity_uid} ← {group_uid}: {e}")
+            return Result.fail(
+                Errors.database(operation="unshare_from_group", message=str(e))
+            )
+
+    async def get_groups_shared_with(
+        self,
+        entity_uid: str,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Get groups an entity is shared with.
+
+        Returns group UID, name, share_version, and share timestamp.
+
+        Args:
+            entity_uid: Entity to query
+
+        Returns:
+            Result[list[dict]]: List of groups with access
+        """
+        query = """
+        MATCH (entity:Entity {uid: $entity_uid})-[r:SHARED_WITH_GROUP]->(group:Group)
+        RETURN group.uid as group_uid,
+               group.name as group_name,
+               r.share_version as share_version,
+               r.shared_at as shared_at
+        ORDER BY r.shared_at DESC
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(query, {"entity_uid": entity_uid})
+                records = await result.data()
+            groups = [
+                {
+                    "group_uid": r["group_uid"],
+                    "group_name": r["group_name"],
+                    "share_version": r["share_version"],
+                    "shared_at": r["shared_at"],
+                }
+                for r in records
+            ]
+            return Result.ok(groups)
+        except Exception as e:
+            logger.error(f"Failed get_groups_shared_with for {entity_uid}: {e}")
+            return Result.fail(
+                Errors.database(operation="get_groups_shared_with", message=str(e))
+            )
+
+    async def get_shared_with_me_via_groups(
+        self,
+        user_uid: str,
+        limit: int = 50,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Get entities shared with a user through group membership.
+
+        Returns entities where the user is a member of a group that
+        the entity is shared with (SHARED_WITH_GROUP relationship).
+        Excludes entities the user owns.
+
+        Args:
+            user_uid: User to query for
+            limit: Maximum entities to return
+
+        Returns:
+            Result[list[dict]]: Entities accessible via group membership
+        """
+        query = """
+        MATCH (user:User {uid: $user_uid})-[:MEMBER_OF]->(group:Group)
+        MATCH (entity:Entity)-[r:SHARED_WITH_GROUP]->(group)
+        WHERE entity.user_uid <> $user_uid
+        RETURN entity,
+               group.uid as group_uid,
+               group.name as group_name,
+               r.share_version as share_version,
+               r.shared_at as shared_at
+        ORDER BY entity.created_at DESC
+        LIMIT $limit
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query, {"user_uid": user_uid, "limit": limit}
+                )
+                records = await result.data()
+            entities = [
+                {
+                    "entity": dict(r["entity"]),
+                    "group_uid": r["group_uid"],
+                    "group_name": r["group_name"],
+                    "share_version": r["share_version"],
+                    "shared_at": r["shared_at"],
+                }
+                for r in records
+            ]
+            return Result.ok(entities)
+        except Exception as e:
+            logger.error(f"Failed get_shared_with_me_via_groups for {user_uid}: {e}")
+            return Result.fail(
+                Errors.database(
+                    operation="get_shared_with_me_via_groups", message=str(e)
+                )
             )
 
     # =========================================================================

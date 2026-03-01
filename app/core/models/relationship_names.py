@@ -270,6 +270,8 @@ class RelationshipName(str, Enum):
     FOR_GROUP = "FOR_GROUP"  # (Exercise)-[:FOR_GROUP]->(Group)
     # (Entity)-[:FULFILLS_EXERCISE]->(Exercise) - Student submission
     FULFILLS_EXERCISE = "FULFILLS_EXERCISE"
+    # (Entity)-[:SHARED_WITH_GROUP {shared_at, share_version}]->(Group) - Group-level sharing
+    SHARED_WITH_GROUP = "SHARED_WITH_GROUP"
 
     # =========================================================================
     # CONTENT/PROCESSING RELATIONSHIPS

@@ -60,6 +60,21 @@ class SetVisibilityRequest(BaseModel):
     visibility: str  # private, shared, public
 
 
+class ShareWithGroupRequest(BaseModel):
+    """Request to share an entity with a group."""
+
+    entity_uid: str
+    group_uid: str
+    share_version: str = "original"
+
+
+class UnshareFromGroupRequest(BaseModel):
+    """Request to revoke group-level sharing."""
+
+    entity_uid: str
+    group_uid: str
+
+
 # ============================================================================
 # ROUTE CREATION
 # ============================================================================
@@ -402,6 +417,135 @@ def create_submissions_sharing_api_routes(
             }
         )
 
+    @rt("/api/share/group", methods=["POST"])
+    @boundary_handler(success_status=200)
+    async def share_with_group(
+        request: Request,
+        body: ShareWithGroupRequest,
+    ) -> Result[dict[str, Any]]:
+        """
+        Share an entity with all members of a group.
+
+        Creates a SHARED_WITH_GROUP relationship from the entity to the group.
+        All group members gain access when entity visibility is SHARED.
+
+        Request body:
+            {
+                "entity_uid": "task_abc123",
+                "group_uid": "group_xyz789",
+                "share_version": "original"  // Optional
+            }
+
+        Returns:
+            {"success": true, "message": "Shared with group group_xyz789"}
+        """
+        user_uid: UserUID = require_authenticated_user(request)
+
+        result = await sharing_service.share_with_group(
+            entity_uid=body.entity_uid,
+            owner_uid=user_uid,
+            group_uid=body.group_uid,
+            share_version=body.share_version,
+        )
+
+        if result.is_error:
+            return Result.fail(result)
+
+        return Result.ok(
+            {
+                "success": True,
+                "message": f"Shared with group {body.group_uid}",
+            }
+        )
+
+    @rt("/api/share/ungroup", methods=["POST"])
+    @boundary_handler(success_status=200)
+    async def unshare_from_group(
+        request: Request,
+        body: UnshareFromGroupRequest,
+    ) -> Result[dict[str, Any]]:
+        """
+        Revoke group-level access to an entity.
+
+        Deletes the SHARED_WITH_GROUP relationship. Direct SHARES_WITH
+        relationships are not affected.
+
+        Request body:
+            {
+                "entity_uid": "task_abc123",
+                "group_uid": "group_xyz789"
+            }
+
+        Returns:
+            {"success": true, "message": "Group sharing revoked"}
+        """
+        user_uid: UserUID = require_authenticated_user(request)
+
+        result = await sharing_service.unshare_from_group(
+            entity_uid=body.entity_uid,
+            owner_uid=user_uid,
+            group_uid=body.group_uid,
+        )
+
+        if result.is_error:
+            return Result.fail(result)
+
+        return Result.ok(
+            {
+                "success": True,
+                "message": f"Group sharing revoked for {body.group_uid}",
+            }
+        )
+
+    @rt("/api/shared-with-me/groups")
+    @boundary_handler(success_status=200)
+    async def get_shared_via_groups(request: Request) -> Result[dict[str, Any]]:
+        """
+        Get entities shared with current user through group membership.
+
+        Returns entities where user is a member of a group that has
+        SHARED_WITH_GROUP access. Excludes user's own entities.
+
+        Query params:
+            limit: Maximum entities to return (default: 50)
+
+        Returns:
+            {
+                "entities": [
+                    {
+                        "entity": {...},
+                        "group_uid": "group_xyz789",
+                        "group_name": "Physics 101",
+                        "share_version": "original",
+                        "shared_at": "2026-03-01T12:00:00"
+                    },
+                    ...
+                ],
+                "count": 3
+            }
+        """
+        user_uid: UserUID = require_authenticated_user(request)
+
+        params = dict(request.query_params)
+        limit = int(params.get("limit", 50))
+
+        result = await sharing_service.get_shared_with_me_via_groups(
+            user_uid=user_uid,
+            limit=limit,
+        )
+
+        if result.is_error:
+            return Result.fail(result)
+
+        entities = result.value
+
+        return Result.ok(
+            {
+                "entities": entities,
+                "count": len(entities),
+            }
+        )
+
     # Return route handlers
     return [
         share_submission,
@@ -410,4 +554,7 @@ def create_submissions_sharing_api_routes(
         get_shared_with_me,
         get_shared_users,
         get_public_reports,
+        share_with_group,
+        unshare_from_group,
+        get_shared_via_groups,
     ]

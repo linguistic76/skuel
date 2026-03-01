@@ -420,7 +420,8 @@ async def test_check_access_owner(mock_driver, sharing_service):
                 "owner_uid": "user_owner",
                 "visibility": "private",
                 "ku_type": "submission",
-                "has_share_relationship": False,
+                "has_direct_share": False,
+                "has_group_share": False,
             }
         ]
     )
@@ -447,7 +448,8 @@ async def test_check_access_public(mock_driver, sharing_service):
                 "owner_uid": "user_owner",
                 "visibility": "public",
                 "ku_type": "submission",
-                "has_share_relationship": False,
+                "has_direct_share": False,
+                "has_group_share": False,
             }
         ]
     )
@@ -474,7 +476,8 @@ async def test_check_access_shared_with_relationship(mock_driver, sharing_servic
                 "owner_uid": "user_owner",
                 "visibility": "shared",
                 "ku_type": "submission",
-                "has_share_relationship": True,
+                "has_direct_share": True,
+                "has_group_share": False,
             }
         ]
     )
@@ -501,7 +504,8 @@ async def test_check_access_private_not_owner(mock_driver, sharing_service):
                 "owner_uid": "user_owner",
                 "visibility": "private",
                 "ku_type": "submission",
-                "has_share_relationship": False,
+                "has_direct_share": False,
+                "has_group_share": False,
             }
         ]
     )
