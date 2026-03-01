@@ -942,6 +942,16 @@ RETURN
 """
 
 
+LATEST_ACTIVITY_REPORT_QUERY: str = """
+MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
+WHERE ar.entity_type = 'activity_report'
+RETURN ar.uid AS uid, ar.time_period AS period, ar.period_end AS period_end,
+       ar.processed_content AS content
+ORDER BY ar.period_end DESC
+LIMIT 1
+"""
+
+
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
@@ -1155,4 +1165,12 @@ class UserContextQueryExecutor:
                     ],
                 },
             }
+        )
+
+    async def execute_activity_report_query(
+        self, user_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Fetch the latest ActivityReport for this user (LIMIT 1, period_end DESC)."""
+        return await self.executor.execute_query(
+            LATEST_ACTIVITY_REPORT_QUERY, {"user_uid": user_uid}
         )

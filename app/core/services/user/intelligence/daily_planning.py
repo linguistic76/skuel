@@ -384,6 +384,12 @@ class DailyPlanningMixin:
         elif plan.workload_utilization < 0.5:
             rationale_parts.append("Light schedule - opportunity for deep work")
 
+        # Activity report awareness — inform rationale when plan draws on recent synthesis
+        if self.context.latest_activity_report_uid and self.context.latest_activity_report_period:
+            rationale_parts.append(
+                f"Plan informed by your {self.context.latest_activity_report_period} activity report"
+            )
+
         return "; ".join(rationale_parts) if rationale_parts else "Balanced daily plan"
 
     # =========================================================================

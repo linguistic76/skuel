@@ -349,6 +349,15 @@ class UserContextBuilder:
         # Populate life path fields (Priority 2)
         self._populator.populate_life_path(context, mega_data.get("life_path", {}))
 
+        # Populate latest activity report reference (for intelligence reasoning)
+        ar_result = await self._query_executor.execute_activity_report_query(user_uid)
+        if ar_result.is_error:
+            logger.warning(
+                f"Failed to fetch latest activity report for {user_uid}: {ar_result.error}"
+            )
+        else:
+            self._populator.populate_activity_report(context, ar_result.value)
+
         # Populate progress metrics (Priority 6)
         self._populator.populate_progress_metrics(context, mega_data.get("progress_counts", {}))
 

@@ -46,6 +46,8 @@ def make_context(available_minutes: int = 480, user_uid: str = "user_test") -> o
     ctx.knowledge_mastery = {}
     ctx.current_workload_score = 0.5
     ctx.current_energy_level = "moderate"
+    ctx.latest_activity_report_uid = None
+    ctx.latest_activity_report_period = None
     return ctx
 
 
@@ -322,3 +324,40 @@ async def test_service_error_produces_empty_exercises() -> None:
     plan: DailyWorkPlan = result.value
     assert plan.exercises == ()
     assert plan.contextual_exercises == ()
+
+
+# =============================================================================
+# TEST 8 & 9: Activity report rationale
+# =============================================================================
+
+
+def test_rationale_includes_report_reference_when_present() -> None:
+    """Rationale mentions activity report when uid and period are set."""
+    ctx = make_context()
+    ctx.latest_activity_report_uid = "ku_report_xyz"
+    ctx.latest_activity_report_period = "7d"
+
+    service = MockDailyPlanningService(
+        context=ctx,
+        tasks=make_no_op_service(),
+        habits=make_no_op_service(),
+        goals=make_no_op_service(),
+        events=make_no_op_service(),
+        choices=make_no_op_service(),
+        principles=make_no_op_service(),
+        ku=make_no_op_service(),
+        feedback=make_no_op_service(),
+    )
+
+    plan = DailyWorkPlan()
+    rationale = service._generate_daily_rationale(plan, prioritize_life_path=False)
+    assert "7d activity report" in rationale
+
+
+def test_rationale_excludes_report_reference_when_absent() -> None:
+    """Rationale is silent about activity report when uid is None."""
+    service = build_service(make_no_op_service())
+
+    plan = DailyWorkPlan()
+    rationale = service._generate_daily_rationale(plan, prioritize_life_path=False)
+    assert "activity report" not in rationale

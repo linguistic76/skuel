@@ -351,6 +351,24 @@ class UserContextPopulator:
         if alignment_score := life_path_data.get("alignment_score"):
             context.life_path_alignment_score = float(alignment_score)
 
+    def populate_activity_report(
+        self, context: "UserContext", records: list[dict[str, Any]]
+    ) -> None:
+        """Populate latest activity report reference fields.
+
+        records: 0 or 1 dicts from LATEST_ACTIVITY_REPORT_QUERY.
+        No records = user has no activity reports yet; fields remain None.
+        """
+        if not records:
+            return
+        r = records[0]
+        if not r.get("uid"):
+            return
+        context.latest_activity_report_uid = r["uid"]
+        context.latest_activity_report_period = r.get("period")
+        context.latest_activity_report_generated_at = r.get("period_end")
+        context.latest_activity_report_content = r.get("content")
+
     def populate_moc_fields(self, context: "UserContext", uids_data: dict[str, Any]) -> None:
         """
         Populate MOC fields from MEGA-QUERY uids section.
