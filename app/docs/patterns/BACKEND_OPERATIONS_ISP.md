@@ -1,6 +1,6 @@
 ---
 title: BackendOperations Protocol Architecture
-updated: 2026-02-28
+updated: 2026-03-01
 category: patterns
 related_skills: []
 related_docs:
@@ -11,7 +11,7 @@ related_docs:
 
 # BackendOperations Protocol Architecture
 
-*Last updated: 2026-02-28*
+*Last updated: 2026-03-01*
 
 ## Core Principle
 
@@ -195,7 +195,7 @@ class RelationshipAnalyzer:
 
 ### February 2026: Mixin Decomposition
 
-`universal_backend.py` was decomposed from a 4,214-line monolith into a shell + 5 focused mixin files, following the same pattern used for `BaseService` in January 2026. The class declaration now uses multiple inheritance:
+`universal_backend.py` was decomposed from a 4,214-line monolith into a shell + 6 focused mixin files (initially 5 in February 2026; `_relationship_mixin.py` was further split into query and CRUD mixins in March 2026 — see below), following the same pattern used for `BaseService` in January 2026. The class declaration now uses multiple inheritance:
 
 ```python
 class UniversalNeo4jBackend[T: DomainModelProtocol](
@@ -247,6 +247,17 @@ if TYPE_CHECKING:
 
 MRO is left-to-right. Mixins are stateless method containers — no `super().__init__()` required.
 
+### March 2026: _relationship_mixin.py Split
+
+The original February 2026 decomposition created a single `_relationship_mixin.py` (1,567 lines) for all relationship work. This was further split into two focused files:
+
+| File | Lines | Responsibility |
+|------|-------|---------------|
+| `_relationship_query_mixin.py` | ~762 | `RelationshipMetadata*`, `RelationshipQuery*`: `get_related_entities`, `get_related_uids`, `get_relationship_metadata`, `get_edge_metadata`, fluent `relate()`, 7 convenience wrappers, batch queries |
+| `_relationship_crud_mixin.py` | ~863 | `RelationshipCrud*`: `create_relationship`, `delete_relationship`, `has_relationship`, `count_related`, `create_relationships_batch`, `_build_direction_pattern`, private helpers |
+
+`_relationship_query_mixin.py` stubs `_build_direction_pattern` via `TYPE_CHECKING` (declared in `_relationship_crud_mixin.py`). Public API unchanged — 2,817 tests pass.
+
 ### Driver Access Patterns
 
 | Pattern | When to Use | Example |
@@ -262,7 +273,7 @@ MRO is left-to-right. Mixins are stateless method containers — no `super().__i
 | File | Purpose |
 |------|---------|
 | `/core/ports/base_protocols.py` | Protocol definitions |
-| `/adapters/persistence/neo4j/universal_backend.py` | Shell: `__init__`, helpers, factory functions (~586 lines) |
+| `/adapters/persistence/neo4j/universal_backend.py` | Shell: `__init__`, helpers, factory functions (~527 lines) |
 | `/adapters/persistence/neo4j/_crud_mixin.py` | `CrudOperations[T]` implementation |
 | `/adapters/persistence/neo4j/_search_mixin.py` | `EntitySearchOperations[T]` implementation |
 | `/adapters/persistence/neo4j/_relationship_query_mixin.py` | Relationship query + edge metadata + fluent API |

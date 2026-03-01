@@ -1,6 +1,6 @@
 ---
 title: MyPy Limitations in Universal Backend
-updated: 2026-01-06
+updated: 2026-03-01
 status: current
 category: technical-debt
 tags: [backend, limitations, mypy, technical-debt]
@@ -11,7 +11,7 @@ related: [MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md, BACKEND_OPERATIONS_ISP.md]
 
 **Status**: Documented Known Issues
 **Impact**: None (All tests pass, runtime behavior correct)
-**Last Updated**: 2026-01-06
+**Last Updated**: 2026-03-01
 
 ## Overview
 
@@ -29,7 +29,7 @@ The `UniversalNeo4jBackend` contains **~46 MyPy errors** that are **intentional 
 
 **Example**:
 ```python
-# Line 1972: MyPy sees list?[str], but list is always initialized
+# In _relationship_query_mixin.py — MyPy sees list?[str], but list is always initialized
 for rel_type in rel_types:  # MyPy error: not iterable
     ...
 
@@ -94,7 +94,7 @@ async def get(self, uid: str) -> Result[T | None]:
 
 **Example**:
 ```python
-# Line 1929: MyPy sees optional list
+# In _relationship_crud_mixin.py — MyPy sees optional list
 relationship_types[0]  # MyPy error: not indexable
 
 # Runtime: List is always initialized before access
@@ -199,8 +199,25 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 ## January 2026 Cohesion Update
 
 The backend received a cohesion pass that:
-- Fixed a tuple bug in `direction="both"` pattern (line 1292)
+- Fixed a tuple bug in `direction="both"` pattern
 - Added `_build_direction_pattern()` helper method (reduces 30 lines of duplication)
 - Removed unnecessary driver guards from LS/LP services (fail-fast alignment)
 
 These changes do not affect the documented MyPy limitations - they remain as expected static analysis limitations of the 100% dynamic pattern.
+
+## February/March 2026 Mixin Decomposition
+
+`universal_backend.py` was decomposed from a 4,214-line monolith into a shell (~527 lines) + 6 focused mixin files:
+
+| Mixin | MyPy error location |
+|-------|---------------------|
+| `_crud_mixin.py` | Generic function constraints (Category 2) |
+| `_search_mixin.py` | Returning Any (Category 3) |
+| `_relationship_query_mixin.py` | Optional type inference (Category 1), indexable assertions |
+| `_relationship_crud_mixin.py` | Optional type inference (Category 1), indexable assertions |
+| `_user_entity_mixin.py` | Generic function constraints (Category 2) |
+| `_traversal_mixin.py` | Returning Any (Category 3) |
+
+The documented MyPy limitations are now distributed across the mixin files rather than concentrated in the monolith. The errors are the same architectural patterns — mixin decomposition did not introduce or resolve any of them.
+
+**Note on line numbers:** Specific line numbers cited in this document (from the monolith era) are no longer valid. The patterns described still apply — find them by error pattern (`list?[str]`, generic constraint) rather than line number.

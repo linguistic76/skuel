@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-02-07
+updated: 2026-03-01
 category: patterns
 related_skills:
 - base-analytics-service
@@ -119,10 +119,15 @@ goals_relationship_service = UnifiedRelationshipService(
 /core/services/relationships/
 ├── __init__.py                      # Module exports
 ├── extended_config.py               # Extended specs (QuerySpec, LinkMethodSpec, etc.)
-├── unified_relationship_service.py  # The unified service (~1,500 lines)
+├── unified_relationship_service.py  # Shell: constructor, generic CRUD, typed links (~900 lines)
+├── _batch_operations_mixin.py       # N+1 elimination (batch_has_relationship, batch_count_related, batch_get_related_uids)
+├── _ordered_relationships_mixin.py  # Curriculum hierarchy + edge metadata
+├── _intelligence_mixin.py           # Graph intelligence, semantic, cross-domain context
+├── _life_path_mixin.py              # SERVES_LIFE_PATH ("everything flows toward the life path")
 ├── path_aware_factory.py            # Factory for path-aware entities
 ├── relationships_container.py       # Generic relationship container
-└── planning_mixin.py                # UserContext-aware methods
+├── planning_mixin.py                # Generic UserContext-aware planning + scoring (~430 lines)
+└── _domain_planning_mixin.py        # 6 Activity Domain-specific planning methods (~290 lines)
 ```
 
 ### Single Source of Truth

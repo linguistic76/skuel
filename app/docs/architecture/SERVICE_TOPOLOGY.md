@@ -466,7 +466,13 @@ Routes / Application Code
 ├─ domain_config.py                   (configuration dataclass + factories)
 │
 └─ relationships/
-    └─ unified_relationship_service.py (standalone, used by all domains)
+    ├─ unified_relationship_service.py   (shell: constructor, generic CRUD, typed links)
+    ├─ _batch_operations_mixin.py        (N+1 elimination helpers)
+    ├─ _ordered_relationships_mixin.py   (curriculum hierarchy + edge metadata)
+    ├─ _intelligence_mixin.py            (graph intelligence, semantic, cross-domain context)
+    ├─ _life_path_mixin.py               (SERVES_LIFE_PATH)
+    ├─ planning_mixin.py                 (generic UserContext-aware planning)
+    └─ _domain_planning_mixin.py         (6 Activity Domain-specific planning methods)
 ```
 
 ---

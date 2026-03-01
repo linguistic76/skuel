@@ -116,10 +116,14 @@ This document provides a detailed explanation of how **Routes**, **Services**, a
 │
 └── persistence/                       # Data Access
     ├── neo4j/
-    │   ├── universal_backend.py      # Task data access
-    │   ├── events_universal_backend.py     # Event data access
-    │   ├── universal_neo4j_backend.py      # Base class
-    │   └── ... (15 domain backends)
+    │   ├── universal_backend.py          # Shell: __init__, helpers (~527 lines)
+    │   ├── _crud_mixin.py                # CrudOperations[T]
+    │   ├── _search_mixin.py              # EntitySearchOperations[T]
+    │   ├── _relationship_query_mixin.py  # RelationshipQuery + EdgeMetadata + fluent API
+    │   ├── _relationship_crud_mixin.py   # RelationshipCrud + validation helpers
+    │   ├── _user_entity_mixin.py         # Generic user-entity ops
+    │   ├── _traversal_mixin.py           # GraphTraversalOperations
+    │   └── domain_backends.py            # 10 domain subclasses (TasksBackend, EventsBackend, etc.)
     │
     └── base_adapter.py               # Shared persistence logic
 
@@ -274,8 +278,11 @@ class TasksService:
 
 #### Step 5: Backend Layer (universal_backend.py)
 
+> **Note (March 2026):** The code below shows the historical per-domain backend pattern (pre-January 2026). The current architecture uses `UniversalNeo4jBackend[T]` — a single generic backend (shell + 6 focused mixin files) that dynamically handles all domains via Python introspection. Domain subclasses (`TasksBackend`) add only domain-specific relationship Cypher; generic CRUD/search is fully automatic. See `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md` and `/docs/patterns/BACKEND_OPERATIONS_ISP.md`.
+
 ```python
 # File: /adapters/persistence/neo4j/universal_backend.py
+# HISTORICAL EXAMPLE — current pattern is 100% dynamic via UniversalNeo4jBackend[T]
 
 from adapters.persistence.neo4j.universal_neo4j_backend import UniversalNeo4jBackend
 from core.ports.domain_protocols import TaskOperations
