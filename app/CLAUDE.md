@@ -1071,14 +1071,19 @@ await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_ui
 
 **Core Principle:** "The plant grows on the lattice"
 
-Use `UniversalNeo4jBackend[T]` directly - no wrapper classes.
+Use domain backend subclasses for domains with relationship-specific Cypher; use `UniversalNeo4jBackend[T]` directly for supporting backends (Finance, Transcription, etc.).
 
 ```python
-tasks_backend = UniversalNeo4jBackend[Task](
+tasks_backend = TasksBackend(
     driver, NeoLabel.TASK, Task,
     base_label=NeoLabel.ENTITY,  # CREATE produces (n:Entity:Task)
 )
 tasks = await backend.find_by(priority='high', due_date__gte=date.today())
+```
+
+**4-Layer Architecture (all domains):**
+```
+*Operations protocol → *Backend subclass → *Service facade → sub-services
 ```
 
 **Driver Access:**
@@ -1089,7 +1094,22 @@ tasks = await backend.find_by(priority='high', due_date__gte=date.today())
 
 **File Layout (February 2026):** `universal_backend.py` is a shell (~586 lines); methods live in 5 focused mixin files in the same directory: `_crud_mixin.py`, `_search_mixin.py`, `_relationship_mixin.py`, `_user_entity_mixin.py`, `_traversal_mixin.py`. Public API unchanged.
 
-**Domain Backends (February 2026):** All 6 Activity Domain backends in `domain_backends.py`: `TasksBackend`, `EventsBackend`, `GoalsBackend`, `HabitsBackend`, `ChoicesBackend`, `PrinciplesBackend`. Domain-specific link methods (`link_task_to_knowledge`, `link_task_to_goal`, `link_event_to_*`) live on these backends, not on `UniversalNeo4jBackend`. Finance link methods removed (dead code). Used directly in `services_bootstrap.py` — domain backends replace `UniversalNeo4jBackend[T]` for Activity Domains.
+**Domain Backends (all in `domain_backends.py`):**
+
+| Backend | Domain | Domain-specific methods |
+|---------|--------|------------------------|
+| `TasksBackend` | Tasks | `link_task_to_knowledge`, `link_task_to_goal`, etc. |
+| `EventsBackend` | Events | `link_event_to_*` |
+| `GoalsBackend` | Goals | goal relationship links |
+| `HabitsBackend` | Habits | habit relationship links |
+| `ChoicesBackend` | Choices | choice relationship links |
+| `PrinciplesBackend` | Principles | principle relationship links |
+| `KuBackend` | KU | `organize`, `unorganize`, `reorder`, `get_organized_children`, `find_organizers`, `list_root_organizers`, `is_organizer` |
+| `SubmissionsBackend` | Submissions | `share_submission`, `unshare_submission`, `get_shared_with_users`, `get_submissions_shared_with_me`, `set_visibility`, `check_access`, `verify_shareable` |
+| `LpBackend` | Learning Path | `get_paths_containing_ku`, `get_ku_mastery_progress` |
+| `ExerciseBackend` | Exercise | `link_to_curriculum`, `unlink_from_curriculum`, `get_required_knowledge` |
+
+Domain-specific relationship Cypher belongs on the domain backend. Cross-domain aggregation stays in services.
 
 **See:** `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`
 

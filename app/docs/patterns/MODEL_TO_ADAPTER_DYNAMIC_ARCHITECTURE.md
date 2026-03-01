@@ -8,8 +8,8 @@ related_docs:
 ---
 
 # Model-to-Adapter Dynamic Architecture
-**Date:** October 3, 2025 (Updated: February 28, 2026)
-**Status:** 100% Dynamic - All domains use UniversalNeo4jBackend[T]
+**Date:** October 3, 2025 (Updated: March 1, 2026)
+**Status:** 100% Dynamic - All domains use domain backend subclasses or UniversalNeo4jBackend[T]
 
 ## Executive Summary
 
@@ -31,7 +31,8 @@ adapters/persistence/neo4j/
     _relationship_mixin.py    # RelationshipCrud + Metadata + Query
     _user_entity_mixin.py     # Generic user-entity ops (5 methods)
     _traversal_mixin.py       # GraphTraversalOperations
-    domain_backends.py        # Domain subclasses: HabitsBackend, GoalsBackend, TasksBackend, EventsBackend
+    domain_backends.py        # 10 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
+                              #   ChoicesBackend, PrinciplesBackend, KuBackend, SubmissionsBackend, LpBackend, ExerciseBackend
 ```
 
 **Class declaration:**
@@ -53,22 +54,44 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 
 ---
 
-## January 2026 Update: 100% Dynamic Achieved
+## March 2026 Update: Domain Backends Extended to All Domains
 
-**All domains now use `UniversalNeo4jBackend[T]` directly** - no wrapper classes.
+**All domains with relationship-specific Cypher now have typed domain backends.**
+
+### What Changed
+
+Four new domain backends added to `domain_backends.py`:
+
+| Backend | Methods moved from |
+|---------|-------------------|
+| `KuBackend` | `ku_organization_service.py` — 7 ORGANIZES methods |
+| `SubmissionsBackend` | `submissions_sharing_service.py` — 8 SHARES_WITH methods |
+| `LpBackend` | `lp_progress_service.py` — 2 mastery progress queries |
+| `ExerciseBackend` | `exercise_service.py` — 3 curriculum link methods |
+
+**Rule:** Domain-specific relationship Cypher belongs on the domain backend. Cross-domain aggregation stays in services.
+
+**4-layer consistency achieved across all domains:**
+```
+*Operations protocol → *Backend subclass → *Service facade → sub-services
+```
+
+---
+
+## January 2026 Update: Wrapper Classes Removed
+
+**Deleted ~2,000 lines** of wrapper code from curriculum domains (LS, LP, MOC).
 
 ### What Changed
 
 | Domain Group | Before | After |
 |--------------|--------|-------|
-| **Activity (6)** | UniversalNeo4jBackend[T] | UniversalNeo4jBackend[T] ✅ |
+| **Activity (6)** | Per-domain wrapper classes | UniversalNeo4jBackend[T] ✅ |
 | **Curriculum (3)** | Wrapper backends | UniversalNeo4jBackend[T] ✅ |
 | **Content/Org (3)** | Mixed | UniversalNeo4jBackend[T] ✅ |
 | **Finance (1)** | UniversalNeo4jBackend[T] | UniversalNeo4jBackend[T] ✅ |
 
-**Note:** Content/Organization includes Journals, Assignments, and MOC (non-linear navigation).
-
-**Deleted ~2,000 lines** of wrapper code from curriculum domains (LS, LP, MOC).
+**Note:** Activity Domains later gained typed domain backend subclasses (February 2026) and Curriculum/Submissions followed (March 2026). The distinction is: old "wrappers" duplicated generic CRUD; new domain backends ADD domain-specific methods on top of the universal base.
 
 ### New Helper Methods
 

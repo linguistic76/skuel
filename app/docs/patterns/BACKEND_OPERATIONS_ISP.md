@@ -266,7 +266,7 @@ MRO is left-to-right. Mixins are stateless method containers — no `super().__i
 | `/adapters/persistence/neo4j/_relationship_mixin.py` | Relationship CRUD + Metadata + Query implementation |
 | `/adapters/persistence/neo4j/_user_entity_mixin.py` | Generic user-entity relationship ops (5 methods) |
 | `/adapters/persistence/neo4j/_traversal_mixin.py` | `GraphTraversalOperations` implementation |
-| `/adapters/persistence/neo4j/domain_backends.py` | Domain subclasses: HabitsBackend, GoalsBackend, TasksBackend, EventsBackend |
+| `/adapters/persistence/neo4j/domain_backends.py` | All 10 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend, ChoicesBackend, PrinciplesBackend, KuBackend, SubmissionsBackend, LpBackend, ExerciseBackend |
 | `/core/services/base_service.py` | BaseService using BackendOperations |
 | `/core/ports/domain_protocols.py` | Domain-specific protocols |
 
