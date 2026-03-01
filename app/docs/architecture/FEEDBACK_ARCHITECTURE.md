@@ -121,9 +121,14 @@ class ActivityReport(UserOwnedEntity):
     period_end: datetime | None = None
     domains_covered: tuple[str, ...] = () # which activity domains
     depth: str | None = None              # "summary" | "standard" | "detailed"
-    processed_content: str | None = None  # LLM output or human-written text
+    processed_content: str | None = None  # LLM output or human-written text (immutable)
     processing_error: str | None = None
     insights_referenced: tuple[str, ...] = ()
+    # Annotation fields (Phase 2 — user voice alongside AI synthesis)
+    user_annotation: str | None = None    # Additive commentary alongside AI synthesis
+    user_revision: str | None = None      # User-curated replacement for sharing
+    annotation_mode: str | None = None    # "additive" | "revision" | None
+    annotation_updated_at: datetime | None = None
 ```
 
 ---
@@ -296,6 +301,8 @@ When `openai_service` is available, the generator:
 
 | Route | Method | Who | What |
 |-------|--------|-----|------|
+| `/api/activity-reports/annotate` | POST | User | Save annotation or revision to own report |
+| `/api/activity-reports/annotation` | GET | User | Get current annotation state for a report |
 | `/api/feedback/progress/generate` | POST | User | On-demand `ACTIVITY_REPORT` generation |
 | `/api/feedback/progress` | GET | User | List user's `ACTIVITY_REPORT` history |
 | `/api/feedback/schedule` | POST | User | Create/update generation schedule |
@@ -336,9 +343,13 @@ When `openai_service` is available, the generator:
     period_start, period_end,
     domains_covered, // list
     depth,           // 'summary', 'standard', 'detailed'
-    processed_content,
+    processed_content,     // immutable AI synthesis or human-written text
     processing_error,
     insights_referenced,
+    user_annotation,       // additive commentary (annotation_mode='additive')
+    user_revision,         // user-curated replacement (annotation_mode='revision')
+    annotation_mode,       // 'additive' | 'revision' | null
+    annotation_updated_at,
     created_at, updated_at
 })
 ```

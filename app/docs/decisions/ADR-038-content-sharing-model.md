@@ -33,12 +33,13 @@ class Visibility(str, Enum):
 New relationship type: `SHARES_WITH`
 
 ```cypher
-(user:User)-[:SHARES_WITH {shared_at: datetime, role: str}]->(report:Report)
+(user:User)-[:SHARES_WITH {shared_at: datetime, role: str, share_version: str}]->(report:Report)
 ```
 
 Properties:
 - `shared_at`: Timestamp when shared
 - `role`: Recipient's role (e.g., "teacher", "peer", "mentor", "viewer")
+- `share_version`: Content version shared (`"original"` | `"annotation"` | `"revision"` | `"both"`; default `"original"`)
 
 ### 3. Access Control Rules
 

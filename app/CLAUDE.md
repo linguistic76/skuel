@@ -855,7 +855,7 @@ await teacher_review.approve_report(report_uid, teacher_uid)
 
 **Graph Pattern:**
 ```cypher
-(user:User)-[:SHARES_WITH {shared_at, role}]->(entity:Entity)
+(user:User)-[:SHARES_WITH {shared_at, role, share_version}]->(entity:Entity)
 ```
 
 **Phase 2:** Extend to Events (same infrastructure, different entity type).

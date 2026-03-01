@@ -551,13 +551,15 @@ class Report:
 ```cypher
 CREATE (user:User)-[r:SHARES_WITH {
     shared_at: datetime(),
-    role: 'teacher'
+    role: 'teacher',
+    share_version: 'original'
 }]->(report:Report)
 ```
 
 **Properties:**
 - `shared_at`: Timestamp when shared
 - `role`: Recipient's role (teacher/peer/mentor/viewer)
+- `share_version`: What content version is shared (`"original"` | `"annotation"` | `"revision"` | `"both"`)
 
 ---
 
