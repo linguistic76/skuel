@@ -32,11 +32,12 @@ if TYPE_CHECKING:
         ProgressFeedbackOperations,
         ProgressScheduleOperations,
     )
+    from core.ports.infrastructure_protocols import UserOperations
     from core.ports.submission_protocols import SubmissionOperations
 
 from starlette.requests import Request
 
-from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth import require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from core.models.entity_converters import ku_to_response
 from core.models.entity_requests import (
@@ -57,6 +58,7 @@ def create_progress_feedback_api_routes(
     report_service: "SubmissionOperations",
     schedule_service: "ProgressScheduleOperations | None" = None,
     activity_review: "ActivityReviewOperations | None" = None,
+    user_service: "UserOperations | None" = None,
 ) -> list[Any]:
     """
     Create progress feedback, schedule, and activity review API routes.
@@ -213,18 +215,30 @@ def create_progress_feedback_api_routes(
     # ACTIVITY REVIEW ROUTES (admin writes human feedback on Activity Domains)
     # ========================================================================
 
+    # Named getter for require_admin (SKUEL012: no lambdas)
+    def get_user_service() -> Any:
+        """Return user_service for role-checking decorator."""
+        return user_service
+
     if activity_review:
 
         @rt("/api/activity-review/snapshot")
+        @require_admin(get_user_service)
         @boundary_handler()
-        async def get_activity_snapshot(request: Request) -> Result[Any]:
+        async def get_activity_snapshot(request: Request, current_user: Any) -> Result[Any]:
             """Generate activity snapshot for admin review.
 
             Admin-initiated path: admin selects a user + time window,
             system returns structured activity data for human assessment.
+
+            SECURITY: Requires ADMIN role. subject_uid must be explicitly supplied —
+            there is no default to the caller's own uid. See ADR-042.
             """
-            user_uid = require_authenticated_user(request)
-            subject_uid = request.query_params.get("subject_uid", user_uid)
+            subject_uid = request.query_params.get("subject_uid", "").strip()
+            if not subject_uid:
+                return Result.fail(
+                    Errors.validation("subject_uid is required", field="subject_uid")
+                )
             time_period = request.query_params.get("time_period", "7d")
             domains_param = request.query_params.get("domains", "")
             domains = [d.strip() for d in domains_param.split(",") if d.strip()] or None
@@ -240,14 +254,16 @@ def create_progress_feedback_api_routes(
             return Result.ok({"snapshot": result.value})
 
         @rt("/api/activity-review/submit", methods=["POST"])
+        @require_admin(get_user_service)
         @boundary_handler(success_status=201)
-        async def submit_activity_feedback(request: Request) -> Result[Any]:
+        async def submit_activity_feedback(request: Request, current_user: Any) -> Result[Any]:
             """Admin submits written activity feedback.
 
             Creates ActivityReport entity with ProcessorType.HUMAN.
-            Requires ADMIN role.
+
+            SECURITY: Requires ADMIN role. See ADR-042.
             """
-            admin_uid = require_authenticated_user(request)
+            admin_uid = current_user.uid
             body = await request.json()
 
             subject_uid = body.get("subject_uid")
@@ -329,13 +345,16 @@ def create_progress_feedback_api_routes(
         @rt("/api/activity-review/history")
         @boundary_handler()
         async def get_activity_feedback_history(request: Request) -> Result[Any]:
-            """User's received activity feedback (both LLM and human)."""
+            """User's received activity feedback (both LLM and human).
+
+            SECURITY: Always scoped to the authenticated user's own history.
+            subject_uid cannot be overridden via query params. See ADR-042.
+            """
             user_uid = require_authenticated_user(request)
-            subject_uid = request.query_params.get("subject_uid", user_uid)
             limit = int(request.query_params.get("limit", "20"))
 
             result = await activity_review.get_activity_reviews_for_user(
-                subject_uid=subject_uid,
+                subject_uid=user_uid,
                 limit=limit,
             )
             if result.is_error:

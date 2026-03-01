@@ -109,6 +109,7 @@ def create_submissions_routes(app: Any, rt: Any, services: Any, _sync_service=No
             services.submissions,
             schedule_service=schedule_service,
             activity_review=activity_review,
+            user_service=getattr(services, "user_service", None),
         )
         routes.extend(progress_routes or [])
         logger.info("Progress feedback + activity review routes registered")

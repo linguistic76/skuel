@@ -70,6 +70,10 @@ class ActivityReviewService:
         reads this data, then calls submit_activity_feedback() with their
         written assessment.
 
+        IMPORTANT: This method reads private user content across all activity
+        domains. It MUST only be called from routes gated by @require_admin.
+        See ADR-042 (Privacy as First-Class Citizen).
+
         Args:
             subject_uid: The user whose activity to snapshot
             time_period: Time window (7d, 14d, 30d, 90d)
@@ -226,6 +230,10 @@ class ActivityReviewService:
 
         Stores as EntityType.ACTIVITY_REPORT with ProcessorType.HUMAN.
         The admin_uid becomes owner (user_uid), subject_uid tracks who was reviewed.
+
+        IMPORTANT: This method writes to another user's activity record.
+        It MUST only be called from routes gated by @require_admin.
+        See ADR-042 (Privacy as First-Class Citizen).
 
         Args:
             admin_uid: Admin user creating the feedback
