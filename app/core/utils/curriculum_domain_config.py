@@ -443,7 +443,7 @@ def create_lp_sub_services(
     )
 
     # Step 4: Create progress
-    progress = LpProgressService(executor=executor, event_bus=event_bus)
+    progress = LpProgressService(backend=backend, event_bus=event_bus)
 
     # Step 5: Create intelligence
     # ADR-030: Analytics services have zero AI dependencies

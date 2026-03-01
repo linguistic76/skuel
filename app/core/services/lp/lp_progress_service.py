@@ -19,7 +19,7 @@ from core.events.learning_events import KnowledgeMastered
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from adapters.persistence.neo4j.domain_backends import LpBackend
 
 
 class LpProgressService:
@@ -50,17 +50,17 @@ class LpProgressService:
 
     def __init__(
         self,
-        executor: "QueryExecutor | None" = None,
+        backend: "LpBackend | None" = None,
         event_bus=None,
     ) -> None:
         """
         Initialize learning path progress service.
 
         Args:
-            executor: QueryExecutor for Cypher queries (REQUIRED for )
+            backend: LpBackend for KU mastery graph queries (REQUIRED)
             event_bus: Optional event bus for publishing events
         """
-        self.executor = executor
+        self.backend = backend
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.lp.progress")
 
@@ -91,30 +91,22 @@ class LpProgressService:
             to prevent KU mastery from failing if LP update fails.
         """
         try:
-            if not self.executor:
-                self.logger.warning("No executor available for KU→LP event integration")
+            if not self.backend:
+                self.logger.warning("No backend available for KU→LP event integration")
                 return
 
             self.logger.debug(
                 f"Querying for learning paths containing KU {event.ku_uid}, user {event.user_uid}"
             )
 
-            # Query Neo4j to find learning paths that include this KU
-            # Pattern: (LP)-[:INCLUDES_KU]->(KU) or (LP)-[:REQUIRES_KNOWLEDGE]->(KU)
-            query = """
-            MATCH (lp:Entity {ku_type: 'learning_path'})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
-            RETURN DISTINCT lp.uid as lp_uid
-            """
-
-            result = await self.executor.execute_query(query, {"ku_uid": event.ku_uid})
+            result = await self.backend.get_paths_containing_ku(event.ku_uid)
             if result.is_error:
                 self.logger.error(f"Failed to query learning paths: {result.error}")
                 return
 
-            records = result.value or []
+            lp_uids = result.value or []
 
-            self.logger.debug(f"Found {len(records)} learning paths containing KU: {records}")
-            lp_uids = [record["lp_uid"] for record in records]
+            self.logger.debug(f"Found {len(lp_uids)} learning paths containing KU: {lp_uids}")
 
             if not lp_uids:
                 self.logger.debug(f"No learning paths contain KU {event.ku_uid}")
@@ -153,40 +145,23 @@ class LpProgressService:
             user_uid: User who mastered the KU
             newly_mastered_ku: UID of newly mastered KU
         """
-        if not self.executor:
-            self.logger.warning("No executor available for LP progress tracking")
+        if not self.backend:
+            self.logger.warning("No backend available for LP progress tracking")
             return
 
-        # Note: We don't need to fetch the LP entity for progress calculation
-        # All we need is the count of mastered vs total KUs
-
-        # Query all KUs in this learning path and count how many user has mastered
-        query = """
-        // Count total KUs in learning path
-        MATCH (lp:Entity {uid: $lp_uid})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Entity)
-        WITH count(DISTINCT ku) as total_kus
-
-        // Count KUs user has mastered
-        MATCH (lp:Entity {uid: $lp_uid})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Entity)
-        MATCH (user:User {uid: $user_uid})-[:MASTERED]->(ku)
-        WITH total_kus, count(DISTINCT ku) as mastered_kus
-
-        RETURN total_kus, mastered_kus
-        """
-
-        result = await self.executor.execute_query(query, {"lp_uid": lp_uid, "user_uid": user_uid})
+        result = await self.backend.get_ku_mastery_progress(lp_uid, user_uid)
         if result.is_error:
             self.logger.error(f"Failed to query LP progress: {result.error}")
             return
 
-        records = result.value or []
+        progress_data = result.value or {}
 
-        if not records or records[0].get("total_kus", 0) == 0:
+        if not progress_data or progress_data.get("total_kus", 0) == 0:
             self.logger.debug(f"No KUs found for learning path {lp_uid}")
             return
 
-        total_kus = records[0].get("total_kus", 0)
-        mastered_kus = records[0].get("mastered_kus", 0)
+        total_kus = progress_data.get("total_kus", 0)
+        mastered_kus = progress_data.get("mastered_kus", 0)
 
         # Calculate old and new progress
         # Note: We need to get the user's current LP progress from storage

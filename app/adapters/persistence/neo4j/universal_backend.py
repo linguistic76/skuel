@@ -17,20 +17,21 @@ BACKENDS IN USE (services_bootstrap.py)
     GoalsBackend[Goal] - goals_backend
     TasksBackend[Task] - tasks_backend
     EventsBackend[Event] - events_backend
-    UniversalNeo4jBackend[Choice] - choice_backend
-    UniversalNeo4jBackend[Principle] - principle_backend
+    ChoicesBackend[Choice] - choices_backend
+    PrinciplesBackend[Principle] - principles_backend
 
-**Curriculum Domains (3):**
-    UniversalNeo4jBackend[Ku] - knowledge_backend (ku:)
+**Curriculum Domains (4):**
+    KuBackend[Ku] - knowledge_backend (ku:)
     UniversalNeo4jBackend[LearningStep] - ls_backend (ls:)
-    UniversalNeo4jBackend[LearningPath] - lp_backend (lp:)
+    LpBackend[LearningPath] - lp_backend (lp:)
+    ExerciseBackend[Exercise] - exercise_backend
 
 **Finance Domains (2):**
     UniversalNeo4jBackend[ExpensePure] - finance_backend
     UniversalNeo4jBackend[InvoicePure] - invoice_backend
 
 **Content/Submissions (2):**
-    UniversalNeo4jBackend[Submission] - submissions_backend
+    SubmissionsBackend[Submission] - submissions_backend
     UniversalNeo4jBackend[AiFeedback] - ai_feedback_backend
 
 **Supporting (5):**

@@ -444,32 +444,10 @@ class ExerciseService(BaseService):
         Returns:
             Result[bool] - True if relationship created
         """
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
-            MATCH (curriculum:Entity {{uid: $curriculum_uid}})
-            WHERE curriculum.ku_type IN ['ku', 'resource']
-            MERGE (exercise)-[r:{RelationshipName.REQUIRES_KNOWLEDGE}]->(curriculum)
-            ON CREATE SET r.created_at = datetime()
-            RETURN true as success
-            """,
-            {"exercise_uid": exercise_uid, "curriculum_uid": curriculum_uid},
-        )
-
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        records = result.value or []
-        if not records:
-            return Result.fail(
-                Errors.not_found(
-                    resource="Exercise or Curriculum KU",
-                    identifier=f"{exercise_uid} -> {curriculum_uid}",
-                )
-            )
-
-        self.logger.info(f"Linked exercise {exercise_uid} to curriculum {curriculum_uid}")
-        return Result.ok(True)
+        result = await self.backend.link_to_curriculum(exercise_uid, curriculum_uid)
+        if result.is_ok:
+            self.logger.info(f"Linked exercise {exercise_uid} to curriculum {curriculum_uid}")
+        return result
 
     @with_error_handling("unlink_from_curriculum", error_type="database")
     async def unlink_from_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
@@ -483,31 +461,10 @@ class ExerciseService(BaseService):
         Returns:
             Result[bool] - True if relationship removed
         """
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
-                  -[r:{RelationshipName.REQUIRES_KNOWLEDGE}]->
-                  (curriculum:Entity {{uid: $curriculum_uid}})
-            DELETE r
-            RETURN true as success
-            """,
-            {"exercise_uid": exercise_uid, "curriculum_uid": curriculum_uid},
-        )
-
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        records = result.value or []
-        if not records:
-            return Result.fail(
-                Errors.not_found(
-                    resource="REQUIRES_KNOWLEDGE relationship",
-                    identifier=f"{exercise_uid} -> {curriculum_uid}",
-                )
-            )
-
-        self.logger.info(f"Unlinked exercise {exercise_uid} from curriculum {curriculum_uid}")
-        return Result.ok(True)
+        result = await self.backend.unlink_from_curriculum(exercise_uid, curriculum_uid)
+        if result.is_ok:
+            self.logger.info(f"Unlinked exercise {exercise_uid} from curriculum {curriculum_uid}")
+        return result
 
     @with_error_handling("get_required_knowledge", error_type="database")
     async def get_required_knowledge(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
@@ -520,29 +477,12 @@ class ExerciseService(BaseService):
         Returns:
             Result containing list of curriculum KU summaries
         """
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
-                  -[:{RelationshipName.REQUIRES_KNOWLEDGE}]->
-                  (curriculum:Entity)
-            RETURN curriculum.uid as uid,
-                   curriculum.title as title,
-                   curriculum.ku_type as ku_type,
-                   curriculum.complexity as complexity,
-                   curriculum.learning_level as learning_level
-            ORDER BY curriculum.title
-            """,
-            {"exercise_uid": exercise_uid},
-        )
-
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        knowledge = [dict(record) for record in (result.value or [])]
-        self.logger.info(
-            f"Found {len(knowledge)} required knowledge items for exercise {exercise_uid}"
-        )
-        return Result.ok(knowledge)
+        result = await self.backend.get_required_knowledge(exercise_uid)
+        if result.is_ok:
+            self.logger.info(
+                f"Found {len(result.value or [])} required knowledge items for exercise {exercise_uid}"
+            )
+        return result
 
     @with_error_handling("get_exercises_for_curriculum", error_type="database")
     async def get_exercises_for_curriculum(

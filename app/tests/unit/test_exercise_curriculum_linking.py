@@ -101,25 +101,25 @@ class TestExerciseServiceCurriculumLinking:
 
     @pytest.mark.anyio
     async def test_link_to_curriculum_success(self):
-        """link_to_curriculum should create REQUIRES_KNOWLEDGE relationship."""
+        """link_to_curriculum should delegate to backend.link_to_curriculum."""
         service, backend = self._make_service()
-        backend.execute_query.return_value = Result.ok([{"success": True}])
+        backend.link_to_curriculum.return_value = Result.ok(True)
 
         result = await service.link_to_curriculum("ex_test_123", "ku_python_abc")
 
         assert result.is_ok
         assert result.value is True
-        backend.execute_query.assert_called_once()
-        call_args = backend.execute_query.call_args
-        assert "REQUIRES_KNOWLEDGE" in call_args[0][0]
-        assert call_args[0][1]["exercise_uid"] == "ex_test_123"
-        assert call_args[0][1]["curriculum_uid"] == "ku_python_abc"
+        backend.link_to_curriculum.assert_called_once_with("ex_test_123", "ku_python_abc")
 
     @pytest.mark.anyio
     async def test_link_to_curriculum_not_found(self):
-        """link_to_curriculum should return NotFound when nodes don't exist."""
+        """link_to_curriculum should propagate NotFound from backend."""
         service, backend = self._make_service()
-        backend.execute_query.return_value = Result.ok([])
+        from core.utils.result_simplified import Errors
+
+        backend.link_to_curriculum.return_value = Result.fail(
+            Errors.not_found(resource="Exercise or Curriculum KU", identifier="ex_missing -> ku_missing")
+        )
 
         result = await service.link_to_curriculum("ex_missing", "ku_missing")
 
@@ -127,20 +127,25 @@ class TestExerciseServiceCurriculumLinking:
 
     @pytest.mark.anyio
     async def test_unlink_from_curriculum_success(self):
-        """unlink_from_curriculum should delete REQUIRES_KNOWLEDGE relationship."""
+        """unlink_from_curriculum should delegate to backend.unlink_from_curriculum."""
         service, backend = self._make_service()
-        backend.execute_query.return_value = Result.ok([{"success": True}])
+        backend.unlink_from_curriculum.return_value = Result.ok(True)
 
         result = await service.unlink_from_curriculum("ex_test_123", "ku_python_abc")
 
         assert result.is_ok
         assert result.value is True
+        backend.unlink_from_curriculum.assert_called_once_with("ex_test_123", "ku_python_abc")
 
     @pytest.mark.anyio
     async def test_unlink_from_curriculum_not_found(self):
-        """unlink_from_curriculum should return error when relationship doesn't exist."""
+        """unlink_from_curriculum should propagate NotFound from backend."""
         service, backend = self._make_service()
-        backend.execute_query.return_value = Result.ok([])
+        from core.utils.result_simplified import Errors
+
+        backend.unlink_from_curriculum.return_value = Result.fail(
+            Errors.not_found(resource="REQUIRES_KNOWLEDGE relationship", identifier="ex_test_123 -> ku_missing")
+        )
 
         result = await service.unlink_from_curriculum("ex_test_123", "ku_missing")
 
@@ -148,9 +153,9 @@ class TestExerciseServiceCurriculumLinking:
 
     @pytest.mark.anyio
     async def test_get_required_knowledge_success(self):
-        """get_required_knowledge should return curriculum KU summaries."""
+        """get_required_knowledge should delegate to backend.get_required_knowledge."""
         service, backend = self._make_service()
-        backend.execute_query.return_value = Result.ok(
+        backend.get_required_knowledge.return_value = Result.ok(
             [
                 {
                     "uid": "ku_python_abc",
@@ -175,12 +180,13 @@ class TestExerciseServiceCurriculumLinking:
         assert len(result.value) == 2
         assert result.value[0]["uid"] == "ku_python_abc"
         assert result.value[1]["title"] == "Testing Fundamentals"
+        backend.get_required_knowledge.assert_called_once_with("ex_test_123")
 
     @pytest.mark.anyio
     async def test_get_required_knowledge_empty(self):
         """get_required_knowledge should return empty list when no links exist."""
         service, backend = self._make_service()
-        backend.execute_query.return_value = Result.ok([])
+        backend.get_required_knowledge.return_value = Result.ok([])
 
         result = await service.get_required_knowledge("ex_no_links")
 

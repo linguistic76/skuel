@@ -676,7 +676,9 @@ def _create_learning_services(
     # Create path service (LP operations - delegates LS operations to LsService)
     # January 2026: Intelligence created internally (unified with other domains)
     # Backend created here (composition root) — core services never import adapters
-    lp_backend = UniversalNeo4jBackend[LearningPath](
+    from adapters.persistence.neo4j.domain_backends import LpBackend
+
+    lp_backend = LpBackend(
         driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
     )
     learning_paths = LpService(
@@ -1570,6 +1572,7 @@ async def compose_services(
         logger.info("✅ Transcript processor service created")
 
         # Create Reports feedback and exercise services
+        from adapters.persistence.neo4j.domain_backends import ExerciseBackend
         from core.models.curriculum.exercise import Exercise
         from core.services.exercises import ExerciseService
         from core.services.feedback import FeedbackService
@@ -1583,7 +1586,7 @@ async def compose_services(
             ].interaction,  # Closes mastery loop
         )
 
-        exercise_backend = UniversalNeo4jBackend[Exercise](
+        exercise_backend = ExerciseBackend(
             driver=driver,
             label=NeoLabel.EXERCISE,
             entity_class=Exercise,

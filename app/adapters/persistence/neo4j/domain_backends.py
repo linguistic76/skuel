@@ -41,13 +41,16 @@ from typing import Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
+from core.models.curriculum.exercise import Exercise
 from core.models.curriculum.ku import Ku
+from core.models.curriculum.learning_path import LearningPath
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.principle.principle import Principle
+from core.models.relationship_names import RelationshipName
 from core.models.submissions.submission import Submission
 from core.models.submissions.submission_dto import SubmissionDTO
 from core.models.task.task import Task
@@ -1066,12 +1069,196 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
             return Result.fail(Errors.database(operation="check_access", message=str(e)))
 
 
+class LpBackend(UniversalNeo4jBackend[LearningPath]):
+    """
+    Domain backend for LearningPath entities.
+
+    Extends UniversalNeo4jBackend[LearningPath] with LP-specific graph queries
+    that were previously executed via a raw QueryExecutor in LpProgressService.
+
+    Methods expose typed interfaces for KU mastery progress calculations,
+    keeping all LP-specific Cypher in the persistence layer.
+    """
+
+    async def get_paths_containing_ku(self, ku_uid: str) -> Result[list[str]]:
+        """
+        Return the UIDs of all learning paths that include the given KU.
+
+        Used by LpProgressService to find which LPs to update when a KU is mastered.
+
+        Args:
+            ku_uid: Knowledge Unit UID
+
+        Returns:
+            Result containing list of LP UIDs
+        """
+        query = """
+        MATCH (lp:Entity {ku_type: 'learning_path'})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        RETURN DISTINCT lp.uid as lp_uid
+        """
+        result = await self.execute_query(query, {"ku_uid": ku_uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        records = result.value or []
+        return Result.ok([record["lp_uid"] for record in records])
+
+    async def get_ku_mastery_progress(
+        self, lp_uid: str, user_uid: str
+    ) -> Result[dict[str, Any]]:
+        """
+        Return total and mastered KU counts for a user's progress in a learning path.
+
+        Used by LpProgressService to calculate new progress percentage after a KU
+        is mastered.
+
+        Args:
+            lp_uid: Learning Path UID
+            user_uid: User UID
+
+        Returns:
+            Result containing dict with 'total_kus' and 'mastered_kus' keys,
+            or empty dict if the learning path contains no KUs.
+        """
+        query = """
+        MATCH (lp:Entity {uid: $lp_uid})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Entity)
+        WITH count(DISTINCT ku) as total_kus
+        MATCH (lp:Entity {uid: $lp_uid})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Entity)
+        MATCH (user:User {uid: $user_uid})-[:MASTERED]->(ku)
+        WITH total_kus, count(DISTINCT ku) as mastered_kus
+        RETURN total_kus, mastered_kus
+        """
+        result = await self.execute_query(query, {"lp_uid": lp_uid, "user_uid": user_uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        records = result.value or []
+        if not records:
+            return Result.ok({})
+        return Result.ok(dict(records[0]))
+
+
+class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
+    """
+    Domain backend for Exercise entities.
+
+    Extends UniversalNeo4jBackend[Exercise] with curriculum-linking operations
+    that were previously executed via raw execute_query calls in ExerciseService.
+
+    Methods:
+    - link_to_curriculum     — MERGE REQUIRES_KNOWLEDGE relationship
+    - unlink_from_curriculum — DELETE REQUIRES_KNOWLEDGE relationship
+    - get_required_knowledge — Query all KUs required by an exercise
+    """
+
+    async def link_to_curriculum(
+        self, exercise_uid: str, curriculum_uid: str
+    ) -> Result[bool]:
+        """
+        Create REQUIRES_KNOWLEDGE relationship from exercise to curriculum KU.
+
+        Args:
+            exercise_uid: Exercise UID (ku_type='exercise')
+            curriculum_uid: Curriculum KU UID (ku_type='ku' or 'resource')
+
+        Returns:
+            Result[bool] - True if relationship created
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
+            MATCH (curriculum:Entity {{uid: $curriculum_uid}})
+            WHERE curriculum.ku_type IN ['ku', 'resource']
+            MERGE (exercise)-[r:{RelationshipName.REQUIRES_KNOWLEDGE}]->(curriculum)
+            ON CREATE SET r.created_at = datetime()
+            RETURN true as success
+            """,
+            {"exercise_uid": exercise_uid, "curriculum_uid": curriculum_uid},
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        records = result.value or []
+        if not records:
+            return Result.fail(
+                Errors.not_found(
+                    resource="Exercise or Curriculum KU",
+                    identifier=f"{exercise_uid} -> {curriculum_uid}",
+                )
+            )
+        return Result.ok(True)
+
+    async def unlink_from_curriculum(
+        self, exercise_uid: str, curriculum_uid: str
+    ) -> Result[bool]:
+        """
+        Remove REQUIRES_KNOWLEDGE relationship between exercise and curriculum KU.
+
+        Args:
+            exercise_uid: Exercise UID
+            curriculum_uid: Curriculum KU UID
+
+        Returns:
+            Result[bool] - True if relationship removed
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
+                  -[r:{RelationshipName.REQUIRES_KNOWLEDGE}]->
+                  (curriculum:Entity {{uid: $curriculum_uid}})
+            DELETE r
+            RETURN true as success
+            """,
+            {"exercise_uid": exercise_uid, "curriculum_uid": curriculum_uid},
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        records = result.value or []
+        if not records:
+            return Result.fail(
+                Errors.not_found(
+                    resource="REQUIRES_KNOWLEDGE relationship",
+                    identifier=f"{exercise_uid} -> {curriculum_uid}",
+                )
+            )
+        return Result.ok(True)
+
+    async def get_required_knowledge(
+        self, exercise_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Get all curriculum KUs required by an exercise.
+
+        Args:
+            exercise_uid: Exercise UID
+
+        Returns:
+            Result containing list of curriculum KU summaries
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
+                  -[:{RelationshipName.REQUIRES_KNOWLEDGE}]->
+                  (curriculum:Entity)
+            RETURN curriculum.uid as uid,
+                   curriculum.title as title,
+                   curriculum.ku_type as ku_type,
+                   curriculum.complexity as complexity,
+                   curriculum.learning_level as learning_level
+            ORDER BY curriculum.title
+            """,
+            {"exercise_uid": exercise_uid},
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        return Result.ok([dict(record) for record in (result.value or [])])
+
+
 __all__ = [
     "ChoicesBackend",
     "EventsBackend",
+    "ExerciseBackend",
     "GoalsBackend",
     "HabitsBackend",
     "KuBackend",
+    "LpBackend",
     "PrinciplesBackend",
     "SubmissionsBackend",
     "TasksBackend",
