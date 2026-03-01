@@ -176,10 +176,10 @@ from core.ports import (
     PrinciplesOperations,
     QueryExecutor,
     SearchOperations,
+    SharingOperations,
     SubmissionOperations,
     SubmissionProcessingOperations,
     SubmissionSearchOperations,
-    SubmissionSharingOperations,
     SystemServiceOperations,
     # Domain operations
     TasksOperations,
@@ -254,8 +254,8 @@ class Services:
     submissions_core: SubmissionOperations | None = (
         None  # SubmissionsCoreService - Content management (categories, tags, bulk operations)
     )
-    submissions_sharing: SubmissionSharingOperations | None = (
-        None  # SubmissionsSharingService - Content sharing and visibility control
+    sharing: SharingOperations | None = (
+        None  # UnifiedSharingService - Cross-domain sharing and visibility control
     )
     submissions_processor: SubmissionProcessingOperations | None = (
         None  # SubmissionsProcessingService - Orchestrates processing (LLM enrichment, transcription)
@@ -1667,17 +1667,17 @@ async def compose_services(
             backend=submissions_backend, storage_path=storage_path, event_bus=event_bus
         )
 
-        # Create Submissions sharing service (content sharing)
-        from core.services.submissions import SubmissionsSharingService
+        # Create unified sharing service (cross-domain, driver-based)
+        from core.services.sharing import UnifiedSharingService
 
-        submissions_sharing_service = SubmissionsSharingService(backend=submissions_backend)
+        unified_sharing_service = UnifiedSharingService(driver=driver)
 
         # Create Submissions core service (content management: categories, tags, bulk operations)
         # February 2026: content_enrichment for handle_transcription_completed
         submissions_core_service = SubmissionsCoreService(
             backend=submissions_backend,
             event_bus=event_bus,
-            sharing_service=submissions_sharing_service,
+            sharing_service=unified_sharing_service,
             content_enrichment=content_enrichment,
         )
 
@@ -2403,7 +2403,7 @@ async def compose_services(
             # Reports
             submissions=submissions_service,
             submissions_core=submissions_core_service,  # Content management (categories, tags, bulk ops)
-            submissions_sharing=submissions_sharing_service,  # Submission portfolio sharing
+            sharing=unified_sharing_service,  # Cross-domain sharing and visibility control
             submissions_processor=submissions_processor,
             submissions_search=submissions_search_service,  # Unified submission queries
             # Progress feedback (February 2026)

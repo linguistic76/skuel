@@ -1,5 +1,5 @@
 """
-Integration Tests for Ku Sharing Workflows
+Integration Tests for Sharing Workflows
 ===============================================
 
 End-to-end tests for the complete sharing system with real Neo4j interactions.
@@ -16,18 +16,14 @@ These tests use the actual service implementation with real Neo4j driver.
 
 import pytest
 
-from adapters.persistence.neo4j.domain_backends import SubmissionsBackend
-from adapters.persistence.neo4j.universal_backend import NeoLabel
 from core.models.enums.metadata_enums import Visibility
-from core.models.submissions.submission import Submission
-from core.services.submissions.submissions_sharing_service import SubmissionsSharingService
+from core.services.sharing.unified_sharing_service import UnifiedSharingService
 
 
 @pytest.fixture
 async def sharing_service(neo4j_driver):
-    """Create SubmissionsSharingService with real Neo4j driver via SubmissionsBackend."""
-    backend = SubmissionsBackend(neo4j_driver, NeoLabel.ENTITY, Submission)
-    return SubmissionsSharingService(backend=backend)
+    """Create UnifiedSharingService with real Neo4j driver."""
+    return UnifiedSharingService(driver=neo4j_driver)
 
 
 @pytest.fixture
@@ -117,9 +113,9 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
     Test complete sharing workflow: create → share → view → unshare → verify revoked.
 
     Steps:
-    1. Create Ku (completed by fixture)
+    1. Create entity (completed by fixture)
     2. Share with recipient
-    3. Recipient fetches shared Ku
+    3. Recipient fetches shared entity
     4. Recipient has access
     5. Owner unshares
     6. Recipient no longer has access
@@ -130,7 +126,7 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
 
     # Step 1: Set visibility to SHARED
     visibility_result = await sharing_service.set_visibility(
-        ku_uid=report_uid,
+        entity_uid=report_uid,
         owner_uid=owner_uid,
         visibility=Visibility.SHARED,
     )
@@ -138,8 +134,8 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
     assert visibility_result.value is True
 
     # Step 2: Share with recipient
-    share_result = await sharing_service.share_submission(
-        ku_uid=report_uid,
+    share_result = await sharing_service.share(
+        entity_uid=report_uid,
         owner_uid=owner_uid,
         recipient_uid=recipient_uid,
         role="teacher",
@@ -148,24 +144,24 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
     assert share_result.value is True
 
     # Step 3: Recipient can see it in "shared with me"
-    _shared_result = await sharing_service.get_submissions_shared_with_me(
+    _shared_result = await sharing_service.get_shared_with_me(
         user_uid=recipient_uid,
         limit=50,
     )
-    # Note: This may fail if User nodes don't exist - that's expected
+    # Note: This may return empty if User nodes don't exist - that's expected
     # The relationship was created successfully even if the query returns empty
 
     # Step 4: Recipient has access
     access_result = await sharing_service.check_access(
-        ku_uid=report_uid,
+        entity_uid=report_uid,
         user_uid=recipient_uid,
     )
     assert not access_result.is_error
     assert access_result.value is True
 
     # Step 5: Owner unshares
-    unshare_result = await sharing_service.unshare_submission(
-        ku_uid=report_uid,
+    unshare_result = await sharing_service.unshare(
+        entity_uid=report_uid,
         owner_uid=owner_uid,
         recipient_uid=recipient_uid,
     )
@@ -174,7 +170,7 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
 
     # Step 6: Recipient no longer has access
     access_after_unshare = await sharing_service.check_access(
-        ku_uid=report_uid,
+        entity_uid=report_uid,
         user_uid=recipient_uid,
     )
     assert not access_after_unshare.is_error
@@ -197,7 +193,7 @@ async def test_private_visibility_restricts_access(sharing_service, test_report)
     # Entity defaults to PRIVATE
     # Owner can access
     owner_access = await sharing_service.check_access(
-        ku_uid=report_uid,
+        entity_uid=report_uid,
         user_uid=owner_uid,
     )
     assert not owner_access.is_error
@@ -205,7 +201,7 @@ async def test_private_visibility_restricts_access(sharing_service, test_report)
 
     # Other user cannot access
     other_access = await sharing_service.check_access(
-        ku_uid=report_uid,
+        entity_uid=report_uid,
         user_uid=other_user,
     )
     assert not other_access.is_error
@@ -222,7 +218,7 @@ async def test_public_visibility_allows_all_access(sharing_service, test_report)
 
     # Set visibility to PUBLIC
     visibility_result = await sharing_service.set_visibility(
-        ku_uid=report_uid,
+        entity_uid=report_uid,
         owner_uid=owner_uid,
         visibility=Visibility.PUBLIC,
     )
@@ -230,7 +226,7 @@ async def test_public_visibility_allows_all_access(sharing_service, test_report)
 
     # Anyone can access
     public_access = await sharing_service.check_access(
-        ku_uid=report_uid,
+        entity_uid=report_uid,
         user_uid=anyone,
     )
     assert not public_access.is_error
@@ -248,15 +244,15 @@ async def test_shared_visibility_requires_relationship(sharing_service, test_rep
 
     # Set visibility to SHARED
     visibility_result = await sharing_service.set_visibility(
-        ku_uid=report_uid,
+        entity_uid=report_uid,
         owner_uid=owner_uid,
         visibility=Visibility.SHARED,
     )
     assert not visibility_result.is_error
 
     # Share with authorized user
-    share_result = await sharing_service.share_submission(
-        ku_uid=report_uid,
+    share_result = await sharing_service.share(
+        entity_uid=report_uid,
         owner_uid=owner_uid,
         recipient_uid=authorized_user,
         role="peer",
@@ -265,7 +261,7 @@ async def test_shared_visibility_requires_relationship(sharing_service, test_rep
 
     # Authorized user can access
     authorized_access = await sharing_service.check_access(
-        ku_uid=report_uid,
+        entity_uid=report_uid,
         user_uid=authorized_user,
     )
     assert not authorized_access.is_error
@@ -273,7 +269,7 @@ async def test_shared_visibility_requires_relationship(sharing_service, test_rep
 
     # Unauthorized user cannot access
     unauthorized_access = await sharing_service.check_access(
-        ku_uid=report_uid,
+        entity_uid=report_uid,
         user_uid=unauthorized_user,
     )
     assert not unauthorized_access.is_error
@@ -294,8 +290,8 @@ async def test_only_owner_can_share(sharing_service, test_report):
     recipient = "test_user_recipient"
 
     # Non-owner tries to share
-    share_result = await sharing_service.share_submission(
-        ku_uid=report_uid,
+    share_result = await sharing_service.share(
+        entity_uid=report_uid,
         owner_uid=not_owner,  # Not the actual owner
         recipient_uid=recipient,
         role="viewer",
@@ -316,20 +312,20 @@ async def test_only_owner_can_unshare(sharing_service, test_report):
 
     # Owner shares first
     await sharing_service.set_visibility(
-        ku_uid=report_uid,
+        entity_uid=report_uid,
         owner_uid=owner_uid,
         visibility=Visibility.SHARED,
     )
-    await sharing_service.share_submission(
-        ku_uid=report_uid,
+    await sharing_service.share(
+        entity_uid=report_uid,
         owner_uid=owner_uid,
         recipient_uid=recipient,
         role="viewer",
     )
 
     # Non-owner tries to unshare
-    unshare_result = await sharing_service.unshare_submission(
-        ku_uid=report_uid,
+    unshare_result = await sharing_service.unshare(
+        entity_uid=report_uid,
         owner_uid=not_owner,  # Not the actual owner
         recipient_uid=recipient,
     )
@@ -347,7 +343,7 @@ async def test_only_owner_can_change_visibility(sharing_service, test_report):
 
     # Non-owner tries to change visibility
     visibility_result = await sharing_service.set_visibility(
-        ku_uid=report_uid,
+        entity_uid=report_uid,
         owner_uid=not_owner,  # Not the actual owner
         visibility=Visibility.PUBLIC,
     )
@@ -391,8 +387,8 @@ async def test_only_completed_reports_can_be_shared(neo4j_driver, sharing_servic
 
     try:
         # Try to share processing entity
-        share_result = await sharing_service.share_submission(
-            ku_uid=report_uid,
+        share_result = await sharing_service.share(
+            entity_uid=report_uid,
             owner_uid=owner_uid,
             recipient_uid="test_user_teacher",
             role="teacher",
@@ -416,7 +412,7 @@ async def test_only_completed_reports_can_be_shared(neo4j_driver, sharing_servic
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_get_shared_users_list(sharing_service, test_report):
+async def test_get_shared_with_list(sharing_service, test_report):
     """Test fetching list of users entity is shared with."""
     report_uid = test_report["uid"]
     owner_uid = test_report["owner_uid"]
@@ -429,29 +425,27 @@ async def test_get_shared_users_list(sharing_service, test_report):
     ]
 
     await sharing_service.set_visibility(
-        ku_uid=report_uid,
+        entity_uid=report_uid,
         owner_uid=owner_uid,
         visibility=Visibility.SHARED,
     )
 
     for recipient_uid, role in users:
-        await sharing_service.share_submission(
-            ku_uid=report_uid,
+        await sharing_service.share(
+            entity_uid=report_uid,
             owner_uid=owner_uid,
             recipient_uid=recipient_uid,
             role=role,
         )
 
     # Get shared users list
-    shared_users_result = await sharing_service.get_shared_with_users(
-        ku_uid=report_uid,
+    shared_users_result = await sharing_service.get_shared_with(
+        entity_uid=report_uid,
     )
 
     # Note: This may return empty if User nodes don't exist
     # The test verifies the service method works, not that User nodes exist
     assert not shared_users_result.is_error
-    # If User nodes exist, we should see 3 users
-    # If not, the list will be empty but the method should still succeed
 
 
 # ============================================================================
@@ -463,8 +457,8 @@ async def test_get_shared_users_list(sharing_service, test_report):
 @pytest.mark.integration
 async def test_share_nonexistent_report(sharing_service):
     """Test sharing a nonexistent entity returns appropriate error."""
-    share_result = await sharing_service.share_submission(
-        ku_uid="nonexistent_report",
+    share_result = await sharing_service.share(
+        entity_uid="nonexistent_report",
         owner_uid="test_user_owner",
         recipient_uid="test_user_recipient",
         role="viewer",
@@ -482,8 +476,8 @@ async def test_unshare_nonshared_report(sharing_service, test_report):
     owner_uid = test_report["owner_uid"]
     never_shared_with = "test_user_never_shared"
 
-    unshare_result = await sharing_service.unshare_submission(
-        ku_uid=report_uid,
+    unshare_result = await sharing_service.unshare(
+        entity_uid=report_uid,
         owner_uid=owner_uid,
         recipient_uid=never_shared_with,
     )
@@ -497,7 +491,7 @@ async def test_unshare_nonshared_report(sharing_service, test_report):
 async def test_check_access_nonexistent_report(sharing_service):
     """Test checking access for nonexistent entity."""
     access_result = await sharing_service.check_access(
-        ku_uid="nonexistent_report",
+        entity_uid="nonexistent_report",
         user_uid="test_user",
     )
 

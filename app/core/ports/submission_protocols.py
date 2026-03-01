@@ -8,14 +8,15 @@ Route-facing protocols for the Submission stage of SKUEL's core educational loop
                          ↑
                student produces work
 
-Four protocols covering CRUD, processing, sharing, and search across
+Three protocols covering CRUD, processing, and search across
 EntityType.SUBMISSION and EntityType.JOURNAL (both are student work products).
+
+Sharing is cross-domain: see core/ports/sharing_protocols.py (SharingOperations).
 
 Protocol Responsibilities
 --------------------------
     SubmissionOperations         — CRUD, file management, journal creation, content management
     SubmissionProcessingOperations — Processing pipeline (transcription, LLM enrichment)
-    SubmissionSharingOperations  — Visibility and sharing control (SHARES_WITH)
     SubmissionSearchOperations   — Cross-type search and statistics
 
 ISP-compliant: each protocol captures only the methods called from routes.
@@ -262,69 +263,6 @@ class SubmissionProcessingOperations(Protocol):
         new_instructions: dict[str, Any] | None = None,
     ) -> Result[Any]:
         """Reprocess a submission with new instructions. Returns Result[Submission]."""
-        ...
-
-
-@runtime_checkable
-class SubmissionSharingOperations(Protocol):
-    """Submission sharing and visibility control operations.
-
-    Manages who can see a submission — SHARES_WITH relationships and
-    visibility levels (PRIVATE / SHARED / PUBLIC).
-
-    Route consumer: submissions_sharing_api.py (primary service)
-    Implementation: SubmissionsSharingService
-    """
-
-    async def share_submission(
-        self,
-        ku_uid: str,
-        owner_uid: str,
-        recipient_uid: str,
-        role: str = "viewer",
-    ) -> Result[bool]:
-        """Share a submission with a user. Returns Result[bool]."""
-        ...
-
-    async def unshare_submission(
-        self,
-        ku_uid: str,
-        owner_uid: str,
-        recipient_uid: str,
-    ) -> Result[bool]:
-        """Revoke sharing access. Returns Result[bool]."""
-        ...
-
-    async def get_shared_with_users(
-        self,
-        ku_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
-        """Get users a submission is shared with. Returns Result[list[dict]]."""
-        ...
-
-    async def get_submissions_shared_with_me(
-        self,
-        user_uid: str,
-        limit: int = 50,
-    ) -> Result[list[Any]]:
-        """Get submissions shared with a user. Returns Result[list[SubmissionDTO]]."""
-        ...
-
-    async def set_visibility(
-        self,
-        ku_uid: str,
-        owner_uid: str,
-        visibility: Any,
-    ) -> Result[bool]:
-        """Set submission visibility level. Returns Result[bool]."""
-        ...
-
-    async def check_access(
-        self,
-        ku_uid: str,
-        user_uid: str,
-    ) -> Result[bool]:
-        """Check if user has access to a submission. Returns Result[bool]."""
         ...
 
 

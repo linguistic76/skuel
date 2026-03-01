@@ -18,8 +18,8 @@ Sub-services:
 - SubmissionsCoreService: Content management + journal CRUD
 - SubmissionsSearchService: Query and search operations
 - SubmissionsRelationshipService: Graph relationship creation
-- SubmissionsSharingService: Content sharing between users
 
+Sharing lives in core.services.sharing (cross-domain).
 Feedback services live in core.services.feedback.
 """
 
@@ -35,7 +35,6 @@ from core.services.submissions.submissions_relationship_service import (
 )
 from core.services.submissions.submissions_search_service import SubmissionsSearchService
 from core.services.submissions.submissions_service import SubmissionsService
-from core.services.submissions.submissions_sharing_service import SubmissionsSharingService
 
 __all__ = [
     "JournalOutputGenerator",
@@ -46,5 +45,4 @@ __all__ = [
     "SubmissionsRelationshipService",
     "SubmissionsSearchService",
     "SubmissionsService",
-    "SubmissionsSharingService",
 ]

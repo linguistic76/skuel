@@ -18,10 +18,8 @@ See: /docs/patterns/SHARING_PATTERNS.md (to be created)
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports.submission_protocols import (
-        SubmissionOperations,
-        SubmissionSharingOperations,
-    )
+    from core.ports.sharing_protocols import SharingOperations
+    from core.ports.submission_protocols import SubmissionOperations
 
 from pydantic import BaseModel
 from starlette.requests import Request
@@ -70,7 +68,7 @@ class SetVisibilityRequest(BaseModel):
 def create_submissions_sharing_api_routes(
     _app: Any,
     rt: Any,
-    sharing_service: "SubmissionSharingOperations",
+    sharing_service: "SharingOperations",
     core_service: "SubmissionOperations | None" = None,
 ) -> list[Any]:
     """
@@ -79,7 +77,7 @@ def create_submissions_sharing_api_routes(
     Args:
         _app: FastHTML app instance
         rt: Route decorator
-        sharing_service: SubmissionsSharingService instance
+        sharing_service: UnifiedSharingService instance
         core_service: Optional SubmissionsCoreService for additional operations
 
     Returns:
@@ -110,8 +108,8 @@ def create_submissions_sharing_api_routes(
         """
         user_uid: UserUID = require_authenticated_user(request)
 
-        result = await sharing_service.share_submission(
-            ku_uid=body.submission_uid,
+        result = await sharing_service.share(
+            entity_uid=body.submission_uid,
             owner_uid=user_uid,
             recipient_uid=body.recipient_uid,
             role=body.role,
@@ -149,8 +147,8 @@ def create_submissions_sharing_api_routes(
         """
         user_uid: UserUID = require_authenticated_user(request)
 
-        result = await sharing_service.unshare_submission(
-            ku_uid=body.submission_uid,
+        result = await sharing_service.unshare(
+            entity_uid=body.submission_uid,
             owner_uid=user_uid,
             recipient_uid=body.recipient_uid,
         )
@@ -199,7 +197,7 @@ def create_submissions_sharing_api_routes(
             )
 
         result = await sharing_service.set_visibility(
-            ku_uid=body.submission_uid,
+            entity_uid=body.submission_uid,
             owner_uid=user_uid,
             visibility=visibility,
         )
@@ -235,7 +233,7 @@ def create_submissions_sharing_api_routes(
         params = dict(request.query_params)
         limit = int(params.get("limit", 50))
 
-        result = await sharing_service.get_submissions_shared_with_me(
+        result = await sharing_service.get_shared_with_me(
             user_uid=user_uid,
             limit=limit,
         )
@@ -319,8 +317,8 @@ def create_submissions_sharing_api_routes(
                     }
                 )
 
-        result = await sharing_service.get_shared_with_users(
-            ku_uid=submission_uid,
+        result = await sharing_service.get_shared_with(
+            entity_uid=submission_uid,
         )
 
         if result.is_error:

@@ -293,8 +293,10 @@ from .submission_protocols import (
     SubmissionOperations,
     SubmissionProcessingOperations,
     SubmissionSearchOperations,
-    SubmissionSharingOperations,
 )
+
+# Sharing protocol — cross-cutting, any entity type can be shared
+from .sharing_protocols import SharingOperations
 
 # ============================================================================
 # EXPLICIT EXPORTS - Protocol Catalog (ISP-compliant Nov 2025)
@@ -457,11 +459,12 @@ __all__ = [
     "PydanticFieldInfo",
     "PydanticModel",
     "QueryBuilderOperations",
-    # ========== SUBMISSION PROTOCOLS (4) ==========
+    # ========== SUBMISSION PROTOCOLS (3) ==========
     "SubmissionOperations",
     "SubmissionProcessingOperations",
     "SubmissionSearchOperations",
-    "SubmissionSharingOperations",
+    # ========== SHARING PROTOCOL ==========
+    "SharingOperations",
     # ========== FEEDBACK PROTOCOLS (3) ==========
     "FeedbackOperations",
     "ProgressFeedbackOperations",

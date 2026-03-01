@@ -880,8 +880,8 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         from fasthtml.common import H2, H4, A, Button, Div, P, Span
 
         shared_reports = []
-        if services.submissions_sharing:
-            reports_result = await services.submissions_sharing.get_submissions_shared_with_me(
+        if services.sharing:
+            reports_result = await services.sharing.get_shared_with_me(
                 user_uid=user_uid,
                 limit=50,
             )

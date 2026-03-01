@@ -72,7 +72,7 @@ def create_submissions_routes(app: Any, rt: Any, services: Any, _sync_service=No
     Wire submissions API, UI, and sharing routes using configuration-driven registration.
 
     Uses DomainRouteConfig for standard API + UI routes (shared primary service).
-    Sharing routes appended manually: their primary service (submissions_sharing)
+    Sharing routes appended manually: their primary service (sharing)
     differs from the API/UI primary (submissions).
 
     Args:
@@ -86,12 +86,12 @@ def create_submissions_routes(app: Any, rt: Any, services: Any, _sync_service=No
     """
     routes = register_domain_routes(app, rt, services, SUBMISSIONS_CONFIG)
 
-    # Extension: sharing routes use a different primary service
-    if services and services.submissions_sharing:
+    # Extension: sharing routes use UnifiedSharingService
+    if services and services.sharing:
         sharing_routes = create_submissions_sharing_api_routes(
             app,
             rt,
-            services.submissions_sharing,
+            services.sharing,
             services.submissions_core,
         )
         routes.extend(sharing_routes or [])
