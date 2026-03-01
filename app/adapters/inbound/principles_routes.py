@@ -12,7 +12,7 @@ from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
 )
-from core.models.activity_requests import PrincipleCreateRequest
+from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.entity_requests import EntityUpdateRequest
 
 PRINCIPLES_CONFIG = create_activity_domain_route_config(
@@ -30,6 +30,7 @@ PRINCIPLES_CONFIG = create_activity_domain_route_config(
         "goals_service": "goals",
         "habits_service": "habits",
     },
+    prometheus_metrics_attr="prometheus_metrics",
 )
 
 

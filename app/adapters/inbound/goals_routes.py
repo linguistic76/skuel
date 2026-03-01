@@ -28,6 +28,7 @@ GOALS_CONFIG = create_activity_domain_route_config(
         "user_service": "user_service",
         "habits_service": "habits",
     },
+    prometheus_metrics_attr="prometheus_metrics",
 )
 
 

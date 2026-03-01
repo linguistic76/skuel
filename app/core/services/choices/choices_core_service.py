@@ -32,7 +32,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_attribute_sort_key
 
 if TYPE_CHECKING:
-    from core.models.activity_requests import (
+    from core.models.choice.choice_request import (
         ChoiceCreateRequest,
         ChoiceEvaluationRequest,
     )

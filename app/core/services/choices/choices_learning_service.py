@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.activity_requests import ChoiceCreateRequest
+from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.curriculum.learning_step import LearningStep

@@ -30,7 +30,6 @@ from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityStatus
 from core.models.habit.habit_request import HabitCreateRequest
 from core.ports.query_types import ActivityFilterSpec
-from core.services.goals_service import GoalsService
 from core.services.habits_service import HabitsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -381,7 +380,7 @@ def get_status_color(status) -> Any:
 
 
 def create_habits_ui_routes(
-    _app, rt, habits_service: HabitsService, goals_service: GoalsService | None = None
+    _app, rt, habits_service: HabitsService, services: Any = None
 ):
     """
     Create three-view habit UI routes (standalone, no drawer).
@@ -390,14 +389,9 @@ def create_habits_ui_routes(
     - List: Sortable, filterable habit list with streak indicators
     - Create: Full habit creation form (Atomic Habits wizard)
     - Calendar: Month/Week/Day views showing habit schedules
-
-    Args:
-        _app: FastHTML app instance
-        rt: Route decorator
-        habits_service: Habits service
-        goals_service: Goals service for habit-goal linking and goal diagnostics
     """
 
+    goals_service = services.goals if services else None
     logger.info("Registering three-view habit routes (standalone)")
 
     # ========================================================================

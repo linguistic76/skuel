@@ -6,13 +6,13 @@ Activity Domain: CRUD, Query, and Intelligence factories declared in config.
 No Status or Analytics factories — all remaining routes are manual.
 """
 
-from adapters.inbound.choice_ui import create_choice_ui_routes
+from adapters.inbound.choices_ui import create_choice_ui_routes
 from adapters.inbound.choices_api import create_choices_api_routes
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
 )
-from core.models.activity_requests import ChoiceCreateRequest
+from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.entity_requests import EntityUpdateRequest
 
 CHOICES_CONFIG = create_activity_domain_route_config(
@@ -29,6 +29,7 @@ CHOICES_CONFIG = create_activity_domain_route_config(
         "user_service": "user_service",
         "goals_service": "goals",
     },
+    prometheus_metrics_attr="prometheus_metrics",
 )
 
 

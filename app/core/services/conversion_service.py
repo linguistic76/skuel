@@ -16,10 +16,8 @@ from dataclasses import fields, is_dataclass
 from datetime import datetime
 from typing import Any, Protocol, TypeVar, runtime_checkable
 
-from core.models.activity_requests import (
-    ChoiceCreateRequest,
-    PrincipleCreateRequest,
-)
+from core.models.choice.choice_request import ChoiceCreateRequest
+from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.choice.choice import Choice
 from core.models.choice.choice_option import ChoiceOption
 from core.models.curriculum.curriculum_requests import CurriculumCreateRequest as KuCreateRequest

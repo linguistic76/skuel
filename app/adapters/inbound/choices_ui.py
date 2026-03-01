@@ -619,7 +619,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
 
         Handles form parsing, option parsing, enum conversion, and service call.
         """
-        from core.models.activity_requests import (
+        from core.models.choice.choice_request import (
             ChoiceCreateRequest,
             ChoiceOptionCreateRequest,
         )

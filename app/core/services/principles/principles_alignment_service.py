@@ -363,7 +363,7 @@ class PrinciplesAlignmentService:
         """
         from datetime import date
 
-        from core.models.activity_requests import PrincipleAlignmentAssessmentResult
+        from core.models.principle.principle_request import PrincipleAlignmentAssessmentResult
         from core.models.principle.principle_dto import PrincipleDTO
 
         # 1. Get the principle

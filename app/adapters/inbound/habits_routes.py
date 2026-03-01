@@ -28,9 +28,7 @@ HABITS_CONFIG = create_activity_domain_route_config(
         "user_service": "user_service",
         "goals_service": "goals",
     },
-    ui_related_services={
-        "goals_service": "goals",
-    },
+    prometheus_metrics_attr="prometheus_metrics",
 )
 
 

@@ -486,7 +486,7 @@ class TestChoiceEmbeddingEvents:
         event_bus.subscribe(ChoiceEmbeddingRequested, capture_event)
 
         # Create choice
-        from core.models.activity_requests import ChoiceCreateRequest
+        from core.models.choice.choice_request import ChoiceCreateRequest
 
         request = ChoiceCreateRequest(
             title="Career Path Decision",

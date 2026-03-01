@@ -16,7 +16,7 @@ Part of the PrinciplesService decomposition.
 from operator import itemgetter
 from typing import Any
 
-from core.models.activity_requests import PrincipleCreateRequest
+from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.curriculum.learning_path import LearningPath
 from core.models.curriculum.learning_step import LearningStep
 from core.models.curriculum.lp_position import LpPosition

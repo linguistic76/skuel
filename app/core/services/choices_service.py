@@ -36,7 +36,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-    from core.models.activity_requests import ChoiceCreateRequest
+    from core.models.choice.choice_request import ChoiceCreateRequest
     from core.models.entity_requests import EntityUpdateRequest
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.search_protocols import ChoicesSearchOperations
