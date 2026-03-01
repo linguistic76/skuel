@@ -18,6 +18,10 @@ Activity Review Routes (admin):
 - POST /api/activity-review/request — user requests a review
 - GET  /api/activity-review/queue — admin's pending review queue
 - GET  /api/activity-review/history — user's received activity feedback
+
+Annotation Routes (authenticated user):
+- POST /api/activity-reports/annotate — save annotation or revision to owned report
+- GET  /api/activity-reports/annotation — get current annotation state
 """
 
 from typing import TYPE_CHECKING, Any
@@ -345,6 +349,55 @@ def create_progress_feedback_api_routes(
                 }
             )
 
+        @rt("/api/activity-reports/annotate", methods=["POST"])
+        @boundary_handler()
+        async def save_annotation(request: Request) -> Result[Any]:
+            """Save user annotation or revision to an owned ActivityReport.
+
+            Body fields:
+                uid: ActivityReport uid
+                annotation_mode: "additive" | "revision"
+                user_annotation: Commentary text (required for additive mode)
+                user_revision: Replacement text (required for revision mode)
+            """
+            user_uid = require_authenticated_user(request)
+            body = await request.json()
+
+            uid = body.get("uid", "").strip()
+            if not uid:
+                return Result.fail(Errors.validation("uid is required", field="uid"))
+
+            annotation_mode = body.get("annotation_mode", "").strip()
+            user_annotation = body.get("user_annotation")
+            user_revision = body.get("user_revision")
+
+            result = await activity_review.annotate(
+                uid=uid,
+                user_uid=user_uid,
+                annotation_mode=annotation_mode,
+                user_annotation=user_annotation,
+                user_revision=user_revision,
+            )
+            if result.is_error:
+                return Result.fail(result.expect_error())
+
+            return Result.ok({"annotation": result.value, "message": "Annotation saved"})
+
+        @rt("/api/activity-reports/annotation")
+        @boundary_handler()
+        async def get_annotation(request: Request) -> Result[Any]:
+            """Get current annotation state for an owned ActivityReport."""
+            user_uid = require_authenticated_user(request)
+            uid = request.query_params.get("uid", "").strip()
+            if not uid:
+                return Result.fail(Errors.validation("uid is required", field="uid"))
+
+            result = await activity_review.get_annotation(uid=uid, user_uid=user_uid)
+            if result.is_error:
+                return Result.fail(result.expect_error())
+
+            return Result.ok({"annotation": result.value})
+
         routes.extend(
             [
                 get_activity_snapshot,
@@ -352,6 +405,8 @@ def create_progress_feedback_api_routes(
                 request_activity_review,
                 get_review_queue,
                 get_activity_feedback_history,
+                save_annotation,
+                get_annotation,
             ]
         )
         logger.info("Activity review routes registered")

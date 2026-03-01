@@ -390,6 +390,142 @@ class ActivityReviewService:
             logger.error(f"Failed to create review request for {user_uid}: {e}")
             return Result.fail(Errors.system(f"Failed to request review: {e}"))
 
+    async def annotate(
+        self,
+        uid: str,
+        user_uid: str,
+        annotation_mode: str,
+        user_annotation: str | None = None,
+        user_revision: str | None = None,
+    ) -> Result[dict[str, Any]]:
+        """
+        Save user annotation or revision to an owned ActivityReport.
+
+        Two modes:
+            additive — user_annotation is stored alongside processed_content (original preserved)
+            revision — user_revision replaces processed_content when sharing
+
+        Args:
+            uid: ActivityReport uid to annotate
+            user_uid: Owner making the annotation (ownership enforced via query)
+            annotation_mode: "additive" | "revision"
+            user_annotation: Commentary text (required for additive mode)
+            user_revision: Replacement text (required for revision mode)
+
+        Returns:
+            Result[dict] — saved annotation fields
+        """
+        if annotation_mode not in ("additive", "revision"):
+            return Result.fail(
+                Errors.validation(
+                    "annotation_mode must be 'additive' or 'revision'",
+                    field="annotation_mode",
+                )
+            )
+        if annotation_mode == "additive" and not user_annotation:
+            return Result.fail(
+                Errors.validation(
+                    "user_annotation required for additive mode",
+                    field="user_annotation",
+                )
+            )
+        if annotation_mode == "revision" and not user_revision:
+            return Result.fail(
+                Errors.validation(
+                    "user_revision required for revision mode",
+                    field="user_revision",
+                )
+            )
+        try:
+            now = datetime.now().isoformat()
+            result = await self.executor.execute_query(
+                """
+                MATCH (n:Entity {uid: $uid, user_uid: $user_uid, ku_type: 'activity_report'})
+                SET n.annotation_mode = $annotation_mode,
+                    n.annotation_updated_at = datetime($now),
+                    n.user_annotation = $user_annotation,
+                    n.user_revision = $user_revision
+                RETURN n.uid AS uid, n.annotation_mode AS annotation_mode,
+                       n.user_annotation AS user_annotation, n.user_revision AS user_revision
+                """,
+                {
+                    "uid": uid,
+                    "user_uid": user_uid,
+                    "annotation_mode": annotation_mode,
+                    "now": now,
+                    "user_annotation": user_annotation,
+                    "user_revision": user_revision,
+                },
+            )
+            if result.is_error:
+                return Result.fail(result.expect_error())
+            records = result.value or []
+            if not records:
+                return Result.fail(
+                    Errors.not_found(
+                        f"ActivityReport {uid} not found or not owned by {user_uid}"
+                    )
+                )
+            record = records[0] if isinstance(records[0], dict) else dict(records[0])
+            return Result.ok(
+                {
+                    "uid": record.get("uid"),
+                    "annotation_mode": record.get("annotation_mode"),
+                    "user_annotation": record.get("user_annotation"),
+                    "user_revision": record.get("user_revision"),
+                }
+            )
+        except Exception as e:
+            logger.error(f"Failed to annotate ActivityReport {uid}: {e}")
+            return Result.fail(Errors.system(f"Failed to save annotation: {e}"))
+
+    async def get_annotation(self, uid: str, user_uid: str) -> Result[dict[str, Any]]:
+        """
+        Get current annotation state for an owned ActivityReport.
+
+        Args:
+            uid: ActivityReport uid
+            user_uid: Owner requesting the annotation (ownership enforced via query)
+
+        Returns:
+            Result[dict] — current annotation fields (may all be None if not yet annotated)
+        """
+        try:
+            result = await self.executor.execute_query(
+                """
+                MATCH (n:Entity {uid: $uid, user_uid: $user_uid, ku_type: 'activity_report'})
+                RETURN n.uid AS uid, n.annotation_mode AS annotation_mode,
+                       n.user_annotation AS user_annotation, n.user_revision AS user_revision,
+                       n.annotation_updated_at AS annotation_updated_at
+                """,
+                {"uid": uid, "user_uid": user_uid},
+            )
+            if result.is_error:
+                return Result.fail(result.expect_error())
+            records = result.value or []
+            if not records:
+                return Result.fail(
+                    Errors.not_found(
+                        f"ActivityReport {uid} not found or not owned by {user_uid}"
+                    )
+                )
+            record = records[0] if isinstance(records[0], dict) else dict(records[0])
+            annotation_updated_at = record.get("annotation_updated_at")
+            return Result.ok(
+                {
+                    "uid": record.get("uid"),
+                    "annotation_mode": record.get("annotation_mode"),
+                    "user_annotation": record.get("user_annotation"),
+                    "user_revision": record.get("user_revision"),
+                    "annotation_updated_at": (
+                        str(annotation_updated_at) if annotation_updated_at else None
+                    ),
+                }
+            )
+        except Exception as e:
+            logger.error(f"Failed to get annotation for ActivityReport {uid}: {e}")
+            return Result.fail(Errors.system(f"Failed to retrieve annotation: {e}"))
+
     async def get_pending_reviews(
         self,
         _admin_uid: str,

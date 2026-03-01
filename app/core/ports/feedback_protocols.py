@@ -237,3 +237,18 @@ class ActivityReviewOperations(Protocol):
     ) -> Result[list[Any]]:
         """Admin's pending review queue. Returns Result[list[dict]]."""
         ...
+
+    async def annotate(
+        self,
+        uid: str,
+        user_uid: str,
+        annotation_mode: str,
+        user_annotation: str | None = None,
+        user_revision: str | None = None,
+    ) -> Result[Any]:
+        """Save user annotation or revision to an owned ActivityReport. Returns Result[dict]."""
+        ...
+
+    async def get_annotation(self, uid: str, user_uid: str) -> Result[Any]:
+        """Get current annotation state for an owned ActivityReport. Returns Result[dict]."""
+        ...

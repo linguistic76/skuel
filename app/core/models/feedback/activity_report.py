@@ -50,6 +50,10 @@ class ActivityReport(UserOwnedEntity):
         processed_content: Generated feedback text (LLM output or human-written)
         processing_error: Error message if generation failed
         insights_referenced: UIDs of active insights used in generation
+        user_annotation: Additive commentary the user adds alongside AI synthesis
+        user_revision: User-curated replacement for sharing (overrides processed_content)
+        annotation_mode: Which mode the user chose ("additive" | "revision" | None)
+        annotation_updated_at: When the annotation was last saved
     """
 
     def __post_init__(self) -> None:
@@ -93,6 +97,14 @@ class ActivityReport(UserOwnedEntity):
     # INSIGHT REFERENCES
     # =========================================================================
     insights_referenced: tuple[str, ...] = field(default_factory=tuple)  # insight UIDs
+
+    # =========================================================================
+    # ANNOTATION
+    # =========================================================================
+    user_annotation: str | None = None  # Additive commentary alongside AI synthesis
+    user_revision: str | None = None  # User-curated replacement for sharing
+    annotation_mode: str | None = None  # "additive" | "revision" | None
+    annotation_updated_at: datetime | None = None
 
     # =========================================================================
     # CONVERSION

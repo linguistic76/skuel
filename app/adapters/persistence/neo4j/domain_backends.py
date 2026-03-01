@@ -865,7 +865,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
             return Result.fail(Errors.database(operation="verify_shareable", message=str(e)))
 
     async def share_submission(
-        self, entity_uid: str, recipient_uid: str, role: str
+        self, entity_uid: str, recipient_uid: str, role: str, share_version: str = "original"
     ) -> Result[bool]:
         """Create SHARES_WITH relationship from recipient to entity."""
         query = """
@@ -873,7 +873,8 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         MATCH (ku:Entity {uid: $entity_uid})
         MERGE (recipient)-[r:SHARES_WITH]->(ku)
         SET r.shared_at = datetime($shared_at),
-            r.role = $role
+            r.role = $role,
+            r.share_version = $share_version
         RETURN true as success
         """
         try:
@@ -885,6 +886,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
                         "entity_uid": entity_uid,
                         "shared_at": datetime.now().isoformat(),
                         "role": role,
+                        "share_version": share_version,
                     },
                 )
                 records = await result.data()
@@ -972,7 +974,8 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         MATCH (user:User {uid: $user_uid})-[r:SHARES_WITH]->(ku:Entity)
         RETURN ku,
                r.role as role,
-               r.shared_at as shared_at
+               r.shared_at as shared_at,
+               r.share_version as share_version
         ORDER BY r.shared_at DESC
         LIMIT $limit
         """

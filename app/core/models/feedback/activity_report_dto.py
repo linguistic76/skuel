@@ -8,7 +8,7 @@ AI or human feedback). Mirrors ActivityReport frozen dataclass (Tier 3).
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields (user_uid, visibility, priority)
-        └── ActivityReportDTO(UserOwnedDTO) +10 fields
+        └── ActivityReportDTO(UserOwnedDTO) +14 fields
 
 ActivityReport is NOT a Submission subtype — it has no file fields. It
 responds to a user's aggregate activity patterns over a time window.
@@ -75,6 +75,14 @@ class ActivityReportDTO(UserOwnedDTO):
     insights_referenced: list[str] = field(default_factory=list)  # insight UIDs
 
     # =========================================================================
+    # ANNOTATION
+    # =========================================================================
+    user_annotation: str | None = None  # Additive commentary alongside AI synthesis
+    user_revision: str | None = None  # User-curated replacement for sharing
+    annotation_mode: str | None = None  # "additive" | "revision" | None
+    annotation_updated_at: datetime | None = None
+
+    # =========================================================================
     # SERIALIZATION
     # =========================================================================
 
@@ -96,6 +104,11 @@ class ActivityReportDTO(UserOwnedDTO):
         data["processed_content"] = self.processed_content
         data["processing_error"] = self.processing_error
         data["insights_referenced"] = self.insights_referenced
+        data["user_annotation"] = self.user_annotation
+        data["user_revision"] = self.user_revision
+        data["annotation_mode"] = self.annotation_mode
+        if self.annotation_updated_at is not None:
+            data["annotation_updated_at"] = self.annotation_updated_at.isoformat()
         return data
 
     # =========================================================================
@@ -122,6 +135,7 @@ class ActivityReportDTO(UserOwnedDTO):
                 "updated_at",
                 "period_start",
                 "period_end",
+                "annotation_updated_at",
             ],
             list_fields=["tags", "domains_covered", "insights_referenced"],
             dict_fields=["metadata"],
