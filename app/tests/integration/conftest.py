@@ -260,16 +260,16 @@ async def ingestion_service(neo4j_driver):
 async def user_service(neo4j_driver):
     """Create UserService for user-entity tracking tests."""
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-    from core.models.user.user import User
+    from adapters.persistence.neo4j.user_backend import UserBackend
     from core.services.user_service import UserService
 
-    # Create user backend
-    user_backend = UniversalNeo4jBackend[User](neo4j_driver, "User", User)
+    # UserBackend is the dedicated identity backend — has get_user_by_username etc.
+    # UniversalNeo4jBackend[User] lacks these domain-specific methods.
+    user_backend = UserBackend(neo4j_driver)
 
-    # Create QueryExecutor wrapper for driver (UserContextBuilder expects QueryExecutor)
+    # UserService's driver param is consumed by UserContextBuilder which expects
+    # a QueryExecutor (not a raw AsyncDriver). Mirror the production pattern.
     query_executor = Neo4jQueryExecutor(neo4j_driver)
-
-    # Create UserService with query_executor for aggregation queries
     service = UserService(user_repo=user_backend, driver=query_executor)
 
     yield service
