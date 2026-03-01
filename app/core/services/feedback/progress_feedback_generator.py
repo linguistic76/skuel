@@ -168,7 +168,9 @@ class ProgressFeedbackGenerator:
                 "tasks_completed": completions.get("tasks_completed", 0),
                 "goals_progressed": completions.get("goals_progressed", 0),
                 "habits_completed": completions.get("habits_completed", 0),
+                "events_attended": completions.get("events_attended", 0),
                 "choices_made": completions.get("choices_made", 0),
+                "principles_reviewed": completions.get("principles_reviewed", 0),
                 "insights_referenced": len(insights),
                 "llm_generated": processor_type == ProcessorType.LLM,
             }
@@ -284,7 +286,9 @@ class ProgressFeedbackGenerator:
             "tasks_total": completions.get("tasks_total", 0),
             "goals_progressed": completions.get("goals_progressed", 0),
             "habits_completed": completions.get("habits_completed", 0),
+            "events_attended": completions.get("events_attended", 0),
             "choices_made": completions.get("choices_made", 0),
+            "principles_reviewed": completions.get("principles_reviewed", 0),
             "goal_alignments": completions.get("goal_alignments", [])[:10],
             "knowledge_applications": completions.get("knowledge_applications", [])[:10],
             "task_titles": [t.get("title", "") for t in completions.get("tasks_details", [])[:10]],
@@ -293,11 +297,19 @@ class ProgressFeedbackGenerator:
                 {"title": h.get("title", ""), "streak": h.get("streak", 0)}
                 for h in completions.get("habits_details", [])[:10]
             ],
+            "event_summary": [
+                {"title": e.get("title", ""), "type": e.get("event_type", ""), "milestone": e.get("is_milestone", False)}
+                for e in completions.get("events_details", [])[:10]
+            ],
             "principled_choices": [
                 {"title": c.get("title", ""), "principles": c.get("principles", [])}
                 for c in completions.get("choices_details", [])
                 if c.get("principles")
             ][:5],
+            "principle_summary": [
+                {"title": p.get("title", ""), "alignment": p.get("alignment", ""), "strength": p.get("strength", "")}
+                for p in completions.get("principles_details", [])[:10]
+            ],
         }
 
         insights_section = "No active insights."
@@ -336,8 +348,12 @@ class ProgressFeedbackGenerator:
             "goals_details": [],
             "habits_completed": 0,
             "habits_details": [],
+            "events_attended": 0,
+            "events_details": [],
             "choices_made": 0,
             "choices_details": [],
+            "principles_reviewed": 0,
+            "principles_details": [],
             "goal_alignments": [],
             "knowledge_applications": [],
         }
@@ -453,6 +469,38 @@ class ProgressFeedbackGenerator:
                     for r in records
                 ]
 
+        # Events attended in period (uses event_date — the day the event actually occurs)
+        if include_all or "events" in (domains or []):
+            events_result = await self.executor.execute_query(
+                """
+                MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:Event)
+                WHERE e.event_date >= date($start) AND e.event_date <= date($end)
+                RETURN e.uid AS uid, e.title AS title, e.status AS status,
+                       e.event_type AS event_type, e.is_milestone_event AS is_milestone
+                ORDER BY e.event_date DESC
+                """,
+                {
+                    "user_uid": user_uid,
+                    "start": start_date.date().isoformat(),
+                    "end": end_date.date().isoformat(),
+                },
+            )
+            if events_result.is_error:
+                logger.warning(f"Failed to query events: {events_result.error}")
+            else:
+                records = events_result.value
+                result["events_attended"] = len(records)
+                result["events_details"] = [
+                    {
+                        "uid": r["uid"],
+                        "title": r["title"],
+                        "status": r["status"],
+                        "event_type": r["event_type"],
+                        "is_milestone": r["is_milestone"],
+                    }
+                    for r in records
+                ]
+
         # Choices made in period
         if include_all or "choices" in (domains or []):
             choices_result = await self.executor.execute_query(
@@ -480,6 +528,40 @@ class ProgressFeedbackGenerator:
                         "uid": r["uid"],
                         "title": r["title"],
                         "principles": r["principle_titles"],
+                    }
+                    for r in records
+                ]
+
+        # Principles reviewed/updated in period
+        if include_all or "principles" in (domains or []):
+            principles_result = await self.executor.execute_query(
+                """
+                MATCH (u:User {uid: $user_uid})-[:OWNS]->(p:Principle)
+                WHERE p.updated_at >= datetime($start) AND p.updated_at <= datetime($end)
+                RETURN p.uid AS uid, p.title AS title, p.status AS status,
+                       p.current_alignment AS alignment, p.strength AS strength,
+                       p.principle_category AS category
+                ORDER BY p.updated_at DESC
+                """,
+                {
+                    "user_uid": user_uid,
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat(),
+                },
+            )
+            if principles_result.is_error:
+                logger.warning(f"Failed to query principles: {principles_result.error}")
+            else:
+                records = principles_result.value
+                result["principles_reviewed"] = len(records)
+                result["principles_details"] = [
+                    {
+                        "uid": r["uid"],
+                        "title": r["title"],
+                        "status": r["status"],
+                        "alignment": r["alignment"],
+                        "strength": r["strength"],
+                        "category": r["category"],
                     }
                     for r in records
                 ]
@@ -551,6 +633,21 @@ class ProgressFeedbackGenerator:
                     sections.append(f"  - {habit['title']} [{habit['status']}] (streak: {streak})")
             sections.append("")
 
+        # Events
+        events_details = completions.get("events_details", [])
+        if events_details:
+            milestone_events = [e for e in events_details if e.get("is_milestone")]
+            sections.append("## Events")
+            sections.append(f"- **Events this period:** {len(events_details)}")
+            if milestone_events:
+                sections.append(f"- **Milestone events:** {len(milestone_events)}")
+            if depth != ProgressDepth.SUMMARY:
+                for event in events_details[:10]:
+                    event_type = event.get("event_type") or "event"
+                    milestone_marker = " ★" if event.get("is_milestone") else ""
+                    sections.append(f"  - {event['title']} [{event_type}]{milestone_marker}")
+            sections.append("")
+
         # Principle Alignment (from choices)
         choices_details = completions.get("choices_details", [])
         if choices_details:
@@ -562,6 +659,25 @@ class ProgressFeedbackGenerator:
                 for choice in principled_choices[:5]:
                     principles = ", ".join(p for p in choice["principles"] if p)
                     sections.append(f"  - {choice['title']} (guided by: {principles})")
+            sections.append("")
+
+        # Principles reviewed
+        principles_details = completions.get("principles_details", [])
+        if principles_details:
+            well_aligned = [p for p in principles_details if p.get("alignment") in ("aligned", "flourishing")]
+            needs_attention = [p for p in principles_details if p.get("alignment") in ("drifting", "misaligned")]
+            sections.append("## Principles")
+            sections.append(f"- **Principles active this period:** {len(principles_details)}")
+            if well_aligned:
+                sections.append(f"- **Well-aligned:** {len(well_aligned)}")
+            if needs_attention:
+                sections.append(f"- **Need attention:** {len(needs_attention)}")
+            if depth != ProgressDepth.SUMMARY:
+                for principle in principles_details[:10]:
+                    alignment = principle.get("alignment") or "unknown"
+                    strength = principle.get("strength") or ""
+                    strength_label = f" ({strength})" if strength else ""
+                    sections.append(f"  - {principle['title']}{strength_label} [{alignment}]")
             sections.append("")
 
         # Active Insights
