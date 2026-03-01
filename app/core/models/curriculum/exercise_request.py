@@ -32,8 +32,8 @@ class ExerciseCreateRequest(BaseModel):
     )
 
     model: str = Field(
-        default="claude-3-5-sonnet-20241022",
-        description="LLM model to use (e.g., 'claude-3-5-sonnet-20241022', 'gpt-4o-mini')",
+        default="claude-sonnet-4-6",
+        description="LLM model to use (e.g., 'claude-sonnet-4-6', 'gpt-4o-mini')",
     )
 
     context_notes: list[str] | None = Field(

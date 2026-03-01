@@ -347,8 +347,8 @@ class Services:
 |------|-----------|---------|
 | `submission_protocols.py` | 3 | SubmissionOperations, SubmissionProcessingOperations, SubmissionSearchOperations |
 | `sharing_protocols.py` | 1 | SharingOperations — entity-agnostic SHARES_WITH + SHARED_WITH_GROUP management |
-| `feedback_protocols.py` | 3 | FeedbackOperations (human + AI unified), ProgressFeedbackOperations, ProgressScheduleOperations |
-| `group_protocols.py` | 2 | GroupOperations (9 methods), TeacherReviewOperations (5 methods) |
+| `feedback_protocols.py` | 5 | FeedbackOperations (human + AI unified), ProgressFeedbackOperations, ProgressScheduleOperations, ActivityReviewOperations, TeacherReviewOperations |
+| `group_protocols.py` | 1 | GroupOperations (9 methods) |
 | `service_protocols.py` | 9 | CalendarService, Visualization, System, CrossDomainAnalytics, LifePath+Alignment, GraphAuth, GoalTaskGenerator, HabitEventScheduler |
 
 **Added to Existing Files:**

@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports.group_protocols import TeacherReviewOperations
+    from core.ports.feedback_protocols import TeacherReviewOperations
     from core.ports.submission_protocols import (
         SubmissionOperations,
         SubmissionProcessingOperations,

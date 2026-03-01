@@ -47,7 +47,7 @@ class ExerciseDTO(CurriculumDTO):
     # EXERCISE-SPECIFIC FIELDS
     # =========================================================================
     instructions: str | None = None
-    model: str = "claude-3-5-sonnet-20241022"
+    model: str = "claude-sonnet-4-6"
     scope: ExerciseScope = ExerciseScope.PERSONAL
     due_date: date | None = None
     group_uid: str | None = None

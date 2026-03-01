@@ -82,7 +82,7 @@ class Exercise(Curriculum):
     # EXERCISE-SPECIFIC FIELDS (7)
     # =========================================================================
     instructions: str | None = None  # LLM prompt for processing
-    model: str = "claude-3-5-sonnet-20241022"  # Which LLM to use
+    model: str = "claude-sonnet-4-6"  # Which LLM to use
     scope: ExerciseScope = ExerciseScope.PERSONAL
     due_date: date | None = None
     group_uid: str | None = None  # Target group for ASSIGNED scope

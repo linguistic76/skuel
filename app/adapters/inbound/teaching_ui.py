@@ -399,7 +399,7 @@ def _render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) ->
     name_val = getattr(exercise, "title", "") or ""
     instructions_val = getattr(exercise, "instructions", "") or ""
     model_val = (
-        getattr(exercise, "model", "claude-3-5-sonnet-20241022") or "claude-3-5-sonnet-20241022"
+        getattr(exercise, "model", "claude-sonnet-4-6") or "claude-sonnet-4-6"
     )
 
     scope_raw = getattr(exercise, "scope", None)
@@ -424,8 +424,9 @@ def _render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) ->
         group_options.append(Option(g_name, value=g_uid, selected=(g_uid == group_uid_val)))
 
     model_choices = [
-        ("claude-3-5-sonnet-20241022", "Claude 3.5 Sonnet (Recommended)"),
-        ("claude-haiku-4-5-20251001", "Claude 3.5 Haiku (Faster)"),
+        ("claude-sonnet-4-6", "Claude Sonnet 4.6 (Recommended)"),
+        ("claude-opus-4-6", "Claude Opus 4.6 (Most Capable)"),
+        ("claude-haiku-4-5-20251001", "Claude Haiku 4.5 (Fastest)"),
         ("gpt-4o", "GPT-4o"),
         ("gpt-4o-mini", "GPT-4o Mini (Cheaper)"),
     ]

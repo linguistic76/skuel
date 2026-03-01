@@ -402,11 +402,11 @@ class FeedbackService:
             models["openai"] = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"]
         if self.anthropic:
             models["anthropic"] = [
-                "claude-3-5-sonnet-20241022",
-                "claude-3-5-haiku-20241022",
-                "claude-3-opus-20240229",
-                "claude-3-sonnet-20240229",
-                "claude-3-haiku-20240307",
+                "claude-sonnet-4-6",           # Sonnet 4.6 — default
+                "claude-opus-4-6",             # Opus 4.6 — highest capability
+                "claude-haiku-4-5-20251001",   # Haiku 4.5 — fastest
+                "claude-3-5-sonnet-20241022",  # 3.5 Sonnet — kept for existing exercises
+                "claude-3-5-haiku-20241022",   # 3.5 Haiku — kept for existing exercises
             ]
         return models
 

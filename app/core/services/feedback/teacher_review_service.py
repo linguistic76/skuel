@@ -93,11 +93,11 @@ class TeacherReviewService:
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[r:SHARES_WITH {{role: 'teacher'}}]->(ku:Entity)
+        MATCH (teacher:User {{uid: $teacher_uid}})-[r:SHARES_WITH {{role: 'teacher'}}]->(ku:Entity:Submission)
         {where_clause}
         OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
-        OPTIONAL MATCH (ku)-[:FULFILLS_EXERCISE]->(project:Entity {{ku_type: 'exercise'}})
-        OPTIONAL MATCH (fb:Entity {{ku_type: 'submission_feedback'}})-[:FEEDBACK_FOR]->(ku)
+        OPTIONAL MATCH (ku)-[:FULFILLS_EXERCISE]->(project:Entity:Exercise)
+        OPTIONAL MATCH (fb:Entity:SubmissionFeedback)-[:FEEDBACK_FOR]->(ku)
         WITH ku, student, project, r, count(fb) as feedback_count
         RETURN ku.uid as ku_uid,
                ku.title as title,
@@ -152,7 +152,7 @@ class TeacherReviewService:
             Result containing list of feedback items ordered by creation date
         """
         query = """
-        MATCH (fb:Entity {ku_type: 'submission_feedback'})-[:FEEDBACK_FOR]->(submission:Entity {uid: $submission_uid})
+        MATCH (fb:Entity:SubmissionFeedback)-[:FEEDBACK_FOR]->(submission:Entity:Submission {uid: $submission_uid})
         OPTIONAL MATCH (teacher:User)-[:OWNS]->(fb)
         RETURN fb.uid as uid,
                fb.title as title,
@@ -441,7 +441,7 @@ class TeacherReviewService:
             ku.updated_at = datetime($now)
         WITH ku
         OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
-        OPTIONAL MATCH (ku)-[:APPLIES_KNOWLEDGE]->(curriculum:Entity {ku_type: 'ku'})
+        OPTIONAL MATCH (ku)-[:APPLIES_KNOWLEDGE]->(curriculum:Entity:Ku)
         RETURN ku.uid as uid,
                ku.status as status,
                student.uid as student_uid,
@@ -526,8 +526,8 @@ class TeacherReviewService:
             created_at, total_count, reviewed_count, pending_count
         """
         query = """
-        MATCH (user:User {uid: $teacher_uid})-[:OWNS]->(exercise:Entity {ku_type: 'exercise'})
-        OPTIONAL MATCH (s:Entity {ku_type: 'submission'})-[:FULFILLS_EXERCISE]->(exercise)
+        MATCH (user:User {uid: $teacher_uid})-[:OWNS]->(exercise:Entity:Exercise)
+        OPTIONAL MATCH (s:Entity:Submission)-[:FULFILLS_EXERCISE]->(exercise)
         WITH exercise, count(s) AS total_count,
              count(CASE WHEN s.status = 'completed' THEN 1 END) AS reviewed_count
         RETURN exercise.uid AS uid, exercise.title AS title,
@@ -571,9 +571,9 @@ class TeacherReviewService:
             and feedback count
         """
         query = """
-        MATCH (s:Entity {ku_type: 'submission'})-[:FULFILLS_EXERCISE]->(e:Entity {uid: $exercise_uid})
+        MATCH (s:Entity:Submission)-[:FULFILLS_EXERCISE]->(e:Entity:Exercise {uid: $exercise_uid})
         OPTIONAL MATCH (student:User)-[:OWNS]->(s)
-        OPTIONAL MATCH (fb:Entity {ku_type: 'submission_feedback'})-[:FEEDBACK_FOR]->(s)
+        OPTIONAL MATCH (fb:Entity:SubmissionFeedback)-[:FEEDBACK_FOR]->(s)
         WITH s, student, count(fb) AS feedback_count
         RETURN s.uid AS uid, s.title AS title,
                s.original_filename AS original_filename, s.status AS status,
@@ -617,7 +617,7 @@ class TeacherReviewService:
             reviewed_count, pending_count, ordered by pending descending
         """
         query = """
-        MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(ku:Entity)
+        MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(ku:Entity:Submission)
         OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
         WITH student, count(ku) AS submission_count,
              count(CASE WHEN ku.status = 'completed' THEN 1 END) AS reviewed_count
@@ -662,10 +662,10 @@ class TeacherReviewService:
             and feedback count
         """
         query = """
-        MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(ku:Entity)
+        MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(ku:Entity:Submission)
         MATCH (student:User {uid: $student_uid})-[:OWNS]->(ku)
-        OPTIONAL MATCH (fb:Entity {ku_type: 'submission_feedback'})-[:FEEDBACK_FOR]->(ku)
-        OPTIONAL MATCH (ku)-[:FULFILLS_EXERCISE]->(ex:Entity {ku_type: 'exercise'})
+        OPTIONAL MATCH (fb:Entity:SubmissionFeedback)-[:FEEDBACK_FOR]->(ku)
+        OPTIONAL MATCH (ku)-[:FULFILLS_EXERCISE]->(ex:Entity:Exercise)
         WITH ku, count(fb) AS feedback_count, ex
         RETURN ku.uid AS uid, ku.title AS title,
                ku.original_filename AS original_filename, ku.status AS status,
@@ -715,9 +715,9 @@ class TeacherReviewService:
             Result containing submission detail dict
         """
         query = """
-        MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(s:Entity {uid: $submission_uid})
+        MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(s:Entity:Submission {uid: $submission_uid})
         OPTIONAL MATCH (student:User)-[:OWNS]->(s)
-        OPTIONAL MATCH (s)-[:FULFILLS_EXERCISE]->(ex:Entity {ku_type: 'exercise'})
+        OPTIONAL MATCH (s)-[:FULFILLS_EXERCISE]->(ex:Entity:Exercise)
         RETURN s.uid AS uid,
                s.title AS title,
                s.content AS content,
@@ -784,9 +784,9 @@ class TeacherReviewService:
         """
         query = """
         MATCH (teacher:User {uid: $teacher_uid})
-        OPTIONAL MATCH (teacher)-[:SHARES_WITH {role: 'teacher'}]->(ku:Entity)
+        OPTIONAL MATCH (teacher)-[:SHARES_WITH {role: 'teacher'}]->(ku:Entity:Submission)
         OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
-        OPTIONAL MATCH (teacher)-[:OWNS]->(ex:Entity {ku_type: 'exercise'})
+        OPTIONAL MATCH (teacher)-[:OWNS]->(ex:Entity:Exercise)
         OPTIONAL MATCH (teacher)-[:OWNS]->(g:Group)
         RETURN
           count(CASE WHEN ku.status IN ['submitted', 'active', 'revision_requested'] THEN 1 END) AS pending_count,
@@ -839,8 +839,8 @@ class TeacherReviewService:
         query = """
         MATCH (teacher:User {uid: $teacher_uid})-[:OWNS]->(g:Group)
         OPTIONAL MATCH (member:User)-[:MEMBER_OF]->(g)
-        OPTIONAL MATCH (ex:Entity {ku_type: 'exercise'})-[:FOR_GROUP]->(g)
-        OPTIONAL MATCH (sub:Entity)-[:FULFILLS_EXERCISE]->(ex)
+        OPTIONAL MATCH (ex:Entity:Exercise)-[:FOR_GROUP]->(g)
+        OPTIONAL MATCH (sub:Entity:Submission)-[:FULFILLS_EXERCISE]->(ex)
           WHERE sub.status NOT IN ['completed', 'archived']
         RETURN g.uid AS uid,
                g.name AS name,
@@ -891,7 +891,7 @@ class TeacherReviewService:
         query = """
         MATCH (teacher:User {uid: $teacher_uid})-[:OWNS]->(g:Group {uid: $group_uid})
         MATCH (member:User)-[r:MEMBER_OF]->(g)
-        OPTIONAL MATCH (teacher)-[:SHARES_WITH {role: 'teacher'}]->(sub:Entity)
+        OPTIONAL MATCH (teacher)-[:SHARES_WITH {role: 'teacher'}]->(sub:Entity:Submission)
           WHERE (member)-[:OWNS]->(sub)
         RETURN member.uid AS user_uid,
                member.name AS user_name,

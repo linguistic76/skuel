@@ -38,8 +38,8 @@ related: [ADR-025, ADR-027]
 | **Curriculum Protocols** | `/core/ports/curriculum_protocols.py` | KU, LS, LP, MOC operations |
 | **Askesis Protocols** | `/core/ports/askesis_protocols.py` | Cross-cutting intelligence + CRUD |
 | **Submission Protocols** | `/core/ports/submission_protocols.py` | Submission CRUD, processing, sharing, search |
-| **Feedback Protocols** | `/core/ports/feedback_protocols.py` | Human + AI feedback, progress reports, scheduling |
-| **Group Protocols** | `/core/ports/group_protocols.py` | Group CRUD, teacher review queue |
+| **Feedback Protocols** | `/core/ports/feedback_protocols.py` | Human + AI feedback, progress reports, scheduling, teacher review |
+| **Group Protocols** | `/core/ports/group_protocols.py` | Group CRUD only |
 | **Service Protocols** | `/core/ports/service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration |
 | **Search Protocols** | `/core/ports/search_protocols.py` | Search operations |
 | **Infrastructure Protocols** | `/core/ports/infrastructure_protocols.py` | EventBus, Schema, User, Ingestion |
@@ -505,8 +505,8 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 |------|-----------|-----------------|
 | `submission_protocols.py` | 3 protocols | `submissions_api.py`, `progress_feedback_api.py` |
 | `sharing_protocols.py` | 1 protocol | `submissions_sharing_api.py` |
-| `feedback_protocols.py` | 4 protocols | `exercises_api.py`, `feedback_assessment_api.py`, `progress_feedback_api.py` |
-| `group_protocols.py` | 2 protocols | `groups_api.py`, `teaching_api.py` |
+| `feedback_protocols.py` | 5 protocols | `exercises_api.py`, `feedback_assessment_api.py`, `progress_feedback_api.py`, `teaching_api.py` |
+| `group_protocols.py` | 1 protocol | `groups_api.py` |
 | `service_protocols.py` | 10 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
 
 Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
@@ -550,7 +550,7 @@ Map to the **Feedback** stage of the educational loop. `processor_type` discrimi
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
 | `GroupOperations` | `group_service` | 9 (create, get, list_teacher, list_user, update, delete, add/remove member, get_members) | `groups_api.py` |
-| `TeacherReviewOperations` | `teacher_review` | 5 (get_review_queue, get_feedback_history, submit_feedback, request_revision, approve_report) | `teaching_api.py` |
+| `TeacherReviewOperations` | `teacher_review` | 13 (review queue, submission detail, feedback history, submit/request/approve, exercises, students, dashboard, classes) | `teaching_api.py` — in `feedback_protocols.py` |
 
 ### Cross-Cutting Service Protocols (9)
 

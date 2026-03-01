@@ -222,15 +222,20 @@ class ExerciseUIComponents:
                         Label("LLM Model", cls="label-text"),
                         Select(
                             Option(
-                                "Claude 3.5 Sonnet (Recommended)",
-                                value="claude-3-5-sonnet-20241022",
+                                "Claude Sonnet 4.6 (Recommended)",
+                                value="claude-sonnet-4-6",
                                 selected=not exercise
-                                or exercise.model == "claude-3-5-sonnet-20241022",
+                                or exercise.model == "claude-sonnet-4-6",
                             ),
                             Option(
-                                "Claude 3.5 Haiku (Faster)",
-                                value="claude-3-5-haiku-20241022",
-                                selected=exercise and exercise.model == "claude-3-5-haiku-20241022",
+                                "Claude Opus 4.6 (Most Capable)",
+                                value="claude-opus-4-6",
+                                selected=exercise and exercise.model == "claude-opus-4-6",
+                            ),
+                            Option(
+                                "Claude Haiku 4.5 (Fastest)",
+                                value="claude-haiku-4-5-20251001",
+                                selected=exercise and exercise.model == "claude-haiku-4-5-20251001",
                             ),
                             Option(
                                 "GPT-4o",

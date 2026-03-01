@@ -106,6 +106,20 @@ def create_teaching_api_routes(
             teacher_uid=current_user.uid,
         )
 
+    @rt("/api/teaching/review/{uid}", methods=["GET"])
+    @require_role(UserRole.TEACHER, get_user_service)
+    @boundary_handler()
+    async def get_submission_detail(request: Request, uid: str, current_user: Any) -> Result[Any]:
+        """Get full submission detail for teacher review.
+
+        Returns submission content, student info, and linked exercise.
+        Access-controlled: only succeeds if teacher has SHARES_WITH {role: 'teacher'} access.
+        """
+        return await teacher_review_service.get_submission_detail(
+            submission_uid=uid,
+            teacher_uid=current_user.uid,
+        )
+
     @rt("/api/teaching/exercises", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
@@ -227,7 +241,7 @@ def create_teaching_api_routes(
             user_uid=current_user.uid,
             name=name,
             instructions=instructions,
-            model=body.get("model") or "claude-3-5-sonnet-20241022",
+            model=body.get("model") or "claude-sonnet-4-6",
             scope=scope,
             group_uid=group_uid,
             due_date=due_date,

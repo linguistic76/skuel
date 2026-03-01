@@ -24,6 +24,8 @@ Protocol Responsibilities
     FeedbackOperations           — Human + AI feedback CRUD (SUBMISSION_FEEDBACK entities)
     ProgressFeedbackOperations   — Auto-generated progress reports (ACTIVITY_REPORT entities)
     ProgressScheduleOperations   — Recurring progress report scheduling
+    ActivityReviewOperations     — Admin human feedback on Activity Domains
+    TeacherReviewOperations      — Teacher review queue, feedback, revision, approval
 
 ISP-compliant: each protocol captures only the methods called from routes.
 
@@ -251,4 +253,101 @@ class ActivityReviewOperations(Protocol):
 
     async def get_annotation(self, uid: str, user_uid: str) -> Result[Any]:
         """Get current annotation state for an owned ActivityReport. Returns Result[dict]."""
+        ...
+
+
+@runtime_checkable
+class TeacherReviewOperations(Protocol):
+    """Teacher review workflow — Phase 4 (Feedback) of the learning loop.
+
+    Manages the full teacher-student interaction after a submission is shared:
+    review queue → read submission → write feedback / request revision / approve.
+    Also exposes exercise management and class/student views for the teacher dashboard.
+
+    Route consumer: teaching_api.py (primary), teaching_ui.py
+    Implementation: TeacherReviewService
+    Protocol location: feedback_protocols.py (NOT group_protocols.py — this is
+    Phase 4 Feedback infrastructure, not Group management infrastructure)
+    """
+
+    async def get_review_queue(
+        self,
+        teacher_uid: str,
+        status_filter: str | None = None,
+        ku_type_filter: str | None = None,
+    ) -> Result[list[dict[str, Any]]]:
+        """Get teacher's pending review queue. Returns Result[list[dict]]."""
+        ...
+
+    async def get_submission_detail(
+        self, submission_uid: str, teacher_uid: str
+    ) -> Result[dict[str, Any]]:
+        """Get full submission detail for teacher review (access-checked). Returns Result[dict]."""
+        ...
+
+    async def get_feedback_history(
+        self,
+        submission_uid: str,
+    ) -> Result[list[dict[str, Any]]]:
+        """Get SUBMISSION_FEEDBACK nodes linked to a submission. Returns Result[list[dict]]."""
+        ...
+
+    async def submit_feedback(
+        self,
+        report_uid: str,
+        teacher_uid: str,
+        feedback: str,
+    ) -> Result[dict[str, Any]]:
+        """Submit feedback for a student report. Returns Result[dict]."""
+        ...
+
+    async def request_revision(
+        self,
+        report_uid: str,
+        teacher_uid: str,
+        notes: str,
+    ) -> Result[dict[str, Any]]:
+        """Request revision for a student report. Returns Result[dict]."""
+        ...
+
+    async def approve_report(
+        self,
+        report_uid: str,
+        teacher_uid: str,
+    ) -> Result[dict[str, Any]]:
+        """Approve a student report. Returns Result[dict]."""
+        ...
+
+    async def get_exercises_with_submission_counts(
+        self, teacher_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get teacher's exercises with submission/reviewed counts. Returns Result[list[dict]]."""
+        ...
+
+    async def get_submissions_for_exercise(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all submissions against an exercise. Returns Result[list[dict]]."""
+        ...
+
+    async def get_students_summary(self, teacher_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get students who shared work with teacher, with counts. Returns Result[list[dict]]."""
+        ...
+
+    async def get_student_submissions(
+        self, teacher_uid: str, student_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get all submissions from student shared with teacher. Returns Result[list[dict]]."""
+        ...
+
+    async def get_dashboard_stats(self, teacher_uid: str) -> Result[dict[str, Any]]:
+        """Get at-a-glance stats for dashboard. Returns Result[dict]."""
+        ...
+
+    async def get_teacher_groups_with_stats(self, teacher_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get teacher's groups with member/exercise/pending counts. Returns Result[list[dict]]."""
+        ...
+
+    async def get_group_detail(
+        self, group_uid: str, teacher_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get group members with submission progress stats. Returns Result[list[dict]]."""
         ...

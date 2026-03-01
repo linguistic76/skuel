@@ -199,16 +199,18 @@ from .domain_protocols import (
 
 # Feedback protocols — Feedback stage of the educational loop
 from .feedback_protocols import (
+    ActivityReviewOperations,
     FeedbackOperations,
     ProgressFeedbackOperations,
     ProgressScheduleOperations,
+    TeacherReviewOperations,
 )
 
 # Graph protocols - entity relationships (consolidated)
 from .graph_protocols import GraphEntity, GraphEntityBase
 
-# Group & Teaching protocols (ADR-040 - February 2026)
-from .group_protocols import GroupOperations, TeacherReviewOperations
+# Group protocols (ADR-040 - February 2026)
+from .group_protocols import GroupOperations
 
 # Infrastructure operation protocols
 from .infrastructure_protocols import (

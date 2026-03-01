@@ -52,6 +52,27 @@ close the loop: student does work, system or teacher responds.
 
 ---
 
+## Field Naming Convention: `ku_type` vs `EntityType`
+
+The Python enum is named `EntityType`, but the Python model field and Neo4j node
+property are both named **`ku_type`**. This applies to every entity in the loop.
+
+```python
+# Python model constructors use ku_type (not entity_type):
+ku = Ku(ku_type=EntityType.KU, ...)
+feedback = SubmissionFeedback(ku_type=EntityType.SUBMISSION_FEEDBACK, ...)
+report = ActivityReport(ku_type=EntityType.ACTIVITY_REPORT, ...)
+
+# Cypher filters use ku_type as the stored property name:
+MATCH (n:Entity {ku_type: 'submission_feedback'})
+MATCH (n:Entity {ku_type: 'ku'})
+```
+
+The enum VALUES were renamed (e.g. `AI_FEEDBACK` → `ACTIVITY_REPORT`) but the
+field name `ku_type` was not. Every code example in this skill follows this pattern.
+
+---
+
 ## Phase 1: Ku — The Knowledge Unit
 
 **What it is:** Atomic curriculum content. A single "brick" of knowledge, admin-created
@@ -110,7 +131,7 @@ with an LLM prompt embedded for AI-assisted feedback.
 **Key fields:**
 ```python
 instructions: str                 # Teacher's directive — ALSO used as LLM prompt
-model: str                        # LLM to use: "claude-3-5-sonnet-20241022"
+model: str                        # LLM to use: "claude-sonnet-4-6"
 scope: ExerciseScope              # PERSONAL (self-directed) | ASSIGNED (classroom)
 due_date: date | None             # ASSIGNED only — when submission is due
 group_uid: str | None             # ASSIGNED only — which class receives this
@@ -144,7 +165,7 @@ await backend.get_required_knowledge(exercise_uid)          # list KUs required
 (teacher:User)-[:OWNS]->(exercise:Entity:Exercise {
     scope: 'assigned',
     instructions: '...',         // This IS the LLM prompt for feedback generation
-    model: 'claude-3-5-sonnet-20241022',
+    model: 'claude-sonnet-4-6',
     group_uid: 'group_abc123'
 })
 (exercise)-[:FOR_GROUP]->(group:Group)           // classroom targeting
@@ -282,7 +303,7 @@ Fits the standard 4-layer pattern: `FeedbackOperations` protocol → `Submission
 
 After reviewing a submission, the teacher has three outcomes via `TeacherReviewService`
 (`core/services/feedback/teacher_review_service.py`, protocol: `TeacherReviewOperations`
-in `core/ports/group_protocols.py`):
+in `core/ports/feedback_protocols.py`):
 
 | Action | Method | Event Published | Result |
 |--------|--------|-----------------|--------|
@@ -291,9 +312,11 @@ in `core/ports/group_protocols.py`):
 | Approve | `approve_report()` | `SubmissionApproved` | Loop closes for this exercise |
 
 Each feedback round creates a new `SubmissionFeedback` entity via `FEEDBACK_FOR` —
-revision cycles are traceable as first-class graph entities. The student receives
-a notification (`feedback_received` or `revision_requested`) via `NotificationService`,
-visible at `/notifications`.
+revision cycles are traceable as first-class graph entities. The loop publishes
+`FeedbackSubmitted`, `SubmissionRevisionRequested`, and `SubmissionApproved` events.
+Student notification delivery is **planned** — see the Messaging system in
+`CLAUDE.md`. Students currently need to poll `/submissions/feedback` or the
+activity feed to discover new feedback.
 
 ---
 
@@ -384,13 +407,13 @@ RelationshipName.SHARED_WITH_GROUP    # Submission → Group (group sharing)
 | **Submission** | `SubmissionsService` | `SubmissionOperations` | `SubmissionsBackend` | `submit_file`, `check_access`, share methods |
 | **Submission processing** | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | `SubmissionsBackend` | Processing pipeline |
 | **Submission feedback** | `FeedbackService` + `SubmissionsCoreService` | `FeedbackOperations` | `SubmissionsBackend` | `generate_feedback`, `create_assessment` |
-| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `QueryExecutor` | `get_review_queue`, `submit_feedback`, `request_revision`, `approve_report` |
+| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `QueryExecutor` | **Review actions:** `get_review_queue`, `get_submission_detail`, `get_feedback_history`, `submit_feedback`, `request_revision`, `approve_report` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary`, `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` |
 | **Activity Report (auto/LLM)** | `ProgressFeedbackGenerator` | `ProgressFeedbackOperations` | `QueryExecutor` (cross-domain) | `generate`, `create_scheduled` |
 | **Activity Report (scheduled)** | `ProgressFeedbackWorker` | — | — | Background worker; calls `ProgressFeedbackGenerator` on schedule |
 | **Activity Report (schedule CRUD)** | `ProgressScheduleService` | `ProgressScheduleOps` | — | `get_schedules`, `create_schedule`, `delete_schedule` |
 | **Activity Report (human)** | `ActivityReviewService` | `ActivityReviewOperations` | `QueryExecutor` | `create_activity_snapshot`, `submit_activity_feedback` |
 
-**Protocols location:** `core/ports/feedback_protocols.py`, `core/ports/submission_protocols.py`, `core/ports/group_protocols.py` (`TeacherReviewOperations`)
+**Protocols location:** `core/ports/feedback_protocols.py` (all feedback + teacher review), `core/ports/submission_protocols.py`, `core/ports/group_protocols.py` (group CRUD only)
 
 ---
 
@@ -408,10 +431,20 @@ RelationshipName.SHARED_WITH_GROUP    # Submission → Group (group sharing)
 | **Submission feedback** | `/api/feedback/assessments/received` | GET | Student |
 | **Student feedback UI** | `/submissions/feedback` | GET | Student |
 | **Teacher review** | `/api/teaching/review-queue` | GET | Teacher |
+| **Teacher review** | `/api/teaching/review/{uid}` | GET | Teacher |
 | **Teacher review** | `/api/teaching/review/{uid}/feedback` | POST | Teacher |
 | **Teacher review** | `/api/teaching/review/{uid}/revision` | POST | Teacher |
 | **Teacher review** | `/api/teaching/review/{uid}/approve` | POST | Teacher |
-| **Notifications** | `/notifications` | GET | Student |
+| **Teacher exercises** | `/api/teaching/exercises` | GET | Teacher |
+| **Teacher exercises** | `/api/teaching/exercises` | POST | Teacher |
+| **Teacher exercises** | `/api/teaching/exercises/{uid}` | POST | Teacher |
+| **Teacher exercises** | `/api/teaching/exercises/{uid}/submissions` | GET | Teacher |
+| **Teacher students** | `/api/teaching/students` | GET | Teacher |
+| **Teacher students** | `/api/teaching/students/{uid}/submissions` | GET | Teacher |
+| **Teacher dashboard** | `/api/teaching/dashboard` | GET | Teacher |
+| **Teacher classes** | `/api/teaching/classes` | GET | Teacher |
+| **Teacher classes** | `/api/teaching/classes/{uid}` | GET | Teacher |
+| **Notifications** | `/notifications` | GET | Student — **planned, not yet implemented** |
 | **Activity report** | `/api/feedback/progress/generate` | POST | User |
 | **Activity report** | `/api/feedback/progress` | GET | User |
 | **Activity report** | `/api/feedback/schedule` | POST | User |
@@ -507,8 +540,8 @@ that never closes the loop.
 | `core/services/feedback/teacher_review_service.py` | 4 | Teacher review workflow (review queue, revision, approval) |
 | `core/services/background/progress_feedback_worker.py` | 4 | Scheduled activity report background worker |
 | `core/ports/submission_protocols.py` | 3 | Submission protocol interfaces |
-| `core/ports/feedback_protocols.py` | 4 | Feedback protocol interfaces |
-| `core/ports/group_protocols.py` | 4 | `TeacherReviewOperations` protocol |
+| `core/ports/feedback_protocols.py` | 4 | All feedback protocols incl. `TeacherReviewOperations` |
+| `core/ports/group_protocols.py` | support | `GroupOperations` only (group CRUD + membership) |
 | `core/services/sharing/unified_sharing_service.py` | 3 | Entity-agnostic sharing |
 | `adapters/persistence/neo4j/domain_backends.py` | all | Domain-specific Cypher |
 | `adapters/inbound/teaching_api.py` | 4 | Teacher API (review queue, revision, approve, dashboard) |

@@ -82,7 +82,7 @@ class ExerciseService(BaseService):
         user_uid: str,
         name: str,
         instructions: str,
-        model: str = "claude-3-5-sonnet-20241022",
+        model: str = "claude-sonnet-4-6",
         context_notes: list[str] | None = None,
         domain: Domain | None = None,
         scope: ExerciseScope = ExerciseScope.PERSONAL,

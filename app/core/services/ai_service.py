@@ -145,7 +145,7 @@ class AnthropicService:
         prompt: str,
         max_tokens: int = 4000,
         temperature: float = 0.7,
-        model: str = "claude-3-5-sonnet-20241022",
+        model: str = "claude-sonnet-4-6",
     ) -> Result[str]:
         """
         Generate completion from prompt.
