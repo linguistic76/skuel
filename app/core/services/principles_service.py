@@ -424,7 +424,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         result = await self.search.search(query, limit=limit)
 
         if result.is_error:
-            return result
+            return result  # type: ignore[return-value]
 
         matching = result.value
 
@@ -482,7 +482,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 
         # Build minimal context for prioritization
         user_context = UserContext(user_uid=user_uid, username="")
-        return await self.search.get_prioritized(user_context, limit=limit)
+        return await self.search.get_prioritized(user_context, limit=limit)  # type: ignore[return-value]
 
     # ========================================================================
     # PRINCIPLE EXPRESSIONS — Inline list on Principle entity
