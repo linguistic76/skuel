@@ -50,6 +50,50 @@ TIME_PERIOD_DAYS = {
 
 _PROMPT_TEMPLATE_PATH = Path(__file__).parent / "prompts" / "activity_feedback.md"
 
+# Consolidated query: Tasks, Goals, Habits, Principles — all use updated_at.
+# OPTIONAL MATCHes for FULFILLS_GOAL and APPLIES_KNOWLEDGE only match on task
+# entities; returns [] for goals/habits/principles (they lack these outgoing rels).
+_ACTIVITY_MAIN_QUERY = """
+MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:Entity)
+WHERE e.updated_at >= datetime($start) AND e.updated_at <= datetime($end)
+  AND e.entity_type IN $entity_types
+OPTIONAL MATCH (e)-[:FULFILLS_GOAL]->(g:Goal)
+OPTIONAL MATCH (e)-[:APPLIES_KNOWLEDGE]->(ku:Entity)
+WITH e, collect(DISTINCT g.title) AS goal_titles, collect(DISTINCT ku.title) AS ku_titles
+RETURN
+    e.entity_type AS entity_type,
+    e.uid AS uid,
+    e.title AS title,
+    e.status AS status,
+    e.progress AS progress,
+    e.streak_count AS streak,
+    e.current_alignment AS alignment,
+    e.strength AS strength,
+    e.principle_category AS category,
+    goal_titles,
+    ku_titles
+ORDER BY e.updated_at DESC
+"""
+
+# Events use event_date (date type, not datetime) — must remain separate.
+_EVENTS_QUERY = """
+MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:Event)
+WHERE e.event_date >= date($start) AND e.event_date <= date($end)
+RETURN e.uid AS uid, e.title AS title, e.status AS status,
+       e.event_type AS event_type, e.is_milestone_event AS is_milestone
+ORDER BY e.event_date DESC
+"""
+
+# Choices use created_at (not updated_at) + INFORMED_BY_PRINCIPLE traversal.
+_CHOICES_QUERY = """
+MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Choice)
+WHERE c.created_at >= datetime($start) AND c.created_at <= datetime($end)
+OPTIONAL MATCH (c)-[:INFORMED_BY_PRINCIPLE]->(p:Principle)
+RETURN c.uid AS uid, c.title AS title,
+       collect(DISTINCT p.title) AS principle_titles
+ORDER BY c.created_at DESC
+"""
+
 
 class ProgressFeedbackGenerator:
     """
@@ -340,6 +384,51 @@ class ProgressFeedbackGenerator:
     # GRAPH QUERIES
     # =========================================================================
 
+    def _process_main_entities(
+        self, records: list[dict[str, Any]], result: dict[str, Any]
+    ) -> None:
+        """Populate completions dict from _ACTIVITY_MAIN_QUERY records.
+
+        Groups records by entity_type and fills the corresponding keys in result.
+        goal_titles and ku_titles are only non-empty for task entities.
+        """
+        for r in records:
+            entity_type = r["entity_type"]
+            uid, title, status = r["uid"], r["title"], r["status"]
+
+            if entity_type == "task":
+                result["tasks_total"] += 1
+                if status == "completed":
+                    result["tasks_completed"] += 1
+                    for gt in r["goal_titles"]:
+                        if gt:
+                            result["goal_alignments"].append(gt)
+                    for kt in r["ku_titles"]:
+                        if kt:
+                            result["knowledge_applications"].append(kt)
+                result["tasks_details"].append(
+                    {"uid": uid, "title": title, "status": status,
+                     "goals": r["goal_titles"], "reports": r["ku_titles"]}
+                )
+            elif entity_type == "goal":
+                result["goals_progressed"] += 1
+                result["goals_details"].append(
+                    {"uid": uid, "title": title, "status": status, "progress": r["progress"]}
+                )
+            elif entity_type == "habit":
+                if status == "completed":
+                    result["habits_completed"] += 1
+                result["habits_details"].append(
+                    {"uid": uid, "title": title, "status": status, "streak": r["streak"]}
+                )
+            elif entity_type == "principle":
+                result["principles_reviewed"] += 1
+                result["principles_details"].append(
+                    {"uid": uid, "title": title, "status": status,
+                     "alignment": r["alignment"], "strength": r["strength"],
+                     "category": r["category"]}
+                )
+
     async def _query_completions(
         self,
         user_uid: str,
@@ -347,7 +436,15 @@ class ProgressFeedbackGenerator:
         end_date: datetime,
         domains: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Query historical completions across domains within the time window."""
+        """Query historical completions across domains within the time window.
+
+        Runs 3 targeted Neo4j queries instead of 6:
+          1. _ACTIVITY_MAIN_QUERY  — tasks, goals, habits, principles (all use updated_at)
+          2. _EVENTS_QUERY         — events use event_date (date type)
+          3. _CHOICES_QUERY        — choices use created_at + principle relationship
+        """
+        include_all = domains is None
+
         result: dict[str, Any] = {
             "tasks_completed": 0,
             "tasks_total": 0,
@@ -366,127 +463,33 @@ class ProgressFeedbackGenerator:
             "knowledge_applications": [],
         }
 
-        include_all = not domains
-
-        # Tasks completed in period
-        if include_all or "tasks" in (domains or []):
-            tasks_result = await self.executor.execute_query(
-                """
-                MATCH (u:User {uid: $user_uid})-[:OWNS]->(t:Task)
-                WHERE t.updated_at >= datetime($start) AND t.updated_at <= datetime($end)
-                WITH t, t.status = 'completed' AS is_completed
-                OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
-                OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Entity)
-                RETURN t.uid AS uid, t.title AS title, t.status AS status,
-                       is_completed,
-                       collect(DISTINCT g.title) AS goal_titles,
-                       collect(DISTINCT ku.title) AS ku_titles
-                ORDER BY t.updated_at DESC
-                """,
+        # Query 1: Tasks, Goals, Habits, Principles — unified via entity_type IN [...]
+        _MAIN_DOMAIN_MAP = {
+            "tasks": "task", "goals": "goal", "habits": "habit", "principles": "principle"
+        }
+        entity_types = [
+            v for k, v in _MAIN_DOMAIN_MAP.items()
+            if include_all or k in (domains or [])
+        ]
+        if entity_types:
+            main_result = await self.executor.execute_query(
+                _ACTIVITY_MAIN_QUERY,
                 {
                     "user_uid": user_uid,
                     "start": start_date.isoformat(),
                     "end": end_date.isoformat(),
+                    "entity_types": entity_types,
                 },
             )
-            if tasks_result.is_error:
-                logger.warning(f"Failed to query task completions: {tasks_result.error}")
+            if main_result.is_error:
+                logger.warning(f"Failed to query main entity completions: {main_result.error}")
             else:
-                records = tasks_result.value
-                completed = [r for r in records if r["is_completed"]]
-                result["tasks_completed"] = len(completed)
-                result["tasks_total"] = len(records)
-                result["tasks_details"] = [
-                    {
-                        "uid": r["uid"],
-                        "title": r["title"],
-                        "status": r["status"],
-                        "goals": r["goal_titles"],
-                        "reports": r["ku_titles"],
-                    }
-                    for r in records
-                ]
-                for r in completed:
-                    for gt in r["goal_titles"]:
-                        if gt:
-                            result["goal_alignments"].append(gt)
-                for r in completed:
-                    for report in r["ku_titles"]:
-                        if report:
-                            result["knowledge_applications"].append(report)
+                self._process_main_entities(main_result.value, result)
 
-        # Goals progressed in period
-        if include_all or "goals" in (domains or []):
-            goals_result = await self.executor.execute_query(
-                """
-                MATCH (u:User {uid: $user_uid})-[:OWNS]->(g:Goal)
-                WHERE g.updated_at >= datetime($start) AND g.updated_at <= datetime($end)
-                RETURN g.uid AS uid, g.title AS title, g.status AS status,
-                       g.progress AS progress
-                ORDER BY g.updated_at DESC
-                """,
-                {
-                    "user_uid": user_uid,
-                    "start": start_date.isoformat(),
-                    "end": end_date.isoformat(),
-                },
-            )
-            if goals_result.is_error:
-                logger.warning(f"Failed to query goal progress: {goals_result.error}")
-            else:
-                records = goals_result.value
-                result["goals_progressed"] = len(records)
-                result["goals_details"] = [
-                    {
-                        "uid": r["uid"],
-                        "title": r["title"],
-                        "status": r["status"],
-                        "progress": r["progress"],
-                    }
-                    for r in records
-                ]
-
-        # Habits completed in period
-        if include_all or "habits" in (domains or []):
-            habits_result = await self.executor.execute_query(
-                """
-                MATCH (u:User {uid: $user_uid})-[:OWNS]->(h:Habit)
-                WHERE h.updated_at >= datetime($start) AND h.updated_at <= datetime($end)
-                RETURN h.uid AS uid, h.title AS title, h.status AS status,
-                       h.streak_count AS streak
-                ORDER BY h.updated_at DESC
-                """,
-                {
-                    "user_uid": user_uid,
-                    "start": start_date.isoformat(),
-                    "end": end_date.isoformat(),
-                },
-            )
-            if habits_result.is_error:
-                logger.warning(f"Failed to query habit completions: {habits_result.error}")
-            else:
-                records = habits_result.value
-                result["habits_completed"] = len([r for r in records if r["status"] == "completed"])
-                result["habits_details"] = [
-                    {
-                        "uid": r["uid"],
-                        "title": r["title"],
-                        "status": r["status"],
-                        "streak": r["streak"],
-                    }
-                    for r in records
-                ]
-
-        # Events attended in period (uses event_date — the day the event actually occurs)
+        # Query 2: Events — event_date is a date, not datetime
         if include_all or "events" in (domains or []):
             events_result = await self.executor.execute_query(
-                """
-                MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:Event)
-                WHERE e.event_date >= date($start) AND e.event_date <= date($end)
-                RETURN e.uid AS uid, e.title AS title, e.status AS status,
-                       e.event_type AS event_type, e.is_milestone_event AS is_milestone
-                ORDER BY e.event_date DESC
-                """,
+                _EVENTS_QUERY,
                 {
                     "user_uid": user_uid,
                     "start": start_date.date().isoformat(),
@@ -499,27 +502,15 @@ class ProgressFeedbackGenerator:
                 records = events_result.value
                 result["events_attended"] = len(records)
                 result["events_details"] = [
-                    {
-                        "uid": r["uid"],
-                        "title": r["title"],
-                        "status": r["status"],
-                        "event_type": r["event_type"],
-                        "is_milestone": r["is_milestone"],
-                    }
+                    {"uid": r["uid"], "title": r["title"], "status": r["status"],
+                     "event_type": r["event_type"], "is_milestone": r["is_milestone"]}
                     for r in records
                 ]
 
-        # Choices made in period
+        # Query 3: Choices — created_at (not updated_at) + principle traversal
         if include_all or "choices" in (domains or []):
             choices_result = await self.executor.execute_query(
-                """
-                MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Choice)
-                WHERE c.created_at >= datetime($start) AND c.created_at <= datetime($end)
-                OPTIONAL MATCH (c)-[:INFORMED_BY_PRINCIPLE]->(p:Principle)
-                RETURN c.uid AS uid, c.title AS title,
-                       collect(DISTINCT p.title) AS principle_titles
-                ORDER BY c.created_at DESC
-                """,
+                _CHOICES_QUERY,
                 {
                     "user_uid": user_uid,
                     "start": start_date.isoformat(),
@@ -532,45 +523,7 @@ class ProgressFeedbackGenerator:
                 records = choices_result.value
                 result["choices_made"] = len(records)
                 result["choices_details"] = [
-                    {
-                        "uid": r["uid"],
-                        "title": r["title"],
-                        "principles": r["principle_titles"],
-                    }
-                    for r in records
-                ]
-
-        # Principles reviewed/updated in period
-        if include_all or "principles" in (domains or []):
-            principles_result = await self.executor.execute_query(
-                """
-                MATCH (u:User {uid: $user_uid})-[:OWNS]->(p:Principle)
-                WHERE p.updated_at >= datetime($start) AND p.updated_at <= datetime($end)
-                RETURN p.uid AS uid, p.title AS title, p.status AS status,
-                       p.current_alignment AS alignment, p.strength AS strength,
-                       p.principle_category AS category
-                ORDER BY p.updated_at DESC
-                """,
-                {
-                    "user_uid": user_uid,
-                    "start": start_date.isoformat(),
-                    "end": end_date.isoformat(),
-                },
-            )
-            if principles_result.is_error:
-                logger.warning(f"Failed to query principles: {principles_result.error}")
-            else:
-                records = principles_result.value
-                result["principles_reviewed"] = len(records)
-                result["principles_details"] = [
-                    {
-                        "uid": r["uid"],
-                        "title": r["title"],
-                        "status": r["status"],
-                        "alignment": r["alignment"],
-                        "strength": r["strength"],
-                        "category": r["category"],
-                    }
+                    {"uid": r["uid"], "title": r["title"], "principles": r["principle_titles"]}
                     for r in records
                 ]
 
