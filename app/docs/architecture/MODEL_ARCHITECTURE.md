@@ -1,5 +1,5 @@
 # Model Architecture
-*Last updated: 2026-02-23*
+*Last updated: 2026-03-03*
 
 > **Core Principle:** "Pydantic at the edges, pure Python at the core"
 
@@ -76,6 +76,7 @@ Entity (~19 fields: uid, title, ku_type, status, visibility, tags, domain,
 │   └── LifePath ─────── + alignment_level, vision_statement, alignment_score
 │
 ├── Curriculum (+complexity, learning_level, sel_category, quality_score, +21 fields)
+│   ├── Ku ───────────── forces ku_type=KU (atomic knowledge unit)
 │   ├── LearningStep ─── + step_difficulty, order, lp_uid
 │   ├── LearningPath ─── + path_type, step_count, total_duration
 │   └── Exercise ─────── + scope (PERSONAL or ASSIGNED)
@@ -100,7 +101,7 @@ EntityDTO (~18 fields)
 │   ├── SubmissionDTO → JournalDTO, SubmissionFeedbackDTO
 │   └── LifePathDTO
 ├── CurriculumDTO (+complexity, learning_level, ...)
-│   ├── LearningStepDTO, LearningPathDTO, ExerciseDTO
+│   ├── KuDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO (+source_url, author, ...)
 ```
 
@@ -133,10 +134,10 @@ core/models/{domain}/
 | `event/` | Event + EventDTO + requests | Activity | + calendar_models.py |
 | `choice/` | Choice + ChoiceDTO | Activity | + ChoiceOption sub-model |
 | `principle/` | Principle + PrincipleDTO + requests | Activity | + Reflection sub-entity, PrincipleIntelligence |
-| `curriculum/` | Curriculum, LS, LP, Exercise + DTOs | Curriculum | + KU content/metadata/chunks, 14 files |
+| `curriculum/` | Curriculum (base), Ku, LS, LP, Exercise + DTOs | Curriculum | + KU content/metadata/chunks/relationships, 22 files |
 | `resource/` | Resource + ResourceDTO | Shared | Curated content (books, talks) |
-| `submissions/` | Submission, Journal, SubmissionFeedback + DTOs | Submissions | + submission_requests.py, ku_schedule.py |
-| `feedback/` | ActivityReport + ActivityReportDTO | Feedback | ActivityReport inherits UserOwnedEntity directly (no file fields) |
+| `submissions/` | Submission, Journal + DTOs | Submissions | + submission_requests.py, ku_schedule.py |
+| `feedback/` | ActivityReport + ActivityReportDTO, SubmissionFeedback + SubmissionFeedbackDTO | Feedback | ActivityReport: no file fields; SubmissionFeedback: tied to submission via subject_uid |
 | `life_path/` | LifePath + LifePathDTO | Destination | |
 | `group/` | Group + request | Organizational | Teacher-student classes (ADR-040) |
 | `finance/` | Finance + FinanceDTO + requests | Finance | + Invoice, FinanceIntelligence |
@@ -152,17 +153,16 @@ core/models/{domain}/
 | `user_owned_entity.py` | Intermediate class adding user_uid, priority |
 | `entity_dto.py` | Base DTO mirroring Entity fields |
 | `user_owned_dto.py` | Intermediate DTO adding visibility, priority |
-| `entity_types.py` | `Ku` union type + `ENTITY_TYPE_CLASS_MAP` dispatcher |
+| `entity_types.py` | `ENTITY_TYPE_CLASS_MAP` dispatcher + `ActivityEntity`, `CurriculumEntity`, `SubmissionEntity` aliases |
 | `entity_requests.py` | Base Pydantic requests (EntityCreateRequest, EntityUpdateRequest) |
 | `entity_converters.py` | Entity → response dict conversion |
-| `activity_requests.py` | Choice/Principle create requests |
 | `validation_rules.py` | Shared Pydantic validators (date, string, range, domain-specific) |
 | `search_request.py` | Canonical search request (~50 fields, all search strategies) |
 | `relationship_registry.py` | Single source of truth for all relationship definitions |
 | `relationship_names.py` | `RelationshipName` enum for Neo4j relationship types |
 | `dto_helpers.py` | DTO conversion utilities (dto_from_dict, dict_from_dto, model_from_dto) |
 | `request_base.py` | Base Pydantic request class with common mixins |
-| `activity_dto_mixin.py` | Shared DTO conversion logic for activity domains |
+| `type_hints.py` | `Neo4jProperties`, `FilterParams`, `RelationshipMetadata` type aliases |
 
 ### Infrastructure Packages
 
@@ -180,7 +180,7 @@ core/models/{domain}/
 | `insight/` | 1 | PersistedInsight (Neo4j-stored insights) |
 | `transcription/` | 1 | Transcription model |
 | `mixins/` | 1 | Status checking utilities |
-| `analytics/` | 2 | Analytics request models |
+| `analytics/` | 4 | Analytics request models |
 
 ---
 
@@ -196,15 +196,13 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     # ... all 16 mappings
 }
 
-# Union type for type annotations
-Ku = Task | Goal | Habit | Event | Choice | Principle | Curriculum | ...
-
-# Narrower aliases for services that handle subsets
+# Type aliases for services that handle subsets
 ActivityEntity = Task | Goal | Habit | Event | Choice | Principle
-CurriculumEntity = Curriculum | LearningStep | LearningPath | Exercise
-SubmissionEntity = Submission | Journal | SubmissionFeedback
-ActivityReportEntity = ActivityReport  # inherits UserOwnedEntity directly, not Submission
+CurriculumEntity = Ku | LearningStep | LearningPath | Exercise  # Ku is the atomic leaf
+SubmissionEntity = Submission | Journal | ActivityReport | SubmissionFeedback
 ```
+
+**Note:** `Ku` is a leaf domain class (`Ku(Curriculum)`), not a union type alias. The old union `Ku = Task | Goal | ...` was dissolved when `core/models/ku/` was reorganised into `core/models/curriculum/` (February 2026).
 
 Cross-domain deserialization uses the dispatcher:
 ```python

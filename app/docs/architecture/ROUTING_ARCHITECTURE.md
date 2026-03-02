@@ -1,6 +1,6 @@
 ---
 title: SKUEL Routing Architecture: Routes, Services, and Persistence
-updated: 2026-01-29
+updated: 2026-03-03
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -9,7 +9,7 @@ related: [OWNERSHIP_VERIFICATION.md]
 
 # SKUEL Routing Architecture: Routes, Services, and Persistence
 
-**Last Updated**: January 29, 2026
+**Last Updated**: March 3, 2026
 
 ## Overview
 
@@ -76,11 +76,11 @@ This document provides a detailed explanation of how **Routes**, **Services**, a
 │  Location: /adapters/persistence/neo4j/                            │
 │                                                                     │
 │  ┌──────────────────────────────────────────────────────────────┐ │
-│  │ universal_backend.py (Data Access)                     │ │
+│  │ domain_backends.py (Data Access)                      │ │
 │  │                                                               │ │
-│  │   class TasksUniversalBackend(                               │ │
-│  │       UniversalNeo4jBackend,                                 │ │
-│  │       TaskOperations  # Implements protocol!                 │ │
+│  │   class TasksBackend(                                        │ │
+│  │       UniversalNeo4jBackend[Task],                           │ │
+│  │       TasksOperations  # Implements protocol!                │ │
 │  │   ):                                                          │ │
 │  │       async def create(dto) -> Result[Task]:                 │ │
 │  │           # 1. Convert DTO to Cypher query                   │ │
@@ -112,7 +112,7 @@ This document provides a detailed explanation of how **Routes**, **Services**, a
 │   ├── tasks_ui.py                   # UI components (8K)
 │   ├── events_routes.py              # Similar pattern
 │   ├── events_api.py
-│   └── ... (15 domains total)
+│   └── ... (14 domains total)
 │
 └── persistence/                       # Data Access
     ├── neo4j/
@@ -128,14 +128,18 @@ This document provides a detailed explanation of how **Routes**, **Services**, a
     └── base_adapter.py               # Shared persistence logic
 
 /core/
+├── ports/                            # Protocol interfaces
+│   ├── domain_protocols.py          # TasksOperations, GoalsOperations, etc.
+│   ├── curriculum_protocols.py      # KuOperations, LsOperations, LpOperations
+│   ├── infrastructure_protocols.py  # EventBus, UserOperations, etc.
+│   ├── base_protocols.py            # BackendOperations[T] ISP hierarchy
+│   ├── search_protocols.py          # SearchRouter, domain search ops
+│   └── ... (15 total protocol files)
+│
 ├── services/                         # Business Logic
-│   ├── tasks_service.py             # Task business logic
-│   ├── events_service.py            # Event business logic
-│   ├── protocols/                   # Protocol interfaces
-│   │   ├── domain_protocols.py     # TaskOperations, EventOperations
-│   │   ├── knowledge_protocols.py
-│   │   └── infrastructure_protocols.py
-│   └── ... (15 domain services)
+│   ├── tasks_service.py             # Task facade (explicit delegation methods)
+│   ├── events_service.py            # Event facade
+│   └── ... (14 domain services)
 │
 ├── models/                          # Domain Models
 │   ├── task/
@@ -146,7 +150,7 @@ This document provides a detailed explanation of how **Routes**, **Services**, a
 │   │   ├── event.py
 │   │   ├── event_dto.py
 │   │   └── event_request.py
-│   └── ... (15 domains)
+│   └── ... (14 domains)
 │
 └── utils/
     ├── result_simplified.py         # Result[T] pattern
@@ -182,7 +186,7 @@ def create_tasks_routes(app, rt, services):
     """
     Factory receives services container from bootstrap.
     Services container already has:
-    - services.tasks = TasksService(TasksUniversalBackend(...))
+    - services.tasks = TasksService(TasksBackend(...))
     """
     tasks_service = services.tasks  # Extract service
 
@@ -393,34 +397,60 @@ RETURN t
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** 12 of 27 route files (44%) - all Activity domains plus Learning, Knowledge, Context, Reports, Finance, and Askesis.
+**Adoption:** 28 of 35 route files (80%).
 
-### Pattern Structure
+**Two variants of the config pattern:**
+
+| Pattern | Factory | Used By |
+|---------|---------|---------|
+| `create_activity_domain_route_config()` | Includes CRUD + Query + Intelligence factories in config | All 6 Activity Domains |
+| `DomainRouteConfig(...)` | API + UI factories only; CRUD etc. remain in api_factory | Other domains (Learning, Knowledge, Context, Askesis, etc.) |
+
+### Pattern Structure (Activity Domains — current)
 
 ```python
 # File: /adapters/inbound/tasks_routes.py
 
+from adapters.inbound.route_factories import (
+    create_activity_domain_route_config,
+    register_domain_routes,
+)
 from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from core.models.task.task_request import TaskCreateRequest
+from core.models.entity_requests import EntityUpdateRequest as TaskUpdateRequest
 
-TASKS_CONFIG = DomainRouteConfig(
+TASKS_CONFIG = create_activity_domain_route_config(
     domain_name="tasks",
     primary_service_attr="tasks",  # services.tasks
     api_factory=create_tasks_api_routes,
     ui_factory=create_tasks_ui_routes,
+    create_schema=TaskCreateRequest,      # CRUD factory moved to config
+    update_schema=TaskUpdateRequest,
+    uid_prefix="task",
+    supports_goal_filter=True,            # Query factory params
+    supports_habit_filter=True,
     api_related_services={
-        # Format: {kwarg_name: container_attr}
-        "user_service": "user_service",  # Passed as user_service=services.user_service
-        "goals_service": "goals",        # Passed as goals_service=services.goals
-        "habits_service": "habits",      # Passed as habits_service=services.habits
+        "user_service": "user_service",
+        "goals_service": "goals",
+        "habits_service": "habits",
     },
+    prometheus_metrics_attr="prometheus_metrics",
 )
 
 def create_tasks_routes(app, rt, services, _sync_service=None):
     """Wire tasks API and UI routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, TASKS_CONFIG)
 ```
+
+**What `create_activity_domain_route_config` eliminates from `tasks_api.py`:**
+- `CRUDRouteFactory` instantiation (→ config)
+- `CommonQueryRouteFactory` instantiation (→ config)
+- `IntelligenceRouteFactory` instantiation (→ config)
+
+**What remains in `tasks_api.py`:**
+- `StatusRouteFactory` (runtime closures)
+- `AnalyticsRouteFactory` (custom handlers)
 
 ### Benefits
 
@@ -796,11 +826,11 @@ async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
         vector_search_service = None
         logger.warning("⚠️ Neo4j GenAI services unavailable - using keyword search fallback")
 
-    # 5. Create universal backends (implement protocols)
-    tasks_backend = TasksUniversalBackend(driver)
-    events_backend = EventsUniversalBackend(driver)
-    habits_backend = HabitsUniversalBackend(driver)
-    # ... all 15 domains
+    # 5. Create domain backends (implement protocols)
+    tasks_backend = TasksBackend(driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
+    events_backend = EventsBackend(driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY)
+    habits_backend = HabitsBackend(driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
+    # ... all 14 domains
 
     # 6. Create services with backend injection and optional AI services
     tasks_service = TasksService(backend=tasks_backend)
@@ -809,12 +839,12 @@ async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
 
     # KU service receives optional vector search and embeddings services
     ku_service = KuService(
-        repo=knowledge_backend,
+        repo=ku_backend,
         # ... other dependencies ...
         vector_search_service=vector_search_service,  # Optional - can be None
         embeddings_service=genai_embeddings_service,  # Optional - can be None
     )
-    # ... all 15 domains
+    # ... all 14 domains
 
     # 7. Return services container
     services = Services(
@@ -822,7 +852,7 @@ async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
         events=events_service,
         habits=habits_service,
         ku=ku_service,
-        # ... all 15 domains
+        # ... all 14 domains
     )
 
     return Result.ok(services)
@@ -851,7 +881,7 @@ async def startup():
     create_tasks_routes(app, rt, services)
     create_events_routes(app, rt, services)
     create_habits_routes(app, rt, services)
-    # ... all 15 domains
+    # ... all 14 domains
 
     # 5. Start server
     serve()
@@ -945,8 +975,11 @@ async def complete_task_route(request: Request) -> Result[Any]:
 
 | Category | Domains | Content Scope |
 |----------|---------|---------------|
-| **User-Owned** | Tasks, Goals, Habits, Events, Choices, Principles, Finance, Journals | `ContentScope.USER_OWNED` |
-| **Shared** | KU, LS, LP, MOC | `ContentScope.SHARED` |
+| **User-Owned** | Tasks, Goals, Habits, Events, Choices, Principles, Submissions (incl. Journals) | `ContentScope.USER_OWNED` |
+| **Shared** | KU, LS, LP | `ContentScope.SHARED` |
+| **Admin-Only** | Finance | `ContentScope.ADMIN_ONLY` |
+
+**Note:** MOC is not a domain — it's emergent identity (any Entity with outgoing ORGANIZES relationships).
 
 ### Security Benefits
 
@@ -1001,7 +1034,7 @@ def test_tasks_service_validation():
 async def test_tasks_backend_integration():
     # Real Neo4j connection (test database)
     driver = get_test_driver()
-    backend = TasksUniversalBackend(driver)
+    backend = TasksBackend(driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
 
     # Test real database operation
     dto = TaskDTO(uid="test", title="Test Task")
@@ -1065,9 +1098,9 @@ This architecture ensures:
 - [Route Factories](/docs/patterns/ROUTE_FACTORIES.md) — Factory reference (CRUD, Status, Query, Intelligence, Analytics)
 - [Route Naming Convention](/docs/patterns/ROUTE_NAMING_CONVENTION.md) — File naming: `_routes.py`, `_api.py`, `_ui.py`
 
-*Last Updated: February 8, 2026*
+*Last Updated: March 3, 2026*
 *Architecture: Routes → Services → Backends → Neo4j*
 *Pattern: Protocol-Based Dependency Injection*
-*Security: Content Scope (USER_OWNED vs SHARED) on All Routes*
+*Security: Content Scope (USER_OWNED / SHARED / ADMIN_ONLY) on All Routes*
 *Philosophy: Clean Architecture, One Path Forward, Graceful Degradation for AI Features*
 *AI Services: OpenAI (optional), Neo4j GenAI Vector Search (optional)*

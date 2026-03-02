@@ -1,5 +1,5 @@
 # Enum Architecture
-*Last updated: 2026-02-23*
+*Last updated: 2026-03-03*
 
 > **Core Principle:** "Enums define behavior, services consume it"
 
@@ -19,7 +19,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `habit_enums.py` | Habit classification and completion | HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus |
 | `choice_enums.py` | Decision types | ChoiceType |
 | `principle_enums.py` | Principle classification and alignment | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel |
-| `submissions_enums.py` | Report processing and scheduling | ExerciseScope, FormattingStyle, AnalysisDepth, ScheduleType, ProgressDepth |
+| `submissions_enums.py` | Submissions + Feedback processing and scheduling | ExerciseScope, FormattingStyle, AnalysisDepth, ScheduleType, ProgressDepth |
 | `curriculum_enums.py` | Learning path and step types | LpType, StepDifficulty |
 | `lifepath_enums.py` | Vision theme classification | ThemeCategory |
 | `scheduling_enums.py` | Time, recurrence, energy | RecurrencePattern, TimeOfDay, EnergyLevel |
@@ -47,7 +47,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 
 | Group | EntityTypes | Ownership | Neo4j Labels |
 |-------|-------------|-----------|--------------|
-| **Knowledge** (shared curriculum) | CURRICULUM, RESOURCE | Admin-created, no user_uid | :Entity:Curriculum, :Entity:Resource |
+| **Knowledge** (atomic curriculum) | KU, RESOURCE | Admin-created, no user_uid | :Entity:Ku, :Entity:Resource |
 | **Curriculum Structure** | LEARNING_STEP, LEARNING_PATH, EXERCISE | Admin-created, no user_uid | :Entity:LearningStep, :Entity:LearningPath, :Entity:Exercise |
 | **Content Processing** | JOURNAL, SUBMISSION, SUBMISSION_FEEDBACK | User-owned | :Entity:Journal, :Entity:Submission, :Entity:SubmissionFeedback |
 | **Activity Feedback** | ACTIVITY_REPORT | User-owned (no file fields) | :Entity:ActivityReport |
@@ -59,7 +59,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | Tier | ContentOrigin | EntityTypes |
 |------|---------------|-------------|
 | A | CURATED | Resource |
-| B | CURRICULUM | Curriculum, LearningStep, LearningPath, Exercise |
+| B | CURRICULUM | KU, LearningStep, LearningPath, Exercise |
 | C | USER_CREATED | All 6 Activity types + Submission, Journal, LifePath |
 | D | FEEDBACK | ActivityReport, SubmissionFeedback |
 
@@ -68,13 +68,13 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | Method | Returns | Purpose |
 |--------|---------|---------|
 | `is_activity()` | bool | Is it one of the 6 user activity domains? |
-| `is_knowledge()` | bool | Is it shared curriculum (Curriculum, Resource)? |
+| `is_knowledge()` | bool | Is it shared curriculum (KU, Resource)? |
 | `is_content_processing()` | bool | Is it in the processing chain (Journal, Submission, etc.)? |
 | `is_user_owned()` | bool | Does it require a user_uid? |
 | `valid_statuses()` | frozenset[EntityStatus] | Which statuses are valid for this type? |
 | `default_status()` | EntityStatus | What status does a new entity get? |
 | `content_origin()` | ContentOrigin | Which content tier (A-D)? |
-| `from_string(text)` | EntityType \| None | Parse with alias support ("ku" -> CURRICULUM) |
+| `from_string(text)` | EntityType \| None | Parse with alias support ("ku" -> KU, "moc" -> KU) |
 
 ### EntityStatus — Where Is It? (14 values)
 
@@ -110,7 +110,7 @@ Activity:
 
 | EntityType | Valid Statuses | Default |
 |------------|---------------|---------|
-| Curriculum, Resource, SubmissionFeedback | DRAFT, COMPLETED, ARCHIVED | COMPLETED |
+| Ku, Resource, SubmissionFeedback | DRAFT, COMPLETED, ARCHIVED | COMPLETED |
 | LearningStep, LearningPath, Exercise, Choice | DRAFT, ACTIVE, COMPLETED, ARCHIVED | DRAFT |
 | Journal, Submission | DRAFT, SUBMITTED, QUEUED, PROCESSING, COMPLETED, FAILED, REVISION_REQUESTED, ARCHIVED | DRAFT |
 | ActivityReport | COMPLETED (always — created already complete) | COMPLETED |
@@ -166,7 +166,7 @@ Enums wire into the model layer through a class hierarchy. Each level inherits e
 |------------|-------------|--------|
 | Entity | ku_type, status, visibility | *(all 16 models)* |
 | UserOwnedEntity | *(inherits above)* | Task, Goal, Habit, Event, Choice, Principle, Submission types, LifePath |
-| Curriculum | + complexity, learning_level, sel_category | Curriculum, LearningStep, LearningPath, Exercise |
+| Curriculum *(base class)* | + complexity, learning_level, sel_category | Ku, LearningStep, LearningPath, Exercise |
 
 Domain-specific enum fields: Goal (+3), Habit (+3), Principle (+4), Choice (+1), Submission (+1), LifePath (+1), LearningStep (+1), LearningPath (+1), Exercise (+1).
 
