@@ -1751,7 +1751,7 @@ SHOW VECTOR INDEXES
 **SKUEL Documentation:**
 - `/docs/development/GENAI_SETUP.md` - Setup guide
 - `/docs/architecture/SEARCH_ARCHITECTURE.md` - Search overview
-- `/docs/architecture/SEMANTIC_SEARCH_PHASE1_IMPLEMENTATION.md` - Implementation
+- `/docs/architecture/SEARCH_ARCHITECTURE.md` - Semantic Search section (merged)
 - `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md` - Service patterns
 
 **Source Files:**

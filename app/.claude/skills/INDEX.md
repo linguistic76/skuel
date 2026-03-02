@@ -136,7 +136,7 @@ Key documentation links by topic:
 | Protocol Architecture | `/docs/patterns/protocol_architecture.md` |
 | Route Registration | `/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md` |
 | Service Consolidation | `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md` |
-| GenAI Setup | `/docs/development/GENAI_SETUP.md`, `/docs/architecture/SEMANTIC_SEARCH_PHASE1_IMPLEMENTATION.md` |
+| GenAI Setup | `/docs/development/GENAI_SETUP.md`, `/docs/architecture/SEARCH_ARCHITECTURE.md` |
 
 ---
 

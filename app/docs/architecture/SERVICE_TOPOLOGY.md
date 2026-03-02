@@ -1,18 +1,160 @@
-# Service Topology
+# Service Architecture: File Organization & Topology
 
-**Purpose:** Visual architecture diagrams showing how BaseService, mixins, sub-services, and facades interconnect.
+**Purpose:** File organization rules, import guidelines, and visual architecture diagrams for `/core/services/`.
 
-**Last Updated:** 2026-01-29
+**Last Updated:** 2026-03-03
 
 ---
 
 ## Table of Contents
 
+- [File Organization](#file-organization)
+- [Import Guidelines](#import-guidelines)
 - [BaseService + Mixins Architecture](#baseservice--mixins-architecture)
 - [Activity Domain Facade Pattern](#activity-domain-facade-pattern)
 - [Sub-Service Communication](#sub-service-communication)
 - [Data Flow Examples](#data-flow-examples)
 - [Dependency Graphs](#dependency-graphs)
+- [Factory Pattern Architecture](#factory-pattern-architecture)
+- [Configuration Architecture](#configuration-architecture)
+- [Summary](#summary)
+
+---
+
+## File Organization
+
+> **Core Principle:** "Facade at root, implementation in folder"
+
+### 1. DUAL-LOCATION Services
+
+Services with **both** a root-level facade AND a subfolder of sub-services.
+
+| Category | Services | Sub-service count |
+|----------|----------|-------------------|
+| Activity Domains (6) | tasks, goals, habits, events, choices, principles | 5–11 per domain |
+| Curriculum Domains (3) | ku, lp, ls | 4–11 per domain |
+| Cross-Cutting (4) | user, askesis, finance, lifepath | varies |
+
+**Structure:**
+```
+/core/services/
+  tasks_service.py          # Facade (public API)
+  tasks/                    # Implementation folder
+    __init__.py             # Re-exports sub-services
+    tasks_core_service.py
+    tasks_search_service.py
+    tasks_intelligence_service.py
+    tasks_progress_service.py
+    tasks_scheduling_service.py
+    tasks_planning_service.py
+    tasks_ai_service.py
+    task_relationships.py   # Relationship config (not a service)
+```
+
+**Rationale:** The facade provides a stable public API while internal implementation evolves freely. External code imports `TasksService`; sub-services are implementation details.
+
+---
+
+### 2. FOLDER-ONLY Services
+
+Infrastructure modules with no root-level facade.
+
+| Folder | Purpose |
+|--------|---------|
+| `relationships/` | UnifiedRelationshipService + 6 mixin files |
+| `sharing/` | UnifiedSharingService (entity-agnostic sharing) |
+| `search/` | Unified search across all domains |
+| `submissions/` | Student work — CRUD, processing, search |
+| `feedback/` | Teacher/AI feedback, activity reports, review queue |
+| `mixins/` | 7 BaseService mixin files |
+| `intelligence/` | GraphContextOrchestrator + analytics helpers |
+| `infrastructure/` | Cross-cutting helpers (PrerequisiteHelper, etc.) |
+| `ingestion/` | UnifiedIngestionService |
+| `query/` | Query builders (CypherGenerator, etc.) |
+| `insight/` | Insight analytics |
+| `dsl/` | Activity DSL parser & engine |
+| `lateral_relationships/` | Lateral relationship graph queries |
+| `groups/` | Group CRUD and membership |
+| `exercises/` | Exercise CRUD and curriculum linking |
+| `lp_intelligence/` | Learning path intelligence |
+| `adaptive_lp/` | Adaptive learning path engine |
+| `analytics/` | Domain analytics |
+| `background/` | Background task workers |
+| `notifications/` | Notification services |
+
+---
+
+### 3. ROOT-ONLY Services
+
+Standalone services without subfolders.
+
+| Category | Services |
+|----------|----------|
+| **Base Classes** | `base_service.py`, `base_analytics_service.py`, `base_ai_service.py`, `base_planning_service.py` |
+| **AI/LLM** | `ai_service.py`, `llm_service.py`, `neo4j_genai_embeddings_service.py`, `neo4j_vector_search_service.py`, `context_aware_ai_service.py` |
+| **Analytics** | `analytics_engine.py`, `analytics_service.py`, `cross_domain_analytics_service.py`, `analytics_relationship_service.py` |
+| **Askesis Secondary** | `askesis_ai_service.py`, `askesis_citation_service.py` |
+| **KU Generation Pipeline** | `entity_chunking_service.py`, `insight_generation_service.py`, `entity_inference_service.py`, `ku_intelligence_service.py` |
+| **Calendar** | `calendar_service.py`, `calendar_optimization_service.py` |
+| **Content** | `conversion_service.py`, `content_enrichment_service.py` |
+| **User Secondary** | `user_progress_service.py`, `user_relationship_service.py` |
+| **System** | `system_service.py`, `visualization_service.py`, `schema_service.py`, `performance_optimization_service.py` |
+| **Config/Helpers** | `domain_config.py`, `query_builder.py`, `metadata_manager_mixin.py`, `context_first_mixin.py` |
+
+---
+
+### When to Use Each Pattern
+
+| Pattern | Use When |
+|---------|----------|
+| **DUAL** | Complex domain with multiple responsibilities; external API stability needed |
+| **FOLDER-ONLY** | Infrastructure or processing module; no facade needed |
+| **ROOT-ONLY** | Single-responsibility service; base class; config helper |
+
+---
+
+## Import Guidelines
+
+### Domain Services (DUAL pattern)
+
+**External code imports the facade:**
+```python
+# CORRECT — import from facade
+from core.services.tasks_service import TasksService
+from core.services.goals_service import GoalsService
+```
+
+**Sub-services can be imported directly when needed (e.g., tests):**
+```python
+# ALLOWED — direct import for specific testing or composition
+from core.services.tasks import TasksCoreService
+from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
+```
+
+### Infrastructure (FOLDER-ONLY)
+
+```python
+from core.ports import BackendOperations, TasksOperations
+from core.services.relationships import UnifiedRelationshipService
+from core.services.search.search_router import SearchRouter
+from core.services.sharing import UnifiedSharingService
+```
+
+### Utilities (ROOT-ONLY)
+
+```python
+from core.services.base_service import BaseService
+from core.services.llm_service import LLMService
+from core.services.analytics_engine import AnalyticsEngine
+```
+
+### Service Bootstrap
+
+All services are composed in `/services_bootstrap.py`. This file:
+- Imports all facades and utilities
+- Creates dependency graph
+- Instantiates services with proper dependencies
+- Exposes the `Services` dataclass with all service instances (~72 typed fields, zero `Any`)
 
 ---
 
@@ -48,38 +190,20 @@ BaseService[B: BackendOperations, T: DomainModelProtocol]
         └─ Methods: get_with_content(), get_with_context()
 ```
 
-### Mixin Dependency Graph
+**File layout** (`/core/services/mixins/`):
 
 ```
-┌─────────────────────────┐
-│ ConversionHelpersMixin  │ ← Base layer (no dependencies)
-└──────────┬──────────────┘
-           │
-           ├─────────────────────────────────────────────┐
-           │                                             │
-           ▼                                             ▼
-┌──────────────────────┐                    ┌────────────────────────┐
-│ CrudOperationsMixin  │                    │ SearchOperationsMixin  │
-└──────────┬───────────┘                    └────────────────────────┘
-           │
-           │                        ┌────────────────────────────────┐
-           │                        │ RelationshipOperationsMixin    │
-           │                        └────────────────────────────────┘
-           │
-           │                        ┌────────────────────────────────┐
-           │                        │ TimeQueryMixin                 │
-           │                        └────────────────────────────────┘
-           │
-           │                        ┌────────────────────────────────┐
-           │                        │ UserProgressMixin              │
-           │                        └────────────────────────────────┘
-           ▼
-┌──────────────────────────┐
-│ ContextOperationsMixin   │ ← Top layer (depends on CrudOperationsMixin)
-└──────────────────────────┘
+mixins/
+  conversion_helpers_mixin.py    (no dependencies)
+  crud_operations_mixin.py       (uses conversion_helpers)
+  search_operations_mixin.py     (uses conversion_helpers)
+  relationship_operations_mixin.py (uses conversion_helpers)
+  time_query_mixin.py            (uses conversion_helpers)
+  user_progress_mixin.py         (uses conversion_helpers)
+  context_operations_mixin.py    (uses crud_operations)
 ```
 
-**Key Insight:** ConversionHelpersMixin is the foundation - 5 mixins depend on it.
+**Key Insight:** `ConversionHelpersMixin` is the foundation — 5 of 7 mixins depend on it directly.
 
 ---
 
@@ -130,31 +254,32 @@ TasksService (Facade)
         └─ Methods: analyze_task_learning_metrics(), generate_task_knowledge_insights()
 ```
 
-### All Activity Domains
+### All Activity Domains — Sub-Service Counts
 
 ```
 Activity Domain Facades (6 total)
 │
-├─ TasksService (7 sub-services)
-│   └─ core, search, progress, scheduling, planning, relationships, intelligence
+├─ TasksService      (7 sub-services)
+│   └─ core, search, progress, scheduling, planning, intelligence, ai
 │
-├─ GoalsService (9 sub-services)
-│   └─ core, search, progress, scheduling, learning, recommendation, relationships, intelligence, + custom
+├─ GoalsService      (9 sub-services)
+│   └─ core, search, progress, scheduling, learning, planning, recommendation, intelligence, ai
 │
-├─ HabitsService (11 sub-services) ← Most complex
-│   └─ core, search, progress, scheduling, planning, learning, completions, events, achievements, relationships, intelligence
+├─ HabitsService    (11 sub-services)  ← Most complex
+│   └─ core, search, progress, scheduling, planning, learning, completions,
+│      event_integration, achievement, intelligence, ai
 │
-├─ EventsService (8 sub-services)
-│   └─ core, search, progress, scheduling, relationships, intelligence, + custom
+├─ EventsService     (8 sub-services)
+│   └─ core, search, progress, scheduling, learning, habit_integration, intelligence, ai
 │
-├─ ChoicesService (7 sub-services)
-│   └─ core, search, learning, relationships, intelligence, + custom
+├─ ChoicesService    (5 sub-services)
+│   └─ core, search, learning, intelligence, ai
 │
-└─ PrinciplesService (3 sub-services) ← Simplest
-    └─ core, search, intelligence
+└─ PrinciplesService (8 sub-services)
+    └─ core, search, alignment, learning, planning, reflection, intelligence, ai
 ```
 
-**Pattern:** All 6 domains have 4 common sub-services (core, search, relationships, intelligence) + domain-specific services.
+**Pattern:** All 6 domains share 4 common sub-services (core, search, intelligence, ai) plus domain-specific services.
 
 ---
 
@@ -189,55 +314,36 @@ Route Layer
     │ create_task() │ │ search()     │ │ complete_task() │ │ analyze_metrics()│
     └───────┬───────┘ └──────┬───────┘ └────────┬────────┘ └────────┬────────┘
             │                │                  │                   │
-            │                │                  ├───────────────────┘
-            │                │                  │ (Cross-service calls)
-            │                │                  │
-            ▼                ▼                  ▼
-    ┌────────────────────────────────────────────────────────────────┐
-    │ UniversalNeo4jBackend[Task]                                    │
-    │                                                                 │
-    │  create(), get(), list(), find_by(), update(), delete()       │
-    └────────────────────────┬───────────────────────────────────────┘
-                             │
-                             ▼
-                        Neo4j Database
+            └────────────────┴──────────────────┴───────────────────┘
+                                                │
+                                                ▼
+                    ┌────────────────────────────────────────────────────────────┐
+                    │ UniversalNeo4jBackend[Task]                                │
+                    │                                                             │
+                    │  create(), get(), list(), find_by(), update(), delete()   │
+                    └────────────────────────┬───────────────────────────────────┘
+                                             │
+                                             ▼
+                                        Neo4j Database
 ```
 
 **Key Observations:**
 
-1. **Facade → Sub-Service** - Explicit delegation methods (one-line `async def` per method)
-2. **Sub-Service → Backend** - Direct calls to UniversalNeo4jBackend
-3. **Sub-Service ↔ Sub-Service** - Cross-service calls (e.g., progress calls relationships)
-4. **Backend → Neo4j** - Single path to database
+1. **Facade → Sub-Service** — Explicit one-line `async def` delegation methods (not dynamic)
+2. **Sub-Service → Backend** — Direct calls to `UniversalNeo4jBackend`
+3. **Sub-Service ↔ Sub-Service** — Occasional cross-service calls (e.g., progress calls relationships)
+4. **Backend → Neo4j** — Single path to database
 
----
-
-### Cross-Service Dependencies
+### Cross-Service Dependencies (Tasks Example)
 
 ```
-TasksService Sub-Services
-│
-├─ TasksCoreService
-│   └─ Depends on: entity_inference_service (optional), event_bus (optional)
-│
-├─ TasksProgressService
-│   └─ Depends on: analytics_engine (AnalyticsEngine), event_bus (optional)
-│       └─ Calls: relationships service internally
-│
-├─ TasksSchedulingService
-│   └─ Depends on: (none - self-contained)
-│
-├─ TasksPlanningService
-│   └─ Depends on: relationship_service (UnifiedRelationshipService)
-│
-├─ TasksSearchService
-│   └─ Depends on: (none - uses DomainConfig)
-│
-├─ TasksIntelligenceService
-│   └─ Depends on: graph_intelligence_service, relationship_service, event_bus (optional)
-│
-└─ UnifiedRelationshipService
-    └─ Depends on: relationship_config (TASKS_CONFIG)
+TasksCoreService        ← Depends on: entity_inference_service (optional), event_bus (optional)
+TasksProgressService    ← Depends on: analytics_engine, event_bus (optional)
+TasksSchedulingService  ← Self-contained
+TasksPlanningService    ← Depends on: relationship_service (UnifiedRelationshipService)
+TasksSearchService      ← Self-contained (uses DomainConfig)
+TasksIntelligenceService← Depends on: graph_intelligence_service, relationship_service
+UnifiedRelationshipService ← Depends on: relationship_config (TASKS_CONFIG)
 ```
 
 **Pattern:** Most sub-services are self-contained. Cross-service dependencies are explicit in `__init__`.
@@ -263,7 +369,7 @@ TasksService Sub-Services
    │
    ▼
 3. Facade Delegation
-   TasksService.create_task()  ← Auto-generated method
+   TasksService.create_task()
        └─ Delegates to: self.core.create_task()
    │
    ▼
@@ -284,15 +390,13 @@ TasksService Sub-Services
    │
    ▼
 6. Neo4j Database
-   CREATE (t:Task {uid: "task.learn-baseservice", title: "Learn BaseService", ...})
-   CREATE (u:User {uid: "user.mike"})-[:OWNS]->(t)
+   CREATE (t:Entity:Task {uid: "task_learn-baseservice_abc123", ...})
+   CREATE (u:User {uid: "user_mike"})-[:OWNS]->(t)
    │
    ▼
 7. Response
-   Result.ok(Task(uid="task.learn-baseservice", ...))
+   Result.ok(Task(uid="task_learn-baseservice_abc123", ...))
 ```
-
-**Total layers:** 6 (HTTP → Route → Facade → Sub-Service → Backend → Database)
 
 ---
 
@@ -300,7 +404,7 @@ TasksService Sub-Services
 
 ```
 1. HTTP Request
-   POST /api/tasks/task.learn-baseservice/complete
+   POST /api/tasks/task_learn-baseservice_abc123/complete
    Body: {actual_minutes: 30, quality_score: 4}
    │
    ▼
@@ -310,17 +414,15 @@ TasksService Sub-Services
    )
    │
    ▼
-3. Facade Method (Explicit, not delegated)
+3. Facade (explicit delegation)
    TasksService.complete_task_with_cascade()
        └─ Delegates to: self.progress.complete_task_with_cascade()
-       └─ Triggers: self._trigger_knowledge_generation() (async)
    │
    ▼
 4. Progress Service
    TasksProgressService.complete_task_with_cascade()
        ├─ Verifies ownership
        ├─ Updates Task status → COMPLETED
-       ├─ Updates UserContext.completed_tasks_count++
        ├─ Checks prerequisites → unblocks dependent tasks
        ├─ Calls: relationships.get_completion_impact()
        └─ Publishes: TaskCompleted event
@@ -333,62 +435,34 @@ TasksService Sub-Services
        │                     └─> Listeners:
        ▼                         - UserContextService (update stats)
    Neo4j UPDATE              - AnalyticsEngine (track mastery)
-                                 - AchievementService (check badges)
-   │
-   ▼
-6. Knowledge Generation (Async)
-   TasksService._trigger_knowledge_generation()
-       └─ insight_generation_service.extract_knowledge_from_completed_tasks()
-           └─ Analyzes last 30 days → generates KUs
 ```
 
 **Key Observations:**
-- **Orchestration at facade level** - `complete_task_with_cascade()` is explicit in facade
-- **Cascade handled by ProgressService** - updates UserContext, unblocks tasks, publishes events
-- **Event-driven side effects** - listeners react to TaskCompleted event
-- **Async knowledge generation** - doesn't block completion response
+- **Cascade handled by ProgressService** — updates UserContext, unblocks tasks, publishes events
+- **Event-driven side effects** — listeners react to `TaskCompleted`
 
 ---
 
 ### Example 3: Search Tasks for Goal
 
 ```
-1. HTTP Request
-   GET /api/tasks/search?goal_uid=goal.health-2024
+1. GET /api/tasks/search?goal_uid=goal_health-2024_xyz
    │
    ▼
-2. Route Handler
-   result = await services.tasks.get_tasks_for_goal(goal_uid)
+2. Route → services.tasks.get_tasks_for_goal(goal_uid)
    │
    ▼
-3. Facade Delegation
-   TasksService.get_tasks_for_goal()  ← Auto-generated
-       └─ Delegates to: self.search.get_tasks_for_goal()
+3. Facade → self.search.get_tasks_for_goal(goal_uid)
    │
    ▼
-4. Search Service
-   TasksSearchService.get_tasks_for_goal(goal_uid)
-       ├─ Builds Cypher query via UnifiedQueryBuilder
-       ├─ MATCH (t:Task)-[:FULFILLS_GOAL]->(g:Goal {uid: $goal_uid})
-       └─ Returns: list[Task]
-   │
-   ▼
-5. Backend
-   UniversalNeo4jBackend[Task].find_by(...)
-       ├─ Executes Cypher query
-       └─ Converts Neo4j records → Task domain models
-   │
-   ▼
-6. Neo4j Database
-   MATCH (t:Task)-[:FULFILLS_GOAL]->(g:Goal {uid: "goal.health-2024"})
+4. TasksSearchService
+   MATCH (t:Task)-[:FULFILLS_GOAL]->(g:Goal {uid: $goal_uid})
    WHERE (u:User {uid: $user_uid})-[:OWNS]->(t)
    RETURN t
+   │
+   ▼
+5. Backend converts Neo4j records → list[Task]
 ```
-
-**Key Observations:**
-- **Search logic in SearchService** - not in Core
-- **UnifiedQueryBuilder** - generates Cypher queries
-- **Ownership filter automatic** - added by BaseService mixin
 
 ---
 
@@ -401,15 +475,14 @@ Routes / Application Code
     │
     ▼
 ┌──────────────────────────────────────────────────────────┐
-│ Service Bootstrap (DI Container)                         │
+│ services_bootstrap.py  (Services dataclass)              │
 │                                                           │
-│  services = ServiceContainer(                            │
-│      tasks=TasksService(...),                           │
-│      goals=GoalsService(...),                            │
-│      ku=KuService(...),                                  │
-│      user=UserService(...),                              │
-│      ...                                                  │
-│  )                                                        │
+│  services.tasks    = TasksService(...)                   │
+│  services.goals    = GoalsService(...)                    │
+│  services.ku       = KuService(...)                      │
+│  services.user     = UserService(...)                    │
+│  services.sharing  = UnifiedSharingService(...)          │
+│  ...                                                      │
 └───────┬──────────────────────────────────────────────────┘
         │
         ├─────────────────┬──────────────────┬────────────────┐
@@ -419,7 +492,6 @@ Routes / Application Code
 │TasksService  │  │GoalsService  │  │KuService    │  │UserService   │
 └──────┬───────┘  └──────┬───────┘  └──────┬──────┘  └──────┬───────┘
        │                 │                 │                │
-       │                 │                 │                │
        └────────────┬────┴─────────────────┴────────────────┘
                     │
                     ▼
@@ -428,13 +500,11 @@ Routes / Application Code
         │                                 │
         │  - UniversalNeo4jBackend       │
         │  - UnifiedRelationshipService  │
-        │  - GraphIntelligenceService    │
-        │  - AnalyticsEngine           │
+        │  - UnifiedSharingService       │
+        │  - AnalyticsEngine             │
         │  - EventBus                    │
         └────────────────────────────────┘
 ```
-
----
 
 ### Module-Level Dependencies
 
@@ -442,7 +512,7 @@ Routes / Application Code
 /core/services/
 │
 ├─ base_service.py
-│   └─ Uses: mixins/ (7 mixins)
+│   └─ Uses: mixins/ (7 mixin files)
 │
 ├─ mixins/
 │   ├─ conversion_helpers_mixin.py    (no dependencies)
@@ -459,20 +529,39 @@ Routes / Application Code
 │   ├─ tasks_progress_service.py      (extends BaseService)
 │   ├─ tasks_scheduling_service.py    (extends BaseService)
 │   ├─ tasks_planning_service.py      (extends BaseService)
-│   └─ tasks_intelligence_service.py  (extends BaseAnalyticsService)
+│   ├─ tasks_intelligence_service.py  (extends BaseAnalyticsService)
+│   └─ tasks_ai_service.py            (extends BaseAIService)
 │
-├─ tasks_service.py                   (facade - uses tasks/ sub-services)
+├─ tasks_service.py                   (facade — uses tasks/ sub-services)
 │
-├─ domain_config.py                   (configuration dataclass + factories)
+├─ domain_config.py                   (DomainConfig dataclass + factory functions)
 │
-└─ relationships/
-    ├─ unified_relationship_service.py   (shell: constructor, generic CRUD, typed links)
-    ├─ _batch_operations_mixin.py        (N+1 elimination helpers)
-    ├─ _ordered_relationships_mixin.py   (curriculum hierarchy + edge metadata)
-    ├─ _intelligence_mixin.py            (graph intelligence, semantic, cross-domain context)
-    ├─ _life_path_mixin.py               (SERVES_LIFE_PATH)
-    ├─ planning_mixin.py                 (generic UserContext-aware planning)
-    └─ _domain_planning_mixin.py         (6 Activity Domain-specific planning methods)
+├─ relationships/                     (decomposed shell + 6 mixin files)
+│   ├─ unified_relationship_service.py  (shell: constructor, generic CRUD, typed links)
+│   ├─ _batch_operations_mixin.py       (N+1 elimination helpers)
+│   ├─ _ordered_relationships_mixin.py  (curriculum hierarchy + edge metadata)
+│   ├─ _intelligence_mixin.py           (graph intelligence, semantic, cross-domain context)
+│   ├─ _life_path_mixin.py              (SERVES_LIFE_PATH)
+│   ├─ planning_mixin.py                (generic UserContext-aware planning + scoring)
+│   └─ _domain_planning_mixin.py        (6 Activity Domain-specific planning methods)
+│
+├─ sharing/
+│   └─ unified_sharing_service.py     (entity-agnostic SHARES_WITH + SHARED_WITH_GROUP)
+│
+├─ submissions/
+│   ├─ submissions_service.py         (entry point — not a root-level facade)
+│   ├─ submissions_core_service.py
+│   ├─ submissions_search_service.py
+│   ├─ submissions_processing_service.py
+│   └─ submissions_relationship_service.py
+│
+└─ feedback/
+    ├─ feedback_service.py            (entry point)
+    ├─ activity_report_service.py     (CRUD for ActivityReport)
+    ├─ review_queue_service.py        (ReviewRequest node management)
+    ├─ teacher_review_service.py
+    ├─ progress_feedback_generator.py (LLM → processed_content)
+    └─ progress_schedule_service.py
 ```
 
 ---
@@ -495,21 +584,15 @@ create_common_sub_services(
     ▼
 ACTIVITY_DOMAIN_CONFIGS["tasks"]  ← Registry lookup
     │
-    ├─ core_module: "core.services.tasks"
     ├─ core_class: "TasksCoreService"
-    ├─ search_module: "core.services.tasks"
     ├─ search_class: "TasksSearchService"
-    ├─ intelligence_module: "core.services.tasks"
     ├─ intelligence_class: "TasksIntelligenceService"
     └─ relationship_config: TASK_CONFIG
     │
     ▼
 Dynamic imports + instantiation
     │
-    ├─ importlib.import_module("core.services.tasks")
-    ├─ getattr(module, "TasksCoreService")
     ├─ core = TasksCoreService(backend=backend, ...)
-    │
     ├─ search = TasksSearchService(backend=backend, ...)
     ├─ intel = TasksIntelligenceService(backend=backend, ...)
     └─ rels = UnifiedRelationshipService(backend=backend, config=TASKS_CONFIG)
@@ -524,8 +607,8 @@ CommonSubServices[TasksIntelligenceService]
 
 **Benefits:**
 - Eliminates ~80 lines of boilerplate per facade
-- Centralized configuration via ACTIVITY_DOMAIN_CONFIGS registry
-- Type-safe (Generic type parameter for intelligence service)
+- Centralized configuration via `ACTIVITY_DOMAIN_CONFIGS` registry
+- Generic type parameter for intelligence service
 
 ---
 
@@ -550,22 +633,21 @@ DomainConfig dataclass
     │
     ├─ dto_class: TaskDTO
     ├─ model_class: Task
-    ├─ search_fields: ("title", "description")  ← Default from factory
+    ├─ search_fields: ("title", "description")   ← Default from factory
     ├─ search_order_by: "created_at"             ← Default from factory
     ├─ category_field: "category"                ← Default from factory
     ├─ user_ownership_relationship: "OWNS"       ← Default from Activity factory
     ├─ date_field: "due_date"                    ← Provided
     ├─ completed_statuses: ("completed",)        ← Provided
-    └─ ... (14 more fields)
+    └─ ... (14+ more fields)
     │
     ▼
 BaseService._get_config_value("search_fields")
-    │
     └─ Returns: ("title", "description")
-       Used by: SearchOperationsMixin.search() method
+       Used by: SearchOperationsMixin.search()
 ```
 
-**Key Insight:** DomainConfig is THE single source of truth - replaces 18 scattered class attributes.
+**Key Insight:** `DomainConfig` is THE single source of truth — replaces scattered per-class attributes.
 
 ---
 
@@ -573,36 +655,38 @@ BaseService._get_config_value("search_fields")
 
 ### Key Architectural Patterns
 
-1. **Mixin Composition** - 7 focused mixins provide 100+ methods to BaseService
-2. **Facade Pattern** - 1 facade per domain delegates to 3-11 specialized sub-services
-3. **Explicit Delegation** - Facade services have ~50 explicit `async def` delegation methods
-4. **Factory Pattern** - `create_common_sub_services()` creates 4 common sub-services
-5. **Configuration Pattern** - DomainConfig dataclass provides single source of truth
-6. **Event-Driven** - Domain events published for side effects (analytics, achievements, etc.)
+1. **Mixin Composition** — 7 focused mixins provide 100+ methods to `BaseService`
+2. **Facade Pattern** — 1 facade per domain delegates to 5–11 specialized sub-services
+3. **Explicit Delegation** — Facade services have explicit `async def` delegation methods (not dynamic generation)
+4. **Factory Pattern** — `create_common_sub_services()` creates 4 common sub-services from registry
+5. **Configuration Pattern** — `DomainConfig` dataclass is single source of truth
+6. **Event-Driven** — Domain events published for side effects (analytics, achievements, etc.)
 
 ### Service Layers
 
 ```
-Layer 1: BaseService (7 mixins)                  ← Foundation (100+ methods)
-Layer 2: Sub-Services (3-11 per domain)          ← Implementation (specialized)
-Layer 3: Facades (1 per domain)                  ← Public API (auto-delegation)
-Layer 4: Routes (HTTP → Facades)                 ← Interface (HTTP boundaries)
+Layer 1: BaseService (7 mixins)             ← Foundation (100+ methods)
+Layer 2: Sub-Services (5–11 per domain)     ← Implementation (specialized)
+Layer 3: Facades (1 per domain)             ← Public API (explicit delegation)
+Layer 4: Routes (HTTP → Facades)            ← Interface (HTTP boundaries)
 ```
 
 ### Design Principles
 
-- **Single Responsibility** - Each mixin/sub-service has ONE focused responsibility
-- **Composition over Inheritance** - Facades compose sub-services, don't inherit from them
-- **Explicit over Magic** - Explicit delegation methods, no dynamic generation
-- **Configuration over Code** - DomainConfig replaces scattered class attributes
-- **Fail-Fast** - All dependencies REQUIRED at init (no graceful degradation)
+- **Single Responsibility** — Each mixin/sub-service has ONE focused responsibility
+- **Composition over Inheritance** — Facades compose sub-services, don't inherit from them
+- **Explicit over Magic** — Explicit delegation methods, no dynamic generation
+- **Configuration over Code** — `DomainConfig` replaces scattered class attributes
+- **Fail-Fast** — All dependencies REQUIRED at init (no graceful degradation)
 
 ---
 
 ## See Also
 
-- [Sub-Service Catalog](/docs/reference/SUB_SERVICE_CATALOG.md) - Which service does what
-- [Method Index](/docs/reference/BASESERVICE_METHOD_INDEX.md) - Complete method listing
-- [Quick Start Guide](/docs/guides/BASESERVICE_QUICK_START.md) - New developer onboarding
-- [BaseService Source](/core/services/base_service.py) - Implementation
-- [Example Facade Source](/core/services/tasks_service.py) - Explicit delegation pattern
+- [Sub-Service Catalog](/docs/reference/SUB_SERVICE_CATALOG.md) — Which service does what
+- [Method Index](/docs/reference/BASESERVICE_METHOD_INDEX.md) — Complete method listing
+- [Quick Start Guide](/docs/guides/BASESERVICE_QUICK_START.md) — New developer onboarding
+- [Service Consolidation Patterns](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md)
+- [14-Domain Architecture](/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md)
+- [BaseService Source](/core/services/base_service.py)
+- [Example Facade Source](/core/services/tasks_service.py)

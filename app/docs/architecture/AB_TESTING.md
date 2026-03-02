@@ -369,7 +369,7 @@ Potential improvements for Phase 3:
 ## Related Documentation
 
 - **Search Architecture**: `/docs/architecture/SEARCH_ARCHITECTURE.md`
-- **Semantic Search Phase 1**: `/docs/architecture/SEMANTIC_SEARCH_PHASE1_IMPLEMENTATION.md`
+- **Semantic Search**: `/docs/architecture/SEARCH_ARCHITECTURE.md` (Semantic Search section)
 - **ADR-034**: Semantic Search Enhancement Decision
 
 ---

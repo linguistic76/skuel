@@ -95,8 +95,8 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[Feedback Architecture](architecture/FEEDBACK_ARCHITECTURE.md)** | **2026-03-03** | **—** |
 | [SKUEL Architecture — 14 Domains + 5 Cross-Cutting Systems](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) | 2026-03-03 | — |
 | [SKUEL Routing Architecture: Routes, Services, and ...](architecture/ROUTING_ARCHITECTURE.md) | 2025-11-27 | 647 |
-| [Search Architecture - Unified Search System](architecture/SEARCH_ARCHITECTURE.md) | 2026-01-04 | 544 |
-| [Service File Organization](architecture/SERVICE_FILE_ORGANIZATION.md) | 2026-01-21 | 180 |
+| [Search Architecture - Unified Search System](architecture/SEARCH_ARCHITECTURE.md) | 2026-03-03 | — |
+| [Service Architecture: File Organization & Topology](architecture/SERVICE_TOPOLOGY.md) | 2026-03-03 | — |
 | [User Architecture — Model, Auth, Roles, UserContext](architecture/UNIFIED_USER_ARCHITECTURE.md) | 2026-03-03 | — |
 | **[Hyperview Mobile Strategy](architecture/HYPERVIEW_STRATEGY.md)** | **2026-02-06** | **90** |
 | [YAML + Markdown Ingestion & Editing Guide](architecture/YAML_MARKDOWN_INGESTION_GUIDE.md) | 2025-11-27 | 909 |

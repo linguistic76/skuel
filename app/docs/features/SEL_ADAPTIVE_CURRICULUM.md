@@ -466,7 +466,7 @@ See: `/docs/migrations/SEL_UX_MODERNIZATION_2026-02-03.md`
 
 **Architecture:**
 - [Search Architecture](../architecture/SEARCH_ARCHITECTURE.md) - BaseService patterns
-- [Service File Organization](../architecture/SERVICE_FILE_ORGANIZATION.md) - Service structure
+- [Service Architecture: File Organization & Topology](../architecture/SERVICE_TOPOLOGY.md) - Service structure
 
 **ADRs:**
 - [ADR-023: Curriculum BaseService Migration](../decisions/ADR-023-curriculum-baseservice-migration.md)

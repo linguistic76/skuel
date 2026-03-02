@@ -262,7 +262,7 @@ learning_state_boost_not_started: float = 0.15
 
 ## References
 
-- [SEMANTIC_SEARCH_PHASE1_IMPLEMENTATION.md](../architecture/SEMANTIC_SEARCH_PHASE1_IMPLEMENTATION.md) - Complete implementation details
+- [SEARCH_ARCHITECTURE.md](../architecture/SEARCH_ARCHITECTURE.md) - Semantic Search section (merged)
 - [SEARCH_ARCHITECTURE.md](../architecture/SEARCH_ARCHITECTURE.md) - Search architecture overview
 - [semantic_relationships.py](../../core/infrastructure/relationships/semantic_relationships.py) - Semantic relationship infrastructure
 - [neo4j_vector_search_service.py](../../core/services/neo4j_vector_search_service.py) - Implementation
