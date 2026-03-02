@@ -777,6 +777,80 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      collect(DISTINCT {uid: moc.uid, view_count: coalesce(moc.view_count, 0), updated: moc.updated_at}) as moc_metadata
 
 // ====================================================================
+// ACTIVITY REPORT - Latest report for intelligence reasoning
+// ====================================================================
+OPTIONAL MATCH (user)-[:OWNS]->(ar:ActivityReport)
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids, events_rich,
+     core_principle_uids, principles_rich,
+     pending_choice_uids, choices_rich,
+     enrolled_path_uids, paths_rich,
+     steps_rich,
+     life_path_uid, life_path_designated_at, life_path_alignment_score,
+     active_moc_uids, moc_metadata,
+     ar
+ORDER BY ar.period_end DESC
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids, events_rich,
+     core_principle_uids, principles_rich,
+     pending_choice_uids, choices_rich,
+     enrolled_path_uids, paths_rich,
+     steps_rich,
+     life_path_uid, life_path_designated_at, life_path_alignment_score,
+     active_moc_uids, moc_metadata,
+     collect(ar)[0] AS latest_ar
+
+// ====================================================================
+// ACTIVE INSIGHTS - For cross_domain_insights intelligence field
+// ====================================================================
+OPTIONAL MATCH (user)-[:HAS_INSIGHT]->(ins:Insight)
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids, events_rich,
+     core_principle_uids, principles_rich,
+     pending_choice_uids, choices_rich,
+     enrolled_path_uids, paths_rich,
+     steps_rich,
+     life_path_uid, life_path_designated_at, life_path_alignment_score,
+     active_moc_uids, moc_metadata,
+     latest_ar, ins
+WHERE ins IS NULL OR (
+    NOT ins.dismissed AND NOT ins.actioned
+    AND (ins.expires_at IS NULL OR ins.expires_at > datetime())
+)
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids, events_rich,
+     core_principle_uids, principles_rich,
+     pending_choice_uids, choices_rich,
+     enrolled_path_uids, paths_rich,
+     steps_rich,
+     life_path_uid, life_path_designated_at, life_path_alignment_score,
+     active_moc_uids, moc_metadata,
+     latest_ar,
+     [x IN collect(CASE WHEN ins IS NOT NULL THEN {
+         uid: ins.uid,
+         type: ins.insight_type,
+         title: ins.title,
+         impact: ins.impact,
+         confidence: coalesce(ins.confidence, 0.0)
+     } ELSE null END) WHERE x IS NOT NULL][0..10] AS active_insights_raw
+
+// ====================================================================
 // Return BOTH UIDs (standard context) AND rich data (rich context)
 // ====================================================================
 RETURN {
@@ -832,7 +906,15 @@ RETURN {
         tasks_total: size([uid IN active_task_uids WHERE uid IS NOT NULL]) + size([uid IN completed_task_uids WHERE uid IS NOT NULL]),
         goals_completed: size([uid IN completed_goal_uids WHERE uid IS NOT NULL]),
         goals_total: size([uid IN active_goal_uids WHERE uid IS NOT NULL]) + size([uid IN completed_goal_uids WHERE uid IS NOT NULL])
-    }
+    },
+    activity_report: CASE WHEN latest_ar IS NOT NULL THEN {
+        uid: latest_ar.uid,
+        period: latest_ar.time_period,
+        period_end: latest_ar.period_end,
+        content: latest_ar.processed_content,
+        user_annotation: latest_ar.user_annotation
+    } ELSE null END,
+    active_insights_raw: active_insights_raw
 } as result
 """
 
@@ -939,16 +1021,6 @@ RETURN
     moc_data,
     collect(event.uid) as upcoming_event_uids,
     collect(CASE WHEN date(event.event_date) = date($today) THEN event.uid END) as today_event_uids
-"""
-
-
-LATEST_ACTIVITY_REPORT_QUERY: str = """
-MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
-WHERE ar.entity_type = 'activity_report'
-RETURN ar.uid AS uid, ar.time_period AS period, ar.period_end AS period_end,
-       ar.processed_content AS content, ar.user_annotation AS user_annotation
-ORDER BY ar.period_end DESC
-LIMIT 1
 """
 
 
@@ -1167,10 +1239,3 @@ class UserContextQueryExecutor:
             }
         )
 
-    async def execute_activity_report_query(
-        self, user_uid: str
-    ) -> Result[list[dict[str, Any]]]:
-        """Fetch the latest ActivityReport for this user (LIMIT 1, period_end DESC)."""
-        return await self.executor.execute_query(
-            LATEST_ACTIVITY_REPORT_QUERY, {"user_uid": user_uid}
-        )

@@ -28,3 +28,7 @@ CREATE INDEX ku_content_type IF NOT EXISTS FOR (ku:Entity) ON (ku.content_type);
 CREATE INDEX task_user_status IF NOT EXISTS FOR (t:Task) ON (t.user_uid, t.status);
 CREATE INDEX expense_user_category IF NOT EXISTS FOR (e:Expense) ON (e.user_uid, e.category);
 CREATE INDEX goal_user_status IF NOT EXISTS FOR (g:Goal) ON (g.user_uid, g.status);
+
+// Priority 5: Entity type filtering (ActivityReport, cross-domain entity_type queries)
+CREATE INDEX entity_type_idx IF NOT EXISTS FOR (n:Entity) ON (n.entity_type);
+CREATE INDEX entity_user_type_composite IF NOT EXISTS FOR (n:Entity) ON (n.user_uid, n.entity_type);

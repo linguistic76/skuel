@@ -352,23 +352,43 @@ class UserContextPopulator:
             context.life_path_alignment_score = float(alignment_score)
 
     def populate_activity_report(
-        self, context: "UserContext", records: list[dict[str, Any]]
+        self, context: "UserContext", record: dict[str, Any] | None
     ) -> None:
         """Populate latest activity report reference fields.
 
-        records: 0 or 1 dicts from LATEST_ACTIVITY_REPORT_QUERY.
-        No records = user has no activity reports yet; fields remain None.
+        record: single dict from MEGA-QUERY activity_report key, or None if
+        user has no activity reports yet. None → all fields remain None.
         """
-        if not records:
+        if not record or not record.get("uid"):
             return
-        r = records[0]
-        if not r.get("uid"):
+        context.latest_activity_report_uid = record["uid"]
+        context.latest_activity_report_period = record.get("period")
+        context.latest_activity_report_generated_at = record.get("period_end")
+        context.latest_activity_report_content = record.get("content")
+        context.latest_activity_report_user_annotation = record.get("user_annotation")
+
+    def populate_cross_domain_insights(
+        self, context: "UserContext", insights_raw: list[dict[str, Any]] | None
+    ) -> None:
+        """Populate cross_domain_insights from MEGA-QUERY active_insights_raw key.
+
+        insights_raw: list of active insight dicts (up to 10), or None/empty.
+        Sorts by confidence descending; top 5 become top_insights.
+
+        See: /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
+        """
+        if not insights_raw:
+            context.cross_domain_insights = {"active_count": 0, "top_insights": []}
             return
-        context.latest_activity_report_uid = r["uid"]
-        context.latest_activity_report_period = r.get("period")
-        context.latest_activity_report_generated_at = r.get("period_end")
-        context.latest_activity_report_content = r.get("content")
-        context.latest_activity_report_user_annotation = r.get("user_annotation")
+
+        def by_confidence(x: dict[str, Any]) -> float:
+            return float(x.get("confidence", 0.0))
+
+        sorted_insights = sorted(insights_raw, key=by_confidence, reverse=True)[:5]
+        context.cross_domain_insights = {
+            "active_count": len(insights_raw),
+            "top_insights": sorted_insights,
+        }
 
     def populate_moc_fields(self, context: "UserContext", uids_data: dict[str, Any]) -> None:
         """

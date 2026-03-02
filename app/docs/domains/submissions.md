@@ -126,7 +126,6 @@ Students see assessments at `/submissions/feedback`.
 | `OWNS` | User → Report | User | Report ownership |
 | `ASSESSMENT_OF` | Report → User | User | Assessment targets student |
 | `SHARES_WITH` | User → Report | Report | Sharing access |
-| `BASED_ON_INSIGHT` | Report → Insight | Insight | Progress report references insight |
 | `HAS_SCHEDULE` | User → ReportSchedule | ReportSchedule | User's generation schedule |
 | `FULFILLS_PROJECT` | Ku → Assignment | Assignment | Assignment fulfillment |
 

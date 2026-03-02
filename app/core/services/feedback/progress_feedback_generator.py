@@ -248,11 +248,7 @@ class ProgressFeedbackGenerator:
             if create_result.is_error:
                 return Result.fail(create_result.expect_error())
 
-            # 6. Create BASED_ON_INSIGHT relationships
-            if insights:
-                await self._create_insight_relationships(uid, insights)
-
-            # 7. Publish event
+            # 6. Publish event
             event = SubmissionCreated(
                 submission_uid=uid,
                 user_uid=user_uid,
@@ -699,21 +695,3 @@ class ProgressFeedbackGenerator:
             return None
         return result.value[0].get("annotation") if result.value else None
 
-    async def _create_insight_relationships(self, ku_uid: str, insights: list[Any]) -> None:
-        """Create BASED_ON_INSIGHT relationships between Entity and insights."""
-        for insight in insights:
-            insight_uid = getattr(insight, "uid", None)
-            if not insight_uid:
-                continue
-            result = await self.executor.execute_query(
-                """
-                MATCH (k:Entity {uid: $ku_uid})
-                MATCH (i:Insight {uid: $insight_uid})
-                MERGE (k)-[:BASED_ON_INSIGHT]->(i)
-                """,
-                {"ku_uid": ku_uid, "insight_uid": insight_uid},
-            )
-            if result.is_error:
-                logger.warning(
-                    f"Failed to create BASED_ON_INSIGHT for {insight_uid}: {result.error}"
-                )

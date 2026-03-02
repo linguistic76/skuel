@@ -1,13 +1,18 @@
 """
 Unit Tests — UserContextPopulator.populate_activity_report
+                + UserContextPopulator.populate_cross_domain_insights
 ===========================================================
 
-Covers the branch conditions in populate_activity_report:
-1. Empty records list → all fields remain None
-2. Single valid record → all fields populated correctly
-3. Record with uid=None → skipped (NULL filter guard), fields remain None
-4. Record with user_annotation → annotation field populated
-5. Record without user_annotation key → annotation field stays None
+populate_activity_report (5 tests):
+1. None → all fields remain None
+2. Single valid dict → all fields populated correctly
+3. Dict with uid=None → skipped (NULL filter guard), fields remain None
+4. Dict with user_annotation → annotation field populated
+5. Dict without user_annotation key → annotation field stays None
+
+populate_cross_domain_insights (2 tests):
+6. None → {"active_count": 0, "top_insights": []}
+7. Unsorted insights → top_insights sorted by confidence descending
 """
 
 from datetime import datetime
@@ -21,7 +26,7 @@ from core.services.user.user_context_populator import UserContextPopulator
 
 
 def make_context() -> object:
-    """Minimal stand-in with the 5 activity report fields."""
+    """Minimal stand-in with the activity report and insights fields."""
 
     class _Context:
         pass
@@ -32,20 +37,21 @@ def make_context() -> object:
     ctx.latest_activity_report_generated_at = None
     ctx.latest_activity_report_content = None
     ctx.latest_activity_report_user_annotation = None
+    ctx.cross_domain_insights = None
     return ctx
 
 
 # =============================================================================
-# TESTS
+# populate_activity_report TESTS
 # =============================================================================
 
 
 def test_populate_activity_report_empty() -> None:
-    """No records → all 4 fields remain None."""
+    """None → all 4 fields remain None."""
     populator = UserContextPopulator()
     ctx = make_context()
 
-    populator.populate_activity_report(ctx, [])  # type: ignore[arg-type]
+    populator.populate_activity_report(ctx, None)
 
     assert ctx.latest_activity_report_uid is None
     assert ctx.latest_activity_report_period is None
@@ -54,21 +60,19 @@ def test_populate_activity_report_empty() -> None:
 
 
 def test_populate_activity_report_single() -> None:
-    """One valid record → all 4 fields populated correctly."""
+    """One valid dict → all 4 fields populated correctly."""
     populator = UserContextPopulator()
     ctx = make_context()
     period_end = datetime(2026, 3, 1, 12, 0, 0)
 
-    records = [
-        {
-            "uid": "ku_report_abc123",
-            "period": "7d",
-            "period_end": period_end,
-            "content": "You have been over-committing on tasks this week.",
-        }
-    ]
+    record = {
+        "uid": "ku_report_abc123",
+        "period": "7d",
+        "period_end": period_end,
+        "content": "You have been over-committing on tasks this week.",
+    }
 
-    populator.populate_activity_report(ctx, records)  # type: ignore[arg-type]
+    populator.populate_activity_report(ctx, record)
 
     assert ctx.latest_activity_report_uid == "ku_report_abc123"
     assert ctx.latest_activity_report_period == "7d"
@@ -77,13 +81,13 @@ def test_populate_activity_report_single() -> None:
 
 
 def test_populate_activity_report_uid_none_skips() -> None:
-    """Record with uid=None is skipped; fields remain None."""
+    """Dict with uid=None is skipped; fields remain None."""
     populator = UserContextPopulator()
     ctx = make_context()
 
-    records = [{"uid": None, "period": "14d", "period_end": None, "content": "Some content"}]
+    record = {"uid": None, "period": "14d", "period_end": None, "content": "Some content"}
 
-    populator.populate_activity_report(ctx, records)  # type: ignore[arg-type]
+    populator.populate_activity_report(ctx, record)
 
     assert ctx.latest_activity_report_uid is None
     assert ctx.latest_activity_report_period is None
@@ -92,22 +96,20 @@ def test_populate_activity_report_uid_none_skips() -> None:
 
 
 def test_populate_activity_report_with_annotation() -> None:
-    """Record includes user_annotation → annotation field populated."""
+    """Dict includes user_annotation → annotation field populated."""
     populator = UserContextPopulator()
     ctx = make_context()
     period_end = datetime(2026, 3, 1, 12, 0, 0)
 
-    records = [
-        {
-            "uid": "ku_report_abc123",
-            "period": "7d",
-            "period_end": period_end,
-            "content": "You have been over-committing on tasks this week.",
-            "user_annotation": "I think I'm over-committing because of deadline pressure.",
-        }
-    ]
+    record = {
+        "uid": "ku_report_abc123",
+        "period": "7d",
+        "period_end": period_end,
+        "content": "You have been over-committing on tasks this week.",
+        "user_annotation": "I think I'm over-committing because of deadline pressure.",
+    }
 
-    populator.populate_activity_report(ctx, records)  # type: ignore[arg-type]
+    populator.populate_activity_report(ctx, record)
 
     assert ctx.latest_activity_report_uid == "ku_report_abc123"
     assert ctx.latest_activity_report_user_annotation == (
@@ -116,22 +118,56 @@ def test_populate_activity_report_with_annotation() -> None:
 
 
 def test_populate_activity_report_annotation_none_key_missing() -> None:
-    """Record has no user_annotation key → annotation field stays None."""
+    """Dict has no user_annotation key → annotation field stays None."""
     populator = UserContextPopulator()
     ctx = make_context()
     period_end = datetime(2026, 3, 1, 12, 0, 0)
 
-    records = [
-        {
-            "uid": "ku_report_abc123",
-            "period": "7d",
-            "period_end": period_end,
-            "content": "Some content.",
-            # user_annotation key intentionally absent
-        }
-    ]
+    record = {
+        "uid": "ku_report_abc123",
+        "period": "7d",
+        "period_end": period_end,
+        "content": "Some content.",
+        # user_annotation key intentionally absent
+    }
 
-    populator.populate_activity_report(ctx, records)  # type: ignore[arg-type]
+    populator.populate_activity_report(ctx, record)
 
     assert ctx.latest_activity_report_uid == "ku_report_abc123"
     assert ctx.latest_activity_report_user_annotation is None
+
+
+# =============================================================================
+# populate_cross_domain_insights TESTS
+# =============================================================================
+
+
+def test_populate_cross_domain_insights_none() -> None:
+    """None → cross_domain_insights = {"active_count": 0, "top_insights": []}."""
+    populator = UserContextPopulator()
+    ctx = make_context()
+
+    populator.populate_cross_domain_insights(ctx, None)
+
+    assert ctx.cross_domain_insights == {"active_count": 0, "top_insights": []}
+
+
+def test_populate_cross_domain_insights_sorted() -> None:
+    """3 insights unsorted by confidence → top_insights sorted descending."""
+    populator = UserContextPopulator()
+    ctx = make_context()
+
+    insights = [
+        {"uid": "ins_a", "type": "habit_gap", "title": "Low streak", "impact": "medium", "confidence": 0.6},
+        {"uid": "ins_b", "type": "goal_risk", "title": "Goal at risk", "impact": "high", "confidence": 0.9},
+        {"uid": "ins_c", "type": "knowledge_gap", "title": "Gap found", "impact": "low", "confidence": 0.3},
+    ]
+
+    populator.populate_cross_domain_insights(ctx, insights)
+
+    assert ctx.cross_domain_insights["active_count"] == 3
+    top = ctx.cross_domain_insights["top_insights"]
+    assert len(top) == 3
+    assert top[0]["uid"] == "ins_b"  # confidence 0.9
+    assert top[1]["uid"] == "ins_a"  # confidence 0.6
+    assert top[2]["uid"] == "ins_c"  # confidence 0.3

@@ -278,7 +278,6 @@ class RelationshipName(str, Enum):
     # Transcription, journal processing, and content linking
     # =========================================================================
     TRANSCRIBED_FOR = "TRANSCRIBED_FOR"  # Transcription created for journal
-    BASED_ON_INSIGHT = "BASED_ON_INSIGHT"  # (Report)-[:BASED_ON_INSIGHT]->(Insight) - Progress report references insight
     HAS_SCHEDULE = "HAS_SCHEDULE"  # (User)-[:HAS_SCHEDULE]->(ReportSchedule) - User's report generation schedule
     ASSESSMENT_OF = (
         "ASSESSMENT_OF"  # (Report)-[:ASSESSMENT_OF]->(User) - Teacher assessment targets student

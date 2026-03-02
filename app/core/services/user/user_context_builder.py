@@ -329,7 +329,9 @@ class UserContextBuilder:
         #     "rich": {tasks: [{task, graph_context}], goals, habits, knowledge, principles, choices, ...},
         #     "user_properties": {preferences, role, settings},
         #     "life_path": {uid, alignment_score, dimensions},
-        #     "progress_counts": {tasks_completed, habits_maintained, goals_achieved, ...}
+        #     "progress_counts": {tasks_completed, habits_maintained, goals_achieved, ...},
+        #     "activity_report": {uid, period, period_end, content, user_annotation} or null,
+        #     "active_insights_raw": [{uid, type, title, impact, confidence}, ...] (up to 10)
         # }
         uids_data = mega_data.get("uids", {})
         rich_data = mega_data.get("rich", {})
@@ -349,14 +351,9 @@ class UserContextBuilder:
         # Populate life path fields (Priority 2)
         self._populator.populate_life_path(context, mega_data.get("life_path", {}))
 
-        # Populate latest activity report reference (for intelligence reasoning)
-        ar_result = await self._query_executor.execute_activity_report_query(user_uid)
-        if ar_result.is_error:
-            logger.warning(
-                f"Failed to fetch latest activity report for {user_uid}: {ar_result.error}"
-            )
-        else:
-            self._populator.populate_activity_report(context, ar_result.value)
+        # Populate activity report + insights from MEGA-QUERY (no separate roundtrip)
+        self._populator.populate_activity_report(context, mega_data.get("activity_report"))
+        self._populator.populate_cross_domain_insights(context, mega_data.get("active_insights_raw"))
 
         # Populate progress metrics (Priority 6)
         self._populator.populate_progress_metrics(context, mega_data.get("progress_counts", {}))
