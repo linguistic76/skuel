@@ -256,7 +256,7 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 Admin selects user + time window
         ↓
 GET /api/activity-review/snapshot → ActivityReportService.create_snapshot()
-        ↓  (calls context_builder.build_rich(user_uid, time_period=...) — MEGA_QUERY with activity window)
+        ↓  (calls context_builder.build_rich(user_uid, window=...) — MEGA_QUERY with activity window)
 Admin reads Tasks, Goals, Habits, Events, Choices, Principles summary
         ↓
 Admin writes qualitative assessment
@@ -286,7 +286,7 @@ Admin follows admin-initiated path above
 
 When `openai_service` is available, the generator:
 
-1. Calls `context_builder.build_rich(user_uid, time_period=time_period)` — MEGA_QUERY extended with 6 activity window CALL{} blocks; `context.activity_rich` contains all domains (same method used by `ActivityReportService.create_snapshot()`)
+1. Calls `context_builder.build_rich(user_uid, window=time_period)` — MEGA_QUERY extended with 6 activity window CALL{} blocks; `context.entities_rich` contains all domains (same method used by `ActivityReportService.create_snapshot()`)
 2. Cross-references active Insights
 3. Fetches `user_annotation` from the most recent prior `ActivityReport` (`period_end < current_period_start`) via `_fetch_previous_annotation()`
 4. Sends stats as JSON context to LLM via `activity_feedback.md` prompt template; if a prior annotation exists, appends it with an instruction to acknowledge or contrast the user's self-reflection

@@ -129,7 +129,7 @@ class EventsService(BaseService[EventsOperations, Event]):
 
 - `upcoming_event_uids` - Upcoming event UIDs
 - `today_event_uids` - Events scheduled for today
-- `active_events_rich` - Full event data with graph context
+- `entities_rich["events"]` - Full event data with graph context
 
 ## Scoring Weights
 

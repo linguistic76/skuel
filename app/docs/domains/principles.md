@@ -145,7 +145,7 @@ Created via `create_common_sub_services()` factory + domain-specific services in
 ## MEGA-QUERY Sections
 
 - `core_principle_uids` - Core principle UIDs
-- `core_principles_rich` - Full principle data with graph context
+- `entities_rich["principles"]` - Full principle data with graph context
 
 ## Scoring Weights
 
@@ -348,14 +348,14 @@ The planning service extracts data from `UserContext`:
 | Field | Usage |
 |-------|-------|
 | `core_principle_uids` | Target principles for analysis |
-| `core_principles_rich` | Rich data with graph context |
+| `entities_rich["principles"]` | Rich data with graph context |
 | `principle_priorities` | Importance weighting |
 | `todays_task_uids` | Today's scheduled tasks |
 | `todays_event_uids` | Today's scheduled events |
 | `active_goal_uids` | Current active goals |
-| `active_tasks_rich` | Task data with principle relationships |
-| `active_events_rich` | Event data with principle relationships |
-| `active_goals_rich` | Goal data with principle relationships |
+| `entities_rich["tasks"]` | Task data with principle relationships |
+| `entities_rich["events"]` | Event data with principle relationships |
+| `entities_rich["goals"]` | Goal data with principle relationships |
 
 ## Events/Publishing
 

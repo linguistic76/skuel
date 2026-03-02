@@ -158,7 +158,7 @@ Created via `create_common_sub_services()` factory in facade `__init__`.
 - `active_goal_uids` - Active goal UIDs
 - `completed_goal_uids` - Completed goal UIDs
 - `goal_progress` - Progress per goal `{uid, progress}`
-- `active_goals_rich` - Full goal data with graph context
+- `entities_rich["goals"]` - Full goal data with graph context
 
 ## Goal Types
 

@@ -426,8 +426,8 @@ def TasksDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
     # Build items list from rich data if available
     # , Task 12: Increased limit to 50 for filtering/sorting
     items = []
-    for task_data in context.active_tasks_rich[:50]:
-        task = task_data.get("task", {})
+    for task_data in context.entities_rich.get("tasks", [])[:50]:
+        task = task_data.get("entity", {})
         uid = task.get("uid", "")
         # , Task 12: Add filter metadata
         is_overdue = uid in context.overdue_task_uids
@@ -543,8 +543,8 @@ def HabitsDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
 
     # , Task 12: Increased limit to 50, added filter metadata
     items = []
-    for habit_data in context.active_habits_rich[:50]:
-        habit = habit_data.get("habit", {})
+    for habit_data in context.entities_rich.get("habits", [])[:50]:
+        habit = habit_data.get("entity", {})
         uid = habit.get("uid", "")
         streak = context.habit_streaks.get(uid, 0)
         is_at_risk = uid in context.at_risk_habits
@@ -657,8 +657,8 @@ def GoalsDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
 
     items = []
     # , Task 12: Increased limit, added filter metadata
-    for goal_data in context.active_goals_rich[:50]:
-        goal = goal_data.get("goal", {})
+    for goal_data in context.entities_rich.get("goals", [])[:50]:
+        goal = goal_data.get("entity", {})
         uid = goal.get("uid", "")
         progress = context.goal_progress.get(uid, 0)
         is_at_risk = uid in context.at_risk_goals
@@ -777,8 +777,8 @@ def EventsDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
     ]
 
     items = []
-    for event_data in context.active_events_rich[:10]:
-        event = event_data.get("event", {})
+    for event_data in context.entities_rich.get("events", [])[:10]:
+        event = event_data.get("entity", {})
         uid = event.get("uid", "")
         items.append(
             {
@@ -864,8 +864,8 @@ def PrinciplesDomainView(context: UserContext, focus_uid: str | None = None) -> 
     ]
 
     items = []
-    for principle_data in context.core_principles_rich[:10]:
-        principle = principle_data.get("principle", {})
+    for principle_data in context.entities_rich.get("principles", [])[:10]:
+        principle = principle_data.get("entity", {})
         uid = principle.get("uid", "")
         priority = context.principle_priorities.get(uid, 0.5)
         items.append(
@@ -959,8 +959,8 @@ def ChoicesDomainView(context: UserContext, focus_uid: str | None = None) -> Div
     ]
 
     items = []
-    for choice_data in context.recent_choices_rich[:10]:
-        choice = choice_data.get("choice", {})
+    for choice_data in context.entities_rich.get("choices", [])[:10]:
+        choice = choice_data.get("entity", {})
         uid = choice.get("uid", "")
         items.append(
             {
@@ -1573,8 +1573,8 @@ def _current_focus_card(context: UserContext) -> Div:
 
     # Get task title from rich data if available
     task_title = "Current Task"
-    for task_data in context.active_tasks_rich:
-        task = task_data.get("task", {})
+    for task_data in context.entities_rich.get("tasks", []):
+        task = task_data.get("entity", {})
         if task.get("uid") == context.current_task_focus:
             task_title = task.get("title", "Current Task")
             break

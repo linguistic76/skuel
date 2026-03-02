@@ -44,7 +44,7 @@ The MEGA-QUERY in `user_context_builder.py` was designed to fetch user context d
 **Problem:**
 - Events only collected UIDs, no graph neighborhood data
 - Principles and Choices were completely absent from the MEGA-QUERY
-- UserContext fields (`active_events_rich`, `core_principles_rich`, `recent_choices_rich`) were populated with empty arrays
+- UserContext fields (`entities_rich["events"]`, `entities_rich["principles"]`, `entities_rich["choices"]`) were populated with empty arrays
 - Cross-domain intelligence for these three domains was unavailable
 
 **Requirements:**

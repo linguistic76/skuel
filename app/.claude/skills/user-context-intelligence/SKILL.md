@@ -165,14 +165,13 @@ class DailyWorkPlan:
 
 **What both paths share (March 2026):** `latest_activity_report_*` fields (`uid`, `period`, `period_end`, `content`, `user_annotation`) are now populated by both queries. CONSOLIDATED_QUERY fetches the latest ActivityReport via the same OPTIONAL MATCH + ORDER BY + collect-first-one pattern as MEGA_QUERY, and shapes the result with identical key names so `populate_activity_report()` works unchanged on both paths.
 
-**What only MEGA_QUERY provides:** Full entity objects (`active_tasks_rich`, `active_goals_rich`, etc.), graph neighborhoods, `cross_domain_insights` (active_insights_raw). These are absent in standard context.
+**What only MEGA_QUERY provides:** Full entity objects (`entities_rich["tasks"]`, `entities_rich["goals"]`, etc.), graph neighborhoods, `cross_domain_insights` (active_insights_raw). These are absent in standard context.
 
-**`build_rich()` optional `time_period` parameter:** Passing `time_period="7d"` (or `"14d"`,
-`"30d"`, `"90d"`) appends 6 activity window CALL{} blocks to MEGA_QUERY and populates
-`context.activity_rich`. Used by **feedback services** (`ProgressFeedbackGenerator`,
-`ActivityReportService`) — not by intelligence methods. Intelligence always uses
-`active_*_rich` (status-active entities). Default `time_period=None` is identical to
-today's behavior.
+**`build_rich()` optional `window` parameter:** Passing `window="7d"` (or `"14d"`,
+`"30d"`, `"90d"`) includes completed entities touched within the window in `context.entities_rich`
+alongside active entities. Used by **both** intelligence methods and feedback services
+(`ProgressFeedbackGenerator`, `ActivityReportService`). Default `window="30d"` always
+provides the standard 30-day window.
 
 **The rule:** Always pass `build_rich()` context to intelligence. `require_rich_context()` will catch mistakes:
 

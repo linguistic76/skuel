@@ -298,7 +298,7 @@ result = await choices_service.add_option(
 ## MEGA-QUERY Sections
 
 - `pending_choice_uids` - Pending choice UIDs (status = pending or active)
-- `recent_choices_rich` - Full choice data with graph context
+- `entities_rich["choices"]` - Full choice data with graph context
 
 ## Scoring Weights
 

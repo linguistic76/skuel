@@ -496,7 +496,7 @@ Methods requiring rich context should validate early:
 ```python
 def get_advancing_goals_for_user(self, context: UserContext) -> Result[...]:
     context.require_rich_context("get_advancing_goals_for_user")
-    # Now safe to access context.active_goals_rich
+    # Now safe to access context.entities_rich["goals"]
 ```
 
 **Query Execution** (`user_context_queries.py`):
@@ -835,9 +835,9 @@ The MEGA-QUERY in `user_context_queries.py` fetches **BOTH UIDs and full entity 
     },
 
     # Tier 2: Rich entities with graph (for rich context)
-    rich: {
-        active_tasks_rich: [{
-            task: properties(task),      # Full Task entity
+    entities: {
+        tasks: [{
+            entity: properties(task),     # Full Task entity
             graph_context: {              # Graph neighborhoods
                 related_goals: [{uid, title, status}],
                 applied_knowledge: [{uid, title}],
@@ -845,7 +845,7 @@ The MEGA-QUERY in `user_context_queries.py` fetches **BOTH UIDs and full entity 
                 blockers: [...]
             }
         }],
-        # ... all rich entity fields with graph context
+        # ... all 6 activity domains under their domain key
     },
 
     # Additional sections
@@ -887,16 +887,17 @@ Multiple queries: 450-750ms (15-18 queries)
 ### Rich Fields in UserContext
 
 ```python
-# Full entity + graph neighborhoods
-context.active_tasks_rich       # [{task: {...}, graph_context: {...}}, ...]
-context.active_goals_rich       # [{goal: {...}, graph_context: {...}}, ...]
-context.active_habits_rich      # [{habit: {...}, graph_context: {...}}, ...]
-context.active_events_rich      # [{event: {...}, graph_context: {...}}, ...]
-context.core_principles_rich    # [{principle: {...}, graph_context: {...}}, ...]
-context.recent_choices_rich     # [{choice: {...}, graph_context: {...}}, ...]
-context.knowledge_units_rich    # {uid: {ku: {...}, graph_context: {...}}}
-context.enrolled_paths_rich     # [{path: {...}, graph_context: {...}}, ...]
-context.active_learning_steps_rich  # [{step: {...}, graph_context: {...}}, ...]
+# Full entity + graph neighborhoods (6 activity domains unified under one field)
+context.entities_rich                # {"tasks": [...], "goals": [...], "habits": [...], "events": [...], "choices": [...], "principles": [...]}
+context.entities_rich["tasks"]       # [{entity: {...}, graph_context: {...}}, ...]
+context.entities_rich["goals"]       # [{entity: {...}, graph_context: {...}}, ...]
+context.entities_rich["habits"]      # [{entity: {...}, graph_context: {...}}, ...]
+context.entities_rich["events"]      # [{entity: {...}, graph_context: {...}}, ...]
+context.entities_rich["principles"]  # [{entity: {...}, graph_context: {...}}, ...]
+context.entities_rich["choices"]     # [{entity: {...}, graph_context: {...}}, ...]
+context.knowledge_units_rich         # {uid: {ku: {...}, graph_context: {...}}}
+context.enrolled_paths_rich          # [{path: {...}, graph_context: {...}}, ...]
+context.active_learning_steps_rich   # [{step: {...}, graph_context: {...}}, ...]
 ```
 
 ### MEGA_QUERY ↔ UserContext Field Mapping (January 2026)
@@ -906,7 +907,7 @@ The MEGA_QUERY returns 5 top-level sections that map to UserContext fields:
 | MEGA_QUERY Section | UserContext Fields | Populate Method |
 |-------------------|-------------------|-----------------|
 | `uids` | `active_task_uids`, `active_goal_uids`, `habit_streaks`, etc. | `populate_standard_fields()` |
-| `rich` | `active_tasks_rich`, `active_goals_rich`, etc. | `populate_rich_fields()` |
+| `entities` | `entities_rich` (dict with keys: tasks, goals, habits, events, choices, principles) | `populate_entities_rich()` |
 | `user_properties` | `learning_level`, `preferred_time`, `energy_level`, `preferred_personality`, `preferred_tone`, `preferred_guidance`, `available_minutes_daily` | `populate_user_properties()` |
 | `life_path` | `life_path_uid`, `life_path_alignment_score` | `populate_life_path()` |
 | `progress_counts` | `overall_progress` | `populate_progress_metrics()` |
@@ -915,13 +916,13 @@ The MEGA_QUERY returns 5 top-level sections that map to UserContext fields:
 
 | Derived Field | Source Data | Populate Method |
 |--------------|-------------|-----------------|
-| `tasks_by_goal` | `tasks_rich[].graph_context.goal_context` | `populate_derived_fields()` |
-| `habits_by_goal` | `habits_rich[].graph_context.linked_goals` | `populate_derived_fields()` |
+| `tasks_by_goal` | `entities_rich["tasks"][].graph_context.goal_context` | `populate_derived_fields()` |
+| `habits_by_goal` | `entities_rich["habits"][].graph_context.linked_goals` | `populate_derived_fields()` |
 | `at_risk_habits` | `habit_streaks`, `habit_completion_rates` | `populate_derived_fields()` |
 | `blocked_task_uids` | `task_blockers` (from graph-sourced) | `populate_derived_fields()` |
-| `principle_guided_choice_counts` | `principles_rich[].graph_context.guided_choices` | `populate_principle_choice_integration()` |
+| `principle_guided_choice_counts` | `entities_rich["principles"][].graph_context.guided_choices` | `populate_principle_choice_integration()` |
 | `principle_integration_score` | Computed: aligned_choices / total_choices | `populate_principle_choice_integration()` |
-| `recent_principle_aligned_choices` | `principles_rich[].graph_context.guided_choices` | `populate_principle_choice_integration()` |
+| `recent_principle_aligned_choices` | `entities_rich["principles"][].graph_context.guided_choices` | `populate_principle_choice_integration()` |
 
 **MOC fields (from `uids` section):**
 
@@ -942,20 +943,20 @@ The MEGA_QUERY returns 5 top-level sections that map to UserContext fields:
 
 CONSOLIDATED_QUERY (standard `build()` path) and MEGA_QUERY (rich `build_rich()` path) both fetch the latest ActivityReport and shape it as `{uid, period, period_end, content, user_annotation}` — identical key names so `populate_activity_report()` is called once and works for both paths.
 
-**ACTIVITY WINDOW fields — rich path only, when `time_period` provided:**
+**`entities_rich` — the single unified rich field (March 2026):**
 
-| UserContext Field | Type | Populated when |
-|-------------------|------|----------------|
-| `activity_window_period` | `str \| None` | `build_rich(time_period=...)` called |
-| `activity_window_start` | `datetime \| None` | Same |
-| `activity_window_end` | `datetime \| None` | Same |
-| `activity_rich` | `dict[str, list[dict]]` | Same |
+`entities_rich` is a `dict[str, list[dict]]` populated by `build_rich()` for all 6 activity
+domains. Keys: `"tasks"`, `"goals"`, `"habits"`, `"events"`, `"choices"`, `"principles"`.
+Each value is a list of `{entity: {...}, graph_context: {...}}` dicts.
 
-`activity_rich` keys: `"tasks"`, `"goals"`, `"habits"`, `"events"`, `"choices"`,
-`"principles"`. Each value is a list of `{entity: {...}, graph_context: {...}}` dicts —
-all entities touched in the window (including completed), with graph neighbourhoods.
-Used by `ProgressFeedbackGenerator` and `ActivityReportService.create_snapshot()`.
-**Not used by intelligence methods** — `active_*_rich` fields handle active-only planning.
+When `window=` is passed to `build_rich()`, completed entities touched within the window are
+included alongside active entities — the same `entities_rich` field receives both. Used by
+intelligence methods (active-entity planning), `ProgressFeedbackGenerator`, and
+`ActivityReportService.create_snapshot()`.
+
+The old separate `activity_rich` / `activity_window_period` / `activity_window_start` /
+`activity_window_end` fields have been removed. `entities_rich` is THE single field for all
+rich activity domain data.
 
 **INSIGHTS fields — rich path only:**
 

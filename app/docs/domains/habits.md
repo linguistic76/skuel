@@ -153,7 +153,7 @@ Created via `create_common_sub_services()` factory in facade `__init__`.
 - `habit_metadata` - Streak and rate per habit `{uid, streak, rate}`
 - `habit_streaks` - Current streaks dict
 - `habit_completion_rates` - Completion rates dict
-- `active_habits_rich` - Full habit data with graph context
+- `entities_rich["habits"]` - Full habit data with graph context
 
 ## Habit Loop (Atomic Habits)
 

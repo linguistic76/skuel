@@ -144,7 +144,7 @@ The MEGA-QUERY in `/core/services/user/user_context_queries.py` fetches:
 - `completed_task_uids` - Completed task UIDs
 - `overdue_task_uids` - Overdue task UIDs
 - `today_task_uids` - Tasks due today
-- `active_tasks_rich` - Full task data with graph context
+- `entities_rich["tasks"]` - Full task data with graph context
 
 ## Usage Examples
 
