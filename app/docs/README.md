@@ -1,7 +1,7 @@
 ---
 title: SKUEL Documentation Hub
 created: 2025-10-17
-updated: 2025-12-04
+updated: 2026-03-03
 status: active
 audience: all
 tags: [documentation, index, hub, architecture, patterns]
@@ -15,8 +15,8 @@ tags: [documentation, index, hub, architecture, patterns]
 >
 > **Note:** `/home/mike/0bsidian/skuel/docs/` contains Knowledge Unit (KU) **content** for the knowledge graph - learning materials about topics like investment, life, environment, etc. It is NOT technical documentation.
 
-**Last Updated:** 2026-01-02
-**Total Documents:** 123
+**Last Updated:** 2026-03-03
+**Total Documents:** ~200 (see [INDEX.md](INDEX.md))
 
 ---
 
@@ -38,7 +38,7 @@ tags: [documentation, index, hub, architecture, patterns]
 
 | Category | Description | Key Documents |
 |----------|-------------|---------------|
-| **[architecture/](architecture/)** | System design, domain structure | [14-Domain Architecture](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md), [Neo4j Architecture](architecture//docs/patterns/query_architecture.md) |
+| **[architecture/](architecture/)** | System design, domain structure | [14-Domain Architecture](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md), [Feedback Architecture](architecture/FEEDBACK_ARCHITECTURE.md) |
 | **[patterns/](patterns/)** | Implementation patterns, coding standards | [Query Architecture](patterns/query_architecture.md), [Error Handling](patterns/ERROR_HANDLING.md) |
 | **[decisions/](decisions/)** | Architecture Decision Records (ADRs) | [ADR-015 MEGA-QUERY](decisions/ADR-015-mega-query-rich-queries-completion.md), [ADR-016 Context Builder](decisions/ADR-016-context-builder-decomposition.md) |
 | **[dsl/](dsl/)** | Activity DSL specification | [DSL Specification](dsl/DSL_SPECIFICATION.md), [DSL Usage Guide](dsl/DSL_USAGE_GUIDE.md) |
@@ -52,7 +52,7 @@ tags: [documentation, index, hub, architecture, patterns]
 
 ---
 
-## Current Architecture (December 2025)
+## Current Architecture (March 2026)
 
 ### Core Patterns
 
@@ -82,12 +82,13 @@ tags: [documentation, index, hub, architecture, patterns]
 
 | ADR | Title | Date |
 |-----|-------|------|
-| [ADR-016](decisions/ADR-016-context-builder-decomposition.md) | Context Builder Decomposition | December 2025 |
-| [ADR-015](decisions/ADR-015-mega-query-rich-queries-completion.md) | MEGA-QUERY Rich Queries Completion | December 2025 |
-| [ADR-014](decisions/ADR-014-unified-ingestion.md) | Unified Content Ingestion | December 2025 |
-| [ADR-013](decisions/ADR-013-ku-uid-flat-identity.md) | KU UID Flat Identity | December 2025 |
+| [ADR-042](decisions/ADR-042-privacy-as-first-class-citizen.md) | Privacy as First-Class Citizen | March 2026 |
+| [ADR-041](decisions/ADR-041-unified-ku-model.md) | Unified Ku Model | February 2026 |
+| [ADR-040](decisions/ADR-040-teacher-assignment-workflow.md) | Teacher Assignment Workflow | February 2026 |
+| [ADR-039](decisions/ADR-039-hyperview-mobile-strategy.md) | Hyperview Mobile Strategy | February 2026 |
+| [ADR-038](decisions/ADR-038-content-sharing-model.md) | Content Sharing Model | February 2026 |
 
-See [decisions/](decisions/) for all 16 ADRs.
+See [decisions/](decisions/) for all 43 ADRs.
 
 ---
 

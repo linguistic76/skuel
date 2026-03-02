@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-02-03
+updated: 2026-03-03
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -14,8 +14,8 @@ related: []
 > `/home/mike/0bsidian/skuel/docs/` contains **content** (KU docs), NOT technical documentation.
 
 *Generated: 2025-12-07*
-*Updated: 2026-02-03*
-*Total: 179 documents* (4 new: UI Factory Signature Standardization, SEL Adaptive Curriculum, SEL UX Modernization, SEL Component Patterns)
+*Updated: 2026-03-03*
+*Total: ~200 documents*
 
 > **📝 Documentation Standards:**
 > - **File Naming:** UPPERCASE for major reference docs/guides, lowercase for specific patterns
@@ -23,7 +23,7 @@ related: []
 
 ## Quick Links
 
-- [Domains](#domains) - The 15-domain architecture documentation
+- [Domains](#domains) - The 14-domain architecture documentation
 - [Architecture](#architecture) - System design and domain structure
 - [Patterns](#patterns) - Implementation patterns and coding standards
 - [DSL](#dsl) - Activity DSL specification and usage
@@ -47,7 +47,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 ## Domains
 
-*The 15-domain architecture: 6 Activity + 1 Finance + 3 Curriculum + 2 Processing + 2 Organizational + 1 Destination*
+*The 14-domain architecture: 6 Activity + 1 Finance + 3 Curriculum + 1 Content + 2 Organizational + 1 Destination*
 
 | Document | Category | Description |
 |----------|----------|-------------|
@@ -62,13 +62,14 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **Finance Domain (1)** |
 | [Finance](domains/finance.md) | Finance | Expense and budget tracking |
 | **Curriculum Domains (3)** |
-| [KU (Knowledge Unit)](domains/ku.md) | Curriculum | Atomic knowledge content (point topology) |
+| [KU (Knowledge Unit)](domains/ku.md) | Curriculum | Atomic knowledge unit (point topology) |
 | [LS (Learning Step)](domains/ls.md) | Curriculum | Sequential steps aggregating KUs (edge topology) |
 | [LP (Learning Path)](domains/lp.md) | Curriculum | Complete learning sequences (path topology) |
-| **Content/Processing Domains (2)** |
-| [Journals](domains/journals.md) | Processing | File processing and AI formatting |
-| [Assignments](domains/assignments.md) | Processing | User-facing assignment interface |
-| **Organizational Domain (1)** |
+| **Content Domain (1)** |
+| [Submissions + Feedback](domains/submissions.md) | Content | Ku→Exercise→Submission→Feedback learning loop |
+| [Journals](domains/journals.md) | Content | User journals (EntityType.JOURNAL, AI-processed) |
+| **Organizational Domains (2)** |
+| [Groups](domains/groups.md) | Organization | Teacher-student class management (ADR-040) |
 | [MOC (Map of Content)](domains/moc.md) | Organization | KU-based non-linear navigation (graph topology) |
 | **Destination Domain (1)** |
 | [LifePath](domains/lifepath.md) | Destination | "Am I living my life path?" |
@@ -91,7 +92,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Knowledge Substance Philosophy](architecture/knowledge_substance_philosophy.md) | 2025-10-17 | 371 |
 | **[Model Architecture](architecture/MODEL_ARCHITECTURE.md)** | **2026-02-23** | **290** |
 | **[Relationships Architecture](architecture/RELATIONSHIPS_ARCHITECTURE.md)** | **2026-03-03** | **—** |
-| [Reports Architecture - Statistical Aggregation Met...](architecture/SUBMISSIONS_ARCHITECTURE.md) | 2025-11-27 | 522 |
+| **[Feedback Architecture](architecture/FEEDBACK_ARCHITECTURE.md)** | **2026-03-03** | **—** |
 | [SKUEL Architecture — 14 Domains + 5 Cross-Cutting Systems](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) | 2026-03-03 | — |
 | [SKUEL Routing Architecture: Routes, Services, and ...](architecture/ROUTING_ARCHITECTURE.md) | 2025-11-27 | 647 |
 | [Search Architecture - Unified Search System](architecture/SEARCH_ARCHITECTURE.md) | 2026-01-04 | 544 |
@@ -99,6 +100,10 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [User Architecture — Model, Auth, Roles, UserContext](architecture/UNIFIED_USER_ARCHITECTURE.md) | 2026-03-03 | — |
 | **[Hyperview Mobile Strategy](architecture/HYPERVIEW_STRATEGY.md)** | **2026-02-06** | **90** |
 | [YAML + Markdown Ingestion & Editing Guide](architecture/YAML_MARKDOWN_INGESTION_GUIDE.md) | 2025-11-27 | 909 |
+| [Askesis Architecture](architecture/ASKESIS_ARCHITECTURE.md) | 2025-11-27 | — |
+| [Analytics Architecture](architecture/ANALYTICS_ARCHITECTURE.md) | 2025-11-27 | — |
+| [Core Systems Architecture](architecture/CORE_SYSTEMS_ARCHITECTURE.md) | 2026-02-08 | — |
+| **[Service Topology](architecture/SERVICE_TOPOLOGY.md)** | **2026-01-29** | **—** |
 
 ## Patterns
 
@@ -221,6 +226,8 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[ADR-038: Content Sharing Model](decisions/ADR-038-content-sharing-model.md)** | **2026-02-02** | **480** |
 | **[ADR-039: Hyperview Mobile Strategy](decisions/ADR-039-hyperview-mobile-strategy.md)** | **2026-02-06** | **130** |
 | **[ADR-040: Teacher Assignment Workflow](decisions/ADR-040-teacher-assignment-workflow.md)** | **2026-02-06** | **102** |
+| **[ADR-041: Unified Ku Model](decisions/ADR-041-unified-ku-model.md)** | **2026-02-14** | **—** |
+| **[ADR-042: Privacy as First-Class Citizen](decisions/ADR-042-privacy-as-first-class-citizen.md)** | **2026-03-01** | **—** |
 | [ADR-XXX: [Short Title of Decision]](decisions/ADR-TEMPLATE.md) | 2025-11-26 | 325 |
 
 ## Guides
@@ -310,6 +317,12 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[UI Factory Signature Standardization](migrations/UI_FACTORY_SIGNATURE_STANDARDIZATION_2026-02-03.md)** | **2026-02-03** | **180** |
 | **[SEL Routes UX Modernization](migrations/SEL_UX_MODERNIZATION_2026-02-03.md)** | **2026-02-03** | **900** |
 | **[SEL Routes DomainRouteConfig Migration](migrations/SEL_ROUTES_MIGRATION_2026-02-03.md)** | **2026-02-03** | **426** |
+| [Config-Driven Factories Migration](migrations/CONFIG_DRIVEN_FACTORIES_MIGRATION_2026-02-05.md) | 2026-02-05 | — |
+| [Profile Hub Modernization](migrations/PROFILE_HUB_MODERNIZATION_2026-02-01.md) | 2026-02-01 | — |
+| [Embedding Infrastructure Alignment](migrations/EMBEDDING_INFRASTRUCTURE_ALIGNMENT_2026-02-01.md) | 2026-02-01 | — |
+| [Protocol Mixin Alignment Complete](migrations/PROTOCOL_MIXIN_ALIGNMENT_COMPLETE_2026-01-29.md) | 2026-01-29 | — |
+| [Relationship Registry Rename](migrations/RELATIONSHIP_REGISTRY_RENAME_2026-02-08.md) | 2026-02-08 | — |
+| **[Domain Backends Position 2 Complete](migrations/DOMAIN_BACKENDS_POSITION_2_COMPLETE_2026-03-01.md)** | **2026-03-01** | **—** |
 
 ## Roadmap
 
@@ -374,12 +387,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 ## Statistics
 
-- **Total documents:** 168 (148 core + 19 migrations + 1 roadmap + 1 example)
-- **Total lines:** ~67,200
+- **Total documents:** ~200 (core + migrations + roadmap + examples)
 - **Categories:** 14 (Domains, Architecture, Patterns, DSL, Decisions, Guides, Reference, Intelligence, Migrations, Roadmap, Examples, Technical Debt, Archive, Top-Level)
-
-**By status:**
-- active: 7
-- archived: 11
-- complete: 2
-- current: 79
+- **ADRs:** 43 (ADR-001 through ADR-042, with template)
