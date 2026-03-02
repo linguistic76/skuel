@@ -1,9 +1,9 @@
 """
-Journals UI Routes — AI-Processed Submissions
-=================================================
+Journals UI Routes — Personal AI-Processed Journal Entries
+===========================================================
 
 Journal is a Submission subtype (EntityType.JOURNAL extends Submission).
-Users upload files here to be processed by AI using default instructions.
+Users upload files here to be processed by AI using default or custom instructions.
 Registered from submissions_routes.py — journals share /api/submissions/* endpoints.
 
 Layout: Unified sidebar (Tailwind + Alpine) with 2 nav items.
@@ -204,7 +204,7 @@ def _render_reports_grid(reports: list[Any]) -> Any:
     """Render reports grid as HTML fragment for HTMX swap."""
     if not reports:
         return Div(
-            P("No AI-processed reports found.", cls="text-center text-base-content/60"),
+            P("No journals found.", cls="text-center text-base-content/60"),
             id="submissions-grid-container",
         )
 
@@ -219,8 +219,8 @@ def _render_reports_grid(reports: list[Any]) -> Any:
 # ============================================================================
 
 JOURNALS_SIDEBAR_ITEMS = [
-    SidebarItem("Submit", "/journals/submit", "submit", icon="📤"),
-    SidebarItem("AI Reports", "/journals/browse", "browse", icon="📄"),
+    SidebarItem("New Entry", "/journals/submit", "submit", icon="📤"),
+    SidebarItem("My Journals", "/journals/browse", "browse", icon="📄"),
 ]
 
 
@@ -595,14 +595,14 @@ def create_journals_ui_routes(
     journal_generator=None,
 ):
     """
-    Create journal UI routes (admin-only AI submission).
+    Create journal UI routes — available to all authenticated users.
 
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        report_service: ReportSubmissionService
+        report_service: SubmissionsService
         processing_service: SubmissionsProcessingService
-        report_projects_service: ExerciseService
+        report_projects_service: ExerciseService (optional — enables custom instructions)
         user_service: UserService for admin role checks
         journal_generator: JournalOutputGenerator for cleanup operations
     """
@@ -638,7 +638,7 @@ def create_journals_ui_routes(
 
         content = Div(
             PageHeader(
-                "Submit to AI",
+                "New Journal Entry",
                 subtitle="Upload a file to be processed by AI",
             ),
             _render_upload_form(exercises),
@@ -649,7 +649,7 @@ def create_journals_ui_routes(
             items=JOURNALS_SIDEBAR_ITEMS,
             active="submit",
             title="Journals",
-            subtitle="Submit files to AI processing",
+            subtitle="Your personal journal",
             storage_key="journals-sidebar",
             page_title="Submit to AI",
             request=request,
@@ -663,7 +663,7 @@ def create_journals_ui_routes(
         require_authenticated_user(request)
 
         content = Div(
-            PageHeader("AI Reports", subtitle="Browse reports processed by AI"),
+            PageHeader("My Journals", subtitle="Browse your AI-processed journal entries"),
             _render_filters_section(),
             _render_reports_grid_container(),
         )
@@ -672,7 +672,7 @@ def create_journals_ui_routes(
             items=JOURNALS_SIDEBAR_ITEMS,
             active="browse",
             title="Journals",
-            subtitle="Submit files to AI processing",
+            subtitle="Your personal journal",
             storage_key="journals-sidebar",
             page_title="AI Reports",
             request=request,

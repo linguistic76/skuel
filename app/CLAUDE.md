@@ -249,7 +249,7 @@ Future collaborators — human or AI — should read SKUEL's plain-English domai
 **Content/Processing Domain (1)**:
 - **Submissions + Feedback** - The educational loop `Ku → Exercise → Submission → Feedback`. Activity Domains are equal entry points via `ACTIVITY_REPORT`. EntityType discriminator:
   - **File submissions** (EntityType.SUBMISSION) — student uploads via `/submissions/submit`, `ProcessorType.HUMAN` or `LLM`
-  - **AI-processed** (EntityType.JOURNAL) — admin uploads via `/journals/submit`, `ProcessorType.LLM`, uses Exercise instructions
+  - **AI-processed** (EntityType.JOURNAL) — user uploads via `/journals/submit`, `ProcessorType.LLM`, uses Exercise instructions
   - **Teacher/AI feedback** (EntityType.SUBMISSION_FEEDBACK) — tied to a specific submission via `subject_uid`; `ProcessorType.HUMAN` (teacher) or `LLM` (AI via Exercise)
   - **Activity feedback** (EntityType.ACTIVITY_REPORT) — NOT tied to a submission; responds to activity patterns over a time window; `ProcessorType.AUTOMATIC` (scheduled), `LLM` (on-demand), or `HUMAN` (admin-written); inherits `UserOwnedEntity` directly (no file fields)
 - **Services split:** `core/services/submissions/` (student work) + `core/services/feedback/` (responses)
