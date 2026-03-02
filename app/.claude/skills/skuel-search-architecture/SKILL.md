@@ -173,7 +173,7 @@ context = await builder.build_rich(user_uid)  # Full entity + graph — slower (
 results = await search_router.search(EntityType.TASK, query)
 ```
 
-**Key distinction:** `MEGA_QUERY` / `CONSOLIDATED_QUERY` build the user's *current state*. SearchRouter queries are *content searches* across entity properties. They solve different problems and compose independently.
+**Key distinction:** `MEGA_QUERY` (via `build()` and `build_rich(window=...)`) builds the user's *current state*. SearchRouter queries are *content searches* across entity properties. They solve different problems and compose independently.
 
 **See:** `@user-context-intelligence` skill for MEGA_QUERY vs CONSOLIDATED_QUERY details.
 

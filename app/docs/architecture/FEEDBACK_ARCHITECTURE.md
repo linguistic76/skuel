@@ -200,9 +200,9 @@ Tasks + Goals + Habits + Events + Choices + Principles
 ACTIVITY_REPORT node
 ```
 
-`ProgressFeedbackGenerator` accepts a `QueryExecutor` (raw Cypher access) rather than a single typed domain backend precisely because no single domain backend spans the Activity Domains. Per SKUEL's architecture rule: **domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services.** `ProgressFeedbackGenerator` is the cross-domain aggregation service — it sits above the domain backends by design.
+`ProgressFeedbackGenerator` accepts a `UserContextBuilder` (primary data source) alongside a `QueryExecutor` (annotation lookup only). The primary data comes from `context_builder.build_rich(user_uid, window=...)` — MEGA_QUERY extended with six activity-window CALL{} blocks — rather than a bespoke Cypher query, because no single domain backend spans all Activity Domains. Per SKUEL's architecture rule: **domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services.** `ProgressFeedbackGenerator` is the cross-domain aggregation service — it sits above the domain backends by design.
 
-This is why it does not have a `FeedbackBackend` with domain-specific Cypher methods. Its Cypher queries are inherently cross-domain and belong in the service layer.
+This is why it does not have a `FeedbackBackend` with domain-specific Cypher methods. The `build_rich()` result (`context.entities_rich`, `context.knowledge_units_rich`, `context.enrolled_paths_rich`, `context.active_learning_steps_rich`) gives it the full cross-domain picture in a single Neo4j round-trip.
 
 ### Summary
 
@@ -362,6 +362,7 @@ When `openai_service` is available, the generator:
 
 ## See Also
 
+- [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) — Entry-point overview: two tracks, four phases, how MEGA_QUERY feeds the loop
 - [SUBMISSION_FEEDBACK_LOOP.md](/docs/architecture/SUBMISSION_FEEDBACK_LOOP.md) — Pipeline diagram
 - [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)
 - [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md)

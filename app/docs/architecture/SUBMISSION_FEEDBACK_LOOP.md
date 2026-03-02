@@ -140,6 +140,7 @@ Only `COMPLETED` Ku can be shared (prevents sharing incomplete/failed work).
 
 ## See Also
 
+- [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) — Entry-point overview: two tracks, four phases, how MEGA_QUERY feeds the loop
 - [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)
 - [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md)
 - [Sharing Patterns](/docs/patterns/SHARING_PATTERNS.md)

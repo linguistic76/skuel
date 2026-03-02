@@ -357,7 +357,7 @@ annotation_updated_at: datetime | None
 **Structural position:** Cross-domain aggregator. Cannot fit the leaf domain model
 because it reads across all 6 Activity Domain backends **and** the Curriculum track
 (KU mastery, LP progress, active LS). `ProgressFeedbackGenerator` accepts a
-`UserContextBuilder` and calls `build_rich(user_uid, time_period=...)` — MEGA_QUERY
+`UserContextBuilder` and calls `build_rich(user_uid, window=...)` — MEGA_QUERY
 with activity window CALL{} blocks. This gives the generator access to full graph
 neighbourhoods across both tracks. `ActivityReportService.create_snapshot()` uses
 the same method.
@@ -542,7 +542,7 @@ that never closes the loop.
 | `core/services/submissions/submissions_core_service.py` | 3+4 | CRUD + teacher assessment |
 | `core/services/feedback/feedback_service.py` | 4 | AI feedback generation |
 | `core/services/feedback/progress_feedback_generator.py` | 4 | ActivityReport generation |
-| `core/services/feedback/activity_review_service.py` | 4 | Admin human feedback |
+| `core/services/feedback/activity_report_service.py` | 4 | Admin human feedback; all write paths converge here |
 | `core/services/feedback/teacher_review_service.py` | 4 | Teacher review workflow (review queue, revision, approval) |
 | `core/services/background/progress_feedback_worker.py` | 4 | Scheduled activity report background worker |
 | `core/ports/submission_protocols.py` | 3 | Submission protocol interfaces |
@@ -575,10 +575,12 @@ class FeedbackBackend(UniversalNeo4jBackend):
     async def get_all_activity_completions(self):
         # Can't do this from one domain backend
 
-# CORRECT — cross-domain aggregation stays in the service via QueryExecutor
+# CORRECT — cross-domain aggregation uses UserContext.build_rich() (MEGA_QUERY)
 class ProgressFeedbackGenerator:
-    def __init__(self, executor: QueryExecutor, ...):
-        # executor gives raw Cypher access across all domains
+    def __init__(self, context_builder: UserContextBuilder, executor: QueryExecutor, ...):
+        # context_builder.build_rich(user_uid, window=...) — MEGA_QUERY with 6-domain
+        # activity window CALL{} blocks; entities_rich covers all Activity Domains
+        # executor — raw Cypher for annotation lookup only
 ```
 
 ### Don't confuse Exercise scope
@@ -607,6 +609,7 @@ class AdminSummary(UserOwnedEntity):  # New entity for admin-written feedback?
 
 ## Deep Dive Resources
 
+- [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) — entry-point overview: two tracks, four phases, how MEGA_QUERY feeds the loop
 - [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) — canonical feedback reference
 - [SUBMISSION_FEEDBACK_LOOP.md](/docs/architecture/SUBMISSION_FEEDBACK_LOOP.md) — pipeline diagram
 - [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)
