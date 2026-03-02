@@ -57,7 +57,7 @@ class TestUserContextSatisfiesProtocols:
         assert hasattr(context, "today_task_uids")
         assert hasattr(context, "task_priorities")
         assert hasattr(context, "tasks_by_goal")
-        assert hasattr(context, "active_tasks_rich")
+        assert hasattr(context, "entities_rich")
 
     def test_satisfies_knowledge_awareness(self, context: UserContext):
         """UserContext should satisfy KnowledgeAwareness protocol."""
@@ -79,7 +79,7 @@ class TestUserContextSatisfiesProtocols:
         assert hasattr(context, "habit_streaks")
         assert hasattr(context, "at_risk_habits")
         assert hasattr(context, "habits_by_goal")
-        assert hasattr(context, "active_habits_rich")
+        assert hasattr(context, "entities_rich")
 
     def test_satisfies_goal_awareness(self, context: UserContext):
         """UserContext should satisfy GoalAwareness protocol."""
@@ -90,7 +90,7 @@ class TestUserContextSatisfiesProtocols:
         assert hasattr(context, "completed_goal_uids")
         assert hasattr(context, "goal_progress")
         assert hasattr(context, "tasks_by_goal")
-        assert hasattr(context, "active_goals_rich")
+        assert hasattr(context, "entities_rich")
 
     def test_satisfies_event_awareness(self, context: UserContext):
         """UserContext should satisfy EventAwareness protocol."""
@@ -100,7 +100,7 @@ class TestUserContextSatisfiesProtocols:
         assert hasattr(context, "upcoming_event_uids")
         assert hasattr(context, "today_event_uids")
         assert hasattr(context, "scheduled_event_uids")
-        assert hasattr(context, "active_events_rich")
+        assert hasattr(context, "entities_rich")
 
     def test_satisfies_principle_awareness(self, context: UserContext):
         """UserContext should satisfy PrincipleAwareness protocol."""
@@ -108,7 +108,7 @@ class TestUserContextSatisfiesProtocols:
 
         # Verify required fields exist
         assert hasattr(context, "core_principle_uids")
-        assert hasattr(context, "core_principles_rich")
+        assert hasattr(context, "entities_rich")
 
     def test_satisfies_choice_awareness(self, context: UserContext):
         """UserContext should satisfy ChoiceAwareness protocol."""
@@ -116,7 +116,7 @@ class TestUserContextSatisfiesProtocols:
 
         # Verify required fields exist
         assert hasattr(context, "pending_choice_uids")
-        assert hasattr(context, "recent_choices_rich")
+        assert hasattr(context, "entities_rich")
 
     def test_satisfies_learning_path_awareness(self, context: UserContext):
         """UserContext should satisfy LearningPathAwareness protocol."""

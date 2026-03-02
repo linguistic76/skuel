@@ -894,26 +894,19 @@ class TestUserContextBuilder:
         assert context.current_workload_score == 0.0  # No workload
 
 
-class TestActivityRichField:
-    """activity_rich field: empty without time_period, populated when provided."""
+class TestEntitiesRichField:
+    """entities_rich field: populated by build_rich / build_rich_user_context."""
 
-    def test_activity_rich_defaults_to_empty_dict(self):
-        """UserContext.activity_rich is an empty dict by default."""
+    def test_entities_rich_defaults_to_empty_dict(self):
+        """UserContext.entities_rich is an empty dict by default."""
         context = UserContext(user_uid="user:test", username="testuser")
-        assert context.activity_rich == {}
-
-    def test_activity_window_metadata_defaults_to_none(self):
-        """Window metadata fields are None when no time_period is in use."""
-        context = UserContext(user_uid="user:test", username="testuser")
-        assert context.activity_window_period is None
-        assert context.activity_window_start is None
-        assert context.activity_window_end is None
+        assert context.entities_rich == {}
 
     @pytest.mark.asyncio
-    async def test_build_rich_without_time_period_leaves_activity_rich_empty(
+    async def test_build_rich_user_context_entities_rich_is_dict(
         self, user_service, clean_neo4j
     ):
-        """build_rich_user_context() with no time_period → activity_rich stays empty dict."""
+        """build_rich_user_context() → entities_rich is a dict."""
         from core.models.user.user import User
 
         user_uid = "user:ar_no_period"
@@ -930,14 +923,13 @@ class TestActivityRichField:
         result = await builder.build_rich_user_context(user_uid, test_user)
 
         assert result.is_ok, f"build_rich_user_context failed: {result.error}"
-        assert result.value.activity_rich == {}
-        assert result.value.activity_window_period is None
+        assert isinstance(result.value.entities_rich, dict)
 
     @pytest.mark.asyncio
-    async def test_build_rich_with_time_period_populates_activity_rich(
+    async def test_build_rich_with_window_populates_entities_rich(
         self, user_service, clean_neo4j
     ):
-        """build_rich_user_context(time_period='7d') → activity_rich has correct structure."""
+        """build_rich_user_context(window='7d') → entities_rich has correct structure."""
         from datetime import date, timedelta
 
         from core.models.user.user import User
@@ -971,26 +963,21 @@ class TestActivityRichField:
 
         test_user = User(uid=user_uid, title="AR With Period", email="ar_with_period@test.com")
         builder = user_service.context_builder
-        result = await builder.build_rich_user_context(user_uid, test_user, time_period="7d")
+        result = await builder.build_rich_user_context(user_uid, test_user, window="7d")
 
         assert result.is_ok, f"build_rich_user_context failed: {result.error}"
         ctx = result.value
 
-        # Window metadata is set
-        assert ctx.activity_window_period == "7d"
-        assert ctx.activity_window_start is not None
-        assert ctx.activity_window_end is not None
-
-        # activity_rich has the expected domain keys
-        assert "tasks" in ctx.activity_rich
-        assert "goals" in ctx.activity_rich
-        assert "habits" in ctx.activity_rich
-        assert "events" in ctx.activity_rich
-        assert "choices" in ctx.activity_rich
-        assert "principles" in ctx.activity_rich
+        # entities_rich has the expected domain keys
+        assert "tasks" in ctx.entities_rich
+        assert "goals" in ctx.entities_rich
+        assert "habits" in ctx.entities_rich
+        assert "events" in ctx.entities_rich
+        assert "choices" in ctx.entities_rich
+        assert "principles" in ctx.entities_rich
 
         # The recently-updated task appears in the window
-        tasks = ctx.activity_rich["tasks"]
+        tasks = ctx.entities_rich["tasks"]
         assert len(tasks) == 1
         item = tasks[0]
         assert "entity" in item

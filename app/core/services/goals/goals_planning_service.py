@@ -91,7 +91,7 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
         """
         Get goals with active momentum, ranked by relevance and progress.
 
-        **FAIL-FAST PATTERN:** Requires UserContext.active_goals_rich to be populated.
+        **FAIL-FAST PATTERN:** Requires UserContext.entities_rich["goals"] to be populated.
         If rich context is not available, returns an error explaining why.
 
         **SKUEL Philosophy:** "All dependencies are REQUIRED - no graceful degradation"
@@ -104,7 +104,7 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
 
         **Context Fields Required:**
         - active_goal_uids: User's current goals
-        - active_goals_rich: Rich goal data with graph_context (REQUIRED)
+        - entities_rich["goals"]: Rich goal data with graph_context (REQUIRED)
         - goal_progress: Progress percentages by goal
         - tasks_by_goal: Tasks contributing to each goal
         - habits_by_goal: Habits reinforcing each goal
@@ -112,19 +112,19 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
         - primary_goal_focus: User's main focus
 
         Args:
-            context: User's complete context (must have active_goals_rich populated)
+            context: User's complete context (must have entities_rich["goals"] populated)
             min_progress: Minimum progress to consider "advancing"
             limit: Maximum goals to return
 
         Returns:
             Result[list[ContextualGoal]] - sorted by priority (highest first)
-            Returns error if active_goals_rich is not populated
+            Returns error if entities_rich["goals"] is not populated
         """
         from core.models.context_types import ContextualGoal
 
         # FAIL-FAST: Validate rich context is available
-        rich_goals = getattr(context, "active_goals_rich", None)
-        if rich_goals is None or len(rich_goals) == 0:
+        rich_goals = context.entities_rich.get("goals", [])
+        if not rich_goals:
             if len(context.active_goal_uids) > 0:
                 # User has active goals but rich context not populated
                 return Result.fail(
@@ -143,7 +143,7 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
         # Build lookup from rich context for O(1) access
         rich_goals_by_uid: dict[str, dict] = {}
         for goal_data in rich_goals:
-            goal_dict = goal_data.get("goal", {})
+            goal_dict = goal_data.get("entity", {})
             uid = goal_dict.get("uid")
             if uid:
                 rich_goals_by_uid[uid] = goal_data
@@ -156,7 +156,7 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
                 return Result.fail(
                     Errors.system(
                         message=(
-                            f"Goal {goal_uid} is in active_goal_uids but missing from active_goals_rich. "
+                            f"Goal {goal_uid} is in active_goal_uids but missing from entities_rich['goals']. "
                             "Context is inconsistent - MEGA-QUERY may have failed or been incomplete."
                         ),
                         operation="get_advancing_goals_for_user",
@@ -164,7 +164,7 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
                 )
 
             goal_data = rich_goals_by_uid[goal_uid]
-            goal_dict = goal_data.get("goal", {})
+            goal_dict = goal_data.get("entity", {})
             title = goal_dict.get("title", str(goal_uid))
             graph_ctx = goal_data.get("graph_context", {})
 

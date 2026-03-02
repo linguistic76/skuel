@@ -142,11 +142,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         Returns:
             Goal if found in rich context, None otherwise
         """
-        if not user_context.active_goals_rich:
-            return None
-
-        for goal_data in user_context.active_goals_rich:
-            goal_dict = goal_data.get("goal", {})
+        for goal_data in user_context.entities_rich.get("goals", []):
+            goal_dict = goal_data.get("entity", {})
             if goal_dict.get("uid") == goal_uid:
                 # Convert dict to Goal domain model
                 return self._dict_to_goal(goal_dict)
@@ -169,11 +166,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         Returns:
             GoalRelationships if found in rich context, None otherwise
         """
-        if not user_context.active_goals_rich:
-            return None
-
-        for goal_data in user_context.active_goals_rich:
-            goal_dict = goal_data.get("goal", {})
+        for goal_data in user_context.entities_rich.get("goals", []):
+            goal_dict = goal_data.get("entity", {})
             if goal_dict.get("uid") == goal_uid:
                 graph_ctx = goal_data.get("graph_context", {})
                 if graph_ctx:
@@ -303,7 +297,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         **CONTEXT-FIRST PATTERN (November 26, 2025):**
         This method now uses the Context-First Pattern:
-        - First tries to get goal from user_context.active_goals_rich
+        - First tries to get goal from user_context.entities_rich["goals"]
         - First tries to get relationships from rich context graph_context
         - Only falls back to Neo4j queries if not in context
         - Reduces from 2 queries to 0 when context is available

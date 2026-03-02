@@ -45,16 +45,6 @@ logger = get_logger("skuel.services.feedback.progress_generator")
 
 _PROMPT_TEMPLATE_PATH = Path(__file__).parent / "prompts" / "activity_feedback.md"
 
-_DAYS_TO_PERIOD: dict[int, str] = {7: "7d", 14: "14d", 30: "30d", 90: "90d"}
-
-
-def _days_to_period(days: int) -> str:
-    """Map an elapsed-days integer to the nearest FeedbackTimePeriod key."""
-    for threshold, period in sorted(_DAYS_TO_PERIOD.items()):
-        if days <= threshold:
-            return period
-    return "90d"
-
 
 class ProgressFeedbackGenerator:
     """
@@ -64,7 +54,7 @@ class ProgressFeedbackGenerator:
     Constructor dependencies:
         executor: QueryExecutor for Cypher queries (annotation lookup only)
         activity_report_service: ActivityReportService for persisting ActivityReport entities
-        context_builder: UserContextBuilder — build_rich(time_period=) populates activity_rich
+        context_builder: UserContextBuilder — build_rich(window=) populates entities_rich
         openai_service: Optional OpenAI service (enables LLM generation)
         user_service: Optional UserOperations (reserved for future use)
         insight_store: Optional InsightStore for referencing active insights
@@ -138,7 +128,9 @@ class ProgressFeedbackGenerator:
 
         try:
             # 1. Query historical completions (raw stats)
-            completions = await self._query_completions(user_uid, start_date, end_date, domains)
+            completions = await self._query_completions(
+                user_uid, start_date, end_date, domains, window=time_period
+            )
 
             # 2. Get active insights if requested
             insights: list[Any] = []
@@ -390,20 +382,15 @@ class ProgressFeedbackGenerator:
         start_date: datetime,
         end_date: datetime,
         domains: list[str] | None = None,
+        window: str = "7d",
     ) -> dict[str, Any]:
         """Query historical completions via UserContextBuilder.build_rich().
 
-        Computes the time_period key from elapsed days, delegates to
-        context_builder.build_rich() with that period, then maps
-        context.activity_rich into the completions dict consumed by
+        Delegates to context_builder.build_rich() with the given window, then maps
+        context.entities_rich into the completions dict consumed by
         _build_report_content() and _build_llm_prompt().
         """
-        days = (end_date - start_date).days
-        time_period = _days_to_period(days)
-
-        ctx_result = await self.context_builder.build_rich(
-            user_uid, time_period=time_period
-        )
+        ctx_result = await self.context_builder.build_rich(user_uid, window=window)
         if ctx_result.is_error:
             logger.warning(f"Failed to query activity completions: {ctx_result.error}")
             return self._empty_completions()
@@ -415,7 +402,7 @@ class ProgressFeedbackGenerator:
         context: "UserContext",
         domains: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Map context.activity_rich into the completions dict.
+        """Map context.entities_rich into the completions dict.
 
         Consumed by _build_report_content() and _build_llm_prompt().
         """
@@ -424,7 +411,7 @@ class ProgressFeedbackGenerator:
 
         # Tasks
         if include_all or "tasks" in (domains or []):
-            for item in context.activity_rich.get("tasks", []):
+            for item in context.entities_rich.get("tasks", []):
                 entity = item["entity"]
                 graph_ctx = item.get("graph_context", {})
                 result["tasks_total"] += 1
@@ -446,7 +433,7 @@ class ProgressFeedbackGenerator:
 
         # Goals
         if include_all or "goals" in (domains or []):
-            for item in context.activity_rich.get("goals", []):
+            for item in context.entities_rich.get("goals", []):
                 entity = item["entity"]
                 result["goals_progressed"] += 1
                 result["goals_details"].append({
@@ -458,7 +445,7 @@ class ProgressFeedbackGenerator:
 
         # Habits
         if include_all or "habits" in (domains or []):
-            for item in context.activity_rich.get("habits", []):
+            for item in context.entities_rich.get("habits", []):
                 entity = item["entity"]
                 if entity.get("status") == "completed":
                     result["habits_completed"] += 1
@@ -471,7 +458,7 @@ class ProgressFeedbackGenerator:
 
         # Events
         if include_all or "events" in (domains or []):
-            for item in context.activity_rich.get("events", []):
+            for item in context.entities_rich.get("events", []):
                 entity = item["entity"]
                 graph_ctx = item.get("graph_context", {})
                 result["events_attended"] += 1
@@ -485,7 +472,7 @@ class ProgressFeedbackGenerator:
 
         # Choices
         if include_all or "choices" in (domains or []):
-            for item in context.activity_rich.get("choices", []):
+            for item in context.entities_rich.get("choices", []):
                 entity = item["entity"]
                 graph_ctx = item.get("graph_context", {})
                 result["choices_made"] += 1
@@ -499,7 +486,7 @@ class ProgressFeedbackGenerator:
 
         # Principles
         if include_all or "principles" in (domains or []):
-            for item in context.activity_rich.get("principles", []):
+            for item in context.entities_rich.get("principles", []):
                 entity = item["entity"]
                 result["principles_reviewed"] += 1
                 result["principles_details"].append({

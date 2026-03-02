@@ -476,34 +476,31 @@ class ContextFirstMixin(ABC):
     # def __init__(self, backend, ...):
     #     self._configure_rich_context(
     #         domain_name="Choice",
-    #         rich_field_name="recent_choices_rich",
-    #         entity_key="choice",
+    #         domain_key="choices",
     #     )
     # ```
     #
-    # **Domain Mappings:**
-    # - Tasks: active_tasks_rich, "task"
-    # - Goals: active_goals_rich, "goal"
-    # - Habits: active_habits_rich, "habit"
-    # - Events: active_events_rich, "event"
-    # - Choices: recent_choices_rich, "choice"
-    # - Principles: core_principles_rich, "principle"
-    # - KU: knowledge_units_rich, "ku" (dict format)
+    # **Domain Keys (entities_rich keys):**
+    # - Tasks: "tasks"
+    # - Goals: "goals"
+    # - Habits: "habits"
+    # - Events: "events"
+    # - Choices: "choices"
+    # - Principles: "principles"
+    # - KU: knowledge_units_rich (dict format — separate field)
     # - LS: active_learning_steps_rich, "step"
     # - LP: enrolled_paths_rich, "path"
     # =============================================================================
 
     # Configuration attributes for rich context access
     _rc_domain_name: str = ""
-    _rc_rich_field_name: str = ""
-    _rc_entity_key: str = ""
+    _rc_domain_key: str = ""  # Key in entities_rich (e.g., "tasks", "choices")
     _rc_is_dict_format: bool = False  # True for knowledge_units_rich
 
     def _configure_rich_context(
         self,
         domain_name: str,
-        rich_field_name: str,
-        entity_key: str,
+        domain_key: str,
         is_dict_format: bool = False,
     ) -> None:
         """
@@ -514,20 +511,17 @@ class ContextFirstMixin(ABC):
         def __init__(self, backend, ...):
             self._configure_rich_context(
                 domain_name="Choice",
-                rich_field_name="recent_choices_rich",
-                entity_key="choice",
+                domain_key="choices",
             )
         ```
 
         Args:
             domain_name: Human-readable name for logging (e.g., "Choice", "Task")
-            rich_field_name: UserContext field containing rich data
-            entity_key: Key in rich data dict for entity properties
+            domain_key: Key in context.entities_rich (e.g., "tasks", "choices")
             is_dict_format: True if rich field is dict (knowledge_units_rich)
         """
         self._rc_domain_name = domain_name
-        self._rc_rich_field_name = rich_field_name
-        self._rc_entity_key = entity_key
+        self._rc_domain_key = domain_key
         self._rc_is_dict_format = is_dict_format
 
     def _get_entity_dict_from_rich_context(
@@ -555,23 +549,23 @@ class ContextFirstMixin(ABC):
                 entity = await self.backend.get_choice(uid)
             ```
         """
-        if not self._rc_rich_field_name:
-            return None
-
-        rich_data = getattr(context, self._rc_rich_field_name, None)
-        if not rich_data:
+        if not self._rc_domain_key:
             return None
 
         if self._rc_is_dict_format:
-            # Dict format: {uid: {ku: {...}, graph_context: {...}}}
+            # Dict format (knowledge_units_rich): {uid: {ku: {...}, graph_context: {...}}}
+            rich_data = getattr(context, "knowledge_units_rich", None)
+            if not rich_data:
+                return None
             entity_data = rich_data.get(uid)
             if entity_data:
-                return entity_data.get(self._rc_entity_key, {})
+                return entity_data.get("ku", {})
             return None
         else:
-            # List format: [{task: {...}, graph_context: {...}}, ...]
-            for item in rich_data:
-                entity_dict = item.get(self._rc_entity_key, {})
+            # List format via entities_rich: [{entity: {...}, graph_context: {...}}, ...]
+            rich_list = context.entities_rich.get(self._rc_domain_key, [])
+            for item in rich_list:
+                entity_dict = item.get("entity", {})
                 if entity_dict.get("uid") == uid:
                     return entity_dict
             return None
@@ -596,23 +590,23 @@ class ContextFirstMixin(ABC):
                 )
             ```
         """
-        if not self._rc_rich_field_name:
-            return None
-
-        rich_data = getattr(context, self._rc_rich_field_name, None)
-        if not rich_data:
+        if not self._rc_domain_key:
             return None
 
         if self._rc_is_dict_format:
-            # Dict format
+            # Dict format (knowledge_units_rich)
+            rich_data = getattr(context, "knowledge_units_rich", None)
+            if not rich_data:
+                return None
             entity_data = rich_data.get(uid)
             if entity_data:
                 return entity_data.get("graph_context", {})
             return None
         else:
-            # List format
-            for item in rich_data:
-                entity_dict = item.get(self._rc_entity_key, {})
+            # List format via entities_rich
+            rich_list = context.entities_rich.get(self._rc_domain_key, [])
+            for item in rich_list:
+                entity_dict = item.get("entity", {})
                 if entity_dict.get("uid") == uid:
                     return item.get("graph_context", {})
             return None

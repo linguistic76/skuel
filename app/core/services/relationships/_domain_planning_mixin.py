@@ -70,7 +70,7 @@ class DomainPlanningMixin:
 
         Context Fields Used:
         - at_risk_habits: UIDs of habits at risk
-        - active_habits_rich: Rich habit data with context
+        - entities_rich["habits"]: Rich habit data with context
 
         Returns:
             Result[list[ContextualHabit]] - habits needing attention
@@ -78,11 +78,11 @@ class DomainPlanningMixin:
         from core.models.context_types import ContextualHabit
 
         at_risk_uids = set(getattr(context, "at_risk_habits", []) or [])
-        rich_habits = getattr(context, "active_habits_rich", []) or []
+        rich_habits = context.entities_rich.get("habits", [])
 
         contextual_habits = []
         for habit_data in rich_habits:
-            habit_dict = habit_data.get("habit", {})
+            habit_dict = habit_data.get("entity", {})
             uid = habit_dict.get("uid")
             if not uid or uid not in at_risk_uids:
                 continue
@@ -115,7 +115,7 @@ class DomainPlanningMixin:
         Context Fields Used:
         - today_event_uids: Events scheduled for today
         - upcoming_event_uids: Events scheduled for near future
-        - active_events_rich: Rich event data with context
+        - entities_rich["events"]: Rich event data with context
 
         Returns:
             Result[list[ContextualEvent]] - upcoming events
@@ -125,11 +125,11 @@ class DomainPlanningMixin:
         today_uids = set(getattr(context, "today_event_uids", []) or [])
         upcoming_uids = set(getattr(context, "upcoming_event_uids", []) or [])
         all_event_uids = today_uids | upcoming_uids
-        rich_events = getattr(context, "active_events_rich", []) or []
+        rich_events = context.entities_rich.get("events", [])
 
         contextual_events = []
         for event_data in rich_events:
-            event_dict = event_data.get("event", {})
+            event_dict = event_data.get("entity", {})
             uid = event_dict.get("uid")
             if not uid or uid not in all_event_uids:
                 continue
@@ -159,7 +159,7 @@ class DomainPlanningMixin:
         Get tasks user can start immediately, ranked by priority.
 
         Context Fields Used:
-        - active_tasks_rich: Rich task data with graph_context
+        - entities_rich["tasks"]: Rich task data with graph_context
         - overdue_task_uids: Overdue tasks (urgency boost)
         - knowledge_mastery: Knowledge mastery levels
 
@@ -168,13 +168,13 @@ class DomainPlanningMixin:
         """
         from core.models.context_types import ContextualTask
 
-        rich_tasks = getattr(context, "active_tasks_rich", []) or []
+        rich_tasks = context.entities_rich.get("tasks", [])
         overdue_uids = set(getattr(context, "overdue_task_uids", []) or [])
         mastery = getattr(context, "knowledge_mastery", {}) or {}
 
         contextual_tasks = []
         for task_data in rich_tasks:
-            task_dict = task_data.get("task", {})
+            task_dict = task_data.get("entity", {})
             uid = task_dict.get("uid")
             if not uid:
                 continue
@@ -230,7 +230,7 @@ class DomainPlanningMixin:
 
         Context Fields Used:
         - active_goal_uids: User's active goals
-        - active_goals_rich: Rich goal data with context
+        - entities_rich["goals"]: Rich goal data with context
         - at_risk_goals: Goals at risk (deprioritize)
 
         Returns:
@@ -239,13 +239,13 @@ class DomainPlanningMixin:
         from core.models.context_types import ContextualGoal
 
         active_goal_uids = set(getattr(context, "active_goal_uids", []) or [])
-        rich_goals = getattr(context, "active_goals_rich", []) or []
+        rich_goals = context.entities_rich.get("goals", [])
         at_risk_uids = set(getattr(context, "at_risk_goals", []) or [])
         stalled_uids = set(context.get_stalled_goals())
 
         contextual_goals = []
         for goal_data in rich_goals:
-            goal_dict = goal_data.get("goal", {})
+            goal_dict = goal_data.get("entity", {})
             uid = goal_dict.get("uid")
             if not uid or uid not in active_goal_uids:
                 continue
@@ -281,7 +281,7 @@ class DomainPlanningMixin:
 
         Context Fields Used:
         - pending_choice_uids: Pending choices
-        - recent_choices_rich: Rich choice data with context
+        - entities_rich["choices"]: Rich choice data with context
 
         Returns:
             Result[list[ContextualChoice]] - pending decisions
@@ -289,11 +289,11 @@ class DomainPlanningMixin:
         from core.models.context_types import ContextualChoice
 
         pending_uids = set(getattr(context, "pending_choice_uids", []) or [])
-        rich_choices = getattr(context, "recent_choices_rich", []) or []
+        rich_choices = context.entities_rich.get("choices", [])
 
         contextual_choices = []
         for choice_data in rich_choices:
-            choice_dict = choice_data.get("choice", {})
+            choice_dict = choice_data.get("entity", {})
             uid = choice_dict.get("uid")
             if not uid or uid not in pending_uids:
                 continue
@@ -322,18 +322,18 @@ class DomainPlanningMixin:
 
         Context Fields Used:
         - core_principle_uids: Core principles
-        - core_principles_rich: Rich principle data with context
+        - entities_rich["principles"]: Rich principle data with context
 
         Returns:
             Result[list[ContextualPrinciple]] - aligned principles
         """
         from core.models.context_types import ContextualPrinciple
 
-        rich_principles = getattr(context, "core_principles_rich", []) or []
+        rich_principles = context.entities_rich.get("principles", [])
 
         contextual_principles = []
         for principle_data in rich_principles:
-            principle_dict = principle_data.get("principle", {})
+            principle_dict = principle_data.get("entity", {})
             uid = principle_dict.get("uid")
             if not uid:
                 continue

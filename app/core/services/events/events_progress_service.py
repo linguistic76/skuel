@@ -95,12 +95,9 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
     def _get_event_from_rich_context(
         self, event_uid: str, user_context: UserContext
     ) -> Event | None:
-        """Try to get Entity from UserContext.active_events_rich."""
-        if not user_context.active_events_rich:
-            return None
-
-        for event_data in user_context.active_events_rich:
-            event_dict = event_data.get("event", {})
+        """Try to get Entity from UserContext.entities_rich["events"]."""
+        for event_data in user_context.entities_rich.get("events", []):
+            event_dict = event_data.get("entity", {})
             if event_dict.get("uid") == event_uid:
                 return self._dict_to_event(event_dict)
         return None

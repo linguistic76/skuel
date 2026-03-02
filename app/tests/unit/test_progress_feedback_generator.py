@@ -55,9 +55,9 @@ def mock_event_bus():
 
 @pytest.fixture
 def mock_context_builder():
-    """Create a mock UserContextBuilder returning an empty activity_rich context."""
+    """Create a mock UserContextBuilder returning an empty entities_rich context."""
     mock_context = MagicMock()
-    mock_context.activity_rich = {}
+    mock_context.entities_rich = {}
 
     builder = MagicMock()
     builder.build_rich = AsyncMock(return_value=Result.ok(mock_context))
@@ -118,17 +118,17 @@ class TestQueryCompletionsSingleRoundTrip:
         assert generator.context_builder.build_rich.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_build_rich_called_with_time_period(self, generator):
-        """build_rich is called with the correct time_period derived from elapsed days."""
+    async def test_build_rich_called_with_window(self, generator):
+        """build_rich is called with the correct window parameter."""
         generator.context_builder.build_rich.reset_mock()
         start = datetime.now() - timedelta(days=7)
-        await generator._query_completions("user_alice", start, datetime.now())
+        await generator._query_completions("user_alice", start, datetime.now(), window="7d")
         _, kwargs = generator.context_builder.build_rich.call_args
-        assert kwargs.get("time_period") == "7d"
+        assert kwargs.get("window") == "7d"
 
     @pytest.mark.asyncio
     async def test_empty_result_returns_zero_counts(self, generator):
-        """Empty activity_rich (no window data) returns all-zero completions."""
+        """Empty entities_rich (no window data) returns all-zero completions."""
         result = await generator._query_completions(
             "user_ghost",
             datetime.now() - timedelta(days=7),
@@ -389,40 +389,3 @@ class TestBuildReportContent:
         assert "You complete more tasks on Mondays" in content
 
 
-# ============================================================================
-# _days_to_period TESTS
-# ============================================================================
-
-
-class TestDaysToPeriod:
-    """Test module-level _days_to_period helper."""
-
-    def test_7_days(self):
-        from core.services.feedback.progress_feedback_generator import _days_to_period
-
-        assert _days_to_period(7) == "7d"
-
-    def test_14_days(self):
-        from core.services.feedback.progress_feedback_generator import _days_to_period
-
-        assert _days_to_period(14) == "14d"
-
-    def test_30_days(self):
-        from core.services.feedback.progress_feedback_generator import _days_to_period
-
-        assert _days_to_period(30) == "30d"
-
-    def test_90_days(self):
-        from core.services.feedback.progress_feedback_generator import _days_to_period
-
-        assert _days_to_period(90) == "90d"
-
-    def test_over_90_clamps_to_90d(self):
-        from core.services.feedback.progress_feedback_generator import _days_to_period
-
-        assert _days_to_period(120) == "90d"
-
-    def test_between_7_and_14_maps_to_14d(self):
-        from core.services.feedback.progress_feedback_generator import _days_to_period
-
-        assert _days_to_period(10) == "14d"

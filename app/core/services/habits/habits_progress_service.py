@@ -124,11 +124,8 @@ class HabitsProgressService:
         Returns:
             Habit if found in rich context, None otherwise
         """
-        if not user_context.active_habits_rich:
-            return None
-
-        for habit_data in user_context.active_habits_rich:
-            habit_dict = habit_data.get("habit", {})
+        for habit_data in user_context.entities_rich.get("habits", []):
+            habit_dict = habit_data.get("entity", {})
             if habit_dict.get("uid") == habit_uid:
                 # Convert dict to Habit domain model
                 return self._dict_to_habit(habit_dict)
@@ -151,11 +148,8 @@ class HabitsProgressService:
         Returns:
             HabitRelationships if found in rich context, None otherwise
         """
-        if not user_context.active_habits_rich:
-            return None
-
-        for habit_data in user_context.active_habits_rich:
-            habit_dict = habit_data.get("habit", {})
+        for habit_data in user_context.entities_rich.get("habits", []):
+            habit_dict = habit_data.get("entity", {})
             if habit_dict.get("uid") == habit_uid:
                 graph_ctx = habit_data.get("graph_context", {})
                 if graph_ctx:

@@ -96,13 +96,11 @@ class ActivityReportService:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
 
-        ctx_result = await self.context_builder.build_rich(
-            subject_uid, time_period=time_period
-        )
+        ctx_result = await self.context_builder.build_rich(subject_uid, window=time_period)
         if ctx_result.is_error:
             return Result.fail(ctx_result.expect_error())
 
-        activity = ctx_result.value.activity_rich
+        activity = ctx_result.value.entities_rich
         include_all = not domains
         snapshot: dict[str, Any] = {
             "subject_uid": subject_uid,

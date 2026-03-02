@@ -62,14 +62,14 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         self, context: UserContext
     ) -> dict[str, dict[str, Any]]:
         """
-        Extract principle data from core_principles_rich.
+        Extract principle data from entities_rich["principles"].
 
         Returns dict of principle_uid -> {name, alignment, last_reflection, etc.}
         """
         data: dict[str, dict[str, Any]] = {}
 
-        for rich_principle in getattr(context, "core_principles_rich", []):
-            principle_dict = rich_principle.get("principle", {})
+        for rich_principle in context.entities_rich.get("principles", []):
+            principle_dict = rich_principle.get("entity", {})
             graph_ctx = rich_principle.get("graph_context", {})
 
             uid = principle_dict.get("uid")
@@ -100,9 +100,9 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         principles_for_event: dict[str, list[str]] = {}
         principles_for_goal: dict[str, list[str]] = {}
 
-        # Extract from active_tasks_rich
-        for task_data in getattr(context, "active_tasks_rich", []):
-            task_dict = task_data.get("task", {})
+        # Extract from entities_rich["tasks"]
+        for task_data in context.entities_rich.get("tasks", []):
+            task_dict = task_data.get("entity", {})
             graph_ctx = task_data.get("graph_context", {})
             task_uid = task_dict.get("uid")
 
@@ -112,9 +112,9 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
                 if principle_uids:
                     principles_for_task[task_uid] = principle_uids
 
-        # Extract from active_events_rich
-        for event_data in getattr(context, "active_events_rich", []):
-            event_dict = event_data.get("event", {})
+        # Extract from entities_rich["events"]
+        for event_data in context.entities_rich.get("events", []):
+            event_dict = event_data.get("entity", {})
             graph_ctx = event_data.get("graph_context", {})
             event_uid = event_dict.get("uid")
 
@@ -124,9 +124,9 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
                 if principle_uids:
                     principles_for_event[event_uid] = principle_uids
 
-        # Extract from active_goals_rich
-        for goal_data in getattr(context, "active_goals_rich", []):
-            goal_dict = goal_data.get("goal", {})
+        # Extract from entities_rich["goals"]
+        for goal_data in context.entities_rich.get("goals", []):
+            goal_dict = goal_data.get("entity", {})
             graph_ctx = goal_data.get("graph_context", {})
             goal_uid = goal_dict.get("uid")
 
@@ -143,15 +143,15 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         task_titles: dict[str, str] = {}
         event_titles: dict[str, str] = {}
 
-        for task_data in getattr(context, "active_tasks_rich", []):
-            task_dict = task_data.get("task", {})
+        for task_data in context.entities_rich.get("tasks", []):
+            task_dict = task_data.get("entity", {})
             uid = task_dict.get("uid")
             title = task_dict.get("title", "Unknown Task")
             if uid:
                 task_titles[uid] = title
 
-        for event_data in getattr(context, "active_events_rich", []):
-            event_dict = event_data.get("event", {})
+        for event_data in context.entities_rich.get("events", []):
+            event_dict = event_data.get("entity", {})
             uid = event_dict.get("uid")
             title = event_dict.get("title", "Unknown Event")
             if uid:
@@ -181,7 +181,7 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
 
         **Context Fields Used:**
         - core_principle_uids: User's stated core principles
-        - core_principles_rich: Rich principle data with graph context
+        - entities_rich["principles"]: Rich principle data with graph context
 
         Args:
             context: User's complete context (~240 fields)

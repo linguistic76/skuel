@@ -138,11 +138,8 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         Returns:
             Task if found in rich context, None otherwise
         """
-        if not user_context.active_tasks_rich:
-            return None
-
-        for task_data in user_context.active_tasks_rich:
-            task_dict = task_data.get("task", {})
+        for task_data in user_context.entities_rich.get("tasks", []):
+            task_dict = task_data.get("entity", {})
             if task_dict.get("uid") == task_uid:
                 # Convert dict to Task domain model
                 return self._dict_to_task(task_dict)
@@ -165,11 +162,8 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         Returns:
             TaskRelationships if found in rich context, None otherwise
         """
-        if not user_context.active_tasks_rich:
-            return None
-
-        for task_data in user_context.active_tasks_rich:
-            task_dict = task_data.get("task", {})
+        for task_data in user_context.entities_rich.get("tasks", []):
+            task_dict = task_data.get("entity", {})
             if task_dict.get("uid") == task_uid:
                 graph_ctx = task_data.get("graph_context", {})
                 if graph_ctx:
@@ -281,11 +275,8 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         Returns:
             List of task UIDs that should be triggered on completion
         """
-        if not user_context.active_tasks_rich:
-            return []
-
-        for task_data in user_context.active_tasks_rich:
-            task_dict = task_data.get("task", {})
+        for task_data in user_context.entities_rich.get("tasks", []):
+            task_dict = task_data.get("entity", {})
             if task_dict.get("uid") == task_uid:
                 graph_ctx = task_data.get("graph_context", {})
                 triggers = graph_ctx.get("completion_triggers", [])
@@ -306,11 +297,8 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         Returns:
             List of knowledge UIDs that should be unlocked on completion
         """
-        if not user_context.active_tasks_rich:
-            return []
-
-        for task_data in user_context.active_tasks_rich:
-            task_dict = task_data.get("task", {})
+        for task_data in user_context.entities_rich.get("tasks", []):
+            task_dict = task_data.get("entity", {})
             if task_dict.get("uid") == task_uid:
                 graph_ctx = task_data.get("graph_context", {})
                 unlocks = graph_ctx.get("unlocks_knowledge", [])
@@ -343,7 +331,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
 
         **CONTEXT-FIRST PATTERN (November 26, 2025):**
         This method now uses the Context-First Pattern:
-        - First tries to get task from user_context.active_tasks_rich
+        - First tries to get task from user_context.entities_rich["tasks"]
         - First tries to get relationships from rich context graph_context
         - Only falls back to Neo4j queries if not in context
         - Reduces from 4 queries to 1 when context is available

@@ -103,11 +103,8 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
         Returns:
             Habit if found in rich context, None otherwise
         """
-        if not context.active_habits_rich:
-            return None
-
-        for habit_data in context.active_habits_rich:
-            habit_dict = habit_data.get("habit", {})
+        for habit_data in context.entities_rich.get("habits", []):
+            habit_dict = habit_data.get("entity", {})
             if habit_dict.get("uid") == habit_uid:
                 return self._dict_to_habit(habit_dict)
 
@@ -176,7 +173,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
         **Context Fields Used:**
         - at_risk_habits: Habits with streaks at risk
         - active_habit_uids: User's current habits
-        - active_habits_rich: Rich habit data with graph_context (preferred)
+        - entities_rich["habits"]: Rich habit data with graph_context (preferred)
         - keystone_habits: High-impact habits
         - active_goal_uids: For relevance calculation
 
@@ -204,8 +201,8 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 habit = to_domain_model(habit_result.value, HabitDTO, Habit)
             else:
                 # Extract graph context if available
-                for habit_data in context.active_habits_rich:
-                    if habit_data.get("habit", {}).get("uid") == habit_uid:
+                for habit_data in context.entities_rich.get("habits", []):
+                    if habit_data.get("entity", {}).get("uid") == habit_uid:
                         graph_ctx = habit_data.get("graph_context", {})
                         break
 
@@ -257,7 +254,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
 
         **Context Fields Used:**
         - active_habit_uids: User's current habits
-        - active_habits_rich: Rich habit data (preferred)
+        - entities_rich["habits"]: Rich habit data (preferred)
         - at_risk_habits: Urgency boost
 
         Args:
@@ -283,8 +280,8 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                     continue
                 habit = to_domain_model(habit_result.value, HabitDTO, Habit)
             else:
-                for habit_data in context.active_habits_rich:
-                    if habit_data.get("habit", {}).get("uid") == habit_uid:
+                for habit_data in context.entities_rich.get("habits", []):
+                    if habit_data.get("entity", {}).get("uid") == habit_uid:
                         graph_ctx = habit_data.get("graph_context", {})
                         break
 
@@ -391,8 +388,8 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                     continue
                 habit = to_domain_model(habit_result.value, HabitDTO, Habit)
             else:
-                for habit_data in context.active_habits_rich:
-                    if habit_data.get("habit", {}).get("uid") == habit_uid:
+                for habit_data in context.entities_rich.get("habits", []):
+                    if habit_data.get("entity", {}).get("uid") == habit_uid:
                         graph_ctx = habit_data.get("graph_context", {})
                         break
 
@@ -453,7 +450,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
         **Context Fields Used:**
         - active_goal_uids: User's active goals
         - active_habit_uids: User's habits
-        - active_habits_rich: Rich habit data with goal links
+        - entities_rich["habits"]: Rich habit data with goal links
 
         Args:
             context: User's complete context
@@ -478,8 +475,8 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                     continue
                 habit = to_domain_model(habit_result.value, HabitDTO, Habit)
             else:
-                for habit_data in context.active_habits_rich:
-                    if habit_data.get("habit", {}).get("uid") == habit_uid:
+                for habit_data in context.entities_rich.get("habits", []):
+                    if habit_data.get("entity", {}).get("uid") == habit_uid:
                         graph_ctx = habit_data.get("graph_context", {})
                         break
 

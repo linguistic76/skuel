@@ -225,7 +225,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
         """
         Get tasks user can start immediately, ranked by priority.
 
-        **FAIL-FAST PATTERN:** Requires UserContext.active_tasks_rich to be populated.
+        **FAIL-FAST PATTERN:** Requires UserContext.entities_rich["tasks"] to be populated.
         If rich context is not available, returns an error explaining why.
 
         **SKUEL Philosophy:** "All dependencies are REQUIRED - no graceful degradation"
@@ -238,25 +238,25 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
 
         **Context Fields Required:**
         - active_task_uids: User's current tasks
-        - active_tasks_rich: Rich task data with graph_context (REQUIRED)
+        - entities_rich["tasks"]: Rich task data with graph_context (REQUIRED)
         - knowledge_mastery: Check knowledge prerequisites
         - completed_task_uids: Check task prerequisites
         - active_goal_uids: Calculate goal alignment
         - overdue_task_uids: Mark urgency
 
         Args:
-            context: User's complete context (must have active_tasks_rich populated)
+            context: User's complete context (must have entities_rich["tasks"] populated)
             limit: Maximum tasks to return
 
         Returns:
             Result[list[ContextualTask]] - sorted by priority (highest first)
-            Returns error if active_tasks_rich is not populated
+            Returns error if entities_rich["tasks"] is not populated
         """
         from core.models.context_types import ContextualTask
 
         # FAIL-FAST: Validate rich context is available
-        rich_tasks = getattr(context, "active_tasks_rich", None)
-        if rich_tasks is None or len(rich_tasks) == 0:
+        rich_tasks = context.entities_rich.get("tasks", [])
+        if not rich_tasks:
             if len(context.active_task_uids) > 0:
                 # User has active tasks but rich context not populated
                 return Result.fail(
@@ -275,7 +275,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
         # Build lookup from rich context for O(1) access
         rich_tasks_by_uid: dict[str, dict] = {}
         for task_data in rich_tasks:
-            task_dict = task_data.get("task", {})
+            task_dict = task_data.get("entity", {})
             uid = task_dict.get("uid")
             if uid:
                 rich_tasks_by_uid[uid] = task_data
@@ -288,7 +288,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
                 return Result.fail(
                     Errors.system(
                         message=(
-                            f"Task {task_uid} is in active_task_uids but missing from active_tasks_rich. "
+                            f"Task {task_uid} is in active_task_uids but missing from entities_rich['tasks']. "
                             "Context is inconsistent - MEGA-QUERY may have failed or been incomplete."
                         ),
                         operation="get_actionable_tasks_for_user",
@@ -296,7 +296,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
                 )
 
             task_data = rich_tasks_by_uid[task_uid]
-            task_dict = task_data.get("task", {})
+            task_dict = task_data.get("entity", {})
             title = task_dict.get("title", "")
             graph_ctx = task_data.get("graph_context", {})
 

@@ -99,7 +99,7 @@ class EventsHabitIntegrationService:
     # ========================================================================
     # CONTEXT-FIRST PATTERN: Rich Context Helpers (November 26, 2025)
     # ========================================================================
-    # Philosophy: "Check UserContext.active_events_rich BEFORE querying Neo4j"
+    # Philosophy: "Check UserContext.entities_rich["events"] BEFORE querying Neo4j"
     #
     # UserContext is THE source of truth for user state.
     # MEGA-QUERY already fetched events with graph context - reuse that data!
@@ -115,12 +115,12 @@ class EventsHabitIntegrationService:
         Get all events from UserContext rich data.
 
         Returns list of raw event dicts from MEGA-QUERY.
-        Each dict contains: {event: {...}, graph_context: {...}}
+        Each dict contains: {entity: {...}, graph_context: {...}}
 
         Returns:
             List of event data dicts (may be empty if no rich context)
         """
-        return user_context.active_events_rich or []
+        return user_context.entities_rich.get("events", [])
 
     def _filter_events_by_habit(
         self, events_rich: list[dict[str, Any]], habit_uid: str
@@ -137,7 +137,7 @@ class EventsHabitIntegrationService:
         """
         result = []
         for event_data in events_rich:
-            event_dict = event_data.get("event", {})
+            event_dict = event_data.get("entity", {})
             if event_dict.get("reinforces_habit_uid") == habit_uid:
                 event = self._dict_to_event(event_dict)
                 if event:
@@ -165,7 +165,7 @@ class EventsHabitIntegrationService:
         """
         result = []
         for event_data in events_rich:
-            event_dict = event_data.get("event", {})
+            event_dict = event_data.get("entity", {})
             event_date = parse_date_field(event_dict.get("event_date"))
 
             if event_date and start_date <= event_date <= end_date:
@@ -225,7 +225,7 @@ class EventsHabitIntegrationService:
         earliest_by_habit: dict[str, Event] = {}
 
         for event_data in events_rich:
-            event_dict = event_data.get("event", {})
+            event_dict = event_data.get("entity", {})
 
             # Filter by habit_uid
             event_habit_uid = event_dict.get("reinforces_habit_uid")
@@ -281,7 +281,7 @@ class EventsHabitIntegrationService:
         """
         Get all upcoming events that reinforce a specific habit.
 
-        CONTEXT-FIRST: Checks UserContext.active_events_rich before Neo4j query.
+        CONTEXT-FIRST: Checks UserContext.entities_rich["events"] before Neo4j query.
 
         Args:
             habit_uid: UID of the habit,
@@ -331,7 +331,7 @@ class EventsHabitIntegrationService:
         """
         Get all upcoming events grouped by habit they reinforce.
 
-        CONTEXT-FIRST: Checks UserContext.active_events_rich before Neo4j query.
+        CONTEXT-FIRST: Checks UserContext.entities_rich["events"] before Neo4j query.
 
         Args:
             user_context: User context for filtering,
@@ -387,7 +387,7 @@ class EventsHabitIntegrationService:
         """
         Get events for habits that are at risk of breaking their streaks.
 
-        CONTEXT-FIRST: Checks UserContext.active_events_rich before Neo4j query.
+        CONTEXT-FIRST: Checks UserContext.entities_rich["events"] before Neo4j query.
 
         Args:
             user_context: User context,
@@ -632,7 +632,7 @@ class EventsHabitIntegrationService:
         """
         Get the next scheduled event for each active habit.
 
-        CONTEXT-FIRST: Checks UserContext.active_events_rich before Neo4j query.
+        CONTEXT-FIRST: Checks UserContext.entities_rich["events"] before Neo4j query.
 
         Args:
             user_context: User context

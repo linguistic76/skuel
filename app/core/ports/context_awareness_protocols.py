@@ -107,7 +107,7 @@ class TaskAwareness(Protocol):
     tasks_by_goal: dict[str, list[str]]
 
     # Rich context (optional - may be empty)
-    active_tasks_rich: list[dict[str, Any]]
+    entities_rich: dict[str, list[dict[str, Any]]]
 
 
 @runtime_checkable
@@ -175,7 +175,7 @@ class HabitAwareness(Protocol):
     keystone_habits: list[str]  # keystone habits (high-impact habits)
 
     # Rich context (optional)
-    active_habits_rich: list[dict[str, Any]]
+    entities_rich: dict[str, list[dict[str, Any]]]
 
 
 @runtime_checkable
@@ -211,7 +211,7 @@ class GoalAwareness(Protocol):
     goal_milestones_completed: dict[str, int]  # goal_uid -> milestones completed count
 
     # Rich context (optional)
-    active_goals_rich: list[dict[str, Any]]
+    entities_rich: dict[str, list[dict[str, Any]]]
 
 
 @runtime_checkable
@@ -245,7 +245,7 @@ class EventAwareness(Protocol):
     event_streaks: dict[str, int]
 
     # Rich context (optional)
-    active_events_rich: list[dict[str, Any]]
+    entities_rich: dict[str, list[dict[str, Any]]]
 
 
 @runtime_checkable
@@ -273,7 +273,7 @@ class PrincipleAwareness(Protocol):
     # Note: These might be derived from rich context
 
     # Rich context (optional)
-    core_principles_rich: list[dict[str, Any]]
+    entities_rich: dict[str, list[dict[str, Any]]]
 
 
 @runtime_checkable
@@ -302,7 +302,7 @@ class ChoiceAwareness(Protocol):
     knowledge_mastery: dict[str, float]
 
     # Rich context (optional)
-    recent_choices_rich: list[dict[str, Any]]
+    entities_rich: dict[str, list[dict[str, Any]]]
 
 
 @runtime_checkable
@@ -451,14 +451,9 @@ class FullAwareness(Protocol):
     is_overwhelmed: bool
     is_blocked: bool
 
-    # Rich context (all domains)
-    active_tasks_rich: list[dict[str, Any]]
-    active_goals_rich: list[dict[str, Any]]
-    active_habits_rich: list[dict[str, Any]]
-    active_events_rich: list[dict[str, Any]]
+    # Rich context (all activity domains)
+    entities_rich: dict[str, list[dict[str, Any]]]
     knowledge_units_rich: dict[str, dict[str, Any]]
-    core_principles_rich: list[dict[str, Any]]
-    recent_choices_rich: list[dict[str, Any]]
 
 
 # =============================================================================

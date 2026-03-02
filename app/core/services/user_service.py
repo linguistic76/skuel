@@ -574,8 +574,7 @@ class UserService:
            - tasks_by_goal, overdue_task_uids, etc.
 
         2. **Rich context fields** (full entities + graph neighborhoods)
-           - active_tasks_rich: [{task: {...}, graph_context: {subtasks, dependencies, ...}}, ...]
-           - active_goals_rich: [{goal: {...}, graph_context: {tasks, habits, milestones}}, ...]
+           - entities_rich: {"tasks": [{entity: {...}, graph_context: {...}}, ...], "goals": [...], ...}
            - knowledge_units_rich: {uid: {ku: {...}, graph_context: {prerequisites, dependents}}, ...}
 
         Args:
@@ -599,8 +598,8 @@ class UserService:
             task_uids = context.active_task_uids # ✅ Populated from MEGA-QUERY
 
             # Access rich entities with graph neighborhoods
-            for task_data in context.active_tasks_rich: # ✅ Populated from MEGA-QUERY
-                task = task_data["task"]
+            for task_data in context.entities_rich.get("tasks", []):  # ✅ Populated from MEGA-QUERY
+                task = task_data["entity"]
                 graph_context = task_data["graph_context"]
 
                 # Use subtasks, dependencies, applied knowledge, etc.

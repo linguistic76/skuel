@@ -51,7 +51,7 @@ def _make_generator() -> object:
     activity_report_service.persist = AsyncMock(return_value=Result.ok(MagicMock()))
 
     mock_context = MagicMock()
-    mock_context.activity_rich = {}
+    mock_context.entities_rich = {}
     context_builder = MagicMock()
     context_builder.build_rich = AsyncMock(return_value=Result.ok(mock_context))
 
@@ -115,7 +115,7 @@ async def test_fetch_previous_annotation_returns_none_on_empty() -> None:
     activity_report_service.persist = AsyncMock(return_value=Result.ok(MagicMock()))
 
     mock_context = MagicMock()
-    mock_context.activity_rich = {}
+    mock_context.entities_rich = {}
     context_builder = MagicMock()
     context_builder.build_rich = AsyncMock(return_value=Result.ok(mock_context))
 

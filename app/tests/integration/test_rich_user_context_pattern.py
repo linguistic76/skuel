@@ -180,9 +180,9 @@ class TestRichUserContextPattern:
         # ====================================================================
 
         # Rich tasks - verify structure exists
-        assert len(context.active_tasks_rich) > 0
-        task_rich = context.active_tasks_rich[0]
-        assert "task" in task_rich
+        assert len(context.entities_rich.get("tasks", [])) > 0
+        task_rich = context.entities_rich["tasks"][0]
+        assert "entity" in task_rich
         assert "graph_context" in task_rich
 
         # Validate task graph context structure
@@ -193,9 +193,9 @@ class TestRichUserContextPattern:
         assert "dependencies" in task_graph
 
         # Rich goals - verify structure exists
-        assert len(context.active_goals_rich) > 0
-        goal_rich = context.active_goals_rich[0]
-        assert "goal" in goal_rich
+        assert len(context.entities_rich.get("goals", [])) > 0
+        goal_rich = context.entities_rich["goals"][0]
+        assert "entity" in goal_rich
         assert "graph_context" in goal_rich
 
         # Validate goal graph context structure
@@ -319,13 +319,13 @@ class TestRichUserContextPattern:
         context = result.value
 
         # Validate empty rich fields
-        assert len(context.active_tasks_rich) == 0
-        assert len(context.active_habits_rich) == 0
-        assert len(context.active_goals_rich) == 0
+        assert len(context.entities_rich.get("tasks", [])) == 0
+        assert len(context.entities_rich.get("habits", [])) == 0
+        assert len(context.entities_rich.get("goals", [])) == 0
         assert len(context.knowledge_units_rich) == 0
-        assert len(context.active_events_rich) == 0
-        assert len(context.core_principles_rich) == 0
-        assert len(context.recent_choices_rich) == 0
+        assert len(context.entities_rich.get("events", [])) == 0
+        assert len(context.entities_rich.get("principles", [])) == 0
+        assert len(context.entities_rich.get("choices", [])) == 0
 
         # Standard fields should also be empty
         assert len(context.active_task_uids) == 0

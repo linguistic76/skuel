@@ -30,9 +30,9 @@ def mock_backend():
 
 
 def _make_context(activity_rich: dict | None = None) -> UserContext:
-    """Build a minimal UserContext with activity_rich populated."""
+    """Build a minimal UserContext with entities_rich populated."""
     context = UserContext(user_uid="user_ghost", username="ghost")
-    context.activity_rich = activity_rich or {}
+    context.entities_rich = activity_rich or {}
     return context
 
 
@@ -79,14 +79,14 @@ class TestSnapshotSingleRoundTrip:
         assert mock_context_builder.build_rich.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_build_rich_called_with_time_period(self, service, mock_context_builder):
-        """build_rich is called with the requested time_period."""
+    async def test_build_rich_called_with_window(self, service, mock_context_builder):
+        """build_rich is called with window= instead of time_period=."""
         mock_context_builder.build_rich.reset_mock()
 
         await service.create_snapshot("user_alice", time_period="30d")
 
         call_kwargs = mock_context_builder.build_rich.call_args[1]
-        assert call_kwargs.get("time_period") == "30d"
+        assert call_kwargs.get("window") == "30d"
 
 
 # ============================================================================
@@ -95,7 +95,7 @@ class TestSnapshotSingleRoundTrip:
 
 
 class TestSnapshotEmptyResult:
-    """Empty activity_rich produces zero-count domain sections."""
+    """Empty entities_rich produces zero-count domain sections."""
 
     @pytest.mark.asyncio
     async def test_empty_result_all_domains_present(self, service):
@@ -162,11 +162,11 @@ class TestSnapshotDomainFilter:
 
 
 class TestSnapshotRecordMapping:
-    """Records from activity_rich are correctly shaped into snapshot dicts."""
+    """Records from entities_rich are correctly shaped into snapshot dicts."""
 
     @pytest.mark.asyncio
     async def test_task_records_mapped(self, service, mock_context_builder):
-        """activity_rich tasks → tasks domain with completed count."""
+        """entities_rich tasks → tasks domain with completed count."""
         context = _make_context(
             activity_rich={
                 "tasks": [
