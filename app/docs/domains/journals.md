@@ -1,7 +1,7 @@
 ---
 title: Journals Domain
 created: 2025-12-04
-updated: 2026-02-28
+updated: 2026-03-02
 status: current
 category: domains
 tags: [journals, content-domain, submissions, multi-modal, ai-processing, lp-integration]
@@ -12,7 +12,7 @@ tags: [journals, content-domain, submissions, multi-modal, ai-processing, lp-int
 **Type:** Submission subtype (`EntityType.JOURNAL`, extends `Submission`)
 **UID Prefix:** `journal_`
 **Entity Label:** `:Entity:Journal`
-**UI Route:** `/journals` (admin-only, registered via `submissions_routes.py`)
+**UI Route:** `/journals` (all authenticated users, registered via `submissions_routes.py`)
 **API Route:** Reuses `/api/submissions/*` endpoints
 
 ## Domain Architecture (February 2026)
@@ -21,7 +21,7 @@ Journals are a **Submission subtype** — `Journal(Submission)` in the model hie
 
 | EntityType | ProcessorType | Use Case |
 |------------|---------------|----------|
-| `JOURNAL` | `LLM` | Admin AI processing with multi-modal pipeline |
+| `JOURNAL` | `LLM` | User-uploaded AI-processed journal entries |
 | `SUBMISSION` | `HUMAN` | User file uploads against an Exercise |
 
 **Key insight:** Journal is NOT a separate domain. It is `EntityType.JOURNAL`, a distinct entity
@@ -47,7 +47,7 @@ Journals support **three modes** with weighted distribution:
 ## Processing Pipeline
 
 ```
-1. Admin uploads file → SubmissionsService.submit_file()
+1. User uploads file → SubmissionsService.submit_file()
    ├─ entity_type: EntityType.JOURNAL
    └─ processor_type: ProcessorType.LLM
 
@@ -232,7 +232,7 @@ class ActivityExtractorService:
 
 ## Routes
 
-### UI Routes (Admin-Only)
+### UI Routes
 
 | Route | Purpose |
 |-------|---------|
@@ -318,27 +318,27 @@ When a journal is processed, these fields are stored in `report.metadata`:
 | `je_output_path` | `str` | Full path to generated je_output file |
 | `mode_threshold` | `float` | Threshold used for activity extraction (default: 0.2) |
 
-## Admin Workflows
+## User Workflows
 
 ### Workflow 1: Submit and Process
 
 ```
-1. Admin → /journals/submit
-2. Select instructions mode (default, existing project, or upload new)
-3. Enter identifier (links to Knowledge Unit)
+1. User → /journals/submit (or via "New Entry" in profile sidebar)
+2. Select instructions mode (default, or upload custom instruction file)
+3. Enter title
 4. Upload file (audio, text, PDF, images, video)
 5. System processes:
    - Transcribes if audio
    - Infers journal weights via LLM
    - Generates je_output file
    - Extracts activities if threshold met
-6. Admin → /journals/browse → sees completed report with download button
+6. User → /journals/browse ("My Journals") → sees completed entry with download button
 ```
 
 ### Workflow 2: Download and Curate
 
 ```
-1. Admin → /journals/browse
+1. User → /journals/browse
 2. Click "Download" on completed journal
 3. Receives je_output markdown file
 4. Curate and decompose content:
@@ -348,11 +348,11 @@ When a journal is processed, these fields are stored in `report.metadata`:
 5. Ingest curated pieces via UnifiedIngestionService
 ```
 
-### Workflow 3: Cleanup
+### Workflow 3: Cleanup (Admin only)
 
 ```
 1. Admin decides date range to clean (e.g., December 2025)
-2. API call: GET /api/admin/journals/cleanup?start_date=2025-12-01&end_date=2025-12-31
+2. API call: POST /api/admin/journals/cleanup?start_date=2025-12-01&end_date=2025-12-31
 3. System deletes je_output files from December 2025
 4. Returns: {files_deleted: 45, bytes_freed: 2457600}
 ```
