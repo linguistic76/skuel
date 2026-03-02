@@ -43,19 +43,22 @@ def _make_generator() -> object:
     """ProgressFeedbackGenerator with minimal constructor args (no LLM/DB)."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from core.services.feedback.activity_data_reader import ActivityData, ActivityDataReader
     from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
     from core.utils.result_simplified import Result
 
     executor = MagicMock()
     activity_report_service = MagicMock()
     activity_report_service.persist = AsyncMock(return_value=Result.ok(MagicMock()))
-    reader = MagicMock(spec=ActivityDataReader)
-    reader.read = AsyncMock(return_value=Result.ok(ActivityData()))
+
+    mock_context = MagicMock()
+    mock_context.activity_rich = {}
+    context_builder = MagicMock()
+    context_builder.build_rich = AsyncMock(return_value=Result.ok(mock_context))
+
     return ProgressFeedbackGenerator(
         executor=executor,
         activity_report_service=activity_report_service,
-        activity_data_reader=reader,
+        context_builder=context_builder,
     )
 
 
@@ -101,23 +104,25 @@ def test_build_llm_prompt_no_annotation_unchanged() -> None:
 @pytest.mark.asyncio
 async def test_fetch_previous_annotation_returns_none_on_empty() -> None:
     """Empty result from executor → None (no crash, no KeyError)."""
-    from unittest.mock import AsyncMock, MagicMock
     from datetime import datetime
+    from unittest.mock import AsyncMock, MagicMock
 
-    from core.services.feedback.activity_data_reader import ActivityData, ActivityDataReader
     from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
 
     executor = MagicMock()
     executor.execute_query = AsyncMock(return_value=Result.ok([]))
     activity_report_service = MagicMock()
     activity_report_service.persist = AsyncMock(return_value=Result.ok(MagicMock()))
-    reader = MagicMock(spec=ActivityDataReader)
-    reader.read = AsyncMock(return_value=Result.ok(ActivityData()))
+
+    mock_context = MagicMock()
+    mock_context.activity_rich = {}
+    context_builder = MagicMock()
+    context_builder.build_rich = AsyncMock(return_value=Result.ok(mock_context))
 
     generator = ProgressFeedbackGenerator(
         executor=executor,
         activity_report_service=activity_report_service,
-        activity_data_reader=reader,
+        context_builder=context_builder,
     )
     result = await generator._fetch_previous_annotation(  # type: ignore[attr-defined]
         user_uid="user_test",

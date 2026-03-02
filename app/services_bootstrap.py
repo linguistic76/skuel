@@ -1764,11 +1764,6 @@ async def compose_services(
         )
         progress_schedule_service = ProgressScheduleService(backend=progress_schedule_backend)
 
-        # ActivityDataReader: still used by ProgressFeedbackGenerator (migrated in Phase 3)
-        from core.services.feedback.activity_data_reader import ActivityDataReader
-
-        activity_data_reader = ActivityDataReader(executor=query_executor)
-
         # Create ActivityReportService (processor-neutral ActivityReport CRUD)
         from core.services.feedback.activity_report_service import ActivityReportService
         from core.services.feedback.review_queue_service import ReviewQueueService
@@ -1784,8 +1779,8 @@ async def compose_services(
         progress_generator = ProgressFeedbackGenerator(
             executor=query_executor,
             activity_report_service=activity_report_service,
-            activity_data_reader=activity_data_reader,
-            openai_service=ai_service,  # LLM-powered qualitative feedback (Phase 3)
+            context_builder=context_builder,
+            openai_service=ai_service,
             user_service=core_services["user"],
             insight_store=insight_store,
             event_bus=event_bus,

@@ -520,9 +520,9 @@ class UserContext:
     # =========================================================================
     # ACTIVITY WINDOW (Populated when build_rich() called with time_period)
     # =========================================================================
-    # Empty on all standard planning calls. Feedback services read this to
-    # avoid a separate ActivityDataReader round-trip.
-    # Planning and feedback are different interpretations of the same complete
+    # Empty on all standard planning calls. Feedback services (ProgressFeedbackGenerator,
+    # ActivityReportService) read this via build_rich(time_period=) — no separate
+    # query layer. Planning and feedback are different interpretations of the same complete
     # picture — one query, one context, one output model.
     #
     # active_*_rich fields are UNCHANGED (status-active only, for planning).

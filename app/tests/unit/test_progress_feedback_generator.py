@@ -54,22 +54,23 @@ def mock_event_bus():
 
 
 @pytest.fixture
-def mock_reader():
-    """Create a mock ActivityDataReader."""
-    from core.services.feedback.activity_data_reader import ActivityData
+def mock_context_builder():
+    """Create a mock UserContextBuilder returning an empty activity_rich context."""
+    mock_context = MagicMock()
+    mock_context.activity_rich = {}
 
-    reader = MagicMock()
-    reader.read = AsyncMock(return_value=Result.ok(ActivityData()))
-    return reader
+    builder = MagicMock()
+    builder.build_rich = AsyncMock(return_value=Result.ok(mock_context))
+    return builder
 
 
 @pytest.fixture
-def generator(mock_driver, mock_activity_report_service, mock_reader, mock_insight_store, mock_event_bus):
+def generator(mock_driver, mock_activity_report_service, mock_context_builder, mock_insight_store, mock_event_bus):
     """Create ProgressFeedbackGenerator with mocked deps."""
     return ProgressFeedbackGenerator(
         executor=mock_driver,
         activity_report_service=mock_activity_report_service,
-        activity_data_reader=mock_reader,
+        context_builder=mock_context_builder,
         user_service=None,
         insight_store=mock_insight_store,
         event_bus=mock_event_bus,
@@ -103,22 +104,31 @@ class TestTimePeriodMapping:
 
 
 class TestQueryCompletionsSingleRoundTrip:
-    """_query_completions issues exactly one ActivityDataReader.read() call."""
+    """_query_completions issues exactly one UserContextBuilder.build_rich() call."""
 
     @pytest.mark.asyncio
     async def test_single_query_call(self, generator):
-        """Delegates to ActivityDataReader for a single round-trip."""
-        generator.activity_data_reader.read.reset_mock()
+        """Delegates to UserContextBuilder for a single round-trip."""
+        generator.context_builder.build_rich.reset_mock()
         await generator._query_completions(
             "user_alice",
             datetime.now() - timedelta(days=7),
             datetime.now(),
         )
-        assert generator.activity_data_reader.read.call_count == 1
+        assert generator.context_builder.build_rich.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_build_rich_called_with_time_period(self, generator):
+        """build_rich is called with the correct time_period derived from elapsed days."""
+        generator.context_builder.build_rich.reset_mock()
+        start = datetime.now() - timedelta(days=7)
+        await generator._query_completions("user_alice", start, datetime.now())
+        _, kwargs = generator.context_builder.build_rich.call_args
+        assert kwargs.get("time_period") == "7d"
 
     @pytest.mark.asyncio
     async def test_empty_result_returns_zero_counts(self, generator):
-        """Empty ActivityData (user not found) returns all-zero completions."""
+        """Empty activity_rich (no window data) returns all-zero completions."""
         result = await generator._query_completions(
             "user_ghost",
             datetime.now() - timedelta(days=7),
@@ -134,29 +144,29 @@ class TestPreviousAnnotationParameter:
 
     @pytest.mark.asyncio
     async def test_provided_annotation_skips_db_lookup(self, generator):
-        """When previous_annotation is given, reader called once, executor not called."""
+        """When previous_annotation is given, build_rich called once, executor not called."""
         generator.executor.execute_query.reset_mock()
-        generator.activity_data_reader.read.reset_mock()
+        generator.context_builder.build_rich.reset_mock()
 
         await generator.generate(
             user_uid="user_alice",
             previous_annotation="I was overcommitting last week.",
         )
 
-        # Activity data via reader — no annotation lookup via executor
-        assert generator.activity_data_reader.read.call_count == 1
+        # Activity data via context_builder — no annotation lookup via executor
+        assert generator.context_builder.build_rich.call_count == 1
         assert generator.executor.execute_query.call_count == 0
 
     @pytest.mark.asyncio
     async def test_no_annotation_fetches_from_db(self, generator):
-        """When previous_annotation is None, reader called once + executor once (annotation)."""
+        """When previous_annotation is None, build_rich called once + executor once (annotation)."""
         generator.executor.execute_query.reset_mock()
-        generator.activity_data_reader.read.reset_mock()
+        generator.context_builder.build_rich.reset_mock()
 
         await generator.generate(user_uid="user_alice")
 
-        # Activity data via reader + annotation lookup via executor
-        assert generator.activity_data_reader.read.call_count == 1
+        # Activity data via context_builder + annotation lookup via executor
+        assert generator.context_builder.build_rich.call_count == 1
         assert generator.executor.execute_query.call_count == 1
 
 
@@ -377,3 +387,42 @@ class TestBuildReportContent:
 
         assert "Active Insights" in content
         assert "You complete more tasks on Mondays" in content
+
+
+# ============================================================================
+# _days_to_period TESTS
+# ============================================================================
+
+
+class TestDaysToPeriod:
+    """Test module-level _days_to_period helper."""
+
+    def test_7_days(self):
+        from core.services.feedback.progress_feedback_generator import _days_to_period
+
+        assert _days_to_period(7) == "7d"
+
+    def test_14_days(self):
+        from core.services.feedback.progress_feedback_generator import _days_to_period
+
+        assert _days_to_period(14) == "14d"
+
+    def test_30_days(self):
+        from core.services.feedback.progress_feedback_generator import _days_to_period
+
+        assert _days_to_period(30) == "30d"
+
+    def test_90_days(self):
+        from core.services.feedback.progress_feedback_generator import _days_to_period
+
+        assert _days_to_period(90) == "90d"
+
+    def test_over_90_clamps_to_90d(self):
+        from core.services.feedback.progress_feedback_generator import _days_to_period
+
+        assert _days_to_period(120) == "90d"
+
+    def test_between_7_and_14_maps_to_14d(self):
+        from core.services.feedback.progress_feedback_generator import _days_to_period
+
+        assert _days_to_period(10) == "14d"

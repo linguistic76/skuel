@@ -857,6 +857,7 @@ class TestUserContextBuilder:
         assert "ku:builder_1" in context.mastered_knowledge_uids
         assert context.knowledge_mastery["ku:builder_1"] == 0.9
 
+    @pytest.mark.asyncio
     async def test_context_builder_empty_user(self, user_service, clean_neo4j):
         """
         Verify builder handles user with no domain entities gracefully.
@@ -891,3 +892,109 @@ class TestUserContextBuilder:
         assert context.mastered_knowledge_uids == set()
         assert context.knowledge_mastery == {}
         assert context.current_workload_score == 0.0  # No workload
+
+
+class TestActivityRichField:
+    """activity_rich field: empty without time_period, populated when provided."""
+
+    def test_activity_rich_defaults_to_empty_dict(self):
+        """UserContext.activity_rich is an empty dict by default."""
+        context = UserContext(user_uid="user:test", username="testuser")
+        assert context.activity_rich == {}
+
+    def test_activity_window_metadata_defaults_to_none(self):
+        """Window metadata fields are None when no time_period is in use."""
+        context = UserContext(user_uid="user:test", username="testuser")
+        assert context.activity_window_period is None
+        assert context.activity_window_start is None
+        assert context.activity_window_end is None
+
+    @pytest.mark.asyncio
+    async def test_build_rich_without_time_period_leaves_activity_rich_empty(
+        self, user_service, clean_neo4j
+    ):
+        """build_rich_user_context() with no time_period → activity_rich stays empty dict."""
+        from core.models.user.user import User
+
+        user_uid = "user:ar_no_period"
+        driver = user_service.context_builder.executor.driver
+        async with driver.session() as session:
+            await session.run(
+                "CREATE (u:User {uid: $uid, title: 'AR No Period', "
+                "email: 'ar_no_period@test.com', created_at: datetime(), updated_at: datetime()})",
+                uid=user_uid,
+            )
+
+        test_user = User(uid=user_uid, title="AR No Period", email="ar_no_period@test.com")
+        builder = user_service.context_builder
+        result = await builder.build_rich_user_context(user_uid, test_user)
+
+        assert result.is_ok, f"build_rich_user_context failed: {result.error}"
+        assert result.value.activity_rich == {}
+        assert result.value.activity_window_period is None
+
+    @pytest.mark.asyncio
+    async def test_build_rich_with_time_period_populates_activity_rich(
+        self, user_service, clean_neo4j
+    ):
+        """build_rich_user_context(time_period='7d') → activity_rich has correct structure."""
+        from datetime import date, timedelta
+
+        from core.models.user.user import User
+
+        user_uid = "user:ar_with_period"
+        driver = user_service.context_builder.executor.driver
+
+        async with driver.session() as session:
+            await session.run(
+                """
+                CREATE (u:User {uid: $uid, title: 'AR With Period',
+                    email: 'ar_with_period@test.com',
+                    created_at: datetime(), updated_at: datetime()})
+                WITH u
+                CREATE (t:Task {
+                    uid: $task_uid,
+                    title: 'Recent Task',
+                    user_uid: $uid,
+                    status: 'completed',
+                    priority: 'high',
+                    due_date: date($due_date),
+                    created_at: datetime(),
+                    updated_at: datetime()
+                })
+                CREATE (u)-[:OWNS]->(t)
+                """,
+                uid=user_uid,
+                task_uid="task:ar_recent_1",
+                due_date=(date.today() + timedelta(days=1)).isoformat(),
+            )
+
+        test_user = User(uid=user_uid, title="AR With Period", email="ar_with_period@test.com")
+        builder = user_service.context_builder
+        result = await builder.build_rich_user_context(user_uid, test_user, time_period="7d")
+
+        assert result.is_ok, f"build_rich_user_context failed: {result.error}"
+        ctx = result.value
+
+        # Window metadata is set
+        assert ctx.activity_window_period == "7d"
+        assert ctx.activity_window_start is not None
+        assert ctx.activity_window_end is not None
+
+        # activity_rich has the expected domain keys
+        assert "tasks" in ctx.activity_rich
+        assert "goals" in ctx.activity_rich
+        assert "habits" in ctx.activity_rich
+        assert "events" in ctx.activity_rich
+        assert "choices" in ctx.activity_rich
+        assert "principles" in ctx.activity_rich
+
+        # The recently-updated task appears in the window
+        tasks = ctx.activity_rich["tasks"]
+        assert len(tasks) == 1
+        item = tasks[0]
+        assert "entity" in item
+        assert "graph_context" in item
+        assert item["entity"]["uid"] == "task:ar_recent_1"
+        assert item["entity"]["title"] == "Recent Task"
+        assert item["entity"]["status"] == "completed"

@@ -26,9 +26,10 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
     from core.services.ai_service import OpenAIService
-    from core.services.feedback.activity_data_reader import ActivityDataReader
     from core.services.feedback.activity_report_service import ActivityReportService
     from core.services.insight.insight_store import InsightStore
+    from core.services.user.unified_user_context import UserContext
+    from core.services.user.user_context_builder import UserContextBuilder
 
 from core.constants import FeedbackTimePeriod
 from core.events import publish_event
@@ -44,6 +45,16 @@ logger = get_logger("skuel.services.feedback.progress_generator")
 
 _PROMPT_TEMPLATE_PATH = Path(__file__).parent / "prompts" / "activity_feedback.md"
 
+_DAYS_TO_PERIOD: dict[int, str] = {7: "7d", 14: "14d", 30: "30d", 90: "90d"}
+
+
+def _days_to_period(days: int) -> str:
+    """Map an elapsed-days integer to the nearest FeedbackTimePeriod key."""
+    for threshold, period in sorted(_DAYS_TO_PERIOD.items()):
+        if days <= threshold:
+            return period
+    return "90d"
+
 
 class ProgressFeedbackGenerator:
     """
@@ -51,10 +62,11 @@ class ProgressFeedbackGenerator:
     and sending those stats as LLM context for qualitative analysis.
 
     Constructor dependencies:
-        executor: QueryExecutor for Cypher queries
+        executor: QueryExecutor for Cypher queries (annotation lookup only)
         activity_report_service: ActivityReportService for persisting ActivityReport entities
+        context_builder: UserContextBuilder — build_rich(time_period=) populates activity_rich
         openai_service: Optional OpenAI service (enables LLM generation)
-        user_service: Optional UserOperations for building UserContext
+        user_service: Optional UserOperations (reserved for future use)
         insight_store: Optional InsightStore for referencing active insights
         event_bus: Optional EventBusOperations for publishing events
 
@@ -69,7 +81,7 @@ class ProgressFeedbackGenerator:
         self,
         executor: "QueryExecutor",
         activity_report_service: "ActivityReportService",
-        activity_data_reader: "ActivityDataReader",
+        context_builder: "UserContextBuilder",
         openai_service: "OpenAIService | None" = None,
         user_service: Any | None = None,
         insight_store: "InsightStore | None" = None,
@@ -77,7 +89,7 @@ class ProgressFeedbackGenerator:
     ) -> None:
         self.executor = executor
         self.activity_report_service = activity_report_service
-        self.activity_data_reader = activity_data_reader
+        self.context_builder = context_builder
         self.openai_service = openai_service
         self.user_service = user_service
         self.insight_store = insight_store
@@ -352,51 +364,6 @@ class ProgressFeedbackGenerator:
     # GRAPH QUERIES
     # =========================================================================
 
-    def _process_main_entities(
-        self, records: list[dict[str, Any]], result: dict[str, Any]
-    ) -> None:
-        """Populate completions dict from _ACTIVITY_MAIN_QUERY records.
-
-        Groups records by entity_type and fills the corresponding keys in result.
-        goal_titles and ku_titles are only non-empty for task entities.
-        """
-        for r in records:
-            entity_type = r["entity_type"]
-            uid, title, status = r["uid"], r["title"], r["status"]
-
-            if entity_type == "task":
-                result["tasks_total"] += 1
-                if status == "completed":
-                    result["tasks_completed"] += 1
-                    for gt in r["goal_titles"]:
-                        if gt:
-                            result["goal_alignments"].append(gt)
-                    for kt in r["ku_titles"]:
-                        if kt:
-                            result["knowledge_applications"].append(kt)
-                result["tasks_details"].append(
-                    {"uid": uid, "title": title, "status": status,
-                     "goals": r["goal_titles"], "reports": r["ku_titles"]}
-                )
-            elif entity_type == "goal":
-                result["goals_progressed"] += 1
-                result["goals_details"].append(
-                    {"uid": uid, "title": title, "status": status, "progress": r["progress"]}
-                )
-            elif entity_type == "habit":
-                if status == "completed":
-                    result["habits_completed"] += 1
-                result["habits_details"].append(
-                    {"uid": uid, "title": title, "status": status, "streak": r["streak"]}
-                )
-            elif entity_type == "principle":
-                result["principles_reviewed"] += 1
-                result["principles_details"].append(
-                    {"uid": uid, "title": title, "status": status,
-                     "alignment": r["alignment"], "strength": r["strength"],
-                     "category": r["category"]}
-                )
-
     def _empty_completions(self) -> dict[str, Any]:
         """Return a zero-valued completions dict for error paths and empty results."""
         return {
@@ -424,47 +391,125 @@ class ProgressFeedbackGenerator:
         end_date: datetime,
         domains: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Query historical completions across domains via ActivityDataReader.
+        """Query historical completions via UserContextBuilder.build_rich().
 
-        Delegates the database round-trip to ActivityDataReader, then formats
-        the resulting ActivityData into the completions dict consumed by
+        Computes the time_period key from elapsed days, delegates to
+        context_builder.build_rich() with that period, then maps
+        context.activity_rich into the completions dict consumed by
         _build_report_content() and _build_llm_prompt().
         """
-        data_result = await self.activity_data_reader.read(
-            user_uid, start_date, end_date, domains
+        days = (end_date - start_date).days
+        time_period = _days_to_period(days)
+
+        ctx_result = await self.context_builder.build_rich(
+            user_uid, time_period=time_period
         )
-        if data_result.is_error:
-            logger.warning(f"Failed to query activity completions: {data_result.error}")
+        if ctx_result.is_error:
+            logger.warning(f"Failed to query activity completions: {ctx_result.error}")
             return self._empty_completions()
 
-        data = data_result.value
+        return self._completions_from_context(ctx_result.value, domains)
+
+    def _completions_from_context(
+        self,
+        context: "UserContext",
+        domains: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Map context.activity_rich into the completions dict.
+
+        Consumed by _build_report_content() and _build_llm_prompt().
+        """
         include_all = domains is None
         result = self._empty_completions()
 
-        # Main entities: tasks, goals, habits, principles
-        self._process_main_entities(data.main_records, result)
+        # Tasks
+        if include_all or "tasks" in (domains or []):
+            for item in context.activity_rich.get("tasks", []):
+                entity = item["entity"]
+                graph_ctx = item.get("graph_context", {})
+                result["tasks_total"] += 1
+                if entity.get("status") == "completed":
+                    result["tasks_completed"] += 1
+                    for ref in graph_ctx.get("goal_refs", []):
+                        if ref.get("title"):
+                            result["goal_alignments"].append(ref["title"])
+                    for ref in graph_ctx.get("ku_refs", []):
+                        if ref.get("title"):
+                            result["knowledge_applications"].append(ref["title"])
+                result["tasks_details"].append({
+                    "uid": entity["uid"],
+                    "title": entity["title"],
+                    "status": entity.get("status", ""),
+                    "goals": [r["title"] for r in graph_ctx.get("goal_refs", []) if r.get("title")],
+                    "reports": [r["title"] for r in graph_ctx.get("ku_refs", []) if r.get("title")],
+                })
+
+        # Goals
+        if include_all or "goals" in (domains or []):
+            for item in context.activity_rich.get("goals", []):
+                entity = item["entity"]
+                result["goals_progressed"] += 1
+                result["goals_details"].append({
+                    "uid": entity["uid"],
+                    "title": entity["title"],
+                    "status": entity.get("status", ""),
+                    "progress": entity.get("progress"),
+                })
+
+        # Habits
+        if include_all or "habits" in (domains or []):
+            for item in context.activity_rich.get("habits", []):
+                entity = item["entity"]
+                if entity.get("status") == "completed":
+                    result["habits_completed"] += 1
+                result["habits_details"].append({
+                    "uid": entity["uid"],
+                    "title": entity["title"],
+                    "status": entity.get("status", ""),
+                    "streak": entity.get("streak", 0),
+                })
 
         # Events
         if include_all or "events" in (domains or []):
-            result["events_attended"] = len(data.event_records)
-            result["events_details"] = [
-                {
-                    "uid": r["uid"],
-                    "title": r["title"],
-                    "status": r["status"],
-                    "event_type": r["event_type"],
-                    "is_milestone": r["is_milestone"],
-                }
-                for r in data.event_records
-            ]
+            for item in context.activity_rich.get("events", []):
+                entity = item["entity"]
+                graph_ctx = item.get("graph_context", {})
+                result["events_attended"] += 1
+                result["events_details"].append({
+                    "uid": entity["uid"],
+                    "title": entity["title"],
+                    "status": entity.get("status", ""),
+                    "event_type": entity.get("event_type", ""),
+                    "is_milestone": graph_ctx.get("is_milestone", False),
+                })
 
         # Choices
         if include_all or "choices" in (domains or []):
-            result["choices_made"] = len(data.choice_records)
-            result["choices_details"] = [
-                {"uid": r["uid"], "title": r["title"], "principles": r["principle_titles"]}
-                for r in data.choice_records
-            ]
+            for item in context.activity_rich.get("choices", []):
+                entity = item["entity"]
+                graph_ctx = item.get("graph_context", {})
+                result["choices_made"] += 1
+                result["choices_details"].append({
+                    "uid": entity["uid"],
+                    "title": entity["title"],
+                    "principles": [
+                        r["title"] for r in graph_ctx.get("principle_refs", []) if r.get("title")
+                    ],
+                })
+
+        # Principles
+        if include_all or "principles" in (domains or []):
+            for item in context.activity_rich.get("principles", []):
+                entity = item["entity"]
+                result["principles_reviewed"] += 1
+                result["principles_details"].append({
+                    "uid": entity["uid"],
+                    "title": entity["title"],
+                    "status": entity.get("status", ""),
+                    "alignment": entity.get("alignment", ""),
+                    "strength": entity.get("strength", ""),
+                    "category": entity.get("category", ""),
+                })
 
         return result
 
