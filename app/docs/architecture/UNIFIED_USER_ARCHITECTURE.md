@@ -509,8 +509,6 @@ class UserContextQueryExecutor:
     async def execute_consolidated_query(self, user_uid: str) -> Result[dict]:
         """Optimized query for standard context (UIDs only)."""
 
-    async def execute_activity_report_query(self, user_uid: str) -> Result[list[dict]]:
-        """Separate LIMIT 1 query for latest ActivityReport (rich path only)."""
 ```
 
 **Data Extraction** (`user_context_extractor.py`):
@@ -547,8 +545,9 @@ class UserContextPopulator:
     def populate_derived_fields(self, context: UserContext, tasks_rich: list, habits_rich: list) -> None: ...
     def populate_principle_choice_integration(self, context: UserContext, principles_rich: list, choices_rich: list) -> None: ...
 
-    # Feedback domain (rich path only — from separate LATEST_ACTIVITY_REPORT_QUERY)
-    def populate_activity_report(self, context: UserContext, records: list[dict]) -> None: ...
+    # Feedback domain + insights (rich path only — from MEGA-QUERY activity_report / active_insights_raw keys)
+    def populate_activity_report(self, context: UserContext, record: dict | None) -> None: ...
+    def populate_cross_domain_insights(self, context: UserContext, insights_raw: list[dict] | None) -> None: ...
 ```
 
 ## Key Design Benefits
@@ -928,17 +927,18 @@ The MEGA_QUERY returns 5 top-level sections that map to UserContext fields:
 | `active_moc_uids` | `active_moc_uids` | `populate_moc_fields()` |
 | `moc_metadata` | `moc_view_counts`, `recently_viewed_moc_uids` | `populate_moc_fields()` |
 
-**FEEDBACK DOMAIN fields (from separate `LATEST_ACTIVITY_REPORT_QUERY` — rich path only):**
+**FEEDBACK DOMAIN + INSIGHTS fields (from MEGA-QUERY `activity_report` / `active_insights_raw` keys — rich path only):**
 
-| Source | UserContext Field | Populate Method |
-|--------|-------------------|-----------------|
-| `ar.uid` | `latest_activity_report_uid` | `populate_activity_report()` |
-| `ar.time_period` | `latest_activity_report_period` | `populate_activity_report()` |
-| `ar.period_end` | `latest_activity_report_generated_at` | `populate_activity_report()` |
-| `ar.processed_content` | `latest_activity_report_content` | `populate_activity_report()` |
-| `ar.user_annotation` | `latest_activity_report_user_annotation` | `populate_activity_report()` |
+| MEGA-QUERY Key | UserContext Field | Populate Method |
+|----------------|-------------------|-----------------|
+| `activity_report.uid` | `latest_activity_report_uid` | `populate_activity_report()` |
+| `activity_report.period` | `latest_activity_report_period` | `populate_activity_report()` |
+| `activity_report.period_end` | `latest_activity_report_generated_at` | `populate_activity_report()` |
+| `activity_report.content` | `latest_activity_report_content` | `populate_activity_report()` |
+| `activity_report.user_annotation` | `latest_activity_report_user_annotation` | `populate_activity_report()` |
+| `active_insights_raw` (up to 10) | `cross_domain_insights` | `populate_cross_domain_insights()` |
 
-These fields are `None` in standard context. `DailyPlanningMixin._generate_daily_rationale()` uses them to note when the daily plan is informed by a recent AI synthesis. `ResponseGenerator.build_llm_context()` includes `latest_activity_report_user_annotation` when the query mentions feedback/patterns/reflection keywords.
+`cross_domain_insights` shape: `{"active_count": N, "top_insights": [...]}` — top 5 sorted by confidence descending. These fields are `None`/empty in standard context. `DailyPlanningMixin._generate_daily_rationale()` uses the activity report fields to note when the daily plan is informed by a recent AI synthesis. `ResponseGenerator.build_llm_context()` includes `latest_activity_report_user_annotation` when the query mentions feedback/patterns/reflection keywords.
 
 ## Profile Intelligence Integration
 *Last updated: January 2026*
