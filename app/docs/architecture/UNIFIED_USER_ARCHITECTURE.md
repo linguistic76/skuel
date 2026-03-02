@@ -887,17 +887,20 @@ Multiple queries: 450-750ms (15-18 queries)
 ### Rich Fields in UserContext
 
 ```python
-# Full entity + graph neighborhoods (6 activity domains unified under one field)
-context.entities_rich                # {"tasks": [...], "goals": [...], "habits": [...], "events": [...], "choices": [...], "principles": [...]}
+# Full entity + graph neighborhoods (9 keys: 6 activity + curriculum track)
+context.entities_rich                # keys: tasks, goals, habits, events, choices, principles, ku, learning_paths, learning_steps
 context.entities_rich["tasks"]       # [{entity: {...}, graph_context: {...}}, ...]
 context.entities_rich["goals"]       # [{entity: {...}, graph_context: {...}}, ...]
 context.entities_rich["habits"]      # [{entity: {...}, graph_context: {...}}, ...]
 context.entities_rich["events"]      # [{entity: {...}, graph_context: {...}}, ...]
 context.entities_rich["principles"]  # [{entity: {...}, graph_context: {...}}, ...]
 context.entities_rich["choices"]     # [{entity: {...}, graph_context: {...}}, ...]
-context.knowledge_units_rich         # {uid: {ku: {...}, graph_context: {...}}}
-context.enrolled_paths_rich          # [{path: {...}, graph_context: {...}}, ...]
-context.active_learning_steps_rich   # [{step: {...}, graph_context: {...}}, ...]
+context.entities_rich["learning_paths"]  # [{entity: {lp props}, graph_context: {...}}, ...]  (normalized from paths_rich)
+context.entities_rich["learning_steps"]  # [{entity: {ls props}, graph_context: {...}}, ...]  (normalized from steps_rich)
+context.entities_rich["ku"]          # [{entity: {ku props}, graph_context: {interaction_type, score, ...}}, ...]  (window-engaged only)
+context.knowledge_units_rich         # {uid: {ku: {...}, graph_context: {...}}}  (ALL KUs, static dict — still populated)
+context.enrolled_paths_rich          # [{path: {...}, graph_context: {...}}, ...]  (still populated for backward compat)
+context.active_learning_steps_rich   # [{step: {...}, graph_context: {...}}, ...]  (still populated for backward compat)
 ```
 
 ### MEGA_QUERY ↔ UserContext Field Mapping (January 2026)
@@ -907,7 +910,7 @@ The MEGA_QUERY returns 5 top-level sections that map to UserContext fields:
 | MEGA_QUERY Section | UserContext Fields | Populate Method |
 |-------------------|-------------------|-----------------|
 | `uids` | `active_task_uids`, `active_goal_uids`, `habit_streaks`, etc. | `populate_standard_fields()` |
-| `entities` | `entities_rich` (dict with keys: tasks, goals, habits, events, choices, principles) | `populate_entities_rich()` |
+| `entities` | `entities_rich` (dict with keys: tasks, goals, habits, events, choices, principles, learning_paths, learning_steps) | `populate_entities_rich()` |
 | `user_properties` | `learning_level`, `preferred_time`, `energy_level`, `preferred_personality`, `preferred_tone`, `preferred_guidance`, `available_minutes_daily` | `populate_user_properties()` |
 | `life_path` | `life_path_uid`, `life_path_alignment_score` | `populate_life_path()` |
 | `progress_counts` | `overall_progress` | `populate_progress_metrics()` |
@@ -923,6 +926,7 @@ The MEGA_QUERY returns 5 top-level sections that map to UserContext fields:
 | `principle_guided_choice_counts` | `entities_rich["principles"][].graph_context.guided_choices` | `populate_principle_choice_integration()` |
 | `principle_integration_score` | Computed: aligned_choices / total_choices | `populate_principle_choice_integration()` |
 | `recent_principle_aligned_choices` | `entities_rich["principles"][].graph_context.guided_choices` | `populate_principle_choice_integration()` |
+| `entities_rich["ku"]` | `mastery_timestamps` + `uids_data["ku_view_data"]` + `rich_data["knowledge"]` | `populate_ku_window_entities()` |
 
 **MOC fields (from `uids` section):**
 
@@ -943,20 +947,26 @@ The MEGA_QUERY returns 5 top-level sections that map to UserContext fields:
 
 CONSOLIDATED_QUERY (standard `build()` path) and MEGA_QUERY (rich `build_rich()` path) both fetch the latest ActivityReport and shape it as `{uid, period, period_end, content, user_annotation}` — identical key names so `populate_activity_report()` is called once and works for both paths.
 
-**`entities_rich` — the single unified rich field (March 2026):**
+**`entities_rich` — the unified rich field (9 keys, March 2026):**
 
-`entities_rich` is a `dict[str, list[dict]]` populated by `build_rich()` for all 6 activity
-domains. Keys: `"tasks"`, `"goals"`, `"habits"`, `"events"`, `"choices"`, `"principles"`.
-Each value is a list of `{entity: {...}, graph_context: {...}}` dicts.
+`entities_rich` is a `dict[str, list[dict]]` populated by `build_rich()`. All 9 keys share
+the same normalized shape `{entity: {...}, graph_context: {...}}`:
 
-When `window=` is passed to `build_rich()`, completed entities touched within the window are
-included alongside active entities — the same `entities_rich` field receives both. Used by
-intelligence methods (active-entity planning), `ProgressFeedbackGenerator`, and
-`ActivityReportService.create_snapshot()`.
+| Key | Source | Notes |
+|-----|--------|-------|
+| `"tasks"`, `"goals"`, `"habits"`, `"events"`, `"choices"`, `"principles"` | MEGA_QUERY `entities` section | 6 activity domains; active always included, completed included if touched in window |
+| `"learning_paths"` | MEGA_QUERY `entities` section | Normalized from `paths_rich` (entity = LP props) |
+| `"learning_steps"` | MEGA_QUERY `entities` section | Normalized from `steps_rich` (entity = LS props) |
+| `"ku"` | Python-derived by `populate_ku_window_entities()` | Window-engaged KUs only: mastered-in-window + viewed-in-window; `graph_context.interaction_type` = `"mastered"` or `"viewed"` |
+
+`enrolled_paths_rich` and `active_learning_steps_rich` remain populated for backward compat
+(same data, old `{path: ...}` / `{step: ...}` shape). `knowledge_units_rich` (ALL KUs, static
+dict) also remains. `ProgressFeedbackGenerator` and `ActivityReportService.create_snapshot()`
+now read LP/LS/KU from `entities_rich`.
 
 The old separate `activity_rich` / `activity_window_period` / `activity_window_start` /
 `activity_window_end` fields have been removed. `entities_rich` is THE single field for all
-rich activity domain data.
+rich activity + curriculum window data.
 
 **INSIGHTS fields — rich path only:**
 

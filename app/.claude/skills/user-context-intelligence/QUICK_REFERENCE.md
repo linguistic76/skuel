@@ -13,7 +13,8 @@ core/services/user/intelligence/
 ├── learning_intelligence.py       # LearningIntelligenceMixin
 ├── life_path_intelligence.py      # LifePathIntelligenceMixin
 ├── synergy_intelligence.py        # SynergyIntelligenceMixin
-└── schedule_intelligence.py       # ScheduleIntelligenceMixin
+├── schedule_intelligence.py       # ScheduleIntelligenceMixin
+└── temporal_momentum.py           # TemporalMomentumMixin
 
 core/models/context_types.py       # Return types (LearningStep, DailyWorkPlan, etc.)
 ```
@@ -71,6 +72,7 @@ from core.services.user.intelligence import (
     LifePathIntelligenceMixin,
     ScheduleIntelligenceMixin,
     SynergyIntelligenceMixin,
+    TemporalMomentumMixin,
 )
 ```
 

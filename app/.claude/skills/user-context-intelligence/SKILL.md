@@ -22,6 +22,7 @@ class UserContextIntelligence(
     LifePathIntelligenceMixin,      # Method 7: Life path alignment
     SynergyIntelligenceMixin,       # Method 6: Cross-domain synergies
     ScheduleIntelligenceMixin,      # Method 8: Schedule-aware recommendations
+    TemporalMomentumMixin,          # Momentum signals (entities_rich analysis)
     DailyPlanningMixin,             # Method 5: THE FLAGSHIP - Daily work plan
 ):
     """Learning journey intelligence = Context + 13 Domain Services."""

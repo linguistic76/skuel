@@ -10,9 +10,10 @@ class UserContextIntelligence(
     LifePathIntelligenceMixin,      # Method 7
     SynergyIntelligenceMixin,       # Method 6
     ScheduleIntelligenceMixin,      # Method 8
+    TemporalMomentumMixin,          # Momentum signals (entities_rich analysis)
     DailyPlanningMixin,             # Method 5 (THE FLAGSHIP)
 ):
-    """Composed from 5 specialized mixins."""
+    """Composed from 6 specialized mixins."""
 ```
 
 ---
@@ -31,7 +32,7 @@ class UserContextIntelligence(
 
 ---
 
-## The 5 Mixins
+## The 6 Mixins
 
 ### 1. LearningIntelligenceMixin
 
@@ -193,7 +194,42 @@ async def get_schedule_aware_recommendations(
 
 ---
 
-### 5. DailyPlanningMixin
+### 5. TemporalMomentumMixin
+
+**File:** `temporal_momentum.py`
+
+**Methods:**
+- `compute_momentum_signals()` — Analyzes `context.entities_rich` (all 9 keys)
+- `_momentum_warnings()` — Formats neglected-domain + habit-consistency warnings
+- `_momentum_rationale()` — Returns phase-based rationale clause
+
+**Required Attributes:**
+```python
+class TemporalMomentumMixin:
+    context: UserContext  # needs context.entities_rich populated (rich context only)
+```
+
+**Key Logic:**
+- Computes completion velocity per activity domain (0.0–1.0)
+- Detects neglected domains (zero window activity)
+- Computes habit consistency from `completion_rate` field
+- Derives phase: `"accelerating"` (≥0.6), `"steady"` (≥0.3), `"decelerating"` (<0.3)
+- Pure Python — no I/O, no await. Returns empty signals when `entities_rich` is empty (standard context)
+
+```python
+def compute_momentum_signals(self) -> dict[str, Any]:
+    """
+    Returns:
+        velocities: {domain: 0.0-1.0}
+        neglected: [domain, ...]
+        habit_consistency: float
+        phase: "accelerating" | "steady" | "decelerating" | "unknown"
+    """
+```
+
+---
+
+### 6. DailyPlanningMixin
 
 **File:** `daily_planning.py` (~256 lines)
 
@@ -257,7 +293,8 @@ UserContextIntelligence.__init__()
          ├── LifePathIntelligenceMixin: 1 method
          ├── SynergyIntelligenceMixin: 1 method
          ├── ScheduleIntelligenceMixin: 1 method
-         └── DailyPlanningMixin: 1 method
+         ├── TemporalMomentumMixin: momentum signals (entities_rich analysis)
+         └── DailyPlanningMixin: 1 method (calls TemporalMomentumMixin)
          │
          ▼
      Methods access self.context, self.tasks, self.ku, etc.
@@ -269,12 +306,13 @@ UserContextIntelligence.__init__()
 
 ### Service Dependencies by Mixin
 
-| Mixin | Required Services |
-|-------|-------------------|
+| Mixin | Required Attributes |
+|-------|---------------------|
 | `LearningIntelligenceMixin` | context, tasks, ku |
 | `LifePathIntelligenceMixin` | context, goals, habits, ku |
 | `SynergyIntelligenceMixin` | context, habits, goals, tasks, ku |
 | `ScheduleIntelligenceMixin` | context, calendar, events, tasks, habits |
+| `TemporalMomentumMixin` | context (needs `entities_rich` — rich context only; returns empty signals otherwise) |
 | `DailyPlanningMixin` | context, tasks, habits, goals, events, choices, principles, ku, feedback |
 
 ### All Services Required
@@ -422,6 +460,7 @@ class UserContextIntelligence(
     LifePathIntelligenceMixin,
     SynergyIntelligenceMixin,
     ScheduleIntelligenceMixin,
+    TemporalMomentumMixin,
     DailyPlanningMixin,
     FocusIntelligenceMixin,  # New mixin
 ):
