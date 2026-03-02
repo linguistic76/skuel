@@ -50,48 +50,73 @@ TIME_PERIOD_DAYS = {
 
 _PROMPT_TEMPLATE_PATH = Path(__file__).parent / "prompts" / "activity_feedback.md"
 
-# Consolidated query: Tasks, Goals, Habits, Principles — all use updated_at.
-# OPTIONAL MATCHes for FULFILLS_GOAL and APPLIES_KNOWLEDGE only match on task
-# entities; returns [] for goals/habits/principles (they lack these outgoing rels).
-_ACTIVITY_MAIN_QUERY = """
-MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:Entity)
-WHERE e.updated_at >= datetime($start) AND e.updated_at <= datetime($end)
-  AND e.entity_type IN $entity_types
-OPTIONAL MATCH (e)-[:FULFILLS_GOAL]->(g:Goal)
-OPTIONAL MATCH (e)-[:APPLIES_KNOWLEDGE]->(ku:Entity)
-WITH e, collect(DISTINCT g.title) AS goal_titles, collect(DISTINCT ku.title) AS ku_titles
-RETURN
-    e.entity_type AS entity_type,
-    e.uid AS uid,
-    e.title AS title,
-    e.status AS status,
-    e.progress AS progress,
-    e.streak_count AS streak,
-    e.current_alignment AS alignment,
-    e.strength AS strength,
-    e.principle_category AS category,
-    goal_titles,
-    ku_titles
-ORDER BY e.updated_at DESC
-"""
+# Single combined query — three CALL {} subqueries in one round-trip.
+#
+# Replaces the previous three separate queries:
+#   1. Tasks/Goals/Habits/Principles — updated_at datetime filter + graph traversal
+#   2. Events                        — event_date date filter (separate type)
+#   3. Choices                       — created_at datetime filter + principle traversal
+#
+# Parameters:
+#   $entity_types — list of entity type strings for the main block (empty = no records)
+#   $start/$end   — datetime ISO strings (main block + choices)
+#   $start_date/$end_date — date ISO strings (events block)
+#
+# Each CALL {} block returns an empty list when no entities match, so the
+# outer RETURN always produces one row.
+_ACTIVITY_QUERY: str = """
+MATCH (u:User {uid: $user_uid})
 
-# Events use event_date (date type, not datetime) — must remain separate.
-_EVENTS_QUERY = """
-MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:Event)
-WHERE e.event_date >= date($start) AND e.event_date <= date($end)
-RETURN e.uid AS uid, e.title AS title, e.status AS status,
-       e.event_type AS event_type, e.is_milestone_event AS is_milestone
-ORDER BY e.event_date DESC
-"""
+CALL {
+    WITH u
+    OPTIONAL MATCH (u)-[:OWNS]->(e:Entity)
+    WHERE e.entity_type IN $entity_types
+      AND e.updated_at >= datetime($start) AND e.updated_at <= datetime($end)
+    OPTIONAL MATCH (e)-[:FULFILLS_GOAL]->(g:Goal)
+    OPTIONAL MATCH (e)-[:APPLIES_KNOWLEDGE]->(ku:Entity)
+    WITH e, collect(DISTINCT g.title) AS goal_titles, collect(DISTINCT ku.title) AS ku_titles
+    RETURN collect(CASE WHEN e IS NOT NULL THEN {
+        entity_type: e.entity_type,
+        uid: e.uid,
+        title: e.title,
+        status: e.status,
+        progress: e.progress,
+        streak: e.streak_count,
+        alignment: e.current_alignment,
+        strength: e.strength,
+        category: e.principle_category,
+        goal_titles: goal_titles,
+        ku_titles: ku_titles
+    } ELSE null END) AS main_records
+}
 
-# Choices use created_at (not updated_at) + INFORMED_BY_PRINCIPLE traversal.
-_CHOICES_QUERY = """
-MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Choice)
-WHERE c.created_at >= datetime($start) AND c.created_at <= datetime($end)
-OPTIONAL MATCH (c)-[:INFORMED_BY_PRINCIPLE]->(p:Principle)
-RETURN c.uid AS uid, c.title AS title,
-       collect(DISTINCT p.title) AS principle_titles
-ORDER BY c.created_at DESC
+CALL {
+    WITH u
+    OPTIONAL MATCH (u)-[:OWNS]->(e:Event)
+    WHERE e.event_date >= date($start_date) AND e.event_date <= date($end_date)
+    RETURN collect(CASE WHEN e IS NOT NULL THEN {
+        uid: e.uid,
+        title: e.title,
+        status: e.status,
+        event_type: e.event_type,
+        is_milestone: coalesce(e.is_milestone_event, false)
+    } ELSE null END) AS event_records
+}
+
+CALL {
+    WITH u
+    OPTIONAL MATCH (u)-[:OWNS]->(c:Choice)
+    WHERE c.created_at >= datetime($start) AND c.created_at <= datetime($end)
+    OPTIONAL MATCH (c)-[:INFORMED_BY_PRINCIPLE]->(p:Principle)
+    WITH c, collect(DISTINCT p.title) AS principle_titles
+    RETURN collect(CASE WHEN c IS NOT NULL THEN {
+        uid: c.uid,
+        title: c.title,
+        principle_titles: principle_titles
+    } ELSE null END) AS choice_records
+}
+
+RETURN main_records, event_records, choice_records
 """
 
 
@@ -138,12 +163,13 @@ class ProgressFeedbackGenerator:
         domains: list[str] | None = None,
         depth: str = "standard",
         include_insights: bool = True,
+        previous_annotation: str | None = None,
     ) -> Result[ActivityReport]:
         """
         Generate activity feedback for a user.
 
         Pipeline:
-            1. Query activity stats from Neo4j
+            1. Query activity stats from Neo4j (single round-trip via CALL {} subqueries)
             2. If LLM available: send stats as context → qualitative feedback text
                Else: build programmatic markdown summary
             3. Create and persist ActivityReport entity
@@ -154,6 +180,10 @@ class ProgressFeedbackGenerator:
             domains: Domains to include (empty = all activity domains)
             depth: Detail level (summary, standard, detailed)
             include_insights: Whether to include active insights
+            previous_annotation: User's self-reflection from their most recent prior
+                report. When provided by a caller that already holds UserContext
+                (context.latest_activity_report_user_annotation), the database
+                lookup for the previous annotation is skipped entirely.
 
         Returns:
             Result[ActivityReport] — the created feedback entity
@@ -183,11 +213,17 @@ class ProgressFeedbackGenerator:
             processor_type = ProcessorType.AUTOMATIC
             processing_error: str | None = None
 
-            previous_annotation = await self._fetch_previous_annotation(user_uid, start_date)
+            # Use caller-supplied annotation when available (saves 1 round-trip);
+            # otherwise fetch from the database.
+            effective_annotation = (
+                previous_annotation
+                if previous_annotation is not None
+                else await self._fetch_previous_annotation(user_uid, start_date)
+            )
 
             if self.openai_service:
                 llm_result = await self._generate_llm_feedback(
-                    completions, insights, time_period, depth, previous_annotation
+                    completions, insights, time_period, depth, effective_annotation
                 )
                 if llm_result.is_ok:
                     content = llm_result.value
@@ -447,12 +483,15 @@ class ProgressFeedbackGenerator:
         end_date: datetime,
         domains: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Query historical completions across domains within the time window.
+        """Query historical completions across domains in a single round-trip.
 
-        Runs 3 targeted Neo4j queries instead of 6:
-          1. _ACTIVITY_MAIN_QUERY  — tasks, goals, habits, principles (all use updated_at)
-          2. _EVENTS_QUERY         — events use event_date (date type)
-          3. _CHOICES_QUERY        — choices use created_at + principle relationship
+        Uses _ACTIVITY_QUERY (three CALL {} subqueries) to fetch tasks/goals/
+        habits/principles, events, and choices in one database call.
+
+        The previous three separate queries are now a single combined query:
+          - main block  — tasks, goals, habits, principles (updated_at datetime filter)
+          - event block — events (event_date date filter)
+          - choice block — choices (created_at datetime filter + principle traversal)
         """
         include_all = domains is None
 
@@ -474,7 +513,6 @@ class ProgressFeedbackGenerator:
             "knowledge_applications": [],
         }
 
-        # Query 1: Tasks, Goals, Habits, Principles — unified via entity_type IN [...]
         _MAIN_DOMAIN_MAP = {
             "tasks": "task", "goals": "goal", "habits": "habit", "principles": "principle"
         }
@@ -482,61 +520,54 @@ class ProgressFeedbackGenerator:
             v for k, v in _MAIN_DOMAIN_MAP.items()
             if include_all or k in (domains or [])
         ]
-        if entity_types:
-            main_result = await self.executor.execute_query(
-                _ACTIVITY_MAIN_QUERY,
-                {
-                    "user_uid": user_uid,
-                    "start": start_date.isoformat(),
-                    "end": end_date.isoformat(),
-                    "entity_types": entity_types,
-                },
-            )
-            if main_result.is_error:
-                logger.warning(f"Failed to query main entity completions: {main_result.error}")
-            else:
-                self._process_main_entities(main_result.value, result)
 
-        # Query 2: Events — event_date is a date, not datetime
+        query_result = await self.executor.execute_query(
+            _ACTIVITY_QUERY,
+            {
+                "user_uid": user_uid,
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat(),
+                "start_date": start_date.date().isoformat(),
+                "end_date": end_date.date().isoformat(),
+                "entity_types": entity_types,
+            },
+        )
+        if query_result.is_error:
+            logger.warning(f"Failed to query activity completions: {query_result.error}")
+            return result
+
+        records = query_result.value or []
+        if not records:
+            return result
+
+        row = records[0]
+
+        # Main entities: tasks, goals, habits, principles
+        self._process_main_entities(row.get("main_records") or [], result)
+
+        # Events
         if include_all or "events" in (domains or []):
-            events_result = await self.executor.execute_query(
-                _EVENTS_QUERY,
+            event_records = row.get("event_records") or []
+            result["events_attended"] = len(event_records)
+            result["events_details"] = [
                 {
-                    "user_uid": user_uid,
-                    "start": start_date.date().isoformat(),
-                    "end": end_date.date().isoformat(),
-                },
-            )
-            if events_result.is_error:
-                logger.warning(f"Failed to query events: {events_result.error}")
-            else:
-                records = events_result.value
-                result["events_attended"] = len(records)
-                result["events_details"] = [
-                    {"uid": r["uid"], "title": r["title"], "status": r["status"],
-                     "event_type": r["event_type"], "is_milestone": r["is_milestone"]}
-                    for r in records
-                ]
+                    "uid": r["uid"],
+                    "title": r["title"],
+                    "status": r["status"],
+                    "event_type": r["event_type"],
+                    "is_milestone": r["is_milestone"],
+                }
+                for r in event_records
+            ]
 
-        # Query 3: Choices — created_at (not updated_at) + principle traversal
+        # Choices
         if include_all or "choices" in (domains or []):
-            choices_result = await self.executor.execute_query(
-                _CHOICES_QUERY,
-                {
-                    "user_uid": user_uid,
-                    "start": start_date.isoformat(),
-                    "end": end_date.isoformat(),
-                },
-            )
-            if choices_result.is_error:
-                logger.warning(f"Failed to query choices: {choices_result.error}")
-            else:
-                records = choices_result.value
-                result["choices_made"] = len(records)
-                result["choices_details"] = [
-                    {"uid": r["uid"], "title": r["title"], "principles": r["principle_titles"]}
-                    for r in records
-                ]
+            choice_records = row.get("choice_records") or []
+            result["choices_made"] = len(choice_records)
+            result["choices_details"] = [
+                {"uid": r["uid"], "title": r["title"], "principles": r["principle_titles"]}
+                for r in choice_records
+            ]
 
         return result
 

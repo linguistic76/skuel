@@ -93,6 +93,62 @@ class TestTimePeriodMapping:
 # ============================================================================
 
 
+class TestQueryCompletionsSingleRoundTrip:
+    """_query_completions issues exactly one execute_query call."""
+
+    @pytest.mark.asyncio
+    async def test_single_query_call(self, generator):
+        """Combined CALL{} query replaces the previous 3 separate queries."""
+        generator.executor.execute_query.reset_mock()
+        await generator._query_completions(
+            "user_alice",
+            datetime.now() - timedelta(days=7),
+            datetime.now(),
+        )
+        assert generator.executor.execute_query.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_empty_result_returns_zero_counts(self, generator):
+        """Empty query result (user not found) returns all-zero completions."""
+        result = await generator._query_completions(
+            "user_ghost",
+            datetime.now() - timedelta(days=7),
+            datetime.now(),
+        )
+        assert result["tasks_completed"] == 0
+        assert result["events_attended"] == 0
+        assert result["choices_made"] == 0
+
+
+class TestPreviousAnnotationParameter:
+    """generate() skips _fetch_previous_annotation when annotation is provided."""
+
+    @pytest.mark.asyncio
+    async def test_provided_annotation_skips_db_lookup(self, generator, mock_backend):
+        """When previous_annotation is given, only 1 execute_query call (the activity query)."""
+        mock_backend.create.return_value = Result.ok(MagicMock())
+        generator.executor.execute_query.reset_mock()
+
+        await generator.generate(
+            user_uid="user_alice",
+            previous_annotation="I was overcommitting last week.",
+        )
+
+        # Only the combined activity query — no separate annotation lookup
+        assert generator.executor.execute_query.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_no_annotation_fetches_from_db(self, generator, mock_backend):
+        """When previous_annotation is None, 2 execute_query calls (activity + annotation)."""
+        mock_backend.create.return_value = Result.ok(MagicMock())
+        generator.executor.execute_query.reset_mock()
+
+        await generator.generate(user_uid="user_alice")
+
+        # Activity query + annotation lookup
+        assert generator.executor.execute_query.call_count == 2
+
+
 class TestGenerate:
     """Test the generate() method."""
 
