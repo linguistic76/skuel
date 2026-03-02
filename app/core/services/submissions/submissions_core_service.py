@@ -840,12 +840,42 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     #   metadata['transcription_uid']
     # ========================================================================
 
+    async def _count_journals_for_date(self, user_uid: str, entry_date: date) -> int:
+        """Count journals owned by user on the given calendar day (for sequence ordering)."""
+        from datetime import timezone
+
+        day_start = datetime(entry_date.year, entry_date.month, entry_date.day, tzinfo=timezone.utc)
+        day_end = datetime(
+            entry_date.year, entry_date.month, entry_date.day, 23, 59, 59, tzinfo=timezone.utc
+        )
+        query = """
+            MATCH (u:User {uid: $user_uid})-[:OWNS]->(j:Entity {ku_type: 'journal'})
+            WHERE j.created_at >= $day_start AND j.created_at <= $day_end
+            RETURN count(j) AS total
+        """
+        records, _, _ = await self.backend.driver.execute_query(
+            query,
+            user_uid=user_uid,
+            day_start=day_start,
+            day_end=day_end,
+        )
+        return int(records[0]["total"]) if records else 0
+
+    async def generate_journal_title(self, user_uid: str, entry_date: date | None = None) -> str:
+        """Generate canonical journal title with sequence number for the given day.
+
+        Format: Journal — {user_id} — {Mar 02, 2026} — #{order}
+        """
+        resolved_date = entry_date or date.today()
+        existing_count = await self._count_journals_for_date(user_uid, resolved_date)
+        return Journal.generate_title(user_uid, resolved_date, order=existing_count + 1)
+
     @with_error_handling("create_journal_entry", error_type="database")
     async def create_journal_entry(
         self,
         user_uid: str,
-        title: str,
-        content: str,
+        title: str | None = None,
+        content: str = "",
         max_retention: int | None = None,
         entry_date: date | None = None,
         tags: list[str] | None = None,
@@ -870,7 +900,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         Args:
             user_uid: User who owns this journal
-            title: Journal entry title
+            title: Journal entry title (auto-generated if None)
             content: Journal body text
             max_retention: FIFO cleanup limit (None = permanent, 3 = keep last 3)
             entry_date: Date of entry (defaults to today)
@@ -886,11 +916,15 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             Result containing the created submission
         """
+        resolved_date = entry_date or date.today()
+        if title is None:
+            title = await self.generate_journal_title(user_uid, resolved_date)
+
         uid = UIDGenerator.generate_uid("je", title)
 
         # Build journal metadata
         journal_metadata = metadata.copy() if metadata else {}
-        journal_metadata["entry_date"] = (entry_date or date.today()).isoformat()
+        journal_metadata["entry_date"] = resolved_date.isoformat()
         if mood:
             journal_metadata["mood"] = mood
         if energy_level is not None:
@@ -1082,6 +1116,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             RETURN exercise.scope as scope,
                    exercise.user_uid as teacher_uid,
                    exercise.scope as exercise_scope,
+                   exercise.title as exercise_title,
                    g.uid as group_uid
             """,
             {"exercise_uid": exercise_uid},
@@ -1101,6 +1136,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         teacher_uid = records[0]["teacher_uid"]
         group_uid = records[0]["group_uid"]
+        exercise_title = records[0].get("exercise_title") or ""
 
         # Verify student is a member of the target group (if group exists)
         if group_uid:
@@ -1125,6 +1161,54 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                     f"for exercise {exercise_uid}"
                 )
                 return Result.ok(False)
+
+        # 0. Auto-generate canonical title from exercise
+        if exercise_title:
+            student_uid_result = await self.backend.execute_query(
+                """
+                MATCH (student:User)-[:OWNS]->(ku:Entity {uid: $ku_uid})
+                RETURN student.uid as student_uid
+                """,
+                {"ku_uid": ku_uid},
+            )
+            if not student_uid_result.is_error:
+                student_uid_records = student_uid_result.value or []
+                if student_uid_records:
+                    submitter_uid = student_uid_records[0]["student_uid"]
+
+                    # Count prior submissions already linked to this exercise by this student
+                    prior_count_result = await self.backend.execute_query(
+                        f"""
+                        MATCH (student:User {{uid: $student_uid}})-[:OWNS]->(s:Entity)
+                            -[:{RelationshipName.FULFILLS_EXERCISE}]->(e:Entity {{uid: $exercise_uid}})
+                        RETURN count(s) AS prior_count
+                        """,
+                        {"student_uid": submitter_uid, "exercise_uid": exercise_uid},
+                    )
+                    prior_count = 0
+                    if not prior_count_result.is_error and prior_count_result.value:
+                        prior_count = int(prior_count_result.value[0]["prior_count"])
+
+                    from core.models.submissions.submission import Submission
+
+                    new_title = Submission.generate_exercise_title(
+                        exercise_title=exercise_title,
+                        user_uid=submitter_uid,
+                        revision_number=prior_count + 1,
+                        revision_date=date.today(),
+                    )
+                    await self.backend.execute_query(
+                        """
+                        MATCH (s:Entity {uid: $ku_uid})
+                        SET s.title = $new_title, s.updated_at = $now
+                        """,
+                        {
+                            "ku_uid": ku_uid,
+                            "new_title": new_title,
+                            "now": datetime.now().isoformat(),
+                        },
+                    )
+                    self.logger.info(f"Updated submission title to: {new_title}")
 
         # 1. Create FULFILLS_EXERCISE relationship
         fulfills_result = await self.backend.execute_query(

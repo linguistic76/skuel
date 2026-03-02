@@ -14,6 +14,7 @@ See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass
+from datetime import date
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -39,6 +40,21 @@ class Journal(Submission):
         if self.ku_type != EntityType.JOURNAL:
             object.__setattr__(self, "ku_type", EntityType.JOURNAL)
         super().__post_init__()
+
+    # =========================================================================
+    # TITLE GENERATION
+    # =========================================================================
+
+    @classmethod
+    def generate_title(cls, user_uid: str, entry_date: date, order: int) -> str:
+        """Auto-generate the canonical journal title.
+
+        Format: Journal — {user_id} — {Mar 02, 2026} — #{order}
+        Example: Journal — mike — Mar 02, 2026 — #1
+        """
+        user_id = user_uid.removeprefix("user_")
+        date_str = entry_date.strftime("%b %d, %Y")
+        return f"Journal \u2014 {user_id} \u2014 {date_str} \u2014 #{order}"
 
     # =========================================================================
     # CONVERSION (generic — uses Entity._from_dto / to_dto)

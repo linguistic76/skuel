@@ -291,18 +291,17 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
             # x-data on card-body so both Form and instruction file picker share scope
             Div(
                 Form(
-                    # Title input
+                    # Title input (optional — auto-generated if left blank)
                     Div(
-                        Label("Title", cls="label"),
+                        Label("Title (optional)", cls="label"),
                         Input(
                             type="text",
                             name="title",
-                            placeholder="e.g. Morning Reflection, Yoga Session Notes",
+                            placeholder="Leave blank to auto-generate (e.g. Journal — mike — Mar 02, 2026 — #1)",
                             cls="input input-bordered w-full",
-                            required=True,
                         ),
                         P(
-                            "A descriptive title for this journal entry",
+                            "Leave blank to use the auto-generated title",
                             cls="text-xs text-base-content/60 mt-1",
                         ),
                         cls="mb-4",
@@ -593,6 +592,7 @@ def create_journals_ui_routes(
     report_projects_service,
     user_service=None,
     journal_generator=None,
+    submissions_core_service=None,
 ):
     """
     Create journal UI routes — available to all authenticated users.
@@ -605,6 +605,7 @@ def create_journals_ui_routes(
         report_projects_service: ExerciseService (optional — enables custom instructions)
         user_service: UserService for admin role checks
         journal_generator: JournalOutputGenerator for cleanup operations
+        submissions_core_service: SubmissionsCoreService (optional — enables auto-title generation)
     """
 
     logger.info("Creating Journals UI routes")
@@ -691,10 +692,7 @@ def create_journals_ui_routes(
             form = await request.form()
             uploaded_file = form.get("file")
             raw_title = form.get("title")
-            title = str(raw_title).strip() if raw_title else ""
-
-            if not title:
-                return _render_upload_status("error", "Title is required", is_error=True)
+            custom_title = str(raw_title).strip() if raw_title else ""
 
             if not uploaded_file or not isinstance(uploaded_file, UploadFile):
                 return _render_upload_status("error", "No file provided", is_error=True)
@@ -702,6 +700,14 @@ def create_journals_ui_routes(
             user_uid = require_authenticated_user(request)
             file_content = await uploaded_file.read()
             filename = uploaded_file.filename or "unknown"
+
+            # Resolve title: custom > auto-generated
+            if custom_title:
+                title = custom_title
+            elif submissions_core_service:
+                title = await submissions_core_service.generate_journal_title(user_uid)
+            else:
+                title = filename
 
             # Resolve processing instructions: exercise overrides default
             exercise_uid = str(form.get("exercise_uid", "")).strip()

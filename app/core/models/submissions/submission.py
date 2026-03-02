@@ -40,7 +40,7 @@ See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -105,6 +105,34 @@ class Submission(UserOwnedEntity):
     # SUBJECT
     # =========================================================================
     subject_uid: str | None = None  # Who this report is about
+
+    # =========================================================================
+    # TITLE GENERATION
+    # =========================================================================
+
+    @classmethod
+    def generate_exercise_title(
+        cls,
+        exercise_title: str,
+        user_uid: str,
+        revision_number: int = 1,
+        revision_date: date | None = None,
+    ) -> str:
+        """Auto-generate the canonical exercise submission title.
+
+        Format: {Exercise Title} — {user_id}
+        Revision: {Exercise Title} — {user_id} #{revision_number}, {Mar 02}
+
+        Examples:
+            Meditation Fundamentals — mike
+            Meditation Fundamentals — mike #2, Mar 02
+        """
+        user_id = user_uid.removeprefix("user_")
+        base = f"{exercise_title} \u2014 {user_id}"
+        if revision_number > 1:
+            date_str = (revision_date or date.today()).strftime("%b %d")
+            return f"{base} #{revision_number}, {date_str}"
+        return base
 
     # =========================================================================
     # SUBMISSION-SPECIFIC METHODS
