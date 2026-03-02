@@ -20,6 +20,7 @@ January 2026: Extracted from QueryProcessor as part of Askesis design improvemen
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from core.constants import MasteryLevel
@@ -174,14 +175,39 @@ class ResponseGenerator:
         # Activity report context (if query mentions feedback/patterns/reflection)
         if any(
             word in query_lower
-            for word in ["feedback", "pattern", "review", "reflect", "report", "progress", "trend"]
+            for word in ["feedback", "pattern", "review", "reflect", "report", "progress", "trend", "doing", "going", "focus", "week", "lately", "recently"]
         ) and user_context.latest_activity_report_uid:
-            context_parts.append("\n--- Recent Activity Analysis ---")
+            report_age_days: int | None = None
+            generated_at = user_context.latest_activity_report_generated_at
+            if generated_at is not None:
+                now = datetime.now(tz=timezone.utc)
+                aware_generated_at = (
+                    generated_at.replace(tzinfo=timezone.utc)
+                    if generated_at.tzinfo is None
+                    else generated_at
+                )
+                report_age_days = (now - aware_generated_at).days
+            age_label = (
+                f" (from {report_age_days} days ago — may not reflect current activity)"
+                if report_age_days is not None and report_age_days > 30
+                else ""
+            )
+            context_parts.append(f"\n--- Recent Activity Analysis{age_label} ---")
             if user_context.latest_activity_report_period:
                 context_parts.append(f"Period: last {user_context.latest_activity_report_period}")
             if user_context.latest_activity_report_content:
-                snippet = user_context.latest_activity_report_content[:300]
-                context_parts.append(f"AI synthesis: {snippet}...")
+                content = user_context.latest_activity_report_content
+                _MAX = 500
+                if len(content) <= _MAX:
+                    snippet = content
+                else:
+                    boundary = max(
+                        content.rfind(". ", 0, _MAX),
+                        content.rfind("\n", 0, _MAX),
+                    )
+                    snippet = content[: boundary + 1] if boundary != -1 else content[:_MAX]
+                trailing = "..." if len(content) > len(snippet) else ""
+                context_parts.append(f"AI synthesis: {snippet}{trailing}")
             if user_context.latest_activity_report_user_annotation:
                 context_parts.append(
                     f"Your reflection: {user_context.latest_activity_report_user_annotation}"

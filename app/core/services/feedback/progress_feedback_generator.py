@@ -360,8 +360,19 @@ class ProgressFeedbackGenerator:
             rendered += (
                 f"\n\nUser's reflection from their previous activity report:\n"
                 f"{previous_annotation}\n\n"
-                f"Please acknowledge this reflection where the current data supports "
-                f"or contradicts it."
+                f"Instructions for integrating this reflection:\n"
+                f"1. Identify any intentions or commitments stated in the reflection "
+                f"(e.g. 'I want to focus more on deep work', 'I will exercise daily').\n"
+                f"2. Check the activity data above for evidence of follow-through on each one — "
+                f"tasks completed, habits kept, goals progressed, events attended, choices made.\n"
+                f"3. Name the follow-through (or absence of it) explicitly and by name, "
+                f"not vaguely. If the user said they wanted deep work and completed 3 focused "
+                f"tasks, say so. If they said they would exercise and the habit streak is zero, "
+                f"say that too.\n"
+                f"4. Weave these observations into the relevant domain sections of your report "
+                f"(Tasks, Habits, Goals, etc.) rather than appending a separate paragraph at "
+                f"the end. The reflection should feel like a thread running through the report, "
+                f"not a footnote."
             )
         return rendered
 
@@ -750,9 +761,9 @@ class ProgressFeedbackGenerator:
         _QUERY = """
         MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
         WHERE ar.entity_type = 'activity_report'
-          AND ar.user_annotation IS NOT NULL
+          AND (ar.user_annotation IS NOT NULL OR ar.user_revision IS NOT NULL)
           AND ar.period_end < datetime($period_start)
-        RETURN ar.user_annotation AS annotation
+        RETURN COALESCE(ar.user_annotation, ar.user_revision) AS annotation
         ORDER BY ar.period_end DESC
         LIMIT 1
         """
