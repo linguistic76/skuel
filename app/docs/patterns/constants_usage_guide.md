@@ -256,7 +256,31 @@ relationships = await find_cross_domain(
 )
 ```
 
-### 6. Relationship Strength (`RelationshipStrength`)
+### 6. Feedback Time Periods (`FeedbackTimePeriod`)
+
+Valid time period strings for activity feedback and review — shared vocabulary
+used by `ActivityReviewService` and `ProgressFeedbackGenerator`:
+
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `WEEK` | `"7d"` | 7-day review window |
+| `TWO_WEEKS` | `"14d"` | 14-day review window |
+| `MONTH` | `"30d"` | 30-day review window |
+| `QUARTER` | `"90d"` | 90-day review window |
+| `DEFAULT` | `"7d"` | Default period string |
+| `DEFAULT_DAYS` | `7` | Default day count (for `.get()` fallback) |
+| `DAYS` | `dict[str, int]` | Period string → day count mapping |
+
+**Usage:**
+```python
+from core.constants import FeedbackTimePeriod
+
+days = FeedbackTimePeriod.DAYS.get(time_period, FeedbackTimePeriod.DEFAULT_DAYS)
+end_date = datetime.now()
+start_date = end_date - timedelta(days=days)
+```
+
+### 7. Relationship Strength (`RelationshipStrength`)
 
 Default confidence for relationship types:
 
