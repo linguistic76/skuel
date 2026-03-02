@@ -2,7 +2,7 @@
 
 **Purpose:** Quick reference for understanding which sub-service handles which responsibilities across SKUEL's Activity Domain facades.
 
-**Last Updated:** 2026-01-29
+**Last Updated:** 2026-03-03
 
 ---
 

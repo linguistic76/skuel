@@ -117,7 +117,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Code Quality Enforcement - Linter Rules](patterns/linter_rules.md) | 2025-10-17 | 209 |
 | [Constants Usage Guide](patterns/constants_usage_guide.md) | 2025-11-27 | 493 |
 | [Context-First Relationship Pattern](patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md) | 2026-02-10 | 712 |
-| [Domain Relationships Pattern (Graph-Native Archite...](patterns/DOMAIN_RELATIONSHIPS_PATTERN.md) | 2026-01-07 | 620 |
 | **[Domain Lateral Service Quick Start](patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md)** | **2026-01-31** | **350** |
 | [Domain-Specific Hooks Pattern](patterns/DOMAIN_SPECIFIC_HOOKS.md) | 2025-11-08 | 440 |
 | **[Lateral Relationships Visualization Pattern](patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md)** | **2026-02-01** | **1020** |
@@ -141,13 +140,9 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Query Architecture](patterns/query_architecture.md) | 2025-12-07 | 520 |
 | [Curriculum Query Patterns](patterns/curriculum/curriculum_query_patterns.md) | 2025-11-27 | 707 |
 | [SKUEL Query Template Usage Guide](patterns/SKUEL_QUERY_USAGE_GUIDE.md) | 2025-11-26 | 620 |
-| [Relationship Helpers - Example Service Implementat...](patterns/RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md) | 2025-11-18 | 533 |
-| [Relationship Infrastructure Pattern](patterns/RELATIONSHIP_INFRASTRUCTURE_PATTERN.md) | 2026-01-17 | 280 |
 | [Return Type Error Propagation Pattern](patterns/RETURN_TYPE_ERROR_PROPAGATION.md) | 2025-11-08 | 255 |
-| [Route Factory Patterns - Complete Guide](patterns/ROUTE_FACTORY_PATTERNS.md) | 2025-11-18 | 469 |
 | [SearchService Pattern for Activity Domains](patterns/search_service_pattern.md) | 2025-11-28 | 268 |
 | [Service Decomposition - Implementation Guide](patterns/SERVICE_DECOMPOSITION_IMPLEMENTATION_GUIDE.md) | 2025-11-27 | 554 |
-| [Service Integration Guide - Relationship Helpers](patterns/SERVICE_INTEGRATION_RELATIONSHIP_HELPERS.md) | 2025-11-18 | 468 |
 | **[Three-Tier Type System](patterns/three_tier_type_system.md)** | **2026-01-24** | **468** |
 | **[Type Safety Architecture Overview](patterns/TYPE_SAFETY_OVERVIEW.md)** | **2026-02-28** | **247** |
 | **[Any Usage Policy](patterns/ANY_USAGE_POLICY.md)** | **2026-02-28** | **169** |

@@ -419,10 +419,8 @@ Example from Habits domain:
 
 ### Route Factory Documentation
 
-| Document | Purpose | When to Use |
-|----------|---------|-------------|
-| **This file** | **Quick reference** | Quick lookup of factory types, parameters, and usage patterns |
-| [ROUTE_FACTORY_PATTERNS.md](./ROUTE_FACTORY_PATTERNS.md) | Complete guide | Comprehensive documentation with migration stats, testing, and best practices |
+This file is the canonical reference for route factories. See also:
+- `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` — config-driven route registration (builds on factories)
 
 ### Related Patterns
 

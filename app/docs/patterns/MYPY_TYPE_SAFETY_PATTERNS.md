@@ -8,7 +8,7 @@ related_docs:
 - /docs/patterns/mypy_pragmatic_strategy.md
 - /docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md
 - /docs/patterns/protocol_architecture.md
-- /docs/patterns/ROUTE_FACTORY_PATTERNS.md
+- /docs/patterns/ROUTE_FACTORIES.md
 ---
 
 # MyPy Type Safety Patterns - Systematic Error Reduction
@@ -717,7 +717,7 @@ entity = result.value  # Now safe
 - **MyPy Strategy:** [mypy_pragmatic_strategy.md](mypy_pragmatic_strategy.md)
 - **FastHTML Types:** [FASTHTML_TYPE_HINTS_GUIDE.md](FASTHTML_TYPE_HINTS_GUIDE.md)
 - **Protocol Architecture:** [protocol_architecture.md](protocol_architecture.md)
-- **Route Factories:** [ROUTE_FACTORY_PATTERNS.md](ROUTE_FACTORY_PATTERNS.md)
+- **Route Factories:** [ROUTE_FACTORIES.md](ROUTE_FACTORIES.md)
 
 ---
 

@@ -6,7 +6,7 @@ related_skills:
 - pytest
 related_docs:
 - /docs/patterns/BACKEND_OPERATIONS_ISP.md
-- /docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md
+- /docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md
 - /docs/patterns/UNIFIED_INGESTION_GUIDE.md
 ---
 

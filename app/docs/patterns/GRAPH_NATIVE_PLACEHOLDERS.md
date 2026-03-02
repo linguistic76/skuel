@@ -100,6 +100,6 @@ Replace "DEPRECATED" with "GRAPH-NATIVE: Limited implementation..." to clarify i
 
 ## See Also
 
-- `/docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md` - Complete relationship pattern documentation
+- `/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md` - Complete relationship service documentation
 - `/docs/architecture/../patterns/query_architecture.md` - Graph-native architecture overview
 - `CLAUDE.md` § "Graph-Native Comment Standard" - Quick reference

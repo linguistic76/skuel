@@ -43,8 +43,6 @@ For each skill, this section shows all related documentation (architecture docs,
 **Patterns (Additional):**
 - [CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md](/docs/patterns/CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md)
 - [DOMAIN_LATERAL_SERVICE_QUICK_START.md](/docs/patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md)
-- [RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md](/docs/patterns/RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md)
-- [SERVICE_INTEGRATION_RELATIONSHIP_HELPERS.md](/docs/patterns/SERVICE_INTEGRATION_RELATIONSHIP_HELPERS.md)
 - [STANDALONE_SERVICE_PATTERN.md](/docs/patterns/STANDALONE_SERVICE_PATTERN.md)
 - [UNIFIED_RELATIONSHIP_SERVICE.md](/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md)
 - [search_service_pattern.md](/docs/patterns/search_service_pattern.md)
@@ -112,7 +110,7 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **Patterns (Additional):**
 - [DOMAIN_ROUTE_CONFIG_PATTERN.md](/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md)
-- [ROUTE_FACTORY_PATTERNS.md](/docs/patterns/ROUTE_FACTORY_PATTERNS.md)
+- [ROUTE_FACTORIES.md](/docs/patterns/ROUTE_FACTORIES.md)
 - [ROUTE_NAMING_CONVENTION.md](/docs/patterns/ROUTE_NAMING_CONVENTION.md)
 
 **ADRs:**
@@ -149,13 +147,8 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **Patterns (Additional):**
 - [CONTEXT_FIRST_RELATIONSHIP_PATTERN.md](/docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md)
-- [DOMAIN_RELATIONSHIPS_PATTERN.md](/docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md)
-- [HIERARCHICAL_RELATIONSHIPS_PATTERN.md](/docs/patterns/HIERARCHICAL_RELATIONSHIPS_PATTERN.md)
 - [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md)
 - [QUERY_PATTERNS.md](/docs/patterns/QUERY_PATTERNS.md)
-- [RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md](/docs/patterns/RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md)
-- [RELATIONSHIP_INFRASTRUCTURE_PATTERN.md](/docs/patterns/RELATIONSHIP_INFRASTRUCTURE_PATTERN.md)
-- [SERVICE_INTEGRATION_RELATIONSHIP_HELPERS.md](/docs/patterns/SERVICE_INTEGRATION_RELATIONSHIP_HELPERS.md)
 - [SKUEL_QUERY_USAGE_GUIDE.md](/docs/patterns/SKUEL_QUERY_USAGE_GUIDE.md)
 - [UNIFIED_RELATIONSHIP_SERVICE.md](/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md)
 
@@ -217,7 +210,6 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **Patterns (Additional):**
 - [GRAPH_ACCESS_PATTERNS.md](/docs/patterns/GRAPH_ACCESS_PATTERNS.md)
-- [RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md](/docs/patterns/RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md)
 - [SHARING_PATTERNS.md](/docs/patterns/SHARING_PATTERNS.md)
 
 ### @python
@@ -344,13 +336,11 @@ For each documentation category, this section shows which skills are relevant.
 - [DOCSTRING_STANDARDS.md](/docs/patterns/DOCSTRING_STANDARDS.md) → @docs-skills-evolution, @python
 - [DOMAIN_LATERAL_SERVICE_QUICK_START.md](/docs/patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md) → @base-analytics-service
 - [DOMAIN_PATTERNS_CATALOG.md](/docs/patterns/DOMAIN_PATTERNS_CATALOG.md) → @pydantic, @python
-- [DOMAIN_RELATIONSHIPS_PATTERN.md](/docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md) → @neo4j-cypher-patterns
 - [DOMAIN_ROUTE_CONFIG_PATTERN.md](/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md) → @domain-route-config, @fasthtml
 - [ERROR_HANDLING.md](/docs/patterns/ERROR_HANDLING.md) → @result-pattern
 - [FASTHTML_ROUTE_REGISTRATION.md](/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md) → @domain-route-config, @fasthtml, @ui-browser
 - [FASTHTML_TYPE_HINTS_GUIDE.md](/docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md) → @fasthtml, @ui-browser
 - [GRAPH_ACCESS_PATTERNS.md](/docs/patterns/GRAPH_ACCESS_PATTERNS.md) → @neo4j-cypher-patterns, @pytest
-- [HIERARCHICAL_RELATIONSHIPS_PATTERN.md](/docs/patterns/HIERARCHICAL_RELATIONSHIPS_PATTERN.md) → @neo4j-cypher-patterns
 - [HIERARCHY_COMPONENTS_GUIDE.md](/docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md) → @ui-css
 - [HTMX_ACCESSIBILITY_PATTERNS.md](/docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md) → @accessibility-guide, @ui-browser
 - [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) → @neo4j-cypher-patterns, @vis-network
@@ -359,15 +349,11 @@ For each documentation category, this section shows which skills are relevant.
 - [PERFORMANCE_MONITORING.md](/docs/patterns/PERFORMANCE_MONITORING.md) → @prometheus-grafana, @pydantic
 - [PROTOCOL_LSP_COMPLIANCE.md](/docs/patterns/PROTOCOL_LSP_COMPLIANCE.md) → @python
 - [QUERY_PATTERNS.md](/docs/patterns/QUERY_PATTERNS.md) → @neo4j-cypher-patterns
-- [RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md](/docs/patterns/RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md) → @base-analytics-service, @neo4j-cypher-patterns, @pytest
-- [RELATIONSHIP_INFRASTRUCTURE_PATTERN.md](/docs/patterns/RELATIONSHIP_INFRASTRUCTURE_PATTERN.md) → @neo4j-cypher-patterns
 - [RETURN_TYPE_ERROR_PROPAGATION.md](/docs/patterns/RETURN_TYPE_ERROR_PROPAGATION.md) → @result-pattern
 - [ROUTE_DECORATOR_ARCHITECTURE.md](/docs/patterns/ROUTE_DECORATOR_ARCHITECTURE.md) → @domain-route-config, @fasthtml, @result-pattern
 - [ROUTE_FACTORIES.md](/docs/patterns/ROUTE_FACTORIES.md) → @domain-route-config, @fasthtml
-- [ROUTE_FACTORY_PATTERNS.md](/docs/patterns/ROUTE_FACTORY_PATTERNS.md) → @fasthtml
 - [ROUTE_NAMING_CONVENTION.md](/docs/patterns/ROUTE_NAMING_CONVENTION.md) → @fasthtml
 - [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) → @base-analytics-service, @python
-- [SERVICE_INTEGRATION_RELATIONSHIP_HELPERS.md](/docs/patterns/SERVICE_INTEGRATION_RELATIONSHIP_HELPERS.md) → @base-analytics-service, @neo4j-cypher-patterns
 - [SHARING_PATTERNS.md](/docs/patterns/SHARING_PATTERNS.md) → @pytest
 - [SKUEL_QUERY_USAGE_GUIDE.md](/docs/patterns/SKUEL_QUERY_USAGE_GUIDE.md) → @neo4j-cypher-patterns
 - [STANDALONE_SERVICE_PATTERN.md](/docs/patterns/STANDALONE_SERVICE_PATTERN.md) → @base-analytics-service

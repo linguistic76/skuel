@@ -5,7 +5,7 @@ status: current
 category: architecture
 version: 2.0.0
 tags: [architecture, relationships, unified-service, infrastructure, lateral-relationships]
-related: [UNIFIED_RELATIONSHIP_SERVICE.md, RELATIONSHIP_INFRASTRUCTURE_PATTERN.md, ADR-028]
+related: [UNIFIED_RELATIONSHIP_SERVICE.md, ADR-028]
 ---
 
 # Relationships Architecture
@@ -370,7 +370,5 @@ ORDER BY complementary.synergy_score DESC
 ## See Also
 
 - [UNIFIED_RELATIONSHIP_SERVICE.md](/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md) — complete service documentation
-- [RELATIONSHIP_INFRASTRUCTURE_PATTERN.md](/docs/patterns/RELATIONSHIP_INFRASTRUCTURE_PATTERN.md) — mixin layer primitives
 - [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) — Phase 5 vis.js integration
-- [DOMAIN_RELATIONSHIPS_PATTERN.md](/docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md) — domain-specific patterns
 - [ADR-028](/docs/decisions/ADR-028.md) — KU & MOC migration rationale

@@ -144,7 +144,7 @@ skills:
       - ADR-020  # FastHTML route registration pattern
     patterns:
       - /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
-      - /docs/patterns/ROUTE_FACTORY_PATTERNS.md
+      - /docs/patterns/ROUTE_FACTORIES.md
       - /docs/patterns/ROUTE_NAMING_CONVENTION.md
     keywords: [fasthtml, routes, fast_app, FT, server-rendered]
 
@@ -249,13 +249,8 @@ skills:
       - ADR-037  # Lateral relationships visualization
     patterns:
       - /docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md
-      - /docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md
-      - /docs/patterns/HIERARCHICAL_RELATIONSHIPS_PATTERN.md
       - /docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md
       - /docs/patterns/QUERY_PATTERNS.md
-      - /docs/patterns/RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md
-      - /docs/patterns/RELATIONSHIP_INFRASTRUCTURE_PATTERN.md
-      - /docs/patterns/SERVICE_INTEGRATION_RELATIONSHIP_HELPERS.md
       - /docs/patterns/SKUEL_QUERY_USAGE_GUIDE.md
       - /docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md
     keywords: [neo4j, cypher, graph, relationships, traversal]
@@ -332,8 +327,6 @@ skills:
     patterns:
       - /docs/patterns/CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md
       - /docs/patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md
-      - /docs/patterns/RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md
-      - /docs/patterns/SERVICE_INTEGRATION_RELATIONSHIP_HELPERS.md
       - /docs/patterns/STANDALONE_SERVICE_PATTERN.md
       - /docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md
       - /docs/patterns/search_service_pattern.md
@@ -438,7 +431,6 @@ skills:
     related_adrs: []
     patterns:
       - /docs/patterns/GRAPH_ACCESS_PATTERNS.md
-      - /docs/patterns/RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md
       - /docs/patterns/SHARING_PATTERNS.md
     keywords: [pytest, testing, fixtures, async, integration, unit]
 

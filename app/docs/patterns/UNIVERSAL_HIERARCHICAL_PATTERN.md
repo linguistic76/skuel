@@ -632,7 +632,6 @@ RETURN completed_weight / total_weight as progress_percentage
 ## Related Documentation
 
 ### Pattern Documentation
-- `/docs/patterns/HIERARCHICAL_RELATIONSHIPS_PATTERN.md` - Activity domain implementation
 - `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` - KU, LS, LP patterns
 - `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` - Domain overview
 

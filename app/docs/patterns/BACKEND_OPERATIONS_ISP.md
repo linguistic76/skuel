@@ -5,7 +5,7 @@ category: patterns
 related_skills: []
 related_docs:
 - /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
-- /docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md
+- /docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md
 - /docs/patterns/TESTING_PATTERNS.md
 ---
 
