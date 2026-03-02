@@ -156,7 +156,6 @@ class ActivityReport(UserOwnedEntity):
 | `ProgressFeedbackGenerator` | `ProgressFeedbackOperations` | `ACTIVITY_REPORT` (AUTOMATIC or LLM) | Activity summary; LLM adds qualitative insights |
 | `ActivityReportService` | `ActivityReportOperations` | `ACTIVITY_REPORT` (HUMAN or via persist()) | Processor-neutral CRUD; all write paths converge here |
 | `ReviewQueueService` | `ReviewQueueOperations` | `ReviewRequest` nodes | User-initiated review queue management |
-| `ActivityDataReader` | — (shared query layer) | `ActivityData` | Single Cypher round-trip shared by Generator + ReportService |
 
 **Protocols:** `core/ports/feedback_protocols.py`
 
@@ -257,7 +256,7 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 Admin selects user + time window
         ↓
 GET /api/activity-review/snapshot → ActivityReportService.create_snapshot()
-        ↓  (calls ActivityDataReader.read() — one Cypher round-trip, all 6 domains)
+        ↓  (calls context_builder.build_rich(user_uid, time_period=...) — MEGA_QUERY with activity window)
 Admin reads Tasks, Goals, Habits, Events, Choices, Principles summary
         ↓
 Admin writes qualitative assessment
@@ -287,7 +286,7 @@ Admin follows admin-initiated path above
 
 When `openai_service` is available, the generator:
 
-1. Reads activity data via `ActivityDataReader.read()` — one Cypher round-trip covering all 6 domains (same query used by `ActivityReportService.create_snapshot()`)
+1. Calls `context_builder.build_rich(user_uid, time_period=time_period)` — MEGA_QUERY extended with 6 activity window CALL{} blocks; `context.activity_rich` contains all domains (same method used by `ActivityReportService.create_snapshot()`)
 2. Cross-references active Insights
 3. Fetches `user_annotation` from the most recent prior `ActivityReport` (`period_end < current_period_start`) via `_fetch_previous_annotation()`
 4. Sends stats as JSON context to LLM via `activity_feedback.md` prompt template; if a prior annotation exists, appends it with an instruction to acknowledge or contrast the user's self-reflection

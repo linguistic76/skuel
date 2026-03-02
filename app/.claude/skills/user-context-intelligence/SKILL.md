@@ -167,6 +167,13 @@ class DailyWorkPlan:
 
 **What only MEGA_QUERY provides:** Full entity objects (`active_tasks_rich`, `active_goals_rich`, etc.), graph neighborhoods, `cross_domain_insights` (active_insights_raw). These are absent in standard context.
 
+**`build_rich()` optional `time_period` parameter:** Passing `time_period="7d"` (or `"14d"`,
+`"30d"`, `"90d"`) appends 6 activity window CALL{} blocks to MEGA_QUERY and populates
+`context.activity_rich`. Used by **feedback services** (`ProgressFeedbackGenerator`,
+`ActivityReportService`) — not by intelligence methods. Intelligence always uses
+`active_*_rich` (status-active entities). Default `time_period=None` is identical to
+today's behavior.
+
 **The rule:** Always pass `build_rich()` context to intelligence. `require_rich_context()` will catch mistakes:
 
 ```python
@@ -175,10 +182,14 @@ context = await builder.build(user_uid)
 intelligence = factory.create(context)
 plan = await intelligence.get_ready_to_work_on_today()  # Raises ValueError
 
-# ✅ CORRECT — build_rich() for intelligence
+# ✅ CORRECT — build_rich() for intelligence (no time_period needed)
 context = await builder.build_rich(user_uid)
 intelligence = factory.create(context)
 plan = await intelligence.get_ready_to_work_on_today()
+
+# ✅ For feedback generation (ProgressFeedbackGenerator, ActivityReportService)
+context = await builder.build_rich(user_uid, time_period="7d")
+# context.activity_rich populated; active_*_rich unchanged
 ```
 
 **When standard context is enough:** API ownership checks, ActivityReport display, lightweight profile data — `build()` is sufficient and ~3× faster.

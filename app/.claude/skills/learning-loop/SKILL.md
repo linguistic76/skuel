@@ -352,17 +352,18 @@ annotation_updated_at: datetime | None
 |--------|---------|---------------|---------|
 | Scheduled system | `ProgressFeedbackWorker` → `ProgressFeedbackGenerator` | `AUTOMATIC` | Cron schedule |
 | On-demand AI | `ProgressFeedbackGenerator.generate()` | `LLM` | User requests via API |
-| Admin writes | `ActivityReviewService.submit_activity_feedback()` | `HUMAN` | Admin reviews snapshot |
+| Admin writes | `ActivityReportService.submit_feedback()` | `HUMAN` | Admin reviews snapshot |
 
 **Structural position:** Cross-domain aggregator. Cannot fit the leaf domain model
 because it reads across all 6 Activity Domain backends. `ProgressFeedbackGenerator`
-accepts a `QueryExecutor` rather than a single domain backend — this is intentional.
-Per SKUEL's architecture rule: domain-specific Cypher on domain backends; cross-domain
-aggregation stays in services. `ProgressFeedbackGenerator` IS the cross-domain service.
+accepts a `UserContextBuilder` and calls `build_rich(user_uid, time_period=...)` — MEGA_QUERY
+extended with 6 activity window CALL{} blocks. This gives the generator access to full
+graph neighbourhoods (goal relationships, KU mastery, LifePath alignment) that a separate
+Cypher query never had. `ActivityReportService.create_snapshot()` uses the same method.
 
 **LLM generation flow:**
 ```
-1. Query completions across Tasks, Goals, Habits, Choices (time window)
+1. Call `context_builder.build_rich(user_uid, time_period=...)` — MEGA_QUERY with activity window; `context.activity_rich` covers all 6 domains with graph neighbourhoods
 2. Cross-reference active Insights
 3. Send stats as JSON context to LLM via activity_feedback.md prompt template
 4. LLM returns qualitative analysis with patterns, trends, recommendations
@@ -408,10 +409,10 @@ RelationshipName.SHARED_WITH_GROUP    # Submission → Group (group sharing)
 | **Submission processing** | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | `SubmissionsBackend` | Processing pipeline |
 | **Submission feedback** | `FeedbackService` + `SubmissionsCoreService` | `FeedbackOperations` | `SubmissionsBackend` | `generate_feedback`, `create_assessment` |
 | **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `QueryExecutor` | **Review actions:** `get_review_queue`, `get_submission_detail`, `get_feedback_history`, `submit_feedback`, `request_revision`, `approve_report` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary`, `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` |
-| **Activity Report (auto/LLM)** | `ProgressFeedbackGenerator` | `ProgressFeedbackOperations` | `QueryExecutor` (cross-domain) | `generate`, `create_scheduled` |
+| **Activity Report (auto/LLM)** | `ProgressFeedbackGenerator` | `ProgressFeedbackOperations` | `UserContextBuilder` | `generate`, `create_scheduled` |
 | **Activity Report (scheduled)** | `ProgressFeedbackWorker` | — | — | Background worker; calls `ProgressFeedbackGenerator` on schedule |
 | **Activity Report (schedule CRUD)** | `ProgressScheduleService` | `ProgressScheduleOps` | — | `get_schedules`, `create_schedule`, `delete_schedule` |
-| **Activity Report (human)** | `ActivityReviewService` | `ActivityReviewOperations` | `QueryExecutor` | `create_activity_snapshot`, `submit_activity_feedback` |
+| **Activity Report (human)** | `ActivityReportService` | `ActivityReportOperations` | `UserContextBuilder` | `create_snapshot`, `submit_feedback`, `persist`, `get_history`, `annotate` |
 
 **Protocols location:** `core/ports/feedback_protocols.py` (all feedback + teacher review), `core/ports/submission_protocols.py`, `core/ports/group_protocols.py` (group CRUD only)
 

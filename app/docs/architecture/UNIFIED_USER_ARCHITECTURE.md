@@ -457,7 +457,9 @@ class UserContextBuilder:
 
     # Primary API (preferred - builder owns user resolution)
     async def build(self, user_uid: str) -> Result[UserContext]: ...
-    async def build_rich(self, user_uid: str) -> Result[UserContext]: ...
+    async def build_rich(
+        self, user_uid: str, time_period: str | None = None  # "7d" | "14d" | "30d" | "90d"
+    ) -> Result[UserContext]: ...
 
     # Full API (backward compatibility)
     async def build_user_context(self, user_uid: str, user: User) -> Result[UserContext]: ...
@@ -939,6 +941,21 @@ The MEGA_QUERY returns 5 top-level sections that map to UserContext fields:
 | `activity_report.user_annotation` | `latest_activity_report_user_annotation` | `populate_activity_report()` | Standard + Rich |
 
 CONSOLIDATED_QUERY (standard `build()` path) and MEGA_QUERY (rich `build_rich()` path) both fetch the latest ActivityReport and shape it as `{uid, period, period_end, content, user_annotation}` — identical key names so `populate_activity_report()` is called once and works for both paths.
+
+**ACTIVITY WINDOW fields — rich path only, when `time_period` provided:**
+
+| UserContext Field | Type | Populated when |
+|-------------------|------|----------------|
+| `activity_window_period` | `str \| None` | `build_rich(time_period=...)` called |
+| `activity_window_start` | `datetime \| None` | Same |
+| `activity_window_end` | `datetime \| None` | Same |
+| `activity_rich` | `dict[str, list[dict]]` | Same |
+
+`activity_rich` keys: `"tasks"`, `"goals"`, `"habits"`, `"events"`, `"choices"`,
+`"principles"`. Each value is a list of `{entity: {...}, graph_context: {...}}` dicts —
+all entities touched in the window (including completed), with graph neighbourhoods.
+Used by `ProgressFeedbackGenerator` and `ActivityReportService.create_snapshot()`.
+**Not used by intelligence methods** — `active_*_rich` fields handle active-only planning.
 
 **INSIGHTS fields — rich path only:**
 
