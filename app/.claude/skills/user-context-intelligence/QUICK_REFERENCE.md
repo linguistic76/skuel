@@ -362,6 +362,8 @@ plan = await intelligence.get_ready_to_work_on_today()
 | `next_recommended_knowledge` | `list[str]` | Recommendations |
 | `habits_by_goal` | `dict[str, list[str]]` | Goal→Habits |
 | `events_by_habit` | `dict[str, list[str]]` | Habit→Events |
+| `latest_activity_report_uid` | `str \| None` | Most recent ActivityReport UID (rich only) |
+| `latest_activity_report_period` | `str \| None` | Report window e.g. `"7d"` (rich only) |
 
 ---
 

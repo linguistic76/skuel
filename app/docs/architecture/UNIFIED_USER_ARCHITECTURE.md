@@ -508,6 +508,9 @@ class UserContextQueryExecutor:
 
     async def execute_consolidated_query(self, user_uid: str) -> Result[dict]:
         """Optimized query for standard context (UIDs only)."""
+
+    async def execute_activity_report_query(self, user_uid: str) -> Result[list[dict]]:
+        """Separate LIMIT 1 query for latest ActivityReport (rich path only)."""
 ```
 
 **Data Extraction** (`user_context_extractor.py`):
@@ -543,6 +546,9 @@ class UserContextPopulator:
     def populate_progress_metrics(self, context: UserContext, progress_counts: dict) -> None: ...
     def populate_derived_fields(self, context: UserContext, tasks_rich: list, habits_rich: list) -> None: ...
     def populate_principle_choice_integration(self, context: UserContext, principles_rich: list, choices_rich: list) -> None: ...
+
+    # Feedback domain (rich path only — from separate LATEST_ACTIVITY_REPORT_QUERY)
+    def populate_activity_report(self, context: UserContext, records: list[dict]) -> None: ...
 ```
 
 ## Key Design Benefits
@@ -921,6 +927,17 @@ The MEGA_QUERY returns 5 top-level sections that map to UserContext fields:
 |-----------------|-------------------|-----------------|
 | `active_moc_uids` | `active_moc_uids` | `populate_moc_fields()` |
 | `moc_metadata` | `moc_view_counts`, `recently_viewed_moc_uids` | `populate_moc_fields()` |
+
+**FEEDBACK DOMAIN fields (from separate `LATEST_ACTIVITY_REPORT_QUERY` — rich path only):**
+
+| Source | UserContext Field | Populate Method |
+|--------|-------------------|-----------------|
+| `ar.uid` | `latest_activity_report_uid` | `populate_activity_report()` |
+| `ar.time_period` | `latest_activity_report_period` | `populate_activity_report()` |
+| `ar.period_end` | `latest_activity_report_generated_at` | `populate_activity_report()` |
+| `ar.processed_content` | `latest_activity_report_content` | `populate_activity_report()` |
+
+These fields are `None` in standard context. `DailyPlanningMixin._generate_daily_rationale()` uses them to note when the daily plan is informed by a recent AI synthesis.
 
 ## Profile Intelligence Integration
 *Last updated: January 2026*
