@@ -28,8 +28,10 @@ Responsibilities:
 - Public API surface (build, build_rich, build_user_context, build_rich_user_context)
 """
 
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from core.constants import FeedbackTimePeriod
 from core.models.user import User
 from core.services.user import UserContext
 from core.services.user.user_context_extractor import UserContextExtractor
@@ -179,7 +181,12 @@ class UserContextBuilder:
             return Result.fail(user_result.expect_error())
         return await self.build_user_context(user_uid, user_result.value)
 
-    async def build_rich(self, user_uid: str, min_confidence: float = 0.7) -> Result[UserContext]:
+    async def build_rich(
+        self,
+        user_uid: str,
+        min_confidence: float = 0.7,
+        time_period: str | None = None,
+    ) -> Result[UserContext]:
         """
         Build COMPLETE UserContext with rich fields - handles user resolution internally.
 
@@ -195,9 +202,14 @@ class UserContextBuilder:
         Args:
             user_uid: User identifier
             min_confidence: Minimum relationship confidence (default 0.7)
+            time_period: Optional activity window ("7d", "14d", "30d", "90d").
+                When provided, MEGA-QUERY includes six CALL{} blocks that populate
+                context.activity_rich with entities touched in the window.
+                When None (default), activity_rich stays empty — no performance impact.
 
         Returns:
-            Result[UserContext] with ALL ~240 fields including rich data
+            Result[UserContext] with ALL ~240 fields including rich data.
+            context.activity_rich is populated when time_period is provided.
 
         Example:
             context_result = await context_builder.build_rich(user_uid)
@@ -205,11 +217,14 @@ class UserContextBuilder:
                 return context_result
             context = context_result.value
             # Access rich data: context.active_tasks_rich, context.active_goals_rich, etc.
+            # With time_period: context.activity_rich["tasks"], context.activity_rich["goals"], etc.
         """
         user_result = await self._resolve_user(user_uid, "build_rich")
         if user_result.is_error:
             return Result.fail(user_result.expect_error())
-        return await self.build_rich_user_context(user_uid, user_result.value, min_confidence)
+        return await self.build_rich_user_context(
+            user_uid, user_result.value, min_confidence, time_period=time_period
+        )
 
     # ========================================================================
     # FULL API - Caller Provides User (Backward Compatibility)
@@ -264,7 +279,11 @@ class UserContextBuilder:
 
     @with_error_handling("build_rich_user_context", error_type="system", uid_param="user_uid")
     async def build_rich_user_context(
-        self, user_uid: str, user: User, min_confidence: float = 0.7
+        self,
+        user_uid: str,
+        user: User,
+        min_confidence: float = 0.7,
+        time_period: str | None = None,
     ) -> Result[UserContext]:
         """
         Build COMPLETE UserContext with BOTH standard AND rich fields in ONE query.
@@ -316,8 +335,21 @@ class UserContextBuilder:
             display_name=user.display_name or user.title,
         )
 
-        # Execute MEGA-QUERY - fetches UIDs AND rich data in one shot
-        mega_result = await self._query_executor.execute_mega_query(user_uid, min_confidence)
+        # Compute activity window dates when time_period is provided
+        window_start: datetime | None = None
+        window_end: datetime | None = None
+        if time_period:
+            days = FeedbackTimePeriod.DAYS.get(time_period, FeedbackTimePeriod.DEFAULT_DAYS)
+            window_end = datetime.now()
+            window_start = window_end - timedelta(days=days)
+
+        # Execute MEGA-QUERY — fetches UIDs AND rich data in one shot.
+        # When window_start is provided, the query also includes six CALL{}
+        # subqueries that populate activity_rich with entities touched in
+        # the window. When None, activity_rich stays empty (no added cost).
+        mega_result = await self._query_executor.execute_mega_query(
+            user_uid, min_confidence, window_start=window_start, window_end=window_end
+        )
         if mega_result.is_error:
             return Result.fail(mega_result.expect_error())
 
@@ -331,7 +363,8 @@ class UserContextBuilder:
         #     "life_path": {uid, alignment_score, dimensions},
         #     "progress_counts": {tasks_completed, habits_maintained, goals_achieved, ...},
         #     "activity_report": {uid, period, period_end, content, user_annotation} or null,
-        #     "active_insights_raw": [{uid, type, title, impact, confidence}, ...] (up to 10)
+        #     "active_insights_raw": [{uid, type, title, impact, confidence}, ...] (up to 10),
+        #     "activity": {tasks, goals, habits, events, choices, principles} (when time_period given)
         # }
         uids_data = mega_data.get("uids", {})
         rich_data = mega_data.get("rich", {})
@@ -374,6 +407,13 @@ class UserContextBuilder:
         self._populator.populate_principle_choice_integration(
             context, rich_data.get("principles", []), rich_data.get("choices", [])
         )
+
+        # Populate activity window fields when time_period was requested
+        if time_period and window_start and window_end:
+            activity_data = mega_data.get("activity", {})
+            self._populator.populate_activity_fields(
+                context, activity_data, window_start, window_end, time_period
+            )
 
         # Calculate derived fields and mark as rich context
         self._finalize_context(context, is_rich=True)

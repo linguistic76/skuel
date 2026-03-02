@@ -14,7 +14,7 @@ Architecture:
 - Used by UserContextBuilder for orchestration
 """
 
-from datetime import date
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.utils.decorators import with_error_handling
@@ -918,6 +918,155 @@ RETURN {
 } as result
 """
 
+# =============================================================================
+# ACTIVITY WINDOW EXTENSION
+# =============================================================================
+# Six CALL{} subqueries appended to MEGA_QUERY when a time_period is requested.
+# Each block uses `WITH user` to read from the outer query's user binding,
+# then collects entities touched within [$window_start, $window_end].
+#
+# Parameters added when this section is active:
+#   $window_start — datetime ISO string (inclusive lower bound)
+#   $window_end   — datetime ISO string (inclusive upper bound)
+#
+# Note: events use event_date (a date field); date($window_start) coerces
+# the datetime parameter to a date for comparison.
+#
+# The six variable names (w_tasks, w_goals, ...) are referenced in
+# _MEGA_QUERY_RETURN_WITH_ACTIVITY below to build the "activity" map.
+
+_ACTIVITY_WINDOW_CALLS: str = """
+// ====================================================================
+// ACTIVITY WINDOW — entities touched in [$window_start, $window_end]
+// ====================================================================
+CALL {
+    WITH user
+    OPTIONAL MATCH (user)-[:OWNS]->(wt:Task)
+    WHERE wt.updated_at >= datetime($window_start)
+      AND wt.updated_at <= datetime($window_end)
+    OPTIONAL MATCH (wt)-[:FULFILLS_GOAL]->(wg:Goal)
+    OPTIONAL MATCH (wt)-[:APPLIES_KNOWLEDGE]->(wku:Entity)
+    WITH wt,
+         collect(DISTINCT {uid: wg.uid, title: wg.title}) AS goal_refs,
+         collect(DISTINCT {uid: wku.uid, title: wku.title}) AS ku_refs
+    RETURN collect(CASE WHEN wt IS NOT NULL THEN {
+        entity: {uid: wt.uid, title: wt.title, status: wt.status,
+                 priority: wt.priority, progress: wt.progress},
+        graph_context: {goal_refs: goal_refs, ku_refs: ku_refs}
+    } ELSE null END) AS w_tasks
+}
+
+CALL {
+    WITH user
+    OPTIONAL MATCH (user)-[:OWNS]->(wg:Goal)
+    WHERE wg.updated_at >= datetime($window_start)
+      AND wg.updated_at <= datetime($window_end)
+    RETURN collect(CASE WHEN wg IS NOT NULL THEN {
+        entity: {uid: wg.uid, title: wg.title, status: wg.status, progress: wg.progress},
+        graph_context: {}
+    } ELSE null END) AS w_goals
+}
+
+CALL {
+    WITH user
+    OPTIONAL MATCH (user)-[:OWNS]->(wh:Habit)
+    WHERE wh.updated_at >= datetime($window_start)
+      AND wh.updated_at <= datetime($window_end)
+    RETURN collect(CASE WHEN wh IS NOT NULL THEN {
+        entity: {uid: wh.uid, title: wh.title, status: wh.status,
+                 streak: wh.current_streak},
+        graph_context: {}
+    } ELSE null END) AS w_habits
+}
+
+CALL {
+    WITH user
+    OPTIONAL MATCH (user)-[:OWNS]->(wp:Principle)
+    WHERE wp.updated_at >= datetime($window_start)
+      AND wp.updated_at <= datetime($window_end)
+    RETURN collect(CASE WHEN wp IS NOT NULL THEN {
+        entity: {uid: wp.uid, title: wp.title, status: wp.status,
+                 alignment: wp.current_alignment, strength: wp.strength},
+        graph_context: {}
+    } ELSE null END) AS w_principles
+}
+
+CALL {
+    WITH user
+    OPTIONAL MATCH (user)-[:OWNS]->(we:Event)
+    WHERE date(we.event_date) >= date($window_start)
+      AND date(we.event_date) <= date($window_end)
+    RETURN collect(CASE WHEN we IS NOT NULL THEN {
+        entity: {uid: we.uid, title: we.title, status: we.status,
+                 event_type: we.event_type},
+        graph_context: {is_milestone: coalesce(we.is_milestone_event, false)}
+    } ELSE null END) AS w_events
+}
+
+CALL {
+    WITH user
+    OPTIONAL MATCH (user)-[:OWNS]->(wc:Choice)
+    WHERE wc.created_at >= datetime($window_start)
+      AND wc.created_at <= datetime($window_end)
+    OPTIONAL MATCH (wc)-[:INFORMED_BY_PRINCIPLE]->(wcp:Principle)
+    WITH wc, collect(DISTINCT {uid: wcp.uid, title: wcp.title}) AS principle_refs
+    RETURN collect(CASE WHEN wc IS NOT NULL THEN {
+        entity: {uid: wc.uid, title: wc.title, status: wc.status},
+        graph_context: {principle_refs: principle_refs}
+    } ELSE null END) AS w_choices
+}
+"""
+
+# The RETURN clause extension that adds the `activity` map.
+# Replaces the closing `} as result` in MEGA_QUERY when the activity window
+# section is active. The six w_* variables are defined by _ACTIVITY_WINDOW_CALLS.
+_MEGA_QUERY_ACTIVITY_RETURN_TAIL: str = """\
+    active_insights_raw: active_insights_raw,
+    activity: {
+        tasks: [x IN w_tasks WHERE x IS NOT NULL],
+        goals: [x IN w_goals WHERE x IS NOT NULL],
+        habits: [x IN w_habits WHERE x IS NOT NULL],
+        events: [x IN w_events WHERE x IS NOT NULL],
+        choices: [x IN w_choices WHERE x IS NOT NULL],
+        principles: [x IN w_principles WHERE x IS NOT NULL]
+    }
+} as result
+"""
+
+# Boundary string used to split MEGA_QUERY into body + return sections.
+# Must match the exact comment text in MEGA_QUERY above.
+_MEGA_QUERY_RETURN_BOUNDARY: str = (
+    "\n// ====================================================================\n"
+    "// Return BOTH UIDs (standard context) AND rich data (rich context)\n"
+    "// ====================================================================\n"
+)
+
+# The standard return tail (portion after the shared fields, without activity).
+_MEGA_QUERY_STANDARD_RETURN_TAIL: str = (
+    "    active_insights_raw: active_insights_raw\n"
+    "} as result\n"
+)
+
+
+def _build_mega_query_with_activity() -> str:
+    """Build MEGA_QUERY extended with activity window CALL{} blocks.
+
+    Splits MEGA_QUERY at the return boundary, inserts the six CALL{} blocks,
+    and replaces the closing return tail with one that includes the activity map.
+
+    Called once at module import time — result cached in _MEGA_QUERY_WITH_ACTIVITY.
+    """
+    body, return_section = MEGA_QUERY.split(_MEGA_QUERY_RETURN_BOUNDARY, 1)
+    extended_return = return_section.replace(
+        _MEGA_QUERY_STANDARD_RETURN_TAIL,
+        _MEGA_QUERY_ACTIVITY_RETURN_TAIL,
+    )
+    return body + _MEGA_QUERY_RETURN_BOUNDARY + _ACTIVITY_WINDOW_CALLS + extended_return
+
+
+# Pre-built at import time — avoids rebuilding on every request with time_period.
+_MEGA_QUERY_WITH_ACTIVITY: str = _build_mega_query_with_activity()
+
 
 CONSOLIDATED_QUERY: str = """
 // Start with user node
@@ -1120,7 +1269,11 @@ class UserContextQueryExecutor:
 
     @with_error_handling("execute_mega_query", error_type="database", uid_param="user_uid")
     async def execute_mega_query(
-        self, user_uid: str, min_confidence: float = 0.7
+        self,
+        user_uid: str,
+        min_confidence: float = 0.7,
+        window_start: datetime | None = None,
+        window_end: datetime | None = None,
     ) -> Result[dict[str, Any]]:
         """
         Execute the MEGA-QUERY for complete user context.
@@ -1128,21 +1281,34 @@ class UserContextQueryExecutor:
         Returns both UIDs (standard) and rich data (entities + graph neighborhoods)
         in a single database round-trip.
 
+        When window_start / window_end are provided, the query is extended with
+        six CALL{} subqueries that populate the "activity" key in the result.
+        When not provided, the query is identical to before — no added cost.
+
         Args:
             user_uid: User identifier
             min_confidence: Minimum relationship confidence (default 0.7)
+            window_start: Activity window start datetime (None = no activity window)
+            window_end: Activity window end datetime (None = no activity window)
 
         Returns:
-            Result containing dict with "uids" and "rich" keys
+            Result containing dict with "uids", "rich", and optionally "activity" keys
         """
         today = date.today().isoformat()
-        params = {
+        params: dict[str, Any] = {
             "user_uid": user_uid,
             "today": today,
             "min_confidence": min_confidence,
         }
 
-        result = await self.executor.execute_query(MEGA_QUERY, params)
+        if window_start and window_end:
+            query = _MEGA_QUERY_WITH_ACTIVITY
+            params["window_start"] = window_start.isoformat()
+            params["window_end"] = window_end.isoformat()
+        else:
+            query = MEGA_QUERY
+
+        result = await self.executor.execute_query(query, params)
         if result.is_error:
             return Result.fail(result.expect_error())
 

@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.ports import BackendOperations, QueryExecutor
-    from core.services.feedback.activity_data_reader import ActivityDataReader
+    from core.services.user.user_context_builder import UserContextBuilder
 
 from core.constants import FeedbackTimePeriod
 from core.models.enums.entity_enums import ProcessorType
@@ -45,11 +45,11 @@ class ActivityReportService:
     def __init__(
         self,
         backend: "BackendOperations[ActivityReport]",
-        activity_data_reader: "ActivityDataReader",
+        context_builder: "UserContextBuilder",
         executor: "QueryExecutor",
     ) -> None:
         self.backend = backend
-        self.activity_data_reader = activity_data_reader
+        self.context_builder = context_builder
         self.executor = executor
 
     async def persist(self, report: ActivityReport) -> Result[ActivityReport]:
@@ -96,13 +96,13 @@ class ActivityReportService:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
 
-        data_result = await self.activity_data_reader.read(
-            subject_uid, start_date, end_date, domains
+        ctx_result = await self.context_builder.build_rich(
+            subject_uid, time_period=time_period
         )
-        if data_result.is_error:
-            return Result.fail(data_result.expect_error())
+        if ctx_result.is_error:
+            return Result.fail(ctx_result.expect_error())
 
-        data = data_result.value
+        activity = ctx_result.value.activity_rich
         include_all = not domains
         snapshot: dict[str, Any] = {
             "subject_uid": subject_uid,
@@ -112,18 +112,26 @@ class ActivityReportService:
             "domains": {},
         }
 
-        tasks = [r for r in data.main_records if r.get("entity_type") == "task"]
-        goals = [r for r in data.main_records if r.get("entity_type") == "goal"]
-        habits = [r for r in data.main_records if r.get("entity_type") == "habit"]
-        principles = [r for r in data.main_records if r.get("entity_type") == "principle"]
+        tasks = activity.get("tasks", [])
+        goals = activity.get("goals", [])
+        habits = activity.get("habits", [])
+        choices = activity.get("choices", [])
+        events = activity.get("events", [])
+        principles = activity.get("principles", [])
 
         if include_all or "tasks" in (domains or []):
             snapshot["domains"]["tasks"] = {
                 "count": len(tasks),
-                "completed": sum(1 for r in tasks if r.get("status") == "completed"),
+                "completed": sum(
+                    1 for item in tasks
+                    if item.get("entity", {}).get("status") == "completed"
+                ),
                 "items": [
-                    {"title": r.get("title", ""), "status": r.get("status", "")}
-                    for r in tasks[:10]
+                    {
+                        "title": item.get("entity", {}).get("title", ""),
+                        "status": item.get("entity", {}).get("status", ""),
+                    }
+                    for item in tasks[:10]
                 ],
             }
 
@@ -132,11 +140,11 @@ class ActivityReportService:
                 "count": len(goals),
                 "items": [
                     {
-                        "title": r.get("title", ""),
-                        "status": r.get("status", ""),
-                        "progress": r.get("progress"),
+                        "title": item.get("entity", {}).get("title", ""),
+                        "status": item.get("entity", {}).get("status", ""),
+                        "progress": item.get("entity", {}).get("progress"),
                     }
-                    for r in goals[:10]
+                    for item in goals[:10]
                 ],
             }
 
@@ -145,37 +153,43 @@ class ActivityReportService:
                 "count": len(habits),
                 "items": [
                     {
-                        "title": r.get("title", ""),
-                        "status": r.get("status", ""),
-                        "streak": r.get("streak", 0),
+                        "title": item.get("entity", {}).get("title", ""),
+                        "status": item.get("entity", {}).get("status", ""),
+                        "streak": item.get("entity", {}).get("streak", 0),
                     }
-                    for r in habits[:10]
+                    for item in habits[:10]
                 ],
             }
 
         if include_all or "choices" in (domains or []):
             snapshot["domains"]["choices"] = {
-                "count": len(data.choice_records),
+                "count": len(choices),
                 "items": [
                     {
-                        "title": r.get("title", ""),
-                        "principles": [p for p in r.get("principle_titles", []) if p],
+                        "title": item.get("entity", {}).get("title", ""),
+                        "principles": [
+                            ref.get("title", "")
+                            for ref in item.get("graph_context", {}).get("principle_refs", [])
+                            if ref.get("title")
+                        ],
                     }
-                    for r in data.choice_records[:10]
+                    for item in choices[:10]
                 ],
             }
 
         if include_all or "events" in (domains or []):
             snapshot["domains"]["events"] = {
-                "count": len(data.event_records),
+                "count": len(events),
                 "items": [
                     {
-                        "title": r.get("title", ""),
-                        "status": r.get("status", ""),
-                        "event_type": r.get("event_type", ""),
-                        "is_milestone": r.get("is_milestone", False),
+                        "title": item.get("entity", {}).get("title", ""),
+                        "status": item.get("entity", {}).get("status", ""),
+                        "event_type": item.get("entity", {}).get("event_type", ""),
+                        "is_milestone": item.get("graph_context", {}).get(
+                            "is_milestone", False
+                        ),
                     }
-                    for r in data.event_records[:10]
+                    for item in events[:10]
                 ],
             }
 
@@ -184,11 +198,11 @@ class ActivityReportService:
                 "count": len(principles),
                 "items": [
                     {
-                        "title": r.get("title", ""),
-                        "status": r.get("status", ""),
-                        "alignment": r.get("alignment"),
+                        "title": item.get("entity", {}).get("title", ""),
+                        "status": item.get("entity", {}).get("status", ""),
+                        "alignment": item.get("entity", {}).get("alignment"),
                     }
-                    for r in principles[:10]
+                    for item in principles[:10]
                 ],
             }
 

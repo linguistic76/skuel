@@ -518,6 +518,28 @@ class UserContext:
     # - learning_path_progress: {path_uid: {completed_steps, total_steps, next_step}}
 
     # =========================================================================
+    # ACTIVITY WINDOW (Populated when build_rich() called with time_period)
+    # =========================================================================
+    # Empty on all standard planning calls. Feedback services read this to
+    # avoid a separate ActivityDataReader round-trip.
+    # Planning and feedback are different interpretations of the same complete
+    # picture — one query, one context, one output model.
+    #
+    # active_*_rich fields are UNCHANGED (status-active only, for planning).
+    # activity_rich contains ALL entities touched in the window — including
+    # completed — and therefore overlaps with active_*_rich for in-progress work.
+
+    # Time window metadata (None when no time_period was requested)
+    activity_window_period: str | None = None   # "7d" | "14d" | "30d" | "90d"
+    activity_window_start: datetime | None = None
+    activity_window_end: datetime | None = None
+
+    # Per-domain lists of entities touched in the activity window.
+    # Keys: "tasks", "goals", "habits", "events", "choices", "principles"
+    # Values: [{entity: {uid, title, status, ...}, graph_context: {...}}, ...]
+    activity_rich: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+
+    # =========================================================================
     # CORE METHODS - Validation and metadata
     # =========================================================================
 

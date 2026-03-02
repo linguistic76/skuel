@@ -1764,6 +1764,7 @@ async def compose_services(
         )
         progress_schedule_service = ProgressScheduleService(backend=progress_schedule_backend)
 
+        # ActivityDataReader: still used by ProgressFeedbackGenerator (migrated in Phase 3)
         from core.services.feedback.activity_data_reader import ActivityDataReader
 
         activity_data_reader = ActivityDataReader(executor=query_executor)
@@ -1774,7 +1775,7 @@ async def compose_services(
 
         activity_report_service = ActivityReportService(
             backend=ai_feedback_backend,
-            activity_data_reader=activity_data_reader,
+            context_builder=context_builder,
             executor=query_executor,
         )
         review_queue_service = ReviewQueueService(executor=query_executor)

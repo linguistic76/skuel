@@ -13,6 +13,7 @@ Architecture:
 - Used by UserContextBuilder after extraction
 """
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import (
@@ -565,3 +566,36 @@ class UserContextPopulator:
 
         # Store recent principle-aligned choices (last 10)
         context.recent_principle_aligned_choices = principle_aligned_choices[:10]
+
+    def populate_activity_fields(
+        self,
+        context: "UserContext",
+        activity_data: dict[str, list[dict[str, Any]]],
+        start_date: "datetime",
+        end_date: "datetime",
+        time_period: str,
+    ) -> None:
+        """
+        Populate activity window fields from MEGA-QUERY activity section.
+
+        Called by build_rich_user_context() when time_period is provided.
+        activity_data is the "activity" key from the MEGA-QUERY result, containing
+        six domain lists of entities touched during the window.
+
+        Args:
+            context: UserContext to populate
+            activity_data: The "activity" section from MEGA-QUERY results
+            start_date: Window start datetime
+            end_date: Window end datetime
+            time_period: Period string ("7d", "14d", "30d", "90d")
+        """
+        context.activity_window_period = time_period
+        context.activity_window_start = start_date
+        context.activity_window_end = end_date
+
+        # Filter None entries that `CASE WHEN wt IS NOT NULL THEN ... ELSE null END`
+        # produces in Neo4j when a domain has no matching entities in the window.
+        context.activity_rich = {
+            domain: [item for item in items if item is not None]
+            for domain, items in activity_data.items()
+        }

@@ -2,7 +2,7 @@
 Unit Tests for ActivityReportService
 ======================================
 
-Tests create_snapshot() via ActivityDataReader.
+Tests create_snapshot() via UserContextBuilder.build_rich().
 """
 
 from datetime import datetime, timedelta
@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.services.feedback.activity_data_reader import ActivityData
 from core.services.feedback.activity_report_service import ActivityReportService
+from core.services.user.unified_user_context import UserContext
 from core.utils.result_simplified import Result
 
 
@@ -29,18 +29,25 @@ def mock_backend():
     return backend
 
 
-@pytest.fixture
-def mock_reader():
-    reader = MagicMock()
-    reader.read = AsyncMock(return_value=Result.ok(ActivityData()))
-    return reader
+def _make_context(activity_rich: dict | None = None) -> UserContext:
+    """Build a minimal UserContext with activity_rich populated."""
+    context = UserContext(user_uid="user_ghost", username="ghost")
+    context.activity_rich = activity_rich or {}
+    return context
 
 
 @pytest.fixture
-def service(mock_executor, mock_backend, mock_reader):
+def mock_context_builder():
+    builder = MagicMock()
+    builder.build_rich = AsyncMock(return_value=Result.ok(_make_context()))
+    return builder
+
+
+@pytest.fixture
+def service(mock_executor, mock_backend, mock_context_builder):
     return ActivityReportService(
         backend=mock_backend,
-        activity_data_reader=mock_reader,
+        context_builder=mock_context_builder,
         executor=mock_executor,
     )
 
@@ -51,25 +58,35 @@ def service(mock_executor, mock_backend, mock_reader):
 
 
 class TestSnapshotSingleRoundTrip:
-    """create_snapshot() issues exactly one reader.read() call."""
+    """create_snapshot() issues exactly one context_builder.build_rich() call."""
 
     @pytest.mark.asyncio
-    async def test_single_query_call_all_domains(self, service):
-        """All-domains snapshot uses 1 reader call."""
-        service.activity_data_reader.read.reset_mock()
+    async def test_single_query_call_all_domains(self, service, mock_context_builder):
+        """All-domains snapshot uses 1 build_rich call."""
+        mock_context_builder.build_rich.reset_mock()
 
         await service.create_snapshot("user_alice")
 
-        assert service.activity_data_reader.read.call_count == 1
+        assert mock_context_builder.build_rich.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_single_query_call_filtered_domains(self, service):
-        """Domain-filtered snapshot still uses 1 reader call."""
-        service.activity_data_reader.read.reset_mock()
+    async def test_single_query_call_filtered_domains(self, service, mock_context_builder):
+        """Domain-filtered snapshot still uses 1 build_rich call."""
+        mock_context_builder.build_rich.reset_mock()
 
         await service.create_snapshot("user_alice", domains=["tasks", "goals"])
 
-        assert service.activity_data_reader.read.call_count == 1
+        assert mock_context_builder.build_rich.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_build_rich_called_with_time_period(self, service, mock_context_builder):
+        """build_rich is called with the requested time_period."""
+        mock_context_builder.build_rich.reset_mock()
+
+        await service.create_snapshot("user_alice", time_period="30d")
+
+        call_kwargs = mock_context_builder.build_rich.call_args[1]
+        assert call_kwargs.get("time_period") == "30d"
 
 
 # ============================================================================
@@ -78,7 +95,7 @@ class TestSnapshotSingleRoundTrip:
 
 
 class TestSnapshotEmptyResult:
-    """Empty reader results produce zero-count domain sections."""
+    """Empty activity_rich produces zero-count domain sections."""
 
     @pytest.mark.asyncio
     async def test_empty_result_all_domains_present(self, service):
@@ -145,47 +162,38 @@ class TestSnapshotDomainFilter:
 
 
 class TestSnapshotRecordMapping:
-    """Records returned by ActivityDataReader are correctly shaped."""
+    """Records from activity_rich are correctly shaped into snapshot dicts."""
 
     @pytest.mark.asyncio
-    async def test_task_records_mapped(self, service):
-        """main_records with entity_type='task' → tasks domain with completed count."""
-        service.activity_data_reader.read.return_value = Result.ok(
-            ActivityData(
-                main_records=[
+    async def test_task_records_mapped(self, service, mock_context_builder):
+        """activity_rich tasks → tasks domain with completed count."""
+        context = _make_context(
+            activity_rich={
+                "tasks": [
                     {
-                        "entity_type": "task",
-                        "uid": "t1",
-                        "title": "Write tests",
-                        "status": "completed",
-                        "priority": "high",
-                        "progress": None,
-                        "streak": None,
-                        "alignment": None,
-                        "strength": None,
-                        "category": None,
-                        "goal_titles": [],
-                        "ku_titles": [],
+                        "entity": {
+                            "uid": "t1",
+                            "title": "Write tests",
+                            "status": "completed",
+                            "priority": "high",
+                            "progress": None,
+                        },
+                        "graph_context": {"goal_refs": [], "ku_refs": []},
                     },
                     {
-                        "entity_type": "task",
-                        "uid": "t2",
-                        "title": "Fix bug",
-                        "status": "active",
-                        "priority": "medium",
-                        "progress": None,
-                        "streak": None,
-                        "alignment": None,
-                        "strength": None,
-                        "category": None,
-                        "goal_titles": [],
-                        "ku_titles": [],
+                        "entity": {
+                            "uid": "t2",
+                            "title": "Fix bug",
+                            "status": "active",
+                            "priority": "medium",
+                            "progress": None,
+                        },
+                        "graph_context": {"goal_refs": [], "ku_refs": []},
                     },
                 ],
-                event_records=[],
-                choice_records=[],
-            )
+            }
         )
+        mock_context_builder.build_rich.return_value = Result.ok(context)
 
         result = await service.create_snapshot("user_alice")
 
@@ -196,27 +204,78 @@ class TestSnapshotRecordMapping:
         assert tasks["items"][1]["title"] == "Fix bug"
 
     @pytest.mark.asyncio
-    async def test_choice_principles_mapped(self, service):
-        """principle_titles in choice_records → choices items principles field."""
-        service.activity_data_reader.read.return_value = Result.ok(
-            ActivityData(
-                main_records=[],
-                event_records=[],
-                choice_records=[
+    async def test_choice_principles_mapped(self, service, mock_context_builder):
+        """principle_refs in graph_context → choices items principles field."""
+        context = _make_context(
+            activity_rich={
+                "choices": [
                     {
-                        "uid": "c1",
-                        "title": "Chose to rest",
-                        "principle_titles": ["Recovery", "Balance"],
+                        "entity": {"uid": "c1", "title": "Chose to rest", "status": "active"},
+                        "graph_context": {
+                            "principle_refs": [
+                                {"uid": "p1", "title": "Recovery"},
+                                {"uid": "p2", "title": "Balance"},
+                            ]
+                        },
                     }
                 ],
-            )
+            }
         )
+        mock_context_builder.build_rich.return_value = Result.ok(context)
 
         result = await service.create_snapshot("user_alice")
 
         choices = result.value["domains"]["choices"]
         assert choices["count"] == 1
         assert choices["items"][0]["principles"] == ["Recovery", "Balance"]
+
+    @pytest.mark.asyncio
+    async def test_event_is_milestone_mapped(self, service, mock_context_builder):
+        """is_milestone comes from graph_context, not entity."""
+        context = _make_context(
+            activity_rich={
+                "events": [
+                    {
+                        "entity": {
+                            "uid": "e1",
+                            "title": "Workshop",
+                            "status": "completed",
+                            "event_type": "workshop",
+                        },
+                        "graph_context": {"is_milestone": True},
+                    }
+                ],
+            }
+        )
+        mock_context_builder.build_rich.return_value = Result.ok(context)
+
+        result = await service.create_snapshot("user_alice")
+
+        events = result.value["domains"]["events"]
+        assert events["count"] == 1
+        assert events["items"][0]["is_milestone"] is True
+
+
+# ============================================================================
+# ERROR PROPAGATION
+# ============================================================================
+
+
+class TestSnapshotErrorPropagation:
+    """build_rich errors propagate as Result failures."""
+
+    @pytest.mark.asyncio
+    async def test_context_builder_error_propagates(self, service, mock_context_builder):
+        """When build_rich fails, create_snapshot returns the error."""
+        from core.utils.result_simplified import Errors
+
+        mock_context_builder.build_rich.return_value = Result.fail(
+            Errors.database("execute", "Connection refused")
+        )
+
+        result = await service.create_snapshot("user_alice")
+
+        assert result.is_error
 
 
 # ============================================================================
