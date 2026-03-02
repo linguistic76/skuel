@@ -300,7 +300,7 @@ async def get_profile_hub_data(self, user_uid: str) -> Result[ProfileHubData]:
 ```
 core/services/user/
 ├── user_context_builder.py      (~331 lines) - Orchestration (build() vs build_rich())
-├── user_context_queries.py      (~1,000 lines) - MEGA-QUERY for rich context
+├── user_context_queries.py      (~1,000 lines) - MEGA_QUERY (rich) + CONSOLIDATED_QUERY (standard)
 ├── user_context_extractor.py    (~351 lines) - Result parsing + relationship extraction
 └── user_context_populator.py    (~235 lines) - Context field population
 ```
@@ -545,8 +545,9 @@ class UserContextPopulator:
     def populate_derived_fields(self, context: UserContext, tasks_rich: list, habits_rich: list) -> None: ...
     def populate_principle_choice_integration(self, context: UserContext, principles_rich: list, choices_rich: list) -> None: ...
 
-    # Feedback domain + insights (rich path only — from MEGA-QUERY activity_report / active_insights_raw keys)
+    # ActivityReport: populated from BOTH paths (CONSOLIDATED_QUERY in build(), MEGA_QUERY in build_rich())
     def populate_activity_report(self, context: UserContext, record: dict | None) -> None: ...
+    # Active Insights: rich path only (from MEGA_QUERY `active_insights_raw` key)
     def populate_cross_domain_insights(self, context: UserContext, insights_raw: list[dict] | None) -> None: ...
 ```
 
@@ -927,18 +928,25 @@ The MEGA_QUERY returns 5 top-level sections that map to UserContext fields:
 | `active_moc_uids` | `active_moc_uids` | `populate_moc_fields()` |
 | `moc_metadata` | `moc_view_counts`, `recently_viewed_moc_uids` | `populate_moc_fields()` |
 
-**FEEDBACK DOMAIN + INSIGHTS fields (from MEGA-QUERY `activity_report` / `active_insights_raw` keys — rich path only):**
+**ACTIVITY REPORT fields — populated from BOTH paths (March 2026):**
 
-| MEGA-QUERY Key | UserContext Field | Populate Method |
-|----------------|-------------------|-----------------|
-| `activity_report.uid` | `latest_activity_report_uid` | `populate_activity_report()` |
-| `activity_report.period` | `latest_activity_report_period` | `populate_activity_report()` |
-| `activity_report.period_end` | `latest_activity_report_generated_at` | `populate_activity_report()` |
-| `activity_report.content` | `latest_activity_report_content` | `populate_activity_report()` |
-| `activity_report.user_annotation` | `latest_activity_report_user_annotation` | `populate_activity_report()` |
-| `active_insights_raw` (up to 10) | `cross_domain_insights` | `populate_cross_domain_insights()` |
+| Query key | UserContext Field | Populate Method | Path |
+|-----------|-------------------|-----------------|------|
+| `activity_report.uid` | `latest_activity_report_uid` | `populate_activity_report()` | Standard + Rich |
+| `activity_report.period` | `latest_activity_report_period` | `populate_activity_report()` | Standard + Rich |
+| `activity_report.period_end` | `latest_activity_report_generated_at` | `populate_activity_report()` | Standard + Rich |
+| `activity_report.content` | `latest_activity_report_content` | `populate_activity_report()` | Standard + Rich |
+| `activity_report.user_annotation` | `latest_activity_report_user_annotation` | `populate_activity_report()` | Standard + Rich |
 
-`cross_domain_insights` shape: `{"active_count": N, "top_insights": [...]}` — top 5 sorted by confidence descending. These fields are `None`/empty in standard context. `DailyPlanningMixin._generate_daily_rationale()` uses the activity report fields to note when the daily plan is informed by a recent AI synthesis. `ResponseGenerator.build_llm_context()` includes `latest_activity_report_user_annotation` when the query mentions feedback/patterns/reflection keywords.
+CONSOLIDATED_QUERY (standard `build()` path) and MEGA_QUERY (rich `build_rich()` path) both fetch the latest ActivityReport and shape it as `{uid, period, period_end, content, user_annotation}` — identical key names so `populate_activity_report()` is called once and works for both paths.
+
+**INSIGHTS fields — rich path only:**
+
+| MEGA_QUERY Key | UserContext Field | Populate Method | Path |
+|----------------|-------------------|-----------------|------|
+| `active_insights_raw` (up to 10) | `cross_domain_insights` | `populate_cross_domain_insights()` | Rich only |
+
+`cross_domain_insights` shape: `{"active_count": N, "top_insights": [...]}` — top 5 sorted by confidence descending. This field is `None` in standard context. `DailyPlanningMixin._generate_daily_rationale()` uses the activity report fields to note when the daily plan is informed by a recent AI synthesis. `ResponseGenerator.build_llm_context()` includes `latest_activity_report_user_annotation` when the query mentions feedback/patterns/reflection keywords.
 
 ## Profile Intelligence Integration
 *Last updated: January 2026*

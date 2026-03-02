@@ -158,10 +158,30 @@ await lp_service.search.get_aligned_with_goal("goal:learn-python")
 3. **MOC is not a searchable domain** — it's emergent identity via ORGANIZES relationships on Ku nodes
 4. **9 searchable domains, not 10** — there is no MOC EntityType
 
+## UserContext and Search
+
+SearchRouter and BaseService search services are independent of UserContext. They run their own domain queries and do not consume MEGA_QUERY or CONSOLIDATED_QUERY output. If you need to personalize or enrich search results with user state, the right approach is:
+
+```python
+# Get user state (standard context is sufficient for most search personalization)
+context = await builder.build(user_uid)    # UIDs + ActivityReport — fast (~50-100ms)
+
+# If intelligence-based ranking is needed alongside search
+context = await builder.build_rich(user_uid)  # Full entity + graph — slower (~150-200ms)
+
+# Run search independently — SearchRouter does NOT accept UserContext
+results = await search_router.search(EntityType.TASK, query)
+```
+
+**Key distinction:** `MEGA_QUERY` / `CONSOLIDATED_QUERY` build the user's *current state*. SearchRouter queries are *content searches* across entity properties. They solve different problems and compose independently.
+
+**See:** `@user-context-intelligence` skill for MEGA_QUERY vs CONSOLIDATED_QUERY details.
+
 ## Related Skills
 
 - **[neo4j-cypher-patterns](../neo4j-cypher-patterns/SKILL.md)** - Cypher queries used in search services
 - **[python](../python/SKILL.md)** - BaseService pattern for search services
+- **[user-context-intelligence](../user-context-intelligence/SKILL.md)** - Build paths when enriching search with user state
 
 ## Foundation
 

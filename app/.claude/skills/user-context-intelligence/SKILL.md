@@ -154,6 +154,37 @@ class DailyWorkPlan:
 
 ---
 
+## Build Paths: MEGA_QUERY vs CONSOLIDATED_QUERY
+
+`UserContextIntelligence` always requires **rich context** from `build_rich()`. The two build paths produce structurally similar `UserContext` objects but with different data density:
+
+| Query | Method | Speed | ActivityReport fields | Intelligence-ready? |
+|-------|--------|-------|-----------------------|---------------------|
+| `MEGA_QUERY` (~875 lines) | `build_rich()` | ~150-200ms | ✅ populated | **Yes** — full entities + graph |
+| `CONSOLIDATED_QUERY` (lightweight) | `build()` | ~50-100ms | ✅ populated | No — UIDs only |
+
+**What both paths share (March 2026):** `latest_activity_report_*` fields (`uid`, `period`, `period_end`, `content`, `user_annotation`) are now populated by both queries. CONSOLIDATED_QUERY fetches the latest ActivityReport via the same OPTIONAL MATCH + ORDER BY + collect-first-one pattern as MEGA_QUERY, and shapes the result with identical key names so `populate_activity_report()` works unchanged on both paths.
+
+**What only MEGA_QUERY provides:** Full entity objects (`active_tasks_rich`, `active_goals_rich`, etc.), graph neighborhoods, `cross_domain_insights` (active_insights_raw). These are absent in standard context.
+
+**The rule:** Always pass `build_rich()` context to intelligence. `require_rich_context()` will catch mistakes:
+
+```python
+# ❌ WRONG — build() context will fail at require_rich_context()
+context = await builder.build(user_uid)
+intelligence = factory.create(context)
+plan = await intelligence.get_ready_to_work_on_today()  # Raises ValueError
+
+# ✅ CORRECT — build_rich() for intelligence
+context = await builder.build_rich(user_uid)
+intelligence = factory.create(context)
+plan = await intelligence.get_ready_to_work_on_today()
+```
+
+**When standard context is enough:** API ownership checks, ActivityReport display, lightweight profile data — `build()` is sufficient and ~3× faster.
+
+---
+
 ## Two-Level Architecture
 
 SKUEL's intelligence services are designed so the app runs at full capability without any LLM dependency.
