@@ -26,91 +26,22 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.ports import BackendOperations, QueryExecutor
     from core.services.ai_service import OpenAIService
+    from core.services.feedback.activity_data_reader import ActivityDataReader
     from core.services.insight.insight_store import InsightStore
 
 from core.constants import FeedbackTimePeriod
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
-from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.models.enums.submissions_enums import ProgressDepth
 from core.models.feedback.activity_report import ActivityReport
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger("skuel.services.feedback.progress_generator")
 
 _PROMPT_TEMPLATE_PATH = Path(__file__).parent / "prompts" / "activity_feedback.md"
-
-# Single combined query — three CALL {} subqueries in one round-trip.
-#
-# Replaces the previous three separate queries:
-#   1. Tasks/Goals/Habits/Principles — updated_at datetime filter + graph traversal
-#   2. Events                        — event_date date filter (separate type)
-#   3. Choices                       — created_at datetime filter + principle traversal
-#
-# Parameters:
-#   $entity_types — list of entity type strings for the main block (empty = no records)
-#   $start/$end   — datetime ISO strings (main block + choices)
-#   $start_date/$end_date — date ISO strings (events block)
-#
-# Each CALL {} block returns an empty list when no entities match, so the
-# outer RETURN always produces one row.
-_ACTIVITY_QUERY: str = """
-MATCH (u:User {uid: $user_uid})
-
-CALL {
-    WITH u
-    OPTIONAL MATCH (u)-[:OWNS]->(e:Entity)
-    WHERE e.entity_type IN $entity_types
-      AND e.updated_at >= datetime($start) AND e.updated_at <= datetime($end)
-    OPTIONAL MATCH (e)-[:FULFILLS_GOAL]->(g:Goal)
-    OPTIONAL MATCH (e)-[:APPLIES_KNOWLEDGE]->(ku:Entity)
-    WITH e, collect(DISTINCT g.title) AS goal_titles, collect(DISTINCT ku.title) AS ku_titles
-    RETURN collect(CASE WHEN e IS NOT NULL THEN {
-        entity_type: e.entity_type,
-        uid: e.uid,
-        title: e.title,
-        status: e.status,
-        progress: e.progress,
-        streak: e.streak_count,
-        alignment: e.current_alignment,
-        strength: e.strength,
-        category: e.principle_category,
-        goal_titles: goal_titles,
-        ku_titles: ku_titles
-    } ELSE null END) AS main_records
-}
-
-CALL {
-    WITH u
-    OPTIONAL MATCH (u)-[:OWNS]->(e:Event)
-    WHERE e.event_date >= date($start_date) AND e.event_date <= date($end_date)
-    RETURN collect(CASE WHEN e IS NOT NULL THEN {
-        uid: e.uid,
-        title: e.title,
-        status: e.status,
-        event_type: e.event_type,
-        is_milestone: coalesce(e.is_milestone_event, false)
-    } ELSE null END) AS event_records
-}
-
-CALL {
-    WITH u
-    OPTIONAL MATCH (u)-[:OWNS]->(c:Choice)
-    WHERE c.created_at >= datetime($start) AND c.created_at <= datetime($end)
-    OPTIONAL MATCH (c)-[:INFORMED_BY_PRINCIPLE]->(p:Principle)
-    WITH c, collect(DISTINCT p.title) AS principle_titles
-    RETURN collect(CASE WHEN c IS NOT NULL THEN {
-        uid: c.uid,
-        title: c.title,
-        principle_titles: principle_titles
-    } ELSE null END) AS choice_records
-}
-
-RETURN main_records, event_records, choice_records
-"""
 
 
 class ProgressFeedbackGenerator:
@@ -137,6 +68,7 @@ class ProgressFeedbackGenerator:
         self,
         executor: "QueryExecutor",
         ku_backend: "BackendOperations[ActivityReport]",
+        activity_data_reader: "ActivityDataReader",
         openai_service: "OpenAIService | None" = None,
         user_service: Any | None = None,
         insight_store: "InsightStore | None" = None,
@@ -144,6 +76,7 @@ class ProgressFeedbackGenerator:
     ) -> None:
         self.executor = executor
         self.ku_backend = ku_backend
+        self.activity_data_reader = activity_data_reader
         self.openai_service = openai_service
         self.user_service = user_service
         self.insight_store = insight_store
@@ -202,7 +135,6 @@ class ProgressFeedbackGenerator:
                     insights = insights_result.value or []
 
             # 3. Build content — LLM when available, programmatic fallback
-            title = f"Activity Report — {start_date.strftime('%b %d')} to {end_date.strftime('%b %d, %Y')}"
             processor_type = ProcessorType.AUTOMATIC
             processing_error: str | None = None
 
@@ -251,22 +183,17 @@ class ProgressFeedbackGenerator:
             }
 
             # 5. Create ActivityReport entity
-            uid = UIDGenerator.generate_uid("ku")
-            report = ActivityReport(
-                uid=uid,
-                title=title,
-                ku_type=EntityType.ACTIVITY_REPORT,
+            report = ActivityReport.create(
                 user_uid=user_uid,
-                status=EntityStatus.COMPLETED,
-                processor_type=processor_type,
-                processed_content=content,
-                processing_error=processing_error,
                 subject_uid=user_uid,
-                time_period=time_period,
+                content=content,
+                processor_type=processor_type,
                 period_start=start_date,
                 period_end=end_date,
-                domains_covered=tuple(domains) if domains else (),
+                time_period=time_period,
+                domains=domains,
                 depth=depth,
+                processing_error=processing_error,
                 insights_referenced=tuple(
                     getattr(i, "uid", "") for i in insights if getattr(i, "uid", None)
                 ),
@@ -279,7 +206,7 @@ class ProgressFeedbackGenerator:
 
             # 6. Publish event
             event = SubmissionCreated(
-                submission_uid=uid,
+                submission_uid=report.uid,
                 user_uid=user_uid,
                 ku_type=EntityType.ACTIVITY_REPORT.value,
                 processor_type=processor_type.value,
@@ -287,7 +214,7 @@ class ProgressFeedbackGenerator:
             )
             await publish_event(self.event_bus, event, logger)
 
-            logger.info(f"Generated progress Ku {uid} for {user_uid}")
+            logger.info(f"Generated progress Ku {report.uid} for {user_uid}")
             return Result.ok(report)
 
         except Exception as e:
@@ -469,26 +396,9 @@ class ProgressFeedbackGenerator:
                      "category": r["category"]}
                 )
 
-    async def _query_completions(
-        self,
-        user_uid: str,
-        start_date: datetime,
-        end_date: datetime,
-        domains: list[str] | None = None,
-    ) -> dict[str, Any]:
-        """Query historical completions across domains in a single round-trip.
-
-        Uses _ACTIVITY_QUERY (three CALL {} subqueries) to fetch tasks/goals/
-        habits/principles, events, and choices in one database call.
-
-        The previous three separate queries are now a single combined query:
-          - main block  — tasks, goals, habits, principles (updated_at datetime filter)
-          - event block — events (event_date date filter)
-          - choice block — choices (created_at datetime filter + principle traversal)
-        """
-        include_all = domains is None
-
-        result: dict[str, Any] = {
+    def _empty_completions(self) -> dict[str, Any]:
+        """Return a zero-valued completions dict for error paths and empty results."""
+        return {
             "tasks_completed": 0,
             "tasks_total": 0,
             "tasks_details": [],
@@ -506,42 +416,36 @@ class ProgressFeedbackGenerator:
             "knowledge_applications": [],
         }
 
-        _MAIN_DOMAIN_MAP = {
-            "tasks": "task", "goals": "goal", "habits": "habit", "principles": "principle"
-        }
-        entity_types = [
-            v for k, v in _MAIN_DOMAIN_MAP.items()
-            if include_all or k in (domains or [])
-        ]
+    async def _query_completions(
+        self,
+        user_uid: str,
+        start_date: datetime,
+        end_date: datetime,
+        domains: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Query historical completions across domains via ActivityDataReader.
 
-        query_result = await self.executor.execute_query(
-            _ACTIVITY_QUERY,
-            {
-                "user_uid": user_uid,
-                "start": start_date.isoformat(),
-                "end": end_date.isoformat(),
-                "start_date": start_date.date().isoformat(),
-                "end_date": end_date.date().isoformat(),
-                "entity_types": entity_types,
-            },
+        Delegates the database round-trip to ActivityDataReader, then formats
+        the resulting ActivityData into the completions dict consumed by
+        _build_report_content() and _build_llm_prompt().
+        """
+        data_result = await self.activity_data_reader.read(
+            user_uid, start_date, end_date, domains
         )
-        if query_result.is_error:
-            logger.warning(f"Failed to query activity completions: {query_result.error}")
-            return result
+        if data_result.is_error:
+            logger.warning(f"Failed to query activity completions: {data_result.error}")
+            return self._empty_completions()
 
-        records = query_result.value or []
-        if not records:
-            return result
-
-        row = records[0]
+        data = data_result.value
+        include_all = domains is None
+        result = self._empty_completions()
 
         # Main entities: tasks, goals, habits, principles
-        self._process_main_entities(row.get("main_records") or [], result)
+        self._process_main_entities(data.main_records, result)
 
         # Events
         if include_all or "events" in (domains or []):
-            event_records = row.get("event_records") or []
-            result["events_attended"] = len(event_records)
+            result["events_attended"] = len(data.event_records)
             result["events_details"] = [
                 {
                     "uid": r["uid"],
@@ -550,16 +454,15 @@ class ProgressFeedbackGenerator:
                     "event_type": r["event_type"],
                     "is_milestone": r["is_milestone"],
                 }
-                for r in event_records
+                for r in data.event_records
             ]
 
         # Choices
         if include_all or "choices" in (domains or []):
-            choice_records = row.get("choice_records") or []
-            result["choices_made"] = len(choice_records)
+            result["choices_made"] = len(data.choice_records)
             result["choices_details"] = [
                 {"uid": r["uid"], "title": r["title"], "principles": r["principle_titles"]}
-                for r in choice_records
+                for r in data.choice_records
             ]
 
         return result

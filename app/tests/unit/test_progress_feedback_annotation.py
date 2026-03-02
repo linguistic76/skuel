@@ -41,13 +41,19 @@ def _make_minimal_completions() -> dict:
 
 def _make_generator() -> object:
     """ProgressFeedbackGenerator with minimal constructor args (no LLM/DB)."""
-    from unittest.mock import MagicMock
+    from unittest.mock import AsyncMock, MagicMock
 
+    from core.services.feedback.activity_data_reader import ActivityData, ActivityDataReader
     from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
+    from core.utils.result_simplified import Result
 
     executor = MagicMock()
     ku_backend = MagicMock()
-    return ProgressFeedbackGenerator(executor=executor, ku_backend=ku_backend)
+    reader = MagicMock(spec=ActivityDataReader)
+    reader.read = AsyncMock(return_value=Result.ok(ActivityData()))
+    return ProgressFeedbackGenerator(
+        executor=executor, ku_backend=ku_backend, activity_data_reader=reader
+    )
 
 
 # =============================================================================
@@ -95,13 +101,18 @@ async def test_fetch_previous_annotation_returns_none_on_empty() -> None:
     from unittest.mock import AsyncMock, MagicMock
     from datetime import datetime
 
+    from core.services.feedback.activity_data_reader import ActivityData, ActivityDataReader
     from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
 
     executor = MagicMock()
     executor.execute_query = AsyncMock(return_value=Result.ok([]))
     ku_backend = MagicMock()
+    reader = MagicMock(spec=ActivityDataReader)
+    reader.read = AsyncMock(return_value=Result.ok(ActivityData()))
 
-    generator = ProgressFeedbackGenerator(executor=executor, ku_backend=ku_backend)
+    generator = ProgressFeedbackGenerator(
+        executor=executor, ku_backend=ku_backend, activity_data_reader=reader
+    )
     result = await generator._fetch_previous_annotation(  # type: ignore[attr-defined]
         user_uid="user_test",
         current_period_start=datetime(2026, 3, 1),

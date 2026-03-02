@@ -1762,9 +1762,14 @@ async def compose_services(
         )
         progress_schedule_service = ProgressScheduleService(backend=progress_schedule_backend)
 
+        from core.services.feedback.activity_data_reader import ActivityDataReader
+
+        activity_data_reader = ActivityDataReader(executor=query_executor)
+
         progress_generator = ProgressFeedbackGenerator(
             executor=query_executor,
             ku_backend=ai_feedback_backend,
+            activity_data_reader=activity_data_reader,
             openai_service=ai_service,  # LLM-powered qualitative feedback (Phase 3)
             user_service=core_services["user"],
             insight_store=insight_store,
@@ -1788,6 +1793,7 @@ async def compose_services(
         activity_review_service = ActivityReviewService(
             executor=query_executor,
             ai_feedback_backend=ai_feedback_backend,
+            activity_data_reader=activity_data_reader,
         )
         logger.info("✅ ActivityReviewService created (human activity feedback)")
 

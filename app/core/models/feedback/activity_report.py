@@ -21,7 +21,7 @@ See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -109,6 +109,54 @@ class ActivityReport(UserOwnedEntity):
     # =========================================================================
     # CONVERSION
     # =========================================================================
+
+    @classmethod
+    def create(
+        cls,
+        user_uid: str,
+        subject_uid: str,
+        content: str,
+        processor_type: ProcessorType,
+        period_start: datetime,
+        period_end: datetime,
+        time_period: str,
+        domains: list[str] | None = None,
+        depth: str = "standard",
+        processing_error: str | None = None,
+        insights_referenced: tuple[str, ...] = (),
+        metadata: dict[str, Any] | None = None,
+    ) -> "ActivityReport":
+        """
+        Factory method — generates uid, formats title, constructs ActivityReport.
+
+        Called by both ProgressFeedbackGenerator (LLM/AUTOMATIC) and
+        ActivityReviewService (HUMAN). The processor_type discriminates the source.
+        """
+        from core.utils.uid_generator import UIDGenerator
+
+        uid = UIDGenerator.generate_uid("ku")
+        title = (
+            f"Activity Report — {period_start.strftime('%b %d')} "
+            f"to {period_end.strftime('%b %d, %Y')}"
+        )
+        return cls(
+            uid=uid,
+            title=title,
+            ku_type=EntityType.ACTIVITY_REPORT,
+            status=EntityStatus.COMPLETED,
+            user_uid=user_uid,
+            subject_uid=subject_uid,
+            processed_content=content,
+            processor_type=processor_type,
+            period_start=period_start,
+            period_end=period_end,
+            time_period=time_period,
+            domains_covered=tuple(domains) if domains else (),
+            depth=depth,
+            processing_error=processing_error,
+            insights_referenced=insights_referenced,
+            metadata=metadata or {},
+        )
 
     @classmethod
     def from_dto(cls, dto: "EntityDTO | ActivityReportDTO") -> "ActivityReport":  # type: ignore[override]

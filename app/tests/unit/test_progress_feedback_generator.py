@@ -54,11 +54,22 @@ def mock_event_bus():
 
 
 @pytest.fixture
-def generator(mock_driver, mock_backend, mock_insight_store, mock_event_bus):
+def mock_reader():
+    """Create a mock ActivityDataReader."""
+    from core.services.feedback.activity_data_reader import ActivityData
+
+    reader = MagicMock()
+    reader.read = AsyncMock(return_value=Result.ok(ActivityData()))
+    return reader
+
+
+@pytest.fixture
+def generator(mock_driver, mock_backend, mock_reader, mock_insight_store, mock_event_bus):
     """Create ProgressFeedbackGenerator with mocked deps."""
     return ProgressFeedbackGenerator(
         executor=mock_driver,
         ku_backend=mock_backend,
+        activity_data_reader=mock_reader,
         user_service=None,
         insight_store=mock_insight_store,
         event_bus=mock_event_bus,
@@ -92,22 +103,22 @@ class TestTimePeriodMapping:
 
 
 class TestQueryCompletionsSingleRoundTrip:
-    """_query_completions issues exactly one execute_query call."""
+    """_query_completions issues exactly one ActivityDataReader.read() call."""
 
     @pytest.mark.asyncio
     async def test_single_query_call(self, generator):
-        """Combined CALL{} query replaces the previous 3 separate queries."""
-        generator.executor.execute_query.reset_mock()
+        """Delegates to ActivityDataReader for a single round-trip."""
+        generator.activity_data_reader.read.reset_mock()
         await generator._query_completions(
             "user_alice",
             datetime.now() - timedelta(days=7),
             datetime.now(),
         )
-        assert generator.executor.execute_query.call_count == 1
+        assert generator.activity_data_reader.read.call_count == 1
 
     @pytest.mark.asyncio
     async def test_empty_result_returns_zero_counts(self, generator):
-        """Empty query result (user not found) returns all-zero completions."""
+        """Empty ActivityData (user not found) returns all-zero completions."""
         result = await generator._query_completions(
             "user_ghost",
             datetime.now() - timedelta(days=7),
@@ -123,28 +134,32 @@ class TestPreviousAnnotationParameter:
 
     @pytest.mark.asyncio
     async def test_provided_annotation_skips_db_lookup(self, generator, mock_backend):
-        """When previous_annotation is given, only 1 execute_query call (the activity query)."""
+        """When previous_annotation is given, reader called once, executor not called."""
         mock_backend.create.return_value = Result.ok(MagicMock())
         generator.executor.execute_query.reset_mock()
+        generator.activity_data_reader.read.reset_mock()
 
         await generator.generate(
             user_uid="user_alice",
             previous_annotation="I was overcommitting last week.",
         )
 
-        # Only the combined activity query — no separate annotation lookup
-        assert generator.executor.execute_query.call_count == 1
+        # Activity data via reader — no annotation lookup via executor
+        assert generator.activity_data_reader.read.call_count == 1
+        assert generator.executor.execute_query.call_count == 0
 
     @pytest.mark.asyncio
     async def test_no_annotation_fetches_from_db(self, generator, mock_backend):
-        """When previous_annotation is None, 2 execute_query calls (activity + annotation)."""
+        """When previous_annotation is None, reader called once + executor once (annotation)."""
         mock_backend.create.return_value = Result.ok(MagicMock())
         generator.executor.execute_query.reset_mock()
+        generator.activity_data_reader.read.reset_mock()
 
         await generator.generate(user_uid="user_alice")
 
-        # Activity query + annotation lookup
-        assert generator.executor.execute_query.call_count == 2
+        # Activity data via reader + annotation lookup via executor
+        assert generator.activity_data_reader.read.call_count == 1
+        assert generator.executor.execute_query.call_count == 1
 
 
 class TestGenerate:

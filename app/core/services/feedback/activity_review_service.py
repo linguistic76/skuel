@@ -21,63 +21,16 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.ports import BackendOperations, QueryExecutor
+    from core.services.feedback.activity_data_reader import ActivityDataReader
 
 from core.constants import FeedbackTimePeriod
-from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.entity_enums import ProcessorType
 from core.models.feedback.activity_report import ActivityReport
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger("skuel.services.feedback.activity_review")
-
-_SNAPSHOT_QUERY: str = """
-MATCH (u:User {uid: $user_uid})
-
-CALL {
-    WITH u
-    OPTIONAL MATCH (u)-[:OWNS]->(t:Task)
-    WHERE t.updated_at >= datetime($start) AND t.updated_at <= datetime($end)
-    WITH t ORDER BY t.updated_at DESC LIMIT 20
-    RETURN collect(CASE WHEN t IS NOT NULL THEN {
-        uid: t.uid, title: t.title, status: t.status, priority: t.priority
-    } ELSE null END) AS task_records
-}
-
-CALL {
-    WITH u
-    OPTIONAL MATCH (u)-[:OWNS]->(g:Goal)
-    WHERE g.updated_at >= datetime($start) AND g.updated_at <= datetime($end)
-    WITH g ORDER BY g.updated_at DESC LIMIT 10
-    RETURN collect(CASE WHEN g IS NOT NULL THEN {
-        uid: g.uid, title: g.title, status: g.status, progress: g.progress
-    } ELSE null END) AS goal_records
-}
-
-CALL {
-    WITH u
-    OPTIONAL MATCH (u)-[:OWNS]->(h:Habit)
-    WHERE h.updated_at >= datetime($start) AND h.updated_at <= datetime($end)
-    WITH h ORDER BY h.updated_at DESC LIMIT 10
-    RETURN collect(CASE WHEN h IS NOT NULL THEN {
-        uid: h.uid, title: h.title, status: h.status, streak: h.streak_count
-    } ELSE null END) AS habit_records
-}
-
-CALL {
-    WITH u
-    OPTIONAL MATCH (u)-[:OWNS]->(c:Choice)
-    WHERE c.created_at >= datetime($start) AND c.created_at <= datetime($end)
-    OPTIONAL MATCH (c)-[:INFORMED_BY_PRINCIPLE]->(p:Principle)
-    WITH c, collect(DISTINCT p.title) AS principle_titles
-    ORDER BY c.created_at DESC LIMIT 10
-    RETURN collect(CASE WHEN c IS NOT NULL THEN {
-        uid: c.uid, title: c.title, principle_titles: principle_titles
-    } ELSE null END) AS choice_records
-}
-
-RETURN task_records, goal_records, habit_records, choice_records
-"""
 
 
 class ActivityReviewService:
@@ -95,9 +48,11 @@ class ActivityReviewService:
         self,
         executor: "QueryExecutor",
         ai_feedback_backend: "BackendOperations[ActivityReport]",
+        activity_data_reader: "ActivityDataReader",
     ) -> None:
         self.executor = executor
         self.ai_feedback_backend = ai_feedback_backend
+        self.activity_data_reader = activity_data_reader
 
     async def create_activity_snapshot(
         self,
@@ -128,86 +83,103 @@ class ActivityReviewService:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
 
-        try:
-            snapshot: dict[str, Any] = {
-                "subject_uid": subject_uid,
-                "time_period": time_period,
-                "start_date": start_date.isoformat(),
-                "end_date": end_date.isoformat(),
-                "domains": {},
+        data_result = await self.activity_data_reader.read(
+            subject_uid, start_date, end_date, domains
+        )
+        if data_result.is_error:
+            return Result.fail(data_result.expect_error())
+
+        data = data_result.value
+        include_all = not domains
+        snapshot: dict[str, Any] = {
+            "subject_uid": subject_uid,
+            "time_period": time_period,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "domains": {},
+        }
+
+        tasks = [r for r in data.main_records if r.get("entity_type") == "task"]
+        goals = [r for r in data.main_records if r.get("entity_type") == "goal"]
+        habits = [r for r in data.main_records if r.get("entity_type") == "habit"]
+        principles = [r for r in data.main_records if r.get("entity_type") == "principle"]
+
+        if include_all or "tasks" in (domains or []):
+            snapshot["domains"]["tasks"] = {
+                "count": len(tasks),
+                "completed": sum(1 for r in tasks if r.get("status") == "completed"),
+                "items": [
+                    {"title": r.get("title", ""), "status": r.get("status", "")}
+                    for r in tasks[:10]
+                ],
             }
 
-            query_result = await self.executor.execute_query(
-                _SNAPSHOT_QUERY,
-                {
-                    "user_uid": subject_uid,
-                    "start": start_date.isoformat(),
-                    "end": end_date.isoformat(),
-                },
-            )
-            if query_result.is_error:
-                return Result.fail(query_result.expect_error())
+        if include_all or "goals" in (domains or []):
+            snapshot["domains"]["goals"] = {
+                "count": len(goals),
+                "items": [
+                    {
+                        "title": r.get("title", ""),
+                        "status": r.get("status", ""),
+                        "progress": r.get("progress"),
+                    }
+                    for r in goals[:10]
+                ],
+            }
 
-            row = (query_result.value or [{}])[0] if query_result.value else {}
-            include_all = not domains
+        if include_all or "habits" in (domains or []):
+            snapshot["domains"]["habits"] = {
+                "count": len(habits),
+                "items": [
+                    {
+                        "title": r.get("title", ""),
+                        "status": r.get("status", ""),
+                        "streak": r.get("streak", 0),
+                    }
+                    for r in habits[:10]
+                ],
+            }
 
-            if include_all or "tasks" in (domains or []):
-                records = [r for r in (row.get("task_records") or []) if r]
-                snapshot["domains"]["tasks"] = {
-                    "count": len(records),
-                    "completed": len([r for r in records if r.get("status") == "completed"]),
-                    "items": [
-                        {"title": r.get("title", ""), "status": r.get("status", "")}
-                        for r in records[:10]
-                    ],
-                }
+        if include_all or "choices" in (domains or []):
+            snapshot["domains"]["choices"] = {
+                "count": len(data.choice_records),
+                "items": [
+                    {
+                        "title": r.get("title", ""),
+                        "principles": [p for p in r.get("principle_titles", []) if p],
+                    }
+                    for r in data.choice_records[:10]
+                ],
+            }
 
-            if include_all or "goals" in (domains or []):
-                records = [r for r in (row.get("goal_records") or []) if r]
-                snapshot["domains"]["goals"] = {
-                    "count": len(records),
-                    "items": [
-                        {
-                            "title": r.get("title", ""),
-                            "status": r.get("status", ""),
-                            "progress": r.get("progress"),
-                        }
-                        for r in records[:10]
-                    ],
-                }
+        if include_all or "events" in (domains or []):
+            snapshot["domains"]["events"] = {
+                "count": len(data.event_records),
+                "items": [
+                    {
+                        "title": r.get("title", ""),
+                        "status": r.get("status", ""),
+                        "event_type": r.get("event_type", ""),
+                        "is_milestone": r.get("is_milestone", False),
+                    }
+                    for r in data.event_records[:10]
+                ],
+            }
 
-            if include_all or "habits" in (domains or []):
-                records = [r for r in (row.get("habit_records") or []) if r]
-                snapshot["domains"]["habits"] = {
-                    "count": len(records),
-                    "items": [
-                        {
-                            "title": r.get("title", ""),
-                            "status": r.get("status", ""),
-                            "streak": r.get("streak", 0),
-                        }
-                        for r in records[:10]
-                    ],
-                }
+        if include_all or "principles" in (domains or []):
+            snapshot["domains"]["principles"] = {
+                "count": len(principles),
+                "items": [
+                    {
+                        "title": r.get("title", ""),
+                        "status": r.get("status", ""),
+                        "alignment": r.get("alignment"),
+                    }
+                    for r in principles[:10]
+                ],
+            }
 
-            if include_all or "choices" in (domains or []):
-                records = [r for r in (row.get("choice_records") or []) if r]
-                snapshot["domains"]["choices"] = {
-                    "count": len(records),
-                    "items": [
-                        {
-                            "title": r.get("title", ""),
-                            "principles": [p for p in r.get("principle_titles", []) if p],
-                        }
-                        for r in records[:10]
-                    ],
-                }
-
-            return Result.ok(snapshot)
-
-        except Exception as e:
-            logger.error(f"Failed to create activity snapshot for {subject_uid}: {e}")
-            return Result.fail(Errors.system(f"Failed to create activity snapshot: {e}"))
+        return Result.ok(snapshot)
 
     async def submit_activity_feedback(
         self,
@@ -244,11 +216,6 @@ class ActivityReviewService:
         start_date = end_date - timedelta(days=days)
 
         try:
-            uid = UIDGenerator.generate_uid("ku")
-            title = (
-                f"Activity Review — {subject_uid} "
-                f"({start_date.strftime('%b %d')} - {end_date.strftime('%b %d, %Y')})"
-            )
             metadata: dict[str, Any] = {
                 "reviewed_by": admin_uid,
                 "time_period": time_period,
@@ -257,20 +224,15 @@ class ActivityReviewService:
             if snapshot_context:
                 metadata["snapshot"] = snapshot_context
 
-            feedback = ActivityReport(
-                uid=uid,
-                title=title,
-                ku_type=EntityType.ACTIVITY_REPORT,
+            feedback = ActivityReport.create(
                 user_uid=admin_uid,
-                status=EntityStatus.COMPLETED,
-                processor_type=ProcessorType.HUMAN,
-                processed_content=feedback_text,
                 subject_uid=subject_uid,
-                time_period=time_period,
+                content=feedback_text,
+                processor_type=ProcessorType.HUMAN,
                 period_start=start_date,
                 period_end=end_date,
-                domains_covered=tuple(domains) if domains else (),
-                depth="standard",
+                time_period=time_period,
+                domains=domains,
                 metadata=metadata,
             )
 
@@ -278,7 +240,9 @@ class ActivityReviewService:
             if create_result.is_error:
                 return Result.fail(create_result.expect_error())
 
-            logger.info(f"Activity review created: {uid} by {admin_uid} for {subject_uid}")
+            logger.info(
+                f"Activity review created: {feedback.uid} by {admin_uid} for {subject_uid}"
+            )
             return Result.ok(feedback)
 
         except Exception as e:
