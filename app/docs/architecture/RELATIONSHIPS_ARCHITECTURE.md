@@ -1,685 +1,376 @@
 ---
 title: Relationships Architecture
-updated: 2026-01-17
+updated: 2026-03-03
 status: current
 category: architecture
-tags: [architecture, relationships, unified-service, infrastructure]
+version: 2.0.0
+tags: [architecture, relationships, unified-service, infrastructure, lateral-relationships]
 related: [UNIFIED_RELATIONSHIP_SERVICE.md, RELATIONSHIP_INFRASTRUCTURE_PATTERN.md, ADR-028]
 ---
 
 # Relationships Architecture
 
-**Last Updated**: 2026-01-17
-**Status**: 13 of 14 Domains use UnifiedRelationshipService (Finance is standalone bookkeeping)
+## Two Layers
 
-> **See Also:** [Relationship Infrastructure Pattern](/docs/patterns/RELATIONSHIP_INFRASTRUCTURE_PATTERN.md) for the foundational mixin layer (`core/infrastructure/relationships/`) - storage, validation, and semantic relationship primitives.
+SKUEL's relationship system operates at two levels:
 
-## Current Architecture (January 2026)
+| Layer | Where | Purpose |
+|-------|-------|---------|
+| **Service layer** | `UnifiedRelationshipService` | Config-driven CRUD, planning, intelligence, life-path |
+| **Backend layer** | Domain backends + `_RelationshipCrudMixin` / `_RelationshipQueryMixin` | Low-level Cypher execution |
 
-### Unified Relationship Architecture
+Domain-specific relationship Cypher belongs on the **domain backend**. Cross-domain aggregation belongs in **services**.
 
-**13 of 14 domains** use `UnifiedRelationshipService` for harmonious architecture via `self.relationships` attribute. Finance is a standalone bookkeeping domain.
+---
 
-| Category | Domains | Relationship Access | Intelligence |
-|----------|---------|---------------------|--------------|
-| **Activity Domains (6)** | Tasks, Goals, Habits, Events, Choices, Principles | `self.relationships` | Domain-specific intelligence services |
-| **Curriculum Domains (3)** | KU, LS, LP | `self.relationships` | Specialized services (KuGraphService, etc.) |
-| **Content/Organization (3)** | Journals, Assignments, MOC | `self.relationships` | MocDiscoveryService, etc. |
+## UnifiedRelationshipService
 
-**Note:** Finance is a standalone bookkeeping domain (no relationship service or intelligence service).
+**Location:** `core/services/relationships/unified_relationship_service.py`
 
-### Activity Domains (6) - UnifiedRelationshipService
-
-Tasks, Goals, Habits, Events, Choices, Principles use `UnifiedRelationshipService`:
+All 13 entity-owning domains (Finance excluded — standalone bookkeeping) expose relationships via `self.relationships` on their facade service. Each instance is constructed with a backend + a `DomainRelationshipConfig` from the registry.
 
 ```python
 from core.models.relationship_registry import TASKS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
-service = UnifiedRelationshipService(backend, TASKS_CONFIG, graph_intel)
-knowledge = await service.get_related_uids("knowledge", "task:123")
-context = await service.get_cross_domain_context_typed("task:123")
-actionable = await service.get_actionable_for_user(user_context)
-```
-
-**Old services archived:** `zarchives/relationships/`
-
-### Curriculum Domains (3) + MOC - Unified + Specialized (January 2026)
-
-All curriculum domains and MOC now use `UnifiedRelationshipService` via `self.relationships`:
-
-| Domain | Category | Relationship Service | Specialized Intelligence |
-|--------|----------|---------------------|-------------------------|
-| **KU** | Curriculum | `ku_service.relationships` | KuGraphService (54k lines), KuSemanticService (20k lines) |
-| **LS** | Curriculum | `ls_service.relationships` | LsIntelligenceService |
-| **LP** | Curriculum | `lp_service.relationships` | LpIntelligenceService |
-| **MOC** | Content/Org | `moc_service.relationships` + `moc_service.section_relationships` | MocDiscoveryService |
-
-**Note:** MOC is architecturally a Content/Organization domain (not Curriculum), but uses the same relationship patterns for knowledge navigation.
-
-**Key Decision (ADR-028):** Specialized services (KuGraphService, KuSemanticService) were **kept** because they provide graph intelligence, not basic relationship CRUD.
-
-**Deleted Services:**
-- `moc_relationship_service.py` (~650 lines) - Replaced by UnifiedRelationshipService
-
-**See:** `/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md` for complete documentation.
-**See:** ADR-028 for the KU & MOC migration rationale.
-
----
-
-## Overview
-
-The RelationshipsAdapter enriches the knowledge graph with semantic relationships extracted from YAML frontmatter in markdown files. This allows any entity type (KnowledgeUnit, Task, Event, Habit, and **Learning Schemas**) to define rich relationships that create a more connected and navigable knowledge graph.
-
-**NEW**: Enhanced with **Semantic RDF-Inspired Capabilities** providing precise relationship semantics, confidence scoring, and cross-domain discovery through the three-phase semantic implementation.
-
-## Schema Integration
-
-The relationship system now works seamlessly with the schema-first approach, supporting both traditional entities and new learning schemas.
-
-## Key Features
-
-### Learning-Appropriate Relationship Types
-
-Instead of generic family metaphors, we use domain-specific relationship types:
-
-#### Prerequisites & Enables
-- **Prerequisites**: Concepts/tasks that must be understood/completed first
-- **Enables**: What this entity unlocks or makes possible
-
-#### Taxonomic Relationships
-- **Broader**: Parent concepts in a hierarchy
-- **Narrower**: More specific child concepts
-
-#### Lateral Connections
-- **RelatedConcepts**: Semantically related entities
-- **See Also**: Additional relevant references
-
-#### Application Relationships
-- **AppliesTo**: Where this knowledge/skill is applicable
-- **UsedBy**: What systems/components use this
-
-### Semantic Enhancement (NEW)
-
-The relationship system now includes **RDF-inspired semantic precision** with:
-
-#### Semantic Relationship Types
-- **Namespaced predicates**: `learn:`, `task:`, `cross:`, `skill:`, `concept:`, `time:`
-- **Precise semantics**: Replace generic "REQUIRES" with specific "learn:requires_theoretical_understanding"
-- **Rich metadata**: Confidence scores, strength values, temporal validity, evidence
-- **Cross-domain bridges**: Automatic discovery of interdisciplinary connections
-
-#### Three-Phase Implementation
-1. **Phase 1**: Core semantic components (SemanticRelationshipType, SemanticKnowledgeUnit, TripleBuilder)
-2. **Phase 2**: Enhanced services (semantic search, A* path generation, migration tools)
-3. **Phase 3**: Production features (REST/GraphQL APIs, UI components, deployment)
-
-#### Semantic Capabilities
-- **Intent-based search**: 6 query intents (FIND_PREREQUISITES, FIND_NEXT_STEPS, etc.)
-- **Confidence scoring**: Relationship strength and confidence metrics (0-1)
-- **Cross-domain discovery**: 4 bridge types (direct, analogical, methodological, skill-based)
-- **Temporal relationships**: Time-aware validity and scheduling
-- **Ontology generation**: Formal domain constraints from Pydantic schemas
-
-## Architecture
-
-### Integration with UnifiedMarkdownSync
-
-The RelationshipsAdapter is located in `/adapters/persistence/relationships_adapter.py` as it handles database persistence of relationships.
-
-```python
-class UnifiedMarkdownSync:
-    def __init__(self, repository):
-        self.repository = repository
-        # Import from persistence adapters
-        from adapters.persistence.relationships_adapter import RelationshipsAdapter
-        self.relationships_adapter = RelationshipsAdapter(repository)
-
-    async def sync_markdown_file(self, file_path: Path):
-        # Extract and parse frontmatter
-        frontmatter, body = self._extract_frontmatter(content)
-
-        # Create entity (KnowledgeUnit, Task, etc.)
-        entity = self._parse_entity(frontmatter, body, file_path)
-
-        # Sync to Neo4j
-        await self._sync_to_neo4j(entity)
-
-        # Process relationships if present (optional)
-        if "Relationships" in frontmatter:
-            await self.relationships_adapter.process_relationships(
-                frontmatter,
-                entity.uid,
-                entity_type
-            )
-```
-
-### Relationship Processing Flow
-
-1. **Extraction**: Parse Relationships block from YAML
-2. **Normalization**: Handle various formats (string, list, comma-separated)
-3. **UID Generation**: Create consistent UIDs from titles
-4. **Neo4j Creation**: Generate appropriate graph edges with directionality
-
-## YAML Frontmatter Format
-
-### Basic Structure
-
-```yaml
----
-uid: ku.python_functions
-title: Python Functions
-type: KnowledgeUnit
-
-Relationships:
-  Prerequisites:
-    - Python Variables
-    - Control Flow
-  Enables: Advanced Python Features
-  Broader: Programming Concepts
-  Narrower: [Parameters, Return Values, Scope]
-  RelatedConcepts:
-    - JavaScript Functions
-    - Ruby Methods
----
-```
-
-### Semantic Relationship Format (NEW)
-
-Enhanced YAML format with semantic precision and metadata:
-
-```yaml
----
-uid: ku.machine_learning_fundamentals
-title: Machine Learning Fundamentals
-type: SemanticKnowledgeUnit
-
-# Traditional relationships (still supported)
-Relationships:
-  Prerequisites: [Statistics, Linear Algebra, Python Programming]
-  Enables: [Deep Learning, Computer Vision, NLP]
-
-# Enhanced semantic relationships with metadata
-SemanticRelationships:
-  - predicate: "learn:requires_theoretical_understanding"
-    object: "ku.statistics_fundamentals"
-    confidence: 0.95
-    strength: 0.9
-    source: "curriculum_design"
-    notes: "Strong statistical foundation essential"
-
-  - predicate: "learn:requires_practical_application"
-    object: "ku.python_programming"
-    confidence: 0.9
-    strength: 0.8
-    source: "expert_analysis"
-
-  - predicate: "cross:applies_knowledge_to"
-    object: "domain.healthcare"
-    confidence: 0.85
-    strength: 0.7
-    evidence: ["medical_imaging", "drug_discovery", "diagnosis_systems"]
-
-# Ontology classification
-ontology_class: "ConceptualKnowledge"
-semantic_tags: ["algorithm", "mathematical", "applied"]
----
-```
-
-### Supported Formats
-
-Each relationship can be specified as:
-
-1. **Single String**
-   ```yaml
-   Broader: Python Programming
-   ```
-
-2. **List Format**
-   ```yaml
-   Prerequisites:
-     - Database Design
-     - SQL Basics
-   ```
-
-3. **Inline Array**
-   ```yaml
-   Enables: [User Management, Access Control, Audit Logging]
-   ```
-
-4. **Comma Separated**
-   ```yaml
-   RelatedConcepts: JavaScript, TypeScript, CoffeeScript
-   ```
-
-## Neo4j Graph Structure
-
-### Relationship Directionality
-
-Different relationship types have specific directionality patterns:
-
-#### Prerequisites (Incoming)
-```cypher
-(Prerequisite)-[:REQUIRES]->(ThisEntity)
-```
-"This entity requires these prerequisites"
-
-#### Enables (Outgoing)
-```cypher
-(ThisEntity)-[:ENABLES]->(EnabledConcept)
-```
-"This entity enables these concepts"
-
-#### Broader/Narrower (Hierarchical)
-```cypher
-(BroaderConcept)-[:HAS_NARROWER]->(ThisEntity)
-(ThisEntity)-[:HAS_NARROWER]->(NarrowerConcept)
-```
-
-#### Related (Bidirectional)
-```cypher
-(ThisEntity)-[:RELATED_TO]->(RelatedEntity)
-(RelatedEntity)-[:RELATED_TO]->(ThisEntity)
-```
-
-### Stub Node Creation
-
-When a relationship references an entity that doesn't exist yet, a stub node is created:
-
-```cypher
-CREATE (n:Curriculum {
-  uid: "ku.referenced_concept",
-  title: "Referenced Concept",
-  is_stub: true,
-  created_from: "relationship_reference"
-})
-```
-
-These stubs are replaced when the actual entity is synced.
-
-### Semantic Neo4j Structure (NEW)
-
-Enhanced relationship storage with semantic metadata:
-
-```cypher
-// Semantic relationships with rich metadata
-(ku_fundamentals)-[r:REQUIRES_THEORETICAL_UNDERSTANDING {
-    confidence: 0.95,
-    strength: 0.9,
-    source: "curriculum_design",
-    notes: "Strong statistical foundation essential",
-    created_at: "2025-09-27T10:00:00Z",
-    namespace: "learn"
-}]->(ku_statistics)
-
-// Cross-domain relationships
-(ku_ml)-[r:APPLIES_KNOWLEDGE_TO {
-    confidence: 0.85,
-    strength: 0.7,
-    evidence: ["medical_imaging", "drug_discovery"],
-    bridge_type: "methodological",
-    namespace: "cross"
-}]->(domain_healthcare)
-
-// Temporal relationships with validity
-(task_setup)-[r:OCCURS_BEFORE {
-    valid_from: "2025-09-27T09:00:00Z",
-    valid_until: "2025-12-31T23:59:59Z",
-    confidence: 1.0,
-    namespace: "time"
-}]->(task_implementation)
-```
-
-### Semantic Query Examples (NEW)
-
-```cypher
-// Find high-confidence prerequisites
-MATCH (ku:Curriculum)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(prereq)
-WHERE r.confidence > 0.9
-RETURN ku.title, prereq.title, r.confidence
-ORDER BY r.confidence DESC
-
-// Cross-domain discovery
-MATCH (a)-[r]->(b)
-WHERE r.namespace = "cross"
-  AND r.bridge_type = "methodological"
-RETURN a.title, type(r), b.title, r.confidence
-
-// Temporal relationship validation
-MATCH (a)-[r]->(b)
-WHERE r.namespace = "time"
-  AND datetime(r.valid_from) <= datetime()
-  AND datetime(r.valid_until) >= datetime()
-RETURN a.title, type(r), b.title
-```
-
-## Use Cases
-
-### 1. Learning Path Construction (Schema-First)
-
-**New**: Direct integration with LearningPathSchema and LearningPathStepSchema:
-
-```yaml
----
-uid: path.python_oop
-title: Python Object-Oriented Programming
-type: LearningPath
-
-Relationships:
-  Prerequisites:
-    - path.python_basics
-    - path.python_functions
-  Enables:
-    - path.python_advanced_oop
-    - path.design_patterns
-  RelatedConcepts:
-    - Java OOP
-    - C++ Classes
-
-# Schema fields are automatically processed
-learning_path:
-  difficulty_level: intermediate
-  is_sequential: true
-  category: programming
----
-```
-
-The relationship system enriches LearningPathSchema objects:
-
-```python
-from core.models.learning_schemas import LearningPathSchema
-
-# Schema object enriched with relationship data
-path = LearningPathSchema(...)
-path.prerequisite_path_uids = ["path.python_basics", "path.python_functions"]
-path.enables_path_uids = ["path.python_advanced_oop"]  # From relationships
-
-# Vector integration enhances with semantic connections
-similar_paths = await vector_learning.find_similar_content(path.uid)
-```
-
-### 2. Task Dependencies
-```yaml
-type: Task
-Relationships:
-  Prerequisites: Database Migration Complete
-  Enables: [API Development, Frontend Integration]
-```
-Tasks can define their dependencies and what they unlock.
-
-### 3. Habit Progression
-```yaml
-type: Habit
-Relationships:
-  Prerequisites: Basic Exercise Routine
-  Enables: Advanced Training Programs
-  RelatedConcepts: [Nutrition, Sleep, Recovery]
-```
-
-### 4. Cross-Domain Connections
-```yaml
-Relationships:
-  RelatedConcepts:
-    - Mathematics::Linear Algebra
-    - Physics::Mechanics
-  AppliesTo:
-    - Machine Learning
-    - Game Development
-```
-
-### 5. Semantic Search and Discovery (NEW)
-
-```python
-from core.services.semantic_search_service import SemanticSearchService
-from core.models.semantic_relationships import QueryIntent
-
-# Intent-based semantic search
-search_service = SemanticSearchService()
-
-# Find prerequisites with confidence filtering
-prerequisites = await search_service.semantic_search(
-    query="machine learning fundamentals",
-    intent=QueryIntent.FIND_PREREQUISITES,
-    min_confidence=0.8
+service = UnifiedRelationshipService(
+    backend=tasks_backend,   # REQUIRED — domain protocol backend
+    config=TASKS_CONFIG,     # REQUIRED — from relationship_registry
+    graph_intel=graph_intel, # Optional — enables intent-based queries
 )
 
-# Cross-domain discovery
-bridges = await search_service.discover_cross_domain_connections(
-    domain_a="mathematics",
-    domain_b="computer_science",
-    bridge_types=["methodological", "skill_based"]
-)
-
-# Semantic neighborhood exploration
-neighborhood = await search_service.explore_semantic_neighborhood(
-    center_uid="ku.linear_algebra",
-    radius=2,
-    relationship_types=["learn:requires_theoretical_understanding", "cross:applies_knowledge_to"]
-)
+# Usage (via domain facade)
+knowledge = await tasks_service.relationships.get_related_uids("knowledge", task_uid)
+context   = await tasks_service.relationships.get_cross_domain_context_typed(task_uid)
+actionable = await tasks_service.relationships.get_actionable_for_user(user_context)
 ```
 
-### 6. Learning Path Optimization (NEW)
+### Mixin Architecture
+
+`UnifiedRelationshipService` is assembled from six focused mixins:
+
+```
+UnifiedRelationshipService[Ops, Model, DtoType]
+    ├── PlanningMixin              (~430 lines) — UserContext-aware planning + scoring
+    ├── DomainPlanningMixin        (~290 lines) — per-Activity-Domain planning methods
+    ├── LifePathMixin              (~370 lines) — SERVES_LIFE_PATH management
+    ├── IntelligenceMixin          (~400 lines) — cross-domain context, semantic queries
+    ├── OrderedRelationshipsMixin  (~550 lines) — curriculum hierarchy + edge metadata
+    ├── BatchOperationsMixin       (~190 lines) — N+1 elimination
+    └── BaseService[Ops, Model]    — CRUD, search, config
+```
+
+### Key Methods by Mixin
+
+**Shell (generic CRUD):**
+- `get_related_uids(relationship_key, entity_uid)` → `Result[list[str]]`
+- `has_relationship(relationship_key, entity_uid)` → `Result[bool]`
+- `count_related(relationship_key, entity_uid)` → `Result[int]`
+- `create_relationship(relationship_key, from_uid, to_uid, properties)` → `Result[bool]`
+- `delete_relationship(relationship_key, from_uid, to_uid)` → `Result[bool]`
+- `fetch_all_relationships(entity_uid)` → `Result[dict[str, list[str]]]`
+- `link_to_knowledge(entity_uid, knowledge_uid, **properties)` → `Result[bool]`
+- `link_to_goal(entity_uid, goal_uid, **properties)` → `Result[bool]`
+- `link_to_principle(entity_uid, principle_uid, **properties)` → `Result[bool]`
+
+**BatchOperationsMixin** — eliminates N+1 queries:
+- `batch_has_relationship(relationship_key, entity_uids)` → `Result[dict[str, bool]]`
+- `batch_count_related(relationship_key, entity_uids)` → `Result[dict[str, int]]`
+- `batch_get_related_uids(relationship_key, entity_uids)` → `Result[dict[str, list[str]]]`
+
+**OrderedRelationshipsMixin** — curriculum hierarchy:
+- `get_ordered_related_uids(relationship_key, entity_uid)` → `Result[list[str]]`
+- `get_related_with_metadata(relationship_key, entity_uid)` → `Result[list[dict]]`
+- `reorder_relationships(relationship_key, entity_uid, new_order)` → `Result[bool]`
+- `create_relationship_with_properties(...)` → `Result[bool]`
+- `get_hierarchical_children(relationship_key, entity_uid, depth)` → `Result[list[dict]]`
+
+**IntelligenceMixin** — graph intelligence:
+- `get_cross_domain_context(entity_uid, depth, min_confidence)` → `Result[dict]`
+- `get_cross_domain_context_typed(entity_uid, depth, min_confidence)` → `Result[dict]`
+- `get_completion_impact(entity_uid, context)` → `Result[dict]`
+- `get_with_semantic_context(entity_uid)` → `Result[dict]`
+- `create_semantic_relationship(...)` → `Result[bool]`
+- `find_by_semantic_filter(semantic_type, context)` → `Result[list[Model]]`
+
+**LifePathMixin** — "everything flows toward the life path":
+- `link_to_life_path(entity_uid, life_path_uid, contribution_type, score, notes)` → `Result[bool]`
+- `get_life_path_contributors(life_path_uid, entity_types, min_score)` → `Result[list]`
+- `calculate_contribution_score(entity_uid, life_path_uid)` → `Result[float]`
+- `update_contribution_score(entity_uid, life_path_uid, new_score)` → `Result[bool]`
+- `remove_life_path_link(entity_uid, life_path_uid)` → `Result[bool]`
+
+**PlanningMixin** — generic UserContext-aware planning:
+- `get_actionable_for_user(context, limit, include_learning)` → `Result[list[Any]]`
+- `get_blocked_for_user(context, limit)` → `Result[list[dict]]`
+- `get_learning_related_for_user(context, limit)` → `Result[list[Any]]`
+- `get_goal_aligned_for_user(context, goal_uid, limit)` → `Result[list[Any]]`
+
+**DomainPlanningMixin** — per-Activity-Domain planning (called by `DailyPlanningMixin`):
+- `get_actionable_tasks_for_user(context, limit)` → `Result[list[ContextualTask]]`
+- `get_at_risk_habits_for_user(context, limit)` → `Result[list[ContextualHabit]]`
+- `get_upcoming_events_for_user(context, limit)` → `Result[list[ContextualEvent]]`
+- `get_advancing_goals_for_user(context, limit)` → `Result[list[ContextualGoal]]`
+- `get_pending_decisions_for_user(context, limit)` → `Result[list[ContextualChoice]]`
+- `get_aligned_principles_for_user(context, limit)` → `Result[list[ContextualPrinciple]]`
+
+---
+
+## DomainRelationshipConfig
+
+**Location:** `core/models/relationship_registry.py`
+
+`DomainRelationshipConfig` is the single source of truth for a domain's relationship definitions. One config per domain, instantiated at module load.
 
 ```python
-from core.services.learning_path_service_semantic import LearningPathServiceSemantic
-
-path_service = LearningPathServiceSemantic()
-
-# Generate optimal path using A* with semantic distance
-optimal_path = await path_service.generate_optimal_path(
-    start_uid="ku.programming_basics",
-    goal_uid="ku.machine_learning_advanced",
-    learning_style="visual",  # Affects heuristic weighting
-    constraints={"max_cognitive_load": 0.8}
-)
-
-# Analyze path characteristics
-analysis = await path_service.analyze_path_semantics(optimal_path)
-# Returns: cognitive_load, semantic_distance, cross_domain_opportunities
+@dataclass(frozen=True)
+class DomainRelationshipConfig:
+    domain: Domain
+    entity_label: str
+    dto_class: type
+    model_class: type
+    ownership_relationship: RelationshipName | None
+    relationships: tuple[UnifiedRelationshipDefinition, ...] = ()
+    prerequisite_relationship_names: tuple[RelationshipName, ...] = ()
+    enables_relationship_names: tuple[RelationshipName, ...] = ()
+    bidirectional_relationships: tuple[RelationshipName, ...] = ()
+    semantic_types: tuple[SemanticRelationshipType, ...] = ()
+    scoring_weights: dict[str, float] = ...
+    default_context_intent: QueryIntent = QueryIntent.HIERARCHICAL
+    intent_mappings: dict[str, QueryIntent] = ...
+    is_shared_content: bool = False  # True for KU, LS, LP
 ```
 
-## Benefits
+**Named configs:** `TASKS_CONFIG`, `GOALS_CONFIG`, `HABITS_CONFIG`, `EVENTS_CONFIG`, `CHOICES_CONFIG`, `PRINCIPLES_CONFIG`, `KU_CONFIG`, `LS_CONFIG`, `LP_CONFIG`
 
-### 1. Rich Knowledge Graph
-- Transforms flat files into interconnected graph
-- Enables graph traversal for discovery
-- Supports multiple relationship types
+---
 
-### 2. Learning Intelligence
-- AskesisService can leverage relationships for recommendations
-- Prerequisites ensure proper learning order
-- Related concepts enable lateral exploration
+## RelationshipName Enum
 
-### 3. Maintainability
-- Relationships defined with content (single source of truth)
-- Optional processing (doesn't break existing files)
-- Clean separation of concerns
+**Location:** `core/models/relationship_names.py`
 
-### 4. Extensibility
-- Easy to add new relationship types
-- Works with all entity types
-- Can be queried via Neo4j for analytics
+70+ typed relationship names, organised by domain. SKUEL rule SKUEL013 requires using `RelationshipName` enum values — no string literals in relationship Cypher.
 
-### 5. Semantic Intelligence (NEW)
-- **Precise semantics**: RDF-inspired relationship types with clear meaning
-- **Confidence scoring**: Uncertainty-aware recommendations and learning paths
-- **Cross-domain discovery**: Automatic identification of interdisciplinary connections
-- **Intent-based search**: Natural language queries mapped to semantic operations
-- **Temporal reasoning**: Time-aware relationship validity and scheduling
-- **Ontology validation**: Formal domain constraints ensure data integrity
+**Key groupings:**
 
-## Query Examples
+| Group | Count | Examples |
+|-------|-------|---------|
+| Knowledge | 18 | `REQUIRES_KNOWLEDGE`, `APPLIES_KNOWLEDGE`, `REINFORCES_KNOWLEDGE`, `ENABLES_KNOWLEDGE` |
+| Task | 14 | `DEPENDS_ON`, `BLOCKS`, `BLOCKED_BY`, `CONTRIBUTES_TO_GOAL`, `FULFILLS_GOAL` |
+| Goal | 12 | `SUBGOAL_OF`, `GUIDED_BY_PRINCIPLE`, `SUPPORTS_GOAL`, `ALIGNED_WITH_PATH` |
+| Habit | 10 | `REQUIRES_PREREQUISITE_HABIT`, `ENABLES_HABIT`, `EMBODIES_PRINCIPLE` |
+| Principle | 5 | `GROUNDS_PRINCIPLE`, `GUIDED_BY_KNOWLEDGE` |
+| Choice | 6 | `INFORMS_CHOICE` |
+| User / Ownership | 12 | `OWNS`, `MEMBER_OF`, `SHARES_WITH`, `SHARED_WITH_GROUP`, `ULTIMATE_PATH` |
+| Curriculum | 5 | `ORGANIZES`, `REQUIRES_PREREQUISITE`, `HAS_NARROWER`, `HAS_BROADER` |
+| Life Path | 2 | `SERVES_LIFE_PATH`, `ULTIMATE_PATH` |
+| Exercise / Group | 3 | `FOR_GROUP`, `FULFILLS_EXERCISE`, `ASSIGNED_TO` |
+| Content / Processing | 4 | `FEEDBACK_FOR`, `FULFILLS_PROJECT`, `PROCESSED_BY` |
+| Lateral | 13 | `BLOCKS`, `BLOCKED_BY`, `PREREQUISITE_FOR`, `DEPENDS_ON`, `ALTERNATIVE_TO`, `COMPLEMENTARY_TO`, `SIBLING`, `RELATED_TO` |
 
-### Find Prerequisites for a Concept
-```cypher
-MATCH (ku:Curriculum {uid: "ku.python_classes"})
-MATCH (ku)-[:REQUIRES]->(prereq)
-RETURN prereq.title, prereq.uid
-```
+---
 
-### Find Learning Path
-```cypher
-MATCH path = (start:Curriculum)-[:ENABLES*]->(end:Curriculum)
-WHERE start.uid = "ku.python_basics"
-RETURN path
-```
+## Domain Coverage
 
-### Find Related Concepts
-```cypher
-MATCH (ku:Curriculum {uid: "ku.recursion"})
-MATCH (ku)-[:RELATED_TO]-(related)
-RETURN related.title, related.uid
-```
+| Category | Domains | `self.relationships` | Notes |
+|----------|---------|----------------------|-------|
+| **Activity (6)** | Tasks, Goals, Habits, Events, Choices, Principles | ✅ | Config-driven via registry |
+| **Curriculum (3)** | KU, LS, LP | ✅ | `is_shared_content=True`; ordered relationships for hierarchy |
+| **Submissions + Feedback** | Submissions, Journals | ✅ | `SubmissionsBackend` owns SHARES_WITH Cypher |
+| **Life Path** | LifePath | ✅ | ULTIMATE_PATH + SERVES_LIFE_PATH |
+| **Finance** | Finance | ❌ | Standalone bookkeeping — no relationship service |
 
-### Find What a Task Enables
-```cypher
-MATCH (t:Task {uid: "task.setup_database"})
-MATCH (t)-[:ENABLES]->(enabled)
-RETURN enabled.title, enabled.type
-```
+---
 
-## Implementation Details
+## Domain Backends: Domain-Specific Relationship Cypher
 
-### RelationshipsAdapter Class
+Complex relationship Cypher that is domain-specific belongs on the domain backend, not in services.
 
-Located in `/adapters/persistence/relationships_adapter.py`
+**Rule:** domain-specific relationship Cypher → domain backend. Cross-domain aggregation → service.
 
-Key methods:
-- `extract_relationships()`: Parse YAML Relationships block
-- `create_relationships()`: Generate Neo4j relationship tuples
-- `process_relationships()`: Complete pipeline from extraction to Neo4j
+| Backend | Domain-Specific Relationship Methods |
+|---------|--------------------------------------|
+| `TasksBackend` | `link_task_to_knowledge()`, `link_task_to_goal()`, `link_task_to_principle()` |
+| `GoalsBackend` | `add_milestone()`, `link_goal_to_habit()`, `link_goal_to_knowledge()`, `link_goal_to_principle()` |
+| `HabitsBackend` | `link_habit_to_knowledge()`, `link_habit_to_principle()` |
+| `EventsBackend` | `link_event_to_task()`, `link_event_to_principle()` |
+| `ChoicesBackend` | `link_choice_to_principle()`, `link_choice_to_goal()` |
+| `KuBackend` | `organize()`, `unorganize()`, `reorder()`, `get_organized_children()`, `find_organizers()`, `list_root_organizers()`, `is_organizer()` |
+| `SubmissionsBackend` | `share_submission()`, `unshare_submission()`, `get_shared_with_users()`, `get_submissions_shared_with_me()`, `set_visibility()`, `check_access()`, `verify_shareable()` |
+| `LpBackend` | `get_paths_containing_ku()`, `get_ku_mastery_progress()` |
+| `ExerciseBackend` | `link_to_curriculum()`, `unlink_from_curriculum()`, `get_required_knowledge()` |
 
-### Schema Integration
+---
 
-The RelationshipsAdapter now works directly with schemas:
+## Backend Relationship Mixins
+
+`UniversalNeo4jBackend` composes two relationship mixins at the persistence layer:
+
+### `_RelationshipCrudMixin` (`adapters/persistence/neo4j/_relationship_crud_mixin.py`)
+
+Creation, deletion, validation:
+
+- `create_relationship(from_uid, to_uid, relationship_type, properties)` → `Result[bool]`
+- `delete_relationship(from_uid, to_uid, relationship_type)` → `Result[bool]`
+- `delete_relationships_batch(relationships_list)` → `Result[int]`
+- `create_relationships_batch(relationships_list)` → `Result[int]`
+- `create_user_relationship(user_uid, entity_uid, properties)` → `Result[bool]`
+- `has_relationship(uid, relationship_type, direction)` → `Result[bool]`
+- `count_related(uid, relationship_type, direction)` → `Result[int]`
+
+### `_RelationshipQueryMixin` (`adapters/persistence/neo4j/_relationship_query_mixin.py`)
+
+Queries, edge metadata, fluent API:
+
+- `get_related_entities(uid, relationship_type, direction, limit)` → `Result[list[T]]`
+- `get_related_uids(uid, relationship_type, direction)` → `Result[list[str]]`
+- `get_relationship_metadata(uid, relationship_type, direction)` → `Result[list[dict]]`
+- `update_relationship_properties(from_uid, to_uid, relationship_type, properties)` → `Result[bool]`
+- `get_relationships_batch(uids, relationship_type, direction)` → `Result[dict[str, list[T]]]`
+- `count_relationships_batch(uids, relationship_type, direction)` → `Result[dict[str, int]]`
+- `get_edge_metadata(uid, relationship_type, direction, target_uid)` → `Result[EdgeMetadata]`
+- `update_edge_metadata(from_uid, to_uid, relationship_type, metadata)` → `Result[bool]`
+- `relate(uid)` → `RelationshipBuilder` (fluent API)
+- Convenience wrappers: `get_prerequisites()`, `get_enables()`, `get_related()`, `get_children()`, `get_parent()`, `get_depends_on()`, `get_blocks()`
+
+---
+
+## Lateral Relationships
+
+Lateral relationships capture semantics that hierarchies cannot: dependencies between siblings, alternatives, synergistic pairings, and semantic connections across branches. They are core architecture — graph databases excel at relationships precisely because a tree structure cannot express "A must complete before B", "A and B are alternatives", or "A and B complement each other".
+
+**Location:** `core/services/lateral_relationships/lateral_relationship_service.py`
+
+### LateralRelationshipService API
+
+**Key methods:**
+- `create_lateral_relationship(source_uid, target_uid, relationship_type, metadata, validate=True, auto_inverse=True)` → `Result[bool]`
+  - `validate=True`: checks both entities exist, detects circular dependencies (`BLOCKS`/`PREREQUISITE_FOR`), rejects duplicates
+  - `auto_inverse=True`: auto-creates the inverse (`BLOCKS` → also creates `BLOCKED_BY` in the reverse direction)
+- `delete_lateral_relationship(source_uid, target_uid, relationship_type)` → `Result[bool]`
+- `get_lateral_relationships(entity_uid, relationship_types, direction)` → `Result[list[dict]]` — filtered query with direction control (`"incoming"` / `"outgoing"` / `"both"`)
+- `get_blocking_chain(entity_uid)` → `Result[list[dict]]` — transitive blocking dependency chain
+- `get_alternatives_with_comparison(entity_uid)` → `Result[dict]` — side-by-side comparison data
+- `get_relationship_graph(entity_uid, depth)` → `Result[dict]` — Vis.js network format (nodes + edges)
+
+### Lateral Relationship Type Taxonomy
+
+**Dependency relationships** (asymmetric — inverse created automatically):
+
+| Type | Inverse | Use Case |
+|------|---------|---------|
+| `BLOCKS` | `BLOCKED_BY` | Task A must complete before Task B |
+| `PREREQUISITE_FOR` | `DEPENDS_ON` | KU A required before KU B |
+| `ENABLES` | `ENABLED_BY` | Completing A unlocks B |
+
+**Semantic relationships** (symmetric):
+
+| Type | Use Case |
+|------|---------|
+| `ALTERNATIVE_TO` | Mutually exclusive options (Career Path A vs B) |
+| `COMPLEMENTARY_TO` | Synergistic pairing (Meditation + Exercise habits) |
+| `RELATED_TO` | General association between related entities |
+| `SIMILAR_TO` | Two learning paths covering similar content |
+| `CONFLICTS_WITH` | Mutually exclusive choices |
+
+**Structural relationships** (symmetric — derived from hierarchy, made explicit for performance):
+
+| Type | Use Case |
+|------|---------|
+| `SIBLING` | Two entities sharing the same parent |
+| `COUSIN` | Same depth, shared grandparent |
+
+**Associative relationships:**
+
+| Type | Direction | Use Case |
+|------|-----------|---------|
+| `RECOMMENDED_WITH` | Symmetric | Collaborative filtering — users who completed A also completed B |
+| `STACKS_WITH` | Directional | Habit chaining — do habit A after habit B |
+
+**Phase 5 deployed types** (fully tested across 9 domains — Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP):
+`BLOCKS/BLOCKED_BY`, `PREREQUISITE_FOR/DEPENDS_ON`, `ALTERNATIVE_TO`, `COMPLEMENTARY_TO`, `SIBLING`, `RELATED_TO`
+
+The extended types (`ENABLES`, `SIMILAR_TO`, `CONFLICTS_WITH`, `COUSIN`, `RECOMMENDED_WITH`, `STACKS_WITH`) are defined in `RelationshipName` and available to services but not yet wired to Phase 5 UI endpoints.
+
+### Domain-Specific Lateral Services
+
+Each domain wraps `LateralRelationshipService` to add ownership verification and domain business rules:
 
 ```python
-from core.models.learning_schemas import LearningPathSchema, LearningPathStepSchema
-from adapters.persistence.relationships_adapter import RelationshipsAdapter
+class GoalsLateralService:
+    def __init__(self, driver, goals_service):
+        self.lateral_service = LateralRelationshipService(driver)
+        self.goals_service = goals_service
 
-class SchemaRelationshipProcessor:
-    def __init__(self, relationships_adapter: RelationshipsAdapter):
-        self.relationships_adapter = relationships_adapter
-
-    async def process_learning_path_relationships(
-        self,
-        path: LearningPathSchema,
-        frontmatter: dict
-    ) -> LearningPathSchema:
-        """Process relationships and enrich schema"""
-
-        # Extract relationship data
-        if "Relationships" in frontmatter:
-            await self.relationships_adapter.process_relationships(
-                frontmatter, path.uid, "Lp"
-            )
-
-        # Enrich schema with relationship UIDs
-        if "Prerequisites" in frontmatter.get("Relationships", {}):
-            prereq_titles = frontmatter["Relationships"]["Prerequisites"]
-            path.prerequisite_path_uids.extend(
-                [self._title_to_uid(title) for title in prereq_titles]
-            )
-
-        return path
-```
-
-### Vector-Enhanced Relationships
-
-Relationships now combine explicit graph connections with semantic vector similarity:
-
-```python
-class VectorEnhancedRelationships:
-    async def find_related_paths(
-        self,
-        path: LearningPathSchema
-    ) -> dict[str, list[LearningPathSchema]]:
-        """Find related paths using both relationships and vectors"""
-
-        # Graph-based relationships (explicit)
-        graph_related = await self.get_graph_relationships(path.uid)
-
-        # Vector-based similarities (semantic)
-        vector_similar = await self.vector_learning.find_similar_content(
-            path.uid, limit=10
+    async def create_blocking_relationship(
+        self, blocker_uid: str, blocked_uid: str, reason: str, user_uid: str
+    ) -> Result[bool]:
+        for uid in [blocker_uid, blocked_uid]:
+            if (await self.goals_service.verify_ownership(uid, user_uid)).is_error:
+                return Err(...)
+        return await self.lateral_service.create_lateral_relationship(
+            blocker_uid, blocked_uid, LateralRelationType.BLOCKS,
+            metadata={"reason": reason}, auto_inverse=True
         )
-
-        return {
-            "explicit_relationships": graph_related,
-            "semantic_similarities": vector_similar,
-            "combined_recommendations": self._merge_recommendations(
-                graph_related, vector_similar
-            )
-        }
 ```
 
-### Supported Relationship Mappings
+### Key Cypher Patterns
 
-```python
-RELATIONSHIP_MAPPINGS = {
-    # Learning flow
-    "prerequisites": ("REQUIRES", "incoming"),
-    "enables": ("ENABLES", "outgoing"),
-
-    # Taxonomy
-    "broader": ("HAS_NARROWER", "incoming"),
-    "narrower": ("HAS_NARROWER", "outgoing"),
-
-    # Lateral
-    "related": ("RELATED_TO", "bidirectional"),
-
-    # Application
-    "applies_to": ("APPLIES_TO", "outgoing"),
-    "used_by": ("USED_BY", "outgoing")
-}
+**Transitive blocking chain:**
+```cypher
+MATCH path = (blocker)-[:BLOCKS*1..5]->(target {uid: $target_uid})
+RETURN [node in nodes(path) | {uid: node.uid, title: node.title}] AS chain,
+       length(path) AS depth
+ORDER BY depth DESC
 ```
 
-## Testing
-
-Run tests with:
-```bash
-poetry run python tests/test_relationships_adapter.py
+**Alternatives with comparison:**
+```cypher
+MATCH (choice {uid: $choice_uid})-[:ALTERNATIVE_TO]-(alternative)
+RETURN alternative.uid, alternative.title, alternative.description
 ```
 
-Tests cover:
-- Extraction from various YAML formats
-- Normalization of values
-- UID generation
-- Neo4j relationship creation
-- All entity types
+**Complementary recommendations:**
+```cypher
+MATCH (habit {uid: $habit_uid})-[:COMPLEMENTARY_TO]-(complementary)
+WHERE NOT (user:User)-[:OWNS]->(complementary)
+RETURN complementary.uid, complementary.title
+ORDER BY complementary.synergy_score DESC
+```
 
-## Future Enhancements
+### Performance: Explicit vs. Derived
 
-1. **Relationship Strength**: Add weights to relationships
-2. **Temporal Relationships**: Before/After/During for events
-3. **Conditional Relationships**: Prerequisites based on context
-4. **Relationship Validation**: Verify referenced entities exist
-5. **Bulk Processing**: Efficient batch relationship creation
-6. **Visualization**: Graph visualization of relationships
+| Scenario | Approach | Reason |
+|----------|----------|--------|
+| Query siblings once | Derive from hierarchy | No storage overhead |
+| Query siblings 100+/day | Create explicit `SIBLING` | Faster lookup |
+| Blocking relationship | Always explicit | Carries semantic meaning |
+| Semantic similarity | Always explicit | Cannot derive from hierarchy |
+| First-time cousin query | Derive from hierarchy | Avoid premature optimisation |
 
-## Migration Guide
+**Rule:** Start with derived queries. Add explicit relationships when (a) query is performance-critical, (b) relationship has semantic meaning beyond structure, or (c) it enables domain features (habit stacking, alternatives).
 
-### Adding to Existing Files
+### UI Components
 
-Simply add a Relationships block to any markdown file:
+| Component | File | Purpose |
+|-----------|------|---------|
+| `BlockingChainView` | `ui/patterns/relationships/blocking_chain.py` | Vertical flow chart with depth-based layout |
+| `AlternativesComparisonGrid` | `ui/patterns/relationships/alternatives_grid.py` | Side-by-side comparison table |
+| `RelationshipGraphView` | `ui/patterns/relationships/graph_view.py` | Interactive Vis.js force-directed graph |
+| `EntityRelationshipsSection` | `ui/patterns/relationships/__init__.py` | Drop-in section for any entity detail page |
 
-```yaml
+### API Endpoints (per domain)
+
+- `GET /api/{domain}/{uid}/lateral/chain` — Blocking chain data
+- `GET /api/{domain}/{uid}/lateral/alternatives/compare` — Comparison data
+- `GET /api/{domain}/{uid}/lateral/graph` — Vis.js format (nodes + edges)
+
 ---
-existing: fields
-remain: unchanged
 
-Relationships:
-  Prerequisites: [Concept A, Concept B]
-  Enables: Advanced Topic
----
-```
+## See Also
 
-### No Breaking Changes
-
-- Files without Relationships blocks work as before
-- Processing is optional and isolated
-- Errors in relationships don't affect entity sync
-
-## Conclusion
-
-The RelationshipsAdapter transforms SKUEL from a collection of isolated knowledge units into a rich, interconnected knowledge graph. By using learning-appropriate relationship types and seamless YAML integration, it enhances the system's ability to provide intelligent guidance while maintaining the simplicity of markdown-based content management.
+- [UNIFIED_RELATIONSHIP_SERVICE.md](/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md) — complete service documentation
+- [RELATIONSHIP_INFRASTRUCTURE_PATTERN.md](/docs/patterns/RELATIONSHIP_INFRASTRUCTURE_PATTERN.md) — mixin layer primitives
+- [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) — Phase 5 vis.js integration
+- [DOMAIN_RELATIONSHIPS_PATTERN.md](/docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md) — domain-specific patterns
+- [ADR-028](/docs/decisions/ADR-028.md) — KU & MOC migration rationale

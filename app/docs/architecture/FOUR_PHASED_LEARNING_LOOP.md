@@ -1,12 +1,10 @@
 ---
 title: Four-Phased Learning Loop
-updated: 2026-03-02
+updated: 2026-03-03
 status: current
 category: architecture
 related:
 - FEEDBACK_ARCHITECTURE.md
-- SUBMISSION_FEEDBACK_LOOP.md
-- LEARNING_EXPERIENCE_ARCHITECTURE.md
 - FOURTEEN_DOMAIN_ARCHITECTURE.md
 ---
 
@@ -17,9 +15,12 @@ related:
 The Four-Phased Learning Loop is the **core purpose of SKUEL**. Every feature in the
 codebase either feeds this loop, supports its infrastructure, or should be questioned.
 
-This document is the entry point. It names the loop, states its two tracks, defines each
-phase, and cross-references detailed documentation. It does not duplicate what those docs
-already say.
+Learning is not consuming content. Learning is what happens when knowledge changes how you
+act, decide, and live. SKUEL models this through four phases: **what you can learn** (Ku),
+**how you practise it** (Exercise), **what you produce** (Submission), and **what the
+system says back** (Feedback). Every layer is a frozen Python dataclass. Every connection
+is a Neo4j graph relationship. Every measurement flows from real user behaviour, not
+self-reported progress.
 
 ---
 
@@ -73,8 +74,200 @@ shared across all users. Every Exercise is grounded in one or more Ku nodes.
 **EntityType:** `EntityType.KU`
 **Loop role:** The *why* — the knowledge the loop exists to transmit.
 
-**See:** [LEARNING_EXPERIENCE_ARCHITECTURE.md](/docs/architecture/LEARNING_EXPERIENCE_ARCHITECTURE.md)
-— KU mastery, substance scoring, and knowledge progress tracking.
+### Layer 1: What You Can Learn
+
+**File:** `core/models/curriculum/ku.py`
+
+A Knowledge Unit is a frozen dataclass — immutable once created, like a published textbook
+page:
+
+```
+Ku (frozen dataclass, inherits Curriculum → Entity)
+├── Identity:    uid, title, content, domain
+├── SEL Lens:    sel_category (SELCategory | None) — optional filter, not inherent
+├── Difficulty:  learning_level, estimated_time_minutes, difficulty_rating (0.0-1.0)
+├── Quality:     quality_score, complexity, semantic_links
+└── Substance:   times_applied_in_tasks, times_practiced_in_events, ...
+```
+
+#### SEL Navigation Lens
+
+A KU *may* carry an `sel_category` — a classification into the Social Emotional Learning
+framework. SEL is a navigation lens over KUs, not an inherent property of every piece of
+knowledge. `sel_category` is typed as `SELCategory | None` with a default of `None`; no
+silent default is injected.
+
+| SELCategory | Human Meaning |
+|---|---|
+| `SELF_AWARENESS` | Understanding your emotions, values, strengths |
+| `SELF_MANAGEMENT` | Managing emotions and achieving goals |
+| `SOCIAL_AWARENESS` | Understanding and empathising with others |
+| `RELATIONSHIP_SKILLS` | Building healthy relationships |
+| `RESPONSIBLE_DECISION_MAKING` | Making ethical, constructive choices |
+
+The `SELCategory` enum lives in `core/models/enums/learning_enums.py`. It carries
+presentation logic: `get_icon()`, `get_color()`, `get_description()`. The `DOMAIN_SEL_MAPPING`
+bridges activity domains into the SEL framework: principles map to self-awareness, habits to
+self-management, choices to responsible decision-making.
+
+The `KuAdaptiveService` uses `sel_category` as a filter — `find_by(sel_category=category.value)` —
+to surface KUs grouped by SEL competency. KUs without a meaningful classification simply won't
+appear in category-filtered views: not all knowledge fits neatly into an SEL lens.
+
+#### How KUs Are Born: Markdown to Graph
+
+KUs originate as Markdown files with YAML frontmatter in the Obsidian vault
+(`/home/mike/0bsidian/skuel/docs/`). The ingestion pipeline (`core/services/ingestion/`)
+parses the frontmatter, including the optional `sel_category` field.
+
+Once in Neo4j, KUs connect through graph relationships:
+
+```cypher
+(ku1:Curriculum)-[:REQUIRES_KNOWLEDGE]->(ku2:Curriculum)  // Prerequisites
+(ku1:Curriculum)-[:ENABLES_KNOWLEDGE]->(ku2:Curriculum)   // What mastering this unlocks
+(moc:Curriculum)-[:ORGANIZES]->(ku:Curriculum)            // MOC grouping (non-linear)
+(ku:Curriculum)-[:USED_IN_STEP]->(ls:LearningStep)        // Linear curriculum
+```
+
+### Layer 2: How You're Learning It — Mastery Tracking
+
+**File:** `core/models/curriculum/ku_intelligence.py`
+
+When a user interacts with a KU, a `MASTERED` relationship is created between `:User` and
+`:Curriculum`. The `KuMastery` dataclass models what that relationship means:
+
+```
+KuMastery (frozen dataclass)
+├── Identity:    uid, user_uid, knowledge_uid
+├── Mastery:     mastery_level (MasteryLevel), mastery_score (0.0-1.0)
+├── Confidence:  confidence_score (0.0-1.0)
+├── Velocity:    learning_velocity (LearningVelocity), time_to_mastery_hours
+├── Evidence:    mastery_evidence, last_reviewed, last_practiced
+└── Preferences: preferred_learning_method (ContentPreference)
+```
+
+`MasteryLevel` tracks a seven-stage progression that mirrors how humans actually learn:
+
+```
+UNAWARE → INTRODUCED → FAMILIAR → PROFICIENT → ADVANCED → EXPERT → MASTERED
+```
+
+The `KuInteractionService` (`core/services/ku/ku_interaction_service.py`) manages
+pedagogical progression: `VIEWED` → `IN_PROGRESS` → `MASTERED`. Each transition is a graph
+relationship event.
+
+`LearningVelocity` tracks how fast a user learns in different domains — not as a judgment
+but as data for personalisation. A user who learns yoga slowly but Python quickly gets
+different time estimates for each.
+
+`LearningPreference` captures what works for a specific person: preferred content types,
+session duration, whether they learn better with examples, top-down vs bottom-up approach.
+This profile evolves from actual learning patterns, not questionnaires.
+
+### Layer 3: Whether It's Changing Your Life — Substance Scoring
+
+**File:** `core/models/curriculum/ku.py`
+
+The `substance_score()` method on the `Ku` dataclass measures how knowledge is **lived**,
+not just consumed:
+
+| Application Type | Weight | Max | What It Measures |
+|---|---|---|---|
+| Habits | 0.10/each | 0.30 | Lifestyle integration — knowledge becomes behaviour |
+| Journals | 0.07/each | 0.20 | Metacognition — user reflects on what they learned |
+| Choices | 0.07/each | 0.15 | Decision wisdom — knowledge informs real decisions |
+| Events | 0.05/each | 0.25 | Practice — dedicated time applying knowledge |
+| Tasks | 0.05/each | 0.25 | Application — knowledge used in real projects |
+
+Substance decays over time using exponential decay with a 30-day half-life (`_decay_weight()`).
+Knowledge never fully disappears (floor at 0.2), but it fades without practice — exactly like
+human memory.
+
+The substance fields on the `Ku` model (`times_applied_in_tasks`, `times_practiced_in_events`,
+etc.) are updated via the event-driven architecture. When a user completes a task that
+references a KU, the `KuService` handles the `knowledge.applied_in_task` event and atomically
+increments the counter in Neo4j.
+
+### The Adaptive Service: Connecting the Layers
+
+**File:** `core/services/ku/ku_adaptive_service.py`
+
+`KuAdaptiveService` answers the question: **"What should this person learn next?"**
+
+**Personalised curriculum delivery** (`get_personalized_curriculum`):
+
+```
+1. Load user's learning intelligence (masteries, paths, velocity)
+2. Query all KUs in the requested SEL category
+3. Filter by readiness:
+   - Not already mastered
+   - Prerequisites met (via REQUIRES_KNOWLEDGE graph traversal)
+   - Appropriate for user's current level
+4. Rank by learning value:
+   - Enables many future KUs (×10) — high leverage
+   - Matches preferred difficulty (×20) — flow state
+   - Fits available time (×15) — practical
+   - Foundational / no prerequisites (×5) — unblocked
+   - Quick win (×10) — momentum
+5. Return top N recommendations
+```
+
+**`KuCategoryProgress`** (`core/models/curriculum/ku_progress.py`) — a frozen snapshot of
+a user's progress through one SEL category:
+
+```
+KuCategoryProgress
+├── user_uid, sel_category
+├── kus_mastered, kus_in_progress, kus_available, total_kus
+├── completion_percentage (0-100), current_level (LearningLevel)
+└── started_at, last_activity, estimated_completion_date
+```
+
+`determine_level()` maps completion to `LearningLevel`:
+0–24% → BEGINNER · 25–49% → INTERMEDIATE · 50–74% → ADVANCED · 75–100% → EXPERT
+
+`needs_attention()` returns `True` if a user started a category but hasn't touched it in
+7+ days — a signal for the UI.
+
+**`KuLearningJourney`** (`core/models/curriculum/ku_progress.py`) — progress across all
+five SEL categories:
+
+```
+KuLearningJourney
+├── user_uid
+├── category_progress: dict[SELCategory, KuCategoryProgress]
+└── overall_completion: float (0-100)
+```
+
+`get_next_recommended_category()` implements pedagogical ordering:
+1. Self-Awareness first (foundation of all SEL)
+2. Self-Management second (builds on self-awareness)
+3. Whichever category has least progress (balanced growth)
+
+`is_well_rounded()` checks if no category is more than 30% behind the average — the system
+values breadth alongside depth.
+
+### UI: Making Learning Visible
+
+**File:** `ui/patterns/ku_adaptive.py`
+
+| Component | What It Shows |
+|---|---|
+| `SELCategoryCard(category, progress)` | One category's progress bar, count badges, "Continue Learning" link to `/ku?sel={category}` |
+| `AdaptiveKUCard(ku, prerequisites_met)` | One recommended KU — time, difficulty, level badge, prerequisite status, link to `/ku/{uid}` |
+| `SELJourneyOverview(journey)` | Master view — overall %, recommended focus alert, grid of five `SELCategoryCard` components |
+
+**API routes** (`adapters/inbound/ku_api.py`):
+
+| Route | Purpose |
+|---|---|
+| `GET /api/ku/journey` | `KuLearningJourney` (JSON) |
+| `GET /api/ku/curriculum/{category}` | `list[Ku]` (JSON) |
+| `GET /api/ku/journey-html` | `SELJourneyOverview` (HTMX fragment) |
+| `GET /api/ku/curriculum-html/{category}` | Grid of `AdaptiveKUCard` (HTMX fragment) |
+
+The HTML routes enable HTMX partial updates — the journey overview loads once, and clicking
+a category fetches that category's personalised curriculum as an HTML fragment.
 
 ---
 
@@ -85,12 +278,12 @@ LLM prompt embedded for AI-assisted feedback. Two scopes: `PERSONAL` (self-direc
 `ASSIGNED` (classroom with a Group target and due date).
 
 **EntityType:** `EntityType.EXERCISE`
-**Loop role:** The *how* — operationalizes Ku into a concrete task. The `instructions`
+**Loop role:** The *how* — operationalises Ku into a concrete task. The `instructions`
 field serves double duty: directive for the student AND prompt for the AI when generating
 `SUBMISSION_FEEDBACK`.
 
-**See:** [SUBMISSION_FEEDBACK_LOOP.md](/docs/architecture/SUBMISSION_FEEDBACK_LOOP.md)
-— Exercise pipeline and teacher workflow.
+**See:** [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) —
+Exercise pipeline and teacher workflow.
 
 ---
 
@@ -104,8 +297,8 @@ uploads) and `JOURNAL` (admin uploads for AI-only processing).
 **Loop role:** The *evidence* — the student's demonstration of engagement with Ku.
 Without it, the Curriculum Track has no student voice.
 
-**See:** [SUBMISSION_FEEDBACK_LOOP.md](/docs/architecture/SUBMISSION_FEEDBACK_LOOP.md)
-— full pipeline from upload to sharing and teacher review queue.
+**See:** [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) —
+full pipeline from upload to sharing and teacher review queue.
 
 ---
 
@@ -135,8 +328,8 @@ on-demand AI (`LLM`), or admin-written (`HUMAN`).
 Reads across all 6 Activity Domains **and** the Curriculum track (KU mastery, LP progress,
 LS progress) in a single MEGA_QUERY round-trip.
 
-**See:** [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md)
-— canonical taxonomy, all services, API routes, ProcessorType table, graph patterns.
+**See:** [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) —
+canonical taxonomy, all services, API routes, ProcessorType table, graph patterns.
 
 ---
 
@@ -161,11 +354,6 @@ with six activity-window CALL{} blocks (one per Activity Domain) plus curriculum
                 ActivityReport (LLM or AUTOMATIC)
 ```
 
-**Architectural history:** `ActivityDataReader` was built as a separate query layer to
-gather activity data for the loop. It was deleted in March 2026 after recognizing that
-`UserContext.build_rich()` (MEGA_QUERY) already fulfills this role with a single Neo4j
-round-trip and a richer result (it also includes curriculum state).
-
 **One Path Forward:** The loop's data layer is `UserContextBuilder.build_rich()`. There
 is no separate activity query layer. Both `ProgressFeedbackGenerator` and
 `ActivityReportService` inject `context_builder: UserContextBuilder`.
@@ -189,13 +377,31 @@ New feedback sources add `ProcessorType` values; they do not create new EntityTy
 
 ---
 
+## Key Files Reference
+
+| Purpose | File |
+|---|---|
+| Ku domain model | `core/models/curriculum/ku.py` |
+| Ku mastery + intelligence models | `core/models/curriculum/ku_intelligence.py` |
+| Category progress + journey models | `core/models/curriculum/ku_progress.py` |
+| SELCategory + LearningLevel enums | `core/models/enums/learning_enums.py` |
+| Adaptive curriculum service | `core/services/ku/ku_adaptive_service.py` |
+| KU interaction service (mastery transitions) | `core/services/ku/ku_interaction_service.py` |
+| KU facade (wires sub-services) | `core/services/ku_service.py` |
+| Learning experience UI components | `ui/patterns/ku_adaptive.py` |
+| KU API routes | `adapters/inbound/ku_api.py` |
+| Ingestion pipeline | `core/services/ingestion/` |
+| Substance philosophy | `docs/architecture/knowledge_substance_philosophy.md` |
+| Curriculum grouping patterns (KU / LS / LP) | `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` |
+
+---
+
 ## See Also
 
 | Document | What It Covers |
 |----------|---------------|
 | [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) | Canonical feedback reference — all services, APIs, graph patterns, ProcessorType taxonomy |
-| [SUBMISSION_FEEDBACK_LOOP.md](/docs/architecture/SUBMISSION_FEEDBACK_LOOP.md) | Curriculum Track pipeline — Exercise → Submission → teacher review |
-| [LEARNING_EXPERIENCE_ARCHITECTURE.md](/docs/architecture/LEARNING_EXPERIENCE_ARCHITECTURE.md) | Phase 1 depth — KU mastery, substance scoring, knowledge progress |
+| [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) | Curriculum Track pipeline — Exercise, Submission, teacher review, visibility model, all APIs |
 | [FOURTEEN_DOMAIN_ARCHITECTURE.md](/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) | How the loop fits the 14-domain architecture |
 | [ADR-038: Content Sharing](/docs/decisions/ADR-038-content-sharing-model.md) | Three-level visibility model for submissions |
 | [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md) | ASSIGNED exercise, auto-sharing, teacher review queue |

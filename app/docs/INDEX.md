@@ -89,17 +89,14 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Finance Categories System](architecture/FINANCE_CATEGORIES_GUIDE.md) | 2025-11-27 | 562 |
 | **[Four-Phased Learning Loop](architecture/FOUR_PHASED_LEARNING_LOOP.md)** | **2026-03-02** | **~130** |
 | [Knowledge Substance Philosophy](architecture/knowledge_substance_philosophy.md) | 2025-10-17 | 371 |
-| **[Lateral Relationships Core Architecture](architecture/LATERAL_RELATIONSHIPS_CORE.md)** | **2026-01-31** | **1200** |
 | **[Model Architecture](architecture/MODEL_ARCHITECTURE.md)** | **2026-02-23** | **290** |
-| [Relationships Architecture](architecture/RELATIONSHIPS_ARCHITECTURE.md) | 2025-11-27 | 630 |
+| **[Relationships Architecture](architecture/RELATIONSHIPS_ARCHITECTURE.md)** | **2026-03-03** | **—** |
 | [Reports Architecture - Statistical Aggregation Met...](architecture/SUBMISSIONS_ARCHITECTURE.md) | 2025-11-27 | 522 |
-| [SKUEL 15-Domain Architecture](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) | 2026-02-06 | 1560 |
-| [SKUEL Architecture Guide](architecture/ARCHITECTURE_OVERVIEW.md) | 2025-11-29 | 650 |
+| [SKUEL Architecture — 14 Domains + 5 Cross-Cutting Systems](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) | 2026-03-03 | — |
 | [SKUEL Routing Architecture: Routes, Services, and ...](architecture/ROUTING_ARCHITECTURE.md) | 2025-11-27 | 647 |
 | [Search Architecture - Unified Search System](architecture/SEARCH_ARCHITECTURE.md) | 2026-01-04 | 544 |
 | [Service File Organization](architecture/SERVICE_FILE_ORGANIZATION.md) | 2026-01-21 | 180 |
-| [Unified User Architecture - ProfileHubData + Unifi...](architecture/UNIFIED_USER_ARCHITECTURE.md) | 2026-01-20 | 850 |
-| [User Model Architecture](architecture/USER_MODEL_ARCHITECTURE.md) | 2025-11-27 | 781 |
+| [User Architecture — Model, Auth, Roles, UserContext](architecture/UNIFIED_USER_ARCHITECTURE.md) | 2026-03-03 | — |
 | **[Hyperview Mobile Strategy](architecture/HYPERVIEW_STRATEGY.md)** | **2026-02-06** | **90** |
 | [YAML + Markdown Ingestion & Editing Guide](architecture/YAML_MARKDOWN_INGESTION_GUIDE.md) | 2025-11-27 | 909 |
 

@@ -1,1686 +1,502 @@
 ---
-title: SKUEL 14-Domain Architecture
-updated: 2026-02-23
+title: SKUEL Architecture — 14 Domains + 5 Cross-Cutting Systems
+updated: 2026-03-03
 status: current
 category: architecture
-version: 4.0.0
+version: 5.0.0
 tags:
 - architecture
 - domain
 - fourteen
-- domain-first-migration
 related:
-- ADR-019-transcription-service-standalone
-- ADR-023-curriculum-baseservice-migration
-- ADR-024-baseintellligence-service-migration
-- ADR-025-service-consolidation-patterns
 - ADR-040-teacher-assignment-workflow
 - ADR-041-unified-ku-model
-related_skills:
-- activity-domains
 ---
 
-# SKUEL 14-Domain Architecture
-
-**Last Updated**: February 23, 2026
-**Version**: 4.0.0 (Domain-First Architecture Migration Complete)
-## Related Skills
-
-For implementation guidance, see:
-- [@activity-domains](../../.claude/skills/activity-domains/SKILL.md)
-
+# SKUEL Architecture
 
 ## Executive Summary
 
-SKUEL is built on a **15-domain + 5 cross-cutting systems architecture** that represents the complete spectrum of human activity and learning. This document defines the foundational mental model:
+SKUEL is a **knowledge-centric productivity platform** where every operation connects to and enriches understanding. **Knowledge is the fertile soil from which all activity grows.**
 
-- **Activity Domains (6)** - What I DO
-- **Finance Domain (1)** - What I MANAGE (standalone)
-- **Curriculum Domains (3)** - What I LEARN (three grouping patterns: KU, LS, LP)
-- **Content/Processing Domains (2)** - How I PROCESS (Submissions + Feedback)
-- **Organizational Domains (2)** - How I ORGANIZE (Groups for classes, MOC for knowledge)
-- **LifePath (1)** - Where I'm GOING (The Destination)
-- **Cross-Cutting Systems (5)** - The infrastructure that enables everything (4 active + 1 planned)
+### 14 Domains + 5 Cross-Cutting Systems
+
+| Category | Domains | Purpose |
+|----------|---------|---------|
+| **Activity (6)** | Tasks, Goals, Habits, Events, Principles, Choices | What I DO |
+| **Finance (1)** | Finance | What I MANAGE (standalone) |
+| **Curriculum (3)** | KU, LearningStep, LearningPath | What I LEARN |
+| **Submissions + Feedback (1)** | Submissions + Feedback | How I PROCESS |
+| **Organizational (2)** | Groups, MOC | How I ORGANIZE |
+| **LifePath (1)** | LifePath | Where I'm GOING |
+
+**Cross-Cutting Systems (5)**: UserContext (✅), Search (✅), Calendar (✅), Askesis (✅), Messaging (📋 planned)
 
 **Core Philosophy**: "Everything flows toward the life path."
 
 ---
 
-## Domain-First Architecture (February 2026)
+## Architecture Layers
 
-The codebase underwent a 6-phase domain-first migration (Phases 0-5) that introduced:
+```
+External World (HTTP/Files)
+        ↓
+┌────────────────────────────────────────────────────────┐
+│                    INBOUND LAYER                        │
+│  FastHTML Routes → Pydantic → @boundary_handler        │
+│  Location: /adapters/inbound/                          │
+│  Pattern: DomainRouteConfig → API + UI route factories │
+└────────────────────────────────────────────────────────┘
+        ↓ Services container
+┌────────────────────────────────────────────────────────┐
+│                    SERVICE LAYER                        │
+│  Business Logic with Protocol Dependencies             │
+│  Location: /core/services/                             │
+│  Returns: Result[T] for all operations                 │
+└────────────────────────────────────────────────────────┘
+        ↓ Protocol interfaces
+┌────────────────────────────────────────────────────────┐
+│                    DOMAIN LAYER                         │
+│  Frozen Domain Models (Dataclasses)                    │
+│  Location: /core/models/                               │
+│  Pattern: Three-Tier (Pydantic → DTO → Domain)         │
+└────────────────────────────────────────────────────────┘
+        ↓ Backend protocols
+┌────────────────────────────────────────────────────────┐
+│                    PERSISTENCE LAYER                    │
+│  UniversalNeo4jBackend + Domain Backends               │
+│  Location: /adapters/persistence/neo4j/                │
+│  Storage: Neo4j Graph Database                         │
+└────────────────────────────────────────────────────────┘
+```
 
-1. **Neo4j multi-label architecture** -- every entity gets `:Entity` (universal) + domain-specific labels (`:Task`, `:Goal`, etc.)
-2. **Renamed model classes** -- all `*Ku` suffixes removed (e.g., `TaskKu` to `Task`, `GoalKu` to `Goal`, `KuBase` to `Entity`), with `KuType` to `EntityType` and `KuStatus` to `EntityStatus`
-3. **`UserOwnedEntity` intermediate class** -- separates user-owned fields (`user_uid`, `priority`) from the base `Entity`
-4. **Per-domain DTOs** -- `TaskDTO`, `GoalDTO`, `HabitDTO`, etc. replace monolithic `KuDTO` for all services (KuDTO deleted February 2026)
-5. **`Exercise` replaces `Assignment`** -- aligns with SKUEL's applied knowledge philosophy
+**Routing flow:** Bootstrap builds `Services` container → route factories receive services → API/UI handlers call service methods → `@boundary_handler` converts `Result[T]` to HTTP responses. Routes know services; services know protocols; backends know the database. Zero concrete cross-layer dependencies.
+
+**Key files:**
+- `services_bootstrap.py` — wires all backends + services
+- `core/ports/` — all protocol interfaces (10 files)
+- `adapters/persistence/neo4j/universal_backend.py` — generic backend (6-mixin shell, ~527 lines)
+
+---
+
+## Domain Model Architecture
 
 ### Model Hierarchy
 
 ```
-Entity (~19 fields: uid, entity_type, title, description, status, tags, ...)
-├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
-│   ├── Task, Goal, Habit, Event, Choice, Principle  (Activity Domains)
+Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
+├── UserOwnedEntity(Entity) +3 fields (user_uid, visibility, priority)
+│   ├── Task, Goal, Habit, Event, Choice, Principle  (Activity)
 │   ├── LifePath                                      (Destination)
-│   ├── ActivityReport                                (Activity feedback)
-│   └── Submission → Journal, SubmissionFeedback     (Submissions + Feedback)
-├── Curriculum(Entity) +21 fields → LearningStep, LearningPath, Exercise
+│   ├── ActivityReport                                (Activity feedback — no file fields)
+│   └── Submission → Journal, SubmissionFeedback      (Submissions/Feedback)
+├── Curriculum(Entity) +21 fields (base class only)
+│   └── Ku(Curriculum) + LearningStep, LearningPath, Exercise
 └── Resource(Entity) +7 fields                        (Curated content)
 ```
-
-**Key files:**
-- `/core/models/entity.py` -- `Entity` base class
-- `/core/models/entity.py` -- `UserOwnedEntity` intermediate class (same file)
-- `/core/models/enums/entity_enums.py` -- `EntityType`, `EntityStatus`
 
 ### DTO Hierarchy
 
 ```
 EntityDTO (~18 fields)
-├── UserOwnedDTO(EntityDTO) +3 → TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO, LifePathDTO
-├── UserOwnedDTO → ActivityReportDTO              (Activity feedback — no file fields)
+├── UserOwnedDTO(EntityDTO) +3 → TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO
+├── UserOwnedDTO → ActivityReportDTO              (no file fields)
 ├── UserOwnedDTO → SubmissionDTO → JournalDTO, SubmissionFeedbackDTO
-├── CurriculumDTO(EntityDTO) → LearningStepDTO, LearningPathDTO, ExerciseDTO
+├── CurriculumDTO(EntityDTO) → KuDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO(EntityDTO)
 ```
 
-`KuDTO` was deleted (February 2026). All services use per-domain DTOs. Cross-domain services use `ENTITY_TYPE_CLASS_MAP` for generic entity deserialization.
+Cross-domain services use `ENTITY_TYPE_CLASS_MAP` for generic entity deserialization.
 
-### Neo4j Multi-Label Architecture
+### Neo4j Multi-Label
 
-Every entity node gets two or more labels:
+Every entity node gets two labels: `:Entity` (universal) + domain-specific (`:Task`, `:Goal`, etc.).
 
-```cypher
-// CREATE produces dual labels (:Entity + domain-specific)
-CREATE (n:Entity:Task {uid: $uid, ...})
-CREATE (n:Entity:Goal {uid: $uid, ...})
-CREATE (n:Entity:LearningStep {uid: $uid, ...})
-```
-
-**`NeoLabel` enum** (`/core/models/enums/neo_labels.py`) has 16 domain labels + `from_entity_type()` method:
+**`NeoLabel` enum** (`/core/models/enums/neo_labels.py`):
 
 | Category | Labels |
 |----------|--------|
-| **Universal** | `:Entity` (all domain entities) |
-| **Activity (6)** | `:Task`, `:Goal`, `:Habit`, `:Event`, `:Choice`, `:Principle` |
-| **Curriculum (4)** | `:Curriculum`, `:Resource`, `:LearningStep`, `:LearningPath` |
-| **Content (4)** | `:Submission`, `:Journal`, `:ActivityReport`, `:SubmissionFeedback` |
-| **Instruction** | `:Exercise` |
-| **Destination** | `:LifePath` |
+| Universal | `:Entity` (all entity nodes) |
+| Activity (6) | `:Task`, `:Goal`, `:Habit`, `:Event`, `:Choice`, `:Principle` |
+| Curriculum (4) | `:Curriculum`, `:Resource`, `:LearningStep`, `:LearningPath` |
+| Content (4) | `:Submission`, `:Journal`, `:ActivityReport`, `:SubmissionFeedback` |
+| Instruction | `:Exercise` |
+| Destination | `:LifePath` |
 
-User relationships standardized to `:OWNS` (was `:HAS_KU`). MEGA-QUERY now uses domain labels + `OWNS` relationships.
+User relationships use `:OWNS`. Entity creation always produces dual labels:
 
-### Enum Renames
+```cypher
+CREATE (n:Entity:Task {uid: $uid, ...})
+CREATE (n:Entity:Goal {uid: $uid, ...})
+```
 
-| Old Name | New Name | Location |
-|----------|----------|----------|
-| `KuType` | `EntityType` | `core/models/enums/entity_enums.py` |
-| `KuStatus` | `EntityStatus` | `core/models/enums/entity_enums.py` |
-
-The `ku_enums.py` file was deleted and split into 8 domain-specific enum files (Feb 2026). The `ku_type` database property was NOT renamed.
+**Key files:**
+- `/core/models/entity.py` — `Entity` + `UserOwnedEntity` base classes
+- `/core/models/enums/entity_enums.py` — `EntityType` (16 values), `EntityStatus`
 
 ---
 
 ## The 14-Domain Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         THE DESTINATION (Domain #14)                         │
-│                                                                              │
-│                              ┌─────────────┐                                │
-│                              │  LIFEPATH   │                                │
-│                              │   Where I'm │                                │
-│                              │    GOING    │                                │
-│                              └──────┬──────┘                                │
-│                                     │                                        │
-│                    Everything flows toward the life path                     │
-└─────────────────────────────────────┼───────────────────────────────────────┘
-                                      │
-        ┌─────────────────────────────┼─────────────────────────────┐
-        │                             │                             │
-        ▼                             ▼                             ▼
-┌───────────────┐           ┌─────────────────┐           ┌───────────────┐
-│CONTENT/PROC   │           │ACTIVITY DOMAINS │           │  CURRICULUM   │
-│ DOMAINS (2)   │           │ (6) + FINANCE   │           │   DOMAINS     │
-│               │           │                 │           │      (3)      │
-│ How I         │           │ What I DO       │           │ What I LEARN  │
-│ PROCESS       │           │                 │           │               │
-│               │           │ • Tasks         │           │ • KU (point)  │
-│ • Reports     │◄─────────►│ • Habits        │◄─────────►│ • LS (edge)   │
-│ • Journals    │           │ • Goals         │           │ • LP (path)   │
-│               │           │ • Events        │           │               │
-│───────────────│           │ • Principles    │           │───────────────│
-│ORGANIZATIONAL │           │ • Choices       │           │Two Access     │
-│ DOMAINS (2)   │           │ ─────────────── │           │Paths to KU:   │
-│ • Groups      │           │ • Finance (1)   │           │ • LS (linear) │
-│ • MOC (Entity-│           │                 │           │ • MOC (graph) │
-│   based org)  │           │                 │           │               │
-└───────────────┘           └─────────────────┘           └───────────────┘
-        │                             │                             │
-        └─────────────────────────────┼─────────────────────────────┘
-                                      │
-                                      ▼
-        ┌─────────────────────────────────────────────────────────────┐
-        │               CROSS-CUTTING SYSTEMS (5)                      │
-        │                                                              │
-        │  UserContext • Search • Calendar • Askesis • Messaging      │
-        │                                                              │
-        │  + Analytics (meta-service aggregation, not a domain)       │
-        │                                                              │
-        │   The infrastructure that enables cross-domain intelligence  │
-        └─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         THE DESTINATION (Domain #14)                     │
+│                              ┌─────────────┐                             │
+│                              │  LIFEPATH   │                             │
+│                              └──────┬──────┘                             │
+│                   Everything flows toward the life path                  │
+└──────────────────────────────────────┬──────────────────────────────────┘
+                                       │
+        ┌──────────────────────────────┼──────────────────────────────┐
+        │                              │                              │
+        ▼                              ▼                              ▼
+┌──────────────┐            ┌─────────────────┐            ┌───────────────┐
+│CONTENT/PROC  │            │ACTIVITY DOMAINS │            │  CURRICULUM   │
+│ (1 domain)   │            │ (6) + FINANCE   │            │  DOMAINS (3)  │
+│              │            │ What I DO       │            │ What I LEARN  │
+│ Submissions  │◄──────────►│ • Tasks         │◄──────────►│ • KU (point)  │
+│  + Feedback  │            │ • Habits        │            │ • LS (edge)   │
+│              │            │ • Goals         │            │ • LP (path)   │
+│──────────────│            │ • Events        │            └───────────────┘
+│ORGANIZATIONAL│            │ • Principles    │
+│ (2 domains)  │            │ • Choices       │
+│ • Groups     │            │ ─────────────── │
+│ • MOC        │            │ • Finance (1)   │
+└──────────────┘            └─────────────────┘
+                                       │
+                                       ▼
+        ┌────────────────────────────────────────────────────────────┐
+        │                 CROSS-CUTTING SYSTEMS (5)                   │
+        │   UserContext • Search • Calendar • Askesis • Messaging     │
+        │   + Analytics (meta-service — not a domain)                 │
+        └────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Domain Categories
 
-### 1. Activity Domains (6) - What I DO
+### 1. Activity Domains (6) — What I DO
 
-Activity domains are **independent entities** that users create, track, and complete. They represent the concrete actions of living. All Activity Domain models inherit from `UserOwnedEntity(Entity)`.
+Independent entities users create, track, and complete. All inherit from `UserOwnedEntity(Entity)`.
 
-| Domain | Model Class | Purpose | Key Characteristics |
-|--------|-------------|---------|---------------------|
-| **Tasks** | `Task` | Work items to complete | One-time, deadline-driven, outcome-focused |
-| **Habits** | `Habit` | Behaviors to build | Recurring, streak-tracked, lifestyle-integrated |
-| **Goals** | `Goal` | Outcomes to achieve | Milestones, progress-measured, aspiration-driven |
-| **Events** | `Event` | Time commitments | Scheduled, calendar-based, attendance-tracked |
-| **Principles** | `Principle` | Values to embody | Guiding philosophies, decision-criteria, life-anchors |
-| **Choices** | `Choice` | Decisions to make | Options, criteria, outcome-tracked |
+| Domain | Model | Purpose | Key Characteristics |
+|--------|-------|---------|---------------------|
+| **Tasks** | `Task` | Work items to complete | One-time, deadline-driven |
+| **Habits** | `Habit` | Behaviors to build | Recurring, streak-tracked |
+| **Goals** | `Goal` | Outcomes to achieve | Milestones, progress-measured |
+| **Events** | `Event` | Time commitments | Scheduled, calendar-based |
+| **Principles** | `Principle` | Values to embody | Guiding philosophy |
+| **Choices** | `Choice` | Decisions to make | Options, outcome-tracked |
 
-### 2. Finance Domain (1) - What I MANAGE
+**Service pattern** (all 6 domains):
 
-Finance is its **OWN domain group**, NOT an Activity Domain:
+```
+{Domain}Service (Facade)
+├── .core          → {Domain}CoreService        (CRUD + status transitions)
+├── .search        → {Domain}SearchService      (Discovery)
+├── .relationships → UnifiedRelationshipService ({DOMAIN}_CONFIG)
+└── .intelligence  → {Domain}IntelligenceService (Analytics — NO AI)
+```
+
+Common sub-services created via `create_common_sub_services()` factory (`core/utils/activity_domain_config.py`). Domain-specific sub-services (e.g., `PlanningService`, `SchedulingService`) added after.
+
+**Access model**: `ContentScope.USER_OWNED` — user creates, only owner sees via `(User)-[:OWNS]->(Entity)`.
+
+---
+
+### 2. Finance Domain (1) — What I MANAGE
+
+Finance is its **own domain group**, NOT an Activity Domain.
 
 | Domain | Purpose | Key Characteristics |
 |--------|---------|---------------------|
-| **Finance** | Resources to manage | Income, expenses, budget-aligned, **admin-only** |
+| **Finance** | Resources to manage | Income, expenses, budgets — **admin-only** |
 
-**Why Standalone**: Finance has unique concepts (budgets, expense categories, recurring expenses) that don't fit Activity Domain patterns. It uses a standalone facade with 4 sub-services (Core, Budget, Reporting, Invoice), not BaseService.
-
-**Security Model**: All Finance routes require ADMIN role. Admin users see ALL finance data (no ownership checks). This simplifies development while maintaining security.
-
-**Event-Driven**: FinanceCoreService publishes domain events (ExpenseCreated, ExpenseUpdated, ExpensePaid, ExpenseDeleted) on all state changes.
-
-**No Cross-Domain Intelligence**: Finance is pure bookkeeping - no intelligence service, no relationship configuration, no cross-domain connections. January 2026 simplification removed FinanceIntelligenceService and FinanceSearchService.
-
-**Common Characteristics (Activity + Finance)**:
-- Standalone lifecycle (created -> active -> completed/archived)
-- Direct user manipulation (CRUD operations)
-
-**Graph Relationships**:
-```
-Task -[APPLIES_KNOWLEDGE]-> KnowledgeUnit
-Task -[FULFILLS]-> Goal
-Habit -[REINFORCES]-> Principle
-Goal -[INSPIRED_BY]-> Choice
-Choice -[INFORMED_BY]-> KnowledgeUnit
-Principle -[GROUNDED_IN]-> KnowledgeUnit
-```
+Standalone facade with 4 sub-services (Core, Budget, Reporting, Invoice). No intelligence service, no relationship configuration. All Finance routes require ADMIN role.
 
 ---
 
-## BaseService Mixin Architecture (ADR-031)
+### 3. Curriculum Domains (3) — What I LEARN
 
-**Philosophy:** Decompose monolithic BaseService into composable mixins.
+Educational foundation through three grouping patterns. All inherit from `Curriculum(Entity)`.
 
-### The 7 Mixins
-
-**Location:** `/core/services/mixins/` (8 files including `__init__.py`)
-
-Services compose only the mixins they need instead of inheriting a bloated base class:
-
-| Mixin | Purpose | Key Methods |
-|-------|---------|-------------|
-| **ConversionHelpersMixin** | DTO <-> Model conversion | `to_dto()`, `to_model()`, `to_dict()` |
-| **CrudOperationsMixin** | Basic CRUD operations | `create()`, `get()`, `update()`, `delete()`, `list()` |
-| **SearchOperationsMixin** | Search & filtering | `search()`, `get_by_status()`, `get_by_category()` |
-| **RelationshipOperationsMixin** | Relationship queries | `get_prerequisites()`, `get_enables()` |
-| **TimeQueryMixin** | Time-based queries | `get_created_between()`, `get_due_soon()` |
-| **UserProgressMixin** | Progress tracking | `get_user_progress()`, `update_progress()` |
-| **ContextOperationsMixin** | Graph context | `get_with_context()` via orchestrator |
-
-**Mixin Files:**
-```
-/core/services/mixins/
-├── __init__.py                        # Re-exports all mixins
-├── conversion_helpers_mixin.py        # DTO/Model conversions
-├── crud_operations_mixin.py           # CRUD
-├── search_operations_mixin.py         # Search
-├── relationship_operations_mixin.py   # Prerequisites/Enables
-├── time_query_mixin.py                # Time filters
-├── user_progress_mixin.py             # Progress tracking
-└── context_operations_mixin.py        # Graph context
-```
-
-**Plus:** Facade services use explicit `async def` delegation methods (February 2026 — `facade_delegation_mixin.py` deleted).
-
-### Activity Domain Service Architecture
-
-Activity domains use a **standardized facade pattern** with common sub-services created via factory:
-
-```python
-# File: /core/utils/activity_domain_config.py
-
-@dataclass(frozen=True)
-class ActivityDomainConfig:
-    """Configuration for an Activity Domain's common sub-services."""
-    core_module: str              # e.g., "core.services.tasks"
-    core_class: str               # e.g., "TasksCoreService"
-    search_module: str
-    search_class: str
-    intelligence_module: str
-    intelligence_class: str
-    relationship_config: Any      # UnifiedRelationshipService config
-    domain_name: str              # e.g., "tasks"
-    entity_label: str             # e.g., "Task"
-
-# Registry of all 6 Activity Domain configurations
-ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
-    "tasks": ActivityDomainConfig(...),
-    "goals": ActivityDomainConfig(...),
-    "habits": ActivityDomainConfig(...),
-    "events": ActivityDomainConfig(...),
-    "choices": ActivityDomainConfig(...),
-    "principles": ActivityDomainConfig(...),
-}
-```
-
-### Common Sub-Services Factory
-
-**Function:** `create_common_sub_services(domain, backend, graph_intel, event_bus)`
-
-```python
-# Usage in facade __init__:
-from core.utils.activity_domain_config import create_common_sub_services
-
-common = create_common_sub_services(
-    domain="tasks",                      # Domain name from config
-    backend=backend,                     # TasksOperations implementation
-    graph_intel=graph_intelligence_service,  # Optional graph intelligence
-    event_bus=event_bus,                 # Optional event bus
-)
-
-# Assign to facade attributes
-self.core = common.core                  # TasksCoreService
-self.search = common.search              # TasksSearchService
-self.relationships = common.relationships # UnifiedRelationshipService
-self.intelligence = common.intelligence  # TasksIntelligenceService
-```
-
-**Benefits:**
-- **Consistency:** All 6 Activity Domains use identical sub-service structure
-- **Reduced boilerplate:** ~480 lines eliminated from facade `__init__` methods
-- **Centralized config:** Change behavior once, affects all domains
-- **Type-safe:** Static specs with domain-prefixed factories
-
-**Domain Facade Pattern:**
-```
-TasksService (Facade)
-├── .core         -> TasksCoreService (CRUD + domain logic)
-├── .search       -> TasksSearchService (Discovery)
-├── .relationships -> UnifiedRelationshipService (TASKS_CONFIG)
-└── .intelligence  -> TasksIntelligenceService (Analytics, NO AI)
-```
-
-All sub-services created via `create_common_sub_services()` factory, eliminating repetitive initialization code.
-
----
-
-### 3. Curriculum Domains (3) - What I LEARN
-
-Curriculum domains form SKUEL's **educational foundation** through **three grouping patterns** - different perspectives on the same knowledge base. All Curriculum Domain models inherit from `Curriculum(Entity)` (or `Resource(Entity)` for curated content).
-
-```
-                LP     LP     LP    (Learning Paths - linear sequences)
-               /|\    /|\    /|\
-              / | \  / | \  / | \
-            LS LS LS LS LS LS LS LS  (Learning Steps - sequential steps)
-            |  |  |  |  |  |  |  |
-           KU KU KU KU KU KU KU KU   (Knowledge Units - atomic content)
-
-    Two Paths to Knowledge (Montessori-Inspired):
-    - LS Path: Structured, linear, teacher-directed curriculum
-    - MOC Path: Unstructured, graph, learner-directed exploration
-
-    MOC is NOT a separate entity - it IS a KU with ORGANIZES relationships.
-    Same KU, two access paths. Progress tracked on the KU itself.
-    See section 5 for MOC (Organizational Domain).
-```
-
-| Pattern | UID Prefix | Topology | Purpose |
+| Pattern | UID Format | Topology | Purpose |
 |---------|-----------|----------|---------|
-| **KU** | `ku:` | Point | Atomic unit of knowledge content |
-| **LS** | `ls:` | Edge | Single step in a learning journey |
-| **LP** | `lp:` | Path | Complete learning sequence |
+| **KU** | `ku_{slug}_{random}` | Point | Atomic unit of knowledge |
+| **LS** | `ls:{random}` | Edge | Single step in a learning journey |
+| **LP** | `lp:{random}` | Path | Complete learning sequence |
 
-**The Three Curriculum Patterns Explained:**
-- **KU (Knowledge Unit)** - The atomic brick. Self-contained knowledge content.
-- **LS (Learning Step)** - The staircase step. Aggregates KUs into sequential activities.
-- **LP (Learning Path)** - The full staircase. Sequences LSs into complete journeys.
+**Two paths to knowledge (Montessori-inspired):**
+- **LS Path**: Structured, linear, teacher-directed (KU → LS → LP)
+- **MOC Path**: Unstructured, graph, learner-directed (any Entity ORGANIZES others)
 
-**Key Insight:** The same KU can appear in multiple LS, LP, and MOC contexts. The patterns provide **different views** into the same knowledge base.
+**Access model**: `ContentScope.SHARED` + `require_role=UserRole.ADMIN` — admin creates, all users read.
 
-**Why Abbreviated Prefixes**:
-- Visual distinction: `ku`, `ls`, `lp` immediately signal "grouping pattern"
-- Unified system: Abbreviated prefixes indicate these form a cohesive architecture
-- Clean code: Shorter prefixes improve YAML/Cypher readability
-- Foundation focus: These ARE SKUEL's curriculum foundation
-- **Note (January 2026):** MOC uses `ku:` prefix since MOC IS a KU with ORGANIZES relationships
+**Service architecture:**
+```
+KuService (facade)
+├── KuCoreService          – CRUD
+├── KuSearchService        – Search & discovery
+├── KuGraphService         – Graph navigation
+├── KuSemanticService      – Semantic relationships
+├── KuLpService            – Learning path integration
+├── KuPracticeService      – Practice tracking
+├── KuOrganizationService  – MOC organization/navigation
+└── KuInteractionService   – VIEWED → IN_PROGRESS → MASTERED
 
-**See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` for detailed documentation.
+LpService (facade)
+├── LpCoreService, LpValidationService, LpContextService
+├── LpAnalysisService, LpAdaptiveService, LpProgressService
+└── LpRelationshipService, LpSearchService
 
-**The Knowledge Substance Philosophy**:
+LsService (facade)
+└── LsCoreService, LsRelationshipService, LsSearchService
+```
 
-SKUEL measures knowledge by how it's **LIVED**, not just learned:
+**Knowledge Substance Philosophy** — knowledge measured by how it's LIVED:
 
-| Application Type | Weight | Max | Rationale |
-|-----------------|--------|-----|-----------|
-| **Habits** | 0.10 | 0.30 | Lifestyle integration (highest) |
-| **Journals** | 0.07 | 0.20 | Metacognition |
-| **Choices** | 0.07 | 0.15 | Decision-making wisdom |
-| **Events** | 0.05 | 0.25 | Practice/embodiment |
-| **Tasks** | 0.05 | 0.25 | Real-world application |
+| Application | Weight | Max |
+|-------------|--------|-----|
+| Habits | 0.10 | 0.30 |
+| Journals | 0.07 | 0.20 |
+| Choices | 0.07 | 0.15 |
+| Events | 0.05 | 0.25 |
+| Tasks | 0.05 | 0.25 |
 
-**Substance Scale**:
-- 0.0-0.2: Pure theory (read about it)
-- 0.3-0.5: Applied knowledge (tried it)
-- 0.6-0.7: Well-practiced (regular use)
-- 0.8-1.0: Lifestyle-integrated (embodied)
+**See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
 
 ---
 
-### 4. Content/Processing Domains (2) - How I PROCESS
+### 4. Submissions + Feedback (1) — How I PROCESS
 
-Content/Processing domains handle **input processing, AI transformation, and feedback** — the educational loop `Ku → Exercise → Submission → Feedback`. Activity Domains are equal entry points for feedback via `ACTIVITY_REPORT`.
+The educational loop: `Ku → Exercise → Submission → Feedback`. Activity Domains are equal entry points via `ACTIVITY_REPORT`.
 
-**Entity Types (February 2026):**
+| EntityType | Inherits | ProcessorType | Description |
+|------------|---------|---------------|-------------|
+| `SUBMISSION` | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Student work against an Exercise |
+| `JOURNAL` | `Submission(UserOwnedEntity)` | `LLM` | AI-processed reflective writing |
+| `SUBMISSION_FEEDBACK` | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Assessment tied to a submission via `subject_uid` |
+| `ACTIVITY_REPORT` | `UserOwnedEntity` **directly** | `AUTOMATIC`, `LLM`, or `HUMAN` | Activity-level feedback (no file fields; covers a time window) |
 
-| EntityType | Who Creates | Inherits | ProcessorType | Description |
-|------------|------------|---------|---------------|-------------|
-| `SUBMISSION` | Student | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Student work against an Exercise |
-| `JOURNAL` | Admin | `Submission(UserOwnedEntity)` | `LLM` | AI-processed reflective writing |
-| `SUBMISSION_FEEDBACK` | Teacher or AI | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Assessment tied to a specific submission via `subject_uid` |
-| `ACTIVITY_REPORT` | System or Admin | `UserOwnedEntity` **directly** | `AUTOMATIC`, `LLM`, or `HUMAN` | Activity-level feedback (no file fields; covers a time window) |
+`ACTIVITY_REPORT` does NOT inherit from `Submission` — no file fields. It responds to aggregate activity patterns over a time period, not to a specific artifact.
 
-**Key design rule:** `ACTIVITY_REPORT` does **not** inherit from `Submission`. It has no file fields (`file_path`, `file_size`, etc.). It responds to a user's aggregate activity patterns over a time period, not to a specific artifact.
+**Services split:**
+- `core/services/submissions/` — `ActivityReportService`, `ReviewQueueService`, student work pipeline
+- `core/services/feedback/` — `FeedbackService`, `ProgressFeedbackGenerator`, `ProgressScheduleService`
 
-**Content Origin Tiers:** User submissions (SUBMISSION, JOURNAL) are `ContentOrigin.USER_CREATED`; feedback (ACTIVITY_REPORT, SUBMISSION_FEEDBACK) is `ContentOrigin.FEEDBACK`. See `EntityType.content_origin()` for the full mapping.
-
-**Submission Pipeline:**
-```
-User Upload -> SubmissionsService.submit_file()
-                    |
-            SubmissionsProcessingService
-                    |
-            [Processor Selection by MIME type]
-            |-> Audio -> TranscriptionService (Deepgram) -> ContentEnrichmentService
-            |-> Text -> ContentEnrichmentService
-                    |
-            Entity: SUBMITTED → QUEUED → PROCESSING → COMPLETED
-```
-
-**AI Feedback Generation (Activity Domains):**
-```
-ProgressFeedbackGenerator
-|-> Query completions (Tasks, Goals, Habits, Choices) in time window
-|-> Reference active Insights
-|-> LLM: stats as JSON context → qualitative insights text
-|-> ActivityReport(processor_type=LLM, processed_content=LLM output)
-        |
-ProgressScheduleService (optional recurring generation)
-        |
-ProgressFeedbackWorker (background hourly check)
-```
-
-**Human Activity Review (Admin):**
-```
-ActivityReviewService
-|-> create_activity_snapshot() — queries user's activity graph data
-|-> submit_activity_feedback() — admin writes assessment
-|-> ActivityReport(processor_type=HUMAN, subject_uid=reviewed_user_uid)
-```
-
-**Note:** TranscriptionService (ADR-019) is a simplified 8-method service that handles
-audio -> Deepgram -> transcript. It publishes TranscriptionCompleted events for downstream
-processing. See `/docs/decisions/ADR-019-transcription-service-standalone.md`.
-
-**See:** `/docs/architecture/FEEDBACK_ARCHITECTURE.md` — canonical reference for all feedback types and UIs.
+**See:** `/docs/architecture/FEEDBACK_ARCHITECTURE.md`
 
 ---
 
-### 5. Organizational Domains (2) - How I ORGANIZE
+### 5. Organizational Domains (2) — How I ORGANIZE
 
 #### Groups (ADR-040)
 
-**Groups** mediate ALL teacher-student relationships. A teacher creates a group, adds students, and assigns work to the group. No direct TEACHES relationship.
+Groups mediate ALL teacher-student relationships. Teacher creates group → adds students → assigns exercises to the group.
 
 | Aspect | Description |
 |--------|-------------|
 | **Purpose** | Teacher-student class management |
-| **Key Insight** | Groups are the ONE PATH for teacher-student relationships |
 | **UID Format** | `group_{slug}_{random}` |
-| **Access** | TEACHER role required for creation; members can view |
+| **Access** | TEACHER role required for creation |
 
-**Group Service Architecture:**
-```
-GroupService (standalone)
-├── create_group()          - TEACHER creates group
-├── add_member()            - Add student via MEMBER_OF
-├── remove_member()         - Remove student
-├── get_members()           - List group members
-├── list_teacher_groups()   - Teacher's groups
-└── get_user_groups()       - Student's groups
-```
-
-**Key Relationships:**
+**Key relationships:**
 ```cypher
 (teacher:User)-[:OWNS]->(group:Group)
 (student:User)-[:MEMBER_OF {joined_at, role}]->(group:Group)
-(exercise:Exercise)-[:FOR_GROUP]->(group:Group)              // Exercise targeting
-(submission:Submission)-[:FULFILLS_EXERCISE]->(exercise:Exercise) // Student submission
+(exercise:Exercise)-[:FOR_GROUP]->(group:Group)
+(submission:Submission)-[:FULFILLS_EXERCISE]->(exercise:Exercise)
 ```
-
-**Exercise Workflow:**
-Exercise (formerly Assignment) provides `scope`, `due_date`, `processor_type`, `group_uid` fields. When `scope=ASSIGNED`, the exercise targets a group via `FOR_GROUP`. Students submit entities that auto-share with the teacher via `SHARES_WITH`. The pipeline is: `Curriculum -> Exercise -> Submission -> Feedback`.
-
-**Key name change (February 2026):** `Assignment` entity renamed to `Exercise` -- aligns with SKUEL's applied knowledge philosophy. `:Exercise` Neo4j label (was `:Assignment`), `HAS_EXERCISE` relationship (was `HAS_ASSIGNMENT`), `FULFILLS_EXERCISE` relationship (was `FULFILLS_PROJECT`).
 
 **See:** `/docs/decisions/ADR-040-teacher-assignment-workflow.md`
 
 #### MOC (Map of Content)
 
-**MOC** provides **non-linear knowledge organization** using Entity nodes organized via `ORGANIZES` relationships.
-
-**February 2026 - Entity-Based Architecture:**
-- **MOC is NOT a separate entity** - it IS an Entity (KU) with `ORGANIZES` relationships
-- An Entity "is" a MOC when it has outgoing `ORGANIZES` relationships (emergent identity)
-- Sections within MOCs are also Entity nodes organized via `ORGANIZES`
-- Same Entity can be in multiple MOCs (many-to-many)
-- Progress tracked on the Entity itself, unified across LS and MOC paths
-
-**Service Architecture (February 2026):**
-MOC navigation is managed by `KuOrganizationService`, a sub-service of `KuService`. The old `MOCService` / `MocNavigationService` has been deleted.
-
-```
-KuService (facade)
-└── KuOrganizationService  - All MOC organization/navigation
-    Methods: is_organizer, get_organization_view, organize, unorganize,
-             reorder, find_organizers, list_root_organizers, get_organized_children
-```
-
-**Key Files:**
-- `/core/services/ku/ku_organization_service.py` - Organization service
-- `/docs/domains/moc.md` - Full documentation
-
-**Two Paths to Knowledge (Montessori-Inspired):**
+MOC is NOT a separate entity — it IS an Entity (KU) with `ORGANIZES` relationships. An Entity "is" a MOC when it has outgoing `ORGANIZES` relationships (emergent identity). Managed by `KuOrganizationService` (sub-service of `KuService`).
 
 | Path | Topology | Purpose | Pedagogy |
 |------|----------|---------|----------|
 | **LS** | Linear | Structured curriculum | Teacher-directed |
 | **MOC** | Graph | Free exploration | Learner-directed |
 
-```
- LS Path (Structured):              MOC Path (Exploratory):
-KU -> KU -> KU -> KU                      KU (root MOC)
-Sequential learning                   /    |    \
-"Learn this, then this"            KU    KU    KU (topics)
-                                  / \         / \
-                                KU  KU     KU   KU
-                                Non-linear, browse freely
-                                "Explore what interests you"
-```
-
-**ORGANIZES Relationship:**
 ```cypher
-// Create organization (Entity organizing Entity)
+// Create organization
 (parent:Entity)-[:ORGANIZES {order: int}]->(child:Entity)
 
 // Check if Entity is a MOC
 MATCH (e:Entity {uid: $uid})
-OPTIONAL MATCH (e)-[:ORGANIZES]->(child:Entity)
+OPTIONAL MATCH (e)-[:ORGANIZES]->(child)
 RETURN count(child) > 0 AS is_moc
-
-// Get organized children (ordered)
-MATCH (parent:Entity {uid: $uid})-[r:ORGANIZES]->(child:Entity)
-RETURN child.uid, child.title, r.order
-ORDER BY r.order ASC
 ```
 
-**LS vs MOC - Complementary, Not Competing:**
-
-| Aspect | Learning Step (LS) | Map of Content (MOC) |
-|--------|-------------------|---------------------|
-| **Structure** | Linear sequence | Non-linear graph |
-| **Purpose** | "Learn X step-by-step" | "Browse everything about X" |
-| **Navigation** | Next/Previous | Jump anywhere |
-| **Progress** | Tracked on Entity | Tracked on Entity (same!) |
-| **Use Case** | Structured learning | Reference & exploration |
+**See:** `/docs/domains/moc.md`
 
 ---
 
-### 6. LifePath (1) - The Destination
+### 6. LifePath (1) — The Destination
 
-**LifePath** is Domain #14 - the ultimate destination toward which everything flows. The `LifePath` model inherits from `UserOwnedEntity(Entity)`.
-
-```
-"Everything flows toward the life path."
-
-"The user's vision is understood via the words user uses to communicate,
-the UserContext is determined via user's actions."
-```
+LifePath is Domain #14 — the destination toward which everything flows. Inherits `UserOwnedEntity(Entity)`.
 
 | Aspect | Description |
 |--------|-------------|
-| **Purpose** | Answer: "Am I living my life path?" |
-| **Key Insight** | LifePath bridges VISION (words) with ACTIONS (behavior) |
-| **Not a stored entity** | It's a DESIGNATION on an LP via ULTIMATE_PATH relationship |
+| **Purpose** | Answer "Am I living my life path?" |
+| **Key Insight** | Bridges VISION (words) with ACTIONS (behavior) |
 | **Measurement** | 5-dimension alignment score (0.0-1.0) |
 
-**LifePath Service Structure** (`/core/services/lifepath/`):
-```
-LifePathService (Facade)
-├── .vision     -> LifePathVisionService    (capture, analyze, recommend)
-├── .core       -> LifePathCoreService      (designation CRUD)
-├── .alignment  -> LifePathAlignmentService (calculate alignment)
-└── .intelligence -> LifePathIntelligenceService (recommendations)
-```
+**5-Dimension Alignment:**
 
-**5-Dimension Alignment**:
-| Dimension | Weight | What It Measures |
-|-----------|--------|------------------|
-| Knowledge | 25% | Mastery of knowledge in life path LP |
-| Activity | 25% | Tasks/habits supporting life path |
-| Goal | 20% | Active goals contributing to life path |
-| Principle | 15% | Values aligned with life path direction |
-| Momentum | 15% | Recent activity trend toward life path |
+| Dimension | Weight |
+|-----------|--------|
+| Knowledge | 25% |
+| Activity | 25% |
+| Goal | 20% |
+| Principle | 15% |
+| Momentum | 15% |
 
-**AlignmentLevel Enum**:
-- `FLOURISHING` (0.9+) - Life purpose deeply integrated
-- `ALIGNED` (0.7-0.9) - Consistent alignment with life path
-- `EXPLORING` (0.4-0.7) - Making progress, some drift
-- `DRIFTING` (<0.4) - Significant misalignment
-
-**Key Relationships**:
+**Key relationships:**
 ```
-(User)-[:ULTIMATE_PATH]->(Lp)         # User's designated life path
-(Entity)-[:SERVES_LIFE_PATH]->(Lp)    # Entity contributes to life path
+(User)-[:ULTIMATE_PATH]->(Lp)          # User's designated life path
+(Entity)-[:SERVES_LIFE_PATH]->(Lp)     # Entity contributes to life path
 ```
 
-**See**: [LifePath Domain Documentation](/docs/domains/lifepath.md)
+**Service structure:**
+```
+LifePathService (facade)
+├── .vision       → LifePathVisionService      (capture, analyze, recommend)
+├── .core         → LifePathCoreService        (designation CRUD)
+├── .alignment    → LifePathAlignmentService   (calculate alignment)
+└── .intelligence → LifePathIntelligenceService (recommendations)
+```
+
+**See:** `/docs/domains/lifepath.md`
 
 ---
 
-### 6. Cross-Cutting Systems (5) - The Infrastructure
+## Cross-Cutting Systems
 
-Cross-cutting systems provide **foundation and infrastructure** without being domains themselves.
+| System | Purpose | Status |
+|--------|---------|--------|
+| **UserContext** | ~240 fields of cross-domain state, built by one MEGA-QUERY | Active |
+| **Search** | Unified search across all domains | Active |
+| **Calendar** | Aggregates Tasks, Events, Habits, Goals | Active |
+| **Askesis** | Life context synthesis + LLM integration | Active |
+| **Messaging** | Notifications, alerts | Planned |
 
-| System | Purpose | Status | Key Features |
-|--------|---------|--------|--------------|
-| **UserContext** | User state awareness | Active | ~240 fields, rich context, UID tracking |
-| **Search** | Unified discovery | Active | Semantic search across all 14 domains |
-| **Calendar** | Time aggregation | Active | Aggregates Tasks, Events, Habits, Goals |
-| **Askesis** | AI orchestration | Active | LLM integration, intelligent assistance |
-| **Messaging** | Communication | Planned | Notifications, alerts, reminders |
-
-**Note:** 4 cross-cutting systems are fully implemented; Messaging is planned for future development.
-
-**Analytics** is a meta-service (statistical aggregation), not a cross-cutting system. See `/docs/architecture/SUBMISSIONS_ARCHITECTURE.md`.
-
-**UserContext - The Source of Truth**:
-```python
-@dataclass
-class UserContext:
-    # Activity awareness (6 domains)
-    active_task_uids: list[str]
-    active_habit_uids: list[str]
-    active_goal_uids: list[str]
-    active_event_uids: list[str]
-    core_principle_uids: list[str]
-    pending_choice_uids: list[str]
-
-    # Finance awareness (1 domain)
-    recent_expense_uids: list[str]
-
-    # Curriculum awareness (3 curriculum domains; MOC is Entity-based)
-    knowledge_mastery: dict[str, float]  # ku_uid -> mastery
-    active_learning_step_uids: list[str]
-    enrolled_learning_path_uids: list[str]
-
-    # Cross-domain relationships
-    tasks_by_goal: dict[str, list[str]]
-    habits_by_principle: dict[str, list[str]]
-    knowledge_by_task: dict[str, list[str]]
-
-    # Life path alignment (Domain #14)
-    life_path_alignment_score: float
-    aligned_goal_count: int
-
-    # ~200 more fields for complete user state
-```
+**Analytics** is a meta-service (statistical aggregation across domains), not a cross-cutting system. See `/docs/architecture/ANALYTICS_ARCHITECTURE.md`.
 
 ---
 
-## Activity Domain Service Architecture
+## Activity DSL
 
-*Updated: January 2026 - Harmonized Architecture*
-
-All 6 Activity Domains follow a **unified facade pattern** with embedded intelligence. This architecture was harmonized in January 2026 to ensure consistent patterns across all domains.
-
-### Harmonized Creation Pattern
-
-All 6 Activity Domains are created through a single unified helper in `services_bootstrap.py`:
-
-```python
-# services_bootstrap.py - Single point of creation
-activity_services = _create_activity_services(
-    tasks_backend=tasks_backend,
-    events_backend=events_backend,
-    habits_backend=habits_backend,
-    goals_backend=goals_backend,
-    choices_backend=choices_backend,
-    principles_backend=principles_backend,
-    graph_intelligence=graph_intelligence,
-    event_bus=event_bus,
-    # ... other dependencies
-)
-
-# All 6 services created uniformly:
-# activity_services["tasks"]     -> TasksService
-# activity_services["events"]    -> EventsService
-# activity_services["habits"]    -> HabitsService
-# activity_services["goals"]     -> GoalsService
-# activity_services["choices"]   -> ChoicesService
-# activity_services["principles"] -> PrinciplesService
-```
-
-### Sub-Service Structure
+The Activity DSL enables natural language parsing into all 14 domains:
 
 ```
-{Domain}Service (Facade)
-├── {Domain}CoreService         - CRUD operations, status transitions
-├── {Domain}SearchService       - Search and discovery
-├── {Domain}ProgressService     - Progress tracking
-├── {Domain}PlanningService     - Context-first planning (where applicable)
-├── {Domain}SchedulingService   - Capacity and schedule management (where applicable)
-├── UnifiedRelationshipService + {DOMAIN}_CONFIG - Graph relationships
-├── {Domain}IntelligenceService - Analytics and insights (embedded)
-└── {Domain}LearningService     - Learning path integration (where applicable)
+- [ ] Complete project report    @context(task)      @when(2025-12-01) @priority(1)
+- [ ] Morning meditation         @context(habit)     @repeat(daily) @duration(20m)
+- [ ] Launch MVP                 @context(goal)      @when(2025-Q1)
+- [ ] Team standup               @context(event)     @when(2025-11-28T09:00)
+- [ ] Practice non-attachment    @context(principle) @energy(spiritual)
+- [ ] Choose tech stack          @context(choice)    @link(goal:mvp-launch)
+- [ ] AWS hosting $150           @context(finance)   @category(skuel)
+- [ ] Python async/await         @context(ku)        @energy(focus)
+- [ ] Complete async exercises   @context(ls)        @ku(ku:python/async)
+- [ ] Master async programming   @context(lp)        @link(goal:python-expert)
+- [ ] Embody wisdom and service  @context(lifepath)  @link(principle:service)
 ```
 
-**Scheduling Services** (capacity management and schedule optimization):
-- `TasksSchedulingService` - Context-aware task scheduling with learning alignment
-- `EventsSchedulingService` - Calendar conflict detection, time slot optimization
-- `HabitsSchedulingService` - Capacity management, habit stacking, frequency optimization
-- `GoalsSchedulingService` - Goal capacity, timeline suggestions, achievability assessment (January 2026)
-
-### Embedded Intelligence Pattern
-
-All Activity Domain facades embed their intelligence service, accessed via the `.intelligence` property:
-
-```python
-# Access intelligence through the facade
-tasks_intelligence = services.tasks.intelligence
-goals_intelligence = services.goals.intelligence
-habits_intelligence = services.habits.intelligence
-# ... same pattern for all 6 domains
+**Processing pipeline:**
+```
+Natural Text
+    → LLMDSLBridgeService.transform()        # GPT-4o-mini adds @context tags
+    → ActivityDSLParser.parse_journal()       # ParsedJournal (domain buckets)
+    → ActivityEntityConverter.convert()       # Domain-typed create requests
+    → ActivityExtractorService.extract_and_create()  # SKUEL entities + graph relationships
 ```
 
-### Services Dataclass Organization
-
-The `Services` dataclass groups Activity Domains together with proper protocol types:
-
-```python
-@dataclass
-class Services:
-    # ================================================================
-    # ACTIVITY DOMAINS (6) - All use facade pattern with embedded intelligence
-    # Created by _create_activity_services(), access intelligence via .intelligence
-    # ================================================================
-    tasks: TasksOperations | None = None
-    goals: GoalsOperations | None = None
-    habits: HabitsOperations | None = None
-    events: EventsOperations | None = None
-    choices: ChoicesOperations | None = None
-    principles: PrinciplesOperations | None = None
-
-    # ================================================================
-    # FINANCE (1) - NOT an Activity Domain (standalone facade)
-    # ================================================================
-    finance: FinancesOperations | None = None
-    # ...
-```
-
-**Note:** As of January 2026, `goals_backend` is no longer exposed in Services. Use `services.goals.backend` pattern instead (consistent with all other domains).
-
-### Orchestration Services (Separate from Activity Domains)
-
-Cross-domain orchestration services coordinate between Activity Domains but are NOT part of them:
-
-```python
-orchestration = _create_orchestration_services(
-    goals_backend=goals_backend,
-    tasks_backend=tasks_backend,
-    habits_backend=habits_backend,
-    events_backend=events_backend,
-)
-# Returns: goal_task_generator, habit_event_scheduler
-```
-
-**Note:** As of December 2025, Activity Domains use `UnifiedRelationshipService` with domain configs.
-Old `{Domain}RelationshipService` files archived to `zarchives/relationships/`.
-See `/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md`.
-
-### SearchService Pattern
-
-**Core Principle**: "Search is fundamental to SKUEL. Search builds UserContext. Askesis is built on top of both UserContext and Search."
-
-All activity domains implement the `DomainSearchOperations[T]` protocol for consistent search interfaces:
-
-| Domain | SearchService | Key Methods |
-|--------|--------------|-------------|
-| Tasks | `TaskSearchService` | `get_tasks_for_goal()`, `get_curriculum_tasks()` |
-| Goals | `GoalSearchService` | `get_goals_by_timeframe()`, `get_goals_needing_habits()` |
-| Habits | `HabitSearchService` | `get_habits_by_frequency()`, `get_habits_needing_attention()` |
-| Events | `EventSearchService` | `get_events_in_range()`, `get_conflicting_events()` |
-| Choices | `ChoiceSearchService` | `get_pending_choices()`, `get_choices_by_urgency()` |
-| Principles | `PrincipleSearchService` | `get_principles_guiding_goal()`, `get_active_principles()` |
-
-### Universal Search Methods (All Domains)
-
-```python
-# Protocol: DomainSearchOperations[T]
-async def search(query: str, limit: int = 50) -> Result[list[T]]
-async def get_by_status(status: str, limit: int = 100) -> Result[list[T]]
-async def get_by_domain(domain: Domain, limit: int = 100) -> Result[list[T]]
-async def get_prioritized(user_context: UserContext, limit: int = 10) -> Result[list[T]]
-async def get_by_relationship(related_uid: str, relationship_type: str) -> Result[list[T]]
-async def get_due_soon(days_ahead: int = 7) -> Result[list[T]]
-async def get_overdue(limit: int = 100) -> Result[list[T]]
-```
-
-**See**: `/docs/patterns/search_service_pattern.md` for complete documentation.
-
----
-
-## Curriculum Domain Service Architecture
-
-*Added: January 2026*
-
-The 3 Curriculum Domains (KU, LS, LP) follow a **decomposed facade pattern** similar to Activity Domains, with complexity appropriately sized to each domain's needs. MOC is the Organizational Domain documented in section 5 - it's Entity-based (not a separate entity).
-
-### Complexity by Domain (Curriculum)
-
-| Domain | Facade Lines | Sub-Services | Complexity | Rationale |
-|--------|-------------|--------------|------------|-----------|
-| **KU** | 1,120 | 7 | Very High | Semantic knowledge is inherently complex |
-| **LP** | 408 | 8 | High | Learning paths need validation/adaptive |
-| **LS** | 311 | 3 | **Minimal** | Steps are simple aggregations |
-
-**MOC (Organizational Domain - February 2026 Entity-based):**
-| Domain | Sub-Services | Complexity | Rationale |
-|--------|--------------|------------|-----------|
-| **MOC** | 1 | Minimal | `KuOrganizationService` sub-service of KuService; MOC is Entity with ORGANIZES |
-
-### Sub-Service Decomposition
-
-**KU (Knowledge Units) - Most Sophisticated:**
-```
-KuService (facade)
-├── KuCoreService          - CRUD operations
-├── KuSearchService        - Search & discovery (facets, tags, semantic)
-├── KuGraphService         - Graph navigation
-├── KuSemanticService      - Semantic relationships
-├── KuLpService            - Learning path integration
-├── KuPracticeService      - Event-driven practice tracking
-├── KuOrganizationService  - MOC organization/navigation (February 2026)
-└── KuInteractionService   - Pedagogical tracking (VIEWED -> IN_PROGRESS -> MASTERED)
-```
-
-**LP (Learning Paths) - Well-Decomposed:**
-```
-LpService (facade)
-├── LpCoreService         - CRUD & persistence
-├── LpValidationService   - Prerequisites & blockers
-├── LpContextService      - Graph traversal context
-├── LpAnalysisService     - Knowledge scope & gaps
-├── LpAdaptiveService     - Personalized sequences
-├── LpProgressService     - Event-driven progress
-├── LpRelationshipService - Graph-native queries
-└── LpSearchService       - Search operations (BaseService)
-```
-
-**LS (Learning Steps) - Minimal Design:**
-```
-LsService (facade)
-├── LsCoreService         - CRUD operations
-├── LsRelationshipService - Step-path associations
-└── LsSearchService       - Search operations (BaseService)
-```
-
-### Backend Pattern
-
-All backends use the multi-label architecture. The `base_label=NeoLabel.ENTITY` parameter ensures all created nodes get the `:Entity` universal label, while the first argument sets the domain-specific label.
-
-| Domain | Backend Approach | Example |
-|--------|-----------------|---------|
-| **KU** | Direct `UniversalNeo4jBackend[Curriculum]` | `UniversalNeo4jBackend(driver, NeoLabel.CURRICULUM, Curriculum, base_label=NeoLabel.ENTITY)` |
-| **LS** | `LsUniversalBackend` extends `UniversalNeo4jBackend[LearningStep]` | Domain label `:LearningStep`, base `:Entity` |
-| **LP** | `LpUniversalBackend` extends `UniversalNeo4jBackend[LearningPath]` | Domain label `:LearningPath`, base `:Entity` |
-| **Activity** | Direct `UniversalNeo4jBackend[Task]` etc. | `UniversalNeo4jBackend(driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)` |
-| **MOC** | No backend - MOC uses KuService (MOC IS an Entity with ORGANIZES) | -- |
-
-**CREATE produces dual labels:**
-```cypher
-CREATE (n:Entity:Task {uid: $uid, ...})
-CREATE (n:Entity:Goal {uid: $uid, ...})
-CREATE (n:Entity:LearningStep {uid: $uid, ...})
-```
-
-### Search Service Pattern
-
-LS and LP search services inherit from `BaseService`, providing unified search infrastructure:
-
-```python
-class LsSearchService(BaseService["LsUniversalBackend", LearningStep]):
-    _config = create_curriculum_domain_config(
-        dto_class=LearningStepDTO,
-        model_class=LearningStep,
-        domain_name="ls",
-        search_fields=("title", "intent", "description"),
-    )
-```
-
-**Inherited Methods (via BaseService):**
-- `search()`, `get_by_status()`, `get_by_domain()`
-- `graph_aware_faceted_search()` - Rich graph context
-- `get_prerequisites()`, `get_enables()` - Prerequisite chains
-- `get_hierarchy()` - KU -> LS -> LP hierarchy
-- `get_user_progress()` - User mastery data
-
-### Intelligence Services
-
-| Domain | Intelligence | Pattern |
-|--------|--------------|---------|
-| **KU** | `KuIntelligenceService` (197 lines) | Standalone service |
-| **LP** | `LpIntelligenceService` (349 lines) | Standalone service |
-| **LS** | None | Relies on LP parent intelligence |
-| **MOC** | None | MOC is Entity-based; uses KU intelligence via KuOrganizationService |
-
-**Key Insight:** KU and LP have standalone intelligence services for learning recommendations. LS relies on LP parent capabilities. MOC is Entity-based (February 2026) so it uses KU intelligence and organization services.
-
-### Bootstrap Integration
-
-Curriculum domains are created in `_create_learning_services()`:
-
-```python
-learning_services = _create_learning_services(
-    driver=driver,
-    progress_backend=progress_backend,
-    learning_backend=learning_backend,
-    # ...
-)
-
-# Extract services:
-ku_service = learning_services["ku_service"]
-learning_paths = learning_services["learning_paths"]  # LpService
-learning_steps = learning_services["learning_steps"]  # LsService
-```
-
-MOC organization is handled by `KuOrganizationService` (sub-service of KuService, created automatically during KuService initialization):
-
-```python
-# KuOrganizationService is available as:
-ku_service.organization  # KuOrganizationService instance
-```
-
-### Key Design Decisions
-
-1. **Appropriate Complexity** - Complex domains (KU) have more code; simple domains (LS) have minimal code
-2. **No Unnecessary Duplication** - BaseService inheritance provides common search infrastructure
-3. **Shared Content Model** - Curriculum domains have `_user_ownership_relationship = None` (no OWNS filter)
-4. **Standalone Intelligence Where Needed** - KU/LP need learning recommendations; LS/MOC don't
-
----
-
-## DSL Integration
-
-The **Activity DSL** enables natural language parsing into all 14 domains:
-
-### DSL Syntax
-
-```markdown
-# Activity Domains (6)
-- [ ] Complete project report @context(task) @when(2025-12-01) @priority(1)
-- [ ] Morning meditation @context(habit) @repeat(daily) @duration(20m)
-- [ ] Launch MVP @context(goal) @when(2025-Q1)
-- [ ] Team standup @context(event) @when(2025-11-28T09:00)
-- [ ] Practice non-attachment @context(principle) @energy(spiritual)
-- [ ] Choose tech stack @context(choice) @link(goal:mvp-launch)
-
-# Finance Domain (1)
-- [ ] AWS hosting $150 @context(finance) @category(skuel)
-
-# Curriculum Domains (3)
-- [ ] Python async/await patterns @context(ku) @energy(focus)
-- [ ] Complete async exercises @context(ls) @ku(ku:python/async) @duration(2h)
-- [ ] Master async programming @context(lp) @link(goal:python-expert)
-
-# Content/Organization Domains (3)
-- [ ] Process voice memo @context(report) @type(audio)
-- [ ] Format journal entry @context(journal) @type(text)
-- [ ] Organize Python knowledge @context(moc) @parent(moc:tech)
-
-# LifePath - The Destination (1)
-- [ ] Embody wisdom and service @context(lifepath) @link(principle:service)
-```
-
-### DSL Processing Pipeline
-
-The complete pipeline from natural text to SKUEL entities:
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│ PHASE 1: LLM DSL Bridge (Natural Text -> DSL)                           │
-│                                                                          │
-│ Natural Journal Text:                                                    │
-│ "I need to finish the quarterly report by Friday. Also want to          │
-│  start meditating daily - 10 minutes each morning."                     │
-│                           |                                              │
-│            LLMDSLBridgeService.transform()                              │
-│                           |                                              │
-│ DSL-Tagged Text:                                                         │
-│ - @context(task) Finish the quarterly report @when(Friday) @priority(1) │
-│ - @context(habit) Meditate @repeat(daily) @duration(10)                 │
-└─────────────────────────────────────────────────────────────────────────┘
-                            |
-┌─────────────────────────────────────────────────────────────────────────┐
-│ PHASE 2: DSL Parsing (DSL -> ParsedActivities)                           │
-│                           |                                              │
-│            ActivityDSLParser.parse_journal()                            │
-│                           |                                              │
-│ ParsedJournal:                                                           │
-│   - tasks: [ParsedActivityLine(task, "Finish report", ...)]             │
-│   - habits: [ParsedActivityLine(habit, "Meditate", ...)]                │
-└─────────────────────────────────────────────────────────────────────────┘
-                            |
-┌─────────────────────────────────────────────────────────────────────────┐
-│ PHASE 3: Entity Conversion (ParsedActivities -> Domain Dicts)            │
-│                           |                                              │
-│            ActivityEntityConverter.convert_journal()                     │
-│                           |                                              │
-│ Dict with 15 keys (14 domains + errors):                                │
-│   - tasks: [TaskCreateRequest(...)]                                      │
-│   - habits: [HabitDict(...)]                                             │
-│   - ...all 14 domains...                                                │
-└─────────────────────────────────────────────────────────────────────────┘
-                            |
-┌─────────────────────────────────────────────────────────────────────────┐
-│ PHASE 4: Entity Creation (Domain Dicts -> SKUEL Entities)                │
-│                           |                                              │
-│       ActivityExtractorService.extract_and_create()                     │
-│                           |                                              │
-│ Created Entities:                                                        │
-│   - Task(uid="task:abc123", title="Finish report", ...)                 │
-│   - Habit(uid="habit:xyz789", title="Meditate", ...)                    │
-│                           |                                              │
-│              DSLKnowledgeConnector.plan_connections()                   │
-│                           |                                              │
-│ Graph Relationships: APPLIES_KNOWLEDGE, FULFILLS_GOAL, etc.             │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### LLM DSL Bridge
-
-The `LLMDSLBridgeService` uses GPT-4o-mini to intelligently recognize activities in natural text and add appropriate @context tags:
-
-```python
-from core.services.dsl import create_llm_dsl_bridge
-
-# Create bridge (uses OPENAI_API_KEY from environment)
-bridge = create_llm_dsl_bridge()
-
-# Transform natural text to DSL format
-result = await bridge.transform(
-    text="""
-    I need to finish the quarterly report by Friday.
-    Also want to start meditating daily - 10 minutes each morning.
-    Thinking about whether to take that job offer.
-    Spent $150 on groceries today.
-    Want to learn Python for data science.
-    Life goal: become a respected teacher who inspires others.
-    """,
-    user_uid="user:mike",
-)
-
-if result.is_ok:
-    print(result.value.transformed_text)
-    # Output:
-    # - @context(task) Finish the quarterly report @when(Friday) @priority(high)
-    # - @context(habit) Meditate @repeat(daily) @duration(10) @energy(low)
-    # - @context(choice) Decide on job offer @priority(high)
-    # - @context(finance) Groceries @amount(150) @when(today)
-    # - @context(lp) Python for data science @priority(high)
-    # - @context(lifepath) Become a respected teacher who inspires others
-
-    print(f"Activities identified: {result.value.activities_identified}")
-    # Activities identified: 6
-```
-
-**Domain Recognition Prompt:**
-
-The LLM is instructed to recognize all 14 SKUEL domains:
-
-| Domain | Recognition Pattern |
-|--------|---------------------|
-| `@context(task)` | One-time actions with deadlines |
-| `@context(habit)` | Recurring behaviors to build |
-| `@context(goal)` | Outcomes to achieve |
-| `@context(event)` | Scheduled appointments/meetings |
-| `@context(principle)` | Values/beliefs to embody |
-| `@context(choice)` | Decisions to make |
-| `@context(finance)` | Money matters |
-| `@context(ku)` | Knowledge to acquire |
-| `@context(ls)` | Learning activities |
-| `@context(lp)` | Learning paths |
-| `@context(report)` | Content to process |
-| `@context(journal)` | AI-processed journal entries |
-| `@context(moc)` | Knowledge hierarchy organization |
-| `@context(lifepath)` | Life vision alignment |
-
----
-
-## UserContext + Askesis Integration
-
-The **Supporting Services** work together to provide intelligent content discovery based on user activities.
-
-### The Integration Pattern
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    USER READY FOR CONTENT                                │
-│                                                                          │
-│  "What should I learn that's relevant to what I'm working on?"          │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    |
-┌─────────────────────────────────────────────────────────────────────────┐
-│ STEP 1: Get User Context (UserService)                                   │
-│                                                                          │
-│  user_context = await user_service.get_user_context(user_uid)           │
-│                                                                          │
-│  UserContext contains (~240 fields):                                     │
-│    - active_goal_uids: ['goal:learn-python', 'goal:get-fit']            │
-│    - habit_streaks: {'habit:meditate': 21, 'habit:read': 7}             │
-│    - pending_choice_uids: ['choice:career-path']                        │
-│    - active_task_uids: ['task:write-report']                            │
-│    - core_principle_uids: ['principle:continuous-learning']              │
-│    - upcoming_event_uids: ['event:workshop-ml']                          │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    |
-┌─────────────────────────────────────────────────────────────────────────┐
-│ STEP 2: Find Relevant Knowledge (AskesisService)                         │
-│                                                                          │
-│  relevant = await askesis_service.find_relevant_for_context(            │
-│      active_goals=user_context.active_goal_uids,                        │
-│      current_habits=list(user_context.habit_streaks.keys()),            │
-│      recent_choices=user_context.pending_choice_uids,                   │
-│  )                                                                       │
-│                                                                          │
-│  Returns:                                                                │
-│    - knowledge_units: KUs relevant to user activities                   │
-│    - relevance_scores: How relevant each KU is (0.0-1.0)                │
-│    - relevance_reasons: WHY each KU is relevant                         │
-│    - domain_coverage: Which domains each KU supports                    │
-│    - recommended_order: Optimal learning order                          │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    |
-┌─────────────────────────────────────────────────────────────────────────┐
-│ STEP 3: Present to User                                                  │
-│                                                                          │
-│  "Based on your goals and activities, here's what to learn next:"       │
-│                                                                          │
-│  1. Python Async/Await (relevance: 0.9)                                  │
-│     - Supports goal: learn-python                                        │
-│     - Enables task: write-report                                         │
-│     - Relevant to event: workshop-ml                                     │
-│                                                                          │
-│  2. Meditation Techniques (relevance: 0.7)                               │
-│     - Reinforces habit: meditate                                         │
-│     - Aligns with principle: continuous-learning                        │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### Usage Example
-
-```python
-from core.services.user_service import UserService
-from core.services.askesis_service import AskesisService
-
-# Get user's current context
-user_context_result = await user_service.get_user_context(user_uid)
-if user_context_result.is_error:
-    return user_context_result
-
-user_context = user_context_result.value
-
-# Find knowledge relevant to their activities
-relevant_result = await askesis_service.find_relevant_from_user_context(
-    user_context,
-    max_results=10,
-    min_relevance_score=0.5,
-)
-
-if relevant_result.is_ok:
-    relevant = relevant_result.value
-
-    print(f"Found {len(relevant['knowledge_units'])} relevant knowledge units")
-
-    for ku in relevant['knowledge_units']:
-        uid = ku['uid']
-        score = relevant['relevance_scores'][uid]
-        reasons = relevant['relevance_reasons'][uid]
-        domains = relevant['domain_coverage'][uid]
-
-        print(f"\n{ku['title']} (relevance: {score:.2f})")
-        print(f"  Domains covered: {', '.join(domains)}")
-        for reason in reasons:
-            print(f"  - {reason}")
-```
-
-### Relevance Scoring
-
-Knowledge is scored based on multiple factors:
-
-| Factor | Weight | Description |
-|--------|--------|-------------|
-| Connection Count | 0.2 per connection | More activity connections = more relevant |
-| Domain Coverage | 0.15 per domain | Multi-domain KUs are more valuable |
-| Goal Alignment | High | Knowledge required for active goals |
-| Task Enablement | Medium | Knowledge that unblocks pending tasks |
-| Habit Reinforcement | Medium | Knowledge supporting habit formation |
-| Principle Grounding | Lower | Foundational knowledge for values |
-
-### Methods Available
-
-| Method | Purpose |
-|--------|---------|
-| `find_relevant_for_context()` | Find KUs relevant to specific activity UIDs |
-| `find_relevant_from_user_context()` | Convenience method that extracts UIDs from UserContext |
-| `get_knowledge_application_opportunities()` | Where can I apply a specific KU? |
-| `get_optimal_next_learning_steps()` | What should I learn next? |
-| `get_daily_work_plan()` | Complete daily plan across all domains |
-
----
-
-### Domain Detection Methods
-
-```python
-class ParsedActivityLine:
-    # Activity Domains (7)
-    def is_task(self) -> bool: ...
-    def is_habit(self) -> bool: ...
-    def is_goal(self) -> bool: ...
-    def is_event(self) -> bool: ...
-    def is_principle(self) -> bool: ...
-    def is_choice(self) -> bool: ...
-    def is_finance(self) -> bool: ...
-
-    # Curriculum Domains (3)
-    def is_ku(self) -> bool: ...
-    def is_ls(self) -> bool: ...
-    def is_lp(self) -> bool: ...
-
-    # Meta Domains (3)
-    def is_report(self) -> bool: ...
-    def is_calendar(self) -> bool: ...
-
-    # The Destination (+1)
-    def is_lifepath(self) -> bool: ...
-```
+**See:** `/docs/dsl/DSL_SPECIFICATION.md`
 
 ---
 
 ## Graph Architecture
 
-### Neo4j Multi-Label Node Types (15 domains)
-
-Every entity node has TWO+ labels: `:Entity` (universal) + domain-specific (`:Task`, `:Goal`, etc.).
+### Key Relationship Patterns
 
 ```cypher
-// Activity Domains (6) — inherit from UserOwnedEntity
-(:Entity:Task {uid, ku_type, title, due_date, status, priority, user_uid, ...})
-(:Entity:Habit {uid, ku_type, title, recurrence_pattern, streak, user_uid, ...})
-(:Entity:Goal {uid, ku_type, title, target_date, progress, user_uid, ...})
-(:Entity:Event {uid, ku_type, title, event_date, duration, user_uid, ...})
-(:Entity:Principle {uid, ku_type, name, statement, category, user_uid, ...})
-(:Entity:Choice {uid, ku_type, title, decision_deadline, user_uid, ...})
+// User ownership
+(user:User)-[:OWNS]->(entity:Entity)
 
-// Finance Domain (1) — non-Entity, standalone
-(:Expense {uid, amount, category, expense_date, ...})
-
-// Curriculum Domains (3) — inherit from Curriculum(Entity) or Resource(Entity)
-(:Entity:Curriculum {uid, ku_type, title, content, domain, complexity, ...})
-(:Entity:Resource {uid, ku_type, title, content, source_url, ...})
-(:Entity:LearningStep {uid, ku_type, title, intent, estimated_hours, ...})
-(:Entity:LearningPath {uid, ku_type, name, goal, difficulty, ...})
-
-// Content/Processing Domains
-// SUBMISSION, JOURNAL, SUBMISSION_FEEDBACK inherit from Submission(UserOwnedEntity)
-(:Entity:Submission {uid, ku_type, status, user_uid, ...})
-(:Entity:Journal {uid, ku_type, content, processed_at, user_uid, ...})
-(:Entity:SubmissionFeedback {uid, ku_type, subject_uid, user_uid, processor_type, ...})
-// ACTIVITY_REPORT inherits UserOwnedEntity DIRECTLY (no file fields)
-(:Entity:ActivityReport {uid, ku_type, subject_uid, user_uid, time_period, processor_type, ...})
-
-// Organizational Domains (2) — Groups + MOC
-(:Group {uid, name, description, owner_uid, is_active, max_members, created_at, ...})
-(:Entity:Exercise {uid, ku_type, name, instructions, scope, due_date, processor_type, group_uid, ...})
-// MOC is NOT a separate node type — it IS an :Entity with ORGANIZES relationships
-// An Entity "is" a MOC when: EXISTS((e:Entity)-[:ORGANIZES]->(:Entity))
-
-// LifePath — The Destination (1) — inherits from UserOwnedEntity
-// NOTE: LifePath is NOT a stored entity — it's a DESIGNATION on an LP
-// The User designates an LP as their life path via ULTIMATE_PATH relationship
-// Life path data is stored on User node (vision_statement, vision_themes, etc.)
-
-// Supporting (not domains)
-(:User {uid, email, name, ...})
-```
-
-**Note:** The `ku_type` property is NOT renamed in the database -- it stores the `EntityType` enum value (e.g., `"task"`, `"goal"`, `"curriculum"`). The `:Entity` is the universal base label on all entity nodes.
-
-### Relationship Types
-
-```cypher
-// User Ownership (standardized to OWNS in Phase 0)
-(user:User)-[:OWNS]->(task:Task|habit:Habit|goal:Goal|event:Event|...)
-
-// Task Relationships
+// Activity domain connections
 (task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
-(task:Task)-[:FULFILLS]->(goal:Goal)
+(task:Task)-[:FULFILLS_GOAL]->(goal:Goal)
 (task:Task)-[:DEPENDS_ON]->(task:Task)
-(task:Task)-[:BLOCKED_BY]->(task:Task)
+(habit:Habit)-[:REINFORCES_KNOWLEDGE]->(ku:Curriculum)
+(habit:Habit)-[:SUPPORTS_GOAL]->(goal:Goal)
+(goal:Goal)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
+(goal:Goal)-[:SUBGOAL_OF]->(goal:Goal)
 
-// Habit Relationships
-(habit:Habit)-[:REINFORCES]->(principle:Principle)
-(habit:Habit)-[:SUPPORTS]->(goal:Goal)
-(habit:Habit)-[:REQUIRES_KNOWLEDGE]->(ku:Curriculum)
+// Curriculum
+(ku:Curriculum)-[:REQUIRES_KNOWLEDGE]->(ku:Curriculum)
+(ku:Curriculum)-[:ENABLES_KNOWLEDGE]->(ku:Curriculum)
+(lp:LearningPath)-[:HAS_NARROWER]->(ls:LearningStep)
+(ls:LearningStep)-[:REQUIRES_PREREQUISITE]->(ku:Curriculum)
 
-// Goal Relationships
-(goal:Goal)-[:INSPIRED_BY]->(choice:Choice)
-(goal:Goal)-[:GUIDED_BY]->(principle:Principle)
-(goal:Goal)-[:MILESTONE_OF]->(goal:Goal)  // sub-goals
+// MOC organization
+(entity:Entity)-[:ORGANIZES {order: int}]->(entity:Entity)
 
-// Knowledge Relationships
-(ku:Curriculum)-[:REQUIRES]->(ku:Curriculum)  // prerequisites
-(ku:Curriculum)-[:ENABLES]->(ku:Curriculum)   // what it unlocks
-(ls:LearningStep)-[:TEACHES]->(ku:Curriculum)
-(lp:LearningPath)-[:CONTAINS]->(ls:LearningStep)
+// Groups + exercises (ADR-040)
+(teacher:User)-[:OWNS]->(group:Group)
+(student:User)-[:MEMBER_OF {joined_at, role}]->(group:Group)
+(exercise:Exercise)-[:FOR_GROUP]->(group:Group)
+(submission:Submission)-[:FULFILLS_EXERCISE]->(exercise:Exercise)
 
-// MOC Organizational Relationships (Entity organizing Entities)
-(entity:Entity)-[:ORGANIZES {order: int}]->(entity:Entity)  // MOC hierarchy
+// Sharing
+(user:User)-[:SHARES_WITH {role, shared_at}]->(entity:Entity)
+(entity:Entity)-[:SHARED_WITH_GROUP]->(group:Group)
 
-// Group & Exercise Relationships (ADR-040)
-(teacher:User)-[:OWNS]->(group:Group)                               // Teacher owns group
-(student:User)-[:MEMBER_OF {joined_at, role}]->(group:Group)        // Student membership
-(exercise:Exercise)-[:FOR_GROUP]->(group:Group)                      // Exercise targets group
-(submission:Submission)-[:FULFILLS_EXERCISE]->(exercise:Exercise)     // Student submission
-(teacher:User)-[:SHARES_WITH {role: "teacher"}]->(submission:Submission)  // Auto-shared
-
-// Life Path Relationships
-(user:User)-[:ULTIMATE_PATH]->(lp:LearningPath)       // User's designated life path
-(entity:Entity)-[:SERVES_LIFE_PATH]->(lp:LearningPath) // Entity contributes to life path
-
-// User Knowledge Progress
-(user:User)-[:MASTERED]->(ku:Curriculum)
-(user:User)-[:LEARNING]->(ku:Curriculum)
-(user:User)-[:ENROLLED]->(lp:LearningPath)
+// Life path
+(user:User)-[:ULTIMATE_PATH]->(lp:LearningPath)
+(entity:Entity)-[:SERVES_LIFE_PATH]->(lp:LearningPath)
 ```
+
+Full taxonomy: 70+ typed relationship names in `RelationshipName` enum (`core/models/relationship_names.py`).
+
+**See:** `/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md`
 
 ---
 
-## Service Architecture
+## Core Design Principles
 
-### Domain Services
+| Principle | Meaning |
+|-----------|---------|
+| **One Path Forward** | Single clear way to accomplish tasks — old patterns deleted, not deprecated |
+| **Protocol-Based DI** | Zero concrete type dependencies in route signatures; all services use Protocols |
+| **Three-Tier Types** | Pydantic at edges (validation), DTOs for transfer, frozen dataclasses at core |
+| **Result[T]** | `Result[T]` throughout services; `@boundary_handler` converts to HTTP at routes |
+| **Fail-Fast** | All required dependencies raise at startup — no graceful degradation |
+| **Async for I/O** | Database/service layer async; data conversion and models are sync |
+| **Graph-Native** | All auth, sessions, relationships in Neo4j — no external services |
 
-Each domain has a consistent service structure:
+**Why Protocols?** Services depend on abstractions, not implementations. Zero circular imports, easy mocking in tests, MyPy validates at development time.
 
-```
-core/services/
-├── tasks/
-│   ├── tasks_core_service.py       # CRUD operations
-│   ├── tasks_relationship_service.py  # Graph relationships
-│   └── tasks_intelligence_service.py  # AI features
-├── habits/
-│   ├── habits_core_service.py
-│   ├── habits_relationship_service.py
-│   └── habits_intelligence_service.py
-├── goals/
-│   └── ...
-├── ku/
-│   ├── ku_core_service.py
-│   ├── ku_organization_service.py   # MOC organization (February 2026)
-│   └── ...
-├── ls/
-│   └── ...
-├── lp/
-│   └── ...
-└── ...
-```
+**Why Neo4j?** Knowledge is inherently graph-structured. Relationships are first-class citizens. Optimal for deep traversal (prerequisites, life-path alignment, cross-domain intelligence).
 
-### Intelligence Service Base Class (January 2026)
-
-All 6 Activity Domain intelligence services inherit from `BaseAnalyticsService[B, T]`:
-
-```python
-# core/services/base_intelligence_service.py
-class BaseAnalyticsService(Generic[B, T]):
-    _service_name: ClassVar[str] = "intelligence"      # Logger name
-    _require_relationships: ClassVar[bool] = False     # Fail-fast validation
-
-    def __init__(self, backend, graph_intelligence_service=None, relationship_service=None, ...):
-        self.backend = backend
-        self.graph_intel = graph_intelligence_service
-        self.relationships = relationship_service
-        self.logger = get_logger(f"skuel.services.{self._service_name}")
-```
-
-**Services Using BaseAnalyticsService:**
-- `TasksIntelligenceService` - `_service_name = "tasks.intelligence"`
-- `GoalsIntelligenceService` - `_service_name = "goals.intelligence"`, `_require_relationships = True`
-- `HabitsIntelligenceService` - `_service_name = "habits.intelligence"`, `_require_relationships = True`
-- `EventsIntelligenceService` - `_service_name = "events.intelligence"`
-- `ChoicesIntelligenceService` - `_service_name = "choices.intelligence"`
-- `PrinciplesIntelligenceService` - `_service_name = "principles.intelligence"`
-
-### BaseService Mixin Architecture (January 2026)
-
-`BaseService` is decomposed into 7 focused mixins following Single Responsibility Principle:
-
-```python
-class BaseService[B: BackendOperations, T: DomainModelProtocol](
-    ConversionHelpersMixin[B, T],      # DTO conversion, result handling
-    CrudOperationsMixin[B, T],          # create, get, update, delete, ownership
-    SearchOperationsMixin[B, T],        # search, filtering, graph-aware search
-    RelationshipOperationsMixin[B, T],  # graph relationships, prerequisites
-    TimeQueryMixin[B, T],               # date range queries, due_soon, overdue
-    UserProgressMixin[B, T],            # mastery tracking, curriculum progress
-    ContextOperationsMixin[B, T],       # get_with_context, graph enrichment
-):
-```
-
-**Location:** `/core/services/mixins/`
-
-All 6 Activity Domain core services inherit from `BaseService`, gaining full mixin functionality with zero additional configuration.
-
-**See:** [ADR-031](/docs/decisions/ADR-031-baseservice-mixin-decomposition.md)
-
-### Facade Factory Pattern (January 2026)
-
-Activity Domain facades use `create_common_sub_services()` from `core/utils/activity_domain_config.py`:
-
-```python
-# In facade __init__:
-common = create_common_sub_services(
-    domain="events",
-    backend=backend,
-    graph_intel=graph_intelligence_service,
-    event_bus=event_bus,
-)
-self.core = common.core
-self.search = common.search
-self.relationships = common.relationships
-self.intelligence = common.intelligence
-
-# Domain-specific sub-services added after
-self.habits = EventsHabitIntegrationService(...)
-```
-
-**Key Files:**
-- `core/utils/activity_domain_config.py` - Domain registry + factory function
-- `core/services/base_intelligence_service.py` - Base class for intelligence services
-- `core/services/base_service.py` - Composed of 7 mixins (see ADR-031)
-- `core/services/mixins/` - BaseService mixin implementations
-
-### Supporting Services
-
-```
-core/services/
-├── user/
-│   ├── user_service.py
-│   ├── user_context_builder.py
-│   └── unified_user_context.py
-├── search/
-│   ├── semantic_search_service.py
-│   └── embeddings_service.py
-├── askesis/
-│   └── askesis_service.py
-└── dsl/
-    ├── activity_dsl_parser.py
-    ├── activity_entity_converter.py
-    └── report_activity_extractor.py
-```
-
-### Meta Services
-
-```
-core/services/
-├── reports/                                  # Reports domain (January 2026)
-│   ├── __init__.py
-│   ├── submissions_service.py
-│   ├── submissions_processing_service.py
-│   ├── submissions_core_service.py
-│   ├── submissions_search_service.py
-│   ├── submissions_relationship_service.py
-│   ├── exercise_service.py                  # Exercise CRUD + scope management
-│   └── teacher_review_service.py            # Teacher review queue + feedback (ADR-040)
-├── groups/                                   # Groups domain (ADR-040)
-│   ├── __init__.py
-│   └── group_service.py                     # CRUD + membership management
-├── report_service.py
-├── reports/
-│   ├── report_metrics_service.py
-│   ├── report_aggregation_service.py
-│   └── report_life_path_service.py
-└── calendar_service.py
-```
-
----
-
-## API Routes Structure
-
-Every domain follows the **Factory Pattern**:
-
-```
-adapters/inbound/
-├── tasks_routes.py           # Factory
-├── tasks_api.py              # REST endpoints
-├── tasks_intelligence_api.py # AI features
-├── tasks_ui.py               # UI components
-├── habits_routes.py
-├── habits_api.py
-├── habits_intelligence_api.py
-├── habits_ui.py
-└── ... (all 14 domains)
-```
-
-### REST Endpoints Pattern
-
-```
-POST   /{domain}/create     # Create entity
-GET    /{domain}/get        # Get by UID
-POST   /{domain}/update     # Update entity
-POST   /{domain}/delete     # Delete entity
-GET    /{domain}/list       # List with pagination
-GET    /{domain}/search     # Search entities
-```
-
----
-
-## Cross-Domain Intelligence
-
-### The Intelligence Flow
-
-```
-User Action (any domain)
-       |
-UserContext updated
-       |
-Cross-domain analysis
-       |
-Recommendations generated
-       |
-Life path alignment calculated
-```
-
-### Intelligence Examples
-
-**Task Intelligence**:
-```python
-# When completing a task that applies knowledge
-async def on_task_completed(task_uid: str):
-    # Update knowledge mastery
-    for ku_uid in task.applies_knowledge_uids:
-        await update_mastery(ku_uid, delta=0.05)
-
-    # Check goal progress
-    if task.fulfills_goal_uid:
-        await update_goal_progress(task.fulfills_goal_uid)
-
-    # Update life path alignment
-    await recalculate_life_alignment(user_uid)
-```
-
-**Habit Intelligence**:
-```python
-# When habit streak increases
-async def on_habit_streak_increased(habit_uid: str, streak: int):
-    # Strengthen principle reinforcement
-    for principle_uid in habit.reinforces_principle_uids:
-        await strengthen_principle_adherence(principle_uid)
-
-    # Update related goal progress
-    for goal_uid in habit.supports_goal_uids:
-        await update_goal_momentum(goal_uid)
-```
-
-**Knowledge Intelligence**:
-```python
-# When knowledge mastery increases
-async def on_mastery_increased(ku_uid: str, new_mastery: float):
-    # Unlock dependent knowledge
-    dependents = await get_knowledge_dependents(ku_uid)
-    for dep_uid in dependents:
-        await check_prerequisite_completion(dep_uid, user_uid)
-
-    # Update learning path progress
-    await update_learning_path_progress(user_uid)
-```
-
----
-
-## Implementation Status
-
-### Fully Implemented (February 2026)
-
-| Component | Status | Location |
-|-----------|--------|----------|
-| Domain-First Architecture (Phases 0-5) | Complete | Codebase-wide |
-| Neo4j Multi-Label Architecture | Complete | `core/models/enums/neo_labels.py` |
-| Per-Domain DTOs (14 domains) | Complete | `core/models/ku/*_dto.py` |
-| Model Hierarchy (Entity/UserOwnedEntity) | Complete | `core/models/ku/entity.py`, `user_owned_entity.py` |
-| DSL Parser (14 domains) | Complete | `core/services/dsl/activity_dsl_parser.py` |
-| Entity Converters (14 domains) | Complete | `core/services/dsl/activity_entity_converter.py` |
-| Activity Extractor (14 domains) | Complete | `core/services/dsl/report_activity_extractor.py` |
-| Activity Domain Services (7) | Complete | `core/services/{domain}/` |
-| Curriculum Domain Services (3) | Complete | `core/services/ku/, ls/, lp/` |
-| UserContext | Complete | `core/services/user/unified_user_context.py` |
-| Search Service | Complete | `core/services/search/` |
-| Report Service | Complete | `core/services/report_service.py` |
-| Calendar Service | Complete | `core/services/calendar_service.py` |
-| Submissions Pipeline | Complete | `core/services/submissions/ + core/services/feedback/` |
-| LifePath Service | Complete | `core/services/lifepath/` |
-| Askesis Service | Complete | `core/services/askesis/` |
-
-### Planned
-
-| Component | Status | Target |
-|-----------|--------|--------|
-| Messaging Service | Planned | Future |
-
----
-
-## Summary
-
-The **15-domain + 5 cross-cutting systems architecture** provides a complete framework for:
-
-1. **What I DO** (Activity Domains) - 6 domains for concrete action
-2. **What I MANAGE** (Finance) - 1 domain for resource management
-3. **What I LEARN** (Curriculum Domains) - 3 domains for knowledge acquisition
-4. **How I PROCESS** (Content/Processing) - 2 domains: Submissions + Feedback (curriculum work + activity feedback)
-5. **How I ORGANIZE** (Organizational Domains) - 2 domains (Groups for classes, MOC for knowledge)
-6. **Where I'm GOING** (LifePath) - Domain #15, the destination
-7. **The Infrastructure** (Cross-Cutting Systems) - 4 active + 1 planned system
-
-**Domain Count Breakdown**:
-- Activity: 6 (Tasks, Habits, Goals, Events, Principles, Choices)
-- Finance: 1 (standalone)
-- Curriculum: 3 (KU, LS, LP)
-- Content/Processing: 2 (Submissions + Feedback, Journals)
-- Organizational: 2 (Groups for teacher-student classes, MOC for knowledge navigation)
-- LifePath: 1 (The Destination)
-- **Total: 15 domains**
-
-**Cross-Cutting Systems**: UserContext, Search, Calendar, Askesis (all active), Messaging (planned)
-
-**Core Insight**: By categorizing all human activity into 15 domains + 5 cross-cutting systems, SKUEL can:
-- Parse natural language into structured entities
-- Track progress across all life dimensions
-- Provide intelligent recommendations
-- Measure alignment with life purpose
-- Connect knowledge to action
-
-**Philosophy**: "Everything flows toward the life path."
+**Why frozen domain models?** Immutable business entities can't be accidentally modified. Clean separation: external validation (Pydantic), data transfer (DTOs), core logic (frozen dataclasses).
 
 ---
 
 ## See Also
 
-### Architecture Documentation
-
-| Document | Purpose |
-|----------|---------|
-| [UNIFIED_USER_ARCHITECTURE.md](UNIFIED_USER_ARCHITECTURE.md) | UserContext (~240 fields), ProfileHubData |
-| [../patterns/query_architecture.md](../patterns/query_architecture.md) | Database schema, constraints, indexes |
-| [RELATIONSHIPS_ARCHITECTURE.md](RELATIONSHIPS_ARCHITECTURE.md) | Cross-domain relationships |
-| [CURRICULUM_GROUPING_PATTERNS.md](CURRICULUM_GROUPING_PATTERNS.md) | KU/LS/LP/MOC curriculum patterns |
-| [SUBMISSIONS_ARCHITECTURE.md](SUBMISSIONS_ARCHITECTURE.md) | Analytics meta-service pattern |
+| Document | What it covers |
+|----------|---------------|
+| [UNIFIED_USER_ARCHITECTURE.md](UNIFIED_USER_ARCHITECTURE.md) | User model, auth, roles, UserContext (~240 fields) |
+| [FEEDBACK_ARCHITECTURE.md](FEEDBACK_ARCHITECTURE.md) | ActivityReport, SubmissionFeedback, all feedback types |
+| [RELATIONSHIPS_ARCHITECTURE.md](RELATIONSHIPS_ARCHITECTURE.md) | UnifiedRelationshipService, relationship taxonomy |
+| [CURRICULUM_GROUPING_PATTERNS.md](CURRICULUM_GROUPING_PATTERNS.md) | KU/LS/LP/MOC patterns |
+| [ANALYTICS_ARCHITECTURE.md](ANALYTICS_ARCHITECTURE.md) | Analytics meta-service |
 | [SEARCH_ARCHITECTURE.md](SEARCH_ARCHITECTURE.md) | Unified search across all domains |
-
-### Domain Documentation
-
-| Domain | Documentation |
-|--------|---------------|
-| Activity Domains | [/docs/domains/](../domains/) (tasks, goals, habits, events, choices, principles) |
-| Finance | [/docs/domains/finance.md](../domains/finance.md) |
-| Curriculum | [CURRICULUM_GROUPING_PATTERNS.md](CURRICULUM_GROUPING_PATTERNS.md) |
-| Journals | [/docs/domains/journals.md](../domains/journals.md) |
-| Reports | [ASSIGNMENTS_PIPELINE.md](ASSIGNMENTS_PIPELINE.md) |
-
-### Related Patterns
-
-- [protocol_architecture.md](../patterns/protocol_architecture.md) - Protocol-based dependency injection
-- [query_architecture.md](../patterns/query_architecture.md) - Query builders and patterns
-
-### Related ADRs
-
-- [ADR-041-unified-ku-model.md](../decisions/ADR-041-unified-ku-model.md) - Unified Ku model decision
-- [ADR-040-teacher-assignment-workflow.md](../decisions/ADR-040-teacher-assignment-workflow.md) - Groups + Exercise workflow
-
----
-
-*Last Updated: February 23, 2026*
-*Architecture: 15-Domain + 5 Cross-Cutting Systems (4 active + 1 planned)*
-*Domain-First Migration: Phases 0-5 Complete*
-*Status: Production-Ready*
+| [/docs/patterns/protocol_architecture.md](../patterns/protocol_architecture.md) | Protocol-based dependency injection |
+| [/docs/patterns/three_tier_type_system.md](../patterns/three_tier_type_system.md) | Type system details |
+| [/docs/patterns/ERROR_HANDLING.md](../patterns/ERROR_HANDLING.md) | Result[T] pattern |
+| [/docs/dsl/DSL_SPECIFICATION.md](../dsl/DSL_SPECIFICATION.md) | Activity DSL specification |
+| [/docs/domains/](../domains/) | Individual domain documentation |

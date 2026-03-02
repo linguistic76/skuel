@@ -955,7 +955,7 @@ All dashboards are version-controlled in git:
 - Prometheus Documentation: https://prometheus.io/docs/
 - Grafana Documentation: https://grafana.com/docs/
 - PromQL Guide: https://prometheus.io/docs/prometheus/latest/querying/basics/
-- SKUEL Architecture: `/docs/architecture/ARCHITECTURE_OVERVIEW.md`
+- SKUEL Architecture: `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`
 - SKUEL Event System: `/docs/patterns/event_driven_architecture.md`
 
 ---

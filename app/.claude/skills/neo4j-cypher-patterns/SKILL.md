@@ -266,7 +266,7 @@ RETURN t
 
 **Architecture:**
 - [Query Architecture](/docs/patterns/query_architecture.md) - Graph database architecture
-- [LATERAL_RELATIONSHIPS_CORE.md](/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md) - Lateral relationship patterns
+- [RELATIONSHIPS_ARCHITECTURE.md](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md) - Lateral relationship types, service API, Cypher patterns
 - [ADR-037](/docs/decisions/ADR-037-lateral-relationships-visualization-phase5.md) - Lateral relationships visualization
 
 **Patterns:**

@@ -1,33 +1,124 @@
 ---
 title: Feedback Architecture
-updated: 2026-03-02
+updated: 2026-03-03
 status: current
 category: architecture
-version: 1.2.0
+version: 2.0.0
 tags:
 - feedback
 - activity_report
 - submission_feedback
 - activity_domains
 - submissions
+- exercise
 related:
-- SUBMISSION_FEEDBACK_LOOP.md
+- FOUR_PHASED_LEARNING_LOOP.md
 - ADR-038-content-sharing-model.md
 - ADR-040-teacher-assignment-workflow.md
 related_skills:
-- activity-domains
+- learning-loop
 ---
 
 # Feedback Architecture
 
 > "The student submits, the system responds, the teacher refines."
 
-SKUEL's feedback system is a unified response infrastructure that covers two distinct entry points:
+SKUEL's feedback system is a unified response infrastructure covering two distinct entry points:
 
 1. **Curriculum work** — a student submits against an Exercise; teacher or AI responds
 2. **Activity Domains** — a user's Tasks, Goals, Habits, Events, Choices, and Principles; AI or admin responds
 
 Both paths produce feedback entities. The `EntityType` and `ProcessorType` fields discriminate them.
+
+---
+
+## The Four EntityTypes
+
+| EntityType | Who Creates | Purpose | ProcessorType |
+|------------|-------------|---------|---------------|
+| `SUBMISSION` | Student uploads file | Raw student work (audio, text, images) | `HUMAN` |
+| `JOURNAL` | Admin uploads file | AI-processed reflective writing | `LLM` |
+| `SUBMISSION_FEEDBACK` | Teacher **or** AI | Assessment with `subject_uid` pointing to the submission | `HUMAN` (teacher) or `LLM` (AI) |
+| `ACTIVITY_REPORT` | System **or** Admin | Activity-level feedback (not tied to artifact) | `AUTOMATIC`, `LLM`, or `HUMAN` |
+
+**Note:** `ACTIVITY_REPORT` does **not** inherit from `Submission`. It has no file fields. It inherits `UserOwnedEntity` directly and responds to a user's aggregate activity patterns over a time window.
+
+---
+
+## Naming Rationale
+
+**SUBMISSION** (not "assignment") because:
+- "Assignment" is what a **teacher gives** — that's an `Exercise` with `scope=ASSIGNED`
+- "Submission" is what a **student uploads** — file content going through a processing pipeline
+- Matches service names: `SubmissionsService`, protocol: `SubmissionOperations`
+- Matches route language: `/submissions/submit`
+
+---
+
+## The Exercise (Curriculum Directive)
+
+An `Exercise` is the teacher's directive — instructions for what students should produce.
+
+```
+Exercise (scope=ASSIGNED)
+    |
+    +-- instructions: str        # What to do (LLM prompt for AI feedback)
+    +-- due_date: date           # When it's due
+    +-- group_uid: str           # Which class
+    +-- model: str               # Which LLM to use for AI feedback
+```
+
+**Two scopes:**
+- `PERSONAL` — User's own AI template for self-directed feedback
+- `ASSIGNED` — Teacher-created directive targeting a Group
+
+---
+
+## Curriculum Submission Pipeline
+
+```
+1. Teacher creates Exercise (scope=ASSIGNED, targets Group)
+       |
+       v
+2. Student submits file → SubmissionsService.submit_file()
+       |                   Creates Entity with ku_type=SUBMISSION
+       v
+3. Processing routes by MIME type (not EntityType):
+       audio/* → TranscriptionService → text
+       text/*  → Read raw content
+       |
+       v
+4. Status transition: SUBMITTED → QUEUED → PROCESSING → COMPLETED
+       |
+       v
+5. Auto-sharing: FULFILLS_EXERCISE + SHARES_WITH created
+       |                             (student → teacher)
+       v
+6. Teacher reviews in queue → writes SUBMISSION_FEEDBACK
+       |                       or requests REVISION
+       v
+7. Student sees feedback, optionally resubmits
+```
+
+### Relationship Graph
+
+```cypher
+// The exercise directive
+(teacher:User)-[:OWNS]->(exercise:Exercise {scope: "assigned"})
+(exercise)-[:FOR_GROUP]->(group:Group)
+(student:User)-[:MEMBER_OF]->(group)
+
+// The submission
+(student)-[:OWNS]->(submission:Entity {ku_type: "submission"})
+(submission)-[:FULFILLS_EXERCISE]->(exercise)
+
+// Sharing for review
+(student)-[:SHARES_WITH {role: "teacher"}]->(submission)
+
+// Teacher feedback
+(teacher)-[:OWNS]->(feedback:Entity {ku_type: "submission_feedback"})
+(feedback)-[:FEEDBACK_FOR]->(submission)
+```
 
 ---
 
@@ -70,6 +161,8 @@ Curriculum Work                 Activity Domains
 |--------|---------|---------------|---------|
 | Teacher writes feedback | `SubmissionsCoreService.create_assessment()` | `HUMAN` | Teacher reviews submission in queue |
 | AI evaluates via Exercise | `FeedbackService.generate_feedback()` | `LLM` | Exercise has `instructions`; AI generates response |
+
+Both use atomic Cypher: create entity + `FEEDBACK_FOR` relationship + denormalize to `submission.feedback` in one transaction.
 
 **Graph pattern:**
 ```cypher
@@ -124,7 +217,7 @@ class ActivityReport(UserOwnedEntity):
     processed_content: str | None = None  # LLM output or human-written text (immutable)
     processing_error: str | None = None
     insights_referenced: tuple[str, ...] = ()
-    # Annotation fields (Phase 2 — user voice alongside AI synthesis)
+    # Annotation fields (user voice alongside AI synthesis)
     user_annotation: str | None = None    # Additive commentary alongside AI synthesis
     user_revision: str | None = None      # User-curated replacement for sharing
     annotation_mode: str | None = None    # "additive" | "revision" | None
@@ -147,7 +240,32 @@ class ActivityReport(UserOwnedEntity):
 
 ---
 
+## Visibility Model
+
+Three-level visibility on every entity:
+
+| Level | Who Can See | Use Case |
+|-------|-------------|----------|
+| `PRIVATE` (default) | Owner only | Work in progress |
+| `SHARED` | Owner + SHARES_WITH recipients | Teacher review, peer feedback |
+| `PUBLIC` | Anyone | Portfolio showcase |
+
+Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work).
+
+---
+
 ## Services
+
+**Submission track:**
+
+| Service | Protocol | Responsibility |
+|---------|----------|---------------|
+| `SubmissionsService` | `SubmissionOperations` | File upload, storage, submission record creation |
+| `SubmissionsProcessingService` | `SubmissionProcessingOperations` | Routes files to processors, manages status transitions |
+| `UnifiedSharingService` | `SharingOperations` | Visibility control, SHARES_WITH + SHARED_WITH_GROUP management |
+| `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval |
+
+**Feedback producers:**
 
 | Service | Protocol | Produces | Notes |
 |---------|----------|---------|-------|
@@ -163,15 +281,15 @@ class ActivityReport(UserOwnedEntity):
 
 ## Where Feedback Sits in the 4-Layer Architecture
 
-The 4-phase learning loop is: **Curriculum/KU → Exercise → Submission → Feedback**
+The 4-phase learning loop is: **KU → Exercise → Submission → Feedback**
 
-The first three stages are all **leaf domains** — each owns its own Neo4j nodes and fits the standard 4-layer pattern:
+The first three stages are **leaf domains** — each owns its own Neo4j nodes and fits the standard 4-layer pattern:
 
 ```
 *Operations protocol → *Backend subclass → *Service facade → sub-services
 
-KuBackend         ← owns ORGANIZES, KU curriculum queries
-ExerciseBackend   ← owns curriculum linking Cypher
+KuBackend          ← owns ORGANIZES, KU curriculum queries
+ExerciseBackend    ← owns curriculum linking Cypher
 SubmissionsBackend ← owns SHARES_WITH, access control Cypher
 ```
 
@@ -179,18 +297,16 @@ Feedback splits into two structurally different positions:
 
 ### SUBMISSION_FEEDBACK — Leaf Domain
 
-`SUBMISSION_FEEDBACK` fits the leaf domain model. One submission goes in, one SubmissionFeedback node comes out. The generating services (`FeedbackService`, `SubmissionsCoreService`) operate against a focused backend — the scope is a single artifact and its owner.
+`SUBMISSION_FEEDBACK` fits the leaf domain model. One submission goes in, one SubmissionFeedback node comes out. The generating services operate against a focused backend — the scope is a single artifact and its owner.
 
 ```
 Submission  →  FeedbackService / SubmissionsCoreService  →  SUBMISSION_FEEDBACK node
                (one artifact in, one feedback node out)
 ```
 
-This fits the 4-layer pattern cleanly. The services are protocol-driven and backend-scoped.
-
 ### ACTIVITY_REPORT — Cross-Domain Aggregator
 
-`ACTIVITY_REPORT` cannot fit the leaf domain model because it does not read from one domain — it reads **across all 6 Activity Domain backends** to produce a synthesis.
+`ACTIVITY_REPORT` cannot fit the leaf domain model — it reads **across all 6 Activity Domain backends** to produce a synthesis.
 
 ```
 Tasks + Goals + Habits + Events + Choices + Principles
@@ -200,9 +316,9 @@ Tasks + Goals + Habits + Events + Choices + Principles
 ACTIVITY_REPORT node
 ```
 
-`ProgressFeedbackGenerator` accepts a `UserContextBuilder` (primary data source) alongside a `QueryExecutor` (annotation lookup only). The primary data comes from `context_builder.build_rich(user_uid, window=...)` — MEGA_QUERY extended with six activity-window CALL{} blocks — rather than a bespoke Cypher query, because no single domain backend spans all Activity Domains. Per SKUEL's architecture rule: **domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services.** `ProgressFeedbackGenerator` is the cross-domain aggregation service — it sits above the domain backends by design.
+`ProgressFeedbackGenerator` accepts a `UserContextBuilder` (primary data source) alongside a `QueryExecutor` (annotation lookup only). The primary data comes from `context_builder.build_rich(user_uid, window=...)` — MEGA_QUERY extended with six activity-window CALL{} blocks. Per SKUEL's architecture rule: **domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services.** `ProgressFeedbackGenerator` is the cross-domain aggregation service — it sits above the domain backends by design.
 
-This is why it does not have a `FeedbackBackend` with domain-specific Cypher methods. The `build_rich()` result (`context.entities_rich`, `context.knowledge_units_rich`, `context.enrolled_paths_rich`, `context.active_learning_steps_rich`) gives it the full cross-domain picture in a single Neo4j round-trip.
+This is why it does not have a `FeedbackBackend` with domain-specific Cypher methods. The `build_rich()` result (`context.entities_rich`, `context.knowledge_units_rich`, `context.enrolled_paths_rich`, `context.active_learning_steps_rich`) gives the full cross-domain picture in a single Neo4j round-trip.
 
 ### Summary
 
@@ -215,36 +331,31 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 
 ---
 
-## Three Distinct UIs
+## UI Surfaces
 
-### UI 1 — Ku Submission UI (curriculum work)
+**Curriculum track:**
 
-- **Who:** Students
-- **Route:** `/submissions/submit`
-- **Creates:** `SUBMISSION` entity → processed → feedback via Exercise
-- **Feedback:** `SUBMISSION_FEEDBACK` (teacher human or LLM via Exercise)
+| Route | Who | What |
+|-------|-----|------|
+| `/submissions/submit` | Student | Upload files for processing |
+| `/submissions/{uid}` | Owner | View submission, sharing controls |
+| `/journals/submit` | Admin | Upload files for AI (LLM) processing |
+| `/profile/shared` | Any user | "Shared With Me" inbox |
+| `/api/teaching/review-queue` | Teacher | Pending submission review queue |
+| `/api/teaching/review/{uid}/feedback` | Teacher | Submit human feedback on submission |
+| `/api/teaching/review/{uid}/approve` | Teacher | Approve submission |
 
-### UI 2 — AI Feedback UI (activity patterns)
+**Activity feedback track:**
 
-- **Who:** Users (self-review)
-- **Routes:** `GET /api/feedback/progress`, `POST /api/feedback/progress/generate`
-- **Shows:** `ACTIVITY_REPORT` entities (both LLM-generated and scheduled)
-- **Trigger:** On-demand generation or scheduled delivery
-
-### UI 3 — Activity Review UI (admin human feedback)
-
-- **Who:** Admins
-- **Routes:**
-  - `GET /api/activity-review/snapshot` — view a user's activity snapshot
-  - `POST /api/activity-review/submit` — write and submit feedback
-  - `GET /api/activity-review/queue` — pending review requests
-- **Creates:** `ACTIVITY_REPORT` with `ProcessorType.HUMAN`
-
-### UI 4 — Activity Feedback History (user-facing)
-
-- **Who:** Users
-- **Route:** `GET /api/activity-review/history`
-- **Shows:** All `ACTIVITY_REPORT` received (LLM-generated + human-written)
+| Route | Who | What |
+|-------|-----|------|
+| `/api/feedback/progress` | User | List user's `ACTIVITY_REPORT` history |
+| `/api/feedback/progress/generate` | User | On-demand `ACTIVITY_REPORT` generation |
+| `/api/activity-review/snapshot` | Admin | Generate activity snapshot for review |
+| `/api/activity-review/submit` | Admin | Submit written activity feedback |
+| `/api/activity-review/request` | User | Request an activity review from admin |
+| `/api/activity-review/queue` | Admin | Pending review queue |
+| `/api/activity-review/history` | User/Admin | Received activity feedback history |
 
 ---
 
@@ -321,6 +432,9 @@ When `openai_service` is available, the generator:
 | `/api/feedback/assessments` | POST | Teacher | Create teacher assessment (`SUBMISSION_FEEDBACK`) |
 | `/api/feedback/assessments/for-student` | GET | Teacher | Student's received assessments |
 | `/api/feedback/assessments/by-teacher` | GET | Teacher | Teacher's authored assessments |
+| `/api/teaching/review-queue` | GET | Teacher | Pending submission review queue |
+| `/api/teaching/review/{uid}/feedback` | POST | Teacher | Submit human feedback on submission |
+| `/api/teaching/review/{uid}/approve` | POST | Teacher | Approve submission |
 
 ---
 
@@ -363,7 +477,6 @@ When `openai_service` is available, the generator:
 ## See Also
 
 - [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) — Entry-point overview: two tracks, four phases, how MEGA_QUERY feeds the loop
-- [SUBMISSION_FEEDBACK_LOOP.md](/docs/architecture/SUBMISSION_FEEDBACK_LOOP.md) — Pipeline diagram
 - [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)
 - [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md)
 - [14-Domain Architecture](/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md)

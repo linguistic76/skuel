@@ -27,7 +27,7 @@ tags: [documentation, index, hub, architecture, patterns]
 - **[CLAUDE.md](/home/mike/skuel/app/CLAUDE.md)** - Main instructions for Claude/AI assistants
 
 **By role:**
-- **New to SKUEL?** → [Architecture Overview](architecture/ARCHITECTURE_OVERVIEW.md)
+- **New to SKUEL?** → [Architecture](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md)
 - **Adding a feature?** → [14-Domain Architecture](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md)
 - **Writing queries?** → [Query Architecture](patterns/query_architecture.md)
 - **Working with relationships?** → [Unified Relationship Service](patterns/UNIFIED_RELATIONSHIP_SERVICE.md)

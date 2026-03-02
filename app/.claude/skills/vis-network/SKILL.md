@@ -1939,7 +1939,7 @@ Link(rel="stylesheet", href="/static/vendor/vis-network/vis-network.min.css"),
 | Document | Purpose | Key Sections |
 |----------|---------|--------------|
 | `/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md` | Complete pattern guide | Three-layer architecture, configuration, UI components |
-| `/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md` | Graph modeling | Relationship types, service architecture, Cypher patterns |
+| `/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md` | Graph modeling | Lateral relationship types, service API, Cypher patterns |
 | `/PHASE5_COMPLETE.md` | Implementation completion guide | Deployment checklist, testing, verification |
 
 ---

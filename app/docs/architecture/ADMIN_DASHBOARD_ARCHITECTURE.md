@@ -11,7 +11,7 @@ tags:
 - security
 related:
 - ROUTING_ARCHITECTURE.md
-- USER_MODEL_ARCHITECTURE.md
+- UNIFIED_USER_ARCHITECTURE.md
 related_skills:
 - chartjs
 ---

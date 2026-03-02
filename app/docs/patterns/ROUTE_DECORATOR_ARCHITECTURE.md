@@ -367,4 +367,4 @@ The SKUEL version has zero try/except, zero manual status codes, zero `jsonify()
 - [FastHTML Route Registration](/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md) — Critical anti-pattern: never use `routes = []` with `@rt()`
 - [DomainRouteConfig Pattern](/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md) — Configuration-driven route registration
 - [Error Handling](/docs/patterns/ERROR_HANDLING.md) — `Result[T]` pattern and `Errors` factory
-- [Lateral Relationships Core](/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md) — Lateral relationship architecture
+- [Relationships Architecture](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md) — Lateral relationship types, service API, Cypher patterns

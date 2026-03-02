@@ -1274,7 +1274,7 @@ Zero runtime overhead - routes are registered once at application startup.
 
 - **Route Factories:** `/docs/patterns/ROUTE_FACTORIES.md` - Endpoint-level factories
 - **Service Bootstrap:** `/services_bootstrap.py` - Container creation
-- **Clean Architecture:** `/docs/architecture/ARCHITECTURE_OVERVIEW.md` - Layer separation
+- **Clean Architecture:** `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` - Layer separation
 - **Migration Summaries:**
   - `/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-01-24.md` - Phase 2 migration (6 files)
   - `/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md` - Phase 3 migration (9 files)

@@ -718,7 +718,7 @@ Script(src="/static/vendor/vis-network/vis-network.min.js"),
 
 ## See Also
 
-- `/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md` - Core graph modeling
+- `/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md` - Core graph modeling — lateral types, service API, Cypher patterns
 - `/PHASE5_COMPLETE.md` - Implementation completion details
 - `/PHASE5_MANUAL_QA_CHECKLIST.md` - Testing guide
 - `/.claude/skills/js-alpine/` - Alpine.js patterns

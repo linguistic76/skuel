@@ -4,7 +4,7 @@ updated: 2026-01-04
 status: current
 category: decisions
 tags: [adr, decisions, authentication, security, neo4j]
-related: [USER_MODEL_ARCHITECTURE.md, ADR-018-user-roles-four-tier-system.md]
+related: [UNIFIED_USER_ARCHITECTURE.md, ADR-018-user-roles-four-tier-system.md]
 ---
 
 # ADR-022: Graph-Native Authentication
@@ -17,7 +17,7 @@ related: [USER_MODEL_ARCHITECTURE.md, ADR-018-user-roles-four-tier-system.md]
 
 **Related ADRs:**
 - Related to: ADR-018 (User Roles)
-- Related to: USER_MODEL_ARCHITECTURE.md
+- Related to: UNIFIED_USER_ARCHITECTURE.md
 
 ---
 

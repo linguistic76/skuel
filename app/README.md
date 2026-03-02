@@ -261,7 +261,7 @@ poetry run ruff format .
 
 ### Primary Documentation: `/docs/`
 
-- **[Architecture Overview](docs/architecture/ARCHITECTURE_OVERVIEW.md)** - Complete system architecture
+- **[Architecture](docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md)** - 14-domain architecture and system design
 - **[Architecture Decision Records (ADRs)](docs/decisions/)** - 20+ documented decisions
 - **[CLAUDE.md](CLAUDE.md)** - Quick reference for AI assistants and developers
 - **[TESTING.md](docs/TESTING.md)** - Test strategy and patterns
@@ -401,7 +401,7 @@ This demo creates 6 curriculum entities (3 KUs, 2 Learning Steps, 1 Learning Pat
 1. **Quick questions**: Check `CLAUDE.md`
 2. **Architecture decisions**: Review ADRs in `/docs/decisions/`
 3. **Implementation patterns**: See `/docs/patterns/`
-4. **System architecture**: Read `/docs/architecture/ARCHITECTURE_OVERVIEW.md`
+4. **System architecture**: Read `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`
 
 ### External Library Docs
 

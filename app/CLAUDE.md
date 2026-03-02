@@ -26,7 +26,7 @@ from core.ports import LpOperations  # Not ku_protocols.py
 
 **Design Philosophy:** Type errors are teachers, showing us where components don't flow together properly. When errors appear, investigate the fundamental design first rather than working around with quick fixes. Deal with fundamentals. Deal with the core.
 
-**See:** `/docs/architecture/ARCHITECTURE_OVERVIEW.md`
+**See:** `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`
 
 ## Ku Philosophy
 
@@ -119,7 +119,7 @@ async def get_learning_opportunities(
 | result-pattern | `/docs/patterns/ERROR_HANDLING.md` | RETURN_TYPE_ERROR_PROPAGATION.md |
 | base-analytics-service | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md` | 7 pattern docs |
 | base-ai-service | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` | — |
-| **learning-loop** | `/docs/architecture/FEEDBACK_ARCHITECTURE.md`, `/docs/architecture/SUBMISSION_FEEDBACK_LOOP.md` | ADR-038, ADR-040 |
+| **learning-loop** | `/docs/architecture/FEEDBACK_ARCHITECTURE.md`, `/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md` | ADR-038, ADR-040 |
 | skuel-search-architecture | `/docs/architecture/SEARCH_ARCHITECTURE.md` | query_architecture.md |
 | user-context-intelligence | `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` | — |
 | **Testing** | | |
@@ -1058,7 +1058,7 @@ EntityRelationshipsSection(
 - 92 API routes verified on running server
 - Zero breaking changes, fully backward compatible
 
-**See:** `/PHASE5_COMPLETE.md`, `/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md`, `/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md`
+**See:** `/PHASE5_COMPLETE.md`, `/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md`, `/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md`
 
 ## Event-Driven Architecture
 
