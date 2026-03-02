@@ -1000,6 +1000,37 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // Events - parallel collection with date filtering
 OPTIONAL MATCH (user)-[:OWNS]->(event:Event)
 WHERE event.event_date >= date($today)
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
+     active_habit_uids, habit_data,
+     active_goal_uids, completed_goal_uids, goal_data,
+     knowledge_data,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     enrolled_path_uids,
+     active_moc_uids, moc_data,
+     collect(event.uid) as upcoming_event_uids,
+     collect(CASE WHEN date(event.event_date) = date($today) THEN event.uid END) as today_event_uids
+
+// ACTIVITY REPORT - Latest report for standard context
+OPTIONAL MATCH (user)-[:OWNS]->(ar:ActivityReport)
+WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
+     active_habit_uids, habit_data,
+     active_goal_uids, completed_goal_uids, goal_data,
+     knowledge_data,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     enrolled_path_uids,
+     active_moc_uids, moc_data,
+     upcoming_event_uids, today_event_uids,
+     ar
+ORDER BY ar.period_end DESC
+WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
+     active_habit_uids, habit_data,
+     active_goal_uids, completed_goal_uids, goal_data,
+     knowledge_data,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     enrolled_path_uids,
+     active_moc_uids, moc_data,
+     upcoming_event_uids, today_event_uids,
+     collect(ar)[0] AS latest_ar
 
 // Final aggregation - return all domain data
 RETURN
@@ -1019,8 +1050,15 @@ RETURN
     enrolled_path_uids,
     active_moc_uids,
     moc_data,
-    collect(event.uid) as upcoming_event_uids,
-    collect(CASE WHEN date(event.event_date) = date($today) THEN event.uid END) as today_event_uids
+    upcoming_event_uids,
+    today_event_uids,
+    CASE WHEN latest_ar IS NOT NULL THEN {
+        uid: latest_ar.uid,
+        period: latest_ar.time_period,
+        period_end: latest_ar.period_end,
+        content: latest_ar.processed_content,
+        user_annotation: latest_ar.user_annotation
+    } ELSE null END AS latest_ar
 """
 
 
@@ -1236,6 +1274,7 @@ class UserContextQueryExecutor:
                         )[:10]
                     ],
                 },
+                "activity_report": record.get("latest_ar"),
             }
         )
 

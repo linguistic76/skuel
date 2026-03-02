@@ -17,6 +17,7 @@ populate_cross_domain_insights (2 tests):
 
 from datetime import datetime
 
+from core.services.user.unified_user_context import UserContext
 from core.services.user.user_context_populator import UserContextPopulator
 
 
@@ -135,6 +136,51 @@ def test_populate_activity_report_annotation_none_key_missing() -> None:
 
     assert ctx.latest_activity_report_uid == "ku_report_abc123"
     assert ctx.latest_activity_report_user_annotation is None
+
+
+# =============================================================================
+# populate_from_consolidated_data — activity_report wiring
+# =============================================================================
+
+
+def test_populate_from_consolidated_data_wires_activity_report() -> None:
+    """activity_report key in consolidated data reaches UserContext fields."""
+    populator = UserContextPopulator()
+    ctx = UserContext(user_uid="user_test")
+
+    data = {
+        "tasks": {},
+        "habits": {},
+        "goals": {},
+        "knowledge": {},
+        "events": {},
+        "mocs": {},
+        "activity_report": {
+            "uid": "ku_report_wired_test",
+            "period": "7d",
+            "period_end": None,
+            "content": "Wired through consolidated path.",
+        },
+    }
+
+    populator.populate_from_consolidated_data(ctx, data)
+
+    assert ctx.latest_activity_report_uid == "ku_report_wired_test"
+    assert ctx.latest_activity_report_period == "7d"
+    assert ctx.latest_activity_report_content == "Wired through consolidated path."
+
+
+def test_populate_from_consolidated_data_no_activity_report() -> None:
+    """Missing activity_report key leaves UserContext fields as None."""
+    populator = UserContextPopulator()
+    ctx = UserContext(user_uid="user_test")
+
+    data = {"tasks": {}, "habits": {}, "goals": {}, "knowledge": {}, "events": {}, "mocs": {}}
+
+    populator.populate_from_consolidated_data(ctx, data)
+
+    assert ctx.latest_activity_report_uid is None
+    assert ctx.latest_activity_report_content is None
 
 
 # =============================================================================

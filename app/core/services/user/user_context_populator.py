@@ -275,6 +275,9 @@ class UserContextPopulator:
         context.moc_view_counts = mocs_data.get("view_counts", {})
         context.recently_viewed_moc_uids = mocs_data.get("recently_viewed_uids", [])
 
+        # Activity report (latest)
+        self.populate_activity_report(context, data.get("activity_report"))
+
     def populate_user_properties(self, context: "UserContext", user_props: dict[str, Any]) -> None:
         """
         Populate user preference fields from MEGA-QUERY user_properties.
