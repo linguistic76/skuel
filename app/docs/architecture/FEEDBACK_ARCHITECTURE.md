@@ -1,9 +1,9 @@
 ---
 title: Feedback Architecture
-updated: 2026-03-01
+updated: 2026-03-02
 status: current
 category: architecture
-version: 1.1.0
+version: 1.2.0
 tags:
 - feedback
 - activity_report
@@ -98,7 +98,7 @@ Curriculum Work                 Activity Domains
 |--------|---------|---------------|---------|
 | Scheduled system | `ProgressFeedbackWorker` → `ProgressFeedbackGenerator` | `AUTOMATIC` | `ProgressSchedule` cron |
 | On-demand AI | `ProgressFeedbackGenerator.generate()` | `LLM` | `POST /api/feedback/progress/generate` |
-| Admin writes feedback | `ActivityReviewService.submit_activity_feedback()` | `HUMAN` | Admin reviews snapshot |
+| Admin writes feedback | `ActivityReportService.submit_feedback()` | `HUMAN` | Admin reviews snapshot |
 
 **Graph pattern:**
 ```cypher
@@ -154,7 +154,9 @@ class ActivityReport(UserOwnedEntity):
 | `SubmissionsCoreService` | `FeedbackOperations` | `SUBMISSION_FEEDBACK` (HUMAN) | Teacher assessment; verifies group membership |
 | `FeedbackService` | `FeedbackOperations` | `SUBMISSION_FEEDBACK` (LLM) | AI evaluation via Exercise instructions |
 | `ProgressFeedbackGenerator` | `ProgressFeedbackOperations` | `ACTIVITY_REPORT` (AUTOMATIC or LLM) | Activity summary; LLM adds qualitative insights |
-| `ActivityReviewService` | `ActivityReviewOperations` | `ACTIVITY_REPORT` (HUMAN) | Admin reads snapshot → writes feedback |
+| `ActivityReportService` | `ActivityReportOperations` | `ACTIVITY_REPORT` (HUMAN or via persist()) | Processor-neutral CRUD; all write paths converge here |
+| `ReviewQueueService` | `ReviewQueueOperations` | `ReviewRequest` nodes | User-initiated review queue management |
+| `ActivityDataReader` | — (shared query layer) | `ActivityData` | Single Cypher round-trip shared by Generator + ReportService |
 
 **Protocols:** `core/ports/feedback_protocols.py`
 
@@ -254,14 +256,14 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 ```
 Admin selects user + time window
         ↓
-GET /api/activity-review/snapshot → ActivityReviewService.create_activity_snapshot()
-        ↓
-Admin reads Tasks, Goals, Habits, Choices summary
+GET /api/activity-review/snapshot → ActivityReportService.create_snapshot()
+        ↓  (calls ActivityDataReader.read() — one Cypher round-trip, all 6 domains)
+Admin reads Tasks, Goals, Habits, Events, Choices, Principles summary
         ↓
 Admin writes qualitative assessment
         ↓
-POST /api/activity-review/submit → ActivityReviewService.submit_activity_feedback()
-        ↓
+POST /api/activity-review/submit → ActivityReportService.submit_feedback()
+        ↓  (calls ActivityReportService.persist() — all writes converge here)
 ActivityReport(ProcessorType.HUMAN) created in Neo4j
 ```
 
@@ -270,11 +272,11 @@ ActivityReport(ProcessorType.HUMAN) created in Neo4j
 ```
 User wants a review
         ↓
-POST /api/activity-review/request → ActivityReviewService.request_review()
+POST /api/activity-review/request → ReviewQueueService.request_review()
         ↓
 ReviewRequest node created → appears in admin queue
         ↓
-Admin views queue: GET /api/activity-review/queue
+Admin views queue: GET /api/activity-review/queue → ReviewQueueService.get_pending_reviews()
         ↓
 Admin follows admin-initiated path above
 ```
@@ -285,7 +287,7 @@ Admin follows admin-initiated path above
 
 When `openai_service` is available, the generator:
 
-1. Queries completions across Tasks, Goals, Habits, Choices
+1. Reads activity data via `ActivityDataReader.read()` — one Cypher round-trip covering all 6 domains (same query used by `ActivityReportService.create_snapshot()`)
 2. Cross-references active Insights
 3. Fetches `user_annotation` from the most recent prior `ActivityReport` (`period_end < current_period_start`) via `_fetch_previous_annotation()`
 4. Sends stats as JSON context to LLM via `activity_feedback.md` prompt template; if a prior annotation exists, appends it with an instruction to acknowledge or contrast the user's self-reflection
