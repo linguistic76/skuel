@@ -37,6 +37,54 @@ TIME_PERIOD_DAYS = {
     "90d": 90,
 }
 
+_SNAPSHOT_QUERY: str = """
+MATCH (u:User {uid: $user_uid})
+
+CALL {
+    WITH u
+    OPTIONAL MATCH (u)-[:OWNS]->(t:Task)
+    WHERE t.updated_at >= datetime($start) AND t.updated_at <= datetime($end)
+    WITH t ORDER BY t.updated_at DESC LIMIT 20
+    RETURN collect(CASE WHEN t IS NOT NULL THEN {
+        uid: t.uid, title: t.title, status: t.status, priority: t.priority
+    } ELSE null END) AS task_records
+}
+
+CALL {
+    WITH u
+    OPTIONAL MATCH (u)-[:OWNS]->(g:Goal)
+    WHERE g.updated_at >= datetime($start) AND g.updated_at <= datetime($end)
+    WITH g ORDER BY g.updated_at DESC LIMIT 10
+    RETURN collect(CASE WHEN g IS NOT NULL THEN {
+        uid: g.uid, title: g.title, status: g.status, progress: g.progress
+    } ELSE null END) AS goal_records
+}
+
+CALL {
+    WITH u
+    OPTIONAL MATCH (u)-[:OWNS]->(h:Habit)
+    WHERE h.updated_at >= datetime($start) AND h.updated_at <= datetime($end)
+    WITH h ORDER BY h.updated_at DESC LIMIT 10
+    RETURN collect(CASE WHEN h IS NOT NULL THEN {
+        uid: h.uid, title: h.title, status: h.status, streak: h.streak_count
+    } ELSE null END) AS habit_records
+}
+
+CALL {
+    WITH u
+    OPTIONAL MATCH (u)-[:OWNS]->(c:Choice)
+    WHERE c.created_at >= datetime($start) AND c.created_at <= datetime($end)
+    OPTIONAL MATCH (c)-[:INFORMED_BY_PRINCIPLE]->(p:Principle)
+    WITH c, collect(DISTINCT p.title) AS principle_titles
+    ORDER BY c.created_at DESC LIMIT 10
+    RETURN collect(CASE WHEN c IS NOT NULL THEN {
+        uid: c.uid, title: c.title, principle_titles: principle_titles
+    } ELSE null END) AS choice_records
+}
+
+RETURN task_records, goal_records, habit_records, choice_records
+"""
+
 
 class ActivityReviewService:
     """
@@ -95,120 +143,71 @@ class ActivityReviewService:
                 "domains": {},
             }
 
+            query_result = await self.executor.execute_query(
+                _SNAPSHOT_QUERY,
+                {
+                    "user_uid": subject_uid,
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat(),
+                },
+            )
+            if query_result.is_error:
+                return Result.fail(query_result.expect_error())
+
+            row = (query_result.value or [{}])[0] if query_result.value else {}
             include_all = not domains
 
             if include_all or "tasks" in (domains or []):
-                tasks_result = await self.executor.execute_query(
-                    """
-                    MATCH (u:User {uid: $user_uid})-[:OWNS]->(t:Task)
-                    WHERE t.updated_at >= datetime($start) AND t.updated_at <= datetime($end)
-                    RETURN t.uid AS uid, t.title AS title, t.status AS status,
-                           t.priority AS priority
-                    ORDER BY t.updated_at DESC LIMIT 20
-                    """,
-                    {
-                        "user_uid": subject_uid,
-                        "start": start_date.isoformat(),
-                        "end": end_date.isoformat(),
-                    },
-                )
-                if tasks_result.is_ok:
-                    records = tasks_result.value or []
-                    snapshot["domains"]["tasks"] = {
-                        "count": len(records),
-                        "completed": len([r for r in records if r.get("status") == "completed"]),
-                        "items": [
-                            {"title": r.get("title", ""), "status": r.get("status", "")}
-                            for r in records[:10]
-                        ],
-                    }
+                records = [r for r in (row.get("task_records") or []) if r]
+                snapshot["domains"]["tasks"] = {
+                    "count": len(records),
+                    "completed": len([r for r in records if r.get("status") == "completed"]),
+                    "items": [
+                        {"title": r.get("title", ""), "status": r.get("status", "")}
+                        for r in records[:10]
+                    ],
+                }
 
             if include_all or "goals" in (domains or []):
-                goals_result = await self.executor.execute_query(
-                    """
-                    MATCH (u:User {uid: $user_uid})-[:OWNS]->(g:Goal)
-                    WHERE g.updated_at >= datetime($start) AND g.updated_at <= datetime($end)
-                    RETURN g.uid AS uid, g.title AS title, g.status AS status,
-                           g.progress AS progress
-                    ORDER BY g.updated_at DESC LIMIT 10
-                    """,
-                    {
-                        "user_uid": subject_uid,
-                        "start": start_date.isoformat(),
-                        "end": end_date.isoformat(),
-                    },
-                )
-                if goals_result.is_ok:
-                    records = goals_result.value or []
-                    snapshot["domains"]["goals"] = {
-                        "count": len(records),
-                        "items": [
-                            {
-                                "title": r.get("title", ""),
-                                "status": r.get("status", ""),
-                                "progress": r.get("progress"),
-                            }
-                            for r in records[:10]
-                        ],
-                    }
+                records = [r for r in (row.get("goal_records") or []) if r]
+                snapshot["domains"]["goals"] = {
+                    "count": len(records),
+                    "items": [
+                        {
+                            "title": r.get("title", ""),
+                            "status": r.get("status", ""),
+                            "progress": r.get("progress"),
+                        }
+                        for r in records[:10]
+                    ],
+                }
 
             if include_all or "habits" in (domains or []):
-                habits_result = await self.executor.execute_query(
-                    """
-                    MATCH (u:User {uid: $user_uid})-[:OWNS]->(h:Habit)
-                    WHERE h.updated_at >= datetime($start) AND h.updated_at <= datetime($end)
-                    RETURN h.uid AS uid, h.title AS title, h.status AS status,
-                           h.streak_count AS streak
-                    ORDER BY h.updated_at DESC LIMIT 10
-                    """,
-                    {
-                        "user_uid": subject_uid,
-                        "start": start_date.isoformat(),
-                        "end": end_date.isoformat(),
-                    },
-                )
-                if habits_result.is_ok:
-                    records = habits_result.value or []
-                    snapshot["domains"]["habits"] = {
-                        "count": len(records),
-                        "items": [
-                            {
-                                "title": r.get("title", ""),
-                                "status": r.get("status", ""),
-                                "streak": r.get("streak", 0),
-                            }
-                            for r in records[:10]
-                        ],
-                    }
+                records = [r for r in (row.get("habit_records") or []) if r]
+                snapshot["domains"]["habits"] = {
+                    "count": len(records),
+                    "items": [
+                        {
+                            "title": r.get("title", ""),
+                            "status": r.get("status", ""),
+                            "streak": r.get("streak", 0),
+                        }
+                        for r in records[:10]
+                    ],
+                }
 
             if include_all or "choices" in (domains or []):
-                choices_result = await self.executor.execute_query(
-                    """
-                    MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Choice)
-                    WHERE c.created_at >= datetime($start) AND c.created_at <= datetime($end)
-                    OPTIONAL MATCH (c)-[:INFORMED_BY_PRINCIPLE]->(p:Principle)
-                    RETURN c.uid AS uid, c.title AS title,
-                           collect(DISTINCT p.title) AS principles
-                    ORDER BY c.created_at DESC LIMIT 10
-                    """,
-                    {
-                        "user_uid": subject_uid,
-                        "start": start_date.isoformat(),
-                        "end": end_date.isoformat(),
-                    },
-                )
-                if choices_result.is_ok:
-                    records = choices_result.value or []
-                    snapshot["domains"]["choices"] = {
-                        "count": len(records),
-                        "items": [
-                            {
-                                "title": r.get("title", ""),
-                                "principles": [p for p in r.get("principles", []) if p],
-                            }
-                            for r in records[:10]
-                        ],
-                    }
+                records = [r for r in (row.get("choice_records") or []) if r]
+                snapshot["domains"]["choices"] = {
+                    "count": len(records),
+                    "items": [
+                        {
+                            "title": r.get("title", ""),
+                            "principles": [p for p in r.get("principle_titles", []) if p],
+                        }
+                        for r in records[:10]
+                    ],
+                }
 
             return Result.ok(snapshot)
 
