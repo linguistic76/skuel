@@ -56,7 +56,6 @@ class ProgressFeedbackGenerator:
         activity_report_service: ActivityReportService for persisting ActivityReport entities
         context_builder: UserContextBuilder — build_rich(window=) populates entities_rich
         openai_service: Optional OpenAI service (enables LLM generation)
-        user_service: Optional UserOperations (reserved for future use)
         insight_store: Optional InsightStore for referencing active insights
         event_bus: Optional EventBusOperations for publishing events
 
@@ -73,7 +72,6 @@ class ProgressFeedbackGenerator:
         activity_report_service: "ActivityReportService",
         context_builder: "UserContextBuilder",
         openai_service: "OpenAIService | None" = None,
-        user_service: Any | None = None,
         insight_store: "InsightStore | None" = None,
         event_bus: EventBusOperations | None = None,
     ) -> None:
@@ -81,7 +79,6 @@ class ProgressFeedbackGenerator:
         self.activity_report_service = activity_report_service
         self.context_builder = context_builder
         self.openai_service = openai_service
-        self.user_service = user_service
         self.insight_store = insight_store
         self.event_bus = event_bus
 

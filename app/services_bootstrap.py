@@ -1781,7 +1781,6 @@ async def compose_services(
             activity_report_service=activity_report_service,
             context_builder=context_builder,
             openai_service=ai_service,
-            user_service=core_services["user"],
             insight_store=insight_store,
             event_bus=event_bus,
         )
