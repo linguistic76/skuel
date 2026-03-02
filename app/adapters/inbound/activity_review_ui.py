@@ -22,7 +22,7 @@ See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports.feedback_protocols import ActivityReviewOperations
+    from core.ports.feedback_protocols import ActivityReportOperations, ReviewQueueOperations
 
 from fasthtml.common import (
     H3,
@@ -156,7 +156,8 @@ def _render_snapshot_domain_card(domain_name: str, items: list[Any]) -> Any:
 def create_activity_review_ui_routes(
     _app: Any,
     rt: Any,
-    activity_review: "ActivityReviewOperations",
+    activity_report: "ActivityReportOperations",
+    review_queue: "ReviewQueueOperations | None" = None,
     user_service: Any = None,
 ) -> list[Any]:
     """
@@ -165,7 +166,8 @@ def create_activity_review_ui_routes(
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        activity_review: ActivityReviewService for snapshot + feedback operations
+        activity_report: ActivityReportService for snapshot + feedback operations
+        review_queue: ReviewQueueService for pending review queue
         user_service: UserService for admin role checks
 
     Returns:
@@ -200,7 +202,7 @@ def create_activity_review_ui_routes(
 
         pending: list[Any] = []
         try:
-            result = await activity_review.get_pending_reviews(admin_uid=admin_uid)
+            result = await review_queue.get_pending_reviews(_admin_uid=admin_uid)
             if not result.is_error:
                 pending = result.value or []
         except Exception as e:
@@ -423,7 +425,7 @@ def create_activity_review_ui_routes(
             )
 
         try:
-            result = await activity_review.create_activity_snapshot(
+            result = await activity_report.create_snapshot(
                 subject_uid=subject_uid,
                 time_period=time_period,
                 domains=domains,
@@ -486,7 +488,7 @@ def create_activity_review_ui_routes(
             )
 
         try:
-            result = await activity_review.submit_activity_feedback(
+            result = await activity_report.submit_feedback(
                 admin_uid=admin_uid,
                 subject_uid=subject_uid,
                 feedback_text=feedback_text,

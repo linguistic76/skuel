@@ -27,11 +27,11 @@ def mock_driver():
 
 
 @pytest.fixture
-def mock_backend():
-    """Create a mock reports backend."""
-    backend = MagicMock()
-    backend.create = AsyncMock()
-    return backend
+def mock_activity_report_service():
+    """Create a mock ActivityReportService."""
+    service = MagicMock()
+    service.persist = AsyncMock(return_value=Result.ok(MagicMock()))
+    return service
 
 
 @pytest.fixture
@@ -64,11 +64,11 @@ def mock_reader():
 
 
 @pytest.fixture
-def generator(mock_driver, mock_backend, mock_reader, mock_insight_store, mock_event_bus):
+def generator(mock_driver, mock_activity_report_service, mock_reader, mock_insight_store, mock_event_bus):
     """Create ProgressFeedbackGenerator with mocked deps."""
     return ProgressFeedbackGenerator(
         executor=mock_driver,
-        ku_backend=mock_backend,
+        activity_report_service=mock_activity_report_service,
         activity_data_reader=mock_reader,
         user_service=None,
         insight_store=mock_insight_store,
@@ -133,9 +133,8 @@ class TestPreviousAnnotationParameter:
     """generate() skips _fetch_previous_annotation when annotation is provided."""
 
     @pytest.mark.asyncio
-    async def test_provided_annotation_skips_db_lookup(self, generator, mock_backend):
+    async def test_provided_annotation_skips_db_lookup(self, generator):
         """When previous_annotation is given, reader called once, executor not called."""
-        mock_backend.create.return_value = Result.ok(MagicMock())
         generator.executor.execute_query.reset_mock()
         generator.activity_data_reader.read.reset_mock()
 
@@ -149,9 +148,8 @@ class TestPreviousAnnotationParameter:
         assert generator.executor.execute_query.call_count == 0
 
     @pytest.mark.asyncio
-    async def test_no_annotation_fetches_from_db(self, generator, mock_backend):
+    async def test_no_annotation_fetches_from_db(self, generator):
         """When previous_annotation is None, reader called once + executor once (annotation)."""
-        mock_backend.create.return_value = Result.ok(MagicMock())
         generator.executor.execute_query.reset_mock()
         generator.activity_data_reader.read.reset_mock()
 
@@ -166,12 +164,8 @@ class TestGenerate:
     """Test the generate() method."""
 
     @pytest.mark.asyncio
-    async def test_generate_creates_ku(self, generator, mock_backend):
+    async def test_generate_creates_ku(self, generator):
         """Test that generate creates an entity with correct type."""
-        from core.utils.result_simplified import Result
-
-        mock_backend.create.return_value = Result.ok(MagicMock())
-
         result = await generator.generate(
             user_uid="user_alice",
             time_period="7d",
@@ -179,9 +173,9 @@ class TestGenerate:
         )
 
         assert not result.is_error
-        # Verify backend.create was called
-        assert mock_backend.create.call_count == 1
-        created_ku = mock_backend.create.call_args[0][0]
+        # Verify persist was called
+        assert generator.activity_report_service.persist.call_count == 1
+        created_ku = generator.activity_report_service.persist.call_args[0][0]
         assert isinstance(created_ku, ActivityReport)
         assert created_ku.ku_type == EntityType.ACTIVITY_REPORT
         assert created_ku.status == EntityStatus.COMPLETED
@@ -190,35 +184,28 @@ class TestGenerate:
         assert created_ku.subject_uid == "user_alice"
 
     @pytest.mark.asyncio
-    async def test_generate_sets_metadata(self, generator, mock_backend):
+    async def test_generate_sets_metadata(self, generator):
         """Test metadata includes time period and stats."""
-        from core.utils.result_simplified import Result
-
-        mock_backend.create.return_value = Result.ok(MagicMock())
-
         await generator.generate(
             user_uid="user_alice",
             time_period="30d",
             depth="detailed",
         )
 
-        created_ku = mock_backend.create.call_args[0][0]
+        created_ku = generator.activity_report_service.persist.call_args[0][0]
         assert created_ku.metadata["time_period"] == "30d"
         assert created_ku.metadata["depth"] == "detailed"
         assert "start_date" in created_ku.metadata
         assert "end_date" in created_ku.metadata
 
     @pytest.mark.asyncio
-    async def test_generate_with_insights(self, generator, mock_backend, mock_insight_store):
+    async def test_generate_with_insights(self, generator, mock_insight_store):
         """Test insight relationships are created when insights exist."""
-        from core.utils.result_simplified import Result
-
         insight = MagicMock()
         insight.uid = "insight_123"
         insight.title = "Test Insight"
         insight.impact = "high"
         mock_insight_store.get_active_insights.return_value = Result.ok([insight])
-        mock_backend.create.return_value = Result.ok(MagicMock())
 
         await generator.generate(
             user_uid="user_alice",
@@ -226,33 +213,31 @@ class TestGenerate:
         )
 
         # Insight referenced in metadata
-        created_ku = mock_backend.create.call_args[0][0]
+        created_ku = generator.activity_report_service.persist.call_args[0][0]
         assert created_ku.metadata["insights_referenced"] == 1
 
     @pytest.mark.asyncio
-    async def test_generate_backend_failure(self, generator, mock_backend):
-        """Test generate returns error when backend fails."""
-        from core.utils.result_simplified import Errors, Result
+    async def test_generate_persist_failure(self, generator):
+        """Test generate returns error when persist fails."""
+        from core.utils.result_simplified import Errors
 
-        mock_backend.create.return_value = Result.fail(Errors.database("create", "Create failed"))
+        generator.activity_report_service.persist.return_value = Result.fail(
+            Errors.database("create", "Create failed")
+        )
 
         result = await generator.generate(user_uid="user_alice")
 
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_generate_unknown_period_defaults_7d(self, generator, mock_backend):
+    async def test_generate_unknown_period_defaults_7d(self, generator):
         """Test unknown time period defaults to 7 days."""
-        from core.utils.result_simplified import Result
-
-        mock_backend.create.return_value = Result.ok(MagicMock())
-
         await generator.generate(
             user_uid="user_alice",
             time_period="unknown",
         )
 
-        created_ku = mock_backend.create.call_args[0][0]
+        created_ku = generator.activity_report_service.persist.call_args[0][0]
         assert created_ku.metadata["time_period"] == "unknown"
 
 

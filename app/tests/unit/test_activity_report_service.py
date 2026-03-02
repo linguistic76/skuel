@@ -1,8 +1,8 @@
 """
-Unit Tests for ActivityReviewService
-=====================================
+Unit Tests for ActivityReportService
+======================================
 
-Tests create_activity_snapshot() via ActivityDataReader.
+Tests create_snapshot() via ActivityDataReader.
 """
 
 from datetime import datetime, timedelta
@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.services.feedback.activity_data_reader import ActivityData
-from core.services.feedback.activity_review_service import ActivityReviewService
+from core.services.feedback.activity_report_service import ActivityReportService
 from core.utils.result_simplified import Result
 
 
@@ -38,10 +38,10 @@ def mock_reader():
 
 @pytest.fixture
 def service(mock_executor, mock_backend, mock_reader):
-    return ActivityReviewService(
-        executor=mock_executor,
-        ai_feedback_backend=mock_backend,
+    return ActivityReportService(
+        backend=mock_backend,
         activity_data_reader=mock_reader,
+        executor=mock_executor,
     )
 
 
@@ -51,14 +51,14 @@ def service(mock_executor, mock_backend, mock_reader):
 
 
 class TestSnapshotSingleRoundTrip:
-    """create_activity_snapshot() issues exactly one reader.read() call."""
+    """create_snapshot() issues exactly one reader.read() call."""
 
     @pytest.mark.asyncio
     async def test_single_query_call_all_domains(self, service):
         """All-domains snapshot uses 1 reader call."""
         service.activity_data_reader.read.reset_mock()
 
-        await service.create_activity_snapshot("user_alice")
+        await service.create_snapshot("user_alice")
 
         assert service.activity_data_reader.read.call_count == 1
 
@@ -67,7 +67,7 @@ class TestSnapshotSingleRoundTrip:
         """Domain-filtered snapshot still uses 1 reader call."""
         service.activity_data_reader.read.reset_mock()
 
-        await service.create_activity_snapshot("user_alice", domains=["tasks", "goals"])
+        await service.create_snapshot("user_alice", domains=["tasks", "goals"])
 
         assert service.activity_data_reader.read.call_count == 1
 
@@ -83,7 +83,7 @@ class TestSnapshotEmptyResult:
     @pytest.mark.asyncio
     async def test_empty_result_all_domains_present(self, service):
         """Empty result still populates all 6 domain keys with zero counts."""
-        result = await service.create_activity_snapshot("user_ghost")
+        result = await service.create_snapshot("user_ghost")
 
         assert not result.is_error
         snapshot = result.value
@@ -97,7 +97,7 @@ class TestSnapshotEmptyResult:
     @pytest.mark.asyncio
     async def test_empty_result_metadata_correct(self, service):
         """Snapshot metadata is populated regardless of activity data."""
-        result = await service.create_activity_snapshot("user_ghost", time_period="30d")
+        result = await service.create_snapshot("user_ghost", time_period="30d")
 
         snapshot = result.value
         assert snapshot["subject_uid"] == "user_ghost"
@@ -117,7 +117,7 @@ class TestSnapshotDomainFilter:
     @pytest.mark.asyncio
     async def test_tasks_only_filter(self, service):
         """domains=['tasks'] → only tasks key in snapshot['domains']."""
-        result = await service.create_activity_snapshot("user_alice", domains=["tasks"])
+        result = await service.create_snapshot("user_alice", domains=["tasks"])
 
         snapshot = result.value
         assert "tasks" in snapshot["domains"]
@@ -128,7 +128,7 @@ class TestSnapshotDomainFilter:
     @pytest.mark.asyncio
     async def test_goals_habits_filter(self, service):
         """domains=['goals','habits'] → only those two keys present."""
-        result = await service.create_activity_snapshot(
+        result = await service.create_snapshot(
             "user_alice", domains=["goals", "habits"]
         )
 
@@ -187,7 +187,7 @@ class TestSnapshotRecordMapping:
             )
         )
 
-        result = await service.create_activity_snapshot("user_alice")
+        result = await service.create_snapshot("user_alice")
 
         tasks = result.value["domains"]["tasks"]
         assert tasks["count"] == 2
@@ -212,8 +212,40 @@ class TestSnapshotRecordMapping:
             )
         )
 
-        result = await service.create_activity_snapshot("user_alice")
+        result = await service.create_snapshot("user_alice")
 
         choices = result.value["domains"]["choices"]
         assert choices["count"] == 1
         assert choices["items"][0]["principles"] == ["Recovery", "Balance"]
+
+
+# ============================================================================
+# PERSIST TESTS
+# ============================================================================
+
+
+class TestPersist:
+    """persist() delegates to backend.create()."""
+
+    @pytest.mark.asyncio
+    async def test_persist_calls_backend_create(self, service, mock_backend):
+        """persist() calls backend.create() with the given report."""
+        from core.models.feedback.activity_report import ActivityReport
+        from core.models.enums.entity_enums import ProcessorType
+        from datetime import datetime
+
+        mock_backend.create.return_value = Result.ok(MagicMock())
+        report = ActivityReport.create(
+            user_uid="user_alice",
+            subject_uid="user_alice",
+            content="Test content",
+            processor_type=ProcessorType.AUTOMATIC,
+            period_start=datetime.now(),
+            period_end=datetime.now(),
+            time_period="7d",
+        )
+
+        await service.persist(report)
+
+        assert mock_backend.create.call_count == 1
+        assert mock_backend.create.call_args[0][0] is report

@@ -28,9 +28,10 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.ports.feedback_protocols import (
-        ActivityReviewOperations,
+        ActivityReportOperations,
         ProgressFeedbackOperations,
         ProgressScheduleOperations,
+        ReviewQueueOperations,
     )
     from core.ports.infrastructure_protocols import UserOperations
     from core.ports.submission_protocols import SubmissionOperations
@@ -57,7 +58,8 @@ def create_progress_feedback_api_routes(
     progress_generator: "ProgressFeedbackOperations",
     report_service: "SubmissionOperations",
     schedule_service: "ProgressScheduleOperations | None" = None,
-    activity_review: "ActivityReviewOperations | None" = None,
+    activity_report: "ActivityReportOperations | None" = None,
+    review_queue: "ReviewQueueOperations | None" = None,
     user_service: "UserOperations | None" = None,
 ) -> list[Any]:
     """
@@ -69,7 +71,8 @@ def create_progress_feedback_api_routes(
         progress_generator: ProgressFeedbackGenerator for on-demand generation
         report_service: SubmissionsService for listing feedback entities
         schedule_service: ProgressScheduleService for schedule CRUD
-        activity_review: ActivityReviewService for admin human feedback
+        activity_report: ActivityReportService for ActivityReport CRUD
+        review_queue: ReviewQueueService for review request queue management
     """
 
     logger.info("Creating Reports Progress API routes")
@@ -220,7 +223,7 @@ def create_progress_feedback_api_routes(
         """Return user_service for role-checking decorator."""
         return user_service
 
-    if activity_review:
+    if activity_report:
 
         @rt("/api/activity-review/snapshot")
         @require_admin(get_user_service)
@@ -243,7 +246,7 @@ def create_progress_feedback_api_routes(
             domains_param = request.query_params.get("domains", "")
             domains = [d.strip() for d in domains_param.split(",") if d.strip()] or None
 
-            result = await activity_review.create_activity_snapshot(
+            result = await activity_report.create_snapshot(
                 subject_uid=subject_uid,
                 time_period=time_period,
                 domains=domains,
@@ -281,7 +284,7 @@ def create_progress_feedback_api_routes(
                     Errors.validation("feedback_text is required", field="feedback_text")
                 )
 
-            result = await activity_review.submit_activity_feedback(
+            result = await activity_report.submit_feedback(
                 admin_uid=admin_uid,
                 subject_uid=subject_uid,
                 feedback_text=feedback_text,
@@ -299,49 +302,6 @@ def create_progress_feedback_api_routes(
                 }
             )
 
-        @rt("/api/activity-review/request", methods=["POST"])
-        @boundary_handler(success_status=201)
-        async def request_activity_review(request: Request) -> Result[Any]:
-            """User requests an activity review from an admin."""
-            user_uid = require_authenticated_user(request)
-            body = await request.json()
-
-            time_period = body.get("time_period", "7d")
-            domains = body.get("domains") or None
-            message = body.get("message")
-
-            result = await activity_review.request_review(
-                user_uid=user_uid,
-                time_period=time_period,
-                domains=domains,
-                message=message,
-            )
-            if result.is_error:
-                return Result.fail(result.expect_error())
-
-            return Result.ok(
-                {
-                    "request": result.value,
-                    "message": "Review request submitted. An admin will be in touch.",
-                }
-            )
-
-        @rt("/api/activity-review/queue")
-        @boundary_handler()
-        async def get_review_queue(request: Request) -> Result[Any]:
-            """Admin's pending review queue."""
-            admin_uid = require_authenticated_user(request)
-            limit = int(request.query_params.get("limit", "20"))
-
-            result = await activity_review.get_pending_reviews(
-                admin_uid=admin_uid,
-                limit=limit,
-            )
-            if result.is_error:
-                return Result.fail(result.expect_error())
-
-            return Result.ok({"queue": result.value, "count": len(result.value or [])})
-
         @rt("/api/activity-review/history")
         @boundary_handler()
         async def get_activity_feedback_history(request: Request) -> Result[Any]:
@@ -353,7 +313,7 @@ def create_progress_feedback_api_routes(
             user_uid = require_authenticated_user(request)
             limit = int(request.query_params.get("limit", "20"))
 
-            result = await activity_review.get_activity_reviews_for_user(
+            result = await activity_report.get_history(
                 subject_uid=user_uid,
                 limit=limit,
             )
@@ -390,7 +350,7 @@ def create_progress_feedback_api_routes(
             user_annotation = body.get("user_annotation")
             user_revision = body.get("user_revision")
 
-            result = await activity_review.annotate(
+            result = await activity_report.annotate(
                 uid=uid,
                 user_uid=user_uid,
                 annotation_mode=annotation_mode,
@@ -411,7 +371,7 @@ def create_progress_feedback_api_routes(
             if not uid:
                 return Result.fail(Errors.validation("uid is required", field="uid"))
 
-            result = await activity_review.get_annotation(uid=uid, user_uid=user_uid)
+            result = await activity_report.get_annotation(uid=uid, user_uid=user_uid)
             if result.is_error:
                 return Result.fail(result.expect_error())
 
@@ -421,14 +381,60 @@ def create_progress_feedback_api_routes(
             [
                 get_activity_snapshot,
                 submit_activity_feedback,
-                request_activity_review,
-                get_review_queue,
                 get_activity_feedback_history,
                 save_annotation,
                 get_annotation,
             ]
         )
-        logger.info("Activity review routes registered")
+        logger.info("Activity report routes registered")
+
+    if review_queue:
+
+        @rt("/api/activity-review/request", methods=["POST"])
+        @boundary_handler(success_status=201)
+        async def request_activity_review(request: Request) -> Result[Any]:
+            """User requests an activity review from an admin."""
+            user_uid = require_authenticated_user(request)
+            body = await request.json()
+
+            time_period = body.get("time_period", "7d")
+            domains = body.get("domains") or None
+            message = body.get("message")
+
+            result = await review_queue.request_review(
+                user_uid=user_uid,
+                time_period=time_period,
+                domains=domains,
+                message=message,
+            )
+            if result.is_error:
+                return Result.fail(result.expect_error())
+
+            return Result.ok(
+                {
+                    "request": result.value,
+                    "message": "Review request submitted. An admin will be in touch.",
+                }
+            )
+
+        @rt("/api/activity-review/queue")
+        @boundary_handler()
+        async def get_review_queue(request: Request) -> Result[Any]:
+            """Admin's pending review queue."""
+            admin_uid = require_authenticated_user(request)
+            limit = int(request.query_params.get("limit", "20"))
+
+            result = await review_queue.get_pending_reviews(
+                _admin_uid=admin_uid,
+                limit=limit,
+            )
+            if result.is_error:
+                return Result.fail(result.expect_error())
+
+            return Result.ok({"queue": result.value, "count": len(result.value or [])})
+
+        routes.extend([request_activity_review, get_review_queue])
+        logger.info("Review queue routes registered")
 
     logger.info("Feedback Progress API routes created successfully")
     return routes

@@ -24,9 +24,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations, QueryExecutor
+    from core.ports import QueryExecutor
     from core.services.ai_service import OpenAIService
     from core.services.feedback.activity_data_reader import ActivityDataReader
+    from core.services.feedback.activity_report_service import ActivityReportService
     from core.services.insight.insight_store import InsightStore
 
 from core.constants import FeedbackTimePeriod
@@ -51,7 +52,7 @@ class ProgressFeedbackGenerator:
 
     Constructor dependencies:
         executor: QueryExecutor for Cypher queries
-        ku_backend: BackendOperations[ActivityReport] for creating ActivityReport entities
+        activity_report_service: ActivityReportService for persisting ActivityReport entities
         openai_service: Optional OpenAI service (enables LLM generation)
         user_service: Optional UserOperations for building UserContext
         insight_store: Optional InsightStore for referencing active insights
@@ -67,7 +68,7 @@ class ProgressFeedbackGenerator:
     def __init__(
         self,
         executor: "QueryExecutor",
-        ku_backend: "BackendOperations[ActivityReport]",
+        activity_report_service: "ActivityReportService",
         activity_data_reader: "ActivityDataReader",
         openai_service: "OpenAIService | None" = None,
         user_service: Any | None = None,
@@ -75,7 +76,7 @@ class ProgressFeedbackGenerator:
         event_bus: EventBusOperations | None = None,
     ) -> None:
         self.executor = executor
-        self.ku_backend = ku_backend
+        self.activity_report_service = activity_report_service
         self.activity_data_reader = activity_data_reader
         self.openai_service = openai_service
         self.user_service = user_service
@@ -200,7 +201,7 @@ class ProgressFeedbackGenerator:
                 metadata=metadata,
             )
 
-            create_result = await self.ku_backend.create(report)
+            create_result = await self.activity_report_service.persist(report)
             if create_result.is_error:
                 return Result.fail(create_result.expect_error())
 

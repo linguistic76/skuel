@@ -199,10 +199,11 @@ from .domain_protocols import (
 
 # Feedback protocols — Feedback stage of the educational loop
 from .feedback_protocols import (
-    ActivityReviewOperations,
+    ActivityReportOperations,
     FeedbackOperations,
     ProgressFeedbackOperations,
     ProgressScheduleOperations,
+    ReviewQueueOperations,
     TeacherReviewOperations,
 )
 
@@ -467,11 +468,12 @@ __all__ = [
     "SubmissionSearchOperations",
     # ========== SHARING PROTOCOL ==========
     "SharingOperations",
-    # ========== FEEDBACK PROTOCOLS (4) ==========
-    "ActivityReviewOperations",
+    # ========== FEEDBACK PROTOCOLS (5) ==========
+    "ActivityReportOperations",
     "FeedbackOperations",
     "ProgressFeedbackOperations",
     "ProgressScheduleOperations",
+    "ReviewQueueOperations",
     # ========== EXERCISE PROTOCOL ==========
     "ExerciseOperations",
     "RelationshipCrudOperations",  # Edge CRUD (6 methods)

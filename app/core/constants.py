@@ -396,7 +396,7 @@ class FeedbackTimePeriod:
     """
     Valid time period strings for activity feedback and review.
 
-    Used by: ActivityReviewService, ProgressFeedbackGenerator
+    Used by: ActivityReportService, ProgressFeedbackGenerator
     Both services share the same API-facing period vocabulary ("7d", "14d", etc.)
     and the corresponding day counts for datetime arithmetic.
     """

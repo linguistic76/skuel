@@ -101,29 +101,32 @@ def create_submissions_routes(app: Any, rt: Any, services: Any, _sync_service=No
     progress_feedback_generator = getattr(services, "progress_feedback_generator", None)
     if progress_feedback_generator and services.submissions:
         schedule_service = getattr(services, "progress_schedule", None)
-        activity_review = getattr(services, "activity_review", None)
+        activity_report_svc = getattr(services, "activity_report", None)
+        review_queue_svc = getattr(services, "review_queue", None)
         progress_routes = create_progress_feedback_api_routes(
             app,
             rt,
             progress_feedback_generator,
             services.submissions,
             schedule_service=schedule_service,
-            activity_review=activity_review,
+            activity_report=activity_report_svc,
+            review_queue=review_queue_svc,
             user_service=getattr(services, "user_service", None),
         )
         routes.extend(progress_routes or [])
-        logger.info("Progress feedback + activity review routes registered")
+        logger.info("Progress feedback + activity report routes registered")
 
     # Extension: activity review UI routes (admin-only)
-    activity_review_svc = getattr(services, "activity_review", None)
-    if activity_review_svc:
+    activity_report_svc = getattr(services, "activity_report", None)
+    if activity_report_svc:
         from adapters.inbound.activity_review_ui import create_activity_review_ui_routes
 
         ar_routes = create_activity_review_ui_routes(
             app,
             rt,
-            activity_review_svc,
-            getattr(services, "user_service", None),
+            activity_report_svc,
+            review_queue=getattr(services, "review_queue", None),
+            user_service=getattr(services, "user_service", None),
         )
         routes.extend(ar_routes or [])
         logger.info("Activity review UI routes registered")

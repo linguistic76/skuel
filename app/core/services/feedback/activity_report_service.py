@@ -1,17 +1,16 @@
 """
-Activity Review Service
+Activity Report Service
 ========================
 
-Enables admin-written activity feedback for users. Admin reviews a user's
-Activity Domain data (a "snapshot") and writes structured feedback stored
-as EntityType.ACTIVITY_REPORT with ProcessorType.HUMAN.
+Processor-neutral CRUD for ActivityReport entities. Owns all ActivityReport
+persistence regardless of who authored it — human admin or AI.
 
-Two trigger paths:
-    Admin-initiated: Admin views a user's snapshot → writes feedback
-    User-initiated:  User requests a review → appears in admin queue
+Three creation paths all converge here:
+    Admin-written:   submit_feedback() → ProcessorType.HUMAN
+    AI-generated:    persist() called by ProgressFeedbackGenerator → ProcessorType.LLM / AUTOMATIC
+    Scheduled:       persist() called by ProgressFeedbackWorker → ProcessorType.AUTOMATIC
 
-This is the "human" counterpart to ProgressFeedbackGenerator (which uses
-ProcessorType.AUTOMATIC or LLM). Both produce ActivityReport entities.
+Review queue management (ReviewRequest nodes) lives in ReviewQueueService.
 
 See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
 """
@@ -28,33 +27,47 @@ from core.models.enums.entity_enums import ProcessorType
 from core.models.feedback.activity_report import ActivityReport
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.uid_generator import UIDGenerator
 
-logger = get_logger("skuel.services.feedback.activity_review")
+logger = get_logger("skuel.services.feedback.activity_report")
 
 
-class ActivityReviewService:
+class ActivityReportService:
     """
-    Admin-facing service for human activity domain feedback.
+    Processor-neutral CRUD for ActivityReport entities.
 
-    Creates ActivityReport entities with ProcessorType.HUMAN — the admin reads
-    a user's activity snapshot and writes qualitative feedback.
+    Owns all ActivityReport persistence — the processor_type field (HUMAN, LLM,
+    AUTOMATIC) is data, not a service boundary. Both admin-written feedback and
+    AI-generated reports are stored via this service.
 
-    Complements ProgressFeedbackGenerator (automated/LLM path) with the
-    human-review path for the same ActivityReport entity type.
+    ReviewRequest queue management lives in ReviewQueueService.
     """
 
     def __init__(
         self,
-        executor: "QueryExecutor",
-        ai_feedback_backend: "BackendOperations[ActivityReport]",
+        backend: "BackendOperations[ActivityReport]",
         activity_data_reader: "ActivityDataReader",
+        executor: "QueryExecutor",
     ) -> None:
-        self.executor = executor
-        self.ai_feedback_backend = ai_feedback_backend
+        self.backend = backend
         self.activity_data_reader = activity_data_reader
+        self.executor = executor
 
-    async def create_activity_snapshot(
+    async def persist(self, report: ActivityReport) -> Result[ActivityReport]:
+        """
+        Persist an already-constructed ActivityReport entity.
+
+        Called by ProgressFeedbackGenerator after report construction so that
+        persistence is owned by this service, not the orchestration layer.
+
+        Args:
+            report: Fully-constructed ActivityReport (all fields set by caller)
+
+        Returns:
+            Result[ActivityReport] — the persisted entity
+        """
+        return await self.backend.create(report)
+
+    async def create_snapshot(
         self,
         subject_uid: str,
         time_period: str = "7d",
@@ -64,7 +77,7 @@ class ActivityReviewService:
         Query a user's activity data for a given time window.
 
         Produces a structured snapshot dict for admin review. The admin
-        reads this data, then calls submit_activity_feedback() with their
+        reads this data, then calls submit_feedback() with their
         written assessment.
 
         IMPORTANT: This method reads private user content across all activity
@@ -181,7 +194,7 @@ class ActivityReviewService:
 
         return Result.ok(snapshot)
 
-    async def submit_activity_feedback(
+    async def submit_feedback(
         self,
         admin_uid: str,
         subject_uid: str,
@@ -236,7 +249,7 @@ class ActivityReviewService:
                 metadata=metadata,
             )
 
-            create_result = await self.ai_feedback_backend.create(feedback)
+            create_result = await self.persist(feedback)
             if create_result.is_error:
                 return Result.fail(create_result.expect_error())
 
@@ -249,7 +262,7 @@ class ActivityReviewService:
             logger.error(f"Failed to submit activity feedback: {e}")
             return Result.fail(Errors.system(f"Failed to submit activity feedback: {e}"))
 
-    async def get_activity_reviews_for_user(
+    async def get_history(
         self,
         subject_uid: str,
         limit: int = 20,
@@ -294,66 +307,6 @@ class ActivityReviewService:
         except Exception as e:
             logger.error(f"Failed to get activity reviews for {subject_uid}: {e}")
             return Result.fail(Errors.system(f"Failed to retrieve activity reviews: {e}"))
-
-    async def request_review(
-        self,
-        user_uid: str,
-        time_period: str = "7d",
-        domains: list[str] | None = None,
-        message: str | None = None,
-    ) -> Result[dict[str, Any]]:
-        """
-        User requests an activity review from an admin.
-
-        Creates a lightweight review request node in Neo4j for admin queuing.
-
-        Args:
-            user_uid: User requesting the review
-            time_period: Preferred time window for review
-            domains: Preferred domains to review
-            message: Optional context message from the user
-
-        Returns:
-            Result[dict] — the created review request with uid
-        """
-        try:
-            request_uid = UIDGenerator.generate_uid("review_request")
-            now = datetime.now().isoformat()
-
-            result = await self.executor.execute_query(
-                """
-                MATCH (u:User {uid: $user_uid})
-                CREATE (r:ReviewRequest {
-                    uid: $uid,
-                    user_uid: $user_uid,
-                    time_period: $time_period,
-                    domains: $domains,
-                    message: $message,
-                    status: 'pending',
-                    created_at: datetime($now)
-                })
-                CREATE (u)-[:REQUESTED]->(r)
-                RETURN r.uid AS uid, r.status AS status
-                """,
-                {
-                    "user_uid": user_uid,
-                    "uid": request_uid,
-                    "time_period": time_period,
-                    "domains": domains or [],
-                    "message": message or "",
-                    "now": now,
-                },
-            )
-
-            if result.is_error:
-                return Result.fail(result.expect_error())
-
-            logger.info(f"Review request created: {request_uid} for {user_uid}")
-            return Result.ok({"uid": request_uid, "status": "pending", "user_uid": user_uid})
-
-        except Exception as e:
-            logger.error(f"Failed to create review request for {user_uid}: {e}")
-            return Result.fail(Errors.system(f"Failed to request review: {e}"))
 
     async def annotate(
         self,
@@ -486,40 +439,3 @@ class ActivityReviewService:
         except Exception as e:
             logger.error(f"Failed to get annotation for ActivityReport {uid}: {e}")
             return Result.fail(Errors.system(f"Failed to retrieve annotation: {e}"))
-
-    async def get_pending_reviews(
-        self,
-        _admin_uid: str,
-        limit: int = 20,
-    ) -> Result[list[dict[str, Any]]]:
-        """
-        Get pending review requests for admin to action.
-
-        Args:
-            _admin_uid: Admin user (placeholder — future: filter by assigned admin)
-            limit: Maximum number of results
-
-        Returns:
-            Result[list[dict]] — pending review requests with user context
-        """
-        try:
-            result = await self.executor.execute_query(
-                """
-                MATCH (u:User)-[:REQUESTED]->(r:ReviewRequest {status: 'pending'})
-                RETURN r.uid AS uid, r.user_uid AS user_uid, r.time_period AS time_period,
-                       r.domains AS domains, r.message AS message, r.created_at AS created_at,
-                       u.username AS username
-                ORDER BY r.created_at ASC
-                LIMIT $limit
-                """,
-                {"limit": limit},
-            )
-
-            if result.is_error:
-                return Result.fail(result.expect_error())
-
-            return Result.ok(result.value or [])
-
-        except Exception as e:
-            logger.error(f"Failed to get pending reviews: {e}")
-            return Result.fail(Errors.system(f"Failed to retrieve pending reviews: {e}"))

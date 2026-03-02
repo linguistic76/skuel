@@ -125,8 +125,9 @@ if TYPE_CHECKING:
     from core.services.content_enrichment_service import ContentEnrichmentService
     from core.services.context_aware_ai_service import ContextAwareAIService
     from core.services.cross_domain_queries import CrossDomainQueries
-    from core.services.feedback.activity_review_service import ActivityReviewService
+    from core.services.feedback.activity_report_service import ActivityReportService
     from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
+    from core.services.feedback.review_queue_service import ReviewQueueService
     from core.services.feedback.progress_schedule_service import ProgressScheduleService
     from core.services.insight.insight_store import InsightStore
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
@@ -381,8 +382,9 @@ class Services:
     progress_feedback_generator: "ProgressFeedbackGenerator | None" = None
     progress_schedule: "ProgressScheduleService | None" = None
 
-    # Activity review — human admin feedback on Activity Domains (February 2026)
-    activity_review: "ActivityReviewService | None" = None
+    # Activity report + review queue (March 2026 refactor: ActivityReviewService split)
+    activity_report: "ActivityReportService | None" = None
+    review_queue: "ReviewQueueService | None" = None
 
     # ========================================================================
     # LATERAL RELATIONSHIP SERVICES (January 2026) - Core Graph Architecture
@@ -1766,9 +1768,21 @@ async def compose_services(
 
         activity_data_reader = ActivityDataReader(executor=query_executor)
 
+        # Create ActivityReportService (processor-neutral ActivityReport CRUD)
+        from core.services.feedback.activity_report_service import ActivityReportService
+        from core.services.feedback.review_queue_service import ReviewQueueService
+
+        activity_report_service = ActivityReportService(
+            backend=ai_feedback_backend,
+            activity_data_reader=activity_data_reader,
+            executor=query_executor,
+        )
+        review_queue_service = ReviewQueueService(executor=query_executor)
+        logger.info("✅ ActivityReportService + ReviewQueueService created")
+
         progress_generator = ProgressFeedbackGenerator(
             executor=query_executor,
-            ku_backend=ai_feedback_backend,
+            activity_report_service=activity_report_service,
             activity_data_reader=activity_data_reader,
             openai_service=ai_service,  # LLM-powered qualitative feedback (Phase 3)
             user_service=core_services["user"],
@@ -1786,16 +1800,6 @@ async def compose_services(
             check_interval_seconds=3600,  # Hourly check
         )
         logger.info("✅ Progress report generator, schedule service, and background worker created")
-
-        # Create activity review service (admin writes human feedback on Activity Domains)
-        from core.services.feedback.activity_review_service import ActivityReviewService
-
-        activity_review_service = ActivityReviewService(
-            executor=query_executor,
-            ai_feedback_backend=ai_feedback_backend,
-            activity_data_reader=activity_data_reader,
-        )
-        logger.info("✅ ActivityReviewService created (human activity feedback)")
 
         # Create analytics service
         from core.services.analytics_service import AnalyticsService
@@ -2413,7 +2417,9 @@ async def compose_services(
             # Progress feedback (February 2026)
             progress_feedback_generator=progress_generator,
             progress_schedule=progress_schedule_service,
-            activity_review=activity_review_service,
+            # Activity report + review queue (March 2026 refactor)
+            activity_report=activity_report_service,
+            review_queue=review_queue_service,
             # System
             # Note: sync field removed (January 2026) - use unified_ingestion
             unified_ingestion=unified_ingestion,  # ADR-014: Merged MD + YAML ingestion

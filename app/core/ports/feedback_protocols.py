@@ -24,7 +24,8 @@ Protocol Responsibilities
     FeedbackOperations           — Human + AI feedback CRUD (SUBMISSION_FEEDBACK entities)
     ProgressFeedbackOperations   — Auto-generated progress reports (ACTIVITY_REPORT entities)
     ProgressScheduleOperations   — Recurring progress report scheduling
-    ActivityReviewOperations     — Admin human feedback on Activity Domains
+    ActivityReportOperations     — Processor-neutral ActivityReport CRUD (snapshot, submit, history, annotate)
+    ReviewQueueOperations        — ReviewRequest queue management (request_review, get_pending_reviews)
     TeacherReviewOperations      — Teacher review queue, feedback, revision, approval
 
 ISP-compliant: each protocol captures only the methods called from routes.
@@ -183,17 +184,17 @@ class ProgressScheduleOperations(Protocol):
 
 
 @runtime_checkable
-class ActivityReviewOperations(Protocol):
-    """Admin-facing activity review operations — human feedback on Activity Domains.
+class ActivityReportOperations(Protocol):
+    """Processor-neutral ActivityReport CRUD — snapshot, submit, history, annotate.
 
-    Produces ActivityReport entities with ProcessorType.HUMAN. Admin reads a user's
-    activity snapshot and writes qualitative feedback.
+    Owns all ActivityReport persistence regardless of processor_type (HUMAN, LLM,
+    AUTOMATIC). The processor_type is data, not a service boundary.
 
-    Route consumer: progress_feedback_api.py (activity-review routes)
-    Implementation: ActivityReviewService
+    Route consumer: progress_feedback_api.py, activity_review_ui.py
+    Implementation: ActivityReportService
     """
 
-    async def create_activity_snapshot(
+    async def create_snapshot(
         self,
         subject_uid: str,
         time_period: str = "7d",
@@ -202,7 +203,7 @@ class ActivityReviewOperations(Protocol):
         """Generate activity snapshot for admin review. Returns Result[dict]."""
         ...
 
-    async def submit_activity_feedback(
+    async def submit_feedback(
         self,
         admin_uid: str,
         subject_uid: str,
@@ -214,30 +215,12 @@ class ActivityReviewOperations(Protocol):
         """Create ActivityReport entity from admin-written assessment. Returns Result[ActivityReport]."""
         ...
 
-    async def get_activity_reviews_for_user(
+    async def get_history(
         self,
         subject_uid: str,
         limit: int = 20,
     ) -> Result[list[Any]]:
         """Get all ActivityReport for a user (LLM + human). Returns Result[list[ActivityReport]]."""
-        ...
-
-    async def request_review(
-        self,
-        user_uid: str,
-        time_period: str = "7d",
-        domains: list[str] | None = None,
-        message: str | None = None,
-    ) -> Result[Any]:
-        """User requests an activity review. Returns Result[dict]."""
-        ...
-
-    async def get_pending_reviews(
-        self,
-        admin_uid: str,
-        limit: int = 20,
-    ) -> Result[list[Any]]:
-        """Admin's pending review queue. Returns Result[list[dict]]."""
         ...
 
     async def annotate(
@@ -253,6 +236,36 @@ class ActivityReviewOperations(Protocol):
 
     async def get_annotation(self, uid: str, user_uid: str) -> Result[Any]:
         """Get current annotation state for an owned ActivityReport. Returns Result[dict]."""
+        ...
+
+
+@runtime_checkable
+class ReviewQueueOperations(Protocol):
+    """ReviewRequest queue management — user-initiated review requests.
+
+    Manages the lightweight ReviewRequest nodes that let users signal they want
+    an admin to review their Activity Domain data.
+
+    Route consumer: progress_feedback_api.py (activity-review/request + queue routes)
+    Implementation: ReviewQueueService
+    """
+
+    async def request_review(
+        self,
+        user_uid: str,
+        time_period: str = "7d",
+        domains: list[str] | None = None,
+        message: str | None = None,
+    ) -> Result[Any]:
+        """User requests an activity review. Returns Result[dict]."""
+        ...
+
+    async def get_pending_reviews(
+        self,
+        _admin_uid: str,
+        limit: int = 20,
+    ) -> Result[list[Any]]:
+        """Admin's pending review queue. Returns Result[list[dict]]."""
         ...
 
 

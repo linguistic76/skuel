@@ -6,7 +6,7 @@ Single source of truth for reading user activity data over a time window.
 
 Replaces two independent queries:
     _ACTIVITY_QUERY  (ProgressFeedbackGenerator) — 6 domains, rich fields
-    _SNAPSHOT_QUERY  (ActivityReviewService)     — 4 domains, simple fields
+    _SNAPSHOT_QUERY  (ActivityReportService)     — 4 domains, simple fields
 
 _ACTIVITY_QUERY is a strict superset of _SNAPSHOT_QUERY. One query,
 two consumers that format the results differently for their purposes.
@@ -106,7 +106,7 @@ class ActivityData:
     """Raw activity records from a single database round-trip.
 
     Typed container returned by ActivityDataReader.read().
-    Consumers (ProgressFeedbackGenerator, ActivityReviewService) format
+    Consumers (ProgressFeedbackGenerator, ActivityReportService) format
     this into their domain-specific output shapes.
     """
 
@@ -120,7 +120,7 @@ class ActivityDataReader:
     Read-only query layer for user activity data over a time window.
 
     Single source of truth for the Cypher query that fetches activity
-    data. Used by ProgressFeedbackGenerator and ActivityReviewService
+    data. Used by ProgressFeedbackGenerator and ActivityReportService
     to avoid issuing independent queries for the same underlying data.
     """
 

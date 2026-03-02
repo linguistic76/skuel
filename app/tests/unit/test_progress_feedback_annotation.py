@@ -48,11 +48,14 @@ def _make_generator() -> object:
     from core.utils.result_simplified import Result
 
     executor = MagicMock()
-    ku_backend = MagicMock()
+    activity_report_service = MagicMock()
+    activity_report_service.persist = AsyncMock(return_value=Result.ok(MagicMock()))
     reader = MagicMock(spec=ActivityDataReader)
     reader.read = AsyncMock(return_value=Result.ok(ActivityData()))
     return ProgressFeedbackGenerator(
-        executor=executor, ku_backend=ku_backend, activity_data_reader=reader
+        executor=executor,
+        activity_report_service=activity_report_service,
+        activity_data_reader=reader,
     )
 
 
@@ -106,12 +109,15 @@ async def test_fetch_previous_annotation_returns_none_on_empty() -> None:
 
     executor = MagicMock()
     executor.execute_query = AsyncMock(return_value=Result.ok([]))
-    ku_backend = MagicMock()
+    activity_report_service = MagicMock()
+    activity_report_service.persist = AsyncMock(return_value=Result.ok(MagicMock()))
     reader = MagicMock(spec=ActivityDataReader)
     reader.read = AsyncMock(return_value=Result.ok(ActivityData()))
 
     generator = ProgressFeedbackGenerator(
-        executor=executor, ku_backend=ku_backend, activity_data_reader=reader
+        executor=executor,
+        activity_report_service=activity_report_service,
+        activity_data_reader=reader,
     )
     result = await generator._fetch_previous_annotation(  # type: ignore[attr-defined]
         user_uid="user_test",
