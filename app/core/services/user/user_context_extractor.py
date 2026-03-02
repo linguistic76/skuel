@@ -151,12 +151,13 @@ class UserContextExtractor:
         Returns:
             GraphSourcedData with all relationship data extracted
         """
+        entities_data = mega_data.get("entities", {})
         rich_data = mega_data.get("rich", {})
 
-        # Use shape guards to validate and coerce each domain's data
-        tasks_data = self._as_list(rich_data.get("tasks"), "tasks")
-        goals_data = self._as_list(rich_data.get("goals"), "goals")
-        habits_data = self._as_list(rich_data.get("habits"), "habits")
+        # Activity domains come from "entities" key; curriculum from "rich" key
+        tasks_data = self._as_list(entities_data.get("tasks"), "tasks")
+        goals_data = self._as_list(entities_data.get("goals"), "goals")
+        habits_data = self._as_list(entities_data.get("habits"), "habits")
         knowledge_data = self._as_list(rich_data.get("knowledge"), "knowledge")
 
         return GraphSourcedData(
@@ -178,7 +179,7 @@ class UserContextExtractor:
 
         Args:
             tasks_rich: List of task items with graph_context
-                       Shape: [{"task": {...}, "graph_context": {...}}, ...]
+                       Shape: [{"entity": {...}, "graph_context": {...}}, ...]
 
         Returns:
             TaskRelationshipData with all task relationships
@@ -192,7 +193,7 @@ class UserContextExtractor:
             if not task_item:
                 continue
 
-            task_data = task_item.get("task", {})
+            task_data = task_item.get("entity", {})
             graph_ctx = task_item.get("graph_context", {})
             task_uid = task_data.get("uid")
 
@@ -241,7 +242,7 @@ class UserContextExtractor:
 
         Args:
             goals_rich: List of goal items with graph_context
-                       Shape: [{"goal": {...}, "graph_context": {...}}, ...]
+                       Shape: [{"entity": {...}, "graph_context": {...}}, ...]
             mastered_uids: Set of UIDs the user has mastered
 
         Returns:
@@ -261,7 +262,7 @@ class UserContextExtractor:
             if not goal_item:
                 continue
 
-            goal_data = goal_item.get("goal", {})
+            goal_data = goal_item.get("entity", {})
             graph_ctx = goal_item.get("graph_context", {})
             goal_uid = goal_data.get("uid")
 
@@ -303,7 +304,7 @@ class UserContextExtractor:
 
         Args:
             habits_rich: List of habit items with graph_context
-                        Shape: [{"habit": {...}, "graph_context": {...}}, ...]
+                        Shape: [{"entity": {...}, "graph_context": {...}}, ...]
 
         Returns:
             HabitRelationshipData with all habit relationships
@@ -315,7 +316,7 @@ class UserContextExtractor:
             if not habit_item:
                 continue
 
-            habit_data = habit_item.get("habit", {})
+            habit_data = habit_item.get("entity", {})
             graph_ctx = habit_item.get("graph_context", {})
             habit_uid = habit_data.get("uid")
 

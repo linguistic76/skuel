@@ -14,7 +14,7 @@ Architecture:
 - Used by UserContextBuilder for orchestration
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.utils.decorators import with_error_handling
@@ -58,10 +58,10 @@ WITH user,
      collect(CASE WHEN task.due_date IS NOT NULL AND date(task.due_date) = date($today) THEN task.uid END) as today_task_uids,
      collect(task) as all_tasks_nodes
 
-// Filter active tasks for rich data (with graph neighborhoods)
+// Filter tasks for rich data — active status always included; window entities included if touched since $window_start
 UNWIND CASE WHEN size(all_tasks_nodes) > 0 THEN all_tasks_nodes ELSE [null] END as task
 OPTIONAL MATCH (task)-[:HAS_SUBTASK]->(subtask:Task)
-WHERE task IS NOT NULL AND task.status IN ['draft', 'scheduled', 'active', 'blocked']
+WHERE task IS NOT NULL AND (task.status IN ['draft', 'scheduled', 'active', 'blocked'] OR task.updated_at >= datetime($window_start))
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      task, collect(DISTINCT {uid: subtask.uid, title: subtask.title, status: subtask.status}) as task_subtasks
 
@@ -81,7 +81,7 @@ OPTIONAL MATCH (task)-[:FULFILLS_GOAL]->(goal:Goal)
 WHERE task IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      collect(CASE WHEN task IS NOT NULL THEN {
-         task: properties(task),
+         entity: properties(task),
          graph_context: {
              subtasks: task_subtasks,
              dependencies: task_dependencies,
@@ -100,10 +100,10 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      collect({uid: goal.uid, progress: coalesce(goal.progress, 0.0)}) as goal_progress_data,
      collect(goal) as all_goals_nodes
 
-// Filter active goals for rich data
+// Filter goals for rich data — active status always included; window entities included if touched since $window_start
 UNWIND CASE WHEN size(all_goals_nodes) > 0 THEN all_goals_nodes ELSE [null] END as goal
 OPTIONAL MATCH (contributing_task:Task)-[:FULFILLS_GOAL]->(goal)
-WHERE goal IS NOT NULL AND goal.status = 'active'
+WHERE goal IS NOT NULL AND (goal.status = 'active' OR goal.updated_at >= datetime($window_start))
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
      goal, collect(DISTINCT {uid: contributing_task.uid, title: contributing_task.title, status: contributing_task.status}) as goal_tasks
@@ -125,7 +125,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
      collect(CASE WHEN goal IS NOT NULL THEN {
-         goal: properties(goal),
+         entity: properties(goal),
          graph_context: {
              contributing_tasks: goal_tasks,
              sub_goals: goal_subgoals,
@@ -215,13 +215,13 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // HABITS - Fetch UIDs, metadata, AND rich data with graph neighborhoods
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(habit:Habit)
-WHERE habit.status = 'active'
+WHERE habit.status = 'active' OR habit.updated_at >= datetime($window_start)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     collect(habit.uid) as active_habit_uids,
-     collect({uid: habit.uid, streak: coalesce(habit.current_streak, 0), rate: coalesce(habit.completion_rate, 0.0)}) as habit_metadata,
+     collect(CASE WHEN habit.status = 'active' THEN habit.uid END) as active_habit_uids,
+     collect(CASE WHEN habit.status = 'active' THEN {uid: habit.uid, streak: coalesce(habit.current_streak, 0), rate: coalesce(habit.completion_rate, 0.0)} END) as habit_metadata,
      collect(habit) as all_habit_nodes
 
 // Filter habits for rich data (with graph neighborhoods)
@@ -261,7 +261,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
      active_habit_uids, habit_metadata,
      collect(CASE WHEN habit IS NOT NULL THEN {
-         habit: properties(habit),
+         entity: properties(habit),
          graph_context: {
              linked_goals: habit_linked_goals,
              applied_knowledge: habit_applied_knowledge,
@@ -273,13 +273,13 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // EVENTS - Fetch UIDs AND rich data with graph neighborhoods
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(event:Event)
-WHERE event.event_date >= date($today)
+WHERE event.event_date >= date($window_start)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
      active_habit_uids, habit_metadata, habits_rich,
-     collect(event.uid) as upcoming_event_uids,
+     collect(CASE WHEN event.event_date >= date($today) THEN event.uid END) as upcoming_event_uids,
      collect(CASE WHEN date(event.event_date) = date($today) THEN event.uid END) as today_event_uids,
      collect(event) as all_event_nodes
 
@@ -336,7 +336,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      collect(CASE WHEN event IS NOT NULL THEN {
-         event: properties(event),
+         entity: properties(event),
          graph_context: {
              applied_knowledge: event_applied_knowledge,
              linked_goals: event_linked_goals,
@@ -428,7 +428,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids,
      collect(CASE WHEN principle IS NOT NULL THEN {
-         principle: properties(principle),
+         entity: properties(principle),
          graph_context: {
              grounded_knowledge: principle_grounded_knowledge,
              guided_goals: principle_guided_goals,
@@ -439,10 +439,10 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      } END) as principles_rich
 
 // ====================================================================
-// CHOICES - Fetch UIDs AND rich data (pending/active only)
+// CHOICES - Fetch UIDs AND rich data (pending/active; windowed completed also included)
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(choice:Choice)
-WHERE choice.status IN ['draft', 'active']
+WHERE choice.status IN ['draft', 'active'] OR choice.created_at >= datetime($window_start)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -450,7 +450,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
-     collect(choice.uid) as pending_choice_uids,
+     collect(CASE WHEN choice.status IN ['draft', 'active'] THEN choice.uid END) as pending_choice_uids,
      collect(choice) as all_choice_nodes
 
 // Filter choices for rich data (with graph neighborhoods)
@@ -529,7 +529,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      core_principle_uids, principles_rich,
      pending_choice_uids,
      collect(CASE WHEN choice IS NOT NULL THEN {
-         choice: properties(choice),
+         entity: properties(choice),
          graph_context: {
              informing_knowledge: choice_informing_knowledge,
              guiding_principles: choice_guiding_principles,
@@ -876,14 +876,16 @@ RETURN {
         active_moc_uids: [uid IN active_moc_uids WHERE uid IS NOT NULL],
         moc_metadata: [item IN moc_metadata WHERE item.uid IS NOT NULL]
     },
+    entities: {
+        tasks: [item IN tasks_rich WHERE item.entity IS NOT NULL],
+        goals: [item IN goals_rich WHERE item.entity IS NOT NULL],
+        habits: [item IN habits_rich WHERE item.entity IS NOT NULL],
+        events: [item IN events_rich WHERE item.entity IS NOT NULL],
+        principles: [item IN principles_rich WHERE item.entity IS NOT NULL],
+        choices: [item IN choices_rich WHERE item.entity IS NOT NULL]
+    },
     rich: {
-        tasks: [item IN tasks_rich WHERE item.task IS NOT NULL],
-        goals: [item IN goals_rich WHERE item.goal IS NOT NULL],
         knowledge: knowledge_rich,
-        habits: [item IN habits_rich WHERE item.habit IS NOT NULL],
-        events: [item IN events_rich WHERE item.event IS NOT NULL],
-        principles: [item IN principles_rich WHERE item.principle IS NOT NULL],
-        choices: [item IN choices_rich WHERE item.choice IS NOT NULL],
         learning_paths: [item IN paths_rich WHERE item.path IS NOT NULL],
         learning_steps: [item IN steps_rich WHERE item.step IS NOT NULL]
     },
@@ -918,154 +920,6 @@ RETURN {
 } as result
 """
 
-# =============================================================================
-# ACTIVITY WINDOW EXTENSION
-# =============================================================================
-# Six CALL{} subqueries appended to MEGA_QUERY when a time_period is requested.
-# Each block uses `WITH user` to read from the outer query's user binding,
-# then collects entities touched within [$window_start, $window_end].
-#
-# Parameters added when this section is active:
-#   $window_start — datetime ISO string (inclusive lower bound)
-#   $window_end   — datetime ISO string (inclusive upper bound)
-#
-# Note: events use event_date (a date field); date($window_start) coerces
-# the datetime parameter to a date for comparison.
-#
-# The six variable names (w_tasks, w_goals, ...) are referenced in
-# _MEGA_QUERY_RETURN_WITH_ACTIVITY below to build the "activity" map.
-
-_ACTIVITY_WINDOW_CALLS: str = """
-// ====================================================================
-// ACTIVITY WINDOW — entities touched in [$window_start, $window_end]
-// ====================================================================
-CALL {
-    WITH user
-    OPTIONAL MATCH (user)-[:OWNS]->(wt:Task)
-    WHERE wt.updated_at >= datetime($window_start)
-      AND wt.updated_at <= datetime($window_end)
-    OPTIONAL MATCH (wt)-[:FULFILLS_GOAL]->(wg:Goal)
-    OPTIONAL MATCH (wt)-[:APPLIES_KNOWLEDGE]->(wku:Entity)
-    WITH wt,
-         collect(DISTINCT {uid: wg.uid, title: wg.title}) AS goal_refs,
-         collect(DISTINCT {uid: wku.uid, title: wku.title}) AS ku_refs
-    RETURN collect(CASE WHEN wt IS NOT NULL THEN {
-        entity: {uid: wt.uid, title: wt.title, status: wt.status,
-                 priority: wt.priority, progress: wt.progress},
-        graph_context: {goal_refs: goal_refs, ku_refs: ku_refs}
-    } ELSE null END) AS w_tasks
-}
-
-CALL {
-    WITH user
-    OPTIONAL MATCH (user)-[:OWNS]->(wg:Goal)
-    WHERE wg.updated_at >= datetime($window_start)
-      AND wg.updated_at <= datetime($window_end)
-    RETURN collect(CASE WHEN wg IS NOT NULL THEN {
-        entity: {uid: wg.uid, title: wg.title, status: wg.status, progress: wg.progress},
-        graph_context: {}
-    } ELSE null END) AS w_goals
-}
-
-CALL {
-    WITH user
-    OPTIONAL MATCH (user)-[:OWNS]->(wh:Habit)
-    WHERE wh.updated_at >= datetime($window_start)
-      AND wh.updated_at <= datetime($window_end)
-    RETURN collect(CASE WHEN wh IS NOT NULL THEN {
-        entity: {uid: wh.uid, title: wh.title, status: wh.status,
-                 streak: wh.current_streak},
-        graph_context: {}
-    } ELSE null END) AS w_habits
-}
-
-CALL {
-    WITH user
-    OPTIONAL MATCH (user)-[:OWNS]->(wp:Principle)
-    WHERE wp.updated_at >= datetime($window_start)
-      AND wp.updated_at <= datetime($window_end)
-    RETURN collect(CASE WHEN wp IS NOT NULL THEN {
-        entity: {uid: wp.uid, title: wp.title, status: wp.status,
-                 alignment: wp.current_alignment, strength: wp.strength},
-        graph_context: {}
-    } ELSE null END) AS w_principles
-}
-
-CALL {
-    WITH user
-    OPTIONAL MATCH (user)-[:OWNS]->(we:Event)
-    WHERE date(we.event_date) >= date($window_start)
-      AND date(we.event_date) <= date($window_end)
-    RETURN collect(CASE WHEN we IS NOT NULL THEN {
-        entity: {uid: we.uid, title: we.title, status: we.status,
-                 event_type: we.event_type},
-        graph_context: {is_milestone: coalesce(we.is_milestone_event, false)}
-    } ELSE null END) AS w_events
-}
-
-CALL {
-    WITH user
-    OPTIONAL MATCH (user)-[:OWNS]->(wc:Choice)
-    WHERE wc.created_at >= datetime($window_start)
-      AND wc.created_at <= datetime($window_end)
-    OPTIONAL MATCH (wc)-[:INFORMED_BY_PRINCIPLE]->(wcp:Principle)
-    WITH wc, collect(DISTINCT {uid: wcp.uid, title: wcp.title}) AS principle_refs
-    RETURN collect(CASE WHEN wc IS NOT NULL THEN {
-        entity: {uid: wc.uid, title: wc.title, status: wc.status},
-        graph_context: {principle_refs: principle_refs}
-    } ELSE null END) AS w_choices
-}
-"""
-
-# The RETURN clause extension that adds the `activity` map.
-# Replaces the closing `} as result` in MEGA_QUERY when the activity window
-# section is active. The six w_* variables are defined by _ACTIVITY_WINDOW_CALLS.
-_MEGA_QUERY_ACTIVITY_RETURN_TAIL: str = """\
-    active_insights_raw: active_insights_raw,
-    activity: {
-        tasks: [x IN w_tasks WHERE x IS NOT NULL],
-        goals: [x IN w_goals WHERE x IS NOT NULL],
-        habits: [x IN w_habits WHERE x IS NOT NULL],
-        events: [x IN w_events WHERE x IS NOT NULL],
-        choices: [x IN w_choices WHERE x IS NOT NULL],
-        principles: [x IN w_principles WHERE x IS NOT NULL]
-    }
-} as result
-"""
-
-# Boundary string used to split MEGA_QUERY into body + return sections.
-# Must match the exact comment text in MEGA_QUERY above.
-_MEGA_QUERY_RETURN_BOUNDARY: str = (
-    "\n// ====================================================================\n"
-    "// Return BOTH UIDs (standard context) AND rich data (rich context)\n"
-    "// ====================================================================\n"
-)
-
-# The standard return tail (portion after the shared fields, without activity).
-_MEGA_QUERY_STANDARD_RETURN_TAIL: str = (
-    "    active_insights_raw: active_insights_raw\n"
-    "} as result\n"
-)
-
-
-def _build_mega_query_with_activity() -> str:
-    """Build MEGA_QUERY extended with activity window CALL{} blocks.
-
-    Splits MEGA_QUERY at the return boundary, inserts the six CALL{} blocks,
-    and replaces the closing return tail with one that includes the activity map.
-
-    Called once at module import time — result cached in _MEGA_QUERY_WITH_ACTIVITY.
-    """
-    body, return_section = MEGA_QUERY.split(_MEGA_QUERY_RETURN_BOUNDARY, 1)
-    extended_return = return_section.replace(
-        _MEGA_QUERY_STANDARD_RETURN_TAIL,
-        _MEGA_QUERY_ACTIVITY_RETURN_TAIL,
-    )
-    return body + _MEGA_QUERY_RETURN_BOUNDARY + _ACTIVITY_WINDOW_CALLS + extended_return
-
-
-# Pre-built at import time — avoids rebuilding on every request with time_period.
-_MEGA_QUERY_WITH_ACTIVITY: str = _build_mega_query_with_activity()
 
 
 CONSOLIDATED_QUERY: str = """
@@ -1281,34 +1135,34 @@ class UserContextQueryExecutor:
         Returns both UIDs (standard) and rich data (entities + graph neighborhoods)
         in a single database round-trip.
 
-        When window_start / window_end are provided, the query is extended with
-        six CALL{} subqueries that populate the "activity" key in the result.
-        When not provided, the query is identical to before — no added cost.
+        Always passes $window_start and $window_end parameters to the query.
+        These control which completed/past entities are included in entities_rich
+        alongside the always-present active entities.
 
         Args:
             user_uid: User identifier
             min_confidence: Minimum relationship confidence (default 0.7)
-            window_start: Activity window start datetime (None = no activity window)
-            window_end: Activity window end datetime (None = no activity window)
+            window_start: Activity window start datetime (default: 30d ago)
+            window_end: Activity window end datetime (default: now)
 
         Returns:
-            Result containing dict with "uids", "rich", and optionally "activity" keys
+            Result containing dict with "uids", "entities", and "rich" keys
         """
         today = date.today().isoformat()
+
+        # Always compute window bounds — default 30d lookback when not provided
+        effective_end = window_end or datetime.now()
+        effective_start = window_start or (effective_end - timedelta(days=30))
+
         params: dict[str, Any] = {
             "user_uid": user_uid,
             "today": today,
             "min_confidence": min_confidence,
+            "window_start": effective_start.isoformat(),
+            "window_end": effective_end.isoformat(),
         }
 
-        if window_start and window_end:
-            query = _MEGA_QUERY_WITH_ACTIVITY
-            params["window_start"] = window_start.isoformat()
-            params["window_end"] = window_end.isoformat()
-        else:
-            query = MEGA_QUERY
-
-        result = await self.executor.execute_query(query, params)
+        result = await self.executor.execute_query(MEGA_QUERY, params)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -1316,7 +1170,7 @@ class UserContextQueryExecutor:
         record = records[0] if records else None
 
         if not record or not record["result"]:
-            return Result.ok({"uids": {}, "rich": {}})
+            return Result.ok({"uids": {}, "entities": {}, "rich": {}})
 
         return Result.ok(record["result"])
 

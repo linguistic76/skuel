@@ -419,46 +419,19 @@ class UserContext:
     # - 3-4x faster than sequential get_with_context() calls
     # - Cached for 5 minutes (same as standard context)
 
-    # Rich task data (full Task objects with graph neighborhoods)
-    active_tasks_rich: list[dict[str, Any]] = field(default_factory=list)
-    # Each dict contains:
-    # - task: Full Task entity properties
-    # - graph_context: {subtasks, dependencies, applied_knowledge, goal_context, etc.}
-
-    # Rich habit data (full Habit objects with graph neighborhoods)
-    active_habits_rich: list[dict[str, Any]] = field(default_factory=list)
-    # Each dict contains:
-    # - habit: Full Habit entity properties
-    # - graph_context: {dependencies, applied_knowledge, goal_context, etc.}
-
-    # Rich goal data (full Goal objects with graph neighborhoods)
-    active_goals_rich: list[dict[str, Any]] = field(default_factory=list)
-    # Each dict contains:
-    # - goal: Full Goal entity properties
-    # - graph_context: {contributing_tasks, contributing_habits, sub_goals, milestone_progress, etc.}
+    # ACTIVITY DOMAINS — unified rich data (all 6 domains, one shape)
+    # Populated by build_rich(). Status included on every entity — consumers filter.
+    # Active entities always present. Completed entities present if touched within window.
+    # Curriculum domains (KU, LP, LS) remain in their own fields below.
+    #
+    # Keys: "tasks", "goals", "habits", "events", "choices", "principles"
+    # Values: [{"entity": {all entity properties}, "graph_context": {...}}, ...]
+    entities_rich: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
 
     # Rich knowledge data (full KU objects with graph neighborhoods)
     knowledge_units_rich: dict[str, dict[str, Any]] = field(default_factory=dict)
     # Key: knowledge_uid
     # Value: {ku: Full KU properties, graph_context: {prerequisites, dependents, related, mastery, etc.}}
-
-    # Rich event data (full Event objects with graph neighborhoods)
-    active_events_rich: list[dict[str, Any]] = field(default_factory=list)
-    # Each dict contains:
-    # - event: Full Event entity properties
-    # - graph_context: {dependencies, applied_knowledge, habit_context, etc.}
-
-    # Rich principle data (full Principle objects with graph neighborhoods)
-    core_principles_rich: list[dict[str, Any]] = field(default_factory=list)
-    # Each dict contains:
-    # - principle: Full Principle entity properties
-    # - graph_context: {aligned_goals, aligned_tasks, grounding_knowledge, etc.}
-
-    # Rich choice data (full Choice objects with graph neighborhoods)
-    recent_choices_rich: list[dict[str, Any]] = field(default_factory=list)
-    # Each dict contains:
-    # - choice: Full Choice entity properties
-    # - graph_context: {informed_by_knowledge, aligned_principles, resulting_goals, etc.}
 
     # Rich learning path data (full Lp objects with graph neighborhoods)
     enrolled_paths_rich: list[dict[str, Any]] = field(default_factory=list)
@@ -518,28 +491,6 @@ class UserContext:
     # - learning_path_progress: {path_uid: {completed_steps, total_steps, next_step}}
 
     # =========================================================================
-    # ACTIVITY WINDOW (Populated when build_rich() called with time_period)
-    # =========================================================================
-    # Empty on all standard planning calls. Feedback services (ProgressFeedbackGenerator,
-    # ActivityReportService) read this via build_rich(time_period=) — no separate
-    # query layer. Planning and feedback are different interpretations of the same complete
-    # picture — one query, one context, one output model.
-    #
-    # active_*_rich fields are UNCHANGED (status-active only, for planning).
-    # activity_rich contains ALL entities touched in the window — including
-    # completed — and therefore overlaps with active_*_rich for in-progress work.
-
-    # Time window metadata (None when no time_period was requested)
-    activity_window_period: str | None = None   # "7d" | "14d" | "30d" | "90d"
-    activity_window_start: datetime | None = None
-    activity_window_end: datetime | None = None
-
-    # Per-domain lists of entities touched in the activity window.
-    # Keys: "tasks", "goals", "habits", "events", "choices", "principles"
-    # Values: [{entity: {uid, title, status, ...}, graph_context: {...}}, ...]
-    activity_rich: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
-
-    # =========================================================================
     # CORE METHODS - Validation and metadata
     # =========================================================================
 
@@ -586,7 +537,7 @@ class UserContext:
         Example:
             def get_advancing_goals_for_user(self, context: UserContext) -> Result[...]:
                 context.require_rich_context("get_advancing_goals_for_user")
-                # Now safe to access context.active_goals_rich
+                # Now safe to access context.entities_rich["goals"]
 
         TODO: Replace ValueError with RichContextRequiredError once FastHTML routes
               consume this directly. A domain-specific exception will provide better

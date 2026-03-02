@@ -31,7 +31,6 @@ Responsibilities:
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.constants import FeedbackTimePeriod
 from core.models.user import User
 from core.services.user import UserContext
 from core.services.user.user_context_extractor import UserContextExtractor
@@ -45,6 +44,10 @@ if TYPE_CHECKING:
     from core.services.user_service import UserService
 
 logger = get_logger(__name__)
+
+# Window string → lookback days mapping (used by build_rich / build_rich_user_context)
+_WINDOW_TO_DAYS: dict[str, int] = {"7d": 7, "14d": 14, "30d": 30, "90d": 90}
+_DEFAULT_WINDOW_DAYS = 30
 
 
 class UserContextBuilder:
@@ -185,7 +188,7 @@ class UserContextBuilder:
         self,
         user_uid: str,
         min_confidence: float = 0.7,
-        time_period: str | None = None,
+        window: str = "30d",
     ) -> Result[UserContext]:
         """
         Build COMPLETE UserContext with rich fields - handles user resolution internally.
@@ -202,28 +205,26 @@ class UserContextBuilder:
         Args:
             user_uid: User identifier
             min_confidence: Minimum relationship confidence (default 0.7)
-            time_period: Optional activity window ("7d", "14d", "30d", "90d").
-                When provided, MEGA-QUERY includes six CALL{} blocks that populate
-                context.activity_rich with entities touched in the window.
-                When None (default), activity_rich stays empty — no performance impact.
+            window: Lookback window for completed/touched entities ("7d", "14d", "30d", "90d").
+                Active entities are always included. Completed entities are included
+                if touched within this window. Default "30d".
 
         Returns:
             Result[UserContext] with ALL ~240 fields including rich data.
-            context.activity_rich is populated when time_period is provided.
+            context.entities_rich["tasks"], context.entities_rich["goals"], etc.
 
         Example:
             context_result = await context_builder.build_rich(user_uid)
             if context_result.is_error:
                 return context_result
             context = context_result.value
-            # Access rich data: context.active_tasks_rich, context.active_goals_rich, etc.
-            # With time_period: context.activity_rich["tasks"], context.activity_rich["goals"], etc.
+            # Access rich data: context.entities_rich["tasks"], context.entities_rich["goals"], etc.
         """
         user_result = await self._resolve_user(user_uid, "build_rich")
         if user_result.is_error:
             return Result.fail(user_result.expect_error())
         return await self.build_rich_user_context(
-            user_uid, user_result.value, min_confidence, time_period=time_period
+            user_uid, user_result.value, min_confidence, window=window
         )
 
     # ========================================================================
@@ -283,7 +284,7 @@ class UserContextBuilder:
         user_uid: str,
         user: User,
         min_confidence: float = 0.7,
-        time_period: str | None = None,
+        window: str = "30d",
     ) -> Result[UserContext]:
         """
         Build COMPLETE UserContext with BOTH standard AND rich fields in ONE query.
@@ -299,14 +300,16 @@ class UserContextBuilder:
            - tasks_by_goal, overdue_task_uids, etc.
 
         2. **Rich context fields** (full entities + graph neighborhoods)
-           - active_tasks_rich: [{task: {...}, graph_context: {...}}, ...]
-           - active_goals_rich, active_habits_rich, knowledge_units_rich
-           - cross_domain_insights
+           - entities_rich: {tasks, goals, habits, events, choices, principles}
+             Each item: {"entity": {all properties}, "graph_context": {...}}
+           - knowledge_units_rich, enrolled_paths_rich, active_learning_steps_rich
 
         Args:
             user_uid: User's unique identifier
             user: User entity
             min_confidence: Minimum relationship confidence (default 0.7)
+            window: Lookback window for completed/touched entities ("7d", "14d", "30d", "90d").
+                Active entities always included. Default "30d".
 
         Returns:
             Result[UserContext] with ALL ~240 fields populated
@@ -335,18 +338,13 @@ class UserContextBuilder:
             display_name=user.display_name or user.title,
         )
 
-        # Compute activity window dates when time_period is provided
-        window_start: datetime | None = None
-        window_end: datetime | None = None
-        if time_period:
-            days = FeedbackTimePeriod.DAYS.get(time_period, FeedbackTimePeriod.DEFAULT_DAYS)
-            window_end = datetime.now()
-            window_start = window_end - timedelta(days=days)
+        # Compute activity window — always passed to MEGA-QUERY.
+        # Active entities always included regardless of window; completed
+        # entities included if touched within the lookback window.
+        window_end = datetime.now()
+        window_start = window_end - timedelta(days=_WINDOW_TO_DAYS.get(window, _DEFAULT_WINDOW_DAYS))
 
         # Execute MEGA-QUERY — fetches UIDs AND rich data in one shot.
-        # When window_start is provided, the query also includes six CALL{}
-        # subqueries that populate activity_rich with entities touched in
-        # the window. When None, activity_rich stays empty (no added cost).
         mega_result = await self._query_executor.execute_mega_query(
             user_uid, min_confidence, window_start=window_start, window_end=window_end
         )
@@ -358,22 +356,26 @@ class UserContextBuilder:
         # MEGA_QUERY result shape (see user_context_queries.py MEGA_QUERY):
         # {
         #     "uids": {active_task_uids, completed_task_uids, goal_progress, knowledge_mastery, ...},
-        #     "rich": {tasks: [{task, graph_context}], goals, habits, knowledge, principles, choices, ...},
+        #     "entities": {tasks, goals, habits, events, choices, principles},  <- 6 activity domains
+        #     "rich": {knowledge, learning_paths, learning_steps},              <- curriculum only
         #     "user_properties": {preferences, role, settings},
         #     "life_path": {uid, alignment_score, dimensions},
         #     "progress_counts": {tasks_completed, habits_maintained, goals_achieved, ...},
         #     "activity_report": {uid, period, period_end, content, user_annotation} or null,
         #     "active_insights_raw": [{uid, type, title, impact, confidence}, ...] (up to 10),
-        #     "activity": {tasks, goals, habits, events, choices, principles} (when time_period given)
         # }
         uids_data = mega_data.get("uids", {})
+        entities_data = mega_data.get("entities", {})
         rich_data = mega_data.get("rich", {})
 
         # Populate standard context fields (UIDs, relationships, metadata)
         self._populator.populate_standard_fields(context, uids_data)
 
-        # Populate rich context fields (full entities + graph neighborhoods)
-        self._populator.populate_rich_fields(context, rich_data)
+        # Populate activity domain entities (all 6 domains, unified shape)
+        self._populator.populate_entities_rich(context, entities_data)
+
+        # Populate curriculum rich fields (KU, LP, LS)
+        self._populator.populate_curriculum_rich(context, rich_data)
 
         # Populate MOC fields from uids section (Priority 3)
         self._populator.populate_moc_fields(context, uids_data)
@@ -400,20 +402,13 @@ class UserContextBuilder:
 
         # Populate derived fields (Priority 4: tasks_by_goal, habits_by_goal, etc.)
         self._populator.populate_derived_fields(
-            context, rich_data.get("tasks", []), rich_data.get("habits", [])
+            context, entities_data.get("tasks", []), entities_data.get("habits", [])
         )
 
         # Populate principle-choice integration (Priority 5)
         self._populator.populate_principle_choice_integration(
-            context, rich_data.get("principles", []), rich_data.get("choices", [])
+            context, entities_data.get("principles", []), entities_data.get("choices", [])
         )
-
-        # Populate activity window fields when time_period was requested
-        if time_period and window_start and window_end:
-            activity_data = mega_data.get("activity", {})
-            self._populator.populate_activity_fields(
-                context, activity_data, window_start, window_end, time_period
-            )
 
         # Calculate derived fields and mark as rich context
         self._finalize_context(context, is_rich=True)

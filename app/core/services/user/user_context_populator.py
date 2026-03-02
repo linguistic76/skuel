@@ -13,7 +13,6 @@ Architecture:
 - Used by UserContextBuilder after extraction
 """
 
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import (
@@ -161,20 +160,38 @@ class UserContextPopulator:
             uid for uid in uids_data.get("pending_choice_uids", []) if uid
         ]
 
-    def populate_rich_fields(self, context: "UserContext", rich_data: dict[str, Any]) -> None:
+    def populate_entities_rich(
+        self, context: "UserContext", entities_data: dict[str, Any]
+    ) -> None:
         """
-        Populate rich context fields (full entities + graph) from MEGA-QUERY results.
+        Populate activity domain entities from MEGA-QUERY 'entities' section.
+
+        Unified field replacing 6 separate active_*_rich fields. All 6 activity
+        domains use shape: [{"entity": {all properties}, "graph_context": {...}}, ...]
+        Status is on every entity — consumers filter as needed.
 
         Args:
             context: UserContext to populate
-            rich_data: The "rich" section from MEGA-QUERY results
+            entities_data: The "entities" section from MEGA-QUERY results
         """
-        # Tasks rich data
-        context.active_tasks_rich = rich_data.get("tasks", [])
+        context.entities_rich = {
+            domain: [item for item in items if item is not None]
+            for domain, items in entities_data.items()
+        }
 
-        # Goals rich data
-        context.active_goals_rich = rich_data.get("goals", [])
+    def populate_curriculum_rich(
+        self, context: "UserContext", rich_data: dict[str, Any]
+    ) -> None:
+        """
+        Populate curriculum domain rich fields (KU, LP, LS) from MEGA-QUERY 'rich' section.
 
+        Curriculum domains have different ownership and shape from activity domains;
+        they remain in their own fields separate from entities_rich.
+
+        Args:
+            context: UserContext to populate
+            rich_data: The "rich" section from MEGA-QUERY results (curriculum only)
+        """
         # Knowledge rich data (convert list to dict keyed by uid)
         knowledge_list = rich_data.get("knowledge", [])
         context.knowledge_units_rich = {
@@ -183,17 +200,9 @@ class UserContextPopulator:
             if item and "uid" in item
         }
 
-        # Learning paths rich data
+        # Learning paths and steps rich data
         context.enrolled_paths_rich = rich_data.get("learning_paths", [])
-
-        # Learning steps rich data
         context.active_learning_steps_rich = rich_data.get("learning_steps", [])
-
-        # Habits, Events, Principles, Choices rich data
-        context.active_habits_rich = rich_data.get("habits", [])
-        context.active_events_rich = rich_data.get("events", [])
-        context.core_principles_rich = rich_data.get("principles", [])
-        context.recent_choices_rich = rich_data.get("choices", [])
 
     def populate_graph_sourced_fields(
         self, context: "UserContext", graph_data: "GraphSourcedData"
@@ -463,7 +472,7 @@ class UserContextPopulator:
         for task_item in tasks_rich:
             if not task_item:
                 continue
-            task_data = task_item.get("task", {})
+            task_data = task_item.get("entity", {})
             graph_ctx = task_item.get("graph_context", {})
             task_uid = task_data.get("uid")
 
@@ -493,7 +502,7 @@ class UserContextPopulator:
         for habit_item in habits_rich:
             if not habit_item:
                 continue
-            habit_data = habit_item.get("habit", {})
+            habit_data = habit_item.get("entity", {})
             graph_ctx = habit_item.get("graph_context", {})
             habit_uid = habit_data.get("uid")
 
@@ -540,7 +549,7 @@ class UserContextPopulator:
         for principle_item in principles_rich:
             if not principle_item:
                 continue
-            principle_data = principle_item.get("principle", {})
+            principle_data = principle_item.get("entity", {})
             graph_ctx = principle_item.get("graph_context", {})
             principle_uid = principle_data.get("uid")
 
@@ -567,35 +576,3 @@ class UserContextPopulator:
         # Store recent principle-aligned choices (last 10)
         context.recent_principle_aligned_choices = principle_aligned_choices[:10]
 
-    def populate_activity_fields(
-        self,
-        context: "UserContext",
-        activity_data: dict[str, list[dict[str, Any]]],
-        start_date: "datetime",
-        end_date: "datetime",
-        time_period: str,
-    ) -> None:
-        """
-        Populate activity window fields from MEGA-QUERY activity section.
-
-        Called by build_rich_user_context() when time_period is provided.
-        activity_data is the "activity" key from the MEGA-QUERY result, containing
-        six domain lists of entities touched during the window.
-
-        Args:
-            context: UserContext to populate
-            activity_data: The "activity" section from MEGA-QUERY results
-            start_date: Window start datetime
-            end_date: Window end datetime
-            time_period: Period string ("7d", "14d", "30d", "90d")
-        """
-        context.activity_window_period = time_period
-        context.activity_window_start = start_date
-        context.activity_window_end = end_date
-
-        # Filter None entries that `CASE WHEN wt IS NOT NULL THEN ... ELSE null END`
-        # produces in Neo4j when a domain has no matching entities in the window.
-        context.activity_rich = {
-            domain: [item for item in items if item is not None]
-            for domain, items in activity_data.items()
-        }
