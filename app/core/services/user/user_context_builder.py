@@ -356,14 +356,16 @@ class UserContextBuilder:
         # MEGA_QUERY result shape (see user_context_queries.py MEGA_QUERY):
         # {
         #     "uids": {active_task_uids, completed_task_uids, goal_progress, knowledge_mastery, ...},
-        #     "entities": {tasks, goals, habits, events, choices, principles},  <- 6 activity domains
-        #     "rich": {knowledge, learning_paths, learning_steps},              <- curriculum only
+        #     "entities": {tasks, goals, habits, events, choices, principles,
+        #                  learning_paths, learning_steps},  <- LP/LS normalized here
+        #     "rich": {knowledge, learning_paths, learning_steps},  <- curriculum only (backward compat)
         #     "user_properties": {preferences, role, settings},
         #     "life_path": {uid, alignment_score, dimensions},
         #     "progress_counts": {tasks_completed, habits_maintained, goals_achieved, ...},
         #     "activity_report": {uid, period, period_end, content, user_annotation} or null,
         #     "active_insights_raw": [{uid, type, title, impact, confidence}, ...] (up to 10),
         # }
+        # entities_rich["ku"] is derived Python-side from mastery_timestamps + ku_view_data
         uids_data = mega_data.get("uids", {})
         entities_data = mega_data.get("entities", {})
         rich_data = mega_data.get("rich", {})
@@ -376,6 +378,11 @@ class UserContextBuilder:
 
         # Populate curriculum rich fields (KU, LP, LS)
         self._populator.populate_curriculum_rich(context, rich_data)
+
+        # Derive window-engaged KU entities (Python-side, no extra query)
+        self._populator.populate_ku_window_entities(
+            context, uids_data, rich_data, window_start
+        )
 
         # Populate MOC fields from uids section (Priority 3)
         self._populator.populate_moc_fields(context, uids_data)

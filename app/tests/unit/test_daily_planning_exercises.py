@@ -22,6 +22,7 @@ import pytest
 
 from core.models.context_types import ContextualExercise, DailyWorkPlan
 from core.services.user.intelligence.daily_planning import DailyPlanningMixin
+from core.services.user.intelligence.temporal_momentum import TemporalMomentumMixin
 from core.utils.result_simplified import Errors, Result
 
 # =============================================================================
@@ -48,6 +49,7 @@ def make_context(available_minutes: int = 480, user_uid: str = "user_test") -> o
     ctx.current_energy_level = "moderate"
     ctx.latest_activity_report_uid = None
     ctx.latest_activity_report_period = None
+    ctx.entities_rich = {}
     return ctx
 
 
@@ -65,7 +67,7 @@ def make_no_op_service() -> AsyncMock:
     return mock
 
 
-class MockDailyPlanningService(DailyPlanningMixin):
+class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
     """Concrete implementation of DailyPlanningMixin for unit testing."""
 
     def __init__(

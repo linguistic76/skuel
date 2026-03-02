@@ -13,6 +13,7 @@ Architecture:
 - Used by UserContextBuilder after extraction
 """
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import (
@@ -203,6 +204,76 @@ class UserContextPopulator:
         # Learning paths and steps rich data
         context.enrolled_paths_rich = rich_data.get("learning_paths", [])
         context.active_learning_steps_rich = rich_data.get("learning_steps", [])
+
+    def populate_ku_window_entities(
+        self,
+        context: "UserContext",
+        uids_data: dict[str, Any],
+        rich_data: dict[str, Any],
+        window_start: datetime,
+    ) -> None:
+        """
+        Populate entities_rich['ku'] with KUs engaged in the activity window.
+
+        Derives from already-fetched data — no additional query needed:
+          - context.mastery_timestamps: KUs mastered with timestamps
+          - uids_data["ku_view_data"]: KUs viewed with last_viewed_at
+          - rich_data["knowledge"]: full KU properties by uid
+
+        Shape: [{"entity": {ku props}, "graph_context": {interaction_type, score, ...}}]
+        """
+        knowledge_list = rich_data.get("knowledge", [])
+        ku_props_by_uid: dict[str, Any] = {
+            item["uid"]: item["ku"]
+            for item in knowledge_list
+            if item and "uid" in item
+        }
+
+        ku_entities: list[dict[str, Any]] = []
+        engaged_uids: set[str] = set()
+
+        # Mastered in window
+        for uid, mastered_at in context.mastery_timestamps.items():
+            if not mastered_at or uid in engaged_uids:
+                continue
+            try:
+                ts = _parse_neo4j_datetime(mastered_at)
+                if ts >= window_start:
+                    ku_entities.append({
+                        "entity": ku_props_by_uid.get(uid, {"uid": uid}),
+                        "graph_context": {
+                            "interaction_type": "mastered",
+                            "mastered_at": mastered_at,
+                            "score": context.knowledge_mastery.get(uid, 1.0),
+                        },
+                    })
+                    engaged_uids.add(uid)
+            except (ValueError, TypeError, AttributeError):
+                pass
+
+        # Viewed in window (exclude already mastered)
+        for view_item in uids_data.get("ku_view_data", []):
+            uid = view_item.get("uid")
+            last_viewed_at = view_item.get("last_viewed_at")
+            if not uid or not last_viewed_at or uid in engaged_uids:
+                continue
+            try:
+                ts = _parse_neo4j_datetime(last_viewed_at)
+                if ts >= window_start:
+                    ku_entities.append({
+                        "entity": ku_props_by_uid.get(uid, {"uid": uid}),
+                        "graph_context": {
+                            "interaction_type": "viewed",
+                            "last_viewed_at": last_viewed_at,
+                            "view_count": view_item.get("view_count", 1),
+                            "score": context.knowledge_mastery.get(uid, 0.0),
+                        },
+                    })
+                    engaged_uids.add(uid)
+            except (ValueError, TypeError, AttributeError):
+                pass
+
+        context.entities_rich = {**context.entities_rich, "ku": ku_entities}
 
     def populate_graph_sourced_fields(
         self, context: "UserContext", graph_data: "GraphSourcedData"
@@ -576,3 +647,11 @@ class UserContextPopulator:
         # Store recent principle-aligned choices (last 10)
         context.recent_principle_aligned_choices = principle_aligned_choices[:10]
 
+
+def _parse_neo4j_datetime(value: Any) -> datetime:
+    """Parse Neo4j datetime value to naive UTC datetime for window comparison."""
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=None)
+    # Neo4j DateTime object — convert via string representation
+    iso = str(value).replace("Z", "+00:00")
+    return datetime.fromisoformat(iso).replace(tzinfo=None)

@@ -868,7 +868,7 @@ RETURN {
         pending_choice_uids: [uid IN pending_choice_uids WHERE uid IS NOT NULL],
         enrolled_path_uids: enrolled_path_uids,
         goal_progress: [item IN goal_progress_data WHERE item.uid IS NOT NULL | {uid: item.uid, progress: item.progress}],
-        knowledge_mastery: [item IN knowledge_mastery_data WHERE item.uid IS NOT NULL | {uid: item.uid, score: item.score}],
+        knowledge_mastery: [item IN knowledge_mastery_data WHERE item.uid IS NOT NULL | {uid: item.uid, score: item.score, mastered_at: item.mastered_at, confidence: item.confidence}],
         ku_view_data: [item IN ku_view_data WHERE item.uid IS NOT NULL | {uid: item.uid, view_count: item.view_count, time_spent_seconds: item.time_spent_seconds, last_viewed_at: item.last_viewed_at}],
         ku_marked_as_read_uids: [uid IN ku_marked_as_read_uids WHERE uid IS NOT NULL],
         ku_bookmarked_uids: [uid IN ku_bookmarked_uids WHERE uid IS NOT NULL],
@@ -882,7 +882,9 @@ RETURN {
         habits: [item IN habits_rich WHERE item.entity IS NOT NULL],
         events: [item IN events_rich WHERE item.entity IS NOT NULL],
         principles: [item IN principles_rich WHERE item.entity IS NOT NULL],
-        choices: [item IN choices_rich WHERE item.entity IS NOT NULL]
+        choices: [item IN choices_rich WHERE item.entity IS NOT NULL],
+        learning_paths: [item IN paths_rich WHERE item.path IS NOT NULL | {entity: item.path, graph_context: item.graph_context}],
+        learning_steps: [item IN steps_rich WHERE item.step IS NOT NULL | {entity: item.step, graph_context: item.graph_context}]
     },
     rich: {
         knowledge: knowledge_rich,

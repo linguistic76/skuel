@@ -282,6 +282,10 @@ class DailyPlanningMixin:
         if not learning_uids and self.context.learning_goals:
             warnings_list.append("No learning time scheduled - consider your learning goals")
 
+        # Temporal momentum signals — enrich warnings from window-activity data
+        momentum = self.compute_momentum_signals()
+        warnings_list.extend(self._momentum_warnings(momentum))
+
         # Construct frozen plan (without priorities/rationale — computed from plan)
         plan = DailyWorkPlan(
             learning=tuple(learning_uids),
@@ -305,7 +309,7 @@ class DailyPlanningMixin:
 
         # Build priorities and rationale from the constructed plan
         priorities = self._build_priority_list(plan)
-        rationale = self._generate_daily_rationale(plan, prioritize_life_path)
+        rationale = self._generate_daily_rationale(plan, prioritize_life_path, momentum)
         plan = replace(plan, priorities=tuple(priorities), rationale=rationale)
 
         return Result.ok(plan)
@@ -352,7 +356,12 @@ class DailyPlanningMixin:
 
         return priorities
 
-    def _generate_daily_rationale(self, plan: DailyWorkPlan, prioritize_life_path: bool) -> str:
+    def _generate_daily_rationale(
+        self,
+        plan: DailyWorkPlan,
+        prioritize_life_path: bool,
+        momentum: dict[str, Any] | None = None,
+    ) -> str:
         """Generate human-readable rationale for daily plan."""
         rationale_parts = []
 
@@ -389,6 +398,12 @@ class DailyPlanningMixin:
             rationale_parts.append(
                 f"Plan informed by your {self.context.latest_activity_report_period} activity report"
             )
+
+        # Temporal momentum — append phase signal if meaningful
+        if momentum:
+            momentum_clause = self._momentum_rationale(momentum)
+            if momentum_clause:
+                rationale_parts.append(momentum_clause)
 
         return "; ".join(rationale_parts) if rationale_parts else "Balanced daily plan"
 

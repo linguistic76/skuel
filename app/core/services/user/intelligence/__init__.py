@@ -71,6 +71,7 @@ from core.services.user.intelligence.learning_intelligence import LearningIntell
 from core.services.user.intelligence.life_path_intelligence import LifePathIntelligenceMixin
 from core.services.user.intelligence.schedule_intelligence import ScheduleIntelligenceMixin
 from core.services.user.intelligence.synergy_intelligence import SynergyIntelligenceMixin
+from core.services.user.intelligence.temporal_momentum import TemporalMomentumMixin
 
 __all__ = [
     # Core classes
@@ -82,6 +83,7 @@ __all__ = [
     "LifePathIntelligenceMixin",
     "ScheduleIntelligenceMixin",
     "SynergyIntelligenceMixin",
+    "TemporalMomentumMixin",
     # Data types
     "CrossDomainSynergy",
     "DailyWorkPlan",

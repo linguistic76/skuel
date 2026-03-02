@@ -52,6 +52,7 @@ from core.services.user.intelligence.learning_intelligence import LearningIntell
 from core.services.user.intelligence.life_path_intelligence import LifePathIntelligenceMixin
 from core.services.user.intelligence.schedule_intelligence import ScheduleIntelligenceMixin
 from core.services.user.intelligence.synergy_intelligence import SynergyIntelligenceMixin
+from core.services.user.intelligence.temporal_momentum import TemporalMomentumMixin
 
 if TYPE_CHECKING:
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
@@ -71,6 +72,7 @@ class UserContextIntelligence(
     LifePathIntelligenceMixin,
     SynergyIntelligenceMixin,
     ScheduleIntelligenceMixin,
+    TemporalMomentumMixin,
     DailyPlanningMixin,
 ):
     """
@@ -115,6 +117,7 @@ class UserContextIntelligence(
     - LifePathIntelligenceMixin: Method 7 (life path alignment)
     - SynergyIntelligenceMixin: Method 6 (cross-domain synergies)
     - ScheduleIntelligenceMixin: Method 8 (schedule-aware recommendations)
+    - TemporalMomentumMixin: compute_momentum_signals() (entities_rich analysis)
     - DailyPlanningMixin: Method 5 (daily work plan - THE FLAGSHIP)
 
     Context-based queries (get_ready_to_learn, etc.) are now accessed directly

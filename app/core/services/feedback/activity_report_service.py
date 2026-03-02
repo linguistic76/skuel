@@ -104,8 +104,6 @@ class ActivityReportService:
         activity = context.entities_rich
         ku_rich = context.knowledge_units_rich
         mastery_scores = context.knowledge_mastery
-        lp_rich = context.enrolled_paths_rich
-        ls_rich = context.active_learning_steps_rich
         include_all = not domains
         snapshot: dict[str, Any] = {
             "subject_uid": subject_uid,
@@ -228,33 +226,35 @@ class ActivityReportService:
 
         # Curriculum track — learning paths
         if include_all or "learning_paths" in (domains or []):
+            lp_items = activity.get("learning_paths", [])
             snapshot["domains"]["learning_paths"] = {
-                "count": len(lp_rich),
+                "count": len(lp_items),
                 "items": [
                     {
-                        "title": item.get("path", {}).get("title")
-                            or item.get("path", {}).get("name", ""),
+                        "title": item.get("entity", {}).get("title")
+                            or item.get("entity", {}).get("name", ""),
                         "total_steps": item.get("graph_context", {}).get("total_steps", 0),
                         "completed_steps": item.get("graph_context", {}).get("completed_steps", 0),
                         "progress_pct": item.get("graph_context", {}).get("progress_percentage", 0.0),
                     }
-                    for item in lp_rich[:10]
+                    for item in lp_items[:10]
                 ],
             }
 
         # Curriculum track — active learning steps
         if include_all or "learning_steps" in (domains or []):
+            ls_items = activity.get("learning_steps", [])
             snapshot["domains"]["learning_steps"] = {
-                "count": len(ls_rich),
+                "count": len(ls_items),
                 "items": [
                     {
-                        "title": item.get("step", {}).get("title", ""),
-                        "status": item.get("step", {}).get("status", ""),
+                        "title": item.get("entity", {}).get("title", ""),
+                        "status": item.get("entity", {}).get("status", ""),
                         "learning_path": (
                             item.get("graph_context", {}).get("learning_path") or {}
                         ).get("name", ""),
                     }
-                    for item in ls_rich[:10]
+                    for item in ls_items[:10]
                 ],
             }
 

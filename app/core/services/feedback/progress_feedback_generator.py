@@ -522,32 +522,32 @@ class ProgressFeedbackGenerator:
                     "category": entity.get("category", ""),
                 })
 
-        # Knowledge Units (KU) — curriculum track
+        # Knowledge Units (KU) — window-engaged curriculum track
         if include_all or "knowledge" in (domains or []):
-            mastery_scores = context.knowledge_mastery
-            for uid, ku_data in context.knowledge_units_rich.items():
-                ku_props = ku_data.get("ku", {})
-                score = mastery_scores.get(uid, 0.0)
-                if score >= 0.8:
+            for item in context.entities_rich.get("ku", []):
+                entity = item["entity"]
+                graph_ctx = item.get("graph_context", {})
+                score = graph_ctx.get("score", 0.0)
+                if graph_ctx.get("interaction_type") == "mastered":
                     result["ku_mastered"] += 1
                 else:
                     result["ku_in_progress"] += 1
                 result["ku_details"].append({
-                    "uid": uid,
-                    "title": ku_props.get("title", ""),
-                    "domain": ku_props.get("domain", ""),
+                    "uid": entity.get("uid", ""),
+                    "title": entity.get("title", ""),
+                    "domain": entity.get("domain", ""),
                     "score": score,
                 })
 
         # Learning Paths — curriculum track
         if include_all or "learning_paths" in (domains or []):
-            for item in context.enrolled_paths_rich:
-                path = item.get("path", {})
+            for item in context.entities_rich.get("learning_paths", []):
+                entity = item.get("entity", {})
                 graph_ctx = item.get("graph_context", {})
                 result["lp_enrolled"] += 1
                 result["lp_details"].append({
-                    "uid": path.get("uid", ""),
-                    "title": path.get("title") or path.get("name", ""),
+                    "uid": entity.get("uid", ""),
+                    "title": entity.get("title") or entity.get("name", ""),
                     "total_steps": graph_ctx.get("total_steps", 0),
                     "completed_steps": graph_ctx.get("completed_steps", 0),
                     "progress_pct": graph_ctx.get("progress_percentage", 0.0),
@@ -555,15 +555,15 @@ class ProgressFeedbackGenerator:
 
         # Learning Steps — curriculum track
         if include_all or "learning_steps" in (domains or []):
-            for item in context.active_learning_steps_rich:
-                step = item.get("step", {})
+            for item in context.entities_rich.get("learning_steps", []):
+                entity = item.get("entity", {})
                 graph_ctx = item.get("graph_context", {})
                 result["ls_active"] += 1
                 knowledge_rels = graph_ctx.get("knowledge_relationships", [])
                 learning_path = graph_ctx.get("learning_path") or {}
                 result["ls_details"].append({
-                    "uid": step.get("uid", ""),
-                    "title": step.get("title", ""),
+                    "uid": entity.get("uid", ""),
+                    "title": entity.get("title", ""),
                     "learning_path": learning_path.get("name", ""),
                     "knowledge": [k.get("title", "") for k in knowledge_rels if k.get("title")],
                 })
