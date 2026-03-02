@@ -227,9 +227,11 @@ Route by MIME type:
         ↓
 Status: PROCESSING → COMPLETED
         ↓
-Auto-create relationships:
-  FULFILLS_EXERCISE (if linked to exercise)
-  SHARES_WITH {role: 'teacher'} (if ASSIGNED exercise → teacher gets access)
+process_exercise_submission() (if exercise_uid provided):
+  Auto-update title: "{Exercise Title} — {user_id}" (revision suffix on re-submission)
+  Auto-create relationships:
+    FULFILLS_EXERCISE (Submission → Exercise)
+    SHARES_WITH {role: 'teacher'} (if ASSIGNED exercise → teacher gets access)
 ```
 
 **Services:**
