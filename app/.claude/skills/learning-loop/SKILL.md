@@ -355,15 +355,19 @@ annotation_updated_at: datetime | None
 | Admin writes | `ActivityReportService.submit_feedback()` | `HUMAN` | Admin reviews snapshot |
 
 **Structural position:** Cross-domain aggregator. Cannot fit the leaf domain model
-because it reads across all 6 Activity Domain backends. `ProgressFeedbackGenerator`
-accepts a `UserContextBuilder` and calls `build_rich(user_uid, time_period=...)` — MEGA_QUERY
-extended with 6 activity window CALL{} blocks. This gives the generator access to full
-graph neighbourhoods (goal relationships, KU mastery, LifePath alignment) that a separate
-Cypher query never had. `ActivityReportService.create_snapshot()` uses the same method.
+because it reads across all 6 Activity Domain backends **and** the Curriculum track
+(KU mastery, LP progress, active LS). `ProgressFeedbackGenerator` accepts a
+`UserContextBuilder` and calls `build_rich(user_uid, time_period=...)` — MEGA_QUERY
+with activity window CALL{} blocks. This gives the generator access to full graph
+neighbourhoods across both tracks. `ActivityReportService.create_snapshot()` uses
+the same method.
 
 **LLM generation flow:**
 ```
-1. Call `context_builder.build_rich(user_uid, time_period=...)` — MEGA_QUERY with activity window; `context.activity_rich` covers all 6 domains with graph neighbourhoods
+1. Call `context_builder.build_rich(user_uid, time_period=...)` — MEGA_QUERY with
+   activity window; `context.entities_rich` covers all 6 Activity Domains;
+   `context.knowledge_units_rich`, `context.enrolled_paths_rich`,
+   `context.active_learning_steps_rich` cover the Curriculum track
 2. Cross-reference active Insights
 3. Send stats as JSON context to LLM via activity_feedback.md prompt template
 4. LLM returns qualitative analysis with patterns, trends, recommendations
@@ -496,8 +500,9 @@ RelationshipName.SHARED_WITH_GROUP    # Submission → Group (group sharing)
 
 ### The Activity Track test
 
-The Activity Track (Tasks/Goals/Habits → ActivityReport) is as central as the
-Curriculum Track. When building Activity Domain features, ask:
+The Activity Track (Tasks/Goals/Habits/Events/Choices/Principles + KU mastery/LP
+progress/LS progress → ActivityReport) is as central as the Curriculum Track.
+When building Activity Domain or Curriculum features, ask:
 
 - Does this completion data flow into `ProgressFeedbackGenerator`?
 - Does this activity pattern become visible in `ActivityReport`?
