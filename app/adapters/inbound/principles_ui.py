@@ -28,6 +28,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
+from adapters.inbound.ui_helpers import render_safe_error_response
 from core.constants import QueryLimit
 from core.ports.query_types import PrinciplesFilterSpec
 from core.services.principles_service import PrinciplesService
@@ -96,47 +97,6 @@ def create_principles_ui_routes(
             strength=request.query_params.get("filter_strength", "all"),
             sort_by=request.query_params.get("sort_by", "strength"),
         )
-
-    # Error rendering moved to components.error_components.ErrorComponents
-
-    # ========================================================================
-    # ERROR HANDLING
-    # ========================================================================
-
-    def render_safe_error_response(
-        user_message: str,
-        error_context: Any,
-        logger_instance,
-        log_extra: dict[str, Any],
-        status_code: int = 500,
-    ) -> Response:
-        """
-        Return sanitized error to client, log detailed error server-side.
-
-        Args:
-            user_message: Safe message for client (e.g., "Failed to update principle")
-            error_context: Detailed error (logged but NOT sent to client)
-            logger_instance: Logger instance for structured logging
-            log_extra: Additional context for logs (user_uid, entity_uid, etc.)
-            status_code: HTTP status code
-
-        Returns:
-            Response with sanitized message
-        """
-        # Log detailed error server-side
-        logger_instance.error(
-            user_message,
-            extra={
-                {
-                    **log_extra,
-                    "error_type": type(error_context).__name__,
-                    "error_detail": str(error_context),
-                }
-            },
-        )
-
-        # Return safe message to client
-        return Response(user_message, status_code=status_code)
 
     # ========================================================================
     # DATA FETCHING HELPERS

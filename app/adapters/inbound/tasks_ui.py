@@ -27,6 +27,7 @@ from fasthtml.common import H1, H2, Div, JSONResponse, P, Response, Span
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
+from adapters.inbound.ui_helpers import CalendarParams, parse_calendar_params, render_safe_error_response
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest
@@ -92,13 +93,6 @@ def create_tasks_ui_routes(
         status_filter: str
         sort_by: str
 
-    @dataclass
-    class CalendarParams:
-        """Typed params for calendar view."""
-
-        calendar_view: str
-        current_date: date
-
     # ========================================================================
     # HELPER FUNCTIONS
     # ========================================================================
@@ -112,21 +106,6 @@ def create_tasks_ui_routes(
             status_filter=request.query_params.get("filter_status", "active"),
             sort_by=request.query_params.get("sort_by", "due_date"),
         )
-
-    def parse_calendar_params(request: Request) -> CalendarParams:
-        """Extract calendar view parameters from request query params."""
-        calendar_view = request.query_params.get("calendar_view", "month")
-        date_str = request.query_params.get("date", "")
-
-        # Parse date or use today
-        try:
-            current_date = date.fromisoformat(date_str) if date_str else date.today()
-        except ValueError:
-            current_date = date.today()
-
-        return CalendarParams(calendar_view=calendar_view, current_date=current_date)
-
-    # Error rendering moved to components.error_components.ErrorComponents
 
     # ========================================================================
     # AUTOCOMPLETE CACHE
@@ -166,43 +145,6 @@ def create_tasks_ui_routes(
         _autocomplete_cache[cache_key] = (now, fresh_data)
 
         return fresh_data
-
-    # ========================================================================
-    # ERROR HANDLING
-    # ========================================================================
-
-    def render_safe_error_response(
-        user_message: str,
-        error_context: Any,
-        logger_instance: Any,  # Logger instance
-        log_extra: dict[str, Any],
-        status_code: int = 500,
-    ) -> Response:
-        """
-        Return sanitized error to client, log detailed error server-side.
-
-        Args:
-            user_message: Safe message for client (e.g., "Failed to update task")
-            error_context: Detailed error (logged but NOT sent to client)
-            logger_instance: Logger instance for structured logging
-            log_extra: Additional context for logs (user_uid, entity_uid, etc.)
-            status_code: HTTP status code
-
-        Returns:
-            Response with sanitized message
-        """
-        # Log detailed error server-side
-        logger_instance.error(
-            user_message,
-            extra={
-                **log_extra,
-                "error_type": type(error_context).__name__,
-                "error_detail": str(error_context),
-            },
-        )
-
-        # Return safe message to client
-        return Response(user_message, status_code=status_code)
 
     # ========================================================================
     # DATA FETCHING
