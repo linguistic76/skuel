@@ -171,6 +171,22 @@ class ResponseGenerator:
             aligned = user_context.is_life_aligned(MasteryLevel.DEFAULT)
             context_parts.append(f"Status: {'Aligned' if aligned else 'Needs attention'}")
 
+        # Activity report context (if query mentions feedback/patterns/reflection)
+        if any(
+            word in query_lower
+            for word in ["feedback", "pattern", "review", "reflect", "report", "progress", "trend"]
+        ) and user_context.latest_activity_report_uid:
+            context_parts.append("\n--- Recent Activity Analysis ---")
+            if user_context.latest_activity_report_period:
+                context_parts.append(f"Period: last {user_context.latest_activity_report_period}")
+            if user_context.latest_activity_report_content:
+                snippet = user_context.latest_activity_report_content[:300]
+                context_parts.append(f"AI synthesis: {snippet}...")
+            if user_context.latest_activity_report_user_annotation:
+                context_parts.append(
+                    f"Your reflection: {user_context.latest_activity_report_user_annotation}"
+                )
+
         return "\n".join(context_parts)
 
     def generate_actions(

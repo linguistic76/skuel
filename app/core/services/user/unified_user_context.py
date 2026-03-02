@@ -335,6 +335,7 @@ class UserContext:
     latest_activity_report_period: str | None = None  # "7d" | "14d" | "30d" | "90d"
     latest_activity_report_generated_at: datetime | None = None  # period_end datetime
     latest_activity_report_content: str | None = None  # processed_content for inline reasoning
+    latest_activity_report_user_annotation: str | None = None  # Owner's self-reflection (additive mode only)
 
     # =========================================================================
     # PROGRESS AWARENESS - Unified progress tracking

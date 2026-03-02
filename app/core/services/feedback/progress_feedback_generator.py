@@ -183,9 +183,11 @@ class ProgressFeedbackGenerator:
             processor_type = ProcessorType.AUTOMATIC
             processing_error: str | None = None
 
+            previous_annotation = await self._fetch_previous_annotation(user_uid, start_date)
+
             if self.openai_service:
                 llm_result = await self._generate_llm_feedback(
-                    completions, insights, time_period, depth
+                    completions, insights, time_period, depth, previous_annotation
                 )
                 if llm_result.is_ok:
                     content = llm_result.value
@@ -277,6 +279,7 @@ class ProgressFeedbackGenerator:
         insights: list[Any],
         time_period: str,
         depth: str,
+        previous_annotation: str | None = None,
     ) -> Result[str]:
         """Send activity stats to LLM and return qualitative feedback text.
 
@@ -285,6 +288,7 @@ class ProgressFeedbackGenerator:
             insights: Active insights for the user
             time_period: e.g. "7d"
             depth: "summary" | "standard" | "detailed"
+            previous_annotation: User's self-reflection from their most recent prior report
 
         Returns:
             Result[str] — LLM-generated feedback text
@@ -294,7 +298,9 @@ class ProgressFeedbackGenerator:
                 Errors.integration("OpenAI", "generate", "No LLM service configured")
             )
 
-        prompt = self._build_llm_prompt(completions, insights, time_period, depth)
+        prompt = self._build_llm_prompt(
+            completions, insights, time_period, depth, previous_annotation
+        )
         return await self.openai_service.generate_completion(
             prompt=prompt,
             max_tokens=2000 if depth == "detailed" else 1000,
@@ -308,6 +314,7 @@ class ProgressFeedbackGenerator:
         insights: list[Any],
         time_period: str,
         depth: str,
+        previous_annotation: str | None = None,
     ) -> str:
         """Build the LLM prompt from activity stats and prompt template.
 
@@ -373,12 +380,20 @@ class ProgressFeedbackGenerator:
                 insight_lines.append(f"- [{impact}] {title}")
             insights_section = "\n".join(insight_lines)
 
-        return template.format(
+        rendered = template.format(
             time_period=time_period,
             depth=depth,
             stats_json=json.dumps(stats_summary, indent=2),
             insights_section=insights_section,
         )
+        if previous_annotation:
+            rendered += (
+                f"\n\nUser's reflection from their previous activity report:\n"
+                f"{previous_annotation}\n\n"
+                f"Please acknowledge this reflection where the current data supports "
+                f"or contradicts it."
+            )
+        return rendered
 
     # =========================================================================
     # GRAPH QUERIES
@@ -659,6 +674,30 @@ class ProgressFeedbackGenerator:
             sections.append("No activity recorded in this period.")
 
         return "\n".join(sections)
+
+    async def _fetch_previous_annotation(
+        self, user_uid: str, current_period_start: datetime
+    ) -> str | None:
+        """Return the most recent user_annotation from a prior ActivityReport, or None.
+
+        Uses period_end < current_period_start to avoid reading the annotation of the
+        report currently being generated (which won't exist yet, but avoids ambiguity).
+        """
+        _QUERY = """
+        MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
+        WHERE ar.entity_type = 'activity_report'
+          AND ar.user_annotation IS NOT NULL
+          AND ar.period_end < datetime($period_start)
+        RETURN ar.user_annotation AS annotation
+        ORDER BY ar.period_end DESC
+        LIMIT 1
+        """
+        result = await self.executor.execute_query(
+            _QUERY, {"user_uid": user_uid, "period_start": current_period_start.isoformat()}
+        )
+        if result.is_error or not result.value:
+            return None
+        return result.value[0].get("annotation") if result.value else None
 
     async def _create_insight_relationships(self, ku_uid: str, insights: list[Any]) -> None:
         """Create BASED_ON_INSIGHT relationships between Entity and insights."""

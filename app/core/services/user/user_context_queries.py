@@ -946,7 +946,7 @@ LATEST_ACTIVITY_REPORT_QUERY: str = """
 MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
 WHERE ar.entity_type = 'activity_report'
 RETURN ar.uid AS uid, ar.time_period AS period, ar.period_end AS period_end,
-       ar.processed_content AS content
+       ar.processed_content AS content, ar.user_annotation AS user_annotation
 ORDER BY ar.period_end DESC
 LIMIT 1
 """

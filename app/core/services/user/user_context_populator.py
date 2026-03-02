@@ -368,6 +368,7 @@ class UserContextPopulator:
         context.latest_activity_report_period = r.get("period")
         context.latest_activity_report_generated_at = r.get("period_end")
         context.latest_activity_report_content = r.get("content")
+        context.latest_activity_report_user_annotation = r.get("user_annotation")
 
     def populate_moc_fields(self, context: "UserContext", uids_data: dict[str, Any]) -> None:
         """
