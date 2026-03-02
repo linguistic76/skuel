@@ -326,6 +326,22 @@ class ProgressFeedbackGenerator:
                 }
                 for p in completions.get("principles_details", [])[:10]
             ],
+            # Curriculum track
+            "ku_mastered": completions.get("ku_mastered", 0),
+            "ku_in_progress": completions.get("ku_in_progress", 0),
+            "ku_engaged": [
+                k["title"] for k in completions.get("ku_details", []) if k.get("title")
+            ][:10],
+            "lp_enrolled": completions.get("lp_enrolled", 0),
+            "lp_summary": [
+                {"title": p["title"], "progress_pct": round(p.get("progress_pct") or 0, 1)}
+                for p in completions.get("lp_details", [])
+                if p.get("title")
+            ][:5],
+            "ls_active": completions.get("ls_active", 0),
+            "ls_summary": [
+                s["title"] for s in completions.get("ls_details", []) if s.get("title")
+            ][:5],
         }
 
         insights_section = "No active insights."
@@ -374,6 +390,14 @@ class ProgressFeedbackGenerator:
             "principles_details": [],
             "goal_alignments": [],
             "knowledge_applications": [],
+            # Curriculum track
+            "ku_mastered": 0,
+            "ku_in_progress": 0,
+            "ku_details": [],
+            "lp_enrolled": 0,
+            "lp_details": [],
+            "ls_active": 0,
+            "ls_details": [],
         }
 
     async def _query_completions(
@@ -498,6 +522,52 @@ class ProgressFeedbackGenerator:
                     "category": entity.get("category", ""),
                 })
 
+        # Knowledge Units (KU) — curriculum track
+        if include_all or "knowledge" in (domains or []):
+            mastery_scores = context.knowledge_mastery
+            for uid, ku_data in context.knowledge_units_rich.items():
+                ku_props = ku_data.get("ku", {})
+                score = mastery_scores.get(uid, 0.0)
+                if score >= 0.8:
+                    result["ku_mastered"] += 1
+                else:
+                    result["ku_in_progress"] += 1
+                result["ku_details"].append({
+                    "uid": uid,
+                    "title": ku_props.get("title", ""),
+                    "domain": ku_props.get("domain", ""),
+                    "score": score,
+                })
+
+        # Learning Paths — curriculum track
+        if include_all or "learning_paths" in (domains or []):
+            for item in context.enrolled_paths_rich:
+                path = item.get("path", {})
+                graph_ctx = item.get("graph_context", {})
+                result["lp_enrolled"] += 1
+                result["lp_details"].append({
+                    "uid": path.get("uid", ""),
+                    "title": path.get("title") or path.get("name", ""),
+                    "total_steps": graph_ctx.get("total_steps", 0),
+                    "completed_steps": graph_ctx.get("completed_steps", 0),
+                    "progress_pct": graph_ctx.get("progress_percentage", 0.0),
+                })
+
+        # Learning Steps — curriculum track
+        if include_all or "learning_steps" in (domains or []):
+            for item in context.active_learning_steps_rich:
+                step = item.get("step", {})
+                graph_ctx = item.get("graph_context", {})
+                result["ls_active"] += 1
+                knowledge_rels = graph_ctx.get("knowledge_relationships", [])
+                learning_path = graph_ctx.get("learning_path") or {}
+                result["ls_details"].append({
+                    "uid": step.get("uid", ""),
+                    "title": step.get("title", ""),
+                    "learning_path": learning_path.get("name", ""),
+                    "knowledge": [k.get("title", "") for k in knowledge_rels if k.get("title")],
+                })
+
         return result
 
     def _build_report_content(
@@ -614,6 +684,47 @@ class ProgressFeedbackGenerator:
                     strength = principle.get("strength") or ""
                     strength_label = f" ({strength})" if strength else ""
                     sections.append(f"  - {principle['title']}{strength_label} [{alignment}]")
+            sections.append("")
+
+        # Knowledge Study (curriculum track)
+        ku_details = completions.get("ku_details", [])
+        if ku_details:
+            ku_mastered = completions.get("ku_mastered", 0)
+            ku_in_progress = completions.get("ku_in_progress", 0)
+            sections.append("## Knowledge Study")
+            sections.append(f"- **KUs mastered:** {ku_mastered}")
+            sections.append(f"- **KUs in progress:** {ku_in_progress}")
+            if depth != ProgressDepth.SUMMARY:
+                for ku in ku_details[:10]:
+                    score_pct = int((ku.get("score") or 0) * 100)
+                    domain_label = f" ({ku['domain']})" if ku.get("domain") else ""
+                    sections.append(f"  - {ku['title']}{domain_label}: {score_pct}%")
+            sections.append("")
+
+        # Learning Path Progress (curriculum track)
+        lp_details = completions.get("lp_details", [])
+        if lp_details:
+            sections.append("## Learning Path Progress")
+            sections.append(f"- **Enrolled paths:** {len(lp_details)}")
+            if depth != ProgressDepth.SUMMARY:
+                for lp in lp_details[:5]:
+                    pct = lp.get("progress_pct") or 0
+                    completed = lp.get("completed_steps", 0)
+                    total = lp.get("total_steps", 0)
+                    sections.append(
+                        f"  - {lp['title']}: {completed}/{total} steps ({pct:.0f}%)"
+                    )
+            sections.append("")
+
+        # Active Learning Steps (curriculum track)
+        ls_details = completions.get("ls_details", [])
+        if ls_details:
+            sections.append("## Active Learning Steps")
+            sections.append(f"- **Steps in progress:** {len(ls_details)}")
+            if depth != ProgressDepth.SUMMARY:
+                for ls in ls_details[:10]:
+                    path_label = f" [{ls['learning_path']}]" if ls.get("learning_path") else ""
+                    sections.append(f"  - {ls['title']}{path_label}")
             sections.append("")
 
         # Active Insights

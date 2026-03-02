@@ -100,7 +100,12 @@ class ActivityReportService:
         if ctx_result.is_error:
             return Result.fail(ctx_result.expect_error())
 
-        activity = ctx_result.value.entities_rich
+        context = ctx_result.value
+        activity = context.entities_rich
+        ku_rich = context.knowledge_units_rich
+        mastery_scores = context.knowledge_mastery
+        lp_rich = context.enrolled_paths_rich
+        ls_rich = context.active_learning_steps_rich
         include_all = not domains
         snapshot: dict[str, Any] = {
             "subject_uid": subject_uid,
@@ -201,6 +206,55 @@ class ActivityReportService:
                         "alignment": item.get("entity", {}).get("alignment"),
                     }
                     for item in principles[:10]
+                ],
+            }
+
+        # Curriculum track — knowledge units
+        if include_all or "knowledge" in (domains or []):
+            mastered_uids = [uid for uid, score in mastery_scores.items() if score >= 0.8]
+            in_progress_uids = [uid for uid, score in mastery_scores.items() if score < 0.8]
+            snapshot["domains"]["knowledge"] = {
+                "mastered_count": len(mastered_uids),
+                "in_progress_count": len(in_progress_uids),
+                "items": [
+                    {
+                        "title": ku_rich.get(uid, {}).get("ku", {}).get("title", uid),
+                        "domain": ku_rich.get(uid, {}).get("ku", {}).get("domain", ""),
+                        "score": mastery_scores[uid],
+                    }
+                    for uid in list(mastery_scores.keys())[:10]
+                ],
+            }
+
+        # Curriculum track — learning paths
+        if include_all or "learning_paths" in (domains or []):
+            snapshot["domains"]["learning_paths"] = {
+                "count": len(lp_rich),
+                "items": [
+                    {
+                        "title": item.get("path", {}).get("title")
+                            or item.get("path", {}).get("name", ""),
+                        "total_steps": item.get("graph_context", {}).get("total_steps", 0),
+                        "completed_steps": item.get("graph_context", {}).get("completed_steps", 0),
+                        "progress_pct": item.get("graph_context", {}).get("progress_percentage", 0.0),
+                    }
+                    for item in lp_rich[:10]
+                ],
+            }
+
+        # Curriculum track — active learning steps
+        if include_all or "learning_steps" in (domains or []):
+            snapshot["domains"]["learning_steps"] = {
+                "count": len(ls_rich),
+                "items": [
+                    {
+                        "title": item.get("step", {}).get("title", ""),
+                        "status": item.get("step", {}).get("status", ""),
+                        "learning_path": (
+                            item.get("graph_context", {}).get("learning_path") or {}
+                        ).get("name", ""),
+                    }
+                    for item in ls_rich[:10]
                 ],
             }
 
