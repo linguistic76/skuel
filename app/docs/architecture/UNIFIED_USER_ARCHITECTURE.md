@@ -936,8 +936,9 @@ The MEGA_QUERY returns 5 top-level sections that map to UserContext fields:
 | `ar.time_period` | `latest_activity_report_period` | `populate_activity_report()` |
 | `ar.period_end` | `latest_activity_report_generated_at` | `populate_activity_report()` |
 | `ar.processed_content` | `latest_activity_report_content` | `populate_activity_report()` |
+| `ar.user_annotation` | `latest_activity_report_user_annotation` | `populate_activity_report()` |
 
-These fields are `None` in standard context. `DailyPlanningMixin._generate_daily_rationale()` uses them to note when the daily plan is informed by a recent AI synthesis.
+These fields are `None` in standard context. `DailyPlanningMixin._generate_daily_rationale()` uses them to note when the daily plan is informed by a recent AI synthesis. `ResponseGenerator.build_llm_context()` includes `latest_activity_report_user_annotation` when the query mentions feedback/patterns/reflection keywords.
 
 ## Profile Intelligence Integration
 *Last updated: January 2026*

@@ -287,11 +287,14 @@ When `openai_service` is available, the generator:
 
 1. Queries completions across Tasks, Goals, Habits, Choices
 2. Cross-references active Insights
-3. Sends stats as JSON context to LLM via `activity_feedback.md` prompt template
-4. LLM returns qualitative analysis with patterns, trends, recommendations
-5. Creates `ActivityReport` with `processed_content = LLM output`, `metadata = raw stats`
+3. Fetches `user_annotation` from the most recent prior `ActivityReport` (`period_end < current_period_start`) via `_fetch_previous_annotation()`
+4. Sends stats as JSON context to LLM via `activity_feedback.md` prompt template; if a prior annotation exists, appends it with an instruction to acknowledge or contrast the user's self-reflection
+5. LLM returns qualitative analysis with patterns, trends, recommendations
+6. Creates `ActivityReport` with `processed_content = LLM output`, `metadata = raw stats`
 
-**Graceful fallback:** If LLM call fails, falls back to programmatic markdown with `ProcessorType.AUTOMATIC` and logs `processing_error`.
+**Graceful fallback:** If LLM call fails, falls back to programmatic markdown with `ProcessorType.AUTOMATIC` and logs `processing_error`. If no prior annotation exists, the prompt is unchanged.
+
+**Annotation feedback loop:** User annotations flow back into the next report's LLM prompt via `_fetch_previous_annotation()`. The field is also surfaced in `UserContext.latest_activity_report_user_annotation` and included in Askesis's `build_llm_context()` when the query mentions feedback/patterns/reflection keywords.
 
 **Prompt template:** `core/services/feedback/prompts/activity_feedback.md`
 
