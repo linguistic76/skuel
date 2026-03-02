@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.ports import BackendOperations, QueryExecutor
 
+from core.constants import FeedbackTimePeriod
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.feedback.activity_report import ActivityReport
 from core.utils.logging import get_logger
@@ -29,13 +30,6 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger("skuel.services.feedback.activity_review")
-
-TIME_PERIOD_DAYS = {
-    "7d": 7,
-    "14d": 14,
-    "30d": 30,
-    "90d": 90,
-}
 
 _SNAPSHOT_QUERY: str = """
 MATCH (u:User {uid: $user_uid})
@@ -130,7 +124,7 @@ class ActivityReviewService:
         Returns:
             Result[dict] — snapshot data with per-domain activity summaries
         """
-        days = TIME_PERIOD_DAYS.get(time_period, 7)
+        days = FeedbackTimePeriod.DAYS.get(time_period, FeedbackTimePeriod.DEFAULT_DAYS)
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
 
@@ -245,7 +239,7 @@ class ActivityReviewService:
         Returns:
             Result[ActivityReport] — the created feedback entity
         """
-        days = TIME_PERIOD_DAYS.get(time_period, 7)
+        days = FeedbackTimePeriod.DAYS.get(time_period, FeedbackTimePeriod.DEFAULT_DAYS)
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
 

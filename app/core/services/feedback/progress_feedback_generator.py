@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from core.services.ai_service import OpenAIService
     from core.services.insight.insight_store import InsightStore
 
+from core.constants import FeedbackTimePeriod
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
@@ -39,14 +40,6 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger("skuel.services.feedback.progress_generator")
-
-# Time period mapping
-TIME_PERIOD_DAYS = {
-    "7d": 7,
-    "14d": 14,
-    "30d": 30,
-    "90d": 90,
-}
 
 _PROMPT_TEMPLATE_PATH = Path(__file__).parent / "prompts" / "activity_feedback.md"
 
@@ -188,7 +181,7 @@ class ProgressFeedbackGenerator:
         Returns:
             Result[ActivityReport] — the created feedback entity
         """
-        days = TIME_PERIOD_DAYS.get(time_period, 7)
+        days = FeedbackTimePeriod.DAYS.get(time_period, FeedbackTimePeriod.DEFAULT_DAYS)
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
         progress_depth = ProgressDepth(depth) if depth else ProgressDepth.STANDARD

@@ -13,10 +13,8 @@ import pytest
 
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.feedback.activity_report import ActivityReport
-from core.services.feedback.progress_feedback_generator import (
-    TIME_PERIOD_DAYS,
-    ProgressFeedbackGenerator,
-)
+from core.constants import FeedbackTimePeriod
+from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
 from core.utils.result_simplified import Result
 
 
@@ -76,16 +74,16 @@ class TestTimePeriodMapping:
     """Test time period string to days mapping."""
 
     def test_7d(self):
-        assert TIME_PERIOD_DAYS["7d"] == 7
+        assert FeedbackTimePeriod.DAYS["7d"] == 7
 
     def test_14d(self):
-        assert TIME_PERIOD_DAYS["14d"] == 14
+        assert FeedbackTimePeriod.DAYS["14d"] == 14
 
     def test_30d(self):
-        assert TIME_PERIOD_DAYS["30d"] == 30
+        assert FeedbackTimePeriod.DAYS["30d"] == 30
 
     def test_90d(self):
-        assert TIME_PERIOD_DAYS["90d"] == 90
+        assert FeedbackTimePeriod.DAYS["90d"] == 90
 
 
 # ============================================================================

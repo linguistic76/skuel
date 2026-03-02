@@ -388,6 +388,35 @@ class RelationshipStrength:
 
 
 # ============================================================================
+# FEEDBACK TIME PERIODS
+# ============================================================================
+
+
+class FeedbackTimePeriod:
+    """
+    Valid time period strings for activity feedback and review.
+
+    Used by: ActivityReviewService, ProgressFeedbackGenerator
+    Both services share the same API-facing period vocabulary ("7d", "14d", etc.)
+    and the corresponding day counts for datetime arithmetic.
+    """
+
+    WEEK: Final = "7d"
+    TWO_WEEKS: Final = "14d"
+    MONTH: Final = "30d"
+    QUARTER: Final = "90d"
+    DEFAULT: Final = "7d"
+    DEFAULT_DAYS: Final = 7
+
+    DAYS: Final[dict[str, int]] = {
+        "7d": 7,
+        "14d": 14,
+        "30d": 30,
+        "90d": 90,
+    }
+
+
+# ============================================================================
 # USAGE EXAMPLES
 # ============================================================================
 
