@@ -70,7 +70,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Submissions + Feedback](domains/submissions.md) | Content | Ku→Exercise→Submission→Feedback learning loop |
 | [Journals](domains/journals.md) | Content | User journals (EntityType.JOURNAL, AI-processed) |
 | **Organizational Domains (2)** |
-| [Groups](domains/groups.md) | Organization | Teacher-student class management (ADR-040) |
+| Groups | Organization | Teacher-student class management (ADR-040) — doc pending |
 | [MOC (Map of Content)](domains/moc.md) | Organization | KU-based non-linear navigation (graph topology) |
 | **Destination Domain (1)** |
 | [LifePath](domains/lifepath.md) | Destination | "Am I living my life path?" |
@@ -85,7 +85,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 |----------|---------|-------|
 | [Admin Dashboard Architecture](architecture/ADMIN_DASHBOARD_ARCHITECTURE.md) | 2026-02-08 | 527 |
 | [Alpine.js Architecture](architecture/ALPINE_JS_ARCHITECTURE.md) | 2026-01-05 | 280 |
-| [Assignments PIPELINE](architecture/assignments_PIPELINE.md) | 2025-11-27 | 343 |
 | [Curriculum Grouping Patterns: KU, LS, LP + MOC Organization](architecture/CURRICULUM_GROUPING_PATTERNS.md) | 2026-01-20 | 410 |
 | **[Enum Architecture](architecture/ENUM_ARCHITECTURE.md)** | **2026-02-23** | **280** |
 | [Finance Categories System](architecture/FINANCE_CATEGORIES_GUIDE.md) | 2025-11-27 | 562 |
@@ -100,7 +99,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Service Architecture: File Organization & Topology](architecture/SERVICE_TOPOLOGY.md) | 2026-03-03 | — |
 | [User Architecture — Model, Auth, Roles, UserContext](architecture/UNIFIED_USER_ARCHITECTURE.md) | 2026-03-03 | — |
 | **[Hyperview Mobile Strategy](architecture/HYPERVIEW_STRATEGY.md)** | **2026-02-06** | **90** |
-| [YAML + Markdown Ingestion & Editing Guide](architecture/YAML_MARKDOWN_INGESTION_GUIDE.md) | 2025-11-27 | 909 |
 | [Askesis Architecture](architecture/ASKESIS_ARCHITECTURE.md) | 2025-11-27 | — |
 | [Analytics Architecture](architecture/ANALYTICS_ARCHITECTURE.md) | 2025-11-27 | — |
 | [Core Systems Architecture](architecture/CORE_SYSTEMS_ARCHITECTURE.md) | 2026-02-08 | — |
@@ -128,7 +126,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Graph Access Patterns Guide](patterns/GRAPH_ACCESS_PATTERNS.md) | 2025-11-27 | 999 |
 | [HTTP Status Codes - REST Best Practices](patterns/http_status_codes.md) | 2025-10-17 | 167 |
 | **[Insight Action Tracking Pattern](patterns/INSIGHT_ACTION_TRACKING.md)** | **2026-01-31** | **420** |
-| [Knowledge Unit → Learning Path Integration Pattern](patterns/KU_LP_INTEGRATION_PATTERN.md) | 2025-11-05 | 835 |
 | [Logging Patterns](patterns/LOGGING_PATTERNS.md) | 2026-01-03 | 130 |
 | [MetadataManagerMixin - Consistent Timestamp & Meta...](patterns/metadata_manager_mixin.md) | 2025-11-28 | 247 |
 | [Model-to-Adapter Dynamic Architecture](patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md) | 2025-11-27 | 495 |
@@ -143,7 +140,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [SKUEL Query Template Usage Guide](patterns/SKUEL_QUERY_USAGE_GUIDE.md) | 2025-11-26 | 620 |
 | [Return Type Error Propagation Pattern](patterns/RETURN_TYPE_ERROR_PROPAGATION.md) | 2025-11-08 | 255 |
 | [SearchService Pattern for Activity Domains](patterns/search_service_pattern.md) | 2025-11-28 | 268 |
-| [Service Decomposition - Implementation Guide](patterns/SERVICE_DECOMPOSITION_IMPLEMENTATION_GUIDE.md) | 2025-11-27 | 554 |
 | **[Three-Tier Type System](patterns/three_tier_type_system.md)** | **2026-01-24** | **468** |
 | **[Type Safety Architecture Overview](patterns/TYPE_SAFETY_OVERVIEW.md)** | **2026-02-28** | **247** |
 | **[Any Usage Policy](patterns/ANY_USAGE_POLICY.md)** | **2026-02-28** | **169** |
@@ -206,7 +202,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [ADR-021: User Context Intelligence Modularization](decisions/ADR-021-user-context-intelligence-modularization.md) | 2026-01-03 | 180 |
 | [ADR-022: Graph-Native Authentication](decisions/ADR-022-graph-native-authentication.md) | 2026-01-04 | 200 |
 | [ADR-023: Unified BaseService Architecture](decisions/ADR-023-curriculum-baseservice-migration.md) | 2026-01-06 | 295 |
-| [ADR-024: BaseAnalyticsService Migration](decisions/ADR-024-baseintellligence-service-migration.md) | 2026-01-06 | 200 |
+| [ADR-024: BaseAnalyticsService Migration](decisions/ADR-024-base-intelligence-service-migration.md) | 2026-01-06 | 200 |
 | [ADR-025: Service Consolidation Patterns](decisions/ADR-025-service-consolidation-patterns.md) | 2026-01-07 | 296 |
 | [ADR-026: Unified Relationship Registry](decisions/ADR-026-unified-relationship-registry.md) | 2026-01-07 | 326 |
 | [ADR-027: Knowledge Carrier Protocol](decisions/ADR-027-knowledge-carrier-protocol.md) | 2026-01-07 | - |
@@ -244,15 +240,12 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | Document | Updated | Lines |
 |----------|---------|-------|
 | [Askesis Search Architecture - Clean & Independent](guides/ASKESIS_SEARCH_ARCHITECTURE.md) | 2025-11-27 | 243 |
-| [Event-Driven Architecture Migration Guide](guides/EVENT_DRIVEN_MIGRATION_GUIDE.md) | 2025-11-27 | 703 |
 | **[GitHub Fundamentals - Local to Remote Workflow](guides/GITHUB_FUNDAMENTALS.md)** | **2026-01-29** | **980** |
 | [Intelligence Route Factory - Usage Guide](guides/INTELLIGENCE_ROUTE_FACTORY_USAGE.md) | 2025-11-27 | 555 |
 | [HTMX Version Standardization Guide](guides/HTMX_VERSION_STANDARDIZATION.md) | 2026-01-15 | 280 |
 | [Protocol Implementation Guide](guides/PROTOCOL_IMPLEMENTATION_GUIDE.md) | 2026-01-03 | 475 |
 | [Shared UI Components - Quick Reference Card](guides/SHARED_UI_QUICK_REFERENCE.md) | 2025-11-27 | 264 |
 | [Shared UI Components Guide](guides/SHARED_UI_COMPONENTS_GUIDE.md) | 2026-01-15 | 674 |
-| [Simple Search - Quick Reference](guides/SIMPLE_SEARCH_QUICK_REFERENCE.md) | 2025-11-27 | 611 |
-| [Simple Search - Setup Guide](guides/SIMPLE_SEARCH_SETUP_GUIDE.md) | 2025-11-27 | 499 |
 | **[Troubleshooting Guide](TROUBLESHOOTING.md)** | **2026-01-31** | **650** |
 
 ## Deployment
@@ -356,29 +349,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [MyPy Limitations in Universal Backend](technical_debt/MYPY_BACKEND_LIMITATIONS.md) | 2025-11-18 | 196 |
 | [Return Value Type Errors Analysis](technical_debt/RETURN_VALUE_ERRORS_ANALYSIS.md) | 2025-11-18 | 279 |
 
-## Archive
-
-*Archived and deprecated documentation*
-
-| Document | Updated | Lines |
-|----------|---------|-------|
-| **Archived Guides** |
-| [CRUD Route Factory - Usage Guide (Legacy)](archive/guides/CRUD_ROUTE_FACTORY_USAGE_LEGACY_2025-11-27.md) (archived) | 2025-11-27 | 552 |
-| **Archived DSL** |
-| [**SKUEL DSL Syntax Guide (v1.0)**](archive/dsl/dsl_grammar_guide.md) (archived) | 2025-11-25 | 363 |
-| [DSL G](archive/dsl/dsl_g.md) (archived) | 2025-11-25 | 148 |
-| [Dsl Activity Line Notes](archive/dsl/dsl_activity_line_notes.md) (archived) | 2025-11-25 | 38 |
-| [Dsl Context](archive/dsl/dsl_context.md) (archived) | 2025-11-25 | 246 |
-| [Dsl Notes 2](archive/dsl/dsl_notes_2.md) (archived) | 2025-11-25 | 49 |
-| [Dsl Snapshot](archive/dsl/dsl_snapshot.md) (archived) | 2025-11-25 | 218 |
-| [Moc Dsl](archive/dsl/moc_dsl.md) (archived) | 2025-11-25 | 26 |
-| [SKUEL Activity Syntax — v0.3 Extensions](archive/dsl/dsl_v0.3.md) (archived) | 2025-11-25 | 495 |
-| [v0.1 SKUEL Activity Line Mini-DSL Spec](archive/dsl/dsl_activity_line.md) (archived) | 2025-11-25 | 319 |
-| [v0.2 SKUEL Activity Line Mini-DSL Spec](archive/dsl/dsl_v0.2.md) (archived) | 2025-11-25 | 460 |
-| **Archived Patterns** |
-| [Query Decision Matrix - Phase 7.2](archive/patterns/QUERY_DECISION_MATRIX.md) (archived) | 2025-12-04 | 633 |
-| [GenericRelationshipService Pattern](archive/patterns/GENERIC_RELATIONSHIP_SERVICE.md) (archived) | 2025-12-04 | 456 |
-
 ## Top-Level
 
 *Top-level documentation files*
@@ -386,14 +356,12 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | Document | Updated | Lines |
 |----------|---------|-------|
 | [Claude Quick Start Guide](CLAUDE_QUICKSTART.md) | 2025-12-04 | 180 |
-| [Edge Metadata Fields](edge_metadata_fields.md) | 2025-11-23 | 89 |
-| [SKUEL Codebase Analysis - DRY & Separation of Conc...](ANALYSIS_README.md) | 2025-11-28 | 199 |
 | [SKUEL Documentation Hub](README.md) | 2025-12-04 | 153 |
 
 ---
 
 ## Statistics
 
-- **Total documents:** ~200 (core + migrations + roadmap + examples)
-- **Categories:** 14 (Domains, Architecture, Patterns, DSL, Decisions, Guides, Reference, Intelligence, Migrations, Roadmap, Examples, Technical Debt, Archive, Top-Level)
+- **Total documents:** ~192 (core + migrations + roadmap + examples)
+- **Categories:** 13 (Domains, Architecture, Patterns, DSL, Decisions, Guides, Reference, Intelligence, Migrations, Roadmap, Examples, Technical Debt, Top-Level)
 - **ADRs:** 43 (ADR-001 through ADR-042, with template)
