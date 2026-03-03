@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-03-01'
+updated: '2026-03-03'
 category: patterns
 related_skills:
 - pytest
@@ -192,7 +192,9 @@ assert access_result.value is True  # ✅ Public access
 GET /api/submissions/public?user_uid=user_alice&limit=10
 ```
 
-Returns all public entities for user's portfolio.
+Returns only `visibility=PUBLIC` entities. Server enforces the visibility filter — private and shared submissions are never exposed to unauthenticated callers.
+
+**Note:** `limit` is applied before the visibility filter, so fewer results than `limit` may be returned if most submissions are non-public.
 
 ---
 
@@ -552,6 +554,10 @@ Only `COMPLETED` entities can be shared — enforced via `verify_shareable()`.
 ### Access Control
 
 All read operations use `check_access()`. Both "not found" and "forbidden" return 404 — no information leakage.
+
+### Public Endpoint Visibility Enforcement
+
+`GET /api/submissions/public` is unauthenticated. The route enforces `visibility == Visibility.PUBLIC` server-side — it never returns PRIVATE or SHARED submissions. Users must explicitly set an entity to PUBLIC before it appears in public listings.
 
 ### Admin Routes
 

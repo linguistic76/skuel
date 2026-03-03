@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-02-15
+updated: 2026-03-03
 status: current
 category: reference
 tags: [protocol, reference]
