@@ -349,7 +349,8 @@ class AskesisAnalysis:
 | **January 2026** | Unused dependencies removed (`learning_orchestrator`, `cascade_manager`) - One Path Forward |
 | **January 2026** | Stub implementations completed - semantic search, gap analysis, LLM integration, prerequisite ordering |
 | **February 2026** | Route wiring switched to DomainRouteConfig (was bypassed in bootstrap) |
-| **February 2026** | Neo4j driver encapsulated in `AskesisCoreService.build_user_context()` — routes no longer hold a raw driver. 11 identical context-building blocks in `askesis_api.py` consolidated to single-line calls |
+| **February 2026** | Neo4j driver encapsulated in `AskesisCoreService.build_user_context()` — routes no longer hold a raw driver |
+| **March 2026** | `_load_askesis_and_context` closure extracted inside `create_askesis_api_routes` — 11 identical 15-line `get_askesis → user_uid → get_user_context` blocks replaced with a single 5-line helper call; returns `(askesis, user_uid, user_context)` 3-tuple (1302 → 1135 lines) |
 
 ---
 
