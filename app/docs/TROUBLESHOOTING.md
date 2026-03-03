@@ -146,21 +146,30 @@ curl -s -w "HTTP %{http_code}\n" http://localhost:8000/tasks
 
 ### FastHTML Components Import
 
-**Symptom**: `ImportError: cannot import name 'H1' from 'ui.daisy_components'`
+**Symptom**: `ImportError: cannot import name 'X' from 'ui.daisy_components'` or `ModuleNotFoundError: No module named 'ui.daisy_components'`
 
-**Cause**: FastHTML components (`H1`, `H2`, `H3`, `P`, `Div`, `Span`) imported from wrong module
+**Cause**: `ui/daisy_components.py` was decomposed into 8 focused modules (March 2026). Standard HTML/FastHTML primitives (`H1`, `Div`, `Span`, etc.) were never part of SKUEL's wrappers.
 
 **Solution**:
 ```python
-# ❌ WRONG
-from ui.daisy_components import H1, H2, H3, P, Div, Span
+# ❌ WRONG — module no longer exists
+from ui.daisy_components import Button, ButtonT, Card, Progress
 
-# ✅ CORRECT
-from fasthtml.common import H1, H2, H3, P, Div, Span
-from ui.daisy_components import Button, ButtonT, Card, Progress  # DaisyUI custom components
+# ✅ CORRECT — import from focused modules
+from ui.buttons import Button, ButtonT
+from ui.cards import Card, CardBody
+from ui.feedback import Progress, ProgressT
+from ui.forms import FormControl, Input, Label, Select, Textarea
+from ui.layout import Container, DivHStacked, Size
+from ui.modals import Modal, ModalBox, ModalAction, ModalBackdrop
+from ui.navigation import Dropdown, Menu, Navbar, Tabs
+from ui.data import Divider, Stats, Table, Tooltip
+
+# Standard HTML/FastHTML elements always come from fasthtml.common
+from fasthtml.common import Div, H1, H2, H3, Option, P, Span
 ```
 
-**Rule**: `ui.daisy_components` only contains SKUEL-specific DaisyUI wrappers. Standard HTML/FastHTML components come from `fasthtml.common`.
+**Rule**: SKUEL DaisyUI wrappers live in `ui/{module}.py`. Standard HTML/FastHTML components come from `fasthtml.common`. See: `/docs/ui/COMPONENT_CATALOG.md` for the full module map.
 
 ---
 

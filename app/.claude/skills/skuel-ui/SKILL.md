@@ -144,7 +144,7 @@ Layouts  (/ui/layouts/, /ui/{domain}/layout.py)
     ↓ compose
 Patterns (/ui/patterns/, /ui/{domain}/views.py)
     ↓ compose
-Primitives (/ui/daisy_components.py — DaisyUI wrappers)
+Primitives (/ui/buttons.py, /ui/cards.py, /ui/forms.py, … — 8 focused DaisyUI modules)
 ```
 
 Each layer has a single responsibility: primitives handle styling, patterns handle domain semantics, layouts handle page structure.
@@ -153,7 +153,7 @@ Each layer has a single responsibility: primitives handle styling, patterns hand
 
 ```
 Is it domain-agnostic styling (button, card, input)?
-├─ YES → /ui/daisy_components.py (Primitive)
+├─ YES → /ui/buttons.py, /ui/cards.py, /ui/forms.py, etc. (Primitive — pick the right module)
 Is it reusable across multiple domains?
 ├─ YES → /ui/patterns/ (Pattern)
 Is it domain-specific but reusable within domain?
@@ -505,7 +505,8 @@ Alpine.data('collapsibleSidebar', function(storageKey) {
 Always wrap inputs in `form-control` + `label`:
 
 ```python
-from ui.daisy_components import FormControl, Label, LabelText, Input, Select, Textarea, Button, ButtonT
+from ui.buttons import Button, ButtonT
+from ui.forms import FormControl, Input, Label, LabelText, Select, Textarea
 
 def create_task_form(action_url: str = "/tasks/quick-add") -> Any:
     return Form(
@@ -899,7 +900,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `StatsGrid` |
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
-| `/ui/daisy_components.py` | FastHTML DaisyUI wrappers (`Button`, `Card`, `FormControl`, etc.) |
+| `ui/buttons.py`, `ui/cards.py`, `ui/forms.py`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML DaisyUI wrappers — 8 focused modules (March 2026) |
 | `/static/js/skuel.js` | All Alpine.data() components |
 | `/ui/profile/_shared.py` | 5 shared profile primitives (`DomainFilterControls`, `DomainSummaryCard`, `DomainIntelligenceCard`, `_item_list`) |
 | `/ui/profile/activity_views.py` | `ActivityDomainViewConfig` + `ActivityDomainView` + 6 public wrappers (Tasks/Goals/Habits/Events/Choices/Principles) |

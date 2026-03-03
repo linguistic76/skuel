@@ -1,6 +1,6 @@
 # SKUEL UI Component Catalog
 
-**Last Updated:** 2026-02-02
+**Last Updated:** 2026-03-03
 **Status:** Complete
 **Phase:** 3, Task 5 - Pattern Standardization
 
@@ -22,9 +22,46 @@ All components follow DaisyUI conventions and WCAG 2.1 Level AA accessibility st
 
 | Category | Components | Location |
 |----------|------------|----------|
+| **DaisyUI Wrappers** | Button, Card, Input, Modal, Alert, Badge, Navbar, Table, etc. | `ui/buttons.py`, `ui/cards.py`, `ui/forms.py`, … (8 modules) |
 | **Primitives** | Button, ButtonLink, Card, Badge, Input, Layout, Text | `/ui/primitives/*.py` |
 | **Patterns** | PageHeader, EntityCard, StatsGrid, EmptyState, ErrorBanner, etc. | `/ui/patterns/*.py` |
 | **Layouts** | BasePage, Navbar, Domain Layouts | `/ui/layouts/*.py` |
+
+---
+
+# DaisyUI Component Modules
+
+Thin Python wrappers around FastHTML FT components with DaisyUI styling.
+These are the **lowest-level SKUEL building blocks** — imported directly in route files and views.
+
+**Module map** (March 2026 — decomposed from `daisy_components.py`):
+
+| Module | Symbols |
+|--------|---------|
+| `ui.layout` | `Size`, `DivHStacked`, `DivVStacked`, `DivFullySpaced`, `DivCentered`, `Grid`, `Container` |
+| `ui.buttons` | `ButtonT`, `Button` |
+| `ui.cards` | `CardT`, `Card`, `CardBody`, `CardTitle`, `CardActions`, `CardFigure` |
+| `ui.forms` | `InputT`, `Input`, `Select`, `Textarea`, `FormControl`, `Label`, `LabelText`, `Checkbox`, `Radio`, `Toggle`, `Range` |
+| `ui.modals` | `Modal`, `ModalBox`, `ModalAction`, `ModalBackdrop` |
+| `ui.feedback` | `AlertT`, `BadgeT`, `ProgressT`, `LoadingT`, `Alert`, `Badge`, `Loading`, `Progress`, `RadialProgress` |
+| `ui.navigation` | `Navbar`, `NavbarStart`, `NavbarCenter`, `NavbarEnd`, `Menu`, `MenuItem`, `Dropdown`, `DropdownTrigger`, `DropdownContent`, `Tabs`, `Tab` |
+| `ui.data` | `Table`, `Stats`, `Stat`, `StatTitle`, `StatValue`, `StatDesc`, `StatFigure`, `Tooltip`, `Divider`, `Avatar`, `AvatarGroup` |
+
+**Import pattern:**
+```python
+from ui.buttons import Button, ButtonT
+from ui.cards import Card, CardBody
+from ui.forms import FormControl, Input, InputT, Label, LabelText, Select, Textarea
+from ui.feedback import Alert, AlertT, Badge, Progress, ProgressT
+from ui.layout import Container, DivHStacked, DivVStacked, Size
+from ui.modals import Modal, ModalAction, ModalBackdrop, ModalBox
+from ui.navigation import Dropdown, DropdownContent, DropdownTrigger, Menu, MenuItem, Navbar
+from ui.data import Divider, Stat, Stats, Table, Tooltip
+# Standard FastHTML elements (Div, Span, Option, Thead, Tbody, etc.)
+from fasthtml.common import Div, Option, Span
+```
+
+**Note on `Size`:** Shared sizing enum used by buttons, forms, badges, and loading. Lives in `ui.layout` as the canonical location to avoid circular imports.
 
 ---
 
@@ -1148,26 +1185,40 @@ Div(cls=f"{CONTAINERS['standard']} {SPACING['section_gap']}")
 
 Quick alphabetical index:
 
-- **Badge** - `/ui/primitives/badge.py`
+**DaisyUI Wrappers (ui/*.py):**
+- **Alert / AlertT** - `ui.feedback`
+- **Avatar / AvatarGroup** - `ui.data`
+- **Badge / BadgeT** - `ui.feedback`
+- **Button / ButtonT** - `ui.buttons`
+- **Card / CardBody / CardT** - `ui.cards`
+- **Checkbox / Radio / Toggle / Range** - `ui.forms`
+- **Container / Grid / DivHStacked / DivVStacked** - `ui.layout`
+- **Divider / Tooltip** - `ui.data`
+- **Dropdown / DropdownTrigger / DropdownContent** - `ui.navigation`
+- **FormControl / Label / LabelText** - `ui.forms`
+- **Input / InputT / Select / Textarea** - `ui.forms`
+- **Loading / LoadingT** - `ui.feedback`
+- **Menu / MenuItem / Navbar** - `ui.navigation`
+- **Modal / ModalBox / ModalAction / ModalBackdrop** - `ui.modals`
+- **Progress / ProgressT / RadialProgress** - `ui.feedback`
+- **Size** - `ui.layout`
+- **Stats / Stat / StatTitle / StatValue / StatDesc / StatFigure** - `ui.data`
+- **Table** - `ui.data`
+- **Tabs / Tab** - `ui.navigation`
+
+**Patterns & Layouts:**
 - **BasePage** - `/ui/layouts/base_page.py`
 - **Breadcrumbs** - `/ui/patterns/breadcrumbs.py`
-- **Button** - `/ui/primitives/button.py`
-- **Card** - `/ui/primitives/card.py`
 - **EmptyState** - `/ui/patterns/empty_state.py`
-- **EntityCard** - `/ui/patterns/entity_card.py` ⭐ (New variant system!)
-- **ErrorBanner** - `/ui/patterns/error_banner.py` ⭐ (New!)
-- **Input** - `/ui/primitives/input.py`
-- **Layout** - `/ui/primitives/layout.py`
-- **Navbar** - `/ui/layouts/navbar.py`
+- **EntityCard** - `/ui/patterns/entity_card.py`
+- **ErrorBanner** - `/ui/patterns/error_banner.py`
+- **Navbar (layout)** - `/ui/layouts/navbar.py`
 - **PageHeader** - `/ui/patterns/page_header.py`
-- **Relationships** - `/ui/patterns/relationships/*.py` ⭐ (New!)
+- **Relationships** - `/ui/patterns/relationships/*.py`
 - **SectionHeader** - `/ui/patterns/section_header.py`
 - **Skeleton** - `/ui/patterns/skeleton.py`
 - **StatsGrid** - `/ui/patterns/stats_grid.py`
-- **Text** - `/ui/primitives/text.py`
 - **TreeView** - `/ui/patterns/tree_view.py`
-
-⭐ = Recently added/updated (Phase 2-5)
 
 ---
 

@@ -520,7 +520,7 @@ Div(cls="p-5")  # Use p-4 or p-6 (standard scale)
 | `/ui/tokens.py` | Design tokens (Container, Spacing, Card) |
 | `/static/css/main.css` | Custom CSS and `@apply` patterns |
 | `/static/css/output.css` | Compiled Tailwind output |
-| `/ui/daisy_components.py` | FastHTML DaisyUI component wrappers |
+| `ui/buttons.py`, `ui/cards.py`, `ui/forms.py`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML DaisyUI component wrappers (8 focused modules, March 2026) |
 
 ## See Also
 

@@ -50,7 +50,7 @@ SKUEL uses a layered UI component architecture built on Tailwind CSS and DaisyUI
 - `/ui/layouts/base_page.py` - Unified page wrapper
 - `/ui/layouts/page_types.py` - Page type definitions (HUB vs STANDARD)
 - `/ui/tokens.py` - Spacing, container, and styling tokens
-- `/ui/daisy_components.py` - DaisyUI wrappers (legacy, still usable)
+- `/ui/buttons.py`, `/ui/cards.py`, `/ui/forms.py`, `/ui/modals.py`, `/ui/feedback.py`, `/ui/layout.py`, `/ui/navigation.py`, `/ui/data.py` - DaisyUI wrappers (8 focused modules, March 2026)
 
 ---
 
@@ -329,39 +329,17 @@ Defined in `/static/css/input.css`:
 # Pure HTML elements from FastHTML
 from fasthtml.common import H1, H2, H3, P, A, Form, Li, Ul
 
-# SKUEL DaisyUI wrappers
-from ui.daisy_components import (
-    # Buttons
-    Button, ButtonT,
-    # Cards
-    Card, CardBody, CardTitle, CardActions, CardT,
-    # Feedback
-    Alert, AlertT,
-    Badge, BadgeT,
-    # Forms
-    Input, InputT, Select, Textarea,
-    FormControl, Label, LabelText,
-    Checkbox, Radio, Toggle, Range,
-    # Modals
-    Modal, ModalBox, ModalAction, ModalBackdrop,
-    # Progress & Loading
-    Progress, ProgressT, RadialProgress,
-    Loading, LoadingT,
-    # Layout
-    Div, Span, Grid, Container,
-    DivHStacked, DivVStacked, DivFullySpaced, DivCentered,
-    # Navigation
-    Navbar, NavbarStart, NavbarCenter, NavbarEnd,
-    Menu, MenuItem, Tabs, Tab,
-    # Dropdown
-    Dropdown, DropdownTrigger, DropdownContent,
-    # Data Display
-    Table, Thead, Tbody, Tr, Th, Td,
-    Stats, Stat, StatTitle, StatValue, StatDesc, StatFigure,
-    Avatar, AvatarGroup,
-    # Utility
-    Tooltip, Divider, Size,
-)
+# SKUEL DaisyUI wrappers — 8 focused modules (March 2026)
+from ui.buttons import Button, ButtonT
+from ui.cards import Card, CardBody, CardTitle, CardActions, CardT
+from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT, Progress, ProgressT, RadialProgress
+from ui.forms import Checkbox, FormControl, Input, InputT, Label, LabelText, Radio, Range, Select, Textarea, Toggle
+from ui.layout import Container, DivCentered, DivFullySpaced, DivHStacked, DivVStacked, Grid, Size
+from ui.modals import Modal, ModalAction, ModalBackdrop, ModalBox
+from ui.navigation import Dropdown, DropdownContent, DropdownTrigger, Menu, MenuItem, Navbar, NavbarCenter, NavbarEnd, NavbarStart, Tab, Tabs
+from ui.data import Avatar, AvatarGroup, Divider, Stat, StatDesc, StatFigure, StatTitle, StatValue, Stats, Table, Tooltip
+# Standard FastHTML elements — always from fasthtml.common
+from fasthtml.common import Div, Option, Span, Tbody, Td, Th, Thead, Tr
 
 # Theme for app initialization
 from ui.theme import daisy_headers, Theme
@@ -840,7 +818,8 @@ Button("Click", variant=ButtonT.primary)
 from monsterui.all import Button, Card  # DELETED
 
 # GOOD: Use SKUEL wrappers
-from ui.daisy_components import Button, Card
+from ui.buttons import Button
+from ui.cards import Card
 ```
 
 ### Do Use Tailwind for Custom Styling

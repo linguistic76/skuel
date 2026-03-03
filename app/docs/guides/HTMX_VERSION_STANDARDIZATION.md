@@ -161,7 +161,7 @@ Pages using `daisy_headers()` from `ui.theme` get standardized headers including
 ```python
 from fasthtml.common import fast_app
 from ui.theme import daisy_headers
-from ui.daisy_components import Card, CardBody
+from ui.cards import Card, CardBody
 
 app, rt = fast_app(hdrs=daisy_headers())
 
