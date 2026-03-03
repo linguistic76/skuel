@@ -2,7 +2,7 @@
 
 **Last Updated:** March 4, 2026
 **Total Production Ruff Errors:** 0
-**Active TODOs:** 8
+**Active TODOs:** 6
 
 ## Philosophy
 
@@ -19,7 +19,7 @@ Development follows a calculated approach: features are built when they serve re
 | Tier | Focus | When | Items |
 |------|-------|------|-------|
 | **1 — Foundation Fixes** | Strengthen what exists | ✅ Done | 0 |
-| **2 — MVP Completions** | Working product gaps | Before first users | 2 |
+| **2 — MVP Completions** | Working product gaps | ✅ Done | 0 |
 | **3 — Data-Dependent** | Require usage data to justify | After real usage | 6 |
 | **Shelved** | Prerequisite-gated | When thresholds met | 3 |
 | **Decision Points** | Billing/architecture choices | When business model clarifies | 1 |
@@ -34,12 +34,7 @@ Development follows a calculated approach: features are built when they serve re
 
 ## Tier 2: MVP Completions
 
-Gaps that matter for a functioning product with real users.
-
-| # | File | Line | Category | Description |
-|---|------|------|----------|-------------|
-| 4 | `core/auth/graph_auth.py` | 668 | [FEATURE] | `send_password_reset_email()` is a no-op placeholder. Requires email service integration (e.g., Resend, Postmark). Auth flow incomplete without this. |
-| 5 | `adapters/inbound/learning_api.py` | 126, 143 | [FEATURE] | Two placeholder routes returning 501: `POST /api/learning/progress` and `GET /api/learning/progress/summary`. Requires progress service integration. |
+✅ **All resolved** (March 2026)
 
 ---
 
@@ -121,6 +116,8 @@ Run: `poetry run ruff check core/ adapters/ ui/`
 - **universal_backend.py decomposed** — 4,214 lines into 6 focused mixins
 - **unified_relationship_service.py decomposed** — into 6 mixins
 - **Activity domain query layer refactored** — `get_filtered_context()` replaces 24 closure call sites
+- **Password reset email implemented** — Resend integration via `EmailOperations` protocol + `ResendEmailService` adapter (March 2026)
+- **Learning progress routes implemented** — `POST /api/learning/progress` and `GET /api/learning/progress/summary` connected to `UserProgressService` (March 2026)
 - **`is_this_week` calculation fixed** — 6 hardcoded `False` values replaced with real week-boundary logic
 - **`RichContextRequiredError` added** — replaces generic `ValueError` in `require_rich_context()`
 - **`BudgetDTO.user_uid` added** — eliminates `user_uid=""` workaround in converters

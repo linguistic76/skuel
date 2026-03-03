@@ -1217,9 +1217,26 @@ async def compose_services(
         from core.auth.graph_auth import GraphAuthService
 
         session_backend = SessionBackend(driver)
+
+        # Optional email service for password reset (March 2026)
+        email_service = None
+        resend_api_key = os.environ.get("RESEND_API_KEY")
+        if resend_api_key:
+            from adapters.outbound.email_service import ResendEmailService
+
+            resend_from = os.environ.get("RESEND_FROM_EMAIL", "noreply@skuel.app")
+            email_service = ResendEmailService(api_key=resend_api_key, from_email=resend_from)
+            logger.info("✅ ResendEmailService created (password reset emails)")
+        else:
+            logger.warning("⚠️ RESEND_API_KEY not set — password reset emails disabled")
+
+        app_url = os.environ.get("APP_URL", "http://localhost:8000")
+
         graph_auth = GraphAuthService(
             user_backend=users_backend,
             session_backend=session_backend,
+            email_service=email_service,
+            app_url=app_url,
         )
         logger.info("✅ GraphAuthService created (graph-native authentication)")
 

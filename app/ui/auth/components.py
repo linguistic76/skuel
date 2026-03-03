@@ -371,53 +371,59 @@ class AuthComponents:
         """)
 
     @staticmethod
-    def render_forgot_password_page() -> NotStr:
+    def render_forgot_password_form(error_message: str | None = None) -> NotStr:
         """
-        Render forgot password page.
+        Render forgot password email form.
+
+        Args:
+            error_message: Optional error message to display
 
         Returns:
-            Forgot password UI as NotStr
+            Forgot password form UI as NotStr
         """
-        # Redirect to admin password reset info
-        return AuthComponents.render_admin_password_reset_info()
+        error_html = ""
+        if error_message:
+            error_html = f"""
+            <div class="mb-4 rounded-md bg-red-500/10 border border-red-500/20 p-3">
+                <p class="text-sm text-red-400">{error_message}</p>
+            </div>
+            """
 
-    @staticmethod
-    def render_admin_password_reset_info() -> NotStr:
-        """
-        Render admin-initiated password reset info page.
-
-        In graph-native auth, password reset is admin-initiated.
-        This page informs users to contact an administrator.
-
-        Returns:
-            Admin password reset info UI as NotStr
-        """
-        return NotStr("""
+        return NotStr(f"""
         <div class="min-h-screen bg-base-200 flex items-center justify-center p-6">
             <div class="card bg-base-100 shadow-xl max-w-md w-full">
                 <div class="card-body text-center">
-                    <div class="text-6xl mb-4">🔐</div>
-                    <h1 class="card-title text-3xl font-bold justify-center mb-2">Password Reset</h1>
+                    <h1 class="card-title text-3xl font-bold justify-center mb-2">Reset Password</h1>
                     <p class="text-base-content/70 mb-6">
-                        Password reset is handled by administrators for security purposes.
+                        Enter your email and we'll send you a link to reset your password.
                     </p>
 
-                    <div class="bg-info/10 border border-info/20 rounded-lg p-4 mb-6">
-                        <p class="text-sm text-base-content/80">
-                            <strong>To reset your password:</strong>
-                        </p>
-                        <ol class="text-sm text-base-content/70 text-left list-decimal list-inside mt-2 space-y-1">
-                            <li>Contact your system administrator</li>
-                            <li>They will generate a secure reset token</li>
-                            <li>Use the token to set a new password</li>
-                        </ol>
-                    </div>
+                    {error_html}
+
+                    <form action="/forgot-password" method="POST" class="space-y-4">
+                        <div class="form-control">
+                            <input
+                                type="email"
+                                name="email"
+                                placeholder="your.email@example.com"
+                                class="input input-bordered w-full"
+                                required
+                                autofocus
+                            />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-full">
+                            Send Reset Link
+                        </button>
+                    </form>
+
+                    <div class="divider text-base-content/50 text-sm">or</div>
 
                     <div class="space-y-2">
-                        <a href="/reset-password" class="btn btn-outline w-full">
+                        <a href="/reset-password" class="btn btn-outline btn-sm w-full">
                             I Have a Reset Token
                         </a>
-                        <a href="/login" class="btn btn-primary w-full">
+                        <a href="/login" class="link link-hover text-base-content/70">
                             Back to Login
                         </a>
                     </div>
@@ -457,7 +463,7 @@ class AuthComponents:
                         <div class="text-5xl mb-2">🔑</div>
                         <h1 class="card-title text-2xl font-bold justify-center">Reset Your Password</h1>
                         <p class="text-base-content/70 text-sm mt-1">
-                            Enter the reset token from your administrator
+                            Enter your reset token
                         </p>
                     </div>
 
@@ -478,7 +484,7 @@ class AuthComponents:
                             />
                             <label class="label">
                                 <span class="label-text-alt text-base-content/60">
-                                    The token you received from your administrator
+                                    The token from your password reset email
                                 </span>
                             </label>
                         </div>

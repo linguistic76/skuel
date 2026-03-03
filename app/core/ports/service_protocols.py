@@ -418,6 +418,10 @@ class GraphAuthOperations(Protocol):
         """Admin-initiated password reset token. Returns Result[str]."""
         ...
 
+    async def reset_password_email(self, email: str) -> Result[bool]:
+        """Send password reset email. Always returns ok(True) to prevent enumeration."""
+        ...
+
 
 # ============================================================================
 # ORCHESTRATION — Goal→Task, Habit→Event

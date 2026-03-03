@@ -14,6 +14,8 @@ This file uses:
 
 __version__ = "3.0"
 
+import dataclasses
+from datetime import datetime
 from typing import Any
 
 from fasthtml.common import Request
@@ -21,7 +23,10 @@ from fasthtml.common import Request
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRouteFactory
-from core.models.curriculum.curriculum_requests import LearningPathCreateRequest
+from core.models.curriculum.curriculum_requests import (
+    LearningPathCreateRequest,
+    LearningPathProgressRequest,
+)
 from core.models.entity_requests import EntityUpdateRequest
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
@@ -33,7 +38,11 @@ logger = get_logger("skuel.routes.learning.api")
 
 
 def create_learning_api_routes(
-    app: Any, rt: Any, learning_service: LpService, user_service: Any = None
+    app: Any,
+    rt: Any,
+    learning_service: LpService,
+    user_service: Any = None,
+    user_progress: Any = None,
 ) -> list[Any]:
     """
     Create learning API routes using factory pattern.
@@ -126,32 +135,100 @@ def create_learning_api_routes(
     @rt("/api/learning/progress")
     @boundary_handler(success_status=201)
     async def update_progress_route(request: Request) -> Result[Any]:
-        """Update progress for a learning step."""
+        """Update progress for a learning step.
+
+        Resolves the step's knowledge UIDs and records mastery or progress
+        for each via UserService delegation to UserProgressRecorderService.
+        """
+        user_uid = require_authenticated_user(request)
         body = await request.json()
 
-        from core.models.curriculum.curriculum_requests import LearningPathProgressRequest
+        progress_req = LearningPathProgressRequest.model_validate(body)
 
-        LearningPathProgressRequest.model_validate(body)
+        # Resolve step to knowledge UIDs
+        step_result = await learning_service.get_step(progress_req.step_uid)
+        if step_result.is_error:
+            return step_result
 
-        return Result.fail(
-            Errors.system(
-                message="Progress tracking not yet implemented - requires progress service integration",
-                operation="update_progress",
+        step = step_result.value
+        if not step:
+            return Result.fail(
+                Errors.not_found(resource="LearningStep", identifier=progress_req.step_uid)
             )
+
+        ku_uids = list(step.primary_knowledge_uids) + list(step.supporting_knowledge_uids)
+        if not ku_uids:
+            return Result.fail(
+                Errors.validation(
+                    message="Learning step has no associated knowledge units",
+                    field="step_uid",
+                )
+            )
+
+        updated_ku_uids: list[str] = []
+        is_completed = progress_req.completed is True
+        is_mastered = is_completed and progress_req.mastery_level >= 0.8
+
+        for ku_uid in ku_uids:
+            if is_mastered:
+                result = await user_service.record_knowledge_mastery(
+                    user_uid=user_uid,
+                    knowledge_uid=ku_uid,
+                    mastery_score=progress_req.mastery_level,
+                )
+            else:
+                result = await user_service.record_knowledge_progress(
+                    user_uid=user_uid,
+                    knowledge_uid=ku_uid,
+                    progress=progress_req.mastery_level,
+                )
+
+            if result.is_error:
+                logger.warning(f"Failed to record progress for {ku_uid}: {result.error}")
+                continue
+
+            updated_ku_uids.append(ku_uid)
+
+        return Result.ok(
+            {
+                "step_uid": progress_req.step_uid,
+                "updated_ku_uids": updated_ku_uids,
+                "mastery_level": progress_req.mastery_level,
+                "completed": is_completed,
+            }
         )
 
     @rt("/api/learning/progress/summary")
     @boundary_handler()
     async def get_progress_summary_route(request: Request) -> Result[Any]:
         """Get comprehensive learning progress summary for a user."""
-        require_authenticated_user(request)
+        user_uid = require_authenticated_user(request)
 
-        return Result.fail(
-            Errors.system(
-                message="Progress summary not yet implemented - requires progress service integration",
-                operation="get_progress_summary",
+        if not user_progress:
+            return Result.fail(
+                Errors.system(
+                    message="User progress service not available",
+                    operation="get_progress_summary",
+                )
             )
-        )
+
+        profile_result: Result[Any] = await user_progress.build_user_knowledge_profile(user_uid)
+        if profile_result.is_error:
+            return profile_result
+
+        profile = profile_result.value
+
+        def serialize_profile(obj: Any) -> Any:
+            """Convert dataclass to JSON-safe dict."""
+            if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+                return {k: serialize_profile(v) for k, v in dataclasses.asdict(obj).items()}
+            if isinstance(obj, set):
+                return sorted(obj)
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+            return obj
+
+        return Result.ok(serialize_profile(profile))
 
     # Path Recommendations
     # --------------------

@@ -305,15 +305,22 @@ def create_auth_ui_routes(
 
     @rt("/forgot-password")
     async def forgot_password_page(_request: Request) -> Any:
-        """Show forgot password page with admin contact info"""
-        return AuthComponents.render_admin_password_reset_info()
+        """Show forgot password email form"""
+        return AuthComponents.render_forgot_password_form()
 
     @rt("/forgot-password")
     async def forgot_password_submit(request: Request) -> Any:
-        """Process forgot password request - inform user to contact admin"""
-        # In graph-native auth, password reset is admin-initiated
-        # Show message to contact administrator
-        return AuthComponents.render_admin_password_reset_info()
+        """Process forgot password request — send reset email"""
+        form_data = await request.form()
+        email = safe_form_string(form_data.get("email"))
+
+        if not email or "@" not in email:
+            return AuthComponents.render_forgot_password_form(
+                error_message="Please enter a valid email address"
+            )
+
+        await graph_auth.reset_password_email(email)
+        return AuthComponents.render_password_reset_sent(email)
 
     # ========================================================================
     # PASSWORD RESET (Token-Based)

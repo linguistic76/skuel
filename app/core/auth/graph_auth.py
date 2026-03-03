@@ -6,14 +6,15 @@ Main authentication service with full Neo4j integration.
 
 Design Philosophy:
 - All auth state lives in Neo4j (sessions, events, tokens)
-- No external dependencies for authentication
+- No external dependencies for core authentication
 - Bcrypt password hashing (existing in password.py)
 - Rate limiting via graph queries on AuthEvent nodes
-- Admin-initiated password reset (no email service)
+- Email-based password reset via Resend (optional — falls back to admin-initiated)
 
 See Also:
 - /core/models/auth/ - Auth domain models
 - /adapters/persistence/neo4j/session_backend.py - Session persistence
+- /core/ports/email_protocols.py - EmailOperations protocol
 - /docs/decisions/graph-native-auth.md - ADR
 """
 
@@ -41,6 +42,8 @@ class GraphAuthService:
         self,
         user_backend: Any,  # UserOperations protocol
         session_backend: Any,  # SessionBackend
+        email_service: Any | None = None,  # EmailOperations protocol (optional)
+        app_url: str = "http://localhost:8000",
     ) -> None:
         """
         Initialize graph auth service.
@@ -48,9 +51,13 @@ class GraphAuthService:
         Args:
             user_backend: Backend for user operations
             session_backend: Backend for session operations
+            email_service: Optional email service for password reset emails
+            app_url: Base URL for building reset links
         """
         self.user_backend = user_backend
         self.session_backend = session_backend
+        self.email_service = email_service
+        self.app_url = app_url.rstrip("/")
         self.logger = logger
         logger.info("Graph-native auth service initialized")
 
@@ -654,33 +661,80 @@ class GraphAuthService:
             return Result.fail(Errors.system(operation="reset_password_with_token", message=str(e)))
 
     # ========================================================================
-    # EMAIL-BASED PASSWORD RESET (PLACEHOLDER)
+    # EMAIL-BASED PASSWORD RESET
     # ========================================================================
 
     async def reset_password_email(self, email: str) -> Result[bool]:
         """
-        Placeholder for email-based password reset.
+        Send a password reset email to the user.
 
-        In graph-native auth, password reset is admin-initiated via
-        admin_generate_reset_token() and reset_password_with_token().
-        This method exists for future email service integration.
-
-        TODO: Implement when email service is available.
+        Security: Always returns ok(True) regardless of whether the email
+        exists or the send succeeds — this prevents email enumeration attacks.
 
         Args:
-            email: User's email (unused - placeholder for future email integration)
+            email: User's email address
 
         Returns:
-            Result with message about admin-initiated reset
+            Result[bool] — always ok(True) for the caller
         """
-        # Silence unused parameter warning - intentional placeholder
-        _ = email
-        return Result.fail(
-            Errors.business(
-                rule="password_reset",
-                message="Password reset is admin-initiated. Please contact an administrator.",
+        try:
+            if not self.email_service:
+                self.logger.warning(
+                    "Password reset email requested but email service not configured"
+                )
+                return Result.ok(True)
+
+            # Look up user by email
+            user_result = await self.user_backend.get_user_by_email(email)
+            if user_result.is_error:
+                self.logger.error(f"Error looking up user for password reset: {user_result.error}")
+                return Result.ok(True)
+
+            user = user_result.value
+            if not user:
+                # User not found — return success to prevent email enumeration
+                self.logger.info(f"Password reset requested for non-existent email: {email}")
+                return Result.ok(True)
+
+            # Create token (self-initiated, no admin)
+            token = create_password_reset_token(
+                user_uid=user.uid,
+                created_by_admin_uid=None,
             )
-        )
+
+            token_result = await self.session_backend.create_reset_token(token)
+            if token_result.is_error:
+                self.logger.error(f"Failed to create reset token: {token_result.error}")
+                return Result.ok(True)
+
+            # Build reset link and send email
+            reset_link = f"{self.app_url}/reset-password?token={token.token}"
+            send_result = await self.email_service.send_password_reset(
+                to_email=email,
+                reset_link=reset_link,
+                display_name=user.display_name,
+            )
+
+            if send_result.is_error:
+                self.logger.error(f"Failed to send password reset email: {send_result.error}")
+
+            # Log auth event
+            event = create_auth_event(
+                event_type=AuthEventType.PASSWORD_RESET_REQUESTED,
+                ip_address="email-flow",
+                user_agent="email-flow",
+                user_uid=user.uid,
+                email=email,
+                metadata={"method": "email"},
+            )
+            await self.session_backend.log_auth_event(event)
+
+            self.logger.info(f"Password reset email flow completed for {email}")
+            return Result.ok(True)
+
+        except Exception as e:
+            self.logger.error(f"Password reset email error: {e}")
+            return Result.ok(True)
 
 
 # NOTE: GraphAuthService is created via dependency injection in services_bootstrap.py

@@ -6357,6 +6357,22 @@ files = [
 requests = ">=2.0.1,<3.0.0"
 
 [[package]]
+name = "resend"
+version = "2.23.0"
+description = "Resend Python SDK"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "resend-2.23.0-py2.py3-none-any.whl", hash = "sha256:eca6d28a1ffd36c1fc489fa83cb6b511f384792c9f07465f7c92d96c8b4d5636"},
+    {file = "resend-2.23.0.tar.gz", hash = "sha256:df613827dcc40eb1c9de2e5ff600cd4081b89b206537dec8067af1a5016d23c7"},
+]
+
+[package.dependencies]
+requests = ">=2.31.0"
+typing-extensions = ">=4.4.0"
+
+[[package]]
 name = "rfc3339-validator"
 version = "0.1.4"
 description = "A pure python RFC3339 validator"
@@ -8305,4 +8321,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "996d94d6708be888386f3c11255722a0d71db9bf0116bd1e6333708ab1518083"
+content-hash = "3989bfbe905660c10b0e06a5f78919e47a4b6135264dd2a67838edc3cf7d9946"

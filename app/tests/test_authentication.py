@@ -284,11 +284,11 @@ class TestAuthComponents:
         # Should return a Div element
         assert result is not None
 
-    def test_render_forgot_password_page(self):
-        """Test forgot password page renders."""
-        result = AuthComponents.render_forgot_password_page()
+    def test_render_forgot_password_form(self):
+        """Test forgot password email form renders."""
+        result = AuthComponents.render_forgot_password_form()
 
-        # Should return a Div element
+        # Should return a NotStr element with email form
         assert result is not None
 
 

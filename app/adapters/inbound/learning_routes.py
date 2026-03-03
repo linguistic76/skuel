@@ -34,6 +34,7 @@ LEARNING_CONFIG = DomainRouteConfig(
     ui_factory=create_learning_ui_routes,
     api_related_services={
         "user_service": "user_service",
+        "user_progress": "user_progress",
     },
 )
 
