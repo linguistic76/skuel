@@ -24,6 +24,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from core.config.intelligence_tier import IntelligenceTier
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.config")
@@ -694,6 +695,9 @@ class UnifiedConfig:
     application: ApplicationConfig = field(default_factory=ApplicationConfig)
     features: FeatureFlags = field(default_factory=FeatureFlags)
     dependencies: DependencyConfig = field(default_factory=DependencyConfig)
+
+    # Intelligence tier (CORE = analytics only, FULL = analytics + AI)
+    intelligence_tier: IntelligenceTier = field(default_factory=IntelligenceTier.from_env)
 
     # Metadata
     created_at: datetime = field(default_factory=datetime.now)

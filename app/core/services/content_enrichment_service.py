@@ -995,7 +995,7 @@ Preserve the author's voice and authenticity while improving readability.
             return Result.fail(
                 Errors.system(
                     message="AI service is required for journal formatting - "
-                    "ensure OPENAI_API_KEY is configured",
+                    "set INTELLIGENCE_TIER=full and configure OPENAI_API_KEY",
                     operation="format_with_llm",
                 )
             )

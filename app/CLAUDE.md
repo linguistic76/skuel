@@ -1670,7 +1670,16 @@ All 10 domain `*_intelligence_service.py` files extend `BaseAnalyticsService`. A
 
 **Location:** `core/services/user/intelligence/` (modular package)
 
-**See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`
+**Intelligence Tier Toggle (ADR-043):**
+
+| Tier | Env Var | What's Enabled | Cost |
+|------|---------|----------------|------|
+| `CORE` | `INTELLIGENCE_TIER=core` | Analytics (13 services), UserContext, daily planning, keyword search, all CRUD | $0 |
+| `FULL` | `INTELLIGENCE_TIER=full` (default) | Everything in CORE + 12 AI services, embeddings, vector search, content processing | API costs |
+
+Three gating points in `services_bootstrap.py`: embeddings, LLM, OpenAI. Downstream services skip naturally when dependencies are `None`. Per-user tier stub in `core/services/intelligence_tier_service.py` (not yet wired — billing decision point).
+
+**See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/decisions/ADR-043-intelligence-tier-toggle.md`
 
 ## Embedding Text Extraction
 

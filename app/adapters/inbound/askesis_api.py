@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
+from adapters.inbound.ai_guard import ai_unavailable_result, is_ai_available
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from core.models.askesis.askesis_request import (
@@ -129,6 +130,10 @@ def create_askesis_api_routes(
         Example:
             GET /api/askesis/ask?user_uid=user.mike&question=What should I learn next?
         """
+        # Defense-in-depth: RAG pipeline requires LLM (ADR-043)
+        if not getattr(askesis_service, "llm_service", True):
+            return ai_unavailable_result("RAG question answering")
+
         user_uid = require_authenticated_user(request)
         question = request.query_params.get("question")
 
@@ -441,6 +446,10 @@ def create_askesis_api_routes(
 
         Uses the RAG pipeline to suggest relevant domains and entities.
         """
+        # Defense-in-depth: RAG pipeline requires LLM (ADR-043)
+        if not getattr(askesis_service, "llm_service", True):
+            return ai_unavailable_result("domain suggestions")
+
         user_uid = require_authenticated_user(request)
         body = await request.json()
 
@@ -957,7 +966,9 @@ def create_askesis_api_routes(
         time_horizon_hours = int(request.query_params.get("time_horizon_hours", "8"))
         respect_energy = request.query_params.get("respect_energy", "true").lower() == "true"
 
-        fetch_result = await _load_askesis_and_context(askesis_uid, "get_schedule_aware_recommendations")
+        fetch_result = await _load_askesis_and_context(
+            askesis_uid, "get_schedule_aware_recommendations"
+        )
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
 

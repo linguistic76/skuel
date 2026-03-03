@@ -112,6 +112,7 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
+    from core.config.intelligence_tier import IntelligenceTier
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
     from core.ports.service_protocols import LateralRelationshipOperations
     from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
@@ -394,6 +395,9 @@ class Services:
     # Cross-domain graph queries (multi-hop: Tasks↔KU, Habits↔Goals, Events↔KU, Finance↔Goals)
     cross_domain_queries: "CrossDomainQueries | None" = None
 
+    # Intelligence tier (ADR-043: CORE = analytics only, FULL = analytics + AI)
+    intelligence_tier: "IntelligenceTier | None" = None
+
     # Services are ready when constructed - no lifecycle needed
 
     async def cleanup(self) -> None:
@@ -583,7 +587,7 @@ def _create_learning_services(
     chunking_service: Any,
     user_service: Any,
     graph_intelligence: Any,
-    llm_service: Any,  # LLMService for RAG generation
+    llm_service: Any,  # LLMService for RAG generation (None when CORE tier)
     _tasks_service: Any = None,  # Placeholder: TasksService for entity extraction
     _habits_service: Any = None,  # Placeholder: HabitsService for entity extraction
     _goals_service: Any = None,  # Placeholder: GoalsService for entity extraction
@@ -610,29 +614,37 @@ def _create_learning_services(
     # These services use Neo4j's native GenAI plugin for embeddings and vector search
     # API keys configured at database level (AuraDB console)
     # This is THE ONLY embeddings service - OpenAIEmbeddingsService removed (January 2026)
+    # Gated by intelligence tier (ADR-043): CORE skips entirely, FULL creates normally
     embeddings_service = None
     vector_search_service = None
 
-    try:
-        from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
-        from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+    from core.config.intelligence_tier import IntelligenceTier
 
-        # Create GenAI embeddings service (uses ai.text.embed())
-        embeddings_service = Neo4jGenAIEmbeddingsService(
-            executor=query_executor,
-            prometheus_metrics=prometheus_metrics,  # Track OpenAI calls
-        )
-        logger.info("✅ Neo4j GenAI embeddings service created (with Prometheus instrumentation)")
+    tier = IntelligenceTier.from_env()
 
-        # Create vector search service (uses db.index.vector.queryNodes())
-        vector_search_service = Neo4jVectorSearchService(query_executor, embeddings_service)
-        logger.info("✅ Neo4j vector search service created")
+    if not tier.ai_enabled:
+        logger.info("⏭️  GenAI services skipped (intelligence tier: CORE)")
+    else:
+        try:
+            from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+            from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 
-    except Exception as e:
-        logger.warning(f"Failed to initialize Neo4j GenAI services: {e}")
-        logger.warning("   Vector search will not be available - using keyword search fallback")
-        embeddings_service = None
-        vector_search_service = None
+            # Create GenAI embeddings service (uses ai.text.embed())
+            embeddings_service = Neo4jGenAIEmbeddingsService(
+                executor=query_executor,
+                prometheus_metrics=prometheus_metrics,  # Track OpenAI calls
+            )
+            logger.info("✅ Neo4j GenAI embeddings service created (with Prometheus instrumentation)")
+
+            # Create vector search service (uses db.index.vector.queryNodes())
+            vector_search_service = Neo4jVectorSearchService(query_executor, embeddings_service)
+            logger.info("✅ Neo4j vector search service created")
+
+        except Exception as e:
+            logger.warning(f"Failed to initialize Neo4j GenAI services: {e}")
+            logger.warning("   Vector search will not be available - using keyword search fallback")
+            embeddings_service = None
+            vector_search_service = None
 
     # NOTE: LpIntelligenceService now created internally by LpService (January 2026)
     # See LpService.__init__ for intelligence creation pattern (unified with other domains)
@@ -885,6 +897,15 @@ async def compose_services(
         from core.config import get_settings
 
         config = get_settings()
+
+    # Determine intelligence tier (ADR-043)
+    from core.config.intelligence_tier import IntelligenceTier
+
+    tier = IntelligenceTier.from_env()
+    if tier.ai_enabled:
+        logger.info("🧠 Intelligence tier: FULL (analytics + AI services)")
+    else:
+        logger.info("🧠 Intelligence tier: CORE (analytics only — no API costs)")
 
     try:
         # ========================================================================
@@ -1325,29 +1346,32 @@ async def compose_services(
         content_adapter = Neo4jContentAdapter(connection)
 
         # Create LLM service BEFORE learning services (OPTIONAL - enables AI features)
-        from core.config.credential_store import get_credential
-        from core.services.llm_service import LLMConfig, LLMProvider, LLMService
+        # Gated by intelligence tier (ADR-043): CORE skips entirely
+        llm_service = None
+        if not tier.ai_enabled:
+            logger.info("⏭️  LLM service skipped (intelligence tier: CORE)")
+        else:
+            from core.config.credential_store import get_credential
+            from core.services.llm_service import LLMConfig, LLMProvider, LLMService
 
-        try:
-            openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
-            # Check if key is valid (not placeholder/empty)
-            if openai_api_key and openai_api_key not in ["your-openai-api-key-here", "", "sk-"]:
-                llm_config = LLMConfig(
-                    provider=LLMProvider.OPENAI,
-                    api_key=openai_api_key,
-                    model_name="gpt-4",  # Use GPT-4 for high-quality RAG and intelligence insights
-                )
-                llm_service = LLMService(config=llm_config)
-                logger.info(
-                    "✅ LLM service created (GPT-4 for RAG generation and intelligence services)"
-                )
-            else:
-                llm_service = None
-                logger.warning("⚠️ LLM service disabled - OPENAI_API_KEY not configured")
-        except Exception as e:
-            logger.error(f"Failed to initialize LLM service: {e}")
-            llm_service = None
-            logger.warning("⚠️ LLM service disabled - continuing with basic features")
+            try:
+                openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
+                # Check if key is valid (not placeholder/empty)
+                if openai_api_key and openai_api_key not in ["your-openai-api-key-here", "", "sk-"]:
+                    llm_config = LLMConfig(
+                        provider=LLMProvider.OPENAI,
+                        api_key=openai_api_key,
+                        model_name="gpt-4",  # Use GPT-4 for high-quality RAG and intelligence insights
+                    )
+                    llm_service = LLMService(config=llm_config)
+                    logger.info(
+                        "✅ LLM service created (GPT-4 for RAG generation and intelligence services)"
+                    )
+                else:
+                    logger.warning("⚠️ LLM service disabled - OPENAI_API_KEY not configured")
+            except Exception as e:
+                logger.error(f"Failed to initialize LLM service: {e}")
+                logger.warning("⚠️ LLM service disabled - continuing with basic features")
 
         # Create learning services (graph_intelligence already created above)
         learning_services = _create_learning_services(
@@ -1554,22 +1578,27 @@ async def compose_services(
         visualization_service = VisualizationService()
         logger.info("✅ Visualization service created (Chart.js/Vis.js adapters)")
 
-        # Create transcript processor service (OpenAI API key required)
-        from core.config.credential_store import get_credential
-        from core.services.ai_service import OpenAIService
+        # Create OpenAI service + content enrichment (gated by intelligence tier - ADR-043)
         from core.services.content_enrichment_service import ContentEnrichmentService
 
-        # Get required API key (already validated in )
-        openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
-        ai_service = OpenAIService(api_key=openai_api_key)
+        ai_service = None
+        if tier.ai_enabled:
+            from core.config.credential_store import get_credential
+            from core.services.ai_service import OpenAIService
+
+            openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
+            ai_service = OpenAIService(api_key=openai_api_key)
+            logger.info("✅ OpenAI service created")
+        else:
+            logger.info("⏭️  OpenAI service skipped (intelligence tier: CORE)")
 
         content_enrichment = ContentEnrichmentService(
             backend=submissions_backend,  # February 2026: Uses Entity backend (domain-first model)
             transcription_service=core_services["transcription"],
-            ai_service=ai_service,  # REQUIRED - always available
+            ai_service=ai_service,  # None in CORE tier — already handles None gracefully
             event_bus=event_bus,  # Event-driven architecture
         )
-        logger.info("✅ Transcript processor service created")
+        logger.info("✅ Content enrichment service created")
 
         # Create Reports feedback and exercise services
         from adapters.persistence.neo4j.domain_backends import ExerciseBackend
@@ -1577,14 +1606,17 @@ async def compose_services(
         from core.services.exercises import ExerciseService
         from core.services.feedback import FeedbackService
 
-        feedback_service = FeedbackService(
-            openai_service=ai_service,
-            anthropic_service=None,  # Only OpenAI configured for now
-            executor=query_executor,  # Creates SUBMISSION_FEEDBACK entity + FEEDBACK_FOR relationship
-            ku_interaction_service=learning_services[
-                "ku_service"
-            ].interaction,  # Closes mastery loop
-        )
+        # FeedbackService: None in CORE tier — feedback generation requires AI
+        feedback_service = None
+        if ai_service:
+            feedback_service = FeedbackService(
+                openai_service=ai_service,
+                anthropic_service=None,  # Only OpenAI configured for now
+                executor=query_executor,  # Creates SUBMISSION_FEEDBACK entity + FEEDBACK_FOR relationship
+                ku_interaction_service=learning_services[
+                    "ku_service"
+                ].interaction,  # Closes mastery loop
+            )
 
         exercise_backend = ExerciseBackend(
             driver=driver,
@@ -1722,15 +1754,19 @@ async def compose_services(
         )
         logger.info("✅ Submission activity extractor created (DSL journal → entity extraction)")
 
-        # Create journal processing services
-        from core.services.submissions import JournalOutputGenerator
+        # Create journal processing services (requires AI for LLM formatting)
+        journal_generator = None
+        if ai_service:
+            from core.services.submissions import JournalOutputGenerator
 
-        # Get journal storage path from environment (default: /tmp/skuel_journals)
-        journal_storage = os.getenv("SKUEL_JOURNAL_STORAGE", "/tmp/skuel_journals")
-        journal_generator = JournalOutputGenerator(
-            openai_service=ai_service, storage_base=journal_storage
-        )
-        logger.info(f"✅ Journal output generator created (storage: {journal_storage})")
+            # Get journal storage path from environment (default: /tmp/skuel_journals)
+            journal_storage = os.getenv("SKUEL_JOURNAL_STORAGE", "/tmp/skuel_journals")
+            journal_generator = JournalOutputGenerator(
+                openai_service=ai_service, storage_base=journal_storage
+            )
+            logger.info(f"✅ Journal output generator created (storage: {journal_storage})")
+        else:
+            logger.info("⏭️  Journal output generator skipped (intelligence tier: CORE)")
 
         submissions_processor = SubmissionsProcessingService(
             ku_submission_service=submissions_service,
@@ -2469,6 +2505,8 @@ async def compose_services(
             lateral=lateral_service,
             # Cross-domain graph queries
             cross_domain_queries=cross_domain_queries_svc,
+            # Intelligence tier (ADR-043)
+            intelligence_tier=tier,
         )
 
         # ========================================================================

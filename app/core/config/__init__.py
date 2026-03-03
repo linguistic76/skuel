@@ -14,6 +14,9 @@ Quick Usage:
 __version__ = "1.0"
 
 
+# Import intelligence tier
+from core.config.intelligence_tier import IntelligenceTier
+
 # Import main configuration access points
 # Dependency injection moved to services_bootstrap.py - no legacy functions needed
 # Import environment validation
@@ -94,6 +97,7 @@ __all__ = [
     # Environment validation
     "EnvironmentValidator",
     "GraphQLConfig",
+    "IntelligenceTier",
     "KnowledgeConfig",
     "MessageQueueConfig",
     "SearchConfig",
