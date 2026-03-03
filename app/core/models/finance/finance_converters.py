@@ -214,12 +214,13 @@ def expense_dto_to_response(dto: ExpenseDTO) -> dict[str, Any]:
 
 
 def budget_create_request_to_dto(
-    request: BudgetCreateRequest, _user_uid: str | None = None
+    request: BudgetCreateRequest, user_uid: str | None = None
 ) -> BudgetDTO:
     """Convert BudgetCreateRequest to BudgetDTO"""
     return BudgetDTO(
         uid=str(uuid.uuid4()),
         name=request.name,
+        user_uid=user_uid,
         period=BudgetPeriod(request.period),
         amount_limit=request.amount_limit,
         currency=request.currency,
@@ -260,15 +261,10 @@ def budget_update_request_to_dto(request: BudgetUpdateRequest, existing: BudgetD
 
 
 def budget_dto_to_pure(dto: BudgetDTO) -> BudgetPure:
-    """
-    Convert BudgetDTO to BudgetPure.
-
-    NOTE: BudgetDTO is missing user_uid field.
-    TODO [CLEANUP]: Add user_uid field to BudgetDTO (should come from service layer context)
-    """
+    """Convert BudgetDTO to BudgetPure."""
     return BudgetPure(
         uid=dto.uid,
-        user_uid="",  # BudgetDTO missing user_uid - service layer must provide it
+        user_uid=dto.user_uid or "",
         name=dto.name,
         period=dto.period,
         amount_limit=dto.amount_limit,
@@ -292,6 +288,7 @@ def budget_pure_to_dto(pure: BudgetPure) -> BudgetDTO:
     return BudgetDTO(
         uid=pure.uid,
         name=pure.name,
+        user_uid=pure.user_uid,
         period=pure.period,
         amount_limit=pure.amount_limit,
         currency=pure.currency,

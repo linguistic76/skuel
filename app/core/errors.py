@@ -124,3 +124,15 @@ class ConfigurationError(ApplicationError):
     """Raised when configuration is invalid or missing"""
 
     pass
+
+
+class RichContextRequiredError(ApplicationError):
+    """Raised when an operation requires rich context (build_rich) but received standard context."""
+
+    def __init__(self, operation: str, **kwargs: Any) -> None:
+        super().__init__(
+            f"Operation '{operation}' requires rich context. "
+            f"Build via UserContextBuilder.build_rich() instead of build().",
+            **kwargs,
+        )
+        self.operation = operation

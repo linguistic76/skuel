@@ -534,23 +534,17 @@ class UserContext:
             operation: Name of the operation requiring rich context
 
         Raises:
-            ValueError: If context is not rich (built via build() not build_rich())
+            RichContextRequiredError: If context is not rich (built via build() not build_rich())
 
         Example:
             def get_advancing_goals_for_user(self, context: UserContext) -> Result[...]:
                 context.require_rich_context("get_advancing_goals_for_user")
                 # Now safe to access context.entities_rich["goals"]
-
-        TODO: Replace ValueError with RichContextRequiredError once FastHTML routes
-              consume this directly. A domain-specific exception will provide better
-              error handling at service boundaries.
         """
         if not self.is_rich_context:
-            raise ValueError(
-                f"Operation '{operation}' requires rich context. "
-                f"Build context via UserContextBuilder.build_rich() or "
-                f"user_service.get_rich_unified_context() instead of build()."
-            )
+            from core.errors import RichContextRequiredError
+
+            raise RichContextRequiredError(operation)
 
     # =========================================================================
     # TASK QUERY METHODS

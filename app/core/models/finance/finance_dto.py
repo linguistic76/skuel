@@ -158,6 +158,9 @@ class BudgetDTO:
     start_date: date
     end_date: date | None = None
 
+    # Ownership
+    user_uid: str | None = None
+
     # Categories covered
     categories: list[ExpenseCategory] = field(default_factory=list)
 
@@ -183,6 +186,7 @@ class BudgetDTO:
         return {
             "uid": self.uid,
             "name": self.name,
+            "user_uid": self.user_uid,
             "period": self.period.value if isinstance(self.period, Enum) else self.period,
             "amount_limit": self.amount_limit,
             "currency": self.currency,

@@ -2,7 +2,7 @@
 
 **Last Updated:** March 4, 2026
 **Total Production Ruff Errors:** 0
-**Active TODOs:** 11
+**Active TODOs:** 8
 
 ## Philosophy
 
@@ -18,7 +18,7 @@ Development follows a calculated approach: features are built when they serve re
 
 | Tier | Focus | When | Items |
 |------|-------|------|-------|
-| **1 — Foundation Fixes** | Strengthen what exists | Now | 3 |
+| **1 — Foundation Fixes** | Strengthen what exists | ✅ Done | 0 |
 | **2 — MVP Completions** | Working product gaps | Before first users | 2 |
 | **3 — Data-Dependent** | Require usage data to justify | After real usage | 6 |
 | **Shelved** | Prerequisite-gated | When thresholds met | 3 |
@@ -28,13 +28,7 @@ Development follows a calculated approach: features are built when they serve re
 
 ## Tier 1: Foundation Fixes
 
-Small-scope fixes that strengthen existing fundamentals. No new architecture needed.
-
-| # | File | Line | Category | Description |
-|---|------|------|----------|-------------|
-| 1 | `ui/profile/activity_views.py` | 156,167,236,247,317,328 | [FEATURE] | `is_this_week` hardcoded to `False` in 6 places. Calculate from entity `due_date` / `target_date` using week boundary logic. |
-| 2 | `core/services/user/unified_user_context.py` | 544 | [CLEANUP] | `require_rich_context()` raises generic `ValueError`. Replace with `RichContextRequiredError` for cleaner error handling at service boundaries. |
-| 3 | `core/models/finance/finance_converters.py` | 267 | [CLEANUP] | `BudgetDTO` missing `user_uid` field. Converter sets `user_uid=""` — service layer provides context as workaround. Add the field. |
+✅ **All resolved** (March 2026)
 
 ---
 
@@ -127,6 +121,9 @@ Run: `poetry run ruff check core/ adapters/ ui/`
 - **universal_backend.py decomposed** — 4,214 lines into 6 focused mixins
 - **unified_relationship_service.py decomposed** — into 6 mixins
 - **Activity domain query layer refactored** — `get_filtered_context()` replaces 24 closure call sites
+- **`is_this_week` calculation fixed** — 6 hardcoded `False` values replaced with real week-boundary logic
+- **`RichContextRequiredError` added** — replaces generic `ValueError` in `require_rich_context()`
+- **`BudgetDTO.user_uid` added** — eliminates `user_uid=""` workaround in converters
 
 ---
 

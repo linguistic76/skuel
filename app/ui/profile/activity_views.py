@@ -12,6 +12,7 @@ See: /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date, timedelta
 from typing import Any
 
 from fasthtml.common import H3, A, Div
@@ -30,6 +31,21 @@ from ui.profile._shared import (
 
 type StatsResult = tuple[list[tuple[str, int | str]], str]
 type Recommendation = tuple[str, str]
+
+
+def _is_this_week(date_value: str | date | None) -> bool:
+    """Check if a date falls within the current Monday-Sunday week."""
+    if date_value is None:
+        return False
+    if isinstance(date_value, str):
+        try:
+            date_value = date.fromisoformat(date_value)
+        except ValueError:
+            return False
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+    return week_start <= date_value <= week_end
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +169,7 @@ def _tasks_items(context: UserContext) -> list[dict[str, Any]]:
                 "status": "overdue" if is_overdue else "in_progress",
                 "is_overdue": is_overdue,
                 "is_high_priority": is_high_priority,
-                "is_this_week": False,
+                "is_this_week": uid in context.this_week_task_uids,
             }
         )
     if not items and context.active_task_uids:
@@ -164,7 +180,7 @@ def _tasks_items(context: UserContext) -> list[dict[str, Any]]:
                 "status": "in_progress",
                 "is_overdue": uid in context.overdue_task_uids,
                 "is_high_priority": context.task_priorities.get(uid, 0.0) >= 0.7,
-                "is_this_week": False,
+                "is_this_week": uid in context.this_week_task_uids,
             }
             for uid in context.active_task_uids[:50]
         ]
@@ -233,7 +249,7 @@ def _habits_items(context: UserContext) -> list[dict[str, Any]]:
                 else ("at_risk" if is_at_risk else "in_progress"),
                 "is_overdue": is_at_risk,
                 "is_high_priority": is_keystone,
-                "is_this_week": False,
+                "is_this_week": _is_this_week(habit.get("next_due_date")),
             }
         )
     if not items and context.active_habit_uids:
@@ -314,7 +330,7 @@ def _goals_items(context: UserContext) -> list[dict[str, Any]]:
                 else ("at_risk" if is_at_risk else "in_progress"),
                 "is_overdue": is_at_risk,
                 "is_high_priority": is_near_complete,
-                "is_this_week": False,
+                "is_this_week": _is_this_week(goal.get("target_date")),
             }
         )
     if not items and context.active_goal_uids:
