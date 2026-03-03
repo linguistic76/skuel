@@ -75,24 +75,6 @@ if TYPE_CHECKING:
     from core.services.user import UserContext
 
 
-def _compute_habit_stats(habits: list[Any]) -> dict[str, int]:
-    """Calculate habit statistics (pre-filter, over full list)."""
-    return {
-        "total": len(habits),
-        "active": sum(1 for h in habits if str(h.status.value).lower() == "active"),
-        "streaks": sum(1 for h in habits if h.current_streak > 0),
-    }
-
-
-def _apply_habit_filters(habits: list[Any], status_filter: str = "active") -> list[Any]:
-    """Apply status filter to habit list."""
-    if status_filter == "active":
-        return [h for h in habits if str(h.status.value).lower() == "active"]
-    elif status_filter == "paused":
-        return [h for h in habits if str(h.status.value).lower() == "paused"]
-    elif status_filter == "completed":
-        return [h for h in habits if str(h.status.value).lower() == "completed"]
-    return habits
 
 
 def _apply_habit_sort(habits: list[Any], sort_by: str = "streak") -> list[Any]:
@@ -1232,17 +1214,21 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
     ) -> "Result[ListContext]":
         """Get filtered and sorted habits with pre-filter stats.
 
-        Orchestrates: fetch → stats (pre-filter) → filter → sort.
-        Routes call this instead of embedding the logic in factory closures.
+        Stats via Cypher COUNT (no entity deserialization).
+        Status filter pushed to Cypher WHERE (not Python post-filter).
         """
-        result = await self.get_user_habits(user_uid)
-        if result.is_error:
-            return result
-        all_habits = result.value or []
-        stats = _compute_habit_stats(all_habits)
-        filtered = _apply_habit_filters(all_habits, status_filter)
-        sorted_habits = _apply_habit_sort(filtered, sort_by)
-        return Result.ok({"entities": sorted_habits, "stats": stats})
+        import asyncio
+
+        stats_result, entities_result = await asyncio.gather(
+            self.core.get_stats_for_user(user_uid),
+            self.core.get_for_user_filtered(user_uid, status_filter),
+        )
+        if stats_result.is_error:
+            return stats_result
+        if entities_result.is_error:
+            return entities_result
+        sorted_habits = _apply_habit_sort(entities_result.value, sort_by)
+        return Result.ok({"entities": sorted_habits, "stats": stats_result.value})
 
 
 # Legacy alias removed - class renamed directly to HabitsService

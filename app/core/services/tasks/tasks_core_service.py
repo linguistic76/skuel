@@ -828,6 +828,49 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         return False
 
     # ========================================================================
+    # QUERY LAYER — Cypher-level filtering for get_filtered_context
+    # ========================================================================
+
+    async def get_stats_for_user(self, user_uid: str) -> "Result[dict[str, int]]":
+        """Count task stats via Cypher COUNT — no entity deserialization."""
+        query = """
+        MATCH (n:Entity {user_uid: $user_uid, ku_type: 'task'})
+        RETURN
+            count(n) AS total,
+            count(CASE WHEN n.status = 'completed' THEN 1 END) AS completed,
+            count(CASE WHEN n.due_date IS NOT NULL
+                       AND n.due_date < date()
+                       AND n.status <> 'completed'
+                  THEN 1 END) AS overdue
+        """
+        result = await self.backend.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return result
+        record = result.value[0] if result.value else {}
+        return Result.ok({
+            "total": record.get("total", 0),
+            "completed": record.get("completed", 0),
+            "overdue": record.get("overdue", 0),
+        })
+
+    async def get_for_user_filtered(
+        self, user_uid: str, status_filter: str = "active"
+    ) -> "Result[list[Task]]":
+        """Fetch tasks with status filter pushed to Cypher WHERE."""
+        match status_filter:
+            case "active":
+                result = await self.backend.find_by(
+                    user_uid=user_uid, status__not_in=["completed"]
+                )
+            case "completed":
+                result = await self.backend.find_by(user_uid=user_uid, status="completed")
+            case _:  # "all" or unknown
+                result = await self.backend.find_by(user_uid=user_uid)
+        if result.is_error:
+            return result
+        return Result.ok(self._to_domain_models(result.value, TaskDTO, Task))
+
+    # ========================================================================
     # COMPLETION PROPAGATION (2026-01-30 - Auto-Complete Parents)
     # ========================================================================
 

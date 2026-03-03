@@ -93,24 +93,6 @@ def _get_goal_target_date(goal: Any) -> date:
     return date.max
 
 
-def _compute_goal_stats(goals: list[Any]) -> dict[str, int]:
-    """Calculate goal statistics (pre-filter, over full list)."""
-    return {
-        "total": len(goals),
-        "active": sum(1 for g in goals if _get_goal_status_str(g) == "active"),
-        "completed": sum(1 for g in goals if _get_goal_status_str(g) == "completed"),
-    }
-
-
-def _apply_goal_filters(goals: list[Any], status_filter: str = "active") -> list[Any]:
-    """Apply status filter to goal list."""
-    if status_filter == "active":
-        return [g for g in goals if _get_goal_status_str(g) == "active"]
-    elif status_filter == "completed":
-        return [g for g in goals if _get_goal_status_str(g) == "completed"]
-    elif status_filter == "paused":
-        return [g for g in goals if _get_goal_status_str(g) == "paused"]
-    return goals
 
 
 _GOAL_PRIORITY_ORDER: dict[str, int] = {"critical": 0, "high": 1, "medium": 2, "low": 3}
@@ -720,17 +702,21 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     ) -> "Result[ListContext]":
         """Get filtered and sorted goals with pre-filter stats.
 
-        Orchestrates: fetch → stats (pre-filter) → filter → sort.
-        Routes call this instead of embedding the logic in factory closures.
+        Stats via Cypher COUNT (no entity deserialization).
+        Status filter pushed to Cypher WHERE (not Python post-filter).
         """
-        result = await self.get_user_goals(user_uid)
-        if result.is_error:
-            return result
-        all_goals = result.value or []
-        stats = _compute_goal_stats(all_goals)
-        filtered = _apply_goal_filters(all_goals, status_filter)
-        sorted_goals = _apply_goal_sort(filtered, sort_by)
-        return Result.ok({"entities": sorted_goals, "stats": stats})
+        import asyncio
+
+        stats_result, entities_result = await asyncio.gather(
+            self.core.get_stats_for_user(user_uid),
+            self.core.get_for_user_filtered(user_uid, status_filter),
+        )
+        if stats_result.is_error:
+            return stats_result
+        if entities_result.is_error:
+            return entities_result
+        sorted_goals = _apply_goal_sort(entities_result.value, sort_by)
+        return Result.ok({"entities": sorted_goals, "stats": stats_result.value})
 
     # Note: Status operations (activate_goal, pause_goal, complete_goal, archive_goal)
     # and Search operations (list_goal_categories, get_goals_by_status, search_goals, etc.)

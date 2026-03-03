@@ -1315,3 +1315,43 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
             return result.value[0]["would_create_cycle"]
 
         return False
+
+    # ========================================================================
+    # QUERY LAYER — Cypher-level filtering for get_filtered_context
+    # ========================================================================
+
+    async def get_stats_for_user(self, user_uid: str) -> "Result[dict[str, int]]":
+        """Count choice stats via Cypher COUNT — no entity deserialization."""
+        query = """
+        MATCH (n:Entity {user_uid: $user_uid, ku_type: 'choice'})
+        RETURN
+            count(n) AS total,
+            count(CASE WHEN n.status = 'pending' THEN 1 END) AS pending,
+            count(CASE WHEN n.status = 'decided' THEN 1 END) AS decided
+        """
+        result = await self.backend.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return result
+        record = result.value[0] if result.value else {}
+        return Result.ok({
+            "total": record.get("total", 0),
+            "pending": record.get("pending", 0),
+            "decided": record.get("decided", 0),
+        })
+
+    async def get_for_user_filtered(
+        self, user_uid: str, status_filter: str = "pending"
+    ) -> "Result[list[Choice]]":
+        """Fetch choices with status filter pushed to Cypher WHERE."""
+        match status_filter:
+            case "pending":
+                result = await self.backend.find_by(user_uid=user_uid, status="pending")
+            case "decided":
+                result = await self.backend.find_by(user_uid=user_uid, status="decided")
+            case "implemented":
+                result = await self.backend.find_by(user_uid=user_uid, status="implemented")
+            case _:  # "all" or unknown
+                result = await self.backend.find_by(user_uid=user_uid)
+        if result.is_error:
+            return result
+        return Result.ok(self._to_domain_models(result.value, ChoiceDTO, Choice))

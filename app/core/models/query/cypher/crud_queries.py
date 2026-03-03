@@ -141,6 +141,9 @@ def build_search_query(
         elif operator == "in":
             where_clauses.append(f"n.{field_name} IN ${param_name}")
             params[param_name] = [convert_value_for_neo4j(v) for v in filter_value]
+        elif operator == "not_in":
+            where_clauses.append(f"NOT n.{field_name} IN ${param_name}")
+            params[param_name] = [convert_value_for_neo4j(v) for v in filter_value]
         else:
             logger.warning(f"Unknown operator '{operator}', skipping")
             continue
@@ -697,7 +700,7 @@ def get_filterable_fields(entity_class: type[T]) -> list[str]:
 
 def get_supported_operators() -> list[str]:
     """Get list of supported filter operators."""
-    return ["eq", "gt", "lt", "gte", "lte", "contains", "in"]
+    return ["eq", "gt", "lt", "gte", "lte", "contains", "in", "not_in"]
 
 
 # =============================================================================

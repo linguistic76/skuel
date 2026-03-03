@@ -83,30 +83,8 @@ def _get_event_status_value(event: Any) -> str:
     return str(status).lower()
 
 
-def _compute_event_stats(events: list[Any]) -> dict[str, int]:
-    """Calculate event statistics (pre-filter, over full list)."""
-    today = date.today()
-    return {
-        "total": len(events),
-        "scheduled": sum(1 for e in events if _get_event_status_value(e) == "scheduled"),
-        "today": sum(
-            1
-            for e in events
-            if getattr(e, "start_time", None)
-            and getattr(e.start_time, "date", _null_callable)() == today
-        ),
-    }
 
 
-def _apply_event_filters(events: list[Any], status_filter: str = "scheduled") -> list[Any]:
-    """Apply status filter to event list."""
-    if status_filter == "scheduled":
-        return [e for e in events if _get_event_status_value(e) == "scheduled"]
-    elif status_filter == "completed":
-        return [e for e in events if _get_event_status_value(e) == "completed"]
-    elif status_filter == "cancelled":
-        return [e for e in events if _get_event_status_value(e) == "cancelled"]
-    return events
 
 
 def _apply_event_sort(events: list[Any], sort_by: str = "start_time") -> list[Any]:
@@ -977,15 +955,19 @@ class EventsService(BaseService["EventsOperations", Event]):
     ) -> "Result[ListContext]":
         """Get filtered and sorted events with pre-filter stats.
 
-        Orchestrates: fetch → stats (pre-filter) → filter → sort.
-        Routes call this instead of embedding the logic in factory closures.
+        Stats via Cypher COUNT (no entity deserialization).
+        Status filter pushed to Cypher WHERE (not Python post-filter).
         """
-        result = await self.get_user_events(user_uid)
-        if result.is_error:
-            return result
-        all_events = result.value or []
-        stats = _compute_event_stats(all_events)
-        filtered = _apply_event_filters(all_events, status_filter)
-        sorted_events = _apply_event_sort(filtered, sort_by)
-        return Result.ok({"entities": sorted_events, "stats": stats})
+        import asyncio
+
+        stats_result, entities_result = await asyncio.gather(
+            self.core.get_stats_for_user(user_uid),
+            self.core.get_for_user_filtered(user_uid, status_filter),
+        )
+        if stats_result.is_error:
+            return stats_result
+        if entities_result.is_error:
+            return entities_result
+        sorted_events = _apply_event_sort(entities_result.value, sort_by)
+        return Result.ok({"entities": sorted_events, "stats": stats_result.value})
 

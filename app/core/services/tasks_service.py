@@ -122,28 +122,16 @@ class TaskAnalyticsDashboard(TypedDict):
     analytics_status: AnalyticsStatus
 
 
-def _compute_task_stats(tasks: list[Any]) -> dict[str, int]:
-    """Calculate task statistics (pre-filter, over full list)."""
-    today = date.today()
-    return {
-        "total": len(tasks),
-        "completed": sum(1 for t in tasks if t.status == EntityStatus.COMPLETED),
-        "overdue": sum(
-            1
-            for t in tasks
-            if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
-        ),
-    }
-
-
-def _apply_task_filters(
+def _apply_task_secondary_filters(
     tasks: list[Any],
     project: str | None = None,
     assignee: str | None = None,
     due_filter: str | None = None,
-    status_filter: str = "active",
 ) -> list[Any]:
-    """Apply filter criteria to task list."""
+    """Apply secondary filter criteria (project, assignee, due date) to task list.
+
+    Status filtering is handled at Cypher level via get_for_user_filtered.
+    """
     today = date.today()
 
     if project:
@@ -166,11 +154,6 @@ def _apply_task_filters(
             for t in tasks
             if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
         ]
-
-    if status_filter == "active":
-        tasks = [t for t in tasks if t.status != EntityStatus.COMPLETED]
-    elif status_filter == "completed":
-        tasks = [t for t in tasks if t.status == EntityStatus.COMPLETED]
 
     return tasks
 
@@ -1035,17 +1018,24 @@ class TasksService(BaseService["TasksOperations", Task]):
     ) -> "Result[ListContext]":
         """Get filtered and sorted tasks with pre-filter stats.
 
-        Orchestrates: fetch → stats (pre-filter) → filter → sort.
-        Routes call this instead of embedding the logic in factory closures.
+        Stats via Cypher COUNT (no entity deserialization).
+        Status filter pushed to Cypher WHERE; project/assignee/due_filter applied Python-side.
         """
-        result = await self.get_user_tasks(user_uid)
-        if result.is_error:
-            return result
-        all_tasks = result.value or []
-        stats = _compute_task_stats(all_tasks)
-        filtered = _apply_task_filters(all_tasks, project, assignee, due_filter, status_filter)
+        import asyncio
+
+        stats_result, entities_result = await asyncio.gather(
+            self.core.get_stats_for_user(user_uid),
+            self.core.get_for_user_filtered(user_uid, status_filter),
+        )
+        if stats_result.is_error:
+            return stats_result
+        if entities_result.is_error:
+            return entities_result
+        filtered = _apply_task_secondary_filters(
+            entities_result.value, project, assignee, due_filter
+        )
         sorted_tasks = _apply_task_sort(filtered, sort_by)
-        return Result.ok({"entities": sorted_tasks, "stats": stats})
+        return Result.ok({"entities": sorted_tasks, "stats": stats_result.value})
 
 
 # Legacy alias removed - class renamed directly to TasksService

@@ -795,3 +795,47 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
             return result.value[0]["would_create_cycle"]
 
         return False
+
+    # ========================================================================
+    # QUERY LAYER — Cypher-level filtering for get_filtered_context
+    # ========================================================================
+
+    async def get_stats_for_user(self, user_uid: str) -> "Result[dict[str, int]]":
+        """Count event stats via Cypher COUNT — no entity deserialization."""
+        query = """
+        MATCH (n:Entity {user_uid: $user_uid, ku_type: 'event'})
+        RETURN
+            count(n) AS total,
+            count(CASE WHEN n.status = 'scheduled' THEN 1 END) AS scheduled,
+            count(CASE WHEN n.start_time IS NOT NULL
+                       AND substring(toString(n.start_time), 0, 10) = $today
+                  THEN 1 END) AS today
+        """
+        result = await self.backend.execute_query(
+            query, {"user_uid": user_uid, "today": date.today().isoformat()}
+        )
+        if result.is_error:
+            return result
+        record = result.value[0] if result.value else {}
+        return Result.ok({
+            "total": record.get("total", 0),
+            "scheduled": record.get("scheduled", 0),
+            "today": record.get("today", 0),
+        })
+
+    async def get_for_user_filtered(
+        self, user_uid: str, status_filter: str = "scheduled"
+    ) -> "Result[list[Event]]":
+        """Fetch events with status filter pushed to Cypher WHERE."""
+        match status_filter:
+            case "scheduled":
+                result = await self.backend.find_by(user_uid=user_uid, status="scheduled")
+            case "completed":
+                result = await self.backend.find_by(user_uid=user_uid, status="completed")
+            case "cancelled":
+                result = await self.backend.find_by(user_uid=user_uid, status="cancelled")
+            case _:  # "all" or unknown
+                result = await self.backend.find_by(user_uid=user_uid)
+        if result.is_error:
+            return result
+        return Result.ok(self._to_domain_models(result.value, EventDTO, Event))

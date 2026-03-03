@@ -942,3 +942,33 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             return result.value[0]["would_create_cycle"]
 
         return False
+
+    # ========================================================================
+    # QUERY LAYER — Cypher-level filtering for get_filtered_context
+    # ========================================================================
+
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+        """Count principle stats via Cypher COUNT — no entity deserialization."""
+        query = """
+        MATCH (n:Entity {user_uid: $user_uid, ku_type: 'principle'})
+        RETURN
+            count(n) AS total,
+            count(CASE WHEN n.strength = 'core' THEN 1 END) AS core,
+            count(CASE WHEN n.is_active = true THEN 1 END) AS active
+        """
+        result = await self.backend.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return result
+        record = result.value[0] if result.value else {}
+        return Result.ok({
+            "total": record.get("total", 0),
+            "core": record.get("core", 0),
+            "active": record.get("active", 0),
+        })
+
+    async def get_for_user_filtered(self, user_uid: str) -> Result[list[Principle]]:
+        """Fetch all principles for user (category/strength filtering stays Python-side)."""
+        result = await self.backend.find_by(user_uid=user_uid)
+        if result.is_error:
+            return result
+        return Result.ok(self._to_domain_models(result.value, PrincipleDTO, Principle))

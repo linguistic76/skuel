@@ -6,52 +6,47 @@ the Activity Domain UI Query Layer Refactor (Phase 3). Being module-level means
 they are directly testable without mocking any service or database.
 
 Domains covered: habits, tasks, goals, events, choices, principles.
+
+Note: _compute_*_stats and simple status _apply_*_filters functions for Goals,
+Habits, Events, and Choices were removed in the Cypher-level filtering refactor
+(Phase 4 of the query layer push-down). Stats and status filtering are now
+handled at the database level via get_stats_for_user() and get_for_user_filtered()
+on the respective CoreServices.
 """
 
 from datetime import date, datetime, time, timedelta
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import Mock
 
 import pytest
 
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.principle_enums import PrincipleStrength
 from core.services.choices_service import (
-    _apply_choice_filters,
     _apply_choice_sort,
-    _compute_choice_stats,
     _get_choice_enum_value,
 )
 from core.services.events_service import (
-    _apply_event_filters,
     _apply_event_sort,
-    _compute_event_stats,
     _get_event_status_value,
 )
 from core.services.goals_service import (
-    _apply_goal_filters,
     _apply_goal_sort,
-    _compute_goal_stats,
     _get_goal_priority_str,
     _get_goal_status_str,
     _get_goal_target_date,
 )
 from core.services.habits_service import (
-    _apply_habit_filters,
     _apply_habit_sort,
-    _compute_habit_stats,
 )
 from core.services.principles_service import (
     _apply_principle_filters,
     _apply_principle_sort,
-    _compute_principle_stats,
     _get_principle_strength_value,
 )
 from core.services.tasks_service import (
-    _apply_task_filters,
+    _apply_task_secondary_filters,
     _apply_task_sort,
-    _compute_task_stats,
 )
 
 
@@ -61,6 +56,8 @@ from core.services.tasks_service import (
 
 
 def make_habit(status: str = "active", current_streak: int = 0, **kwargs) -> Any:
+    from unittest.mock import Mock
+
     status_mock = Mock()
     status_mock.value = status
     return SimpleNamespace(
@@ -70,54 +67,6 @@ def make_habit(status: str = "active", current_streak: int = 0, **kwargs) -> Any
         created_at=kwargs.get("created_at", datetime(2024, 1, 1)),
         recurrence_pattern=kwargs.get("recurrence_pattern", "daily"),
     )
-
-
-class TestComputeHabitStats:
-    def test_empty_list(self):
-        stats = _compute_habit_stats([])
-        assert stats == {"total": 0, "active": 0, "streaks": 0}
-
-    def test_counts_active(self):
-        habits = [make_habit("active"), make_habit("paused"), make_habit("active")]
-        stats = _compute_habit_stats(habits)
-        assert stats["total"] == 3
-        assert stats["active"] == 2
-
-    def test_counts_streaks(self):
-        habits = [make_habit(current_streak=5), make_habit(current_streak=0)]
-        stats = _compute_habit_stats(habits)
-        assert stats["streaks"] == 1
-
-    def test_stats_over_full_list_not_filtered(self):
-        """Stats count all habits regardless of any filter that will follow."""
-        habits = [make_habit("active"), make_habit("paused"), make_habit("completed")]
-        stats = _compute_habit_stats(habits)
-        assert stats["total"] == 3
-        assert stats["active"] == 1
-
-
-class TestApplyHabitFilters:
-    def test_active_filter(self):
-        habits = [make_habit("active"), make_habit("paused"), make_habit("completed")]
-        result = _apply_habit_filters(habits, "active")
-        assert all(h.status.value == "active" for h in result)
-        assert len(result) == 1
-
-    def test_paused_filter(self):
-        habits = [make_habit("active"), make_habit("paused")]
-        result = _apply_habit_filters(habits, "paused")
-        assert len(result) == 1
-        assert result[0].status.value == "paused"
-
-    def test_all_filter_returns_everything(self):
-        habits = [make_habit("active"), make_habit("paused"), make_habit("completed")]
-        result = _apply_habit_filters(habits, "all")
-        assert len(result) == 3
-
-    def test_unknown_filter_returns_all(self):
-        habits = [make_habit("active"), make_habit("paused")]
-        result = _apply_habit_filters(habits, "unknown")
-        assert len(result) == 2
 
 
 class TestApplyHabitSort:
@@ -169,55 +118,22 @@ def make_task(
     )
 
 
-class TestComputeTaskStats:
-    def test_empty_list(self):
-        stats = _compute_task_stats([])
-        assert stats == {"total": 0, "completed": 0, "overdue": 0}
+class TestApplyTaskSecondaryFilters:
+    """Tests for secondary filters (project, assignee, due date).
 
-    def test_counts_completed(self):
-        tasks = [make_task(EntityStatus.COMPLETED), make_task(EntityStatus.ACTIVE)]
-        stats = _compute_task_stats(tasks)
-        assert stats["completed"] == 1
-
-    def test_counts_overdue(self):
-        yesterday = date.today() - timedelta(days=1)
-        tasks = [
-            make_task(EntityStatus.ACTIVE, due_date=yesterday),  # overdue
-            make_task(EntityStatus.COMPLETED, due_date=yesterday),  # not counted (completed)
-            make_task(EntityStatus.ACTIVE),  # no due date
-        ]
-        stats = _compute_task_stats(tasks)
-        assert stats["overdue"] == 1
-
-
-class TestApplyTaskFilters:
-    def test_active_filter_excludes_completed(self):
-        tasks = [make_task(EntityStatus.ACTIVE), make_task(EntityStatus.COMPLETED)]
-        result = _apply_task_filters(tasks, status_filter="active")
-        assert len(result) == 1
-        assert result[0].status == EntityStatus.ACTIVE
-
-    def test_completed_filter(self):
-        tasks = [make_task(EntityStatus.ACTIVE), make_task(EntityStatus.COMPLETED)]
-        result = _apply_task_filters(tasks, status_filter="completed")
-        assert len(result) == 1
-        assert result[0].status == EntityStatus.COMPLETED
-
-    def test_all_filter(self):
-        tasks = [make_task(EntityStatus.ACTIVE), make_task(EntityStatus.COMPLETED)]
-        result = _apply_task_filters(tasks, status_filter="all")
-        assert len(result) == 2
+    Status filtering is now handled at Cypher level via get_for_user_filtered().
+    """
 
     def test_project_filter(self):
         tasks = [make_task(project="Alpha"), make_task(project="Beta"), make_task(project="Alpha")]
-        result = _apply_task_filters(tasks, project="Alpha")
+        result = _apply_task_secondary_filters(tasks, project="Alpha")
         assert len(result) == 2
 
     def test_due_today_filter(self):
         today = date.today()
         tomorrow = today + timedelta(days=1)
         tasks = [make_task(due_date=today), make_task(due_date=tomorrow)]
-        result = _apply_task_filters(tasks, due_filter="today")
+        result = _apply_task_secondary_filters(tasks, due_filter="today")
         assert len(result) == 1
         assert result[0].due_date == today
 
@@ -228,19 +144,34 @@ class TestApplyTaskFilters:
             make_task(EntityStatus.COMPLETED, due_date=yesterday),
             make_task(EntityStatus.ACTIVE, due_date=date.today()),
         ]
-        result = _apply_task_filters(tasks, due_filter="overdue")
+        result = _apply_task_secondary_filters(tasks, due_filter="overdue")
         assert len(result) == 1
 
-    def test_combined_project_and_status_filter(self):
+    def test_no_filters_returns_all(self):
+        tasks = [make_task(EntityStatus.ACTIVE), make_task(EntityStatus.COMPLETED)]
+        result = _apply_task_secondary_filters(tasks)
+        assert len(result) == 2
+
+    def test_assignee_filter(self):
         tasks = [
-            make_task(EntityStatus.ACTIVE, project="Alpha"),
-            make_task(EntityStatus.COMPLETED, project="Alpha"),
-            make_task(EntityStatus.ACTIVE, project="Beta"),
+            make_task(assignee="alice"),
+            make_task(assignee="bob"),
+            make_task(assignee="alice"),
         ]
-        result = _apply_task_filters(tasks, project="Alpha", status_filter="active")
+        result = _apply_task_secondary_filters(tasks, assignee="alice")
+        assert len(result) == 2
+
+    def test_combined_project_and_due_filter(self):
+        today = date.today()
+        tasks = [
+            make_task(EntityStatus.ACTIVE, due_date=today, project="Alpha"),
+            make_task(EntityStatus.ACTIVE, due_date=today, project="Beta"),
+            make_task(EntityStatus.ACTIVE, project="Alpha"),
+        ]
+        result = _apply_task_secondary_filters(tasks, project="Alpha", due_filter="today")
         assert len(result) == 1
         assert result[0].project == "Alpha"
-        assert result[0].status == EntityStatus.ACTIVE
+        assert result[0].due_date == today
 
 
 class TestApplyTaskSort:
@@ -321,32 +252,6 @@ class TestGoalAccessors:
         assert _get_goal_target_date(goal) == date(2025, 6, 1)
 
 
-class TestComputeGoalStats:
-    def test_empty_list(self):
-        stats = _compute_goal_stats([])
-        assert stats == {"total": 0, "active": 0, "completed": 0}
-
-    def test_counts_correctly(self):
-        goals = [make_goal("active"), make_goal("active"), make_goal("completed")]
-        stats = _compute_goal_stats(goals)
-        assert stats["total"] == 3
-        assert stats["active"] == 2
-        assert stats["completed"] == 1
-
-
-class TestApplyGoalFilters:
-    def test_active_filter(self):
-        goals = [make_goal("active"), make_goal("completed"), make_goal("paused")]
-        result = _apply_goal_filters(goals, "active")
-        assert len(result) == 1
-        assert result[0].status == "active"
-
-    def test_all_filter(self):
-        goals = [make_goal("active"), make_goal("completed")]
-        result = _apply_goal_filters(goals, "all")
-        assert len(result) == 2
-
-
 class TestApplyGoalSort:
     def test_sort_by_target_date(self):
         goals = [
@@ -403,45 +308,6 @@ class TestGetEventStatusValue:
         event.status = EntityStatus.ACTIVE
         # Returns lowercase value of the enum
         assert _get_event_status_value(event) == EntityStatus.ACTIVE.value.lower()
-
-
-class TestComputeEventStats:
-    def test_empty_list(self):
-        stats = _compute_event_stats([])
-        assert stats == {"total": 0, "scheduled": 0, "today": 0}
-
-    def test_counts_scheduled(self):
-        events = [make_event("scheduled"), make_event("completed"), make_event("scheduled")]
-        stats = _compute_event_stats(events)
-        assert stats["scheduled"] == 2
-
-    def test_counts_today(self):
-        today = date.today()
-        # Use a proper time object (not just a time value - the helper checks .date())
-        today_dt = datetime.combine(today, time(10, 0))
-        events = [
-            make_event(start_time=today_dt),
-            make_event(),  # no start_time
-        ]
-        stats = _compute_event_stats(events)
-        assert stats["today"] == 1
-
-
-class TestApplyEventFilters:
-    def test_scheduled_filter(self):
-        events = [make_event("scheduled"), make_event("completed"), make_event("cancelled")]
-        result = _apply_event_filters(events, "scheduled")
-        assert len(result) == 1
-
-    def test_all_filter(self):
-        events = [make_event("scheduled"), make_event("completed")]
-        result = _apply_event_filters(events, "all")
-        assert len(result) == 2
-
-    def test_cancelled_filter(self):
-        events = [make_event("scheduled"), make_event("cancelled")]
-        result = _apply_event_filters(events, "cancelled")
-        assert len(result) == 1
 
 
 class TestApplyEventSort:
@@ -505,37 +371,6 @@ class TestGetChoiceEnumValue:
     def test_missing_attr_returns_default(self):
         choice = SimpleNamespace()  # no 'status' attr
         assert _get_choice_enum_value(choice, "status", "fallback") == "fallback"
-
-
-class TestComputeChoiceStats:
-    def test_empty_list(self):
-        stats = _compute_choice_stats([])
-        assert stats == {"total": 0, "pending": 0, "decided": 0}
-
-    def test_counts_pending_and_decided(self):
-        choices = [
-            make_choice("pending"),
-            make_choice("pending"),
-            make_choice("decided"),
-            make_choice("implemented"),
-        ]
-        stats = _compute_choice_stats(choices)
-        assert stats["total"] == 4
-        assert stats["pending"] == 2
-        assert stats["decided"] == 1
-
-
-class TestApplyChoiceFilters:
-    def test_pending_filter(self):
-        choices = [make_choice("pending"), make_choice("decided"), make_choice("implemented")]
-        result = _apply_choice_filters(choices, "pending")
-        assert len(result) == 1
-        assert result[0].status == "pending"
-
-    def test_all_filter(self):
-        choices = [make_choice("pending"), make_choice("decided")]
-        result = _apply_choice_filters(choices, "all")
-        assert len(result) == 2
 
 
 class TestApplyChoiceSort:
@@ -603,29 +438,6 @@ class TestGetPrincipleStrengthValue:
     def test_no_strength_defaults_to_3(self):
         p = SimpleNamespace()
         assert _get_principle_strength_value(p) == 3
-
-
-class TestComputePrincipleStats:
-    def test_empty_list(self):
-        stats = _compute_principle_stats([])
-        assert stats == {"total": 0, "core": 0, "active": 0}
-
-    def test_counts_core_strength(self):
-        principles = [
-            make_principle(PrincipleStrength.CORE),
-            make_principle(PrincipleStrength.MODERATE),
-        ]
-        stats = _compute_principle_stats(principles)
-        assert stats["core"] == 1
-
-    def test_counts_active(self):
-        principles = [
-            make_principle(is_active=True),
-            make_principle(is_active=False),
-            make_principle(is_active=True),
-        ]
-        stats = _compute_principle_stats(principles)
-        assert stats["active"] == 2
 
 
 class TestApplyPrincipleFilters:

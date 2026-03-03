@@ -87,13 +87,6 @@ def _get_principle_strength_value(p: Any) -> int:
     return 3
 
 
-def _compute_principle_stats(principles: list[Any]) -> dict[str, int]:
-    """Calculate principle statistics (pre-filter, over full list)."""
-    return {
-        "total": len(principles),
-        "core": sum(1 for p in principles if _get_principle_strength_value(p) >= 5),
-        "active": sum(1 for p in principles if getattr(p, "is_active", True)),
-    }
 
 
 def _apply_principle_filters(
@@ -859,15 +852,20 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     ) -> "Result[ListContext]":
         """Get filtered and sorted principles with pre-filter stats.
 
-        Orchestrates: fetch → stats (pre-filter) → filter → sort.
-        Routes call this instead of embedding the logic in factory closures.
+        Stats via Cypher COUNT (no entity deserialization).
+        Category/strength filtering stays Python-side (numeric threshold logic).
         """
-        result = await self.get_user_principles(user_uid)
-        if result.is_error:
-            return result
-        all_principles = result.value or []
-        stats = _compute_principle_stats(all_principles)
-        filtered = _apply_principle_filters(all_principles, category_filter, strength_filter)
+        import asyncio
+
+        stats_result, entities_result = await asyncio.gather(
+            self.core.get_stats_for_user(user_uid),
+            self.core.get_for_user_filtered(user_uid),
+        )
+        if stats_result.is_error:
+            return stats_result
+        if entities_result.is_error:
+            return entities_result
+        filtered = _apply_principle_filters(entities_result.value, category_filter, strength_filter)
         sorted_principles = _apply_principle_sort(filtered, sort_by)
-        return Result.ok({"entities": sorted_principles, "stats": stats})
+        return Result.ok({"entities": sorted_principles, "stats": stats_result.value})
 

@@ -60,24 +60,6 @@ def _get_choice_enum_value(obj: Any, attr: str, default: str = "") -> str:
     return str(value).lower()
 
 
-def _compute_choice_stats(choices: list[Any]) -> dict[str, int]:
-    """Calculate choice statistics (pre-filter, over full list)."""
-    return {
-        "total": len(choices),
-        "pending": sum(1 for c in choices if _get_choice_enum_value(c, "status") == "pending"),
-        "decided": sum(1 for c in choices if _get_choice_enum_value(c, "status") == "decided"),
-    }
-
-
-def _apply_choice_filters(choices: list[Any], status_filter: str = "pending") -> list[Any]:
-    """Apply status filter to choice list."""
-    if status_filter == "pending":
-        return [c for c in choices if _get_choice_enum_value(c, "status") == "pending"]
-    elif status_filter == "decided":
-        return [c for c in choices if _get_choice_enum_value(c, "status") == "decided"]
-    elif status_filter == "implemented":
-        return [c for c in choices if _get_choice_enum_value(c, "status") == "implemented"]
-    return choices
 
 
 _CHOICE_PRIORITY_ORDER: dict[str, int] = {"critical": 0, "high": 1, "medium": 2, "low": 3}
@@ -511,17 +493,21 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
     ) -> "Result[ListContext]":
         """Get filtered and sorted choices with pre-filter stats.
 
-        Orchestrates: fetch → stats (pre-filter) → filter → sort.
-        Routes call this instead of embedding the logic in factory closures.
+        Stats via Cypher COUNT (no entity deserialization).
+        Status filter pushed to Cypher WHERE (not Python post-filter).
         """
-        result = await self.get_user_choices(user_uid)
-        if result.is_error:
-            return result
-        all_choices = result.value or []
-        stats = _compute_choice_stats(all_choices)
-        filtered = _apply_choice_filters(all_choices, status_filter)
-        sorted_choices = _apply_choice_sort(filtered, sort_by)
-        return Result.ok({"entities": sorted_choices, "stats": stats})
+        import asyncio
+
+        stats_result, entities_result = await asyncio.gather(
+            self.core.get_stats_for_user(user_uid),
+            self.core.get_for_user_filtered(user_uid, status_filter),
+        )
+        if stats_result.is_error:
+            return stats_result
+        if entities_result.is_error:
+            return entities_result
+        sorted_choices = _apply_choice_sort(entities_result.value, sort_by)
+        return Result.ok({"entities": sorted_choices, "stats": stats_result.value})
 
     # Note: Intelligence delegations (get_choice_with_context, get_decision_intelligence,
     # analyze_choice_impact, get_decision_patterns, etc.) and Search delegations
