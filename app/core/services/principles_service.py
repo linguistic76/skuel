@@ -87,8 +87,6 @@ def _get_principle_strength_value(p: Any) -> int:
     return 3
 
 
-
-
 def _apply_principle_filters(
     principles: list[Any],
     category_filter: str = "all",
@@ -868,4 +866,3 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         filtered = _apply_principle_filters(entities_result.value, category_filter, strength_filter)
         sorted_principles = _apply_principle_sort(filtered, sort_by)
         return Result.ok({"entities": sorted_principles, "stats": stats_result.value})
-

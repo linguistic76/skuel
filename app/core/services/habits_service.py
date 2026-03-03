@@ -75,8 +75,6 @@ if TYPE_CHECKING:
     from core.services.user import UserContext
 
 
-
-
 def _apply_habit_sort(habits: list[Any], sort_by: str = "streak") -> list[Any]:
     """Sort habits by specified field."""
     if sort_by == "streak":

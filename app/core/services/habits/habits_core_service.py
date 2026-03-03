@@ -714,11 +714,13 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         if result.is_error:
             return result
         record = result.value[0] if result.value else {}
-        return Result.ok({
-            "total": record.get("total", 0),
-            "active": record.get("active", 0),
-            "streaks": record.get("streaks", 0),
-        })
+        return Result.ok(
+            {
+                "total": record.get("total", 0),
+                "active": record.get("active", 0),
+                "streaks": record.get("streaks", 0),
+            }
+        )
 
     async def get_for_user_filtered(
         self, user_uid: str, status_filter: str = "active"

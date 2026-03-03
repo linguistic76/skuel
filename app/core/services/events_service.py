@@ -83,10 +83,6 @@ def _get_event_status_value(event: Any) -> str:
     return str(status).lower()
 
 
-
-
-
-
 def _apply_event_sort(events: list[Any], sort_by: str = "start_time") -> list[Any]:
     """Sort events by specified field."""
 
@@ -970,4 +966,3 @@ class EventsService(BaseService["EventsOperations", Event]):
             return entities_result
         sorted_events = _apply_event_sort(entities_result.value, sort_by)
         return Result.ok({"entities": sorted_events, "stats": stats_result.value})
-

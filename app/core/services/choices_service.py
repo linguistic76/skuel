@@ -60,8 +60,6 @@ def _get_choice_enum_value(obj: Any, attr: str, default: str = "") -> str:
     return str(value).lower()
 
 
-
-
 _CHOICE_PRIORITY_ORDER: dict[str, int] = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
 

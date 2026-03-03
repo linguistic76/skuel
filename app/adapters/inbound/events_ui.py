@@ -246,7 +246,9 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
         calendar_params = parse_calendar_params(request)
 
         # Get data with Result[T]
-        filtered_result = await events_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
+        filtered_result = await events_service.get_filtered_context(
+            user_uid, filters.status, filters.sort_by
+        )
         event_types_result = await get_event_types()
 
         # CHECK FOR ERRORS
@@ -337,7 +339,9 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
         user_uid = require_authenticated_user(request)
         filters = parse_filters(request)
 
-        filtered_result = await events_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
+        filtered_result = await events_service.get_filtered_context(
+            user_uid, filters.status, filters.sort_by
+        )
 
         # Handle errors
         if filtered_result.is_error:
@@ -377,7 +381,9 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
         user_uid = require_authenticated_user(request)
         filters = parse_filters(request)
 
-        filtered_result = await events_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
+        filtered_result = await events_service.get_filtered_context(
+            user_uid, filters.status, filters.sort_by
+        )
 
         # Handle errors
         if filtered_result.is_error:

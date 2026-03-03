@@ -119,7 +119,9 @@ def create_submissions_api_routes(
 
         return Result.ok(submission)
 
-    async def _validate_owned_submissions(submission_uids: list[str], user_uid: str) -> Result[None]:
+    async def _validate_owned_submissions(
+        submission_uids: list[str], user_uid: str
+    ) -> Result[None]:
         """Ensure all provided submissions are owned by the requesting user."""
         for uid in submission_uids:
             ownership_result = await _get_owned_submission(uid, user_uid)

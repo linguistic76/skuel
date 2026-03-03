@@ -847,11 +847,13 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         if result.is_error:
             return result
         record = result.value[0] if result.value else {}
-        return Result.ok({
-            "total": record.get("total", 0),
-            "completed": record.get("completed", 0),
-            "overdue": record.get("overdue", 0),
-        })
+        return Result.ok(
+            {
+                "total": record.get("total", 0),
+                "completed": record.get("completed", 0),
+                "overdue": record.get("overdue", 0),
+            }
+        )
 
     async def get_for_user_filtered(
         self, user_uid: str, status_filter: str = "active"
@@ -859,9 +861,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         """Fetch tasks with status filter pushed to Cypher WHERE."""
         match status_filter:
             case "active":
-                result = await self.backend.find_by(
-                    user_uid=user_uid, status__not_in=["completed"]
-                )
+                result = await self.backend.find_by(user_uid=user_uid, status__not_in=["completed"])
             case "completed":
                 result = await self.backend.find_by(user_uid=user_uid, status="completed")
             case _:  # "all" or unknown

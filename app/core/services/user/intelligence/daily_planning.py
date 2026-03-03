@@ -61,6 +61,7 @@ class DailyPlanningMixin:
         def _momentum_warnings(self, signals: dict[str, Any]) -> list[str]: ...
 
         def _momentum_rationale(self, signals: dict[str, Any]) -> str | None: ...
+
     feedback: Any  # FeedbackRelationshipService
     vector_search: Any = None  # Neo4jVectorSearchService (optional)
 

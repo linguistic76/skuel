@@ -49,6 +49,7 @@ logger = get_logger("skuel.routes.principles.ui")
 
 # RouteDecorator and Request imported from adapters.inbound.fasthtml_types
 
+
 @dataclass
 class Filters:
     """Typed filters for principle list queries."""

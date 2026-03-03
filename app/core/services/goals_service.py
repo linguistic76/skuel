@@ -93,8 +93,6 @@ def _get_goal_target_date(goal: Any) -> date:
     return date.max
 
 
-
-
 _GOAL_PRIORITY_ORDER: dict[str, int] = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
 

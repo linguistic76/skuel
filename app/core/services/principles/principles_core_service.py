@@ -960,11 +960,13 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         if result.is_error:
             return result
         record = result.value[0] if result.value else {}
-        return Result.ok({
-            "total": record.get("total", 0),
-            "core": record.get("core", 0),
-            "active": record.get("active", 0),
-        })
+        return Result.ok(
+            {
+                "total": record.get("total", 0),
+                "core": record.get("core", 0),
+                "active": record.get("active", 0),
+            }
+        )
 
     async def get_for_user_filtered(self, user_uid: str) -> Result[list[Principle]]:
         """Fetch all principles for user (category/strength filtering stays Python-side)."""

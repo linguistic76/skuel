@@ -1333,11 +1333,13 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         if result.is_error:
             return result
         record = result.value[0] if result.value else {}
-        return Result.ok({
-            "total": record.get("total", 0),
-            "pending": record.get("pending", 0),
-            "decided": record.get("decided", 0),
-        })
+        return Result.ok(
+            {
+                "total": record.get("total", 0),
+                "pending": record.get("pending", 0),
+                "decided": record.get("decided", 0),
+            }
+        )
 
     async def get_for_user_filtered(
         self, user_uid: str, status_filter: str = "pending"

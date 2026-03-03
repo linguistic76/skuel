@@ -459,7 +459,9 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         calendar_params = parse_calendar_params(request)
 
         # Get data with Result[T]
-        filtered_result = await habits_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
+        filtered_result = await habits_service.get_filtered_context(
+            user_uid, filters.status, filters.sort_by
+        )
         categories_result = await get_categories()
 
         # CHECK FOR ERRORS
@@ -533,7 +535,9 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         user_uid = require_authenticated_user(request)
         filters = parse_filters(request)
 
-        filtered_result = await habits_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
+        filtered_result = await habits_service.get_filtered_context(
+            user_uid, filters.status, filters.sort_by
+        )
         categories_result = await get_categories()
 
         # Handle errors (return banner directly for HTMX swap)
@@ -597,7 +601,9 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         user_uid = require_authenticated_user(request)
         filters = parse_filters(request)
 
-        filtered_result = await habits_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
+        filtered_result = await habits_service.get_filtered_context(
+            user_uid, filters.status, filters.sort_by
+        )
 
         # Handle errors
         if filtered_result.is_error:
