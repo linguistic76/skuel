@@ -305,14 +305,6 @@ def create_askesis_api_routes(
 
         GuidanceRecommendationCreateRequest.model_validate(body)
 
-        if not askesis_service:
-            return Result.fail(
-                Errors.system(
-                    message="Askesis intelligence service not available",
-                    operation="generate_guidance",
-                )
-            )
-
         fetch_result = await _load_askesis_and_context(askesis_uid, "generate_guidance")
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
@@ -339,14 +331,6 @@ def create_askesis_api_routes(
 
         params.get("timeframe", "7d")
         params.get("domains", "all")
-
-        if not askesis_service or not askesis_core_service:
-            return Result.fail(
-                Errors.system(
-                    message="Askesis services not available",
-                    operation="get_ai_insights",
-                )
-            )
 
         fetch_result = await _load_askesis_and_context(askesis_uid, "get_ai_insights")
         if fetch_result.is_error:
@@ -384,14 +368,6 @@ def create_askesis_api_routes(
 
         DomainInteractionRequest.model_validate(body)
 
-        if not askesis_service or not askesis_core_service:
-            return Result.fail(
-                Errors.system(
-                    message="Askesis services not available",
-                    operation="trigger_domain_integration",
-                )
-            )
-
         fetch_result = await _load_askesis_and_context(askesis_uid, "trigger_domain_integration")
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
@@ -422,14 +398,6 @@ def create_askesis_api_routes(
                 "include_predictions": params.get("predictions", "false") == "true",
             }
         )
-
-        if not askesis_service or not askesis_core_service:
-            return Result.fail(
-                Errors.system(
-                    message="Askesis services not available",
-                    operation="get_analytics",
-                )
-            )
 
         fetch_result = await _load_askesis_and_context(askesis_uid, "get_analytics")
         if fetch_result.is_error:
@@ -604,14 +572,6 @@ def create_askesis_api_routes(
         prioritize_life_path = params.get("prioritize_life_path", "true").lower() == "true"
         respect_capacity = params.get("respect_capacity", "true").lower() == "true"
 
-        if not askesis_service or not askesis_core_service:
-            return Result.fail(
-                Errors.system(
-                    message="Askesis services not available",
-                    operation="get_daily_work_plan",
-                )
-            )
-
         fetch_result = await _load_askesis_and_context(askesis_uid, "get_daily_work_plan")
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
@@ -690,14 +650,6 @@ def create_askesis_api_routes(
         consider_goals = params.get("consider_goals", "true").lower() == "true"
         consider_capacity = params.get("consider_capacity", "true").lower() == "true"
 
-        if not askesis_service or not askesis_core_service:
-            return Result.fail(
-                Errors.system(
-                    message="Askesis services not available",
-                    operation="get_optimal_learning_steps",
-                )
-            )
-
         fetch_result = await _load_askesis_and_context(askesis_uid, "get_optimal_learning_steps")
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
@@ -755,14 +707,6 @@ def create_askesis_api_routes(
             Result[list[str]]: Ordered list of KU UIDs representing critical path
         """
 
-        if not askesis_service or not askesis_core_service:
-            return Result.fail(
-                Errors.system(
-                    message="Askesis services not available",
-                    operation="get_learning_critical_path",
-                )
-            )
-
         fetch_result = await _load_askesis_and_context(askesis_uid, "get_learning_critical_path")
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
@@ -800,14 +744,6 @@ def create_askesis_api_routes(
         Returns:
             Result[list[tuple[str, int]]]: List of (ku_uid, blocked_count) sorted by impact
         """
-
-        if not askesis_service or not askesis_core_service:
-            return Result.fail(
-                Errors.system(
-                    message="Askesis services not available",
-                    operation="get_unblocking_priority",
-                )
-            )
 
         fetch_result = await _load_askesis_and_context(askesis_uid, "get_unblocking_priority")
         if fetch_result.is_error:
@@ -866,14 +802,6 @@ def create_askesis_api_routes(
         min_score = float(request.query_params.get("min_score", "0.3"))
         types_param = request.query_params.get("types", "")
         include_types = types_param.split(",") if types_param else None
-
-        if not askesis_service or not askesis_core_service:
-            return Result.fail(
-                Errors.system(
-                    message="Askesis services not available",
-                    operation="get_cross_domain_synergies",
-                )
-            )
 
         fetch_result = await _load_askesis_and_context(askesis_uid, "get_cross_domain_synergies")
         if fetch_result.is_error:
@@ -946,14 +874,6 @@ def create_askesis_api_routes(
                 - life_path_milestones_completed / total
                 - aligned_goals, supporting_habits, knowledge_gaps
         """
-
-        if not askesis_service or not askesis_core_service:
-            return Result.fail(
-                Errors.system(
-                    message="Askesis services not available",
-                    operation="get_life_path_alignment",
-                )
-            )
 
         fetch_result = await _load_askesis_and_context(askesis_uid, "get_life_path_alignment")
         if fetch_result.is_error:
@@ -1036,14 +956,6 @@ def create_askesis_api_routes(
         max_recommendations = int(request.query_params.get("max_recommendations", "5"))
         time_horizon_hours = int(request.query_params.get("time_horizon_hours", "8"))
         respect_energy = request.query_params.get("respect_energy", "true").lower() == "true"
-
-        if not askesis_service or not askesis_core_service:
-            return Result.fail(
-                Errors.system(
-                    message="Askesis services not available",
-                    operation="get_schedule_aware_recommendations",
-                )
-            )
 
         fetch_result = await _load_askesis_and_context(askesis_uid, "get_schedule_aware_recommendations")
         if fetch_result.is_error:
