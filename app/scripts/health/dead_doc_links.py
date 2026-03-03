@@ -43,14 +43,32 @@ EXTERNAL_PREFIXES = ("http://", "https://", "ftp://", "mailto:", "#")
 
 # Recognised local file extensions for inline path detection
 LOCAL_EXTENSIONS = {
-    ".py", ".md", ".yaml", ".yml", ".json", ".toml",
-    ".cypher", ".sh", ".js", ".ts", ".txt", ".html", ".css",
+    ".py",
+    ".md",
+    ".yaml",
+    ".yml",
+    ".json",
+    ".toml",
+    ".cypher",
+    ".sh",
+    ".js",
+    ".ts",
+    ".txt",
+    ".html",
+    ".css",
 }
 
 # Recognised project-root prefixes for bare path detection in prose
 PROJECT_PREFIXES = (
-    "/docs/", "/core/", "/adapters/", "/ui/", "/scripts/",
-    "/static/", "/.claude/", "/tests/", "/monitoring/",
+    "/docs/",
+    "/core/",
+    "/adapters/",
+    "/ui/",
+    "/scripts/",
+    "/static/",
+    "/.claude/",
+    "/tests/",
+    "/monitoring/",
 )
 
 
@@ -127,10 +145,8 @@ def extract_bare_paths(content: str) -> list[tuple[int, str]]:
     results = []
     # Match /project-prefix/... paths ending with a file extension
     pattern = re.compile(
-        r"(?<![`\[(])"          # not inside link or backtick (already handled above)
-        r"((?:"
-        + "|".join(re.escape(p) for p in PROJECT_PREFIXES)
-        + r")[^\s\)\]`\"'<>,]+)"
+        r"(?<![`\[(])"  # not inside link or backtick (already handled above)
+        r"((?:" + "|".join(re.escape(p) for p in PROJECT_PREFIXES) + r")[^\s\)\]`\"'<>,]+)"
     )
     for i, line in enumerate(content.splitlines(), 1):
         # Skip lines that are markdown link syntax (already covered)
@@ -152,9 +168,17 @@ def _looks_like_local_path(text: str) -> bool:
 
     # Must start with / or a known project directory
     starts_ok = text.startswith("/") or any(
-        text.startswith(d) for d in (
-            "docs/", "core/", "adapters/", "ui/", "scripts/",
-            "static/", ".claude/", "tests/", "monitoring/",
+        text.startswith(d)
+        for d in (
+            "docs/",
+            "core/",
+            "adapters/",
+            "ui/",
+            "scripts/",
+            "static/",
+            ".claude/",
+            "tests/",
+            "monitoring/",
         )
     )
     if not starts_ok:

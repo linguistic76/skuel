@@ -228,9 +228,7 @@ def main() -> int:
 
     print(f"{BOLD}Stale Name Scanner{RESET}")
     print("=" * 60)
-    print(
-        f"Rules: {len(RENAMED)} renamed identifiers, {len(DELETED)} deleted identifiers\n"
-    )
+    print(f"Rules: {len(RENAMED)} renamed identifiers, {len(DELETED)} deleted identifiers\n")
 
     md_files = get_scan_targets()
     print(f"Scanning {len(md_files)} Markdown files (code blocks only)...\n")
@@ -249,29 +247,19 @@ def main() -> int:
         print(f"{RED}{BOLD}Stale Names — {len(all_issues)} violations:{RESET}\n")
 
         current_file = None
-        for source, lineno, old, new, kind in sorted(
-            all_issues, key=lambda x: (str(x[0]), x[1])
-        ):
+        for source, lineno, old, new, kind in sorted(all_issues, key=lambda x: (str(x[0]), x[1])):
             if source != current_file:
                 print(f"\n  {BOLD}{source}{RESET}")
                 current_file = source
 
             if kind == "renamed":
-                print(
-                    f"    {YELLOW}L{lineno:4d}{RESET}  "
-                    f"{RED}{old}{RESET} → {GREEN}{new}{RESET}"
-                )
+                print(f"    {YELLOW}L{lineno:4d}{RESET}  {RED}{old}{RESET} → {GREEN}{new}{RESET}")
             else:  # deleted
-                print(
-                    f"    {YELLOW}L{lineno:4d}{RESET}  "
-                    f"{RED}[DELETED]{RESET} {RED}{old}{RESET}"
-                )
+                print(f"    {YELLOW}L{lineno:4d}{RESET}  {RED}[DELETED]{RESET} {RED}{old}{RESET}")
                 print(f"               {CYAN}reason: {new}{RESET}")
 
         print(f"\n{YELLOW}Total: {len(all_issues)} stale references{RESET}")
-        print(
-            f"\n{CYAN}Tip: Run with --list to see all tracked renamed/deleted identifiers{RESET}"
-        )
+        print(f"\n{CYAN}Tip: Run with --list to see all tracked renamed/deleted identifiers{RESET}")
         return 1
     else:
         print(f"{GREEN}✓ No stale names found{RESET}")

@@ -272,7 +272,7 @@ def get_hint(path: Path) -> str:
             return stripped[:100]
         if stripped.startswith(('"""', "'''")):
             # Single-line docstring
-            inner = stripped[3:].rstrip('"\' ')
+            inner = stripped[3:].rstrip("\"' ")
             if inner:
                 return inner[:100]
             # Multi-line: peek ahead
@@ -322,15 +322,9 @@ def main() -> int:
         print()
 
     if dead:
-        print(
-            f"{RED}{BOLD}Dead Modules — {len(dead)} files with zero importers:{RESET}"
-        )
-        print(
-            f"{YELLOW}These are not imported anywhere in production code.{RESET}"
-        )
-        print(
-            f"{YELLOW}Review before deleting — some may be loaded by convention.{RESET}\n"
-        )
+        print(f"{RED}{BOLD}Dead Modules — {len(dead)} files with zero importers:{RESET}")
+        print(f"{YELLOW}These are not imported anywhere in production code.{RESET}")
+        print(f"{YELLOW}Review before deleting — some may be loaded by convention.{RESET}\n")
 
         for path, module, lines, hint in sorted(dead, key=lambda x: -x[2]):
             rel = path.relative_to(ROOT)

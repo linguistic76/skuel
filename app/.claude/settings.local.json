@@ -294,7 +294,13 @@
       "Bash(sudo kill 3376 2>/dev/null || kill 3376 2>/dev/null; sleep 2 && echo \"killed\")",
       "Skill(learning-loop)",
       "Bash(grep -r \"class.*Service\" /home/mike/skuel/app/core/services/ku_service.py | head -5\ngrep -r \"domain_name\\\\|ku:\\\\|task:\\\\|goal:\" /home/mike/skuel/app/core/services/ku_service.py | head -10)",
-      "Bash(grep -r \"uid_prefix\\\\|ku_\\\\|task_\\\\|goal_\" /home/mike/skuel/app/core/models/task/task.py 2>/dev/null | head -10\ngrep -r \"uid.*ku\\\\|ku.*uid\" /home/mike/skuel/app/core/models/curriculum/ku.py 2>/dev/null | head -10)"
+      "Bash(grep -r \"uid_prefix\\\\|ku_\\\\|task_\\\\|goal_\" /home/mike/skuel/app/core/models/task/task.py 2>/dev/null | head -10\ngrep -r \"uid.*ku\\\\|ku.*uid\" /home/mike/skuel/app/core/models/curriculum/ku.py 2>/dev/null | head -10)",
+      "Bash(./dev health 2>&1 | tail -20)",
+      "Bash(./dev help 2>&1 | grep -A15 \"Health\")",
+      "Bash(./dev health-names --list 2>&1 | head -10)",
+      "Bash(./dev health-modules --verbose 2>&1 | tail -15)",
+      "Bash(./dev health-xref 2>&1 | head -30)",
+      "Bash(INTELLIGENCE_TIER=core poetry run python -c \"from core.config.intelligence_tier import IntelligenceTier; t = IntelligenceTier.from_env\\(\\); print\\(f'Tier: {t}, ai_enabled: {t.ai_enabled}'\\)\")"
     ]
   }
 }
