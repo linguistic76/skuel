@@ -12,7 +12,7 @@ Desktop: collapsible sidebar. Mobile: horizontal tabs.
 from dataclasses import dataclass
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, Li, P
+from fasthtml.common import H1, H2, H3, Div, Li, P, Span
 from fasthtml.common import A as Anchor
 from starlette.requests import Request
 from starlette.responses import Response
@@ -21,7 +21,8 @@ from core.models.curriculum.curriculum_requests import CurriculumCreateRequest a
 from core.models.enums import SELCategory
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-from ui.daisy_components import Button, ButtonT, Card, Div, Span
+from ui.buttons import Button, ButtonT
+from ui.cards import Card
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.entity_dashboard import SharedUIComponents
 from ui.patterns.form_generator import FormGenerator

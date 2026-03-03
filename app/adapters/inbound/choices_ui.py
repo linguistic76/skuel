@@ -22,7 +22,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, cast
 
-from fasthtml.common import H1, H2, H3, Form, P
+from fasthtml.common import H1, H2, H3, Div, Form, Option, P, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -39,18 +39,9 @@ from core.utils.sort_functions import (
 )
 from ui.choices.layout import create_choices_page
 from ui.choices.views import ChoicesViewComponents
-from ui.daisy_components import (
-    Button,
-    ButtonT,
-    Card,
-    Div,
-    Input,
-    Label,
-    Option,
-    Select,
-    Span,
-    Textarea,
-)
+from ui.buttons import Button, ButtonT
+from ui.cards import Card
+from ui.forms import Input, Label, Select, Textarea
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.error_banner import render_error_banner

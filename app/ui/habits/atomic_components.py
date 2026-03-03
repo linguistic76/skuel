@@ -13,19 +13,10 @@ Based on James Clear's "Atomic Habits" philosophy visualized for SKUEL users.
 
 from typing import Any
 
-from fasthtml.common import H2, H3, H4, Form, Option, P, Strong
-
-from ui.daisy_components import (
-    Button,
-    Card,
-    CardBody,
-    Div,
-    Input,
-    Label,
-    Select,
-    Span,
-    Textarea,
-)
+from fasthtml.common import H2, H3, H4, Div, Form, Option, P, Span, Strong
+from ui.buttons import Button
+from ui.cards import Card, CardBody
+from ui.forms import Input, Label, Select, Textarea
 from ui.habits.atomic_animations import AtomicHabitsAnimations
 
 

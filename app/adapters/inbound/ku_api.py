@@ -321,9 +321,7 @@ def create_ku_api_routes(
     @rt("/api/ku/journey-html")
     async def get_ku_journey_html(request: Request) -> Any:
         """HTMX: Render SEL journey as HTML fragment."""
-        from fasthtml.common import P
-
-        from ui.daisy_components import Div
+        from fasthtml.common import Div, P
 
         user_uid = require_authenticated_user(request)
         result = await ku_service.get_sel_journey(user_uid)
@@ -341,10 +339,9 @@ def create_ku_api_routes(
     @rt("/api/ku/curriculum-html/{category}")
     async def get_curriculum_html(request: Request, category: str, limit: int = 10) -> Any:
         """HTMX: Render personalized curriculum grid as HTML fragment."""
-        from fasthtml.common import P
+        from fasthtml.common import Div, P
 
         from core.models.enums import SELCategory
-        from ui.daisy_components import Div
 
         user_uid = require_authenticated_user(request)
 

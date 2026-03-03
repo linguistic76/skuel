@@ -11,9 +11,9 @@ Date: 2025-10-14
 
 from typing import Any
 
-from fasthtml.common import H1, H2, Form, P
-
-from ui.daisy_components import Button, Div, Input, Label, Option, Select, Span
+from fasthtml.common import H1, H2, Div, Form, Option, P, Span
+from ui.buttons import Button
+from ui.forms import Input, Label, Select
 
 
 class UserPreferencesComponents:

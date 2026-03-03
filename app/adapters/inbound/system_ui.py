@@ -12,13 +12,13 @@ __version__ = "2.0"
 
 from typing import Any
 
-from fasthtml.common import H1, A, Nav, NotStr, P
+from fasthtml.common import H1, A, Div, Nav, NotStr, P
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import is_authenticated
 from core.utils.logging import get_logger
-from ui.daisy_components import Container, Div
+from ui.layout import Container
 
 logger = get_logger("skuel.routes.system.ui")
 

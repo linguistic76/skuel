@@ -8,12 +8,14 @@ Security:
 - Dashboard requires admin role
 """
 
-from fasthtml.common import Form, NotStr, P, Pre
+from fasthtml.common import Div, Form, NotStr, P, Pre
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_admin
 from core.utils.logging import get_logger
-from ui.daisy_components import Button, Card, CardBody, Div, Input, Label
+from ui.buttons import Button
+from ui.cards import Card, CardBody
+from ui.forms import Input, Label
 from ui.layouts.base_page import BasePage
 from ui.patterns import PageHeader, SectionHeader
 

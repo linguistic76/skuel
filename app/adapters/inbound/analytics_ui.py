@@ -40,7 +40,7 @@ from starlette.requests import Request
 from adapters.inbound.auth import require_authenticated_user
 from core.models.enums import AnalyticsDomain
 from core.utils.logging import get_logger
-from ui.daisy_components import Button, ButtonT
+from ui.buttons import Button, ButtonT
 from ui.layouts.navbar import create_navbar_for_request
 from ui.shared_components import MetricCard, QuickMetricCard
 

@@ -28,10 +28,10 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any, get_args, get_origin
 
-from fasthtml.common import H3, Li, P, Ul
+from fasthtml.common import H3, Div, Li, P, Span, Ul
 
 from core.utils.logging import get_logger
-from ui.daisy_components import Div, Label, Span
+from ui.forms import Label
 
 logger = get_logger("skuel.components.card_generator")
 

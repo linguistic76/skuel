@@ -37,7 +37,7 @@ from adapters.inbound.boundary import boundary_handler
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from ui.daisy_components import Button, ButtonT
+from ui.buttons import Button, ButtonT
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 

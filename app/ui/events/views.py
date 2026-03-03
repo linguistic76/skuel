@@ -20,7 +20,7 @@ Usage:
 from datetime import date, timedelta
 from typing import Any
 
-from fasthtml.common import H2, H3, A, Form, P
+from fasthtml.common import H2, H3, A, Div, Form, Option, P, Span
 
 from core.models.event.calendar_models import (
     CalendarData,
@@ -35,16 +35,8 @@ from ui.calendar.components import (
     create_week_grid,
 )
 from ui.calendar.converters import event_to_calendar_item
-from ui.daisy_components import (
-    Button,
-    Div,
-    Input,
-    Label,
-    Option,
-    Select,
-    Span,
-    Textarea,
-)
+from ui.buttons import Button
+from ui.forms import Input, Label, Select, Textarea
 from ui.patterns.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,

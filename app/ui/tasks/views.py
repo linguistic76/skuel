@@ -42,7 +42,9 @@ from ui.calendar.components import (
     create_week_grid,
 )
 from ui.calendar.converters import task_to_calendar_item
-from ui.daisy_components import Button, ButtonT, Input, Select, Size, Textarea
+from ui.buttons import Button, ButtonT
+from ui.forms import Input, Select, Textarea
+from ui.layout import Size
 from ui.patterns.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,

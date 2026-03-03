@@ -23,7 +23,7 @@ __version__ = "2.0"
 from dataclasses import dataclass
 from typing import Any, cast
 
-from fasthtml.common import H1, H2, H3, P
+from fasthtml.common import H1, H2, H3, Div, P, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -35,7 +35,8 @@ from core.services.principles_service import PrinciplesService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_or_name_lower
-from ui.daisy_components import Button, ButtonT, Card, Div, Span
+from ui.buttons import Button, ButtonT
+from ui.cards import Card
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.error_banner import render_error_banner

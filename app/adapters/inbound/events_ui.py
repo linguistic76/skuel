@@ -22,7 +22,7 @@ from datetime import date, datetime, time
 from enum import Enum
 from typing import Any
 
-from fasthtml.common import H1, H2, Form, P
+from fasthtml.common import H1, H2, Div, Form, Option, P, Span
 from starlette.responses import RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -35,18 +35,9 @@ from core.services.events_service import EventsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_lower
-from ui.daisy_components import (
-    Button,
-    ButtonT,
-    Card,
-    Div,
-    Input,
-    Label,
-    Option,
-    Select,
-    Span,
-    Textarea,
-)
+from ui.buttons import Button, ButtonT
+from ui.cards import Card
+from ui.forms import Input, Label, Select, Textarea
 from ui.events.layout import create_events_page
 from ui.events.views import EventsViewComponents
 from ui.layouts.base_page import BasePage

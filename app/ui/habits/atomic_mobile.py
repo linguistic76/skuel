@@ -21,9 +21,9 @@ All components are responsive and degrade gracefully on desktop.
 from datetime import date
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, P
-
-from ui.daisy_components import Button, Card, CardBody, Div, Span
+from fasthtml.common import H1, H2, H3, Div, P, Span
+from ui.buttons import Button
+from ui.cards import Card, CardBody
 
 
 class AtomicHabitsMobile:

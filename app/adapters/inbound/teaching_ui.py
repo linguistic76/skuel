@@ -27,6 +27,7 @@ from fasthtml.common import (
     Form,
     Input,
     Label,
+    Option,
     P,
     Span,
     Textarea,
@@ -36,7 +37,8 @@ from starlette.requests import Request
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from core.utils.logging import get_logger
-from ui.daisy_components import Button, ButtonT, Option, Select
+from ui.buttons import Button, ButtonT
+from ui.forms import Select
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 

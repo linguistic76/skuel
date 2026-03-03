@@ -45,7 +45,7 @@ from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_admin
 from core.utils.logging import get_logger
-from ui.daisy_components import Button, ButtonT
+from ui.buttons import Button, ButtonT
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 

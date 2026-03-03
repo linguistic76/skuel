@@ -25,9 +25,11 @@ from datetime import date
 from enum import Enum
 from typing import Any, ClassVar
 
-from fasthtml.common import H2, H3, P
-
-from ui.daisy_components import Button, Card, CardBody, Div, Label, Progress, Span
+from fasthtml.common import H2, H3, Div, P, Span
+from ui.buttons import Button
+from ui.cards import Card, CardBody
+from ui.feedback import Progress
+from ui.forms import Label
 
 
 class BadgeCategory(str, Enum):

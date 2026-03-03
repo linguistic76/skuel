@@ -17,24 +17,11 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, TypedDict
 
-from fasthtml.common import H1, H2, H3, Option, P
-
-from ui.daisy_components import (
-    Button,
-    Card,
-    CardBody,
-    Div,
-    Input,
-    Label,
-    Select,
-    Span,
-    Table,
-    Tbody,
-    Td,
-    Th,
-    Thead,
-    Tr,
-)
+from fasthtml.common import H1, H2, H3, Div, Option, P, Span, Tbody, Td, Th, Thead, Tr
+from ui.buttons import Button
+from ui.cards import Card, CardBody
+from ui.data import Table
+from ui.forms import Input, Label, Select
 from ui.habits.atomic_animations import AtomicHabitsAnimations
 from ui.ui_types import BenchmarkData, HabitMigration
 

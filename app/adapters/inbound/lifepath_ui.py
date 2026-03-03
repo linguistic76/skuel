@@ -20,13 +20,16 @@ Philosophy:
 
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, A, Form, P
+from fasthtml.common import H1, H2, H3, A, Div, Form, P, Span
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
-from ui.daisy_components import Button, Card, Div, Label, Progress, Span, Textarea
+from ui.buttons import Button
+from ui.cards import Card
+from ui.feedback import Progress
+from ui.forms import Label, Textarea
 from ui.patterns.drawer_layout import create_drawer_layout
 from ui.tokens import Container
 

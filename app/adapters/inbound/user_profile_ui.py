@@ -23,7 +23,7 @@ __version__ = "4.0"  # Merged dashboard sidebar into profile/hub
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Request
+from fasthtml.common import Div, Request
 
 if TYPE_CHECKING:
     from services_bootstrap import Services
@@ -34,7 +34,6 @@ from core.ports import get_enum_value
 from core.services.user.unified_user_context import UserContext
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from ui.daisy_components import Div
 from ui.layouts.base_page import BasePage
 from ui.profile.domain_stats_config import (
     DOMAIN_STATS_CONFIG,

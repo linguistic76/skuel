@@ -13,12 +13,12 @@ Components:
 
 from typing import Any
 
-from fasthtml.common import H1, H2, P
+from fasthtml.common import H1, H2, Div, P
 
 from core.models.curriculum.ku_progress import KuLearningJourney, ReportCategoryProgress
 from core.models.entity_types import CurriculumEntity
 from core.models.enums import SELCategory
-from ui.daisy_components import Div, Progress
+from ui.feedback import Progress
 from ui.enum_helpers import get_sel_icon
 from ui.patterns.entity_card import CardConfig, EntityCard
 from ui.primitives.badge import Badge

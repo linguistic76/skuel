@@ -22,7 +22,7 @@ from datetime import date
 from enum import Enum
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, Form, P, Script
+from fasthtml.common import H1, H2, H3, Div, Form, Option, P, Script, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -39,19 +39,11 @@ from core.utils.sort_functions import (
     get_current_value,
     make_priority_string_getter,
 )
-from ui.daisy_components import (
-    Button,
-    ButtonT,
-    Card,
-    Div,
-    Input,
-    Label,
-    Option,
-    Progress,
-    Select,
-    Size,
-    Span,
-)
+from ui.buttons import Button, ButtonT
+from ui.cards import Card
+from ui.feedback import Progress
+from ui.forms import Input, Label, Select
+from ui.layout import Size
 from ui.goals.layout import create_goals_page
 from ui.goals.views import GoalsViewComponents
 from ui.habits.atomic_components import AtomicHabitsComponents

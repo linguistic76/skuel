@@ -15,22 +15,13 @@ Formerly assignments_ui.py — renamed per of Ku hierarchy refactoring.
 
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, A, Code, Form, Li, P, Pre, Ul
+from fasthtml.common import H1, H2, H3, A, Code, Div, Form, Li, Option, P, Pre, Span, Ul
 
 from adapters.inbound.auth import require_teacher
 from core.utils.logging import get_logger
-from ui.daisy_components import (
-    Button,
-    ButtonT,
-    Card,
-    Div,
-    Input,
-    Label,
-    Option,
-    Select,
-    Span,
-    Textarea,
-)
+from ui.buttons import Button, ButtonT
+from ui.cards import Card
+from ui.forms import Input, Label, Select, Textarea
 from ui.layouts.navbar import create_navbar_for_request
 
 logger = get_logger("skuel.routes.exercises.ui")

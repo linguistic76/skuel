@@ -14,9 +14,7 @@ Animation Categories:
 All animations use CSS transitions and HTMX for smooth, performant updates.
 """
 
-from fasthtml.common import P, Style
-
-from ui.daisy_components import Div, Span
+from fasthtml.common import Div, P, Span, Style
 
 
 class AtomicHabitsAnimations:

@@ -27,12 +27,15 @@ from fasthtml.common import (
     H4,
     H5,
     Body,
+    Div,
     Head,
     Header,
     Html,
     Li,
+    Option,
     P,
     Script,
+    Span,
     Style,
     Title,
     Ul,
@@ -43,7 +46,9 @@ from core.models.curriculum.curriculum_requests import LearningPathFilterRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
-from ui.daisy_components import Button, ButtonT, Card, Div, Label, Option, Select, Span
+from ui.buttons import Button, ButtonT
+from ui.cards import Card
+from ui.forms import Label, Select
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.form_generator import FormGenerator

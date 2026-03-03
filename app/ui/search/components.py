@@ -23,7 +23,7 @@ __version__ = "3.0"
 
 from typing import Any
 
-from fasthtml.common import H3, H4, A, NotStr, P
+from fasthtml.common import H3, H4, A, Div, NotStr, P, Span
 
 from core.models.enums import (
     ContentType,
@@ -32,7 +32,6 @@ from core.models.enums import (
     SELCategory,
 )
 from core.models.search_request import SearchResponse
-from ui.daisy_components import Div, Span
 from ui.enum_helpers import (
     get_content_icon,
     get_educational_icon,

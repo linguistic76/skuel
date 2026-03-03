@@ -21,7 +21,7 @@ from datetime import date, timedelta
 from operator import itemgetter
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, P
+from fasthtml.common import H1, H2, H3, Div, P, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -40,7 +40,9 @@ from core.utils.sort_functions import (
     get_name_lower,
     get_recurrence_pattern,
 )
-from ui.daisy_components import Button, ButtonT, Card, CardBody, Div, Size, Span
+from ui.buttons import Button, ButtonT
+from ui.cards import Card, CardBody
+from ui.layout import Size
 from ui.habits.atomic_achievements import AtomicHabitsBadges
 from ui.habits.atomic_analytics import AtomicHabitsAnalytics
 from ui.habits.atomic_components import AtomicHabitsComponents

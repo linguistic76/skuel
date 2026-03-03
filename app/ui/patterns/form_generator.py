@@ -41,7 +41,8 @@ from core.ports import (
     PydanticFieldInfo,
 )
 from core.utils.logging import get_logger
-from ui.daisy_components import Button, ButtonT, Input, InputT, Select, Textarea
+from ui.buttons import Button, ButtonT
+from ui.forms import Input, InputT, Select, Textarea
 
 logger = get_logger("skuel.components.form_generator")
 

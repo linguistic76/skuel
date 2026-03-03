@@ -18,12 +18,12 @@ Date: 2026-01-21
 
 from typing import Any
 
-from fasthtml.common import H1, H2, A, P, Pre
+from fasthtml.common import H1, H2, A, Div, P, Pre
 from starlette.requests import Request
 
 from adapters.inbound.auth import get_current_user, is_authenticated, require_admin
 from core.utils.logging import get_logger
-from ui.daisy_components import Card, CardBody, Div
+from ui.cards import Card, CardBody
 
 logger = get_logger("skuel.routes.auth_api")
 

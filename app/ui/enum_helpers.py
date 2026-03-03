@@ -34,7 +34,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fasthtml.common import H4, P
+from fasthtml.common import H4, Div, P, Span
 
 from core.models.enums import (
     ActivityType,
@@ -52,7 +52,8 @@ from core.models.enums import (
     TrendDirection,
 )
 from core.models.event.calendar_models import CalendarItemType
-from ui.daisy_components import Button, Card, CardBody, Div, Span
+from ui.buttons import Button
+from ui.cards import Card, CardBody
 
 
 # Simple Badge component (local helper for this module)

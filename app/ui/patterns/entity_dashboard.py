@@ -51,14 +51,9 @@ from fasthtml.common import (
 )
 
 from core.utils.logging import get_logger
-from ui.daisy_components import (
-    Button,
-    ButtonT,
-    Card,
-    Input,
-    InputT,
-    Select,
-)
+from ui.buttons import Button, ButtonT
+from ui.cards import Card
+from ui.forms import Input, InputT, Select
 from ui.layouts.navbar import create_navbar, create_navbar_for_request
 
 if TYPE_CHECKING:

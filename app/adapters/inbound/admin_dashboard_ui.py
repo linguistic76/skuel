@@ -36,7 +36,7 @@ from ui.admin.views import (
     AdminSystemComponents,
     AdminUIComponents,
 )
-from ui.daisy_components import Button, ButtonT
+from ui.buttons import Button, ButtonT
 
 logger = get_logger("skuel.routes.admin.ui")
 

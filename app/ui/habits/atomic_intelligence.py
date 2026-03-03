@@ -13,22 +13,11 @@ Uses backend intelligence methods from Goal and Habit domain models.
 
 from typing import Any
 
-from fasthtml.common import H3, H4, Li, P, Ul
-
-from ui.daisy_components import (
-    Button,
-    Card,
-    CardBody,
-    Div,
-    Progress,
-    Span,
-    Table,
-    Tbody,
-    Td,
-    Th,
-    Thead,
-    Tr,
-)
+from fasthtml.common import H3, H4, Div, Li, P, Span, Tbody, Td, Th, Thead, Tr, Ul
+from ui.buttons import Button
+from ui.cards import Card, CardBody
+from ui.data import Table
+from ui.feedback import Progress
 
 
 class AtomicHabitsIntelligence:

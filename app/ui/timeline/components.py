@@ -17,9 +17,9 @@ Usage:
 __version__ = "2.0"  # Vis.js Timeline version
 
 
-from fasthtml.common import H1, Body, Head, Html, Link, Meta, P, Script, Title
-
-from ui.daisy_components import Button, Div, Input, Label, Option, Select, Span
+from fasthtml.common import H1, Body, Div, Head, Html, Link, Meta, Option, P, Script, Span, Title
+from ui.buttons import Button
+from ui.forms import Input, Label, Select
 
 
 def render_timeline_viewer_page(

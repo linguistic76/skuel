@@ -22,7 +22,7 @@ from fasthtml.common import H3, A, Button, Div, NotStr, P, Request, Small, Span
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
-from ui.daisy_components import Card, CardBody
+from ui.cards import Card, CardBody
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.breadcrumbs import Breadcrumbs

@@ -17,18 +17,14 @@ __version__ = "5.0"
 
 from typing import Any
 
-from fasthtml.common import (
-    H1,
-    H2,
-    Form,
-    Label,
-    P,
-)
+from fasthtml.common import H1, H2, Div, Form, Label, Option, P, Span
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
-from ui.daisy_components import Button, ButtonT, Card, Div, Option, Select, Span, Textarea
+from ui.buttons import Button, ButtonT
+from ui.cards import Card
+from ui.forms import Select, Textarea
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 logger = get_logger("skuel.ui.askesis")

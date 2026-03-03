@@ -17,10 +17,10 @@ __version__ = "2.1"
 
 from typing import Any
 
-from fasthtml.common import H1, H3, P
+from fasthtml.common import H1, H3, Div, P
 
 from core.utils.logging import get_logger
-from ui.daisy_components import Card, Div
+from ui.cards import Card
 from ui.shared_components import (
     InsightCard,
     MetricCard,

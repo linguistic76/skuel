@@ -19,14 +19,14 @@ __version__ = "3.0"
 from datetime import date
 from typing import Any
 
-from fasthtml.common import A
+from fasthtml.common import A, Div, Span
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_admin
 from core.constants import QueryLimit
 from core.models.finance.finance_request import BudgetCreateRequest, ExpenseCreateRequest
 from core.utils.logging import get_logger
-from ui.daisy_components import Card, Div, Span
+from ui.cards import Card
 from ui.finance import create_finance_page
 from ui.finance.section_views import FinanceSectionViews
 from ui.patterns.card_generator import CardGenerator
