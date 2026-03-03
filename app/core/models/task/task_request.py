@@ -94,9 +94,8 @@ class TaskCreateRequest(CreateRequestBase):
     @model_validator(mode="after")
     def validate_due_after_scheduled(self) -> "TaskCreateRequest":
         """Due date must not be before scheduled date."""
-        if self.due_date and self.scheduled_date:
-            if self.due_date < self.scheduled_date:
-                raise ValueError("Due date cannot be before scheduled date")
+        if self.due_date and self.scheduled_date and self.due_date < self.scheduled_date:
+            raise ValueError("Due date cannot be before scheduled date")
         return self
 
 

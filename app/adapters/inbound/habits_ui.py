@@ -396,7 +396,7 @@ def parse_filters(request) -> Filters:
 
 
 def _render_wizard_step(form_data: dict[str, Any], step: int) -> Any:
-    """Shared body for all wizard step POST handlers — eliminates 4× duplication."""
+    """Shared body for all wizard step POST handlers — eliminates 4x duplication."""
     return AtomicHabitsComponents.render_habit_creation_wizard(step=step, form_data=form_data)
 
 
