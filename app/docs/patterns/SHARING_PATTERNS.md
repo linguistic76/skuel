@@ -192,9 +192,7 @@ assert access_result.value is True  # ✅ Public access
 GET /api/submissions/public?user_uid=user_alice&limit=10
 ```
 
-Returns only `visibility=PUBLIC` entities. Server enforces the visibility filter — private and shared submissions are never exposed to unauthenticated callers.
-
-**Note:** `limit` is applied before the visibility filter, so fewer results than `limit` may be returned if most submissions are non-public.
+Returns only `visibility=PUBLIC` entities. Visibility filter and `limit` are both applied at query time via `SubmissionsCoreService.get_public_submissions()` — callers always receive up to `limit` public results.
 
 ---
 

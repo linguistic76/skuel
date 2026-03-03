@@ -377,9 +377,6 @@ def create_submissions_sharing_api_routes(
         filter_user_uid = params.get("user_uid")
         limit = int(params.get("limit", 50))
 
-        # Query public submissions
-        # Note: This uses the core service's search capabilities
-        # We filter by visibility=public
         if not core_service:
             return Result.fail(
                 {
@@ -388,18 +385,15 @@ def create_submissions_sharing_api_routes(
                 }
             )
 
-        search_result = await core_service.search(
-            query="",  # Empty query = all
+        result = await core_service.get_public_submissions(
             limit=limit,
+            user_uid=filter_user_uid,
         )
 
-        if search_result.is_error:
-            return Result.fail(search_result)
+        if result.is_error:
+            return Result.fail(result)
 
-        submissions = [a for a in search_result.value if a.visibility == Visibility.PUBLIC]
-
-        if filter_user_uid:
-            submissions = [a for a in submissions if a.user_uid == filter_user_uid]
+        submissions = result.value
 
         return Result.ok(
             {

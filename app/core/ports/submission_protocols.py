@@ -225,6 +225,14 @@ class SubmissionOperations(Protocol):
         """Verify entity is in a shareable state. Returns Result[bool]."""
         ...
 
+    async def get_public_submissions(
+        self,
+        limit: int = 50,
+        user_uid: str | None = None,
+    ) -> Result[list[Any]]:
+        """Get public submissions with server-side visibility filter. Returns Result[list[Submission]]."""
+        ...
+
     async def search(
         self,
         query: str,

@@ -338,6 +338,38 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         return Result.ok(submissions[:limit])
 
+    async def get_public_submissions(
+        self,
+        limit: int = 50,
+        user_uid: str | None = None,
+    ) -> Result[list[SubmissionEntity]]:
+        """
+        Get submissions with visibility=PUBLIC.
+
+        Applies the visibility filter at query time so limit is honoured
+        after filtering — callers always receive up to `limit` public results.
+
+        Args:
+            limit: Maximum number of submissions to return
+            user_uid: Optional owner filter (portfolio view for a specific user)
+
+        Returns:
+            Result containing list of public submissions, newest first
+        """
+        from core.models.enums.metadata_enums import Visibility
+
+        filters: dict[str, Any] = {"visibility": Visibility.PUBLIC.value}
+        if user_uid:
+            filters["user_uid"] = user_uid
+
+        result = await self.backend.find_by(limit=limit, **filters)
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        submissions = result.value or []
+        submissions.sort(key=get_report_date, reverse=True)
+        return Result.ok(submissions)
+
     # ========================================================================
     # UPDATE
     # ========================================================================
