@@ -71,7 +71,6 @@ def generator(mock_driver, mock_activity_report_service, mock_context_builder, m
         executor=mock_driver,
         activity_report_service=mock_activity_report_service,
         context_builder=mock_context_builder,
-        user_service=None,
         insight_store=mock_insight_store,
         event_bus=mock_event_bus,
     )
@@ -144,7 +143,7 @@ class TestPreviousAnnotationParameter:
 
     @pytest.mark.asyncio
     async def test_provided_annotation_skips_db_lookup(self, generator):
-        """When previous_annotation is given, build_rich called once, executor not called."""
+        """When previous_annotation is given, build_rich called once; executor called once (cooldown only)."""
         generator.executor.execute_query.reset_mock()
         generator.context_builder.build_rich.reset_mock()
 
@@ -153,21 +152,21 @@ class TestPreviousAnnotationParameter:
             previous_annotation="I was overcommitting last week.",
         )
 
-        # Activity data via context_builder — no annotation lookup via executor
+        # Activity data via context_builder — annotation lookup skipped; only cooldown check fires
         assert generator.context_builder.build_rich.call_count == 1
-        assert generator.executor.execute_query.call_count == 0
+        assert generator.executor.execute_query.call_count == 1  # cooldown only
 
     @pytest.mark.asyncio
     async def test_no_annotation_fetches_from_db(self, generator):
-        """When previous_annotation is None, build_rich called once + executor once (annotation)."""
+        """When previous_annotation is None, build_rich called once + executor twice (cooldown + annotation)."""
         generator.executor.execute_query.reset_mock()
         generator.context_builder.build_rich.reset_mock()
 
         await generator.generate(user_uid="user_alice")
 
-        # Activity data via context_builder + annotation lookup via executor
+        # Activity data via context_builder + cooldown check + annotation lookup via executor
         assert generator.context_builder.build_rich.call_count == 1
-        assert generator.executor.execute_query.call_count == 1
+        assert generator.executor.execute_query.call_count == 2  # cooldown + annotation lookup
 
 
 class TestGenerate:

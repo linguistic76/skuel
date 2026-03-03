@@ -273,7 +273,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // EVENTS - Fetch UIDs AND rich data with graph neighborhoods
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(event:Event)
-WHERE event.event_date >= date($window_start)
+WHERE event.event_date >= date(datetime($window_start))
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
