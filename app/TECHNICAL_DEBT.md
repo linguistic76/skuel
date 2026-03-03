@@ -1,77 +1,72 @@
-# Technical Debt & TODO Roadmap
+# Technical Debt & Development Roadmap
 
-**Last Updated:** February 18, 2026
+**Last Updated:** March 4, 2026
 **Total Production Ruff Errors:** 0
-**Active TODOs:** 7
+**Active TODOs:** 11
 
 ## Philosophy
 
 We track technical debt intentionally. Each TODO is categorized, each deferred feature has documented prerequisites. Dead TODOs are deleted, not left to rot.
 
+Development follows a calculated approach: features are built when they serve real users, not because they can be built. The codebase is well-established — protect what exists, extend deliberately.
+
 **Categories:** `[PERFORMANCE]` `[FEATURE]` `[ENHANCEMENT]` `[CLEANUP]`
 
 ---
 
-## Ruff Linting Status
+## Roadmap Overview
 
-**All production errors resolved.**
-
-| Metric | Oct 2025 | Feb 2026 |
-|--------|----------|----------|
-| Total errors | 241 | **0** |
-| Critical | 0 | 0 |
-| Medium | 30 | **0** |
-| Low | 106 | **0** |
-
-Run: `poetry run ruff check core/ adapters/ routes/ ui/`
+| Tier | Focus | When | Items |
+|------|-------|------|-------|
+| **1 — Foundation Fixes** | Strengthen what exists | Now | 3 |
+| **2 — MVP Completions** | Working product gaps | Before first users | 2 |
+| **3 — Data-Dependent** | Require usage data to justify | After real usage | 6 |
+| **Shelved** | Prerequisite-gated | When thresholds met | 3 |
+| **Decision Points** | Billing/architecture choices | When business model clarifies | 1 |
 
 ---
 
-## Active TODOs (7 items)
+## Tier 1: Foundation Fixes
 
-### Performance (1)
+Small-scope fixes that strengthen existing fundamentals. No new architecture needed.
 
-| File | Line | Description |
-|------|------|-------------|
-| `core/services/tasks/tasks_ai_service.py` | 122 | Fetches ALL user tasks for similarity detection. Use vector similarity search or limit query for users with many tasks. |
-
-### Features (3)
-
-| File | Line | Description |
-|------|------|-------------|
-| `ui/profile/domain_views.py` | 436 | `is_this_week` hardcoded to `False`. Calculate from `task.due_date` using week boundaries. |
-| `core/services/goals/goals_intelligence_service.py` | 212 | `_period_days` parameter accepted but unused. Filter goals by `created_at`/`updated_at` within period. |
-| `core/services/analytics/analytics_life_path_service.py` | 450 | `get_alignment_trend()` returns placeholder data. Needs historical alignment score snapshots in Neo4j + rolling average calculation. |
-
-### Enhancements (2)
-
-| File | Line | Description |
-|------|------|-------------|
-| `core/services/user/user_context_service.py` | 478 | After task completion, record: knowledge application tracking, time investment, learning progress, context cache invalidation. |
-| `core/services/query/faceted_query_builder.py` | 192 | Phase 2: Replace regex-based query parsing with `analyze_query_intent()` for semantic analysis of faceted queries. |
-
-### Cleanup (1)
-
-| File | Line | Description |
-|------|------|-------------|
-| `core/models/finance/finance_converters.py` | 267 | `BudgetDTO` missing `user_uid` field. Converter sets `user_uid=""` — service layer provides context as workaround. |
+| # | File | Line | Category | Description |
+|---|------|------|----------|-------------|
+| 1 | `ui/profile/activity_views.py` | 156,167,236,247,317,328 | [FEATURE] | `is_this_week` hardcoded to `False` in 6 places. Calculate from entity `due_date` / `target_date` using week boundary logic. |
+| 2 | `core/services/user/unified_user_context.py` | 544 | [CLEANUP] | `require_rich_context()` raises generic `ValueError`. Replace with `RichContextRequiredError` for cleaner error handling at service boundaries. |
+| 3 | `core/models/finance/finance_converters.py` | 267 | [CLEANUP] | `BudgetDTO` missing `user_uid` field. Converter sets `user_uid=""` — service layer provides context as workaround. Add the field. |
 
 ---
 
-## Placeholder Routes (Not TODOs)
+## Tier 2: MVP Completions
 
-These routes exist with intentional 501 responses. They define the API contract; implementation is deferred.
+Gaps that matter for a functioning product with real users.
 
-| File | Lines | Route | Description |
-|------|-------|-------|-------------|
-| `adapters/inbound/learning_api.py` | 126 | `POST /api/learning/progress` | Progress tracking — requires progress service integration |
-| `adapters/inbound/learning_api.py` | 143 | `GET /api/learning/progress/summary` | Progress summary — requires progress service integration |
+| # | File | Line | Category | Description |
+|---|------|------|----------|-------------|
+| 4 | `core/auth/graph_auth.py` | 668 | [FEATURE] | `send_password_reset_email()` is a no-op placeholder. Requires email service integration (e.g., Resend, Postmark). Auth flow incomplete without this. |
+| 5 | `adapters/inbound/learning_api.py` | 126, 143 | [FEATURE] | Two placeholder routes returning 501: `POST /api/learning/progress` and `GET /api/learning/progress/summary`. Requires progress service integration. |
+
+---
+
+## Tier 3: Data-Dependent Enhancements
+
+These only make sense once there are real users generating real data. Building them now would be engineering without evidence.
+
+| # | File | Line | Category | Why wait |
+|---|------|------|----------|----------|
+| 6 | `core/services/tasks/tasks_ai_service.py` | 121 | [PERFORMANCE] | Fetches ALL user tasks for similarity detection. Vector similarity or query limits needed — but only matters when users have 100+ tasks. |
+| 7 | `core/services/goals/goals_intelligence_service.py` | 211 | [FEATURE] | `_period_days` parameter accepted but unused. Filter goals by time window. Needs real usage patterns to validate the right window defaults. |
+| 8 | `core/services/analytics/analytics_life_path_service.py` | 450 | [FEATURE] | `get_alignment_trend()` returns placeholder data. Needs historical alignment score snapshots in Neo4j + rolling averages. Requires sustained user engagement to be meaningful. |
+| 9 | `core/services/user/user_context_service.py` | 478 | [ENHANCEMENT] | After task completion, record knowledge application tracking, time investment, learning progress. Needs clear UX for what users see from this data. |
+| 10 | `core/services/query/faceted_query_builder.py` | 192 | [ENHANCEMENT] | Replace regex-based query parsing with `analyze_query_intent()` for semantic analysis. Current regex works — semantic analysis is an optimization. |
+| 11 | `core/services/adaptive_lp/adaptive_lp_core_service.py` | 104 | [FEATURE] | `_detect_learning_style()` always returns `'balanced'`. Detecting learning style from behavior patterns requires substantial user interaction history. |
 
 ---
 
 ## Shelved Intelligence Features
 
-These are documented, scoped, and have clear prerequisites. Not active debt — intentionally deferred until prerequisites are met.
+Documented, scoped, with clear prerequisites. Not active debt — intentionally deferred until thresholds are met.
 
 | Feature | Doc | Prerequisite | Effort |
 |---------|-----|-------------|--------|
@@ -81,20 +76,57 @@ These are documented, scoped, and have clear prerequisites. Not active debt — 
 
 ---
 
+## Decision Points (Not TODOs)
+
+These are architectural choices that depend on business decisions, not code quality.
+
+| Decision | Current State | What Triggers Action |
+|----------|---------------|---------------------|
+| **Per-user intelligence tier** | `intelligence_tier_service.py` exists but is not wired into routes (ADR-043). System-wide toggle works. | Billing model decision — when paid vs free tiers are defined, wire `get_user_intelligence_tier()` into route middleware. |
+| **KnowledgeConfig validation** | `config/validation.py:199` returns empty list. | When `embedding_model` and `embedding_dimension` fields are added to `KnowledgeConfig`, add real validation. |
+
+---
+
+## Non-Production TODOs (tracked, low priority)
+
+| File | Description |
+|------|-------------|
+| `tests/integration/test_async_embeddings.py:560-561` | Add end-to-end test with real Neo4j + performance benchmarking test. |
+| `scripts/sync_cross_references.py:210` | Could update existing "Related Skills" sections instead of skipping files that already have one. |
+
+---
+
+## Ruff Linting Status
+
+**All production errors resolved.**
+
+| Metric | Oct 2025 | Mar 2026 |
+|--------|----------|----------|
+| Total errors | 241 | **0** |
+
+Run: `poetry run ruff check core/ adapters/ ui/`
+
+---
+
 ## Resolved Debt (Historical Summary)
 
-**Oct 2025 - Feb 2026:** Major cleanup sprint.
+**Oct 2025 - Mar 2026:**
 
-- **241 ruff errors eliminated** (critical, medium, and low priority — all zero)
+- **241 ruff errors eliminated** (all zero)
 - **~20 stale TODOs resolved** across deleted/refactored services
 - **5 dead service files deleted** (yaml_ingestion, markdown_sync, context_aware_intelligence, event_converters, tasks_analytics)
 - **Journal model package deleted** (~1,400 lines of dead code)
 - **Transcription three-tier models deleted** (~1,540 lines)
-- **3 stale tracking files deleted** from `data/` directory
-- **Unified Ku model (ADR-041)** consolidated 15 domain types into single Ku + per-domain DTOs (KuDTO deleted 2026-02-23)
-- **ActivityStatus + GoalStatus consolidated** into KuStatus (14 values)
-- **Sync renamed to Ingestion** across entire codebase (one-way pipeline, not bidirectional)
-- **All ~72 Services dataclass fields typed** (zero `Any` remaining)
+- **3 stale tracking files deleted** from `data/`
+- **Unified Ku model (ADR-041)** — 15 domain types into single hierarchy
+- **ActivityStatus + GoalStatus consolidated** into EntityStatus (14 values)
+- **Sync renamed to Ingestion** — one-way pipeline, not bidirectional
+- **All ~72 Services dataclass fields typed** — zero `Any` remaining
+- **Reports domain renamed** to Submissions + Feedback (Feb 2026)
+- **Feedback types split** — ActivityReport (user-owned) vs SubmissionFeedback (tied to submission)
+- **universal_backend.py decomposed** — 4,214 lines into 6 focused mixins
+- **unified_relationship_service.py decomposed** — into 6 mixins
+- **Activity domain query layer refactored** — `get_filtered_context()` replaces 24 closure call sites
 
 ---
 
@@ -103,13 +135,15 @@ These are documented, scoped, and have clear prerequisites. Not active debt — 
 ### Quarterly Review
 - Verify TODO count hasn't grown unchecked
 - Check if any shelved features have met prerequisites
-- Run `grep -rn "# TODO" core/ adapters/ routes/ ui/` to audit
+- Run `grep -rn "# TODO" core/ adapters/ ui/` to audit
 
-### Before Major Releases
-- Review all `[PERFORMANCE]` TODOs for production impact
-- Verify placeholder routes are documented in API docs
+### Before Adding Features
+- Does this feature serve a real user need, or does it just feel good to build?
+- Will someone use this in the next 30 days?
+- Does it strengthen an existing loop phase or improve transitions between phases?
+- If the answer to all three is no, add it to Tier 3 or Shelved instead.
 
 ---
 
-**Last Reviewed:** February 18, 2026
-**Next Review:** May 2026
+**Last Reviewed:** March 4, 2026
+**Next Review:** June 2026
