@@ -29,6 +29,7 @@ related: []
 - [DSL](#dsl) - Activity DSL specification and usage
 - [Decisions](#decisions) - Architecture Decision Records
 - [Guides](#guides) - Step-by-step implementation guides
+- [Tools](#tools) - Developer tooling and maintenance scripts
 - [Reference](#reference) - Templates and checklists
 - [Features](#features) - Implemented features with complete documentation
 - [Migrations](#migrations) - Database and code migration guides
@@ -224,6 +225,17 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[ADR-041: Unified Ku Model](decisions/ADR-041-unified-ku-model.md)** | **2026-02-14** | **—** |
 | **[ADR-042: Privacy as First-Class Citizen](decisions/ADR-042-privacy-as-first-class-citizen.md)** | **2026-03-01** | **—** |
 | [ADR-XXX: [Short Title of Decision]](decisions/ADR-TEMPLATE.md) | 2025-11-26 | 325 |
+
+## Tools
+
+*Developer tooling — scripts and automation for codebase maintenance*
+
+| Document | Updated | Description |
+|----------|---------|-------------|
+| **[Codebase Health Checks](tools/HEALTH_CHECKS.md)** | **2026-03-03** | Dead modules, broken doc links, stale names in docs (`./dev health`) |
+| [Automatic Documentation Check](tools/AUTOMATIC_DOCS_CHECK.md) | 2026-01-30 | Post-commit hook that suggests doc updates after code changes |
+
+---
 
 ## Guides
 
