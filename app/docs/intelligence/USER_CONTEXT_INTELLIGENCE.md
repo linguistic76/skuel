@@ -233,13 +233,12 @@ class UserContext:
         Validate that context has rich data for intelligence operations.
 
         Raises:
-            ValueError: If context is standard (UIDs only)
+            RichContextRequiredError: If context is standard (UIDs only)
         """
-        if not self.tasks:  # Rich context has full Task entities
-            raise ValueError(
-                f"Operation '{operation}' requires rich context. "
-                f"Use UserContextBuilder.build_rich() instead of build()."
-            )
+        if not self.is_rich_context:
+            from core.errors import RichContextRequiredError
+
+            raise RichContextRequiredError(operation)
 
 # Usage in intelligence methods:
 async def get_ready_to_work_on_today(self) -> Result[DailyWorkPlan]:

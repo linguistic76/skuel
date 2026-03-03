@@ -179,7 +179,7 @@ Graph (Neo4j) → MEGA-QUERY → UserContext → UserContextIntelligence → Rec
 
 ```python
 context.is_rich_context      # bool — False for standard, True for rich
-context.require_rich_context("operation_name")  # raises ValueError if standard
+context.require_rich_context("operation_name")  # raises RichContextRequiredError if standard
 ```
 
 ### When to Use UserContext vs Domain Services
