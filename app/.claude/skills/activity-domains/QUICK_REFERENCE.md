@@ -31,7 +31,7 @@
 | Goals | `adapters/inbound/goals_ui.py` | `ui/goals/views.py` | `core/events/goal_events.py` |
 | Habits | `adapters/inbound/habits_ui.py` | `ui/habits/views.py` | `core/events/habit_events.py` |
 | Events | `adapters/inbound/events_ui.py` | `ui/events/views.py` | `core/events/calendar_event_events.py` |
-| Choices | `adapters/inbound/choice_ui.py` | `ui/choices/views.py` | `core/events/choice_events.py` |
+| Choices | `adapters/inbound/choices_ui.py` | `ui/choices/views.py` | `core/events/choice_events.py` |
 | Principles | `adapters/inbound/principles_ui.py` | `ui/principles/views.py` | `core/events/principle_events.py` |
 
 ## Domain-Specific Quirks
@@ -94,6 +94,30 @@ from core.utils.result_simplified import Result
 # Relationship service
 from core.services.relationships import UnifiedRelationshipService
 ```
+
+## Filtered List Query Method
+
+All 6 facades expose `get_filtered_context()` → `Result[ListContext]`:
+
+```python
+ctx = (await habits_service.get_filtered_context(user_uid)).value
+habits, stats = ctx["entities"], ctx["stats"]
+```
+
+| Service | Default sort |
+|---------|-------------|
+| Habits | `streak` |
+| Tasks | `due_date` |
+| Goals | `target_date` |
+| Events | `start_time` |
+| Choices | `deadline` |
+| Principles | `strength` |
+
+Module-level helpers (each facade file): `_compute_{domain}_stats`, `_apply_{domain}_filters`, `_apply_{domain}_sort`
+
+**See:** `PATTERNS.md` → "Filtered List Queries" section
+
+---
 
 ## Bootstrap Location
 
