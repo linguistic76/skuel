@@ -259,7 +259,7 @@ relationships = await find_cross_domain(
 ### 6. Feedback Time Periods (`FeedbackTimePeriod`)
 
 Valid time period strings for activity feedback and review — shared vocabulary
-used by `ActivityReviewService` and `ProgressFeedbackGenerator`:
+used by `ActivityReportService` and `ProgressFeedbackGenerator`:
 
 | Constant | Value | Purpose |
 |----------|-------|---------|
@@ -270,6 +270,8 @@ used by `ActivityReviewService` and `ProgressFeedbackGenerator`:
 | `DEFAULT` | `"7d"` | Default period string |
 | `DEFAULT_DAYS` | `7` | Default day count (for `.get()` fallback) |
 | `DAYS` | `dict[str, int]` | Period string → day count mapping |
+| `MIN_REPORT_COOLDOWN_MINUTES` | `60` | Minimum gap between on-demand `ACTIVITY_REPORT` generations (rate limiting) |
+| `MIN_AUTO_REPORT_INTERVAL_HOURS` | `24` | Minimum interval between automatic scheduled reports (frequency floor) |
 
 **Usage:**
 ```python

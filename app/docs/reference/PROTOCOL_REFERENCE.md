@@ -538,7 +538,7 @@ Map to the **Feedback** stage of the educational loop. `processor_type` discrimi
 | `FeedbackOperations` | `feedback`, `submissions_core` | generate_feedback (→ `SUBMISSION_FEEDBACK`, `LLM`), create_assessment (→ `SUBMISSION_FEEDBACK`, `HUMAN`), get_assessments_for_student, get_assessments_by_teacher | `exercises_api.py`, `feedback_assessment_api.py` |
 | `ProgressFeedbackOperations` | `progress_feedback_generator` | 1 (generate → `ACTIVITY_REPORT` entity, `LLM` or `AUTOMATIC`) | `progress_feedback_api.py` |
 | `ProgressScheduleOperations` | `progress_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `progress_feedback_api.py` |
-| `ActivityReviewOperations` | `activity_review` | 5 (create_activity_snapshot, submit_activity_feedback → `ACTIVITY_REPORT` `HUMAN`, get_activity_reviews_for_user, request_review, get_pending_reviews) | `progress_feedback_api.py` |
+| `ActivityReportOperations` | `activity_report` | 6 (create_snapshot, submit_feedback → `ACTIVITY_REPORT` `HUMAN`, get_history, annotate, get_annotation, get_privacy_summary) | `progress_feedback_api.py` |
 
 **Why `FeedbackOperations` unifies human + AI feedback:**
 `TeacherReviewService.create_assessment()` (processor_type=HUMAN) and `FeedbackService.generate_feedback()` (processor_type=LLM) both create `SUBMISSION_FEEDBACK` entities linked via `FEEDBACK_FOR`. The protocol captures what routes need regardless of which processor created it.

@@ -356,6 +356,7 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 | `/api/activity-review/request` | User | Request an activity review from admin |
 | `/api/activity-review/queue` | Admin | Pending review queue |
 | `/api/activity-review/history` | User/Admin | Received activity feedback history |
+| `/api/privacy/audit` | User | Privacy transparency summary (admin snapshots, shares, schedule) |
 
 ---
 
@@ -366,8 +367,9 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 ```
 Admin selects user + time window
         ↓
-GET /api/activity-review/snapshot → ActivityReportService.create_snapshot()
+GET /api/activity-review/snapshot → ActivityReportService.create_snapshot(admin_uid=...)
         ↓  (calls context_builder.build_rich(user_uid, window=...) — MEGA_QUERY with activity window)
+        ↓  emits ActivitySnapshotAccessed event → audit trail
 Admin reads Tasks, Goals, Habits, Events, Choices, Principles summary
         ↓
 Admin writes qualitative assessment
@@ -399,10 +401,11 @@ When `openai_service` is available, the generator:
 
 1. Calls `context_builder.build_rich(user_uid, window=time_period)` — MEGA_QUERY extended with 6 activity window CALL{} blocks; `context.entities_rich` contains all domains (same method used by `ActivityReportService.create_snapshot()`)
 2. Cross-references active Insights
-3. Fetches `user_annotation` from the most recent prior `ActivityReport` (`period_end < current_period_start`) via `_fetch_previous_annotation()`
-4. Sends stats as JSON context to LLM via `activity_feedback.md` prompt template; if a prior annotation exists, appends it with an instruction to acknowledge or contrast the user's self-reflection
-5. LLM returns qualitative analysis with patterns, trends, recommendations
-6. Creates `ActivityReport` with `processed_content = LLM output`, `metadata = raw stats`
+3. Checks cooldown: if the user has generated a report within the last `FeedbackTimePeriod.MIN_REPORT_COOLDOWN_MINUTES` (60 min), returns a business error rather than calling the LLM (rate limit)
+4. Fetches `user_annotation` from the most recent prior `ActivityReport` (`period_end < current_period_start`) via `_fetch_previous_annotation()`
+5. Sends stats as JSON context to LLM via `activity_feedback.md` prompt template; if a prior annotation exists, appends it inside explicit injection-guard boundaries (`--- USER REFLECTION ... --- END USER REFLECTION ---`) with an instruction to treat it as user voice only — not instructions
+6. LLM returns qualitative analysis with patterns, trends, recommendations
+7. Creates `ActivityReport` with `processed_content = LLM output`, `metadata = raw stats`
 
 **Graceful fallback:** If LLM call fails, falls back to programmatic markdown with `ProcessorType.AUTOMATIC` and logs `processing_error`. If no prior annotation exists, the prompt is unchanged.
 
