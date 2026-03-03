@@ -320,6 +320,28 @@ class TaskCreateRequest(BaseModel):
         return v
 ```
 
+### Cross-Field Validators
+
+Use `@model_validator(mode="after")` when a rule spans multiple fields. The validator runs after all field validators succeed, so fields are already their final types.
+
+```python
+from pydantic import model_validator
+
+class TaskCreateRequest(BaseModel):
+    scheduled_date: date | None = None
+    due_date: date | None = None
+
+    @model_validator(mode="after")
+    def validate_due_after_scheduled(self) -> "TaskCreateRequest":
+        """Due date must not be before scheduled date."""
+        if self.due_date and self.scheduled_date:
+            if self.due_date < self.scheduled_date:
+                raise ValueError("Due date cannot be before scheduled date")
+        return self
+```
+
+The error surfaces as a 422 field error on `__root__` (model level), caught by `QuickAddRouteFactory` and rendered as a user-friendly banner.
+
 ---
 
 ## When to Use Each Pattern
@@ -616,3 +638,4 @@ def test_task_completion_request_defaults():
 - ❌ Silent failures (accepting bad data without error)
 - ❌ Returning 500 for validation errors
 - ❌ Repeated validation logic in every route
+- ❌ Manual `validate_*_form_data()` functions that duplicate constraints already on the Pydantic model (two sources of truth — and they diverge)

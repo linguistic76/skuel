@@ -1199,53 +1199,41 @@ async def get_filtered_context(
 
 **Tests:** `tests/unit/services/activity/test_activity_query_helpers.py` — 49 tests covering Python-side helpers.
 
-### Early Form Validation Pattern
+### Form Validation Pattern
 
-**Before:** Validation happened deep in Pydantic layer with generic errors.
+**Principle:** Pydantic is the sole validation layer. Do not duplicate field constraints in manual functions.
 
-**After:** Early validation with clear, user-friendly messages:
+Field-level constraints (`min_length`, `max_length`, required) live on the request model. Cross-field rules use `@model_validator`. `QuickAddRouteFactory` catches `PydanticValidationError` and renders a user-friendly error banner — no 500s reach the user.
 
 ```python
-def validate_task_form_data(form_data: dict[str, Any]) -> Result[None]:
-    """
-    Validate task form data early.
+# core/models/task/task_request.py
+from pydantic import model_validator
 
-    Pure function: returns clear error messages for UI.
-    """
-    # Required fields
-    title = form_data.get("title", "").strip()
-    if not title:
-        return Errors.validation("Task title is required")
+class TaskCreateRequest(CreateRequestBase):
+    title: str = Field(min_length=1, max_length=200)
+    scheduled_date: date | None = None
+    due_date: date | None = None
 
-    if len(title) > 200:
-        return Errors.validation("Task title must be 200 characters or less")
-
-    # Date validation
-    scheduled_date_str = form_data.get("scheduled_date", "")
-    due_date_str = form_data.get("due_date", "")
-
-    if scheduled_date_str and due_date_str:
-        try:
-            scheduled = date.fromisoformat(scheduled_date_str)
-            due = date.fromisoformat(due_date_str)
-            if due < scheduled:
-                return Errors.validation("Due date cannot be before scheduled date")
-        except ValueError:
-            return Errors.validation("Invalid date format")
-
-    return Result.ok(None)
-
-
-async def create_task_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
-    """Create task from form data with early validation."""
-
-    # VALIDATE EARLY
-    validation_result = validate_task_form_data(form_data)
-    if validation_result.is_error:
-        return validation_result  # Return validation error to UI
-
-    # Continue with form processing...
+    @model_validator(mode="after")
+    def validate_due_after_scheduled(self) -> "TaskCreateRequest":
+        """Cross-field rule: due date must not precede scheduled date."""
+        if self.due_date and self.scheduled_date:
+            if self.due_date < self.scheduled_date:
+                raise ValueError("Due date cannot be before scheduled date")
+        return self
 ```
+
+`QuickAddRouteFactory` surfaces Pydantic errors as banners automatically — no per-domain wiring needed:
+
+```python
+except PydanticValidationError as e:
+    first_error = e.errors()[0]
+    field = str(first_error["loc"][-1]) if first_error.get("loc") else None
+    msg = first_error.get("msg", "Validation error")
+    return render_error_banner(f"{field}: {msg}" if field else msg)
+```
+
+**Anti-pattern (eliminated March 2026):** `validate_*_form_data()` functions that duplicated constraints already enforced by Pydantic. These created two sources of truth and introduced bugs (e.g. `validate_principle_form_data` said `max_length=200` while `PrincipleCreateRequest` correctly said `max_length=100`).
 
 ### Type Protocols for FastHTML
 
@@ -1300,10 +1288,17 @@ def test_apply_task_filters_status():
     filtered = apply_task_filters(tasks, status_filter="active")
     assert len(filtered) == 1
 
-def test_validate_task_form_data_missing_title():
-    result = validate_task_form_data({"title": ""})
-    assert result.is_error
-    assert "title is required" in str(result.error).lower()
+def test_task_create_request_empty_title():
+    with pytest.raises(ValidationError):
+        TaskCreateRequest(title="")
+
+def test_task_create_request_due_before_scheduled():
+    with pytest.raises(ValidationError, match="Due date cannot be before scheduled date"):
+        TaskCreateRequest(
+            title="My task",
+            scheduled_date=date(2026, 3, 10),
+            due_date=date(2026, 3, 5),
+        )
 ```
 
 ### Benefits
@@ -1311,7 +1306,7 @@ def test_validate_task_form_data_missing_title():
 1. **Testability**: Pure functions testable without database/async
 2. **Readability**: Clear separation of I/O vs computation
 3. **Maintainability**: Single Responsibility Principle enforced
-4. **UX**: Clear validation messages before Pydantic layer
+4. **UX**: Clear validation messages via Pydantic — caught by `QuickAddRouteFactory` and rendered as error banners
 5. **Type Safety**: Protocol types for FastHTML components
 
 ### Reference Files
