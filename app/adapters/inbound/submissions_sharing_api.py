@@ -99,6 +99,25 @@ def create_submissions_sharing_api_routes(
         List of route handlers
     """
 
+    def _serialize_submission(
+        submission: Any,  # boundary: duck-typed — works with Submission, SubmissionDTO, shared variants
+        include_sharing_metadata: bool = False,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "uid": submission.uid,
+            "user_uid": submission.user_uid,
+            "original_filename": submission.original_filename,
+            "report_type": submission.report_type,
+            "status": submission.status,
+            "processed_content": submission.processed_content,
+            "created_at": submission.created_at.isoformat() if submission.created_at else None,
+            "visibility": submission.visibility,
+        }
+        if include_sharing_metadata:
+            payload["shared_role"] = getattr(submission, "shared_role", None)
+            payload["shared_at"] = getattr(submission, "shared_at", None)
+        return payload
+
     @rt("/api/submissions/share", methods=["POST"])
     @boundary_handler(success_status=200)
     async def share_submission(
@@ -261,20 +280,7 @@ def create_submissions_sharing_api_routes(
         return Result.ok(
             {
                 "submissions": [
-                    {
-                        "uid": a.uid,
-                        "user_uid": a.user_uid,
-                        "original_filename": a.original_filename,
-                        "report_type": a.report_type,
-                        "status": a.status,
-                        "processed_content": a.processed_content,
-                        "created_at": a.created_at.isoformat() if a.created_at else None,
-                        "visibility": a.visibility,
-                        # Sharing metadata
-                        "shared_role": getattr(a, "shared_role", None),
-                        "shared_at": getattr(a, "shared_at", None),
-                    }
-                    for a in submissions
+                    _serialize_submission(a, include_sharing_metadata=True) for a in submissions
                 ],
                 "count": len(submissions),
             }
@@ -400,19 +406,7 @@ def create_submissions_sharing_api_routes(
 
         return Result.ok(
             {
-                "submissions": [
-                    {
-                        "uid": a.uid,
-                        "user_uid": a.user_uid,
-                        "original_filename": a.original_filename,
-                        "report_type": a.report_type,
-                        "status": a.status,
-                        "processed_content": a.processed_content,
-                        "created_at": a.created_at.isoformat() if a.created_at else None,
-                        "visibility": a.visibility,
-                    }
-                    for a in submissions
-                ],
+                "submissions": [_serialize_submission(a) for a in submissions],
                 "count": len(submissions),
             }
         )
