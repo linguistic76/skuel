@@ -50,6 +50,15 @@ def create_groups_api_routes(
     def get_user_service() -> Any:
         return user_service
 
+    async def _require_group_owner(group_uid: str, owner_uid: str) -> Result[Any]:
+        """Return group only when it exists and belongs to the requesting owner."""
+        group_result = await group_service.get_group(group_uid)
+        if group_result.is_error or not group_result.value:
+            return Result.fail(Errors.not_found(resource="Group", identifier=group_uid))
+        if group_result.value.owner_uid != owner_uid:
+            return Result.fail(Errors.not_found(resource="Group", identifier=group_uid))
+        return Result.ok(group_result.value)
+
     # ========================================================================
     # CRUD ROUTES (Teacher-only for create/update/delete)
     # ========================================================================
@@ -93,12 +102,9 @@ def create_groups_api_routes(
         if not uid:
             return Result.fail(Errors.validation("Group UID is required", field="uid"))
 
-        # Verify ownership
-        group_result = await group_service.get_group(uid)
-        if group_result.is_error or not group_result.value:
-            return Result.fail(Errors.not_found(resource="Group", identifier=uid))
-        if group_result.value.owner_uid != current_user.uid:
-            return Result.fail(Errors.not_found(resource="Group", identifier=uid))
+        ownership_result = await _require_group_owner(uid, current_user.uid)
+        if ownership_result.is_error:
+            return ownership_result
 
         body = await request.json()
         req = GroupUpdateRequest(**body)
@@ -120,12 +126,9 @@ def create_groups_api_routes(
         if not uid:
             return Result.fail(Errors.validation("Group UID is required", field="uid"))
 
-        # Verify ownership
-        group_result = await group_service.get_group(uid)
-        if group_result.is_error or not group_result.value:
-            return Result.fail(Errors.not_found(resource="Group", identifier=uid))
-        if group_result.value.owner_uid != current_user.uid:
-            return Result.fail(Errors.not_found(resource="Group", identifier=uid))
+        ownership_result = await _require_group_owner(uid, current_user.uid)
+        if ownership_result.is_error:
+            return ownership_result
 
         return await group_service.delete_group(uid)
 
@@ -156,12 +159,9 @@ def create_groups_api_routes(
     @boundary_handler()
     async def add_member(request: Request, uid: str, current_user: Any) -> Result[Any]:
         """Add a member to a group. Owner only."""
-        # Verify ownership
-        group_result = await group_service.get_group(uid)
-        if group_result.is_error or not group_result.value:
-            return Result.fail(Errors.not_found(resource="Group", identifier=uid))
-        if group_result.value.owner_uid != current_user.uid:
-            return Result.fail(Errors.not_found(resource="Group", identifier=uid))
+        ownership_result = await _require_group_owner(uid, current_user.uid)
+        if ownership_result.is_error:
+            return ownership_result
 
         body = await request.json()
         req = GroupMemberRequest(**body)
@@ -177,12 +177,9 @@ def create_groups_api_routes(
     @boundary_handler()
     async def remove_member(request: Request, uid: str, current_user: Any) -> Result[Any]:
         """Remove a member from a group. Owner only."""
-        # Verify ownership
-        group_result = await group_service.get_group(uid)
-        if group_result.is_error or not group_result.value:
-            return Result.fail(Errors.not_found(resource="Group", identifier=uid))
-        if group_result.value.owner_uid != current_user.uid:
-            return Result.fail(Errors.not_found(resource="Group", identifier=uid))
+        ownership_result = await _require_group_owner(uid, current_user.uid)
+        if ownership_result.is_error:
+            return ownership_result
 
         body = await request.json()
         req = GroupMemberRequest(**body)
