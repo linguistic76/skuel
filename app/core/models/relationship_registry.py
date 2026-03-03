@@ -15,7 +15,6 @@ from core.models.relationship_registry import (
     TASKS_CONFIG,
     LABEL_CONFIGS,
     generate_graph_enrichment,
-    generate_ingestion_relationship_config,
 )
 
 # Pass config directly to relationship service
@@ -2228,12 +2227,12 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 
 
 # =============================================================================
-# INGESTION CONFIG GENERATION (February 2026 — Config Unification)
+# ENTITY TYPE ↔ LABEL MAPPINGS
 # =============================================================================
 
-# Static mappings to avoid circular imports with ingestion config.py
-# All domain entities are :Entity nodes; virtual config keys kept for lookup
-_ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
+# Maps EntityType to registry config key (Neo4j label string).
+# All domain entities are :Entity nodes; virtual config keys kept for lookup.
+ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
     EntityType.KU: "Entity",
     EntityType.TASK: "Task",
     EntityType.GOAL: "Goal",
@@ -2246,7 +2245,7 @@ _ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
     EntityType.EXERCISE: "Exercise",  # Virtual key — config lookup key for 'exercise'}
 }
 
-_LABEL_TO_DEFAULT_KU_TYPE: dict[str, EntityType] = {
+LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
     "Entity": EntityType.KU,
     "Task": EntityType.TASK,
     "Goal": EntityType.GOAL,
@@ -2258,59 +2257,6 @@ _LABEL_TO_DEFAULT_KU_TYPE: dict[str, EntityType] = {
     "Ls": EntityType.LEARNING_STEP,
     "Exercise": EntityType.EXERCISE,  # Virtual key — config lookup key for 'exercise'}
 }
-
-
-def generate_ingestion_relationship_config(
-    ku_type: EntityType,
-) -> dict[str, Any] | None:
-    """
-    Generate ingestion relationship config from the registry (single source of truth).
-
-    Extracts UnifiedRelationshipDefinitions that have yaml_field_path set,
-    filtered by ku_type for disambiguation when multiple KuTypes share a label.
-
-    Args:
-        ku_type: The EntityType to generate config for
-
-    Returns:
-        Dict mapping yaml_field_path -> RelationshipConfig, or None if no relationships.
-        Each value is a TypedDict with rel_type, target_label, direction.
-
-    See: /docs/decisions/ADR-026-unified-relationship-registry.md
-    """
-    from core.ingestion.bulk_ingestion import RelationshipConfig
-
-    entity_label = _ENTITY_TYPE_TO_LABEL.get(ku_type)
-    if not entity_label:
-        return None
-
-    config = LABEL_CONFIGS.get(entity_label)
-    if not config:
-        return None
-
-    default_type = _LABEL_TO_DEFAULT_KU_TYPE.get(entity_label)
-    result: dict[str, Any] = {}
-
-    for rel in config.relationships:
-        if rel.yaml_field_path is None:
-            continue
-
-        # Filter by ingestion_ku_type:
-        # - If set, only include for that specific EntityType
-        # - If None, only include for the default EntityType for the label
-        if rel.ingestion_ku_type is not None:
-            if rel.ingestion_ku_type != ku_type:
-                continue
-        elif ku_type != default_type:
-            continue
-
-        result[rel.yaml_field_path] = RelationshipConfig(
-            rel_type=rel.relationship.value,
-            target_label=rel.target_label,
-            direction=rel.direction,  # type: ignore[typeddict-item]  # str validated at definition
-        )
-
-    return result if result else None
 
 
 # =============================================================================

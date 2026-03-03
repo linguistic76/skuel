@@ -11,8 +11,7 @@ Cross-reference: core/services/ingestion/config.py, ADR-026
 
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
-from core.models.relationship_registry import generate_ingestion_relationship_config
-from core.services.ingestion.config import ENTITY_CONFIGS
+from core.services.ingestion.config import ENTITY_CONFIGS, generate_ingestion_relationship_config
 
 
 class TestIngestionRelationshipConfig:

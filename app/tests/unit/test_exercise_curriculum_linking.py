@@ -15,10 +15,10 @@ import pytest
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import (
-    _ENTITY_TYPE_TO_LABEL,
-    _LABEL_TO_DEFAULT_KU_TYPE,
+    ENTITY_TYPE_TO_LABEL,
     EXERCISE_CONFIG,
     LABEL_CONFIGS,
+    LABEL_TO_DEFAULT_ENTITY_TYPE,
 )
 from core.ports.curriculum_protocols import ExerciseOperations
 from core.services.exercises.exercise_service import ExerciseService
@@ -43,11 +43,11 @@ class TestExerciseRegistryConfig:
 
     def test_exercise_in_ku_type_to_label(self):
         """EntityType.EXERCISE should map to 'Exercise' label."""
-        assert _ENTITY_TYPE_TO_LABEL[EntityType.EXERCISE] == "Exercise"
+        assert ENTITY_TYPE_TO_LABEL[EntityType.EXERCISE] == "Exercise"
 
     def test_exercise_in_label_to_default_ku_type(self):
         """'Exercise' label should map to EntityType.EXERCISE."""
-        assert _LABEL_TO_DEFAULT_KU_TYPE["Exercise"] == EntityType.EXERCISE
+        assert LABEL_TO_DEFAULT_ENTITY_TYPE["Exercise"] == EntityType.EXERCISE
 
     def test_exercise_config_has_requires_knowledge(self):
         """EXERCISE_CONFIG should have REQUIRES_KNOWLEDGE outgoing relationship."""

@@ -9,6 +9,9 @@ Relationship configs are derived from the Relationship Registry
 (core/models/relationship_registry.py) — the single source of truth
 for all Neo4j edge definitions. See: ADR-026.
 
+The ``generate_ingestion_relationship_config`` translation function lives
+here (not in the registry) to keep the model layer free of ingestion concerns.
+
 Extracted from unified_ingestion_service.py for separation of concerns.
 """
 
@@ -18,7 +21,11 @@ from typing import Any
 
 from core.ingestion.bulk_ingestion import RelationshipConfig
 from core.models.enums.entity_enums import EntityType, NonKuDomain
-from core.models.relationship_registry import generate_ingestion_relationship_config
+from core.models.relationship_registry import (
+    ENTITY_TYPE_TO_LABEL,
+    LABEL_CONFIGS,
+    LABEL_TO_DEFAULT_ENTITY_TYPE,
+)
 
 # ============================================================================
 # FILE SIZE LIMITS
@@ -43,6 +50,62 @@ DEFAULT_MAX_CONCURRENT_PARSING = 20
 # Default user UID for entities without explicit user_uid
 # Configurable via SKUEL_DEFAULT_USER_UID environment variable
 DEFAULT_USER_UID = os.environ.get("SKUEL_DEFAULT_USER_UID", "user:system")
+
+
+# ============================================================================
+# INGESTION RELATIONSHIP CONFIG GENERATION
+# ============================================================================
+
+
+def generate_ingestion_relationship_config(
+    ku_type: EntityType,
+) -> dict[str, RelationshipConfig] | None:
+    """
+    Generate ingestion relationship config from the registry (single source of truth).
+
+    Extracts UnifiedRelationshipDefinitions that have yaml_field_path set,
+    filtered by ku_type for disambiguation when multiple EntityTypes share a label.
+
+    Args:
+        ku_type: The EntityType to generate config for
+
+    Returns:
+        Dict mapping yaml_field_path -> RelationshipConfig, or None if no relationships.
+        Each value is a TypedDict with rel_type, target_label, direction.
+
+    See: /docs/decisions/ADR-026-unified-relationship-registry.md
+    """
+    entity_label = ENTITY_TYPE_TO_LABEL.get(ku_type)
+    if not entity_label:
+        return None
+
+    config = LABEL_CONFIGS.get(entity_label)
+    if not config:
+        return None
+
+    default_type = LABEL_TO_DEFAULT_ENTITY_TYPE.get(entity_label)
+    result: dict[str, RelationshipConfig] = {}
+
+    for rel in config.relationships:
+        if rel.yaml_field_path is None:
+            continue
+
+        # Filter by ingestion_ku_type:
+        # - If set, only include for that specific EntityType
+        # - If None, only include for the default EntityType for the label
+        if rel.ingestion_ku_type is not None:
+            if rel.ingestion_ku_type != ku_type:
+                continue
+        elif ku_type != default_type:
+            continue
+
+        result[rel.yaml_field_path] = RelationshipConfig(
+            rel_type=rel.relationship.value,
+            target_label=rel.target_label,
+            direction=rel.direction,  # type: ignore[typeddict-item]  # str validated at definition
+        )
+
+    return result if result else None
 
 
 # ============================================================================
@@ -163,4 +226,5 @@ __all__ = [
     "DEFAULT_USER_UID",
     "ENTITY_CONFIGS",
     "EntityIngestionConfig",
+    "generate_ingestion_relationship_config",
 ]
