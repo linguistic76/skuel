@@ -234,9 +234,9 @@ ENTITY_CONFIGS: dict[str, EntityIngestionConfig] = {
 ```
 
 > **Note (February 2026):** Ingestion `relationship_config` is now derived from the
-> relationship registry via `generate_ingestion_relationship_config()`. The example above
-> shows the generated output. See `core/models/relationship_registry.py` for the single
-> source of truth.
+> relationship registry via `generate_ingestion_relationship_config()` in
+> `core/services/ingestion/config.py`. The example above shows the generated output.
+> See `core/models/relationship_registry.py` for the registry data (single source of truth).
 
 ### API Endpoints
 
