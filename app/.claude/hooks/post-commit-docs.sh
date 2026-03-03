@@ -111,6 +111,42 @@ if [[ -n "$REFERENCING_DOCS" ]]; then
     DOC_COUNT=$(echo "$REFERENCING_DOCS" | grep -c '.' || echo 0)
 fi
 
+# Identify skills whose primary docs appear in the referencing docs list
+SKILL_LIST=""
+SKILL_COUNT=0
+if [[ "$DOC_COUNT" -gt 0 ]]; then
+    SKILL_LIST=$(python3 -c "
+import sys, yaml
+try:
+    metadata_file = sys.argv[1] + '/.claude/skills/skills_metadata.yaml'
+    with open(metadata_file) as f:
+        data = yaml.safe_load(f)
+    ref_docs = set(sys.argv[2].split('\n')) if sys.argv[2] else set()
+    results = []
+    for skill in data.get('skills', []):
+        name = skill['name']
+        reasons = []
+        for doc in skill.get('primary_docs', []):
+            doc_rel = doc.lstrip('/')
+            if doc_rel in ref_docs:
+                reasons.append(f'primary doc {doc_rel.rsplit(\"/\", 1)[-1]} references changed files')
+                break
+        skill_dir = '.claude/skills/' + name + '/'
+        for rd in ref_docs:
+            if rd.startswith(skill_dir):
+                reasons.append('skill file directly references changed files')
+                break
+        if reasons:
+            results.append(f'  - @{name} ({reasons[0]})')
+    print('\n'.join(results))
+except Exception:
+    pass
+" "$PROJECT_ROOT" "$REFERENCING_DOCS" 2>/dev/null || true)
+    if [[ -n "$SKILL_LIST" ]]; then
+        SKILL_COUNT=$(echo "$SKILL_LIST" | grep -c '.' || echo 0)
+    fi
+fi
+
 # Only produce a message if there are referencing docs or new .md files
 if [[ "$DOC_COUNT" -eq 0 ]] && [[ -z "$NEW_DOCS" ]]; then
     echo '{}'
@@ -161,9 +197,16 @@ Newly added .md files (may need INDEX.md entry):
 $NEW_DOC_LIST"
 fi
 
+if [[ -n "$SKILL_LIST" ]]; then
+    MSG="$MSG
+
+Skills that may need review ($SKILL_COUNT):
+$SKILL_LIST"
+fi
+
 MSG="$MSG
 
-ACTION: Using your understanding of what this commit changed and why, determine if any of the flagged docs are actually stale. For each stale doc, apply targeted updates. If nothing is stale, just confirm no updates needed. Do NOT update docs for trivial changes (typo fixes, formatting, import reordering)."
+ACTION: Using your understanding of what this commit changed and why, determine if any of the flagged docs are actually stale. For each stale doc, apply targeted updates. Also check flagged skills for stale content. If nothing is stale, just confirm no updates needed. Do NOT update docs for trivial changes (typo fixes, formatting, import reordering)."
 
 # Use Python for reliable JSON escaping
 python3 -c "

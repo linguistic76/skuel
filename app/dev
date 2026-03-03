@@ -121,6 +121,8 @@ case "$1" in
     echo ""
     poetry run python scripts/health/stale_names.py || failed=1
     echo ""
+    poetry run python scripts/validate_cross_references.py || failed=1
+    echo ""
     if [ $failed -eq 1 ]; then
       echo -e "${RED}✗ Health check found issues — review output above${NC}"
       exit 1
@@ -142,6 +144,11 @@ case "$1" in
   health-names)
     echo -e "${YELLOW}Checking for stale/deprecated names in docs...${NC}"
     poetry run python scripts/health/stale_names.py
+    ;;
+
+  health-xref)
+    echo -e "${YELLOW}Validating skill↔doc cross-references...${NC}"
+    poetry run python scripts/validate_cross_references.py
     ;;
 
   docs-check)
@@ -189,10 +196,11 @@ case "$1" in
     echo "  ./dev bloat-methods  - Detect unused service methods only"
     echo ""
     echo "Health Checks:"
-    echo "  ./dev health         - Run all three health checks (modules + links + names)"
+    echo "  ./dev health         - Run all four health checks (modules + links + names + xref)"
     echo "  ./dev health-modules - Find Python files with zero importers"
     echo "  ./dev health-links   - Find broken links in docs/ and .claude/skills/"
     echo "  ./dev health-names   - Find stale/deprecated identifiers in doc code blocks"
+    echo "  ./dev health-xref    - Validate skill↔doc cross-references and staleness"
     echo ""
     echo "Testing:"
     echo "  ./dev test              - Run comprehensive tests (~1,150 tests, ~95% pass) [RECOMMENDED]"
