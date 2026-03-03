@@ -274,6 +274,32 @@ def old_function(*args):
 # Just delete and update call sites ✅
 ```
 
+#### 3b. Update `stale_names.py`
+
+When you rename or delete something significant, add it to the scanner so doc code blocks are flagged automatically:
+
+```python
+# scripts/health/stale_names.py
+
+RENAMED: dict[str, str] = {
+    "OldClassName": "NewClassName",           # class rename
+    "EntityType.OLD_VALUE": "EntityType.NEW_VALUE",  # enum value
+    "old_method_name": "new_method_name",     # method rename
+    "from old.module.path import": "from new.module.path import",  # module move
+}
+
+DELETED: dict[str, str] = {
+    "DeletedClass": "reason or replacement description",
+    "old_module_name": "replaced by NewModule",
+}
+```
+
+Then verify no docs still use the old name:
+
+```bash
+./dev health-names   # exit non-zero = stale doc code blocks found
+```
+
 #### 4. Update Documentation
 
 ```bash
@@ -348,6 +374,8 @@ rg "unified_relationships" --type py   # Layer 3
 # If results return — the doc is stale but the pattern lives on; UPDATE not delete
 ```
 
+`./dev health-modules` automates the harder version of this: it finds Python files that are *never imported* anywhere, surfacing orphaned modules that refactors left behind. Run it after a major dissolution to get the full list at once rather than grepping file-by-file.
+
 **Tier 3: Regenerate, Don't Hand-Edit**
 
 For auto-generated reference docs (method indexes, catalogs), run the generator rather than editing manually:
@@ -366,9 +394,15 @@ After deletions/merges, update the registry files:
 ```bash
 # 1. Remove deleted entries from INDEX.md
 # 2. Remove deleted entries from CROSS_REFERENCE_INDEX.md
-# 3. Fix dangling references in docs that pointed to deleted files:
-rg "DELETED_DOC_NAME" docs/ --type md  # Find all references
-# Update each to point to the replacement doc
+# 3. Find all broken doc links (automated):
+./dev health-links          # lists every broken markdown/backtick/bare path reference
+# 4. Fix dangling references in docs that pointed to deleted files
+```
+
+`dead_doc_links.py` replaces the manual `rg "DELETED_DOC_NAME" docs/` pattern. It catches three reference kinds at once (markdown links, backtick paths, bare absolute paths) across all 330+ docs and skills. When `docs/INDEX.md` has broken links, it calls it out specifically:
+
+```
+⚠  docs/INDEX.md has 24 broken reference(s) — update the index to match current files
 ```
 
 #### Document Consolidation (Merge, Not Delete)
@@ -606,6 +640,33 @@ $ git pull
    Changelog: https://github.com/AnswerDotAI/fasthtml/releases
 ```
 
+### Health Check Scripts (./dev health)
+
+Three automated scripts in `scripts/health/` that prevent drift between refactors, doc links, and terminology. These are the automated counterpart to the manual verification steps in Part 2b.
+
+```bash
+./dev health              # run all three checks (exit non-zero if any issues)
+./dev health-modules      # dead Python modules only
+./dev health-links        # broken doc links only
+./dev health-names        # stale identifiers in doc code blocks only
+```
+
+| Script | What it finds | When to run |
+|--------|--------------|-------------|
+| `dead_modules.py` | Python files with zero importers | After a monolith dissolution or service split |
+| `dead_doc_links.py` | Broken markdown links, backtick paths, bare absolute paths | After any file rename/delete |
+| `stale_names.py` | Old class/method/enum names in doc code blocks | After a rename or deprecation |
+
+**`dead_doc_links.py`** is the fastest way to confirm INDEX.md is clean after pruning docs. It specifically calls out INDEX.md violations:
+
+```
+⚠  docs/INDEX.md has 24 broken reference(s) — update the index to match current files
+```
+
+**`stale_names.py`** is only as useful as its RENAMED/DELETED tables. Update it whenever you rename or delete something significant (see Part 2, Step 3b). Run `./dev health-names --list` to see all tracked renames.
+
+**See:** `docs/tools/HEALTH_CHECKS.md` for full reference including known limitations.
+
 ### Manual Validation
 
 ```bash
@@ -640,17 +701,31 @@ poetry run python scripts/detect_library_changes.py --from-ref HEAD~5
 - ✅ **After git pull** - Post-merge hook detects library changes
 
 **Manual** (after major changes):
+- After file renames/deletes:
+  ```bash
+  ./dev health-links   # find all broken doc references
+  ```
+- After class/method/enum renames (update stale_names.py first):
+  ```bash
+  ./dev health-names   # find stale identifiers in doc code blocks
+  ```
+- After a major dissolution or service split:
+  ```bash
+  ./dev health-modules  # find orphaned Python modules
+  ```
 - After library upgrade:
   ```bash
   poetry run python scripts/validate_cross_references.py
   ```
 - After pattern deprecation:
   ```bash
+  ./dev health-names && \
   poetry run pytest && \
   poetry run python scripts/validate_cross_references.py
   ```
-- **Monthly audit** - Full validation + review warnings:
+- **Monthly audit** - Full sweep:
   ```bash
+  ./dev health
   poetry run python scripts/validate_cross_references.py --verbose
   ```
 
@@ -783,6 +858,8 @@ Does the pattern exist in the library's official docs?
 
 | Purpose | Location |
 |---------|----------|
+| Health check scripts | `scripts/health/` (`dead_modules.py`, `dead_doc_links.py`, `stale_names.py`) |
+| Health check docs | `docs/tools/HEALTH_CHECKS.md` |
 | Skills metadata | `.claude/skills/skills_metadata.yaml` |
 | Post-commit hook | `scripts/hooks/post-commit` → `scripts/docs_contextual_check_v2.py` |
 | Post-merge hook | `scripts/hooks/post-merge` |
@@ -794,17 +871,22 @@ Does the pattern exist in the library's official docs?
 ### Key Commands
 
 ```bash
-# Validate cross-references
+# Health checks (run after any refactor/rename)
+./dev health              # all three checks
+./dev health-modules      # orphaned Python modules
+./dev health-links        # broken doc links
+./dev health-names        # stale identifiers in doc code blocks
+./dev health-names --list # print full RENAMED/DELETED tables
+
+# Cross-reference validation
 poetry run python scripts/validate_cross_references.py
+poetry run python scripts/validate_cross_references.py --verbose
 
 # Detect library changes
 poetry run python scripts/detect_library_changes.py
 
 # Regenerate cross-reference index
 poetry run python scripts/generate_cross_reference_index.py
-
-# Run with verbose output
-poetry run python scripts/validate_cross_references.py --verbose
 ```
 
 ### Evolution Philosophy Summary
@@ -828,6 +910,10 @@ poetry run python scripts/validate_cross_references.py --verbose
 ### Cross-Reference System
 - `/docs/CROSS_REFERENCE_INDEX.md` - Auto-generated skill↔doc mapping
 - `.claude/skills/skills_metadata.yaml` - Central registry
+
+### Health Check Tooling
+- `/docs/tools/HEALTH_CHECKS.md` - Complete reference for the three health scripts
+- `scripts/health/stale_names.py` - Maintainable RENAMED/DELETED tables (update on every rename)
 
 ### Example ADRs Showing Evolution
 - `/docs/decisions/ADR-020.md` - FastHTML route registration
