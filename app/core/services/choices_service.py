@@ -41,11 +41,11 @@ from core.utils.sort_functions import (
 )
 
 if TYPE_CHECKING:
-    from core.ports.query_types import ListContext
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.choice.choice_request import ChoiceCreateRequest
     from core.models.entity_requests import EntityUpdateRequest
     from core.ports.infrastructure_protocols import EventBusOperations
+    from core.ports.query_types import ListContext
     from core.ports.search_protocols import ChoicesSearchOperations
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
 
@@ -488,7 +488,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
         user_uid: str,
         status_filter: str = "pending",
         sort_by: str = "deadline",
-    ) -> "Result[ListContext]":
+    ) -> Result[ListContext]:
         """Get filtered and sorted choices with pre-filter stats.
 
         Stats via Cypher COUNT (no entity deserialization).
@@ -501,9 +501,9 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
             self.core.get_for_user_filtered(user_uid, status_filter),
         )
         if stats_result.is_error:
-            return stats_result
+            return Result.fail(stats_result)
         if entities_result.is_error:
-            return entities_result
+            return Result.fail(entities_result)
         sorted_choices = _apply_choice_sort(entities_result.value, sort_by)
         return Result.ok({"entities": sorted_choices, "stats": stats_result.value})
 

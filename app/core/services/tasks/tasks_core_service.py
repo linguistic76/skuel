@@ -831,7 +831,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: str) -> "Result[dict[str, int]]":
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
         """Count task stats via Cypher COUNT — no entity deserialization."""
         query = """
         MATCH (n:Entity {user_uid: $user_uid, ku_type: 'task'})
@@ -845,7 +845,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         """
         result = await self.backend.execute_query(query, {"user_uid": user_uid})
         if result.is_error:
-            return result
+            return Result.fail(result)
         record = result.value[0] if result.value else {}
         return Result.ok(
             {
@@ -857,7 +857,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
 
     async def get_for_user_filtered(
         self, user_uid: str, status_filter: str = "active"
-    ) -> "Result[list[Task]]":
+    ) -> Result[list[Task]]:
         """Fetch tasks with status filter pushed to Cypher WHERE."""
         match status_filter:
             case "active":

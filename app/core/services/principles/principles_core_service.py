@@ -958,7 +958,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         """
         result = await self.backend.execute_query(query, {"user_uid": user_uid})
         if result.is_error:
-            return result
+            return Result.fail(result)
         record = result.value[0] if result.value else {}
         return Result.ok(
             {

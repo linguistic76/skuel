@@ -24,7 +24,7 @@ def is_ai_available(services: Any) -> bool:
     tier = getattr(services, "intelligence_tier", None)
     if tier is None:
         return True  # Backward-compatible default
-    return tier.ai_enabled
+    return bool(tier.ai_enabled)
 
 
 def ai_unavailable_result(feature: str) -> Result[Any]:

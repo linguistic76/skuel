@@ -57,7 +57,6 @@ from core.utils.sort_functions import (
 )
 
 if TYPE_CHECKING:
-    from core.ports.query_types import ListContext
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.habit.habit_request import (
         ArchiveHabitRequest,
@@ -70,6 +69,7 @@ if TYPE_CHECKING:
         UntrackHabitRequest,
     )
     from core.ports.infrastructure_protocols import EventBusOperations
+    from core.ports.query_types import ListContext
     from core.ports.search_protocols import HabitsSearchOperations
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
     from core.services.user import UserContext
@@ -1209,7 +1209,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         user_uid: str,
         status_filter: str = "active",
         sort_by: str = "streak",
-    ) -> "Result[ListContext]":
+    ) -> Result[ListContext]:
         """Get filtered and sorted habits with pre-filter stats.
 
         Stats via Cypher COUNT (no entity deserialization).
@@ -1222,9 +1222,9 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             self.core.get_for_user_filtered(user_uid, status_filter),
         )
         if stats_result.is_error:
-            return stats_result
+            return Result.fail(stats_result)
         if entities_result.is_error:
-            return entities_result
+            return Result.fail(entities_result)
         sorted_habits = _apply_habit_sort(entities_result.value, sort_by)
         return Result.ok({"entities": sorted_habits, "stats": stats_result.value})
 

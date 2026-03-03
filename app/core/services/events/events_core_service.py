@@ -800,7 +800,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: str) -> "Result[dict[str, int]]":
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
         """Count event stats via Cypher COUNT — no entity deserialization."""
         query = """
         MATCH (n:Entity {user_uid: $user_uid, ku_type: 'event'})
@@ -815,7 +815,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
             query, {"user_uid": user_uid, "today": date.today().isoformat()}
         )
         if result.is_error:
-            return result
+            return Result.fail(result)
         record = result.value[0] if result.value else {}
         return Result.ok(
             {
@@ -827,7 +827,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
 
     async def get_for_user_filtered(
         self, user_uid: str, status_filter: str = "scheduled"
-    ) -> "Result[list[Event]]":
+    ) -> Result[list[Event]]:
         """Fetch events with status filter pushed to Cypher WHERE."""
         match status_filter:
             case "scheduled":

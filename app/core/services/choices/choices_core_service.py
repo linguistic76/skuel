@@ -1320,7 +1320,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: str) -> "Result[dict[str, int]]":
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
         """Count choice stats via Cypher COUNT — no entity deserialization."""
         query = """
         MATCH (n:Entity {user_uid: $user_uid, ku_type: 'choice'})
@@ -1331,7 +1331,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         """
         result = await self.backend.execute_query(query, {"user_uid": user_uid})
         if result.is_error:
-            return result
+            return Result.fail(result)
         record = result.value[0] if result.value else {}
         return Result.ok(
             {
@@ -1343,7 +1343,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
 
     async def get_for_user_filtered(
         self, user_uid: str, status_filter: str = "pending"
-    ) -> "Result[list[Choice]]":
+    ) -> Result[list[Choice]]:
         """Fetch choices with status filter pushed to Cypher WHERE."""
         match status_filter:
             case "pending":

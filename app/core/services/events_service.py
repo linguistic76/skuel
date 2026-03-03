@@ -50,7 +50,6 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_lower
 
 if TYPE_CHECKING:
-    from core.ports.query_types import ListContext
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.event.event_request import (
         AddAttendeeRequest,
@@ -63,6 +62,7 @@ if TYPE_CHECKING:
     )
     from core.ports.domain_protocols import EventsOperations
     from core.ports.infrastructure_protocols import EventBusOperations
+    from core.ports.query_types import ListContext
     from core.ports.search_protocols import EventsSearchOperations
     from core.services.events.events_intelligence_service import EventsIntelligenceService
     from core.services.user import UserContext
@@ -70,7 +70,7 @@ if TYPE_CHECKING:
 
 def _null_callable() -> None:
     """No-op callable: fallback for getattr when attribute is an optional method."""
-    return None
+    return
 
 
 def _get_event_status_value(event: Any) -> str:
@@ -948,7 +948,7 @@ class EventsService(BaseService["EventsOperations", Event]):
         user_uid: str,
         status_filter: str = "scheduled",
         sort_by: str = "start_time",
-    ) -> "Result[ListContext]":
+    ) -> Result[ListContext]:
         """Get filtered and sorted events with pre-filter stats.
 
         Stats via Cypher COUNT (no entity deserialization).
@@ -961,8 +961,8 @@ class EventsService(BaseService["EventsOperations", Event]):
             self.core.get_for_user_filtered(user_uid, status_filter),
         )
         if stats_result.is_error:
-            return stats_result
+            return Result.fail(stats_result)
         if entities_result.is_error:
-            return entities_result
+            return Result.fail(entities_result)
         sorted_events = _apply_event_sort(entities_result.value, sort_by)
         return Result.ok({"entities": sorted_events, "stats": stats_result.value})

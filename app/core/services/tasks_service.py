@@ -58,10 +58,10 @@ from core.utils.sort_functions import (
 )
 
 if TYPE_CHECKING:
-    from core.ports.query_types import ListContext
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.graph_context import GraphContext
     from core.models.task.task_request import TaskCreateRequest
+    from core.ports.query_types import ListContext
     from core.services.user import UserContext
 
 
@@ -1015,7 +1015,7 @@ class TasksService(BaseService["TasksOperations", Task]):
         due_filter: str | None = None,
         status_filter: str = "active",
         sort_by: str = "due_date",
-    ) -> "Result[ListContext]":
+    ) -> Result[ListContext]:
         """Get filtered and sorted tasks with pre-filter stats.
 
         Stats via Cypher COUNT (no entity deserialization).
@@ -1028,9 +1028,9 @@ class TasksService(BaseService["TasksOperations", Task]):
             self.core.get_for_user_filtered(user_uid, status_filter),
         )
         if stats_result.is_error:
-            return stats_result
+            return Result.fail(stats_result)
         if entities_result.is_error:
-            return entities_result
+            return Result.fail(entities_result)
         filtered = _apply_task_secondary_filters(
             entities_result.value, project, assignee, due_filter
         )

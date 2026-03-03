@@ -54,10 +54,10 @@ from core.utils.sort_functions import (
 )
 
 if TYPE_CHECKING:
-    from core.ports.query_types import ListContext
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.goal.goal_request import GoalCreateRequest
     from core.ports.infrastructure_protocols import EventBusOperations
+    from core.ports.query_types import ListContext
     from core.ports.search_protocols import GoalsSearchOperations
     from core.services.user import UserContext
 
@@ -697,7 +697,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         user_uid: str,
         status_filter: str = "active",
         sort_by: str = "target_date",
-    ) -> "Result[ListContext]":
+    ) -> Result[ListContext]:
         """Get filtered and sorted goals with pre-filter stats.
 
         Stats via Cypher COUNT (no entity deserialization).
@@ -710,9 +710,9 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
             self.core.get_for_user_filtered(user_uid, status_filter),
         )
         if stats_result.is_error:
-            return stats_result
+            return Result.fail(stats_result)
         if entities_result.is_error:
-            return entities_result
+            return Result.fail(entities_result)
         sorted_goals = _apply_goal_sort(entities_result.value, sort_by)
         return Result.ok({"entities": sorted_goals, "stats": stats_result.value})
 

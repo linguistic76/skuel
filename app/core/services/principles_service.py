@@ -847,7 +847,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         category_filter: str = "all",
         strength_filter: str = "all",
         sort_by: str = "strength",
-    ) -> "Result[ListContext]":
+    ) -> Result[ListContext]:
         """Get filtered and sorted principles with pre-filter stats.
 
         Stats via Cypher COUNT (no entity deserialization).
@@ -860,9 +860,9 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
             self.core.get_for_user_filtered(user_uid),
         )
         if stats_result.is_error:
-            return stats_result
+            return Result.fail(stats_result)
         if entities_result.is_error:
-            return entities_result
+            return Result.fail(entities_result)
         filtered = _apply_principle_filters(entities_result.value, category_filter, strength_filter)
         sorted_principles = _apply_principle_sort(filtered, sort_by)
         return Result.ok({"entities": sorted_principles, "stats": stats_result.value})
