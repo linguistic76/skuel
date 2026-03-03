@@ -388,8 +388,6 @@ def create_submissions_sharing_api_routes(
                 }
             )
 
-        # Use BaseService search - note: visibility filtering would need to be done post-query
-        # or via a custom method since BaseService.search doesn't support filters parameter
         search_result = await core_service.search(
             query="",  # Empty query = all
             limit=limit,
@@ -398,9 +396,8 @@ def create_submissions_sharing_api_routes(
         if search_result.is_error:
             return Result.fail(search_result)
 
-        submissions = search_result.value
+        submissions = [a for a in search_result.value if a.visibility == Visibility.PUBLIC]
 
-        # Filter by user if specified
         if filter_user_uid:
             submissions = [a for a in submissions if a.user_uid == filter_user_uid]
 
