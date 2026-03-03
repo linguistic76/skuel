@@ -395,6 +395,11 @@ def parse_filters(request) -> Filters:
     )
 
 
+def _render_wizard_step(form_data: dict[str, Any], step: int) -> Any:
+    """Shared body for all wizard step POST handlers — eliminates 4× duplication."""
+    return AtomicHabitsComponents.render_habit_creation_wizard(step=step, form_data=form_data)
+
+
 def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: Any = None):
     """
     Create three-view habit UI routes (standalone, no drawer).
@@ -624,7 +629,6 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         """
         from core.models.enums import RecurrencePattern
         from core.models.enums.habit_enums import HabitCategory
-        from core.models.habit.habit_request import HabitCreateRequest
 
         # Extract form data
         name = form_data.get("name", "").strip()
@@ -697,58 +701,39 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
     @rt("/habits/wizard/step1")
     async def wizard_step1(request) -> Any:
         """Wizard Step 1: Basic habit + identity"""
-        form_data = await request.form()
-        return AtomicHabitsComponents.render_habit_creation_wizard(
-            step=1, form_data=dict(form_data)
-        )
+        return _render_wizard_step(dict(await request.form()), 1)
 
     @rt("/habits/wizard/step2")
     async def wizard_step2(request) -> Any:
         """Wizard Step 2: Behavior design (cue-routine-reward)"""
-        form_data = await request.form()
-        return AtomicHabitsComponents.render_habit_creation_wizard(
-            step=2, form_data=dict(form_data)
-        )
+        return _render_wizard_step(dict(await request.form()), 2)
 
     @rt("/habits/wizard/step3")
     async def wizard_step3(request) -> Any:
         """Wizard Step 3: Link to goals with essentiality"""
-        form_data = await request.form()
-        return AtomicHabitsComponents.render_habit_creation_wizard(
-            step=3, form_data=dict(form_data)
-        )
+        return _render_wizard_step(dict(await request.form()), 3)
 
     @rt("/habits/wizard/step4")
     async def wizard_step4(request) -> Any:
         """Wizard Step 4: Review - just show the review, don't create yet"""
-        form_data = await request.form()
-        return AtomicHabitsComponents.render_habit_creation_wizard(
-            step=4, form_data=dict(form_data)
-        )
+        return _render_wizard_step(dict(await request.form()), 4)
 
     @rt("/api/habits/create-with-identity")
     async def create_habit_with_identity(request) -> Any:
         """Create habit from wizard with identity and goal linking"""
-        from core.models.habit.habit_request import HabitCreateRequest
-
+        user_uid = require_authenticated_user(request)
         form_data = await request.form()
         wizard_data = dict(form_data)
 
-        # Get user_uid from session or form data
-        user_uid = wizard_data.get("user_uid", "")
-        if not user_uid:
-            # Try to get from request session if available
-            user_uid = getattr(request, "user_uid", "default_user")
-
-        # Build HabitCreateRequest from wizard data
+        # Build HabitCreateRequest from wizard data — strip all string fields consistently
         create_request = HabitCreateRequest(
-            name=wizard_data.get("name", ""),
-            description=wizard_data.get("description", "") or None,
-            cue=wizard_data.get("cue", "") or None,
-            routine=wizard_data.get("routine", "") or None,
-            reward=wizard_data.get("reward", "") or None,
-            reinforces_identity=wizard_data.get("identity", "") or None,
-            is_identity_habit=bool(wizard_data.get("identity")),
+            name=wizard_data.get("name", "").strip(),
+            description=wizard_data.get("description", "").strip() or None,
+            cue=wizard_data.get("cue", "").strip() or None,
+            routine=wizard_data.get("routine", "").strip() or None,
+            reward=wizard_data.get("reward", "").strip() or None,
+            reinforces_identity=wizard_data.get("identity", "").strip() or None,
+            is_identity_habit=bool(wizard_data.get("identity", "").strip()),
         )
 
         # Create habit via service
@@ -1624,11 +1609,11 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
 
         # Prepare update data
         updates = {
-            "name": form_data.get("name", ""),
-            "description": form_data.get("description", ""),
-            "cue": form_data.get("cue", ""),
-            "routine": form_data.get("routine", ""),
-            "reward": form_data.get("reward", ""),
+            "name": form_data.get("name", "").strip(),
+            "description": form_data.get("description", "").strip(),
+            "cue": form_data.get("cue", "").strip(),
+            "routine": form_data.get("routine", "").strip(),
+            "reward": form_data.get("reward", "").strip(),
             "status": form_data.get("status", "active"),
         }
 
