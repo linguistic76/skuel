@@ -10,16 +10,16 @@ Components:
 """
 
 from ui.profile.badges import CountBadge, DomainSidebarItem, StatusBadge
-from ui.profile.domain_views import (
+from ui.profile._shared import DomainSummaryCard
+from ui.profile.activity_views import (
     ChoicesDomainView,
-    DomainSummaryCard,
     EventsDomainView,
     GoalsDomainView,
     HabitsDomainView,
-    OverviewView,
     PrinciplesDomainView,
     TasksDomainView,
 )
+from ui.profile.overview import OverviewView
 from ui.profile.layout import (
     ProfileDomainItem,
     create_profile_page,

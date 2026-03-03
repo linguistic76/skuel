@@ -48,18 +48,19 @@ from ui.profile.domain_stats_config import (
     learning_steps_count,
     learning_steps_status,
 )
-from ui.profile.domain_views import (
+from ui.profile.activity_views import (
     ChoicesDomainView,
     EventsDomainView,
     GoalsDomainView,
     HabitsDomainView,
-    LearningPathsDomainView,
-    LearningStepsDomainView,
-    OverviewView,
     PrinciplesDomainView,
     TasksDomainView,
-    render_domain_card_preview,
 )
+from ui.profile.curriculum_views import (
+    LearningPathsDomainView,
+    LearningStepsDomainView,
+)
+from ui.profile.overview import OverviewView, render_domain_card_preview
 from ui.profile.layout import (
     CURRICULUM_ORDER,
     DEFAULT_DOMAIN_ICONS,
@@ -1378,12 +1379,12 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         if intel_data is None:
             # Basic mode - return unavailable card
-            from ui.profile.domain_views import _intelligence_unavailable_card
+            from ui.profile.overview import _intelligence_unavailable_card
 
             return _intelligence_unavailable_card()
 
         # Full mode - return intelligence section
-        from ui.profile.domain_views import (
+        from ui.profile.overview import (
             _alignment_breakdown,
             _chart_visualizations_section,
             _daily_work_plan_card,
