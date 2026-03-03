@@ -12,7 +12,7 @@ Uses:
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from core.models.enums import EntityStatus, Priority, RecurrencePattern
 from core.models.request_base import (
@@ -90,6 +90,14 @@ class TaskCreateRequest(CreateRequestBase):
     _validate_recurrence_end = validate_recurrence_end_after_start(
         "recurrence_end_date", "due_date"
     )
+
+    @model_validator(mode="after")
+    def validate_due_after_scheduled(self) -> "TaskCreateRequest":
+        """Due date must not be before scheduled date."""
+        if self.due_date and self.scheduled_date:
+            if self.due_date < self.scheduled_date:
+                raise ValueError("Due date cannot be before scheduled date")
+        return self
 
 
 class TaskUpdateRequest(UpdateRequestBase):

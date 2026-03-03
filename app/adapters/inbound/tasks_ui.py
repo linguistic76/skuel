@@ -76,44 +76,6 @@ def parse_filters(request: Request) -> Filters:
     )
 
 
-def validate_task_form_data(form_data: dict[str, Any]) -> Result[None]:
-    """
-    Validate task form data early.
-
-    Pure function: returns clear error messages for UI.
-
-    Args:
-        form_data: Raw form data from request
-
-    Returns:
-        Result.ok(None) if valid, Errors.validation() with user-friendly message if invalid
-    """
-    # Required fields
-    title = form_data.get("title", "").strip()
-    if not title:
-        return Result.fail(Errors.validation("Task title is required"))
-
-    if len(title) > 200:
-        return Result.fail(Errors.validation("Task title must be 200 characters or less"))
-
-    # Date validation
-    scheduled_date_str = form_data.get("scheduled_date", "")
-    due_date_str = form_data.get("due_date", "")
-
-    if scheduled_date_str and due_date_str:
-        try:
-            scheduled = date.fromisoformat(scheduled_date_str)
-            due = date.fromisoformat(due_date_str)
-            if due < scheduled:
-                return Result.fail(
-                    Errors.validation("Due date cannot be before scheduled date")
-                )
-        except ValueError:
-            return Result.fail(Errors.validation("Invalid date format"))
-
-    return Result.ok(None)
-
-
 def create_tasks_ui_routes(
     _app: Any,
     rt: RouteDecorator,
@@ -490,11 +452,6 @@ def create_tasks_ui_routes(
 
         Handles form parsing, request building, and service call.
         """
-        # VALIDATE EARLY
-        validation_result = validate_task_form_data(form_data)
-        if validation_result.is_error:
-            return validation_result  # Return validation error to UI
-
         # Extract form data
         title = form_data.get("title", "").strip()
         description = form_data.get("description", "").strip() or None

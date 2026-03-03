@@ -64,21 +64,6 @@ def parse_filters(request) -> Filters:
     )
 
 
-def validate_choice_form_data(form_data: dict[str, Any]) -> Result[None]:
-    """Validate choice form data early.
-
-    Pure function: returns clear error messages for UI.
-    """
-    title = form_data.get("title", "").strip()
-    if not title:
-        return Result.fail(Errors.validation("Choice title is required"))
-
-    if len(title) > 200:
-        return Result.fail(Errors.validation("Choice title must be 200 characters or less"))
-
-    return Result.ok(None)
-
-
 # ============================================================================
 # UI ROUTES
 # ============================================================================
@@ -448,11 +433,6 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         from core.models.enums import Domain as DomainEnum
         from core.models.enums import Priority as PriorityEnum
         from core.models.enums.choice_enums import ChoiceType
-
-        # VALIDATE EARLY
-        validation_result = validate_choice_form_data(form_data)
-        if validation_result.is_error:
-            return validation_result  # Return validation error to UI
 
         # Extract form data
         title = form_data.get("title", "").strip()

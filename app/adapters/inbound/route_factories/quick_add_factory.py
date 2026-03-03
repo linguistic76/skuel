@@ -57,6 +57,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from pydantic import ValidationError as PydanticValidationError
 from starlette.responses import Response
 
 if TYPE_CHECKING:
@@ -65,6 +66,7 @@ if TYPE_CHECKING:
 from adapters.inbound.auth.session import require_authenticated_user
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from ui.patterns.error_banner import render_error_banner
 
 logger = get_logger(__name__)
 
@@ -191,6 +193,14 @@ class QuickAddRouteFactory:
                 logger.info(f"=== QUICK-ADD {domain.upper()} END ===")
                 return response
 
+            except PydanticValidationError as e:
+                first_error = e.errors()[0]
+                loc = first_error.get("loc", ())
+                field = str(loc[-1]) if loc and loc[-1] != "__root__" else None
+                msg = first_error.get("msg", "Validation error")
+                user_msg = f"{field}: {msg}" if field else msg
+                logger.warning(f"Validation error creating {domain}: {user_msg}")
+                return render_error_banner(user_msg)
             except Exception as e:
                 logger.error(f"Error creating {domain}: {e}")
                 return Response(f"Error: {e}", status_code=500)

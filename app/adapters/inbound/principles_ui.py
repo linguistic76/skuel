@@ -67,21 +67,6 @@ def parse_filters(request) -> Filters:
     )
 
 
-def validate_principle_form_data(form_data: dict[str, Any]) -> Result[None]:
-    """Validate principle form data early.
-
-    Pure function: returns clear error messages for UI.
-    """
-    title = form_data.get("title", "").strip()
-    if not title:
-        return Result.fail(Errors.validation("Principle title is required"))
-
-    if len(title) > 200:
-        return Result.fail(Errors.validation("Principle title must be 200 characters or less"))
-
-    return Result.ok(None)
-
-
 # ============================================================================
 # UI ROUTES
 # ============================================================================
@@ -430,11 +415,6 @@ def create_principles_ui_routes(
         Handles form parsing, enum conversion, and service call with named parameters.
         """
         from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
-
-        # VALIDATE EARLY
-        validation_result = validate_principle_form_data(form_data)
-        if validation_result.is_error:
-            return validation_result  # Return validation error to UI
 
         # Extract form data
         title = form_data.get("title", "").strip()

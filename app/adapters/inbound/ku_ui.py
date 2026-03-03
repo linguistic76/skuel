@@ -367,55 +367,6 @@ class KuUIComponents:
 # ============================================================================
 
 
-def validate_ku_form_data(form_data: dict[str, Any]) -> Result[None]:
-    """
-    Validate KU form data early.
-
-    Pure function: returns clear error messages for UI.
-
-    Args:
-        form_data: Raw form data from request
-
-    Returns:
-        Result.ok(None) if valid, Errors.validation() with user-friendly message if invalid
-    """
-    from core.models.enums import Domain
-    from core.utils.result_simplified import Errors, Result
-
-    # Required: title
-    title = form_data.get("title", "").strip()
-    if not title:
-        return Result.fail(Errors.validation("KU title is required"))
-    if len(title) > 200:
-        return Result.fail(Errors.validation("Title must be 200 characters or less"))
-
-    # Required: content
-    content = form_data.get("content", "").strip()
-    if not content:
-        return Result.fail(Errors.validation("KU content is required"))
-
-    # Required: domain
-    domain = form_data.get("domain", "").strip()
-    if not domain:
-        return Result.fail(Errors.validation("KU domain is required"))
-
-    # Validate domain is valid enum value
-    try:
-        Domain(domain)
-    except ValueError:
-        valid_domains = [d.value for d in Domain]
-        return Result.fail(
-            Errors.validation(f"Invalid domain. Must be one of: {', '.join(valid_domains)}")
-        )
-
-    # Optional: complexity (if provided, must be valid)
-    complexity = form_data.get("complexity", "").strip()
-    if complexity and complexity not in ["basic", "medium", "advanced"]:
-        return Result.fail(Errors.validation("Complexity must be 'basic', 'medium', or 'advanced'"))
-
-    return Result.ok(None)
-
-
 # ============================================================================
 # TYPED QUERY PARAMETERS
 # ============================================================================

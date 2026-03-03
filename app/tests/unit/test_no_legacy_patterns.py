@@ -193,7 +193,7 @@ class TestNoLinterViolations:
     # Ratchet baselines — lower these as violations are fixed
     # Last updated: 2026-02-23
     HASATTR_BASELINE = 0  # All hasattr() violations eliminated
-    LAMBDA_BASELINE = 4  # Known lambda expressions across codebase
+    LAMBDA_BASELINE = 3  # Known lambda expressions across codebase
 
     def test_no_hasattr_in_core_services(self) -> None:
         """SKUEL011: Zero hasattr() in core/services/ — the strict zone."""
