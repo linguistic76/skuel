@@ -48,9 +48,10 @@ if embedding_result.is_error:
     return await fulltext_search(query)
 ```
 
-SKUEL separates analytics (graph-only, always available) from AI (LLM-dependent, optional):
-- `BaseAnalyticsService` - Graph analytics, NO AI dependencies
-- `BaseAIService` - LLM features, graceful degradation
+SKUEL separates analytics (graph-only, always available) from AI (LLM-dependent, optional).
+Controlled by `INTELLIGENCE_TIER` env var (ADR-043): `core` = analytics only, `full` = analytics + AI.
+- `BaseAnalyticsService` - Graph analytics, NO AI dependencies (always available)
+- `BaseAIService` - LLM features, graceful degradation (FULL tier only)
 
 ### When to Use GenAI Plugin vs Python Clients
 
@@ -118,13 +119,16 @@ services:
 
 **Environment Variables (`.env`):**
 ```bash
-# GenAI plugin (required for embeddings/vector search)
+# Intelligence tier (ADR-043): "core" = no AI, "full" = AI enabled (default)
+INTELLIGENCE_TIER=full
+
+# GenAI plugin (used when INTELLIGENCE_TIER=full)
 GENAI_ENABLED=true
 GENAI_EMBEDDING_MODEL=text-embedding-3-small
 GENAI_EMBEDDING_DIMENSIONS=1536
 GENAI_BATCH_SIZE=50
 
-# OpenAI (required for GenAI plugin)
+# OpenAI (required when INTELLIGENCE_TIER=full)
 OPENAI_API_KEY=sk-...
 
 # Vector search configuration
@@ -194,7 +198,7 @@ ORDER BY score DESC
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ Layer 2: GenAI Services (Embeddings, Vector Search)         │
+│ Layer 2: GenAI Services (INTELLIGENCE_TIER=full only)        │
 │ - Neo4jGenAIEmbeddingsService (version tracking, batching)  │
 │ - Neo4jVectorSearchService (hybrid search, RRF, learning)   │
 └─────────────────────────────────────────────────────────────┐

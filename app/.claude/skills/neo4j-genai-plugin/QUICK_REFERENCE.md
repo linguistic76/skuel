@@ -133,7 +133,8 @@ if not search_result.is_error:
 | `GENAI_BATCH_SIZE` | `int` | `50` | Optimal batch size |
 | `GENAI_COMPLETION_MODEL` | `str` | `gpt-4o-mini` | Text generation model |
 | `GENAI_CHAT_MODEL` | `str` | `gpt-4o-mini` | Chat model |
-| `OPENAI_API_KEY` | `str` | Required | OpenAI API key |
+| `INTELLIGENCE_TIER` | `str` | `full` | `core` (no AI) or `full` (AI enabled) — ADR-043 |
+| `OPENAI_API_KEY` | `str` | — | OpenAI API key (required when `INTELLIGENCE_TIER=full`) |
 | `VECTOR_SEARCH_DEFAULT_K` | `int` | `10` | Default result count |
 | `VECTOR_SEARCH_MIN_SIMILARITY` | `float` | `0.7` | Minimum similarity threshold |
 | `VECTOR_SEARCH_HYBRID_WEIGHT` | `float` | `0.7` | Vector weight in hybrid (0-1) |
