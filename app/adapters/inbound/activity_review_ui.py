@@ -202,9 +202,10 @@ def create_activity_review_ui_routes(
 
         pending: list[Any] = []
         try:
-            result = await review_queue.get_pending_reviews(_admin_uid=admin_uid)
-            if not result.is_error:
-                pending = result.value or []
+            if review_queue is not None:
+                result = await review_queue.get_pending_reviews(_admin_uid=admin_uid)
+                if not result.is_error:
+                    pending = result.value or []
         except Exception as e:
             logger.error(f"Error loading review queue: {e}", exc_info=True)
 

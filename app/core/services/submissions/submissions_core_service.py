@@ -852,13 +852,13 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             WHERE j.created_at >= $day_start AND j.created_at <= $day_end
             RETURN count(j) AS total
         """
-        records, _, _ = await self.backend.driver.execute_query(
+        result = await self.backend.execute_query(
             query,
-            user_uid=user_uid,
-            day_start=day_start,
-            day_end=day_end,
+            {"user_uid": user_uid, "day_start": day_start, "day_end": day_end},
         )
-        return int(records[0]["total"]) if records else 0
+        if result.is_error or not result.value:
+            return 0
+        return int(result.value[0]["total"]) if result.value else 0
 
     async def generate_journal_title(self, user_uid: str, entry_date: date | None = None) -> str:
         """Generate canonical journal title with sequence number for the given day.

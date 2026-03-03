@@ -52,6 +52,15 @@ class DailyPlanningMixin:
     choices: Any  # ChoicesRelationshipService
     principles: Any  # PrinciplesRelationshipService
     ku: Any  # KuGraphService
+
+    # Stubs for methods provided by TemporalMomentumMixin in the composed class.
+    if TYPE_CHECKING:
+
+        def compute_momentum_signals(self) -> dict[str, Any]: ...
+
+        def _momentum_warnings(self, signals: dict[str, Any]) -> list[str]: ...
+
+        def _momentum_rationale(self, signals: dict[str, Any]) -> str | None: ...
     feedback: Any  # FeedbackRelationshipService
     vector_search: Any = None  # Neo4jVectorSearchService (optional)
 
