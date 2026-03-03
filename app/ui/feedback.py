@@ -7,9 +7,12 @@ Progress, RadialProgress wrappers.
 """
 
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, Span
+
+if TYPE_CHECKING:
+    from ui.buttons import ButtonT
 
 from ui.layout import Size
 

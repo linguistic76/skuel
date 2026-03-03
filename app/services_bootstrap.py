@@ -127,8 +127,8 @@ if TYPE_CHECKING:
     from core.services.cross_domain_queries import CrossDomainQueries
     from core.services.feedback.activity_report_service import ActivityReportService
     from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
-    from core.services.feedback.review_queue_service import ReviewQueueService
     from core.services.feedback.progress_schedule_service import ProgressScheduleService
+    from core.services.feedback.review_queue_service import ReviewQueueService
     from core.services.insight.insight_store import InsightStore
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService

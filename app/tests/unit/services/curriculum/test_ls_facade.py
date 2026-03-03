@@ -29,9 +29,7 @@ def mock_backend() -> Mock:
 @pytest.fixture
 def mock_executor() -> Mock:
     executor = AsyncMock()
-    executor.execute_query = AsyncMock(
-        return_value=Result.ok([{"next_sequence": 0}])
-    )
+    executor.execute_query = AsyncMock(return_value=Result.ok([{"next_sequence": 0}]))
     return executor
 
 
@@ -41,9 +39,7 @@ def mock_graph_intel() -> Mock:
 
 
 @pytest.fixture
-def ls_service(
-    mock_backend: Mock, mock_executor: Mock, mock_graph_intel: Mock
-) -> LsService:
+def ls_service(mock_backend: Mock, mock_executor: Mock, mock_graph_intel: Mock) -> LsService:
     service = LsService(
         backend=mock_backend,
         executor=mock_executor,
@@ -89,9 +85,7 @@ class TestLsServiceAttachStep:
         self, ls_service: LsService, mock_executor: Mock
     ) -> None:
         """attach_step_to_path without sequence queries executor to determine next_sequence."""
-        mock_executor.execute_query = AsyncMock(
-            return_value=Result.ok([{"next_sequence": 5}])
-        )
+        mock_executor.execute_query = AsyncMock(return_value=Result.ok([{"next_sequence": 5}]))
         ls_service.relationships.create_relationship_with_properties = AsyncMock(
             return_value=Result.ok(True)
         )
@@ -142,13 +136,9 @@ class TestLsServiceAttachStep:
 
 class TestLsServiceDetachAndGetPaths:
     @pytest.mark.asyncio
-    async def test_detach_step_delegates_to_relationships(
-        self, ls_service: LsService
-    ) -> None:
+    async def test_detach_step_delegates_to_relationships(self, ls_service: LsService) -> None:
         """detach_step_from_path delegates to relationships.delete_relationship."""
-        ls_service.relationships.delete_relationship = AsyncMock(
-            return_value=Result.ok(True)
-        )
+        ls_service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
 
         result = await ls_service.detach_step_from_path("ls_step_abc", "lp_path_xyz")
 
@@ -160,9 +150,7 @@ class TestLsServiceDetachAndGetPaths:
         )
 
     @pytest.mark.asyncio
-    async def test_get_step_paths_delegates_to_relationships(
-        self, ls_service: LsService
-    ) -> None:
+    async def test_get_step_paths_delegates_to_relationships(self, ls_service: LsService) -> None:
         """get_step_paths delegates to relationships.get_related_uids."""
         ls_service.relationships.get_related_uids = AsyncMock(
             return_value=Result.ok(["lp_path_abc", "lp_path_def"])
@@ -172,9 +160,7 @@ class TestLsServiceDetachAndGetPaths:
 
         assert result.is_ok
         assert result.value == ["lp_path_abc", "lp_path_def"]
-        ls_service.relationships.get_related_uids.assert_called_once_with(
-            "in_paths", "ls_step_abc"
-        )
+        ls_service.relationships.get_related_uids.assert_called_once_with("in_paths", "ls_step_abc")
 
     @pytest.mark.asyncio
     async def test_detach_step_propagates_relationships_failure(

@@ -18,6 +18,7 @@ from datetime import date, timedelta
 from typing import Any, TypedDict
 
 from fasthtml.common import H1, H2, H3, Div, Option, P, Span, Tbody, Td, Th, Thead, Tr
+
 from ui.buttons import Button
 from ui.cards import Card, CardBody
 from ui.data import Table

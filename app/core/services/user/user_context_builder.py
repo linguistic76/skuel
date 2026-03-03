@@ -342,7 +342,9 @@ class UserContextBuilder:
         # Active entities always included regardless of window; completed
         # entities included if touched within the lookback window.
         window_end = datetime.now()
-        window_start = window_end - timedelta(days=_WINDOW_TO_DAYS.get(window, _DEFAULT_WINDOW_DAYS))
+        window_start = window_end - timedelta(
+            days=_WINDOW_TO_DAYS.get(window, _DEFAULT_WINDOW_DAYS)
+        )
 
         # Execute MEGA-QUERY — fetches UIDs AND rich data in one shot.
         mega_result = await self._query_executor.execute_mega_query(
@@ -380,9 +382,7 @@ class UserContextBuilder:
         self._populator.populate_curriculum_rich(context, rich_data)
 
         # Derive window-engaged KU entities (Python-side, no extra query)
-        self._populator.populate_ku_window_entities(
-            context, uids_data, rich_data, window_start
-        )
+        self._populator.populate_ku_window_entities(context, uids_data, rich_data, window_start)
 
         # Populate MOC fields from uids section (Priority 3)
         self._populator.populate_moc_fields(context, uids_data)
@@ -395,7 +395,9 @@ class UserContextBuilder:
 
         # Populate activity report + insights from MEGA-QUERY (no separate roundtrip)
         self._populator.populate_activity_report(context, mega_data.get("activity_report"))
-        self._populator.populate_cross_domain_insights(context, mega_data.get("active_insights_raw"))
+        self._populator.populate_cross_domain_insights(
+            context, mega_data.get("active_insights_raw")
+        )
 
         # Populate progress metrics (Priority 6)
         self._populator.populate_progress_metrics(context, mega_data.get("progress_counts", {}))

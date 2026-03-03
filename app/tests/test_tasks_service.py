@@ -156,9 +156,7 @@ class TestCompleteTaskWithCascade:
         service.ku_generation_service = None
 
         mock_task = Mock()
-        service.progress.complete_task_with_cascade = AsyncMock(
-            return_value=Result.ok(mock_task)
-        )
+        service.progress.complete_task_with_cascade = AsyncMock(return_value=Result.ok(mock_task))
 
         user_context = Mock()
         user_context.user_uid = "user_test"
@@ -178,9 +176,7 @@ class TestCompleteTaskWithCascade:
         service = tasks_service_with_mocked_subservices
 
         mock_task = Mock()
-        service.progress.complete_task_with_cascade = AsyncMock(
-            return_value=Result.ok(mock_task)
-        )
+        service.progress.complete_task_with_cascade = AsyncMock(return_value=Result.ok(mock_task))
 
         mock_ku_gen = AsyncMock()
         service.ku_generation_service = mock_ku_gen
@@ -231,9 +227,7 @@ class TestGetTaskDependencies:
     ) -> None:
         """get_task_dependencies returns empty list when no prerequisite UIDs."""
         service = tasks_service_with_mocked_subservices
-        service.relationships.get_related_uids = AsyncMock(
-            return_value=Result.ok([])
-        )
+        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
 
         result = await service.get_task_dependencies("task_abc")
 
@@ -255,9 +249,7 @@ class TestGetTaskDependencies:
         mock_task_2 = Mock()
         mock_task_2.uid = "task_prereq2"
 
-        service.core.get = AsyncMock(
-            side_effect=[Result.ok(mock_task_1), Result.ok(mock_task_2)]
-        )
+        service.core.get = AsyncMock(side_effect=[Result.ok(mock_task_1), Result.ok(mock_task_2)])
 
         result = await service.get_task_dependencies("task_abc")
 
@@ -336,9 +328,7 @@ class TestLinkTaskToKnowledge:
     ) -> None:
         """link_task_to_knowledge passes knowledge_score_required and is_learning_opportunity."""
         service = tasks_service_with_mocked_subservices
-        service.relationships.link_to_knowledge = AsyncMock(
-            return_value=Result.ok(True)
-        )
+        service.relationships.link_to_knowledge = AsyncMock(return_value=Result.ok(True))
 
         await service.link_task_to_knowledge(
             "task_abc",
@@ -370,7 +360,7 @@ class TestUncompleteTask:
         mock_task = Mock()
         service.core.update_task = AsyncMock(return_value=Result.ok(mock_task))
 
-        result = await service.uncomplete_task("task_abc")
+        await service.uncomplete_task("task_abc")
 
         service.core.update_task.assert_called_once_with(
             "task_abc", {"status": EntityStatus.ACTIVE}

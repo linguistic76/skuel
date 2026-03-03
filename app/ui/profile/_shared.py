@@ -6,7 +6,7 @@ and overview.py.
 
 from typing import Any
 
-from fasthtml.common import A, Button, Div, H3, Label, Li, Option, P, Select, Span, Ul
+from fasthtml.common import H3, A, Button, Div, Label, Li, Option, P, Select, Span, Ul
 
 from ui.patterns.empty_state import EmptyState
 

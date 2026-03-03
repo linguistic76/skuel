@@ -903,9 +903,7 @@ class TestEntitiesRichField:
         assert context.entities_rich == {}
 
     @pytest.mark.asyncio
-    async def test_build_rich_user_context_entities_rich_is_dict(
-        self, user_service, clean_neo4j
-    ):
+    async def test_build_rich_user_context_entities_rich_is_dict(self, user_service, clean_neo4j):
         """build_rich_user_context() → entities_rich is a dict."""
         from core.models.user.user import User
 
@@ -926,9 +924,7 @@ class TestEntitiesRichField:
         assert isinstance(result.value.entities_rich, dict)
 
     @pytest.mark.asyncio
-    async def test_build_rich_with_window_populates_entities_rich(
-        self, user_service, clean_neo4j
-    ):
+    async def test_build_rich_with_window_populates_entities_rich(self, user_service, clean_neo4j):
         """build_rich_user_context(window='7d') → entities_rich has correct structure."""
         from datetime import date, timedelta
 

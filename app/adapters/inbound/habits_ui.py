@@ -26,7 +26,9 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from adapters.inbound.ui_helpers import CalendarParams, parse_calendar_params, render_safe_error_response
+from adapters.inbound.ui_helpers import (
+    parse_calendar_params,
+)
 from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityStatus
 from core.models.habit.habit_request import HabitCreateRequest
@@ -42,7 +44,6 @@ from core.utils.sort_functions import (
 )
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
-from ui.layout import Size
 from ui.habits.atomic_achievements import AtomicHabitsBadges
 from ui.habits.atomic_analytics import AtomicHabitsAnalytics
 from ui.habits.atomic_components import AtomicHabitsComponents
@@ -50,6 +51,7 @@ from ui.habits.atomic_intelligence import AtomicHabitsIntelligence
 from ui.habits.atomic_mobile import AtomicHabitsMobile
 from ui.habits.layout import create_habits_page
 from ui.habits.views import HabitsViewComponents
+from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.navbar import create_navbar_for_request
 from ui.layouts.page_types import PageType

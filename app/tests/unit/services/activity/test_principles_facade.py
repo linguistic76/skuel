@@ -67,9 +67,7 @@ class TestPrinciplesServiceCreate:
     ) -> None:
         """create_principle delegates to core.create_principle with all params."""
         mock_principle = Mock()
-        principles_service.core.create_principle = AsyncMock(
-            return_value=Result.ok(mock_principle)
-        )
+        principles_service.core.create_principle = AsyncMock(return_value=Result.ok(mock_principle))
 
         result = await principles_service.create_principle(
             label="Do the right thing",
@@ -106,16 +104,16 @@ class TestPrinciplesServicePortfolio:
         assert result.is_ok
         assert result.value["user_uid"] == "user_test"
         assert result.value["count"] == 1
-        mock_backend.list.assert_called_once_with(
-            filters={"user_uid": "user_test"}, limit=100
-        )
+        mock_backend.list.assert_called_once_with(filters={"user_uid": "user_test"}, limit=100)
 
     @pytest.mark.asyncio
     async def test_get_user_principle_portfolio_propagates_backend_error(
         self, principles_service: PrinciplesService, mock_backend: Mock
     ) -> None:
         """get_user_principle_portfolio propagates backend error."""
-        mock_backend.list = AsyncMock(return_value=Result.fail(Errors.database("query", "DB error")))
+        mock_backend.list = AsyncMock(
+            return_value=Result.fail(Errors.database("query", "DB error"))
+        )
 
         result = await principles_service.get_user_principle_portfolio("user_test")
 
@@ -198,9 +196,7 @@ class TestPrinciplesServiceRelationships:
         self, principles_service: PrinciplesService
     ) -> None:
         """link_principle_to_knowledge passes relevance param to relationships."""
-        principles_service.relationships.link_to_knowledge = AsyncMock(
-            return_value=Result.ok(True)
-        )
+        principles_service.relationships.link_to_knowledge = AsyncMock(return_value=Result.ok(True))
 
         await principles_service.link_principle_to_knowledge(
             "principle_abc", "ku_stoicism_xyz", relevance="foundational"

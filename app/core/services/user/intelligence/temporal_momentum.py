@@ -61,8 +61,7 @@ class TemporalMomentumMixin:
                 velocities[domain] = 0.0
                 continue
             completed = sum(
-                1 for item in items
-                if item.get("entity", {}).get("status") == "completed"
+                1 for item in items if item.get("entity", {}).get("status") == "completed"
             )
             velocities[domain] = completed / len(items)
 
@@ -98,9 +97,7 @@ class TemporalMomentumMixin:
         neglected = signals.get("neglected", [])
         if neglected:
             domain_list = ", ".join(neglected[:3])
-            warnings.append(
-                f"No {domain_list} activity this period — consider engaging today"
-            )
+            warnings.append(f"No {domain_list} activity this period — consider engaging today")
         if signals.get("habit_consistency", 1.0) < 0.4:
             warnings.append("Habit consistency is low — rebuilding streaks is today's priority")
         return warnings

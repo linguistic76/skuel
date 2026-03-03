@@ -14,6 +14,7 @@ Based on James Clear's "Atomic Habits" philosophy visualized for SKUEL users.
 from typing import Any
 
 from fasthtml.common import H2, H3, H4, Div, Form, Option, P, Span, Strong
+
 from ui.buttons import Button
 from ui.cards import Card, CardBody
 from ui.forms import Input, Label, Select, Textarea

@@ -27,6 +27,7 @@ from core.models.event.calendar_models import (
 )
 from core.models.goal.goal import Goal
 from core.utils.logging import get_logger
+from ui.buttons import Button
 from ui.calendar.components import (
     create_day_timeline,
     create_month_grid,
@@ -34,7 +35,6 @@ from ui.calendar.components import (
     create_week_grid,
 )
 from ui.calendar.converters import goal_to_calendar_item
-from ui.buttons import Button
 from ui.feedback import Progress
 from ui.forms import Input, Label, Select, Textarea
 from ui.patterns.activity_views_base import (

@@ -33,8 +33,7 @@ def mock_backend() -> Mock:
 
 @pytest.fixture
 def mock_executor() -> Mock:
-    executor = AsyncMock()
-    return executor
+    return AsyncMock()
 
 
 @pytest.fixture
@@ -77,9 +76,7 @@ def lp_service(
 
 class TestLpServiceLsServiceGuard:
     @pytest.mark.asyncio
-    async def test_create_step_fails_when_ls_service_is_none(
-        self, lp_service: LpService
-    ) -> None:
+    async def test_create_step_fails_when_ls_service_is_none(self, lp_service: LpService) -> None:
         """create_step returns fail when ls_service is None."""
         lp_service.ls_service = None
 
@@ -88,9 +85,7 @@ class TestLpServiceLsServiceGuard:
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_get_step_fails_when_ls_service_is_none(
-        self, lp_service: LpService
-    ) -> None:
+    async def test_get_step_fails_when_ls_service_is_none(self, lp_service: LpService) -> None:
         """get_step returns fail when ls_service is None."""
         lp_service.ls_service = None
 
@@ -99,9 +94,7 @@ class TestLpServiceLsServiceGuard:
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_delete_step_fails_when_ls_service_is_none(
-        self, lp_service: LpService
-    ) -> None:
+    async def test_delete_step_fails_when_ls_service_is_none(self, lp_service: LpService) -> None:
         """delete_step returns fail when ls_service is None."""
         lp_service.ls_service = None
 
@@ -110,9 +103,7 @@ class TestLpServiceLsServiceGuard:
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_list_steps_fails_when_ls_service_is_none(
-        self, lp_service: LpService
-    ) -> None:
+    async def test_list_steps_fails_when_ls_service_is_none(self, lp_service: LpService) -> None:
         """list_steps returns fail when ls_service is None."""
         lp_service.ls_service = None
 
@@ -142,9 +133,7 @@ class TestLpServiceLsServiceGuard:
 
 class TestLpServiceList:
     @pytest.mark.asyncio
-    async def test_list_with_user_uid_calls_list_user_paths(
-        self, lp_service: LpService
-    ) -> None:
+    async def test_list_with_user_uid_calls_list_user_paths(self, lp_service: LpService) -> None:
         """list() with user_uid routes to core.list_user_paths."""
         mock_path = Mock()
         lp_service.core.list_user_paths = AsyncMock(return_value=Result.ok([mock_path]))
@@ -156,9 +145,7 @@ class TestLpServiceList:
         lp_service.core.list_all_paths.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_list_without_user_uid_calls_list_all_paths(
-        self, lp_service: LpService
-    ) -> None:
+    async def test_list_without_user_uid_calls_list_all_paths(self, lp_service: LpService) -> None:
         """list() without user_uid routes to core.list_all_paths."""
         lp_service.core.list_all_paths = AsyncMock(return_value=Result.ok([]))
 
@@ -169,15 +156,11 @@ class TestLpServiceList:
         lp_service.core.list_user_paths.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_list_with_order_by_sorts_result(
-        self, lp_service: LpService
-    ) -> None:
+    async def test_list_with_order_by_sorts_result(self, lp_service: LpService) -> None:
         """list() with order_by sorts paths by the specified attribute."""
         path_b = SimpleNamespace(title="Beta", uid="lp_b")
         path_a = SimpleNamespace(title="Alpha", uid="lp_a")
-        lp_service.core.list_all_paths = AsyncMock(
-            return_value=Result.ok([path_b, path_a])
-        )
+        lp_service.core.list_all_paths = AsyncMock(return_value=Result.ok([path_b, path_a]))
 
         result = await lp_service.list(order_by="title")
 
@@ -187,15 +170,11 @@ class TestLpServiceList:
         assert result.value[1].uid == "lp_b"
 
     @pytest.mark.asyncio
-    async def test_list_with_order_desc_reverses_sort(
-        self, lp_service: LpService
-    ) -> None:
+    async def test_list_with_order_desc_reverses_sort(self, lp_service: LpService) -> None:
         """list() with order_desc=True produces descending order."""
         path_a = SimpleNamespace(title="Alpha", uid="lp_a")
         path_b = SimpleNamespace(title="Beta", uid="lp_b")
-        lp_service.core.list_all_paths = AsyncMock(
-            return_value=Result.ok([path_a, path_b])
-        )
+        lp_service.core.list_all_paths = AsyncMock(return_value=Result.ok([path_a, path_b]))
 
         result = await lp_service.list(order_by="title", order_desc=True)
 
@@ -203,16 +182,12 @@ class TestLpServiceList:
         assert result.value[0].uid == "lp_b"  # Beta first when descending
 
     @pytest.mark.asyncio
-    async def test_list_with_offset_skips_leading_items(
-        self, lp_service: LpService
-    ) -> None:
+    async def test_list_with_offset_skips_leading_items(self, lp_service: LpService) -> None:
         """list() with offset skips the first N items from the result."""
         path_1 = SimpleNamespace(title="Path1", uid="lp_1")
         path_2 = SimpleNamespace(title="Path2", uid="lp_2")
         path_3 = SimpleNamespace(title="Path3", uid="lp_3")
-        lp_service.core.list_all_paths = AsyncMock(
-            return_value=Result.ok([path_1, path_2, path_3])
-        )
+        lp_service.core.list_all_paths = AsyncMock(return_value=Result.ok([path_1, path_2, path_3]))
 
         result = await lp_service.list(limit=10, offset=1)
 
@@ -221,9 +196,7 @@ class TestLpServiceList:
         assert result.value[0].uid == "lp_2"
 
     @pytest.mark.asyncio
-    async def test_list_propagates_backend_error(
-        self, lp_service: LpService
-    ) -> None:
+    async def test_list_propagates_backend_error(self, lp_service: LpService) -> None:
         """list() propagates failure from core.list_all_paths."""
         lp_service.core.list_all_paths = AsyncMock(
             return_value=Result.fail(Errors.database("list", "DB error"))
@@ -241,9 +214,7 @@ class TestLpServiceList:
 
 class TestLpServiceCreate:
     @pytest.mark.asyncio
-    async def test_create_assembles_kwargs_from_entity_fields(
-        self, lp_service: LpService
-    ) -> None:
+    async def test_create_assembles_kwargs_from_entity_fields(self, lp_service: LpService) -> None:
         """create() extracts user_uid, title, description, steps, and domain from entity."""
         entity = Mock()
         entity.user_uid = "user_admin"

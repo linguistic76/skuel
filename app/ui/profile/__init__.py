@@ -9,7 +9,6 @@ Components:
 - Badges: StatusBadge, CountBadge for sidebar indicators
 """
 
-from ui.profile.badges import CountBadge, DomainSidebarItem, StatusBadge
 from ui.profile._shared import DomainSummaryCard
 from ui.profile.activity_views import (
     ChoicesDomainView,
@@ -19,11 +18,12 @@ from ui.profile.activity_views import (
     PrinciplesDomainView,
     TasksDomainView,
 )
-from ui.profile.overview import OverviewView
+from ui.profile.badges import CountBadge, DomainSidebarItem, StatusBadge
 from ui.profile.layout import (
     ProfileDomainItem,
     create_profile_page,
 )
+from ui.profile.overview import OverviewView
 
 __all__ = [
     # Layout

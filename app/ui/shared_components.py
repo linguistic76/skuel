@@ -47,10 +47,11 @@ Usage:
 from typing import Any
 
 from fasthtml.common import H3, H4, Details, Div, P, Span, Summary
+
 from ui.buttons import Button
 from ui.cards import Card, CardBody
-from ui.feedback import Alert, AlertT, Badge, Progress, ProgressT
 from ui.enum_helpers import get_health_color, get_health_icon, get_trend_color, get_trend_icon
+from ui.feedback import Alert, AlertT, Badge, Progress, ProgressT
 
 # ============================================================================
 # METRIC CARDS

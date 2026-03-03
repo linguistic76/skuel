@@ -22,6 +22,7 @@ from datetime import date
 from typing import Any
 
 from fasthtml.common import H1, H2, H3, Div, P, Span
+
 from ui.buttons import Button
 from ui.cards import Card, CardBody
 

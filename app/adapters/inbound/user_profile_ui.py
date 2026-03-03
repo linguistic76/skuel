@@ -35,18 +35,6 @@ from core.services.user.unified_user_context import UserContext
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.layouts.base_page import BasePage
-from ui.profile.domain_stats_config import (
-    DOMAIN_STATS_CONFIG,
-    knowledge_active,
-    knowledge_count,
-    knowledge_status,
-    learning_paths_active,
-    learning_paths_count,
-    learning_paths_status,
-    learning_steps_active,
-    learning_steps_count,
-    learning_steps_status,
-)
 from ui.profile.activity_views import (
     ChoicesDomainView,
     EventsDomainView,
@@ -59,7 +47,18 @@ from ui.profile.curriculum_views import (
     LearningPathsDomainView,
     LearningStepsDomainView,
 )
-from ui.profile.overview import OverviewView, render_domain_card_preview
+from ui.profile.domain_stats_config import (
+    DOMAIN_STATS_CONFIG,
+    knowledge_active,
+    knowledge_count,
+    knowledge_status,
+    learning_paths_active,
+    learning_paths_count,
+    learning_paths_status,
+    learning_steps_active,
+    learning_steps_count,
+    learning_steps_status,
+)
 from ui.profile.layout import (
     CURRICULUM_ORDER,
     DEFAULT_DOMAIN_ICONS,
@@ -68,6 +67,7 @@ from ui.profile.layout import (
     ProfileDomainItem,
     create_profile_page,
 )
+from ui.profile.overview import OverviewView, render_domain_card_preview
 
 logger = get_logger("skuel.routes.user_profile")
 

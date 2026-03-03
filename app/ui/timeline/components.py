@@ -18,6 +18,7 @@ __version__ = "2.0"  # Vis.js Timeline version
 
 
 from fasthtml.common import H1, Body, Div, Head, Html, Link, Meta, Option, P, Script, Span, Title
+
 from ui.buttons import Button
 from ui.forms import Input, Label, Select
 

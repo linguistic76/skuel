@@ -923,7 +923,6 @@ RETURN {
 """
 
 
-
 CONSOLIDATED_QUERY: str = """
 // Start with user node
 MATCH (user:User {uid: $user_uid})
@@ -1299,4 +1298,3 @@ class UserContextQueryExecutor:
                 "activity_report": record.get("latest_ar"),
             }
         )
-

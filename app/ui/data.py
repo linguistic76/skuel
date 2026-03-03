@@ -6,9 +6,12 @@ Table, Stats (Stat, StatTitle, StatValue, StatDesc, StatFigure),
 Tooltip, Divider, Avatar, AvatarGroup.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div
+
+if TYPE_CHECKING:
+    from ui.buttons import ButtonT
 
 __all__ = [
     "Table",

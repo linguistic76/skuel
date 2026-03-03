@@ -57,9 +57,7 @@ def choices_service(mock_backend: Mock, mock_graph_intel: Mock) -> ChoicesServic
 
 class TestChoicesServiceCreate:
     @pytest.mark.asyncio
-    async def test_create_choice_delegates_to_core(
-        self, choices_service: ChoicesService
-    ) -> None:
+    async def test_create_choice_delegates_to_core(self, choices_service: ChoicesService) -> None:
         """create_choice delegates to core.create_choice with user_uid."""
         mock_choice = Mock()
         choices_service.core.create_choice = AsyncMock(return_value=Result.ok(mock_choice))
@@ -106,9 +104,7 @@ class TestChoicesServiceRelationships:
         self, choices_service: ChoicesService
     ) -> None:
         """link_choice_to_habit passes reinforcement_strength in relationship properties."""
-        choices_service.relationships.create_relationship = AsyncMock(
-            return_value=Result.ok(True)
-        )
+        choices_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
 
         await choices_service.link_choice_to_habit(
             "choice_abc", "habit_xyz", reinforcement_strength=0.7
@@ -126,9 +122,7 @@ class TestChoicesServiceRelationships:
         self, choices_service: ChoicesService
     ) -> None:
         """link_choice_to_principle delegates to relationships.link_to_principle."""
-        choices_service.relationships.link_to_principle = AsyncMock(
-            return_value=Result.ok(True)
-        )
+        choices_service.relationships.link_to_principle = AsyncMock(return_value=Result.ok(True))
 
         await choices_service.link_choice_to_principle(
             "choice_abc", "principle_xyz", alignment_score=0.6
@@ -145,13 +139,9 @@ class TestChoicesServiceRelationships:
         self, choices_service: ChoicesService
     ) -> None:
         """link_choice_to_goal delegates to relationships.link_to_goal."""
-        choices_service.relationships.link_to_goal = AsyncMock(
-            return_value=Result.ok(True)
-        )
+        choices_service.relationships.link_to_goal = AsyncMock(return_value=Result.ok(True))
 
-        await choices_service.link_choice_to_goal(
-            "choice_abc", "goal_xyz", contribution_score=0.4
-        )
+        await choices_service.link_choice_to_goal("choice_abc", "goal_xyz", contribution_score=0.4)
 
         choices_service.relationships.link_to_goal.assert_called_once_with(
             "choice_abc",

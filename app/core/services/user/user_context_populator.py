@@ -161,9 +161,7 @@ class UserContextPopulator:
             uid for uid in uids_data.get("pending_choice_uids", []) if uid
         ]
 
-    def populate_entities_rich(
-        self, context: "UserContext", entities_data: dict[str, Any]
-    ) -> None:
+    def populate_entities_rich(self, context: "UserContext", entities_data: dict[str, Any]) -> None:
         """
         Populate activity domain entities from MEGA-QUERY 'entities' section.
 
@@ -180,9 +178,7 @@ class UserContextPopulator:
             for domain, items in entities_data.items()
         }
 
-    def populate_curriculum_rich(
-        self, context: "UserContext", rich_data: dict[str, Any]
-    ) -> None:
+    def populate_curriculum_rich(self, context: "UserContext", rich_data: dict[str, Any]) -> None:
         """
         Populate curriculum domain rich fields (KU, LP, LS) from MEGA-QUERY 'rich' section.
 
@@ -224,9 +220,7 @@ class UserContextPopulator:
         """
         knowledge_list = rich_data.get("knowledge", [])
         ku_props_by_uid: dict[str, Any] = {
-            item["uid"]: item["ku"]
-            for item in knowledge_list
-            if item and "uid" in item
+            item["uid"]: item["ku"] for item in knowledge_list if item and "uid" in item
         }
 
         ku_entities: list[dict[str, Any]] = []
@@ -239,14 +233,16 @@ class UserContextPopulator:
             try:
                 ts = _parse_neo4j_datetime(mastered_at)
                 if ts >= window_start:
-                    ku_entities.append({
-                        "entity": ku_props_by_uid.get(uid, {"uid": uid}),
-                        "graph_context": {
-                            "interaction_type": "mastered",
-                            "mastered_at": mastered_at,
-                            "score": context.knowledge_mastery.get(uid, 1.0),
-                        },
-                    })
+                    ku_entities.append(
+                        {
+                            "entity": ku_props_by_uid.get(uid, {"uid": uid}),
+                            "graph_context": {
+                                "interaction_type": "mastered",
+                                "mastered_at": mastered_at,
+                                "score": context.knowledge_mastery.get(uid, 1.0),
+                            },
+                        }
+                    )
                     engaged_uids.add(uid)
             except (ValueError, TypeError, AttributeError):
                 pass
@@ -260,15 +256,17 @@ class UserContextPopulator:
             try:
                 ts = _parse_neo4j_datetime(last_viewed_at)
                 if ts >= window_start:
-                    ku_entities.append({
-                        "entity": ku_props_by_uid.get(uid, {"uid": uid}),
-                        "graph_context": {
-                            "interaction_type": "viewed",
-                            "last_viewed_at": last_viewed_at,
-                            "view_count": view_item.get("view_count", 1),
-                            "score": context.knowledge_mastery.get(uid, 0.0),
-                        },
-                    })
+                    ku_entities.append(
+                        {
+                            "entity": ku_props_by_uid.get(uid, {"uid": uid}),
+                            "graph_context": {
+                                "interaction_type": "viewed",
+                                "last_viewed_at": last_viewed_at,
+                                "view_count": view_item.get("view_count", 1),
+                                "score": context.knowledge_mastery.get(uid, 0.0),
+                            },
+                        }
+                    )
                     engaged_uids.add(uid)
             except (ValueError, TypeError, AttributeError):
                 pass

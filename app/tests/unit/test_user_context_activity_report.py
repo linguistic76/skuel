@@ -20,7 +20,6 @@ from datetime import datetime
 from core.services.user.unified_user_context import UserContext
 from core.services.user.user_context_populator import UserContextPopulator
 
-
 # =============================================================================
 # HELPERS
 # =============================================================================
@@ -204,9 +203,27 @@ def test_populate_cross_domain_insights_sorted() -> None:
     ctx = make_context()
 
     insights = [
-        {"uid": "ins_a", "type": "habit_gap", "title": "Low streak", "impact": "medium", "confidence": 0.6},
-        {"uid": "ins_b", "type": "goal_risk", "title": "Goal at risk", "impact": "high", "confidence": 0.9},
-        {"uid": "ins_c", "type": "knowledge_gap", "title": "Gap found", "impact": "low", "confidence": 0.3},
+        {
+            "uid": "ins_a",
+            "type": "habit_gap",
+            "title": "Low streak",
+            "impact": "medium",
+            "confidence": 0.6,
+        },
+        {
+            "uid": "ins_b",
+            "type": "goal_risk",
+            "title": "Goal at risk",
+            "impact": "high",
+            "confidence": 0.9,
+        },
+        {
+            "uid": "ins_c",
+            "type": "knowledge_gap",
+            "title": "Gap found",
+            "impact": "low",
+            "confidence": 0.3,
+        },
     ]
 
     populator.populate_cross_domain_insights(ctx, insights)

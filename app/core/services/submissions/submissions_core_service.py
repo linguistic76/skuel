@@ -44,7 +44,7 @@ Service Responsibilities
 """
 
 import json
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -842,11 +842,10 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
     async def _count_journals_for_date(self, user_uid: str, entry_date: date) -> int:
         """Count journals owned by user on the given calendar day (for sequence ordering)."""
-        from datetime import timezone
 
-        day_start = datetime(entry_date.year, entry_date.month, entry_date.day, tzinfo=timezone.utc)
+        day_start = datetime(entry_date.year, entry_date.month, entry_date.day, tzinfo=UTC)
         day_end = datetime(
-            entry_date.year, entry_date.month, entry_date.day, 23, 59, 59, tzinfo=timezone.utc
+            entry_date.year, entry_date.month, entry_date.day, 23, 59, 59, tzinfo=UTC
         )
         query = """
             MATCH (u:User {uid: $user_uid})-[:OWNS]->(j:Entity {ku_type: 'journal'})

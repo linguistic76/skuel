@@ -27,7 +27,10 @@ from starlette.responses import RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from adapters.inbound.ui_helpers import CalendarParams, parse_calendar_params, render_safe_error_response
+from adapters.inbound.ui_helpers import (
+    parse_calendar_params,
+    render_safe_error_response,
+)
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.ports.query_types import ActivityFilterSpec
@@ -37,9 +40,9 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_lower
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
-from ui.forms import Input, Label, Select, Textarea
 from ui.events.layout import create_events_page
 from ui.events.views import EventsViewComponents
+from ui.forms import Input, Label, Select, Textarea
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.entity_dashboard import SharedUIComponents

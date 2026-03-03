@@ -56,6 +56,7 @@ def make_learning_pattern(
 def make_mastery_progression(knowledge_uid: str = "ku.python") -> KuMasteryProgression:
     """Construct a minimal KuMasteryProgression."""
     from datetime import date
+
     return KuMasteryProgression(
         knowledge_uid=knowledge_uid,
         current_mastery_level=0.5,
@@ -324,13 +325,9 @@ class TestCalculateGrowthIndicator:
 
 
 class TestExtractDomainsFromKnowledgeUids:
-    def test_extracts_domain_from_ku_prefixed_uids(
-        self, engine_no_svc: AnalyticsEngine
-    ) -> None:
+    def test_extracts_domain_from_ku_prefixed_uids(self, engine_no_svc: AnalyticsEngine) -> None:
         """ku.domain-name UIDs → domain portion extracted."""
-        result = engine_no_svc._extract_domains_from_knowledge_uids(
-            ["ku.python", "ku.mathematics"]
-        )
+        result = engine_no_svc._extract_domains_from_knowledge_uids(["ku.python", "ku.mathematics"])
         assert result == ["python", "mathematics"]
 
     def test_ignores_non_ku_prefixed_uids(self, engine_no_svc: AnalyticsEngine) -> None:

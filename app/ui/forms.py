@@ -9,10 +9,9 @@ Checkbox, Radio, Toggle, Range wrappers.
 from enum import Enum
 from typing import Any
 
-from fasthtml.common import Div
+from fasthtml.common import Div, Span
 from fasthtml.common import Input as FTInput
 from fasthtml.common import Select as FTSelect
-from fasthtml.common import Span
 from fasthtml.common import Textarea as FTTextarea
 
 from ui.buttons import ButtonT

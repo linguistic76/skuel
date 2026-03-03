@@ -27,7 +27,10 @@ from fasthtml.common import H1, H2, Div, JSONResponse, P, Response, Span
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from adapters.inbound.ui_helpers import CalendarParams, parse_calendar_params, render_safe_error_response
+from adapters.inbound.ui_helpers import (
+    parse_calendar_params,
+    render_safe_error_response,
+)
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest

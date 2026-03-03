@@ -18,8 +18,8 @@ from fasthtml.common import H1, H2, Div, P
 from core.models.curriculum.ku_progress import KuLearningJourney, ReportCategoryProgress
 from core.models.entity_types import CurriculumEntity
 from core.models.enums import SELCategory
-from ui.feedback import Progress
 from ui.enum_helpers import get_sel_icon
+from ui.feedback import Progress
 from ui.patterns.entity_card import CardConfig, EntityCard
 from ui.primitives.badge import Badge
 from ui.primitives.button import ButtonLink

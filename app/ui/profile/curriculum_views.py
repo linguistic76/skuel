@@ -7,7 +7,7 @@ See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 
 from typing import Any
 
-from fasthtml.common import A, Div, H2, H3, P, Span
+from fasthtml.common import H2, H3, A, Div, P, Span
 
 from core.services.user.unified_user_context import UserContext
 from ui.patterns.empty_state import EmptyState

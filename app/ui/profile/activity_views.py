@@ -10,10 +10,11 @@ Internal: ActivityDomainViewConfig + ActivityDomainView are implementation detai
 See: /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
-from fasthtml.common import A, Div, H3
+from fasthtml.common import H3, A, Div
 
 from core.services.user.unified_user_context import UserContext
 from ui.profile._shared import (
@@ -95,9 +96,7 @@ def ActivityDomainView(
         )
 
     filter_controls = (
-        DomainFilterControls(config.domain, len(items))
-        if config.show_filter_controls
-        else Div()
+        DomainFilterControls(config.domain, len(items)) if config.show_filter_controls else Div()
     )
 
     return Div(

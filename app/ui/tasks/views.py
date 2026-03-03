@@ -35,6 +35,7 @@ from core.models.event.calendar_models import (
     CalendarView,
 )
 from core.utils.logging import get_logger
+from ui.buttons import Button, ButtonT
 from ui.calendar.components import (
     create_day_timeline,
     create_month_grid,
@@ -42,7 +43,6 @@ from ui.calendar.components import (
     create_week_grid,
 )
 from ui.calendar.converters import task_to_calendar_item
-from ui.buttons import Button, ButtonT
 from ui.forms import Input, Select, Textarea
 from ui.layout import Size
 from ui.patterns.activity_views_base import (

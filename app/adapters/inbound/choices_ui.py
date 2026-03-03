@@ -37,10 +37,10 @@ from core.utils.sort_functions import (
     get_decision_deadline,
     make_priority_string_getter,
 )
-from ui.choices.layout import create_choices_page
-from ui.choices.views import ChoicesViewComponents
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
+from ui.choices.layout import create_choices_page
+from ui.choices.views import ChoicesViewComponents
 from ui.forms import Input, Label, Select, Textarea
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType

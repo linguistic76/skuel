@@ -142,8 +142,7 @@ class ActivityReportService:
             snapshot["domains"]["tasks"] = {
                 "count": len(tasks),
                 "completed": sum(
-                    1 for item in tasks
-                    if item.get("entity", {}).get("status") == "completed"
+                    1 for item in tasks if item.get("entity", {}).get("status") == "completed"
                 ),
                 "items": [
                     {
@@ -204,9 +203,7 @@ class ActivityReportService:
                         "title": item.get("entity", {}).get("title", ""),
                         "status": item.get("entity", {}).get("status", ""),
                         "event_type": item.get("entity", {}).get("event_type", ""),
-                        "is_milestone": item.get("graph_context", {}).get(
-                            "is_milestone", False
-                        ),
+                        "is_milestone": item.get("graph_context", {}).get("is_milestone", False),
                     }
                     for item in events[:10]
                 ],
@@ -250,10 +247,12 @@ class ActivityReportService:
                 "items": [
                     {
                         "title": item.get("entity", {}).get("title")
-                            or item.get("entity", {}).get("name", ""),
+                        or item.get("entity", {}).get("name", ""),
                         "total_steps": item.get("graph_context", {}).get("total_steps", 0),
                         "completed_steps": item.get("graph_context", {}).get("completed_steps", 0),
-                        "progress_pct": item.get("graph_context", {}).get("progress_percentage", 0.0),
+                        "progress_pct": item.get("graph_context", {}).get(
+                            "progress_percentage", 0.0
+                        ),
                     }
                     for item in lp_items[:10]
                 ],
@@ -337,9 +336,7 @@ class ActivityReportService:
             if create_result.is_error:
                 return Result.fail(create_result.expect_error())
 
-            logger.info(
-                f"Activity review created: {feedback.uid} by {admin_uid} for {subject_uid}"
-            )
+            logger.info(f"Activity review created: {feedback.uid} by {admin_uid} for {subject_uid}")
             return Result.ok(feedback)
 
         except Exception as e:
@@ -598,9 +595,7 @@ class ActivityReportService:
                             "entity_title": record.get("entity_title", ""),
                             "role": record.get("role", ""),
                             "shared_at": (
-                                str(record.get("shared_at"))
-                                if record.get("shared_at")
-                                else None
+                                str(record.get("shared_at")) if record.get("shared_at") else None
                             ),
                         }
                     )

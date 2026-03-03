@@ -53,9 +53,7 @@ def ku_service(mock_repo: Mock) -> KuService:
 
 class TestKuServiceOrganizationGuard:
     @pytest.mark.asyncio
-    async def test_organize_fails_when_organization_is_none(
-        self, ku_service: KuService
-    ) -> None:
+    async def test_organize_fails_when_organization_is_none(self, ku_service: KuService) -> None:
         """organize() returns fail when organization service is None."""
         ku_service.organization = None
 
@@ -64,9 +62,7 @@ class TestKuServiceOrganizationGuard:
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_unorganize_fails_when_organization_is_none(
-        self, ku_service: KuService
-    ) -> None:
+    async def test_unorganize_fails_when_organization_is_none(self, ku_service: KuService) -> None:
         """unorganize() returns fail when organization service is None."""
         ku_service.organization = None
 
@@ -120,9 +116,7 @@ class TestKuServiceGetKnowledgeRelationships:
         self, ku_service: KuService
     ) -> None:
         """get_knowledge_relationships returns validation error when relationship_type is None."""
-        result = await ku_service.get_knowledge_relationships(
-            "ku_abc123", relationship_type=None
-        )
+        result = await ku_service.get_knowledge_relationships("ku_abc123", relationship_type=None)
 
         assert result.is_error
 

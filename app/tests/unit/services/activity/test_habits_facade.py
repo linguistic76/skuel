@@ -91,9 +91,7 @@ class TestHabitsServiceCompletion:
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_track_habit_propagates_core_error(
-        self, habits_service: HabitsService
-    ) -> None:
+    async def test_track_habit_propagates_core_error(self, habits_service: HabitsService) -> None:
         """track_habit propagates error when core.get_habit fails."""
         habits_service.core.get_habit = AsyncMock(
             return_value=Result.fail(Errors.database("query", "DB error"))
@@ -118,9 +116,7 @@ class TestHabitsServiceCompletion:
         mock_habit.uid = "habit_abc"
         mock_habit.user_uid = "user_test"
         habits_service.core.get_habit = AsyncMock(return_value=Result.ok(mock_habit))
-        habits_service.completions.record_completion = AsyncMock(
-            return_value=Result.ok(Mock())
-        )
+        habits_service.completions.record_completion = AsyncMock(return_value=Result.ok(Mock()))
 
         request = Mock()
         request.habit_uid = "habit_abc"
@@ -128,7 +124,7 @@ class TestHabitsServiceCompletion:
         request.value = 0.9
         request.notes = "Great session"
 
-        result = await habits_service.track_habit(request)
+        await habits_service.track_habit(request)
 
         habits_service.completions.record_completion.assert_called_once()
         call_kwargs = habits_service.completions.record_completion.call_args
@@ -202,9 +198,7 @@ class TestHabitsServiceRelationships:
         self, habits_service: HabitsService
     ) -> None:
         """link_habit_to_knowledge passes skill_level and proficiency_gain_rate."""
-        habits_service.relationships.link_to_knowledge = AsyncMock(
-            return_value=Result.ok(True)
-        )
+        habits_service.relationships.link_to_knowledge = AsyncMock(return_value=Result.ok(True))
 
         await habits_service.link_habit_to_knowledge(
             "habit_abc",
@@ -225,9 +219,7 @@ class TestHabitsServiceRelationships:
         self, habits_service: HabitsService
     ) -> None:
         """link_habit_to_principle passes embodiment_strength to relationships."""
-        habits_service.relationships.link_to_principle = AsyncMock(
-            return_value=Result.ok(True)
-        )
+        habits_service.relationships.link_to_principle = AsyncMock(return_value=Result.ok(True))
 
         await habits_service.link_habit_to_principle(
             "habit_abc", "principle_xyz", embodiment_strength=0.8

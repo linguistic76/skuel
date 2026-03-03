@@ -5,7 +5,7 @@ Unit Tests for ActivityReportService
 Tests create_snapshot() via UserContextBuilder.build_rich().
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -145,9 +145,7 @@ class TestSnapshotDomainFilter:
     @pytest.mark.asyncio
     async def test_goals_habits_filter(self, service):
         """domains=['goals','habits'] → only those two keys present."""
-        result = await service.create_snapshot(
-            "user_alice", domains=["goals", "habits"]
-        )
+        result = await service.create_snapshot("user_alice", domains=["goals", "habits"])
 
         snapshot = result.value
         assert "goals" in snapshot["domains"]
@@ -289,9 +287,8 @@ class TestPersist:
     @pytest.mark.asyncio
     async def test_persist_calls_backend_create(self, service, mock_backend):
         """persist() calls backend.create() with the given report."""
-        from core.models.feedback.activity_report import ActivityReport
         from core.models.enums.entity_enums import ProcessorType
-        from datetime import datetime
+        from core.models.feedback.activity_report import ActivityReport
 
         mock_backend.create.return_value = Result.ok(MagicMock())
         report = ActivityReport.create(

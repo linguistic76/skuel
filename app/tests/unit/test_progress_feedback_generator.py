@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.constants import FeedbackTimePeriod
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.feedback.activity_report import ActivityReport
-from core.constants import FeedbackTimePeriod
 from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
 from core.utils.result_simplified import Result
 
@@ -65,7 +65,13 @@ def mock_context_builder():
 
 
 @pytest.fixture
-def generator(mock_driver, mock_activity_report_service, mock_context_builder, mock_insight_store, mock_event_bus):
+def generator(
+    mock_driver,
+    mock_activity_report_service,
+    mock_context_builder,
+    mock_insight_store,
+    mock_event_bus,
+):
     """Create ProgressFeedbackGenerator with mocked deps."""
     return ProgressFeedbackGenerator(
         executor=mock_driver,
@@ -386,5 +392,3 @@ class TestBuildReportContent:
 
         assert "Active Insights" in content
         assert "You complete more tasks on Mondays" in content
-
-

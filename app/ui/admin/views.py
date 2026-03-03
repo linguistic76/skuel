@@ -20,6 +20,7 @@ Usage:
 from typing import ClassVar
 
 from fasthtml.common import H2, A, Div, Form, Option, P, Span, Tbody, Td, Th, Thead, Tr
+
 from ui.buttons import Button
 from ui.data import Table
 from ui.forms import Select

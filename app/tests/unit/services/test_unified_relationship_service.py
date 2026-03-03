@@ -73,9 +73,7 @@ def _make_service(
     backend.get_related_uids = AsyncMock(
         return_value=get_related_uids_return or Result.ok(["uid_1", "uid_2"])
     )
-    backend.count_related = AsyncMock(
-        return_value=count_related_return or Result.ok(1)
-    )
+    backend.count_related = AsyncMock(return_value=count_related_return or Result.ok(1))
     backend.execute_query = AsyncMock(
         return_value=execute_query_return or Result.ok([{"success": True}])
     )
@@ -400,9 +398,7 @@ class TestLinkToKnowledge:
             create_relationship_return=Result.ok(True),
         )
 
-        await service.link_to_knowledge(
-            "task_abc", "ku_python_xyz", knowledge_score_required=0.8
-        )
+        await service.link_to_knowledge("task_abc", "ku_python_xyz", knowledge_score_required=0.8)
 
         call_args = service.create_relationship.call_args[1]
         assert call_args["properties"] == {"knowledge_score_required": 0.8}
@@ -472,9 +468,7 @@ class TestLinkToPrinciple:
             create_relationship_return=Result.ok(True),
         )
 
-        await service.link_to_principle(
-            "goal_abc", "principle_xyz", alignment_strength=0.9
-        )
+        await service.link_to_principle("goal_abc", "principle_xyz", alignment_strength=0.9)
 
         call_args = service.create_relationship.call_args[1]
         assert call_args["properties"] == {"alignment_strength": 0.9}

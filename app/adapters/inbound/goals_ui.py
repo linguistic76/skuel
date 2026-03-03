@@ -27,7 +27,9 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-from adapters.inbound.ui_helpers import CalendarParams, parse_calendar_params, render_safe_error_response
+from adapters.inbound.ui_helpers import (
+    parse_calendar_params,
+)
 from core.models.enums import Priority
 from core.models.goal.goal_request import GoalCreateRequest
 from core.ports.query_types import ActivityFilterSpec
@@ -43,10 +45,10 @@ from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.feedback import Progress
 from ui.forms import Input, Label, Select
-from ui.layout import Size
 from ui.goals.layout import create_goals_page
 from ui.goals.views import GoalsViewComponents
 from ui.habits.atomic_components import AtomicHabitsComponents
+from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.entity_dashboard import SharedUIComponents

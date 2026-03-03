@@ -12,7 +12,7 @@ See: /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Canvas, Div, H2, H3, Li, P, Span, Ul
+from fasthtml.common import H2, H3, A, Canvas, Div, Li, P, Span, Ul
 
 from core.models.enums import Priority
 from core.services.user.unified_user_context import UserContext

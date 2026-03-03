@@ -177,9 +177,7 @@ class TestGoalsServiceRelationships:
         self, goals_service: GoalsService
     ) -> None:
         """link_goal_to_habit passes weight and contribution_type to relationships."""
-        goals_service.relationships.create_relationship = AsyncMock(
-            return_value=Result.ok(True)
-        )
+        goals_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
 
         result = await goals_service.link_goal_to_habit(
             "goal_abc", "habit_xyz", weight=0.7, contribution_type="consistency"
@@ -198,9 +196,7 @@ class TestGoalsServiceRelationships:
         self, goals_service: GoalsService
     ) -> None:
         """link_goal_to_knowledge passes proficiency_required and priority to relationships."""
-        goals_service.relationships.link_to_knowledge = AsyncMock(
-            return_value=Result.ok(True)
-        )
+        goals_service.relationships.link_to_knowledge = AsyncMock(return_value=Result.ok(True))
 
         await goals_service.link_goal_to_knowledge(
             "goal_abc", "ku_python_abc", proficiency_required="advanced", priority=2
@@ -218,9 +214,7 @@ class TestGoalsServiceRelationships:
         self, goals_service: GoalsService
     ) -> None:
         """link_goal_to_principle passes alignment_strength to relationships."""
-        goals_service.relationships.link_to_principle = AsyncMock(
-            return_value=Result.ok(True)
-        )
+        goals_service.relationships.link_to_principle = AsyncMock(return_value=Result.ok(True))
 
         await goals_service.link_goal_to_principle(
             "goal_abc", "principle_xyz", alignment_strength=0.9

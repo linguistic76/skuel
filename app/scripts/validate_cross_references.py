@@ -16,7 +16,7 @@ Usage:
 import argparse
 import re
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -211,9 +211,7 @@ def check_skill_staleness(
     if not stale_docs:
         return []
 
-    doc_summary = "; ".join(
-        f"{Path(p).name} (modified {d})" for p, d in stale_docs[:3]
-    )
+    doc_summary = "; ".join(f"{Path(p).name} (modified {d})" for p, d in stale_docs[:3])
     return [
         ValidationIssue(
             severity="warning",

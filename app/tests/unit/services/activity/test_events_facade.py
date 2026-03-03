@@ -116,9 +116,7 @@ class TestEventsServiceGoalSupport:
         self, events_service: EventsService, mock_backend: Mock
     ) -> None:
         """get_events_supporting_goal returns empty list when no related event UIDs."""
-        events_service.relationships.get_related_uids = AsyncMock(
-            return_value=Result.ok([])
-        )
+        events_service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
 
         result = await events_service.get_events_supporting_goal("goal_abc", "user_test")
 
@@ -145,9 +143,7 @@ class TestEventsServiceGoalSupport:
         other_event.uid = "event_def"
         other_event.user_uid = "user_other"
 
-        mock_backend.get_many = AsyncMock(
-            return_value=Result.ok([user_event, other_event])
-        )
+        mock_backend.get_many = AsyncMock(return_value=Result.ok([user_event, other_event]))
 
         result = await events_service.get_events_supporting_goal("goal_abc", "user_test")
 

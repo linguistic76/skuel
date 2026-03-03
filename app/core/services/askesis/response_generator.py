@@ -20,7 +20,7 @@ January 2026: Extracted from QueryProcessor as part of Askesis design improvemen
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.constants import MasteryLevel
@@ -173,16 +173,33 @@ class ResponseGenerator:
             context_parts.append(f"Status: {'Aligned' if aligned else 'Needs attention'}")
 
         # Activity report context (if query mentions feedback/patterns/reflection)
-        if any(
-            word in query_lower
-            for word in ["feedback", "pattern", "review", "reflect", "report", "progress", "trend", "doing", "going", "focus", "week", "lately", "recently"]
-        ) and user_context.latest_activity_report_uid:
+        if (
+            any(
+                word in query_lower
+                for word in [
+                    "feedback",
+                    "pattern",
+                    "review",
+                    "reflect",
+                    "report",
+                    "progress",
+                    "trend",
+                    "doing",
+                    "going",
+                    "focus",
+                    "week",
+                    "lately",
+                    "recently",
+                ]
+            )
+            and user_context.latest_activity_report_uid
+        ):
             report_age_days: int | None = None
             generated_at = user_context.latest_activity_report_generated_at
             if generated_at is not None:
-                now = datetime.now(tz=timezone.utc)
+                now = datetime.now(tz=UTC)
                 aware_generated_at = (
-                    generated_at.replace(tzinfo=timezone.utc)
+                    generated_at.replace(tzinfo=UTC)
                     if generated_at.tzinfo is None
                     else generated_at
                 )
@@ -197,15 +214,15 @@ class ResponseGenerator:
                 context_parts.append(f"Period: last {user_context.latest_activity_report_period}")
             if user_context.latest_activity_report_content:
                 content = user_context.latest_activity_report_content
-                _MAX = 500
-                if len(content) <= _MAX:
+                _max = 500
+                if len(content) <= _max:
                     snippet = content
                 else:
                     boundary = max(
-                        content.rfind(". ", 0, _MAX),
-                        content.rfind("\n", 0, _MAX),
+                        content.rfind(". ", 0, _max),
+                        content.rfind("\n", 0, _max),
                     )
-                    snippet = content[: boundary + 1] if boundary != -1 else content[:_MAX]
+                    snippet = content[: boundary + 1] if boundary != -1 else content[:_max]
                 trailing = "..." if len(content) > len(snippet) else ""
                 context_parts.append(f"AI synthesis: {snippet}{trailing}")
             if user_context.latest_activity_report_user_annotation:

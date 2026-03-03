@@ -332,9 +332,9 @@ class ProgressFeedbackGenerator:
             # Curriculum track
             "ku_mastered": completions.get("ku_mastered", 0),
             "ku_in_progress": completions.get("ku_in_progress", 0),
-            "ku_engaged": [
-                k["title"] for k in completions.get("ku_details", []) if k.get("title")
-            ][:10],
+            "ku_engaged": [k["title"] for k in completions.get("ku_details", []) if k.get("title")][
+                :10
+            ],
             "lp_enrolled": completions.get("lp_enrolled", 0),
             "lp_summary": [
                 {"title": p["title"], "progress_pct": round(p.get("progress_pct") or 0, 1)}
@@ -342,9 +342,9 @@ class ProgressFeedbackGenerator:
                 if p.get("title")
             ][:5],
             "ls_active": completions.get("ls_active", 0),
-            "ls_summary": [
-                s["title"] for s in completions.get("ls_details", []) if s.get("title")
-            ][:5],
+            "ls_summary": [s["title"] for s in completions.get("ls_details", []) if s.get("title")][
+                :5
+            ],
         }
 
         insights_section = "No active insights."
@@ -474,25 +474,33 @@ class ProgressFeedbackGenerator:
                     for ref in graph_ctx.get("ku_refs", []):
                         if ref.get("title"):
                             result["knowledge_applications"].append(ref["title"])
-                result["tasks_details"].append({
-                    "uid": entity["uid"],
-                    "title": entity["title"],
-                    "status": entity.get("status", ""),
-                    "goals": [r["title"] for r in graph_ctx.get("goal_refs", []) if r.get("title")],
-                    "reports": [r["title"] for r in graph_ctx.get("ku_refs", []) if r.get("title")],
-                })
+                result["tasks_details"].append(
+                    {
+                        "uid": entity["uid"],
+                        "title": entity["title"],
+                        "status": entity.get("status", ""),
+                        "goals": [
+                            r["title"] for r in graph_ctx.get("goal_refs", []) if r.get("title")
+                        ],
+                        "reports": [
+                            r["title"] for r in graph_ctx.get("ku_refs", []) if r.get("title")
+                        ],
+                    }
+                )
 
         # Goals
         if include_all or "goals" in (domains or []):
             for item in context.entities_rich.get("goals", []):
                 entity = item["entity"]
                 result["goals_progressed"] += 1
-                result["goals_details"].append({
-                    "uid": entity["uid"],
-                    "title": entity["title"],
-                    "status": entity.get("status", ""),
-                    "progress": entity.get("progress"),
-                })
+                result["goals_details"].append(
+                    {
+                        "uid": entity["uid"],
+                        "title": entity["title"],
+                        "status": entity.get("status", ""),
+                        "progress": entity.get("progress"),
+                    }
+                )
 
         # Habits
         if include_all or "habits" in (domains or []):
@@ -500,12 +508,14 @@ class ProgressFeedbackGenerator:
                 entity = item["entity"]
                 if entity.get("status") == "completed":
                     result["habits_completed"] += 1
-                result["habits_details"].append({
-                    "uid": entity["uid"],
-                    "title": entity["title"],
-                    "status": entity.get("status", ""),
-                    "streak": entity.get("streak", 0),
-                })
+                result["habits_details"].append(
+                    {
+                        "uid": entity["uid"],
+                        "title": entity["title"],
+                        "status": entity.get("status", ""),
+                        "streak": entity.get("streak", 0),
+                    }
+                )
 
         # Events
         if include_all or "events" in (domains or []):
@@ -513,13 +523,15 @@ class ProgressFeedbackGenerator:
                 entity = item["entity"]
                 graph_ctx = item.get("graph_context", {})
                 result["events_attended"] += 1
-                result["events_details"].append({
-                    "uid": entity["uid"],
-                    "title": entity["title"],
-                    "status": entity.get("status", ""),
-                    "event_type": entity.get("event_type", ""),
-                    "is_milestone": graph_ctx.get("is_milestone", False),
-                })
+                result["events_details"].append(
+                    {
+                        "uid": entity["uid"],
+                        "title": entity["title"],
+                        "status": entity.get("status", ""),
+                        "event_type": entity.get("event_type", ""),
+                        "is_milestone": graph_ctx.get("is_milestone", False),
+                    }
+                )
 
         # Choices
         if include_all or "choices" in (domains or []):
@@ -527,27 +539,33 @@ class ProgressFeedbackGenerator:
                 entity = item["entity"]
                 graph_ctx = item.get("graph_context", {})
                 result["choices_made"] += 1
-                result["choices_details"].append({
-                    "uid": entity["uid"],
-                    "title": entity["title"],
-                    "principles": [
-                        r["title"] for r in graph_ctx.get("principle_refs", []) if r.get("title")
-                    ],
-                })
+                result["choices_details"].append(
+                    {
+                        "uid": entity["uid"],
+                        "title": entity["title"],
+                        "principles": [
+                            r["title"]
+                            for r in graph_ctx.get("principle_refs", [])
+                            if r.get("title")
+                        ],
+                    }
+                )
 
         # Principles
         if include_all or "principles" in (domains or []):
             for item in context.entities_rich.get("principles", []):
                 entity = item["entity"]
                 result["principles_reviewed"] += 1
-                result["principles_details"].append({
-                    "uid": entity["uid"],
-                    "title": entity["title"],
-                    "status": entity.get("status", ""),
-                    "alignment": entity.get("alignment", ""),
-                    "strength": entity.get("strength", ""),
-                    "category": entity.get("category", ""),
-                })
+                result["principles_details"].append(
+                    {
+                        "uid": entity["uid"],
+                        "title": entity["title"],
+                        "status": entity.get("status", ""),
+                        "alignment": entity.get("alignment", ""),
+                        "strength": entity.get("strength", ""),
+                        "category": entity.get("category", ""),
+                    }
+                )
 
         # Knowledge Units (KU) — window-engaged curriculum track
         if include_all or "knowledge" in (domains or []):
@@ -559,12 +577,14 @@ class ProgressFeedbackGenerator:
                     result["ku_mastered"] += 1
                 else:
                     result["ku_in_progress"] += 1
-                result["ku_details"].append({
-                    "uid": entity.get("uid", ""),
-                    "title": entity.get("title", ""),
-                    "domain": entity.get("domain", ""),
-                    "score": score,
-                })
+                result["ku_details"].append(
+                    {
+                        "uid": entity.get("uid", ""),
+                        "title": entity.get("title", ""),
+                        "domain": entity.get("domain", ""),
+                        "score": score,
+                    }
+                )
 
         # Learning Paths — curriculum track
         if include_all or "learning_paths" in (domains or []):
@@ -572,13 +592,15 @@ class ProgressFeedbackGenerator:
                 entity = item.get("entity", {})
                 graph_ctx = item.get("graph_context", {})
                 result["lp_enrolled"] += 1
-                result["lp_details"].append({
-                    "uid": entity.get("uid", ""),
-                    "title": entity.get("title") or entity.get("name", ""),
-                    "total_steps": graph_ctx.get("total_steps", 0),
-                    "completed_steps": graph_ctx.get("completed_steps", 0),
-                    "progress_pct": graph_ctx.get("progress_percentage", 0.0),
-                })
+                result["lp_details"].append(
+                    {
+                        "uid": entity.get("uid", ""),
+                        "title": entity.get("title") or entity.get("name", ""),
+                        "total_steps": graph_ctx.get("total_steps", 0),
+                        "completed_steps": graph_ctx.get("completed_steps", 0),
+                        "progress_pct": graph_ctx.get("progress_percentage", 0.0),
+                    }
+                )
 
         # Learning Steps — curriculum track
         if include_all or "learning_steps" in (domains or []):
@@ -588,12 +610,14 @@ class ProgressFeedbackGenerator:
                 result["ls_active"] += 1
                 knowledge_rels = graph_ctx.get("knowledge_relationships", [])
                 learning_path = graph_ctx.get("learning_path") or {}
-                result["ls_details"].append({
-                    "uid": entity.get("uid", ""),
-                    "title": entity.get("title", ""),
-                    "learning_path": learning_path.get("name", ""),
-                    "knowledge": [k.get("title", "") for k in knowledge_rels if k.get("title")],
-                })
+                result["ls_details"].append(
+                    {
+                        "uid": entity.get("uid", ""),
+                        "title": entity.get("title", ""),
+                        "learning_path": learning_path.get("name", ""),
+                        "knowledge": [k.get("title", "") for k in knowledge_rels if k.get("title")],
+                    }
+                )
 
         return result
 
@@ -738,9 +762,7 @@ class ProgressFeedbackGenerator:
                     pct = lp.get("progress_pct") or 0
                     completed = lp.get("completed_steps", 0)
                     total = lp.get("total_steps", 0)
-                    sections.append(
-                        f"  - {lp['title']}: {completed}/{total} steps ({pct:.0f}%)"
-                    )
+                    sections.append(f"  - {lp['title']}: {completed}/{total} steps ({pct:.0f}%)")
             sections.append("")
 
         # Active Learning Steps (curriculum track)
@@ -776,14 +798,14 @@ class ProgressFeedbackGenerator:
         Neo4j temporal values. Returns Result.ok(None) on any query error so that
         a broken cooldown check never blocks legitimate generation (fail-safe open).
         """
-        _QUERY = """
+        _query = """
         MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
         WHERE ar.ku_type = 'activity_report'
           AND ar.created_at >= datetime() - duration({minutes: $cooldown_minutes})
         RETURN count(ar) AS recent_count
         """
         result = await self.executor.execute_query(
-            _QUERY,
+            _query,
             {
                 "user_uid": user_uid,
                 "cooldown_minutes": FeedbackTimePeriod.MIN_REPORT_COOLDOWN_MINUTES,
@@ -812,7 +834,7 @@ class ProgressFeedbackGenerator:
         Uses period_end < current_period_start to avoid reading the annotation of the
         report currently being generated (which won't exist yet, but avoids ambiguity).
         """
-        _QUERY = """
+        _query = """
         MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
         WHERE ar.entity_type = 'activity_report'
           AND (ar.user_annotation IS NOT NULL OR ar.user_revision IS NOT NULL)
@@ -822,9 +844,8 @@ class ProgressFeedbackGenerator:
         LIMIT 1
         """
         result = await self.executor.execute_query(
-            _QUERY, {"user_uid": user_uid, "period_start": current_period_start.isoformat()}
+            _query, {"user_uid": user_uid, "period_start": current_period_start.isoformat()}
         )
         if result.is_error or not result.value:
             return None
         return result.value[0].get("annotation") if result.value else None
-
