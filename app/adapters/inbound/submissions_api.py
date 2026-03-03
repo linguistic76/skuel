@@ -107,6 +107,28 @@ def create_submissions_api_routes(
 
     logger.info("Creating Submissions API routes")
 
+    async def _get_owned_submission(submission_uid: str, user_uid: str) -> Result[Any]:
+        """Load a submission and verify it belongs to the requesting user."""
+        submission_result = await submission_service.get_submission(submission_uid)
+        if submission_result.is_error:
+            return Result.fail(submission_result.expect_error())
+
+        submission = submission_result.value
+        if submission is None or submission.user_uid != user_uid:
+            return Result.fail(Errors.not_found(resource="Submission", identifier=submission_uid))
+
+        return Result.ok(submission)
+
+    async def _validate_owned_submissions(submission_uids: list[str], user_uid: str) -> Result[None]:
+        """Ensure all provided submissions are owned by the requesting user."""
+        for uid in submission_uids:
+            ownership_result = await _get_owned_submission(uid, user_uid)
+            if ownership_result.is_error:
+                return Result.fail(
+                    Errors.validation(f"You do not own submission {uid}", field="submission_uids")
+                )
+        return Result.ok(None)
+
     # ========================================================================
     # FILE UPLOAD
     # ========================================================================
@@ -620,16 +642,9 @@ def create_submissions_api_routes(
             body = await request.json()
             req = CategorizeEntityRequest.model_validate(body)
 
-            # Verify ownership through get_submission
-            submission_result = await submission_service.get_submission(submission_uid)
-            if submission_result.is_error:
-                return Result.fail(submission_result.expect_error())
-
-            submission = submission_result.value
-            if submission is None or submission.user_uid != user_uid:
-                return Result.fail(
-                    Errors.not_found(resource="Submission", identifier=submission_uid)
-                )
+            ownership_result = await _get_owned_submission(submission_uid, user_uid)
+            if ownership_result.is_error:
+                return Result.fail(ownership_result.expect_error())
 
             return await submissions_core_service.categorize_submission(
                 uid=submission_uid, category=req.category
@@ -653,16 +668,9 @@ def create_submissions_api_routes(
             body = await request.json()
             req = AddTagsRequest.model_validate(body)
 
-            # Verify ownership
-            submission_result = await submission_service.get_submission(submission_uid)
-            if submission_result.is_error:
-                return Result.fail(submission_result.expect_error())
-
-            submission = submission_result.value
-            if submission is None or submission.user_uid != user_uid:
-                return Result.fail(
-                    Errors.not_found(resource="Submission", identifier=submission_uid)
-                )
+            ownership_result = await _get_owned_submission(submission_uid, user_uid)
+            if ownership_result.is_error:
+                return Result.fail(ownership_result.expect_error())
 
             return await submissions_core_service.add_tags(uid=submission_uid, tags=req.tags)
 
@@ -684,16 +692,9 @@ def create_submissions_api_routes(
             body = await request.json()
             req = RemoveTagsRequest.model_validate(body)
 
-            # Verify ownership
-            submission_result = await submission_service.get_submission(submission_uid)
-            if submission_result.is_error:
-                return Result.fail(submission_result.expect_error())
-
-            submission = submission_result.value
-            if submission is None or submission.user_uid != user_uid:
-                return Result.fail(
-                    Errors.not_found(resource="Submission", identifier=submission_uid)
-                )
+            ownership_result = await _get_owned_submission(submission_uid, user_uid)
+            if ownership_result.is_error:
+                return Result.fail(ownership_result.expect_error())
 
             return await submissions_core_service.remove_tags(uid=submission_uid, tags=req.tags)
 
@@ -709,16 +710,9 @@ def create_submissions_api_routes(
             - report_uid: Report UID
             - user_uid: User UID
             """
-            # Verify ownership
-            submission_result = await submission_service.get_submission(submission_uid)
-            if submission_result.is_error:
-                return Result.fail(submission_result.expect_error())
-
-            submission = submission_result.value
-            if submission is None or submission.user_uid != user_uid:
-                return Result.fail(
-                    Errors.not_found(resource="Submission", identifier=submission_uid)
-                )
+            ownership_result = await _get_owned_submission(submission_uid, user_uid)
+            if ownership_result.is_error:
+                return Result.fail(ownership_result.expect_error())
 
             return await submissions_core_service.publish_submission(uid=submission_uid)
 
@@ -734,16 +728,9 @@ def create_submissions_api_routes(
             - report_uid: Report UID
             - user_uid: User UID
             """
-            # Verify ownership
-            submission_result = await submission_service.get_submission(submission_uid)
-            if submission_result.is_error:
-                return Result.fail(submission_result.expect_error())
-
-            submission = submission_result.value
-            if submission is None or submission.user_uid != user_uid:
-                return Result.fail(
-                    Errors.not_found(resource="Submission", identifier=submission_uid)
-                )
+            ownership_result = await _get_owned_submission(submission_uid, user_uid)
+            if ownership_result.is_error:
+                return Result.fail(ownership_result.expect_error())
 
             return await submissions_core_service.archive_submission(uid=submission_uid)
 
@@ -759,16 +746,9 @@ def create_submissions_api_routes(
             - report_uid: Report UID
             - user_uid: User UID
             """
-            # Verify ownership
-            submission_result = await submission_service.get_submission(submission_uid)
-            if submission_result.is_error:
-                return Result.fail(submission_result.expect_error())
-
-            submission = submission_result.value
-            if submission is None or submission.user_uid != user_uid:
-                return Result.fail(
-                    Errors.not_found(resource="Submission", identifier=submission_uid)
-                )
+            ownership_result = await _get_owned_submission(submission_uid, user_uid)
+            if ownership_result.is_error:
+                return Result.fail(ownership_result.expect_error())
 
             return await submissions_core_service.mark_as_draft(uid=submission_uid)
 
@@ -788,19 +768,9 @@ def create_submissions_api_routes(
             body = await request.json()
             req = BulkCategorizeRequest.model_validate(body)
 
-            # Verify user owns all reports
-            for uid in req.ku_uids:
-                submission_result = await submission_service.get_submission(uid)
-                if submission_result.is_error:
-                    return Result.fail(submission_result.expect_error())
-
-                submission = submission_result.value
-                if submission is None or submission.user_uid != user_uid:
-                    return Result.fail(
-                        Errors.validation(
-                            f"You do not own submission {uid}", field="submission_uids"
-                        )
-                    )
+            ownership_result = await _validate_owned_submissions(req.ku_uids, user_uid)
+            if ownership_result.is_error:
+                return Result.fail(ownership_result.expect_error())
 
             return await submissions_core_service.bulk_categorize(
                 uids=req.ku_uids, category=req.category
@@ -822,19 +792,9 @@ def create_submissions_api_routes(
             body = await request.json()
             req = BulkTagRequest.model_validate(body)
 
-            # Verify ownership
-            for uid in req.ku_uids:
-                submission_result = await submission_service.get_submission(uid)
-                if submission_result.is_error:
-                    return Result.fail(submission_result.expect_error())
-
-                submission = submission_result.value
-                if submission is None or submission.user_uid != user_uid:
-                    return Result.fail(
-                        Errors.validation(
-                            f"You do not own submission {uid}", field="submission_uids"
-                        )
-                    )
+            ownership_result = await _validate_owned_submissions(req.ku_uids, user_uid)
+            if ownership_result.is_error:
+                return Result.fail(ownership_result.expect_error())
 
             return await submissions_core_service.bulk_tag(uids=req.ku_uids, tags=req.tags)
 
@@ -854,19 +814,9 @@ def create_submissions_api_routes(
             body = await request.json()
             req = BulkDeleteRequest.model_validate(body)
 
-            # Verify ownership
-            for uid in req.ku_uids:
-                submission_result = await submission_service.get_submission(uid)
-                if submission_result.is_error:
-                    return Result.fail(submission_result.expect_error())
-
-                submission = submission_result.value
-                if submission is None or submission.user_uid != user_uid:
-                    return Result.fail(
-                        Errors.validation(
-                            f"You do not own submission {uid}", field="submission_uids"
-                        )
-                    )
+            ownership_result = await _validate_owned_submissions(req.ku_uids, user_uid)
+            if ownership_result.is_error:
+                return Result.fail(ownership_result.expect_error())
 
             return await submissions_core_service.bulk_delete(
                 uids=req.ku_uids, soft_delete=req.soft_delete
