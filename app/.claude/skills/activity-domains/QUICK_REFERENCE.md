@@ -113,7 +113,7 @@ habits, stats = ctx["entities"], ctx["stats"]
 | Choices | `deadline` |
 | Principles | `strength` |
 
-Module-level helpers (each facade file): `_compute_{domain}_stats`, `_apply_{domain}_filters`, `_apply_{domain}_sort`
+Module-level helpers (each facade file): `_apply_{domain}_sort` (all 6), `_apply_task_secondary_filters` (Tasks), `_apply_principle_filters` (Principles)
 
 **See:** `PATTERNS.md` → "Filtered List Queries" section
 

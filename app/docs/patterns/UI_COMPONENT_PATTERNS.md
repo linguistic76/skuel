@@ -1104,148 +1104,100 @@ async def task_detail_view(request, uid: str) -> Any:
 
 ---
 
-## Activity Domain Pure Computation Helpers
+## Activity Domain Filtered List Queries
 
-*Added: 2026-01-24*
+*Added: 2026-01-24 | Updated: 2026-03-03 (stats + status filter pushed to Cypher)*
 
-**Core Principle:** "Separate I/O from computation - extract testable pure functions"
-
-Following the error handling refactoring, all Activity domain UI routes were further improved by extracting pure computation functions from monolithic "god helper" orchestrators.
+**Core Principle:** "Push filtering and aggregation to the database; keep Python for sorting and domain-specific secondary filters"
 
 ### Problem: God Helper Anti-Pattern
 
 **Before:** Single 50-90 line functions mixing I/O with computation:
 ```python
 async def get_filtered_tasks(...) -> Result[tuple[list[Any], dict[str, int]]]:
-    """God helper doing 5 things: fetch, stats, filter, sort."""
+    """God helper doing 5 things: fetch ALL entities, stats, filter, sort."""
     try:
-        # 1. Fetch all (I/O) - 10 lines
+        # 1. Fetch ALL user entities into Python memory (no WHERE clause)
         tasks_result = await get_all_tasks(user_uid)
 
-        # 2. Calculate stats (computation) - 15 lines
+        # 2. Calculate stats over full Python list
         stats = {"total": len(tasks), "completed": ..., "overdue": ...}
 
-        # 3. Filter by project (computation) - 10 lines
-        if project:
-            tasks = [t for t in tasks if t.project == project]
-
-        # 4. Filter by status (computation) - 15 lines
+        # 3. Filter by status in Python
         if status_filter == "active":
             tasks = [t for t in tasks if t.status != "completed"]
-        # ... more filter cases
 
-        # 5. Sort (computation + complex logic) - 30 lines
-        if sort_by == "due_date":
-            tasks = sorted(tasks, key=get_task_due_date_sort_key)
-        # ... more sort options
+        # 4. Sort in Python
+        tasks = sorted(tasks, key=get_task_due_date_sort_key)
 
         return Result.ok((tasks, stats))
 ```
 
 **Issues:**
-- Cannot unit test stats/filter/sort logic without async mocks
-- Single Responsibility Principle violated
-- 90 lines doing 5 distinct things
-- Difficult to modify one aspect without affecting others
+- Fetches ALL entities into Python memory regardless of filter — O(n) deserialization waste
+- Stats and filtering require full Python scan after deserialization
+- 90 lines doing 5 distinct things; hard to test or modify one aspect
 
-### Solution: Extract Pure Helpers
+### Solution: Cypher-Level Stats and Filtering
 
-**Pattern:** Create 3-4 pure, testable functions:
+**Pattern:** Stats via Cypher COUNT (no deserialization), status filter via Cypher WHERE, both parallel:
 
 ```python
-# ========================================================================
-# PURE COMPUTATION HELPERS (Testable without mocks)
-# ========================================================================
+# In *_core_service.py:
 
-def compute_task_stats(tasks: list[Any]) -> dict[str, int]:
+async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    """Cypher COUNT aggregation — zero entity deserialization."""
+    query = """
+    MATCH (n:Entity {user_uid: $user_uid, ku_type: 'task'})
+    RETURN count(n) AS total,
+           count(CASE WHEN n.status = 'completed' THEN 1 END) AS completed,
+           count(CASE WHEN n.due_date IS NOT NULL AND n.due_date < date()
+                      AND n.status <> 'completed' THEN 1 END) AS overdue
     """
-    Calculate task statistics.
+    result = await self.backend.execute_query(query, {"user_uid": user_uid})
+    ...
 
-    Pure function: testable without database or async.
-    """
-    today = date.today()
-    return {
-        "total": len(tasks),
-        "completed": sum(1 for t in tasks if t.status == EntityStatus.COMPLETED),
-        "overdue": sum(
-            1 for t in tasks
-            if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
-        ),
-    }
-
-
-def apply_task_filters(
-    tasks: list[Any],
-    project: str | None = None,
-    status_filter: str = "active",
-) -> list[Any]:
-    """
-    Apply filter criteria to task list.
-
-    Pure function: testable without database or async.
-    """
-    # Filter: project
-    if project:
-        tasks = [t for t in tasks if t.project == project]
-
-    # Filter: status
-    if status_filter == "active":
-        tasks = [t for t in tasks if t.status != EntityStatus.COMPLETED]
-    elif status_filter == "completed":
-        tasks = [t for t in tasks if t.status == EntityStatus.COMPLETED]
-
-    return tasks
-
-
-def apply_task_sort(tasks: list[Any], sort_by: str = "due_date") -> list[Any]:
-    """
-    Sort tasks by specified field.
-
-    Pure function: testable without database or async.
-    """
-    if sort_by == "due_date":
-        return sorted(tasks, key=get_task_due_date_sort_key)
-    elif sort_by == "priority":
-        priority_order = {Priority.CRITICAL: 0, Priority.HIGH: 1, ...}
-        return sorted(tasks, key=make_priority_order_getter(priority_order))
-    elif sort_by == "created_at":
-        return sorted(tasks, key=get_created_at_attr, reverse=True)
-    else:
-        return sorted(tasks, key=get_task_due_date_sort_key)
+async def get_for_user_filtered(
+    self, user_uid: str, status_filter: str = "active"
+) -> Result[list[Task]]:
+    """Cypher WHERE clause — status filter pushed to database."""
+    match status_filter:
+        case "active":
+            result = await self.backend.find_by(
+                user_uid=user_uid, status__not_in=["completed"]
+            )
+        case "completed":
+            result = await self.backend.find_by(user_uid=user_uid, status="completed")
+        case _:
+            result = await self.backend.find_by(user_uid=user_uid)
+    ...
 ```
 
-**Refactored Orchestrator** (reduced from 90 to 18 lines):
+**Facade orchestrator** — parallel execution via `asyncio.gather()`:
 ```python
-async def get_filtered_tasks(...) -> Result[tuple[list[Any], dict[str, int]]]:
-    """
-    Get filtered and sorted tasks for user.
-
-    Orchestrates: fetch (I/O) → stats → filter → sort.
-    Pure computation delegated to testable helper functions.
-    """
-    try:
-        # I/O: Fetch all tasks
-        tasks_result = await get_all_tasks(user_uid)
-        if tasks_result.is_error:
-            return tasks_result
-
-        tasks = tasks_result.value
-
-        # Computation: Calculate stats BEFORE filtering
-        stats = compute_task_stats(tasks)
-
-        # Computation: Apply filters
-        filtered_tasks = apply_task_filters(tasks, project, status_filter)
-
-        # Computation: Apply sort
-        sorted_tasks = apply_task_sort(filtered_tasks, sort_by)
-
-        return Result.ok((sorted_tasks, stats))
-
-    except Exception as e:
-        logger.error("Error filtering tasks", extra={...})
-        return Errors.system(f"Failed to filter tasks: {e}")
+async def get_filtered_context(
+    self, user_uid, project=None, status_filter="active", sort_by="due_date"
+) -> Result[ListContext]:
+    import asyncio
+    stats_result, entities_result = await asyncio.gather(
+        self.core.get_stats_for_user(user_uid),
+        self.core.get_for_user_filtered(user_uid, status_filter),
+    )
+    if stats_result.is_error:
+        return stats_result
+    if entities_result.is_error:
+        return entities_result
+    filtered = _apply_task_secondary_filters(entities_result.value, project, ...)
+    sorted_tasks = _apply_task_sort(filtered, sort_by)
+    return Result.ok({"entities": sorted_tasks, "stats": stats_result.value})
 ```
+
+**What stays Python-side:**
+- `_apply_{domain}_sort(entities, sort_by)` — all 6 domains
+- `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — Tasks only (project/assignee/date filters)
+- `_apply_principle_filters(principles, category_filter, strength_filter)` — Principles only (category and strength threshold)
+
+**Tests:** `tests/unit/services/activity/test_activity_query_helpers.py` — 49 tests covering Python-side helpers.
 
 ### Early Form Validation Pattern
 
