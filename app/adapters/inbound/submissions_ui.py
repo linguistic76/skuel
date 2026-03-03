@@ -947,6 +947,169 @@ def _render_received_feedback_list(items: list[Any]) -> Any:
 
 
 # ============================================================================
+# PROCESSOR BADGE + ACTIVITY/PROGRESS RENDERING HELPERS
+# ============================================================================
+
+_PROCESSOR_LABELS = {"llm": "LLM", "automatic": "Scheduled", "human": "Admin"}
+_PROCESSOR_BADGE_CLASSES = {
+    "llm": "badge-info",
+    "automatic": "badge-ghost",
+    "human": "badge-primary",
+}
+
+
+def _get_processor_type_str(report: Any) -> str:
+    """Extract processor_type as lowercase string from a report/entity."""
+    processor_type = getattr(report, "processor_type", None)
+    if processor_type is None:
+        return ""
+    _missing = object()
+    ptype_val = getattr(processor_type, "value", _missing)
+    return str(ptype_val if ptype_val is not _missing else processor_type).lower()
+
+
+def _render_processor_badge(processor_type_str: str) -> Any:
+    """Render a DaisyUI badge for processor type (LLM / Scheduled / Admin)."""
+    label = _PROCESSOR_LABELS.get(processor_type_str, processor_type_str or "AI")
+    badge_cls = _PROCESSOR_BADGE_CLASSES.get(processor_type_str, "badge-ghost")
+    return Span(label, cls=f"badge {badge_cls} badge-sm")
+
+
+def _format_date(dt_value: Any) -> str:
+    """Format a datetime-like value to a display string."""
+    if not dt_value:
+        return ""
+    try:
+        from datetime import datetime
+
+        dt = datetime.fromisoformat(str(dt_value))
+        return dt.strftime("%d %b %Y")
+    except (ValueError, TypeError):
+        return str(dt_value)[:10]
+
+
+def _render_activity_feedback_card(report: Any) -> Any:
+    """Render a single activity feedback card (server-side)."""
+    title = getattr(report, "title", "") or "Activity Feedback"
+    created_at = getattr(report, "created_at", None)
+    time_period = getattr(report, "time_period", None)
+    content = getattr(report, "processed_content", "") or ""
+    truncated = content[:200] + ("..." if len(content) > 200 else "")
+    ptype_str = _get_processor_type_str(report)
+    date_str = _format_date(created_at)
+
+    date_parts = [date_str] if date_str else []
+    if time_period:
+        date_parts.append(str(time_period))
+    subtitle = " \u00b7 ".join(date_parts)
+
+    return Div(
+        Div(
+            Div(
+                Div(
+                    P(title, cls="font-semibold mb-0 text-sm"),
+                    P(subtitle, cls="text-xs text-base-content/50 mb-1") if subtitle else None,
+                ),
+                _render_processor_badge(ptype_str),
+                cls="flex items-start justify-between gap-2",
+            ),
+            P(truncated, cls="text-xs text-base-content/70 mt-1") if truncated else None,
+            cls="card-body p-3",
+        ),
+        cls="card bg-base-100 border border-base-200 mb-2",
+    )
+
+
+def _render_activity_feedback_list(items: list[Any]) -> Any:
+    """Render the full list of activity feedback (HTMX swap target)."""
+    if not items:
+        return Div(
+            P(
+                "No activity feedback yet.",
+                cls="text-center text-base-content/60 py-4",
+            ),
+            id="activity-feedback-list",
+        )
+    return Div(
+        *[_render_activity_feedback_card(r) for r in items],
+        id="activity-feedback-list",
+    )
+
+
+def _render_progress_report_card(report: Any) -> Any:
+    """Render a single progress report card (server-side)."""
+    title = getattr(report, "title", "") or "Activity Feedback"
+    created_at = getattr(report, "created_at", None)
+    time_period = getattr(report, "time_period", None)
+    depth = getattr(report, "depth", None)
+    domains_covered = getattr(report, "domains_covered", ()) or ()
+    content = getattr(report, "processed_content", "") or ""
+    ptype_str = _get_processor_type_str(report)
+    date_str = _format_date(created_at)
+
+    # Badges row
+    badges = []
+    if time_period:
+        badges.append(Span(str(time_period), cls="badge badge-outline badge-sm"))
+    if depth:
+        badges.append(Span(str(depth), cls="badge badge-outline badge-sm"))
+    badges.append(_render_processor_badge(ptype_str))
+
+    # Domain badges
+    domain_badges = [Span(str(d), cls="badge badge-ghost badge-xs") for d in domains_covered]
+
+    # Collapsible content
+    if content:
+        content_section = Div(
+            NotStr(
+                "<details class='mt-2'>"
+                "<summary class='cursor-pointer text-sm text-base-content/70 select-none'>"
+                "Read insights</summary>"
+            ),
+            P(content, cls="text-sm mt-2 whitespace-pre-wrap"),
+            NotStr("</details>"),
+        )
+    else:
+        content_section = P(
+            "No insights generated yet.",
+            cls="text-sm text-base-content/40 mt-1",
+        )
+
+    return Div(
+        Div(
+            Div(
+                Div(
+                    H4(title, cls="font-semibold mb-0"),
+                    P(date_str, cls="text-xs text-base-content/60 mb-0") if date_str else None,
+                ),
+                cls="flex items-start justify-between gap-4 mb-2",
+            ),
+            Div(*badges, cls="flex flex-wrap gap-1 mb-2") if badges else None,
+            Div(*domain_badges, cls="flex flex-wrap gap-1 mb-2") if domain_badges else None,
+            content_section,
+            cls="card-body p-4",
+        ),
+        cls="card bg-base-100 shadow-sm mb-3",
+    )
+
+
+def _render_progress_report_list(items: list[Any]) -> Any:
+    """Render the full list of progress reports (HTMX swap target)."""
+    if not items:
+        return Div(
+            P(
+                "No activity feedback yet. Generate your first one above!",
+                cls="text-center text-base-content/60 py-4",
+            ),
+            id="progress-list",
+        )
+    return Div(
+        *[_render_progress_report_card(r) for r in items],
+        id="progress-list",
+    )
+
+
+# ============================================================================
 # ROUTE CREATION
 # ============================================================================
 
@@ -959,6 +1122,7 @@ def create_submissions_ui_routes(
     _exercises_service=None,
     _submissions_search_service=None,
     _submissions_core_service=None,
+    _activity_report_service=None,
 ):
     """
     Create all submission UI routes.
@@ -971,6 +1135,7 @@ def create_submissions_ui_routes(
         _exercises_service: ExerciseService for exercise dropdown (optional)
         _submissions_search_service: SubmissionsSearchService for feedback status queries (optional)
         _submissions_core_service: SubmissionsCoreService for received assessments (optional)
+        _activity_report_service: ActivityReportService for activity feedback history (optional)
     """
 
     logger.info("Creating Submissions UI routes")
@@ -1297,51 +1462,10 @@ def create_submissions_ui_routes(
                 id="activity-feedback-list",
                 cls="mt-2",
                 **{
-                    "hx-get": "/api/activity-review/history?limit=10",
+                    "hx-get": "/submissions/feedback/activity-list",
                     "hx-trigger": "load",
-                    "hx-swap": "innerHTML",
+                    "hx-swap": "outerHTML",
                 },
-            ),
-            Script(
-                NotStr("""
-                document.body.addEventListener('htmx:afterRequest', function(evt) {
-                    if (evt.detail.elt.id === 'activity-feedback-list') {
-                        try {
-                            var data = JSON.parse(evt.detail.xhr.responseText);
-                            var container = document.getElementById('activity-feedback-list');
-                            var items = data.items || data.reports || [];
-                            if (items.length === 0) {
-                                container.innerHTML = '<p class="text-center text-base-content/60 py-4">No activity feedback yet.</p>';
-                                return;
-                            }
-                            var processorLabels = {'llm': 'LLM', 'automatic': 'Scheduled', 'human': 'Admin'};
-                            var processorBadgeClass = {'llm': 'badge-info', 'automatic': 'badge-ghost', 'human': 'badge-primary'};
-                            var html = '';
-                            items.forEach(function(r) {
-                                var date = r.created_at ? new Date(r.created_at).toLocaleDateString() : '';
-                                var ptype = (r.processor_type || '').toLowerCase();
-                                var ptypeLabel = processorLabels[ptype] || ptype || 'AI';
-                                var ptypeCls = processorBadgeClass[ptype] || 'badge-ghost';
-                                var content = r.processed_content || '';
-                                var truncated = content.length > 200 ? content.slice(0, 200) + '...' : content;
-                                html += '<div class="card bg-base-100 border border-base-200 mb-2"><div class="card-body p-3">';
-                                html += '<div class="flex items-start justify-between gap-2">';
-                                html += '<div>';
-                                html += '<p class="font-semibold mb-0 text-sm">' + (r.title || 'Activity Feedback') + '</p>';
-                                html += '<p class="text-xs text-base-content/50 mb-1">' + date + (r.time_period ? ' &bull; ' + r.time_period : '') + '</p>';
-                                html += '</div>';
-                                html += '<span class="badge ' + ptypeCls + ' badge-sm shrink-0">' + ptypeLabel + '</span>';
-                                html += '</div>';
-                                if (truncated) {
-                                    html += '<p class="text-xs text-base-content/70 mt-1">' + truncated.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>';
-                                }
-                                html += '</div></div>';
-                            });
-                            container.innerHTML = html;
-                        } catch(e) { /* non-JSON response handled by HTMX */ }
-                    }
-                });
-                """)
             ),
             cls="card bg-base-100 shadow-sm p-4",
         )
@@ -1384,6 +1508,29 @@ def create_submissions_ui_routes(
             return Div(
                 P("Error loading feedback.", cls="text-center text-error"),
                 id="feedback-list",
+            )
+
+    @rt("/submissions/feedback/activity-list")
+    async def submissions_activity_feedback_list(request: Request) -> Any:
+        """HTMX fragment: server-rendered list of activity feedback."""
+        try:
+            user_uid = require_authenticated_user(request)
+            if not _activity_report_service:
+                return Div(
+                    P(
+                        "Activity feedback unavailable.",
+                        cls="text-center text-base-content/60 py-4",
+                    ),
+                    id="activity-feedback-list",
+                )
+            result = await _activity_report_service.get_history(subject_uid=user_uid, limit=10)
+            items = result.value if not result.is_error else []
+            return _render_activity_feedback_list(items)
+        except Exception as e:
+            logger.error(f"Error loading activity feedback list: {e}", exc_info=True)
+            return Div(
+                P("Error loading activity feedback.", cls="text-center text-error"),
+                id="activity-feedback-list",
             )
 
     # ========================================================================
@@ -1450,84 +1597,10 @@ def create_submissions_ui_routes(
                 P("Loading...", cls="text-center text-base-content/60"),
                 id="progress-list",
                 **{
-                    "hx-get": "/api/feedback/progress?limit=10",
+                    "hx-get": "/submissions/progress/list",
                     "hx-trigger": "load",
-                    "hx-swap": "innerHTML",
+                    "hx-swap": "outerHTML",
                 },
-            ),
-            Script(
-                NotStr("""
-                document.body.addEventListener('htmx:afterRequest', function(evt) {
-                    if (evt.detail.elt.id === 'progress-list') {
-                        try {
-                            var data = JSON.parse(evt.detail.xhr.responseText);
-                            var container = document.getElementById('progress-list');
-                            if (!data.reports || data.reports.length === 0) {
-                                container.innerHTML = '<p class="text-center text-base-content/60 py-4">No activity feedback yet. Generate your first one above!</p>';
-                                return;
-                            }
-                            var processorLabels = {
-                                'llm': 'LLM',
-                                'automatic': 'Scheduled',
-                                'human': 'Admin'
-                            };
-                            var processorBadgeClass = {
-                                'llm': 'badge-info',
-                                'automatic': 'badge-ghost',
-                                'human': 'badge-primary'
-                            };
-                            var html = '';
-                            data.reports.forEach(function(r) {
-                                var date = r.created_at ? new Date(r.created_at).toLocaleDateString() : '';
-                                var ptype = (r.processor_type || '').toLowerCase();
-                                var ptypeLabel = processorLabels[ptype] || ptype || 'Unknown';
-                                var ptypeCls = processorBadgeClass[ptype] || 'badge-ghost';
-                                var timePeriod = r.time_period || '';
-                                var depth = r.depth || '';
-                                var domains = r.domains_covered || [];
-                                var content = r.processed_content || '';
-                                var truncated = content.length > 300 ? content.slice(0, 300) + '...' : content;
-
-                                html += '<div class="card bg-base-100 shadow-sm mb-3"><div class="card-body p-4">';
-
-                                // Title row
-                                html += '<div class="flex items-start justify-between gap-4 mb-2">';
-                                html += '<div><h4 class="font-semibold mb-0">' + (r.title || 'Activity Feedback') + '</h4>';
-                                html += '<p class="text-xs text-base-content/60 mb-0">' + date + '</p></div>';
-                                html += '</div>';
-
-                                // Badges row
-                                html += '<div class="flex flex-wrap gap-1 mb-2">';
-                                if (timePeriod) html += '<span class="badge badge-outline badge-sm">' + timePeriod + '</span>';
-                                if (depth) html += '<span class="badge badge-outline badge-sm">' + depth + '</span>';
-                                html += '<span class="badge ' + ptypeCls + ' badge-sm">' + ptypeLabel + '</span>';
-                                html += '</div>';
-
-                                // Domains covered
-                                if (domains.length > 0) {
-                                    html += '<div class="flex flex-wrap gap-1 mb-2">';
-                                    domains.forEach(function(d) {
-                                        html += '<span class="badge badge-ghost badge-xs">' + d + '</span>';
-                                    });
-                                    html += '</div>';
-                                }
-
-                                // Collapsible content
-                                if (content) {
-                                    html += '<details class="mt-2"><summary class="cursor-pointer text-sm text-base-content/70 select-none">Read insights</summary>';
-                                    html += '<p class="text-sm mt-2 whitespace-pre-wrap">' + content.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>';
-                                    html += '</details>';
-                                } else {
-                                    html += '<p class="text-sm text-base-content/40 mt-1">No insights generated yet.</p>';
-                                }
-
-                                html += '</div></div>';
-                            });
-                            container.innerHTML = html;
-                        } catch(e) { /* non-JSON response handled by HTMX */ }
-                    }
-                });
-            """)
             ),
         )
 
@@ -1548,6 +1621,25 @@ def create_submissions_ui_routes(
             active_page="submissions",
             title_href="/submissions",
         )
+
+    @rt("/submissions/progress/list")
+    async def submissions_progress_list(request: Request) -> Any:
+        """HTMX fragment: server-rendered list of progress reports."""
+        try:
+            user_uid = require_authenticated_user(request)
+            result = await _submissions_service.list_submissions(
+                user_uid=user_uid,
+                ku_type=EntityType.ACTIVITY_REPORT,
+                limit=10,
+            )
+            items = result.value if not result.is_error else []
+            return _render_progress_report_list(items)
+        except Exception as e:
+            logger.error(f"Error loading progress report list: {e}", exc_info=True)
+            return Div(
+                P("Error loading progress reports.", cls="text-center text-error"),
+                id="progress-list",
+            )
 
     @rt("/submissions/{uid}/shared-users")
     async def get_shared_users_ui(request: Request, uid: str) -> Any:
@@ -1680,8 +1772,10 @@ def create_submissions_ui_routes(
         submissions_submit_page,  # /reports/submit (specific)
         submissions_browse_page,  # /reports/browse (specific)
         submissions_yours_page,  # /reports/yours (specific)
-        submissions_feedback_page,  # /reports/feedback (specific)
-        submissions_progress_page,  # /reports/progress (specific)
+        submissions_feedback_page,  # /submissions/feedback (specific)
+        submissions_activity_feedback_list,  # /submissions/feedback/activity-list (HTMX fragment)
+        submissions_progress_page,  # /submissions/progress (specific)
+        submissions_progress_list,  # /submissions/progress/list (HTMX fragment)
         upload_submission,  # /reports/upload (specific, HTMX POST)
         get_submissions_grid,  # /reports/grid (specific, HTMX GET)
         get_submission_info,  # /submissions/{uid}/info (pattern + suffix)
