@@ -234,13 +234,36 @@ class TasksViewComponents:
     def render_list(tasks: list[Task]) -> Any:
         return Grid(*[TaskCard(t) for t in tasks], cls="grid-cols-1 gap-4")
 
-# Strategy 3: Configuration-driven
-@dataclass
-class CardConfig:
-    variant: str = "default"
-    show_actions: bool = True
-    compact: bool = False
+# Strategy 3: Configuration-driven (use when N domains share one layout)
+# Real example: ActivityDomainViewConfig in ui/profile/activity_views.py
+# Six Activity Domain views share one layout — only data-extraction varies per domain.
+# Mirrors DomainConfig at the service layer.
+
+@dataclass(frozen=True)
+class ActivityDomainViewConfig:
+    domain: str
+    title: str
+    icon: str
+    section_title: str
+    href_prefix: str
+    view_all_text: str
+    empty_message: str
+    intelligence_card_title: str
+    show_filter_controls: bool
+    item_limit: int
+    stats_fn: Callable[[UserContext], StatsResult]        # domain-specific extraction
+    items_fn: Callable[[UserContext], list[dict[str, Any]]]
+    recommendations_fn: Callable[[UserContext], list[Recommendation]]
+
+# Single layout implementation — config drives all decisions
+def ActivityDomainView(config: ActivityDomainViewConfig, context: UserContext) -> Div: ...
+
+# Six thin public wrappers with unchanged signatures
+def TasksView(context: UserContext, focus_uid: str | None = None) -> Div:
+    return ActivityDomainView(TASKS_CONFIG, context, focus_uid)
 ```
+
+**When to use Strategy 3:** When three or more domain components share the same layout but differ only in data extraction. Use a frozen dataclass (not a dict) so the config is type-safe and immutable.
 
 ### Domain Page Layout
 
@@ -878,6 +901,10 @@ When building a new SKUEL page or feature, verify:
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
 | `/ui/daisy_components.py` | FastHTML DaisyUI wrappers (`Button`, `Card`, `FormControl`, etc.) |
 | `/static/js/skuel.js` | All Alpine.data() components |
+| `/ui/profile/_shared.py` | 5 shared profile primitives (`DomainFilterControls`, `DomainSummaryCard`, `DomainIntelligenceCard`, `_item_list`) |
+| `/ui/profile/activity_views.py` | `ActivityDomainViewConfig` + `ActivityDomainView` + 6 public wrappers (Tasks/Goals/Habits/Events/Choices/Principles) |
+| `/ui/profile/curriculum_views.py` | KU, LS, LP profile views |
+| `/ui/profile/overview.py` | `OverviewView` + all intelligence helper functions |
 | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | Complete patterns documentation |
 
 ## See Also
