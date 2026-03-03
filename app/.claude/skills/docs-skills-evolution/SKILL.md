@@ -51,18 +51,27 @@ the framework's intended usage.
 
 ---
 
-## Documentation Focus vs Skills Focus
+## Two Drivers of Doc Evolution
+
+Doc evolution has two equally important triggers:
+
+| Driver | Frequency | Workflow |
+|--------|-----------|----------|
+| **Library upgrade** | Major versions, deprecations | Part 1 (Library Upgrade) |
+| **Internal refactor** | Decompositions, renames, merges | Part 2b (Stale Document Audit) |
 
 **Documentation changes more frequently (70% of evolution):**
 - Code patterns evolve → docs updated
 - Bug fixes reveal edge cases → docs clarified
 - Library minor versions → syntax examples updated
 - Performance optimizations → pattern docs evolved
+- Internal refactors drift from existing docs → staleness audit
 
 **Skills change less frequently (30% of evolution):**
 - Library major version changes core API
 - Fundamental pattern shifts across many files
 - New cross-cutting concerns emerge
+- Internal refactors change file layouts referenced in skills
 
 **Post-commit hook detects new documentation files** and prompts INDEX updates. Cross-reference validation (`validate_cross_references.py`) is a manual tool — run it after major changes.
 
@@ -298,6 +307,118 @@ poetry run pytest
 # Check for old pattern usage
 rg "old_pattern" . --type py  # Should return nothing
 ```
+
+---
+
+## Part 2b: Stale Document Audit Workflow
+
+### When Internal Refactors Outpace Docs
+
+**Trigger:** A batch of internal refactors (file renames, service splits, model renames, class hierarchy changes) leaves existing docs describing code that no longer exists.
+
+**Philosophy**: Don't hand-patch stale docs line-by-line. Investigate first — confirm replacements exist, verify live symbols, regenerate auto-generated files, then fix cross-references in one sweep.
+
+#### The Four-Tier Investigation Process
+
+Triage all suspect docs before touching anything:
+
+**Tier 1: Confirmed Replacements (delete immediately)**
+
+The old doc explicitly says "superseded by X" *and* the replacement fully covers the scope:
+
+```bash
+# Check if replacement doc exists and covers the same ground
+ls docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md  # replacement exists?
+grep -c "DOMAIN_RELATIONSHIPS_PATTERN" docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md
+```
+
+If the replacement covers all key patterns → delete the old doc.
+
+**Tier 2: Verify Against Codebase Before Deleting**
+
+Doc may be stale, but grep live `.py` sources first to confirm the referenced symbols are actually gone:
+
+```bash
+# Does the three-layer architecture described in this doc still exist?
+rg "relationship_base" --type py    # Layer 1
+rg "relationship_validation" --type py  # Layer 2
+rg "unified_relationships" --type py   # Layer 3
+
+# If nothing returns — the pattern is truly gone, delete the doc
+# If results return — the doc is stale but the pattern lives on; UPDATE not delete
+```
+
+**Tier 3: Regenerate, Don't Hand-Edit**
+
+For auto-generated reference docs (method indexes, catalogs), run the generator rather than editing manually:
+
+```bash
+# Stale method index → regenerate from live code
+poetry run python scripts/generate_method_index.py
+
+# Don't manually patch 50 method signatures — regenerate always wins
+```
+
+**Tier 4: Fix Cross-References in One Pass**
+
+After deletions/merges, update the registry files:
+
+```bash
+# 1. Remove deleted entries from INDEX.md
+# 2. Remove deleted entries from CROSS_REFERENCE_INDEX.md
+# 3. Fix dangling references in docs that pointed to deleted files:
+rg "DELETED_DOC_NAME" docs/ --type md  # Find all references
+# Update each to point to the replacement doc
+```
+
+#### Document Consolidation (Merge, Not Delete)
+
+When two docs have overlapping scope, merge the narrower into the broader canonical doc:
+
+1. **Identify the canonical doc** — which one has broader scope and more up-to-date content?
+2. **Absorb missing content** — fold unique sections from the narrower doc into the canonical
+3. **Strip stale language** — remove "pending", "future", "Phase N complete", "rollout phases" (these become noise once the feature ships)
+4. **Update cross-references** — redirect all `@skill` or `/docs/...` references to the canonical doc
+5. **Delete the absorbed doc**
+
+```bash
+# Example: after merging SERVICE_FILE_ORGANIZATION.md → SERVICE_TOPOLOGY.md
+rg "SERVICE_FILE_ORGANIZATION" docs/ --type md  # Find all references
+# Update each reference to SERVICE_TOPOLOGY.md
+```
+
+#### Audit Commit Pattern
+
+Batch all audit changes into one commit with a tiered message:
+
+```
+docs: prune 6 superseded pattern docs, update cross-references
+
+Tier 1 (confirmed replacements):
+- Delete OLD_DOC.md → REPLACEMENT.md (confirmed coverage)
+
+Tier 2 (verified against codebase):
+- Delete OTHER_DOC.md — symbols no longer exist in .py sources
+
+Tier 3 (auto-generated):
+- Regenerate BASESERVICE_METHOD_INDEX.md from live code
+
+Tier 4 (cross-references):
+- Remove deleted-file entries from INDEX.md and CROSS_REFERENCE_INDEX.md
+- Fix dangling references in N docs and skills_metadata.yaml
+```
+
+#### Skill Updates After Internal Refactors
+
+When a refactor changes file layouts or class names referenced in a skill, update the skill too:
+
+```bash
+# Example: domain_views.py decomposed into 4 modules
+# → Update skuel-ui SKILL.md Key Files table and strategy examples
+grep -l "domain_views" .claude/skills/*/SKILL.md  # Find affected skills
+```
+
+Concrete real-world examples in skills are more valuable than abstract descriptions. When a refactor improves the architecture, update the skill's examples to show the new pattern.
 
 ---
 
@@ -715,4 +836,4 @@ poetry run python scripts/validate_cross_references.py --verbose
 
 ---
 
-**Last Updated:** 2026-03-01
+**Last Updated:** 2026-03-03
