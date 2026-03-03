@@ -110,7 +110,7 @@ class UserService:
 
         # Context builder requires Neo4j driver
         if driver:
-            self.context_builder = UserContextBuilder(driver)
+            self.context_builder = UserContextBuilder(driver, user_service=self)
             self.stats = UserStatsAggregator(self.core, self.context_builder, driver)
         else:
             self.context_builder = None  # type: ignore[assignment]
@@ -628,21 +628,10 @@ class UserService:
         # ========================================================================
         # STEP 2: Cache miss - build from database (MEGA_QUERY)
         # ========================================================================
-        # Get user entity
-        user_result = await self.get_user(user_uid)
-        if user_result.is_error:
-            return Result.fail(user_result.expect_error())
-
-        user = user_result.value
-        if not user:
-            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
-
-        # Execute TRUE MEGA-QUERY - ONE query fetches EVERYTHING
-        # This replaces the old 2-step approach:
-        # OLD: build_user_context() + execute_rich_context_mega_query()
-        # NEW: build_rich_user_context() (single comprehensive query)
-        context_result = await self.context_builder.build_rich_user_context(
-            user_uid, user, min_confidence
+        # Use builder-owned user resolution to avoid duplicating lookup/error handling
+        # and keep MEGA_QUERY orchestration in a single place.
+        context_result = await self.context_builder.build_rich(
+            user_uid, min_confidence=min_confidence
         )
 
         if context_result.is_error:

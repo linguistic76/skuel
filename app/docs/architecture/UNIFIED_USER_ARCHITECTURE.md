@@ -228,7 +228,7 @@ user_context_populator.py  (~235 lines)   Context field population
 ```python
 class UserContextBuilder:
     async def build(self, user_uid: str) -> Result[UserContext]:
-        """Standard context — UIDs only."""
+        """Standard context — UIDs only. Requires user_service wired."""
 
     async def build_rich(
         self,
@@ -236,8 +236,10 @@ class UserContextBuilder:
         min_confidence: float = 0.7,
         window: str = "30d",
     ) -> Result[UserContext]:
-        """Rich context — UIDs + entities + graph neighbourhoods."""
+        """Rich context — UIDs + entities + graph neighbourhoods. Requires user_service wired."""
 ```
+
+**`user_service` wiring:** `build()` and `build_rich()` resolve the `User` internally via `_resolve_user()`, which requires `user_service` to be set. `UserService.__init__` wires `user_service=self` automatically. For standalone builders (e.g. `services_bootstrap.py`), pass `UserContextBuilder(executor, user_service=user_service)` at construction.
 
 **Queries:**
 ```python

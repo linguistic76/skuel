@@ -50,7 +50,8 @@ core/services/user/
 
 1. **UserContextBuilder** (orchestration)
    - Composes QueryExecutor, Extractor, and Populator
-   - Maintains 4 public methods: `build()`, `build_rich()`, `build_user_context()`, `build_rich_user_context()`
+   - **Preferred API** (own user resolution): `build(user_uid)`, `build_rich(user_uid)` — require `user_service` wired
+   - **Lower-level API** (caller provides `User`): `build_user_context(user_uid, user)`, `build_rich_user_context(user_uid, user)` — backward-compat, no `user_service` needed
 
 2. **UserContextQueryExecutor** (query execution)
    - MEGA_QUERY and CONSOLIDATED_QUERY as constants
@@ -155,3 +156,4 @@ Cypher doesn't allow aggregate functions inside aggregate functions.
 | Date | Author | Change | Version |
 |------|--------|--------|---------|
 | 2025-12-04 | Claude | Initial implementation | 1.0 |
+| 2026-03-03 | Claude | `UserService.__init__` now wires `user_service=self` on its internal builder; `get_rich_unified_context()` calls `build_rich()` directly (eliminates duplicate user lookup). | 1.1 |
