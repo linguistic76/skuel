@@ -1,5 +1,16 @@
 - We use poetry for package management and for running files.
 
+## Code Responsibility Philosophy
+*Last updated: 2026-03-03*
+
+**If you see a problem, fix it.** Don't look the other way. Take responsibility to make the code better.
+
+When working in a file or area of the codebase, address problems you encounter — wrong comments, stale docs, security issues, DRY violations, naming inconsistencies. SKUEL does not reward passive observation of bad code.
+
+**This is not a license for scope creep.** Fix what is genuinely wrong. Don't redesign systems you were not asked to touch. The distinction: a bug you notice while working nearby should be fixed; a large refactor you think would be nice requires a deliberate decision.
+
+---
+
 ## One Path Forward - Core Development Philosophy
 *Last updated: 2026-02-23*
 
