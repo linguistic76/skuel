@@ -33,7 +33,7 @@ SKUEL needed a user authorization system to support:
 Key constraints:
 - Graph-native authentication stores all auth data in Neo4j (January 2026)
 - User data, sessions, and roles all in Neo4j (unified data model)
-- Password reset is admin-initiated (no email service required)
+- Password reset via email (Resend) or admin-initiated
 - Role hierarchy should be clear and enforceable
 
 ---
@@ -135,7 +135,7 @@ Key constraints:
 - ✅ Simple permission checks (`user.role.has_permission(required)`)
 - ✅ Roles stored in Neo4j (unified with all user data)
 - ✅ Admin-only role management (secure)
-- ✅ Admin-initiated password reset (no email service required)
+- ✅ Password reset via email (Resend, March 2026) + admin-initiated fallback
 - ✅ Future-proof trial limits infrastructure
 
 ### Negative Consequences

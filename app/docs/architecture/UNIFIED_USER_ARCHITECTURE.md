@@ -100,14 +100,14 @@ All auth state lives in Neo4j. No external auth service.
 | `SessionBackend` | `adapters/persistence/neo4j/session_backend.py` | Neo4j session storage |
 | `Session` | `core/models/auth/session.py` | Session frozen dataclass |
 | `AuthEvent` | `core/models/auth/auth_event.py` | Audit trail |
-| `PasswordResetToken` | `core/models/auth/password_reset_token.py` | Admin-generated reset tokens |
+| `PasswordResetToken` | `core/models/auth/password_reset_token.py` | Reset tokens (email or admin-generated) |
 
 **Security:**
 - Bcrypt password hashing stored in Neo4j
 - 32-byte secure random session tokens with 30-day expiry
 - 5 failed attempts → 15-minute lockout (tracked via graph queries)
 - HTTP-only signed cookies
-- Admin-initiated password reset — no email service required, tokens valid 1 hour
+- Password reset via email (Resend) or admin-initiated, tokens valid 15 minutes
 
 **Auth flows:**
 ```python
@@ -120,6 +120,9 @@ result = await graph_auth.sign_in(email, password, ip_address, user_agent)
 # → Creates (User)-[:HAS_SESSION]->(Session)
 # → Returns { user_uid, session_token }
 set_current_user(request, user_uid, session_token)
+
+# Password reset (self-service via email)
+await graph_auth.reset_password_email(email)  # sends Resend email
 
 # Password reset (admin-initiated)
 token = await graph_auth.admin_generate_reset_token(user_uid, admin_uid, ...)

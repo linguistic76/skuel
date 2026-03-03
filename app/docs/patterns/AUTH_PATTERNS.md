@@ -385,23 +385,27 @@ result = await graph_auth.validate_session(session_token)
 
 ---
 
-## Admin-Initiated Password Reset
+## Password Reset
 
-SKUEL uses admin-initiated password reset (no email service required):
+SKUEL supports two password reset paths:
 
-### Flow
+### Self-Service (Email)
 
 ```
-1. Admin generates reset token via Admin Dashboard
+1. User enters email at /forgot-password
    ↓
-2. Admin shares token with user (out-of-band: email, chat, etc.)
+2. GraphAuthService.reset_password_email() sends email via Resend
    ↓
-3. User enters token + new password at /reset-password
+3. User clicks link → /reset-password?token=...
    ↓
 4. Token verified, password updated, token invalidated
 ```
 
-### Admin Side
+**Security:** `reset_password_email()` always returns `ok(True)` regardless of whether the email exists — prevents enumeration attacks.
+
+**Configuration:** Requires `RESEND_API_KEY` and optionally `RESEND_FROM_EMAIL`, `APP_URL` env vars. Without `RESEND_API_KEY`, email reset is disabled and admin-initiated flow is the only option.
+
+### Admin-Initiated
 
 ```python
 # Admin generates token
@@ -414,25 +418,29 @@ token_result = await graph_auth.admin_generate_reset_token(
 
 if token_result.is_ok:
     token = token_result.value  # Plain token to share with user
-    # Token stored hashed in Neo4j, expires in 24 hours
+    # Token stored hashed in Neo4j, expires in 15 minutes
 ```
 
-### User Side
+### User Side (Both Paths)
 
 ```python
-# User resets password with token
+# User resets password with token (from email link or admin)
 result = await graph_auth.reset_password_with_token(
-    token_value=token_from_admin,
+    token_value=token,
     new_password="newsecurepass123",
     ip_address=user_ip,
     user_agent=user_ua
 )
 ```
 
-### Admin Dashboard Routes
+### Routes
 
-- `GET /admin/users/{uid}/reset-password` - Show reset token form
-- `POST /admin/users/{uid}/reset-password` - Generate token
+- `GET /forgot-password` - Email form for self-service reset
+- `POST /forgot-password` - Send reset email
+- `GET /reset-password?token=...` - Token + new password form
+- `POST /reset-password/submit` - Process password reset
+- `GET /admin/users/{uid}/reset-password` - Admin token form
+- `POST /admin/users/{uid}/reset-password` - Admin generate token
 
 ---
 

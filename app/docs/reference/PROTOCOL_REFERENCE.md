@@ -561,7 +561,7 @@ Map to the **Feedback** stage of the educational loop. `processor_type` discrimi
 | `SystemServiceOperations` | `system_service` | 11 (5 async health + 6 sync management) | `system_api.py` |
 | `CrossDomainAnalyticsOperations` | `cross_domain_analytics` | 5 async (learning_velocity, spending_patterns, mood, productivity, habit_consistency) | `analytics_api.py` |
 | `LifePathOperations` | `lifepath` | 3 async + `.alignment` sub-service | `lifepath_api.py` |
-| `GraphAuthOperations` | `graph_auth` | 5 async (sign_up, sign_in, sign_out, reset_password, admin_reset_token) | `auth_ui.py`, `admin_api.py` |
+| `GraphAuthOperations` | `graph_auth` | 6 async (sign_up, sign_in, sign_out, reset_password_email, reset_password_with_token, admin_reset_token) | `auth_ui.py`, `admin_api.py` |
 | `GoalTaskGeneratorOperations` | `goal_task_generator` | 1 (generate_tasks_for_goal) | `orchestration_routes.py` |
 | `HabitEventSchedulerOperations` | `habit_event_scheduler` | 1 (schedule_events_for_habit) | `orchestration_routes.py` |
 | `AskesisCoreOperations` | `askesis_core` | 5 (get_or_create, create, get, update, record_conversation) | `askesis_api.py` |

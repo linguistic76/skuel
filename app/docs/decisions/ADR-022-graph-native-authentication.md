@@ -30,12 +30,12 @@ SKUEL previously used Supabase for authentication, which created challenges:
 2. External dependency for core functionality
 3. Complexity in syncing user state between systems
 4. Limited control over authentication behavior
-5. Password reset required email service integration
+5. Password reset originally required email service integration
 
 Key requirements:
 - Unified user data model (all data in Neo4j)
 - No external authentication dependencies
-- Simple password reset flow (admin-initiated acceptable)
+- Password reset flow (self-service email + admin-initiated)
 - Session management with security features (rate limiting, audit logging)
 - Bcrypt password hashing for security
 
@@ -61,7 +61,7 @@ All authentication data lives in Neo4j alongside user data:
 | `SessionBackend` | `/adapters/persistence/neo4j/session_backend.py` | Neo4j session persistence |
 | `Session` | `/core/models/auth/session.py` | Frozen session dataclass |
 | `AuthEvent` | `/core/models/auth/auth_event.py` | Audit log entry |
-| `PasswordResetToken` | `/core/models/auth/password_reset_token.py` | Admin-generated reset token |
+| `PasswordResetToken` | `/core/models/auth/password_reset_token.py` | Reset token (email or admin-generated) |
 | Password utilities | `/core/auth/password.py` | Bcrypt hash/verify functions |
 | Session helpers | `/core/auth/session.py` | Cookie config, decorators, helpers |
 
@@ -91,19 +91,21 @@ result = await graph_auth.sign_in(
 result = await graph_auth.validate_session(session_token)
 ```
 
-**Password Reset (Admin-Initiated):**
+**Password Reset (Two Paths):**
 
 ```python
-# Admin generates token
+# Self-service: user enters email at /forgot-password
+await graph_auth.reset_password_email(email)  # sends Resend email with token link
+
+# Admin-initiated: admin generates token and shares out-of-band
 token_result = await graph_auth.admin_generate_reset_token(
     user_uid="user_johndoe",
     admin_uid="user_admin",
     ip_address=admin_ip,
     user_agent=admin_ua
 )
-# Admin shares token with user out-of-band
 
-# User resets password with token
+# User resets password with token (from email link or admin)
 result = await graph_auth.reset_password_with_token(
     token_value=token,
     new_password="newsecurepass123",
@@ -180,7 +182,7 @@ result = await graph_auth.reset_password_with_token(
 - Email deliverability issues
 - More attack surface (email account compromise)
 
-**Why rejected:** Admin-initiated reset is simpler and sufficient for current scale. Email integration can be added later if needed.
+**Originally deferred; implemented March 2026** via Resend integration (`EmailOperations` protocol + `ResendEmailService` adapter). Admin-initiated path remains available as fallback. `RESEND_API_KEY` env var controls availability.
 
 ---
 
@@ -195,7 +197,7 @@ result = await graph_auth.reset_password_with_token(
 - ✅ Simpler deployment (no Supabase credentials needed)
 
 ### Negative Consequences
-- ⚠️ Password reset requires admin intervention
+- ✅ Password reset via email (March 2026) — admin-initiated remains as fallback
 - ⚠️ No email verification flow (manual admin approval)
 - ⚠️ Session validation requires database query (not stateless)
 
