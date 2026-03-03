@@ -64,6 +64,16 @@ Activity Domains are **equal** entry points — not secondary. A user's Tasks, G
 Events, Choices, and Principles receive the same feedback infrastructure as curriculum work.
 The mechanism differs, but the loop closes either way.
 
+> **"Submission" — conceptual vs structural.** This document uses "Submission" in two
+> senses that must not be conflated. The **conceptual submission** in the Activity Track is
+> the user's lived practice across all six Activity Domains over a time window — it is
+> implicit, never uploaded, and produces an `ACTIVITY_REPORT`. The **structural Submission**
+> (`EntityType.SUBMISSION`) is a file a student explicitly uploads against an Exercise in the
+> Curriculum Track and produces a `SUBMISSION_FEEDBACK`. `ActivityReport` inherits
+> `UserOwnedEntity` directly — it has no file fields. `Submission` inherits a file-aware
+> base class. When reading code that touches both tracks, keep this distinction in mind:
+> the loop closes differently in each track even though the pedagogical concept is the same.
+
 ---
 
 ## Phase 1: Ku — The Knowledge Unit

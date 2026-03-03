@@ -199,6 +199,7 @@ class ActivityReportOperations(Protocol):
         subject_uid: str,
         time_period: str = "7d",
         domains: list[str] | None = None,
+        admin_uid: str = "",
     ) -> Result[Any]:
         """Generate activity snapshot for admin review. Returns Result[dict]."""
         ...
@@ -236,6 +237,14 @@ class ActivityReportOperations(Protocol):
 
     async def get_annotation(self, uid: str, user_uid: str) -> Result[Any]:
         """Get current annotation state for an owned ActivityReport. Returns Result[dict]."""
+        ...
+
+    async def get_privacy_summary(self, user_uid: str) -> Result[Any]:
+        """Return privacy-transparency summary for the user (admin snapshots, shares, schedule).
+
+        User-facing — always scoped to the requesting user's own data.
+        Returns Result[dict] with admin_snapshots, shares_granted, report_schedule.
+        """
         ...
 
 

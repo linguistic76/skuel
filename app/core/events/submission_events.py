@@ -225,6 +225,30 @@ class AssessmentCreated(BaseEvent):
 
 
 @dataclass(frozen=True)
+class ActivitySnapshotAccessed(BaseEvent):
+    """
+    Published when an admin accesses a user's activity snapshot for review.
+
+    Enables:
+    - Audit trail of admin data access (when, who accessed, whose data)
+    - Future user notification when Messaging system is implemented
+    - Trust and transparency: users can query their own audit log
+
+    See: ADR-042 (Privacy as First-Class Citizen)
+    See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
+    """
+
+    subject_uid: str  # User whose activity data was accessed
+    admin_uid: str  # Admin who accessed the data
+    time_period: str  # Time window reviewed (e.g. "7d")
+    occurred_at: datetime
+
+    @property
+    def event_type(self) -> str:
+        return "activity.snapshot_accessed"
+
+
+@dataclass(frozen=True)
 class SubmissionRevisionRequested(BaseEvent):
     """
     Published when a teacher requests revision on a submission.

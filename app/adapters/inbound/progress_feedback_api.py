@@ -22,6 +22,9 @@ Activity Review Routes (admin):
 Annotation Routes (authenticated user):
 - POST /api/activity-reports/annotate — save annotation or revision to owned report
 - GET  /api/activity-reports/annotation — get current annotation state
+
+Privacy Audit Route (authenticated user):
+- GET  /api/privacy/audit — admin snapshots, shares granted, active schedule
 """
 
 from typing import TYPE_CHECKING, Any
@@ -250,6 +253,7 @@ def create_progress_feedback_api_routes(
                 subject_uid=subject_uid,
                 time_period=time_period,
                 domains=domains,
+                admin_uid=current_user.uid,
             )
             if result.is_error:
                 return Result.fail(result.expect_error())
@@ -377,6 +381,30 @@ def create_progress_feedback_api_routes(
 
             return Result.ok({"annotation": result.value})
 
+        @rt("/api/privacy/audit")
+        @boundary_handler()
+        async def get_privacy_audit(request: Request) -> Result[Any]:
+            """Return privacy-transparency summary for the authenticated user.
+
+            User-facing endpoint — always scoped to the requesting user's own data.
+            No admin privileges required.
+
+            Response includes:
+                admin_snapshots  — admin-generated reviews of this user's activity
+                                   (timestamps + admin uid so user can see who, when)
+                shares_granted   — other users currently holding SHARES_WITH access
+                                   to this user's entities (entity, role, when shared)
+                report_schedule  — active automatic report schedule + last generated
+
+            See: Privacy declaration in /docs/architecture/FEEDBACK_ARCHITECTURE.md
+            See: ADR-042 (Privacy as First-Class Citizen)
+            """
+            user_uid = require_authenticated_user(request)
+            result = await activity_report.get_privacy_summary(user_uid=user_uid)
+            if result.is_error:
+                return Result.fail(result.expect_error())
+            return Result.ok({"privacy_summary": result.value})
+
         routes.extend(
             [
                 get_activity_snapshot,
@@ -384,6 +412,7 @@ def create_progress_feedback_api_routes(
                 get_activity_feedback_history,
                 save_annotation,
                 get_annotation,
+                get_privacy_audit,
             ]
         )
         logger.info("Activity report routes registered")

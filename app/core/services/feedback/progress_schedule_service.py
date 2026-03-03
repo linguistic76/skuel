@@ -9,6 +9,7 @@ Manages recurring progress Ku generation schedules.
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from core.constants import FeedbackTimePeriod
 from core.models.enums.submissions_enums import ScheduleType
 from core.models.submissions.ku_schedule import (
     KuSchedule,
@@ -124,16 +125,27 @@ class ProgressScheduleService:
         return Result.ok(True)
 
     async def get_due_schedules(self) -> Result[list[KuSchedule]]:
-        """Get all active schedules that are due for generation."""
+        """Get all active schedules that are due for generation.
+
+        Enforces a minimum interval (MIN_AUTO_REPORT_INTERVAL_HOURS) between
+        automatic report generations even if next_due_at has elapsed. This prevents
+        schedule misconfiguration from flooding users with low-value reports and
+        caps incidental LLM costs.
+        """
         try:
             result = await self.backend.execute_query(
                 """
                 MATCH (s:KuSchedule)
                 WHERE s.is_active = true
                   AND s.next_due_at <= datetime()
+                  AND (
+                    s.last_generated_at IS NULL
+                    OR s.last_generated_at <= datetime() - duration({hours: $min_interval_hours})
+                  )
                 RETURN s
                 ORDER BY s.next_due_at ASC
                 """,
+                {"min_interval_hours": FeedbackTimePeriod.MIN_AUTO_REPORT_INTERVAL_HOURS},
             )
             if result.is_error:
                 return Result.fail(result.expect_error())

@@ -396,7 +396,7 @@ class FeedbackTimePeriod:
     """
     Valid time period strings for activity feedback and review.
 
-    Used by: ActivityReportService, ProgressFeedbackGenerator
+    Used by: ActivityReportService, ProgressFeedbackGenerator, ProgressScheduleService
     Both services share the same API-facing period vocabulary ("7d", "14d", etc.)
     and the corresponding day counts for datetime arithmetic.
     """
@@ -414,6 +414,14 @@ class FeedbackTimePeriod:
         "30d": 30,
         "90d": 90,
     }
+
+    # Minimum cooldown between on-demand (user-triggered) report generations.
+    # Prevents rapid-fire LLM calls from the /api/feedback/progress/generate endpoint.
+    MIN_REPORT_COOLDOWN_MINUTES: Final = 60
+
+    # Minimum interval between automatic (scheduled) report generations.
+    # Prevents schedule misconfiguration from flooding a user with low-value reports.
+    MIN_AUTO_REPORT_INTERVAL_HOURS: Final = 24
 
 
 # ============================================================================

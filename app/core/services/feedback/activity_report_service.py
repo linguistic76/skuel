@@ -20,9 +20,12 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.ports import BackendOperations, QueryExecutor
+    from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.user.user_context_builder import UserContextBuilder
 
 from core.constants import FeedbackTimePeriod
+from core.events import publish_event
+from core.events.submission_events import ActivitySnapshotAccessed
 from core.models.enums.entity_enums import ProcessorType
 from core.models.feedback.activity_report import ActivityReport
 from core.utils.logging import get_logger
@@ -47,10 +50,12 @@ class ActivityReportService:
         backend: "BackendOperations[ActivityReport]",
         context_builder: "UserContextBuilder",
         executor: "QueryExecutor",
+        event_bus: "EventBusOperations | None" = None,
     ) -> None:
         self.backend = backend
         self.context_builder = context_builder
         self.executor = executor
+        self.event_bus = event_bus
 
     async def persist(self, report: ActivityReport) -> Result[ActivityReport]:
         """
@@ -72,6 +77,7 @@ class ActivityReportService:
         subject_uid: str,
         time_period: str = "7d",
         domains: list[str] | None = None,
+        admin_uid: str = "",
     ) -> Result[dict[str, Any]]:
         """
         Query a user's activity data for a given time window.
@@ -88,6 +94,7 @@ class ActivityReportService:
             subject_uid: The user whose activity to snapshot
             time_period: Time window (7d, 14d, 30d, 90d)
             domains: Domains to include (None = all activity domains)
+            admin_uid: UID of the admin performing the snapshot (used for audit trail)
 
         Returns:
             Result[dict] — snapshot data with per-domain activity summaries
@@ -101,6 +108,17 @@ class ActivityReportService:
             return Result.fail(ctx_result.expect_error())
 
         context = ctx_result.value
+
+        # Publish audit event so the subject_uid can see when their data was accessed.
+        # This enables the privacy audit endpoint (GET /api/privacy/audit) to surface
+        # admin access history to the subject user. See ADR-042.
+        event = ActivitySnapshotAccessed(
+            subject_uid=subject_uid,
+            admin_uid=admin_uid,
+            time_period=time_period,
+            occurred_at=datetime.now(),
+        )
+        await publish_event(self.event_bus, event, logger)
         activity = context.entities_rich
         ku_rich = context.knowledge_units_rich
         mastery_scores = context.knowledge_mastery
@@ -505,3 +523,129 @@ class ActivityReportService:
         except Exception as e:
             logger.error(f"Failed to get annotation for ActivityReport {uid}: {e}")
             return Result.fail(Errors.system(f"Failed to retrieve annotation: {e}"))
+
+    async def get_privacy_summary(self, user_uid: str) -> Result[dict[str, Any]]:
+        """
+        Return a privacy-transparency summary for the authenticated user.
+
+        Three data points:
+            admin_snapshots  — ActivityReports written by admins about this user
+                               (processor_type=human, subject_uid=user_uid)
+            shares_granted   — Users who currently have SHARES_WITH access to
+                               the user's entities
+            report_schedule  — Current automatic report schedule + last generated
+
+        Used by GET /api/privacy/audit. User-facing — always scoped to the
+        requesting user's own data. No admin privileges required.
+
+        Args:
+            user_uid: Authenticated user requesting their own privacy summary
+
+        Returns:
+            Result[dict] — privacy summary with admin_snapshots, shares_granted,
+                           and report_schedule sections
+        """
+        try:
+            # 1. Admin-written ActivityReports received by this user
+            admin_snapshots_result = await self.executor.execute_query(
+                """
+                MATCH (n:Entity {ku_type: 'activity_report', subject_uid: $user_uid})
+                WHERE n.processor_type = 'human'
+                RETURN n.created_at AS accessed_at,
+                       n.user_uid AS admin_uid,
+                       n.time_period AS time_period
+                ORDER BY n.created_at DESC
+                LIMIT 50
+                """,
+                {"user_uid": user_uid},
+            )
+            admin_snapshots: list[dict[str, Any]] = []
+            if admin_snapshots_result.is_ok:
+                for record in admin_snapshots_result.value or []:
+                    admin_snapshots.append(
+                        {
+                            "accessed_at": (
+                                str(record.get("accessed_at"))
+                                if record.get("accessed_at")
+                                else None
+                            ),
+                            "admin_uid": record.get("admin_uid", ""),
+                            "time_period": record.get("time_period", ""),
+                        }
+                    )
+
+            # 2. Users with active SHARES_WITH access to this user's entities
+            shares_result = await self.executor.execute_query(
+                """
+                MATCH (accessor:User)-[sw:SHARES_WITH]->(e:Entity {user_uid: $user_uid})
+                RETURN accessor.uid AS accessor_uid,
+                       e.uid AS entity_uid,
+                       e.title AS entity_title,
+                       sw.role AS role,
+                       sw.shared_at AS shared_at
+                ORDER BY sw.shared_at DESC
+                LIMIT 100
+                """,
+                {"user_uid": user_uid},
+            )
+            shares_granted: list[dict[str, Any]] = []
+            if shares_result.is_ok:
+                for record in shares_result.value or []:
+                    shares_granted.append(
+                        {
+                            "accessor_uid": record.get("accessor_uid", ""),
+                            "entity_uid": record.get("entity_uid", ""),
+                            "entity_title": record.get("entity_title", ""),
+                            "role": record.get("role", ""),
+                            "shared_at": (
+                                str(record.get("shared_at"))
+                                if record.get("shared_at")
+                                else None
+                            ),
+                        }
+                    )
+
+            # 3. Active report schedule + last generated report
+            schedule_result = await self.executor.execute_query(
+                """
+                MATCH (u:User {uid: $user_uid})-[:HAS_SCHEDULE]->(s:KuSchedule)
+                WHERE s.is_active = true
+                RETURN s.schedule_type AS schedule_type,
+                       s.day_of_week AS day_of_week,
+                       s.next_due_at AS next_due_at,
+                       s.last_generated_at AS last_generated_at
+                LIMIT 1
+                """,
+                {"user_uid": user_uid},
+            )
+            report_schedule: dict[str, Any] = {"active": False}
+            if schedule_result.is_ok and schedule_result.value:
+                record = schedule_result.value[0]
+                report_schedule = {
+                    "active": True,
+                    "schedule_type": record.get("schedule_type", ""),
+                    "day_of_week": record.get("day_of_week"),
+                    "next_due_at": (
+                        str(record.get("next_due_at")) if record.get("next_due_at") else None
+                    ),
+                    "last_generated_at": (
+                        str(record.get("last_generated_at"))
+                        if record.get("last_generated_at")
+                        else None
+                    ),
+                }
+
+            return Result.ok(
+                {
+                    "user_uid": user_uid,
+                    "admin_snapshots": admin_snapshots,
+                    "admin_snapshot_count": len(admin_snapshots),
+                    "shares_granted": shares_granted,
+                    "shares_granted_count": len(shares_granted),
+                    "report_schedule": report_schedule,
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to get privacy summary for {user_uid}: {e}")
+            return Result.fail(Errors.system(f"Failed to retrieve privacy summary: {e}"))
