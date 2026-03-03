@@ -228,8 +228,19 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 | Document | Updated | Description |
 |----------|---------|-------------|
-| **[Codebase Health Checks](tools/HEALTH_CHECKS.md)** | **2026-03-03** | Dead modules, broken doc links, stale names in docs (`./dev health`) |
+| **[Codebase Health Checks](tools/HEALTH_CHECKS.md)** | **2026-03-04** | Dead modules, broken doc links, stale names, cross-refs (`./dev health`) |
 | [Automatic Documentation Check](tools/AUTOMATIC_DOCS_CHECK.md) | 2026-01-30 | Post-commit hook that suggests doc updates after code changes |
+
+---
+
+## User Guides
+
+*Practical usage guides for SKUEL workflows and tools*
+
+| Document | Updated | Description |
+|----------|---------|-------------|
+| [Tasks Quick Add](user-guides/tasks-quick-add.md) | — | Quick task creation guide |
+| **[Documentation Freshness](user-guides/documentation-freshness.md)** | **2026-03-04** | How SKUEL's three doc freshness systems work together (hooks + health checks + cross-refs) |
 
 ---
 

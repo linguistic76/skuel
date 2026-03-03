@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-03-03
+updated: 2026-03-04
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -15,20 +15,21 @@ related: [AUTOMATIC_DOCS_CHECK.md]
 
 ## Overview
 
-Three automated scripts that prevent codebase drift — the kind that accumulates silently between refactors: orphaned files, broken doc links, and stale names in documentation examples.
+Four automated checks that prevent codebase drift — the kind that accumulates silently between refactors: orphaned files, broken doc links, stale names in documentation examples, and skill↔doc cross-reference inconsistencies.
 
 ```bash
-./dev health              # run all three checks
+./dev health              # run all four checks
 ./dev health-modules      # dead Python modules only
 ./dev health-links        # broken doc links only
 ./dev health-names        # stale identifiers in docs only
+./dev health-xref         # cross-reference + staleness only
 ```
 
-All three exit non-zero when issues are found, so they can be used in CI.
+All four exit non-zero when issues are found, so they can be used in CI.
 
 ---
 
-## The Three Checks
+## The Four Checks
 
 ### 1. `dead_modules.py` — Zero-Importer Python Files
 
@@ -156,6 +157,41 @@ Run `./dev health-names --list` to print the complete RENAMED and DELETED tables
 
 ---
 
+### 4. `validate_cross_references.py` — Skill↔Doc Cross-References
+
+Validates bidirectional consistency between skills and documentation, and detects stale skills whose primary docs have been updated since `last_reviewed`.
+
+```
+Cross-Reference Validation Report
+================================================================================
+
+📊 Statistics:
+   Total skills: 23
+   Total docs scanned: 257
+   Skill references in docs: 111
+   Doc references in skills: 101
+
+✅ Bidirectional Links: 80/111 (72.1%)
+❌ Broken Links: 1
+⚠️  Missing Reverse Links: 51
+🔵 Stale Skills: 0
+```
+
+**What it checks:**
+
+| Check | Severity | Meaning |
+|-------|----------|---------|
+| Broken skill reference | ❌ Error | `@skill-name` in a doc doesn't exist in `skills_metadata.yaml` |
+| Broken doc link | ❌ Error | Doc in `skills_metadata.yaml` doesn't exist on disk |
+| Missing reverse link | ⚠️ Warning | Unidirectional reference (A→B but not B→A) |
+| Stale skill | 🔵 Info | Primary docs have git commits after `last_reviewed` |
+
+**Verbose mode:** `poetry run python scripts/validate_cross_references.py --verbose` includes orphaned docs and info-level issues.
+
+**Errors-only mode:** `poetry run python scripts/validate_cross_references.py --errors-only` for CI (exit 1 if errors).
+
+---
+
 ## Maintaining `stale_names.py`
 
 This script is only as useful as its RENAMED/DELETED tables. **Update it whenever you rename or delete something significant.**
@@ -226,12 +262,14 @@ The scripts are fast enough to run on every commit if desired (a few seconds eac
 
 ```
 scripts/health/
-├── dead_modules.py       # Zero-importer Python module detection
-├── dead_doc_links.py     # Markdown link validator
-└── stale_names.py        # Deprecated identifier scanner
+├── dead_modules.py                    # Zero-importer Python module detection
+├── dead_doc_links.py                  # Markdown link validator
+└── stale_names.py                     # Deprecated identifier scanner
+scripts/validate_cross_references.py   # Skill↔doc cross-reference validator
 ```
 
 **Related:**
-- `./dev health` — runs all three
+- `./dev health` — runs all four
 - `./dev bloat` — separate check for unused events/methods (different scope)
 - `docs/tools/AUTOMATIC_DOCS_CHECK.md` — post-commit hook for doc freshness
+- `docs/user-guides/documentation-freshness.md` — unified user guide
