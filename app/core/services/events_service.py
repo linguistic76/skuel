@@ -15,6 +15,8 @@ Sub-Services:
 
 from __future__ import annotations
 
+from datetime import date, datetime, time
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
@@ -45,10 +47,10 @@ from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.sort_functions import get_created_at_attr, get_title_lower
 
 if TYPE_CHECKING:
-    from datetime import date
-
+    from core.ports.query_types import ListContext
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.event.event_request import (
         AddAttendeeRequest,
@@ -64,6 +66,82 @@ if TYPE_CHECKING:
     from core.ports.search_protocols import EventsSearchOperations
     from core.services.events.events_intelligence_service import EventsIntelligenceService
     from core.services.user import UserContext
+
+
+def _null_callable() -> None:
+    """No-op callable: fallback for getattr when attribute is an optional method."""
+    return None
+
+
+def _get_event_status_value(event: Any) -> str:
+    """Get status value (handles both enum and string)."""
+    status = getattr(event, "status", None)
+    if status is None:
+        return "scheduled"
+    if isinstance(status, Enum):
+        return str(status.value).lower()
+    return str(status).lower()
+
+
+def _compute_event_stats(events: list[Any]) -> dict[str, int]:
+    """Calculate event statistics (pre-filter, over full list)."""
+    today = date.today()
+    return {
+        "total": len(events),
+        "scheduled": sum(1 for e in events if _get_event_status_value(e) == "scheduled"),
+        "today": sum(
+            1
+            for e in events
+            if getattr(e, "start_time", None)
+            and getattr(e.start_time, "date", _null_callable)() == today
+        ),
+    }
+
+
+def _apply_event_filters(events: list[Any], status_filter: str = "scheduled") -> list[Any]:
+    """Apply status filter to event list."""
+    if status_filter == "scheduled":
+        return [e for e in events if _get_event_status_value(e) == "scheduled"]
+    elif status_filter == "completed":
+        return [e for e in events if _get_event_status_value(e) == "completed"]
+    elif status_filter == "cancelled":
+        return [e for e in events if _get_event_status_value(e) == "cancelled"]
+    return events
+
+
+def _apply_event_sort(events: list[Any], sort_by: str = "start_time") -> list[Any]:
+    """Sort events by specified field."""
+
+    def get_sort_datetime(event: Any) -> datetime:
+        event_date = getattr(event, "event_date", None) or date.today()
+        if not isinstance(event_date, date) and getattr(event_date, "year", None) is not None:
+            event_date = date(event_date.year, event_date.month, event_date.day)
+        start_time_val = getattr(event, "start_time", None)
+        if start_time_val is None:
+            return datetime.combine(event_date, time(0, 0))
+        if (
+            not isinstance(start_time_val, time)
+            and getattr(start_time_val, "hour", None) is not None
+        ):
+            start_time_val = time(
+                start_time_val.hour,
+                start_time_val.minute,
+                getattr(start_time_val, "second", 0) or 0,
+            )
+        elif isinstance(start_time_val, str):
+            try:
+                start_time_val = datetime.strptime(start_time_val, "%H:%M:%S").time()
+            except ValueError:
+                start_time_val = time(0, 0)
+        return datetime.combine(event_date, start_time_val)
+
+    if sort_by == "start_time":
+        return sorted(events, key=get_sort_datetime)
+    elif sort_by == "title":
+        return sorted(events, key=get_title_lower)
+    elif sort_by == "created_at":
+        return sorted(events, key=get_created_at_attr, reverse=True)
+    return sorted(events, key=get_sort_datetime)
 
 
 class EventsService(BaseService["EventsOperations", Event]):
@@ -886,3 +964,28 @@ class EventsService(BaseService["EventsOperations", Event]):
         )
 
         return Result.ok(event)
+
+    # ========================================================================
+    # QUERY LAYER
+    # ========================================================================
+
+    async def get_filtered_context(
+        self,
+        user_uid: str,
+        status_filter: str = "scheduled",
+        sort_by: str = "start_time",
+    ) -> "Result[ListContext]":
+        """Get filtered and sorted events with pre-filter stats.
+
+        Orchestrates: fetch → stats (pre-filter) → filter → sort.
+        Routes call this instead of embedding the logic in factory closures.
+        """
+        result = await self.get_user_events(user_uid)
+        if result.is_error:
+            return result
+        all_events = result.value or []
+        stats = _compute_event_stats(all_events)
+        filtered = _apply_event_filters(all_events, status_filter)
+        sorted_events = _apply_event_sort(filtered, sort_by)
+        return Result.ok({"entities": sorted_events, "stats": stats})
+

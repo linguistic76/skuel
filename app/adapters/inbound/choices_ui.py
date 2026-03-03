@@ -32,11 +32,6 @@ from core.ports.query_types import ActivityFilterSpec
 from core.services.choices_service import ChoicesService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import (
-    get_created_at_attr,
-    get_decision_deadline,
-    make_priority_string_getter,
-)
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.choices.layout import create_choices_page
@@ -52,6 +47,37 @@ logger = get_logger("skuel.routes.choice.ui")
 
 
 # RouteDecorator and Request imported from adapters.inbound.fasthtml_types
+
+@dataclass
+class Filters:
+    """Typed filters for choice list queries."""
+
+    status: str
+    sort_by: str
+
+
+def parse_filters(request) -> Filters:
+    """Extract filter parameters from request query params."""
+    return Filters(
+        status=request.query_params.get("filter_status", "pending"),
+        sort_by=request.query_params.get("sort_by", "deadline"),
+    )
+
+
+def validate_choice_form_data(form_data: dict[str, Any]) -> Result[None]:
+    """Validate choice form data early.
+
+    Pure function: returns clear error messages for UI.
+    """
+    title = form_data.get("title", "").strip()
+    if not title:
+        return Result.fail(Errors.validation("Choice title is required"))
+
+    if len(title) > 200:
+        return Result.fail(Errors.validation("Choice title must be 200 characters or less"))
+
+    return Result.ok(None)
+
 
 # ============================================================================
 # UI ROUTES
@@ -75,28 +101,6 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
     """
 
     logger.info("Registering three-view choice routes (standalone, analytics)")
-
-    # ========================================================================
-    # QUERY PARAM TYPES
-    # ========================================================================
-
-    @dataclass
-    class Filters:
-        """Typed filters for choice list queries."""
-
-        status: str
-        sort_by: str
-
-    # ========================================================================
-    # HELPER FUNCTIONS
-    # ========================================================================
-
-    def parse_filters(request) -> Filters:
-        """Extract filter parameters from request query params."""
-        return Filters(
-            status=request.query_params.get("filter_status", "pending"),
-            sort_by=request.query_params.get("sort_by", "deadline"),
-        )
 
     # ========================================================================
     # DATA FETCHING HELPERS
@@ -149,148 +153,6 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
                 options.append({"title": title, "description": desc})
             index += 1
         return options
-
-    # ========================================================================
-    # PURE COMPUTATION HELPERS (Testable without mocks)
-    # ========================================================================
-
-    def validate_choice_form_data(form_data: dict[str, Any]) -> Result[None]:
-        """
-        Validate choice form data early.
-
-        Pure function: returns clear error messages for UI.
-
-        Args:
-            form_data: Raw form data from request
-
-        Returns:
-            Result.ok(None) if valid, Errors.validation() with user-friendly message if invalid
-        """
-        # Required fields
-        title = form_data.get("title", "").strip()
-        if not title:
-            return Result.fail(Errors.validation("Choice title is required"))
-
-        if len(title) > 200:
-            return Result.fail(Errors.validation("Choice title must be 200 characters or less"))
-
-        return Result.ok(None)
-
-    def compute_choice_stats(choices: list[Any]) -> dict[str, int]:
-        """
-        Calculate choice statistics.
-
-        Pure function: testable without database or async.
-
-        Args:
-            choices: List of choice entities
-
-        Returns:
-            Stats dict with total, pending, decided counts
-        """
-        return {
-            "total": len(choices),
-            "pending": sum(1 for c in choices if _get_enum_value(c, "status") == "pending"),
-            "decided": sum(1 for c in choices if _get_enum_value(c, "status") == "decided"),
-        }
-
-    def apply_choice_filters(
-        choices: list[Any],
-        status_filter: str = "pending",
-    ) -> list[Any]:
-        """
-        Apply filter criteria to choice list.
-
-        Pure function: testable without database or async.
-
-        Args:
-            choices: List of choice entities
-            status_filter: Status filter (pending, decided, implemented, all)
-
-        Returns:
-            Filtered list of choices
-        """
-        # Filter: status
-        if status_filter == "pending":
-            return [c for c in choices if _get_enum_value(c, "status") == "pending"]
-        elif status_filter == "decided":
-            return [c for c in choices if _get_enum_value(c, "status") == "decided"]
-        elif status_filter == "implemented":
-            return [c for c in choices if _get_enum_value(c, "status") == "implemented"]
-        # "all" shows everything
-        return choices
-
-    def apply_choice_sort(choices: list[Any], sort_by: str = "deadline") -> list[Any]:
-        """
-        Sort choices by specified field.
-
-        Pure function: testable without database or async.
-
-        Args:
-            choices: List of choice entities
-            sort_by: Sort field (deadline, priority, created_at)
-
-        Returns:
-            Sorted list of choices
-        """
-        if sort_by == "deadline":
-            return sorted(choices, key=get_decision_deadline)
-        elif sort_by == "priority":
-            priority_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-
-            def get_choice_priority(c: Any) -> str:
-                return _get_enum_value(c, "priority", "medium")
-
-            sort_key = make_priority_string_getter(priority_order, get_choice_priority)
-            return sorted(choices, key=sort_key)
-        elif sort_by == "created_at":
-            return sorted(choices, key=get_created_at_attr, reverse=True)
-        else:
-            # Default: deadline
-            return sorted(choices, key=get_decision_deadline)
-
-    async def get_filtered_choices(
-        user_uid: str,
-        status_filter: str = "pending",
-        sort_by: str = "deadline",
-    ) -> Result[tuple[list[Any], dict[str, int]]]:
-        """
-        Get filtered and sorted choices for user.
-
-        Orchestrates: fetch (I/O) → stats → filter → sort.
-        Pure computation delegated to testable helper functions.
-        """
-        try:
-            # I/O: Fetch all choices
-            choices_result = await get_all_choices(user_uid)
-            if choices_result.is_error:
-                return Result.fail(choices_result.expect_error())
-
-            choices = choices_result.value
-
-            # Computation: Calculate stats BEFORE filtering
-            stats = compute_choice_stats(choices)
-
-            # Computation: Apply filters
-            filtered_choices = apply_choice_filters(choices, status_filter)
-
-            # Computation: Apply sort
-            sorted_choices = apply_choice_sort(filtered_choices, sort_by)
-
-            return Result.ok((sorted_choices, stats))
-
-        except Exception as e:
-            logger.error(
-                "Error filtering choices",
-                extra={
-                    "user_uid": user_uid,
-                    "status_filter": status_filter,
-                    "sort_by": sort_by,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to filter choices: {e}"))
 
     async def get_choice_types() -> Result[list[str]]:
         """Get available choice types."""
@@ -395,7 +257,9 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         filters = parse_filters(request)
 
         # Get data with Result[T]
-        filtered_result = await get_filtered_choices(user_uid, filters.status, filters.sort_by)
+        filtered_result = await choices_service.get_filtered_context(
+            user_uid, filters.status, filters.sort_by
+        )
         choice_types_result = await get_choice_types()
         domains_result = await get_domains()
 
@@ -425,7 +289,8 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
             return await create_choices_page(error_content, request=request)
 
         # Extract values
-        choices, stats = filtered_result.value
+        ctx = filtered_result.value
+        choices, stats = ctx["entities"], ctx["stats"]
         choice_types = choice_types_result.value
         domains = domains_result.value
 
@@ -476,13 +341,16 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         user_uid = require_authenticated_user(request)
         filters = parse_filters(request)
 
-        filtered_result = await get_filtered_choices(user_uid, filters.status, filters.sort_by)
+        filtered_result = await choices_service.get_filtered_context(
+            user_uid, filters.status, filters.sort_by
+        )
 
         # Handle errors
         if filtered_result.is_error:
             return render_error_banner("Failed to load choices")
 
-        choices, stats = filtered_result.value
+        ctx = filtered_result.value
+        choices, stats = ctx["entities"], ctx["stats"]
 
         filters_dict: ActivityFilterSpec = {"status": filters.status, "sort_by": filters.sort_by}
         return ChoicesViewComponents.render_list_view(
@@ -534,13 +402,16 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         user_uid = require_authenticated_user(request)
         filters = parse_filters(request)
 
-        filtered_result = await get_filtered_choices(user_uid, filters.status, filters.sort_by)
+        filtered_result = await choices_service.get_filtered_context(
+            user_uid, filters.status, filters.sort_by
+        )
 
         # Handle errors
         if filtered_result.is_error:
             return render_error_banner("Failed to load choices")
 
-        choices, _stats = filtered_result.value
+        ctx = filtered_result.value
+        choices = ctx["entities"]
 
         # Return just the choice items
         choice_items = [ChoicesViewComponents._render_choice_item(choice) for choice in choices]
@@ -628,10 +499,11 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
 
     async def render_choice_success_view(user_uid: str) -> Any:
         """Render list view after successful choice creation."""
-        result = await get_filtered_choices(user_uid, "pending", "deadline")
+        result = await choices_service.get_filtered_context(user_uid)
         if result.is_error:
             return render_error_banner("Failed to load choices")
-        choices, stats = result.value
+        ctx = result.value
+        choices, stats = ctx["entities"], ctx["stats"]
         filters: ActivityFilterSpec = {"status": "pending", "sort_by": "deadline"}
         return ChoicesViewComponents.render_list_view(
             choices=choices,

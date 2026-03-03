@@ -36,12 +36,6 @@ from core.ports.query_types import ActivityFilterSpec
 from core.services.habits_service import HabitsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import (
-    get_created_at_attr,
-    get_current_streak,
-    get_name_lower,
-    get_recurrence_pattern,
-)
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.habits.atomic_achievements import AtomicHabitsBadges
@@ -385,6 +379,22 @@ def get_status_color(status) -> Any:
 # ============================================================================
 
 
+@dataclass
+class Filters:
+    """Typed filters for habit list queries."""
+
+    status: str
+    sort_by: str
+
+
+def parse_filters(request) -> Filters:
+    """Extract filter parameters from request query params."""
+    return Filters(
+        status=request.query_params.get("filter_status", "active"),
+        sort_by=request.query_params.get("sort_by", "streak"),
+    )
+
+
 def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: Any = None):
     """
     Create three-view habit UI routes (standalone, no drawer).
@@ -397,28 +407,6 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
 
     goals_service = services.goals if services else None
     logger.info("Registering three-view habit routes (standalone)")
-
-    # ========================================================================
-    # QUERY PARAM TYPES
-    # ========================================================================
-
-    @dataclass
-    class Filters:
-        """Typed filters for habit list queries."""
-
-        status: str
-        sort_by: str
-
-    # ========================================================================
-    # HELPER FUNCTIONS
-    # ========================================================================
-
-    def parse_filters(request) -> Filters:
-        """Extract filter parameters from request query params."""
-        return Filters(
-            status=request.query_params.get("filter_status", "active"),
-            sort_by=request.query_params.get("sort_by", "streak"),
-        )
 
     # ========================================================================
     # DATA FETCHING HELPERS
@@ -443,151 +431,6 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
             )
             return Result.fail(Errors.system(f"Failed to fetch habits: {e}"))
 
-    # ========================================================================
-    # PURE COMPUTATION HELPERS (Testable without mocks)
-    # ========================================================================
-
-    def validate_habit_form_data(form_data: dict[str, Any]) -> Result[None]:
-        """
-        Validate habit form data early.
-
-        Pure function: returns clear error messages for UI.
-
-        Args:
-            form_data: Raw form data from request
-
-        Returns:
-            Result.ok(None) if valid, Errors.validation() with user-friendly message if invalid
-        """
-        # Required fields
-        title = form_data.get("title", "").strip()
-        if not title:
-            return Result.fail(Errors.validation("Habit title is required"))
-
-        if len(title) > 200:
-            return Result.fail(Errors.validation("Habit title must be 200 characters or less"))
-
-        # Frequency validation
-        frequency_str = form_data.get("frequency", "")
-        if frequency_str:
-            try:
-                frequency = int(frequency_str)
-                if frequency < 1:
-                    return Result.fail(Errors.validation("Frequency must be at least 1"))
-                if frequency > 365:
-                    return Result.fail(Errors.validation("Frequency must be 365 or less"))
-            except ValueError:
-                return Result.fail(Errors.validation("Invalid frequency"))
-
-        return Result.ok(None)
-
-    def compute_habit_stats(habits: list[Any]) -> dict[str, int]:
-        """Calculate habit statistics.
-
-        Pure function: testable without database or async.
-
-        Args:
-            habits: List of habit entities
-
-        Returns:
-            Stats dict with counts
-        """
-        return {
-            "total": len(habits),
-            "active": sum(1 for h in habits if str(h.status.value).lower() == "active"),
-            "streaks": sum(1 for h in habits if h.current_streak > 0),
-        }
-
-    def apply_habit_filters(
-        habits: list[Any],
-        status_filter: str = "active",
-    ) -> list[Any]:
-        """Apply filter criteria to habit list.
-
-        Pure function: testable without database or async.
-
-        Args:
-            habits: List of habit entities
-            status_filter: Status filter (active, paused, completed, all)
-
-        Returns:
-            Filtered list of habits
-        """
-        # Filter by status
-        if status_filter == "active":
-            return [h for h in habits if str(h.status.value).lower() == "active"]
-        elif status_filter == "paused":
-            return [h for h in habits if str(h.status.value).lower() == "paused"]
-        elif status_filter == "completed":
-            return [h for h in habits if str(h.status.value).lower() == "completed"]
-        # "all" - no filtering
-        return habits
-
-    def apply_habit_sort(habits: list[Any], sort_by: str = "streak") -> list[Any]:
-        """Sort habits by specified field.
-
-        Pure function: testable without database or async.
-
-        Args:
-            habits: List of habit entities
-            sort_by: Sort field (streak, name, created_at, frequency)
-
-        Returns:
-            Sorted list of habits
-        """
-        if sort_by == "streak":
-            return sorted(habits, key=get_current_streak, reverse=True)
-        elif sort_by == "name":
-            return sorted(habits, key=get_name_lower)
-        elif sort_by == "created_at":
-            return sorted(habits, key=get_created_at_attr, reverse=True)
-        elif sort_by == "frequency":
-            return sorted(habits, key=get_recurrence_pattern)
-        else:
-            # Default: streak
-            return sorted(habits, key=get_current_streak, reverse=True)
-
-    async def get_filtered_habits(
-        user_uid: str,
-        status_filter: str = "active",
-        sort_by: str = "streak",
-    ) -> Result[tuple[list[Any], dict[str, int]]]:
-        """Get filtered and sorted habits with stats.
-
-        Orchestrates: fetch (I/O) → stats → filter → sort.
-        Pure computation delegated to testable helper functions.
-        """
-        try:
-            # I/O: Fetch all habits
-            habits_result = await get_all_habits(user_uid)
-            if habits_result.is_error:
-                return Result.fail(habits_result)
-
-            habits = habits_result.value
-
-            # Computation: Calculate stats BEFORE filtering
-            stats = compute_habit_stats(habits)
-
-            # Computation: Apply filters
-            filtered_habits = apply_habit_filters(habits, status_filter)
-
-            # Computation: Apply sort
-            sorted_habits = apply_habit_sort(filtered_habits, sort_by)
-
-            return Result.ok((sorted_habits, stats))
-        except Exception as e:
-            logger.error(
-                "Error filtering habits",
-                extra={
-                    "user_uid": user_uid,
-                    "status_filter": status_filter,
-                    "sort_by": sort_by,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to filter habits: {e}"))
-
     async def get_categories() -> Result[list[str]]:
         """Get unique habit categories."""
         return Result.ok(
@@ -611,7 +454,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         calendar_params = parse_calendar_params(request)
 
         # Get data with Result[T]
-        filtered_result = await get_filtered_habits(user_uid, filters.status, filters.sort_by)
+        filtered_result = await habits_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
         categories_result = await get_categories()
 
         # CHECK FOR ERRORS
@@ -632,7 +475,8 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
             return await create_habits_page(error_content, request=request)
 
         # Extract values
-        habits, stats = filtered_result.value
+        ctx = filtered_result.value
+        habits, stats = ctx["entities"], ctx["stats"]
         categories = categories_result.value
 
         # Render the appropriate view content
@@ -684,7 +528,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         user_uid = require_authenticated_user(request)
         filters = parse_filters(request)
 
-        filtered_result = await get_filtered_habits(user_uid, filters.status, filters.sort_by)
+        filtered_result = await habits_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
         categories_result = await get_categories()
 
         # Handle errors (return banner directly for HTMX swap)
@@ -694,7 +538,8 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         if categories_result.is_error:
             return render_error_banner("Failed to load categories")
 
-        habits, stats = filtered_result.value
+        ctx = filtered_result.value
+        habits, stats = ctx["entities"], ctx["stats"]
         categories = categories_result.value
 
         filters_dict: ActivityFilterSpec = {"status": filters.status, "sort_by": filters.sort_by}
@@ -747,13 +592,14 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         user_uid = require_authenticated_user(request)
         filters = parse_filters(request)
 
-        filtered_result = await get_filtered_habits(user_uid, filters.status, filters.sort_by)
+        filtered_result = await habits_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
         # Handle errors
         if filtered_result.is_error:
             return render_error_banner("Failed to load habits")
 
-        habits, _stats = filtered_result.value
+        ctx = filtered_result.value
+        habits = ctx["entities"]
 
         # Return just the habit items
         habit_items = [HabitsViewComponents._render_habit_item(habit) for habit in habits]
@@ -815,11 +661,12 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
 
     async def render_habit_success_view(user_uid: str) -> Any:
         """Render list view after successful habit creation."""
-        result = await get_filtered_habits(user_uid, "active", "streak")
+        result = await habits_service.get_filtered_context(user_uid)
         if result.is_error:
             habits, stats = [], {}
         else:
-            habits, stats = result.value
+            ctx = result.value
+            habits, stats = ctx["entities"], ctx["stats"]
         categories = await get_categories()
         return HabitsViewComponents.render_list_view(
             habits=habits,

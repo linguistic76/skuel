@@ -17,6 +17,8 @@ Sub-Services:
 
 from __future__ import annotations
 
+from datetime import date
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus, Priority
@@ -45,13 +47,87 @@ from core.utils.activity_domain_config import create_common_sub_services
 from core.utils.dto_helpers import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.sort_functions import (
+    get_created_at_attr,
+    get_current_value,
+    make_priority_string_getter,
+)
 
 if TYPE_CHECKING:
+    from core.ports.query_types import ListContext
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.goal.goal_request import GoalCreateRequest
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.search_protocols import GoalsSearchOperations
     from core.services.user import UserContext
+
+
+def _get_goal_status_str(goal: Any) -> str:
+    """Extract status as lowercase string, handling both enum and string."""
+    status = getattr(goal, "status", "active")
+    if isinstance(status, Enum):
+        return str(status.value).lower()
+    return str(status).lower()
+
+
+def _get_goal_priority_str(goal: Any) -> str:
+    """Extract priority as lowercase string, handling both enum and string."""
+    priority = getattr(goal, "priority", "medium")
+    if isinstance(priority, Enum):
+        return str(priority.value).lower()
+    return str(priority).lower()
+
+
+def _get_goal_target_date(goal: Any) -> date:
+    """Extract target_date as date object, handling both date and string."""
+    target = getattr(goal, "target_date", None)
+    if target is None:
+        return date.max
+    if isinstance(target, date):
+        return target
+    if isinstance(target, str):
+        try:
+            return date.fromisoformat(target)
+        except ValueError:
+            pass
+    return date.max
+
+
+def _compute_goal_stats(goals: list[Any]) -> dict[str, int]:
+    """Calculate goal statistics (pre-filter, over full list)."""
+    return {
+        "total": len(goals),
+        "active": sum(1 for g in goals if _get_goal_status_str(g) == "active"),
+        "completed": sum(1 for g in goals if _get_goal_status_str(g) == "completed"),
+    }
+
+
+def _apply_goal_filters(goals: list[Any], status_filter: str = "active") -> list[Any]:
+    """Apply status filter to goal list."""
+    if status_filter == "active":
+        return [g for g in goals if _get_goal_status_str(g) == "active"]
+    elif status_filter == "completed":
+        return [g for g in goals if _get_goal_status_str(g) == "completed"]
+    elif status_filter == "paused":
+        return [g for g in goals if _get_goal_status_str(g) == "paused"]
+    return goals
+
+
+_GOAL_PRIORITY_ORDER: dict[str, int] = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+
+def _apply_goal_sort(goals: list[Any], sort_by: str = "target_date") -> list[Any]:
+    """Sort goals by specified field."""
+    if sort_by == "target_date":
+        return sorted(goals, key=_get_goal_target_date)
+    elif sort_by == "priority":
+        sort_key = make_priority_string_getter(_GOAL_PRIORITY_ORDER, _get_goal_priority_str)
+        return sorted(goals, key=sort_key)
+    elif sort_by == "progress":
+        return sorted(goals, key=get_current_value, reverse=True)
+    elif sort_by == "created_at":
+        return sorted(goals, key=get_created_at_attr, reverse=True)
+    return sorted(goals, key=_get_goal_target_date)
 
 
 class GoalsService(BaseService[GoalsOperations, Goal]):
@@ -631,6 +707,30 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         )
 
         return Result.ok(assessment)
+
+    # ========================================================================
+    # QUERY LAYER
+    # ========================================================================
+
+    async def get_filtered_context(
+        self,
+        user_uid: str,
+        status_filter: str = "active",
+        sort_by: str = "target_date",
+    ) -> "Result[ListContext]":
+        """Get filtered and sorted goals with pre-filter stats.
+
+        Orchestrates: fetch → stats (pre-filter) → filter → sort.
+        Routes call this instead of embedding the logic in factory closures.
+        """
+        result = await self.get_user_goals(user_uid)
+        if result.is_error:
+            return result
+        all_goals = result.value or []
+        stats = _compute_goal_stats(all_goals)
+        filtered = _apply_goal_filters(all_goals, status_filter)
+        sorted_goals = _apply_goal_sort(filtered, sort_by)
+        return Result.ok({"entities": sorted_goals, "stats": stats})
 
     # Note: Status operations (activate_goal, pause_goal, complete_goal, archive_goal)
     # and Search operations (list_goal_categories, get_goals_by_status, search_goals, etc.)

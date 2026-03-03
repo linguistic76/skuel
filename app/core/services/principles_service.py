@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums.principle_enums import PrincipleCategory
+from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.ports.domain_protocols import (
@@ -43,8 +43,10 @@ from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.sort_functions import get_created_at_attr, get_title_or_name_lower
 
 if TYPE_CHECKING:
+    from core.ports.query_types import ListContext
     from core.ports.search_protocols import PrinciplesSearchOperations
     from core.services.principles.principles_alignment_service import (
         AlignmentAssessment,
@@ -61,6 +63,79 @@ if TYPE_CHECKING:
 def _by_assessed_date(item: dict[str, Any]) -> str:
     """Sort key for alignment history by assessed_date (SKUEL012: no lambdas)."""
     return item.get("assessed_date", "")
+
+
+_PRINCIPLE_STRENGTH_ORDER: dict[PrincipleStrength, int] = {
+    PrincipleStrength.CORE: 5,
+    PrincipleStrength.STRONG: 4,
+    PrincipleStrength.MODERATE: 3,
+    PrincipleStrength.DEVELOPING: 2,
+    PrincipleStrength.EXPLORING: 1,
+}
+
+
+def _get_principle_strength_value(p: Any) -> int:
+    """Get numeric strength value for sorting/filtering."""
+    s = getattr(p, "strength", PrincipleStrength.MODERATE)
+    if isinstance(s, PrincipleStrength):
+        return _PRINCIPLE_STRENGTH_ORDER.get(s, 3)
+    if isinstance(s, str):
+        s_upper = s.upper()
+        for enum_val in PrincipleStrength:
+            if enum_val.value == s or enum_val.name == s_upper:
+                return _PRINCIPLE_STRENGTH_ORDER.get(enum_val, 3)
+    return 3
+
+
+def _compute_principle_stats(principles: list[Any]) -> dict[str, int]:
+    """Calculate principle statistics (pre-filter, over full list)."""
+    return {
+        "total": len(principles),
+        "core": sum(1 for p in principles if _get_principle_strength_value(p) >= 5),
+        "active": sum(1 for p in principles if getattr(p, "is_active", True)),
+    }
+
+
+def _apply_principle_filters(
+    principles: list[Any],
+    category_filter: str = "all",
+    strength_filter: str = "all",
+) -> list[Any]:
+    """Apply category and strength filters to principle list."""
+    if category_filter != "all":
+        principles = [
+            p
+            for p in principles
+            if str(getattr(p, "category", "")).lower().replace("principlecategory.", "")
+            == category_filter.lower()
+        ]
+
+    if strength_filter == "core":
+        principles = [p for p in principles if _get_principle_strength_value(p) >= 5]
+    elif strength_filter == "strong":
+        principles = [p for p in principles if _get_principle_strength_value(p) == 4]
+    elif strength_filter == "developing":
+        principles = [p for p in principles if _get_principle_strength_value(p) in (2, 3)]
+    elif strength_filter == "aspirational":
+        principles = [p for p in principles if _get_principle_strength_value(p) <= 1]
+
+    return principles
+
+
+def _by_strength(p: Any) -> int:
+    """Sort key for principles by strength (SKUEL012: named function, no lambda)."""
+    return _get_principle_strength_value(p)
+
+
+def _apply_principle_sort(principles: list[Any], sort_by: str = "strength") -> list[Any]:
+    """Sort principles by specified field."""
+    if sort_by == "strength":
+        return sorted(principles, key=_by_strength, reverse=True)
+    elif sort_by == "title":
+        return sorted(principles, key=get_title_or_name_lower)
+    elif sort_by == "created_at":
+        return sorted(principles, key=get_created_at_attr, reverse=True)
+    return sorted(principles, key=_by_strength, reverse=True)
 
 
 class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
@@ -770,3 +845,29 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
             all_links.extend({"target_uid": uid, "link_type": lt} for uid in uids_result.value)
 
         return Result.ok(all_links)
+
+    # ========================================================================
+    # QUERY LAYER
+    # ========================================================================
+
+    async def get_filtered_context(
+        self,
+        user_uid: str,
+        category_filter: str = "all",
+        strength_filter: str = "all",
+        sort_by: str = "strength",
+    ) -> "Result[ListContext]":
+        """Get filtered and sorted principles with pre-filter stats.
+
+        Orchestrates: fetch → stats (pre-filter) → filter → sort.
+        Routes call this instead of embedding the logic in factory closures.
+        """
+        result = await self.get_user_principles(user_uid)
+        if result.is_error:
+            return result
+        all_principles = result.value or []
+        stats = _compute_principle_stats(all_principles)
+        filtered = _apply_principle_filters(all_principles, category_filter, strength_filter)
+        sorted_principles = _apply_principle_sort(filtered, sort_by)
+        return Result.ok({"entities": sorted_principles, "stats": stats})
+

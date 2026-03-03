@@ -1124,6 +1124,27 @@ class ContextDashboard(TypedDict, total=False):
     predictions: PredictionsData
 
 
+class ListContext(TypedDict, total=False):
+    """
+    Typed context returned by service.get_filtered_context() methods.
+
+    Each Activity Domain facade exposes get_filtered_context() which fetches,
+    computes stats, filters, and sorts entities in one call. Routes receive this
+    typed dict and access entities + stats without knowing the internals.
+
+    Fields:
+        entities: Filtered and sorted entity list
+        stats: Aggregate stats computed BEFORE filtering (total, domain-specific counts)
+
+    Usage:
+        ctx = result.value
+        render_list(ctx["entities"], ctx["stats"])
+    """
+
+    entities: list[Any]
+    stats: dict[str, int]
+
+
 class ContextSummary(TypedDict, total=False):
     """
     Summary response from UserContextService.get_context_summary().
@@ -1195,6 +1216,7 @@ __all__ = [
     "GraphContextResult",
     "ProgressResult",
     "IntelligenceResult",
+    "ListContext",
     # User Context Service Response Types - Nested Structures
     "DashboardTasksOverview",
     "DashboardGoalsOverview",

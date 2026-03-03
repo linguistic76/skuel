@@ -19,7 +19,6 @@ __version__ = "2.0"
 import contextlib
 from dataclasses import dataclass
 from datetime import date
-from enum import Enum
 from typing import Any
 
 from fasthtml.common import H1, H2, H3, Div, Form, Option, P, Script, Span
@@ -36,11 +35,6 @@ from core.ports.query_types import ActivityFilterSpec
 from core.services.goals_service import GoalsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import (
-    get_created_at_attr,
-    get_current_value,
-    make_priority_string_getter,
-)
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.feedback import Progress
@@ -515,6 +509,22 @@ def get_priority_color(priority) -> Any:
 # ============================================================================
 
 
+@dataclass
+class Filters:
+    """Typed filters for goal list queries."""
+
+    status: str
+    sort_by: str
+
+
+def parse_filters(request) -> Filters:
+    """Extract filter parameters from request query params."""
+    return Filters(
+        status=request.query_params.get("filter_status", "active"),
+        sort_by=request.query_params.get("sort_by", "target_date"),
+    )
+
+
 def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any = None):
     """
     Create three-view goal UI routes (standalone, no drawer).
@@ -532,28 +542,6 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
     """
 
     logger.info("Registering three-view goal routes (standalone)")
-
-    # ========================================================================
-    # QUERY PARAM TYPES
-    # ========================================================================
-
-    @dataclass
-    class Filters:
-        """Typed filters for goal list queries."""
-
-        status: str
-        sort_by: str
-
-    # ========================================================================
-    # HELPER FUNCTIONS
-    # ========================================================================
-
-    def parse_filters(request) -> Filters:
-        """Extract filter parameters from request query params."""
-        return Filters(
-            status=request.query_params.get("filter_status", "active"),
-            sort_by=request.query_params.get("sort_by", "target_date"),
-        )
 
     # ========================================================================
     # DATA FETCHING HELPERS
@@ -577,180 +565,6 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                 },
             )
             return Result.fail(Errors.system(f"Failed to fetch goals: {e}"))
-
-    def get_status_str(goal) -> str:
-        """Extract status as lowercase string, handling both enum and string."""
-        status = getattr(goal, "status", "active")
-        if isinstance(status, Enum):
-            return str(status.value).lower()
-        return str(status).lower()
-
-    def get_priority_str(goal) -> str:
-        """Extract priority as lowercase string, handling both enum and string."""
-        priority = getattr(goal, "priority", "medium")
-        if isinstance(priority, Enum):
-            return str(priority.value).lower()
-        return str(priority).lower()
-
-    def get_target_date(goal) -> date:
-        """Extract target_date as date object, handling both date and string."""
-        target = getattr(goal, "target_date", None)
-        if target is None:
-            return date.max
-        if isinstance(target, date):
-            return target
-        if isinstance(target, str):
-            try:
-                return date.fromisoformat(target)
-            except ValueError:
-                return date.max
-        return date.max
-
-    # ========================================================================
-    # PURE COMPUTATION HELPERS (Testable without mocks)
-
-    def validate_goal_form_data(form_data: dict[str, Any]) -> Result[None]:
-        """
-        Validate goal form data early.
-
-        Pure function: returns clear error messages for UI.
-
-        Args:
-            form_data: Raw form data from request
-
-        Returns:
-            Result.ok(None) if valid, Errors.validation() with user-friendly message if invalid
-        """
-        # Required fields
-        title = form_data.get("title", "").strip()
-        if not title:
-            return Result.fail(Errors.validation("Goal title is required"))
-
-        if len(title) > 200:
-            return Result.fail(Errors.validation("Goal title must be 200 characters or less"))
-
-        # Date validation
-        target_date_str = form_data.get("target_date", "")
-        if target_date_str:
-            try:
-                target_date = date.fromisoformat(target_date_str)
-                if target_date < date.today():
-                    return Result.fail(Errors.validation("Target date must be in the future"))
-            except ValueError:
-                return Result.fail(Errors.validation("Invalid date format"))
-
-        return Result.ok(None)
-
-    # ========================================================================
-
-    def compute_goal_stats(goals: list[Any]) -> dict[str, int]:
-        """Calculate goal statistics.
-
-        Pure function: testable without database or async.
-
-        Args:
-            goals: List of goal entities
-
-        Returns:
-            Stats dict with counts
-        """
-        return {
-            "total": len(goals),
-            "active": sum(1 for g in goals if get_status_str(g) == "active"),
-            "completed": sum(1 for g in goals if get_status_str(g) == "completed"),
-        }
-
-    def apply_goal_filters(
-        goals: list[Any],
-        status_filter: str = "active",
-    ) -> list[Any]:
-        """Apply filter criteria to goal list.
-
-        Pure function: testable without database or async.
-
-        Args:
-            goals: List of goal entities
-            status_filter: Status filter (active, completed, paused, all)
-
-        Returns:
-            Filtered list of goals
-        """
-        # Filter by status
-        if status_filter == "active":
-            return [g for g in goals if get_status_str(g) == "active"]
-        elif status_filter == "completed":
-            return [g for g in goals if get_status_str(g) == "completed"]
-        elif status_filter == "paused":
-            return [g for g in goals if get_status_str(g) == "paused"]
-        # "all" - no filtering
-        return goals
-
-    def apply_goal_sort(goals: list[Any], sort_by: str = "target_date") -> list[Any]:
-        """Sort goals by specified field.
-
-        Pure function: testable without database or async.
-
-        Args:
-            goals: List of goal entities
-            sort_by: Sort field (target_date, priority, progress, created_at)
-
-        Returns:
-            Sorted list of goals
-        """
-        if sort_by == "target_date":
-            return sorted(goals, key=get_target_date)
-        elif sort_by == "priority":
-            priority_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-            sort_key = make_priority_string_getter(priority_order, get_priority_str)
-            return sorted(goals, key=sort_key)
-        elif sort_by == "progress":
-            return sorted(goals, key=get_current_value, reverse=True)
-        elif sort_by == "created_at":
-            return sorted(goals, key=get_created_at_attr, reverse=True)
-        else:
-            # Default: target_date
-            return sorted(goals, key=get_target_date)
-
-    async def get_filtered_goals(
-        user_uid: str,
-        status_filter: str = "active",
-        sort_by: str = "target_date",
-    ) -> Result[tuple[list[Any], dict[str, int]]]:
-        """Get filtered and sorted goals for user.
-
-        Orchestrates: fetch (I/O) → stats → filter → sort.
-        Pure computation delegated to testable helper functions.
-        """
-        try:
-            # I/O: Fetch all goals
-            goals_result = await get_all_goals(user_uid)
-            if goals_result.is_error:
-                return Result.fail(goals_result)
-
-            goals = goals_result.value
-
-            # Computation: Calculate stats BEFORE filtering
-            stats = compute_goal_stats(goals)
-
-            # Computation: Apply filters
-            filtered_goals = apply_goal_filters(goals, status_filter)
-
-            # Computation: Apply sort
-            sorted_goals = apply_goal_sort(filtered_goals, sort_by)
-
-            return Result.ok((sorted_goals, stats))
-        except Exception as e:
-            logger.error(
-                "Error filtering goals",
-                extra={
-                    "user_uid": user_uid,
-                    "status_filter": status_filter,
-                    "sort_by": sort_by,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to filter goals: {e}"))
 
     async def get_categories() -> Result[list[str]]:
         """Get unique goal categories (valid Domain enum values)."""
@@ -784,7 +598,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         calendar_params = parse_calendar_params(request)
 
         # Get data with Result[T]
-        filtered_result = await get_filtered_goals(user_uid, filters.status, filters.sort_by)
+        filtered_result = await goals_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
         categories_result = await get_categories()
 
         # CHECK FOR ERRORS
@@ -805,7 +619,8 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
             return await create_goals_page(error_content, request=request)
 
         # Extract values
-        goals, stats = filtered_result.value
+        ctx = filtered_result.value
+        goals, stats = ctx["entities"], ctx["stats"]
         categories = categories_result.value
 
         # Render the appropriate view content
@@ -857,7 +672,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         user_uid = require_authenticated_user(request)
         filters = parse_filters(request)
 
-        filtered_result = await get_filtered_goals(user_uid, filters.status, filters.sort_by)
+        filtered_result = await goals_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
         categories_result = await get_categories()
 
         # Handle errors (return banner directly for HTMX swap)
@@ -867,7 +682,8 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         if categories_result.is_error:
             return render_error_banner("Failed to load categories")
 
-        goals, stats = filtered_result.value
+        ctx = filtered_result.value
+        goals, stats = ctx["entities"], ctx["stats"]
         categories = categories_result.value
 
         filters_dict: ActivityFilterSpec = {"status": filters.status, "sort_by": filters.sort_by}
@@ -920,13 +736,14 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         user_uid = require_authenticated_user(request)
         filters = parse_filters(request)
 
-        filtered_result = await get_filtered_goals(user_uid, filters.status, filters.sort_by)
+        filtered_result = await goals_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
         # Handle errors
         if filtered_result.is_error:
             return render_error_banner("Failed to load goals")
 
-        goals, _stats = filtered_result.value
+        ctx = filtered_result.value
+        goals = ctx["entities"]
 
         # Return just the goal items
         goal_items = [GoalsViewComponents._render_goal_item(goal, user_uid) for goal in goals]

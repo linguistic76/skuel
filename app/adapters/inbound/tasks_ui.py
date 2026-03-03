@@ -37,12 +37,6 @@ from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest
 from core.services.tasks_service import TasksService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import (
-    get_created_at_attr,
-    get_project_and_title,
-    get_task_due_date_sort_key,
-    make_priority_order_getter,
-)
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.layouts.base_page import BasePage
@@ -58,6 +52,66 @@ logger = get_logger("skuel.routes.tasks.todoist")
 
 
 # RouteDecorator and Request imported from adapters.inbound.fasthtml_types
+
+
+@dataclass
+class Filters:
+    """Typed filters for task list queries."""
+
+    project: str
+    assignee: str
+    due_filter: str
+    status_filter: str
+    sort_by: str
+
+
+def parse_filters(request: Request) -> Filters:
+    """Extract filter parameters from request query params."""
+    return Filters(
+        project=request.query_params.get("filter_project", ""),
+        assignee=request.query_params.get("filter_assignee", ""),
+        due_filter=request.query_params.get("filter_due", ""),
+        status_filter=request.query_params.get("filter_status", "active"),
+        sort_by=request.query_params.get("sort_by", "due_date"),
+    )
+
+
+def validate_task_form_data(form_data: dict[str, Any]) -> Result[None]:
+    """
+    Validate task form data early.
+
+    Pure function: returns clear error messages for UI.
+
+    Args:
+        form_data: Raw form data from request
+
+    Returns:
+        Result.ok(None) if valid, Errors.validation() with user-friendly message if invalid
+    """
+    # Required fields
+    title = form_data.get("title", "").strip()
+    if not title:
+        return Result.fail(Errors.validation("Task title is required"))
+
+    if len(title) > 200:
+        return Result.fail(Errors.validation("Task title must be 200 characters or less"))
+
+    # Date validation
+    scheduled_date_str = form_data.get("scheduled_date", "")
+    due_date_str = form_data.get("due_date", "")
+
+    if scheduled_date_str and due_date_str:
+        try:
+            scheduled = date.fromisoformat(scheduled_date_str)
+            due = date.fromisoformat(due_date_str)
+            if due < scheduled:
+                return Result.fail(
+                    Errors.validation("Due date cannot be before scheduled date")
+                )
+        except ValueError:
+            return Result.fail(Errors.validation("Invalid date format"))
+
+    return Result.ok(None)
 
 
 def create_tasks_ui_routes(
@@ -82,34 +136,6 @@ def create_tasks_ui_routes(
     """
 
     logger.info("Registering three-view task routes (standalone)")
-
-    # ========================================================================
-    # QUERY PARAM TYPES
-    # ========================================================================
-
-    @dataclass
-    class Filters:
-        """Typed filters for task list queries."""
-
-        project: str
-        assignee: str
-        due_filter: str
-        status_filter: str
-        sort_by: str
-
-    # ========================================================================
-    # HELPER FUNCTIONS
-    # ========================================================================
-
-    def parse_filters(request: Request) -> Filters:
-        """Extract filter parameters from request query params."""
-        return Filters(
-            project=request.query_params.get("filter_project", ""),
-            assignee=request.query_params.get("filter_assignee", ""),
-            due_filter=request.query_params.get("filter_due", ""),
-            status_filter=request.query_params.get("filter_status", "active"),
-            sort_by=request.query_params.get("sort_by", "due_date"),
-        )
 
     # ========================================================================
     # AUTOCOMPLETE CACHE
@@ -252,201 +278,6 @@ def create_tasks_ui_routes(
             return Result.fail(Errors.system(f"Failed to fetch assignees: {e}"))
 
     # ========================================================================
-    # PURE COMPUTATION HELPERS (Testable without mocks)
-    # ========================================================================
-
-    def validate_task_form_data(form_data: dict[str, Any]) -> Result[None]:
-        """
-        Validate task form data early.
-
-        Pure function: returns clear error messages for UI.
-
-        Args:
-            form_data: Raw form data from request
-
-        Returns:
-            Result.ok(None) if valid, Errors.validation() with user-friendly message if invalid
-        """
-        # Required fields
-        title = form_data.get("title", "").strip()
-        if not title:
-            return Result.fail(Errors.validation("Task title is required"))
-
-        if len(title) > 200:
-            return Result.fail(Errors.validation("Task title must be 200 characters or less"))
-
-        # Date validation
-        scheduled_date_str = form_data.get("scheduled_date", "")
-        due_date_str = form_data.get("due_date", "")
-
-        if scheduled_date_str and due_date_str:
-            try:
-                scheduled = date.fromisoformat(scheduled_date_str)
-                due = date.fromisoformat(due_date_str)
-                if due < scheduled:
-                    return Result.fail(
-                        Errors.validation("Due date cannot be before scheduled date")
-                    )
-            except ValueError:
-                return Result.fail(Errors.validation("Invalid date format"))
-
-        return Result.ok(None)
-
-    def compute_task_stats(tasks: list[Any]) -> dict[str, int]:
-        """Calculate task statistics.
-
-        Pure function: testable without database or async.
-
-        Args:
-            tasks: List of task entities
-
-        Returns:
-            Stats dict with total, completed, overdue counts
-        """
-        today = date.today()
-        return {
-            "total": len(tasks),
-            "completed": sum(1 for t in tasks if t.status == EntityStatus.COMPLETED),
-            "overdue": sum(
-                1
-                for t in tasks
-                if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
-            ),
-        }
-
-    def apply_task_filters(
-        tasks: list[Any],
-        project: str | None = None,
-        assignee: str | None = None,
-        due_filter: str | None = None,
-        status_filter: str = "active",
-    ) -> list[Any]:
-        """Apply filter criteria to task list.
-
-        Pure function: testable without database or async.
-
-        Args:
-            tasks: List of task entities
-            project: Filter by project name
-            assignee: Filter by assignee name
-            due_filter: Date filter (today, tomorrow, week, overdue, etc.)
-            status_filter: Status filter (active, completed, all)
-
-        Returns:
-            Filtered list of tasks
-        """
-        today = date.today()
-
-        # Filter: project
-        if project:
-            tasks = [t for t in tasks if t.project == project]
-
-        # Filter: assignee
-        if assignee:
-            tasks = [t for t in tasks if getattr(t, "assignee", None) == assignee]
-
-        # Filter: due date
-        if due_filter == "today":
-            tasks = [t for t in tasks if t.due_date == today]
-        elif due_filter == "tomorrow":
-            tomorrow = today + timedelta(days=1)
-            tasks = [t for t in tasks if t.due_date == tomorrow]
-        elif due_filter == "week":
-            week_end = today + timedelta(days=7)
-            tasks = [t for t in tasks if t.due_date and t.due_date <= week_end]
-        elif due_filter == "overdue":
-            tasks = [
-                t
-                for t in tasks
-                if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
-            ]
-
-        # Filter: status
-        if status_filter == "active":
-            tasks = [t for t in tasks if t.status != EntityStatus.COMPLETED]
-        elif status_filter == "completed":
-            tasks = [t for t in tasks if t.status == EntityStatus.COMPLETED]
-        # "all" - no filtering
-
-        return tasks
-
-    def apply_task_sort(tasks: list[Any], sort_by: str = "due_date") -> list[Any]:
-        """Sort tasks by specified field.
-
-        Pure function: testable without database or async.
-
-        Args:
-            tasks: List of task entities
-            sort_by: Sort field (due_date, priority, created_at, project)
-
-        Returns:
-            Sorted list of tasks
-        """
-        if sort_by == "due_date":
-            return sorted(tasks, key=get_task_due_date_sort_key)
-        elif sort_by == "priority":
-            priority_order = {
-                Priority.CRITICAL: 0,
-                Priority.HIGH: 1,
-                Priority.MEDIUM: 2,
-                Priority.LOW: 3,
-            }
-            priority_sort_key = make_priority_order_getter(priority_order)
-            return sorted(tasks, key=priority_sort_key)
-        elif sort_by == "created_at":
-            return sorted(tasks, key=get_created_at_attr, reverse=True)
-        elif sort_by == "project":
-            return sorted(tasks, key=get_project_and_title)
-        else:
-            # Default: due_date
-            return sorted(tasks, key=get_task_due_date_sort_key)
-
-    async def get_filtered_tasks(
-        user_uid: str,
-        project: str | None = None,
-        assignee: str | None = None,
-        due_filter: str | None = None,
-        status_filter: str = "active",
-        sort_by: str = "due_date",
-    ) -> Result[tuple[list[Any], dict[str, int]]]:
-        """Get filtered and sorted tasks for user.
-
-        Orchestrates: fetch (I/O) → stats → filter → sort.
-        Pure computation delegated to testable helper functions.
-        """
-        try:
-            # I/O: Fetch all tasks
-            tasks_result = await get_all_tasks(user_uid)
-            if tasks_result.is_error:
-                return Result.fail(tasks_result)
-
-            tasks = tasks_result.value
-
-            # Computation: Calculate stats BEFORE filtering
-            stats = compute_task_stats(tasks)
-
-            # Computation: Apply filters
-            filtered_tasks = apply_task_filters(tasks, project, assignee, due_filter, status_filter)
-
-            # Computation: Apply sort
-            sorted_tasks = apply_task_sort(filtered_tasks, sort_by)
-
-            return Result.ok((sorted_tasks, stats))
-
-        except Exception as e:
-            logger.error(
-                "Error filtering tasks",
-                extra={
-                    "user_uid": user_uid,
-                    "project": project,
-                    "status_filter": status_filter,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to filter tasks: {e}"))
-
-    # ========================================================================
     # MAIN DASHBOARD (Standalone Three-View)
     # ========================================================================
 
@@ -465,7 +296,7 @@ def create_tasks_ui_routes(
         calendar_params = parse_calendar_params(request)
 
         # Get data (with error handling)
-        filtered_result = await get_filtered_tasks(
+        filtered_result = await tasks_service.get_filtered_context(
             user_uid,
             filters.project or None,
             filters.assignee or None,
@@ -485,7 +316,8 @@ def create_tasks_ui_routes(
             )
             return await create_tasks_page(error_content, user_uid)
 
-        tasks, _stats = filtered_result.value
+        ctx = filtered_result.value
+        tasks = ctx["entities"]
         projects = projects_result.value if not projects_result.is_error else []
         assignees = assignees_result.value if not assignees_result.is_error else []
 
@@ -544,7 +376,7 @@ def create_tasks_ui_routes(
         filters = parse_filters(request)
 
         # Get data
-        filtered_result = await get_filtered_tasks(
+        filtered_result = await tasks_service.get_filtered_context(
             user_uid,
             filters.project or None,
             filters.assignee or None,
@@ -559,7 +391,8 @@ def create_tasks_ui_routes(
         if filtered_result.is_error:
             return render_error_banner("Failed to load tasks")
 
-        tasks, _stats = filtered_result.value
+        ctx = filtered_result.value
+        tasks = ctx["entities"]
         projects = projects_result.value if not projects_result.is_error else []
         assignees = assignees_result.value if not assignees_result.is_error else []
 
@@ -630,7 +463,7 @@ def create_tasks_ui_routes(
         filters = parse_filters(request)
 
         # Get filtered tasks
-        filtered_result = await get_filtered_tasks(
+        filtered_result = await tasks_service.get_filtered_context(
             user_uid,
             filters.project or None,
             filters.assignee or None,
@@ -643,7 +476,8 @@ def create_tasks_ui_routes(
         if filtered_result.is_error:
             return render_error_banner("Failed to load tasks")
 
-        tasks, _stats = filtered_result.value
+        ctx = filtered_result.value
+        tasks = ctx["entities"]
         return TodoistTaskComponents.render_task_list(tasks)
 
     # ========================================================================
@@ -720,7 +554,7 @@ def create_tasks_ui_routes(
 
     async def render_task_success_view(user_uid: str) -> Any:
         """Render list view after successful task creation."""
-        filtered_result = await get_filtered_tasks(user_uid, None, None, None, "active", "due_date")
+        filtered_result = await tasks_service.get_filtered_context(user_uid)
         projects_result = await get_distinct_projects(user_uid)
         assignees_result = await get_distinct_assignees(user_uid)
 
@@ -728,7 +562,8 @@ def create_tasks_ui_routes(
         if filtered_result.is_error:
             return render_error_banner("Failed to load tasks")
 
-        all_tasks, _stats = filtered_result.value
+        ctx = filtered_result.value
+        all_tasks = ctx["entities"]
         projects = projects_result.value if not projects_result.is_error else []
         assignees = assignees_result.value if not assignees_result.is_error else []
 

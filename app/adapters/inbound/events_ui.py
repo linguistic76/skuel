@@ -19,7 +19,6 @@ __version__ = "2.0"
 import contextlib
 from dataclasses import dataclass
 from datetime import date, datetime, time
-from enum import Enum
 from typing import Any
 
 from fasthtml.common import H1, H2, Div, Form, Option, P, Span
@@ -37,7 +36,6 @@ from core.ports.query_types import ActivityFilterSpec
 from core.services.events_service import EventsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import get_created_at_attr, get_title_lower
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.events.layout import create_events_page
@@ -167,6 +165,22 @@ class EventUIComponents:
 # ============================================================================
 
 
+@dataclass
+class Filters:
+    """Typed filters for event list queries."""
+
+    status: str
+    sort_by: str
+
+
+def parse_filters(request) -> Filters:
+    """Extract filter parameters from request query params."""
+    return Filters(
+        status=request.query_params.get("filter_status", "scheduled"),
+        sort_by=request.query_params.get("sort_by", "start_time"),
+    )
+
+
 def create_events_ui_routes(_app, rt, events_service: EventsService):
     """
     Create three-view event UI routes (standalone, calendar-first).
@@ -183,28 +197,6 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
     """
 
     logger.info("Registering three-view event routes (standalone, calendar-first)")
-
-    # ========================================================================
-    # QUERY PARAM TYPES
-    # ========================================================================
-
-    @dataclass
-    class Filters:
-        """Typed filters for event list queries."""
-
-        status: str
-        sort_by: str
-
-    # ========================================================================
-    # HELPER FUNCTIONS
-    # ========================================================================
-
-    def parse_filters(request) -> Filters:
-        """Extract filter parameters from request query params."""
-        return Filters(
-            status=request.query_params.get("filter_status", "scheduled"),
-            sort_by=request.query_params.get("sort_by", "start_time"),
-        )
 
     # ========================================================================
     # DATA FETCHING HELPERS
@@ -231,127 +223,6 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
             )
             return Result.fail(Errors.system(f"Failed to fetch events: {e}"))
 
-    # ========================================================================
-    # PURE COMPUTATION HELPERS (Testable without mocks)
-    # ========================================================================
-
-    def validate_event_form_data(form_data: dict[str, Any]) -> Result[None]:
-        """Validate event form data early."""
-        title = form_data.get("title", "").strip()
-        if not title:
-            return Result.fail(Errors.validation("Event title is required"))
-        if len(title) > 200:
-            return Result.fail(Errors.validation("Event title must be 200 characters or less"))
-        return Result.ok(None)
-
-    def get_status_value(event: Any) -> str:
-        """Helper to get status value (handles both enum and string)."""
-        status = getattr(event, "status", None)
-        if status is None:
-            return "scheduled"
-        if isinstance(status, Enum):
-            return str(status.value).lower()
-        return str(status).lower()
-
-    def compute_event_stats(events: list[Any]) -> dict[str, int]:
-        """Calculate event statistics."""
-        today = date.today()
-        return {
-            "total": len(events),
-            "scheduled": sum(1 for e in events if get_status_value(e) == "scheduled"),
-            "today": sum(
-                1
-                for e in events
-                if getattr(e, "start_time", None)
-                and getattr(e.start_time, "date", lambda: None)() == today
-            ),
-        }
-
-    def apply_event_filters(events: list[Any], status_filter: str = "scheduled") -> list[Any]:
-        """Apply filter criteria to event list."""
-        if status_filter == "scheduled":
-            return [e for e in events if get_status_value(e) == "scheduled"]
-        elif status_filter == "completed":
-            return [e for e in events if get_status_value(e) == "completed"]
-        elif status_filter == "cancelled":
-            return [e for e in events if get_status_value(e) == "cancelled"]
-        return events
-
-    def apply_event_sort(events: list[Any], sort_by: str = "start_time") -> list[Any]:
-        """Sort events by specified field."""
-
-        def get_sort_datetime(event: Any) -> datetime:
-            event_date = getattr(event, "event_date", None) or date.today()
-            if not isinstance(event_date, date) and getattr(event_date, "year", None) is not None:
-                event_date = date(event_date.year, event_date.month, event_date.day)
-            start_time_val = getattr(event, "start_time", None)
-            if start_time_val is None:
-                return datetime.combine(event_date, time(0, 0))
-            if (
-                not isinstance(start_time_val, time)
-                and getattr(start_time_val, "hour", None) is not None
-            ):
-                start_time_val = time(
-                    start_time_val.hour,
-                    start_time_val.minute,
-                    getattr(start_time_val, "second", 0) or 0,
-                )
-            elif isinstance(start_time_val, str):
-                try:
-                    start_time_val = datetime.strptime(start_time_val, "%H:%M:%S").time()
-                except ValueError:
-                    start_time_val = time(0, 0)
-            return datetime.combine(event_date, start_time_val)
-
-        if sort_by == "start_time":
-            return sorted(events, key=get_sort_datetime)
-        elif sort_by == "title":
-            return sorted(events, key=get_title_lower)
-        elif sort_by == "created_at":
-            return sorted(events, key=get_created_at_attr, reverse=True)
-        return sorted(events, key=get_sort_datetime)
-
-    async def get_filtered_events(
-        user_uid: str,
-        status_filter: str = "scheduled",
-        sort_by: str = "start_time",
-    ) -> Result[tuple[list[Any], dict[str, int]]]:
-        """Get filtered and sorted events with stats.
-
-        Orchestrates: fetch (I/O) → stats → filter → sort.
-        Pure computation delegated to testable helper functions.
-        """
-        try:
-            # I/O: Fetch all events
-            events_result = await get_all_events(user_uid)
-            if events_result.is_error:
-                return Result.fail(events_result.expect_error())
-
-            events = events_result.value
-
-            # Computation: Calculate stats BEFORE filtering
-            stats = compute_event_stats(events)
-
-            # Computation: Apply filters
-            filtered_events = apply_event_filters(events, status_filter)
-
-            # Computation: Apply sort
-            sorted_events = apply_event_sort(filtered_events, sort_by)
-
-            return Result.ok((sorted_events, stats))
-        except Exception as e:
-            logger.error(
-                "Error filtering events",
-                extra={
-                    "user_uid": user_uid,
-                    "status_filter": status_filter,
-                    "sort_by": sort_by,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to filter events: {e}"))
-
     async def get_event_types() -> Result[list[str]]:
         """Get available event types."""
         return Result.ok(
@@ -375,7 +246,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
         calendar_params = parse_calendar_params(request)
 
         # Get data with Result[T]
-        filtered_result = await get_filtered_events(user_uid, filters.status, filters.sort_by)
+        filtered_result = await events_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
         event_types_result = await get_event_types()
 
         # CHECK FOR ERRORS
@@ -396,7 +267,8 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
             return await create_events_page(error_content, request=request)
 
         # Extract values
-        events, stats = filtered_result.value
+        ctx = filtered_result.value
+        events, stats = ctx["entities"], ctx["stats"]
         event_types = event_types_result.value
 
         # Render the appropriate view content
@@ -465,13 +337,14 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
         user_uid = require_authenticated_user(request)
         filters = parse_filters(request)
 
-        filtered_result = await get_filtered_events(user_uid, filters.status, filters.sort_by)
+        filtered_result = await events_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
         # Handle errors
         if filtered_result.is_error:
             return render_error_banner("Failed to load events")
 
-        events, stats = filtered_result.value
+        ctx = filtered_result.value
+        events, stats = ctx["entities"], ctx["stats"]
 
         filters_dict: ActivityFilterSpec = {"status": filters.status, "sort_by": filters.sort_by}
         return EventsViewComponents.render_list_view(
@@ -504,13 +377,14 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
         user_uid = require_authenticated_user(request)
         filters = parse_filters(request)
 
-        filtered_result = await get_filtered_events(user_uid, filters.status, filters.sort_by)
+        filtered_result = await events_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
         # Handle errors
         if filtered_result.is_error:
             return render_error_banner("Failed to load events")
 
-        events, _stats = filtered_result.value
+        ctx = filtered_result.value
+        events = ctx["entities"]
 
         # Return just the event items
         event_items = [EventsViewComponents._render_event_item(event) for event in events]

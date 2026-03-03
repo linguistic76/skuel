@@ -14,6 +14,7 @@ Sub-Services:
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from core.models.choice.choice import Choice
@@ -33,14 +34,70 @@ from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from core.utils.sort_functions import (
+    get_created_at_attr,
+    get_decision_deadline,
+    make_priority_string_getter,
+)
 
 if TYPE_CHECKING:
+    from core.ports.query_types import ListContext
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.choice.choice_request import ChoiceCreateRequest
     from core.models.entity_requests import EntityUpdateRequest
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.search_protocols import ChoicesSearchOperations
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
+
+
+def _get_choice_enum_value(obj: Any, attr: str, default: str = "") -> str:
+    """Extract value from attribute (handles both enum and string)."""
+    value = getattr(obj, attr, None)
+    if value is None:
+        return default
+    if isinstance(value, Enum):
+        return str(value.value).lower()
+    return str(value).lower()
+
+
+def _compute_choice_stats(choices: list[Any]) -> dict[str, int]:
+    """Calculate choice statistics (pre-filter, over full list)."""
+    return {
+        "total": len(choices),
+        "pending": sum(1 for c in choices if _get_choice_enum_value(c, "status") == "pending"),
+        "decided": sum(1 for c in choices if _get_choice_enum_value(c, "status") == "decided"),
+    }
+
+
+def _apply_choice_filters(choices: list[Any], status_filter: str = "pending") -> list[Any]:
+    """Apply status filter to choice list."""
+    if status_filter == "pending":
+        return [c for c in choices if _get_choice_enum_value(c, "status") == "pending"]
+    elif status_filter == "decided":
+        return [c for c in choices if _get_choice_enum_value(c, "status") == "decided"]
+    elif status_filter == "implemented":
+        return [c for c in choices if _get_choice_enum_value(c, "status") == "implemented"]
+    return choices
+
+
+_CHOICE_PRIORITY_ORDER: dict[str, int] = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+
+def _get_choice_priority(c: Any) -> str:
+    """Extract priority string for sort key (SKUEL012: named function, no lambda)."""
+    return _get_choice_enum_value(c, "priority", "medium")
+
+
+def _apply_choice_sort(choices: list[Any], sort_by: str = "deadline") -> list[Any]:
+    """Sort choices by specified field."""
+    if sort_by == "deadline":
+        return sorted(choices, key=get_decision_deadline)
+    elif sort_by == "priority":
+        sort_key = make_priority_string_getter(_CHOICE_PRIORITY_ORDER, _get_choice_priority)
+        return sorted(choices, key=sort_key)
+    elif sort_by == "created_at":
+        return sorted(choices, key=get_created_at_attr, reverse=True)
+    return sorted(choices, key=get_decision_deadline)
 
 
 class ChoicesService(BaseService["ChoicesOperations", Choice]):
@@ -441,6 +498,30 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
             Result containing decision pattern analysis
         """
         return await self.intelligence.get_decision_patterns(user_uid, days=lookback_days)
+
+    # ========================================================================
+    # QUERY LAYER
+    # ========================================================================
+
+    async def get_filtered_context(
+        self,
+        user_uid: str,
+        status_filter: str = "pending",
+        sort_by: str = "deadline",
+    ) -> "Result[ListContext]":
+        """Get filtered and sorted choices with pre-filter stats.
+
+        Orchestrates: fetch → stats (pre-filter) → filter → sort.
+        Routes call this instead of embedding the logic in factory closures.
+        """
+        result = await self.get_user_choices(user_uid)
+        if result.is_error:
+            return result
+        all_choices = result.value or []
+        stats = _compute_choice_stats(all_choices)
+        filtered = _apply_choice_filters(all_choices, status_filter)
+        sorted_choices = _apply_choice_sort(filtered, sort_by)
+        return Result.ok({"entities": sorted_choices, "stats": stats})
 
     # Note: Intelligence delegations (get_choice_with_context, get_decision_intelligence,
     # analyze_choice_impact, get_decision_patterns, etc.) and Search delegations

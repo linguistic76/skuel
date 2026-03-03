@@ -34,7 +34,6 @@ from core.ports.query_types import PrinciplesFilterSpec
 from core.services.principles_service import PrinciplesService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import get_created_at_attr, get_title_or_name_lower
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.layouts.base_page import BasePage
@@ -49,6 +48,39 @@ logger = get_logger("skuel.routes.principles.ui")
 
 
 # RouteDecorator and Request imported from adapters.inbound.fasthtml_types
+
+@dataclass
+class Filters:
+    """Typed filters for principle list queries."""
+
+    category: str
+    strength: str
+    sort_by: str
+
+
+def parse_filters(request) -> Filters:
+    """Extract filter parameters from request query params."""
+    return Filters(
+        category=request.query_params.get("filter_category", "all"),
+        strength=request.query_params.get("filter_strength", "all"),
+        sort_by=request.query_params.get("sort_by", "strength"),
+    )
+
+
+def validate_principle_form_data(form_data: dict[str, Any]) -> Result[None]:
+    """Validate principle form data early.
+
+    Pure function: returns clear error messages for UI.
+    """
+    title = form_data.get("title", "").strip()
+    if not title:
+        return Result.fail(Errors.validation("Principle title is required"))
+
+    if len(title) > 200:
+        return Result.fail(Errors.validation("Principle title must be 200 characters or less"))
+
+    return Result.ok(None)
+
 
 # ============================================================================
 # UI ROUTES
@@ -76,30 +108,6 @@ def create_principles_ui_routes(
     logger.info("Registering three-view principle routes (standalone, analytics)")
 
     # ========================================================================
-    # QUERY PARAM TYPES
-    # ========================================================================
-
-    @dataclass
-    class Filters:
-        """Typed filters for principle list queries."""
-
-        category: str
-        strength: str
-        sort_by: str
-
-    # ========================================================================
-    # HELPER FUNCTIONS
-    # ========================================================================
-
-    def parse_filters(request) -> Filters:
-        """Extract filter parameters from request query params."""
-        return Filters(
-            category=request.query_params.get("filter_category", "all"),
-            strength=request.query_params.get("filter_strength", "all"),
-            sort_by=request.query_params.get("sort_by", "strength"),
-        )
-
-    # ========================================================================
     # DATA FETCHING HELPERS
     # ========================================================================
 
@@ -123,214 +131,6 @@ def create_principles_ui_routes(
                 },
             )
             return Result.fail(Errors.system(f"Failed to fetch principles: {e}"))
-
-    # ========================================================================
-    # PURE COMPUTATION HELPERS (Testable without mocks)
-    # ========================================================================
-
-    def validate_principle_form_data(form_data: dict[str, Any]) -> Result[None]:
-        """
-        Validate principle form data early.
-
-        Pure function: returns clear error messages for UI.
-
-        Args:
-            form_data: Raw form data from request
-
-        Returns:
-            Result.ok(None) if valid, Errors.validation() with user-friendly message if invalid
-        """
-        # Required fields
-        title = form_data.get("title", "").strip()
-        if not title:
-            return Result.fail(Errors.validation("Principle title is required"))
-
-        if len(title) > 200:
-            return Result.fail(Errors.validation("Principle title must be 200 characters or less"))
-
-        return Result.ok(None)
-
-    def get_strength_value(p, strength_order: dict[Any, int]) -> int:
-        """
-        Get numeric strength value for comparison.
-
-        Pure function: testable without database or async.
-
-        Args:
-            p: Principle entity
-            strength_order: Mapping of PrincipleStrength to numeric values
-
-        Returns:
-            Numeric strength value (1-5)
-        """
-        from core.models.enums.principle_enums import PrincipleStrength
-
-        s = getattr(p, "strength", PrincipleStrength.MODERATE)
-        if isinstance(s, PrincipleStrength):
-            result: int = strength_order.get(s, 3)
-            return result
-        # Handle string values
-        if isinstance(s, str):
-            s_upper = s.upper()
-            for enum_val in PrincipleStrength:
-                if enum_val.value == s or enum_val.name == s_upper:
-                    result2: int = strength_order.get(enum_val, 3)
-                    return result2
-        return 3  # Default to moderate
-
-    def compute_principle_stats(principles: list[Any], strength_order: dict) -> dict[str, int]:
-        """
-        Calculate principle statistics.
-
-        Pure function: testable without database or async.
-
-        Args:
-            principles: List of principle entities
-            strength_order: Mapping of PrincipleStrength to numeric values
-
-        Returns:
-            Stats dict with total, core, active counts
-        """
-
-        def get_strength(p) -> int:
-            return get_strength_value(p, strength_order)
-
-        return {
-            "total": len(principles),
-            "core": sum(1 for p in principles if get_strength(p) >= 5),
-            "active": sum(1 for p in principles if getattr(p, "is_active", True)),
-        }
-
-    def apply_principle_filters(
-        principles: list[Any],
-        category_filter: str = "all",
-        strength_filter: str = "all",
-        strength_order: dict | None = None,
-    ) -> list[Any]:
-        """
-        Apply filter criteria to principle list.
-
-        Pure function: testable without database or async.
-
-        Args:
-            principles: List of principle entities
-            category_filter: Category filter (all, or specific category)
-            strength_filter: Strength filter (all, core, strong, developing, aspirational)
-            strength_order: Mapping of PrincipleStrength to numeric values
-
-        Returns:
-            Filtered list of principles
-        """
-
-        def get_strength(p) -> int:
-            return get_strength_value(p, strength_order or {})
-
-        # Filter: category
-        if category_filter != "all":
-            principles = [
-                p
-                for p in principles
-                if str(getattr(p, "category", "")).lower().replace("principlecategory.", "")
-                == category_filter.lower()
-            ]
-
-        # Filter: strength
-        if strength_filter == "core":
-            principles = [p for p in principles if get_strength(p) >= 5]
-        elif strength_filter == "strong":
-            principles = [p for p in principles if get_strength(p) == 4]
-        elif strength_filter == "developing":
-            principles = [p for p in principles if get_strength(p) in (2, 3)]
-        elif strength_filter == "aspirational":
-            principles = [p for p in principles if get_strength(p) <= 1]
-        # "all" shows everything
-
-        return principles
-
-    def apply_principle_sort(
-        principles: list[Any], sort_by: str = "strength", strength_order: dict | None = None
-    ) -> list[Any]:
-        """
-        Sort principles by specified field.
-
-        Pure function: testable without database or async.
-
-        Args:
-            principles: List of principle entities
-            sort_by: Sort field (strength, title, created_at)
-            strength_order: Mapping of PrincipleStrength to numeric values
-
-        Returns:
-            Sorted list of principles
-        """
-
-        def get_strength(p) -> int:
-            return get_strength_value(p, strength_order or {})
-
-        if sort_by == "strength":
-            return sorted(principles, key=get_strength, reverse=True)
-        elif sort_by == "title":
-            return sorted(principles, key=get_title_or_name_lower)
-        elif sort_by == "created_at":
-            return sorted(principles, key=get_created_at_attr, reverse=True)
-        else:
-            # Default: strength
-            return sorted(principles, key=get_strength, reverse=True)
-
-    async def get_filtered_principles(
-        user_uid: str,
-        category_filter: str = "all",
-        strength_filter: str = "all",
-        sort_by: str = "strength",
-    ) -> Result[tuple[list[Any], dict[str, int]]]:
-        """
-        Get filtered and sorted principles for user.
-
-        Orchestrates: fetch (I/O) → stats → filter → sort.
-        Pure computation delegated to testable helper functions.
-        """
-        from core.models.enums.principle_enums import PrincipleStrength
-
-        # Map PrincipleStrength enum to numeric values for sorting/filtering
-        strength_order = {
-            PrincipleStrength.CORE: 5,
-            PrincipleStrength.STRONG: 4,
-            PrincipleStrength.MODERATE: 3,
-            PrincipleStrength.DEVELOPING: 2,
-            PrincipleStrength.EXPLORING: 1,
-        }
-
-        try:
-            # I/O: Fetch all principles
-            principles_result = await get_all_principles(user_uid)
-            if principles_result.is_error:
-                return Result.fail(principles_result)
-
-            principles = principles_result.value
-
-            # Computation: Calculate stats BEFORE filtering
-            stats = compute_principle_stats(principles, strength_order)
-
-            # Computation: Apply filters
-            filtered_principles = apply_principle_filters(
-                principles, category_filter, strength_filter, strength_order
-            )
-
-            # Computation: Apply sort
-            sorted_principles = apply_principle_sort(filtered_principles, sort_by, strength_order)
-
-            return Result.ok((sorted_principles, stats))
-
-        except Exception as e:
-            logger.error(
-                "Error filtering principles",
-                extra={
-                    "user_uid": user_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to filter principles: {e}"))
 
     async def get_categories() -> Result[list[str]]:
         """Get available principle categories."""
@@ -469,7 +269,7 @@ def create_principles_ui_routes(
                 analytics_data=analytics_result.value,
             )
         else:  # list (default for principles)
-            filtered_result = await get_filtered_principles(
+            filtered_result = await principles_service.get_filtered_context(
                 user_uid, filters.category, filters.strength, filters.sort_by
             )
 
@@ -482,7 +282,8 @@ def create_principles_ui_routes(
                 )
                 return await create_principles_page(error_content, request=request)
 
-            principles, stats = filtered_result.value
+            ctx = filtered_result.value
+            principles, stats = ctx["entities"], ctx["stats"]
             categories_result = await get_categories()
 
             # Check categories error
@@ -526,7 +327,7 @@ def create_principles_ui_routes(
         # Parse filters using helper
         filters = parse_filters(request)
 
-        filtered_result = await get_filtered_principles(
+        filtered_result = await principles_service.get_filtered_context(
             user_uid, filters.category, filters.strength, filters.sort_by
         )
 
@@ -534,7 +335,8 @@ def create_principles_ui_routes(
         if filtered_result.is_error:
             return render_error_banner("Failed to load principles")
 
-        principles, stats = filtered_result.value
+        ctx = filtered_result.value
+        principles, stats = ctx["entities"], ctx["stats"]
         categories_result = await get_categories()
 
         # Handle categories error
@@ -593,7 +395,7 @@ def create_principles_ui_routes(
         # Parse filters using helper
         filters = parse_filters(request)
 
-        filtered_result = await get_filtered_principles(
+        filtered_result = await principles_service.get_filtered_context(
             user_uid, filters.category, filters.strength, filters.sort_by
         )
 
@@ -601,7 +403,8 @@ def create_principles_ui_routes(
         if filtered_result.is_error:
             return render_error_banner("Failed to load principles")
 
-        principles, _stats = filtered_result.value
+        ctx = filtered_result.value
+        principles = ctx["entities"]
 
         # Return just the principle items
         principle_items = [
@@ -677,13 +480,14 @@ def create_principles_ui_routes(
 
     async def render_principle_success_view(user_uid: str) -> Any:
         """Render list view after successful principle creation."""
-        filtered_result = await get_filtered_principles(user_uid, "all", "all", "strength")
+        filtered_result = await principles_service.get_filtered_context(user_uid)
 
         # Handle errors
         if filtered_result.is_error:
             return render_error_banner("Failed to load principles")
 
-        principles, stats = filtered_result.value
+        ctx = filtered_result.value
+        principles, stats = ctx["entities"], ctx["stats"]
         categories_result = await get_categories()
 
         # Handle categories error
@@ -966,13 +770,14 @@ def create_principles_ui_routes(
             )
 
         # Return updated list view
-        filtered_result = await get_filtered_principles(user_uid, "all", "all", "strength")
+        filtered_result = await principles_service.get_filtered_context(user_uid)
 
         # Handle errors
         if filtered_result.is_error:
             return render_error_banner("Failed to load principles")
 
-        principles, stats = filtered_result.value
+        ctx = filtered_result.value
+        principles, stats = ctx["entities"], ctx["stats"]
         categories_result = await get_categories()
 
         # Handle categories error
@@ -1137,13 +942,14 @@ def create_principles_ui_routes(
         logger.info(f"Reflection saved: {result.value.uid} for principle {uid}")
 
         # Return to list view
-        filtered_result = await get_filtered_principles(user_uid, "all", "all", "strength")
+        filtered_result = await principles_service.get_filtered_context(user_uid)
 
         # Handle errors
         if filtered_result.is_error:
             return render_error_banner("Failed to load principles")
 
-        principles, stats = filtered_result.value
+        ctx = filtered_result.value
+        principles, stats = ctx["entities"], ctx["stats"]
         categories_result = await get_categories()
 
         # Handle categories error

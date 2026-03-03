@@ -14,16 +14,15 @@ Sub-Services:
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, TypedDict
 
 if TYPE_CHECKING:
-    from datetime import date
-
     from core.ports.domain_protocols import TasksOperations
     from core.ports.search_protocols import TasksSearchOperations
 
 # Domain models
-from core.models.enums import EntityStatus
+from core.models.enums import EntityStatus, Priority
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 
@@ -51,8 +50,15 @@ from core.services.tasks.tasks_ai_service import TasksAIService
 from core.utils.activity_domain_config import create_common_sub_services
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from core.utils.sort_functions import (
+    get_created_at_attr,
+    get_project_and_title,
+    get_task_due_date_sort_key,
+    make_priority_order_getter,
+)
 
 if TYPE_CHECKING:
+    from core.ports.query_types import ListContext
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.graph_context import GraphContext
     from core.models.task.task_request import TaskCreateRequest
@@ -114,6 +120,81 @@ class TaskAnalyticsDashboard(TypedDict):
     insights: InsightsData
     recommendations: list[Any]
     analytics_status: AnalyticsStatus
+
+
+def _compute_task_stats(tasks: list[Any]) -> dict[str, int]:
+    """Calculate task statistics (pre-filter, over full list)."""
+    today = date.today()
+    return {
+        "total": len(tasks),
+        "completed": sum(1 for t in tasks if t.status == EntityStatus.COMPLETED),
+        "overdue": sum(
+            1
+            for t in tasks
+            if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
+        ),
+    }
+
+
+def _apply_task_filters(
+    tasks: list[Any],
+    project: str | None = None,
+    assignee: str | None = None,
+    due_filter: str | None = None,
+    status_filter: str = "active",
+) -> list[Any]:
+    """Apply filter criteria to task list."""
+    today = date.today()
+
+    if project:
+        tasks = [t for t in tasks if t.project == project]
+
+    if assignee:
+        tasks = [t for t in tasks if getattr(t, "assignee", None) == assignee]
+
+    if due_filter == "today":
+        tasks = [t for t in tasks if t.due_date == today]
+    elif due_filter == "tomorrow":
+        tomorrow = today + timedelta(days=1)
+        tasks = [t for t in tasks if t.due_date == tomorrow]
+    elif due_filter == "week":
+        week_end = today + timedelta(days=7)
+        tasks = [t for t in tasks if t.due_date and t.due_date <= week_end]
+    elif due_filter == "overdue":
+        tasks = [
+            t
+            for t in tasks
+            if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
+        ]
+
+    if status_filter == "active":
+        tasks = [t for t in tasks if t.status != EntityStatus.COMPLETED]
+    elif status_filter == "completed":
+        tasks = [t for t in tasks if t.status == EntityStatus.COMPLETED]
+
+    return tasks
+
+
+_TASK_PRIORITY_ORDER: dict[Priority, int] = {
+    Priority.CRITICAL: 0,
+    Priority.HIGH: 1,
+    Priority.MEDIUM: 2,
+    Priority.LOW: 3,
+}
+
+
+def _apply_task_sort(tasks: list[Any], sort_by: str = "due_date") -> list[Any]:
+    """Sort tasks by specified field."""
+    if sort_by == "due_date":
+        return sorted(tasks, key=get_task_due_date_sort_key)
+    elif sort_by == "priority":
+        priority_sort_key = make_priority_order_getter(_TASK_PRIORITY_ORDER)
+        return sorted(tasks, key=priority_sort_key)
+    elif sort_by == "created_at":
+        return sorted(tasks, key=get_created_at_attr, reverse=True)
+    elif sort_by == "project":
+        return sorted(tasks, key=get_project_and_title)
+    return sorted(tasks, key=get_task_due_date_sort_key)
 
 
 class TasksService(BaseService["TasksOperations", Task]):
@@ -938,6 +1019,33 @@ class TasksService(BaseService["TasksOperations", Task]):
                     operation="trigger_manual_knowledge_generation",
                 )
             )
+
+    # ========================================================================
+    # QUERY LAYER
+    # ========================================================================
+
+    async def get_filtered_context(
+        self,
+        user_uid: str,
+        project: str | None = None,
+        assignee: str | None = None,
+        due_filter: str | None = None,
+        status_filter: str = "active",
+        sort_by: str = "due_date",
+    ) -> "Result[ListContext]":
+        """Get filtered and sorted tasks with pre-filter stats.
+
+        Orchestrates: fetch → stats (pre-filter) → filter → sort.
+        Routes call this instead of embedding the logic in factory closures.
+        """
+        result = await self.get_user_tasks(user_uid)
+        if result.is_error:
+            return result
+        all_tasks = result.value or []
+        stats = _compute_task_stats(all_tasks)
+        filtered = _apply_task_filters(all_tasks, project, assignee, due_filter, status_filter)
+        sorted_tasks = _apply_task_sort(filtered, sort_by)
+        return Result.ok({"entities": sorted_tasks, "stats": stats})
 
 
 # Legacy alias removed - class renamed directly to TasksService
