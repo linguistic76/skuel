@@ -56,7 +56,11 @@ core/prompts/
     ├── journal_articulation.md
     ├── journal_exploration.md
     ├── dsl_domain_recognition.md
-    └── dsl_domain_recognition_compact.md
+    ├── dsl_domain_recognition_compact.md
+    ├── askesis_scaffold_entry.md
+    ├── askesis_socratic_turn.md
+    ├── askesis_ku_bridge.md
+    └── askesis_journal_reflection.md
 ```
 
 `PromptRegistry` lazy-loads on first access and caches for the process lifetime.
@@ -75,6 +79,10 @@ programming error, not a domain failure.
 | `journal_exploration` | `JournalOutputGenerator._format_exploration()` | `{content}` |
 | `dsl_domain_recognition` | `LLMDSLBridgeService.transform()` (default) | `{journal_text}` |
 | `dsl_domain_recognition_compact` | `LLMDSLBridgeService.transform()` (compact mode) | `{journal_text}` |
+| `askesis_scaffold_entry` | `AskesisService` (Phase 2) | `{ku_title}`, `{ku_description}`, `{user_current_zone}`, `{journal_open_questions}`, `{journal_concepts}`, `{user_momentum}`, `{guidance_mode}`, `{conversation_history}` |
+| `askesis_socratic_turn` | `QueryProcessor` (Phase 2) | `{ku_title}`, `{conversation_history}`, `{user_message}`, `{user_understanding_estimate}`, `{awaiting_response_to}` |
+| `askesis_ku_bridge` | `AskesisService` (Phase 2) | `{current_ku_title}`, `{current_ku_engagement}`, `{target_ku_title}`, `{target_ku_description}`, `{bridge_connection}` |
+| `askesis_journal_reflection` | `AskesisService` (Phase 2) | `{user_name}`, `{journal_open_questions}`, `{journal_struggles}`, `{related_ku_title}`, `{related_ku_description}` |
 
 ---
 
@@ -126,26 +134,31 @@ prompt = PROMPT_REGISTRY.render("activity_feedback", stats_json=json.dumps(stats
 
 ---
 
-## Askesis & Prompts (Current and Future)
+## Askesis & Pedagogical Dialogue
 
-**Current state:** Askesis's `QueryProcessor` uses `LLMService.generate_context_aware_answer()`
-which builds context inline via `ResponseGenerator.build_llm_context()`. No PROMPT_REGISTRY
-use yet — context building is programmatic string assembly, not a template.
+Askesis is a ZPD-aware Socratic companion anchored to curriculum objects (KU, LP, Exercise).
+Four templates define its pedagogical vocabulary — each encodes one conversational intent.
 
-**Why this will change:** As Askesis's LLM interactions mature and stabilize, they should
-become proper prompt templates. This is the "major aspect of Askesis" — separating prompt
-engineering from service logic so prompts can be edited without touching Python code.
+**Current state:** Templates are defined and loadable via `PROMPT_REGISTRY`. Wiring to
+`QueryProcessor` is Phase 2 (after ZPDService). Askesis currently uses programmatic string
+assembly in `ResponseGenerator.build_llm_context()`.
 
-**The migration path:** Each `generate_context_aware_answer()` call → one
-`core/prompts/templates/askesis_*.md` file. Each method gets documented placeholders.
+**Template selection by GuidanceMode:**
 
-**Planned additions:**
+| GuidanceMode | Primary Template | Trigger |
+|-------------|-----------------|---------|
+| `SOCRATIC` | `askesis_socratic_turn` | Default — consistent engagement |
+| `EXPLORATORY` | `askesis_scaffold_entry` | Journal with open questions |
+| `ENCOURAGING` | `askesis_scaffold_entry` | Low momentum |
+| `DIRECT` | `askesis_scaffold_entry` | First encounter with KU |
+| ZPD traversal | `askesis_ku_bridge` | Proximal zone KU detected |
+| Journal-triggered | `askesis_journal_reflection` | Open questions surfaced passively |
 
-| Template ID (planned) | Service | Purpose |
-|----------------------|---------|---------|
-| `askesis_qa_response.md` | `QueryProcessor` | System instructions for Q&A mode |
-| `askesis_daily_plan.md` | `ActionRecommendationEngine` | Daily plan generation |
-| `askesis_synergy_detection.md` | `UserStateAnalyzer` | Cross-domain pattern analysis |
+**Curriculum anchoring:** Every Askesis session opens with a `ku_uid` as context.
+`{ku_title}` and `{ku_description}` placeholders are always populated from the anchor KU.
+
+**Migration path:** Each `generate_context_aware_answer()` call → one template file.
+Programmatic context building → documented placeholders. Service logic shrinks.
 
 ---
 

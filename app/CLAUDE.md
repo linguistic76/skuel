@@ -286,8 +286,10 @@ Future collaborators — human or AI — should read SKUEL's plain-English domai
 | UserContext | ~240 fields of cross-domain state |
 | Search | Unified search across all domains |
 | Calendar | Aggregates Tasks, Events, Habits, Goals |
-| Askesis | Life context synthesis + recommendations |
+| Askesis | Pedagogical guide — ZPD-aware Socratic companion anchored to curriculum; scaffolds users toward their next learning step via curriculum graph traversal + dialogue |
 | Messaging | Notifications (planned) |
+
+**See:** `/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` — full pedagogical vision
 
 ### Service Architecture Pattern
 
