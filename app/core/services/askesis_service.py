@@ -26,6 +26,7 @@ for single responsibility and reduced complexity (962 → ~500 lines).
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from core.models.relationship_names import RelationshipName
@@ -56,6 +57,27 @@ if TYPE_CHECKING:
     from core.services.user.intelligence import UserContextIntelligenceFactory
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class AskesisDeps:
+    """Typed dependency container for AskesisService.
+
+    intelligence_factory is required (fail-fast). All domain services are optional
+    per ADR-043 Intelligence Tier toggle.
+    """
+
+    intelligence_factory: UserContextIntelligenceFactory
+    graph_intelligence_service: Any | None = None  # boundary: protocol not yet extracted
+    user_service: Any | None = None
+    llm_service: Any | None = None
+    embeddings_service: Any | None = None
+    knowledge_service: Any | None = None
+    tasks_service: Any | None = None
+    goals_service: Any | None = None
+    habits_service: Any | None = None
+    events_service: Any | None = None
+    citation_service: Any | None = None
 
 
 class AskesisService:
@@ -103,82 +125,59 @@ class AskesisService:
     intent_classifier: IntentClassifier
     response_generator: ResponseGenerator
 
-    def __init__(
-        self,
-        graph_intelligence_service=None,
-        user_service=None,
-        llm_service=None,
-        embeddings_service=None,
-        knowledge_service=None,
-        tasks_service=None,
-        goals_service=None,
-        habits_service=None,
-        events_service=None,
-        citation_service=None,
-        intelligence_factory: UserContextIntelligenceFactory | None = None,
-    ) -> None:
+    def __init__(self, deps: AskesisDeps) -> None:
         """
         Initialize facade with all sub-services.
 
         Args:
-            graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
-            user_service: UserService for accessing UserContext
-            llm_service: LLMService for natural language generation
-            embeddings_service: EmbeddingsService for semantic search
-            knowledge_service: KnowledgeService for entity extraction
-            tasks_service: TasksService for entity extraction
-            goals_service: GoalsService for entity extraction
-            habits_service: HabitsService for entity extraction
-            events_service: EventsService for entity extraction
-            citation_service: AskesisCitationService for source and evidence transparency
-            intelligence_factory: UserContextIntelligenceFactory for 13-domain synthesis (REQUIRED)
-                                  Wired with all 13 domain relationship services for DailyWorkPlan
+            deps: Typed AskesisDeps container — intelligence_factory is required,
+                  all domain services are optional per ADR-043 Intelligence Tier toggle.
 
         Raises:
-            ValueError: If intelligence_factory is None (REQUIRED for 13-domain synthesis)
+            ValueError: If deps.intelligence_factory is None (REQUIRED for 13-domain synthesis)
         """
         # Fail-fast: intelligence_factory is REQUIRED (January 2026 architecture evolution)
-        if intelligence_factory is None:
+        if deps.intelligence_factory is None:
             raise ValueError(
                 "intelligence_factory is REQUIRED for AskesisService. "
                 "Askesis cannot synthesize across 13 domains without it."
             )
 
         # Store dependencies
-        self.graph_intel = graph_intelligence_service
-        self.user_service = user_service
-        self.llm_service = llm_service
-        self.embeddings_service = embeddings_service
-        self.knowledge_service = knowledge_service
-        self.tasks_service = tasks_service
-        self.goals_service = goals_service
-        self.habits_service = habits_service
-        self.events_service = events_service
-        self.citation_service = citation_service
+        self.graph_intel = deps.graph_intelligence_service
+        self.user_service = deps.user_service
+        self.llm_service = deps.llm_service
+        self.embeddings_service = deps.embeddings_service
+        self.knowledge_service = deps.knowledge_service
+        self.tasks_service = deps.tasks_service
+        self.goals_service = deps.goals_service
+        self.habits_service = deps.habits_service
+        self.events_service = deps.events_service
+        self.citation_service = deps.citation_service
 
         # 13-domain intelligence factory for comprehensive daily planning
         # (REQUIRED - passed at construction, not post-wired)
-        self.intelligence_factory = intelligence_factory
+        self.intelligence_factory = deps.intelligence_factory
 
         # Initialize sub-services (no circular dependency - uses pure functions)
         self.state_analyzer = UserStateAnalyzer()
         self.recommendation_engine = ActionRecommendationEngine()
 
         self.entity_extractor = EntityExtractor(
-            knowledge_service=knowledge_service,
-            tasks_service=tasks_service,
-            goals_service=goals_service,
-            habits_service=habits_service,
-            events_service=events_service,
+            knowledge_service=deps.knowledge_service,
+            tasks_service=deps.tasks_service,
+            goals_service=deps.goals_service,
+            habits_service=deps.habits_service,
+            events_service=deps.events_service,
         )
 
         self.context_retriever = ContextRetriever(
-            graph_intelligence_service=graph_intelligence_service,
-            embeddings_service=embeddings_service,
+            graph_intelligence_service=deps.graph_intelligence_service,
+            embeddings_service=deps.embeddings_service,
         )
 
         # January 2026: IntentClassifier and ResponseGenerator extracted from QueryProcessor
-        self.intent_classifier = IntentClassifier(embeddings_service=embeddings_service)
+        self.intent_classifier = IntentClassifier(embeddings_service=deps.embeddings_service)
         self.response_generator = ResponseGenerator()
 
         self.query_processor = QueryProcessor(
@@ -186,10 +185,10 @@ class AskesisService:
             response_generator=self.response_generator,
             entity_extractor=self.entity_extractor,
             context_retriever=self.context_retriever,
-            user_service=user_service,
-            llm_service=llm_service,
-            graph_intelligence_service=graph_intelligence_service,
-            citation_service=citation_service,
+            user_service=deps.user_service,
+            llm_service=deps.llm_service,
+            graph_intelligence_service=deps.graph_intelligence_service,
+            citation_service=deps.citation_service,
         )
 
         logger.info("AskesisService initialized with 7 specialized sub-services (facade pattern)")

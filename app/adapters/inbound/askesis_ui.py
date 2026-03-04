@@ -29,6 +29,10 @@ from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 logger = get_logger("skuel.ui.askesis")
 
+ASKESIS_TITLE = "Askesis"
+ASKESIS_STORAGE_KEY = "askesis-sidebar"
+ASKESIS_ACTIVE_PAGE = "askesis"
+
 
 # Sidebar items for Askesis pages
 ASKESIS_SIDEBAR_ITEMS = [
@@ -228,6 +232,20 @@ class AskesisUI:
             )
 
 
+async def _render_askesis_page(request: Request, *, content: Any, active: str, page_title: str) -> Any:
+    """Render Askesis sidebar pages with consistent defaults."""
+    return await SidebarPage(
+        content=content,
+        items=ASKESIS_SIDEBAR_ITEMS,
+        active=active,
+        title=ASKESIS_TITLE,
+        storage_key=ASKESIS_STORAGE_KEY,
+        page_title=page_title,
+        request=request,
+        active_page=ASKESIS_ACTIVE_PAGE,
+    )
+
+
 def create_askesis_ui_routes(_app, rt, _askesis_service):
     """Create UI routes for Askesis AI assistant."""
 
@@ -236,15 +254,11 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
     @rt("/askesis")
     async def askesis_home(request: Request) -> Any:
         """Main Askesis page with progressive disclosure."""
-        return await SidebarPage(
+        return await _render_askesis_page(
+            request,
             content=AskesisUI.render_centered_welcome(),
-            items=ASKESIS_SIDEBAR_ITEMS,
             active="dashboard",
-            title="Askesis",
-            storage_key="askesis-sidebar",
             page_title="Askesis - SKUEL",
-            request=request,
-            active_page="askesis",
         )
 
     routes.append(askesis_home)
@@ -252,15 +266,11 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
     @rt("/askesis/new-chat")
     async def askesis_new_chat(request: Request) -> Any:
         """Start a new chat conversation."""
-        return await SidebarPage(
+        return await _render_askesis_page(
+            request,
             content=AskesisUI.render_centered_welcome(),
-            items=ASKESIS_SIDEBAR_ITEMS,
             active="new-chat",
-            title="Askesis",
-            storage_key="askesis-sidebar",
             page_title="New Chat - Askesis - SKUEL",
-            request=request,
-            active_page="askesis",
         )
 
     routes.append(askesis_new_chat)
@@ -279,15 +289,11 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
                 cls="max-w-4xl mx-auto",
             ),
         )
-        return await SidebarPage(
+        return await _render_askesis_page(
+            request,
             content=content,
-            items=ASKESIS_SIDEBAR_ITEMS,
             active="history",
-            title="Askesis",
-            storage_key="askesis-sidebar",
             page_title="Chat History - Askesis - SKUEL",
-            request=request,
-            active_page="askesis",
         )
 
     routes.append(askesis_history)
@@ -313,15 +319,11 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
                 cls="max-w-4xl mx-auto",
             ),
         )
-        return await SidebarPage(
+        return await _render_askesis_page(
+            request,
             content=content,
-            items=ASKESIS_SIDEBAR_ITEMS,
             active="analytics",
-            title="Askesis",
-            storage_key="askesis-sidebar",
             page_title="Analytics - Askesis - SKUEL",
-            request=request,
-            active_page="askesis",
         )
 
     routes.append(askesis_analytics)
@@ -365,15 +367,11 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
                 cls="max-w-2xl mx-auto",
             ),
         )
-        return await SidebarPage(
+        return await _render_askesis_page(
+            request,
             content=content,
-            items=ASKESIS_SIDEBAR_ITEMS,
             active="settings",
-            title="Askesis",
-            storage_key="askesis-sidebar",
             page_title="Settings - Askesis - SKUEL",
-            request=request,
-            active_page="askesis",
         )
 
     routes.append(askesis_settings)
@@ -384,8 +382,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
         user_uid = require_authenticated_user(request)
 
         form_data = await request.form()
-        message = form_data.get("message", "")
-        form_data.get("model", "sonnet-4.5")
+        message = str(form_data.get("message", "")).strip()
 
         user_name = user_uid.replace("user_", "").title()
 
@@ -412,7 +409,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
                     ai_response = result.value.get("answer", "No response generated.")
 
             except Exception as e:
-                logger.error(f"Unexpected AI service error: {e}")
+                logger.error(f"Unexpected AI service error: {e}", exc_info=True)
                 ai_response = "I'm having trouble right now. Please try again."
 
         # Return message bubbles

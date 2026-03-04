@@ -2597,21 +2597,14 @@ async def compose_services(
 
         # Create Askesis service NOW with intelligence_factory as REQUIRED parameter
         # (January 2026: Moved from _create_learning_services() to eliminate post-wiring)
-        from core.services.askesis_service import AskesisService
+        from core.services.askesis_factory import create_askesis_service
 
-        askesis_service = AskesisService(
-            graph_intelligence_service=learning_services["graph_intelligence"],
+        services.askesis = create_askesis_service(
+            intelligence_factory=context_intelligence_factory,
+            learning_services=learning_services,
+            activity_services=activity_services,
             user_service=user_service,
-            llm_service=learning_services["llm_service"],
-            embeddings_service=learning_services["embeddings_service"],
-            knowledge_service=learning_services["ku_service"],
-            tasks_service=activity_services["tasks"],
-            goals_service=activity_services["goals"],
-            habits_service=activity_services["habits"],
-            events_service=activity_services["events"],
-            intelligence_factory=context_intelligence_factory,  # REQUIRED (not post-wired)
         )
-        services.askesis = askesis_service
         logger.info("✅ Askesis service created with intelligence_factory (13-domain synthesis)")
 
         # ========================================================================
