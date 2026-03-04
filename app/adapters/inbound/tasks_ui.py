@@ -19,7 +19,7 @@ Routes:
 import contextlib
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Any
 
 from fasthtml.common import H1, H2, Div, JSONResponse, P, Response, Span

@@ -18,7 +18,7 @@ __version__ = "2.0"
 
 import contextlib
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import date, time
 from typing import Any
 
 from fasthtml.common import H1, H2, Div, Form, Option, P, Span

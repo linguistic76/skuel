@@ -21,6 +21,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_admin
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.route_factories import parse_int_query_param
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -152,7 +153,7 @@ def create_ku_organization_api_routes(
     async def list_root_organizers_route(request: Request) -> Result[list[Any]]:
         """List Kus that organize others but are not themselves organized (root organizers)."""
         params = dict(request.query_params)
-        limit = int(params.get("limit", 50))
+        limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
         return await ku_service.list_root_organizers(limit)
 
     @rt("/api/ku/{uid}/organized-children")

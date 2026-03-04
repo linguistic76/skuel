@@ -19,6 +19,7 @@ from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.route_factories import parse_int_query_param
 from core.models.entity_converters import ku_to_response
 from core.models.feedback.feedback_requests import AssessmentCreateRequest
 from core.utils.logging import get_logger
@@ -81,7 +82,7 @@ def create_feedback_assessment_api_routes(
     async def get_given_assessments(request: Request) -> Result[Any]:
         """Get assessments authored by the current teacher."""
         user_uid = require_authenticated_user(request)
-        limit = int(request.query_params.get("limit", "50"))
+        limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1, maximum=500)
 
         result = await feedback_service.get_assessments_by_teacher(
             teacher_uid=user_uid,
@@ -104,7 +105,7 @@ def create_feedback_assessment_api_routes(
     async def get_received_assessments(request: Request) -> Result[Any]:
         """Get assessments received by the current student."""
         user_uid = require_authenticated_user(request)
-        limit = int(request.query_params.get("limit", "50"))
+        limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1, maximum=500)
 
         result = await feedback_service.get_assessments_for_student(
             student_uid=user_uid,

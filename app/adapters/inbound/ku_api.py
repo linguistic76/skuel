@@ -18,7 +18,11 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRouteFactory
+from adapters.inbound.route_factories import (
+    CRUDRouteFactory,
+    IntelligenceRouteFactory,
+    parse_int_query_param,
+)
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.curriculum.curriculum_requests import CurriculumCreateRequest
 from core.models.entity_requests import EntityUpdateRequest
@@ -177,7 +181,7 @@ def create_ku_api_routes(
         params = dict(request.query_params)
         query = params.get("q", "")
         # Note: search_type param not supported by KuService - searches all by default
-        limit = int(params.get("limit", 50))
+        limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=100)
 
         return await ku_service.search_knowledge_units(query, limit)
 
@@ -187,7 +191,7 @@ def create_ku_api_routes(
         """Find KUs related to the given unit."""
         params = dict(request.query_params)
         similarity_threshold = float(params.get("threshold", 0.7))
-        limit = int(params.get("limit", 10))
+        limit = parse_int_query_param(params, "limit", 10, minimum=1, maximum=500)
 
         return await ku_service.find_related_knowledge(uid, similarity_threshold, limit)
 
@@ -215,7 +219,7 @@ def create_ku_api_routes(
     async def get_ku_by_domain_route(request: Request, domain: str) -> Result[Any]:
         """Get KUs in a specific domain."""
         params = dict(request.query_params)
-        limit = int(params.get("limit", 100))
+        limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
         return await ku_service.get_knowledge_by_domain(domain, limit)
 
@@ -230,7 +234,7 @@ def create_ku_api_routes(
     async def list_ku_tags_route(request: Request) -> Result[Any]:
         """List all KU tags with usage counts."""
         params = dict(request.query_params)
-        min_usage = int(params.get("min_usage", 1))
+        min_usage = parse_int_query_param(params, "min_usage", 1, minimum=0)
 
         return await ku_service.list_knowledge_tags(min_usage)
 

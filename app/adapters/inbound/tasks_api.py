@@ -19,6 +19,7 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import (
     StatusRouteFactory,
     StatusTransition,
+    parse_int_query_param,
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
@@ -82,7 +83,7 @@ def create_tasks_api_routes(
         service: TasksService, params: dict[str, Any]
     ) -> Result[Any]:
         """Handle performance analytics request."""
-        period_days = int(params.get("period_days", "30"))
+        period_days = parse_int_query_param(params, "period_days", 30, minimum=1, maximum=365)
         user_uid = params.get("_user_uid", "")  # Injected by factory
         result = await service.intelligence.get_performance_analytics(user_uid, period_days)
         return cast("Result[Any]", result)
@@ -91,7 +92,7 @@ def create_tasks_api_routes(
         service: TasksService, params: dict[str, Any]
     ) -> Result[Any]:
         """Handle behavioral insights request."""
-        period_days = int(params.get("period_days", "90"))
+        period_days = parse_int_query_param(params, "period_days", 90, minimum=1, maximum=365)
         user_uid = params.get("_user_uid", "")  # Injected by factory
         result = await service.intelligence.get_behavioral_insights(user_uid, period_days)
         return cast("Result[Any]", result)
@@ -171,7 +172,7 @@ def create_tasks_api_routes(
         params = dict(request.query_params)
 
         include_completed = params.get("include_completed", "false").lower() == "true"
-        limit = int(params.get("limit", 100))
+        limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
         return await tasks_service.get_user_assigned_tasks(user_uid, include_completed, limit)
 
@@ -207,7 +208,7 @@ def create_tasks_api_routes(
     ) -> Result[Any]:
         """Find practice opportunities related to task (requires ownership)."""
         params = dict(request.query_params)
-        depth = int(params.get("depth", 2))
+        depth = parse_int_query_param(params, "depth", 2, minimum=1, maximum=5)
 
         return await tasks_service.get_task_practice_opportunities(entity.uid, depth)
 
@@ -218,7 +219,7 @@ def create_tasks_api_routes(
         params = dict(request.query_params)
 
         query = params.get("query", "")
-        limit = int(params.get("limit", 10))
+        limit = parse_int_query_param(params, "limit", 10, minimum=1, maximum=100)
 
         result: Result[Any] = await tasks_service.search.search(query, limit)
         return result
@@ -245,8 +246,8 @@ def create_tasks_api_routes(
         user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
 
-        days_ahead = int(params.get("days_ahead", 7))
-        limit = int(params.get("limit", 100))
+        days_ahead = parse_int_query_param(params, "days_ahead", 7, minimum=1, maximum=365)
+        limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
         result: Result[Any] = await tasks_service.search.get_due_soon(
             days_ahead=days_ahead,
@@ -270,7 +271,7 @@ def create_tasks_api_routes(
         user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
 
-        limit = int(params.get("limit", 100))
+        limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
         result: Result[Any] = await tasks_service.search.get_overdue(
             user_uid=user_uid,

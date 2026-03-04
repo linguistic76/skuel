@@ -26,6 +26,7 @@ from starlette.requests import Request
 
 from adapters.inbound.auth import UserUID, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.route_factories import parse_int_query_param
 from core.models.enums.metadata_enums import Visibility
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -265,7 +266,7 @@ def create_submissions_sharing_api_routes(
 
         # Parse query params
         params = dict(request.query_params)
-        limit = int(params.get("limit", 50))
+        limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
 
         result = await sharing_service.get_shared_with_me(
             user_uid=user_uid,
@@ -375,7 +376,7 @@ def create_submissions_sharing_api_routes(
         # Parse query params
         params = dict(request.query_params)
         filter_user_uid = params.get("user_uid")
-        limit = int(params.get("limit", 50))
+        limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
 
         if not core_service:
             return Result.fail(
@@ -512,7 +513,7 @@ def create_submissions_sharing_api_routes(
         user_uid: UserUID = require_authenticated_user(request)
 
         params = dict(request.query_params)
-        limit = int(params.get("limit", 50))
+        limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
 
         result = await sharing_service.get_shared_with_me_via_groups(
             user_uid=user_uid,

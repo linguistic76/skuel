@@ -44,7 +44,6 @@ from starlette.responses import HTMLResponse
 
 from core.models.curriculum.curriculum_requests import LearningPathFilterRequest
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
 from ui.buttons import Button, ButtonT
 from ui.cards import Card

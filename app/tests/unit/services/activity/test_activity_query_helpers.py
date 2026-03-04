@@ -18,8 +18,6 @@ from datetime import date, datetime, time, timedelta
 from types import SimpleNamespace
 from typing import Any
 
-import pytest
-
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.principle_enums import PrincipleStrength
 from core.services.choices_service import (
@@ -48,7 +46,6 @@ from core.services.tasks_service import (
     _apply_task_secondary_filters,
     _apply_task_sort,
 )
-
 
 # ============================================================================
 # HABITS

@@ -22,9 +22,10 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
-from adapters.inbound.ai_guard import ai_unavailable_result, is_ai_available
+from adapters.inbound.ai_guard import ai_unavailable_result
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.route_factories import parse_int_query_param
 from core.models.askesis.askesis_request import (
     AskesisAnalyticsRequest,
     AskesisCreateRequest,
@@ -655,7 +656,7 @@ def create_askesis_api_routes(
         """
         params = dict(request.query_params)
 
-        max_steps = int(params.get("max_steps", "5"))
+        max_steps = parse_int_query_param(params, "max_steps", 5, minimum=1, maximum=20)
         consider_goals = params.get("consider_goals", "true").lower() == "true"
         consider_capacity = params.get("consider_capacity", "true").lower() == "true"
 
@@ -962,8 +963,8 @@ def create_askesis_api_routes(
         """
 
         # Parse query parameters
-        max_recommendations = int(request.query_params.get("max_recommendations", "5"))
-        time_horizon_hours = int(request.query_params.get("time_horizon_hours", "8"))
+        max_recommendations = parse_int_query_param(request.query_params, "max_recommendations", 5, minimum=1, maximum=20)
+        time_horizon_hours = parse_int_query_param(request.query_params, "time_horizon_hours", 8, minimum=1, maximum=168)
         respect_energy = request.query_params.get("respect_energy", "true").lower() == "true"
 
         fetch_result = await _load_askesis_and_context(

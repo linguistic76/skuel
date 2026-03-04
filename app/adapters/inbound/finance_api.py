@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 # Pydantic schemas for boundary
 from adapters.inbound.auth import require_admin
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.route_factories import parse_int_query_param
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from adapters.inbound.route_factories.crud_route_factory import CRUDRouteFactory
 from core.models.enums import UserRole
@@ -96,8 +97,8 @@ def create_finance_api_routes(
         end_date = date.fromisoformat(params["end_date"])
 
         # Optional parameters
-        limit = int(params.get("limit", 100))
-        offset = int(params.get("offset", 0))
+        limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
+        offset = parse_int_query_param(params, "offset", 0, minimum=0)
 
         # Call service with admin's user_uid (service filters by user)
         result = await finance_service.get_expenses_by_date_range(
@@ -140,8 +141,8 @@ def create_finance_api_routes(
                 return Result.fail(Errors.validation("Query parameter is required", field="query"))
 
             # Optional parameters
-            limit = int(params.get("limit", 50))
-            offset = int(params.get("offset", 0))
+            limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=100)
+            offset = parse_int_query_param(params, "offset", 0, minimum=0)
 
             # Call service (admin sees all)
             result = await finance_service.search_expenses(
@@ -384,7 +385,7 @@ def create_finance_api_routes(
         # Get query params
         invoice_type = request.query_params.get("type")  # outgoing or incoming
         status = request.query_params.get("status")
-        limit = int(request.query_params.get("limit", "50"))
+        limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1, maximum=500)
 
         result = await finance_service.list_invoices(
             limit=limit,

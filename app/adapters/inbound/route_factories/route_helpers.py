@@ -13,7 +13,7 @@ Helpers:
 See: /docs/patterns/AUTH_PATTERNS.md, /docs/patterns/OWNERSHIP_VERIFICATION.md
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, cast
 
 from adapters.inbound.auth.session import require_authenticated_user
@@ -118,4 +118,31 @@ async def verify_entity_ownership(
     return None
 
 
-__all__ = ["check_required_role", "verify_entity_ownership"]
+def parse_int_query_param(
+    params: Mapping[str, Any],
+    key: str,
+    default: int,
+    *,
+    minimum: int | None = None,
+    maximum: int | None = None,
+) -> int:
+    """Parse an integer query param with safe fallback and optional bounds.
+
+    Invalid, missing, or blank values return ``default``.
+    Values are clamped when ``minimum`` and/or ``maximum`` are provided.
+    """
+    raw_value = params.get(key)
+    if raw_value is None or raw_value == "":
+        return default
+    try:
+        value = int(str(raw_value))
+    except (TypeError, ValueError):
+        return default
+    if minimum is not None:
+        value = max(minimum, value)
+    if maximum is not None:
+        value = min(maximum, value)
+    return value
+
+
+__all__ = ["check_required_role", "parse_int_query_param", "verify_entity_ownership"]

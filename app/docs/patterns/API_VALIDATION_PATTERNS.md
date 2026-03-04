@@ -424,6 +424,62 @@ adapters/inbound/
 
 ## Common Patterns
 
+### Integer Query Parameters
+
+**Use Case:** Pagination (`limit`, `offset`), time windows (`days`, `days_back`), depth controls
+
+**Pattern:** `parse_int_query_param()` — safe parsing with fallback and bounds clamping
+
+```python
+from adapters.inbound.route_factories import parse_int_query_param
+
+# In a route handler:
+params = dict(request.query_params)
+limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
+offset = parse_int_query_param(params, "offset", 0, minimum=0)
+days = parse_int_query_param(params, "days", 30, minimum=1, maximum=365)
+
+# Also works directly with request.query_params (Starlette QueryParams):
+limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1, maximum=500)
+```
+
+**Behavior:**
+- Missing key → returns `default`
+- Empty string → returns `default`
+- Non-numeric (e.g. `"abc"`) → returns `default`
+- Below `minimum` → clamped to `minimum`
+- Above `maximum` → clamped to `maximum`
+- Valid integer → returned as-is
+
+**Standard Bounds:**
+
+| Parameter | Default | Min | Max | Used By |
+|-----------|---------|-----|-----|---------|
+| `limit` (general) | 50-100 | 1 | 500 | All list/query endpoints |
+| `limit` (search) | 50 | 1 | 100 | Search endpoints |
+| `offset` | 0 | 0 | — | Pagination |
+| `days` / `days_back` / `period_days` | 30 | 1 | 365 | Analytics, time-windowed queries |
+| `depth` | 2 | 1 | 5 | Graph traversal |
+| `min_usage` | 1 | 0 | — | Tag usage filters |
+| `max_steps` / `max_recommendations` | 5 | 1 | 20 | Askesis intelligence |
+| `time_horizon_hours` | 8 | 1 | 168 | Schedule-aware recommendations |
+
+**Anti-Pattern:**
+```python
+# BAD: Crashes with ValueError on non-numeric input → 500 error
+limit = int(params.get("limit", 50))
+limit = int(request.query_params.get("days_back", 30))
+
+# GOOD: Safe fallback + bounds clamping
+limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
+days_back = parse_int_query_param(request.query_params, "days_back", 30, minimum=1, maximum=365)
+```
+
+**Location:** `adapters/inbound/route_factories/route_helpers.py`
+**Tests:** `tests/unit/adapters/test_route_helpers.py`
+
+---
+
 ### Boolean Query Parameters
 
 ```python

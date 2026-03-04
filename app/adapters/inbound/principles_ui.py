@@ -27,7 +27,11 @@ from fasthtml.common import H1, H2, H3, Div, P, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
+from adapters.inbound.route_factories import (
+    QuickAddConfig,
+    QuickAddRouteFactory,
+    parse_int_query_param,
+)
 from adapters.inbound.ui_helpers import render_safe_error_response
 from core.constants import QueryLimit
 from core.ports.query_types import PrinciplesFilterSpec
@@ -838,7 +842,7 @@ def create_principles_ui_routes(
         if not principles_service:
             return Response("Service unavailable", status_code=503)
 
-        days = int(request.query_params.get("days", "30"))
+        days = parse_int_query_param(request.query_params, "days", 30, minimum=1, maximum=365)
 
         result = await principles_service.reflection.calculate_alignment_trend(
             principle_uid=uid,

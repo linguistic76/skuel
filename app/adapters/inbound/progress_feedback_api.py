@@ -43,6 +43,7 @@ from starlette.requests import Request
 
 from adapters.inbound.auth import require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.route_factories import parse_int_query_param
 from core.models.entity_converters import ku_to_response
 from core.models.entity_requests import (
     ProgressReportGenerateRequest,
@@ -116,7 +117,7 @@ def create_progress_feedback_api_routes(
     async def list_progress_reports(request: Request) -> Result[Any]:
         """List user's progress reports."""
         user_uid = require_authenticated_user(request)
-        limit = int(request.query_params.get("limit", "20"))
+        limit = parse_int_query_param(request.query_params, "limit", 20, minimum=1, maximum=500)
 
         result = await report_service.list_submissions(
             user_uid=user_uid,
@@ -315,7 +316,7 @@ def create_progress_feedback_api_routes(
             subject_uid cannot be overridden via query params. See ADR-042.
             """
             user_uid = require_authenticated_user(request)
-            limit = int(request.query_params.get("limit", "20"))
+            limit = parse_int_query_param(request.query_params, "limit", 20, minimum=1, maximum=500)
 
             result = await activity_report.get_history(
                 subject_uid=user_uid,
@@ -451,7 +452,7 @@ def create_progress_feedback_api_routes(
         async def get_review_queue(request: Request) -> Result[Any]:
             """Admin's pending review queue."""
             admin_uid = require_authenticated_user(request)
-            limit = int(request.query_params.get("limit", "20"))
+            limit = parse_int_query_param(request.query_params, "limit", 20, minimum=1, maximum=500)
 
             result = await review_queue.get_pending_reviews(
                 _admin_uid=admin_uid,

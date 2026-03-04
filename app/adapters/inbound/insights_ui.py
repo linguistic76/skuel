@@ -13,6 +13,7 @@ from fasthtml.common import H2, H3, A, Div, Input, Label, NotStr, P, Select, Spa
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.route_factories import parse_int_query_param
 from core.utils.logging import get_logger
 from ui.insights.insight_card import InsightCard
 from ui.layouts.base_page import BasePage
@@ -51,11 +52,7 @@ def parse_insights_filters(request: Request) -> InsightsFilters:
     Returns:
         Typed InsightsFilters with defaults applied
     """
-    # Parse offset as integer
-    try:
-        offset = int(request.query_params.get("offset", 0))
-    except (ValueError, TypeError):
-        offset = 0
+    offset = parse_int_query_param(request.query_params, "offset", 0, minimum=0)
 
     return InsightsFilters(
         domain=request.query_params.get("domain"),

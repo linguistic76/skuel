@@ -16,6 +16,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_ownership_query
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.route_factories import parse_int_query_param
 from core.services.choices_service import ChoicesService
 from core.utils.result_simplified import Result
 
@@ -248,7 +249,7 @@ def create_choices_api_routes(
             Dict mapping domains to decision pattern metrics
         """
         params = dict(request.query_params)
-        days = int(params.get("days", 90))
+        days = parse_int_query_param(params, "days", 90, minimum=1, maximum=365)
 
         result: Result[Any] = await choice_service.intelligence.get_domain_decision_patterns(
             user_uid, days=days

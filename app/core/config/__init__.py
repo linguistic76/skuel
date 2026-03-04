@@ -15,8 +15,6 @@ __version__ = "1.0"
 
 
 # Import intelligence tier
-from core.config.intelligence_tier import IntelligenceTier
-
 # Import main configuration access points
 # Dependency injection moved to services_bootstrap.py - no legacy functions needed
 # Import environment validation
@@ -25,6 +23,7 @@ from core.config.environment_validator import (
     get_openai_key,
     validate_environment,
 )
+from core.config.intelligence_tier import IntelligenceTier
 from core.config.settings import (
     api_host,
     api_port,

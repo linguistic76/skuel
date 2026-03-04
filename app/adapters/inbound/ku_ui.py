@@ -20,7 +20,6 @@ from starlette.responses import Response
 from core.models.curriculum.curriculum_requests import CurriculumCreateRequest as KuCreateRequest
 from core.models.enums import SELCategory
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.patterns.card_generator import CardGenerator

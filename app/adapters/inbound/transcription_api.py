@@ -21,6 +21,7 @@ from typing import Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.route_factories import parse_int_query_param
 from core.models.transcription.transcription import (
     TranscriptionCreateRequest,
     TranscriptionProcessOptions,
@@ -117,8 +118,8 @@ def create_transcription_api_routes(
         params = dict(request.query_params)
 
         status_str = params.get("status")
-        limit = int(params.get("limit", 100))
-        offset = int(params.get("offset", 0))
+        limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
+        offset = parse_int_query_param(params, "offset", 0, minimum=0)
 
         status = TranscriptionStatus(status_str) if status_str else None
 
@@ -186,7 +187,7 @@ def create_transcription_api_routes(
         if not query:
             return Result.fail(Errors.validation("Query parameter 'q' is required", field="q"))
 
-        limit = int(params.get("limit", 100))
+        limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
         result = await transcription_service.search(query, user_uid=user_uid, limit=limit)
 
@@ -207,7 +208,7 @@ def create_transcription_api_routes(
         except ValueError:
             return Result.fail(Errors.validation(f"Invalid status: {status}", field="status"))
 
-        limit = int(params.get("limit", 100))
+        limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
         result = await transcription_service.get_by_status(
             status_enum, user_uid=user_uid, limit=limit

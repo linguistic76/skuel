@@ -18,6 +18,7 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import (
     StatusRouteFactory,
     StatusTransition,
+    parse_int_query_param,
 )
 from core.models.enums import ContentScope
 from core.models.goal.goal import Goal
@@ -205,7 +206,7 @@ def create_goals_api_routes(
         """Get goals in a specific category."""
         params = dict(request.query_params)
 
-        limit = int(params.get("limit", 100))
+        limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
         return await goals_service.get_goals_by_category(category, limit)
 
@@ -215,7 +216,7 @@ def create_goals_api_routes(
         """Get goals by status."""
         params = dict(request.query_params)
 
-        limit = int(params.get("limit", 100))
+        limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
         return await goals_service.get_goals_by_status(status, limit)
 
@@ -229,7 +230,7 @@ def create_goals_api_routes(
         params = dict(request.query_params)
 
         query = params.get("q", "")
-        limit = int(params.get("limit", 50))
+        limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=100)
 
         return await goals_service.search_goals(query, limit)
 
@@ -238,7 +239,7 @@ def create_goals_api_routes(
     async def get_goals_due_soon_route(request: Request) -> Result[list[Goal]]:
         """Get goals due soon."""
         params = dict(request.query_params)
-        days_ahead = int(params.get("days", 7))
+        days_ahead = parse_int_query_param(params, "days", 7, minimum=1, maximum=365)
 
         return await goals_service.get_goals_due_soon(days_ahead)
 
@@ -247,7 +248,7 @@ def create_goals_api_routes(
     async def get_overdue_goals_route(request: Request) -> Result[list[Goal]]:
         """Get overdue goals."""
         params = dict(request.query_params)
-        limit = int(params.get("limit", 100))
+        limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
         return await goals_service.get_overdue_goals(limit)
 

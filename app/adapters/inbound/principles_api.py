@@ -15,6 +15,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user, require_ownership_query
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.route_factories import parse_int_query_param
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.principle.principle_request import (
     AlignmentAssessmentRequest,
@@ -127,8 +128,8 @@ def create_principles_api_routes(
     ) -> Result[Any]:
         """Get alignment history for a principle (requires ownership)."""
         params = dict(request.query_params)
-        limit = int(params.get("limit", 20))
-        days = int(params.get("days", 30))
+        limit = parse_int_query_param(params, "limit", 20, minimum=1, maximum=500)
+        days = parse_int_query_param(params, "days", 30, minimum=1, maximum=365)
 
         return await principles_service.get_principle_alignment_history(entity.uid, limit, days)
 
@@ -171,8 +172,8 @@ def create_principles_api_routes(
     ) -> Result[Any]:
         """Get related principles based on connections (requires ownership)."""
         params = dict(request.query_params)
-        depth = int(params.get("depth", 2))
-        limit = int(params.get("limit", 10))
+        depth = parse_int_query_param(params, "depth", 2, minimum=1, maximum=5)
+        limit = parse_int_query_param(params, "limit", 10, minimum=1, maximum=500)
 
         return await principles_service.get_related_principles(entity.uid, depth, limit)
 

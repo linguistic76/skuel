@@ -19,6 +19,7 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import (
     StatusRouteFactory,
     StatusTransition,
+    parse_int_query_param,
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
@@ -140,7 +141,7 @@ def create_events_api_routes(
         """Search events."""
         params = dict(request.query_params)
         query = params.get("q", "")
-        limit = int(params.get("limit", 50))
+        limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=100)
 
         return await events_service.search_events(query, limit)
 
@@ -218,7 +219,7 @@ def create_events_api_routes(
         params = dict(request.query_params)
         typed_request = GetRecurringEventsRequest(
             user_uid=params.get("user_uid", ""),
-            limit=int(params.get("limit", "100")),
+            limit=parse_int_query_param(params, "limit", 100, minimum=1, maximum=500),
         )
         return await events_service.get_recurring_events(typed_request)
 
