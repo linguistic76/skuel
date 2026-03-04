@@ -198,6 +198,12 @@ def scan_file(md_file: Path) -> list[tuple[int, str, str, str]]:
     return issues
 
 
+def _sort_stale_name_issues(record: tuple[Path, int, str, str, str]) -> tuple[str, int]:
+    """Sort stale name issues by source path then line number."""
+    source, lineno, _, _, _ = record
+    return str(source), lineno
+
+
 def print_tables() -> None:
     """Print the full RENAMED and DELETED tables."""
     print(f"\n{BOLD}RENAMED identifiers ({len(RENAMED)}):{RESET}")
@@ -247,7 +253,7 @@ def main() -> int:
         print(f"{RED}{BOLD}Stale Names — {len(all_issues)} violations:{RESET}\n")
 
         current_file = None
-        for source, lineno, old, new, kind in sorted(all_issues, key=lambda x: (str(x[0]), x[1])):
+        for source, lineno, old, new, kind in sorted(all_issues, key=_sort_stale_name_issues):
             if source != current_file:
                 print(f"\n  {BOLD}{source}{RESET}")
                 current_file = source

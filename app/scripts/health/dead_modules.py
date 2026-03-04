@@ -285,6 +285,12 @@ def get_hint(path: Path) -> str:
     return ""
 
 
+def _sort_dead_modules_by_size(record: tuple[Path, str, int, str]) -> int:
+    """Sort dead module records by descending line count."""
+    _, _, lines, _ = record
+    return -lines
+
+
 def main() -> int:
     import argparse
 
@@ -326,7 +332,7 @@ def main() -> int:
         print(f"{YELLOW}These are not imported anywhere in production code.{RESET}")
         print(f"{YELLOW}Review before deleting — some may be loaded by convention.{RESET}\n")
 
-        for path, module, lines, hint in sorted(dead, key=lambda x: -x[2]):
+        for path, module, lines, hint in sorted(dead, key=_sort_dead_modules_by_size):
             rel = path.relative_to(ROOT)
             print(f"  {RED}●{RESET} {BOLD}{rel}{RESET}  ({lines} lines)")
             print(f"      module: {CYAN}{module}{RESET}")
