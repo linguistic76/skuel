@@ -338,11 +338,12 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 ## Roadmap
 
-*Future features and service development*
+*Deferred work with explicit triggers and review schedule*
 
-| Document | Updated | Lines |
-|----------|---------|-------|
-| [Future Services](roadmap/future-services.md) | 2026-01-25 | - |
+| Document | Updated | Description |
+|----------|---------|-------------|
+| [Deferred Work](roadmap/deferred-work.md) | 2026-03-04 | Intelligence features and decision points deferred until data/business prerequisites exist |
+| [Security Hardening — Deferred](roadmap/security-hardening-deferred.md) | 2026-03-04 | 5 deferred security items: dependency pinning, rate limiting, secret scanning, session rotation, CI CVE scanning |
 
 ## Examples
 

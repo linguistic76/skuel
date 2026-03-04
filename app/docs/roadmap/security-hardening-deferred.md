@@ -55,7 +55,7 @@ phase.
 
 ### A. Rate limiting on auth endpoints
 
-Redis is already pre-wired (see `/docs/roadmap/future-services.md`). Once Redis is enabled,
+Redis is pre-wired in `docker-compose.production.yml` and `core/config/unified_config.py`. Once Redis is enabled,
 add `slowapi` (or equivalent) to throttle:
 
 ```python
@@ -253,7 +253,7 @@ When production deployment approaches, implement in this order:
 ---
 
 **Related**:
-- `/docs/roadmap/future-services.md` — Redis, monitoring, and other deferred infrastructure
+- `/docs/roadmap/deferred-work.md` — intelligence features, decision points, and other deferred items
 - `docs/patterns/AUTH_PATTERNS.md` — current auth implementation
 - `adapters/inbound/auth/session.py` — session management (Phases 1–2 already hardened)
 - `core/auth/graph_auth.py` — sign-up logic (Phase 3 generic errors already applied)
