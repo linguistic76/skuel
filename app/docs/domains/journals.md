@@ -208,9 +208,9 @@ class JournalOutputGenerator:
 ```
 
 **Formatter Prompts:**
-- `/core/services/submissions/journal_prompts/activity_formatter.md`
-- `/core/services/submissions/journal_prompts/articulation_formatter.md`
-- `/core/services/submissions/journal_prompts/exploration_formatter.md`
+- `/core/prompts/templates/journal_activity.md`
+- `/core/prompts/templates/journal_articulation.md`
+- `/core/prompts/templates/journal_exploration.md`
 
 ### ActivityExtractorService
 
@@ -371,9 +371,9 @@ When a journal is processed, these fields are stored in `report.metadata`:
 | Processing Service | `/core/services/submissions/submissions_processing_service.py` |
 | Core CRUD | `/core/services/submissions/submissions_core_service.py` |
 | **Prompts** | |
-| Activity Formatter | `/core/services/submissions/journal_prompts/activity_formatter.md` |
-| Articulation Formatter | `/core/services/submissions/journal_prompts/articulation_formatter.md` |
-| Exploration Formatter | `/core/services/submissions/journal_prompts/exploration_formatter.md` |
+| Activity Formatter | `/core/prompts/templates/journal_activity.md` |
+| Articulation Formatter | `/core/prompts/templates/journal_articulation.md` |
+| Exploration Formatter | `/core/prompts/templates/journal_exploration.md` |
 | **Routes** | |
 | UI Implementation | `/adapters/inbound/journals_ui.py` |
 | Route Registration | `JOURNALS_CONFIG` in `/adapters/inbound/submissions_routes.py` |

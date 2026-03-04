@@ -16,6 +16,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+from core.prompts import PROMPT_REGISTRY
 from core.services.ai_service import OpenAIService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -46,12 +47,6 @@ class JournalOutputGenerator:
         self.storage_base = storage_base or os.getenv(
             "SKUEL_JOURNAL_STORAGE", "/tmp/skuel_journals"
         )
-
-        # Load formatter prompts
-        prompts_dir = Path(__file__).parent / "journal_prompts"
-        self.activity_prompt = (prompts_dir / "activity_formatter.md").read_text()
-        self.articulation_prompt = (prompts_dir / "articulation_formatter.md").read_text()
-        self.exploration_prompt = (prompts_dir / "exploration_formatter.md").read_text()
 
     async def generate(
         self,
@@ -115,17 +110,17 @@ class JournalOutputGenerator:
 
     async def _format_activity(self, content: str) -> Result[str]:
         """Format content for activity tracking mode (structured DSL)."""
-        prompt = self.activity_prompt.format(content=content)
+        prompt = PROMPT_REGISTRY.render("journal_activity", content=content)
         return await self._call_formatter(prompt, "activity")
 
     async def _format_articulation(self, content: str) -> Result[str]:
         """Format content for idea articulation mode (verbatim preservation)."""
-        prompt = self.articulation_prompt.format(content=content)
+        prompt = PROMPT_REGISTRY.render("journal_articulation", content=content)
         return await self._call_formatter(prompt, "articulation")
 
     async def _format_exploration(self, content: str) -> Result[str]:
         """Format content for critical thinking mode (question-organized)."""
-        prompt = self.exploration_prompt.format(content=content)
+        prompt = PROMPT_REGISTRY.render("journal_exploration", content=content)
         return await self._call_formatter(prompt, "exploration")
 
     async def _call_formatter(self, prompt: str, mode_name: str) -> Result[str]:

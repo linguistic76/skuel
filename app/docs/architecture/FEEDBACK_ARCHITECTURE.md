@@ -411,7 +411,7 @@ When `openai_service` is available, the generator:
 
 **Annotation feedback loop:** User annotations flow back into the next report's LLM prompt via `_fetch_previous_annotation()`. The field is also surfaced in `UserContext.latest_activity_report_user_annotation` and included in Askesis's `build_llm_context()` when the query mentions feedback/patterns/reflection keywords.
 
-**Prompt template:** `core/services/feedback/prompts/activity_feedback.md`
+**Prompt template:** `core/prompts/templates/activity_feedback.md`
 
 ---
 

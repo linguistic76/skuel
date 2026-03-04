@@ -20,7 +20,6 @@ See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
 
 import json
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -32,6 +31,7 @@ if TYPE_CHECKING:
     from core.services.user.user_context_builder import UserContextBuilder
 
 from core.constants import FeedbackTimePeriod  # also: MIN_REPORT_COOLDOWN_MINUTES
+from core.prompts import PROMPT_REGISTRY
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.enums.entity_enums import EntityType, ProcessorType
@@ -42,8 +42,6 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.services.feedback.progress_generator")
-
-_PROMPT_TEMPLATE_PATH = Path(__file__).parent / "prompts" / "activity_feedback.md"
 
 
 class ProgressFeedbackGenerator:
@@ -281,15 +279,7 @@ class ProgressFeedbackGenerator:
         Loads the Markdown template, substitutes stats and configuration,
         returns the final prompt string.
         """
-        try:
-            template = _PROMPT_TEMPLATE_PATH.read_text()
-        except FileNotFoundError:
-            # Fallback inline template if file not found
-            template = (
-                "You are a personal development coach. Analyze this activity data "
-                "from the past {time_period} and write a {depth} feedback report:\n\n"
-                "Activity Data:\n{stats_json}\n\nActive Insights:\n{insights_section}"
-            )
+        template = PROMPT_REGISTRY.get("activity_feedback").content
 
         # Serialize stats (exclude large detail lists for prompt efficiency)
         stats_summary = {

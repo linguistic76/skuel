@@ -64,29 +64,30 @@ class OpenAIService:
         max_tokens: int = 4000,
         temperature: float = 0.7,
         model: str = "gpt-4o-mini",
+        system_prompt: str | None = None,
     ) -> Result[str]:
         """
         Generate completion from prompt.
 
         Args:
-            prompt: Input prompt,
-            max_tokens: Maximum tokens to generate,
-            temperature: Sampling temperature (0-1),
+            prompt: Input prompt
+            max_tokens: Maximum tokens to generate
+            temperature: Sampling temperature (0-1)
             model: Model to use
+            system_prompt: Optional system message; omitted when None
 
         Returns:
             Result containing generated text
         """
         try:
+            messages: list[dict[str, str]] = []
+            if system_prompt is not None:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+
             response = self.client.chat.completions.create(
                 model=model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a helpful assistant that formats journal transcripts.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
+                messages=messages,
                 max_tokens=max_tokens,
                 temperature=temperature,
             )

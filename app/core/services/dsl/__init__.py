@@ -156,14 +156,12 @@ from core.services.dsl.dsl_knowledge_connector import (
     plan_journal_connections,
 )
 from core.services.dsl.llm_dsl_bridge import (
-    DOMAIN_RECOGNITION_PROMPT,
     DSLTransformResult,
     LLMDSLBridgeService,
     create_llm_dsl_bridge,
 )
 
 __all__ = [
-    "DOMAIN_RECOGNITION_PROMPT",
     # Parser
     "ActivityDSLParser",
     # Converter - Protocol-verified conversion
