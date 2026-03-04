@@ -563,6 +563,61 @@ Key design: **query text is OPTIONAL** — filter-only search is valid.
 
 ---
 
+## Deadline Proximity Scoring
+
+Activity domain search services use `get_prioritized(user_context)` to rank entities by urgency. Deadline proximity is one scoring factor (0–40 points out of a ~100-point composite).
+
+### Shared Helper
+
+All deadline-based domains use `score_deadline_proximity()` from `core/utils/timestamp_helpers.py`:
+
+```python
+from core.utils.timestamp_helpers import score_deadline_proximity
+
+score = score_deadline_proximity(
+    days_until=5,                          # days until deadline (negative = overdue)
+    bands=((0, 40), (7, 35), (30, 25)),    # (max_days, score) pairs, ascending
+    default_score=5,                       # beyond all bands
+)
+# First matching band wins: days_until <= max_days → return score
+```
+
+### Per-Domain Band Thresholds
+
+Each domain defines `_PROXIMITY_BANDS` and `_PROXIMITY_DEFAULT` as `ClassVar` on its search service. The bands reflect how urgently each domain type demands attention:
+
+| Domain | Date Field | Bands | Default | Rationale |
+|--------|-----------|-------|---------|-----------|
+| **Goals** | `target_date` | `(0,40) (7,35) (30,25) (90,15)` | 5 | Long horizons — monthly/quarterly goals are normal |
+| **Events** | `event_date` | `(0,40) (1,35) (3,30) (7,20)` | 10 | Tight windows — tomorrow's event is urgent |
+| **Choices** | `decision_deadline` | `(0,40) (3,35) (7,30) (14,20)` | 10 | Medium urgency — decisions have natural deliberation time |
+
+**Domains without deadline scoring:**
+- **Tasks** — uses `task.impact_score()` model method (priority + goal fulfillment), not deadline bands
+- **Habits** — backwards-looking streak logic, not deadline-based
+- **Principles** — strength-based scoring, no deadlines
+
+### Composite Score Structure
+
+Deadline proximity is one factor in `_calculate_priority_score()`. The full composite varies by domain:
+
+| Domain | Deadline (0–40) | Other factors |
+|--------|----------------|---------------|
+| **Goals** | Proximity bands | Progress momentum (0–30), Priority level (0–20), Context alignment (0–10) |
+| **Events** | Proximity bands | Goal support (0–25), Habit reinforcement (0–25), Event type (0–10) |
+| **Choices** | Proximity bands | Priority level (0–25), High stakes (0–20), Decision complexity (0–15) |
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `core/utils/timestamp_helpers.py` | `score_deadline_proximity()` helper |
+| `core/services/goals/goals_search_service.py` | `GoalsSearchService._PROXIMITY_BANDS` |
+| `core/services/events/events_search_service.py` | `EventsSearchService._PROXIMITY_BANDS` |
+| `core/services/choices/choices_search_service.py` | `ChoicesSearchService._PROXIMITY_BANDS` |
+
+---
+
 ## UI Integration
 
 The search sidebar maps directly to `SearchRequest`:

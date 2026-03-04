@@ -151,6 +151,19 @@ await lp_service.search.get_aligned_with_goal("goal:learn-python")
 | **Result Type** | `UnifiedSearchResult` with `results_by_domain` + `top_results` |
 | **Dispatch** | EntityType/NonKuDomain enum (type-safe, no string checks) |
 
+## Deadline Proximity Scoring
+
+`get_prioritized(user_context)` on Goals, Events, and Choices uses `score_deadline_proximity()` from `core/utils/timestamp_helpers.py` to award 0–40 points based on how close the deadline is.
+
+Each domain defines `_PROXIMITY_BANDS` (ascending `(max_days, score)` pairs) as a `ClassVar`:
+- **Goals:** `(0,40) (7,35) (30,25) (90,15)` — long horizons
+- **Events:** `(0,40) (1,35) (3,30) (7,20)` — tight windows
+- **Choices:** `(0,40) (3,35) (7,30) (14,20)` — medium urgency
+
+Tasks use `impact_score()` instead; Habits use streak logic; Principles use strength scoring.
+
+**See:** `/docs/architecture/SEARCH_ARCHITECTURE.md` → "Deadline Proximity Scoring" section for full composite score breakdown.
+
 ## Common Gotchas
 
 1. **Always use SearchRouter** for external access — never call domain services directly from routes
