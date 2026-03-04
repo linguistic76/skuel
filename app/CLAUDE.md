@@ -579,14 +579,13 @@ EntityType.from_string("ku")         # -> EntityType.KU (canonical)
 
 ## Protocol-Based Architecture
 
-**Core Principle:** "Zero port dependencies - all services use Protocol interfaces exclusively"
+**Core Principle:** "Right type at the right boundary — concrete for facades, protocol for thin services"
 
-**Status (February 2026):** ✅ **100% Protocol Compliance Achieved**
-- Zero concrete type dependencies in route signatures
-- All services use protocol-based backends
+**Status (March 2026):** ✅ Full type safety across 27+ services
+- All facade services: concrete class in route signatures AND Services dataclass
+- All thin/ISP services: protocol in route signatures AND Services dataclass
 - All facade services have explicit delegation methods (MyPy-native, no parallel protocol file needed)
-- Full type safety across 27+ services
-- **Services dataclass: zero `Any` fields** — all ~72 fields typed (protocols + TYPE_CHECKING)
+- **Services dataclass: zero `Any` fields** — all ~72 fields typed (concrete + protocols + TYPE_CHECKING)
 
 **Protocol Location:** `core/ports/` - 10 protocol files covering all domains
 
@@ -595,7 +594,7 @@ EntityType.from_string("ku")         # -> EntityType.KU (canonical)
 | Category | File | Purpose | Count |
 |----------|------|---------|-------|
 | **Backend** | `base_protocols.py` | ISP-compliant backend operations | 7 protocols |
-| **Domains** | `domain_protocols.py` | Business logic (Tasks, Goals, etc.) | 9 protocols |
+| **Domains** | `domain_protocols.py` | Backend-level protocols typed via `BaseService[Op, T]` | 9 protocols |
 | **Curriculum** | `curriculum_protocols.py` | KU, LS, LP operations | 4 protocols |
 | **Search** | `search_protocols.py` | Search and query operations | 8 protocols |
 | **Infrastructure** | `infrastructure_protocols.py` | EventBus, UserOperations, etc. | 6 protocols |
@@ -606,14 +605,14 @@ EntityType.from_string("ku")         # -> EntityType.KU (canonical)
 | **Groups** | `group_protocols.py` | Group CRUD, teacher review | 2 protocols |
 | **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration, Lateral | 10 protocols |
 
-**Three Typing Strategies (Services Dataclass):**
+**Route-facing type strategy (two tiers):**
 
-| Strategy | When | Example |
-|----------|------|---------|
-| **Protocol (route-facing)** | Service passed to route functions | `group_service: GroupOperations` |
-| **Concrete via TYPE_CHECKING** | Internal wiring, never in routes | `transcription: "TranscriptionService"` |
+| Tier | Services | Dataclass field | Route signature | Why |
+|------|----------|-----------------|-----------------|-----|
+| **Facade** | Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP | Concrete class | Concrete class | Facade IS the contract — ~50 delegation methods; no parallel protocol captures them all |
+| **Thin/ISP** | Groups, Submissions, Sharing, etc. | ISP protocol | ISP protocol | Routes use a narrow slice of the service; protocol makes that slice explicit |
 
-Route-facing protocols capture only the methods routes actually call (ISP). Internal fields use concrete classes for IDE support without architectural boundaries. Zero `Any` fields remain on the Services dataclass.
+`*Operations` protocols in `domain_protocols.py` (TasksOperations, GoalsOperations, etc.) are **backend-level** — they type `self.backend` inside `BaseService[TasksOperations, Task]`. They are NOT service-level contracts for facade services.
 
 **Facade Services (9 total) — Explicit Delegation (February 2026):**
 All 9 facade services (`TasksService`, `GoalsService`, `HabitsService`, `EventsService`, `ChoicesService`, `PrinciplesService`, `KuService`, `LsService`, `LpService`) now have explicit `async def` delegation methods. Route files import the concrete service class directly — no parallel protocol file needed.

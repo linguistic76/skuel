@@ -51,9 +51,12 @@ All protocols share these characteristics:
     - BackendOperations as base (CRUD + queries)
 
 Implementation Pattern:
-    class TasksService(TasksOperations[Task]):
-        def __init__(self, backend: BackendOperations[Task]):
-            self.backend = backend  # UniversalNeo4jBackend[Task]
+    # TasksOperations is a *backend-level* protocol — it types self.backend inside
+    # BaseService[TasksOperations, Task]. It is NOT a service-level protocol; facade
+    # services (TasksService, GoalsService, etc.) do not implement it directly.
+    class TasksService(BaseService[TasksOperations, Task]):
+        # self.backend: TasksOperations[Task]  (UniversalNeo4jBackend[Task])
+        ...
 
 Architectural Note (Updated 2025-10-19):
     Protocols now use Result[T] return types to match actual implementations.

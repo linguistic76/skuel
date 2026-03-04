@@ -144,38 +144,43 @@ if TYPE_CHECKING:
     from core.services.user_progress_service import UserProgressService
     from core.services.user_relationship_service import UserRelationshipService
 
+    # Facade services — concrete class IS the contract (no parallel protocol needed)
+    from core.services.choices_service import ChoicesService
+    from core.services.events_service import EventsService
+    from core.services.goals_service import GoalsService
+    from core.services.habits_service import HabitsService
+    from core.services.ku_service import KuService
+    from core.services.lp_service import LpService
+    from core.services.ls_service import LsService
+    from core.services.principles_service import PrinciplesService
+    from core.services.tasks_service import TasksService
+
 from core.ports import (
     AskesisCoreOperations,
     AskesisOperations,
     AsyncCloseable,
     CalendarServiceOperations,
-    ChoicesOperations,
     Closeable,
     CrossDomainAnalyticsOperations,
     # Infrastructure
     EventBusOperations,
-    EventsOperations,
     ExerciseOperations,
     # Submission + SubmissionFeedback protocols
     FeedbackOperations,
     FinancesOperations,
-    GoalsOperations,
     GoalTaskGeneratorOperations,
     GraphAuthOperations,
     GroupOperations,
     HabitEventSchedulerOperations,
-    HabitsOperations,
     IngestionOperations,
     IntelligenceOperations,
-    # Knowledge operations
-    KuOperations,
     # NOTE: LearningOperations DELETED January 2026 - was dead code (type hint wrong)
     # NOTE: LearningPathsOperations DELETED January 2026 - replaced by LpOperations
     # NOTE: JournalsOperations DELETED February 2026 - Journal merged into Reports
+    # NOTE: ChoicesOperations, EventsOperations, GoalsOperations, HabitsOperations,
+    #       KuOperations, LpOperations, LsOperations, PrinciplesOperations, TasksOperations
+    #       moved to TYPE_CHECKING block — facade services use concrete types (March 2026)
     LifePathOperations,
-    LpOperations,
-    LsOperations,
-    PrinciplesOperations,
     QueryExecutor,
     SearchOperations,
     SharingOperations,
@@ -183,8 +188,6 @@ from core.ports import (
     SubmissionProcessingOperations,
     SubmissionSearchOperations,
     SystemServiceOperations,
-    # Domain operations
-    TasksOperations,
     TeacherReviewOperations,
     UserContextOperations,
     UserOperations,
@@ -214,13 +217,14 @@ class Services:
     # ========================================================================
     # ACTIVITY DOMAINS (6) - All use facade pattern with embedded intelligence
     # Created by _create_activity_services(), access intelligence via .intelligence
+    # Concrete types: facade service IS the contract — no parallel protocol needed.
     # ========================================================================
-    tasks: TasksOperations | None = None
-    goals: GoalsOperations | None = None
-    habits: HabitsOperations | None = None
-    events: EventsOperations | None = None
-    choices: ChoicesOperations | None = None
-    principles: PrinciplesOperations | None = None
+    tasks: "TasksService | None" = None
+    goals: "GoalsService | None" = None
+    habits: "HabitsService | None" = None
+    events: "EventsService | None" = None
+    choices: "ChoicesService | None" = None
+    principles: "PrinciplesService | None" = None
 
     # ========================================================================
     # FINANCE (1) - NOT an Activity Domain (standalone facade)
@@ -230,7 +234,7 @@ class Services:
     # ========================================================================
     # CURRICULUM DOMAINS (3) - KU, LS, LP
     # ========================================================================
-    ku: KuOperations | None = None  # KuService (Knowledge Units) - atomic knowledge content
+    ku: "KuService | None" = None  # KuService (Knowledge Units) - atomic knowledge content
     # adaptive_sel removed — absorbed into KuService.adaptive (February 2026)
     cross_domain: "AdaptiveLpCrossDomainService | None" = None
 
@@ -304,8 +308,8 @@ class Services:
     # Consolidated Learning Services (V4)
     user_progress: "UserProgressService | None" = None
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
-    lp: LpOperations | None = None  # LpService - All path management (Protocol-typed for GraphQL)
-    ls: LsOperations | None = (
+    lp: "LpService | None" = None  # LpService - All path management
+    ls: "LsService | None" = (
         None  # LsService - Dedicated learning step management (NEW: October 24, 2025)
     )
     learning_intelligence: IntelligenceOperations | None = (
