@@ -130,6 +130,7 @@ async def get_learning_opportunities(
 | result-pattern | `/docs/patterns/ERROR_HANDLING.md` | RETURN_TYPE_ERROR_PROPAGATION.md |
 | base-analytics-service | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md` | 7 pattern docs |
 | base-ai-service | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` | — |
+| **prompt-templates** | `core/prompts/` | Adding / editing LLM prompt templates; `PROMPT_REGISTRY` usage |
 | **learning-loop** | `/docs/architecture/FEEDBACK_ARCHITECTURE.md`, `/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md` | ADR-038, ADR-040 |
 | skuel-search-architecture | `/docs/architecture/SEARCH_ARCHITECTURE.md` | query_architecture.md |
 | user-context-intelligence | `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` | — |
@@ -140,7 +141,7 @@ async def get_learning_opportunities(
 | **Meta** | | |
 | docs-skills-evolution | `/docs/patterns/DOCSTRING_STANDARDS.md`, `/docs/decisions/ADR-TEMPLATE.md` | Cross-reference validation |
 
-**Total:** 25 skills with comprehensive documentation mappings
+**Total:** 26 skills with comprehensive documentation mappings
 
 ## Documentation Architecture
 

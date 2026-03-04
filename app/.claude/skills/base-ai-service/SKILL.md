@@ -534,8 +534,31 @@ async def _get_embedding(self, text: str) -> Result[list[float]]:
 
 ---
 
+## 10. Prompt Templates (PROMPT_REGISTRY)
+
+All LLM prompts go in `core/prompts/templates/` — never inline in service code.
+
+```python
+from core.prompts import PROMPT_REGISTRY
+
+# In an AI service method
+prompt = PROMPT_REGISTRY.render("activity_feedback",
+    time_period="7d",
+    stats_json=json.dumps(stats),
+    insights_section=insights_text,
+)
+result = await self._generate_insight(prompt)
+```
+
+The inline prompt string in `generate_task_insights()` above (Section 6) — `"Analyze this task..."` — illustrates the pattern but should be a named template in `core/prompts/templates/` when the service is implemented for real. The template approach makes prompts editable without touching Python and keeps service code free of prompt engineering details.
+
+**See:** `@prompt-templates` skill — registry architecture, template catalog, naming conventions, Askesis roadmap
+
+---
+
 ## Related Skills
 
 - [base-analytics-service](../base-analytics-service/SKILL.md) - Graph analytics (no AI)
 - [user-context-intelligence](../user-context-intelligence/SKILL.md) - Central cross-domain intelligence
 - [result-pattern](../result-pattern/SKILL.md) - Result[T] error handling
+- [prompt-templates](../prompt-templates/SKILL.md) - Centralized LLM prompt registry

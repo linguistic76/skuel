@@ -488,9 +488,73 @@ async def _order_by_prerequisites(self, ku_uids: list[str]) -> list[str]:
 
 ---
 
+## LLM Prompts
+
+### Current State
+
+Askesis's `QueryProcessor` uses `LLMService.generate_context_aware_answer()` for its
+primary LLM interaction. Context is assembled programmatically in
+`ResponseGenerator.build_llm_context()` — no PROMPT_REGISTRY use yet. The DSL bridge
+(`LLMDSLBridgeService`) does use PROMPT_REGISTRY for domain recognition.
+
+### Why This Will Change
+
+Prompt engineering and service logic are currently coupled. When tuning Askesis's
+responses, an implementer must read Python to find the prompt. This is the wrong layer.
+
+As Askesis's LLM interactions stabilize, each should become a named template in
+`core/prompts/templates/` with documented placeholders — editable without touching Python.
+
+### Migration Path
+
+Each `generate_context_aware_answer()` call maps to one template:
+
+```python
+# Current (programmatic assembly in ResponseGenerator)
+context = self._build_llm_context(current_knowledge, active_learning, ...)
+response = await self.llm_service.generate_context_aware_answer(
+    query=query_message, context=context, intent=intent.value
+)
+
+# Target (template-driven)
+from core.prompts import PROMPT_REGISTRY
+prompt = PROMPT_REGISTRY.render("askesis_qa_response",
+    query=query_message,
+    intent=intent.value,
+    knowledge_context=context["knowledge"],
+    learning_context=context["learning"],
+)
+response = await openai_service.generate_completion(prompt=prompt)
+```
+
+### Planned Template IDs
+
+| Template ID | Service | Placeholders |
+|-------------|---------|--------------|
+| `askesis_qa_response.md` | `QueryProcessor` | `{query}`, `{intent}`, `{knowledge_context}`, `{learning_context}` |
+| `askesis_daily_plan.md` | `ActionRecommendationEngine` | `{user_summary}`, `{active_tasks}`, `{goals_progress}` |
+| `askesis_synergy_detection.md` | `UserStateAnalyzer` | `{domain_stats}`, `{time_period}` |
+
+### Editing Prompts Today
+
+The existing templates live in `core/prompts/templates/`. To tune Askesis's DSL recognition:
+
+```bash
+# Edit the domain recognition prompt (used by LLMDSLBridgeService)
+$EDITOR core/prompts/templates/dsl_domain_recognition.md
+```
+
+For Q&A and planning responses, edit `ResponseGenerator.build_llm_context()` and
+`QueryProcessor._generate_context_aware_response()` until those migrate to templates.
+
+**See:** `@prompt-templates` skill — complete registry reference, naming conventions, anti-patterns
+
+---
+
 ## Related Documentation
 
 - **Intelligence Guide:** [ASKESIS_INTELLIGENCE.md](../intelligence/ASKESIS_INTELLIGENCE.md)
 - **Search Integration:** [ASKESIS_SEARCH_ARCHITECTURE.md](../guides/ASKESIS_SEARCH_ARCHITECTURE.md)
 - **UserContext Architecture:** [UNIFIED_USER_ARCHITECTURE.md](./UNIFIED_USER_ARCHITECTURE.md)
+- **Prompt Registry:** `core/prompts/` — centralized LLM template store
 - **ADR-021:** UserContext Intelligence Modularization

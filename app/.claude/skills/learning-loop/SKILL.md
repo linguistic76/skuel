@@ -377,7 +377,7 @@ the same method.
 6. Graceful fallback: if LLM fails → ProcessorType.AUTOMATIC + programmatic markdown
 ```
 
-**Prompt template:** `core/services/feedback/prompts/activity_feedback.md`
+**Prompt template:** `core/prompts/templates/activity_feedback.md`
 
 ---
 
@@ -553,7 +553,7 @@ that never closes the loop.
 | `core/services/sharing/unified_sharing_service.py` | 3 | Entity-agnostic sharing |
 | `adapters/persistence/neo4j/domain_backends.py` | all | Domain-specific Cypher |
 | `adapters/inbound/teaching_api.py` | 4 | Teacher API (review queue, revision, approve, dashboard) |
-| `core/services/feedback/prompts/activity_feedback.md` | 4 | LLM prompt template |
+| `core/prompts/templates/activity_feedback.md` | 4 | LLM prompt template (via PROMPT_REGISTRY) |
 
 ---
 
@@ -629,3 +629,4 @@ class AdminSummary(UserOwnedEntity):  # New entity for admin-written feedback?
 - **[neo4j-cypher-patterns](../neo4j-cypher-patterns/SKILL.md)** — Graph query patterns
 - **[user-context-intelligence](../user-context-intelligence/SKILL.md)** — Cross-domain synthesis that feeds ActivityReport
 - **[pydantic](../pydantic/SKILL.md)** — Request models for submission and feedback routes
+- **[prompt-templates](../prompt-templates/SKILL.md)** — `activity_feedback.md` template and PROMPT_REGISTRY
