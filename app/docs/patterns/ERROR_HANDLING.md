@@ -76,16 +76,23 @@ else:
 ```python
 @dataclass
 class ErrorContext:
+    # --- Sent to clients (via to_client_dict()) ---
     category: ErrorCategory              # How to handle
-    message: str                         # For developers
     code: str                           # Searchable (e.g., "DB_CONN_TIMEOUT")
     severity: ErrorSeverity             # Logging level (LOW, MEDIUM, HIGH, CRITICAL)
-    details: dict[str, Any]            # Debugging data
-    source_location: Optional[str]     # file:function:line
-    user_message: Optional[str]        # Safe for UI
+    user_message: Optional[str]        # Safe for UI (becomes "message" in response)
     timestamp: datetime                 # When it occurred
+
+    # --- Internal only (to_dict() for logging, stripped from HTTP responses) ---
+    message: str                         # Developer-facing detail
+    details: dict[str, Any]            # Debugging data (field, value, etc.)
+    source_location: Optional[str]     # file:function:line
     stack_trace: Optional[str]         # For critical errors
 ```
+
+**Two serialization methods:**
+- `to_dict()` — all fields, for internal logging (`log_if_error()`, structured logs)
+- `to_client_dict()` — 5 safe fields only, used by `result_to_response()` at HTTP boundaries
 
 ## The Three-Layer Pattern
 
@@ -585,8 +592,8 @@ grep "VALIDATION_FIELD_EMAIL" logs/*.log
 grep "SEVERITY_CRITICAL" logs/*.log
 ```
 
-### Source Location Tracking
-Errors automatically capture origin:
+### Source Location Tracking (Internal Only)
+Errors automatically capture origin for server-side debugging (stripped from client responses):
 ```python
 error.source_location
 # "services/submissions_core_service.py:create_report:45"

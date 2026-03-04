@@ -274,14 +274,15 @@ async def get_task(request, uid: str):
 
 ### Error Response Format
 
+Client responses use `ErrorContext.to_client_dict()` — internal fields (`details`, `source_location`, `stack_trace`) are stripped. The `message` field shows `user_message` (not the developer message):
+
 ```json
 {
   "category": "not_found",
-  "code": "RESOURCE_NOT_FOUND",
-  "message": "Task 'task-123' not found",
-  "user_message": "The requested task could not be found",
-  "severity": "medium",
-  "timestamp": "2025-01-15T10:30:00Z"
+  "code": "NOT_FOUND_TASK",
+  "message": "The requested Task could not be found",
+  "severity": "low",
+  "timestamp": "2026-01-15T10:30:00+00:00"
 }
 ```
 

@@ -187,15 +187,14 @@ return Result.fail(
 )
 ```
 
-**HTTP Response:**
+**HTTP Response (client-safe — internal details stripped):**
 ```json
 {
-  "error": {
-    "type": "validation",
-    "message": "time_window must be one of: ['7d', '30d', '90d']",
-    "field": "time_window",
-    "value": "invalid"
-  }
+  "category": "validation",
+  "code": "VALIDATION_FIELD_TIME_WINDOW",
+  "message": "time_window must be one of: ['7d', '30d', '90d']",
+  "severity": "low",
+  "timestamp": "2026-01-15T10:30:00+00:00"
 }
 ```
 
