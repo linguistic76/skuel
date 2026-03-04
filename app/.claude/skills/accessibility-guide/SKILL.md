@@ -246,7 +246,7 @@ FormControl(
         cls="input input-bordered input-error w-full",
     ),
     P(
-        "⚠️ Username is already taken.",
+        "This username is unavailable.",
         id="username-error",
         role="alert",
         cls="text-sm text-error mt-1",

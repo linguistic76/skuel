@@ -101,8 +101,8 @@ https_only = True  # In production
 |----------|---------|---------|
 | `SKUEL_DEFAULT_DEV_USER` | Development fallback user | `user.mike` |
 | `SKUEL_INGESTION_ALLOWED_PATHS` | Allowed ingestion paths (colon-separated) | None (all paths) |
-| `SESSION_SECRET_KEY` | Session signing key | Generated (dev) |
-| `ENVIRONMENT` | production/development | `development` |
+| `SESSION_SECRET_KEY` | Session signing key | Generated (dev), **required** in production/staging |
+| `SKUEL_ENVIRONMENT` | Environment name | `local` |
 
 ## Security Decisions (January 2026)
 

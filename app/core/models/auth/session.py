@@ -13,7 +13,7 @@ Design:
 Neo4j Schema:
     (:Session {
         uid: "session_{uuid}",
-        session_token: "{secure_token}",
+        token_hash: "{sha256_hex}",
         user_uid: "user_xxx",
         created_at: datetime(),
         expires_at: datetime(),
@@ -22,6 +22,9 @@ Neo4j Schema:
         user_agent: "Mozilla/5.0...",
         is_valid: true
     })
+
+    Raw session_token lives only in the HTTP-only cookie.
+    Neo4j stores token_hash (SHA-256) — raw tokens are never persisted.
 
     (user:User)-[:HAS_SESSION]->(session:Session)
 """

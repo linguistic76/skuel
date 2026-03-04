@@ -6,13 +6,15 @@ Cookie-based session management with optional graph-native validation.
 
 Design Principles:
 - Cookie stores session_token (signed, tamper-proof)
+- Neo4j stores token_hash (SHA-256) — raw tokens never persisted
 - Fast path: Read user_uid from cookie (no DB call)
-- Secure path: Validate session_token in Neo4j (for sensitive operations)
+- Secure path: Hash cookie token, match against token_hash in Neo4j
 - Fail-fast: Invalid sessions return None (no user)
+- Production guard: Dev fallback auth raises 401 in production/staging
 
 Graph-Native Authentication:
-- Sessions are stored in Neo4j as Session nodes
-- Cookie contains session_token for lookup
+- Sessions are stored in Neo4j as Session nodes (token_hash, not raw token)
+- Cookie contains raw session_token for lookup (hashed before query)
 - Session can be invalidated server-side
 - Audit trail via AuthEvent nodes
 

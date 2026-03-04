@@ -341,14 +341,17 @@ SKUEL uses **graph-native authentication** where all auth data lives in Neo4j:
 ```python
 @dataclass(frozen=True)
 class Session:
-    uid: str                    # "session.abc123..."
-    user_uid: str               # "user.mike"
-    token: str                  # Hashed session token
-    created_at: datetime
-    expires_at: datetime
-    ip_address: str | None
-    user_agent: str | None
-    is_active: bool
+    uid: str                    # "session_{hex}"
+    session_token: str          # Raw token (cookie only, never stored in Neo4j)
+    user_uid: str               # "user_mike"
+    created_at: datetime        # UTC-aware
+    expires_at: datetime        # UTC-aware
+    last_active_at: datetime    # UTC-aware (sliding expiration)
+    ip_address: str
+    user_agent: str
+    is_valid: bool
+    user_is_active: bool        # Cached at session creation
+    token_hash: str             # SHA-256 hash stored in Neo4j
 ```
 
 ### Sign In Flow
