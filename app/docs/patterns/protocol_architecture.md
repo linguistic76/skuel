@@ -70,27 +70,28 @@ make_it_fly(Bird())  # Works!
 ### Directory Structure
 
 ```
-core/
-├── protocols.py                      # Core type-checking protocols
-└── services/
-    └── protocols/
-        ├── __init__.py               # Consolidated exports (~120 symbols)
-        ├── askesis_protocols.py       # Askesis cross-cutting intelligence (6 protocols)
-        ├── base_protocols.py          # Backend operations ISP hierarchy (7+ protocols)
-        ├── base_service_interface.py  # BaseService mixin protocols
-        ├── calendar_protocol.py       # CalendarTrackable entity protocol
-        ├── context_awareness_protocols.py # UserContext slices (11 protocols)
-        ├── curriculum_protocols.py    # KU, LS, LP operations (4 protocols)
-        ├── domain_protocols.py        # Activity domain operations (9 protocols)
-        ├── graph_protocols.py         # Graph entity protocols
-        ├── group_protocols.py         # Group & teaching (2 protocols) [Feb 2026]
-        ├── infrastructure_protocols.py # EventBus, User, Ingestion (6 protocols)
-        ├── intelligence_protocols.py  # Analytics operations (1 protocol)
-        ├── query_types.py             # TypedDicts for queries
-        ├── submission_protocols.py    # Submission stage (4 protocols) [Feb 2026]
-        ├── feedback_protocols.py      # Feedback stage (3 protocols) [Feb 2026]
-        ├── search_protocols.py        # Search operations (8 protocols)
-        └── service_protocols.py       # Route-facing services (10 protocols) [Feb 2026]
+core/ports/
+├── __init__.py                        # Consolidated exports
+├── askesis_protocols.py               # Askesis cross-cutting intelligence (6 protocols)
+├── backend_operations_typing.py       # Typed aliases for backend operations
+├── base_protocols.py                  # Backend operations ISP hierarchy (7+ protocols)
+├── base_service_interface.py          # BaseService mixin protocols
+├── calendar_protocol.py               # CalendarTrackable entity protocol
+├── content_protocols.py               # Content/media protocols
+├── context_awareness_protocols.py     # UserContext slices (11 protocols)
+├── curriculum_protocols.py            # KU, LS, LP operations (4 protocols)
+├── domain_protocols.py                # Activity domain operations (9 protocols)
+├── email_protocols.py                 # Email service protocol
+├── feedback_protocols.py              # Feedback stage (5 protocols)
+├── graph_protocols.py                 # Graph entity protocols
+├── group_protocols.py                 # Group & teaching (2 protocols)
+├── infrastructure_protocols.py        # EventBus, User, Ingestion (6 protocols)
+├── intelligence_protocols.py          # Analytics operations (1 protocol)
+├── query_types.py                     # TypedDicts for type-safe queries
+├── search_protocols.py                # Search operations (8 protocols)
+├── service_protocols.py               # Route-facing services (10 protocols)
+├── sharing_protocols.py               # Cross-entity sharing (1 protocol)
+└── submission_protocols.py            # Submission stage (4 protocols)
 ```
 
 ### Protocol Categories
