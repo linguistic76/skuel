@@ -18,6 +18,7 @@ so CRUDRouteFactory is not applicable. Migration focuses on:
 
 __version__ = "2.0"
 
+from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
@@ -72,7 +73,7 @@ def create_askesis_api_routes(
     ) -> "Result[tuple[Any, str, Any]]":
         """Load an Askesis instance and its owner's UserContext.
 
-        Centralises the repeated get_askesis → derive user_uid → get_user_context
+        Centralises the repeated get_askesis → derive user_uid → get_rich_unified_context
         flow used by ~11 intelligence routes.
 
         Returns:
@@ -100,7 +101,7 @@ def create_askesis_api_routes(
                 )
             )
 
-        context_result = await user_service.get_user_context(askesis.user_uid)
+        context_result = await user_service.get_rich_unified_context(askesis.user_uid)
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
 
@@ -545,7 +546,7 @@ def create_askesis_api_routes(
     # The 13 Domains:
     # Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
     # Curriculum Domains (3): KU, LS, LP
-    # Processing Domains (3): Assignments, Journals, Reports
+    # Processing Domains (3): Submissions, Journals, Feedback
     # Temporal Domain (1): Calendar
     #
     # ========================================================================
@@ -832,8 +833,6 @@ def create_askesis_api_routes(
         synergies = synergies_result.value
 
         # Convert to JSON-serializable format
-        from dataclasses import asdict
-
         return Result.ok(
             {
                 "synergies": [asdict(s) for s in synergies],
@@ -902,8 +901,6 @@ def create_askesis_api_routes(
         alignment = alignment_result.value
 
         # Convert to JSON-serializable format
-        from dataclasses import asdict
-
         return Result.ok(
             {
                 "life_path_alignment": asdict(alignment),
@@ -993,8 +990,6 @@ def create_askesis_api_routes(
         recommendations = recommendations_result.value
 
         # Convert to JSON-serializable format
-        from dataclasses import asdict
-
         return Result.ok(
             {
                 "recommendations": [asdict(r) for r in recommendations],

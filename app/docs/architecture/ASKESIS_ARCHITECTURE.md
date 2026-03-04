@@ -1,6 +1,6 @@
 # Askesis Architecture - Cross-Cutting Intelligence System
 
-**Last Updated:** January 12, 2026
+**Last Updated:** March 4, 2026
 
 ## Overview
 
@@ -335,6 +335,52 @@ class AskesisAnalysis:
 
 ---
 
+## UserContext Depth — Critical for Intelligence Quality
+
+### Two Depths
+
+| Method | Depth | `entities_rich` | Use Case |
+|--------|-------|-----------------|---------|
+| `get_user_context()` | Standard | **Empty** | Ownership checks, basic queries |
+| `get_rich_unified_context()` | Rich | **Populated** | Intelligence, Askesis routes |
+
+### Why Askesis Requires Rich Context
+
+The intelligence layer's `TemporalMomentumMixin` and several other mixin services check `entities_rich` for:
+- At-risk habit detection (streak momentum)
+- Overdue task patterns
+- Goal advancement history
+- Activity momentum scoring
+
+If `entities_rich` is empty, these mixins return empty signals and the daily plan degrades silently.
+
+**All Askesis intelligence routes use `get_rich_unified_context()` via `_load_askesis_and_context()`.** The 5-minute cache on this method means no performance regression vs. standard depth.
+
+```python
+# CORRECT — used in _load_askesis_and_context()
+context_result = await user_service.get_rich_unified_context(askesis.user_uid)
+
+# WRONG — leaves entities_rich empty, degrades intelligence
+# context_result = await user_service.get_user_context(askesis.user_uid)
+```
+
+### `entities_rich` Structure (March 2026)
+
+`entities_rich` is a `dict[str, list[dict[str, Any]]]` with keys per domain. Populated by `build_rich()` on the UserContext builder:
+
+```python
+# Access pattern in intelligence services
+entities_rich = user_context.entities_rich
+tasks_rich = entities_rich.get("tasks", [])
+goals_rich = entities_rich.get("goals", [])
+habits_rich = entities_rich.get("habits", [])
+events_rich = entities_rich.get("events", [])
+choices_rich = entities_rich.get("choices", [])
+principles_rich = entities_rich.get("principles", [])
+```
+
+---
+
 ## Evolution History
 
 | Date | Change |
@@ -350,11 +396,17 @@ class AskesisAnalysis:
 | **January 2026** | Stub implementations completed - semantic search, gap analysis, LLM integration, prerequisite ordering |
 | **February 2026** | Route wiring switched to DomainRouteConfig (was bypassed in bootstrap) |
 | **February 2026** | Neo4j driver encapsulated in `AskesisCoreService.build_user_context()` — routes no longer hold a raw driver |
-| **March 2026** | `_load_askesis_and_context` closure extracted inside `create_askesis_api_routes` — 11 identical 15-line `get_askesis → user_uid → get_user_context` blocks replaced with a single 5-line helper call; returns `(askesis, user_uid, user_context)` 3-tuple (1302 → 1135 lines) |
+| **February 2026** | Reports → Submissions + Feedback rename; Processing Domains now: Submissions, Journals, Feedback |
+| **March 2026** | `_load_askesis_and_context` closure extracted inside `create_askesis_api_routes` — 11 identical 15-line blocks replaced with a single helper; returns `(askesis, user_uid, user_context)` 3-tuple (1302 → 1135 lines) |
+| **March 2026** | `entities_rich` unification: `active_task_rich`, `active_goal_rich`, etc. → single `entities_rich` dict; `activity_rich` removed |
+| **March 2026** | `ActivityDataReader` absorbed into `UserContext.build_rich()` — no longer a separate service |
+| **March 2026** | `ActivityReviewService` split into `ActivityReportService` + `ReviewQueueService` |
+| **March 2026** | EntityType renames: `AI_FEEDBACK → ACTIVITY_REPORT`, `FEEDBACK_REPORT → SUBMISSION_FEEDBACK` |
+| **March 2026** | All intelligence routes switched to `get_rich_unified_context()` — ensures `entities_rich` is populated |
 
 ---
 
-## Implementation Status (January 2026)
+## Implementation Status (March 2026)
 
 ### Completed Implementations
 

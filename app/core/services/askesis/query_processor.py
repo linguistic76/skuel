@@ -152,7 +152,7 @@ class QueryProcessor:
                 )
             )
 
-        user_context_result = await self.user_service.get_user_context(user_uid)
+        user_context_result = await self.user_service.get_rich_unified_context(user_uid)
         if user_context_result.is_error:
             return Result.fail(user_context_result.expect_error())
 

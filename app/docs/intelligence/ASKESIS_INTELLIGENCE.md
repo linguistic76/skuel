@@ -1,6 +1,6 @@
 # Askesis Intelligence - Cross-Cutting Life Context Synthesis
 
-**Last Updated:** January 12, 2026
+**Last Updated:** March 4, 2026
 
 ## Overview
 
@@ -140,9 +140,9 @@ When generating recommendations, Askesis follows this priority order:
 ```python
 from core.services.askesis_service import AskesisService
 
-# Via services container
+# Via services container — MUST use get_rich_unified_context() for full intelligence
 askesis = services.askesis
-context = await user_service.get_user_context(user_uid)
+context = await user_service.get_rich_unified_context(user_uid)
 
 # Get THE optimal daily plan
 result = await askesis.get_daily_work_plan(
@@ -156,6 +156,8 @@ if result.is_ok:
     for item in plan.items:
         print(f"{item.priority}: {item.entity_type} - {item.title}")
 ```
+
+**Important:** Use `get_rich_unified_context()`, not `get_user_context()`. Standard depth leaves `entities_rich` empty, causing silent degradation of habit momentum, pattern detection, and scheduling signals. The rich context has a 5-minute cache, so there is no performance cost.
 
 ### Natural Language Query
 
@@ -248,6 +250,8 @@ if result.is_ok:
 
 **Pipeline:** IntentClassifier → EntityExtractor → ContextRetriever → ResponseGenerator → LLM (with fallback)
 
+**March 2026:** Uses `get_rich_unified_context()` for full `entities_rich` population.
+
 ### IntentClassifier (January 2026 - New)
 
 **Purpose:** Embeddings-based semantic intent classification
@@ -305,6 +309,43 @@ if result.is_ok:
   - **High impact**: Many dependents (unblocks the most)
 
 **Graph Integration:** Uses GraphIntelligenceService for semantic analysis and EmbeddingsService for vector similarity
+
+---
+
+## entities_rich — Required for Full Intelligence (March 2026)
+
+`entities_rich` is a `dict[str, list[dict[str, Any]]]` on `UserContext`, populated only when using `build_rich()` / `get_rich_unified_context()`. Keys: `"tasks"`, `"goals"`, `"habits"`, `"events"`, `"choices"`, `"principles"`.
+
+Intelligence mixins that depend on `entities_rich`:
+- `TemporalMomentumMixin` — habit streak tracking, at-risk detection
+- `DomainBalanceMixin` — cross-domain activity ratios
+- `PatternDetectionMixin` — recurrence + momentum signals
+
+If `entities_rich` is empty, these mixins return empty signals and the daily plan degrades silently. Always use `get_rich_unified_context()` for Askesis routes — standard `get_user_context()` is for ownership checks and lightweight queries only.
+
+---
+
+## Domain Naming (March 2026)
+
+The 13 domains used in Askesis intelligence:
+
+- **Activity Domains (6):** Tasks, Goals, Habits, Events, Choices, Principles
+- **Curriculum Domains (3):** KU, LS, LP
+- **Processing Domains (3):** Submissions, Journals, Feedback
+- **Temporal Domain (1):** Calendar
+
+> Pre-February 2026: "Processing Domains" were called "Assignments, Journals, Reports". These were renamed in the Reports → Submissions + Feedback migration (February 2026) and the EntityType rename (`AI_FEEDBACK → ACTIVITY_REPORT`, `FEEDBACK_REPORT → SUBMISSION_FEEDBACK`) in March 2026.
+
+---
+
+## Feedback Services (March 2026)
+
+The former `ActivityReviewService` was split into two focused services:
+
+| Service | Protocol | `services.` attr | Responsibility |
+|---------|----------|-----------------|----------------|
+| `ActivityReportService` | `ActivityReportOperations` | `activity_report` | Processor-neutral CRUD: `create_snapshot`, `submit_feedback`, `persist`, `get_history`, `annotate`, `get_annotation` |
+| `ReviewQueueService` | `ReviewQueueOperations` | `review_queue` | `ReviewRequest` node management: `request_review`, `get_pending_reviews` |
 
 ---
 
@@ -383,20 +424,20 @@ print('Protocol defined correctly')
 
 ## Implementation Completeness
 
-### Functionality Status (January 2026)
+### Functionality Status (March 2026)
 
 | Component | Status | Notes |
 |-----------|--------|-------|
 | **IntentClassifier** | 100% | 7 intent types, 48 exemplars |
 | **EntityExtractor** | 100% | Multi-domain extraction |
 | **ContextRetriever** | ~95% | Semantic search, gap analysis implemented |
-| **QueryProcessor** | ~95% | LLM integration with fallback |
+| **QueryProcessor** | ~95% | LLM integration with fallback; uses `get_rich_unified_context()` |
 | **ResponseGenerator** | 100% | Action generation, context building |
 | **UserStateAnalyzer** | 100% | State scoring via pure functions |
 | **ActionRecommendationEngine** | 100% | Priority-based recommendations |
 | **Facade (AskesisService)** | ~95% | Prerequisite ordering implemented |
 
-**Overall:** ~95% functional (up from ~60-70% before stub implementations)
+**Overall:** ~95% functional
 
 **Remaining Work:**
 - Citation service integration (Phase 4C - planned)
