@@ -55,6 +55,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 **Commit:** `dc77a7a` — 2675/2677 tests pass (2 pre-existing failures).
 
 **See:** `/docs/patterns/BACKEND_OPERATIONS_ISP.md` for full mixin boundary map.
+**See:** `/docs/decisions/ADR-044-neo4j-committed-architectural-choice.md` — Neo4j is a committed architectural choice; `UniversalNeo4jBackend` is the hexagonal boundary.
 
 ---
 

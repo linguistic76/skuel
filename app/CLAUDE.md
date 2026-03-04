@@ -1133,7 +1133,9 @@ tasks = await backend.find_by(priority='high', due_date__gte=date.today())
 
 Domain-specific relationship Cypher belongs on the domain backend. Cross-domain aggregation stays in services.
 
-**See:** `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`
+**`UniversalNeo4jBackend` is the hexagonal boundary** — Neo4j-specific code stops here. Service mixins above it are intentionally graph-aware (not incomplete refactoring). Neo4j is a committed architectural choice, not a swappable adapter.
+
+**See:** `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`, `/docs/decisions/ADR-044-neo4j-committed-architectural-choice.md`
 
 ## Search & Query Architecture
 

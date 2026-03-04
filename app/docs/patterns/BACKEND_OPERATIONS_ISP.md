@@ -7,6 +7,7 @@ related_docs:
 - /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
 - /docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md
 - /docs/patterns/TESTING_PATTERNS.md
+- /docs/decisions/ADR-044-neo4j-committed-architectural-choice.md
 ---
 
 # BackendOperations Protocol Architecture
@@ -365,3 +366,5 @@ This architecture follows the SKUEL principle: **"Deal with fundamentals."**
 - No backward compatibility baggage - one clear path forward
 - ISP compliance means components only know what they need to know
 - Type safety as translation - protocols encode domain language into compiler-verifiable structure
+
+**`UniversalNeo4jBackend` is the hexagonal boundary.** `BackendOperations[T]` is the protocol contract at that boundary — it defines what the service layer can ask of the backend without knowing it is Neo4j. Everything below the boundary is Neo4j-specific. Neo4j is a committed architectural choice, not a swappable adapter. See: [ADR-044](../decisions/ADR-044-neo4j-committed-architectural-choice.md).

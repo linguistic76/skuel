@@ -222,6 +222,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[ADR-041: Unified Ku Model](decisions/ADR-041-unified-ku-model.md)** | **2026-02-14** | **—** |
 | **[ADR-042: Privacy as First-Class Citizen](decisions/ADR-042-privacy-as-first-class-citizen.md)** | **2026-03-01** | **—** |
 | **[ADR-043: Intelligence Tier Toggle](decisions/ADR-043-intelligence-tier-toggle.md)** | **2026-03-04** | **—** |
+| **[ADR-044: Neo4j as Committed Architectural Choice](decisions/ADR-044-neo4j-committed-architectural-choice.md)** | **2026-03-05** | **—** |
 | [ADR-XXX: [Short Title of Decision]](decisions/ADR-TEMPLATE.md) | 2025-11-26 | 325 |
 
 ## Tools
@@ -381,4 +382,4 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 - **Total documents:** ~196 (core + migrations + roadmap + examples)
 - **Categories:** 13 (Domains, Architecture, Patterns, DSL, Decisions, Guides, Reference, Intelligence, Migrations, Roadmap, Examples, Technical Debt, Top-Level)
-- **ADRs:** 44 (ADR-001 through ADR-043, with template)
+- **ADRs:** 45 (ADR-001 through ADR-044, with template)
