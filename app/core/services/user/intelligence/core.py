@@ -65,6 +65,7 @@ if TYPE_CHECKING:
     from core.services.relationships import UnifiedRelationshipService
     from core.services.submissions import SubmissionsRelationshipService
     from core.services.user.unified_user_context import UserContext
+    from core.ports.zpd_protocols import ZPDOperations
 
 
 class UserContextIntelligence(
@@ -146,6 +147,8 @@ class UserContextIntelligence(
         calendar: CalendarService,
         # Optional: Vector search for semantic enhancements
         vector_search: Any = None,
+        # Optional: ZPD service for curriculum-graph-aware learning step ranking
+        zpd_service: ZPDOperations | None = None,
     ) -> None:
         """
         Initialize with user context and all 13 required relationship services.
@@ -176,6 +179,7 @@ class UserContextIntelligence(
 
             Optional Services:
                 vector_search: Neo4jVectorSearchService for semantic/learning-aware search
+                zpd_service: ZPDOperations for curriculum-graph-aware step ranking
 
         Raises:
             ValueError: If any required service is None
@@ -235,6 +239,12 @@ class UserContextIntelligence(
 
         # Optional: Vector search for semantic enhancements
         self.vector_search = vector_search
+
+        # Optional: ZPD service for curriculum-graph-aware learning step ranking.
+        # When set, get_optimal_next_learning_steps() uses ZPD proximal zone + readiness
+        # scores as the primary ranking signal (fallback: activity-based algorithm).
+        # See: core/services/zpd/zpd_service.py, core/ports/zpd_protocols.py
+        self.zpd_service = zpd_service
 
 
 __all__ = ["UserContextIntelligence"]

@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from core.models.enums import Domain, Priority
+    from core.models.zpd.zpd_assessment import ZPDAssessment
 
 # ============================================================================
 # ENUMS - INSIGHT & RECOMMENDATION TYPES
@@ -153,6 +154,10 @@ class AskesisAnalysis:
     health_metrics: dict[str, float]
     risk_assessment: dict[str, Any]
     optimization_opportunities: list[dict[str, Any]]
+    # ZPD snapshot (March 2026) — None when ZPDService is not wired or
+    # curriculum graph has fewer than 3 KUs.
+    # See: core/services/zpd/zpd_service.py — ZPDService.assess_zone()
+    zpd_assessment: ZPDAssessment | None = None
 
 
 # ============================================================================

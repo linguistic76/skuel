@@ -294,6 +294,9 @@ from .service_protocols import (
 # Sharing protocol — cross-cutting, any entity type can be shared
 from .sharing_protocols import SharingOperations
 
+# ZPD protocol — Zone of Proximal Development (March 2026)
+from .zpd_protocols import ZPDOperations
+
 # Submission protocols — Submission stage of the educational loop
 from .submission_protocols import (
     SubmissionOperations,
@@ -511,4 +514,6 @@ __all__ = [
     # ========== HELPER FUNCTIONS (2) ==========
     "get_enum_value",
     "to_dict",
+    # ========== ZPD PROTOCOL (1 - March 2026) ==========
+    "ZPDOperations",
 ]

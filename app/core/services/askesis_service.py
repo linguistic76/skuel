@@ -48,6 +48,7 @@ if TYPE_CHECKING:
         LifePathAlignment,
         ScheduleAwareRecommendation,
     )
+    from core.ports.zpd_protocols import ZPDOperations
     from core.services.askesis.types import (
         AskesisAnalysis,
         AskesisInsight,
@@ -78,6 +79,10 @@ class AskesisDeps:
     habits_service: Any | None = None
     events_service: Any | None = None
     citation_service: Any | None = None
+    # ZPD service — enriches analyze_user_state() with curriculum graph assessment.
+    # None when INTELLIGENCE_TIER=CORE or curriculum graph has < 3 KUs.
+    # See: core/services/zpd/zpd_service.py
+    zpd_service: ZPDOperations | None = None
 
 
 class AskesisService:
@@ -154,6 +159,8 @@ class AskesisService:
         self.habits_service = deps.habits_service
         self.events_service = deps.events_service
         self.citation_service = deps.citation_service
+        # ZPD service — enriches analyze_user_state() with curriculum graph assessment.
+        self.zpd_service = deps.zpd_service
 
         # 13-domain intelligence factory for comprehensive daily planning
         # (REQUIRED - passed at construction, not post-wired)
@@ -302,12 +309,21 @@ class AskesisService:
         optimizations_result = await self.recommendation_engine.optimize_workflow(user_context)
         optimizations = optimizations_result.value if optimizations_result.is_ok else []
 
-        # Step 4: Combine into comprehensive analysis
+        # Step 4: ZPD snapshot — enriches the analysis with curriculum graph assessment.
+        # None when ZPDService is not wired or curriculum graph has < 3 KUs.
+        zpd_assessment = None
+        if self.zpd_service is not None:
+            zpd_result = await self.zpd_service.assess_zone(user_context.user_uid)
+            if not zpd_result.is_error:
+                zpd_assessment = zpd_result.value
+
+        # Step 5: Combine into comprehensive analysis
         return await self.state_analyzer.analyze_user_state(
             user_context,
             focus_areas=focus_areas,
             recommendations=recommendations,
             optimizations=optimizations,
+            zpd_assessment=zpd_assessment,
         )
 
     # ========================================================================

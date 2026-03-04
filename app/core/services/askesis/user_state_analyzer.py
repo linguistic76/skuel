@@ -49,6 +49,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.models.zpd.zpd_assessment import ZPDAssessment
     from core.services.user import UserContext
 
 logger = get_logger(__name__)
@@ -90,6 +91,7 @@ class UserStateAnalyzer:
         focus_areas: list[str] | None = None,
         recommendations: list[Any] | None = None,
         optimizations: list[dict[str, Any]] | None = None,
+        zpd_assessment: ZPDAssessment | None = None,
     ) -> Result[AskesisAnalysis]:
         """
         Perform comprehensive analysis of user's state using full context.
@@ -131,6 +133,7 @@ class UserStateAnalyzer:
             health_metrics=health_metrics,
             risk_assessment=risk_assessment,
             optimization_opportunities=optimizations or [],
+            zpd_assessment=zpd_assessment,
         )
 
         logger.info(

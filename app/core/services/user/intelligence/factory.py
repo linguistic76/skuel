@@ -43,6 +43,7 @@ from typing import TYPE_CHECKING, Any
 from core.services.user.intelligence.core import UserContextIntelligence
 
 if TYPE_CHECKING:
+    from core.ports.zpd_protocols import ZPDOperations
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.calendar_service import CalendarService
     from core.services.feedback import FeedbackRelationshipService
@@ -112,6 +113,8 @@ class UserContextIntelligenceFactory:
         calendar: CalendarService,
         # Optional: Vector search for semantic enhancements
         vector_search_service: Any = None,
+        # Optional: ZPD service for curriculum-graph-aware learning step ranking
+        zpd_service: ZPDOperations | None = None,
     ) -> None:
         """
         Initialize factory with all 13 required domain services.
@@ -140,6 +143,7 @@ class UserContextIntelligenceFactory:
 
             Optional Services:
                 vector_search_service: Neo4jVectorSearchService for semantic/learning-aware search
+                zpd_service: ZPDOperations for curriculum-graph-aware step ranking
 
         Raises:
             ValueError: If any required service is None
@@ -191,6 +195,8 @@ class UserContextIntelligenceFactory:
         self._calendar = calendar
         # Optional: Vector search for semantic enhancements
         self._vector_search = vector_search_service
+        # Optional: ZPD service for curriculum-graph-aware learning step ranking
+        self._zpd_service = zpd_service
 
     def create(self, context: UserContext) -> UserContextIntelligence:
         """
@@ -223,6 +229,8 @@ class UserContextIntelligenceFactory:
             calendar=self._calendar,
             # Optional: Vector search for semantic enhancements
             vector_search=self._vector_search,
+            # Optional: ZPD service for curriculum-graph-aware learning step ranking
+            zpd_service=self._zpd_service,
         )
 
 

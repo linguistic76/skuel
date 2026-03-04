@@ -30,12 +30,14 @@ class LearningIntelligenceMixin:
 
     Requires self.context (UserContext) and self.tasks, self.ku (relationship services).
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
+    Optional: self.zpd_service (ZPDOperations) for curriculum-graph-aware step ranking.
     """
 
     context: UserContext
     tasks: Any  # TasksRelationshipService
     ku: Any  # KuGraphService
     vector_search: Any = None  # Neo4jVectorSearchService (optional)
+    zpd_service: Any = None  # ZPDOperations (optional — see core/ports/zpd_protocols.py)
 
     # =========================================================================
     # METHOD 1: Optimal Next Learning Steps
@@ -50,14 +52,14 @@ class LearningIntelligenceMixin:
         """
         THE CORE METHOD - determine what to learn next based on ALL factors.
 
-        **Synthesizes:**
-        - KU service: get_ready_to_learn_for_user() - Prerequisites met
-        - Vector search: Learning-aware search with mastery boosting
-        - Goals service: Goal alignment
-        - Tasks service: Knowledge application opportunities
-        - Context: Capacity, energy, life path alignment
+        **Priority order:**
+        1. ZPDService (when wired): curriculum-graph-aware ranking via proximal zone +
+           readiness scores. Returns immediately when assessment is non-empty.
+        2. Learning-aware vector search (when available): semantic/mastery-boosted results.
+        3. KU relationship service: prerequisite-aware candidates.
+        4. Context fallback: ready_to_learn UIDs from UserContext.
 
-        **Ranking Factors:**
+        **Ranking Factors (activity-based paths):**
         - Prerequisites met (ready to learn)
         - Learning state (prefer unmastered content)
         - Goal alignment (helps achieve goals)
@@ -72,6 +74,77 @@ class LearningIntelligenceMixin:
 
         Returns:
             Result[list[LearningStep]] ranked by priority with full context
+        """
+        # ── ZPD path (highest priority when available) ─────────────────────────
+        if self.zpd_service is not None:
+            assessment_result = await self.zpd_service.assess_zone(self.context.user_uid)
+            if not assessment_result.is_error:
+                assessment = assessment_result.value
+                if not assessment.is_empty():
+                    return await self._rank_by_zpd(assessment, max_steps, consider_capacity)
+
+        # ── Activity-based path (fallback) ──────────────────────────────────────
+        return await self._rank_by_activity(max_steps, consider_goals, consider_capacity)
+
+    async def _rank_by_zpd(
+        self,
+        assessment: Any,  # ZPDAssessment — typed via TYPE_CHECKING only
+        max_steps: int,
+        consider_capacity: bool,
+    ) -> Result[list[LearningStep]]:
+        """Rank learning steps using ZPD proximal zone and readiness scores.
+
+        Uses ZPDAssessment.top_proximal_ku_uids() to get candidates, then enriches
+        each with application opportunities, goal alignment, and unblocking counts.
+
+        See: core/models/zpd/zpd_assessment.py — ZPDAssessment
+        """
+        proximal_uids = assessment.top_proximal_ku_uids(max_steps * 2)
+        if not proximal_uids:
+            # ZPD produced an assessment but proximal zone is empty — use activity path
+            return await self._rank_by_activity(max_steps, True, consider_capacity)
+
+        learning_steps = []
+        for ku_uid in proximal_uids:
+            readiness_score = assessment.readiness_scores.get(ku_uid, 0.0)
+            # Incorporate behavioral readiness: scale base score by behavioral factor
+            priority_score = round(
+                readiness_score * (0.7 + 0.3 * assessment.behavioral_readiness), 3
+            )
+
+            applications = await self._get_application_opportunities_for_ku(ku_uid)
+            unlocks_count = self._count_items_unlocked_by(ku_uid)
+            aligned_goals = self._find_aligned_goals(ku_uid)
+
+            step = LearningStep(
+                ku_uid=ku_uid,
+                title=f"Knowledge Unit {ku_uid}",
+                rationale=self._generate_learning_rationale(
+                    ku_uid, aligned_goals, unlocks_count, applications
+                ),
+                prerequisites_met=readiness_score >= 1.0,
+                aligns_with_goals=tuple(aligned_goals),
+                unlocks_count=unlocks_count,
+                estimated_time_minutes=self.context.estimated_time_to_mastery.get(ku_uid, 60),
+                priority_score=priority_score,
+                application_opportunities={k: tuple(v) for k, v in applications.items()},
+            )
+            learning_steps.append(step)
+
+        if consider_capacity:
+            learning_steps = self._filter_by_capacity(learning_steps)
+
+        return Result.ok(learning_steps[:max_steps])
+
+    async def _rank_by_activity(
+        self,
+        max_steps: int,
+        consider_goals: bool,
+        consider_capacity: bool,
+    ) -> Result[list[LearningStep]]:
+        """Activity-based learning step ranking (the original algorithm).
+
+        Tries vector search → KU service → context fallback, in that order.
         """
         # Try learning-aware search first (if available)
         if self.vector_search and getattr(self.vector_search, "learning_aware_search", None):

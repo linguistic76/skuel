@@ -192,6 +192,7 @@ from core.ports import (
     UserContextOperations,
     UserOperations,
     VisualizationOperations,
+    ZPDOperations,
 )
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -315,6 +316,11 @@ class Services:
     learning_intelligence: IntelligenceOperations | None = (
         None  # LpIntelligenceService - analysis and recommendations
     )
+    # ZPD service — Zone of Proximal Development (March 2026)
+    # Created when INTELLIGENCE_TIER=FULL. None when CORE or curriculum graph < 3 KUs.
+    # See: core/services/zpd/zpd_service.py, docs/roadmap/zpd-service-deferred.md
+    zpd_service: ZPDOperations | None = None
+
     askesis: AskesisOperations | None = (
         None  # AskesisService - Unified retrieval chatbot (requires OPENAI_API_KEY)
     )
@@ -2561,7 +2567,28 @@ async def compose_services(
             "✅ Processing domain relationship services created (Submissions, Feedback, Analytics)"
         )
 
-        # Create factory with all 12 domain services
+        # ========================================================================
+        # CREATE ZPD SERVICE (March 2026 — pedagogical core of Askesis)
+        # ========================================================================
+        # ZPDService computes the user's Zone of Proximal Development from the
+        # Neo4j curriculum graph. Gated by INTELLIGENCE_TIER=FULL — requires
+        # behavioral signals from choices + habits intelligence services.
+        # Returns empty assessment (not an error) when curriculum graph < 3 KUs.
+        from core.services.zpd import ZPDService
+
+        zpd_service: ZPDOperations | None = None
+        if tier.ai_enabled:
+            zpd_service = ZPDService(
+                driver=driver,
+                choices_intelligence=activity_services["choices"].intelligence,
+                habits_intelligence=activity_services["habits"].intelligence,
+            )
+            services.zpd_service = zpd_service
+            logger.info("✅ ZPDService created (behavioral signals: choices + habits)")
+        else:
+            logger.info("⏭️  ZPDService skipped (intelligence tier: CORE)")
+
+        # Create factory with all 13 domain services
         context_intelligence_factory = UserContextIntelligenceFactory(
             # Activity Domains (6) - All from unified activity_services
             tasks=activity_services["tasks"].relationships,
@@ -2586,9 +2613,11 @@ async def compose_services(
             calendar=calendar_service,
             # Optional: Vector search for semantic enhancements
             vector_search_service=vector_search_service,
+            # Optional: ZPD service for curriculum-graph-aware learning step ranking
+            zpd_service=zpd_service,
         )
         services.context_intelligence = context_intelligence_factory
-        logger.info("✅ UserContextIntelligence factory created (13 domain services wired)")
+        logger.info("✅ UserContextIntelligence factory created (13 domain services + ZPD wired)")
 
         # Wire intelligence factory to UserService (post-construction wiring)
         user_service.intelligence_factory = context_intelligence_factory
@@ -2608,8 +2637,9 @@ async def compose_services(
             learning_services=learning_services,
             activity_services=activity_services,
             user_service=user_service,
+            zpd_service=zpd_service,
         )
-        logger.info("✅ Askesis service created with intelligence_factory (13-domain synthesis)")
+        logger.info("✅ Askesis service created with intelligence_factory (13-domain synthesis + ZPD)")
 
         # ========================================================================
         # CREATE SEARCH ROUTER (One Path Forward, January 2026)
