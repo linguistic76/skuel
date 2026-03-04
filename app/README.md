@@ -36,7 +36,7 @@ NEO4J_PASSWORD=your_password
 
 # Application Settings
 APP_HOST=0.0.0.0
-APP_PORT=5001
+APP_PORT=8000
 APP_DEBUG=false
 
 # AI Services (optional)
@@ -51,6 +51,14 @@ LOG_LEVEL=INFO
 ```
 
 ### 3. Start Neo4j Infrastructure
+
+The primary workflow uses `app/docker-compose.yml`, which includes both the app and Neo4j:
+
+```bash
+docker compose up -d
+```
+
+Alternatively, start Neo4j only (for local development without Docker for the app):
 
 ```bash
 cd ~/skuel/infrastructure
@@ -78,7 +86,7 @@ docker compose -f docker-compose.production.yml up -d
 
 ### 5. Access the Application
 
-Open your browser to: `http://localhost:5001`
+Open your browser to: `http://localhost:8000`
 
 ---
 
@@ -204,7 +212,7 @@ All services use Python Protocol interfaces for maximum flexibility and testabil
 - **Frozen dataclasses** for domain models (immutable core)
 
 ### 5. Fail-Fast Philosophy
-Components must work properly - no graceful degradation. If a dependency fails, the system fails loud and clear.
+Required infrastructure (Neo4j) must work — the system fails loud and clear if core dependencies are unavailable. Optional AI services (OpenAI, embeddings) degrade gracefully: the app runs without them, falling back to keyword search and skipping LLM features.
 
 ### 6. LifePath Destination
 Everything flows toward your ultimate life vision. Every task, habit, and goal aligns with where you're going.
@@ -315,7 +323,7 @@ poetry run ruff format .
 
 ### Code Style
 
-- **Imports**: Use `from result import Result, Ok, Err`
+- **Imports**: Use `from core.utils.result_simplified import Result`
 - **Error Pattern**: Use `.is_error` (not `.is_err`)
 - **Logging**: Use structured logging (not `print()`)
 - **Async**: Prefix async functions with `async def`
@@ -338,7 +346,7 @@ poetry run ruff format .
 
 - **Pydantic** - Data validation and settings
 - **structlog** - Structured logging
-- **python-result** - Result type for error handling
+- **result_simplified** - Custom `Result[T]` type for error handling (`core/utils/result_simplified.py`)
 - **LangChain** - AI/LLM integration
 - **OpenAI** - AI services
 - **uvicorn** - ASGI server
@@ -424,4 +432,4 @@ Always check local docs first:
 
 ---
 
-**Last Updated**: January 2, 2026
+**Last Updated**: March 5, 2026
