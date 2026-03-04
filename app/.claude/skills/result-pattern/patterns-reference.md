@@ -244,7 +244,7 @@ def create_task_routes(_app, rt, services):
 async def search_tasks(request):
     user_uid = require_authenticated_user(request)
     query = request.query_params.get("q", "")
-    limit = int(request.query_params.get("limit", "20"))
+    limit = parse_int_query_param(request.query_params, "limit", 20, minimum=1, maximum=100)
     return await services.tasks.search.search(query, user_uid, limit)
 ```
 

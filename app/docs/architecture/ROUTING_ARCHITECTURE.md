@@ -599,7 +599,7 @@ def create_tasks_api_routes(
 
     # 5. ANALYTICS FACTORY - Custom handlers
     async def handle_performance(service, params):
-        period_days = int(params.get("period_days", "30"))
+        period_days = parse_int_query_param(params, "period_days", 30, minimum=1, maximum=365)
         user_uid = params.get("_user_uid", "")
         return await service.intelligence.get_performance_analytics(user_uid, period_days)
 
