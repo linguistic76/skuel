@@ -100,6 +100,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [User Architecture — Model, Auth, Roles, UserContext](architecture/UNIFIED_USER_ARCHITECTURE.md) | 2026-03-03 | — |
 | **[Hyperview Mobile Strategy](architecture/HYPERVIEW_STRATEGY.md)** | **2026-02-06** | **90** |
 | [Askesis Architecture](architecture/ASKESIS_ARCHITECTURE.md) | 2025-11-27 | — |
+| [Askesis Pedagogical Architecture](architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md) | 2026-03-05 | ZPD-aware Socratic companion vision — how Askesis teaches, not how it is built |
 | [Analytics Architecture](architecture/ANALYTICS_ARCHITECTURE.md) | 2025-11-27 | — |
 | [Core Systems Architecture](architecture/CORE_SYSTEMS_ARCHITECTURE.md) | 2026-02-08 | — |
 | **[Service Topology](architecture/SERVICE_TOPOLOGY.md)** | **2026-01-29** | **—** |
@@ -344,6 +345,9 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 |----------|---------|-------------|
 | [Deferred Work](roadmap/deferred-work.md) | 2026-03-04 | Intelligence features and decision points deferred until data/business prerequisites exist |
 | [Security Hardening — Deferred](roadmap/security-hardening-deferred.md) | 2026-03-04 | 5 deferred security items: dependency pinning, rate limiting, secret scanning, session rotation, CI CVE scanning |
+| [ZPDService — Deferred](roadmap/zpd-service-deferred.md) | 2026-03-05 | ZPDService design: ZPDAssessment, 2-hop graph traversal, readiness scores, trigger conditions |
+| [Conversation Neo4j Persistence — Deferred](roadmap/conversation-neo4j-persistence-deferred.md) | 2026-03-05 | Neo4j schema for persisted conversation sessions and turns; cross-session continuity design |
+| [Teacher-Askesis Interface — Deferred](roadmap/teacher-askesis-interface-deferred.md) | 2026-03-05 | Teacher view/adjust/annotate interface; requires ZPDService + Neo4j persistence first |
 
 ## Examples
 
@@ -375,6 +379,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 ## Statistics
 
-- **Total documents:** ~192 (core + migrations + roadmap + examples)
+- **Total documents:** ~196 (core + migrations + roadmap + examples)
 - **Categories:** 13 (Domains, Architecture, Patterns, DSL, Decisions, Guides, Reference, Intelligence, Migrations, Roadmap, Examples, Technical Debt, Top-Level)
 - **ADRs:** 44 (ADR-001 through ADR-043, with template)
