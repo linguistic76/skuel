@@ -20,20 +20,20 @@ SKUEL uses **graph-native authentication** (sessions stored in Neo4j) with cooki
 | **Lenient** | `get_current_user_or_default(request)` | `UserUID` | UI routes (dev-friendly) |
 | **Role-Based** | `@require_admin(service_getter)` | `current_user: User` | Protected admin/teacher routes |
 
-## The UserUID Type Alias
+## The UserUID NewType
 
 ```python
 from adapters.inbound.auth import UserUID
 
-# UserUID is a type alias for str with format "user.{name}"
-# Examples: "user.mike", "user.alice"
+# UserUID is a NewType wrapping str — MyPy rejects plain str where UserUID is required
+# Examples: "user_mike", "user_alice"
 user_uid: UserUID = require_authenticated_user(request)
 ```
 
-The `UserUID` type alias provides:
+The `UserUID` NewType provides:
+- **Type safety**: MyPy distinguishes `UserUID` from plain `str` — passing a raw string is a type error
 - **Documentation**: Makes the expected format clear at call sites
-- **Consistency**: Single source of truth for user identifier type
-- **Future-proofing**: Easy to evolve to `NewType` if stricter typing needed
+- **Single source of truth**: Defined in `core/models/type_hints.py`, re-exported from `adapters.inbound.auth`
 
 ## Pattern 1: Strict Authentication (API Routes)
 
@@ -321,7 +321,7 @@ return create_docs_page(
 
 | File | Purpose |
 |------|---------|
-| `/core/auth/session.py` | Session helpers, `UserUID` type, decorators |
+| `/adapters/inbound/auth/session.py` | Session helpers, `UserUID` NewType, decorators |
 | `/core/auth/roles.py` | Role-based decorators, permission checking |
 | `/core/auth/graph_auth.py` | `GraphAuthService` for sign_in/sign_up |
 | `/core/auth/__init__.py` | Public API exports |
