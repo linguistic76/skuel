@@ -563,11 +563,15 @@ Key design: **query text is OPTIONAL** — filter-only search is valid.
 
 ---
 
-## Deadline Proximity Scoring
+## Temporal Scoring Patterns
 
-Activity domain search services use `get_prioritized(user_context)` to rank entities by urgency. Deadline proximity is one scoring factor (0–40 points out of a ~100-point composite).
+Activity domains use two distinct temporal patterns for prioritization — **forward-looking** (deadline proximity) and **backwards-looking** (frequency windows). Both extract shared helpers to eliminate duplication while keeping domain-specific thresholds configurable.
 
-### Shared Helper
+### Deadline Proximity Scoring (Goals, Events, Choices)
+
+Search services use `get_prioritized(user_context)` to rank entities by urgency. Deadline proximity is one scoring factor (0–40 points out of a ~100-point composite).
+
+#### Shared Helper
 
 All deadline-based domains use `score_deadline_proximity()` from `core/utils/timestamp_helpers.py`:
 
@@ -582,7 +586,7 @@ score = score_deadline_proximity(
 # First matching band wins: days_until <= max_days → return score
 ```
 
-### Per-Domain Band Thresholds
+#### Per-Domain Band Thresholds
 
 Each domain defines `_PROXIMITY_BANDS` and `_PROXIMITY_DEFAULT` as `ClassVar` on its search service. The bands reflect how urgently each domain type demands attention:
 
@@ -597,7 +601,7 @@ Each domain defines `_PROXIMITY_BANDS` and `_PROXIMITY_DEFAULT` as `ClassVar` on
 - **Habits** — backwards-looking streak logic, not deadline-based
 - **Principles** — strength-based scoring, no deadlines
 
-### Composite Score Structure
+#### Composite Score Structure
 
 Deadline proximity is one factor in `_calculate_priority_score()`. The full composite varies by domain:
 
@@ -607,6 +611,35 @@ Deadline proximity is one factor in `_calculate_priority_score()`. The full comp
 | **Events** | Proximity bands | Goal support (0–25), Habit reinforcement (0–25), Event type (0–10) |
 | **Choices** | Proximity bands | Priority level (0–25), High stakes (0–20), Decision complexity (0–15) |
 
+### Frequency Window Scoring (Habits)
+
+Habits use **backwards-looking** logic — instead of "how close is the deadline?", they ask "how long since last completion relative to recurrence frequency?"
+
+#### Shared Helper
+
+`HabitSearchService._get_frequency_window_days()` backed by `_FREQUENCY_WINDOWS_DAYS` ClassVar:
+
+```python
+_FREQUENCY_WINDOWS_DAYS: ClassVar[dict[str, int]] = {
+    "daily": 1,
+    "weekly": 7,
+    "monthly": 30,
+}
+```
+
+**Due:** `days_since_last_completion >= window_days`
+**Overdue:** `days_since_last_completion > window_days`
+**Never completed:** always due
+
+Used by `_is_habit_due_in_window()`, `_is_habit_overdue()`, and `get_due_today()`.
+
+**See:** `/docs/domains/habits.md` → "Frequency Window Logic" for full details.
+
+### Domains Without Temporal Scoring
+
+- **Tasks** — uses `task.impact_score()` model method (priority + goal fulfillment), not temporal bands
+- **Principles** — strength-based scoring, no time dimension
+
 ### Key Files
 
 | File | Purpose |
@@ -615,6 +648,7 @@ Deadline proximity is one factor in `_calculate_priority_score()`. The full comp
 | `core/services/goals/goals_search_service.py` | `GoalsSearchService._PROXIMITY_BANDS` |
 | `core/services/events/events_search_service.py` | `EventsSearchService._PROXIMITY_BANDS` |
 | `core/services/choices/choices_search_service.py` | `ChoicesSearchService._PROXIMITY_BANDS` |
+| `core/services/habits/habit_search_service.py` | `HabitSearchService._FREQUENCY_WINDOWS_DAYS` |
 
 ---
 

@@ -238,6 +238,25 @@ The habit model tracks all four components of the habit loop:
 | `get_goal_supporting_habits_for_user(context)` | Habits that contribute to active goals |
 | `get_habit_readiness_for_user(habit_uid, context)` | Readiness assessment with blocking reasons |
 
+### Frequency Window Logic (Due/Overdue)
+
+Unlike deadline-based domains (Goals, Events, Choices), Habits use **backwards-looking** frequency windows to determine due/overdue status. The shared `_FREQUENCY_WINDOWS_DAYS` ClassVar and `_get_frequency_window_days()` helper on `HabitSearchService` eliminate duplication across three methods:
+
+| Frequency | Window (days) | "Due" when | "Overdue" when |
+|-----------|--------------|------------|----------------|
+| `daily` | 1 | `days_since_last >= 1` | `days_since_last > 1` |
+| `weekly` | 7 | `days_since_last >= 7` | `days_since_last > 7` |
+| `monthly` | 30 | `days_since_last >= 30` | `days_since_last > 30` |
+
+**Methods using this logic:**
+- `_is_habit_due_in_window()` — used by `get_due_soon()`
+- `_is_habit_overdue()` — used by `get_overdue()`
+- `get_due_today()` — standalone method for daily planning
+
+**Never-completed habits** are always considered due. Unknown frequencies default to daily.
+
+**See:** `/docs/architecture/SEARCH_ARCHITECTURE.md` → "Temporal Scoring Patterns" for how this relates to deadline proximity scoring in other domains.
+
 ### Habits-Specific Scoring
 
 | Factor | Calculation | Description |
