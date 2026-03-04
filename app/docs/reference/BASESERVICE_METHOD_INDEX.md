@@ -2,7 +2,7 @@
 
 **Purpose:** Complete reference of all methods available in BaseService and Activity Domain facades.
 
-**Last Updated:** 2026-03-03 (Auto-generated)
+**Last Updated:** 2026-03-04 (Auto-generated)
 
 **WARNING:** This file is AUTO-GENERATED. Do not edit manually.
 **To update:** Run `python scripts/generate_method_index.py`

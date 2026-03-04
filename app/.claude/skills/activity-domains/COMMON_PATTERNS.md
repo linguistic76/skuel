@@ -93,16 +93,17 @@ All search services implement `DomainSearchOperations[T]`:
 ```python
 class TasksSearchService(BaseService[TasksOperations, Task]):
     # Inherited methods (from BaseService):
-    # - search(query, user_uid, limit)
-    # - get_by_status(status, user_uid)
-    # - get_by_domain(domain, user_uid)
+    # - search(query, limit=50, user_uid=None)
+    # - get_by_status(status, limit=100, user_uid=None)
+    # - get_by_category(category, user_uid=None, limit=100)
+    # - get_by_domain(domain, limit=100)
     # - get_by_relationship(related_uid, rel_type, direction)
-    # - graph_aware_faceted_search(request)
+    # - graph_aware_faceted_search(request, user_uid)
     # - list_user_categories(user_uid)
 
     # Domain-specific methods:
     async def get_blocking_tasks(self, uid, user_uid): ...
-    async def get_overdue(self, user_uid): ...
+    async def get_overdue(self, user_uid, limit=100): ...
     async def get_prioritized(self, user_context, limit=10): ...
 ```
 

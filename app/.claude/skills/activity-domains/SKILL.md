@@ -67,8 +67,8 @@ result = await service.intelligence.get_{domain}_with_context(uid)
 
 ### Search with filters
 ```python
-result = await service.search.search(query, user_uid=user_uid)
-result = await service.search.get_by_status(status, user_uid)
+result = await service.search.search(query, limit=50, user_uid=user_uid)
+result = await service.search.get_by_status(status, limit=100, user_uid=user_uid)
 ```
 
 ### Link to another domain

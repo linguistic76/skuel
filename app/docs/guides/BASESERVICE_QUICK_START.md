@@ -120,15 +120,16 @@ else:
 **Answer:** Use the facade's search method:
 
 ```python
-# Text search
-result = await tasks_service.search("meditation", limit=10)
+# Text search (user_uid scopes to current user for Activity Domains)
+user_uid = require_authenticated_user(request)
+result = await tasks_service.search("meditation", limit=10, user_uid=user_uid)
 
 # Filter by status
 from core.models.enums.entity_enums import EntityStatus
-result = await tasks_service.get_by_status(EntityStatus.ACTIVE)
+result = await tasks_service.get_by_status(EntityStatus.ACTIVE, user_uid=user_uid)
 
 # Filter by category
-result = await tasks_service.get_by_category("health")
+result = await tasks_service.get_by_category("health", user_uid=user_uid)
 
 # Domain-specific query
 result = await tasks_service.get_tasks_for_goal(goal_uid="goal.health-2024")
@@ -137,6 +138,7 @@ result = await tasks_service.get_tasks_for_goal(goal_uid="goal.health-2024")
 **Behind the scenes:**
 - `search()` → delegates to `search.search()`
 - Uses `DomainConfig.search_fields` to determine which fields to search
+- `user_uid` injects `WHERE n.user_uid = $user_uid` to prevent cross-user data leakage
 - Returns list of domain models (not DTOs)
 
 ---
