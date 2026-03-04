@@ -149,7 +149,7 @@ This eliminates the former circular dependency between UserStateAnalyzer and Act
 | **Sub-services** | 7 (core, search, intelligence, etc.) | 7 (state, recommendation, query, intent, response, etc.) |
 | **Entity CRUD** | Yes (BaseService) | No (cross-domain only) |
 | **Backend** | `UniversalNeo4jBackend[T]` | None (uses domain services) |
-| **Protocol** | `{Domain}Operations` | `AskesisOperations` |
+| **Backend Protocol** | `{Domain}Operations` (types `self.backend`, NOT the service itself) | `AskesisOperations` |
 | **Factory** | `create_common_sub_services()` | `create_askesis_service()` in `askesis_factory.py` |
 
 ### Why Different?

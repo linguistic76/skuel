@@ -33,7 +33,7 @@ For hands-on implementation:
 SKUEL uses Python's Protocol typing (PEP 544) for dependency injection without framework overhead. This provides type safety, testability, and clean architecture while maintaining the "one path forward" philosophy.
 
 **Core Achievements** (January–February 2026):
-- **100% protocol compliance** - All services, routes, and containers use protocol types
+- **Two-tier typing strategy** - Facade services use concrete class types in routes; thin/ISP services (Groups, Submissions, Sharing, etc.) use ISP protocol types
 - **100% hasattr elimination** - All attribute checks now use Protocol-based type checking
 - **Zero port dependencies** - All services use `core/ports/*` exclusively
 - **Facade services use concrete types** - Route files import `TasksService` directly; no facade protocols needed
@@ -232,7 +232,7 @@ Adapters (in adapters/)
 
 ## Protocol Compliance Improvements (January 2026)
 
-SKUEL achieved **100% protocol compliance** across the entire codebase through systematic improvements:
+SKUEL achieved **full type safety** across the entire codebase through systematic improvements (two-tier strategy: concrete for facades, ISP protocols for thin services):
 
 ### Phase 1: Protocol Creation (January 2026 — superseded February 2026)
 - ✅ Created 9 facade protocols for all facade services
@@ -305,7 +305,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 - `SubmissionsService` → `BackendOperations[Entity]`
 
 ### Results
-- **Zero concrete type dependencies** in route signatures
+- **Two-tier typing in route signatures** - Facade services (9: Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP) use concrete class types; thin/ISP services use protocol types
 - **Full type safety** with MyPy across all services
 - **Better IDE support** with complete method autocomplete
 - **Easier testing** with protocol-based mocking

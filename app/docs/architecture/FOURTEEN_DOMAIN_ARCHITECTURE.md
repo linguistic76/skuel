@@ -470,7 +470,7 @@ Full taxonomy: 70+ typed relationship names in `RelationshipName` enum (`core/mo
 | Principle | Meaning |
 |-----------|---------|
 | **One Path Forward** | Single clear way to accomplish tasks — old patterns deleted, not deprecated |
-| **Protocol-Based DI** | Zero concrete type dependencies in route signatures; all services use Protocols |
+| **Protocol-Based DI** | Two-tier strategy: facade services (9) use concrete class types in routes; thin/ISP services use protocol types; all backends depend on protocol interfaces |
 | **Three-Tier Types** | Pydantic at edges (validation), DTOs for transfer, frozen dataclasses at core |
 | **Result[T]** | `Result[T]` throughout services; `@boundary_handler` converts to HTTP at routes |
 | **Fail-Fast** | All required dependencies raise at startup — no graceful degradation |
