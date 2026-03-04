@@ -3,9 +3,16 @@
 ## Overview
 
 **Architecture:** Extends `BaseAnalyticsService[ChoicesOperations, Choice]`
-**Location:** `/core/services/choices/choices_intelligence_service.py`
+**Location:** `/core/services/choices/choices_intelligence_service.py` (shell ~170 lines)
 **Service Name:** `choices.intelligence`
-**Lines:** ~2,241
+
+**File Structure (decomposed March 2026):**
+| File | Responsibility |
+|------|---------------|
+| `choices_intelligence_service.py` | Shell: `__init__`, `entity_label`, 3 protocol delegation methods |
+| `_core_intelligence_mixin.py` | `get_choice_with_context`, `get_decision_intelligence`, `analyze_choice_impact` |
+| `_analytics_mixin.py` | `get_quick_decision_metrics`, `batch_analyze_decision_complexity`, `get_decision_patterns`, `get_choice_quality_correlations`, `get_domain_decision_patterns` |
+| `_behavioral_signals_mixin.py` | Event handlers, dual-track assessment, principle analysis, prediction, life-path contribution, `get_zpd_behavioral_signals` |
 
 ---
 
@@ -595,6 +602,140 @@ POST /api/choices/assess-decision-quality
 ```
 
 **See:** [ADR-030: Dual-Track Assessment Pattern](../decisions/ADR-030-dual-track-assessment-pattern.md)
+
+---
+
+### Method 7: get_decision_patterns()
+
+**Purpose:** Analyze user's decision-making patterns over a time window.
+
+**Signature:**
+```python
+async def get_decision_patterns(
+    self, user_uid: str, days: int = 90
+) -> Result[dict[str, Any]]:
+```
+
+**Returns:** `decision_metrics` (frequency, principle alignment %, goal orientation %), `decision_quality`, `patterns` (trend, strategic vs tactical), `recommendations`.
+
+---
+
+### Method 8: get_choice_quality_correlations()
+
+**Purpose:** Analyze correlations between decision quality dimensions (time pressure vs satisfaction, energy vs confidence, principle alignment vs satisfaction).
+
+**Signature:**
+```python
+async def get_choice_quality_correlations(
+    self, user_uid: str, days: int = 90
+) -> Result[dict[str, Any]]:
+```
+
+---
+
+### Method 9: get_domain_decision_patterns()
+
+**Purpose:** Analyze decision-making frequency and quality broken down by domain.
+
+**Signature:**
+```python
+async def get_domain_decision_patterns(
+    self, user_uid: str, days: int = 90
+) -> Result[dict[str, Any]]:
+```
+
+---
+
+### Method 10: analyze_principle_adherence()
+
+**Purpose:** Analyze how consistently the user's choices align with their stated principles over a time period. Pure Cypher query — counts ALIGNED_WITH_PRINCIPLE relationships on choices created within the window.
+
+**Signature:**
+```python
+async def analyze_principle_adherence(
+    self, user_uid: str, period_days: int = 90
+) -> Result[dict[str, Any]]:
+```
+
+**Returns:** `overall_adherence_score` (0.0–1.0), `principle_breakdown` (per-principle aligned count + avg satisfaction), `most_aligned_principle`, `recommendations`.
+
+---
+
+### Method 11: detect_principle_choice_conflicts()
+
+**Purpose:** Detect direct and implicit conflicts between a specific choice and the user's principles. Checks CONFLICTS_WITH_PRINCIPLE edges and flags high-impact choices with zero principle alignment.
+
+**Signature:**
+```python
+async def detect_principle_choice_conflicts(
+    self, choice_uid: str, user_uid: str
+) -> Result[dict[str, Any]]:
+```
+
+**Returns:** `has_conflicts`, `direct_conflicts` (with severity), `unaligned_warning`, `mitigation_strategies`.
+
+---
+
+### Method 12: predict_decision_quality()
+
+**Purpose:** Predict expected decision quality using a 4-factor model before the choice is made.
+
+**Signature:**
+```python
+async def predict_decision_quality(
+    self, choice_uid: str, user_uid: str
+) -> Result[dict[str, Any]]:
+```
+
+**4-Factor Model:**
+- Principle alignment: 35% weight
+- Knowledge-informed: 25% weight
+- Historical correlation (past aligned vs unaligned satisfaction): 25% weight
+- Complexity-guidance ratio: 15% weight
+
+**Returns:** `predicted_quality_score` (0.0–1.0), `confidence`, `quality_factors` breakdown, `historical_correlation`, `recommendations`.
+
+---
+
+### Method 13: calculate_life_path_contribution_via_principles()
+
+**Purpose:** Trace the contribution chain `Choice → Principle → LifePath` via graph traversal. Combines direct SERVES_LIFE_PATH (60%) with principle-mediated contribution (40%).
+
+**Signature:**
+```python
+async def calculate_life_path_contribution_via_principles(
+    self, choice_uid: str, user_uid: str
+) -> Result[dict[str, Any]]:
+```
+
+**Returns:** `total_contribution_score`, `direct_contribution`, `principle_mediated_contribution`, `contributing_principles`, `life_path_uid`.
+
+---
+
+### Method 14: get_zpd_behavioral_signals() (ZPD Bridge — March 2026)
+
+**Purpose:** Extract behavioral readiness signals for ZPDService consumption. Aggregates choice history into signals that indicate the user's readiness to engage with new knowledge.
+
+**Signature:**
+```python
+async def get_zpd_behavioral_signals(
+    self, user_uid: str
+) -> Result[dict[str, Any]]:
+```
+
+**Returns:**
+```python
+{
+    "principle_adherence_score": float,    # 0.0-1.0 — values clarity
+    "decision_consistency_score": float,   # 0.0-1.0 — decision maturity
+    "active_conflict_count": int,          # unresolved principle tensions (last 30d)
+    "high_quality_decision_rate": float,   # recent decision quality trend
+}
+```
+
+**Consumed by:** `ZPDService.assess_zone()` → `ZPDAssessment.behavioral_readiness`
+
+**See:** `core/services/zpd/zpd_service.py` (Phase 3, pending implementation)
 
 ---
 

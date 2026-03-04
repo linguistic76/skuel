@@ -5,7 +5,7 @@
 **Architecture:** Extends `BaseAnalyticsService[HabitsOperations, Habit]`
 **Location:** `/core/services/habits/habits_intelligence_service.py`
 **Service Name:** `habits.intelligence`
-**Lines:** ~1,202
+**Lines:** ~1,311
 
 ---
 
@@ -635,6 +635,37 @@ assert service.backend == backend
 assert service.graph_intel == graph_intel
 assert service.relationships == relationships
 ```
+
+---
+
+---
+
+## get_zpd_knowledge_signals() (ZPD Bridge — March 2026)
+
+**Purpose:** Extract knowledge reinforcement signals for ZPDService consumption. Queries `REINFORCES_KNOWLEDGE` edges on the user's active habits and computes per-KU reinforcement strength.
+
+**Signature:**
+```python
+async def get_zpd_knowledge_signals(
+    self, user_uid: str
+) -> Result[dict[str, Any]]:
+```
+
+**Returns:**
+```python
+{
+    "reinforced_ku_uids": list[str],            # KUs reinforced by active habits
+    "reinforcement_strength": dict[str, float], # ku_uid → 0.0-1.0 (streak + success rate blend)
+    "at_risk_ku_uids": list[str],               # KUs whose reinforcing habit has broken streak
+                                                # or success_rate < 0.5
+}
+```
+
+**Strength formula:** `(min(streak/30, 1.0) × 0.5) + (success_rate × 0.5)`
+
+**Consumed by:** `ZPDService.assess_zone()` — reinforced KUs count toward current_zone scoring.
+
+**See:** `core/services/zpd/zpd_service.py` (Phase 3, pending implementation)
 
 ---
 
