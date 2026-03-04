@@ -112,6 +112,45 @@ All use `UnifiedRelationshipService` with domain configs:
 |---------|-----------|---------|
 | Calendar | `self.calendar` | Schedule-aware intelligence |
 
+### Optional Services (FULL tier only)
+
+| Service | Attribute | Purpose |
+|---------|-----------|---------|
+| ZPDService | `self.zpd_service` | Curriculum-graph-aware ZPD ranking for `get_optimal_next_learning_steps()` |
+| Neo4jVectorSearchService | `self.vector_search` | Semantic search enhancements |
+
+Both are `None` in CORE tier — all methods gracefully degrade when absent.
+
+**ZPD (Zone of Proximal Development):**
+
+When `zpd_service` is set, `get_optimal_next_learning_steps()` uses a two-hop curriculum graph traversal to rank KUs by readiness:
+
+```python
+priority_score = readiness_score × (0.7 + 0.3 × behavioral_readiness)
+```
+
+`behavioral_readiness` aggregates choices (65%) + habits (35%) signals via `ChoicesIntelligenceService` and `HabitsIntelligenceService`. When ZPD assessment is empty (no engagement relationships yet in graph), the method falls through to the activity-based ranking algorithm.
+
+**Wiring ZPD in bootstrap:**
+
+```python
+from core.services.zpd import ZPDService
+
+zpd_service: ZPDOperations | None = None
+if tier.ai_enabled:  # FULL tier
+    zpd_service = ZPDService(
+        driver=driver,
+        choices_intelligence=activity_services["choices"].intelligence,
+        habits_intelligence=activity_services["habits"].intelligence,
+    )
+    services.zpd_service = zpd_service
+
+factory = UserContextIntelligenceFactory(
+    ...,  # 13 required services
+    zpd_service=zpd_service,
+)
+```
+
 ---
 
 ## The 5 Structured Return Types

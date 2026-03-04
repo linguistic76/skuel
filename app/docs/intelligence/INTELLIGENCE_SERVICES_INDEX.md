@@ -23,13 +23,16 @@ SKUEL's intelligence layer provides graph-based analytics and insights across al
 
 The app functions fully without any LLM dependencies - AI services enhance but are not required.
 
-**Total Intelligence Services:** 12
+**Total Intelligence Services:** 13
 - **Activity Domains:** 6 (Tasks, Goals, Habits, Events, Choices, Principles)
 - **Curriculum Domains:** 4 (KU, LS, LP, MOC)
 - **Meta Intelligence:** 1 (UserContext - central intelligence hub)
 - **Cross-Cutting:** 1 (Askesis - life context synthesis)
+- **Specialized Graph:** 1 (ZPDService - curriculum ZPD graph analytics — FULL tier only)
 
 **Note:** Finance is a standalone bookkeeping domain (no intelligence service).
+
+**ZPDService** (`core/services/zpd/zpd_service.py`) is a specialized curriculum graph analytics service, distinct from the 10 `BaseAnalyticsService` subclasses. It does NOT extend `BaseAnalyticsService` — it takes a Neo4j driver directly and computes Zone of Proximal Development assessments via a single 2-hop Cypher traversal. Only available in FULL tier; gracefully degrades (returns empty assessment) when curriculum engagement relationships are absent.
 
 ## Quick Start
 

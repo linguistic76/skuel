@@ -83,8 +83,12 @@ class UserContextIntelligenceFactory:
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
         calendar: CalendarService,
+        # Optional: Vector search for semantic enhancements
+        vector_search_service: Any = None,
+        # Optional: ZPD service for curriculum-graph-aware step ranking (FULL tier only)
+        zpd_service: ZPDOperations | None = None,
     ) -> None:
-        # Validate all 13 services present
+        # Validate all 13 required services present
         required = {
             "tasks": tasks,
             "goals": goals,
@@ -118,10 +122,15 @@ class UserContextIntelligenceFactory:
         self._ku = ku
         self._ls = ls
         self._lp = lp
-        # Processing domains (2)
+        # Processing domains (3)
         self._submissions = submissions
+        self._feedback = feedback
         self._analytics = analytics
+        # Temporal domain (1)
         self._calendar = calendar
+        # Optional services
+        self._vector_search = vector_search_service
+        self._zpd_service = zpd_service
 
     def create(self, context: UserContext) -> UserContextIntelligence:
         """Create intelligence instance bound to user context."""
@@ -138,11 +147,15 @@ class UserContextIntelligenceFactory:
             ku=self._ku,
             ls=self._ls,
             lp=self._lp,
-            # Processing domains (2)
+            # Processing domains (3)
             submissions=self._submissions,
+            feedback=self._feedback,
             analytics=self._analytics,
             # Temporal domain (1)
             calendar=self._calendar,
+            # Optional services
+            vector_search=self._vector_search,
+            zpd_service=self._zpd_service,
         )
 ```
 
@@ -177,6 +190,8 @@ async def compose_services(neo4j_driver, event_bus=None) -> Result[Services]:
         analytics=analytics_relationship_service,
         # Temporal Domain (1)
         calendar=calendar_service,
+        # Optional: ZPD service (FULL tier only — set to None in CORE tier)
+        zpd_service=zpd_service,  # ZPDOperations | None
     )
 
     return Result.ok(Services(

@@ -47,13 +47,16 @@ class UserContextIntelligence(
 **Required Attributes:**
 ```python
 class LearningIntelligenceMixin:
-    context: UserContext  # User state
-    tasks: Any            # UnifiedRelationshipService
-    ku: Any               # KuGraphService
+    context: UserContext      # User state
+    tasks: Any                # UnifiedRelationshipService
+    ku: Any                   # KuGraphService
+    vector_search: Any        # Neo4jVectorSearchService (optional, may be None)
+    zpd_service: Any          # ZPDOperations (optional, may be None — FULL tier only)
 ```
 
 **Key Logic:**
-- Calculates learning priority based on goal alignment, unblocking potential, life path alignment
+- ZPD path (when `zpd_service` set): ranks by proximal zone readiness scores
+- Fallback path: ranks by goal alignment, unblocking potential, life path alignment, capacity
 - Filters by user capacity (available time)
 - Finds application opportunities across tasks, habits, goals, events
 
@@ -65,7 +68,11 @@ async def get_optimal_next_learning_steps(
     consider_capacity: bool = True,
 ) -> Result[list[LearningStep]]:
     """
-    Ranking Factors:
+    Priority Path (when zpd_service is set — FULL tier):
+    - ZPD proximal zone ranking: priority_score = readiness_score × (0.7 + 0.3 × behavioral_readiness)
+    - Graceful degradation: falls through to activity-based if ZPD assessment is empty
+
+    Fallback Ranking Factors (activity-based — always available):
     - Prerequisites met (ready to learn)
     - Goal alignment (30% weight)
     - Unblocking potential (25% weight)

@@ -317,6 +317,10 @@ class UserContextIntelligenceFactory:
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
         calendar: CalendarService,
+        # Optional: semantic search enhancements
+        vector_search_service: Any = None,
+        # Optional: ZPD-aware learning step ranking (FULL tier only)
+        zpd_service: ZPDOperations | None = None,
     ) -> None: ...
 
     def create(
