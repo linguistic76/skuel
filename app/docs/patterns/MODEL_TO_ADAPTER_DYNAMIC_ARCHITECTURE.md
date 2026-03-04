@@ -48,6 +48,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 ):
 ```
 
+**Security (March 2026):** `_search_mixin.py` and `_user_entity_mixin.py` validate all interpolated field names via `validate_field_name()` to prevent Cypher injection. Invalid names fall back to safe defaults with logged warnings.
+
 **Cross-mixin dependencies** use `TYPE_CHECKING` stubs (zero runtime cost, MyPy-verified).
 
 **Commit:** `dc77a7a` — 2675/2677 tests pass (2 pre-existing failures).

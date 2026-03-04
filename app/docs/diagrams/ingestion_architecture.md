@@ -124,6 +124,7 @@ sequenceDiagram
     API->>Service: ingest_directory(path, progress_callback)
 
     UI->>WS: Connect to /ws/ingest/progress/{operation_id}
+    Note over WS: Verify admin session<br/>(close 4003 if unauthorized)
     WS-->>UI: Connection accepted
 
     Note over UI: Alpine.js ingestionProgress component<br/>initializes WebSocket

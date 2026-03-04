@@ -402,6 +402,8 @@ count = await builder.for_model(Task).count(status='completed')
 
 **Architecture Note:** UniversalBackend powers ALL domains (Tasks, Events, Habits, Goals, Finance, etc.), making UnifiedQueryBuilder's fluent API widely used.
 
+**Security (March 2026):** `ModelQueryBuilder.order_by()` validates field names via `validate_field_name()` — invalid fields (e.g. injection attempts) are silently ignored with a logged warning.
+
 ### Layer 2: Service Layer → QueryBuilder (Facade)
 
 **Location:** `/core/services/query_builder.py`
@@ -452,6 +454,7 @@ validation = await qb.validate_query(query_string)
    - Faceted search query construction
    - Filter aggregation and counting
    - Multi-facet combination logic
+   - Generic facet field names validated via `validate_field_name()` (March 2026)
 
 5. **GraphContextBuilder** (`/core/services/query/graph_context_builder.py`, 68 lines)
    - Graph traversal query generation

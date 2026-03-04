@@ -225,11 +225,13 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 | File | Protocol(s) | Key Methods |
 |------|-------------|-------------|
 | `_crud_mixin.py` | `CrudOperations[T]` | `create`, `get`, `get_many`, `update`, `delete`, `list` |
-| `_search_mixin.py` | `EntitySearchOperations[T]` | `find_by_date_range`, `search`, `find_by`, `count`, `health_check`, `get_domain_context_raw`, `execute_query` |
+| `_search_mixin.py` | `EntitySearchOperations[T]` | `find_by_date_range`*, `search`, `find_by`, `count`, `health_check`, `get_domain_context_raw`, `execute_query` |
 | `_relationship_query_mixin.py` | `RelationshipMetadata*`, `RelationshipQuery*` | `get_related_entities`, `get_related_uids`, `get_relationship_metadata`, `get_edge_metadata`, `relate()`, batch queries |
 | `_relationship_crud_mixin.py` | `RelationshipCrud*` | `create_relationship`, `delete_relationship`, `has_relationship`, `count_related`, `create_relationships_batch`, `_build_direction_pattern`, helpers |
-| `_user_entity_mixin.py` | Generic user-entity ops | `create_user_relationship`, `get_user_entities`, `count_user_entities`, `update_relationship_access`, `delete_user_relationship` |
+| `_user_entity_mixin.py` | Generic user-entity ops | `create_user_relationship`, `get_user_entities`*, `count_user_entities`*, `update_relationship_access`, `delete_user_relationship` |
 | `_traversal_mixin.py` | `GraphTraversalOperations` | `add_relationship`, `get_relationships`, `traverse`, `find_path` |
+
+\* **Security hardened (March 2026):** Methods marked with `*` validate interpolated field names via `validate_field_name()` from `core/utils/validation_helpers.py` to prevent Cypher injection. Invalid field names are rejected with a logged warning and safe fallback values.
 | `universal_backend.py` (shell) | Coordination | `__init__`, `_track_db_metrics`, `_default_filter_*`, `_inject_default_filters`, `get_with_graph_context`, `__getattr__` |
 
 **Cross-mixin dependencies** are declared via `TYPE_CHECKING` stubs (zero runtime cost):

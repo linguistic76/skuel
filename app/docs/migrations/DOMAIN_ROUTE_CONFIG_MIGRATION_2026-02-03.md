@@ -200,8 +200,10 @@ INGESTION_CONFIG = DomainRouteConfig(
 **Pattern:** Standard (API + UI) - Large dashboard UI
 
 **Files Created:**
-- `/adapters/inbound/ingestion_api.py` (NEW - 4 API routes)
+- `/adapters/inbound/ingestion_api.py` (NEW - 4 API routes + 1 WebSocket)
 - `/adapters/inbound/ingestion_ui.py` (NEW - 1 dashboard route with forms)
+
+**Note:** WebSocket `/ws/ingest/progress/{operation_id}` hardened with admin session check in March 2026 (closes 4003 if unauthorized).
 
 ---
 

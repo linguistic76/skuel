@@ -157,6 +157,8 @@ result = await service.ingest_directory(
 ws://localhost:5001/ws/ingest/progress/{operation_id}
 ```
 
+**Security:** Requires admin session. Unauthorized connections are closed with code 4003 before `ws.accept()`.
+
 **Progress Data Format:**
 ```json
 {

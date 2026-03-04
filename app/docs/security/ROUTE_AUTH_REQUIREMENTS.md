@@ -46,6 +46,7 @@ This document defines the authentication requirements for all SKUEL routes.
 | `/api/services/**` | `system_api.py` | Service registration |
 | `/api/alerts/**` | `system_api.py` | Alert management |
 | `/api/ingest/**` | `ingestion_routes.py` | Content ingestion |
+| `/ws/ingest/progress/**` | `ingestion_api.py` | WebSocket progress (closes 4003 if unauthorized) |
 | `/ingest` | `ingestion_routes.py` | Ingestion dashboard |
 | `/debug-session` | `auth_routes.py` | Session debugging |
 | `/whoami` | `auth_routes.py` | User identity debugging |
@@ -120,6 +121,14 @@ https_only = True  # In production
 | System API admin-only | Prevents info disclosure |
 | SameSite strict | Enhanced CSRF protection |
 | Debug endpoints admin-only | Prevents session info leakage |
+
+## Security Hardening (March 2026)
+
+| Change | Rationale |
+|--------|-----------|
+| WebSocket ingestion requires admin session | Was unauthenticated; closes with 4003 before `ws.accept()` |
+| GraphQL GET requires auth | Playground UI was accessible without login |
+| Cypher field name validation | `validate_field_name()` applied to all interpolated field names in search/query layers |
 
 ## Verification Checklist
 
