@@ -210,3 +210,6 @@ __marimo__/
 infrastructure/neo4j/data/databases/
 infrastructure/neo4j/data/transactions/
 infrastructure/neo4j/data/dbms/
+
+# Neo4j runtime logs (never commit operational logs)
+infrastructure/neo4j/logs/

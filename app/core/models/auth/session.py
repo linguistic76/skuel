@@ -26,9 +26,10 @@ Neo4j Schema:
     (user:User)-[:HAS_SESSION]->(session:Session)
 """
 
+import hashlib
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Session configuration
 SESSION_TOKEN_BYTES = 32  # 256-bit tokens
@@ -43,6 +44,11 @@ def generate_session_token() -> str:
 def generate_session_uid() -> str:
     """Generate a unique session UID."""
     return f"session_{secrets.token_hex(16)}"
+
+
+def hash_session_token(token: str) -> str:
+    """One-way SHA-256 hash for session token storage in Neo4j."""
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -75,10 +81,11 @@ class Session:
     is_valid: bool = True
     # Cached user data (avoid DB lookup on every validation)
     user_is_active: bool = True  # Cached at session creation
+    token_hash: str = ""  # SHA-256 hash of session_token, stored in Neo4j
 
     def is_expired(self) -> bool:
         """Check if session has expired."""
-        return datetime.now() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
 
     def is_active(self) -> bool:
         """Check if session is valid and not expired."""
@@ -86,7 +93,7 @@ class Session:
 
     def time_until_expiry(self) -> timedelta:
         """Get time remaining until expiry."""
-        return self.expires_at - datetime.now()
+        return self.expires_at - datetime.now(timezone.utc)
 
     def should_refresh(self, threshold_days: int = 7) -> bool:
         """
@@ -110,11 +117,12 @@ class Session:
             user_uid=self.user_uid,
             created_at=self.created_at,
             expires_at=self.expires_at,
-            last_active_at=datetime.now(),
+            last_active_at=datetime.now(timezone.utc),
             ip_address=self.ip_address,
             user_agent=self.user_agent,
             is_valid=self.is_valid,
             user_is_active=self.user_is_active,
+            token_hash=self.token_hash,
         )
 
     def invalidate(self) -> "Session":
@@ -134,6 +142,7 @@ class Session:
             user_agent=self.user_agent,
             is_valid=False,
             user_is_active=self.user_is_active,
+            token_hash=self.token_hash,
         )
 
 
@@ -157,10 +166,11 @@ def create_session(
     Returns:
         New Session instance with secure token
     """
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
+    token = generate_session_token()
     return Session(
         uid=generate_session_uid(),
-        session_token=generate_session_token(),
+        session_token=token,
         user_uid=user_uid,
         created_at=now,
         expires_at=now + timedelta(days=expiry_days),
@@ -169,6 +179,7 @@ def create_session(
         user_agent=user_agent,
         is_valid=True,
         user_is_active=user_is_active,
+        token_hash=hash_session_token(token),
     )
 
 
@@ -179,4 +190,5 @@ __all__ = [
     "create_session",
     "generate_session_token",
     "generate_session_uid",
+    "hash_session_token",
 ]

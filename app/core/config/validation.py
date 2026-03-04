@@ -259,7 +259,10 @@ def validate_environment_variables() -> list[str]:
     env = os.getenv("SKUEL_ENVIRONMENT", "local")
 
     if env in ["production", "staging"]:
-        required_vars.extend(["NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD", "REDIS_URL"])
+        required_vars.extend([
+            "NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD",
+            "REDIS_URL", "SESSION_SECRET_KEY",
+        ])
 
     # Check for missing variables
     errors.extend(

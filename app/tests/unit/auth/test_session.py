@@ -352,15 +352,27 @@ class TestGetSessionMiddlewareConfig:
 
     def test_https_only_in_production(self):
         """Test that https_only is True in production."""
-        with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+        with patch.dict(
+            "os.environ",
+            {"SKUEL_ENVIRONMENT": "production", "SESSION_SECRET_KEY": "test-key"},
+        ):
             config = get_session_middleware_config()
             assert config["https_only"] is True
 
     def test_https_only_false_in_development(self):
         """Test that https_only is False in development."""
-        with patch.dict("os.environ", {"ENVIRONMENT": "development"}):
+        with patch.dict("os.environ", {"SKUEL_ENVIRONMENT": "development"}):
             config = get_session_middleware_config()
             assert config["https_only"] is False
+
+    def test_fails_fast_in_production_without_secret(self):
+        """Test that RuntimeError is raised in production without SESSION_SECRET_KEY."""
+        with patch.dict("os.environ", {"SKUEL_ENVIRONMENT": "production"}, clear=False):
+            import os
+
+            os.environ.pop("SESSION_SECRET_KEY", None)
+            with pytest.raises(RuntimeError, match="FATAL"):
+                get_session_middleware_config()
 
     def test_same_site_is_strict(self):
         """Test that same_site is strict for CSRF protection (January 2026 hardening)."""

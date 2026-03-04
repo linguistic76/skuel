@@ -31,7 +31,7 @@ Rate Limiting:
 
 import secrets
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -125,7 +125,7 @@ class AuthEvent:
         """Check if event occurred within the last N minutes."""
         from datetime import timedelta
 
-        return (datetime.now() - self.timestamp) < timedelta(minutes=minutes)
+        return (datetime.now(timezone.utc) - self.timestamp) < timedelta(minutes=minutes)
 
     def to_log_dict(self) -> dict[str, Any]:
         """Convert to dictionary suitable for logging."""
@@ -166,7 +166,7 @@ def create_auth_event(
     return AuthEvent(
         uid=generate_auth_event_uid(),
         event_type=event_type,
-        timestamp=datetime.now(),
+        timestamp=datetime.now(timezone.utc),
         ip_address=ip_address,
         user_agent=user_agent,
         user_uid=user_uid,

@@ -92,8 +92,8 @@ services:
     image: redis:7-alpine
     container_name: skuel-redis
     ports:
-      - "${REDIS_PORT:-6379}:6379"
-    command: redis-server --requirepass ${REDIS_PASSWORD:-skuel-redis-pass}
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD required}
     volumes:
       - redis_data:/data
     networks:
@@ -152,7 +152,7 @@ services:
     image: ollama/ollama:latest
     container_name: skuel-ollama
     ports:
-      - "${OLLAMA_PORT:-11434}:11434"
+      - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"
     volumes:
       - ollama_data:/root/.ollama
     networks:
@@ -202,7 +202,7 @@ services:
     image: prom/prometheus:latest
     container_name: skuel-prometheus
     ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -227,10 +227,10 @@ services:
     image: grafana/grafana:latest
     container_name: skuel-grafana
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?GRAFANA_PASSWORD required}
       GF_USERS_ALLOW_SIGN_UP: "false"
     ports:
-      - "${GRAFANA_PORT:-3000}:3000"
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -247,7 +247,7 @@ services:
     command:
       - '--path.rootfs=/host'
     ports:
-      - "9100:9100"
+      - "127.0.0.1:9100:9100"
     volumes:
       - /:/host:ro
     networks:

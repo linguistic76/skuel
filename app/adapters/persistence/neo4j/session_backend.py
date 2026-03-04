@@ -24,7 +24,7 @@ from neo4j.time import DateTime as Neo4jDateTime
 
 from core.models.auth.auth_event import AuthEvent
 from core.models.auth.password_reset_token import PasswordResetToken
-from core.models.auth.session import Session
+from core.models.auth.session import Session, hash_session_token
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -78,7 +78,7 @@ class SessionBackend:
             MATCH (u:User {uid: $user_uid})
             CREATE (s:Session {
                 uid: $uid,
-                session_token: $session_token,
+                token_hash: $token_hash,
                 user_uid: $user_uid,
                 created_at: datetime($created_at),
                 expires_at: datetime($expires_at),
@@ -97,7 +97,7 @@ class SessionBackend:
                     query,
                     {
                         "uid": session.uid,
-                        "session_token": session.session_token,
+                        "token_hash": session.token_hash,
                         "user_uid": session.user_uid,
                         "created_at": session.created_at.isoformat(),
                         "expires_at": session.expires_at.isoformat(),
@@ -129,6 +129,9 @@ class SessionBackend:
         """
         Get session by token value.
 
+        Hashes the incoming token and queries by token_hash (raw tokens
+        are never stored in Neo4j).
+
         Args:
             session_token: The secure session token from cookie
 
@@ -136,13 +139,14 @@ class SessionBackend:
             Result[Session | None]: Session if found and valid, None otherwise
         """
         try:
+            token_hash = hash_session_token(session_token)
             query = """
-            MATCH (s:Session {session_token: $token})
+            MATCH (s:Session {token_hash: $token_hash})
             RETURN s
             """
 
             async with self.driver.session() as db_session:
-                result = await db_session.run(query, {"token": session_token})
+                result = await db_session.run(query, {"token_hash": token_hash})
                 record = await result.single()
 
                 if not record:
@@ -206,8 +210,9 @@ class SessionBackend:
         try:
             # Only update if last_active_at is older than batch interval
             # This dramatically reduces DB writes while still tracking activity
+            token_hash = hash_session_token(session_token)
             query = """
-            MATCH (s:Session {session_token: $token, is_valid: true})
+            MATCH (s:Session {token_hash: $token_hash, is_valid: true})
             WHERE s.last_active_at < datetime() - duration({seconds: $interval})
             SET s.last_active_at = datetime()
             RETURN s
@@ -215,7 +220,7 @@ class SessionBackend:
 
             async with self.driver.session() as db_session:
                 result = await db_session.run(
-                    query, {"token": session_token, "interval": batch_interval_seconds}
+                    query, {"token_hash": token_hash, "interval": batch_interval_seconds}
                 )
                 record = await result.single()
 
@@ -238,18 +243,19 @@ class SessionBackend:
             Result[bool]: True if invalidated, False if not found
         """
         try:
+            token_hash = hash_session_token(session_token)
             query = """
-            MATCH (s:Session {session_token: $token})
+            MATCH (s:Session {token_hash: $token_hash})
             SET s.is_valid = false
             RETURN s
             """
 
             async with self.driver.session() as db_session:
-                result = await db_session.run(query, {"token": session_token})
+                result = await db_session.run(query, {"token_hash": token_hash})
                 record = await result.single()
 
                 if record:
-                    self.logger.info(f"Invalidated session with token: {session_token[:8]}...")
+                    self.logger.info(f"Invalidated session with token hash: {token_hash[:8]}...")
 
                 return Result.ok(record is not None)
 
@@ -661,7 +667,7 @@ class SessionBackend:
         """Convert Neo4j node to Session domain model."""
         return Session(
             uid=node["uid"],
-            session_token=node["session_token"],
+            session_token="",  # Raw token is never stored in Neo4j
             user_uid=node["user_uid"],
             created_at=self._parse_datetime(node["created_at"]),
             expires_at=self._parse_datetime(node["expires_at"]),
@@ -670,6 +676,7 @@ class SessionBackend:
             user_agent=node["user_agent"],
             is_valid=node.get("is_valid", True),
             user_is_active=node.get("user_is_active", True),
+            token_hash=node.get("token_hash", ""),
         )
 
     def _node_to_reset_token(self, node: dict[str, Any]) -> PasswordResetToken:

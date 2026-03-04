@@ -26,7 +26,7 @@ Neo4j Schema:
 
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Token configuration
 RESET_TOKEN_BYTES = 32  # 256-bit tokens
@@ -70,7 +70,7 @@ class PasswordResetToken:
 
     def is_expired(self) -> bool:
         """Check if token has expired."""
-        return datetime.now() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
 
     def is_valid(self) -> bool:
         """Check if token is valid (not expired and not used)."""
@@ -78,7 +78,7 @@ class PasswordResetToken:
 
     def time_until_expiry(self) -> timedelta:
         """Get time remaining until expiry."""
-        return self.expires_at - datetime.now()
+        return self.expires_at - datetime.now(timezone.utc)
 
     def mark_used(self) -> "PasswordResetToken":
         """
@@ -113,7 +113,7 @@ def create_password_reset_token(
     Returns:
         New PasswordResetToken instance with secure token
     """
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     return PasswordResetToken(
         uid=generate_reset_token_uid(),
         token=generate_reset_token(),

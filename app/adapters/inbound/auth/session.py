@@ -24,7 +24,7 @@ Architecture:
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from typing import Any, cast
 
@@ -141,6 +141,13 @@ def get_current_user_or_default(request: Request, default: UserUID = DEFAULT_DEV
     if user_uid:
         return user_uid
 
+    env = os.getenv("SKUEL_ENVIRONMENT", "local")
+    if env in ("production", "staging"):
+        logger.error("Dev fallback auth used in %s — denying access", env)
+        from starlette.exceptions import HTTPException
+
+        raise HTTPException(status_code=401, detail="Authentication required")
+
     logger.debug(f"No session - using default user: {default}")
     return default
 
@@ -256,7 +263,7 @@ def set_current_user(
         return
 
     session["user_uid"] = user_uid
-    session["logged_in_at"] = datetime.now().isoformat()
+    session["logged_in_at"] = datetime.now(timezone.utc).isoformat()
 
     if session_token:
         session["session_token"] = session_token
@@ -443,6 +450,7 @@ def optional_auth(default_user: str = DEFAULT_DEV_USER):
     def decorator(func) -> Any:
         @wraps(func)
         async def wrapper(request: Request, *args: Any, **kwargs: Any) -> Any:
+            # get_current_user_or_default already guards against prod dev fallback
             user_uid = get_current_user_or_default(request, default=default_user)
             kwargs["user_uid"] = user_uid
             return await func(request, *args, **kwargs)
@@ -659,25 +667,42 @@ def get_session_middleware_config() -> dict:
 
     # Get secret key from environment or generate one (dev only)
     secret_key = os.getenv(SESSION_SECRET_KEY_ENV)
+    env = os.getenv("SKUEL_ENVIRONMENT", "local")
 
     if not secret_key:
+        if env in ("production", "staging"):
+            raise RuntimeError(
+                f"FATAL: {SESSION_SECRET_KEY_ENV} must be set in {env} environment"
+            )
         # Development mode: generate random key (NOT persisted - sessions will invalidate on restart)
         secret_key = secrets.token_urlsafe(32)
         logger.warning(
-            f"⚠️ Using generated session secret (dev mode). "
+            f"Using generated session secret (dev mode). "
             f"Set {SESSION_SECRET_KEY_ENV} environment variable for production."
         )
     else:
-        logger.info(f"✅ Using session secret from {SESSION_SECRET_KEY_ENV}")
+        logger.info(f"Using session secret from {SESSION_SECRET_KEY_ENV}")
 
-    return {
+    config = {
         "secret_key": secret_key,
         "session_cookie": SESSION_COOKIE_NAME,
         "max_age": SESSION_MAX_AGE,
-        "https_only": os.getenv("ENVIRONMENT", "development")
-        == "production",  # Secure only in prod
+        "https_only": env == "production",  # Secure only in prod
         "same_site": "strict",  # Strict CSRF protection (January 2026 hardening)
     }
+
+    secret_source = "environment" if os.getenv(SESSION_SECRET_KEY_ENV) else "generated"
+    logger.info(
+        "Session security posture: environment=%s, https_only=%s, same_site=%s, "
+        "secret_source=%s, dev_fallback_enabled=%s",
+        env,
+        config["https_only"],
+        config["same_site"],
+        secret_source,
+        env not in ("production", "staging"),
+    )
+
+    return config
 
 
 # ============================================================================

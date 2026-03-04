@@ -213,7 +213,8 @@ class TestSessionMiddlewareConfig:
 
     def test_https_only_in_production(self, monkeypatch):
         """Test HTTPS-only enabled in production."""
-        monkeypatch.setenv("ENVIRONMENT", "production")
+        monkeypatch.setenv("SKUEL_ENVIRONMENT", "production")
+        monkeypatch.setenv("SESSION_SECRET_KEY", "test-key-for-prod")
 
         config = get_session_middleware_config()
 
@@ -221,7 +222,7 @@ class TestSessionMiddlewareConfig:
 
     def test_https_not_required_in_development(self, monkeypatch):
         """Test HTTPS not required in development."""
-        monkeypatch.setenv("ENVIRONMENT", "development")
+        monkeypatch.setenv("SKUEL_ENVIRONMENT", "development")
 
         config = get_session_middleware_config()
 

@@ -114,7 +114,9 @@ class GraphAuthService:
 
             if existing_result.value:
                 return Result.fail(
-                    Errors.validation(message=f"Email {email} is already registered", field="email")
+                    Errors.validation(
+                        message="An account with this email already exists", field="email"
+                    )
                 )
 
             # Check if username already exists
@@ -125,7 +127,7 @@ class GraphAuthService:
             if username_result.value:
                 return Result.fail(
                     Errors.validation(
-                        message=f"Username {username} is already taken", field="username"
+                        message="This username is unavailable", field="username"
                     )
                 )
 
