@@ -139,7 +139,10 @@ class DomainConfig:
 
     # Temporal queries (get_due_soon / get_overdue)
     temporal_exclude_statuses: tuple[str, ...] = (
-        "completed", "failed", "cancelled", "archived",
+        "completed",
+        "failed",
+        "cancelled",
+        "archived",
     )
     temporal_secondary_sort: str | None = None
 

@@ -20,8 +20,6 @@ This service follows the SearchService pattern documented in:
 from datetime import date, timedelta
 from typing import ClassVar
 
-from core.utils.timestamp_helpers import get_frequency_window_days
-
 from core.models.enums import EntityStatus
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.habit import Habit
@@ -36,6 +34,7 @@ from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
+from core.utils.timestamp_helpers import get_frequency_window_days
 
 
 class HabitSearchService(BaseService[HabitsOperations, Habit]):
@@ -623,9 +622,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
 
             # Check frequency against window
             window_days = get_frequency_window_days(habit.recurrence_pattern)
-            if not last_date:
-                due_today.append(habit)
-            elif (today - last_date).days >= window_days:
+            if not last_date or (today - last_date).days >= window_days:
                 due_today.append(habit)
 
         self.logger.debug(f"Found {len(due_today)} habits due today for {context}")

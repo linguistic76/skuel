@@ -80,7 +80,12 @@ def test_result_to_response_not_found():
 
     assert status == 404
     assert body["category"] == "not_found"
-    assert "task-nonexistent" in body["message"].lower()
+    # Client sees user_message, not developer message with identifier
+    assert "task" in body["message"].lower()
+    # No details, stack_trace, or source_location leaked to client
+    assert "details" not in body
+    assert "stack_trace" not in body
+    assert "source_location" not in body
 
 
 def test_result_to_response_business_error():
@@ -270,7 +275,8 @@ async def test_boundary_handler_unexpected_exception():
 
     assert status == 500
     assert "error" in body
-    assert "Something went wrong" in body["error"]
+    # Generic message — exception details never sent to clients
+    assert body["error"] == "An internal error occurred"
 
 
 @pytest.mark.asyncio
@@ -619,8 +625,8 @@ async def test_full_flow_round_trip():
 # ============================================================================
 
 
-def test_error_context_preserved_in_response():
-    """Test that error context details are preserved in HTTP response."""
+def test_error_context_client_safe_in_response():
+    """Test that client response strips internal details (security hardening)."""
     error = Errors.validation(
         message="Invalid priority value", field="priority", value="super-high"
     )
@@ -631,15 +637,17 @@ def test_error_context_preserved_in_response():
 
     assert status == 400
     assert body["category"] == "validation"
-    assert body["message"] == "Invalid priority value"
-    assert "details" in body
-    assert body["details"]["field"] == "priority"
-    assert body["details"]["value"] == "super-high"
+    # Client sees user_message (which for validation defaults to developer message)
+    assert "invalid priority" in body["message"].lower()
+    # Internal details stripped from client response
+    assert "details" not in body
+    assert "stack_trace" not in body
+    assert "source_location" not in body
 
 
 @pytest.mark.asyncio
-async def test_boundary_handler_preserves_error_details():
-    """Test boundary_handler preserves all error details in response."""
+async def test_boundary_handler_strips_internal_details():
+    """Test boundary_handler strips internal details from client response (security hardening)."""
 
     @boundary_handler()
     async def mock_route():
@@ -649,8 +657,12 @@ async def test_boundary_handler_preserves_error_details():
     body, status = extract_response(response)
 
     assert status == 404
-    assert "details" in body
-    assert body["details"]["identifier"] == "task-123"
+    assert body["category"] == "not_found"
+    # Client gets user_message, not internal details
+    assert "task" in body["message"].lower()
+    assert "details" not in body
+    assert "stack_trace" not in body
+    assert "source_location" not in body
 
 
 if __name__ == "__main__":

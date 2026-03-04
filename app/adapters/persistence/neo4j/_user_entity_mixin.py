@@ -24,6 +24,7 @@ from core.models.protocols import DomainModelProtocol
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
+from core.utils.validation_helpers import validate_field_name, validate_relationship_type
 
 if TYPE_CHECKING:
     import builtins
@@ -115,6 +116,15 @@ class _UserEntityMixin[T: DomainModelProtocol]:
             # Default relationship type: OWNS (domain-first architecture)
             if not relationship_type:
                 relationship_type = "OWNS"
+
+            if not validate_relationship_type(relationship_type):
+                self.logger.warning(f"Invalid relationship type rejected: {relationship_type!r}")
+                return Result.fail(
+                    Errors.validation(
+                        f"Invalid relationship type: {relationship_type}",
+                        field="relationship_type",
+                    )
+                )
 
             # Default metadata
             default_metadata = {
@@ -211,6 +221,10 @@ class _UserEntityMixin[T: DomainModelProtocol]:
             if not relationship_type:
                 relationship_type = "OWNS"
 
+            if not validate_relationship_type(relationship_type):
+                self.logger.warning(f"Invalid relationship type rejected: {relationship_type!r}")
+                relationship_type = "OWNS"
+
             # Build filter clause
             filter_clauses: builtins.list[str] = []
             params: dict[str, Any] = {"user_uid": user_uid, "limit": limit, "offset": offset}
@@ -220,13 +234,20 @@ class _UserEntityMixin[T: DomainModelProtocol]:
 
             if filters:
                 for key, value in filters.items():
+                    if not validate_field_name(key):
+                        self.logger.warning(f"Skipping invalid filter key: {key!r}")
+                        continue
                     filter_clauses.append(f"e.{key} = ${key}")
                     params[key] = value
 
             where_clause = f"WHERE {' AND '.join(filter_clauses)}" if filter_clauses else ""
 
-            # Default sort field
-            if not sort_by:
+            # Default sort field — validate to prevent injection
+            if not sort_by or not validate_field_name(sort_by):
+                if sort_by:
+                    self.logger.warning(
+                        f"Invalid sort_by rejected, falling back to created_at: {sort_by!r}"
+                    )
                 sort_by = "created_at"
 
             # Sort direction
@@ -299,6 +320,10 @@ class _UserEntityMixin[T: DomainModelProtocol]:
             if not relationship_type:
                 relationship_type = "OWNS"
 
+            if not validate_relationship_type(relationship_type):
+                self.logger.warning(f"Invalid relationship type rejected: {relationship_type!r}")
+                relationship_type = "OWNS"
+
             # Build filter clause
             filter_clauses: builtins.list[str] = []
             params: dict[str, Any] = {"user_uid": user_uid}
@@ -308,6 +333,9 @@ class _UserEntityMixin[T: DomainModelProtocol]:
 
             if filters:
                 for key, value in filters.items():
+                    if not validate_field_name(key):
+                        self.logger.warning(f"Skipping invalid filter key: {key!r}")
+                        continue
                     filter_clauses.append(f"e.{key} = ${key}")
                     params[key] = value
 
@@ -357,6 +385,10 @@ class _UserEntityMixin[T: DomainModelProtocol]:
         """
         try:
             if not relationship_type:
+                relationship_type = "OWNS"
+
+            if not validate_relationship_type(relationship_type):
+                self.logger.warning(f"Invalid relationship type rejected: {relationship_type!r}")
                 relationship_type = "OWNS"
 
             query = f"""
@@ -420,6 +452,10 @@ class _UserEntityMixin[T: DomainModelProtocol]:
         """
         try:
             if not relationship_type:
+                relationship_type = "OWNS"
+
+            if not validate_relationship_type(relationship_type):
+                self.logger.warning(f"Invalid relationship type rejected: {relationship_type!r}")
                 relationship_type = "OWNS"
 
             query = f"""

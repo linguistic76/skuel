@@ -557,7 +557,7 @@ async def test_context_route_ownership_denied(mock_router, mock_service, mock_ow
 
     # Returns 404 (not 403) to prevent UID enumeration
     assert status_code == 404
-    assert "not found" in response.get("detail", "").lower() or "not found" in str(response).lower()
+    assert response.get("category") == "not_found" or "not found" in str(response).lower()
 
     # Verify ownership was checked
     assert len(mock_ownership_service.verify_calls) == 1

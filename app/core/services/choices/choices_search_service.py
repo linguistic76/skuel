@@ -98,7 +98,10 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
     )
 
     _PROXIMITY_BANDS: ClassVar[tuple[tuple[int, int], ...]] = (
-        (0, 40), (3, 35), (7, 30), (14, 20),
+        (0, 40),
+        (3, 35),
+        (7, 30),
+        (14, 20),
     )
     _PROXIMITY_DEFAULT: ClassVar[int] = 10
 

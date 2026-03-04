@@ -104,7 +104,7 @@ class ErrorContext:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
+        """Convert to dictionary for JSON serialization (internal/logging use)."""
         return {
             "category": self.category.value,
             "code": self.code,
@@ -115,6 +115,16 @@ class ErrorContext:
             "user_message": self.user_message,
             "timestamp": self.timestamp.isoformat(),
             "stack_trace": self.stack_trace,
+        }
+
+    def to_client_dict(self) -> dict[str, Any]:
+        """Client-safe error representation. Strips stack traces and internal details."""
+        return {
+            "category": self.category.value,
+            "code": self.code,
+            "message": self.user_message or "An error occurred",
+            "severity": self.severity.value,
+            "timestamp": self.timestamp.isoformat(),
         }
 
     @classmethod

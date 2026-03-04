@@ -20,6 +20,7 @@ Philosophy:
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -27,6 +28,36 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from enum import Enum
+
+# ============================================================================
+# CYPHER INJECTION PREVENTION
+# ============================================================================
+
+_SAFE_FIELD_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def validate_field_name(name: str) -> bool:
+    """Check that a field name is a safe Python/Cypher identifier (alphanumeric + underscore)."""
+    return bool(_SAFE_FIELD_RE.match(name)) and len(name) <= 64
+
+
+def validate_relationship_type(name: str) -> bool:
+    """
+    Check that a relationship type is safe for Cypher interpolation.
+
+    Accepts either a known RelationshipName enum value or a safe identifier.
+    """
+    from core.models.relationship_names import RelationshipName
+
+    # Fast path: known enum value
+    try:
+        RelationshipName(name)
+        return True
+    except ValueError:
+        pass
+
+    # Fallback: safe identifier pattern (e.g. custom relationship types)
+    return validate_field_name(name)
 
 
 def validate_required(value: Any, field_name: str) -> Result[Any]:

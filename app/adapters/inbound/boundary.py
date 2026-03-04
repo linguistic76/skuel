@@ -77,8 +77,8 @@ def result_to_response[T](result: Result[T], success_status: int = 200) -> JSONR
     error = result.expect_error()
     status_code = _get_status_for_error(error)
 
-    # Return error context as JSON with toast header for errors
-    response = JSONResponse(content=error.to_dict(), status_code=status_code)
+    # Return client-safe error context (no stack traces or internal details)
+    response = JSONResponse(content=error.to_client_dict(), status_code=status_code)
     response.headers["X-Toast-Message"] = error.message
     response.headers["X-Toast-Type"] = "error"
 
@@ -140,10 +140,10 @@ def boundary_handler(
             except HTTPException:
                 raise  # Let Starlette handle with correct status code (e.g. 401)
             except Exception as e:
-                # Log unexpected errors
-                logger.error(f"Unexpected error in {func.__name__}: {e}")
-                # Return generic error response
-                return JSONResponse({"error": str(e)}, status_code=500)
+                # Log full error for debugging (server-side only)
+                logger.error(f"Unexpected error in {func.__name__}: {e}", exc_info=True)
+                # Return generic message — never expose exception details to clients
+                return JSONResponse({"error": "An internal error occurred"}, status_code=500)
 
         return wrapper
 

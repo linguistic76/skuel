@@ -32,8 +32,8 @@ from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import score_deadline_proximity
 from core.utils.sort_functions import get_result_score
+from core.utils.timestamp_helpers import score_deadline_proximity
 
 
 class GoalsSearchService(BaseService[GoalsOperations, Goal]):
@@ -95,7 +95,10 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     )
 
     _PROXIMITY_BANDS: ClassVar[tuple[tuple[int, int], ...]] = (
-        (0, 40), (7, 35), (30, 25), (90, 15),
+        (0, 40),
+        (7, 35),
+        (30, 25),
+        (90, 15),
     )
     _PROXIMITY_DEFAULT: ClassVar[int] = 5
 
