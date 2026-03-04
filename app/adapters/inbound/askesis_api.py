@@ -963,8 +963,12 @@ def create_askesis_api_routes(
         """
 
         # Parse query parameters
-        max_recommendations = parse_int_query_param(request.query_params, "max_recommendations", 5, minimum=1, maximum=20)
-        time_horizon_hours = parse_int_query_param(request.query_params, "time_horizon_hours", 8, minimum=1, maximum=168)
+        max_recommendations = parse_int_query_param(
+            request.query_params, "max_recommendations", 5, minimum=1, maximum=20
+        )
+        time_horizon_hours = parse_int_query_param(
+            request.query_params, "time_horizon_hours", 8, minimum=1, maximum=168
+        )
         respect_energy = request.query_params.get("respect_energy", "true").lower() == "true"
 
         fetch_result = await _load_askesis_and_context(

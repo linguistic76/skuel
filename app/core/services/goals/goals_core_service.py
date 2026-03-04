@@ -641,93 +641,11 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         return Result.ok(True) if result.is_ok else Result.fail(result.expect_error())
 
     # ========================================================================
-    # QUERY OPERATIONS
+    # QUERY AND TIME-BASED OPERATIONS — Delegated to GoalsSearchService
     # ========================================================================
-
-    async def get_goals_by_category(self, category: str, limit: int = 100) -> Result[list[Goal]]:
-        """
-        Get goals in a specific category.
-
-        Args:
-            category: Category/domain name
-            limit: Maximum number of goals to return
-
-        Returns:
-            Result containing list of Goals
-        """
-        result = await self.backend.find_by(domain=category, limit=limit)
-        if result.is_error:
-            return result
-
-        goals = self._to_domain_models(result.value, GoalDTO, Goal)
-        return Result.ok(goals)
-
-    async def get_goals_by_status(self, status: str, limit: int = 100) -> Result[list[Goal]]:
-        """
-        Get goals by status.
-
-        Args:
-            status: Goal status (active, completed, paused, etc.)
-            limit: Maximum number of goals to return
-
-        Returns:
-            Result containing list of Goals
-        """
-        result = await self.backend.find_by(status=status, limit=limit)
-        if result.is_error:
-            return result
-
-        goals = self._to_domain_models(result.value, GoalDTO, Goal)
-        return Result.ok(goals)
-
-    async def search_goals(self, query: str, limit: int = 50) -> Result[list[Goal]]:
-        """
-        Search goals by title or description.
-
-        Args:
-            query: Search query string
-            limit: Maximum number of results
-
-        Returns:
-            Result containing list of matching Goals
-        """
-        # Use Neo4j text search on title and description
-        cypher_query = """
-        MATCH (g:Entity {ku_type: 'goal'})
-        WHERE toLower(g.title) CONTAINS toLower($query)
-           OR toLower(g.description) CONTAINS toLower($query)
-        RETURN g
-        ORDER BY g.created_at DESC
-        LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(cypher_query, {"query": query, "limit": limit})
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        # Convert to Goals
-        goals = []
-        for record in result.value:
-            goal_node = record["g"]
-            dto = GoalDTO.from_dict(goal_node)
-            goals.append(Goal.from_dto(dto))
-
-        return Result.ok(goals)
-
-    # ========================================================================
-    # TIME-BASED QUERIES - REMOVED (January 2026)
-    # ========================================================================
-    # The following methods were removed as duplicates of GoalsSearchService:
-    # - get_goals_due_soon() -> Use search.get_due_soon() instead
-    # - get_overdue_goals() -> Use search.get_overdue() instead
-    #
-    # The facade (GoalsService) delegates to search service via:
-    # "get_goals_due_soon": ("search", "get_due_soon")
-    # "get_overdue_goals": ("search", "get_overdue")
-    #
-    # GoalsSearchService has custom implementations with Goals-specific
-    # status filtering (IN ['active', 'in_progress', 'on_track']).
-    # ========================================================================
+    # The facade (GoalsService) delegates all query/search methods to the
+    # search sub-service (GoalsSearchService) which inherits from BaseService
+    # with proper user_uid scoping. Dead duplicates removed March 2026.
 
     # ========================================================================
     # SPECIALIZED OPERATIONS

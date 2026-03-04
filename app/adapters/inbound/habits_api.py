@@ -184,12 +184,13 @@ def create_habits_api_routes(
     @rt("/api/habits/by-category")
     @boundary_handler()
     async def get_habits_by_category_route(request: Request, category: str) -> Result[Any]:
-        """Get habits in a specific category."""
+        """Get habits in a specific category for the authenticated user."""
+        user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
 
         limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
-        return await habits_service.get_habits_by_category(category, limit)
+        return await habits_service.get_habits_by_category(category, user_uid=user_uid, limit=limit)
 
     # ========================================================================
     # ANALYTICS ROUTES (Factory-Generated)
@@ -236,13 +237,14 @@ def create_habits_api_routes(
     @rt("/api/habits/search")
     @boundary_handler()
     async def search_habits_route(request: Request) -> Result[Any]:
-        """Search habits by name or description."""
+        """Search habits by name or description for the authenticated user."""
+        user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
 
         query = params.get("q", "")
         limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=100)
 
-        return await habits_service.search_habits(query, limit)
+        return await habits_service.search_habits(query, user_uid=user_uid, limit=limit)
 
     @rt("/api/habits/due-today")
     @boundary_handler()
@@ -254,11 +256,12 @@ def create_habits_api_routes(
     @rt("/api/habits/overdue")
     @boundary_handler()
     async def get_overdue_habits_route(request: Request) -> Result[Any]:
-        """Get overdue habits."""
+        """Get overdue habits for the authenticated user."""
+        user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
         limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
-        return await habits_service.get_overdue_habits(limit)
+        return await habits_service.get_overdue_habits(user_uid=user_uid, limit=limit)
 
     # Habit Reminders
     # ---------------

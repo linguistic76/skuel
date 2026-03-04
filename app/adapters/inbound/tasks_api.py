@@ -215,13 +215,14 @@ def create_tasks_api_routes(
     @rt("/api/tasks/search")
     @boundary_handler()
     async def search_tasks_route(request: Request) -> Result[Any]:
-        """Search tasks by query string."""
+        """Search tasks by query string for the authenticated user."""
+        user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
 
         query = params.get("query", "")
         limit = parse_int_query_param(params, "limit", 10, minimum=1, maximum=100)
 
-        result: Result[Any] = await tasks_service.search.search(query, limit)
+        result: Result[Any] = await tasks_service.search.search(query, limit, user_uid=user_uid)
         return result
 
     # ========================================================================

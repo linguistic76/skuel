@@ -395,13 +395,16 @@ class SearchOperations(Protocol[T]):
     Updated: 2026-01-29 - Signatures now match actual mixin implementation.
     """
 
-    async def search(self, query: str, limit: int = 50) -> Result[list[T]]:
+    async def search(
+        self, query: str, limit: int = 50, user_uid: str | None = None
+    ) -> Result[list[T]]:
         """
         Text search across configured search fields.
 
         Args:
             query: Search string (case-insensitive)
             limit: Maximum results to return (default 50)
+            user_uid: Optional user UID to scope results to owner
 
         Returns:
             Result containing matching entities
@@ -427,13 +430,16 @@ class SearchOperations(Protocol[T]):
         """
         ...
 
-    async def get_by_status(self, status: str, limit: int = 100) -> Result[list[T]]:
+    async def get_by_status(
+        self, status: str, limit: int = 100, user_uid: str | None = None
+    ) -> Result[list[T]]:
         """
         Filter entities by status field.
 
         Args:
             status: Status string (e.g., "active", "completed", "archived")
             limit: Maximum results to return
+            user_uid: Optional user UID to scope results to owner
 
         Returns:
             Result containing entities with matching status

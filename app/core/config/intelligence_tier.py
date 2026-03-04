@@ -41,9 +41,7 @@ class IntelligenceTier(str, Enum):
             from core.utils.logging import get_logger
 
             logger = get_logger("skuel.config")
-            logger.warning(
-                f"Unknown INTELLIGENCE_TIER '{raw}', defaulting to FULL"
-            )
+            logger.warning(f"Unknown INTELLIGENCE_TIER '{raw}', defaulting to FULL")
             return cls.FULL
 
     @property

@@ -634,7 +634,9 @@ def _create_learning_services(
                 executor=query_executor,
                 prometheus_metrics=prometheus_metrics,  # Track OpenAI calls
             )
-            logger.info("✅ Neo4j GenAI embeddings service created (with Prometheus instrumentation)")
+            logger.info(
+                "✅ Neo4j GenAI embeddings service created (with Prometheus instrumentation)"
+            )
 
             # Create vector search service (uses db.index.vector.queryNodes())
             vector_search_service = Neo4jVectorSearchService(query_executor, embeddings_service)

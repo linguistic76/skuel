@@ -14,7 +14,7 @@ from typing import Any
 
 from fasthtml.common import Request
 
-from adapters.inbound.auth import require_ownership_query
+from adapters.inbound.auth import require_authenticated_user, require_ownership_query
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import (
     StatusRouteFactory,
@@ -138,12 +138,13 @@ def create_events_api_routes(
     @rt("/api/events/search")
     @boundary_handler()
     async def search_events_route(request: Request) -> Result[Any]:
-        """Search events."""
+        """Search events for the authenticated user."""
+        user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
         query = params.get("q", "")
         limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=100)
 
-        return await events_service.search_events(query, limit)
+        return await events_service.search_events(query, user_uid=user_uid, limit=limit)
 
     # ========================================================================
     # ANALYTICS ROUTES (Factory-Generated)

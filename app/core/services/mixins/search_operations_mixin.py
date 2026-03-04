@@ -160,7 +160,9 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     # ========================================================================
 
     @with_error_handling("search", error_type="database")
-    async def search(self, query: str, limit: int = 50) -> Result[builtins.list[T]]:
+    async def search(
+        self, query: str, limit: int = 50, user_uid: str | None = None
+    ) -> Result[builtins.list[T]]:
         """
         Text search across configured search fields.
 
@@ -176,6 +178,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Args:
             query: Search string (case-insensitive)
             limit: Maximum results to return (default 50)
+            user_uid: Optional user UID to scope results to owner
 
         Returns:
             Result containing matching entities sorted by _search_order_by DESC
@@ -199,6 +202,11 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             order_by=self._search_order_by,
             order_desc=True,
         )
+
+        # Scope to user when provided (security: prevent cross-user data leakage)
+        if user_uid:
+            cypher_query = cypher_query.replace("WHERE ", "WHERE n.user_uid = $user_uid AND ", 1)
+            params["user_uid"] = user_uid
 
         result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
@@ -605,13 +613,16 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     # ========================================================================
 
     @with_error_handling("get_by_status", error_type="database")
-    async def get_by_status(self, status: str, limit: int = 100) -> Result[builtins.list[T]]:
+    async def get_by_status(
+        self, status: str, limit: int = 100, user_uid: str | None = None
+    ) -> Result[builtins.list[T]]:
         """
         Filter entities by status field.
 
         Args:
             status: Status string (e.g., "active", "completed", "archived")
             limit: Maximum results to return
+            user_uid: Optional user UID to scope results to owner
 
         Returns:
             Result containing entities with matching status
@@ -621,7 +632,11 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if config_result.is_error:
             return Result.fail(config_result)
 
-        result = await self.backend.find_by(status=status, limit=limit)
+        filters: dict[str, Any] = {"status": status, "limit": limit}
+        if user_uid:
+            filters["user_uid"] = user_uid
+
+        result = await self.backend.find_by(**filters)
         if result.is_error:
             return Result.fail(result.expect_error())
 

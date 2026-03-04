@@ -474,6 +474,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         query: str,
         filters: dict[str, Any] | None = None,
         limit: int = 50,
+        user_uid: str | None = None,
     ) -> Result[list[Principle]]:
         """
         Search principles by text query. Delegates to PrinciplesSearchService.
@@ -482,12 +483,13 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
             query: Search query string
             filters: Optional additional filters (category, strength, etc.)
             limit: Maximum results to return
+            user_uid: Optional user UID to scope results to owner
 
         Returns:
             Result with list of matching principles
         """
         # Basic text search via search sub-service
-        result = await self.search.search(query, limit=limit)
+        result = await self.search.search(query, limit=limit, user_uid=user_uid)
 
         if result.is_error:
             return result  # type: ignore[return-value]

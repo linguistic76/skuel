@@ -183,13 +183,14 @@ def create_principles_api_routes(
     @rt("/api/principles/search")
     @boundary_handler()
     async def search_principles_route(request: Request) -> Result[Any]:
-        """Search principles by content and metadata."""
+        """Search principles by content and metadata for the authenticated user."""
+        user_uid = require_authenticated_user(request)
         body = await request.json()
         query = body.get("query", "")
         filters = body.get("filters", {})
         limit = body.get("limit", 20)
 
-        return await principles_service.search_principles(query, filters, limit)
+        return await principles_service.search_principles(query, filters, limit, user_uid=user_uid)
 
     @rt("/api/principles/categories")
     @boundary_handler()

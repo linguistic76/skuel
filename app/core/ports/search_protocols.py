@@ -85,13 +85,16 @@ class DomainSearchOperations(Protocol[T]):
     See: /docs/patterns/search_service_pattern.md for full documentation.
     """
 
-    async def search(self, query: str, limit: int = 50) -> Result[list[T]]:
+    async def search(
+        self, query: str, limit: int = 50, user_uid: str | None = None
+    ) -> Result[list[T]]:
         """
         Text search on title and description fields.
 
         Args:
             query: Search string (case-insensitive)
             limit: Maximum results to return
+            user_uid: Optional user UID to scope results to owner
 
         Returns:
             Result containing matching entities sorted by relevance
@@ -192,13 +195,16 @@ class DomainSearchOperations(Protocol[T]):
         """
         ...
 
-    async def get_by_status(self, status: str, limit: int = 100) -> Result[list[T]]:
+    async def get_by_status(
+        self, status: str, limit: int = 100, user_uid: str | None = None
+    ) -> Result[list[T]]:
         """
         Filter entities by EntityStatus.
 
         Args:
             status: Status string (e.g., "active", "completed", "paused")
             limit: Maximum results to return
+            user_uid: Optional user UID to scope results to owner
 
         Returns:
             Result containing entities with matching status

@@ -67,7 +67,9 @@ def register_analytics_routes(app, services):
         """
         user_uid = require_authenticated_user(request)
 
-        days_back = parse_int_query_param(request.query_params, "days_back", 30, minimum=1, maximum=365)
+        days_back = parse_int_query_param(
+            request.query_params, "days_back", 30, minimum=1, maximum=365
+        )
 
         result = await analytics.get_learning_velocity(user_uid, days_back)
 
@@ -111,7 +113,9 @@ def register_analytics_routes(app, services):
         """
         user_uid = require_authenticated_user(request)
 
-        days_back = parse_int_query_param(request.query_params, "days_back", 30, minimum=1, maximum=365)
+        days_back = parse_int_query_param(
+            request.query_params, "days_back", 30, minimum=1, maximum=365
+        )
 
         result = await analytics.get_spending_patterns(user_uid, days_back)
 
@@ -156,7 +160,9 @@ def register_analytics_routes(app, services):
         """
         user_uid = require_authenticated_user(request)
 
-        days_back = parse_int_query_param(request.query_params, "days_back", 30, minimum=1, maximum=365)
+        days_back = parse_int_query_param(
+            request.query_params, "days_back", 30, minimum=1, maximum=365
+        )
 
         result = await analytics.get_mood_analysis(user_uid, days_back)
 
@@ -287,7 +293,9 @@ def register_analytics_routes(app, services):
         """
         user_uid = require_authenticated_user(request)
 
-        days_back = parse_int_query_param(request.query_params, "days_back", 30, minimum=1, maximum=365)
+        days_back = parse_int_query_param(
+            request.query_params, "days_back", 30, minimum=1, maximum=365
+        )
 
         # Gather all analytics (parallel queries would be better)
         learning_result = await analytics.get_learning_velocity(user_uid, days_back)

@@ -1,7 +1,5 @@
 """Tests for route_helpers.parse_int_query_param."""
 
-import pytest
-
 from adapters.inbound.route_factories.route_helpers import parse_int_query_param
 
 

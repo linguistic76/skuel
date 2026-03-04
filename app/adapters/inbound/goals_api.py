@@ -203,22 +203,24 @@ def create_goals_api_routes(
     @rt("/api/goals/by-category")
     @boundary_handler()
     async def get_goals_by_category_route(request: Request, category: str) -> Result[list[Goal]]:
-        """Get goals in a specific category."""
+        """Get goals in a specific category for the authenticated user."""
+        user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
 
         limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
-        return await goals_service.get_goals_by_category(category, limit)
+        return await goals_service.get_goals_by_category(category, user_uid=user_uid, limit=limit)
 
     @rt("/api/goals/by-status")
     @boundary_handler()
     async def get_goals_by_status_route(request: Request, status: str) -> Result[list[Goal]]:
-        """Get goals by status."""
+        """Get goals by status for the authenticated user."""
+        user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
 
         limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
-        return await goals_service.get_goals_by_status(status, limit)
+        return await goals_service.get_goals_by_status(status, user_uid=user_uid, limit=limit)
 
     # Goal Search and Filtering
     # -------------------------
@@ -226,30 +228,33 @@ def create_goals_api_routes(
     @rt("/api/goals/search")
     @boundary_handler()
     async def search_goals_route(request: Request) -> Result[list[Goal]]:
-        """Search goals by title or description."""
+        """Search goals by title or description for the authenticated user."""
+        user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
 
         query = params.get("q", "")
         limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=100)
 
-        return await goals_service.search_goals(query, limit)
+        return await goals_service.search_goals(query, user_uid=user_uid, limit=limit)
 
     @rt("/api/goals/due-soon")
     @boundary_handler()
     async def get_goals_due_soon_route(request: Request) -> Result[list[Goal]]:
-        """Get goals due soon."""
+        """Get goals due soon for the authenticated user."""
+        user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
         days_ahead = parse_int_query_param(params, "days", 7, minimum=1, maximum=365)
 
-        return await goals_service.get_goals_due_soon(days_ahead)
+        return await goals_service.get_goals_due_soon(days_ahead, user_uid=user_uid)
 
     @rt("/api/goals/overdue")
     @boundary_handler()
     async def get_overdue_goals_route(request: Request) -> Result[list[Goal]]:
-        """Get overdue goals."""
+        """Get overdue goals for the authenticated user."""
+        user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
         limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
-        return await goals_service.get_overdue_goals(limit)
+        return await goals_service.get_overdue_goals(user_uid=user_uid, limit=limit)
 
     return []  # Routes registered via @rt() decorators (no objects returned)
