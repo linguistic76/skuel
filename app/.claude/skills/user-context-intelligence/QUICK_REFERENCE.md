@@ -90,7 +90,7 @@ from core.models.context_types import (
 
 ---
 
-## The 12 Required Services
+## The 13 Required Services
 
 | # | Domain | Service Type | Attribute |
 |---|--------|--------------|-----------|

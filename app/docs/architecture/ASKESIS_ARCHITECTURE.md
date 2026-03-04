@@ -43,16 +43,29 @@ Single-domain CRUD            Cross-domain Intelligence
 
 ### Design Pattern
 
-Askesis uses a **pure facade pattern** with zero business logic in the main service:
+Askesis uses a **pure facade pattern** with zero business logic in the main service, and a typed `AskesisDeps` dataclass for dependency injection (March 2026):
 
 ```python
-class AskesisService:
-    """
-    Facade coordinating 7 specialized sub-services.
-    Zero business logic - pure delegation.
-    """
+@dataclass(frozen=True)
+class AskesisDeps:
+    """Typed dependency container — intelligence_factory is required, others optional."""
+    intelligence_factory: UserContextIntelligenceFactory  # REQUIRED
+    graph_intelligence_service: Any | None = None
+    user_service: Any | None = None
+    llm_service: Any | None = None
+    embeddings_service: Any | None = None
+    knowledge_service: Any | None = None
+    tasks_service: Any | None = None
+    goals_service: Any | None = None
+    habits_service: Any | None = None
+    events_service: Any | None = None
+    citation_service: Any | None = None
 
-    def __init__(self, ..., intelligence_factory):
+
+class AskesisService:
+    """Facade coordinating 7 specialized sub-services. Zero business logic."""
+
+    def __init__(self, deps: AskesisDeps) -> None:
         # Sub-service creation (no circular dependencies - uses pure functions)
         self.state_analyzer = UserStateAnalyzer()
         self.recommendation_engine = ActionRecommendationEngine()
@@ -60,7 +73,7 @@ class AskesisService:
         self.context_retriever = ContextRetriever(...)
 
         # January 2026: QueryProcessor decomposition
-        self.intent_classifier = IntentClassifier(embeddings_service=embeddings_service)
+        self.intent_classifier = IntentClassifier(embeddings_service=deps.embeddings_service)
         self.response_generator = ResponseGenerator()
         self.query_processor = QueryProcessor(
             intent_classifier=self.intent_classifier,
@@ -69,7 +82,7 @@ class AskesisService:
         )
 
         # Required: 13-domain synthesis capability
-        self.intelligence_factory = intelligence_factory  # REQUIRED
+        self.intelligence_factory = deps.intelligence_factory
 
     # All methods delegate to sub-services
     async def analyze_user_state(self, context, focus_areas=None):
@@ -137,7 +150,7 @@ This eliminates the former circular dependency between UserStateAnalyzer and Act
 | **Entity CRUD** | Yes (BaseService) | No (cross-domain only) |
 | **Backend** | `UniversalNeo4jBackend[T]` | None (uses domain services) |
 | **Protocol** | `{Domain}Operations` | `AskesisOperations` |
-| **Factory** | `create_common_sub_services()` | Manual creation |
+| **Factory** | `create_common_sub_services()` | `create_askesis_service()` in `askesis_factory.py` |
 
 ### Why Different?
 
@@ -153,10 +166,11 @@ Askesis is fundamentally different:
 
 ### Creation Location
 
-Askesis is created in `compose_services()` AFTER the intelligence factory:
+Askesis is created in `compose_services()` AFTER the intelligence factory, via `create_askesis_service()` (March 2026):
 
 ```python
 # /services_bootstrap.py (PHASE 4)
+from core.services.askesis_factory import create_askesis_service
 
 # First: Create factory with all 13 domain services
 context_intelligence_factory = UserContextIntelligenceFactory(
@@ -165,20 +179,13 @@ context_intelligence_factory = UserContextIntelligenceFactory(
     # ... all 13 domains
 )
 
-# Then: Create Askesis with factory as REQUIRED parameter
-askesis_service = AskesisService(
-    graph_intelligence_service=learning_services["graph_intelligence"],
+# Then: Create Askesis via factory function (handles AskesisDeps construction)
+services.askesis = create_askesis_service(
+    intelligence_factory=context_intelligence_factory,
+    learning_services=learning_services,   # keys: graph_intelligence, llm_service, embeddings_service, ku_service
+    activity_services=activity_services,   # keys: tasks, goals, habits, events
     user_service=user_service,
-    llm_service=learning_services["llm_service"],
-    embeddings_service=learning_services["embeddings_service"],
-    knowledge_service=learning_services["ku_service"],
-    tasks_service=activity_services["tasks"],
-    goals_service=activity_services["goals"],
-    habits_service=activity_services["habits"],
-    events_service=activity_services["events"],
-    intelligence_factory=context_intelligence_factory,  # REQUIRED
 )
-services.askesis = askesis_service
 ```
 
 ### Why This Order?
@@ -234,7 +241,9 @@ The `UserContextIntelligenceFactory` requires all domain relationship services. 
 
 | File | Purpose |
 |------|---------|
-| `/core/services/askesis_service.py` | Main facade (~1,050 lines) |
+| `/core/services/askesis_service.py` | Main facade + `AskesisDeps` typed dataclass |
+| `/core/services/askesis_factory.py` | `create_askesis_service()` — constructs AskesisDeps + returns AskesisService |
+| `/core/models/submissions/journal_insight.py` | `JournalInsight` frozen dataclass — ZPD signals from journal (Phase 2 stub) |
 | `/core/services/askesis/user_state_analyzer.py` | State assessment |
 | `/core/services/askesis/action_recommendation_engine.py` | Recommendations |
 | `/core/services/askesis/state_scoring.py` | Pure functions for state scoring (January 2026) |
@@ -403,6 +412,9 @@ principles_rich = entities_rich.get("principles", [])
 | **March 2026** | `ActivityReviewService` split into `ActivityReportService` + `ReviewQueueService` |
 | **March 2026** | EntityType renames: `AI_FEEDBACK → ACTIVITY_REPORT`, `FEEDBACK_REPORT → SUBMISSION_FEEDBACK` |
 | **March 2026** | All intelligence routes switched to `get_rich_unified_context()` — ensures `entities_rich` is populated |
+| **March 2026** | `AskesisDeps` typed dataclass replaces positional kwargs; `create_askesis_service()` factory in `askesis_factory.py` handles bootstrap construction |
+| **March 2026** | `JournalInsight` frozen dataclass added — ZPD signal extraction point from processed journals (Phase 2 stub) |
+| **March 2026** | 4 pedagogical prompt templates added: `askesis_scaffold_entry`, `askesis_socratic_turn`, `askesis_ku_bridge`, `askesis_journal_reflection` |
 
 ---
 
