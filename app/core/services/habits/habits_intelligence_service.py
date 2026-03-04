@@ -1229,3 +1229,83 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             )
 
         return recommendations[:4]
+
+    # =========================================================================
+    # ZPD BRIDGE (March 2026)
+    # =========================================================================
+
+    async def get_zpd_knowledge_signals(
+        self, user_uid: str
+    ) -> Result[dict[str, Any]]:
+        """
+        Extract knowledge reinforcement signals for ZPDService consumption.
+
+        Returns signals derived from habit→KU relationships that indicate
+        which Knowledge Units the user has actively reinforced through practice.
+        Called by ZPDService.assess_zone() to enrich the current_zone calculation.
+
+        Returns:
+            Result containing:
+            - reinforced_ku_uids: list[str] — KUs reinforced by active habits
+            - reinforcement_strength: dict[str, float] — ku_uid → strength (0.0-1.0)
+            - at_risk_ku_uids: list[str] — KUs whose reinforcing habit is at risk
+                               (streak broken or low success rate)
+
+        See: core/services/zpd/zpd_service.py — ZPDService.assess_zone()
+             counts reinforced KUs toward current_zone scoring.
+        """
+        # Query all active habits with their REINFORCES_KNOWLEDGE relationships
+        query = """
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(h:Entity {ku_type: 'habit'})
+        WHERE h.status IN ['active', 'pending']
+        OPTIONAL MATCH (h)-[:REINFORCES_KNOWLEDGE]->(ku:Entity {ku_type: 'ku'})
+        RETURN
+            h.uid AS habit_uid,
+            h.current_streak AS current_streak,
+            h.success_rate AS success_rate,
+            h.status AS status,
+            collect(ku.uid) AS ku_uids
+        """
+
+        result = await self.backend.execute_query(query, {"user_uid": user_uid})
+
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        reinforced_ku_uids: list[str] = []
+        reinforcement_strength: dict[str, float] = {}
+        at_risk_ku_uids: list[str] = []
+
+        for record in (result.value or []):
+            ku_uids = [uid for uid in record.get("ku_uids", []) if uid]
+            if not ku_uids:
+                continue
+
+            current_streak = record.get("current_streak") or 0
+            success_rate = record.get("success_rate") or 0.0
+
+            # Strength: blend streak (cap at 30 days) and success rate
+            streak_factor = min(1.0, current_streak / 30.0)
+            strength = round((streak_factor * 0.5) + (success_rate * 0.5), 3)
+
+            # A habit is "at risk" if its streak just broke (streak=0) or
+            # success rate has dropped below 50%
+            is_at_risk = current_streak == 0 or success_rate < 0.5
+
+            for ku_uid in ku_uids:
+                if ku_uid not in reinforced_ku_uids:
+                    reinforced_ku_uids.append(ku_uid)
+                # Take max strength if the same KU is reinforced by multiple habits
+                reinforcement_strength[ku_uid] = max(
+                    reinforcement_strength.get(ku_uid, 0.0), strength
+                )
+                if is_at_risk and ku_uid not in at_risk_ku_uids:
+                    at_risk_ku_uids.append(ku_uid)
+
+        return Result.ok(
+            {
+                "reinforced_ku_uids": reinforced_ku_uids,
+                "reinforcement_strength": reinforcement_strength,
+                "at_risk_ku_uids": at_risk_ku_uids,
+            }
+        )
