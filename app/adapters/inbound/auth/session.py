@@ -108,7 +108,7 @@ def get_current_user(request: Request) -> UserUID | None:
         return None
 
 
-def get_current_user_or_default(request: Request, default: UserUID = DEFAULT_DEV_USER) -> UserUID:
+def get_current_user_or_default(request: Request, default: str = DEFAULT_DEV_USER) -> UserUID:
     """
     Get current user or fall back to default (for development).
 
