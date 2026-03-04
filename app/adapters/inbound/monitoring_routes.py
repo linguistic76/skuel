@@ -15,13 +15,15 @@ from typing import Any
 from fasthtml.common import JSONResponse
 from starlette.requests import Request
 
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+
 from adapters.inbound.auth import require_admin
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.monitoring")
 
 
-def create_monitoring_routes(app: Any, rt: Any, services: Any) -> list[Any]:
+def create_monitoring_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any) -> RouteList:
     """
     Create monitoring routes for system health and metrics.
 

@@ -18,6 +18,7 @@ Routes:
 
 from typing import Any
 
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.insights_api import create_insights_api_routes
 from adapters.inbound.insights_history_ui import create_insights_history_routes
 from adapters.inbound.insights_ui import create_insights_ui_routes
@@ -36,7 +37,7 @@ INSIGHTS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_insights_routes(app: Any, rt: Any, services: Any, _sync_service=None) -> list[Any]:
+def create_insights_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None) -> RouteList:
     """
     Wire insights API and UI routes using configuration-driven registration.
 

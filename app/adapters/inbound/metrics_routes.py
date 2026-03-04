@@ -6,13 +6,13 @@ This module provides the /metrics endpoint that Prometheus scrapes for telemetry
 See: /monitoring/prometheus/prometheus.yml for scrape configuration
 """
 
-from typing import Any
-
 from fasthtml.common import Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 
-def create_metrics_routes(app: Any, rt: Any) -> list[Any]:
+
+def create_metrics_routes(app: FastHTMLApp, rt: RouteDecorator) -> RouteList:
     """
     Register Prometheus metrics endpoint.
 

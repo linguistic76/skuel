@@ -13,6 +13,8 @@ Layout: Standard BasePage.
 from typing import Any
 
 from fasthtml.common import H1, A, Div, P, Span
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
@@ -61,7 +63,7 @@ def _curriculum_card(
     )
 
 
-def create_curriculum_ui_routes(app: Any, rt: Any, services: Any) -> None:
+def create_curriculum_ui_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any) -> None:
     """Register curriculum hub UI routes."""
 
     @rt("/curriculum")

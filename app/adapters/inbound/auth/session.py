@@ -411,7 +411,7 @@ def require_auth(redirect_to: str = "/login"):
         ```
     """
 
-    def decorator(func) -> Any:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(request: Request, *args: Any, **kwargs: Any) -> Any:
             if not is_authenticated(request):
@@ -445,7 +445,7 @@ def optional_auth(default_user: str = DEFAULT_DEV_USER):
         ```
     """
 
-    def decorator(func) -> Any:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(request: Request, *args: Any, **kwargs: Any) -> Any:
             # get_current_user_or_default already guards against prod dev fallback
@@ -492,7 +492,7 @@ def with_ownership(service_getter, uid_param: str = "uid"):
     """
     from core.utils.result_simplified import Errors, Result
 
-    def decorator(func) -> Any:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(request: Request, *args: Any, **kwargs: Any) -> Any:
             # 1. Require authentication
@@ -564,7 +564,7 @@ def require_ownership_query(service_getter, uid_param: str = "uid") -> Any:
     """
     from core.utils.result_simplified import Errors, Result
 
-    def decorator(func) -> Any:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(request: Request, *args: Any, **kwargs: Any) -> Any:
             # 1. Require authentication
@@ -644,7 +644,7 @@ def set_session_data(request: Request, key: str, value: Any) -> None:
 # ============================================================================
 
 
-def get_session_middleware_config() -> dict:
+def get_session_middleware_config() -> dict[str, Any]:
     """
     Get SessionMiddleware configuration for SKUEL.
 

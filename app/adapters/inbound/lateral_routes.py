@@ -17,6 +17,8 @@ from typing import Any
 
 from fasthtml.common import Request
 
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
@@ -27,7 +29,7 @@ from core.utils.result_simplified import Result
 logger = get_logger(__name__)
 
 
-def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
+def create_lateral_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any) -> RouteList:
     """
     Register lateral relationship routes for all 9 domains.
 

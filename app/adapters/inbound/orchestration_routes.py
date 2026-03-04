@@ -29,6 +29,8 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import JSONResponse, Request
 
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
@@ -226,7 +228,7 @@ def create_goals_intelligence_routes(
 # ---------------------------------------------------------------------------
 
 
-def create_principle_alignment_routes(_app: Any, rt: Any, principles: Any) -> list[Any]:
+def create_principle_alignment_routes(_app: FastHTMLApp, rt: RouteDecorator, principles: Any) -> RouteList:
     """Register principle alignment and motivational intelligence endpoints."""
 
     @rt("/principles/list")
@@ -304,7 +306,7 @@ ORCHESTRATION_CONFIG = DomainRouteConfig(
 )
 
 
-def create_orchestration_routes(app: Any, rt: Any, services: Any, _sync_service=None) -> list[Any]:
+def create_orchestration_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None) -> RouteList:
     """
     Wire orchestration API routes using DomainRouteConfig (Multi-Factory variant).
 

@@ -15,10 +15,11 @@ See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
 
 from typing import Any
 
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.hierarchy_route_factory import HierarchyRouteFactory
 
 
-def create_hierarchy_routes(app: Any, rt: Any, services: Any) -> list[Any]:
+def create_hierarchy_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any) -> RouteList:
     """
     Register hierarchy routes for all hierarchical domains.
 

@@ -17,6 +17,7 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 
 from typing import Any
 
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.feedback_assessment_api import create_feedback_assessment_api_routes
 from adapters.inbound.journals_ui import create_journals_ui_routes
 from adapters.inbound.progress_feedback_api import create_progress_feedback_api_routes
@@ -69,7 +70,7 @@ JOURNALS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_submissions_routes(app: Any, rt: Any, services: Any, _sync_service=None) -> list[Any]:
+def create_submissions_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None) -> RouteList:
     """
     Wire submissions API, UI, and sharing routes using configuration-driven registration.
 

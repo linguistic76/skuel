@@ -27,6 +27,8 @@ from typing import Any
 
 from fasthtml.common import JSONResponse, Request
 
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.services.calendar_optimization_service import SchedulingStrategy
@@ -172,7 +174,7 @@ def create_calendar_optimization_routes(
 # ---------------------------------------------------------------------------
 
 
-def create_jupyter_sync_routes(_app: Any, rt: Any, jupyter_sync: Any) -> list[Any]:
+def create_jupyter_sync_routes(_app: FastHTMLApp, rt: RouteDecorator, jupyter_sync: Any) -> RouteList:
     """Register Jupyter-Neo4j-Obsidian sync endpoints."""
 
     @rt("/jupyter/fetch")
@@ -223,7 +225,7 @@ def create_jupyter_sync_routes(_app: Any, rt: Any, jupyter_sync: Any) -> list[An
 # ---------------------------------------------------------------------------
 
 
-def create_performance_routes(_app: Any, rt: Any, performance_optimization: Any) -> list[Any]:
+def create_performance_routes(_app: FastHTMLApp, rt: RouteDecorator, performance_optimization: Any) -> RouteList:
     """Register performance optimization endpoints."""
 
     @rt("/performance/metrics")
@@ -282,7 +284,7 @@ ADVANCED_CONFIG = DomainRouteConfig(
 )
 
 
-def create_advanced_routes(app: Any, rt: Any, services: Any, _sync_service=None) -> list[Any]:
+def create_advanced_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None) -> RouteList:
     """
     Wire advanced API routes using DomainRouteConfig (Multi-Factory variant).
 
