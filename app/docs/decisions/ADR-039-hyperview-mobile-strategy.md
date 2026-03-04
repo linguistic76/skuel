@@ -59,7 +59,7 @@ The FastHTML backend will serve HXML responses alongside HTML, determined by con
 
 **Files:**
 - `core/hxml/elements.py` — HXML element builders
-- `core/hxml/negotiation.py` — Content negotiation utility
+- `adapters/inbound/negotiation.py` — Content negotiation utility
 - `docs/architecture/HYPERVIEW_STRATEGY.md` — Strategy documentation
 
 ---
@@ -143,7 +143,8 @@ The FastHTML backend will serve HXML responses alongside HTML, determined by con
 ## Implementation Details
 
 ### Code Location
-- Primary: `core/hxml/` package
+- HXML elements: `core/hxml/` package
+- Content negotiation: `adapters/inbound/negotiation.py`
 - Strategy doc: `docs/architecture/HYPERVIEW_STRATEGY.md`
 - Tests: `tests/unit/test_hxml_elements.py` (future)
 

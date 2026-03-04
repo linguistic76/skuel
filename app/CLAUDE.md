@@ -1012,11 +1012,11 @@ SKUEL adopts [Hyperview](https://hyperview.org/) as its mobile strategy. Hypervi
 
 **Key Files:**
 - `/core/hxml/elements.py` — HXML element builders (Doc, Screen, View, Text, Style, Behavior)
-- `/core/hxml/negotiation.py` — Content negotiation (`is_hyperview_client()`)
+- `/adapters/inbound/negotiation.py` — Content negotiation (`is_hyperview_client()`)
 
 **Content Negotiation:**
 ```python
-from core.hxml import is_hyperview_client
+from adapters.inbound.negotiation import is_hyperview_client
 if is_hyperview_client(request):
     return hxml_response(...)
 ```

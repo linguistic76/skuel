@@ -4,7 +4,7 @@ Detects whether a request comes from a Hyperview client or web browser.
 Hyperview clients send a specific Accept header for HXML content.
 
 Usage:
-    from core.hxml.negotiation import is_hyperview_client
+    from adapters.inbound.negotiation import is_hyperview_client
 
     if is_hyperview_client(request):
         return hxml_response(...)

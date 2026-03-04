@@ -43,7 +43,7 @@ Both formats follow the same philosophy: **server-driven hypermedia**. The serve
 ## Content Negotiation
 
 ```python
-from core.hxml import is_hyperview_client
+from adapters.inbound.negotiation import is_hyperview_client
 
 @rt("/daily-plan")
 async def daily_plan(request: Request):
@@ -75,7 +75,7 @@ The `Accept` header determines the response format:
 |------|---------|
 | `core/hxml/__init__.py` | Package exports |
 | `core/hxml/elements.py` | HXML element builders (Doc, Screen, View, Text, Style, Behavior) |
-| `core/hxml/negotiation.py` | Content negotiation (is_hyperview_client) |
+| `adapters/inbound/negotiation.py` | Content negotiation (is_hyperview_client) |
 
 ## Roadmap
 
