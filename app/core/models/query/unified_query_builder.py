@@ -83,6 +83,7 @@ from core.models.query.graph_traversal import build_graph_context_query
 from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Result
+from core.utils.validation_helpers import validate_field_name
 
 if TYPE_CHECKING:
     from core.services.query_builder import QueryBuilder
@@ -147,6 +148,9 @@ class ModelQueryBuilder[T]:
 
     def order_by(self, field: str, desc: bool = False) -> ModelQueryBuilder[T]:
         """Order results by field."""
+        if not validate_field_name(field):
+            logger.warning(f"Invalid order_by field ignored: {field!r}")
+            return self
         self._order_by_field = field
         self._order_desc = desc
         return self

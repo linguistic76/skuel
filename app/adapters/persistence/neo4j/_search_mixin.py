@@ -29,6 +29,7 @@ from core.models.protocols import DomainModelProtocol
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
+from core.utils.validation_helpers import validate_field_name
 
 if TYPE_CHECKING:
     import builtins
@@ -111,6 +112,13 @@ class _SearchMixin[T: DomainModelProtocol]:
         limit: int = 100,
     ) -> Result[builtins.list[T]]:
         """Find any entity within a date range."""
+        # Validate date_field to prevent Cypher injection
+        if not validate_field_name(date_field):
+            self.logger.warning(
+                f"Invalid date_field rejected, falling back to occurred_at: {date_field!r}"
+            )
+            date_field = "occurred_at"
+
         params: dict[str, Any] = {"limit": limit}
         where_clauses: builtins.list[str] = []
 
@@ -135,6 +143,9 @@ class _SearchMixin[T: DomainModelProtocol]:
         # Add additional filters
         if additional_filters:
             for key, value in additional_filters.items():
+                if not validate_field_name(key):
+                    self.logger.warning(f"Skipping invalid filter key: {key!r}")
+                    continue
                 if value is not None:
                     where_clauses.append(f"n.{key} = ${key}")
                     params[key] = value

@@ -65,8 +65,9 @@ def create_graphql_routes_manual(
         GET: Returns FastHTML playground UI
         POST: Executes GraphQL query and returns JSON
         """
-        # GET request - return playground UI
+        # GET request - return playground UI (requires authentication)
         if request.method == "GET":
+            require_authenticated_user(request)
             # Sample query to help users get started
             sample_query = """query {
   knowledgeUnits(limit: 5) {

@@ -454,6 +454,8 @@ def create_ingestion_api_routes(
         """
         WebSocket for real-time ingestion progress updates.
 
+        Security: Requires admin session. Closes with 4003 if unauthorized.
+
         Clients connect with the operation_id and receive JSON progress updates:
         {
             "current": 100,
@@ -463,6 +465,14 @@ def create_ingestion_api_routes(
             "eta_seconds": 90
         }
         """
+        # Auth check before accepting — ingestion is admin-only
+        from adapters.inbound.auth.session import get_current_user, get_is_admin
+
+        user_uid = get_current_user(ws)
+        if not user_uid or not get_is_admin(ws):
+            await ws.close(code=4003, reason="Admin access required")
+            return
+
         await ws.accept()
         logger.info(f"WebSocket connected for operation: {operation_id}")
 

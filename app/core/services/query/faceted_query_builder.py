@@ -23,6 +23,7 @@ from core.models.query.search_models import FacetSetRequest as FacetSetSchema
 from core.services.search.core_types import FacetSet
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.validation_helpers import validate_field_name
 
 if TYPE_CHECKING:
     from core.services.query.query_optimizer import QueryOptimizer
@@ -243,7 +244,10 @@ class FacetedQueryBuilder:
                     """
 
                 else:
-                    # Generic facet count
+                    # Generic facet count — validate field name to prevent injection
+                    if not validate_field_name(field):
+                        self.logger.warning(f"Skipping invalid facet field: {field!r}")
+                        continue
                     facet_queries[field] = f"""
                         {match_clause}
                         WHERE n.{field} IS NOT NULL
