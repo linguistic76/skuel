@@ -451,3 +451,29 @@ def is_today(check_date: date | None) -> bool:
     if check_date is None:
         return False
     return check_date == date.today()
+
+
+# =============================================================================
+# SCORING HELPERS
+# =============================================================================
+
+
+def score_deadline_proximity(
+    days_until: int,
+    bands: tuple[tuple[int, int], ...],
+    default_score: int = 5,
+) -> int:
+    """Score entity priority based on deadline proximity.
+
+    Bands are (max_days, score) pairs checked in ascending order.
+    First matching band wins.
+
+    Args:
+        days_until: Days until deadline (negative = overdue)
+        bands: Threshold boundaries as (max_days, score) pairs
+        default_score: Score when beyond all bands
+    """
+    for max_days, score in bands:
+        if days_until <= max_days:
+            return score
+    return default_score

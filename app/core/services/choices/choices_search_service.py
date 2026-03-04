@@ -21,7 +21,7 @@ This service follows the SearchService pattern documented in:
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import ChoicesOperations
@@ -38,6 +38,7 @@ from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
+from core.utils.timestamp_helpers import score_deadline_proximity
 
 
 class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
@@ -95,6 +96,11 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         date_field="decision_deadline",
         completed_statuses=(EntityStatus.COMPLETED.value,),
     )
+
+    _PROXIMITY_BANDS: ClassVar[tuple[tuple[int, int], ...]] = (
+        (0, 40), (3, 35), (7, 30), (14, 20),
+    )
+    _PROXIMITY_DEFAULT: ClassVar[int] = 10
 
     def __init__(self, backend: ChoicesOperations) -> None:
         """Initialize service with required backend."""
@@ -186,17 +192,10 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
                 if isinstance(choice.decision_deadline, datetime)
                 else choice.decision_deadline
             )
-            days_until = (deadline_date - today).days
-            if days_until <= 0:
-                score += 40  # Overdue
-            elif days_until <= 3:
-                score += 35  # Very urgent
-            elif days_until <= 7:
-                score += 30
-            elif days_until <= 14:
-                score += 20
-            else:
-                score += 10
+            days_remaining = (deadline_date - today).days
+            score += score_deadline_proximity(
+                days_remaining, self._PROXIMITY_BANDS, self._PROXIMITY_DEFAULT
+            )
 
         # Priority level (0-25 points) - use existing priority field
         from core.ports import get_enum_value
@@ -248,12 +247,12 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         user_clause = "AND c.user_uid = $user_uid" if user_uid else ""
         cypher_query = f"""
         MATCH (c:Entity {{ku_type: 'choice'}})
-        WHERE c.deadline >= date($today)
-          AND c.deadline <= date($end_date)
+        WHERE c.decision_deadline >= date($today)
+          AND c.decision_deadline <= date($end_date)
           AND c.status NOT IN ['completed', 'decided', 'cancelled', 'archived']
           {user_clause}
         RETURN c
-        ORDER BY c.deadline ASC
+        ORDER BY c.decision_deadline ASC
         LIMIT $limit
         """
 
@@ -301,11 +300,11 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         user_clause = "AND c.user_uid = $user_uid" if user_uid else ""
         cypher_query = f"""
         MATCH (c:Entity {{ku_type: 'choice'}})
-        WHERE c.deadline < date($today)
+        WHERE c.decision_deadline < date($today)
           AND c.status NOT IN ['completed', 'decided', 'cancelled', 'archived']
           {user_clause}
         RETURN c
-        ORDER BY c.deadline ASC
+        ORDER BY c.decision_deadline ASC
         LIMIT $limit
         """
 
@@ -349,7 +348,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         WHERE c.user_uid = $user_uid
           AND c.status IN ['draft', 'active', 'scheduled']
         RETURN c
-        ORDER BY c.deadline ASC, c.created_at DESC
+        ORDER BY c.decision_deadline ASC, c.created_at DESC
         LIMIT $limit
         """
 
@@ -442,10 +441,10 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         cypher_query = """
         MATCH (c:Entity {ku_type: 'choice'})
         WHERE c.user_uid = $user_uid
-          AND c.deadline <= date($end_date)
+          AND c.decision_deadline <= date($end_date)
           AND c.status NOT IN ['completed', 'decided', 'cancelled', 'archived']
         RETURN c
-        ORDER BY c.deadline ASC
+        ORDER BY c.decision_deadline ASC
         """
 
         result = await self.backend.execute_query(

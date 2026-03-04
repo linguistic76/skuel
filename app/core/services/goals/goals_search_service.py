@@ -18,6 +18,7 @@ This service follows the SearchService pattern documented in:
 """
 
 from datetime import date, timedelta
+from typing import ClassVar
 
 from core.models.enums import EntityStatus
 from core.models.enums.goal_enums import GoalTimeframe
@@ -31,6 +32,7 @@ from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import score_deadline_proximity
 from core.utils.sort_functions import get_result_score
 
 
@@ -91,6 +93,11 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         category_field="domain",  # Goals use 'domain' field for categorization
         entity_label="Entity",
     )
+
+    _PROXIMITY_BANDS: ClassVar[tuple[tuple[int, int], ...]] = (
+        (0, 40), (7, 35), (30, 25), (90, 15),
+    )
+    _PROXIMITY_DEFAULT: ClassVar[int] = 5
 
     # Inherited from BaseService (December 2025):
     # - search() - Text search on title/description
@@ -164,17 +171,10 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
 
         # Deadline proximity (0-40 points)
         if goal.target_date:
-            days_until = (goal.target_date - date.today()).days
-            if days_until <= 0:
-                score += 40  # Overdue = highest priority
-            elif days_until <= 7:
-                score += 35
-            elif days_until <= 30:
-                score += 25
-            elif days_until <= 90:
-                score += 15
-            else:
-                score += 5
+            days_remaining = (goal.target_date - date.today()).days
+            score += score_deadline_proximity(
+                days_remaining, self._PROXIMITY_BANDS, self._PROXIMITY_DEFAULT
+            )
 
         # Progress momentum (0-30 points)
         progress = goal.progress_percentage or 0.0
