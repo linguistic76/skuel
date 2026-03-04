@@ -76,6 +76,28 @@ Key Features:
     - Domain-specific queries through generic interface
     - Protocol compliance for all domain operations
 
+ARCHITECTURAL BOUNDARY
+----------------------
+
+This class is SKUEL's hexagonal boundary for Neo4j.
+
+Everything above this boundary (service mixins, domain services, routes)
+is written in domain concepts. Everything below it (Cypher strings, the
+AsyncDriver, label conventions, relationship syntax) is Neo4j-specific.
+
+Service mixins (ContextOperationsMixin, RelationshipOperationsMixin) use
+graph vocabulary — depth, traverse, graph_enrichment_patterns — because
+SKUEL's domain model is inherently a graph. This is intentional coupling,
+not an incomplete refactor. The relationships between entities are domain
+primitives, not storage implementation details.
+
+Neo4j is a committed architectural choice, not a swappable adapter.
+Replacing it would require rewriting this module and reconsidering the
+graph-aware service mixins. The domain models and protocols above this
+boundary would survive intact.
+
+See: /docs/decisions/ADR-044-neo4j-committed-architectural-choice.md
+
 See Also:
     /core/models/enums/entity_enums.py - EntityType, EntityStatus
     /core/ports/domain_protocols.py - Service interfaces
