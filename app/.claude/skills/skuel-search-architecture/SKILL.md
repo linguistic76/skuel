@@ -160,7 +160,13 @@ Two patterns for time-based prioritization across Activity Domains:
 - **Events:** `(0,40) (1,35) (3,30) (7,20)` — tight windows
 - **Choices:** `(0,40) (3,35) (7,30) (14,20)` — medium urgency
 
-**Frequency Windows (Habits):** Backwards-looking — `_get_frequency_window_days()` checks days since last completion against `_FREQUENCY_WINDOWS_DAYS` (daily=1, weekly=7, monthly=30). Due when `days_since >= window`, overdue when `days_since > window`.
+**Frequency Windows (Habits):** Backwards-looking — `get_frequency_window_days()` from `timestamp_helpers.py` checks days since last completion against `FREQUENCY_WINDOWS_DAYS` (daily=1, weekly=7, monthly=30). Due when `days_since >= window`, overdue when `days_since > window`.
+
+**Config-Driven Temporal Queries (March 2026):** `TimeQueryMixin.get_due_soon()` / `get_overdue()` use two `DomainConfig` fields:
+- `temporal_exclude_statuses` — defaults to the 4 `EntityStatus.is_terminal()` values
+- `temporal_secondary_sort` — optional secondary ORDER BY (Events use `"start_time"`)
+
+Tasks, Goals, Events, and Choices use the base implementation. Only Habits and Principles override (fundamentally different semantics).
 
 **Not temporal:** Tasks use `impact_score()` (priority + goal fulfillment); Principles use strength scoring.
 

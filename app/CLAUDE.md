@@ -1159,13 +1159,15 @@ All services use **DomainConfig** - THE single source of truth for configuration
 | `search_fields` | Fields for text search | `("title", "description")` |
 | `search_order_by` | Default sort field | `"created_at"` |
 | `category_field` | Field for categorization | `"category"` |
+| `temporal_exclude_statuses` | Statuses excluded from `get_due_soon`/`get_overdue` | `("completed", "failed", "cancelled", "archived")` |
+| `temporal_secondary_sort` | Secondary ORDER BY for temporal queries | `None` (Events use `"start_time"`) |
 | `supports_user_progress` | Enable progress tracking | `False` |
 | `user_ownership_relationship` | Ownership rel type | `"OWNS"` (None for shared) |
 | `graph_enrichment_patterns` | Graph context patterns | `()` |
 | `prerequisite_relationships` | For `get_prerequisites()` | `()` |
 | `enables_relationships` | For `get_enables()` | `()` |
 
-**Inherited Methods:** `search()`, `get_by_status()`, `get_by_category()`, `list_categories()`, `get_prerequisites()`, `get_enables()`, `verify_ownership()`
+**Inherited Methods:** `search()`, `get_by_status()`, `get_by_category()`, `list_categories()`, `get_due_soon()`, `get_overdue()`, `get_prerequisites()`, `get_enables()`, `verify_ownership()`
 
 **Configuration Example (Activity Domains):**
 ```python

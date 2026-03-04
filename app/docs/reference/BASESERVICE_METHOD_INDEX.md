@@ -93,6 +93,8 @@ These methods are available on **all services that extend BaseService**.
 
 **Purpose:** Calendar and scheduling queries
 
+**Config fields:** `temporal_exclude_statuses` (default: 4 terminal statuses), `temporal_secondary_sort` (optional secondary ORDER BY)
+
 | Method | Public |
 |--------|--------|
 | `__init__()` | 🔒 (internal) |

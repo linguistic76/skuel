@@ -318,6 +318,21 @@ class TasksCoreService(BaseService):
 
 ---
 
+## Post-Migration Additions
+
+### Temporal Query Fields (March 2026)
+
+Two new fields added to `DomainConfig` for `TimeQueryMixin.get_due_soon()` / `get_overdue()`:
+
+| Field | Default | Purpose |
+|-------|---------|---------|
+| `temporal_exclude_statuses` | `("completed", "failed", "cancelled", "archived")` | Statuses to exclude (the 4 `EntityStatus.is_terminal()` values) |
+| `temporal_secondary_sort` | `None` | Optional secondary ORDER BY field |
+
+Passed through `create_activity_domain_config()` via `temporal_secondary_sort=` parameter. This eliminated 6 hand-written override methods (~295 lines) from Goals, Events, and Choices search services — they now use the base `TimeQueryMixin` implementation. Events configures `temporal_secondary_sort="start_time"` for date+time ordering.
+
+---
+
 ## Rollback Strategy
 
 If issues arise, rollback is straightforward:

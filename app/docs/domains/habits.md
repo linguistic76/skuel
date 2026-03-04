@@ -240,7 +240,7 @@ The habit model tracks all four components of the habit loop:
 
 ### Frequency Window Logic (Due/Overdue)
 
-Unlike deadline-based domains (Goals, Events, Choices), Habits use **backwards-looking** frequency windows to determine due/overdue status. The shared `_FREQUENCY_WINDOWS_DAYS` ClassVar and `_get_frequency_window_days()` helper on `HabitSearchService` eliminate duplication across three methods:
+Unlike deadline-based domains (Goals, Events, Choices), Habits use **backwards-looking** frequency windows to determine due/overdue status. The shared `FREQUENCY_WINDOWS_DAYS` dict and `get_frequency_window_days()` helper from `core/utils/timestamp_helpers.py` eliminate duplication across three methods:
 
 | Frequency | Window (days) | "Due" when | "Overdue" when |
 |-----------|--------------|------------|----------------|

@@ -611,20 +611,39 @@ Deadline proximity is one factor in `_calculate_priority_score()`. The full comp
 | **Events** | Proximity bands | Goal support (0–25), Habit reinforcement (0–25), Event type (0–10) |
 | **Choices** | Proximity bands | Priority level (0–25), High stakes (0–20), Decision complexity (0–15) |
 
+### Config-Driven Temporal Queries (get_due_soon / get_overdue)
+
+`TimeQueryMixin` provides `get_due_soon()` and `get_overdue()` using two `DomainConfig` fields:
+
+| Config Field | Default | Purpose |
+|-------------|---------|---------|
+| `temporal_exclude_statuses` | `("completed", "failed", "cancelled", "archived")` | The 4 `EntityStatus.is_terminal()` values — excludes finished entities |
+| `temporal_secondary_sort` | `None` | Optional secondary ORDER BY (e.g., Events use `"start_time"`) |
+
+**Domains using base TimeQueryMixin (no override):** Tasks, Goals, Events, Choices
+**Domains with custom override:** Habits (frequency-based), Principles (strength-based)
+
+The base implementation delegates to `build_due_soon_query()` / `build_overdue_query()` in `core/models/query/cypher/domain_queries.py`, which generate Cypher filtered by `temporal_exclude_statuses` and sorted by the domain's `date_field` (+ `temporal_secondary_sort` when set).
+
 ### Frequency Window Scoring (Habits)
 
 Habits use **backwards-looking** logic — instead of "how close is the deadline?", they ask "how long since last completion relative to recurrence frequency?"
 
 #### Shared Helper
 
-`HabitSearchService._get_frequency_window_days()` backed by `_FREQUENCY_WINDOWS_DAYS` ClassVar:
+`get_frequency_window_days()` from `core/utils/timestamp_helpers.py`, backed by `FREQUENCY_WINDOWS_DAYS`:
 
 ```python
-_FREQUENCY_WINDOWS_DAYS: ClassVar[dict[str, int]] = {
+from core.utils.timestamp_helpers import get_frequency_window_days, FREQUENCY_WINDOWS_DAYS
+
+FREQUENCY_WINDOWS_DAYS: dict[str, int] = {
     "daily": 1,
     "weekly": 7,
     "monthly": 30,
 }
+
+get_frequency_window_days("weekly")  # 7
+get_frequency_window_days(None)      # 1 (default)
 ```
 
 **Due:** `days_since_last_completion >= window_days`
@@ -644,11 +663,14 @@ Used by `_is_habit_due_in_window()`, `_is_habit_overdue()`, and `get_due_today()
 
 | File | Purpose |
 |------|---------|
-| `core/utils/timestamp_helpers.py` | `score_deadline_proximity()` helper |
+| `core/utils/timestamp_helpers.py` | `score_deadline_proximity()`, `get_frequency_window_days()`, `FREQUENCY_WINDOWS_DAYS` |
+| `core/services/domain_config.py` | `temporal_exclude_statuses`, `temporal_secondary_sort` config fields |
+| `core/services/mixins/time_query_mixin.py` | `get_due_soon()`, `get_overdue()` base implementations |
+| `core/models/query/cypher/domain_queries.py` | `build_due_soon_query()`, `build_overdue_query()` |
 | `core/services/goals/goals_search_service.py` | `GoalsSearchService._PROXIMITY_BANDS` |
-| `core/services/events/events_search_service.py` | `EventsSearchService._PROXIMITY_BANDS` |
+| `core/services/events/events_search_service.py` | `EventsSearchService._PROXIMITY_BANDS`, `temporal_secondary_sort="start_time"` |
 | `core/services/choices/choices_search_service.py` | `ChoicesSearchService._PROXIMITY_BANDS` |
-| `core/services/habits/habit_search_service.py` | `HabitSearchService._FREQUENCY_WINDOWS_DAYS` |
+| `core/services/habits/habit_search_service.py` | Habit-specific overrides using `get_frequency_window_days()` |
 
 ---
 

@@ -141,6 +141,9 @@ async def get_by_status(self, status: str, limit: int = 100) -> Result[list[Prin
 - Different field names (e.g., Goals use `domain` for categorization → `_category_field = "domain"`)
 - Different data types (e.g., Principles use `is_active` boolean instead of `status` string)
 - Domain-specific enum mapping (e.g., Principles map Domain → PrincipleCategory)
+- Fundamentally different temporal semantics (e.g., Habits override `get_due_soon`/`get_overdue` for frequency-based logic)
+
+**Temporal queries (get_due_soon / get_overdue):** The base `TimeQueryMixin` implementation works for most domains via `DomainConfig` fields `temporal_exclude_statuses` (defaults to 4 terminal statuses) and `temporal_secondary_sort` (e.g., `"start_time"` for Events). Only override when the domain has fundamentally different semantics (Habits use frequency windows, Principles use strength).
 
 ## Graph-Aware Search (January 2026)
 

@@ -186,7 +186,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
 | `CrudOperationsMixin` | `mixins/crud_operations_mixin.py` | `create`, `get`, `update`, `delete`, `verify_ownership` |
 | `SearchOperationsMixin` | `mixins/search_operations_mixin.py` | `search`, `get_by_status`, `graph_aware_faceted_search` |
 | `RelationshipOperationsMixin` | `mixins/relationship_operations_mixin.py` | `add_relationship`, `traverse`, `get_prerequisites` |
-| `TimeQueryMixin` | `mixins/time_query_mixin.py` | `get_user_items_in_range`, `get_due_soon`, `get_overdue` |
+| `TimeQueryMixin` | `mixins/time_query_mixin.py` | `get_user_items_in_range`, `get_due_soon`, `get_overdue` (config-driven via `temporal_exclude_statuses` + `temporal_secondary_sort`) |
 | `UserProgressMixin` | `mixins/user_progress_mixin.py` | `get_user_progress`, `update_user_mastery` |
 | `ContextOperationsMixin` | `mixins/context_operations_mixin.py` | `get_with_context`, `get_with_content` |
 
