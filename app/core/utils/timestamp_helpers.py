@@ -458,6 +458,28 @@ def is_today(check_date: date | None) -> bool:
 # =============================================================================
 
 
+FREQUENCY_WINDOWS_DAYS: dict[str, int] = {
+    "daily": 1,
+    "weekly": 7,
+    "monthly": 30,
+}
+
+
+def get_frequency_window_days(
+    recurrence_pattern: str | None,
+    default: int = 1,
+) -> int:
+    """Return recurrence window in days for a frequency pattern.
+
+    Args:
+        recurrence_pattern: Frequency string (daily/weekly/monthly) or None
+        default: Window days when pattern is None or unknown
+    """
+    if not recurrence_pattern:
+        return default
+    return FREQUENCY_WINDOWS_DAYS.get(recurrence_pattern, default)
+
+
 def score_deadline_proximity(
     days_until: int,
     bands: tuple[tuple[int, int], ...],

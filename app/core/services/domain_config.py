@@ -137,6 +137,12 @@ class DomainConfig:
     graph_enrichment_patterns: tuple[tuple[str, str, str, str], ...] = ()
     user_ownership_relationship: str | None = RelationshipName.OWNS  # None for shared content (KU)
 
+    # Temporal queries (get_due_soon / get_overdue)
+    temporal_exclude_statuses: tuple[str, ...] = (
+        "completed", "failed", "cancelled", "archived",
+    )
+    temporal_secondary_sort: str | None = None
+
     # Prerequisites & Curriculum
     prerequisite_relationships: tuple[str, ...] = ()
     enables_relationships: tuple[str, ...] = ()
@@ -239,6 +245,7 @@ def create_activity_domain_config(
     search_fields: tuple[str, ...] | None = None,
     search_order_by: str | None = None,
     entity_label: str | None = None,
+    temporal_secondary_sort: str | None = None,
 ) -> DomainConfig:
     """
     Factory for creating Activity Domain configurations.
@@ -259,6 +266,8 @@ def create_activity_domain_config(
         entity_label: Neo4j node label override (default: model_class.__name__).
             Use when model_class is a domain subclass (e.g., Task) but the
             Neo4j label remains the base type (e.g., "Entity").
+        temporal_secondary_sort: Secondary sort field for get_due_soon/get_overdue
+            (e.g., "start_time" for Events)
 
     Returns:
         Configured DomainConfig for the activity domain
@@ -300,6 +309,7 @@ def create_activity_domain_config(
         enables_relationships=tuple(generate_enables_relationships(entity_label)),
         user_ownership_relationship=RelationshipName.OWNS,
         supports_user_progress=True,
+        temporal_secondary_sort=temporal_secondary_sort,
     )
 
 

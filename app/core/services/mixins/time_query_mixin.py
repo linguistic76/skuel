@@ -270,17 +270,18 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
                 )
             )
 
-        # Get completed statuses to exclude
-        completed_statuses = list(self._get_config_value("completed_statuses", []))
+        # Get statuses to exclude from temporal queries
+        exclude_statuses = list(self._get_config_value("temporal_exclude_statuses", []))
 
         # Build and execute query
         query, params = build_due_soon_query(
             node_label=self.entity_label,
             date_field=date_field,
             days_ahead=days_ahead,
-            exclude_statuses=completed_statuses if completed_statuses else None,
+            exclude_statuses=exclude_statuses if exclude_statuses else None,
             user_uid=user_uid,
             limit=limit,
+            secondary_sort_field=self._get_config_value("temporal_secondary_sort"),
         )
 
         result = await self.backend.execute_query(query, params)
@@ -341,16 +342,17 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
                 )
             )
 
-        # Get completed statuses to exclude
-        completed_statuses = list(self._get_config_value("completed_statuses", []))
+        # Get statuses to exclude from temporal queries
+        exclude_statuses = list(self._get_config_value("temporal_exclude_statuses", []))
 
         # Build and execute query
         query, params = build_overdue_query(
             node_label=self.entity_label,
             date_field=date_field,
-            exclude_statuses=completed_statuses if completed_statuses else None,
+            exclude_statuses=exclude_statuses if exclude_statuses else None,
             user_uid=user_uid,
             limit=limit,
+            secondary_sort_field=self._get_config_value("temporal_secondary_sort"),
         )
 
         result = await self.backend.execute_query(query, params)

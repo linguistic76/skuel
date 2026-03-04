@@ -1482,6 +1482,7 @@ def build_due_soon_query(
     exclude_statuses: list[str] | None = None,
     user_uid: str | None = None,
     limit: int = 100,
+    secondary_sort_field: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """
     Build query for entities due within N days.
@@ -1495,6 +1496,7 @@ def build_due_soon_query(
         exclude_statuses: Statuses to exclude (e.g., ["completed", "cancelled"])
         user_uid: Optional user UID for ownership filter
         limit: Maximum results
+        secondary_sort_field: Optional secondary sort field (e.g., "start_time")
 
     Returns:
         Tuple of (cypher_query, parameters)
@@ -1527,12 +1529,16 @@ def build_due_soon_query(
 
     where_clause = " AND ".join(where_clauses)
 
-    # Sort by date ASC (nearest first)
+    # Sort by date ASC (nearest first), with optional secondary sort
+    order_clause = f"n.{date_field} ASC"
+    if secondary_sort_field:
+        order_clause += f", n.{secondary_sort_field} ASC"
+
     cypher = f"""
     MATCH (n:{node_label})
     WHERE {where_clause}
     RETURN n
-    ORDER BY n.{date_field} ASC
+    ORDER BY {order_clause}
     LIMIT $limit
     """
 
@@ -1556,6 +1562,7 @@ def build_overdue_query(
     exclude_statuses: list[str] | None = None,
     user_uid: str | None = None,
     limit: int = 100,
+    secondary_sort_field: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """
     Build query for entities past their due date.
@@ -1568,6 +1575,7 @@ def build_overdue_query(
         exclude_statuses: Statuses to exclude (e.g., ["completed", "cancelled"])
         user_uid: Optional user UID for ownership filter
         limit: Maximum results
+        secondary_sort_field: Optional secondary sort field (e.g., "start_time")
 
     Returns:
         Tuple of (cypher_query, parameters)
@@ -1598,12 +1606,16 @@ def build_overdue_query(
 
     where_clause = " AND ".join(where_clauses)
 
-    # Sort by date ASC (oldest/most overdue first)
+    # Sort by date ASC (oldest/most overdue first), with optional secondary sort
+    order_clause = f"n.{date_field} ASC"
+    if secondary_sort_field:
+        order_clause += f", n.{secondary_sort_field} ASC"
+
     cypher = f"""
     MATCH (n:{node_label})
     WHERE {where_clause}
     RETURN n
-    ORDER BY n.{date_field} ASC
+    ORDER BY {order_clause}
     LIMIT $limit
     """
 

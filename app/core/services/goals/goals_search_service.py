@@ -17,7 +17,7 @@ This service follows the SearchService pattern documented in:
 /docs/patterns/search_service_pattern.md
 """
 
-from datetime import date, timedelta
+from datetime import date
 from typing import ClassVar
 
 from core.models.enums import EntityStatus
@@ -209,107 +209,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         return score
 
     # get_by_relationship() - inherited from BaseService using _dto_class, _model_class
-
-    @with_error_handling("get_due_soon", error_type="database")
-    async def get_due_soon(
-        self,
-        days_ahead: int = 7,
-        user_uid: str | None = None,
-        limit: int = 100,
-    ) -> Result[list[Goal]]:
-        """
-        Get goals due within specified number of days.
-
-        Args:
-            days_ahead: Number of days to look ahead (default 7)
-            user_uid: Optional user UID to filter by ownership
-            limit: Maximum results to return
-
-        Returns:
-            Result containing goals due soon, sorted by due date
-        """
-        end_date = date.today() + timedelta(days=days_ahead)
-
-        # Build query with optional user filter
-        user_clause = "AND g.user_uid = $user_uid" if user_uid else ""
-        cypher_query = f"""
-        MATCH (g:Entity {{ku_type: 'goal'}})
-        WHERE g.target_date >= date($today)
-          AND g.target_date <= date($end_date)
-          AND g.status IN ['active', 'in_progress', 'on_track']
-          {user_clause}
-        RETURN g
-        ORDER BY g.target_date ASC
-        LIMIT $limit
-        """
-
-        params: dict[str, str | int] = {
-            "today": date.today().isoformat(),
-            "end_date": end_date.isoformat(),
-            "limit": limit,
-        }
-        if user_uid:
-            params["user_uid"] = user_uid
-
-        result = await self.backend.execute_query(cypher_query, params)
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        # Convert to Goals
-        goals = []
-        for record in result.value:
-            goal_node = record["g"]
-            dto = GoalDTO.from_dict(dict(goal_node))
-            goals.append(Goal.from_dto(dto))
-
-        self.logger.debug(f"Found {len(goals)} goals due within {days_ahead} days")
-        return Result.ok(goals)
-
-    @with_error_handling("get_overdue", error_type="database")
-    async def get_overdue(
-        self,
-        user_uid: str | None = None,
-        limit: int = 100,
-    ) -> Result[list[Goal]]:
-        """
-        Get goals past their target date and not completed.
-
-        Args:
-            user_uid: Optional user UID to filter by ownership
-            limit: Maximum results to return
-
-        Returns:
-            Result containing overdue goals, sorted by how overdue
-        """
-        # Build query with optional user filter
-        user_clause = "AND g.user_uid = $user_uid" if user_uid else ""
-        cypher_query = f"""
-        MATCH (g:Entity {{ku_type: 'goal'}})
-        WHERE g.target_date < date($today)
-          AND g.status NOT IN ['completed', 'achieved', 'abandoned', 'archived', 'cancelled']
-          {user_clause}
-        RETURN g
-        ORDER BY g.target_date ASC
-        LIMIT $limit
-        """
-
-        params: dict[str, str | int] = {"today": date.today().isoformat(), "limit": limit}
-        if user_uid:
-            params["user_uid"] = user_uid
-
-        result = await self.backend.execute_query(cypher_query, params)
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        # Convert to Goals
-        goals = []
-        for record in result.value:
-            goal_node = record["g"]
-            dto = GoalDTO.from_dict(dict(goal_node))
-            goals.append(Goal.from_dto(dto))
-
-        self.logger.debug(f"Found {len(goals)} overdue goals")
-        return Result.ok(goals)
+    # get_due_soon() and get_overdue() - inherited from TimeQueryMixin via DomainConfig
 
     # ========================================================================
     # GOAL-SPECIFIC SEARCH METHODS

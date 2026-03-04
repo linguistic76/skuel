@@ -98,6 +98,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         date_field="event_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
         search_order_by="event_date",  # Events ordered by event date, not created_at
+        temporal_secondary_sort="start_time",
     )
 
     _PROXIMITY_BANDS: ClassVar[tuple[tuple[int, int], ...]] = (
@@ -227,102 +228,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         return score
 
     # get_by_relationship() - inherited from BaseService using _dto_class, _model_class
-
-    @with_error_handling("get_due_soon", error_type="database")
-    async def get_due_soon(
-        self,
-        days_ahead: int = 7,
-        user_uid: str | None = None,
-        limit: int = 100,
-    ) -> Result[list[Event]]:
-        """
-        Get events within specified number of days.
-
-        Args:
-            days_ahead: Number of days to look ahead (default 7)
-            user_uid: Optional user UID to filter by ownership
-            limit: Maximum results to return
-
-        Returns:
-            Result containing upcoming events, sorted by date
-        """
-        today = date.today()
-        end_date = today + timedelta(days=days_ahead)
-
-        # Build query with optional user filter
-        user_clause = "AND e.user_uid = $user_uid" if user_uid else ""
-        cypher_query = f"""
-        MATCH (e:Entity)
-        WHERE e.event_date >= date($today)
-          AND e.event_date <= date($end_date)
-          AND e.status NOT IN ['completed', 'cancelled']
-          {user_clause}
-        RETURN e
-        ORDER BY e.event_date ASC, e.start_time ASC
-        LIMIT $limit
-        """
-
-        params: dict[str, str | int] = {
-            "today": today.isoformat(),
-            "end_date": end_date.isoformat(),
-            "limit": limit,
-        }
-        if user_uid:
-            params["user_uid"] = user_uid
-
-        result = await self.backend.execute_query(cypher_query, params)
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        # Convert to Events using inherited helper
-        events = self._to_domain_models([record["e"] for record in result.value], EventDTO, Event)
-
-        self.logger.debug(f"Found {len(events)} events within {days_ahead} days")
-        return Result.ok(events)
-
-    @with_error_handling("get_overdue", error_type="database")
-    async def get_overdue(
-        self,
-        user_uid: str | None = None,
-        limit: int = 100,
-    ) -> Result[list[Event]]:
-        """
-        Get events that are past their date and not completed.
-
-        Args:
-            user_uid: Optional user UID to filter by ownership
-            limit: Maximum results to return
-
-        Returns:
-            Result containing overdue events
-        """
-        today = date.today()
-
-        # Build query with optional user filter
-        user_clause = "AND e.user_uid = $user_uid" if user_uid else ""
-        cypher_query = f"""
-        MATCH (e:Entity)
-        WHERE e.event_date < date($today)
-          AND e.status NOT IN ['completed', 'cancelled']
-          {user_clause}
-        RETURN e
-        ORDER BY e.event_date DESC
-        LIMIT $limit
-        """
-
-        params: dict[str, str | int] = {"today": today.isoformat(), "limit": limit}
-        if user_uid:
-            params["user_uid"] = user_uid
-
-        result = await self.backend.execute_query(cypher_query, params)
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        # Convert to Events using inherited helper
-        events = self._to_domain_models([record["e"] for record in result.value], EventDTO, Event)
-
-        self.logger.debug(f"Found {len(events)} overdue events")
-        return Result.ok(events)
+    # get_due_soon() and get_overdue() - inherited from TimeQueryMixin via DomainConfig
 
     # ========================================================================
     # EVENT-SPECIFIC SEARCH METHODS

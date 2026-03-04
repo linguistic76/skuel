@@ -20,6 +20,8 @@ This service follows the SearchService pattern documented in:
 from datetime import date, timedelta
 from typing import ClassVar
 
+from core.utils.timestamp_helpers import get_frequency_window_days
+
 from core.models.enums import EntityStatus
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.habit import Habit
@@ -114,13 +116,6 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         }
     )
 
-    # Frequency windows in days for due/overdue calculations
-    _FREQUENCY_WINDOWS_DAYS: ClassVar[dict[str, int]] = {
-        "daily": 1,
-        "weekly": 7,
-        "monthly": 30,
-    }
-
     # Inherited from BaseService (December 2025):
     # - search(), get_by_status(), get_by_domain(), get_by_category(),
     # - list_categories(), get_by_relationship()
@@ -138,15 +133,6 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         """
         inactive = self._TERMINAL_STATUSES if include_paused else self._INACTIVE_STATUSES
         return not habit.status or habit.status.value not in inactive
-
-    def _get_frequency_window_days(self, recurrence_pattern: str | None) -> int:
-        """Return recurrence window in days (defaults to daily)."""
-        if not recurrence_pattern:
-            return self._FREQUENCY_WINDOWS_DAYS["daily"]
-        return self._FREQUENCY_WINDOWS_DAYS.get(
-            recurrence_pattern,
-            self._FREQUENCY_WINDOWS_DAYS["daily"],
-        )
 
     # ========================================================================
     # DOMAIN SEARCH OPERATIONS PROTOCOL IMPLEMENTATION
@@ -348,7 +334,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
             return True  # Never completed - due
 
         last_date = habit.last_completed.date()
-        window_days = self._get_frequency_window_days(habit.recurrence_pattern)
+        window_days = get_frequency_window_days(habit.recurrence_pattern)
         days_since = (start_date - last_date).days
         return days_since >= window_days
 
@@ -408,7 +394,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
 
         last_date = habit.last_completed.date()
         days_since = (today - last_date).days
-        window_days = self._get_frequency_window_days(habit.recurrence_pattern)
+        window_days = get_frequency_window_days(habit.recurrence_pattern)
         return days_since > window_days
 
     # ========================================================================
@@ -636,7 +622,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
                 last_date = None
 
             # Check frequency against window
-            window_days = self._get_frequency_window_days(habit.recurrence_pattern)
+            window_days = get_frequency_window_days(habit.recurrence_pattern)
             if not last_date:
                 due_today.append(habit)
             elif (today - last_date).days >= window_days:
