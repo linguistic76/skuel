@@ -1,0 +1,10 @@
+# Local test queries (may contain API keys)
+test.cypher
+
+# Credentials
+.env
+
+# Neo4j data
+neo4j/data/
+neo4j/logs/
+neo4j/plugins/

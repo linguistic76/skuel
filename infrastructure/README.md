@@ -17,10 +17,11 @@ This directory contains **all infrastructure services** that SKUEL depends on, c
 
 **Quick Start:**
 ```bash
-# Start infrastructure (once, leave running)
-cd ~/skuel/infrastructure && docker compose up -d
+# Primary workflow: unified compose (Neo4j + app together)
+cd ~/skuel/app && docker compose up -d
 
-# Develop application freely (restarts don't affect infrastructure)
+# Alternative: Neo4j only (when running app locally with Poetry)
+cd ~/skuel/infrastructure && docker compose up -d
 cd ~/skuel/app && poetry run python main.py
 ```
 
@@ -139,9 +140,8 @@ open http://localhost:7474
 
 ```
 /home/mike/skuel/infrastructure/
-├── docker-compose.yml     # Infrastructure service definitions
+├── docker-compose.yml     # Neo4j-only service definitions
 ├── .env                   # Credentials and configuration
-├── readme                 # Quick reference (original)
 ├── README.md              # This file
 └── neo4j/                 # Neo4j database directory
     ├── data/              # Graph database storage

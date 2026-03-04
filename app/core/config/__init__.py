@@ -82,7 +82,6 @@ from core.config.validation import (
     ConfigValidator,
     print_validation_report,
     validate_config,
-    validate_environment_variables,
 )
 
 __all__ = [
@@ -146,5 +145,4 @@ __all__ = [
     # Validation
     "validate_config",
     "validate_environment",
-    "validate_environment_variables",
 ]

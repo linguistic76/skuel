@@ -248,33 +248,6 @@ def validate_config(config: UnifiedConfig) -> list[str]:
     return errors
 
 
-def validate_environment_variables() -> list[str]:
-    """Validate required environment variables"""
-    import os
-
-    errors = []
-    required_vars = []
-
-    # Add environment-specific required variables
-    env = os.getenv("SKUEL_ENVIRONMENT", "local")
-
-    if env in ["production", "staging"]:
-        required_vars.extend([
-            "NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD",
-            "REDIS_URL", "SESSION_SECRET_KEY",
-        ])
-
-    # Check for missing variables
-    errors.extend(
-        [
-            f"Required environment variable not set: {var}"
-            for var in required_vars
-            if not os.getenv(var)
-        ]
-    )
-
-    return errors
-
 
 def log_validation_report(errors: list[str]) -> None:
     """Log a formatted validation report"""
@@ -301,12 +274,6 @@ if __name__ == "__main__":
     print("🧠 SKUEL Configuration Validation")
     print("=" * 40)
 
-    # Validate environment variables
-    env_errors = validate_environment_variables()
-    if env_errors:
-        print("\nEnvironment Variables:")
-        print_validation_report(env_errors)
-
     # Validate configuration
     try:
         config: UnifiedConfig = _get_settings()  # type: ignore[has-type]
@@ -314,7 +281,7 @@ if __name__ == "__main__":
         print("\nConfiguration:")
         print_validation_report(config_errors)
 
-        if not config_errors and not env_errors:
+        if not config_errors:
             print("\n✨ All validations passed!")
     except Exception as e:
         print(f"\n❌ Error validating configuration: {e}")

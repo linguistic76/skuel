@@ -888,11 +888,9 @@ async def compose_services(
     Args:
         neo4j_adapter: Database adapter (satisfies GraphPort) - REQUIRED,
         event_bus: Event bus adapter (optional, will create default if None),
-        config: Configuration (optional),
-        prometheus_metrics: Prometheus metrics registry (optional),
-        metrics_cache: MetricsCache for performance tracking (optional)
         config: UnifiedConfig for accessing configuration (optional, will load if None)
-        prometheus_metrics: PrometheusMetrics for instrumentation (optional, - January 2026)
+        prometheus_metrics: PrometheusMetrics for instrumentation (optional — January 2026)
+        metrics_cache: MetricsCache for performance tracking (optional)
 
     Returns:
         Result[tuple[Services, knowledge_backend]]: Success with wired services or failure

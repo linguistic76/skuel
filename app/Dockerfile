@@ -30,6 +30,7 @@ RUN poetry install --no-root && \
 # App code is bind-mounted via docker-compose volumes
 # No COPY of application code here
 
-EXPOSE 8000
+ARG APP_PORT=8000
+EXPOSE $APP_PORT
 
 CMD ["poetry", "run", "python", "main.py"]
