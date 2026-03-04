@@ -114,6 +114,13 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         }
     )
 
+    # Frequency windows in days for due/overdue calculations
+    _FREQUENCY_WINDOWS_DAYS: ClassVar[dict[str, int]] = {
+        "daily": 1,
+        "weekly": 7,
+        "monthly": 30,
+    }
+
     # Inherited from BaseService (December 2025):
     # - search(), get_by_status(), get_by_domain(), get_by_category(),
     # - list_categories(), get_by_relationship()
@@ -131,6 +138,15 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         """
         inactive = self._TERMINAL_STATUSES if include_paused else self._INACTIVE_STATUSES
         return not habit.status or habit.status.value not in inactive
+
+    def _get_frequency_window_days(self, recurrence_pattern: str | None) -> int:
+        """Return recurrence window in days (defaults to daily)."""
+        if not recurrence_pattern:
+            return self._FREQUENCY_WINDOWS_DAYS["daily"]
+        return self._FREQUENCY_WINDOWS_DAYS.get(
+            recurrence_pattern,
+            self._FREQUENCY_WINDOWS_DAYS["daily"],
+        )
 
     # ========================================================================
     # DOMAIN SEARCH OPERATIONS PROTOCOL IMPLEMENTATION
@@ -326,31 +342,15 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         self.logger.debug(f"Found {len(due_soon)} habits due within {days_ahead} days")
         return Result.ok(due_soon)
 
-    def _is_habit_due_in_window(self, habit: Habit, start_date: date, end_date: date) -> bool:
+    def _is_habit_due_in_window(self, habit: Habit, start_date: date, _end_date: date) -> bool:
         """Check if habit is due within the date window based on frequency."""
         if not habit.last_completed:
             return True  # Never completed - due
 
-        # last_completed is typed as datetime | None, so .date() is safe here
         last_date = habit.last_completed.date()
-
-        # recurrence_pattern is stored as plain string, defaults to "daily"
-        freq_value = habit.recurrence_pattern if habit.recurrence_pattern else "daily"
-
-        if freq_value == "daily":
-            # Daily habits are due if not completed today
-            return last_date < start_date
-        elif freq_value == "weekly":
-            # Weekly habits due if > 7 days since last completion
-            days_since = (start_date - last_date).days
-            return days_since >= 7
-        elif freq_value == "monthly":
-            # Monthly habits due if > 30 days since last completion
-            days_since = (start_date - last_date).days
-            return days_since >= 30
-        else:
-            # Default to daily
-            return last_date < start_date
+        window_days = self._get_frequency_window_days(habit.recurrence_pattern)
+        days_since = (start_date - last_date).days
+        return days_since >= window_days
 
     @with_error_handling("get_overdue", error_type="database")
     async def get_overdue(
@@ -402,26 +402,14 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         if not habit.last_completed:
             # Never completed - check if created > 1 day ago
             if habit.created_at:
-                # created_at is typed as datetime, so .date() is safe
                 created_date = habit.created_at.date()
                 return (today - created_date).days > 1
             return True
 
-        # last_completed is typed as datetime | None, so .date() is safe here
         last_date = habit.last_completed.date()
         days_since = (today - last_date).days
-
-        # recurrence_pattern is stored as plain string, defaults to "daily"
-        freq_value = habit.recurrence_pattern if habit.recurrence_pattern else "daily"
-
-        if freq_value == "daily":
-            return days_since > 1
-        elif freq_value == "weekly":
-            return days_since > 7
-        elif freq_value == "monthly":
-            return days_since > 30
-        else:
-            return days_since > 1
+        window_days = self._get_frequency_window_days(habit.recurrence_pattern)
+        return days_since > window_days
 
     # ========================================================================
     # HABIT-SPECIFIC SEARCH METHODS
@@ -647,30 +635,11 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
             else:
                 last_date = None
 
-            # Check frequency - daily habits are always due
-            # recurrence_pattern is stored as plain string, defaults to "daily"
-            freq_value = habit.recurrence_pattern if habit.recurrence_pattern else "daily"
-
-            if freq_value == "daily":
+            # Check frequency against window
+            window_days = self._get_frequency_window_days(habit.recurrence_pattern)
+            if not last_date:
                 due_today.append(habit)
-            elif freq_value == "weekly":
-                # Weekly habits due if not completed this week
-                if last_date:
-                    days_since = (today - last_date).days
-                    if days_since >= 7:
-                        due_today.append(habit)
-                else:
-                    due_today.append(habit)
-            elif freq_value == "monthly":
-                # Monthly habits due if not completed this month
-                if last_date:
-                    days_since = (today - last_date).days
-                    if days_since >= 30:
-                        due_today.append(habit)
-                else:
-                    due_today.append(habit)
-            else:
-                # Unknown frequency - assume daily
+            elif (today - last_date).days >= window_days:
                 due_today.append(habit)
 
         self.logger.debug(f"Found {len(due_today)} habits due today for {context}")
