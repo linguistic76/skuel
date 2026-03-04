@@ -32,7 +32,7 @@ Neo4j Schema:
 import hashlib
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 # Session configuration
 SESSION_TOKEN_BYTES = 32  # 256-bit tokens
@@ -88,7 +88,7 @@ class Session:
 
     def is_expired(self) -> bool:
         """Check if session has expired."""
-        return datetime.now(timezone.utc) > self.expires_at
+        return datetime.now(UTC) > self.expires_at
 
     def is_active(self) -> bool:
         """Check if session is valid and not expired."""
@@ -96,7 +96,7 @@ class Session:
 
     def time_until_expiry(self) -> timedelta:
         """Get time remaining until expiry."""
-        return self.expires_at - datetime.now(timezone.utc)
+        return self.expires_at - datetime.now(UTC)
 
     def should_refresh(self, threshold_days: int = 7) -> bool:
         """
@@ -120,7 +120,7 @@ class Session:
             user_uid=self.user_uid,
             created_at=self.created_at,
             expires_at=self.expires_at,
-            last_active_at=datetime.now(timezone.utc),
+            last_active_at=datetime.now(UTC),
             ip_address=self.ip_address,
             user_agent=self.user_agent,
             is_valid=self.is_valid,
@@ -169,7 +169,7 @@ def create_session(
     Returns:
         New Session instance with secure token
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     token = generate_session_token()
     return Session(
         uid=generate_session_uid(),

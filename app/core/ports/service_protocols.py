@@ -422,6 +422,10 @@ class GraphAuthOperations(Protocol):
         """Send password reset email. Always returns ok(True) to prevent enumeration."""
         ...
 
+    async def validate_session_uid(self, session_token: str) -> Result[str | None]:
+        """Validate session token and return user UID (fast path, no user fetch)."""
+        ...
+
 
 # ============================================================================
 # ORCHESTRATION — Goal→Task, Habit→Event

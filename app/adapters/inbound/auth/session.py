@@ -26,14 +26,19 @@ Architecture:
 """
 
 import os
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from functools import wraps
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from core.ports.service_protocols import GraphAuthOperations
 
 logger = get_logger("skuel.auth.session")
 
@@ -51,18 +56,6 @@ SESSION_SECRET_KEY_ENV = "SESSION_SECRET_KEY"  # Environment variable name
 # Security: Controlled via environment variable (January 2026 hardening)
 # If SKUEL_DEFAULT_DEV_USER is not set, defaults to "user_mike" (underscore convention)
 DEFAULT_DEV_USER = os.getenv("SKUEL_DEFAULT_DEV_USER", "user_mike")
-
-
-# ============================================================================
-# TYPE ALIASES
-# ============================================================================
-
-# UserUID is always a string with format "user.{name}", e.g., "user.mike"
-# Using a type alias provides:
-# - Documentation: Makes the expected format clear at call sites
-# - Consistency: Single source of truth for user identifier type
-# - Future-proofing: Easy to evolve to NewType if stricter typing needed
-UserUID = str
 
 
 # ============================================================================
@@ -104,7 +97,7 @@ def get_current_user(request: Request) -> UserUID | None:
 
         if user_uid:
             logger.debug(f"✅ Authenticated user found: {user_uid}")
-            return user_uid
+            return UserUID(user_uid)
 
         # No session - return None
         logger.debug(f"ℹ️ No session found - session keys: {list(session.keys())}")
@@ -151,10 +144,12 @@ def get_current_user_or_default(request: Request, default: UserUID = DEFAULT_DEV
         raise HTTPException(status_code=401, detail="Authentication required")
 
     logger.debug(f"No session - using default user: {default}")
-    return default
+    return UserUID(default)
 
 
-async def get_current_user_validated(request: Request, graph_auth: Any) -> UserUID | None:
+async def get_current_user_validated(
+    request: Request, graph_auth: "GraphAuthOperations"
+) -> UserUID | None:
     """
     Get current user with graph-native session validation.
 
@@ -201,7 +196,8 @@ async def get_current_user_validated(request: Request, graph_auth: Any) -> UserU
             logger.warning("Session validation failed - session may have been invalidated")
             return None
 
-        return cast("str | None", result.value)  # Returns user_uid directly
+        user_uid = result.value
+        return UserUID(user_uid) if user_uid else None  # Returns user_uid directly
 
     except Exception as e:
         logger.error(f"Error validating session: {e}")
@@ -265,7 +261,7 @@ def set_current_user(
         return
 
     session["user_uid"] = user_uid
-    session["logged_in_at"] = datetime.now(timezone.utc).isoformat()
+    session["logged_in_at"] = datetime.now(UTC).isoformat()
 
     if session_token:
         session["session_token"] = session_token
@@ -387,7 +383,7 @@ def require_authenticated_user(request: Request) -> UserUID:
 
         raise HTTPException(401, "Authentication required")
 
-    return user_uid
+    return UserUID(user_uid)
 
 
 # ============================================================================
