@@ -227,6 +227,12 @@ def check_file(md_file: Path, verbose: bool) -> list[tuple[Path, int, str, str]]
     return dead
 
 
+def _sort_dead_link_records(record: tuple[Path, int, str, str]) -> tuple[str, int]:
+    """Sort dead links by source file path then line number."""
+    source, lineno, _, _ = record
+    return str(source), lineno
+
+
 def main() -> int:
     import argparse
 
@@ -252,7 +258,7 @@ def main() -> int:
 
         # Group by source file
         by_file: dict[Path, list[tuple[int, str, str]]] = {}
-        for source, lineno, raw, kind in sorted(all_dead, key=lambda x: (str(x[0]), x[1])):
+        for source, lineno, raw, kind in sorted(all_dead, key=_sort_dead_link_records):
             by_file.setdefault(source, []).append((lineno, raw, kind))
 
         index_issues = 0
