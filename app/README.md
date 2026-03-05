@@ -226,12 +226,12 @@ Development mirrors analog note-taking: think deeply, plan on paper, then implem
 
 ### Running Tests
 
-**Integration Tests (Recommended - 100% passing)**
+**Integration Tests**
 ```bash
 poetry run pytest tests/integration/
 ```
 
-**Unit Tests (Migration in progress)**
+**Unit Tests**
 ```bash
 poetry run pytest tests/unit/
 ```
@@ -364,8 +364,8 @@ poetry run ruff format .
 ### Current State
 
 - **Architecture**: Stable - 14-domain + 5-system architecture complete
-- **Integration Tests**: 100% passing (434/434)
-- **Unit Tests**: Migration in progress (~95% passing)
+- **Integration Tests**: 808 passing (3 known failures in GraphQL test suite)
+- **Unit Tests**: 1082 passing (100%)
 - **Documentation**: 20+ ADRs, comprehensive `/docs/`
 - **Version Control**: Git integration developed but **not currently deployed**
 
