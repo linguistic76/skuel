@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-03-03'
+updated: '2026-03-05'
 category: patterns
 related_skills:
 - pytest
@@ -543,11 +543,19 @@ class UnifiedSharingService:
 
 ### Ownership Verification
 
-All mutation operations verify ownership before proceeding.
+All mutation operations verify ownership before proceeding. Ownership and shareable
+status are checked in a single Cypher round trip via `_verify_owned_and_shareable()`.
+This mirrors the logic in `CrudOperationsMixin.verify_ownership` — returns `not_found`
+for both missing entities and ownership mismatches to prevent UID enumeration.
+
+For operations that don't need a shareable check (unshare, unshare_from_group,
+set_visibility to PRIVATE), the method is called with `require_shareable=False`.
 
 ### Quality Control
 
-Only `COMPLETED` entities can be shared — enforced via `verify_shareable()`.
+Only `COMPLETED` entities can be shared (activity entities also allow `ACTIVE`).
+Enforced at service layer — `verify_shareable()` for standalone checks,
+or as part of the combined `_verify_owned_and_shareable()` for mutation operations.
 
 ### Access Control
 
@@ -571,16 +579,23 @@ All read operations use `check_access()`. Both "not found" and "forbidden" retur
 @pytest.fixture
 def mock_driver():
     driver = MagicMock()
-    driver.execute_query = AsyncMock()  # AsyncMock required — service awaits execute_query
-    return driver
+    session = AsyncMock()
+    driver.session.return_value.__aenter__ = AsyncMock(return_value=session)
+    driver.session.return_value.__aexit__ = AsyncMock(return_value=False)
+    return driver, session
 
 @pytest.mark.asyncio
 async def test_share_success(sharing_service, mock_driver):
-    mock_driver.execute_query.side_effect = [
-        ([{"actual_owner": "user_owner"}], None, None),  # ownership check
-        ([{"status": "completed"}], None, None),          # shareable check
-        ([{"success": True}], None, None),                # share query
-    ]
+    driver, session = mock_driver
+    # Query 1: combined ownership + shareable check
+    verify_result = AsyncMock()
+    verify_result.data = AsyncMock(return_value=[
+        {"actual_owner": "user_owner", "status": "completed", "ku_type": "submission"}
+    ])
+    # Query 2: share operation
+    share_result = AsyncMock()
+    share_result.data = AsyncMock(return_value=[{"success": True}])
+    session.run = AsyncMock(side_effect=[verify_result, share_result])
 
     result = await sharing_service.share(...)
     assert not result.is_error
