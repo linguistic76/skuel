@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import A, Body, Button, Div, Head, Html, Link, Main, Meta, P, Script, Title
 
 from ui.layouts.navbar import create_navbar, create_navbar_for_request
+from ui.theme import DAISYUI_VERSION
 from ui.layouts.page_types import PAGE_CONFIG, PageType
 
 if TYPE_CHECKING:
@@ -62,7 +63,7 @@ def _build_head(
         Title(f"{title} - SKUEL"),
         # DaisyUI CSS
         Link(
-            href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css",
+            href=f"https://cdn.jsdelivr.net/npm/daisyui@{DAISYUI_VERSION}/dist/full.min.css",
             rel="stylesheet",
             type="text/css",
         ),
