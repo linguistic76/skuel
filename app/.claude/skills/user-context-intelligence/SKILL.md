@@ -487,7 +487,7 @@ class LearningIntelligenceMixin:
 
 **See:** `core/ports/context_awareness_protocols.py`, adoption plan: `/home/mike/.claude/plans/context-awareness-protocol-adoption.md`
 
-**Domain-specific planning methods** (`get_at_risk_habits_for_user`, `get_actionable_tasks_for_user`, `get_upcoming_events_for_user`, `get_advancing_goals_for_user`, `get_pending_decisions_for_user`, `get_aligned_principles_for_user`) are provided by `_domain_planning_mixin.py` in the URS package via MRO — `DailyPlanningMixin` calls them on `self.tasks`, `self.habits`, etc.
+**Domain-specific planning methods** (`get_at_risk_habits_for_user`, `get_actionable_tasks_for_user`, `get_upcoming_events_for_user`, `get_advancing_goals_for_user`, `get_pending_decisions_for_user`, `get_aligned_principles_for_user`) are provided by `_domain_planning_mixin.py` in the URS package via MRO — `DailyPlanningMixin` calls them on `self.tasks`, `self.habits`, etc. Each method: (1) accepts a domain-specific protocol slice (`HabitAwareness`, `TaskAwareness`, etc.), (2) returns `Result.fail()` if `context.is_rich_context` is `False`, and (3) uses `context.get_rich_entities(domain, filter_uids)` for entity extraction.
 
 ---
 

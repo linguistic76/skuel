@@ -355,10 +355,10 @@ async def get_ready_to_work_on_today(self, context: UserContext) -> Result[Daily
 | Protocol | Fields | Primary consumer |
 |----------|--------|-----------------|
 | `CoreIdentity` | user_uid, username | Every context-aware service |
-| `TaskAwareness` | active/blocked/overdue tasks | `TasksPlanningService`, `DailyPlanningMixin` |
+| `TaskAwareness` | active/blocked/overdue tasks, `knowledge_mastery` | `TasksPlanningService`, `DailyPlanningMixin` |
 | `KnowledgeAwareness` | mastery, prerequisites, velocity | `ZPDService`, Askesis |
 | `HabitAwareness` | streaks, at-risk habits | `HabitsIntelligenceService` |
-| `GoalAwareness` | progress, milestones | `GoalsPlanningService` |
+| `GoalAwareness` | progress, milestones, `at_risk_goals` | `GoalsPlanningService` |
 | `EventAwareness` | upcoming events, schedule | `EventsSchedulingService` |
 | `PrincipleAwareness` | core principles, integrity | `PrinciplesIntelligenceService` |
 | `ChoiceAwareness` | pending choices | `ChoicesIntelligenceService` |
@@ -366,15 +366,31 @@ async def get_ready_to_work_on_today(self, context: UserContext) -> Result[Daily
 | `CrossDomainAwareness` | multi-domain subset | `UserContextIntelligence` cross-domain methods |
 | `FullAwareness` | all fields | Askesis dialogue, admin dashboard |
 
-**Testing benefit** — mock 5 fields instead of 240:
+**Cross-protocol fields** — all 7 domain-facing protocols share two fields that `DomainPlanningMixin` relies on:
+- `is_rich_context: bool` — `True` only when built via `build_rich()`. Domain planning methods return `Result.fail()` immediately if `False`.
+- `get_rich_entities(domain, filter_uids=None)` — canonical accessor for `entities_rich[domain]` with optional UID filtering; eliminates the repeated extraction loop pattern.
+
+**Testing benefit** — mock the narrow slice instead of 240 fields:
 ```python
 class MockTaskContext:
+    user_uid = "user_alice"
+    is_rich_context = True
     active_task_uids = ["task_abc"]
-    blocked_task_uids = []
+    blocked_task_uids = set()
+    completed_task_uids = set()
     overdue_task_uids = ["task_xyz"]
-    task_priorities = {"task_abc": "high"}
+    task_priorities = {"task_abc": 0.8}
+    tasks_by_goal = {}
+    knowledge_mastery = {}
+    entities_rich = {"tasks": [{"entity": {"uid": "task_abc", "title": "Fix bug"}, "graph_context": {}}]}
 
-result = await planning_service.get_ready_to_work_on_today(MockTaskContext())
+    def get_rich_entities(self, domain, filter_uids=None):
+        entities = self.entities_rich.get(domain, [])
+        if filter_uids is None:
+            return entities
+        return [e for e in entities if e.get("entity", {}).get("uid") in filter_uids]
+
+result = await planning_service.get_actionable_tasks_for_user(MockTaskContext())
 ```
 
 **See:** `/core/ports/context_awareness_protocols.py`, `/docs/architecture/INTELLIGENCE_BACKLOG.md` — remaining adoption backlog
