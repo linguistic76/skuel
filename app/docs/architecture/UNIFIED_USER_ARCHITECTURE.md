@@ -377,7 +377,7 @@ class MockTaskContext:
 result = await planning_service.get_ready_to_work_on_today(MockTaskContext())
 ```
 
-**See:** `/core/ports/context_awareness_protocols.py`, `/home/mike/.claude/plans/context-awareness-protocol-adoption.md`
+**See:** `/core/ports/context_awareness_protocols.py`, `/docs/architecture/INTELLIGENCE_BACKLOG.md` — remaining adoption backlog
 
 ### Mutation Rules
 

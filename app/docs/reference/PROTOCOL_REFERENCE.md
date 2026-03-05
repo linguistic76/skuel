@@ -682,7 +682,7 @@ class ActivityCarrier(KnowledgeCarrier, Protocol):
 
 **Location:** `/core/ports/context_awareness_protocols.py`
 **Purpose:** ISP-compliant slices of UserContext (~240 fields → focused protocols)
-**Status:** Defined, tested — pending adoption across intelligence and planning services
+**Status:** Defined, tested — partially adopted (planning mixins, 2026-03-05); remaining adoption ongoing
 
 ### Why These Protocols Exist
 
@@ -694,21 +694,21 @@ Context awareness is the core value of SKUEL. ZPD calculations, Askesis recommen
 
 ### Available Protocols
 
-| Protocol | Fields Covered | Primary Consumers (planned) |
-|----------|---------------|----------------------------|
-| `CoreIdentity` | user_uid, username | Every context-aware service |
-| `TaskAwareness` | active/blocked/overdue tasks, priorities | TasksPlanningService, TasksSchedulingService |
-| `KnowledgeAwareness` | mastery levels, prerequisites, velocity | ZPDService, AskesisRecommendationService |
-| `HabitAwareness` | streaks, at-risk habits, consistency | HabitsIntelligenceService |
-| `GoalAwareness` | progress, milestones | GoalsPlanningService |
-| `EventAwareness` | upcoming, scheduled events | EventsSchedulingService |
-| `PrincipleAwareness` | core principles, integrity scores | PrinciplesIntelligenceService |
-| `ChoiceAwareness` | pending choices, decision patterns | ChoicesIntelligenceService |
-| `LearningPathAwareness` | enrolled paths, current steps, ZPD | ZPDService, AskesisQueryService |
-| `CrossDomainAwareness` | Multi-domain subset | UserContextIntelligence cross-domain methods |
-| `FullAwareness` | All fields | Dashboards, Askesis (use sparingly) |
+| Protocol | Fields Covered | Adopted in | Next targets |
+|----------|---------------|------------|-------------|
+| `CoreIdentity` | user_uid, username | `PlanningMixin._is_completed`, `UnifiedRelationshipService` | Every context-aware service |
+| `TaskAwareness` | active/blocked/overdue tasks, priorities | `PlanningMixin`, `DomainPlanningMixin`, `UnifiedRelationshipService` | TasksPlanningService, TasksSchedulingService |
+| `KnowledgeAwareness` | mastery levels, prerequisites, velocity | `PlanningMixin.get_learning_related_for_user` | ZPDService, AskesisRecommendationService |
+| `HabitAwareness` | streaks, at-risk habits, consistency | `DomainPlanningMixin.get_at_risk_habits_for_user` | HabitsIntelligenceService |
+| `GoalAwareness` | progress, milestones | `PlanningMixin`, `DomainPlanningMixin`, `UnifiedRelationshipService` | GoalsPlanningService |
+| `EventAwareness` | upcoming, scheduled events | `DomainPlanningMixin.get_upcoming_events_for_user` | EventsSchedulingService |
+| `PrincipleAwareness` | core principles, integrity scores | `DomainPlanningMixin.get_aligned_principles_for_user` | PrinciplesIntelligenceService |
+| `ChoiceAwareness` | pending choices, decision patterns | `DomainPlanningMixin.get_pending_decisions_for_user` | ChoicesIntelligenceService |
+| `LearningPathAwareness` | enrolled paths, current steps, ZPD | — | ZPDService, AskesisQueryService |
+| `CrossDomainAwareness` | Multi-domain subset | `PlanningMixin.get_actionable_for_user`, `UnifiedRelationshipService` | Askesis cross-domain methods |
+| `FullAwareness` | All fields | — | Dashboards, Askesis (use sparingly) |
 
-### Usage Pattern (adoption target)
+### Usage Pattern
 
 ```python
 # Before: unclear what context fields are actually needed

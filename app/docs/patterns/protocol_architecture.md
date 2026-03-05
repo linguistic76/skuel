@@ -133,9 +133,9 @@ FullAwareness         → all fields (Askesis dialogue, admin — use sparingly)
 
 **Why this matters for ZPD and Askesis:** The Zone of Proximal Development computation only needs `KnowledgeAwareness & LearningPathAwareness`. A `ZPDService` that declares this dependency cannot accidentally read task or habit state — the constraint is MyPy-enforced.
 
-**Adoption target:** Every service that currently accepts `UserContext` should be updated to accept its narrowest awareness slice. `UserContext` satisfies all 11 protocols, so call sites do not change.
+**Adoption status (2026-03-05):** First adoption complete — `PlanningMixin`, `DomainPlanningMixin`, and `UnifiedRelationshipService` (15 method signatures across 3 files). Remaining adoption: Askesis services, domain intelligence services, domain planning/progress/scheduling services. `UserContext` satisfies all 11 protocols, so call sites do not change — only the callee signature narrows.
 
-**See:** `core/ports/context_awareness_protocols.py`, `UNIFIED_USER_ARCHITECTURE.md` → ISP Narrowing section
+**See:** `core/ports/context_awareness_protocols.py`, `UNIFIED_USER_ARCHITECTURE.md` → ISP Narrowing section, `/docs/architecture/INTELLIGENCE_BACKLOG.md` → Broader Protocol Adoption section
 
 ### Protocol Cleanup (February 2026)
 
