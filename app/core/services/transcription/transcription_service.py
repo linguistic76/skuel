@@ -162,7 +162,7 @@ class TranscriptionService(MetadataManagerMixin):
         """
         result = await self.get(uid)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
         if not result.value:
             return Result.fail(Errors.not_found("Transcription", uid))
         if result.value.user_uid != user_uid:

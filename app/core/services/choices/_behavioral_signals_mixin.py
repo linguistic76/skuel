@@ -383,7 +383,7 @@ class _BehavioralSignalsMixin:
         Returns:
             Result[DualTrackResult[DecisionQualityLevel]] with gap analysis
         """
-        return await self._dual_track_assessment(
+        return await self._dual_track_assessment(  # type: ignore[attr-defined]
             uid=user_uid,  # Using user_uid as entity for user-level assessment
             user_uid=user_uid,
             user_level=user_decision_quality_level,
