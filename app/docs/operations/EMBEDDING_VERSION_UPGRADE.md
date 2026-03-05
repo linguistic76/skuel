@@ -24,7 +24,7 @@ Update the embedding version and model in your environment:
 
 ```bash
 # Set new version
-export EMBEDDING_VERSION="v2"
+export GENAI_EMBEDDING_VERSION="v2"
 
 # Set new model (if model name changed)
 export GENAI_EMBEDDING_MODEL="text-embedding-3-small-v2"
@@ -215,7 +215,7 @@ export GENAI_ENABLED="false"
 
 ```bash
 # Roll back to previous version
-export EMBEDDING_VERSION="v1"
+export GENAI_EMBEDDING_VERSION="v1"
 export GENAI_EMBEDDING_MODEL="text-embedding-3-small"
 ```
 

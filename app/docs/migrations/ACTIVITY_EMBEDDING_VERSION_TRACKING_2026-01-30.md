@@ -76,7 +76,7 @@ poetry run python scripts/migrations/backfill_activity_embedding_versions.py
 
 **Changes:**
 - Added `embedding_version: str = field(default="v1")` to `GenAIConfig`
-- Added `EMBEDDING_VERSION` environment variable support
+- Added `GENAI_EMBEDDING_VERSION` environment variable support
 - Defaults to "v1" for backward compatibility
 
 **File:** `/services_bootstrap.py`
@@ -167,7 +167,7 @@ When OpenAI (or other provider) releases new embedding models:
 
 **Step 1:** Update configuration
 ```bash
-export EMBEDDING_VERSION="v2"
+export GENAI_EMBEDDING_VERSION="v2"
 export GENAI_EMBEDDING_MODEL="text-embedding-3-small-v2"
 ```
 
@@ -282,7 +282,7 @@ RETURN t.embedding_version
 - [x] Dry-run mode works correctly
 - [x] Upgrade workflow documented
 - [x] Query templates available
-- [x] Config supports `EMBEDDING_VERSION` env var
+- [x] Config supports `GENAI_EMBEDDING_VERSION` env var
 - [x] Tests updated with mock config
 - [x] Backward compatible (no breaking changes)
 
