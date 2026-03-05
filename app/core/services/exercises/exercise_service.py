@@ -18,6 +18,7 @@ Formerly AssignmentService — renamed to Exercise for domain clarity.
 """
 
 import json
+import os
 from datetime import date, datetime
 from typing import Any
 
@@ -328,6 +329,31 @@ class ExerciseService(BaseService):
     # ========================================================================
     # FILE-BASED EXERCISE LOADING
     # ========================================================================
+
+    async def seed_default_project(
+        self,
+        instructions_path: str | None = None,
+        project_uid: str = "jp.transcript_default",
+        model: str = "gpt-4o",
+    ) -> Result[Exercise]:
+        """Load/update default transcript project from instructions file.
+
+        Called at startup to ensure default exercises exist.
+        Encapsulates file resolution, system user ownership, and idempotent create/update.
+        """
+        from pathlib import Path
+
+        path = instructions_path or os.getenv(
+            "SKUEL_TRANSCRIPT_INSTRUCTIONS_PATH",
+            str(Path(__file__).parents[3] / "data" / "instructions - transcripts 0.md"),
+        )
+
+        return await self.load_project_from_file(
+            file_path=path,
+            user_uid="user_system",
+            project_uid=project_uid,
+            model=model,
+        )
 
     async def load_project_from_file(
         self, file_path: str, user_uid: str, project_uid: str | None = None, model: str = "gpt-4o"

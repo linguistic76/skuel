@@ -1686,33 +1686,12 @@ async def compose_services(
         notification_service = NotificationService(executor=query_executor)
         logger.info("✅ NotificationService created")
 
-        # Load default transcript instructions from file
-        # This creates/updates a reusable project that users can edit by modifying the file
-        default_instructions_path = os.getenv(
-            "SKUEL_TRANSCRIPT_INSTRUCTIONS_PATH",
-            "/home/mike/skuel/app/data/instructions - transcripts 0.md",
-        )
-        default_project_uid = "jp.transcript_default"
-
-        try:
-            from pathlib import Path
-
-            if Path(default_instructions_path).exists():
-                # load_project_from_file handles both create and update
-                result = await exercise_service.load_project_from_file(
-                    file_path=default_instructions_path,
-                    user_uid="user_system",  # System-owned default project (UID follows user_{username} pattern)
-                    project_uid=default_project_uid,
-                    model="gpt-4o",
-                )
-                if result.is_ok:
-                    logger.info(f"✅ Default transcript project loaded: {default_project_uid}")
-                else:
-                    logger.warning(f"Failed to load default transcript project: {result.error}")
-            else:
-                logger.warning(f"Default instructions file not found: {default_instructions_path}")
-        except Exception as e:
-            logger.warning(f"Failed to load default transcript project: {e}")
+        # Seed default transcript exercise (idempotent create/update)
+        seed_result = await exercise_service.seed_default_project()
+        if seed_result.is_ok:
+            logger.info("Default transcript project loaded")
+        else:
+            logger.warning(f"Default transcript project: {seed_result.error}")
 
         # Create submissions submission and processing pipeline services
         from core.services.submissions import (
