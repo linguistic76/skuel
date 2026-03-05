@@ -18,6 +18,7 @@ Usage:
 """
 
 import argparse
+import os
 import asyncio
 import sys
 from pathlib import Path
@@ -248,7 +249,11 @@ async def main():
     parser.add_argument(
         "--cleanup", action="store_true", help="Remove test data instead of creating it"
     )
-    parser.add_argument("--neo4j-uri", default="bolt://localhost:7687", help="Neo4j connection URI")
+    parser.add_argument(
+        "--neo4j-uri",
+        default=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+        help="Neo4j connection URI",
+    )
     parser.add_argument("--neo4j-user", default="neo4j", help="Neo4j username")
     parser.add_argument(
         "--neo4j-password",

@@ -30,8 +30,8 @@ logger = get_logger(__name__)
 
 
 async def clear_database(
-    uri: str = "bolt://localhost:7687",
-    username: str = "neo4j",
+    uri: str | None = None,
+    username: str | None = None,
     password: str | None = None,
     confirm: bool = False,
 ):
@@ -39,14 +39,17 @@ async def clear_database(
     Clear all nodes and relationships from Neo4j database.
 
     Args:
-        uri: Neo4j connection URI,
-        username: Neo4j username,
-        password: Neo4j password,
+        uri: Neo4j connection URI (defaults to env/settings)
+        username: Neo4j username (defaults to env/settings)
+        password: Neo4j password (defaults to credential store/env)
         confirm: If False, will prompt for confirmation
 
     Returns:
         Statistics about what was deleted
     """
+
+    uri = uri or os.getenv("NEO4J_URI", "bolt://localhost:7687")
+    username = username or os.getenv("NEO4J_USERNAME", "neo4j")
 
     # Get password from credential store or prompt
     if password is None:
@@ -255,8 +258,8 @@ async def clear_with_constraints(
 
 async def clear_domain_bundle_only(
     bundle_name: str,
-    uri: str = "bolt://localhost:7687",
-    username: str = "neo4j",
+    uri: str | None = None,
+    username: str | None = None,
     password: str | None = None,
 ):
     """
@@ -267,6 +270,9 @@ async def clear_domain_bundle_only(
     Args:
         bundle_name: Name of bundle to remove (e.g., "mindfulness_101")
     """
+
+    uri = uri or os.getenv("NEO4J_URI", "bolt://localhost:7687")
+    username = username or os.getenv("NEO4J_USERNAME", "neo4j")
 
     # Get password from credential store or prompt
     if password is None:

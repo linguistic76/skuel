@@ -18,6 +18,7 @@ Run with:
 """
 
 import asyncio
+import os
 from datetime import date, datetime, timedelta
 
 from neo4j import AsyncGraphDatabase
@@ -386,9 +387,16 @@ async def main():
     logger.info("=" * 60)
 
     # Neo4j connection
-    neo4j_uri = "bolt://localhost:7687"
-    neo4j_user = "neo4j"
-    neo4j_password = "skuelneo4j"
+    neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+    neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
+    neo4j_password = os.getenv("NEO4J_PASSWORD", "")
+    if not neo4j_password:
+        try:
+            from core.config.credential_store import get_credential
+
+            neo4j_password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
+        except Exception:
+            neo4j_password = "neo4j"
 
     logger.info(f"\nConnecting to Neo4j at {neo4j_uri}...")
 
