@@ -74,7 +74,7 @@ class ZPDOperations(Protocol):
             ku_uid: Knowledge Unit to score
 
         Returns:
-            Result[float]: Readiness score 0.0–1.0. 1.0 means all
+            Result[float]: Readiness score 0.0-1.0. 1.0 means all
                 prerequisites are met; 0.0 means none are.
         """
         ...

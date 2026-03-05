@@ -130,8 +130,11 @@ async def batch_load_learning_steps(keys: list[str], context: GraphQLContext) ->
 
     # Try to batch load if service supports it
     # If not, fall back to individual loads
+    batch_method = getattr(context.services.ls, "get_learning_steps_batch", None)
     try:
-        result = await context.services.ls.get_learning_steps_batch(list(keys))
+        if batch_method is None:
+            raise AttributeError("batch method not available")
+        result = await batch_method(list(keys))
 
         if result.is_error:
             logger.error(f"❌ Batch load failed: {result.error}")

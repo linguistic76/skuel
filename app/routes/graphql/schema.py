@@ -564,7 +564,7 @@ class Query:
             return None
 
         # Get path steps with type safety
-        steps_result: Result[list[LsModel]] = await context.services.lp.get_steps(path_uid)
+        steps_result: Result[list[LsModel]] = await context.services.lp.get_path_steps(path_uid)
         steps: list[LsModel] = steps_result.value if steps_result.is_ok else []
 
         # Calculate progress from steps
@@ -969,7 +969,7 @@ class Query:
             return []
 
         # Get path steps
-        steps_result = await context.services.lp.get_steps(path_uid)
+        steps_result = await context.services.lp.get_path_steps(path_uid)
         if steps_result.is_error:
             return []
 

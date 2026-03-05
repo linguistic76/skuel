@@ -139,6 +139,7 @@ __all__ = [
     "CacheStrategy",
     "ChoiceType",
     "CompletionStatus",
+    "Confidence",
     "ConsistencyLevel",
     "ContentOrigin",
     "ContentScope",

@@ -102,7 +102,7 @@ class LearningPath:
             return []
 
         # Get steps with type safety
-        result: Result[list[LsModel]] = await context.services.lp.get_steps(self.uid)
+        result: Result[list[LsModel]] = await context.services.lp.get_path_steps(self.uid)
 
         if result.is_error or not result.value:
             return []

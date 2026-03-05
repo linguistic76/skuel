@@ -233,7 +233,7 @@ class ZPDService:
         return Result.ok(assessment.top_proximal_ku_uids())
 
     async def get_readiness_score(self, user_uid: str, ku_uid: str) -> Result[float]:
-        """Get the readiness score for a specific KU (0.0–1.0).
+        """Get the readiness score for a specific KU (0.0-1.0).
 
         Returns 0.0 for KUs not in the proximal zone.
         """
@@ -268,8 +268,8 @@ class ZPDService:
             self._logger.error("ZPD zone query failed for %s: %s", user_uid, exc)
             return Result.fail(
                 Errors.database(
-                    f"ZPD zone query failed: {exc}",
-                    source="ZPDService._run_zone_query",
+                    operation="ZPDService._run_zone_query",
+                    message=f"ZPD zone query failed: {exc}",
                 )
             )
 

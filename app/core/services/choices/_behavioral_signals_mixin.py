@@ -513,7 +513,7 @@ class _BehavioralSignalsMixin:
         return level.to_score()
 
     @staticmethod
-    def _generate_choice_gap_insights(direction: str, gap: float, entity_name: str) -> list[str]:
+    def _generate_choice_gap_insights(direction: str, gap: float, _entity_name: str) -> list[str]:
         """Generate choice-specific insights based on perception gap."""
         insights: list[str] = []
 
@@ -879,10 +879,7 @@ class _BehavioralSignalsMixin:
 
         # Factor 2: Knowledge-informed (25% weight)
         knowledge_count = len(rels.informed_by_knowledge_uids)
-        if knowledge_count == 0:
-            knowledge_factor = 0.0
-        else:
-            knowledge_factor = min(0.25, knowledge_count * 0.08)
+        knowledge_factor = 0.0 if knowledge_count == 0 else min(0.25, knowledge_count * 0.08)
 
         # Factor 3: Historical correlation (25% weight)
         # Query past decisions with similar patterns

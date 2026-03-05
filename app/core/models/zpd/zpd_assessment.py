@@ -43,7 +43,7 @@ class ZPDAssessment:
         i.e., paths that contain at least one current_zone KU.
 
     readiness_scores : dict[str, float]
-        Mapping of ku_uid → readiness score (0.0–1.0) for each proximal KU.
+        Mapping of ku_uid -> readiness score (0.0-1.0) for each proximal KU.
         Score = fraction of the KU's prerequisites that are in current_zone.
         A KU with no prerequisites scores 1.0 (fully ready).
 
@@ -52,7 +52,7 @@ class ZPDAssessment:
         These are prerequisite KUs not yet in current_zone that gate proximal KUs.
 
     behavioral_readiness : float
-        Aggregate behavioral readiness score (0.0–1.0) derived from:
+        Aggregate behavioral readiness score (0.0-1.0) derived from:
         - ChoicesIntelligence.get_zpd_behavioral_signals(): principle adherence,
           decision consistency, conflict count, high-quality decision rate
         - HabitsIntelligence.get_zpd_knowledge_signals(): reinforcement strength
