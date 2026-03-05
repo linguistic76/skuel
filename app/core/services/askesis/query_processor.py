@@ -25,7 +25,6 @@ Architecture:
 - Delegates intent classification to IntentClassifier
 - Delegates response generation to ResponseGenerator
 - Fail-fast design: requires LLMService for natural language generation
-- Returns Result[T] for error handling
 
 January 2026: Refactored to use IntentClassifier and ResponseGenerator
 for single responsibility and reduced file size (962 → ~500 lines).
@@ -71,7 +70,6 @@ class QueryProcessor:
     - Orchestrates EntityExtractor for entity extraction
     - Orchestrates ContextRetriever for context retrieval
     - Requires LLMService for natural language generation
-    - Returns Result[T] for error handling
     - Uses QueryProcessorConfidence for dynamic confidence scoring
 
     January 2026: Refactored to use IntentClassifier and ResponseGenerator

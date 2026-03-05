@@ -24,7 +24,6 @@ Architecture:
 - Requires GraphIntelligenceService for graph intelligence queries (optional)
 - Requires EmbeddingsService for semantic search (optional)
 - Uses UserContext for user state
-- Returns Result[T] for error handling
 """
 
 from __future__ import annotations
@@ -58,7 +57,6 @@ class ContextRetriever:
     Architecture:
     - Requires GraphIntelligenceService for graph queries (optional)
     - Requires EmbeddingsService for semantic search (optional)
-    - Uses CypherGenerator for query building
     - Returns frozen dataclasses (LearningContext)
     """
 

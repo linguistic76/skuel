@@ -45,7 +45,6 @@ class UserProgressRecorderService:
 
     Architecture:
     - Protocol-based repository dependency (UserOperations)
-    - Returns Result[T] for error handling
     - Uses graph relationships for tracking learning state
     - Integrates with progress metrics system
     """

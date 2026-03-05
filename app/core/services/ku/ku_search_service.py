@@ -17,8 +17,6 @@ Architecture (January 2026 - ADR-023 Harmonization):
 - Class attributes configure behavior
 
 SKUEL Architecture:
-- Uses CypherGenerator for ALL graph queries
-- Returns Result[T] for error handling
 - No custom filter classes - uses SearchRequest
 """
 
@@ -81,8 +79,6 @@ class KuSearchService(BaseService[KuOperations, Entity]):
     - search_by_facets() - Multi-faceted search
 
     SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - Returns Result[T] for error handling
     - No driver parameter - uses backend.execute_query()
     """
 

@@ -15,7 +15,6 @@ Responsibilities:
 
 Architecture:
 - Uses direct Cypher queries via Neo4j driver
-- Returns Result[T] for error handling
 - Stores relationship properties for time tracking
 """
 

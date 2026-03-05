@@ -76,8 +76,6 @@ class FinanceCoreService:
 
     SKUEL Architecture:
     - Standalone service (no BaseService inheritance)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     def __init__(self, backend: FinancesOperations, event_bus: Any = None) -> None:

@@ -66,8 +66,6 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
     - intelligent_search(query) - NLP-enhanced search with filter extraction
 
     SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - Returns Result[T] for error handling
     - No custom filter classes - uses SearchRequest
     """
 

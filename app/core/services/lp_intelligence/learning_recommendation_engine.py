@@ -20,7 +20,6 @@ This service is part of the refactored LpIntelligenceService architecture:
 Architecture:
 - Depends on LearningStateAnalyzer for learning state analysis
 - Optional learning_backend for path data
-- Returns Result[T] for error handling
 - Uses UserContext as input
 """
 
@@ -98,7 +97,6 @@ class LearningRecommendationEngine:
         Args:
             event: LearningPathCompleted event containing path completion details
 
-
         - Subscribes to: LearningPathCompleted
         - Publishes: LearningRecommendationGenerated (via event bus)
         """
@@ -175,7 +173,6 @@ class LearningRecommendationEngine:
 
         Args:
             event: KnowledgeMastered event containing mastery details
-
 
         - Subscribes to: KnowledgeMastered
         - Publishes: LearningRecommendationGenerated (via event bus)

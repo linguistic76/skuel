@@ -62,8 +62,6 @@ class AskesisCoreService:
 
     Architecture:
     - Uses protocol-based backend for storage (protocol-based dependency injection)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     def __init__(self, backend: BackendOperations) -> None:

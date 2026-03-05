@@ -122,9 +122,6 @@ class SemanticRelationshipHelper[T, DTO]:
     **70 lines → 5 lines (93% reduction)**
 
     SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     - Leverages BaseService._to_domain_model() from
     """
 

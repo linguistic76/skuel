@@ -49,7 +49,6 @@ class UserCoreService:
 
     Architecture:
     - Protocol-based repository dependency (UserOperations)
-    - Returns Result[T] for error handling
     - Uses frozen dataclass User model with immutable updates
     - Graph-native authentication with bcrypt password hashing
     """

@@ -95,8 +95,6 @@ class FinanceService:
 
     SKUEL Architecture:
     - Standalone service (no unified architecture patterns)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     def __init__(

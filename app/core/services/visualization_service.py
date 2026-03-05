@@ -12,7 +12,6 @@ Supports three visualization libraries:
 Architecture:
 - Adapts domain models to library-specific JSON formats
 - No external dependencies (pure Python transformation)
-- Returns Result[T] for error handling
 - Works with CalendarData, Task, and ReportMetrics
 
 Usage:

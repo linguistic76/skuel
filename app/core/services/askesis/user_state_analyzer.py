@@ -22,7 +22,6 @@ This service is part of the refactored EnhancedAskesisService architecture:
 
 Architecture:
 - Depends on ActionRecommendationEngine for recommendations (injected)
-- Returns Result[T] for error handling
 - Uses UserContext as primary input
 """
 

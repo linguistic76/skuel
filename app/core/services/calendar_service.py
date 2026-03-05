@@ -85,7 +85,7 @@ class CalendarService:
 
     This is a meta-service: it delegates all graph queries to the injected domain
     services (TasksOperations, EventsOperations, HabitsOperations). It does not
-    write Cypher directly. Returns Result[T] for error handling.
+    write Cypher directly.
     """
 
     def __init__(

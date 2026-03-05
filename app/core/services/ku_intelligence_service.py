@@ -15,7 +15,6 @@ Architecture:
 - Uses shared intelligence utilities (NO cross-service dependencies)
 - Uses GraphIntelligenceService for semantic graph analysis
 - Uses Neo4jGenAIEmbeddingsService for semantic similarity
-- Returns Result[T] for error handling
 """
 
 from datetime import datetime

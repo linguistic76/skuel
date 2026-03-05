@@ -83,12 +83,6 @@ class GraphContextOrchestrator[T, DTO]:
     ```
 
     **50 lines → 5 lines (90% reduction)**
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     def __init__(

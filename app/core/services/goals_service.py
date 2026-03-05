@@ -133,11 +133,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     - Orchestration: create_goal_with_context, generate_tasks_for_goal, assess_goal_feasibility
 
     SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
     - Uses explicit delegation methods (February 2026)
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     # ========================================================================

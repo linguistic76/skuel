@@ -184,8 +184,6 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
 
     SKUEL Architecture:
     - Uses BaseService for DTO conversion
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     # ========================================================================

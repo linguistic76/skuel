@@ -22,7 +22,6 @@ This service is part of the refactored EnhancedAskesisService architecture:
 
 Architecture:
 - Depends on UserStateAnalyzer for state scoring and blockers (injected)
-- Returns Result[T] for error handling
 - Uses UserContext as primary input
 """
 

@@ -20,7 +20,6 @@ Methods:
 Architecture:
 - Extends BaseIntelligenceService[BackendOperations[Ls], Ls]
 - Uses direct Cypher for complex aggregation queries
-- Returns Result[T] for error handling
 """
 
 from __future__ import annotations

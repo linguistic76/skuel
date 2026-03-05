@@ -23,7 +23,6 @@ This service is part of the refactored EnhancedAskesisService architecture:
 Architecture:
 - Requires domain services (knowledge, tasks, goals, habits, events) for entity lookup
 - Uses fuzzy matching for flexible entity recognition
-- Returns Result[T] for error handling
 """
 
 from __future__ import annotations

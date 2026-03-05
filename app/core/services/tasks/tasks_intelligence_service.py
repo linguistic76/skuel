@@ -21,7 +21,6 @@ See TasksAIService for AI-powered features.
 Architecture:
 - Uses shared intelligence utilities (NO cross-service dependencies)
 - Uses GraphIntelligenceService for graph queries (infrastructure only)
-- Returns Result[T] for error handling
 """
 
 from __future__ import annotations

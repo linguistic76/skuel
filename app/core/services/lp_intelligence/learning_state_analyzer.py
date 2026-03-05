@@ -20,7 +20,6 @@ This service is part of the refactored LpIntelligenceService architecture:
 Architecture:
 - Depends on progress_backend for user progress data
 - Optional embeddings_service for vector analysis
-- Returns Result[T] for error handling
 - Uses UserContext as input
 """
 

@@ -156,8 +156,6 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 
     SKUEL Architecture:
     - Uses explicit delegation methods (February 2026)
-    - Uses CypherGenerator for ALL graph queries
-    - Returns Result[T] for error handling
     """
 
     # ========================================================================

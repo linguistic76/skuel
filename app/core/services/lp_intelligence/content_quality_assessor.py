@@ -21,7 +21,6 @@ This service is part of the refactored LpIntelligenceService architecture:
 
 Architecture:
 - Depends on ContentAnalyzer for metadata extraction
-- Returns Result[T] for error handling
 - Protocol-based content input (ContentAdapter)
 """
 

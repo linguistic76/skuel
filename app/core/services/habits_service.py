@@ -116,10 +116,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
     - Enrichment: get_enriched_learning_summary, get_enriched_curriculum_metadata
 
     SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
     - Uses explicit delegation methods (February 2026)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     # ========================================================================

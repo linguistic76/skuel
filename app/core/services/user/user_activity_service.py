@@ -84,7 +84,6 @@ class UserActivityService:
 
     Architecture:
     - Protocol-based repository dependency (UserOperations)
-    - Returns Result[T] for error handling
     - Integrates with event-driven context invalidation
     - Performance monitoring for context operations
     """

@@ -38,8 +38,6 @@ ActivityExtractorService.extract_and_create()
 SKUEL Entities (Tasks, Habits, Goals, etc.)
 ```
 
-**Architecture:**
-
 The bridge uses a two-phase approach:
 1. **Recognition Phase**: LLM identifies actionable items in the text
 2. **Tagging Phase**: LLM adds appropriate @context tags and attributes
@@ -259,7 +257,9 @@ class LLMDSLBridgeService:
 
         # Select and render prompt template
         template_id = (
-            "dsl_domain_recognition_compact" if self.use_compact_prompt else "dsl_domain_recognition"
+            "dsl_domain_recognition_compact"
+            if self.use_compact_prompt
+            else "dsl_domain_recognition"
         )
         prompt = PROMPT_REGISTRY.render(template_id, journal_text=text)
 

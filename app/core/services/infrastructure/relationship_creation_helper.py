@@ -86,8 +86,6 @@ class RelationshipCreationHelper[T, DTO]:
 
     SKUEL Architecture:
     - Follows SemanticRelationshipHelper pattern exactly
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     - Leverages BaseService infrastructure
     - Protocol-based backend calls
     """

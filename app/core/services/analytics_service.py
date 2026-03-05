@@ -142,7 +142,6 @@ class AnalyticsService:
         Args:
             event: GoalAchieved event containing goal completion details
 
-
         - Subscribes to: GoalAchieved
         - Generates: Goal achievement summary report
 
@@ -192,7 +191,6 @@ class AnalyticsService:
 
         Args:
             event: LearningPathCompleted event
-
 
         - Subscribes to: LearningPathCompleted
         - Generates: Learning progress summary
@@ -247,7 +245,6 @@ class AnalyticsService:
 
         Args:
             event: HabitStreakMilestone event
-
 
         - Subscribes to: HabitStreakMilestone
         - Generates: Habit consistency report

@@ -103,8 +103,6 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
 
     SKUEL Architecture:
     - Uses explicit delegation methods (February 2026)
-    - Uses CypherGenerator for ALL graph queries
-    - Returns Result[T] for error handling
     """
 
     # ========================================================================

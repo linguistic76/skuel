@@ -79,8 +79,6 @@ class EntityChunkingService:
 
     This is a pure in-memory processing service — it does not query Neo4j directly.
     All graph persistence is handled by the calling service (SubmissionsCoreService).
-
-    Returns Result[T] for error handling. Logs operations with structured logging.
     """
 
     def __init__(self) -> None:
