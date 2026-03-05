@@ -29,10 +29,9 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import JSONResponse, Request
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
-
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.services.user import UserContext
 from core.utils.logging import get_logger

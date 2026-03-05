@@ -31,15 +31,11 @@ from core.services.choices._behavioral_signals_mixin import _BehavioralSignalsMi
 from core.services.choices._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.intelligence import GraphContextOrchestrator
 from core.services.intelligence.path_aware_intelligence_helper import PathAwareIntelligenceHelper
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.ports.domain_protocols import ChoicesOperations, ChoicesRelationshipOperations
-    from core.services.choices.choices_types import (
-        ChoiceImpactAnalysis,
-        DecisionIntelligence,
-    )
     from core.services.insight.insight_store import InsightStore
 
 

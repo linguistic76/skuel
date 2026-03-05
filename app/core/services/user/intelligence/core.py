@@ -55,6 +55,7 @@ from core.services.user.intelligence.synergy_intelligence import SynergyIntellig
 from core.services.user.intelligence.temporal_momentum import TemporalMomentumMixin
 
 if TYPE_CHECKING:
+    from core.ports.zpd_protocols import ZPDOperations
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.calendar_service import CalendarService
 
@@ -65,7 +66,6 @@ if TYPE_CHECKING:
     from core.services.relationships import UnifiedRelationshipService
     from core.services.submissions import SubmissionsRelationshipService
     from core.services.user.unified_user_context import UserContext
-    from core.ports.zpd_protocols import ZPDOperations
 
 
 class UserContextIntelligence(

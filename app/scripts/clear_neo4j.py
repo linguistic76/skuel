@@ -19,8 +19,8 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from dotenv import load_dotenv
-from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.utils.logging import get_logger
 
 # Load environment variables

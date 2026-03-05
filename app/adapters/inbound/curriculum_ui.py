@@ -13,11 +13,10 @@ Layout: Standard BasePage.
 from typing import Any
 
 from fasthtml.common import H1, A, Div, P, Span
-
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
 

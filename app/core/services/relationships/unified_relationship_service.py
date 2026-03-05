@@ -84,7 +84,6 @@ if TYPE_CHECKING:
         GoalAwareness,
         TaskAwareness,
     )
-    from core.services.user.unified_user_context import UserContext
 
 # Type variables
 T = TypeVar("T")  # Domain model type

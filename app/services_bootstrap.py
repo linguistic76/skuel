@@ -123,37 +123,37 @@ if TYPE_CHECKING:
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
     from core.services.background.progress_feedback_worker import ProgressFeedbackWorker
     from core.services.calendar_optimization_service import CalendarOptimizationService
+
+    # Facade services — concrete class IS the contract (no parallel protocol needed)
+    from core.services.choices_service import ChoicesService
     from core.services.content_enrichment_service import ContentEnrichmentService
     from core.services.context_aware_ai_service import ContextAwareAIService
     from core.services.cross_domain_queries import CrossDomainQueries
+    from core.services.events_service import EventsService
     from core.services.feedback.activity_report_service import ActivityReportService
     from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
     from core.services.feedback.progress_schedule_service import ProgressScheduleService
     from core.services.feedback.review_queue_service import ReviewQueueService
+    from core.services.goals_service import GoalsService
+    from core.services.habits_service import HabitsService
     from core.services.insight.insight_store import InsightStore
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
+    from core.services.ku_service import KuService
+    from core.services.lp_service import LpService
+    from core.services.ls_service import LsService
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.notifications.notification_service import NotificationService
     from core.services.performance_optimization_service import PerformanceOptimizationService
+    from core.services.principles_service import PrinciplesService
     from core.services.submissions.journal_output_generator import JournalOutputGenerator
+    from core.services.tasks_service import TasksService
     from core.services.transcription.transcription_service import TranscriptionService
     from core.services.user.intelligence.factory import (
         UserContextIntelligenceFactory,
     )
     from core.services.user_progress_service import UserProgressService
     from core.services.user_relationship_service import UserRelationshipService
-
-    # Facade services — concrete class IS the contract (no parallel protocol needed)
-    from core.services.choices_service import ChoicesService
-    from core.services.events_service import EventsService
-    from core.services.goals_service import GoalsService
-    from core.services.habits_service import HabitsService
-    from core.services.ku_service import KuService
-    from core.services.lp_service import LpService
-    from core.services.ls_service import LsService
-    from core.services.principles_service import PrinciplesService
-    from core.services.tasks_service import TasksService
 
 from core.ports import (
     AskesisCoreOperations,

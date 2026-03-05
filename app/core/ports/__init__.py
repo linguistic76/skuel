@@ -265,15 +265,15 @@ from .service_protocols import (
 # Sharing protocol — cross-cutting, any entity type can be shared
 from .sharing_protocols import SharingOperations
 
-# ZPD protocol — Zone of Proximal Development (March 2026)
-from .zpd_protocols import ZPDOperations
-
 # Submission protocols — Submission stage of the educational loop
 from .submission_protocols import (
     SubmissionOperations,
     SubmissionProcessingOperations,
     SubmissionSearchOperations,
 )
+
+# ZPD protocol — Zone of Proximal Development (March 2026)
+from .zpd_protocols import ZPDOperations
 
 # ============================================================================
 # EXPLICIT EXPORTS - Protocol Catalog (ISP-compliant Nov 2025)

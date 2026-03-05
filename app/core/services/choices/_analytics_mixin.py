@@ -14,13 +14,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_domain_choice_count
-
-if TYPE_CHECKING:
-    pass
 
 
 class _AnalyticsMixin:

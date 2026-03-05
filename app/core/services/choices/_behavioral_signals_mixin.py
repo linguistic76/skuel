@@ -30,7 +30,6 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.events.choice_events import ChoiceMade, ChoiceOutcomeRecorded
-    from core.models.choice.choice import Choice
 
 
 class _BehavioralSignalsMixin:

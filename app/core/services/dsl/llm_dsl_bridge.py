@@ -52,7 +52,6 @@ from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-
 # ============================================================================
 # TRANSFORMATION RESULT
 # ============================================================================

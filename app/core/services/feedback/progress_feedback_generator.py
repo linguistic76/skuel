@@ -31,13 +31,13 @@ if TYPE_CHECKING:
     from core.services.user.user_context_builder import UserContextBuilder
 
 from core.constants import FeedbackTimePeriod  # also: MIN_REPORT_COOLDOWN_MINUTES
-from core.prompts import PROMPT_REGISTRY
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.models.enums.submissions_enums import ProgressDepth
 from core.models.feedback.activity_report import ActivityReport
 from core.ports.infrastructure_protocols import EventBusOperations
+from core.prompts import PROMPT_REGISTRY
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

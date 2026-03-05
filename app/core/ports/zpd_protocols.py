@@ -30,7 +30,7 @@ class ZPDOperations(Protocol):
     - AskesisService.analyze_user_state() — ZPDAssessment in state snapshot
     """
 
-    async def assess_zone(self, user_uid: str) -> "Result[ZPDAssessment]":
+    async def assess_zone(self, user_uid: str) -> Result[ZPDAssessment]:
         """Compute the user's full ZPD from the curriculum graph.
 
         2-hop traversal: current zone → proximal zone → readiness scores.
@@ -47,7 +47,7 @@ class ZPDOperations(Protocol):
         """
         ...
 
-    async def get_proximal_ku_uids(self, user_uid: str) -> "Result[list[str]]":
+    async def get_proximal_ku_uids(self, user_uid: str) -> Result[list[str]]:
         """Get only the proximal zone KU UIDs for lightweight callers.
 
         Convenience wrapper over assess_zone() that extracts just the
@@ -63,7 +63,7 @@ class ZPDOperations(Protocol):
         """
         ...
 
-    async def get_readiness_score(self, user_uid: str, ku_uid: str) -> "Result[float]":
+    async def get_readiness_score(self, user_uid: str, ku_uid: str) -> Result[float]:
         """Get the readiness score for a specific KU.
 
         Calls assess_zone() and extracts the score for the given KU.

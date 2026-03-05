@@ -28,8 +28,8 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import A, Body, Button, Div, Head, Html, Link, Main, Meta, P, Script, Title
 
 from ui.layouts.navbar import create_navbar, create_navbar_for_request
-from ui.theme import ALPINE_VERSION, DAISYUI_VERSION, HTMX_VERSION
 from ui.layouts.page_types import PAGE_CONFIG, PageType
+from ui.theme import ALPINE_VERSION, DAISYUI_VERSION, HTMX_VERSION
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
