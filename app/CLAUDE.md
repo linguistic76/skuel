@@ -531,7 +531,9 @@ Analytics is a meta-service, not a domain. No Analytics nodes in Neo4j. READ-ONL
 Presentation logic lives inside enum methods. Magic numbers live in `/core/constants.py`.
 
 ```python
-Priority.get_color()                           # Dynamic enum methods
+Priority.get_color()                           # "#F59E0B" (amber for HIGH)
+Confidence.get_color()                         # "#6D28D9" (purple for CERTAIN)
+Confidence.to_numeric()                        # 0.3 (UNCERTAIN) → 1.0 (CERTAIN)
 EntityStatus.is_terminal()                     # Terminal state check
 EntityStatus.ACTIVE.get_color()                # "#06B6D4" (Cyan)
 EntityStatus.from_search_text("in progress")   # [EntityStatus.ACTIVE]
@@ -544,11 +546,12 @@ GraphDepth.DEFAULT                             # Named constants
 - `entity_enums.py`: EntityType, EntityStatus, ContentOrigin, ProcessorType (core discriminators)
 - `goal_enums.py`, `habit_enums.py`, `choice_enums.py`, `principle_enums.py`: per-domain enums
 - `submissions_enums.py`, `curriculum_enums.py`, `lifepath_enums.py`: domain-specific enums
-- `activity_enums.py`: Priority, ActivityType (calendar/timeline), 5 dual-track assessment levels
+- `activity_enums.py`: Priority, Confidence, ActivityType (calendar/timeline), 5 dual-track assessment levels
 
 **Health Scoring Pattern:** Use typed enums (ContextHealthScore, FinancialHealthTier) instead of string literals for all health/quality assessments.
 
 **See:** `/docs/architecture/ENUM_ARCHITECTURE.md`
+**See:** `/docs/architecture/PRIORITY_CONFIDENCE_ARCHITECTURE.md` — Priority + Confidence as foundational customization dials
 
 ## Activity DSL & Domain Enums
 

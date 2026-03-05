@@ -14,7 +14,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | File | Purpose | Key Enums |
 |------|---------|-----------|
 | `entity_enums.py` | Core identity, lifecycle, domain classification | EntityType, EntityStatus, ContentOrigin, ProcessorType, Domain, NonKuDomain, ContentScope |
-| `activity_enums.py` | Priority, calendar types, dual-track assessment | Priority, ActivityType, 5 assessment levels |
+| `activity_enums.py` | Priority, Confidence, calendar types, dual-track assessment | Priority, Confidence, ActivityType, 5 assessment levels |
 | `goal_enums.py` | Goal classification | GoalType, GoalTimeframe, MeasurementType, HabitEssentiality |
 | `habit_enums.py` | Habit classification and completion | HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus |
 | `choice_enums.py` | Decision types | ChoiceType |
@@ -178,7 +178,8 @@ Domain-specific enum fields: Goal (+3), Habit (+3), Principle (+4), Choice (+1),
 
 | Enum | File | Values | Used By |
 |------|------|--------|---------|
-| Priority | activity_enums.py | LOW, MEDIUM, HIGH, CRITICAL | Tasks, Events, Habits, Goals |
+| Priority | activity_enums.py | LOW, MEDIUM, HIGH, CRITICAL | All UserOwnedEntity nodes (Tasks, Goals, Habits, Events, Choices, Principles, Submissions, LifePath) |
+| Confidence | activity_enums.py | UNCERTAIN, LOW, MEDIUM, HIGH, CERTAIN | Curriculum entities (KU, LS, LP); lateral relationship edges (all 9 domains) |
 | ActivityType | activity_enums.py | TASK, HABIT, EVENT, LEARNING, MILESTONE, ... (12) | Calendar, scheduling |
 | RecurrencePattern | scheduling_enums.py | NONE, DAILY, WEEKLY, MONTHLY, ... (9+) | Habits, events, reports |
 | TimeOfDay | scheduling_enums.py | EARLY_MORNING, MORNING, ... ANYTIME (7) | Scheduling services |
@@ -387,6 +388,41 @@ Five assessment enums (ADR-030) compare user self-perception with system measure
 | DecisionQualityLevel | Choices | "How good are my decisions?" | Outcome tracking |
 
 Used with `DualTrackResult[L]` (generic dataclass in `core/models/shared/dual_track.py`) which captures both user_level and system_level, computes perception_gap, and generates insights.
+
+---
+
+---
+
+## Customization Dials
+
+Priority and Confidence are SKUEL's two first-class customization dials — the most fundamental
+way users and admins express dimensional weight across the graph.
+
+| Dial | Enum | Who Sets It | Where |
+|------|------|------------|-------|
+| Priority | Priority | User | All UserOwnedEntity nodes (Activity, Submissions, LifePath) |
+| Confidence | Confidence | Admin/User | Curriculum nodes (KU, LS, LP); all lateral relationship edges |
+
+They are orthogonal: Priority says "how important", Confidence says "how certain".
+Both flow into the intelligence layer (planning) and graph visualization (vis.js):
+
+- **Priority → Planning:** CRITICAL items override the top of `DailyWorkPlan` in `daily_planning.py` (cap: 3)
+- **Confidence → Vis.js:** Edge line style (solid/dashed/dotted) and opacity in `renderNetwork()`
+
+```python
+# Priority
+Priority.HIGH.to_numeric()                   # → 3
+Priority.HIGH.get_color()                    # → "#F59E0B" (amber)
+Priority.from_search_text("urgent")          # → [Priority.HIGH, Priority.CRITICAL]
+
+# Confidence
+Confidence.HIGH.to_numeric()                 # → 0.9
+Confidence.CERTAIN.get_color()               # → "#6D28D9" (purple)
+Confidence.from_numeric(0.6)                 # → Confidence.MEDIUM
+Confidence.from_search_text("unsure")        # → [Confidence.UNCERTAIN, Confidence.LOW]
+```
+
+**See:** `/docs/architecture/PRIORITY_CONFIDENCE_ARCHITECTURE.md`
 
 ---
 
