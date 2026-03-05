@@ -226,7 +226,8 @@ Future collaborators — human or AI — should read SKUEL's plain-English domai
 
 | # | Domain | Group | UID Format | Purpose |
 |---|--------|-------|-----------|---------|
-| 1-6 | Tasks, Goals, Habits, Events, Choices, Principles | Activity | `{type}_{slug}_{random}` | User activities |
+| 1-5 | Tasks, Goals, Habits, Choices, Principles | Activity | `{type}_{slug}_{random}` | User activities |
+| 6 | Events | Scheduling / Integration | `event_{slug}_{random}` | Cross-cutting scheduling layer; gives activities time-bound, schedulable form |
 | 7 | Finance | Finance | `expense_{random}` | Admin-only bookkeeping |
 | 8-10 | KU, LS, LP | Curriculum | `ku_{slug}_{random}`, `ls:{random}`, `lp:{random}` | Knowledge organization |
 | 11 | Submissions + Feedback | Content | `ku_{slug}_{random}` | Student work + teacher/AI responses — uses Entity model hierarchy |
@@ -236,12 +237,21 @@ Future collaborators — human or AI — should read SKUEL's plain-English domai
 
 ### Domain Category Details
 
-**Activity Domains (6)** - User-facing entities with harmonized patterns:
+**Activity Domains (5)** - User-facing entities with harmonized patterns:
+- Tasks, Goals, Habits, Choices, Principles
 - All use facade pattern with `.core`, `.search`, `.intelligence` sub-services
 - All created via `create_common_sub_services()` factory in `activity_domain_config.py`
 - User-owned content with ownership verification
 - Protocol-typed: `TasksOperations`, `GoalsOperations`, etc.
-- **Detail pages:** All 6 domains have `/{domain}/{uid}` routes with lateral relationships visualization (Phase 5)
+- **Detail pages:** All 5 domains have `/{domain}/{uid}` routes with lateral relationships visualization (Phase 5)
+
+**Events Domain (1)** - Cross-cutting scheduling / integration layer:
+- NOT a peer Activity Domain — serves the 5 Activity Domains by giving activities a time-bound, schedulable form
+- Has explicit integration sub-services: `EventsHabitIntegrationService`, `EventsLearningService`
+- `ActivityType` enum (12 types: TASK, HABIT, EVENT, LEARNING, MILESTONE, DEADLINE, etc.) provides calendar/timeline polymorphism across domain types — more polymorphic than other domains
+- Supports Principles only indirectly (Principles → Choices → Events)
+- Same infrastructure (BaseService, DomainConfig, UserOwnedEntity) but cross-cutting in function
+- `/{events}/{uid}` routes with lateral relationships visualization (Phase 5)
 
 **Finance Domain (1)** - Standalone bookkeeping, NOT an Activity Domain:
 - Admin-only access (no ownership checks, ADMIN role required)
@@ -962,7 +972,7 @@ result: PrerequisiteResult = PrerequisiteHelper.check_prerequisites(
 
 **Evolution (2026-02-06):** Activity Domains moved from profile sidebar to **navbar avatar dropdown**. Profile sidebar now contains: Overview, Shared With Me, Curriculum, Account.
 
-**Evolution (2026-02-16):** Events moved from main navbar to profile dropdown — all 6 Activity Domains now live in the avatar menu.
+**Evolution (2026-02-16):** Events moved from main navbar to profile dropdown — all 5 Activity Domains + Events now live in the avatar menu.
 
 **Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Submissions, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage` from `ui/patterns/sidebar.py`). Custom CSS/JS files deleted. Mobile uses horizontal DaisyUI tabs.
 
@@ -1230,7 +1240,8 @@ SKUEL's BaseService architecture uses 7 focused mixins + facade pattern with 3-1
 
 **Architecture Overview:**
 - **7 Mixins:** ConversionHelpers, CRUD, Search, Relationships, TimeQuery, UserProgress, Context
-- **6 Activity Domains:** Tasks (7 sub-services), Goals (9), Habits (8), Events (7), Choices (4), Principles (7)
+- **5 Activity Domains:** Tasks (7 sub-services), Goals (9), Habits (8), Choices (4), Principles (7)
+- **Events Domain:** 7 sub-services (cross-cutting scheduling/integration layer)
 - **Facade Pattern:** Explicit `async def` delegation methods (~35-50 methods per facade)
 - **Factory Pattern:** `create_common_sub_services()` eliminates ~80 lines of boilerplate
 

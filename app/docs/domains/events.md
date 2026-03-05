@@ -4,19 +4,19 @@ created: 2025-12-04
 updated: 2026-01-19
 status: current
 category: domains
-tags: [events, activity-domain, domain]
+tags: [events, scheduling-domain, integration-domain, domain]
 ---
 
 # Events Domain
 
-**Type:** Activity Domain (4 of 6)
+**Type:** Scheduling / Integration Domain (domain #6 of 14)
 **UID Prefix:** `event:`
 **Entity Label:** `Event`
 **Config:** `EVENTS_CONFIG` (from `core.models.relationship_registry`)
 
 ## Purpose
 
-Events represent scheduled calendar items. They connect to knowledge application, goal contribution, and habit practice.
+Events is a cross-cutting scheduling and integration layer that serves the 5 Activity Domains (Tasks, Goals, Habits, Choices, Principles) by giving activities a time-bound, schedulable form. It is NOT a peer Activity Domain — its sub-services are integration bridges (`EventsHabitIntegrationService`, `EventsLearningService`) rather than domain-deepening services. The `ActivityType` enum (12 types: TASK, HABIT, EVENT, LEARNING, MILESTONE, DEADLINE, etc.) gives Events polymorphic calendar coverage across domain types. Principles are supported only indirectly (Principles → Choices → Events).
 
 ## Key Files
 
