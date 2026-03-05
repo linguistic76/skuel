@@ -22,6 +22,7 @@ so CRUDRouteFactory is not applicable. Migration focuses on:
 
 __version__ = "2.0"
 
+import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -361,8 +362,16 @@ def create_system_api_routes(
         body = await request.json()
 
         service_name = body.get("name")
-        if not service_name:
+        if not service_name or not isinstance(service_name, str):
             return Result.fail(Errors.validation(message="Service name is required", field="name"))
+        if not re.match(r"^[a-zA-Z0-9_-]{1,64}$", service_name):
+            return Result.fail(
+                Errors.validation(
+                    "Service name must be 1-64 alphanumeric, underscore, or hyphen characters",
+                    field="name",
+                    value=service_name,
+                )
+            )
 
         # Check if already registered
         if system_service.is_component_registered(service_name):

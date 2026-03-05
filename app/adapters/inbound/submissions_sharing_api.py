@@ -29,7 +29,7 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import parse_int_query_param
 from core.models.enums.metadata_enums import Visibility
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.routes.submissions.sharing")
 
@@ -225,10 +225,11 @@ def create_submissions_sharing_api_routes(
             visibility = Visibility(body.visibility)
         except ValueError:
             return Result.fail(
-                {
-                    "error": "validation",
-                    "message": f"Invalid visibility value: {body.visibility}",
-                }
+                Errors.validation(
+                    f"Invalid visibility value: {body.visibility}",
+                    field="visibility",
+                    value=body.visibility,
+                )
             )
 
         result = await sharing_service.set_visibility(
@@ -317,27 +318,19 @@ def create_submissions_sharing_api_routes(
         submission_uid = params.get("uid")
 
         if not submission_uid:
-            return Result.fail(
-                {
-                    "error": "validation",
-                    "message": "Missing required parameter: uid",
-                }
-            )
+            return Result.fail(Errors.validation("Missing required parameter: uid", field="uid"))
+
+        if not core_service:
+            return Result.fail(Errors.system("Core service unavailable", operation="get_shared_users"))
 
         # Verify ownership (only owner can see who submission is shared with)
-        if core_service:
-            submission_result = await core_service.get_submission(submission_uid)
-            if submission_result.is_error:
-                return Result.fail(submission_result)
+        submission_result = await core_service.get_submission(submission_uid)
+        if submission_result.is_error:
+            return Result.fail(submission_result)
 
-            submission = submission_result.value
-            if submission is None or submission.user_uid != user_uid:
-                return Result.fail(
-                    {
-                        "error": "forbidden",
-                        "message": "You do not own this submission",
-                    }
-                )
+        submission = submission_result.value
+        if submission is None or submission.user_uid != user_uid:
+            return Result.fail(Errors.not_found(resource="Submission", identifier=submission_uid))
 
         result = await sharing_service.get_shared_with(
             entity_uid=submission_uid,
@@ -376,15 +369,10 @@ def create_submissions_sharing_api_routes(
         # Parse query params
         params = dict(request.query_params)
         filter_user_uid = params.get("user_uid")
-        limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
+        limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=100)
 
         if not core_service:
-            return Result.fail(
-                {
-                    "error": "system",
-                    "message": "Core service not available",
-                }
-            )
+            return Result.fail(Errors.system("Core service not available"))
 
         result = await core_service.get_public_submissions(
             limit=limit,

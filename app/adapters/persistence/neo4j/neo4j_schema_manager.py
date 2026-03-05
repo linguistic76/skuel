@@ -14,16 +14,41 @@ Key Features:
 - Reports created/existing indexes
 """
 
+import re
 from dataclasses import fields, is_dataclass
 from typing import Any, TypeVar
 
 from neo4j import AsyncDriver
 
+from core.models.enums.neo_labels import NeoLabel
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 T = TypeVar("T")
 logger = get_logger(__name__)
+
+# =============================================================================
+# DDL Injection Guards
+# =============================================================================
+
+_VALID_NEO4J_LABELS: frozenset[str] = frozenset(v.value for v in NeoLabel)
+_VALID_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+_VALID_SIMILARITY = frozenset({"cosine", "euclidean"})
+
+
+def _validate_label(label: str) -> None:
+    if label not in _VALID_NEO4J_LABELS:
+        raise ValueError(f"Invalid Neo4j label: {label!r}")
+
+
+def _validate_identifier(name: str, context: str = "field") -> None:
+    if not _VALID_IDENTIFIER_RE.match(name):
+        raise ValueError(f"Invalid {context} name: {name!r}")
+
+
+def _validate_similarity(similarity: str) -> None:
+    if similarity not in _VALID_SIMILARITY:
+        raise ValueError(f"Invalid similarity function: {similarity!r} (must be cosine or euclidean)")
 
 
 class Neo4jSchemaManager:
@@ -131,6 +156,8 @@ class Neo4jSchemaManager:
         Returns:
             Result with 'created' or 'existing'
         """
+        _validate_label(label)
+        _validate_identifier(field_name)
         index_name = f"{label}_{field_name}_idx"
 
         try:
@@ -166,6 +193,8 @@ class Neo4jSchemaManager:
         Returns:
             Result with 'created' or 'existing'
         """
+        _validate_label(label)
+        _validate_identifier(field_name)
         constraint_name = f"{label}_{field_name}_unique"
 
         try:
@@ -282,6 +311,9 @@ class Neo4jSchemaManager:
             # Creates index: ku_embedding_idx or contentchunk_embedding_idx
             # For query: db.index.vector.queryNodes('ku_embedding_idx', k, embedding)
         """
+        _validate_label(label)
+        _validate_identifier(field_name)
+        _validate_similarity(similarity)
         index_name = f"{label.lower()}_{field_name}_idx"
 
         try:
@@ -326,6 +358,7 @@ class Neo4jSchemaManager:
         Returns:
             Result indicating success or failure
         """
+        _validate_identifier(index_name, context="index name")
         try:
             query = f"DROP INDEX {index_name} IF EXISTS"
 
@@ -360,7 +393,12 @@ class Neo4jSchemaManager:
                 Errors.validation("field_names cannot be empty", field="field_names")
             )
 
+        _validate_label(label)
+        for f in field_names:
+            _validate_identifier(f)
         name = index_name or f"{label}_{'_'.join(field_names)}_idx"
+        if index_name:
+            _validate_identifier(index_name, context="index name")
         fields_str = ", ".join(f"n.{f}" for f in field_names)
 
         try:

@@ -14,16 +14,37 @@ Methods:
 - build_count_query: Count entities with optional filters
 """
 
+import re
 from dataclasses import fields, is_dataclass
 from datetime import date, datetime
 from enum import Enum
 from typing import Any, get_origin, get_type_hints
 
+from core.models.enums.neo_labels import NeoLabel
 from core.utils.logging import get_logger
 
 from ._types import T
 
 logger = get_logger(__name__)
+
+# =============================================================================
+# Cypher Injection Guards
+# =============================================================================
+
+_VALID_NEO4J_LABELS: frozenset[str] = frozenset(v.value for v in NeoLabel)
+_VALID_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def _validate_label(label: str) -> None:
+    """Raise ValueError if label is not a known NeoLabel value."""
+    if label not in _VALID_NEO4J_LABELS:
+        raise ValueError(f"Invalid Neo4j label: {label!r}")
+
+
+def _validate_identifier(name: str, context: str = "field") -> None:
+    """Raise ValueError if name contains characters unsafe for Cypher interpolation."""
+    if not _VALID_IDENTIFIER_RE.match(name):
+        raise ValueError(f"Invalid {context} name: {name!r}")
 
 
 def convert_value_for_neo4j(value: Any) -> Any:
@@ -733,6 +754,9 @@ def build_distinct_values_query(
         # Get all categories globally (admin only)
         query, params = build_distinct_values_query("Task", "category")
     """
+    _validate_label(label)
+    _validate_identifier(field)
+
     params: dict[str, Any] = {}
 
     if user_uid:
@@ -775,7 +799,11 @@ def build_hierarchy_query(
     Example:
         query, params = build_hierarchy_query("Lp", "lp:python-basics")
     """
-    rel_types = "|".join(relationship_types or ["CONTAINS", "AGGREGATES", "HAS_STEP"])
+    _validate_label(label)
+    rel_list = relationship_types or ["CONTAINS", "AGGREGATES", "HAS_STEP"]
+    for rel in rel_list:
+        _validate_identifier(rel, context="relationship type")
+    rel_types = "|".join(rel_list)
 
     query = f"""
     MATCH (n:{label} {{uid: $uid}})
