@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     import logging
     from datetime import datetime
 
-    from core.models.enums import Domain, Priority
+    from core.models.enums import Priority
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
     from core.models.relationship_names import RelationshipName
     from core.utils.result_simplified import Result as ResultType
@@ -237,20 +237,6 @@ class HasSummary(Protocol):
 
 
 @runtime_checkable
-class HasMetrics(Protocol):
-    """Protocol for objects with metrics attribute."""
-
-    metrics: Any
-
-
-@runtime_checkable
-class HasStreaks(Protocol):
-    """Protocol for objects with streaks attribute."""
-
-    streaks: Any
-
-
-@runtime_checkable
 class MetricsLike(Protocol):
     """Protocol for metrics objects with common attributes."""
 
@@ -280,20 +266,6 @@ class HasUpdatedAt(Protocol):
     """Protocol for objects with updated_at timestamp."""
 
     updated_at: datetime | str | None
-
-
-@runtime_checkable
-class HasParentUID(Protocol):
-    """Protocol for objects with parent UID."""
-
-    parent_uid: str | None
-
-
-@runtime_checkable
-class HasBody(Protocol):
-    """Protocol for response objects with body attribute."""
-
-    body: bytes
 
 
 @runtime_checkable
@@ -382,81 +354,6 @@ class HasPriority(Protocol):
     """Protocol for objects with priority attribute."""
 
     priority: Priority | int | str
-
-
-@runtime_checkable
-class HasDomain(Protocol):
-    """Protocol for objects with domain attribute."""
-
-    domain: Domain | str
-
-
-@runtime_checkable
-class HasRelationships(Protocol):
-    """Protocol for objects with relationships attribute."""
-
-    relationships: Any
-
-
-@runtime_checkable
-class HasSemanticRelationships(Protocol):
-    """Protocol for objects with semantic_relationships attribute."""
-
-    semantic_relationships: Any
-
-
-@runtime_checkable
-class HasKnowledgeUnit(Protocol):
-    """Protocol for objects with knowledge_unit attribute."""
-
-    knowledge_unit: Any
-
-
-@runtime_checkable
-class HasKnowledgeMasteryCheck(Protocol):
-    """Protocol for objects with knowledge_mastery_check attribute."""
-
-    knowledge_mastery_check: Any
-
-
-@runtime_checkable
-class HasPrerequisiteKnowledgeUids(Protocol):
-    """Protocol for objects with prerequisite_knowledge_uids attribute."""
-
-    prerequisite_knowledge_uids: tuple[str, ...] | list[str]
-
-
-@runtime_checkable
-class HasAppliesKnowledgeUids(Protocol):
-    """Protocol for objects with applies_knowledge_uids attribute."""
-
-    applies_knowledge_uids: tuple[str, ...] | list[str]
-
-
-# ============================================================================
-# Streak & Consistency Protocols (USED: habits tracking)
-# ============================================================================
-
-
-@runtime_checkable
-class HasConsistencyScore(Protocol):
-    """Protocol for objects with consistency_score field."""
-
-    consistency_score: float
-
-
-@runtime_checkable
-class HasStreakCount(Protocol):
-    """Protocol for objects with streak_count field."""
-
-    streak_count: int
-
-
-@runtime_checkable
-class HasStreak(Protocol):
-    """Protocol for objects with streak attribute."""
-
-    streak: int
 
 
 # ============================================================================
@@ -900,36 +797,6 @@ class BackendOperations[T: "DomainModelProtocol"](
 
 
 @runtime_checkable
-class SupportsRelationships(Protocol):
-    """Protocol for backends that support relationship operations."""
-
-    async def add_relationship(
-        self,
-        from_uid: str,
-        to_uid: str,
-        relationship_type: RelationshipName,
-        properties: dict[str, Any] | None = None,
-    ) -> Any:
-        """Add a relationship between entities."""
-        ...
-
-    async def get_relationships(self, uid: str, direction: Direction = "both") -> Any:
-        """Get relationships for an entity."""
-        ...
-
-
-@runtime_checkable
-class SupportsTraversal(Protocol):
-    """Protocol for backends that support graph traversal."""
-
-    async def traverse(
-        self, start_uid: str, rel_pattern: str, max_depth: int = 3, include_properties: bool = False
-    ) -> Any:
-        """Traverse the graph from a starting point."""
-        ...
-
-
-@runtime_checkable
 class SupportsPathfinding(Protocol):
     """Protocol for backends that support pathfinding."""
 
@@ -964,15 +831,6 @@ class SupportsHealthCheck(Protocol):
 
     async def health_check(self) -> ResultType[bool]:
         """Check backend health."""
-        ...
-
-
-@runtime_checkable
-class SupportsFacets(Protocol):
-    """Protocol for search backends that support faceted search."""
-
-    async def get_facets(self, query: str, **filters: Any) -> Any:
-        """Get facets for search results."""
         ...
 
 
@@ -1195,36 +1053,19 @@ __all__ = [
     "GraphRelationshipOperations",
     "GraphTraversalOperations",  # Graph traversal
     "GtConstraint",
-    "HasAppliesKnowledgeUids",
-    "HasBody",
-    # Streak & Consistency Protocols (3)
-    "HasConsistencyScore",
     # Timestamp Protocols (3)
     "HasCreatedAt",
     "HasDict",
-    # Domain/Relationship Protocols (4)
-    "HasDomain",
-    # Knowledge Mastery Protocols (3)
-    "HasKnowledgeMasteryCheck",
-    "HasKnowledgeUnit",
     "HasLogger",
     "HasMetadata",
-    "HasMetrics",
-    "HasParentUID",
-    "HasPrerequisiteKnowledgeUids",
     # Priority/Sorting Protocols (3)
     "HasPriority",
-    "HasRelationships",
     "HasRelevanceScore",
     # Score/Metrics Protocols (6)
     "HasScore",
-    "HasSemanticRelationships",
     # Query/Optimizer Protocols (3)
     "HasSeverity",
     "HasStrategy",
-    "HasStreak",
-    "HasStreakCount",
-    "HasStreaks",
     "HasSummary",
     "HasToDict",
     "HasToNumeric",
@@ -1254,17 +1095,14 @@ __all__ = [
     "Serializable",
     "Service",
     "StreaksLike",
-    # Backend Capability Protocols (10)
+    # Backend Capability Protocols (7 - kept used ones)
     "SupportsCount",
-    "SupportsFacets",
     "SupportsHealthCheck",
     "SupportsInsights",
     "SupportsPathfinding",
     "SupportsRelatedSearch",
-    "SupportsRelationships",
     "SupportsSearch",
     "SupportsSearchWithFilters",
-    "SupportsTraversal",
     # Helper Functions (2)
     "get_enum_value",
     "to_dict",

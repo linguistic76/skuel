@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-03-03
+updated: 2026-03-05
 status: current
 category: reference
 tags: [protocol, reference]
@@ -20,12 +20,11 @@ related: [ADR-025, ADR-027]
 1. [Core Data Protocols](#core-data-protocols)
 2. [Pydantic Integration Protocols](#pydantic-integration-protocols)
 3. [Backend Capability Protocols](#backend-capability-protocols)
-4. [Domain-Specific Protocols](#domain-specific-protocols)
-5. [Facade Services — Explicit Delegation (February 2026)](#facade-services--explicit-delegation-february-2026)
-6. [Route-Facing Service Protocols (February 2026)](#route-facing-service-protocols-february-2026)
-7. [Knowledge Carrier Protocols (ADR-027)](#knowledge-carrier-protocols-adr-027)
-8. [Context Awareness Protocols](#context-awareness-protocols)
-9. [Usage Examples](#usage-examples)
+4. [Facade Services — Explicit Delegation (February 2026)](#facade-services--explicit-delegation-february-2026)
+5. [Route-Facing Service Protocols (February 2026)](#route-facing-service-protocols-february-2026)
+6. [Knowledge Carrier Protocols (ADR-027)](#knowledge-carrier-protocols-adr-027)
+7. [Context Awareness Protocols](#context-awareness-protocols)
+8. [Usage Examples](#usage-examples)
 
 ---
 
@@ -45,7 +44,7 @@ related: [ADR-025, ADR-027]
 | **Infrastructure Protocols** | `/core/ports/infrastructure_protocols.py` | EventBus, Schema, User, Ingestion |
 | **Intelligence Protocols** | `/core/ports/intelligence_protocols.py` | Analytics operations |
 | **Facade Services** | `/core/services/{domain}_service.py` | Concrete classes with explicit delegation methods |
-| **Context Awareness** | `/core/ports/context_awareness_protocols.py` | UserContext slices (ISP) |
+| **Context Awareness** | `/core/ports/context_awareness_protocols.py` | ISP slices of UserContext — the adoption target for all intelligence services |
 | **Knowledge Carrier** | `/core/models/protocols/knowledge_carrier_protocol.py` | Knowledge integration |
 
 ---
@@ -276,31 +275,6 @@ class SupportsSearch(Protocol):
 
 ---
 
-### SupportsRelationships
-```python
-@runtime_checkable
-class SupportsRelationships(Protocol):
-    async def add_relationship(
-        self,
-        from_uid: str,
-        to_uid: str,
-        relationship_type: RelationshipName,
-        properties: dict[str, Any] | None = None,
-    ) -> Any: ...
-    async def get_relationships(self, uid: str, direction: str = "both") -> Any: ...
-```
-
----
-
-### SupportsTraversal
-```python
-@runtime_checkable
-class SupportsTraversal(Protocol):
-    async def traverse(self, start_uid: str, rel_pattern: str, max_depth: int = 3) -> Any: ...
-```
-
----
-
 ### SupportsPathfinding
 ```python
 @runtime_checkable
@@ -407,44 +381,6 @@ async def process_task(service: TasksOperations, task_uid: str):
 
 **See:** `/docs/patterns/ERROR_HANDLING.md` for complete Result[T] pattern documentation.
 **See:** `/docs/patterns/protocol_architecture.md` for February 2026 protocol cleanup details.
-
----
-
-## Domain-Specific Protocols
-
-### HasDomain
-```python
-@runtime_checkable
-class HasDomain(Protocol):
-    domain: Any
-```
-
----
-
-### HasPriority
-```python
-@runtime_checkable
-class HasPriority(Protocol):
-    def get_priority(self) -> Any: ...
-```
-
----
-
-### HasMetrics
-```python
-@runtime_checkable
-class HasMetrics(Protocol):
-    metrics: Any
-```
-
----
-
-### HasStreaks
-```python
-@runtime_checkable
-class HasStreaks(Protocol):
-    streaks: Any
-```
 
 ---
 
@@ -746,50 +682,60 @@ class ActivityCarrier(KnowledgeCarrier, Protocol):
 
 **Location:** `/core/ports/context_awareness_protocols.py`
 **Purpose:** ISP-compliant slices of UserContext (~240 fields → focused protocols)
-**Status:** Designed and tested, available for service adoption
+**Status:** Defined, tested — pending adoption across intelligence and planning services
 
-### Philosophy
+### Why These Protocols Exist
 
-UserContext has ~240 fields, but most services only need 5-10. These protocols let services declare explicit dependencies:
+UserContext is the single cross-domain object that represents a user's complete state (~240 fields). Services that accept `UserContext` as a parameter currently take a dependency on all 240 fields, even when they use only 5-10. This violates ISP.
 
-```python
-# Before: unclear what's actually needed
-async def get_ready_to_learn(self, context: UserContext) -> ...:
+Context awareness is the core value of SKUEL. ZPD calculations, Askesis recommendations, daily planning, life path alignment — all of it is powered by *what is known about the user right now*. These protocols make that dependency explicit, testable, and composable.
 
-# After: explicit dependency
-async def get_ready_to_learn(self, context: KnowledgeAwareness) -> ...:
-```
+**The adoption goal:** Every service that currently accepts `UserContext` should be updated to accept the narrowest awareness slice it actually needs. This makes the dependency contract visible from the function signature.
 
 ### Available Protocols
 
-| Protocol | Fields | Use Case |
-|----------|--------|----------|
-| **CoreIdentity** | user_uid, username | Every service needs this |
-| **TaskAwareness** | active/blocked/overdue tasks, priorities | Task tracking services |
-| **KnowledgeAwareness** | mastery levels, prerequisites | Learning services |
-| **HabitAwareness** | streaks, at-risk habits | Habit tracking services |
-| **GoalAwareness** | progress, milestones | Goal services |
-| **EventAwareness** | upcoming, scheduled events | Calendar services |
-| **PrincipleAwareness** | core principles | Value alignment services |
-| **ChoiceAwareness** | pending choices | Decision services |
-| **LearningPathAwareness** | enrolled paths, current steps | Curriculum services |
-| **CrossDomainAwareness** | Multi-domain subset | Cross-domain analysis |
-| **FullAwareness** | All fields | Dashboards, Askesis (use sparingly) |
+| Protocol | Fields Covered | Primary Consumers (planned) |
+|----------|---------------|----------------------------|
+| `CoreIdentity` | user_uid, username | Every context-aware service |
+| `TaskAwareness` | active/blocked/overdue tasks, priorities | TasksPlanningService, TasksSchedulingService |
+| `KnowledgeAwareness` | mastery levels, prerequisites, velocity | ZPDService, AskesisRecommendationService |
+| `HabitAwareness` | streaks, at-risk habits, consistency | HabitsIntelligenceService |
+| `GoalAwareness` | progress, milestones | GoalsPlanningService |
+| `EventAwareness` | upcoming, scheduled events | EventsSchedulingService |
+| `PrincipleAwareness` | core principles, integrity scores | PrinciplesIntelligenceService |
+| `ChoiceAwareness` | pending choices, decision patterns | ChoicesIntelligenceService |
+| `LearningPathAwareness` | enrolled paths, current steps, ZPD | ZPDService, AskesisQueryService |
+| `CrossDomainAwareness` | Multi-domain subset | UserContextIntelligence cross-domain methods |
+| `FullAwareness` | All fields | Dashboards, Askesis (use sparingly) |
 
-**Usage:**
+### Usage Pattern (adoption target)
+
 ```python
-from core.ports import TaskAwareness, KnowledgeAwareness
+# Before: unclear what context fields are actually needed
+async def get_ready_to_work_on_today(self, context: UserContext) -> Result[list[Task]]:
+    # silently depends on: active_task_uids, blocked_task_uids, overdue_task_uids
+    ...
 
-async def analyze_blocked_tasks(ctx: TaskAwareness) -> int:
-    return len(ctx.blocked_task_uids)
-
-async def get_average_mastery(ctx: KnowledgeAwareness) -> float:
-    if not ctx.knowledge_mastery:
-        return 0.0
-    return sum(ctx.knowledge_mastery.values()) / len(ctx.knowledge_mastery)
+# After: explicit ISP dependency — mockable with 3 fields instead of 240
+async def get_ready_to_work_on_today(self, context: TaskAwareness) -> Result[list[Task]]:
+    # MyPy enforces only TaskAwareness fields are used
+    ...
 ```
 
-UserContext implements ALL these protocols, so you can still pass it anywhere.
+UserContext implements **all** of these protocols, so existing call sites pass it unchanged. Only the service signature changes.
+
+### Testing Benefit
+
+```python
+# Test with a minimal mock — no full UserContext construction needed
+class MinimalTaskContext:
+    active_task_uids = ["task_abc"]
+    blocked_task_uids = []
+    overdue_task_uids = ["task_xyz"]
+    task_priorities = {"task_abc": "high"}
+
+result = await planning_service.get_ready_to_work_on_today(MinimalTaskContext())
+```
 
 ---
 

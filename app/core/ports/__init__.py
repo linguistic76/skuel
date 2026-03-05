@@ -25,7 +25,6 @@ Protocol Categories
 - Curriculum protocols: CurriculumOperations + KuOperations, LsOperations, LpOperations (Nov 2025)
 - Search protocols: DomainSearchOperations, TasksSearchOperations, etc.
 - Infrastructure protocols: EventBusOperations, SchemaOperations, etc.
-- Context awareness protocols: UserContext slices (11 protocols)
 
 Usage
 -----
@@ -42,20 +41,6 @@ Usage
     class SimpleReadService:
         def __init__(self, backend: CrudOperations[Task]) -> None:
             self.backend = backend  # Only needs CRUD
-
-Context Awareness Protocols
----------------------------
-For UserContext slices (Interface Segregation):
-
-    from core.ports import TaskAwareness, KnowledgeAwareness
-
-    async def analyze_tasks(self, context: TaskAwareness) -> Result[...]:
-        # context.active_task_uids, context.blocked_task_uids available
-        ...
-
-Available: CoreIdentity, TaskAwareness, KnowledgeAwareness, HabitAwareness,
-GoalAwareness, EventAwareness, PrincipleAwareness, ChoiceAwareness,
-LearningPathAwareness, CrossDomainAwareness, FullAwareness
 """
 
 # Base protocols - Core type contracts (ISP-compliant - streamlined Nov 2025)
@@ -86,32 +71,19 @@ from .base_protocols import (
     GraphRelationshipOperations,
     GraphTraversalOperations,
     GtConstraint,
-    HasBody,
-    # Streak & Consistency Protocols (3 - habits tracking)
-    HasConsistencyScore,
     # Timestamp Protocols (3)
     HasCreatedAt,
     HasDict,
-    # Domain/Relationship Protocols (4)
-    HasDomain,
-    HasKnowledgeUnit,
     HasLogger,
     HasMetadata,
-    HasMetrics,
-    HasParentUID,
     # Priority/Sorting Protocols (3)
     HasPriority,
-    HasRelationships,
     HasRelevanceScore,
     # Score/Metrics Protocols (6)
     HasScore,
-    HasSemanticRelationships,
     # Query/Optimizer Protocols (3)
     HasSeverity,
     HasStrategy,
-    HasStreak,
-    HasStreakCount,
-    HasStreaks,
     HasSummary,
     HasToDict,
     HasToNumeric,
@@ -144,21 +116,20 @@ from .base_protocols import (
     StreaksLike,
     # Backend Capability Protocols (10)
     SupportsCount,
-    SupportsFacets,
     SupportsHealthCheck,
     SupportsInsights,
     SupportsPathfinding,
     SupportsRelatedSearch,
-    SupportsRelationships,
     SupportsSearch,
     SupportsSearchWithFilters,
-    SupportsTraversal,
     # Helper Functions (2)
     get_enum_value,
     to_dict,
 )
 
-# Context awareness protocols - UserContext slices
+# Context awareness protocols - ISP slices of UserContext (~240 fields → focused protocols)
+# These define the architecture for context-aware services. Services should depend on the
+# smallest slice they need. See: /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
 from .context_awareness_protocols import (
     ChoiceAwareness,
     CoreIdentity,
@@ -349,16 +320,24 @@ __all__ = [
     "BackendOperations",  # THE protocol for UniversalNeo4jBackend
     # ========== CALENDAR/SYSTEM/SERVICE PROTOCOLS (7 - February 2026) ==========
     "CalendarServiceOperations",
-    # ========== CONTEXT AWARENESS PROTOCOLS (11) ==========
+    # ========== CONTEXT AWARENESS PROTOCOLS (11 - ISP slices of UserContext) ==========
     "ChoiceAwareness",
+    "CoreIdentity",
+    "CrossDomainAwareness",
+    "EventAwareness",
+    "FullAwareness",
+    "GoalAwareness",
+    "HabitAwareness",
+    "KnowledgeAwareness",
+    "LearningPathAwareness",
+    "PrincipleAwareness",
+    "TaskAwareness",
     # ========== SEARCH OPERATION PROTOCOLS (10) ==========
     "ChoicesSearchOperations",
     # ========== DOMAIN OPERATION PROTOCOLS (8) ==========
     "ChoicesOperations",
     "Closeable",
-    "CoreIdentity",
     "CrossDomainAnalyticsOperations",
-    "CrossDomainAwareness",
     # ========== BACKEND PROTOCOLS (ISP-compliant hierarchy) ==========
     # Sub-protocols (for focused dependencies)
     "CrudOperations",  # Basic CRUD (6 methods)
@@ -371,16 +350,13 @@ __all__ = [
     "EntitySearchOperations",  # Search/filter (3 methods)
     # ========== CORE CONVERSION PROTOCOLS (5) ==========
     "EnumLike",
-    "EventAwareness",
     "EventBusOperations",
     "EventsSearchOperations",
     "EventsOperations",
     "FinancesOperations",
-    "FullAwareness",
     "IngestionOperations",
     # ========== PYDANTIC CONSTRAINT PROTOCOLS (7) ==========
     "GeConstraint",
-    "GoalAwareness",
     "GoalsSearchOperations",
     "GoalsOperations",
     "GoalTaskGeneratorOperations",
@@ -395,36 +371,22 @@ __all__ = [
     "GraphRelationshipOperations",
     "GraphTraversalOperations",  # Graph traversal (2 methods)
     "GtConstraint",
-    "HabitAwareness",
     "HabitsSearchOperations",
     "HabitsOperations",
     "HabitEventSchedulerOperations",
-    "HasBody",
-    # ========== STREAK & CONSISTENCY PROTOCOLS (3) ==========
-    "HasConsistencyScore",
     # ========== TIMESTAMP PROTOCOLS (3) ==========
     "HasCreatedAt",
     "HasDict",
-    # ========== DOMAIN/RELATIONSHIP PROTOCOLS (4) ==========
-    "HasDomain",
-    "HasKnowledgeUnit",
     "HasLogger",
     "HasMetadata",
-    "HasMetrics",
-    "HasParentUID",
     # ========== PRIORITY/SORTING PROTOCOLS (3) ==========
     "HasPriority",
-    "HasRelationships",
     "HasRelevanceScore",
     # ========== SCORE/METRICS PROTOCOLS (6) ==========
     "HasScore",
-    "HasSemanticRelationships",
     # ========== QUERY/OPTIMIZER PROTOCOLS (3) ==========
     "HasSeverity",
     "HasStrategy",
-    "HasStreak",
-    "HasStreakCount",
-    "HasStreaks",
     "HasSummary",
     "HasToDict",
     "HasToNumeric",
@@ -440,12 +402,10 @@ __all__ = [
     "IsMockEndpoint",
     "IsStubEndpoint",
     # "JournalsOperations", - REMOVED February 2026 - Journal merged into Reports
-    "KnowledgeAwareness",
     "KuOperations",  # Knowledge Unit operations (point)
     # KuOperationsLegacy, KuQueryOperations DELETED January 2026
     "LeConstraint",
     # "LearningOperations", - DELETED January 2026
-    "LearningPathAwareness",
     "LifePathAlignmentOperations",
     "LifePathOperations",
     # "LearningPathsOperations", - DELETED January 2026, use LpOperations
@@ -459,7 +419,6 @@ __all__ = [
     "MetricsLike",
     "MinLenConstraint",
     # MocOperations removed January 2026 - MOC is KU-based
-    "PrincipleAwareness",
     "PrinciplesSearchOperations",
     "PrinciplesOperations",
     "PydanticFieldInfo",
@@ -490,7 +449,6 @@ __all__ = [
     "StreaksLike",
     # ========== BACKEND CAPABILITY PROTOCOLS (10) ==========
     "SupportsCount",
-    "SupportsFacets",
     # Graph-aware search capability protocols (January 2026)
     "SupportsGraphAwareSearch",
     "SupportsGraphTraversalSearch",
@@ -498,13 +456,10 @@ __all__ = [
     "SupportsInsights",
     "SupportsPathfinding",
     "SupportsRelatedSearch",
-    "SupportsRelationships",
     "SupportsSearch",
     "SupportsSearchWithFilters",
     "SupportsTagSearch",
-    "SupportsTraversal",
     "SystemServiceOperations",
-    "TaskAwareness",
     "TasksSearchOperations",
     "TasksOperations",
     "TeacherReviewOperations",
