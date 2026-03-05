@@ -34,6 +34,7 @@ def mock_unified_config():
         CacheConfig,
         DatabaseConfig,
         Environment,
+        GenAIConfig,
         GraphQLConfig,
         KnowledgeConfig,
         MessageQueueConfig,
@@ -56,6 +57,7 @@ def mock_unified_config():
         redis_db=0,
         redis_password=None,
     )
+    mock_config.genai = GenAIConfig(embedding_dimension=1536)
     mock_config.message_queue = MessageQueueConfig()
     mock_config.search = SearchConfig() if hasattr(SearchConfig, "__init__") else MagicMock()
     mock_config.askesis = AskesisConfig() if hasattr(AskesisConfig, "__init__") else MagicMock()

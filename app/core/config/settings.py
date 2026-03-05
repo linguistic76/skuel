@@ -26,6 +26,7 @@ from core.config.unified_config import (
     CacheConfig,
     DatabaseConfig,
     Environment,
+    GenAIConfig,
     GraphQLConfig,
     KnowledgeConfig,
     MessageQueueConfig,
@@ -104,6 +105,12 @@ def get_knowledge_config() -> KnowledgeConfig:
 
 
 @lru_cache(maxsize=1)
+def get_genai_config() -> GenAIConfig:
+    """Get GenAI configuration"""
+    return get_settings().genai
+
+
+@lru_cache(maxsize=1)
 def get_vault_config() -> VaultConfig:
     """Get vault and sync configuration"""
     return get_settings().vault
@@ -168,11 +175,8 @@ def api_host() -> str:
 
 
 def redis_url() -> str:
-    """Get Redis URL constructed from cache config components"""
-    cache = get_cache_config()
-    # Construct redis URL from host, port, db
-    password_part = f":{cache.redis_password}@" if cache.redis_password else ""
-    return f"redis://{password_part}{cache.redis_host}:{cache.redis_port}/{cache.redis_db}"
+    """Get Redis URL from cache configuration"""
+    return get_cache_config().redis_url
 
 
 def search_results_limit() -> int:
@@ -186,9 +190,8 @@ def conversation_max_history() -> int:
 
 
 def embedding_dimension() -> int:
-    """Get embedding dimension (default for OpenAI text-embedding-3-small)"""
-    # NOTE: Hardcoded dimension - could move to EmbeddingsConfig if needed
-    return 1536  # OpenAI text-embedding-3-small default dimension
+    """Get embedding dimension from GenAI configuration"""
+    return get_genai_config().embedding_dimension
 
 
 def app_name() -> str:
@@ -234,6 +237,7 @@ def reload_config():
     get_search_config.cache_clear()
     get_askesis_config.cache_clear()
     get_knowledge_config.cache_clear()
+    get_genai_config.cache_clear()
     get_application_config.cache_clear()
 
 

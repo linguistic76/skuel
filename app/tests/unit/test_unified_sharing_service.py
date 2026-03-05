@@ -99,7 +99,7 @@ async def test_share_not_owner(mock_driver, sharing_service):
     )
 
     assert result.is_error
-    assert "does not own" in str(result.error)
+    assert result.error.category.value == "not_found"
     # Only one query executed (ownership check)
     assert session.run.call_count == 1
 
@@ -192,7 +192,7 @@ async def test_unshare_not_owner(mock_driver, sharing_service):
     )
 
     assert result.is_error
-    assert "does not own" in str(result.error)
+    assert result.error.category.value == "not_found"
     assert session.run.call_count == 1
 
 
@@ -395,7 +395,7 @@ async def test_set_visibility_not_owner(mock_driver, sharing_service):
     )
 
     assert result.is_error
-    assert "does not own" in str(result.error)
+    assert result.error.category.value == "not_found"
 
 
 # ============================================================================

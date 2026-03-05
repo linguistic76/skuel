@@ -648,8 +648,8 @@ class UnifiedSharingService:
     ) -> Result[bool]:
         """Verify that a user owns an entity."""
         query = """
-        MATCH (ku:Entity {uid: $entity_uid})
-        RETURN ku.user_uid as actual_owner
+        MATCH (entity:Entity {uid: $entity_uid})
+        RETURN entity.user_uid as actual_owner
         """
         try:
             async with self.driver.session() as session:
@@ -659,9 +659,8 @@ class UnifiedSharingService:
                 return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
             actual_owner = records[0]["actual_owner"]
             if actual_owner != owner_uid:
-                return Result.fail(
-                    Errors.validation(f"User {owner_uid} does not own entity {entity_uid}")
-                )
+                # Return not_found (not validation) to prevent UID enumeration
+                return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
             return Result.ok(True)
         except Exception as e:
             logger.error(f"Failed _verify_ownership for {entity_uid}: {e}")

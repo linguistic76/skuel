@@ -6,6 +6,7 @@ Initialize SystemService with component health checkers.
 Part of the phased migration to SystemService adoption.
 """
 
+from collections.abc import Callable, Coroutine
 from typing import Any
 
 from core.services.system_service import SystemService
@@ -13,6 +14,27 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
+
+
+def _make_service_checker(
+    services: Any, attr: str, name: str
+) -> Callable[[], Coroutine[Any, Any, Result[bool]]]:
+    """Factory for simple service presence health checkers."""
+
+    async def check() -> Result[bool]:
+        try:
+            return Result.ok(bool(getattr(services, attr, None)))
+        except Exception as e:
+            return Result.fail(
+                Errors.system(
+                    message=f"{name} health check failed",
+                    exception=e,
+                    operation=f"check_{attr}",
+                )
+            )
+
+    check.__name__ = f"check_{attr}"
+    return check  # type: ignore[return-value]
 
 
 async def initialize_system_service(system_service: SystemService, services: Any) -> Result[None]:
@@ -50,76 +72,6 @@ async def initialize_system_service(system_service: SystemService, services: Any
             )
 
     # ========================================================================
-    # SERVICE HEALTH CHECKERS
-    # ========================================================================
-
-    async def check_ku_service() -> Result[bool]:
-        """Check if knowledge service is healthy."""
-        try:
-            # Use 'ku' attribute (not ku_service)
-            if services.ku:
-                return Result.ok(True)
-            return Result.ok(False)  # Not configured, but not an error
-        except Exception as e:
-            logger.error(f"Knowledge service health check failed: {e}")
-            return Result.fail(
-                Errors.system(
-                    message="Knowledge service health check failed",
-                    exception=e,
-                    operation="check_ku_service",
-                )
-            )
-
-    async def check_context_service() -> Result[bool]:
-        """Check if context service is healthy."""
-        try:
-            # Use 'context_service' attribute
-            if services.context_service:
-                return Result.ok(True)
-            return Result.ok(False)  # Not configured
-        except Exception as e:
-            logger.error(f"Context service health check failed: {e}")
-            return Result.fail(
-                Errors.system(
-                    message="Context service health check failed",
-                    exception=e,
-                    operation="check_context_service",
-                )
-            )
-
-    async def check_user_service() -> Result[bool]:
-        """Check if user service is healthy."""
-        try:
-            if services.user_service:
-                return Result.ok(True)
-            return Result.ok(False)
-        except Exception as e:
-            logger.error(f"User service health check failed: {e}")
-            return Result.fail(
-                Errors.system(
-                    message="User service health check failed",
-                    exception=e,
-                    operation="check_user_service",
-                )
-            )
-
-    async def check_tasks_service() -> Result[bool]:
-        """Check if tasks service is healthy."""
-        try:
-            if services.tasks:
-                return Result.ok(True)
-            return Result.ok(False)
-        except Exception as e:
-            logger.error(f"Tasks service health check failed: {e}")
-            return Result.fail(
-                Errors.system(
-                    message="Tasks service health check failed",
-                    exception=e,
-                    operation="check_tasks_service",
-                )
-            )
-
-    # ========================================================================
     # REGISTER ALL CHECKERS
     # ========================================================================
 
@@ -127,10 +79,18 @@ async def initialize_system_service(system_service: SystemService, services: Any
     system_service.register_component_checker("database", check_database)
 
     # Core services
-    system_service.register_component_checker("user_service", check_user_service)
-    system_service.register_component_checker("tasks", check_tasks_service)
-    system_service.register_component_checker("knowledge", check_ku_service)
-    system_service.register_component_checker("context", check_context_service)
+    system_service.register_component_checker(
+        "user_service", _make_service_checker(services, "user_service", "User service")
+    )
+    system_service.register_component_checker(
+        "tasks", _make_service_checker(services, "tasks", "Tasks service")
+    )
+    system_service.register_component_checker(
+        "knowledge", _make_service_checker(services, "ku", "Knowledge service")
+    )
+    system_service.register_component_checker(
+        "context", _make_service_checker(services, "context_service", "Context service")
+    )
 
     logger.info(f"Registered {len(system_service._component_checkers)} health checkers")
 

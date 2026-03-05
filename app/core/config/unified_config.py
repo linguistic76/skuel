@@ -317,6 +317,12 @@ class CacheConfig:
     user_context_ttl: int = 86400  # 24 hours
     facet_cache_ttl: int = 3600  # 1 hour
 
+    @property
+    def redis_url(self) -> str:
+        """Construct Redis connection URL from config fields"""
+        password_part = f":{self.redis_password}@" if self.redis_password else ""
+        return f"redis://{password_part}{self.redis_host}:{self.redis_port}/{self.redis_db}"
+
 
 @dataclass
 class MessageQueueConfig:
@@ -394,7 +400,7 @@ class GenAIConfig:
             provider=os.getenv("GENAI_PROVIDER", "openai"),
             embedding_model=os.getenv("GENAI_EMBEDDING_MODEL", "text-embedding-3-small"),
             embedding_dimension=int(os.getenv("GENAI_EMBEDDING_DIMENSION", "1536")),
-            embedding_version=os.getenv("EMBEDDING_VERSION", "v1"),
+            embedding_version=os.getenv("GENAI_EMBEDDING_VERSION", "v1"),
             batch_size=int(os.getenv("GENAI_BATCH_SIZE", "25")),
             fallback_to_keyword_search=os.getenv("GENAI_FALLBACK_TO_KEYWORD_SEARCH", "true").lower()
             == "true",
