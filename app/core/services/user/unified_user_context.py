@@ -546,6 +546,28 @@ class UserContext:
 
             raise RichContextRequiredError(operation)
 
+    def get_rich_entities(
+        self,
+        domain: str,
+        filter_uids: set[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Get rich entity data for an activity domain, optionally filtered by UIDs.
+
+        Args:
+            domain: Domain key — "tasks", "goals", "habits", "events", "choices", "principles"
+            filter_uids: If provided, only return entities whose uid is in this set.
+                         Pass None to return all entities for the domain.
+
+        Returns:
+            List of {"entity": {...}, "graph_context": {...}} dicts.
+            Empty list if domain not found or no entities match filter.
+        """
+        entities = self.entities_rich.get(domain, [])
+        if filter_uids is None:
+            return entities
+        return [e for e in entities if e.get("entity", {}).get("uid") in filter_uids]
+
     # =========================================================================
     # TASK QUERY METHODS
     # =========================================================================

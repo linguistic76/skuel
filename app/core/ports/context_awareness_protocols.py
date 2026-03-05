@@ -106,8 +106,14 @@ class TaskAwareness(Protocol):
     task_priorities: dict[str, float]
     tasks_by_goal: dict[str, list[str]]
 
-    # Rich context (optional - may be empty)
+    # Knowledge (needed for prerequisite checks in task planning)
+    knowledge_mastery: dict[str, float]
+
+    # Rich context (required for domain planning methods)
+    is_rich_context: bool
     entities_rich: dict[str, list[dict[str, Any]]]
+
+    def get_rich_entities(self, domain: str, filter_uids: set[str] | None = None) -> list[dict[str, Any]]: ...
 
 
 @runtime_checkable
@@ -174,8 +180,11 @@ class HabitAwareness(Protocol):
     habits_by_goal: dict[str, list[str]]  # goal_uid -> habit_uids
     keystone_habits: list[str]  # keystone habits (high-impact habits)
 
-    # Rich context (optional)
+    # Rich context (required for domain planning methods)
+    is_rich_context: bool
     entities_rich: dict[str, list[dict[str, Any]]]
+
+    def get_rich_entities(self, domain: str, filter_uids: set[str] | None = None) -> list[dict[str, Any]]: ...
 
 
 @runtime_checkable
@@ -210,11 +219,17 @@ class GoalAwareness(Protocol):
     # Milestone tracking
     goal_milestones_completed: dict[str, list[str]]  # goal_uid -> milestone UIDs completed
 
+    # Goal risk tracking
+    at_risk_goals: list[str]
+
     # Goal methods
     def get_stalled_goals(self, _threshold_days: int = 14) -> list[str]: ...
 
-    # Rich context (optional)
+    # Rich context (required for domain planning methods)
+    is_rich_context: bool
     entities_rich: dict[str, list[dict[str, Any]]]
+
+    def get_rich_entities(self, domain: str, filter_uids: set[str] | None = None) -> list[dict[str, Any]]: ...
 
 
 @runtime_checkable
@@ -247,8 +262,11 @@ class EventAwareness(Protocol):
     event_attendance: dict[str, int]
     event_streaks: dict[str, int]
 
-    # Rich context (optional)
+    # Rich context (required for domain planning methods)
+    is_rich_context: bool
     entities_rich: dict[str, list[dict[str, Any]]]
+
+    def get_rich_entities(self, domain: str, filter_uids: set[str] | None = None) -> list[dict[str, Any]]: ...
 
 
 @runtime_checkable
@@ -272,11 +290,11 @@ class PrincipleAwareness(Protocol):
     # Principle state
     core_principle_uids: set[str]
 
-    # Principle relationships (goals/habits guided by principles)
-    # Note: These might be derived from rich context
-
-    # Rich context (optional)
+    # Rich context (required for domain planning methods)
+    is_rich_context: bool
     entities_rich: dict[str, list[dict[str, Any]]]
+
+    def get_rich_entities(self, domain: str, filter_uids: set[str] | None = None) -> list[dict[str, Any]]: ...
 
 
 @runtime_checkable
@@ -304,8 +322,11 @@ class ChoiceAwareness(Protocol):
     core_principle_uids: set[str]
     knowledge_mastery: dict[str, float]
 
-    # Rich context (optional)
+    # Rich context (required for domain planning methods)
+    is_rich_context: bool
     entities_rich: dict[str, list[dict[str, Any]]]
+
+    def get_rich_entities(self, domain: str, filter_uids: set[str] | None = None) -> list[dict[str, Any]]: ...
 
 
 @runtime_checkable
@@ -455,8 +476,11 @@ class FullAwareness(Protocol):
     is_blocked: bool
 
     # Rich context (all activity domains)
+    is_rich_context: bool
     entities_rich: dict[str, list[dict[str, Any]]]
     knowledge_units_rich: dict[str, dict[str, Any]]
+
+    def get_rich_entities(self, domain: str, filter_uids: set[str] | None = None) -> list[dict[str, Any]]: ...
 
 
 # =============================================================================
