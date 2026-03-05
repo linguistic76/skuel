@@ -109,6 +109,33 @@ core/ports/
 | **Feedback** | `feedback_protocols.py` | Human + AI feedback, progress reports, scheduling | 3 |
 | **Groups** | `group_protocols.py` | Group CRUD, teacher review queue | 2 |
 | **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration | 9 |
+| **Context Awareness** | `context_awareness_protocols.py` | ISP slices of UserContext — ZPD, Askesis, intelligence | 11 |
+
+### Context Awareness Protocols — UserContext ISP
+
+`UserContext` has ~240 fields. Intelligence and planning services should depend on the narrowest slice they actually use — not the full object. The 11 **context awareness protocols** provide these ISP-compliant slices:
+
+```
+UserContext (~240 fields)  ←  implements all 11 protocols
+    ↓ ISP narrowing
+CoreIdentity          → user_uid, username
+TaskAwareness         → active/blocked/overdue tasks, priorities
+KnowledgeAwareness    → mastery levels, prerequisites, learning velocity
+HabitAwareness        → streaks, at-risk habits, consistency
+GoalAwareness         → progress, milestones
+EventAwareness        → upcoming events, schedule
+PrincipleAwareness    → core principles, integrity scores
+ChoiceAwareness       → pending choices, decision patterns
+LearningPathAwareness → enrolled paths, current steps, ZPD position
+CrossDomainAwareness  → multi-domain subset (for cross-domain methods)
+FullAwareness         → all fields (Askesis dialogue, admin — use sparingly)
+```
+
+**Why this matters for ZPD and Askesis:** The Zone of Proximal Development computation only needs `KnowledgeAwareness & LearningPathAwareness`. A `ZPDService` that declares this dependency cannot accidentally read task or habit state — the constraint is MyPy-enforced.
+
+**Adoption target:** Every service that currently accepts `UserContext` should be updated to accept its narrowest awareness slice. `UserContext` satisfies all 11 protocols, so call sites do not change.
+
+**See:** `core/ports/context_awareness_protocols.py`, `UNIFIED_USER_ARCHITECTURE.md` → ISP Narrowing section
 
 ### Protocol Cleanup (February 2026)
 

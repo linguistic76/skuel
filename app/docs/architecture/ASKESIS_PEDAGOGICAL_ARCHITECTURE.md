@@ -71,6 +71,31 @@ A KU is in the **proximal zone** when:
 This is the computation `ZPDService.assess_zone()` will perform (deferred — see
 `docs/roadmap/zpd-service-deferred.md`).
 
+### ZPD and Context Awareness Protocols
+
+When `ZPDService` and Askesis query user readiness, they need a well-defined slice of `UserContext` — not all 240 fields. The context awareness protocols define exactly these slices:
+
+| Service | Protocol | Fields used |
+|---------|----------|------------|
+| `ZPDService.assess_zone()` | `KnowledgeAwareness & LearningPathAwareness` | `mastered_knowledge_uids`, `prerequisites_completed`, `prerequisites_needed`, `enrolled_path_uids`, `current_step_uid` |
+| `AskesisQueryService` | `LearningPathAwareness` | Enrolled paths, current step, ZPD position |
+| `AskesisStateAnalysisService` | `CrossDomainAwareness` | Cross-domain readiness signals |
+| Askesis dialogue context | `FullAwareness` | Complete user state for Socratic scaffolding |
+
+```python
+from core.ports import KnowledgeAwareness, LearningPathAwareness
+
+async def assess_zone(self, context: KnowledgeAwareness) -> ZPDAssessment:
+    """ZPD assessment only needs knowledge mastery + prerequisites."""
+    mastered = context.mastered_knowledge_uids
+    prereqs = context.prerequisites_completed
+    ...
+```
+
+This is architecturally significant: the ZPD score is derived entirely from knowledge state. A service that declares `KnowledgeAwareness` cannot accidentally access task or habit data — the contract is enforced by MyPy.
+
+**See:** `core/ports/context_awareness_protocols.py`
+
 ---
 
 ## 3. Journal → Pedagogical Signal Pipeline

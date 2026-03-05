@@ -458,6 +458,35 @@ class DailyPlanningMixin:
     ku: Any                        # KuGraphService
 ```
 
+### Context Awareness Protocol Targets
+
+Each mixin currently accepts `UserContext` (~240 fields) but only uses a narrow slice. The **adoption target** is to narrow each mixin signature to its specific awareness protocol — making dependencies explicit and making the mixin trivially testable:
+
+| Mixin | Current | Adoption Target | Rationale |
+|-------|---------|-----------------|-----------|
+| `DailyPlanningMixin` | `UserContext` | `FullAwareness` | Flagship method touches all domains |
+| `LearningIntelligenceMixin` | `UserContext` | `KnowledgeAwareness & LearningPathAwareness` | Prerequisites, mastery, ZPD position |
+| `LifePathIntelligenceMixin` | `UserContext` | `CrossDomainAwareness` | Multi-domain alignment scoring |
+| `SynergyIntelligenceMixin` | `UserContext` | `CrossDomainAwareness` | Cross-domain relationship patterns |
+| `ScheduleIntelligenceMixin` | `UserContext` | `EventAwareness & TaskAwareness` | Schedule + task capacity |
+
+```python
+from core.ports import KnowledgeAwareness, LearningPathAwareness
+
+# Adoption target — explicit ISP dependency
+class LearningIntelligenceMixin:
+    async def get_optimal_next_learning_steps(
+        self, context: KnowledgeAwareness  # not UserContext
+    ) -> Result[list[LearningStep]]:
+        # Only knowledge-related fields accessible → MyPy-verified
+        ready = context.get_ready_to_learn()
+        ...
+```
+
+`UserContext` implements all 11 awareness protocols, so `factory.create(context)` call sites are unchanged.
+
+**See:** `core/ports/context_awareness_protocols.py`, adoption plan: `/home/mike/.claude/plans/context-awareness-protocol-adoption.md`
+
 **Domain-specific planning methods** (`get_at_risk_habits_for_user`, `get_actionable_tasks_for_user`, `get_upcoming_events_for_user`, `get_advancing_goals_for_user`, `get_pending_decisions_for_user`, `get_aligned_principles_for_user`) are provided by `_domain_planning_mixin.py` in the URS package via MRO — `DailyPlanningMixin` calls them on `self.tasks`, `self.habits`, etc.
 
 ---

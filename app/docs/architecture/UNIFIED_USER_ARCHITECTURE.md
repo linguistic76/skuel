@@ -331,6 +331,54 @@ context = await context_builder.build_rich(user_uid)  # ONE query
 result = await service.some_method(context)            # zero re-queries
 ```
 
+### ISP Narrowing — Context Awareness Protocols
+
+UserContext has ~240 fields. Most services only need 5-10. **Context awareness protocols** are ISP-compliant slices that let services declare the minimum context they actually use:
+
+```python
+from core.ports import TaskAwareness, KnowledgeAwareness, LearningPathAwareness
+
+# ✅ ADOPTION TARGET — explicit, testable, mockable with 5 fields
+async def get_ready_to_work_on_today(self, context: TaskAwareness) -> Result[DailyWorkPlan]:
+    # MyPy enforces only TaskAwareness fields are accessed
+    ...
+
+# Currently — works but opaque: which of the 240 fields does this actually use?
+async def get_ready_to_work_on_today(self, context: UserContext) -> Result[DailyWorkPlan]:
+    ...
+```
+
+`UserContext` implements **all 11 protocols**, so call sites are unchanged — only service signatures narrow.
+
+**The 11 awareness slices** (`core/ports/context_awareness_protocols.py`):
+
+| Protocol | Fields | Primary consumer |
+|----------|--------|-----------------|
+| `CoreIdentity` | user_uid, username | Every context-aware service |
+| `TaskAwareness` | active/blocked/overdue tasks | `TasksPlanningService`, `DailyPlanningMixin` |
+| `KnowledgeAwareness` | mastery, prerequisites, velocity | `ZPDService`, Askesis |
+| `HabitAwareness` | streaks, at-risk habits | `HabitsIntelligenceService` |
+| `GoalAwareness` | progress, milestones | `GoalsPlanningService` |
+| `EventAwareness` | upcoming events, schedule | `EventsSchedulingService` |
+| `PrincipleAwareness` | core principles, integrity | `PrinciplesIntelligenceService` |
+| `ChoiceAwareness` | pending choices | `ChoicesIntelligenceService` |
+| `LearningPathAwareness` | enrolled paths, current steps, ZPD position | `ZPDService`, `AskesisQueryService` |
+| `CrossDomainAwareness` | multi-domain subset | `UserContextIntelligence` cross-domain methods |
+| `FullAwareness` | all fields | Askesis dialogue, admin dashboard |
+
+**Testing benefit** — mock 5 fields instead of 240:
+```python
+class MockTaskContext:
+    active_task_uids = ["task_abc"]
+    blocked_task_uids = []
+    overdue_task_uids = ["task_xyz"]
+    task_priorities = {"task_abc": "high"}
+
+result = await planning_service.get_ready_to_work_on_today(MockTaskContext())
+```
+
+**See:** `/core/ports/context_awareness_protocols.py`, `/home/mike/.claude/plans/context-awareness-protocol-adoption.md`
+
 ### Mutation Rules
 
 `UserContext` is a read-only aggregate. Mutations happen via domain services.
