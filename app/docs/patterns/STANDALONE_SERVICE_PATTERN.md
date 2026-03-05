@@ -275,7 +275,7 @@ transcription_service = TranscriptionService(
 | **Inheritance** | Extends BaseService[B, T] | No inheritance |
 | **Methods** | 20+ inherited methods | 6-10 focused methods |
 | **Configuration** | Class attributes | Constructor params |
-| **Ownership** | Built-in (verify_ownership) | Manual if needed |
+| **Ownership** | Built-in (verify_ownership) | Service-level (e.g. TranscriptionService.verify_ownership) |
 | **Search** | Inherited graph-aware search | Manual implementation |
 | **Graph enrichment** | Automatic via _config | Manual if needed |
 

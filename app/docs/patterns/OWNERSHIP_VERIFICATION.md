@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-02-02'
+updated: '2026-03-05'
 category: patterns
 related_skills:
 - activity-domains
@@ -9,7 +9,7 @@ related_docs: []
 ---
 # Ownership Verification Pattern
 
-*Last updated: 2026-01-24*
+*Last updated: 2026-03-05*
 
 ## Quick Start
 
@@ -217,6 +217,35 @@ async def update_goal_progress(request, user_uid: str, entity: Goal):
     return await goals_service.update_goal_progress(entity.uid, body["progress"])
 ```
 
+### Standalone Services (Non-BaseService)
+
+Standalone services (e.g. `TranscriptionService`) don't inherit from `BaseService`,
+so they implement `verify_ownership()` directly — same logic, same error semantics:
+
+```python
+# core/services/transcription/transcription_service.py
+async def verify_ownership(self, uid: str, user_uid: str) -> Result[Transcription]:
+    result = await self.get(uid)
+    if result.is_error:
+        return result
+    if not result.value:
+        return Result.fail(Errors.not_found("Transcription", uid))
+    if result.value.user_uid != user_uid:
+        return Result.fail(Errors.not_found("Transcription", uid))
+    return Result.ok(result.value)
+```
+
+See: `/docs/patterns/STANDALONE_SERVICE_PATTERN.md`
+
+### Cross-Domain Services (UnifiedSharingService)
+
+`UnifiedSharingService` is entity-agnostic (takes a raw driver, no backend). It
+combines ownership + shareable status in a single Cypher round trip via
+`_verify_owned_and_shareable()`. This mirrors the mixin's error semantics — returns
+`not_found` for both missing entities and ownership mismatches.
+
+See: `/docs/patterns/SHARING_PATTERNS.md`
+
 ## Entity Requirements
 
 Entities supporting ownership must have a `user_uid` field:
@@ -242,8 +271,7 @@ class Task:
 | Events | Event | User's calendar items |
 | Choices | Choice | User's decisions |
 | Principles | Principle | User's values |
-| Finance | Expense | User's financial data |
-| Reports | Report | User's submissions and reflections |
+| Submissions | Submission | User's submissions and reflections |
 
 ### Shared Domains (scope=ContentScope.SHARED)
 
@@ -255,6 +283,12 @@ class Task:
 
 **NOTE (January 2026):** MOC is now KU-based - a KU "is" a MOC when it has
 outgoing ORGANIZES relationships. No separate MapOfContent entity exists.
+
+### Admin-Only Domains (role-gated, no ContentScope)
+
+| Domain | Entity | Notes |
+|--------|--------|-------|
+| Finance | Expense | Admin-only bookkeeping — `@require_admin` on routes, no ownership checks |
 
 ### ContentScope Enum
 
