@@ -1708,10 +1708,15 @@ async def compose_services(
             backend=submissions_backend, storage_path=storage_path, event_bus=event_bus
         )
 
-        # Create unified sharing service (cross-domain, driver-based)
+        # Create sharing backend + service (cross-domain, queries :Entity nodes)
+        from adapters.persistence.neo4j.domain_backends import SharingBackend
+        from core.models.entity import Entity
         from core.services.sharing import UnifiedSharingService
 
-        unified_sharing_service = UnifiedSharingService(driver=driver)
+        sharing_backend = SharingBackend(
+            driver, NeoLabel.ENTITY, Entity, prometheus_metrics=prometheus_metrics
+        )
+        unified_sharing_service = UnifiedSharingService(backend=sharing_backend)
 
         # Create Submissions core service (content management: categories, tags, bulk operations)
         # February 2026: content_enrichment for handle_transcription_completed
@@ -2619,7 +2624,9 @@ async def compose_services(
             user_service=user_service,
             zpd_service=zpd_service,
         )
-        logger.info("✅ Askesis service created with intelligence_factory (13-domain synthesis + ZPD)")
+        logger.info(
+            "✅ Askesis service created with intelligence_factory (13-domain synthesis + ZPD)"
+        )
 
         # ========================================================================
         # CREATE SEARCH ROUTER (One Path Forward, January 2026)

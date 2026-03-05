@@ -7,7 +7,7 @@ SHARES_WITH relationships and visibility levels work identically for
 Submissions, ActivityReports, Tasks, Goals, or any future domain.
 
 Services:
-- UnifiedSharingService: Entity-agnostic sharing (driver-based)
+- UnifiedSharingService: Entity-agnostic sharing (backed by SharingBackend)
 
 See: /docs/patterns/SHARING_PATTERNS.md
 """
