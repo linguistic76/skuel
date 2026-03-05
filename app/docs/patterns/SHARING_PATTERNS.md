@@ -483,8 +483,8 @@ from core.services.sharing import UnifiedSharingService
 class UnifiedSharingService:
     """Entity-agnostic sharing and visibility control.
 
-    Works across all EntityTypes — takes a driver directly,
-    executes its own Cypher for cross-entity sharing patterns.
+    Works across all EntityTypes — delegates Cypher to SharingBackend,
+    handles validation logic (ownership, shareable status).
     """
 
     # Individual sharing
@@ -504,6 +504,7 @@ class UnifiedSharingService:
 ```
 
 **Location:** `core/services/sharing/unified_sharing_service.py`
+**Backend:** `adapters/persistence/neo4j/domain_backends.py` — `SharingBackend(UniversalNeo4jBackend[Entity])`
 **Protocol:** `core/ports/sharing_protocols.py` — `SharingOperations`
 **Services field:** `services.sharing`
 
@@ -577,25 +578,21 @@ All read operations use `check_access()`. Both "not found" and "forbidden" retur
 
 ```python
 @pytest.fixture
-def mock_driver():
-    driver = MagicMock()
-    session = AsyncMock()
-    driver.session.return_value.__aenter__ = AsyncMock(return_value=session)
-    driver.session.return_value.__aexit__ = AsyncMock(return_value=False)
-    return driver, session
+def mock_backend():
+    return MagicMock()
+
+@pytest.fixture
+def sharing_service(mock_backend):
+    return UnifiedSharingService(backend=mock_backend)
 
 @pytest.mark.asyncio
-async def test_share_success(sharing_service, mock_driver):
-    driver, session = mock_driver
-    # Query 1: combined ownership + shareable check
-    verify_result = AsyncMock()
-    verify_result.data = AsyncMock(return_value=[
-        {"actual_owner": "user_owner", "status": "completed", "ku_type": "submission"}
-    ])
-    # Query 2: share operation
-    share_result = AsyncMock()
-    share_result.data = AsyncMock(return_value=[{"success": True}])
-    session.run = AsyncMock(side_effect=[verify_result, share_result])
+async def test_share_success(mock_backend, sharing_service):
+    mock_backend.query_ownership_and_status = AsyncMock(
+        return_value=Result.ok(
+            [{"actual_owner": "user_owner", "status": "completed", "ku_type": "submission"}]
+        )
+    )
+    mock_backend.create_share = AsyncMock(return_value=Result.ok([{"success": True}]))
 
     result = await sharing_service.share(...)
     assert not result.is_error
@@ -669,6 +666,7 @@ if result.is_error:
 ## References
 
 ### Implementation Files
+- **Backend:** `adapters/persistence/neo4j/domain_backends.py` — `SharingBackend`
 - **Service:** `core/services/sharing/unified_sharing_service.py`
 - **Protocol:** `core/ports/sharing_protocols.py`
 - **API Routes:** `adapters/inbound/submissions_sharing_api.py`

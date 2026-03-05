@@ -660,7 +660,7 @@ def create_groups_api_routes(
 | Pattern | Use Case |
 |---------|----------|
 | Config-Driven (UnifiedRelationshipService) | Activity domains (6) |
-| Direct Driver | Curriculum, Submissions/Feedback, User |
+| Domain Backend | Sharing (SharingBackend), Curriculum, Submissions/Feedback |
 
 **Protocol-Mixin Compliance (January 2026):**
 ✅ **100% alignment achieved** - All 7 BaseService mixins match their protocol interfaces.
@@ -1140,7 +1140,8 @@ tasks = await backend.find_by(priority='high', due_date__gte=date.today())
 | `ChoicesBackend` | Choices | choice relationship links |
 | `PrinciplesBackend` | Principles | principle relationship links |
 | `KuBackend` | KU | `organize`, `unorganize`, `reorder`, `get_organized_children`, `find_organizers`, `list_root_organizers`, `is_organizer` |
-| `SubmissionsBackend` | Submissions | `share_submission`, `unshare_submission`, `get_shared_with_users`, `get_submissions_shared_with_me`, `set_visibility`, `check_access`, `verify_shareable` |
+| `SubmissionsBackend` | Submissions | (empty — sharing methods moved to `SharingBackend`) |
+| `SharingBackend` | Cross-domain sharing | `create_share`, `delete_share`, `update_visibility`, `query_access`, `check_access`, `verify_shareable`, group sharing (12 methods total) |
 | `LpBackend` | Learning Path | `get_paths_containing_ku`, `get_ku_mastery_progress` |
 | `ExerciseBackend` | Exercise | `link_to_curriculum`, `unlink_from_curriculum`, `get_required_knowledge` |
 

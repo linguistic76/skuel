@@ -239,8 +239,8 @@ See: `/docs/patterns/STANDALONE_SERVICE_PATTERN.md`
 
 ### Cross-Domain Services (UnifiedSharingService)
 
-`UnifiedSharingService` is entity-agnostic (takes a raw driver, no backend). It
-combines ownership + shareable status in a single Cypher round trip via
+`UnifiedSharingService` is entity-agnostic, backed by `SharingBackend(UniversalNeo4jBackend[Entity])`.
+It combines ownership + shareable status in a single Cypher round trip via
 `_verify_owned_and_shareable()`. This mirrors the mixin's error semantics — returns
 `not_found` for both missing entities and ownership mismatches.
 
