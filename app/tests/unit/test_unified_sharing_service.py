@@ -10,9 +10,6 @@ Tests all service methods with a mocked Neo4j driver:
 - get_shared_with()
 - get_shared_with_me()
 - verify_shareable()
-
-Also tests the private helper:
-- _verify_ownership()
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -59,17 +56,15 @@ async def test_share_success(mock_driver, sharing_service):
     """Test successfully sharing an entity."""
     driver, session = mock_driver
 
-    # _verify_ownership returns owner match, then verify_shareable, then share
-    ownership_result = AsyncMock()
-    ownership_result.data = AsyncMock(return_value=[{"actual_owner": "user_owner"}])
-    shareable_result = AsyncMock()
-    shareable_result.data = AsyncMock(
-        return_value=[{"status": "completed", "ku_type": "submission"}]
+    # _verify_owned_and_shareable (combined), then share
+    verify_result = AsyncMock()
+    verify_result.data = AsyncMock(
+        return_value=[{"actual_owner": "user_owner", "status": "completed", "ku_type": "submission"}]
     )
     share_result = AsyncMock()
     share_result.data = AsyncMock(return_value=[{"success": True}])
 
-    session.run = AsyncMock(side_effect=[ownership_result, shareable_result, share_result])
+    session.run = AsyncMock(side_effect=[verify_result, share_result])
 
     result = await sharing_service.share(
         entity_uid="report_123",
@@ -87,9 +82,11 @@ async def test_share_not_owner(mock_driver, sharing_service):
     """Test sharing fails if user is not owner."""
     driver, session = mock_driver
 
-    ownership_result = AsyncMock()
-    ownership_result.data = AsyncMock(return_value=[{"actual_owner": "user_other"}])
-    session.run = AsyncMock(return_value=ownership_result)
+    verify_result = AsyncMock()
+    verify_result.data = AsyncMock(
+        return_value=[{"actual_owner": "user_other", "status": "completed", "ku_type": "submission"}]
+    )
+    session.run = AsyncMock(return_value=verify_result)
 
     result = await sharing_service.share(
         entity_uid="report_123",
@@ -100,7 +97,7 @@ async def test_share_not_owner(mock_driver, sharing_service):
 
     assert result.is_error
     assert result.error.category.value == "not_found"
-    # Only one query executed (ownership check)
+    # Only one query executed (combined ownership + shareable check)
     assert session.run.call_count == 1
 
 
@@ -109,13 +106,11 @@ async def test_share_not_completed(mock_driver, sharing_service):
     """Test sharing fails if entity is not shareable (e.g. processing)."""
     driver, session = mock_driver
 
-    ownership_result = AsyncMock()
-    ownership_result.data = AsyncMock(return_value=[{"actual_owner": "user_owner"}])
-    shareable_result = AsyncMock()
-    shareable_result.data = AsyncMock(
-        return_value=[{"status": "processing", "ku_type": "submission"}]
+    verify_result = AsyncMock()
+    verify_result.data = AsyncMock(
+        return_value=[{"actual_owner": "user_owner", "status": "processing", "ku_type": "submission"}]
     )
-    session.run = AsyncMock(side_effect=[ownership_result, shareable_result])
+    session.run = AsyncMock(return_value=verify_result)
 
     result = await sharing_service.share(
         entity_uid="report_123",
@@ -126,8 +121,8 @@ async def test_share_not_completed(mock_driver, sharing_service):
 
     assert result.is_error
     assert "Only completed Ku" in str(result.error)
-    # Share query NOT executed
-    assert session.run.call_count == 2
+    # Only one query executed (combined check catches non-shareable)
+    assert session.run.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -135,9 +130,9 @@ async def test_share_entity_not_found(mock_driver, sharing_service):
     """Test sharing fails if entity doesn't exist."""
     driver, session = mock_driver
 
-    ownership_result = AsyncMock()
-    ownership_result.data = AsyncMock(return_value=[])  # Empty = not found
-    session.run = AsyncMock(return_value=ownership_result)
+    verify_result = AsyncMock()
+    verify_result.data = AsyncMock(return_value=[])  # Empty = not found
+    session.run = AsyncMock(return_value=verify_result)
 
     result = await sharing_service.share(
         entity_uid="report_nonexistent",
@@ -160,11 +155,13 @@ async def test_unshare_success(mock_driver, sharing_service):
     """Test successfully unsharing an entity."""
     driver, session = mock_driver
 
-    ownership_result = AsyncMock()
-    ownership_result.data = AsyncMock(return_value=[{"actual_owner": "user_owner"}])
+    verify_result = AsyncMock()
+    verify_result.data = AsyncMock(
+        return_value=[{"actual_owner": "user_owner", "status": "completed", "ku_type": "submission"}]
+    )
     unshare_result = AsyncMock()
     unshare_result.data = AsyncMock(return_value=[{"deleted_count": 1}])
-    session.run = AsyncMock(side_effect=[ownership_result, unshare_result])
+    session.run = AsyncMock(side_effect=[verify_result, unshare_result])
 
     result = await sharing_service.unshare(
         entity_uid="report_123",
@@ -181,9 +178,11 @@ async def test_unshare_not_owner(mock_driver, sharing_service):
     """Test unsharing fails if user is not owner."""
     driver, session = mock_driver
 
-    ownership_result = AsyncMock()
-    ownership_result.data = AsyncMock(return_value=[{"actual_owner": "user_other"}])
-    session.run = AsyncMock(return_value=ownership_result)
+    verify_result = AsyncMock()
+    verify_result.data = AsyncMock(
+        return_value=[{"actual_owner": "user_other", "status": "completed", "ku_type": "submission"}]
+    )
+    session.run = AsyncMock(return_value=verify_result)
 
     result = await sharing_service.unshare(
         entity_uid="report_123",
@@ -201,11 +200,13 @@ async def test_unshare_no_relationship(mock_driver, sharing_service):
     """Test unsharing fails if no sharing relationship exists."""
     driver, session = mock_driver
 
-    ownership_result = AsyncMock()
-    ownership_result.data = AsyncMock(return_value=[{"actual_owner": "user_owner"}])
+    verify_result = AsyncMock()
+    verify_result.data = AsyncMock(
+        return_value=[{"actual_owner": "user_owner", "status": "completed", "ku_type": "submission"}]
+    )
     unshare_result = AsyncMock()
     unshare_result.data = AsyncMock(return_value=[{"deleted_count": 0}])
-    session.run = AsyncMock(side_effect=[ownership_result, unshare_result])
+    session.run = AsyncMock(side_effect=[verify_result, unshare_result])
 
     result = await sharing_service.unshare(
         entity_uid="report_123",
@@ -334,15 +335,13 @@ async def test_set_visibility_to_public_success(mock_driver, sharing_service):
     """Test setting entity visibility to PUBLIC."""
     driver, session = mock_driver
 
-    ownership_result = AsyncMock()
-    ownership_result.data = AsyncMock(return_value=[{"actual_owner": "user_owner"}])
-    shareable_result = AsyncMock()
-    shareable_result.data = AsyncMock(
-        return_value=[{"status": "completed", "ku_type": "submission"}]
+    verify_result = AsyncMock()
+    verify_result.data = AsyncMock(
+        return_value=[{"actual_owner": "user_owner", "status": "completed", "ku_type": "submission"}]
     )
     visibility_result = AsyncMock()
     visibility_result.data = AsyncMock(return_value=[{"uid": "report_123"}])
-    session.run = AsyncMock(side_effect=[ownership_result, shareable_result, visibility_result])
+    session.run = AsyncMock(side_effect=[verify_result, visibility_result])
 
     result = await sharing_service.set_visibility(
         entity_uid="report_123",
@@ -352,8 +351,8 @@ async def test_set_visibility_to_public_success(mock_driver, sharing_service):
 
     assert not result.is_error
     assert result.value is True
-    # 3 queries: ownership, shareable, update
-    assert session.run.call_count == 3
+    # 2 queries: combined ownership+shareable, update
+    assert session.run.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -361,11 +360,13 @@ async def test_set_visibility_to_private_no_shareable_check(mock_driver, sharing
     """Test setting visibility to PRIVATE skips shareability check."""
     driver, session = mock_driver
 
-    ownership_result = AsyncMock()
-    ownership_result.data = AsyncMock(return_value=[{"actual_owner": "user_owner"}])
+    verify_result = AsyncMock()
+    verify_result.data = AsyncMock(
+        return_value=[{"actual_owner": "user_owner", "status": "active", "ku_type": "task"}]
+    )
     visibility_result = AsyncMock()
     visibility_result.data = AsyncMock(return_value=[{"uid": "report_123"}])
-    session.run = AsyncMock(side_effect=[ownership_result, visibility_result])
+    session.run = AsyncMock(side_effect=[verify_result, visibility_result])
 
     result = await sharing_service.set_visibility(
         entity_uid="report_123",
@@ -375,7 +376,7 @@ async def test_set_visibility_to_private_no_shareable_check(mock_driver, sharing
 
     assert not result.is_error
     assert result.value is True
-    # 2 queries: ownership + update (no shareability check for PRIVATE)
+    # 2 queries: ownership-only check + update (no shareability check for PRIVATE)
     assert session.run.call_count == 2
 
 
@@ -384,9 +385,11 @@ async def test_set_visibility_not_owner(mock_driver, sharing_service):
     """Test setting visibility fails if user is not owner."""
     driver, session = mock_driver
 
-    ownership_result = AsyncMock()
-    ownership_result.data = AsyncMock(return_value=[{"actual_owner": "user_other"}])
-    session.run = AsyncMock(return_value=ownership_result)
+    verify_result = AsyncMock()
+    verify_result.data = AsyncMock(
+        return_value=[{"actual_owner": "user_other", "status": "completed", "ku_type": "submission"}]
+    )
+    session.run = AsyncMock(return_value=verify_result)
 
     result = await sharing_service.set_visibility(
         entity_uid="report_123",

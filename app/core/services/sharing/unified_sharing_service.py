@@ -90,13 +90,9 @@ class UnifiedSharingService:
         Returns:
             Result[bool]: True if shared, error if validation fails
         """
-        ownership_check = await self._verify_ownership(entity_uid, owner_uid)
-        if ownership_check.is_error:
-            return ownership_check
-
-        shareable_check = await self.verify_shareable(entity_uid)
-        if shareable_check.is_error:
-            return shareable_check
+        check = await self._verify_owned_and_shareable(entity_uid, owner_uid)
+        if check.is_error:
+            return check
 
         query = """
         MATCH (recipient:User {uid: $recipient_uid})
@@ -150,9 +146,11 @@ class UnifiedSharingService:
         Returns:
             Result[bool]: True if unshared, error if validation fails
         """
-        ownership_check = await self._verify_ownership(entity_uid, owner_uid)
-        if ownership_check.is_error:
-            return ownership_check
+        check = await self._verify_owned_and_shareable(
+            entity_uid, owner_uid, require_shareable=False
+        )
+        if check.is_error:
+            return check
 
         query = """
         MATCH (recipient:User {uid: $recipient_uid})-[r:SHARES_WITH]->(ku:Entity {uid: $entity_uid})
@@ -202,14 +200,14 @@ class UnifiedSharingService:
         Returns:
             Result[bool]: True if updated, error if validation fails
         """
-        ownership_check = await self._verify_ownership(entity_uid, owner_uid)
-        if ownership_check.is_error:
-            return ownership_check
-
         if visibility in (Visibility.SHARED, Visibility.PUBLIC):
-            shareable_check = await self.verify_shareable(entity_uid)
-            if shareable_check.is_error:
-                return shareable_check
+            check = await self._verify_owned_and_shareable(entity_uid, owner_uid)
+        else:
+            check = await self._verify_owned_and_shareable(
+                entity_uid, owner_uid, require_shareable=False
+            )
+        if check.is_error:
+            return check
 
         query = """
         MATCH (ku:Entity {uid: $entity_uid})
@@ -458,13 +456,9 @@ class UnifiedSharingService:
         Returns:
             Result[bool]: True if shared, error if validation fails
         """
-        ownership_check = await self._verify_ownership(entity_uid, owner_uid)
-        if ownership_check.is_error:
-            return ownership_check
-
-        shareable_check = await self.verify_shareable(entity_uid)
-        if shareable_check.is_error:
-            return shareable_check
+        check = await self._verify_owned_and_shareable(entity_uid, owner_uid)
+        if check.is_error:
+            return check
 
         query = """
         MATCH (entity:Entity {uid: $entity_uid})
@@ -516,9 +510,11 @@ class UnifiedSharingService:
         Returns:
             Result[bool]: True if unshared, error if validation fails
         """
-        ownership_check = await self._verify_ownership(entity_uid, owner_uid)
-        if ownership_check.is_error:
-            return ownership_check
+        check = await self._verify_owned_and_shareable(
+            entity_uid, owner_uid, require_shareable=False
+        )
+        if check.is_error:
+            return check
 
         query = """
         MATCH (entity:Entity {uid: $entity_uid})-[r:SHARED_WITH_GROUP]->(group:Group {uid: $group_uid})
@@ -641,15 +637,33 @@ class UnifiedSharingService:
     # PRIVATE HELPERS
     # =========================================================================
 
-    async def _verify_ownership(
+    async def _verify_owned_and_shareable(
         self,
         entity_uid: str,
         owner_uid: str,
+        *,
+        require_shareable: bool = True,
     ) -> Result[bool]:
-        """Verify that a user owns an entity."""
+        """Verify ownership and optionally shareable status in a single query.
+
+        Combines what was previously two separate round trips (_verify_ownership
+        + verify_shareable) into one. The ownership check mirrors the logic in
+        CrudOperationsMixin.verify_ownership — returns not_found for both
+        missing entities and ownership mismatches to prevent UID enumeration.
+
+        Args:
+            entity_uid: Entity to verify
+            owner_uid: Expected owner UID
+            require_shareable: If True, also check shareable status
+
+        Returns:
+            Result[bool]: True if all checks pass
+        """
         query = """
         MATCH (entity:Entity {uid: $entity_uid})
-        RETURN entity.user_uid as actual_owner
+        RETURN entity.user_uid as actual_owner,
+               entity.status as status,
+               entity.ku_type as ku_type
         """
         try:
             async with self.driver.session() as session:
@@ -657,11 +671,35 @@ class UnifiedSharingService:
                 records = await result.data()
             if not records:
                 return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
-            actual_owner = records[0]["actual_owner"]
+
+            record = records[0]
+            actual_owner = record["actual_owner"]
+
+            # Ownership check — not_found (not validation) to prevent UID enumeration
             if actual_owner != owner_uid:
-                # Return not_found (not validation) to prevent UID enumeration
                 return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
+
+            if not require_shareable:
+                return Result.ok(True)
+
+            # Shareable check — same logic as verify_shareable()
+            status = record["status"]
+            ku_type = record["ku_type"]
+            if ku_type in _ACTIVITY_ENTITY_TYPES:
+                if status in ("active", "completed"):
+                    return Result.ok(True)
+                return Result.fail(
+                    Errors.validation(
+                        f"Activity Ku can be shared when active or completed. Current status: {status}"
+                    )
+                )
+            if status != "completed":
+                return Result.fail(
+                    Errors.validation(f"Only completed Ku can be shared. Current status: {status}")
+                )
             return Result.ok(True)
         except Exception as e:
-            logger.error(f"Failed _verify_ownership for {entity_uid}: {e}")
-            return Result.fail(Errors.database(operation="verify_ownership", message=str(e)))
+            logger.error(f"Failed _verify_owned_and_shareable for {entity_uid}: {e}")
+            return Result.fail(
+                Errors.database(operation="verify_owned_and_shareable", message=str(e))
+            )
