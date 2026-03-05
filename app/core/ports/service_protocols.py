@@ -23,6 +23,7 @@ from datetime import date, datetime
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from core.models.relationship_names import RelationshipName
+from core.ports.context_awareness_protocols import FullAwareness
 from core.utils.result_simplified import Result
 
 # ============================================================================
@@ -443,7 +444,7 @@ class GoalTaskGeneratorOperations(Protocol):
     async def generate_tasks_for_goal(
         self,
         goal_uid: str,
-        user_context: Any,
+        user_context: FullAwareness,
         auto_create: bool = False,
     ) -> Result[Any]:
         """Generate tasks for a goal. Returns Result[list[TaskDTO]]."""
@@ -461,7 +462,7 @@ class HabitEventSchedulerOperations(Protocol):
     async def schedule_events_for_habit(
         self,
         habit_uid: str,
-        user_context: Any,
+        user_context: FullAwareness,
         auto_create: bool = False,
         days_ahead: int | None = None,
     ) -> Result[Any]:
