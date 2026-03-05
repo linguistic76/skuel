@@ -165,15 +165,14 @@ poetry run python scripts/clear_neo4j.py bundle mindfulness_101
 
 ## Configuration
 
-All scripts use these defaults (can be changed in script):
+All scripts read connection details from environment variables, with development defaults:
 
 ```python
-uri = "bolt://localhost:7687"
-username = "neo4j"
-password = "password"
+neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
 ```
 
-To use different credentials, edit the script or modify the function calls.
+Passwords are resolved via the credential store (`core.config.credential_store`) with env fallback. Set credentials in `.env` or export them directly.
 
 ## Safety Features
 
@@ -280,8 +279,8 @@ Error: Invalid username or password
 ```
 
 **Solution:**
-1. Check Neo4j credentials
-2. Update script with correct username/password
+1. Check Neo4j credentials in `.env` or environment
+2. Set password via credential store: `poetry run python scripts/set_neo4j_password.py`
 3. Or reset Neo4j password
 
 ### Partial Ingestion
