@@ -28,7 +28,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `user_enums.py` | User roles and health scoring | UserRole, ContextHealthScore |
 | `finance_enums.py` | Finance domain | ExpenseStatus, PaymentMethod, BudgetPeriod |
 | `transcription_enums.py` | Transcription processing | TranscriptionStatus |
-| `neo_labels.py` | Neo4j node labels | NeoLabel (29 labels) |
+| `neo_labels.py` | Neo4j node labels | NeoLabel (32 labels) |
 
 **Import convention:**
 ```python
@@ -278,7 +278,7 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 - `TranscriptionStatus` — PENDING, PROCESSING, COMPLETED, FAILED. Has `is_terminal()` and `can_retry()`.
 
 **Neo4j Labels** (`neo_labels.py`):
-- `NeoLabel` — 29 labels mapping to Neo4j node types. `from_entity_type()` bridges EntityType → Neo4j label. `is_valid()` validates label strings.
+- `NeoLabel` — 32 labels mapping to Neo4j node types. `from_entity_type()` bridges EntityType → Neo4j label. `is_valid()` validates label strings.
 
 ---
 
