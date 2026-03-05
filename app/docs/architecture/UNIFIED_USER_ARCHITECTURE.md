@@ -26,7 +26,7 @@ SKUEL's user system has two distinct objects that serve different purposes:
 | Object | Location | Purpose |
 |--------|----------|---------|
 | `User` | `core/models/user/user.py` | Frozen domain model — identity, preferences, role |
-| `UserContext` | `core/services/user/unified_user_context.py` | Runtime state — everything a user has done (~240 fields) |
+| `UserContext` | `core/services/user/unified_user_context.py` | Runtime state — everything a user has done (~250 fields) |
 
 `User` is what a user *is*. `UserContext` is what they *have* — all their entities, relationships, and graph neighbourhoods in one object, built by a single MEGA-QUERY.
 
@@ -163,7 +163,7 @@ async def admin_only_route(request, current_user):
 
 **The problem:** Understanding a user without `UserContext` requires 15+ separate queries across all domains. Stats are disconnected from UIDs. Intelligence services can't see across domain boundaries.
 
-**The solution:** One object (~240 fields), built by one query (MEGA-QUERY), consumed by all intelligence services. Stats are computed FROM UIDs — no duplication, no drift.
+**The solution:** One object (~250 fields), built by one query (MEGA-QUERY), consumed by all intelligence services. Stats are computed FROM UIDs — no duplication, no drift.
 
 ```
 Graph (Neo4j) → MEGA-QUERY → UserContext → UserContextIntelligence → Recommendations
@@ -176,7 +176,7 @@ Graph (Neo4j) → MEGA-QUERY → UserContext → UserContextIntelligence → Rec
 | Depth | Method | Fields | When to use |
 |-------|--------|--------|-------------|
 | **Standard** | `build(user_uid)` | UIDs only (~150) | API responses, ownership checks |
-| **Rich** | `build_rich(user_uid, window="30d")` | UIDs + full entities + graph (~240) | Intelligence, daily planning |
+| **Rich** | `build_rich(user_uid, window="30d")` | UIDs + full entities + graph (~250) | Intelligence, daily planning |
 
 `window` controls how far back the activity-window CALL{} blocks look (`"7d"`, `"14d"`, `"30d"`, `"90d"`).
 
@@ -265,6 +265,7 @@ class UserContextQueryExecutor:
 | `populate_progress_metrics()` | `overall_progress` | Both |
 | `populate_derived_fields()` | `tasks_by_goal`, `at_risk_habits`, `blocked_task_uids` | Rich only |
 | `populate_activity_report()` | `latest_activity_report_*` fields | Both |
+| `populate_submission_stats()` | `total_submission_count`, `pending_feedback_count`, `unsubmitted_exercises`, etc. (10 fields) | Rich only |
 | `populate_cross_domain_insights()` | `cross_domain_insights` | Rich only |
 
 ---
@@ -302,6 +303,25 @@ Both CONSOLIDATED_QUERY (standard) and MEGA-QUERY (rich) fetch the latest `Activ
 
 `latest_activity_report_user_annotation` is included in `Askesis.build_llm_context()` when the query mentions feedback/patterns/reflection keywords.
 
+### Submission & Feedback Stats — Rich Path Only
+
+MEGA-QUERY populates 10 submission/feedback tracking fields via `populate_submission_stats()`:
+
+| UserContext Field | What |
+|-----------------|------|
+| `total_submission_count` | Cumulative student submissions |
+| `total_journal_count` | Cumulative journal entries |
+| `submissions_in_window` | Submissions within activity window |
+| `last_submission_date` | Most recent submission timestamp |
+| `feedback_received_count` | Total feedback responses received |
+| `feedback_in_window` | Feedback received within activity window |
+| `pending_feedback_count` | Submissions still awaiting feedback |
+| `assigned_exercise_count` | Exercises assigned via Group membership |
+| `completed_exercise_count` | Assigned exercises with submissions |
+| `unsubmitted_exercises` | Up to 5 pending exercises (uid, title, due_date), due_date ASC |
+
+These fields are separate from `entities_rich` — they are scalar/list fields on `UserContext`, similar to `latest_activity_report_*` fields. `DailyPlanningMixin` reads `context.unsubmitted_exercises` directly at Priority 2.5 instead of making a separate service call.
+
 ### Caching
 
 `UserContextCache` (`core/services/user/user_context_cache.py`) caches `UserContext` with a 5-minute TTL. `ProfileHubData` (`core/services/user_stats_types.py`) is a frozen, serialisable view computed FROM `UserContext` — stats derived from UIDs, not queried separately.
@@ -333,7 +353,7 @@ result = await service.some_method(context)            # zero re-queries
 
 ### ISP Narrowing — Context Awareness Protocols
 
-UserContext has ~240 fields. Most services only need 5-10. **Context awareness protocols** are ISP-compliant slices that let services declare the minimum context they actually use:
+UserContext has ~250 fields. Most services only need 5-10. **Context awareness protocols** are ISP-compliant slices that let services declare the minimum context they actually use:
 
 ```python
 from core.ports import TaskAwareness, KnowledgeAwareness, LearningPathAwareness

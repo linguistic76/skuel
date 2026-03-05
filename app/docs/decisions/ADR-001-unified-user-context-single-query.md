@@ -374,6 +374,7 @@ Large dataset (10K nodes): 350ms
 |------|--------|--------|---------|
 | 2025-11-16 | Strategic Quality Initiative | Initial ADR creation | 1.0 |
 | 2026-01-20 | Context Integration | Extended MEGA_QUERY with user_properties, life_path, MOCs, progress_counts sections; added 6 new populate methods to close field mapping gaps | 1.1 |
+| 2026-03-06 | Context Integration | Extended MEGA_QUERY with submission_stats section (10 fields); added populate_submission_stats(); daily planning reads context.unsubmitted_exercises instead of service call | 1.2 |
 
 ---
 

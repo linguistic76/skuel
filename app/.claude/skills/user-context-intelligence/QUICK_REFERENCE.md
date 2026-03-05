@@ -370,6 +370,16 @@ plan = await intelligence.get_ready_to_work_on_today()
 | `events_by_habit` | `dict[str, list[str]]` | Habit→Events |
 | `latest_activity_report_uid` | `str \| None` | Most recent ActivityReport UID (rich only) |
 | `latest_activity_report_period` | `str \| None` | Report window e.g. `"7d"` (rich only) |
+| `total_submission_count` | `int` | Cumulative student submissions |
+| `total_journal_count` | `int` | Cumulative journal entries |
+| `submissions_in_window` | `int` | Submissions within activity window |
+| `last_submission_date` | `datetime \| None` | Most recent submission timestamp |
+| `feedback_received_count` | `int` | Total feedback responses received |
+| `feedback_in_window` | `int` | Feedback within activity window |
+| `pending_feedback_count` | `int` | Submissions awaiting feedback |
+| `assigned_exercise_count` | `int` | Exercises assigned via Group |
+| `completed_exercise_count` | `int` | Assigned exercises completed |
+| `unsubmitted_exercises` | `list[dict]` | Up to 5 pending exercises ({uid, title, due_date}) |
 
 ---
 

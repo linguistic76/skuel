@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob
 
 > "THE CORE VALUE PROPOSITION: What should I work on next?"
 
-SKUEL's `UserContextIntelligence` is the central intelligence hub that synthesizes user state (`UserContext` ~240 fields) with all 13 domain services to answer the fundamental question: **"What should I work on today?"**
+SKUEL's `UserContextIntelligence` is the central intelligence hub that synthesizes user state (`UserContext` ~250 fields) with all 13 domain services to answer the fundamental question: **"What should I work on today?"**
 
 ## Quick Start
 
@@ -35,7 +35,7 @@ UserContextIntelligence = UserContext + 13 Domain Services
                         = User State + Complete Graph Intelligence
 ```
 
-**UserContext (~240 fields)** provides:
+**UserContext (~250 fields)** provides:
 - Current mastery levels, prerequisites, learning goals
 - Active tasks, habits, goals, events
 - Workload capacity, available time, energy levels
@@ -96,15 +96,13 @@ All use `UnifiedRelationshipService` with domain configs. Events is a Scheduling
 | Feedback | `self.feedback` | Feedback loop graph queries — pending submissions, completion rate (`FeedbackRelationshipService`) |
 | Analytics | `self.analytics` | Cross-domain analytics (`AnalyticsRelationshipService`) |
 
-> **Wired, Not Yet Called**
-> These 2 services are required at construction and stored on `self`, but no mixin currently invokes them. The intelligence methods for the processing domain are architecturally reserved — the slots exist, the calling code has not been written yet:
+> **Processing Domain Status (March 2026)**
 >
-> | Service | Will power | Status |
-> |---------|-----------|--------|
-> | `self.submissions` | Cross-domain submission state (planned) | Wired, not called |
-> | `self.analytics` | Cross-domain pattern queries in synergy detection | Wired, not called |
->
-> `self.feedback` is now active — `DailyPlanningMixin` calls `get_unsubmitted_exercises()` at Priority 2.5.
+> | Service | Status |
+> |---------|--------|
+> | `self.submissions` | Wired, not called (cross-domain submission state planned) |
+> | `self.analytics` | Wired, not called (cross-domain pattern queries planned) |
+> | `self.feedback` | Wired. Exercise data now flows via MEGA-QUERY → `context.unsubmitted_exercises` (Priority 2.5 in daily planning reads this field directly) |
 
 ### Temporal Domain (1)
 
@@ -212,6 +210,8 @@ class DailyWorkPlan:
 alongside active entities. Used by **both** intelligence methods and feedback services
 (`ProgressFeedbackGenerator`, `ActivityReportService`). Default `window="30d"` always
 provides the standard 30-day window.
+
+**Submission & feedback stats (March 2026):** `build_rich()` now populates 10 new fields via `populate_submission_stats()`: submission counts, feedback tracking, and `unsubmitted_exercises`. `DailyPlanningMixin` reads `context.unsubmitted_exercises` directly at Priority 2.5, eliminating the previous `feedback.get_unsubmitted_exercises()` service call.
 
 **The rule:** Always pass `build_rich()` context to intelligence. `require_rich_context()` will catch mistakes:
 
@@ -460,7 +460,7 @@ class DailyPlanningMixin:
 
 ### Context Awareness Protocol Targets
 
-Each mixin currently accepts `UserContext` (~240 fields) but only uses a narrow slice. The **adoption target** is to narrow each mixin signature to its specific awareness protocol — making dependencies explicit and making the mixin trivially testable:
+Each mixin currently accepts `UserContext` (~250 fields) but only uses a narrow slice. The **adoption target** is to narrow each mixin signature to its specific awareness protocol — making dependencies explicit and making the mixin trivially testable:
 
 | Mixin | Current | Adoption Target | Rationale |
 |-------|---------|-----------------|-----------|

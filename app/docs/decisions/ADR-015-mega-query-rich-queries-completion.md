@@ -15,7 +15,7 @@ related: [ADR-001, ADR-007, ADR-030]
 
 **Decision Type:** ☑ Query Architecture  ⬜ Graph Schema  ☑ Performance Optimization  ☑ Pattern/Practice
 
-**Complexity Score:** 50+ (Extended from ADR-001's 38-point base query)
+**Complexity Score:** ~55 (Extended from ADR-001's 38-point base query)
 
 **Related ADRs:**
 - Extends: ADR-001 (Single Complex Query for Unified User Context)
@@ -153,11 +153,11 @@ UnifiedRelationshipService operates at a different semantic level (per-entity qu
 
 ### Code Location
 **Where is this decision implemented?**
-- Primary file: `/core/services/user/user_context_queries.py` (MEGA_QUERY constant, ~700 lines of Cypher)
+- Primary file: `/core/services/user/user_context_queries.py` (MEGA_QUERY constant, ~850 lines of Cypher)
 - Related files:
   - `/core/services/user/user_context_builder.py` (orchestration, ~331 lines)
   - `/core/services/user/user_context_extractor.py` (result parsing, ~351 lines)
-  - `/core/services/user/user_context_populator.py` (context population, ~235 lines)
+  - `/core/services/user/user_context_populator.py` (context population, ~270 lines)
   - `/core/services/relationships/domain_configs.py` (relationship definitions)
   - `/core/services/user/unified_user_context.py` (field definitions)
 - Tests:
@@ -236,6 +236,7 @@ user_context_populator.py (populate UnifiedUserContext)
 
 | Date | Author | Change | Version |
 |------|--------|--------|---------|
+| 2026-03-06 | Claude | Extended MEGA_QUERY with submission_stats section; added populate_submission_stats() | 2.1 |
 | 2026-01-24 | Claude | Context builder decomposition (4 modules) | 2.0 |
 | 2025-12-04 | Claude | Initial implementation | 1.0 |
 

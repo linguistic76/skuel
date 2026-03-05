@@ -24,7 +24,7 @@ class UserContextIntelligence(
 |--------|------------------------|-------------------|
 | **Focus** | Single domain entities | Cross-domain synthesis |
 | **Backend** | Single domain backend | 13 domain services |
-| **Context** | Entity-focused | User state (~240 fields) |
+| **Context** | Entity-focused | User state (~250 fields) |
 | **Methods** | CRUD + intelligence | 8 specialized methods |
 | **Testing** | Mock single backend | Mock context + services |
 
@@ -254,7 +254,7 @@ class DailyPlanningMixin:
     choices: Any        # UnifiedRelationshipService
     principles: Any     # UnifiedRelationshipService
     ku: Any             # KuGraphService
-    feedback: Any       # FeedbackRelationshipService
+    feedback: Any       # FeedbackRelationshipService (exercises now via context.unsubmitted_exercises)
 ```
 
 **Note:** The 6 domain-specific planning methods this mixin calls (`get_at_risk_habits_for_user`, `get_upcoming_events_for_user`, `get_actionable_tasks_for_user`, `get_advancing_goals_for_user`, `get_pending_decisions_for_user`, `get_aligned_principles_for_user`) are provided by `_domain_planning_mixin.py` via the `UnifiedRelationshipService` MRO — they are not on the `UnifiedRelationshipService` shell itself.
@@ -279,7 +279,7 @@ async def get_ready_to_work_on_today(
     Priority Order:
     1. At-risk habits (maintain streaks)
     2. Today's events (can't reschedule)
-    2.5. Unsubmitted exercises (teacher assignments — external accountability)
+    2.5. Unsubmitted exercises (from context.unsubmitted_exercises — no extra query)
     3. Overdue and actionable tasks
     4. Daily habits (consistency)
     5. Learning (if capacity allows)
