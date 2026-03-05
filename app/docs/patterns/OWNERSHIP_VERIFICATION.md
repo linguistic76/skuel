@@ -227,7 +227,7 @@ so they implement `verify_ownership()` directly — same logic, same error seman
 async def verify_ownership(self, uid: str, user_uid: str) -> Result[Transcription]:
     result = await self.get(uid)
     if result.is_error:
-        return result
+        return Result.fail(result.expect_error())
     if not result.value:
         return Result.fail(Errors.not_found("Transcription", uid))
     if result.value.user_uid != user_uid:
