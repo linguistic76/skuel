@@ -1,22 +1,10 @@
 """
-Learning UI Components - Clean Architecture
-===========================================
+Learning UI Components
+======================
 
-Component-based UI for learning management following clean separation of concerns.
-Uses DaisyUI components for consistent styling and HTMX for dynamic interactions.
-
-✅ MIGRATED TO FORMGENERATOR/CARDGENERATOR PATTERN
-- Previously: Inline route architecture with manual forms
-- Now: Component-based architecture with FormGenerator
-- Forms migrated: 1 (learning path filter form)
-- Helpers organized: 5 display component methods
-- Line reduction: Filter form reduced by 60%
-
-This file demonstrates successful component organization with both FormGenerator
-migration (for standard forms) and manual composition (for display components).
+Component-based UI routes for learning management.
+All pages use BasePage for consistent layout.
 """
-
-__version__ = "2.0"
 
 from typing import Any
 
@@ -26,21 +14,14 @@ from fasthtml.common import (
     H3,
     H4,
     H5,
-    Body,
     Div,
-    Head,
     Header,
-    Html,
     Li,
     Option,
     P,
-    Script,
     Span,
-    Style,
-    Title,
     Ul,
 )
-from starlette.responses import HTMLResponse
 
 from core.models.curriculum.curriculum_requests import LearningPathFilterRequest
 from core.utils.logging import get_logger
@@ -66,30 +47,11 @@ logger = get_logger("skuel.ui.learning")
 
 
 class LearningUIComponents:
-    """
-    Reusable component library for learning management interface.
-
-    ✅ MIGRATION COMPLETE:
-    - Architecture: Component-based ✅
-    - Filter form: Migrated to FormGenerator ✅
-    - Display components: Organized in static methods ✅
-
-    Component Organization:
-    - render_filter_form() - Learning path filter (FormGenerator)
-    - render_learning_path_card() - Dashboard path card
-    - render_learning_path_browser_card() - Browse page path card
-    - render_curriculum_module() - Curriculum module display
-    - render_achievement_item() - Achievement display
-    - render_insight_item() - Learning insight display
-    """
+    """Reusable component library for learning management interface."""
 
     @staticmethod
     def render_filter_form() -> Any:
-        """
-        ✅ MIGRATED: FormGenerator-based learning path filter form.
-        Previously: 49 lines of manual composition (3 selects with hardcoded options)
-        Now: Uses custom_widgets for select dropdowns with "All" options.
-        """
+        """Learning path filter form using FormGenerator with custom select widgets."""
         return FormGenerator.from_model(
             LearningPathFilterRequest,
             action="/api/learning/filter-paths",
@@ -143,25 +105,23 @@ class LearningUIComponents:
         )
 
     @staticmethod
-    def render_learning_path_card(path) -> Any:
+    def render_learning_path_card(path: ActivePathData) -> Any:
         """Create a learning path card for the dashboard."""
         return Card(
             Div(
                 # Path Header
                 Div(
-                    H3(path["title"], cls="text-lg font-semibold"),
-                    Span(path["difficulty"].title(), cls="badge badge-primary"),
+                    H3(path.title, cls="text-lg font-semibold"),
+                    Span(path.difficulty.title(), cls="badge badge-primary"),
                     cls="flex justify-between items-start mb-2",
                 ),
                 # Progress Bar
                 Div(
-                    Div(
-                        f"{path['progress']:.1f}% Complete", cls="text-sm text-base-content/70 mb-1"
-                    ),
+                    Div(f"{path.progress:.1f}% Complete", cls="text-sm text-base-content/70 mb-1"),
                     Div(
                         Div(
                             cls="h-2 bg-primary rounded-full transition-all",
-                            style=f"width: {path['progress']}%",
+                            style=f"width: {path.progress}%",
                         ),
                         cls="w-full bg-base-300 rounded-full h-2",
                     ),
@@ -169,10 +129,10 @@ class LearningUIComponents:
                 ),
                 # Current Step & Time
                 Div(
-                    P(f"Current: {path['current_step']}", cls="text-sm text-base-content/80"),
-                    P(f"⏱️ {path['time_invested']} invested", cls="text-xs text-base-content/60"),
+                    P(f"Current: {path.current_step}", cls="text-sm text-base-content/80"),
+                    P(f"⏱️ {path.time_invested} invested", cls="text-xs text-base-content/60"),
                     P(
-                        f"📅 {path['estimated_completion']} to complete",
+                        f"📅 {path.estimated_completion} to complete",
                         cls="text-xs text-base-content/60",
                     ),
                     cls="space-y-1 mb-4",
@@ -183,7 +143,7 @@ class LearningUIComponents:
                     variant=ButtonT.primary,
                     cls="btn-sm w-full",
                     **{
-                        "hx-get": f"/learning/path/{path['uid']}/continue",
+                        "hx-get": f"/learning/path/{path.uid}/continue",
                         "hx-target": "#main-content",
                     },
                 ),
@@ -247,7 +207,7 @@ class LearningUIComponents:
         )
 
     @staticmethod
-    def render_curriculum_module(module, index) -> Any:
+    def render_curriculum_module(module: ModuleData, index: int) -> Any:
         """Create a curriculum module component."""
         status_colors = {
             "completed": "badge-success",
@@ -262,19 +222,19 @@ class LearningUIComponents:
                 # Module Header
                 Div(
                     Span(f"Module {index}", cls="badge badge-primary mr-2"),
-                    H4(module["title"], cls="text-lg font-semibold"),
+                    H4(module.title, cls="text-lg font-semibold"),
                     Span(
-                        status_icons[module["status"]],
-                        module["status"].replace("_", " ").title(),
-                        cls=f"badge {status_colors[module['status']]}",
+                        status_icons[module.status],
+                        module.status.replace("_", " ").title(),
+                        cls=f"badge {status_colors[module.status]}",
                     ),
                     cls="flex items-center justify-between mb-2",
                 ),
                 # Module Info
                 Div(
-                    P(module["description"], cls="text-base-content/70 mb-2"),
+                    P(module.description, cls="text-base-content/70 mb-2"),
                     P(
-                        f"Estimated time: {module['estimated_time']}",
+                        f"Estimated time: {module.estimated_time}",
                         cls="text-sm text-base-content/60",
                     ),
                     cls="mb-3",
@@ -285,13 +245,13 @@ class LearningUIComponents:
                     Div(
                         *[
                             Div(
-                                Span("✅" if lesson["completed"] else "⭕", cls="mr-2"),
-                                Span(lesson["title"], cls="flex-1"),
-                                Span(lesson["duration"], cls="text-xs text-base-content/60 mr-2"),
-                                Span(lesson["type"], cls="badge badge-outline badge-xs"),
+                                Span("✅" if lesson.completed else "⭕", cls="mr-2"),
+                                Span(lesson.title, cls="flex-1"),
+                                Span(lesson.duration, cls="text-xs text-base-content/60 mr-2"),
+                                Span(lesson.lesson_type, cls="badge badge-outline badge-xs"),
                                 cls="flex items-center py-1",
                             )
-                            for lesson in module.get("lessons", [])
+                            for lesson in module.lessons
                         ],
                         cls="space-y-1",
                     ),
@@ -303,15 +263,15 @@ class LearningUIComponents:
         )
 
     @staticmethod
-    def render_achievement_item(achievement) -> Any:
+    def render_achievement_item(achievement: AchievementData) -> Any:
         """Create an achievement display item."""
         type_icons = {"milestone": "🏆", "streak": "🔥", "mastery": "🎯", "collaboration": "🤝"}
 
         return Div(
-            Span(type_icons.get(achievement["type"], "🏅"), cls="text-xl mr-3"),
+            Span(type_icons.get(achievement.achievement_type, "🏅"), cls="text-xl mr-3"),
             Div(
-                P(achievement["title"], cls="font-medium"),
-                P(achievement["description"], cls="text-sm text-base-content/60"),
+                P(achievement.title, cls="font-medium"),
+                P(achievement.description, cls="text-sm text-base-content/60"),
                 cls="flex-1",
             ),
             cls="flex items-start p-3 bg-base-100 rounded-lg",
@@ -333,31 +293,13 @@ class LearningUIComponents:
         )
 
 
-# ============================================================================
-# PURE COMPUTATION HELPERS (Testable without mocks)
-# ============================================================================
-
-
 def create_learning_ui_routes(_app, rt, _learning_service):
-    """
-    Create component-based UI routes for learning management.
-
-    Uses DaisyUI components for consistent styling and follows
-    the clean architecture pattern with component-based rendering.
-
-    Args:
-        app: FastHTML app instance
-        rt: Route decorator
-        learning_service: Service for learning operations
-
-    Returns:
-        List of route functions
-    """
+    """Create UI routes for learning management."""
 
     routes = []
 
     @rt("/learning")
-    async def learning_dashboard(_request) -> Any:
+    async def learning_dashboard(request) -> Any:
         """Main learning dashboard with progress overview and active paths."""
 
         # Sample data (replace with actual service calls) - using frozen dataclasses for type safety
@@ -527,12 +469,18 @@ def create_learning_ui_routes(_app, rt, _learning_service):
             cls="container mx-auto px-4 py-6",
         )
 
-        return _render_learning_page("Learning Dashboard", content)
+        return await BasePage(
+            content=content,
+            title="Learning Dashboard",
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="learning",
+        )
 
     routes.append(learning_dashboard)
 
     @rt("/learning/browse")
-    async def browse_learning_paths(_request) -> Any:
+    async def browse_learning_paths(request) -> Any:
         """Browse available learning paths with filtering and recommendations."""
 
         # Sample learning paths data
@@ -606,12 +554,18 @@ def create_learning_ui_routes(_app, rt, _learning_service):
             cls="container mx-auto px-4 py-6",
         )
 
-        return HTMLResponse(_render_learning_page("Browse Learning Paths", content))
+        return await BasePage(
+            content=content,
+            title="Browse Learning Paths",
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="learning",
+        )
 
     routes.append(browse_learning_paths)
 
     @rt("/learning/path/{path_uid}")
-    async def learning_path_detail(_request, path_uid: str) -> Any:
+    async def learning_path_detail(request, path_uid: str) -> Any:
         """Detailed view of a specific learning path with curriculum and progress."""
 
         # Sample path detail data - using frozen dataclasses for type safety
@@ -829,12 +783,18 @@ def create_learning_ui_routes(_app, rt, _learning_service):
             cls="container mx-auto px-4 py-6",
         )
 
-        return HTMLResponse(_render_learning_page(f"Learning Path: {path_detail.title}", content))
+        return await BasePage(
+            content=content,
+            title=f"Learning Path: {path_detail.title}",
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="learning",
+        )
 
     routes.append(learning_path_detail)
 
     @rt("/learning/analytics")
-    async def learning_analytics(_request) -> Any:
+    async def learning_analytics(request) -> Any:
         """Learning analytics dashboard with comprehensive insights."""
 
         content = Div(
@@ -902,7 +862,13 @@ def create_learning_ui_routes(_app, rt, _learning_service):
             cls="container mx-auto px-4 py-6",
         )
 
-        return HTMLResponse(_render_learning_page("Learning Analytics", content))
+        return await BasePage(
+            content=content,
+            title="Learning Analytics",
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="learning",
+        )
 
     routes.append(learning_analytics)
 
@@ -993,29 +959,6 @@ def create_learning_ui_routes(_app, rt, _learning_service):
 
     logger.info(f"✅ Learning UI routes registered: {len(routes)} endpoints")
     return routes
-
-
-def _render_learning_page(title: str, content) -> Any:
-    """Render a complete learning page with consistent layout."""
-    return Html(
-        Head(
-            Title(f"{title} - Learning Management"),
-            Script(src="https://unpkg.com/htmx.org@1.9.10"),
-            Style("""
-                .stat { @apply flex flex-col items-center p-4; }
-                .badge { @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium; }
-                .badge-primary { @apply bg-primary text-primary-content; }
-                .badge-secondary { @apply bg-secondary text-secondary-content; }
-                .badge-success { @apply bg-success text-success-content; }
-                .badge-warning { @apply bg-warning text-warning-content; }
-                .badge-info { @apply bg-info text-info-content; }
-                .badge-outline { @apply border border-base-content/20 text-base-content; }
-                .radial-progress { @apply w-16 h-16 rounded-full flex items-center justify-center;
-                                   background: conic-gradient(oklch(var(--p)) calc(var(--value) * 1%), transparent 0); }
-            """),
-        ),
-        Body(Div(content, id="main-content", cls="min-h-screen bg-base-200"), cls="font-sans"),
-    )
 
 
 # Export the route creation function
