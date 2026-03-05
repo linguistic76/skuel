@@ -1,6 +1,6 @@
 # Activity Domains Skill
 
-> Use when building features for Tasks, Goals, Habits, Events, Choices, or Principles.
+> Use when building features for Tasks, Goals, Habits, Choices, or Principles (the 5 Activity Domains). For Events, see also: Events is a cross-cutting scheduling/integration layer — it shares this infrastructure but serves the Activity Domains rather than being a peer.
 
 ## When to Use This Skill
 
@@ -10,18 +10,19 @@
 - Understanding cross-domain relationships
 - Debugging domain-specific issues
 
-## The 6 Activity Domains
+## The 5 Activity Domains
 
-All 6 follow **identical architecture** - learn one, know all:
+All 5 follow **identical architecture** - learn one, know all:
 
 | Domain | Purpose | UID Prefix | Special Features |
 |--------|---------|------------|------------------|
 | **Tasks** | Work items with dependencies | `task_{slug}_{random}` | Progress tracking, scheduling |
 | **Goals** | Desired outcomes | `goal_{slug}_{random}` | Milestones, progress percentage |
 | **Habits** | Recurring behaviors | `habit_{slug}_{random}` | Streak tracking, habit loop (cue/craving/response/reward) |
-| **Events** | Calendar items | `event_{slug}_{random}` | Scheduling, conflict detection |
 | **Choices** | Decisions | `choice_{slug}_{random}` | Options at creation, outcome tracking |
 | **Principles** | Core values | `principle_{slug}_{random}` | Reflections, alignment tracking |
+
+**Events** shares this infrastructure (BaseService, DomainConfig, UserOwnedEntity) but is classified as a **Scheduling / Integration Domain** — it gives activities a time-bound, schedulable form rather than being a pure Activity Domain peer.
 
 ## Architecture Overview
 

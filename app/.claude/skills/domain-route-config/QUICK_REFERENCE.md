@@ -4,9 +4,9 @@ Fast lookup for copy-paste templates and common pitfalls.
 
 ---
 
-## Template 0: Activity Domain — Use for ALL 6 Activity Domains
+## Template 0: Activity Domain — Use for the 5 Activity Domains (+ Events)
 
-The highest-level convenience. Pre-populates CRUD, Query, and Intelligence route factories automatically. Use for Tasks, Goals, Habits, Events, Choices, Principles.
+The highest-level convenience. Pre-populates CRUD, Query, and Intelligence route factories automatically. Use for Tasks, Goals, Habits, Choices, Principles — and Events (Scheduling/Integration domain that shares this infrastructure).
 
 ```python
 from adapters.inbound.route_factories import (

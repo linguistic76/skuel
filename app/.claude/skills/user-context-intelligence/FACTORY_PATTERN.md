@@ -66,7 +66,7 @@ async def get_daily_plan(user_uid: str):
 class UserContextIntelligenceFactory:
     def __init__(
         self,
-        # Activity Domains (6)
+        # Activity Domains (5) + Events (Scheduling/Integration)
         tasks: UnifiedRelationshipService,
         goals: UnifiedRelationshipService,
         habits: UnifiedRelationshipService,
@@ -173,7 +173,7 @@ async def compose_services(neo4j_driver, event_bus=None) -> Result[Services]:
 
     # Create factory with relationship services from facades
     context_intelligence_factory = UserContextIntelligenceFactory(
-        # Activity Domains (6) - from facade .relationships
+        # Activity Domains (5) + Events (Scheduling/Integration) - from facade .relationships
         tasks=tasks_service.relationships,
         goals=goals_service.relationships,
         habits=habits_service.relationships,

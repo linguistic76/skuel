@@ -89,7 +89,7 @@ updated: 2026-02-01
 | Skill | Files | Description |
 |-------|-------|-------------|
 | accessibility-guide | 1 | WCAG 2.1 Level AA accessibility standards (keyboard nav, ARIA, screen readers) |
-| activity-domains | 4 | 6 Activity Domains: Tasks, Goals, Habits, Events, Choices, Principles |
+| activity-domains | 4 | 5 Activity Domains: Tasks, Goals, Habits, Choices, Principles (Events is Scheduling/Integration) |
 | base-ai-service | 3 | BaseAIService pattern for optional AI features (LLM, embeddings) |
 | base-analytics-service | 4 | BaseAnalyticsService pattern for 10 domain analytics services (no AI) |
 | base-page-architecture | 1 | Consistent page layouts (STANDARD, HUB, CUSTOM) using BasePage |
@@ -277,7 +277,8 @@ SKUEL Architecture (domains + intelligence):
               |                  |
               v                  v
        activity-domains    curriculum-domains
-       (6 user-owned)      (4 shared content)
+       (5 user-owned       (4 shared content)
+        + Events sched.)
        Tasks, Goals...     KU, LS, LP, MOC
               |                  |
               +--------+---------+

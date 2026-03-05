@@ -1,6 +1,6 @@
 # Activity Domain Facade Pattern
 
-> All 6 Activity Domains use identical facade architecture with explicit delegation methods (February 2026).
+> The 5 Activity Domains (Tasks, Goals, Habits, Choices, Principles) use identical facade architecture with explicit delegation methods (February 2026). Events shares this pattern but is a Scheduling / Integration Domain.
 
 ## Facade Structure
 
