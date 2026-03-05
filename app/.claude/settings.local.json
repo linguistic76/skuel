@@ -300,7 +300,8 @@
       "Bash(./dev health-names --list 2>&1 | head -10)",
       "Bash(./dev health-modules --verbose 2>&1 | tail -15)",
       "Bash(./dev health-xref 2>&1 | head -30)",
-      "Bash(INTELLIGENCE_TIER=core poetry run python -c \"from core.config.intelligence_tier import IntelligenceTier; t = IntelligenceTier.from_env\\(\\); print\\(f'Tier: {t}, ai_enabled: {t.ai_enabled}'\\)\")"
+      "Bash(INTELLIGENCE_TIER=core poetry run python -c \"from core.config.intelligence_tier import IntelligenceTier; t = IntelligenceTier.from_env\\(\\); print\\(f'Tier: {t}, ai_enabled: {t.ai_enabled}'\\)\")",
+      "Bash(grep -rn \"EXPOSE 8000\\\\|validate_environment_variables\\\\|infrastructure/readme\\\\|test\\\\.cypher\\\\|token.*sk-proj\\\\|hardcoded.*token\" /home/mike/skuel/app/docs/ /home/mike/skuel/app/CLAUDE.md /home/mike/skuel/app/.claude/ 2>/dev/null --include=\"*.md\" -l)"
     ]
   }
 }
