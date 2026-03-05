@@ -302,7 +302,9 @@ async def test_only_owner_can_share(sharing_service, test_report):
     )
 
     assert share_result.is_error
-    assert "does not own" in str(share_result.error)
+    # Privacy pattern: returns "not found" for entities the user doesn't own
+    error_str = str(share_result.error)
+    assert "does not own" in error_str or "not found" in error_str.lower()
 
 
 @pytest.mark.asyncio
@@ -335,7 +337,9 @@ async def test_only_owner_can_unshare(sharing_service, test_report):
     )
 
     assert unshare_result.is_error
-    assert "does not own" in str(unshare_result.error)
+    # Privacy pattern: returns "not found" for entities the user doesn't own
+    error_str = str(unshare_result.error)
+    assert "does not own" in error_str or "not found" in error_str.lower()
 
 
 @pytest.mark.asyncio
@@ -353,7 +357,9 @@ async def test_only_owner_can_change_visibility(sharing_service, test_report):
     )
 
     assert visibility_result.is_error
-    assert "does not own" in str(visibility_result.error)
+    # Privacy pattern: returns "not found" for entities the user doesn't own
+    error_str = str(visibility_result.error)
+    assert "does not own" in error_str or "not found" in error_str.lower()
 
 
 # ============================================================================
