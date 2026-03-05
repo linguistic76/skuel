@@ -12,6 +12,7 @@ Desktop: collapsible sidebar. Mobile: horizontal tabs.
 """
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from fasthtml.common import (
@@ -589,12 +590,103 @@ def _render_sharing_section(submission: Any) -> Any:
 # ============================================================================
 
 SUBMISSIONS_SIDEBAR_ITEMS = [
+    SidebarItem("Assignments", "/submissions/assignments", "assignments", icon="📋"),
     SidebarItem("Submit", "/submissions/submit", "submit", icon="📤"),
     SidebarItem("Browse", "/submissions/browse", "browse", icon="📂"),
-    SidebarItem("Your Submissions", "/submissions/yours", "yours", icon="📋"),
-    SidebarItem("SubmissionFeedback", "/submissions/feedback", "feedback", icon="💬"),
+    SidebarItem("Your Submissions", "/submissions/yours", "yours", icon="📝"),
+    SidebarItem("Feedback", "/submissions/feedback", "feedback", icon="💬"),
     SidebarItem("Progress", "/submissions/progress", "progress", icon="📊"),
 ]
+
+
+# ============================================================================
+# ASSIGNMENTS RENDERING
+# ============================================================================
+
+
+def _render_assignments_list(exercises: list[dict[str, Any]]) -> Any:
+    """Render student's assigned exercises with submission status."""
+    if not exercises:
+        return Div(
+            P(
+                "No exercises assigned yet. You'll see exercises here when a teacher assigns them to your group.",
+                cls="text-center text-base-content/60 py-8",
+            ),
+            cls="card bg-base-100 shadow-sm p-6",
+        )
+
+    cards = [_render_assignment_card(ex) for ex in exercises]
+    return Div(*cards, cls="space-y-4")
+
+
+def _render_assignment_card(ex: dict[str, Any]) -> Any:
+    """Render a single exercise assignment card."""
+    uid = ex.get("uid", "")
+    title = ex.get("title", "Untitled Exercise")
+    instructions = ex.get("instructions") or ""
+    due_date_str = ex.get("due_date")
+    group_name = ex.get("group_name", "")
+    has_submission = ex.get("has_submission", False)
+
+    # Status badge
+    if has_submission:
+        status_badge = Span("Submitted", cls="badge badge-success")
+    elif due_date_str:
+        try:
+            due = date.fromisoformat(str(due_date_str))
+            days_until = (due - date.today()).days
+            if days_until < 0:
+                status_badge = Span(f"Overdue ({-days_until}d)", cls="badge badge-error")
+            elif days_until <= 3:
+                status_badge = Span(f"Due in {days_until}d", cls="badge badge-warning")
+            else:
+                status_badge = Span(f"Due in {days_until}d", cls="badge badge-info")
+        except (ValueError, TypeError):
+            status_badge = Span("Pending", cls="badge badge-ghost")
+    else:
+        status_badge = Span("No deadline", cls="badge badge-ghost")
+
+    # Instructions preview (truncated)
+    instructions_preview = ""
+    if instructions:
+        preview_text = instructions[:200] + ("..." if len(instructions) > 200 else "")
+        instructions_preview = P(preview_text, cls="text-sm text-base-content/70 mt-2")
+
+    # Group name
+    group_tag = Span(group_name, cls="badge badge-outline badge-sm") if group_name else ""
+
+    # Due date display
+    due_display = ""
+    if due_date_str:
+        due_display = Span(f"Due: {due_date_str}", cls="text-sm text-base-content/60")
+
+    # Action button
+    if has_submission:
+        action = Span("Already submitted", cls="text-sm text-success")
+    else:
+        action = A(
+            "Submit",
+            href=f"/submissions/submit?exercise_uid={uid}",
+            cls="btn btn-primary btn-sm",
+        )
+
+    return Div(
+        Div(
+            Div(
+                Div(
+                    H4(title, cls="card-title text-lg"),
+                    status_badge,
+                    cls="flex items-center gap-2 flex-wrap",
+                ),
+                Div(group_tag, due_display, cls="flex items-center gap-3 mt-1"),
+                instructions_preview,
+                cls="flex-1",
+            ),
+            Div(action, cls="flex items-center"),
+            cls="flex justify-between gap-4",
+        ),
+        cls="card bg-base-100 shadow-sm p-4",
+    )
 
 
 # ============================================================================
@@ -602,15 +694,22 @@ SUBMISSIONS_SIDEBAR_ITEMS = [
 # ============================================================================
 
 
-def _render_upload_form(assigned_exercises: list[Any] | None = None) -> Any:
+def _render_upload_form(
+    assigned_exercises: list[Any] | None = None,
+    selected_exercise_uid: str | None = None,
+) -> Any:
     """Render the file upload form card with optional exercise selector."""
     # Build exercise selector if exercises exist
     exercise_section: Any = ""
     if assigned_exercises:
         exercise_options = [Option("None — standalone submission", value="")]
-        exercise_options.extend(
-            Option(getattr(p, "name", p.uid), value=p.uid) for p in assigned_exercises
-        )
+
+        def _exercise_option(p: Any) -> Any:
+            uid = p.uid
+            label = getattr(p, "title", None) or getattr(p, "name", None) or uid
+            return Option(label, value=uid, selected=(uid == selected_exercise_uid))
+
+        exercise_options.extend(_exercise_option(p) for p in assigned_exercises)
         exercise_section = Div(
             Label("Exercise (optional)", cls="label"),
             Select(
@@ -1123,6 +1222,7 @@ def create_submissions_ui_routes(
     _submissions_search_service=None,
     _submissions_core_service=None,
     _activity_report_service=None,
+    _teacher_review_service=None,
 ):
     """
     Create all submission UI routes.
@@ -1157,18 +1257,19 @@ def create_submissions_ui_routes(
     async def _render_submit_page(request: Request) -> Any:
         user_uid = require_authenticated_user(request)
 
-        # Fetch assigned exercises for exercise dropdown
+        # Fetch assigned exercises for exercise dropdown (via group membership)
         assigned_exercises: list[Any] = []
         if _exercises_service:
-            projects_result = await _exercises_service.list_user_exercises(user_uid)
-            if not projects_result.is_error and projects_result.value:
-                assigned_exercises = [
-                    p for p in projects_result.value if getattr(p, "scope", None) == "assigned"
-                ]
+            exercises_result = await _exercises_service.get_student_exercises(user_uid)
+            if not exercises_result.is_error and exercises_result.value:
+                assigned_exercises = exercises_result.value
+
+        # Pre-select exercise if arriving from assignments page
+        selected_exercise_uid = request.query_params.get("exercise_uid")
 
         content = Div(
             PageHeader("Submit", subtitle="Upload a file linked to a Knowledge Unit"),
-            _render_upload_form(assigned_exercises),
+            _render_upload_form(assigned_exercises, selected_exercise_uid=selected_exercise_uid),
             _upload_form_script(),
         )
         return await SidebarPage(
@@ -1179,6 +1280,37 @@ def create_submissions_ui_routes(
             subtitle="Submit and manage files",
             storage_key="submissions-sidebar",
             page_title="Submit",
+            request=request,
+            active_page="submissions",
+            title_href="/submissions",
+        )
+
+    @rt("/submissions/assignments")
+    async def submissions_assignments_page(request: Request) -> Any:
+        """Assignments page: exercises assigned to this student via group membership."""
+        user_uid = require_authenticated_user(request)
+
+        exercises: list[dict[str, Any]] = []
+        if _exercises_service:
+            result = await _exercises_service.get_student_exercises_with_status(user_uid)
+            if not result.is_error and result.value:
+                exercises = result.value
+
+        content = Div(
+            PageHeader(
+                "Assignments",
+                subtitle="Exercises assigned by your teachers",
+            ),
+            _render_assignments_list(exercises),
+        )
+        return await SidebarPage(
+            content=content,
+            items=SUBMISSIONS_SIDEBAR_ITEMS,
+            active="assignments",
+            title="Submissions",
+            subtitle="Submit and manage files",
+            storage_key="submissions-sidebar",
+            page_title="Assignments",
             request=request,
             active_page="submissions",
             title_href="/submissions",
@@ -1396,6 +1528,88 @@ def create_submissions_ui_routes(
         except Exception as e:
             logger.error(f"Error loading submission content: {e}", exc_info=True)
             return _render_processed_content(None, False)
+
+    # ========================================================================
+    # FEEDBACK & EXERCISE LINK HTMX ENDPOINTS
+    # ========================================================================
+
+    @rt("/submissions/{uid}/feedback")
+    async def get_submission_feedback(request: Request, uid: str) -> Any:
+        """HTMX endpoint: feedback received on this submission."""
+        from ui.patterns.feedback_item import render_feedback_item
+
+        try:
+            user_uid = require_authenticated_user(request)
+
+            # Verify ownership
+            sub_result = await _submissions_service.get_submission(uid)
+            if sub_result.is_error or not sub_result.value:
+                return Div(P("Submission not found.", cls="text-error"), id="feedback-section")
+            if sub_result.value.user_uid != user_uid:
+                return Div(P("Access denied.", cls="text-error"), id="feedback-section")
+
+            if not _teacher_review_service:
+                return Div(
+                    P("No feedback yet.", cls="text-center text-base-content/60 py-4"),
+                    id="feedback-section",
+                )
+
+            history_result = await _teacher_review_service.get_feedback_history(uid)
+            items = history_result.value if not history_result.is_error else []
+
+            if not items:
+                return Div(
+                    H4("Feedback", cls="mb-4"),
+                    P("No feedback yet.", cls="text-center text-base-content/60 py-4"),
+                    id="feedback-section",
+                )
+
+            return Div(
+                H4("Feedback", cls="mb-4"),
+                *[render_feedback_item(fb) for fb in items],
+                id="feedback-section",
+            )
+        except Exception as e:
+            logger.error(f"Error loading feedback for {uid}: {e}", exc_info=True)
+            return Div(
+                P("Error loading feedback.", cls="text-error"),
+                id="feedback-section",
+            )
+
+    @rt("/submissions/{uid}/exercise")
+    async def get_submission_exercise(request: Request, uid: str) -> Any:
+        """HTMX endpoint: which exercise this submission fulfills."""
+        try:
+            require_authenticated_user(request)
+
+            if not _exercises_service:
+                return Div(id="exercise-link")
+
+            # Query the FULFILLS_EXERCISE relationship
+            result = await _exercises_service.backend.execute_query(
+                """
+                MATCH (s:Entity {uid: $uid})-[:FULFILLS_EXERCISE]->(ex:Entity:Exercise)
+                RETURN ex.uid AS exercise_uid, ex.title AS exercise_title
+                LIMIT 1
+                """,
+                {"uid": uid},
+            )
+
+            if result.is_error or not result.value:
+                return Div(id="exercise-link")
+
+            record = result.value[0]
+            ex_title = record.get("exercise_title", "Exercise")
+
+            return Div(
+                Span("Exercise: ", cls="font-medium text-sm text-base-content/60"),
+                Span(ex_title, cls="badge badge-outline badge-sm"),
+                id="exercise-link",
+                cls="mt-2",
+            )
+        except Exception as e:
+            logger.error(f"Error loading exercise link for {uid}: {e}", exc_info=True)
+            return Div(id="exercise-link")
 
     # ========================================================================
     # CONTENT MANAGEMENT UI ROUTES
@@ -1710,6 +1924,15 @@ def create_submissions_ui_routes(
                         "hx-swap": "outerHTML",
                     },
                 ),
+                # Exercise link (loaded via HTMX)
+                Div(
+                    id="exercise-link",
+                    **{
+                        "hx-get": f"/submissions/{uid}/exercise",
+                        "hx-trigger": "load",
+                        "hx-swap": "outerHTML",
+                    },
+                ),
                 # Processed content section (loaded via HTMX)
                 Div(
                     H4("Processed Content", cls="mt-6 mb-4"),
@@ -1726,6 +1949,17 @@ def create_submissions_ui_routes(
                     ),
                     id="content-section",
                     cls="mb-4",
+                ),
+                # Feedback section (loaded via HTMX)
+                Div(
+                    P("Loading feedback...", cls="text-center text-base-content/60 py-2"),
+                    id="feedback-section",
+                    cls="mb-4",
+                    **{
+                        "hx-get": f"/submissions/{uid}/feedback",
+                        "hx-trigger": "load",
+                        "hx-swap": "outerHTML",
+                    },
                 ),
                 # Sharing section (only for owner)
                 (
@@ -1768,10 +2002,11 @@ def create_submissions_ui_routes(
     # Route order matters! Specific routes must come BEFORE parameterized routes.
     # Otherwise /submissions/grid would match /submissions/{uid} with uid="grid"
     return [
-        submissions_landing,  # /reports (exact)
-        submissions_submit_page,  # /reports/submit (specific)
-        submissions_browse_page,  # /reports/browse (specific)
-        submissions_yours_page,  # /reports/yours (specific)
+        submissions_landing,  # /submissions (exact)
+        submissions_assignments_page,  # /submissions/assignments (specific)
+        submissions_submit_page,  # /submissions/submit (specific)
+        submissions_browse_page,  # /submissions/browse (specific)
+        submissions_yours_page,  # /submissions/yours (specific)
         submissions_feedback_page,  # /submissions/feedback (specific)
         submissions_activity_feedback_list,  # /submissions/feedback/activity-list (HTMX fragment)
         submissions_progress_page,  # /submissions/progress (specific)
@@ -1780,6 +2015,8 @@ def create_submissions_ui_routes(
         get_submissions_grid,  # /reports/grid (specific, HTMX GET)
         get_submission_info,  # /submissions/{uid}/info (pattern + suffix)
         get_submission_content,  # /submissions/{uid}/content (pattern + suffix)
+        get_submission_feedback,  # /submissions/{uid}/feedback (pattern + suffix)
+        get_submission_exercise,  # /submissions/{uid}/exercise (pattern + suffix)
         get_category_selector,  # /submissions/{uid}/category-selector (pattern + suffix)
         get_tags_manager,  # /submissions/{uid}/tags-manager (pattern + suffix)
         get_shared_users_ui,  # /submissions/{uid}/shared-users (pattern + suffix)

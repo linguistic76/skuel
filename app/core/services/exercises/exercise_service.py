@@ -326,6 +326,41 @@ class ExerciseService(BaseService):
         self.logger.info(f"Found {len(exercises)} exercises for student {user_uid}")
         return Result.ok(exercises)
 
+    @with_error_handling("get_student_exercises_with_status", error_type="database")
+    async def get_student_exercises_with_status(
+        self, user_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get assigned exercises with submission status for the student assignments page.
+
+        Returns exercise properties enriched with has_submission flag and group_name.
+        """
+        result = await self.backend.execute_query(
+            f"""
+            MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
+            MATCH (exercise:Entity {{ku_type: 'exercise'}})-[:{RelationshipName.FOR_GROUP}]->(group)
+            WHERE exercise.scope = 'assigned'
+            OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
+            RETURN exercise, sub IS NOT NULL AS has_submission, group.title AS group_name
+            ORDER BY exercise.due_date ASC, exercise.created_at DESC
+            """,
+            {"user_uid": user_uid},
+        )
+
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        exercises = []
+        for record in result.value or []:
+            props = dict(record["exercise"])
+            props["has_submission"] = record.get("has_submission", False)
+            props["group_name"] = record.get("group_name", "")
+            exercises.append(props)
+
+        self.logger.info(
+            f"Found {len(exercises)} exercises with status for student {user_uid}"
+        )
+        return Result.ok(exercises)
+
     # ========================================================================
     # FILE-BASED EXERCISE LOADING
     # ========================================================================
