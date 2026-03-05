@@ -34,7 +34,14 @@ from core.utils.sort_functions import (
 
 if TYPE_CHECKING:
     from core.models.relationship_registry import DomainRelationshipConfig
-    from core.services.user.unified_user_context import UserContext
+    from core.ports.context_awareness_protocols import (
+        ChoiceAwareness,
+        EventAwareness,
+        GoalAwareness,
+        HabitAwareness,
+        PrincipleAwareness,
+        TaskAwareness,
+    )
 
 
 class DomainPlanningMixin:
@@ -62,7 +69,7 @@ class DomainPlanningMixin:
     @with_error_handling("get_at_risk_habits_for_user", error_type="database")
     async def get_at_risk_habits_for_user(
         self,
-        context: UserContext,
+        context: HabitAwareness,
         limit: int = 10,
     ) -> Result[list[Any]]:
         """
@@ -106,7 +113,7 @@ class DomainPlanningMixin:
     @with_error_handling("get_upcoming_events_for_user", error_type="database")
     async def get_upcoming_events_for_user(
         self,
-        context: UserContext,
+        context: EventAwareness,
         limit: int = 10,
     ) -> Result[list[Any]]:
         """
@@ -152,7 +159,7 @@ class DomainPlanningMixin:
     @with_error_handling("get_actionable_tasks_for_user", error_type="database")
     async def get_actionable_tasks_for_user(
         self,
-        context: UserContext,
+        context: TaskAwareness,
         limit: int = 10,
     ) -> Result[list[Any]]:
         """
@@ -222,7 +229,7 @@ class DomainPlanningMixin:
     @with_error_handling("get_advancing_goals_for_user", error_type="database")
     async def get_advancing_goals_for_user(
         self,
-        context: UserContext,
+        context: GoalAwareness,
         limit: int = 10,
     ) -> Result[list[Any]]:
         """
@@ -273,7 +280,7 @@ class DomainPlanningMixin:
     @with_error_handling("get_pending_decisions_for_user", error_type="database")
     async def get_pending_decisions_for_user(
         self,
-        context: UserContext,
+        context: ChoiceAwareness,
         limit: int = 10,
     ) -> Result[list[Any]]:
         """
@@ -314,7 +321,7 @@ class DomainPlanningMixin:
     @with_error_handling("get_aligned_principles_for_user", error_type="database")
     async def get_aligned_principles_for_user(
         self,
-        context: UserContext,
+        context: PrincipleAwareness,
         limit: int = 10,
     ) -> Result[list[Any]]:
         """

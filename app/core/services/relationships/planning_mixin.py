@@ -26,7 +26,13 @@ from core.utils.sort_functions import get_result_score
 
 if TYPE_CHECKING:
     from core.models.relationship_registry import DomainRelationshipConfig
-    from core.services.user.unified_user_context import UserContext
+    from core.ports.context_awareness_protocols import (
+        CoreIdentity,
+        CrossDomainAwareness,
+        GoalAwareness,
+        KnowledgeAwareness,
+        TaskAwareness,
+    )
 
 T = TypeVar("T")
 
@@ -63,7 +69,7 @@ class PlanningMixin:
     @with_error_handling("get_actionable_for_user", error_type="database")
     async def get_actionable_for_user(
         self,
-        context: UserContext,
+        context: CrossDomainAwareness,
         limit: int = 10,
         include_learning: bool = True,
     ) -> Result[list[Any]]:
@@ -145,7 +151,7 @@ class PlanningMixin:
     @with_error_handling("get_blocked_for_user", error_type="database")
     async def get_blocked_for_user(
         self,
-        context: UserContext,
+        context: TaskAwareness,
         limit: int = 10,
     ) -> Result[list[dict[str, Any]]]:
         """
@@ -197,7 +203,7 @@ class PlanningMixin:
     @with_error_handling("get_learning_related_for_user", error_type="database")
     async def get_learning_related_for_user(
         self,
-        context: UserContext,
+        context: KnowledgeAwareness,
         knowledge_focus: str | None = None,
         limit: int = 10,
     ) -> Result[list[Any]]:
@@ -250,7 +256,7 @@ class PlanningMixin:
     @with_error_handling("get_goal_aligned_for_user", error_type="database")
     async def get_goal_aligned_for_user(
         self,
-        context: UserContext,
+        context: GoalAwareness,
         goal_uid: str | None = None,
         limit: int = 10,
     ) -> Result[list[Any]]:
@@ -306,7 +312,7 @@ class PlanningMixin:
     async def _calculate_readiness_score(
         self,
         entity: Any,
-        context: UserContext,
+        context: TaskAwareness,
     ) -> float:
         """
         Calculate readiness score (0-1) based on prerequisites met.
@@ -350,7 +356,7 @@ class PlanningMixin:
     def _calculate_relevance_score(
         self,
         entity: Any,
-        context: UserContext,
+        context: GoalAwareness,
     ) -> float:
         """
         Calculate relevance score (0-1) based on goal alignment.
@@ -382,7 +388,7 @@ class PlanningMixin:
         except Exception:
             return 0.5
 
-    def _is_completed(self, entity: Any, context: UserContext) -> bool:
+    def _is_completed(self, entity: Any, context: CoreIdentity) -> bool:
         """Check if entity is completed based on context."""
         entity_uid = getattr(entity, "uid", None)
         status = getattr(entity, "status", None)
@@ -398,7 +404,7 @@ class PlanningMixin:
 
         return entity_uid in completed_uids
 
-    def _is_urgent(self, entity: Any, context: UserContext) -> bool:
+    def _is_urgent(self, entity: Any, context: TaskAwareness) -> bool:
         """Check if entity is urgent based on context."""
         entity_uid = getattr(entity, "uid", None)
 
@@ -417,7 +423,7 @@ class PlanningMixin:
     async def _identify_blocking_reasons(
         self,
         entity: Any,
-        context: UserContext,
+        context: TaskAwareness,
     ) -> list[str]:
         """
         Identify what's blocking this entity.

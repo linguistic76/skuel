@@ -208,7 +208,10 @@ class GoalAwareness(Protocol):
     habits_by_goal: dict[str, list[str]]
 
     # Milestone tracking
-    goal_milestones_completed: dict[str, int]  # goal_uid -> milestones completed count
+    goal_milestones_completed: dict[str, list[str]]  # goal_uid -> milestone UIDs completed
+
+    # Goal methods
+    def get_stalled_goals(self, _threshold_days: int = 14) -> list[str]: ...
 
     # Rich context (optional)
     entities_rich: dict[str, list[dict[str, Any]]]
