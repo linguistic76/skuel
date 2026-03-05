@@ -53,6 +53,7 @@ class Neo4jConnection:
         self.username = (
             username
             or getattr(db_config, "neo4j_username", None)
+            or os.getenv("NEO4J_USERNAME")
             or os.getenv("NEO4J_USER", "neo4j")
         )
 
@@ -77,6 +78,15 @@ class Neo4jConnection:
             await self.driver.close()
             self.driver = None
             logger.info("Closed Neo4j connection")
+
+    async def __aenter__(self) -> "Neo4jConnection":
+        """Async context manager entry."""
+        await self.connect()
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        """Async context manager exit."""
+        await self.close()
 
     async def test_connection(self) -> bool:
         """

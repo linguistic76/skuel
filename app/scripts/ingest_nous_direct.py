@@ -6,12 +6,12 @@ Bypasses the UnifiedIngestionService to work around the dataclass bug.
 """
 
 import asyncio
-import os
 from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
-from neo4j import AsyncGraphDatabase
+
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
 # Load .env file from project root
 ENV_FILE = Path(__file__).parent.parent / ".env"
@@ -119,17 +119,10 @@ async def main():
     """Ingest nous files to Neo4j."""
     print(f"Ingesting nous files from: {NOUS_PATH}")
 
-    # Get Neo4j config from environment
-    neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
-    neo4j_password = os.getenv("NEO4J_PASSWORD")
-
-    # Create Neo4j driver
-    driver = AsyncGraphDatabase.driver(
-        neo4j_uri,
-        auth=(neo4j_user, neo4j_password),
-    )
-    print(f"Connecting to Neo4j at {neo4j_uri}")
+    conn = Neo4jConnection()
+    await conn.connect()
+    driver = conn.driver
+    print(f"Connecting to Neo4j at {conn.uri}")
 
     try:
         # Verify connection
@@ -181,7 +174,7 @@ async def main():
         print(f"   Failed: {failed}")
 
     finally:
-        await driver.close()
+        await conn.close()
         print("\n✅ Neo4j connection closed")
 
 

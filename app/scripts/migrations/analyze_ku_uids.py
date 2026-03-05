@@ -10,9 +10,9 @@ Usage:
 """
 
 import asyncio
-import os
 from pathlib import Path
-from neo4j import AsyncGraphDatabase
+
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
 
 async def analyze():
@@ -26,26 +26,17 @@ async def analyze():
         pass  # dotenv not required
 
     # Get connection from environment
-    uri = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
-    user = os.getenv("NEO4J_USERNAME", "neo4j")
-
-    # Get password from credential store
-    try:
-        from core.config.credential_store import get_credential
-        password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
-    except Exception:
-        password = os.getenv("NEO4J_PASSWORD", "password")
+    conn = Neo4jConnection()
+    await conn.connect()
+    driver = conn.driver
 
     print("=" * 80)
     print("KU UID Analysis")
     print("=" * 80)
-    print(f"Connecting to: {uri}")
+    print(f"Connecting to: {conn.uri}")
     print()
 
-    driver = AsyncGraphDatabase.driver(uri, auth=(user, password))
-
     try:
-        # Test connection
         await driver.verify_connectivity()
         print("✅ Connected to Neo4j")
         print()
@@ -164,11 +155,11 @@ async def analyze():
         print(f"\n❌ Error: {e}")
         print("\nMake sure Neo4j is running and credentials are correct:")
         print("  NEO4J_URI=neo4j://localhost:7687")
-        print("  NEO4J_USER=neo4j")
+        print("  NEO4J_USERNAME=neo4j")
         print("  NEO4J_PASSWORD=yourpass")
 
     finally:
-        await driver.close()
+        await conn.close()
 
     print()
     print("=" * 80)

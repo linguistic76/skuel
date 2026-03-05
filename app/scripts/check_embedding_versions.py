@@ -25,9 +25,7 @@ import asyncio
 import sys
 from collections import Counter, defaultdict
 
-from neo4j import AsyncGraphDatabase
-
-from core.config.credential_store import get_credential
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.services.neo4j_genai_embeddings_service import EMBEDDING_VERSION
 from core.utils.logging import get_logger
 
@@ -217,26 +215,11 @@ Examples:
 
     args = parser.parse_args()
 
-    # Get Neo4j credentials
-    try:
-        neo4j_uri = get_credential("NEO4J_URI", fallback_to_env=True)
-        neo4j_user = get_credential("NEO4J_USER", fallback_to_env=True)
-        neo4j_password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
-
-        if not all([neo4j_uri, neo4j_user, neo4j_password]):
-            logger.error("❌ Neo4j credentials not configured")
-            logger.error("   Configure NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD")
-            return 1
-
-    except Exception as e:
-        logger.error(f"❌ Failed to get credentials: {e}")
-        return 1
-
-    # Connect to Neo4j
-    driver = AsyncGraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+    conn = Neo4jConnection()
+    await conn.connect()
+    driver = conn.driver
 
     try:
-        # Verify connection
         await driver.verify_connectivity()
         logger.info("✅ Connected to Neo4j")
 
@@ -266,7 +249,7 @@ Examples:
         return 1
 
     finally:
-        await driver.close()
+        await conn.close()
         logger.info("✅ Disconnected from Neo4j")
 
 

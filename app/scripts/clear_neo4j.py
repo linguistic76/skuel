@@ -19,7 +19,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from dotenv import load_dotenv
-from neo4j import AsyncGraphDatabase
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
 from core.utils.logging import get_logger
 
@@ -72,7 +72,9 @@ async def clear_database(
             print("❌ Aborted. No data was deleted.")
             return None
 
-    driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
+    conn = Neo4jConnection(uri=uri, username=username, password=password)
+    await conn.connect()
+    driver = conn.driver
 
     try:
         async with driver.session() as session:
@@ -160,7 +162,7 @@ async def clear_database(
         logger.error(f"❌ Error clearing database: {e}", exc_info=True)
         raise
     finally:
-        await driver.close()
+        await conn.close()
 
 
 async def clear_with_constraints(
@@ -197,7 +199,9 @@ async def clear_with_constraints(
         print("❌ Aborted. No data was deleted.")
         return None
 
-    driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
+    conn = Neo4jConnection(uri=uri, username=username, password=password)
+    await conn.connect()
+    driver = conn.driver
 
     try:
         async with driver.session() as session:
@@ -246,7 +250,7 @@ async def clear_with_constraints(
         logger.error(f"❌ Error: {e}", exc_info=True)
         raise
     finally:
-        await driver.close()
+        await conn.close()
 
 
 async def clear_domain_bundle_only(
@@ -277,7 +281,9 @@ async def clear_domain_bundle_only(
         if password is None:
             password = getpass.getpass(f"Neo4j password for {username}: ")
 
-    driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
+    conn = Neo4jConnection(uri=uri, username=username, password=password)
+    await conn.connect()
+    driver = conn.driver
 
     try:
         async with driver.session() as session:
@@ -323,7 +329,7 @@ async def clear_domain_bundle_only(
         logger.error(f"❌ Error: {e}", exc_info=True)
         raise
     finally:
-        await driver.close()
+        await conn.close()
 
 
 if __name__ == "__main__":

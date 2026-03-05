@@ -6,9 +6,9 @@ Shows that Tasks already use the Universal Hierarchical Pattern.
 """
 
 import asyncio
-import os
 from pathlib import Path
-from neo4j import AsyncGraphDatabase
+
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
 
 async def verify_tasks():
@@ -21,16 +21,9 @@ async def verify_tasks():
     except ImportError:
         pass
 
-    uri = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
-    user = os.getenv("NEO4J_USERNAME", "neo4j")
-
-    try:
-        from core.config.credential_store import get_credential
-        password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
-    except Exception:
-        password = os.getenv("NEO4J_PASSWORD", "password")
-
-    driver = AsyncGraphDatabase.driver(uri, auth=(user, password))
+    conn = Neo4jConnection()
+    await conn.connect()
+    driver = conn.driver
 
     try:
         print("=" * 80)
@@ -91,7 +84,7 @@ async def verify_tasks():
         print("=" * 80)
 
     finally:
-        await driver.close()
+        await conn.close()
 
 
 if __name__ == "__main__":

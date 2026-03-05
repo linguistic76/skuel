@@ -18,7 +18,6 @@ Context:
 
 import argparse
 import asyncio
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -26,7 +25,7 @@ from typing import Any
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from neo4j import AsyncGraphDatabase
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
 from core.utils.logging import get_logger
 
@@ -101,29 +100,13 @@ async def main() -> None:
     args = parser.parse_args()
 
     # Get Neo4j credentials using credential store (same as config)
-    try:
-        from core.config.credential_store import get_credential
-        neo4j_password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
-    except Exception:
-        neo4j_password = os.getenv("NEO4J_PASSWORD", "")
-
-    neo4j_uri = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
-    neo4j_username = os.getenv("NEO4J_USERNAME", "neo4j")
-
-    if not neo4j_password:
-        logger.error("❌ NEO4J_PASSWORD not found in credential store or environment")
-        return
-
-    # Connect to database
-    driver = AsyncGraphDatabase.driver(
-        neo4j_uri,
-        auth=(neo4j_username, neo4j_password),
-    )
+    conn = Neo4jConnection()
+    await conn.connect()
+    driver = conn.driver
 
     try:
-        # Verify connection
         await driver.verify_connectivity()
-        logger.info(f"✅ Connected to Neo4j at {neo4j_uri}")
+        logger.info(f"✅ Connected to Neo4j at {conn.uri}")
 
         if args.dry_run:
             logger.info("🔍 DRY-RUN MODE: No changes will be made")
@@ -159,7 +142,7 @@ async def main() -> None:
         raise
 
     finally:
-        await driver.close()
+        await conn.close()
         logger.info("🔌 Database connection closed")
 
 

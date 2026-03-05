@@ -16,9 +16,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from neo4j import AsyncGraphDatabase
-
-from core.utils.credentials import get_credential
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
 # Tier definitions (from activation plan)
 TIER_1_RELATIONSHIPS = [
@@ -55,12 +53,9 @@ async def get_semantic_relationship_metrics() -> dict:
     Returns:
         dict: Metrics including activation counts, usage stats, etc.
     """
-    # Get Neo4j connection
-    neo4j_uri = get_credential("NEO4J_URI")
-    neo4j_user = get_credential("NEO4J_USER")
-    neo4j_password = get_credential("NEO4J_PASSWORD")
-
-    driver = AsyncGraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+    conn = Neo4jConnection()
+    await conn.connect()
+    driver = conn.driver
 
     try:
         async with driver.session() as session:
@@ -163,7 +158,7 @@ async def get_semantic_relationship_metrics() -> dict:
             return metrics
 
     finally:
-        await driver.close()
+        await conn.close()
 
 
 def print_metrics_summary(metrics: dict):

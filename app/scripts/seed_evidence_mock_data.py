@@ -15,7 +15,6 @@ Usage:
 """
 
 import asyncio
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -25,9 +24,8 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from dotenv import load_dotenv
-from neo4j import AsyncGraphDatabase
 
-from core.config.credential_store import get_credential
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.models.semantic.edge_metadata import (
     create_cited_metadata,
     create_research_backed_metadata,
@@ -490,30 +488,14 @@ async def main():
             print("Usage: python seed_evidence_mock_data.py [--dry-run | --apply]")
             sys.exit(1)
 
-    # Get Neo4j credentials
-    neo4j_uri = get_credential("NEO4J_URI") or os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    neo4j_user = (
-        get_credential("NEO4J_USER")
-        or os.getenv("NEO4J_USERNAME")
-        or os.getenv("NEO4J_USER", "neo4j")
-    )
-    neo4j_password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
-
-    # Convert neo4j:// to bolt://
-    if neo4j_uri.startswith("neo4j://"):
-        neo4j_uri = neo4j_uri.replace("neo4j://", "bolt://")
-
-    if not neo4j_password:
-        print("❌ Error: Neo4j password not found")
-        sys.exit(1)
-
-    # Create driver
-    driver = AsyncGraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+    conn = Neo4jConnection()
+    await conn.connect()
+    driver = conn.driver
 
     try:
         await seed_mock_data(driver, dry_run=dry_run)
     finally:
-        await driver.close()
+        await conn.close()
 
 
 if __name__ == "__main__":

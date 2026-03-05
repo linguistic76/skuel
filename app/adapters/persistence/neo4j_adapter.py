@@ -13,7 +13,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from adapters.persistence.neo4j.neo4j_connection import get_connection
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection, get_connection
 
 # Protocols
 from core.utils.logging import get_logger
@@ -63,9 +63,11 @@ class Neo4jAdapter:
     """
 
     def __init__(
-        self, _uri: str | None = None, _user: str | None = None, _password: str | None = None
+        self, uri: str | None = None, user: str | None = None, password: str | None = None
     ) -> None:
-        # Use Neo4jConnection for consistency
+        self._uri = uri
+        self._user = user
+        self._password = password
         self.connection: Any = None
         self.driver: Any = None  # Will be set from connection
         self._schema_service: Any = None
@@ -81,11 +83,18 @@ class Neo4jAdapter:
         if not NEO4J_AVAILABLE:
             raise RuntimeError("Neo4j driver not installed. Please install with: pip install neo4j")
 
-        # Get the singleton connection
-        self.connection = await get_connection()
+        if self._uri or self._user or self._password:
+            # Explicit credentials provided — create a dedicated connection
+            self.connection = Neo4jConnection(
+                uri=self._uri, username=self._user, password=self._password
+            )
+            await self.connection.connect()
+        else:
+            # No explicit credentials — use the app-level singleton
+            self.connection = await get_connection()
+
         self.driver = self.connection.driver
 
-        # Test connection
         connected = await self.connection.test_connection()
         if not connected:
             raise RuntimeError("Failed to connect to Neo4j")

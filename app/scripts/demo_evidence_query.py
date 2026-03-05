@@ -4,7 +4,6 @@ Demo: Query and Display Evidence from Knowledge Graph
 """
 
 import asyncio
-import os
 import sys
 from pathlib import Path
 
@@ -12,24 +11,17 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from dotenv import load_dotenv
-from neo4j import AsyncGraphDatabase
 
-from core.config.credential_store import get_credential
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
 load_dotenv()
 
 
 async def demo_evidence_query():
     """Query a relationship and display its evidence."""
-    # Get credentials
-    neo4j_uri = get_credential("NEO4J_URI") or os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    neo4j_user = get_credential("NEO4J_USER") or os.getenv("NEO4J_USERNAME", "neo4j")
-    neo4j_password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
-
-    if neo4j_uri.startswith("neo4j://"):
-        neo4j_uri = neo4j_uri.replace("neo4j://", "bolt://")
-
-    driver = AsyncGraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+    conn = Neo4jConnection()
+    await conn.connect()
+    driver = conn.driver
 
     try:
         async with driver.session() as session:
@@ -100,7 +92,7 @@ async def demo_evidence_query():
             print("=" * 80)
 
     finally:
-        await driver.close()
+        await conn.close()
 
 
 if __name__ == "__main__":

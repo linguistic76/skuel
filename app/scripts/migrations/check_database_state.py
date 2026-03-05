@@ -6,9 +6,9 @@ Shows all node labels, relationship types, and sample data.
 """
 
 import asyncio
-import os
 from pathlib import Path
-from neo4j import AsyncGraphDatabase
+
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
 
 async def check_database():
@@ -22,22 +22,15 @@ async def check_database():
         pass
 
     # Get connection
-    uri = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
-    user = os.getenv("NEO4J_USERNAME", "neo4j")
-
-    try:
-        from core.config.credential_store import get_credential
-        password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
-    except Exception:
-        password = os.getenv("NEO4J_PASSWORD", "password")
+    conn = Neo4jConnection()
+    await conn.connect()
+    driver = conn.driver
 
     print("=" * 80)
     print("Database State Check")
     print("=" * 80)
-    print(f"Connecting to: {uri}")
+    print(f"Connecting to: {conn.uri}")
     print()
-
-    driver = AsyncGraphDatabase.driver(uri, auth=(user, password))
 
     try:
         await driver.verify_connectivity()
@@ -93,7 +86,7 @@ async def check_database():
         print(f"❌ Error: {e}")
 
     finally:
-        await driver.close()
+        await conn.close()
 
 
 if __name__ == "__main__":

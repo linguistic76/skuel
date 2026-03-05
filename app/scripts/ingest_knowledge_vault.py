@@ -336,7 +336,7 @@ async def main():
 
     # Get configuration from environment or use defaults
     neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    neo4j_user = os.getenv("NEO4J_USER", "neo4j")
+    neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
     neo4j_password = os.getenv("NEO4J_PASSWORD", "neo4j_password")
     vault_path = Path(os.getenv("VAULT_PATH", "/home/mike/vault"))
 

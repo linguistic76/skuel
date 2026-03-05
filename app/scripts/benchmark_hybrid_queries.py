@@ -13,7 +13,7 @@ This script benchmarks the performance of different query patterns:
 
 **Requirements:**
     - Neo4j running with populated knowledge graph
-    - Environment variables set (NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
+    - Environment variables set (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
 
 **Output:**
     - Execution times for each query pattern
@@ -26,9 +26,7 @@ import asyncio
 import time
 from typing import Any
 
-from neo4j import AsyncGraphDatabase
-
-from core.infrastructure.config import get_credential
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.models.query import build_optimized_ready_to_learn
 from core.utils.logging import get_logger
 
@@ -332,13 +330,9 @@ class QueryBenchmark:
 
 async def main() -> None:
     """Run benchmarks and display results."""
-    # Get Neo4j credentials
-    neo4j_uri = get_credential("NEO4J_URI") or "bolt://localhost:7687"
-    neo4j_user = get_credential("NEO4J_USER") or "neo4j"
-    neo4j_password = get_credential("NEO4J_PASSWORD") or "password"
-
-    # Create driver
-    driver = AsyncGraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+    conn = Neo4jConnection()
+    await conn.connect()
+    driver = conn.driver
 
     try:
         # Create benchmark
@@ -355,7 +349,7 @@ async def main() -> None:
         benchmark.print_results(results)
 
     finally:
-        await driver.close()
+        await conn.close()
 
 
 if __name__ == "__main__":
