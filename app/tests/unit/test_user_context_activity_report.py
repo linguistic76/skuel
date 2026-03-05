@@ -1,7 +1,6 @@
 """
-Unit Tests — UserContextPopulator.populate_activity_report
-                + UserContextPopulator.populate_cross_domain_insights
-===========================================================
+Unit Tests — UserContextPopulator: activity_report, cross_domain_insights, submission_stats
+============================================================================================
 
 populate_activity_report (5 tests):
 1. None → all fields remain None
@@ -13,6 +12,12 @@ populate_activity_report (5 tests):
 populate_cross_domain_insights (2 tests):
 6. None → {"active_count": 0, "top_insights": []}
 7. Unsorted insights → top_insights sorted by confidence descending
+
+populate_submission_stats (4 tests):
+8. None → all fields remain at defaults
+9. Empty dict → counters remain 0
+10. Full dict → all 10 fields populated correctly
+11. Null exercises in list → filtered out
 """
 
 from datetime import datetime
@@ -234,3 +239,98 @@ def test_populate_cross_domain_insights_sorted() -> None:
     assert top[0]["uid"] == "ins_b"  # confidence 0.9
     assert top[1]["uid"] == "ins_a"  # confidence 0.6
     assert top[2]["uid"] == "ins_c"  # confidence 0.3
+
+
+# =============================================================================
+# populate_submission_stats TESTS
+# =============================================================================
+
+
+def test_populate_submission_stats_none() -> None:
+    """None → all submission fields remain at defaults."""
+    populator = UserContextPopulator()
+    ctx = UserContext(user_uid="user_test")
+
+    populator.populate_submission_stats(ctx, None)
+
+    assert ctx.total_submission_count == 0
+    assert ctx.total_journal_count == 0
+    assert ctx.submissions_in_window == 0
+    assert ctx.last_submission_date is None
+    assert ctx.feedback_received_count == 0
+    assert ctx.feedback_in_window == 0
+    assert ctx.pending_feedback_count == 0
+    assert ctx.assigned_exercise_count == 0
+    assert ctx.completed_exercise_count == 0
+    assert ctx.unsubmitted_exercises == []
+
+
+def test_populate_submission_stats_zero_counts() -> None:
+    """Empty stats dict → all counters remain 0."""
+    populator = UserContextPopulator()
+    ctx = UserContext(user_uid="user_test")
+
+    populator.populate_submission_stats(ctx, {})
+
+    assert ctx.total_submission_count == 0
+    assert ctx.feedback_received_count == 0
+    assert ctx.unsubmitted_exercises == []
+
+
+def test_populate_submission_stats_populated() -> None:
+    """Full stats dict → all fields populated correctly."""
+    populator = UserContextPopulator()
+    ctx = UserContext(user_uid="user_test")
+
+    last_date = datetime(2026, 3, 5, 14, 30, 0)
+    stats = {
+        "total_submission_count": 12,
+        "total_journal_count": 3,
+        "submissions_in_window": 4,
+        "last_submission_date": last_date,
+        "feedback_received_count": 8,
+        "feedback_in_window": 2,
+        "pending_feedback_count": 4,
+        "assigned_exercise_count": 6,
+        "completed_exercise_count": 4,
+        "unsubmitted_exercises": [
+            {"uid": "ex_1", "title": "Write haiku", "due_date": "2026-03-10"},
+            {"uid": "ex_2", "title": "Read chapter", "due_date": None},
+        ],
+    }
+
+    populator.populate_submission_stats(ctx, stats)
+
+    assert ctx.total_submission_count == 12
+    assert ctx.total_journal_count == 3
+    assert ctx.submissions_in_window == 4
+    assert ctx.last_submission_date == last_date
+    assert ctx.feedback_received_count == 8
+    assert ctx.feedback_in_window == 2
+    assert ctx.pending_feedback_count == 4
+    assert ctx.assigned_exercise_count == 6
+    assert ctx.completed_exercise_count == 4
+    assert len(ctx.unsubmitted_exercises) == 2
+    assert ctx.unsubmitted_exercises[0]["uid"] == "ex_1"
+    assert ctx.unsubmitted_exercises[0]["due_date"] == "2026-03-10"
+    assert ctx.unsubmitted_exercises[1]["due_date"] is None
+
+
+def test_populate_submission_stats_filters_null_exercises() -> None:
+    """Exercises with None uid are filtered out."""
+    populator = UserContextPopulator()
+    ctx = UserContext(user_uid="user_test")
+
+    stats = {
+        "total_submission_count": 1,
+        "unsubmitted_exercises": [
+            None,
+            {"uid": None, "title": "Bad", "due_date": None},
+            {"uid": "ex_valid", "title": "Good", "due_date": None},
+        ],
+    }
+
+    populator.populate_submission_stats(ctx, stats)
+
+    assert len(ctx.unsubmitted_exercises) == 1
+    assert ctx.unsubmitted_exercises[0]["uid"] == "ex_valid"

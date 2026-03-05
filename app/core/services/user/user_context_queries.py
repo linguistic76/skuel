@@ -851,6 +851,116 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      } ELSE null END) WHERE x IS NOT NULL][0..10] AS active_insights_raw
 
 // ====================================================================
+// SUBMISSION & FEEDBACK STATS - Learning loop engagement tracking
+// ====================================================================
+OPTIONAL MATCH (user)-[:OWNS]->(sub:Entity)
+WHERE sub.ku_type IN ['submission', 'journal']
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids, events_rich,
+     core_principle_uids, principles_rich,
+     pending_choice_uids, choices_rich,
+     enrolled_path_uids, paths_rich,
+     steps_rich,
+     life_path_uid, life_path_designated_at, life_path_alignment_score,
+     active_moc_uids, moc_metadata,
+     latest_ar, active_insights_raw,
+     count(CASE WHEN sub.ku_type = 'submission' THEN 1 END) AS total_submission_count,
+     count(CASE WHEN sub.ku_type = 'journal' THEN 1 END) AS total_journal_count,
+     count(CASE WHEN sub.created_at >= datetime($window_start) THEN 1 END) AS submissions_in_window,
+     max(sub.created_at) AS last_submission_date,
+     collect(sub.uid) AS all_submission_uids
+
+// Feedback received for user's submissions
+OPTIONAL MATCH (user)-[:OWNS]->(owned_sub:Entity)<-[:FEEDBACK_FOR]-(fb:Entity)
+WHERE owned_sub.ku_type IN ['submission', 'journal']
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids, events_rich,
+     core_principle_uids, principles_rich,
+     pending_choice_uids, choices_rich,
+     enrolled_path_uids, paths_rich,
+     steps_rich,
+     life_path_uid, life_path_designated_at, life_path_alignment_score,
+     active_moc_uids, moc_metadata,
+     latest_ar, active_insights_raw,
+     total_submission_count, total_journal_count, submissions_in_window,
+     last_submission_date, all_submission_uids,
+     count(fb) AS feedback_received_count,
+     count(CASE WHEN fb.created_at >= datetime($window_start) THEN 1 END) AS feedback_in_window,
+     collect(DISTINCT owned_sub.uid) AS submissions_with_feedback
+
+// Pending feedback = submissions without any feedback
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids, events_rich,
+     core_principle_uids, principles_rich,
+     pending_choice_uids, choices_rich,
+     enrolled_path_uids, paths_rich,
+     steps_rich,
+     life_path_uid, life_path_designated_at, life_path_alignment_score,
+     active_moc_uids, moc_metadata,
+     latest_ar, active_insights_raw,
+     total_submission_count, total_journal_count, submissions_in_window,
+     last_submission_date,
+     feedback_received_count, feedback_in_window,
+     size([uid IN all_submission_uids WHERE NOT uid IN submissions_with_feedback]) AS pending_feedback_count
+
+// Assigned exercises and unsubmitted exercises
+OPTIONAL MATCH (user)-[:MEMBER_OF]->(grp:Group)<-[:FOR_GROUP]-(ex:Entity {ku_type: 'exercise', scope: 'assigned'})
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids, events_rich,
+     core_principle_uids, principles_rich,
+     pending_choice_uids, choices_rich,
+     enrolled_path_uids, paths_rich,
+     steps_rich,
+     life_path_uid, life_path_designated_at, life_path_alignment_score,
+     active_moc_uids, moc_metadata,
+     latest_ar, active_insights_raw,
+     total_submission_count, total_journal_count, submissions_in_window,
+     last_submission_date,
+     feedback_received_count, feedback_in_window, pending_feedback_count,
+     count(ex) AS assigned_exercise_count,
+     collect(CASE WHEN NOT (:Entity {user_uid: user.uid})-[:FULFILLS_EXERCISE]->(ex) THEN {
+         uid: ex.uid,
+         title: coalesce(ex.title, 'Untitled Exercise'),
+         due_date: ex.due_date
+     } END) AS unsubmitted_raw
+
+WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids, events_rich,
+     core_principle_uids, principles_rich,
+     pending_choice_uids, choices_rich,
+     enrolled_path_uids, paths_rich,
+     steps_rich,
+     life_path_uid, life_path_designated_at, life_path_alignment_score,
+     active_moc_uids, moc_metadata,
+     latest_ar, active_insights_raw,
+     total_submission_count, total_journal_count, submissions_in_window,
+     last_submission_date,
+     feedback_received_count, feedback_in_window, pending_feedback_count,
+     assigned_exercise_count,
+     assigned_exercise_count - size([x IN unsubmitted_raw WHERE x IS NOT NULL]) AS completed_exercise_count,
+     [x IN unsubmitted_raw WHERE x IS NOT NULL][0..5] AS unsubmitted_exercises
+
+// ====================================================================
 // Return BOTH UIDs (standard context) AND rich data (rich context)
 // ====================================================================
 RETURN {
@@ -918,7 +1028,19 @@ RETURN {
         content: latest_ar.processed_content,
         user_annotation: latest_ar.user_annotation
     } ELSE null END,
-    active_insights_raw: active_insights_raw
+    active_insights_raw: active_insights_raw,
+    submission_stats: {
+        total_submission_count: total_submission_count,
+        total_journal_count: total_journal_count,
+        submissions_in_window: submissions_in_window,
+        last_submission_date: last_submission_date,
+        feedback_received_count: feedback_received_count,
+        feedback_in_window: feedback_in_window,
+        pending_feedback_count: pending_feedback_count,
+        assigned_exercise_count: assigned_exercise_count,
+        completed_exercise_count: completed_exercise_count,
+        unsubmitted_exercises: unsubmitted_exercises
+    }
 } as result
 """
 
@@ -1092,6 +1214,18 @@ def empty_context_data() -> dict[str, Any]:
         },
         "events": {"upcoming_uids": [], "today_uids": []},
         "mocs": {"active_uids": [], "view_counts": {}, "recently_viewed_uids": []},
+        "submission_stats": {
+            "total_submission_count": 0,
+            "total_journal_count": 0,
+            "submissions_in_window": 0,
+            "last_submission_date": None,
+            "feedback_received_count": 0,
+            "feedback_in_window": 0,
+            "pending_feedback_count": 0,
+            "assigned_exercise_count": 0,
+            "completed_exercise_count": 0,
+            "unsubmitted_exercises": [],
+        },
     }
 
 

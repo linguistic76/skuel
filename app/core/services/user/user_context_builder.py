@@ -366,6 +366,10 @@ class UserContextBuilder:
         #     "progress_counts": {tasks_completed, habits_maintained, goals_achieved, ...},
         #     "activity_report": {uid, period, period_end, content, user_annotation} or null,
         #     "active_insights_raw": [{uid, type, title, impact, confidence}, ...] (up to 10),
+        #     "submission_stats": {total_submission_count, total_journal_count,
+        #         submissions_in_window, last_submission_date, feedback_received_count,
+        #         feedback_in_window, pending_feedback_count, assigned_exercise_count,
+        #         completed_exercise_count, unsubmitted_exercises},
         # }
         # entities_rich["ku"] is derived Python-side from mastery_timestamps + ku_view_data
         uids_data = mega_data.get("uids", {})
@@ -398,6 +402,9 @@ class UserContextBuilder:
         self._populator.populate_cross_domain_insights(
             context, mega_data.get("active_insights_raw")
         )
+
+        # Populate submission & feedback stats (learning loop engagement)
+        self._populator.populate_submission_stats(context, mega_data.get("submission_stats"))
 
         # Populate progress metrics (Priority 6)
         self._populator.populate_progress_metrics(context, mega_data.get("progress_counts", {}))

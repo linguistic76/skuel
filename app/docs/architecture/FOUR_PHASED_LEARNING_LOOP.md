@@ -83,6 +83,7 @@ shared across all users. Every Exercise is grounded in one or more Ku nodes.
 
 **EntityType:** `EntityType.KU`
 **Loop role:** The *why* — the knowledge the loop exists to transmit.
+**See:** [ASKESIS_PEDAGOGICAL_ARCHITECTURE.md](/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md) — Askesis scaffolds Phase 1 (Ku discovery via ZPD-aware Socratic dialogue).
 
 ### Layer 1: What You Can Learn
 
@@ -375,13 +376,7 @@ is no separate activity query layer. Both `ProgressFeedbackGenerator` and
 `ProcessorType` distinguishes who produced a feedback entity — not a separate entity type.
 New feedback sources add `ProcessorType` values; they do not create new EntityTypes.
 
-| ProcessorType | Who | Applies To |
-|---|---|---|
-| `HUMAN` | Teacher | `SUBMISSION_FEEDBACK` |
-| `HUMAN` | Admin | `ACTIVITY_REPORT` |
-| `LLM` | AI via Exercise instructions | `SUBMISSION_FEEDBACK` |
-| `LLM` | AI on-demand | `ACTIVITY_REPORT` |
-| `AUTOMATIC` | Scheduled system | `ACTIVITY_REPORT` |
+**See:** [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md#processortype-taxonomy) for the canonical ProcessorType table.
 
 **Import:** `from core.models.enums.entity_enums import ProcessorType`
 

@@ -518,15 +518,9 @@ that never closes the loop.
 
 ## ProcessorType Taxonomy
 
-`ProcessorType` discriminates who produced a feedback entity:
+`ProcessorType` discriminates who produced a feedback entity.
 
-| ProcessorType | Who | Applies to |
-|---|---|---|
-| `HUMAN` | Teacher writes | `SUBMISSION_FEEDBACK` (teacher assessment) |
-| `HUMAN` | Admin writes | `ACTIVITY_REPORT` (activity review) |
-| `LLM` | AI via Exercise instructions | `SUBMISSION_FEEDBACK` (AI assessment) |
-| `LLM` | AI on demand | `ACTIVITY_REPORT` (activity summary) |
-| `AUTOMATIC` | Scheduled system | `ACTIVITY_REPORT` (periodic progress report) |
+**See:** [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md#processortype-taxonomy) for the canonical table.
 
 **Import:** `from core.models.enums.entity_enums import ProcessorType`
 
@@ -554,6 +548,59 @@ that never closes the loop.
 | `adapters/persistence/neo4j/domain_backends.py` | all | Domain-specific Cypher |
 | `adapters/inbound/teaching_api.py` | 4 | Teacher API (review queue, revision, approve, dashboard) |
 | `core/prompts/templates/activity_feedback.md` | 4 | LLM prompt template (via PROMPT_REGISTRY) |
+
+---
+
+## Code Walkthrough
+
+### Curriculum Track (artifact-based)
+
+```
+1. KuService.create_ku()                           → core/services/ku/ku_core_service.py
+   Admin creates a Knowledge Unit
+       ↓
+2. ExerciseBackend.link_to_curriculum()             → adapters/persistence/neo4j/domain_backends.py
+   Teacher links Exercise to Ku via REQUIRES_KNOWLEDGE
+       ↓
+3. Student submits file
+   SubmissionsService.submit_file()                 → core/services/submissions/submissions_core_service.py
+   Creates Entity with ku_type='submission', status SUBMITTED→QUEUED→PROCESSING→COMPLETED
+       ↓
+4. FULFILLS_EXERCISE relationship created
+   Auto-sharing: SHARES_WITH (student → teacher)
+       ↓
+5. TeacherReviewService.get_review_queue()          → core/services/feedback/teacher_review_service.py
+   Teacher sees pending submissions
+       ↓
+6. TeacherReviewService.submit_feedback()           → core/services/feedback/teacher_review_service.py
+   Creates SubmissionFeedback with ProcessorType.HUMAN
+   OR FeedbackService.generate_feedback()           → core/services/feedback/feedback_service.py
+   Creates SubmissionFeedback with ProcessorType.LLM (via Exercise instructions)
+       ↓
+7. Student sees feedback, optionally resubmits (revision cycle)
+```
+
+### Activity Track (aggregate-based)
+
+```
+1. User activity across 6 Activity Domains + 3 Curriculum Domains
+   Tasks, Goals, Habits, Events, Choices, Principles + KU mastery, LP progress, LS progress
+       ↓
+2. UserContextBuilder.build_rich()                  → core/services/user/user_context_builder.py
+   MEGA-QUERY fetches all domain data including submission_stats
+       ↓
+3. ProgressFeedbackGenerator.generate()             → core/services/feedback/progress_feedback_generator.py
+   Uses context.entities_rich + LLM (or programmatic fallback)
+   Prompt template: core/prompts/templates/activity_feedback.md
+       ↓
+4. ActivityReportService.persist()                  → core/services/feedback/activity_report_service.py
+   All write paths converge here; creates ActivityReport node in Neo4j
+       ↓
+5. Latest report flows back into UserContext via MEGA-QUERY
+   context.latest_activity_report_uid, context.latest_activity_report_content
+   User can annotate (context.latest_activity_report_user_annotation)
+   Annotation feeds back into next report's LLM prompt
+```
 
 ---
 

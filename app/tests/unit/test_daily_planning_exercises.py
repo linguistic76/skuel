@@ -5,14 +5,17 @@ Unit Tests — Daily Planning: Priority 2.5 Unsubmitted Exercises
 Tests for the Priority 2.5 block in DailyPlanningMixin that surfaces
 teacher-assigned exercises not yet submitted by the student.
 
+Exercises now come from UserContext.unsubmitted_exercises (populated by
+MEGA-QUERY) instead of a separate FeedbackRelationshipService call.
+
 Covers:
 1. Happy path — exercises appear in plan with correct ContextualExercise fields
 2. Overdue exercise — is_overdue=True, warning added, appears in priorities
 3. No exercises — no exercises in plan, no warning
 4. Capacity gate — exercises skipped when capacity full
-5. Max 3 cap — 5 exercises returned from service, only 3 in plan
+5. Max 3 cap — 5 exercises on context, only 3 in plan
 6. No due_date — exercise with due_date=None produces days_until_due=None, is_overdue=False
-7. Service error — FeedbackRelationshipService returns failure → exercises empty, no crash
+7. Empty context — empty unsubmitted_exercises list → exercises empty, no crash
 """
 
 from datetime import date, timedelta
@@ -23,14 +26,18 @@ import pytest
 from core.models.context_types import ContextualExercise, DailyWorkPlan
 from core.services.user.intelligence.daily_planning import DailyPlanningMixin
 from core.services.user.intelligence.temporal_momentum import TemporalMomentumMixin
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 # =============================================================================
 # HELPERS
 # =============================================================================
 
 
-def make_context(available_minutes: int = 480, user_uid: str = "user_test") -> object:
+def make_context(
+    available_minutes: int = 480,
+    user_uid: str = "user_test",
+    unsubmitted_exercises: list[dict[str, str | None]] | None = None,
+) -> object:
     """Minimal UserContext stand-in for DailyPlanningMixin."""
 
     class _Context:
@@ -50,6 +57,7 @@ def make_context(available_minutes: int = 480, user_uid: str = "user_test") -> o
     ctx.latest_activity_report_uid = None
     ctx.latest_activity_report_period = None
     ctx.entities_rich = {}
+    ctx.unsubmitted_exercises = unsubmitted_exercises or []
     return ctx
 
 
@@ -63,7 +71,6 @@ def make_no_op_service() -> AsyncMock:
     mock.get_advancing_goals_for_user = AsyncMock(return_value=Result.ok([]))
     mock.get_pending_decisions_for_user = AsyncMock(return_value=Result.ok([]))
     mock.get_aligned_principles_for_user = AsyncMock(return_value=Result.ok([]))
-    mock.get_unsubmitted_exercises = AsyncMock(return_value=Result.ok([]))
     return mock
 
 
@@ -94,10 +101,12 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         self.vector_search = None
 
 
-def build_service(feedback_mock: AsyncMock) -> MockDailyPlanningService:
-    """Build a service where only feedback is configured; all others are no-ops."""
+def build_service(
+    unsubmitted_exercises: list[dict[str, str | None]] | None = None,
+) -> MockDailyPlanningService:
+    """Build a service with exercises on context; all domain services are no-ops."""
     no_op = make_no_op_service()
-    ctx = make_context()
+    ctx = make_context(unsubmitted_exercises=unsubmitted_exercises)
     return MockDailyPlanningService(
         context=ctx,
         tasks=no_op,
@@ -107,7 +116,7 @@ def build_service(feedback_mock: AsyncMock) -> MockDailyPlanningService:
         choices=no_op,
         principles=no_op,
         ku=no_op,
-        feedback=feedback_mock,
+        feedback=no_op,
     )
 
 
@@ -118,20 +127,15 @@ def build_service(feedback_mock: AsyncMock) -> MockDailyPlanningService:
 
 @pytest.mark.asyncio
 async def test_exercises_appear_in_plan_happy_path() -> None:
-    """Exercises returned by service appear in the plan with correct fields."""
+    """Exercises on context appear in the plan with correct fields."""
     today = date.today()
     due_in_5 = (today + timedelta(days=5)).isoformat()
 
-    feedback = make_no_op_service()
-    feedback.get_unsubmitted_exercises = AsyncMock(
-        return_value=Result.ok(
-            [
-                {"uid": "exercise_abc", "title": "Write a haiku", "due_date": due_in_5},
-            ]
-        )
+    service = build_service(
+        unsubmitted_exercises=[
+            {"uid": "exercise_abc", "title": "Write a haiku", "due_date": due_in_5},
+        ]
     )
-
-    service = build_service(feedback)
     result = await service.get_ready_to_work_on_today(respect_capacity=False)
 
     assert result.is_ok
@@ -160,16 +164,11 @@ async def test_overdue_exercise_adds_warning_and_priority() -> None:
     today = date.today()
     overdue_date = (today - timedelta(days=2)).isoformat()
 
-    feedback = make_no_op_service()
-    feedback.get_unsubmitted_exercises = AsyncMock(
-        return_value=Result.ok(
-            [
-                {"uid": "exercise_overdue", "title": "Late essay", "due_date": overdue_date},
-            ]
-        )
+    service = build_service(
+        unsubmitted_exercises=[
+            {"uid": "exercise_overdue", "title": "Late essay", "due_date": overdue_date},
+        ]
     )
-
-    service = build_service(feedback)
     result = await service.get_ready_to_work_on_today(respect_capacity=False)
 
     assert result.is_ok
@@ -195,11 +194,8 @@ async def test_overdue_exercise_adds_warning_and_priority() -> None:
 
 @pytest.mark.asyncio
 async def test_no_exercises_no_warning() -> None:
-    """When service returns empty list, no exercises appear and no exercise warning is added."""
-    feedback = make_no_op_service()
-    feedback.get_unsubmitted_exercises = AsyncMock(return_value=Result.ok([]))
-
-    service = build_service(feedback)
+    """When context has empty list, no exercises appear and no exercise warning is added."""
+    service = build_service(unsubmitted_exercises=[])
     result = await service.get_ready_to_work_on_today(respect_capacity=False)
 
     assert result.is_ok
@@ -222,18 +218,15 @@ async def test_exercises_skipped_when_capacity_full() -> None:
     today = date.today()
     due = (today + timedelta(days=1)).isoformat()
 
-    feedback = make_no_op_service()
-    feedback.get_unsubmitted_exercises = AsyncMock(
-        return_value=Result.ok(
-            [{"uid": "exercise_capacity", "title": "Long essay", "due_date": due}]
-        )
-    )
-
     no_op = make_no_op_service()
-    no_op.get_unsubmitted_exercises = feedback.get_unsubmitted_exercises
 
     # 3 min capacity — too small for a 60-min exercise
-    ctx = make_context(available_minutes=3)
+    ctx = make_context(
+        available_minutes=3,
+        unsubmitted_exercises=[
+            {"uid": "exercise_capacity", "title": "Long essay", "due_date": due}
+        ],
+    )
     service = MockDailyPlanningService(
         context=ctx,
         tasks=no_op,
@@ -243,7 +236,7 @@ async def test_exercises_skipped_when_capacity_full() -> None:
         choices=no_op,
         principles=no_op,
         ku=no_op,
-        feedback=feedback,
+        feedback=no_op,
     )
 
     result = await service.get_ready_to_work_on_today(respect_capacity=True)
@@ -259,16 +252,13 @@ async def test_exercises_skipped_when_capacity_full() -> None:
 
 
 @pytest.mark.asyncio
-async def test_max_3_exercises_even_if_5_returned() -> None:
-    """Only 3 exercises are included in the plan even when 5 are returned."""
-    feedback = make_no_op_service()
-    feedback.get_unsubmitted_exercises = AsyncMock(
-        return_value=Result.ok(
-            [{"uid": f"exercise_{i}", "title": f"Exercise {i}", "due_date": None} for i in range(5)]
-        )
+async def test_max_3_exercises_even_if_5_on_context() -> None:
+    """Only 3 exercises are included in the plan even when 5 are on context."""
+    service = build_service(
+        unsubmitted_exercises=[
+            {"uid": f"exercise_{i}", "title": f"Exercise {i}", "due_date": None} for i in range(5)
+        ]
     )
-
-    service = build_service(feedback)
     result = await service.get_ready_to_work_on_today(respect_capacity=False)
 
     assert result.is_ok
@@ -285,14 +275,11 @@ async def test_max_3_exercises_even_if_5_returned() -> None:
 @pytest.mark.asyncio
 async def test_exercise_without_due_date() -> None:
     """Exercises with no due_date produce days_until_due=None and is_overdue=False."""
-    feedback = make_no_op_service()
-    feedback.get_unsubmitted_exercises = AsyncMock(
-        return_value=Result.ok(
-            [{"uid": "exercise_noduedate", "title": "Open-ended task", "due_date": None}]
-        )
+    service = build_service(
+        unsubmitted_exercises=[
+            {"uid": "exercise_noduedate", "title": "Open-ended task", "due_date": None}
+        ]
     )
-
-    service = build_service(feedback)
     result = await service.get_ready_to_work_on_today(respect_capacity=False)
 
     assert result.is_ok
@@ -307,19 +294,14 @@ async def test_exercise_without_due_date() -> None:
 
 
 # =============================================================================
-# TEST 7: Service error
+# TEST 7: Default context (no exercises populated)
 # =============================================================================
 
 
 @pytest.mark.asyncio
-async def test_service_error_produces_empty_exercises() -> None:
-    """FeedbackRelationshipService failure leaves exercises empty — no crash."""
-    feedback = make_no_op_service()
-    feedback.get_unsubmitted_exercises = AsyncMock(
-        return_value=Result.fail(Errors.database("query", "Neo4j unreachable"))
-    )
-
-    service = build_service(feedback)
+async def test_default_context_produces_empty_exercises() -> None:
+    """Default context (unsubmitted_exercises=[]) leaves exercises empty — no crash."""
+    service = build_service()  # default: no exercises
     result = await service.get_ready_to_work_on_today(respect_capacity=False)
 
     assert result.is_ok  # The plan itself should succeed

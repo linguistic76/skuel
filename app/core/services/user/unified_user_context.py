@@ -340,6 +340,22 @@ class UserContext:
     )
 
     # =========================================================================
+    # SUBMISSION & FEEDBACK AWARENESS - Learning loop engagement tracking
+    # =========================================================================
+    total_submission_count: int = 0
+    total_journal_count: int = 0
+    submissions_in_window: int = 0
+    last_submission_date: datetime | None = None
+    feedback_received_count: int = 0
+    feedback_in_window: int = 0
+    pending_feedback_count: int = 0
+    assigned_exercise_count: int = 0
+    completed_exercise_count: int = 0
+    unsubmitted_exercises: list[dict[str, Any]] = field(
+        default_factory=list
+    )  # Up to 5: {uid, title, due_date}, due_date ASC
+
+    # =========================================================================
     # PROGRESS AWARENESS - Unified progress tracking
     # =========================================================================
     overall_progress: float = 0.0

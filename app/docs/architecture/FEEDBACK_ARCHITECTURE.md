@@ -477,6 +477,50 @@ When `openai_service` is available, the generator:
 
 ---
 
+## Activity Track Data Flow
+
+End-to-end data flow from user activity to feedback and back into UserContext:
+
+```
+User activity (Tasks, Goals, Habits, Events, Choices, Principles)
+    │
+    ▼
+UserContextBuilder.build_rich(user_uid, window="7d")
+    → Executes MEGA-QUERY (single Neo4j round-trip)
+    → Returns UserContext with:
+        context.entities_rich["tasks"|"goals"|"habits"|"events"|"choices"|"principles"]
+        context.submission_stats (total counts, pending, unsubmitted exercises)
+    │
+    ▼
+ProgressFeedbackGenerator.generate(user_uid, time_period="7d")
+    → Injects context_builder: UserContextBuilder
+    → Calls build_rich() for cross-domain snapshot
+    → Checks cooldown (FeedbackTimePeriod.MIN_REPORT_COOLDOWN_MINUTES)
+    → Fetches prior annotation via _fetch_previous_annotation()
+    → Sends to LLM via activity_feedback.md prompt template
+    → Fallback: programmatic markdown with ProcessorType.AUTOMATIC
+    │
+    ▼
+ActivityReportService.persist(report: ActivityReport)
+    → All write paths converge here (LLM, AUTOMATIC, HUMAN)
+    → Creates ActivityReport node in Neo4j with OWNS relationship
+    │
+    ▼
+Next build_rich() call picks up the latest report:
+    context.latest_activity_report_uid
+    context.latest_activity_report_content
+    context.latest_activity_report_user_annotation
+    │
+    ▼
+User annotates report (additive or revision mode)
+    → Annotation included in next LLM prompt via injection-guard boundaries
+    → Feedback loop closes: activity → report → annotation → next report
+```
+
+**Key constraint:** `ProgressFeedbackGenerator` is a cross-domain aggregator — it sits above domain backends by design. It does not have a `FeedbackBackend` with domain-specific Cypher. The `build_rich()` result provides the full cross-domain picture in a single query.
+
+---
+
 ## See Also
 
 - [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) — Entry-point overview: two tracks, four phases, how MEGA_QUERY feeds the loop

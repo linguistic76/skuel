@@ -449,6 +449,36 @@ class UserContextPopulator:
         context.latest_activity_report_content = record.get("content")
         context.latest_activity_report_user_annotation = record.get("user_annotation")
 
+    def populate_submission_stats(
+        self, context: "UserContext", stats: dict[str, Any] | None
+    ) -> None:
+        """Populate submission & feedback awareness fields from MEGA-QUERY submission_stats.
+
+        stats: dict from MEGA-QUERY submission_stats key, or None if no data.
+        None → all fields remain at defaults (0 / None / []).
+        """
+        if not stats:
+            return
+        context.total_submission_count = int(stats.get("total_submission_count", 0))
+        context.total_journal_count = int(stats.get("total_journal_count", 0))
+        context.submissions_in_window = int(stats.get("submissions_in_window", 0))
+        context.last_submission_date = stats.get("last_submission_date")
+        context.feedback_received_count = int(stats.get("feedback_received_count", 0))
+        context.feedback_in_window = int(stats.get("feedback_in_window", 0))
+        context.pending_feedback_count = int(stats.get("pending_feedback_count", 0))
+        context.assigned_exercise_count = int(stats.get("assigned_exercise_count", 0))
+        context.completed_exercise_count = int(stats.get("completed_exercise_count", 0))
+        raw_exercises = stats.get("unsubmitted_exercises", [])
+        context.unsubmitted_exercises = [
+            {
+                "uid": ex["uid"],
+                "title": ex.get("title", "Untitled Exercise"),
+                "due_date": str(ex["due_date"]) if ex.get("due_date") else None,
+            }
+            for ex in raw_exercises
+            if ex and ex.get("uid")
+        ]
+
     def populate_cross_domain_insights(
         self, context: "UserContext", insights_raw: list[dict[str, Any]] | None
     ) -> None:

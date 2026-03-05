@@ -10,7 +10,7 @@ This is the core value proposition: "What should I work on next?"
 **Synthesizes 10 domains:**
 - Activity Domains (6): tasks, habits, goals, events, choices, principles
 - Curriculum Domains (3): ku, ls, lp
-- Submissions Domain (1): self.feedback — Priority 2.5: unsubmitted exercises
+- Submissions Domain (1): context.unsubmitted_exercises — Priority 2.5
 """
 
 from __future__ import annotations
@@ -143,21 +143,18 @@ class DailyPlanningMixin:
                 estimated_time += 30  # ~30 min per event
 
         # =====================================================================
-        # PRIORITY 2.5: Unsubmitted exercises (teacher assignments)
+        # PRIORITY 2.5: Unsubmitted exercises (from UserContext — no extra query)
         # =====================================================================
-        exercises_result = await self.feedback.get_unsubmitted_exercises(
-            self.context.user_uid, limit=5
-        )
-        if exercises_result.is_ok and exercises_result.value:
+        if self.context.unsubmitted_exercises:
             today = date.today()
             overdue_count = 0
-            for ex_dict in exercises_result.value[:3]:
+            for ex_dict in self.context.unsubmitted_exercises[:3]:
                 est_time = 60  # ~60 min to complete an exercise submission
                 if not respect_capacity or estimated_time + est_time <= available_time:
                     due_date: date | None = None
                     days_until_due: int | None = None
                     is_overdue = False
-                    if ex_dict["due_date"]:
+                    if ex_dict.get("due_date"):
                         due_date = date.fromisoformat(ex_dict["due_date"])
                         delta = (due_date - today).days
                         days_until_due = delta
@@ -167,7 +164,7 @@ class DailyPlanningMixin:
 
                     contextual_ex = ContextualExercise(
                         uid=ex_dict["uid"],
-                        title=ex_dict["title"],
+                        title=ex_dict.get("title", "Untitled Exercise"),
                         due_date=due_date,
                         is_overdue=is_overdue,
                         days_until_due=days_until_due,
