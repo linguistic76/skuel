@@ -138,24 +138,6 @@ class InsightGenerationService:
     2. Recognize best practices and anti-patterns
     3. Generate actionable insights from successful completion patterns
     4. Score and curate generated knowledge for quality
-
-
-    Source Tag: "ku_generation_service_explicit"
-    - Format: "ku_generation_service_explicit" for user-created relationships
-    - Format: "ku_generation_service_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from ku_generation metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
-
     """
 
     def __init__(self, ku_service=None, tasks_service=None, analytics_engine=None) -> None:

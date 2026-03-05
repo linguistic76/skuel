@@ -284,6 +284,7 @@ class KuUIComponents:
                     "tags",
                     "prerequisites",
                     "complexity",
+                    "confidence",
                 ],
                 form_attrs={
                     "hx_post": "/api/ku",

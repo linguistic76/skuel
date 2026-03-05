@@ -71,20 +71,6 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
     - REINFORCES_HABIT: Event reinforces habit practice
     - APPLIES_KNOWLEDGE: Event applies knowledge unit practically
     - SCHEDULED_FOR: Event scheduled for user
-
-    Source Tag: "events_search_explicit"
-    - Format: "events_search_explicit" for user-defined relationships
-    - Format: "events_search_inferred" for system-discovered relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly linked event to goal/habit
-    - 0.7-0.9: Inferred from domain/type alignment
-    - <0.7: Suggested based on scheduling patterns
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for graph queries
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     # DomainConfig consolidation (January 2026)

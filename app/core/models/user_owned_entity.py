@@ -2,9 +2,9 @@
 UserOwnedEntity - Intermediate Base for User-Owned Domain Models
 =================================================================
 
-Adds user ownership fields (user_uid, priority) to Entity for domains
-where entities belong to a specific user: Activity Domains (Task, Goal,
-Habit, Event, Choice, Principle), Submission types (Journal, ActivityReport,
+Adds user ownership fields (user_uid, priority) to Entity for domains where
+entities belong to a specific user: Activity Domains (Task, Goal, Habit, Event,
+Choice, Principle), Submission types (Journal, ActivityReport,
 SubmissionFeedback), and LifePath.
 
 Shared/curriculum types (Curriculum, LearningStep, LearningPath, Exercise,
@@ -43,8 +43,8 @@ class UserOwnedEntity(Entity):
     # =========================================================================
     # USER OWNERSHIP
     # =========================================================================
-    user_uid: str | None = None  # Owner user UID (e.g. "user_john")
-    priority: str | None = None  # Priority enum value (LOW/MEDIUM/HIGH/CRITICAL)
+    user_uid: str | None = None     # Owner user UID (e.g. "user_john")
+    priority: str | None = None     # Priority enum value (LOW/MEDIUM/HIGH/CRITICAL)
 
     # =========================================================================
     # INITIALIZATION

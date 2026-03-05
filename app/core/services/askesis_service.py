@@ -108,17 +108,6 @@ class AskesisService:
     Delegation (February 2026):
     - All 9 simple delegations are explicit async def methods
     - Complex 13-Domain methods (8 methods) remain explicit (factory logic)
-
-    Source Tag: "askesis_explicit"
-    - Format: "askesis_explicit" for user-created relationships
-    - Format: "askesis_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
     """
 
     # Class-level type annotations

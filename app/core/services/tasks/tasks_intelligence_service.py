@@ -110,16 +110,6 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
     NOTE: This service does NOT use AI (LLM/embeddings).
     All methods are pure graph queries + Python calculations.
     For AI-powered features, see TasksAIService.
-
-    Source Tag: "tasks_intelligence_explicit"
-    - Format: "tasks_intelligence_explicit" for user-created relationships
-    - Format: "tasks_intelligence_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
     """
 
     # Service name for hierarchical logging

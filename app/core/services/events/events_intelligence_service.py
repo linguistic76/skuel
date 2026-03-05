@@ -46,25 +46,6 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
     - Single query retrieves event + full graph context
     - 8-10x faster than multiple sequential queries
     - Handles relationships, learning paths, goal support, habit reinforcement
-
-
-    Source Tag: "events_intelligence_service_explicit"
-    - Format: "events_intelligence_service_explicit" for user-created relationships
-    - Format: "events_intelligence_service_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from events_intelligence metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
-    - NO embeddings_service or llm_service (ADR-030)
-
     """
 
     # Service name for hierarchical logging

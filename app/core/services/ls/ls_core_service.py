@@ -67,24 +67,6 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
     - Step updates (all mutable properties)
     - Step deletion (cascade safe)
     - Path-filtered step listings
-
-
-    Source Tag: "ls_core_explicit"
-    - Format: "ls_core_explicit" for user-created relationships
-    - Format: "ls_core_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from learning_steps metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Extends BaseService for unified infrastructure
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     # =========================================================================

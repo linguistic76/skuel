@@ -44,13 +44,6 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
     - Optimal time slot suggestions
     - Recurring event patterns
     - Conflict detection
-
-    Source Tag: "events_scheduling_service_explicit"
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for graph queries
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     # ========================================================================

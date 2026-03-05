@@ -137,22 +137,6 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     5. Validation patterns - consistent across all services
 
     All services inherit from this single base.
-
-    Source Tag: "base_service_explicit"
-    - Format: "base_service_explicit" for user-created relationships
-    - Format: "base_service_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from base metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     # Explicit type annotation for MyPy type inference through inheritance

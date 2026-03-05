@@ -47,19 +47,6 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
     - Behavioral insights based on environmental patterns
     - Context switching optimization with AI recommendations
     - AI-powered situational recommendations
-
-    Source Tag: "context_aware_ai_explicit"
-    - Format: "context_aware_ai_explicit" for user-created relationships
-    - Format: "context_aware_ai_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    NOTE: This service requires LLM/embeddings services.
-    If not available, this service won't be instantiated.
     """
 
     # Service name for hierarchical logging

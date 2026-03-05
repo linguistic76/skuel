@@ -34,18 +34,6 @@ class KuPracticeService:
     - Updates KU practice counts (times_practiced_in_events)
     - Updates last_practiced_date timestamps
     - Publishes KnowledgePracticed events
-
-
-    Source Tag: "ku_practice_explicit"
-    - Format: "ku_practice_explicit" for user-created relationships
-    - Format: "ku_practice_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
     """
 
     def __init__(

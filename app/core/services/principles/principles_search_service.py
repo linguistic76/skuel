@@ -64,20 +64,6 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     - INSPIRES_HABIT: Principle inspires habit formation/maintenance
     - GUIDES_CHOICE: Principle guides decision-making
     - RELATED_TO: Principle relates to another principle
-
-    Source Tag: "principles_search_explicit"
-    - Format: "principles_search_explicit" for user-defined relationships
-    - Format: "principles_search_inferred" for system-discovered relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly linked principle to goal/habit/choice
-    - 0.7-0.9: Inferred from category/strength alignment
-    - <0.7: Suggested based on content similarity
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for graph queries
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     # DomainConfig consolidation (January 2026)

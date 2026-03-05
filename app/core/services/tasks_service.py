@@ -204,22 +204,6 @@ class TasksService(BaseService["TasksOperations", Task]):
     - get_task_with_dependencies: Transforms result
     - link_task_to_knowledge/goal: Passes specific parameters
     - analyze_task_knowledge_impact: Full orchestration
-
-    Source Tag: "tasks_service_explicit"
-    - Format: "tasks_service_explicit" for user-created relationships
-    - Format: "tasks_service_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from tasks metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     # ========================================================================

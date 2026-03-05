@@ -65,20 +65,6 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     - PARENT_GOAL: Goal is a sub-goal of another
     - REQUIRES_KNOWLEDGE: Goal requires knowledge prerequisites
     - SERVES_LIFE_PATH: Goal aligns with ultimate life path
-
-    Source Tag: "goals_search_explicit"
-    - Format: "goals_search_explicit" for user-defined relationships
-    - Format: "goals_search_inferred" for system-discovered relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly linked entities to goal
-    - 0.7-0.9: Inferred from domain/timeframe alignment
-    - <0.7: Suggested based on content/context similarity
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for graph queries
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     # DomainConfig consolidation (January 2026)

@@ -10,7 +10,7 @@ only — it does NOT represent a concrete entity type. Concrete leaf classes are
     LearningPath(Curriculum) → EntityType.LEARNING_PATH
     Exercise(Curriculum)     → EntityType.EXERCISE
 
-Adds 21 fields to Entity:
+Adds 22 fields to Entity:
 - Learning metadata (9): complexity, learning_level, sel_category, quality_score,
   estimated_time_minutes, difficulty_rating, semantic_links, target_age_range,
   learning_objectives
@@ -64,6 +64,11 @@ class Curriculum(Entity):
     def __post_init__(self) -> None:
         """Delegate to Entity. Leaf classes (Ku, LearningStep, etc.) set their own ku_type."""
         super().__post_init__()
+
+    # =========================================================================
+    # CONFIDENCE (admin-assessed certainty about this curriculum content)
+    # =========================================================================
+    confidence: str | None = None   # Confidence enum value (UNCERTAIN/LOW/MEDIUM/HIGH/CERTAIN)
 
     # =========================================================================
     # LEARNING METADATA (7 existing + 2 new = 9)

@@ -60,25 +60,6 @@ class ChoicesIntelligenceService(
     - Analyze choice impact across domains
     - Provide decision intelligence
     - Track decision patterns over time
-
-
-    Source Tag: "choices_intelligence_service_explicit"
-    - Format: "choices_intelligence_service_explicit" for user-created relationships
-    - Format: "choices_intelligence_service_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from choices_intelligence metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
-    - NO embeddings_service or llm_service (ADR-030)
-
     """
 
     # Service name for hierarchical logging

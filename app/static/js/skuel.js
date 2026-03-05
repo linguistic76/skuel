@@ -2294,6 +2294,33 @@
                         return;
                     }
 
+                    // Apply confidence + priority styling to edges
+                    var priorityWidthMap = { critical: 4, high: 3, medium: 2, low: 1 };
+                    data.edges = (data.edges || []).map(function(edge) {
+                        var confidence = typeof edge.confidence === 'number' ? edge.confidence : 1.0;
+                        var priority = edge.priority || 'medium';
+                        var width = priorityWidthMap[priority] || 2;
+                        var dashes = false;
+                        var opacity = 1.0;
+
+                        if (confidence >= 0.8) {
+                            dashes = false;
+                            opacity = 1.0;
+                        } else if (confidence >= 0.5) {
+                            dashes = [8, 4];
+                            opacity = 0.7;
+                        } else {
+                            dashes = [3, 3];
+                            opacity = 0.5;
+                        }
+
+                        return Object.assign({}, edge, {
+                            width: width,
+                            dashes: dashes,
+                            color: Object.assign({}, edge.color || {}, { opacity: opacity })
+                        });
+                    });
+
                     // Vis.js options
                     var options = {
                         nodes: {

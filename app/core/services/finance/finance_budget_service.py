@@ -33,24 +33,6 @@ class FinanceBudgetService:
 
     Handles budget creation, tracking, and status calculations.
     Works with FinanceCoreService to analyze expense-budget relationships.
-
-
-    Source Tag: "finance_budget_explicit"
-    - Format: "finance_budget_explicit" for user-created relationships
-    - Format: "finance_budget_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from finance metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
-
     """
 
     def __init__(self, backend: FinancesOperations) -> None:

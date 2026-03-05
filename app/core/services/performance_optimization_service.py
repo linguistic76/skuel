@@ -830,24 +830,6 @@ class BackgroundProcessingEngine:
 class PerformanceOptimizationService:
     """
     Main service for knowledge system performance optimization.
-
-
-    Source Tag: "performance_optimization_service_explicit"
-    - Format: "performance_optimization_service_explicit" for user-created relationships
-    - Format: "performance_optimization_service_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from performance_optimization metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
-
     """
 
     def __init__(self) -> None:

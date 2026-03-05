@@ -43,24 +43,6 @@ class HabitsProgressService:
     - Consistency analysis
     - Keystone habit identification
     - Progress cascade effects
-
-
-    Source Tag: "habits_progress_service_explicit"
-    - Format: "habits_progress_service_explicit" for user-created relationships
-    - Format: "habits_progress_service_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from habits_progress metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
-
     """
 
     def __init__(

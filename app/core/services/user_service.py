@@ -62,18 +62,6 @@ class UserService:
     - Maintains backward compatibility
     - Single entry point for user operations
     - Composed of 5 focused sub-services
-
-
-    Source Tag: "user_explicit"
-    - Format: "user_explicit" for user-created relationships
-    - Format: "user_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
     """
 
     def __init__(

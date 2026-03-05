@@ -36,18 +36,6 @@ class HabitAchievementService:
     - Awards badges based on milestone thresholds
     - Publishes AchievementEarned events
     - Stores achievement records in Neo4j
-
-
-    Source Tag: "habit_achievement_explicit"
-    - Format: "habit_achievement_explicit" for user-created relationships
-    - Format: "habit_achievement_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
     """
 
     # Achievement badge definitions

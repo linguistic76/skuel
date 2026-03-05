@@ -73,12 +73,6 @@ class UserRelationshipService:
     - PURSUING_GOAL: Active goal relationships
     - FOLLOWS: Social connections
     - MEMBER_OF: Team/group membership
-
-    Source Tag: "user_service_explicit"
-    - All relationships are explicit user actions
-
-    Confidence Scoring:
-    - 1.0: All user relationships are explicit choices
     """
 
     def __init__(self, executor: Any = None) -> None:

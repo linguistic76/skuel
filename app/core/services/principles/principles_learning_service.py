@@ -122,25 +122,6 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
     - Assess principle-learning alignment
     - Suggest learning-supported principles
     - Track principle development through learning
-
-
-    Source Tag: "principles_learning_service_explicit"
-    - Format: "principles_learning_service_explicit" for user-created relationships
-    - Format: "principles_learning_service_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from principles_learning metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
-    - Uses LearningAlignmentHelper with custom scorers
-
     """
 
     # ========================================================================

@@ -47,17 +47,6 @@ class KuIntelligenceService(BaseAnalyticsService[KuOperations, Entity]):
 
     Extends BaseAnalyticsService to follow unified analytics architecture
     pattern (January 2026 - ADR-024, ADR-030).
-
-    Source Tag: "ku_intelligence_explicit"
-    - Format: "ku_intelligence_explicit" for user-created relationships
-    - Format: "ku_intelligence_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
     """
 
     # Service name for hierarchical logging

@@ -48,18 +48,6 @@ class UserProgressRecorderService:
     - Returns Result[T] for error handling
     - Uses graph relationships for tracking learning state
     - Integrates with progress metrics system
-
-
-    Source Tag: "user_progress_explicit"
-    - Format: "user_progress_explicit" for user-created relationships
-    - Format: "user_progress_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
     """
 
     def __init__(self, user_repo: UserOperations) -> None:

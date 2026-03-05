@@ -354,6 +354,7 @@ class ChoicesViewComponents:
                 ),
                 cls="mb-4",
             ),
+            # Confidence
             # Decision Deadline
             Div(
                 Label("Decision Deadline", cls="label font-semibold"),

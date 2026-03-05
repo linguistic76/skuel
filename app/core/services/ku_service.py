@@ -66,38 +66,6 @@ class KuService:
     - get_related_entities("enables_learning", uid) - Get enabled KUs
     - get_related_entities("applied_in_tasks", uid) - Get tasks that apply this KU
     - get_related_entities("reinforced_by_habits", uid) - Get habits that reinforce this KU
-
-    Source Tag: "ku_service_explicit"
-    - Format: "ku_service_explicit" for user-created relationships
-    - Format: "ku_service_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from ku metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    Delegations (explicit methods):
-    - Core: create, get, update, delete, publish, archive, get_user_mastery, get_chunks, analyze_content
-    - Search: search_by_title_template, search_with_user_context, find_similar_content, etc.
-    - Graph: find_prerequisites, find_next_steps, get_knowledge_with_context, etc.
-    - Semantic: create_with_semantic_relationships, get_semantic_neighborhood
-
-    Explicit Methods (custom logic):
-    - get_knowledge_units_batch, list_user_knowledge, get_enables
-    - Tag/content management: add_knowledge_tags, remove_knowledge_tags, update_ku_content
-    - Event handlers: handle_knowledge_*, increment_substance_metric
-    - API methods: find_related_knowledge, get_knowledge_recommendations, etc.
-
-    Note: Learning path operations should use LpService directly (ADR-031).
-
-    SKUEL Architecture:
-    - Uses explicit delegation methods (~55 methods) (February 2026)
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
-
     """
 
     # ========================================================================

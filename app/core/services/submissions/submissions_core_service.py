@@ -141,14 +141,6 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
     NOTE: For file submission, use SubmissionsService.
     NOTE: For processing, use SubmissionsProcessingService.
-
-    Source Tag: "ku_core_service_explicit"
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
     """
 
     # =========================================================================

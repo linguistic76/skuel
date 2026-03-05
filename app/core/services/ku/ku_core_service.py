@@ -61,23 +61,6 @@ class KuCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataM
     - Content analysis integration
     - Status transitions (publish, archive)
     - Semantic relationship management
-
-
-    Source Tag: "ku_core_service_explicit"
-    - Format: "ku_core_service_explicit" for user-created relationships
-    - Format: "ku_core_service_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from ku_core metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     # BaseService configuration (January 2026 - DomainConfig)

@@ -35,24 +35,6 @@ class AdaptiveLpCrossDomainService:
     - Multi-domain innovation opportunities
     - Real-world application examples
     - Opportunity scoring and ranking
-
-
-    Source Tag: "adaptive_lp_cross_domain_service_explicit"
-    - Format: "adaptive_lp_cross_domain_service_explicit" for user-created relationships
-    - Format: "adaptive_lp_cross_domain_service_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from adaptive_lp_cross_domain metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
-
     """
 
     def __init__(self, cross_domain_threshold: float = 0.6) -> None:

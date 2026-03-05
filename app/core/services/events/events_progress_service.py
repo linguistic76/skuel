@@ -42,13 +42,6 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
     - Quality scores for habit-reinforcing events
     - Goal contribution metrics
     - Weekly/monthly trend analysis
-
-    Source Tag: "events_progress_service_explicit"
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for graph queries
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     # ========================================================================

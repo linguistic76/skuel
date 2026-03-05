@@ -90,6 +90,8 @@ class LateralRouteFactory:
             target_uid: str,
             reason: str,
             severity: str = "required",
+            confidence: float = 1.0,
+            priority: str = "medium",
         ) -> Result[dict[str, Any]]:
             """
             Create BLOCKS relationship.
@@ -99,6 +101,8 @@ class LateralRouteFactory:
                 target_uid: Blocked entity UID
                 reason: Why blocker must complete first
                 severity: "required", "recommended", or "suggested"
+                confidence: Certainty of this constraint (0.0-1.0; default 1.0 — hard constraints are explicit)
+                priority: Relative importance of this relationship (low/medium/high/critical)
             """
             user_uid = require_authenticated_user(request)
 
@@ -109,6 +113,8 @@ class LateralRouteFactory:
                 metadata={
                     "reason": reason,
                     "severity": severity,
+                    "confidence": confidence,
+                    "priority": priority,
                     "domain": self.domain,
                     "created_by": user_uid,
                 },
@@ -198,6 +204,8 @@ class LateralRouteFactory:
             target_uid: str,
             strength: float = 0.8,
             reasoning: str | None = None,
+            confidence: float = 1.0,
+            priority: str = "medium",
         ) -> Result[dict[str, Any]]:
             """
             Create PREREQUISITE_FOR relationship.
@@ -207,6 +215,8 @@ class LateralRouteFactory:
                 target_uid: Dependent entity UID
                 strength: How essential prerequisite is (0.0-1.0)
                 reasoning: Optional explanation
+                confidence: Certainty of this prerequisite (0.0-1.0; default 1.0 — asserting a hard requirement)
+                priority: Relative importance of this relationship (low/medium/high/critical)
             """
             user_uid = require_authenticated_user(request)
 
@@ -217,6 +227,8 @@ class LateralRouteFactory:
                 metadata={
                     "strength": strength,
                     "reasoning": reasoning,
+                    "confidence": confidence,
+                    "priority": priority,
                     "domain": self.domain,
                     "created_by": user_uid,
                 },
@@ -282,6 +294,8 @@ class LateralRouteFactory:
             target_uid: str,
             comparison_criteria: str,
             tradeoffs: list[str] | None = None,
+            confidence: float = 0.8,
+            priority: str = "medium",
         ) -> Result[dict[str, Any]]:
             """
             Create ALTERNATIVE_TO relationship.
@@ -291,6 +305,8 @@ class LateralRouteFactory:
                 target_uid: Alternative entity UID
                 comparison_criteria: How to compare alternatives
                 tradeoffs: Optional list of tradeoffs
+                confidence: Certainty that these are genuine alternatives (0.0-1.0; default 0.8 — softer assertion)
+                priority: Relative importance of this relationship (low/medium/high/critical)
             """
             user_uid = require_authenticated_user(request)
 
@@ -301,6 +317,8 @@ class LateralRouteFactory:
                 metadata={
                     "comparison_criteria": comparison_criteria,
                     "tradeoffs": tradeoffs or [],
+                    "confidence": confidence,
+                    "priority": priority,
                     "domain": self.domain,
                     "created_by": user_uid,
                 },
@@ -363,6 +381,8 @@ class LateralRouteFactory:
             target_uid: str,
             synergy_description: str,
             synergy_score: float = 0.7,
+            confidence: float = 0.8,
+            priority: str = "medium",
         ) -> Result[dict[str, Any]]:
             """
             Create COMPLEMENTARY_TO relationship.
@@ -372,6 +392,8 @@ class LateralRouteFactory:
                 target_uid: Complementary entity UID
                 synergy_description: How entities complement each other
                 synergy_score: Strength of synergy (0.0-1.0)
+                confidence: Certainty of this synergy (0.0-1.0; default 0.8 — softer assertion)
+                priority: Relative importance of this relationship (low/medium/high/critical)
             """
             user_uid = require_authenticated_user(request)
 
@@ -382,6 +404,8 @@ class LateralRouteFactory:
                 metadata={
                     "synergy_description": synergy_description,
                     "synergy_score": synergy_score,
+                    "confidence": confidence,
+                    "priority": priority,
                     "domain": self.domain,
                     "created_by": user_uid,
                 },

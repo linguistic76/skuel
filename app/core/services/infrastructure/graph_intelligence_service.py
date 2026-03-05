@@ -55,14 +55,6 @@ class GraphIntelligenceService:
     - REQUIRES_KNOWLEDGE: Prerequisite relationships for path analysis
     - RELATED_TO: Generic relationships for similarity calculations
     - (Analyzes all relationship types for hub/centrality detection)
-
-    Source Tag: "graph_intelligence_computed"
-    - All metrics are computed via graph algorithms
-
-    Confidence Scoring:
-    - 1.0: Structural graph metrics (degree, path length)
-    - 0.8-0.9: Similarity scores (Jaccard, shared neighbors)
-    - 0.6-0.8: Clustering/community detection (heuristic-based)
     """
 
     def __init__(self, executor: "QueryExecutor") -> None:

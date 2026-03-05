@@ -1,8 +1,8 @@
 """
-Activity Enums - Priority, Calendar Types, and Assessment Levels
-================================================================
+Activity Enums - Priority, Confidence, Calendar Types, and Assessment Levels
+=============================================================================
 
-Enums for priority, calendar/timeline types, and dual-track assessment.
+Enums for priority, confidence, calendar/timeline types, and dual-track assessment.
 
 Status enums (EntityStatus) live in entity_enums.py — THE unified status enum.
 CompletionStatus (habit completion tracking) lives in habit_enums.py.
@@ -90,6 +90,83 @@ class Priority(str, Enum):
             priority
             for priority in cls
             if any(synonym in text_lower for synonym in priority.get_search_synonyms())
+        ]
+
+
+class Confidence(str, Enum):
+    """
+    User-assessed certainty about an entity.
+
+    Parallel to Priority — named levels map to ConfidenceLevel float constants.
+
+    Used by:
+    - UserOwnedEntity.confidence (entity-level self-assessment)
+    - Lateral relationship metadata (relationship-level assertion strength)
+
+    On a Task: "How confident am I that I'll complete this?"
+    On a Goal: "How certain am I I'll achieve this?"
+    On a Habit: "How sure am I this habit is serving me?"
+    On a Principle: "How deeply held is this principle?"
+    """
+
+    UNCERTAIN = "uncertain"  # ~0.3 — exploratory, speculative
+    LOW = "low"              # ~0.5 — tentative, needs validation
+    MEDIUM = "medium"        # ~0.7 — reasonably sure, working assumption
+    HIGH = "high"            # ~0.9 — confident, well-validated
+    CERTAIN = "certain"      # 1.0  — absolutely sure, foundational
+
+    def to_numeric(self) -> float:
+        """Convert to float for Cypher queries (mirrors ConfidenceLevel constants)."""
+        return {
+            Confidence.UNCERTAIN: 0.3,
+            Confidence.LOW: 0.5,
+            Confidence.MEDIUM: 0.7,
+            Confidence.HIGH: 0.9,
+            Confidence.CERTAIN: 1.0,
+        }.get(self, 0.7)
+
+    def get_color(self) -> str:
+        """Get suggested color for UI rendering (parallel to Priority.get_color())."""
+        return {
+            Confidence.UNCERTAIN: "#EF4444",  # Red — needs attention
+            Confidence.LOW: "#F59E0B",         # Amber — tentative
+            Confidence.MEDIUM: "#3B82F6",      # Blue — working assumption
+            Confidence.HIGH: "#10B981",         # Green — validated
+            Confidence.CERTAIN: "#6D28D9",      # Purple — foundational
+        }.get(self, "#6B7280")
+
+    def get_search_synonyms(self) -> tuple[str, ...]:
+        """Return search terms that match this confidence level."""
+        return {
+            Confidence.UNCERTAIN: ("uncertain", "unsure", "speculative", "exploratory", "unknown"),
+            Confidence.LOW: ("low confidence", "tentative", "unvalidated", "provisional"),
+            Confidence.MEDIUM: ("medium confidence", "reasonable", "working assumption", "likely"),
+            Confidence.HIGH: ("high confidence", "confident", "validated", "reliable", "solid"),
+            Confidence.CERTAIN: ("certain", "sure", "absolute", "foundational", "definite"),
+        }.get(self, ())
+
+    @classmethod
+    def from_numeric(cls, value: float) -> "Confidence":
+        """Convert numeric float to nearest Confidence level."""
+        if value >= 0.95:
+            return cls.CERTAIN
+        elif value >= 0.8:
+            return cls.HIGH
+        elif value >= 0.6:
+            return cls.MEDIUM
+        elif value >= 0.4:
+            return cls.LOW
+        else:
+            return cls.UNCERTAIN
+
+    @classmethod
+    def from_search_text(cls, text: str) -> list["Confidence"]:
+        """Find matching confidence levels from search text."""
+        text_lower = text.lower()
+        return [
+            level
+            for level in cls
+            if any(synonym in text_lower for synonym in level.get_search_synonyms())
         ]
 
 

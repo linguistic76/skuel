@@ -52,18 +52,6 @@ class UserCoreService:
     - Returns Result[T] for error handling
     - Uses frozen dataclass User model with immutable updates
     - Graph-native authentication with bcrypt password hashing
-
-
-    Source Tag: "user_core_explicit"
-    - Format: "user_core_explicit" for user-created relationships
-    - Format: "user_core_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
     """
 
     def __init__(self, user_repo: UserOperations) -> None:

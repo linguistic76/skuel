@@ -87,18 +87,6 @@ class UserActivityService:
     - Returns Result[T] for error handling
     - Integrates with event-driven context invalidation
     - Performance monitoring for context operations
-
-
-    Source Tag: "user_activity_explicit"
-    - Format: "user_activity_explicit" for user-created relationships
-    - Format: "user_activity_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
     """
 
     def __init__(

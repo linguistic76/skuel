@@ -414,6 +414,7 @@ class PrinciplesViewComponents:
                 ),
                 cls="mb-4",
             ),
+            # Confidence
             # Active toggle
             Div(
                 Label(

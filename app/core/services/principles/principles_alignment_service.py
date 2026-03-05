@@ -84,24 +84,6 @@ class PrinciplesAlignmentService:
     - Generate motivational profiles
     - Support principle-based decision making
     - Calculate integrity scores
-
-
-    Source Tag: "principles_alignment_service_explicit"
-    - Format: "principles_alignment_service_explicit" for user-created relationships
-    - Format: "principles_alignment_service_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from principles_alignment metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
-
     """
 
     def __init__(

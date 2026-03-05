@@ -57,16 +57,6 @@ class LpService:
     Explicit Methods (custom logic):
     - Step operations: create_step, get_step, update_step, delete_step, list_steps (ls_service guard)
     - CRUD compatibility: create, get, update, delete, list (complex signatures)
-
-    Source Tag: "lp_explicit"
-    - Format: "lp_explicit" for user-created relationships
-    - Format: "lp_inferred" for system-generated relationships
-
-    SKUEL Architecture:
-    - Uses explicit delegation methods for full MyPy visibility
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
-
     """
 
     def __init__(

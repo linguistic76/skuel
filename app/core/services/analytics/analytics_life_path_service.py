@@ -50,24 +50,6 @@ class AnalyticsLifePathService:
     their ultimate life goal (Life Path from Layer 0).
 
     Substance tracking measures whether knowledge is LIVED, not just learned.
-
-
-    Source Tag: "analytics_life_path_explicit"
-    - Format: "analytics_life_path_explicit" for user-created relationships
-    - Format: "analytics_life_path_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from learning_paths metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
-
     """
 
     def __init__(self, user_service=None, ku_service=None, lp_service=None) -> None:

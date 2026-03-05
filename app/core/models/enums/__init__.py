@@ -7,7 +7,7 @@ This module provides unified access to all SKUEL enumerations.
 Module Organization:
 - entity_enums: EntityType, EntityStatus, ContentOrigin, ProcessorType,
                 Domain, NonKuDomain, DomainIdentifier, AnalyticsDomain, ContentScope, Context
-- activity_enums: Priority, ActivityType, dual-track assessment levels
+- activity_enums: Priority, Confidence, ActivityType, dual-track assessment levels
 - goal_enums: GoalType, GoalTimeframe, MeasurementType, HabitEssentiality
 - habit_enums: HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus
 - choice_enums: ChoiceType
@@ -25,9 +25,10 @@ Usage:
     from core.models.enums import EntityType, EntityStatus, ProcessorType, ExerciseScope
 """
 
-# Activity enums - priority, calendar types, and assessment levels
+# Activity enums - priority, confidence, calendar types, and assessment levels
 from .activity_enums import (
     ActivityType,
+    Confidence,
     ConsistencyLevel,
     DecisionQualityLevel,
     EngagementLevel,

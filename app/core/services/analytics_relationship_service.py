@@ -56,12 +56,6 @@ class AnalyticsRelationshipService:
     - AGGREGATES_DOMAIN: Which domain the analytics covers (TASKS, HABITS, etc.)
     - INCLUDES_ENTITY: Specific entities included in the analytics metrics
     - REPORTS_ON_GOAL: Goals this analytics tracks progress on
-
-    Source Tag: "analytics_service_explicit"
-    - All relationships are system-generated during analytics creation
-
-    Confidence Scoring:
-    - 1.0: All analytics relationships are deterministic (based on analytics_domain)
     """
 
     def __init__(self, executor: Any = None) -> None:

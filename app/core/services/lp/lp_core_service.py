@@ -66,24 +66,6 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
     - Path retrieval (single, batch, by user)
     - Path updates (name, goal, domain, hours)
     - Path deletion (cascade deletes steps)
-
-
-    Source Tag: "lp_core_explicit"
-    - Format: "lp_core_explicit" for user-created relationships
-    - Format: "lp_core_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from learning_paths metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Extends BaseService for unified infrastructure
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (uses pure Cypher)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     # =========================================================================

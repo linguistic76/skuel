@@ -34,18 +34,6 @@ class LpProgressService:
     - Calculates LP progress from mastered KUs
     - Publishes LearningPathProgressUpdated events
     - Publishes LearningPathCompleted when all KUs mastered
-
-
-    Source Tag: "lp_progress_explicit"
-    - Format: "lp_progress_explicit" for user-created relationships
-    - Format: "lp_progress_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
     """
 
     def __init__(

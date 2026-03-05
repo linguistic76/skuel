@@ -67,20 +67,6 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
     - REINFORCES_KNOWLEDGE: Habit reinforces knowledge retention
     - INSPIRED_BY_PRINCIPLE: Habit inspired by guiding principle
     - TRACKED_BY: Habit tracked by user
-
-    Source Tag: "habits_search_explicit"
-    - Format: "habits_search_explicit" for user-defined relationships
-    - Format: "habits_search_inferred" for system-discovered relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly linked habit to goal/knowledge
-    - 0.7-0.9: Inferred from domain/frequency alignment
-    - <0.7: Suggested based on streak/completion patterns
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for graph queries
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     # DomainConfig consolidation (January 2026)

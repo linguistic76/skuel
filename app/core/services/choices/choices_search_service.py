@@ -70,20 +70,6 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
     - ALIGNED_WITH_PRINCIPLE: Choice aligned with guiding principle
     - REQUIRES_KNOWLEDGE: Choice requires knowledge for informed decision
     - IMPACTS_HABIT: Choice impacts habit formation/maintenance
-
-    Source Tag: "choices_search_explicit"
-    - Format: "choices_search_explicit" for user-defined relationships
-    - Format: "choices_search_inferred" for system-discovered relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly linked choice to goal/principle
-    - 0.7-0.9: Inferred from domain/urgency alignment
-    - <0.7: Suggested based on impact/context analysis
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for graph queries
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
     """
 
     # DomainConfig consolidation (January 2026)

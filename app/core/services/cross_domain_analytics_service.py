@@ -128,13 +128,6 @@ class CrossDomainAnalyticsService:
     - This is an analytics service that does not create semantic relationships
     - Consumes events from other services that create semantic relationships
     - No semantic relationship types used (event-driven aggregation only)
-
-    Source Tag: N/A
-    - This service does not create semantic relationships
-    - Only aggregates data from domain events
-
-    Confidence Scoring: N/A
-    - No confidence scoring (analytics aggregation only)
     """
 
     def __init__(self, executor: "QueryExecutor") -> None:
