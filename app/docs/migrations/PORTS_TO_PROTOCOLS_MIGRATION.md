@@ -305,3 +305,26 @@ The migration from ports and hasattr to protocols demonstrates the power of Pyth
 
 **Migration Complete**: November 27, 2025
 **Status**: ✅ All services migrated, zero legacy port usage
+
+---
+
+## Phase 3: Attribute Protocol Cleanup (March 2026)
+
+**Goal**: Remove attribute protocols confirmed to have zero production usage
+
+Several Phase 1 protocols were never adopted in service signatures and were removed:
+
+**Deleted from `base_protocols.py`:**
+- `HasMetrics`, `HasStreaks`, `HasConsistencyScore`, `HasStreakCount`, `HasStreak` — habits tracking protocols removed from `habits_intelligence_service.py` (Nov 2025)
+- `HasBody`, `HasParentUID`, `HasRelationships`, `HasSemanticRelationships` — no production imports
+- `HasKnowledgeUnit`, `HasKnowledgeMasteryCheck`, `HasPrerequisiteKnowledgeUids`, `HasAppliesKnowledgeUids` — no production imports
+- `HasDomain` — no production imports
+- `SupportsRelationships`, `SupportsTraversal`, `SupportsFacets` — superseded by ISP-compliant backend sub-protocols
+
+**Kept (confirmed used):**
+`HasUID`, `HasCreatedAt`, `HasUpdatedAt`, `HasUpdated`, `HasPriority`, `HasSummary`, `HasMetadata`, `HasScore`, `HasRelevanceScore`, `HasValidate`, `HasLogger`, `HasSeverity`, `HasStrategy`, `HasUsage`, `MetricsLike`, `StreaksLike`
+
+**Kept (architectural intent, adoption pending):**
+All 11 context awareness protocols (`CoreIdentity`, `TaskAwareness`, `KnowledgeAwareness`, etc.) — ISP slices of UserContext, pending adoption in intelligence/planning services. See `/home/mike/.claude/plans/context-awareness-protocol-adoption.md`.
+
+**Net**: ~280 lines deleted, 1036 tests pass, zero breaking changes.

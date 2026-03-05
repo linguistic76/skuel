@@ -849,7 +849,6 @@ Quick reference for common hasattr() patterns:
 | `hasattr(backend, 'search')` | `isinstance(backend, SupportsSearch)` | `core.ports` |
 | `hasattr(field_info, 'metadata')` | `isinstance(field_info, PydanticFieldInfo)` | `core.ports` |
 | `hasattr(constraint, 'min_length')` | `isinstance(constraint, MinLenConstraint)` | `core.ports` |
-| `hasattr(obj, 'domain')` | `isinstance(obj, HasDomain)` | `core.ports` |
 | `hasattr(pydantic_model, 'field')` | Just access `model.field` (always defined) | N/A |
 | `hasattr(entity, 'knowledge_relevance')` | `isinstance(entity, KnowledgeCarrier)` | `core.models.protocols` |
 

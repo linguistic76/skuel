@@ -389,8 +389,8 @@ Before this phase, a developer looking at `group_service: Any` had no way to kno
 
 ```python
 @runtime_checkable  # Allows isinstance() checks
-class HasMetrics(Protocol):
-    metrics: Any
+class HasScore(Protocol):
+    score: float
 ```
 
 ### 2. Prefer Specific Protocols Over hasattr

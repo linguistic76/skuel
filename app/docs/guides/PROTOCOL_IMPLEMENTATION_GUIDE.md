@@ -98,35 +98,27 @@ def serialize(obj: Any) -> dict[str, Any]:
 
 ### Domain-Specific Attribute Protocols
 
-For domain-specific fields:
+For scalar field protocols, keep them minimal:
 
 ```python
 @runtime_checkable
-class HasMetrics(Protocol):
-    """Protocol for objects with metrics field."""
-    metrics: Any
+class HasScore(Protocol):
+    """Protocol for objects with score attribute."""
+    score: float
 
 @runtime_checkable
-class HasMasteryLevel(Protocol):
-    """Protocol for metrics objects with mastery_level field."""
-    mastery_level: Any
-
-@runtime_checkable
-class HasTimeSpentMinutes(Protocol):
-    """Protocol for metrics objects with time_spent_minutes field."""
-    time_spent_minutes: Any
+class HasRelevanceScore(Protocol):
+    """Protocol for objects with relevance_score attribute."""
+    relevance_score: float
 ```
 
 **Usage**:
 ```python
-def get_learning_metrics(obj: Any) -> dict[str, Any]:
-    """Extract learning metrics if available."""
-    if isinstance(obj, HasMetrics) and isinstance(obj.metrics, HasMasteryLevel):
-        return {
-            "mastery": obj.metrics.mastery_level,
-            "time_spent": obj.metrics.time_spent_minutes if isinstance(obj.metrics, HasTimeSpentMinutes) else 0
-        }
-    return {}
+def rank_results(results: list[Any]) -> list[Any]:
+    """Sort results by score if available."""
+    scored = [r for r in results if isinstance(r, HasScore)]
+    unscored = [r for r in results if not isinstance(r, HasScore)]
+    return sorted(scored, key=lambda r: r.score, reverse=True) + unscored
 ```
 
 ### Event & Priority Protocols
