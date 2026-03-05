@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import A, Body, Button, Div, Head, Html, Link, Main, Meta, P, Script, Title
 
 from ui.layouts.navbar import create_navbar, create_navbar_for_request
-from ui.theme import DAISYUI_VERSION
+from ui.theme import ALPINE_VERSION, DAISYUI_VERSION, HTMX_VERSION
 from ui.layouts.page_types import PAGE_CONFIG, PageType
 
 if TYPE_CHECKING:
@@ -69,10 +69,10 @@ def _build_head(
         ),
         # Tailwind CSS CDN
         Script(src="https://cdn.tailwindcss.com"),
-        # HTMX 1.9.10 (critical: matches other pages)
-        Script(src="https://unpkg.com/htmx.org@1.9.10"),
+        # HTMX for hypermedia
+        Script(src=f"https://unpkg.com/htmx.org@{HTMX_VERSION}"),
         # Alpine.js (self-hosted, version-pinned)
-        Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
+        Script(src=f"/static/vendor/alpinejs/alpine.{ALPINE_VERSION}.min.js", defer=True),
         # Vis.js Network (self-hosted, v9.1.9) - Lateral Relationships
         Link(rel="stylesheet", href="/static/vendor/vis-network/vis-network.min.css"),
         Script(src="/static/vendor/vis-network/vis-network.min.js"),
@@ -134,7 +134,7 @@ async def BasePage(
     """Unified page wrapper for consistent UX across SKUEL.
 
     Provides:
-    - Consistent HTML head (HTMX 1.9.10, Alpine.js, DaisyUI, Tailwind)
+    - Consistent HTML head (HTMX, Alpine.js, DaisyUI, Tailwind)
     - Navbar with active page highlighting
     - Page layout based on type (HUB with sidebar, STANDARD centered)
     - Modal container for overlays
