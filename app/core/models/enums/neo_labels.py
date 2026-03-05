@@ -119,6 +119,12 @@ class NeoLabel(str, Enum):
     NOTIFICATION = "Notification"  # In-app notification nodes
 
     # =========================================================================
+    # Authentication Infrastructure
+    # =========================================================================
+    SESSION = "Session"  # User session nodes for auth
+    AUTH_EVENT = "AuthEvent"  # Audit trail nodes for security events
+
+    # =========================================================================
     # Cross-Cutting Systems
     # =========================================================================
     USER = "User"
