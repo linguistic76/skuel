@@ -152,6 +152,23 @@ class TranscriptionService(MetadataManagerMixin):
         """
         return await self.backend.get(uid)
 
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Transcription]:
+        """Verify that a transcription exists and belongs to the specified user.
+
+        Returns the transcription if owned, otherwise NotFound error.
+        Returns "not found" (not "access denied") to prevent UID enumeration.
+
+        See: CrudOperationsMixin.verify_ownership for the canonical pattern.
+        """
+        result = await self.get(uid)
+        if result.is_error:
+            return result
+        if not result.value:
+            return Result.fail(Errors.not_found("Transcription", uid))
+        if result.value.user_uid != user_uid:
+            return Result.fail(Errors.not_found("Transcription", uid))
+        return Result.ok(result.value)
+
     async def delete(self, uid: str) -> Result[bool]:
         """
         Delete transcription.

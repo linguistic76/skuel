@@ -53,24 +53,6 @@ def create_transcription_api_routes(
     routes: list[Any] = []
 
     # ========================================================================
-    # OWNERSHIP HELPER
-    # ========================================================================
-
-    async def _verify_ownership(uid: str, user_uid: str) -> Result[Any]:
-        """Fetch transcription and verify the authenticated user owns it.
-
-        Returns 404 (not 403) to prevent UID enumeration.
-        """
-        result = await transcription_service.get(uid)
-        if result.is_error:
-            return result
-        if not result.value:
-            return Result.fail(Errors.not_found("Transcription", uid))
-        if result.value.user_uid != user_uid:
-            return Result.fail(Errors.not_found("Transcription", uid))
-        return Result.ok(result.value)
-
-    # ========================================================================
     # CRUD ROUTES
     # ========================================================================
 
@@ -93,7 +75,7 @@ def create_transcription_api_routes(
     async def get_transcription(request, uid: str) -> Result[Any]:
         """Get transcription by UID. Requires ownership."""
         user_uid = require_authenticated_user(request)
-        ownership = await _verify_ownership(uid, user_uid)
+        ownership = await transcription_service.verify_ownership(uid, user_uid)
         if ownership.is_error:
             return ownership
 
@@ -104,7 +86,7 @@ def create_transcription_api_routes(
     async def delete_transcription(request, uid: str) -> Result[Any]:
         """Delete transcription. Requires ownership."""
         user_uid = require_authenticated_user(request)
-        ownership = await _verify_ownership(uid, user_uid)
+        ownership = await transcription_service.verify_ownership(uid, user_uid)
         if ownership.is_error:
             return ownership
 
@@ -144,7 +126,7 @@ def create_transcription_api_routes(
     async def process_transcription(request, uid: str) -> Result[Any]:
         """Process transcription with Deepgram. Requires ownership."""
         user_uid = require_authenticated_user(request)
-        ownership = await _verify_ownership(uid, user_uid)
+        ownership = await transcription_service.verify_ownership(uid, user_uid)
         if ownership.is_error:
             return ownership
 
@@ -162,7 +144,7 @@ def create_transcription_api_routes(
     async def retry_transcription(request, uid: str) -> Result[Any]:
         """Retry a failed transcription. Requires ownership."""
         user_uid = require_authenticated_user(request)
-        ownership = await _verify_ownership(uid, user_uid)
+        ownership = await transcription_service.verify_ownership(uid, user_uid)
         if ownership.is_error:
             return ownership
 
