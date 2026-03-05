@@ -37,7 +37,9 @@ INSIGHTS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_insights_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None) -> RouteList:
+def create_insights_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None
+) -> RouteList:
     """
     Wire insights API and UI routes using configuration-driven registration.
 

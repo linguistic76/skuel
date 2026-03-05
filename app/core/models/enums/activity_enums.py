@@ -110,10 +110,10 @@ class Confidence(str, Enum):
     """
 
     UNCERTAIN = "uncertain"  # ~0.3 — exploratory, speculative
-    LOW = "low"              # ~0.5 — tentative, needs validation
-    MEDIUM = "medium"        # ~0.7 — reasonably sure, working assumption
-    HIGH = "high"            # ~0.9 — confident, well-validated
-    CERTAIN = "certain"      # 1.0  — absolutely sure, foundational
+    LOW = "low"  # ~0.5 — tentative, needs validation
+    MEDIUM = "medium"  # ~0.7 — reasonably sure, working assumption
+    HIGH = "high"  # ~0.9 — confident, well-validated
+    CERTAIN = "certain"  # 1.0  — absolutely sure, foundational
 
     def to_numeric(self) -> float:
         """Convert to float for Cypher queries (mirrors ConfidenceLevel constants)."""
@@ -129,10 +129,10 @@ class Confidence(str, Enum):
         """Get suggested color for UI rendering (parallel to Priority.get_color())."""
         return {
             Confidence.UNCERTAIN: "#EF4444",  # Red — needs attention
-            Confidence.LOW: "#F59E0B",         # Amber — tentative
-            Confidence.MEDIUM: "#3B82F6",      # Blue — working assumption
-            Confidence.HIGH: "#10B981",         # Green — validated
-            Confidence.CERTAIN: "#6D28D9",      # Purple — foundational
+            Confidence.LOW: "#F59E0B",  # Amber — tentative
+            Confidence.MEDIUM: "#3B82F6",  # Blue — working assumption
+            Confidence.HIGH: "#10B981",  # Green — validated
+            Confidence.CERTAIN: "#6D28D9",  # Purple — foundational
         }.get(self, "#6B7280")
 
     def get_search_synonyms(self) -> tuple[str, ...]:

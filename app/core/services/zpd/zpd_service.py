@@ -207,9 +207,7 @@ class ZPDService:
         )
 
         # Behavioral readiness: enrich with choices + habits signals
-        behavioral_readiness = await self._compute_behavioral_readiness(
-            user_uid, current_zone
-        )
+        behavioral_readiness = await self._compute_behavioral_readiness(user_uid, current_zone)
 
         return Result.ok(
             ZPDAssessment(
@@ -265,9 +263,7 @@ class ZPDService:
     ) -> Result[tuple[list[str], list[str], list[str], dict[str, float], list[str]]]:
         """Execute the 2-hop zone traversal query and parse results."""
         try:
-            records, _, _ = await self._driver.execute_query(
-                _ZONE_QUERY, {"user_uid": user_uid}
-            )
+            records, _, _ = await self._driver.execute_query(_ZONE_QUERY, {"user_uid": user_uid})
         except Exception as exc:
             self._logger.error("ZPD zone query failed for %s: %s", user_uid, exc)
             return Result.fail(
@@ -293,9 +289,7 @@ class ZPDService:
             (current_zone, proximal_zone, engaged_paths, readiness_scores, blocking_gaps)
         )
 
-    def _compute_readiness_scores(
-        self, prereq_data: list[dict[str, Any]]
-    ) -> dict[str, float]:
+    def _compute_readiness_scores(self, prereq_data: list[dict[str, Any]]) -> dict[str, float]:
         """Compute readiness score for each proximal KU.
 
         Score = fraction of the KU's prerequisites that are in current_zone.
@@ -311,9 +305,7 @@ class ZPDService:
             scores[ku_uid] = 1.0 if total == 0 else round(met / total, 3)
         return scores
 
-    async def _compute_behavioral_readiness(
-        self, user_uid: str, current_zone: list[str]
-    ) -> float:
+    async def _compute_behavioral_readiness(self, user_uid: str, current_zone: list[str]) -> float:
         """Aggregate behavioral readiness from choices + habits signals.
 
         Weights:
@@ -335,9 +327,7 @@ class ZPDService:
 
         # ── Choices signals ───────────────────────────────────────────────
         if self._choices_intelligence is not None:
-            signals_result = await self._choices_intelligence.get_zpd_behavioral_signals(
-                user_uid
-            )
+            signals_result = await self._choices_intelligence.get_zpd_behavioral_signals(user_uid)
             if not signals_result.is_error:
                 signals = signals_result.value
                 adherence = signals.get("principle_adherence_score", 0.5)
@@ -357,9 +347,7 @@ class ZPDService:
 
         # ── Habits signals ────────────────────────────────────────────────
         if self._habits_intelligence is not None:
-            knowledge_result = await self._habits_intelligence.get_zpd_knowledge_signals(
-                user_uid
-            )
+            knowledge_result = await self._habits_intelligence.get_zpd_knowledge_signals(user_uid)
             if not knowledge_result.is_error:
                 knowledge = knowledge_result.value
                 reinforced_uids: list[str] = knowledge.get("reinforced_ku_uids", [])
@@ -369,9 +357,9 @@ class ZPDService:
                 # Mean reinforcement strength for KUs overlapping current_zone
                 relevant_uids = [uid for uid in reinforced_uids if uid in current_zone]
                 if relevant_uids:
-                    mean_strength = sum(
-                        strengths.get(uid, 0.0) for uid in relevant_uids
-                    ) / len(relevant_uids)
+                    mean_strength = sum(strengths.get(uid, 0.0) for uid in relevant_uids) / len(
+                        relevant_uids
+                    )
                 else:
                     mean_strength = 0.0
 

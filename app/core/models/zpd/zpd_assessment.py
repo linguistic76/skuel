@@ -85,6 +85,7 @@ class ZPDAssessment:
 
         Use this for recommendation ranking — highest-readiness KUs first.
         """
+
         def by_readiness(uid: str) -> float:
             return self.readiness_scores.get(uid, 0.0)
 

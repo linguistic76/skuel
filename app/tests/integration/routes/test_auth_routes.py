@@ -117,9 +117,7 @@ class TestRegistrationSubmit:
     def test_registration_handles_auth_error(self, mock_graph_auth):
         """Test that registration handles auth errors gracefully."""
         mock_graph_auth.sign_up.return_value = Result.fail(
-            Errors.validation(
-                message="An account with this email already exists", field="email"
-            )
+            Errors.validation(message="An account with this email already exists", field="email")
         )
 
         result = mock_graph_auth.sign_up(

@@ -47,7 +47,9 @@ class CurriculumCreateRequest(CreateRequestBase):
     )
     estimated_time_minutes: int = Field(default=15, ge=1, description="Estimated completion time")
     difficulty_rating: float = Field(default=0.5, ge=0.0, le=1.0, description="Difficulty 0.0-1.0")
-    confidence: Confidence | None = Field(None, description="Admin-assessed certainty about this knowledge")
+    confidence: Confidence | None = Field(
+        None, description="Admin-assessed certainty about this knowledge"
+    )
 
 
 # =============================================================================
@@ -88,7 +90,9 @@ class LearningStepCreateRequest(CreateRequestBase):
     priority: Priority = Field(default=Priority.MEDIUM, description="Priority")
     notes: str | None = Field(None, description="Additional notes")
     tags: list[str] = Field(default_factory=list, description="Tags")
-    confidence: Confidence | None = Field(None, description="Admin-assessed certainty about this learning step")
+    confidence: Confidence | None = Field(
+        None, description="Admin-assessed certainty about this learning step"
+    )
 
     # Knowledge relationships
     primary_knowledge_uids: list[str] = Field(default_factory=list, description="Primary KU UIDs")
@@ -120,7 +124,9 @@ class LearningPathCreateRequest(CreateRequestBase):
     prerequisites: list[str] = Field(default_factory=list, description="Prerequisites")
     outcomes: list[str] = Field(default_factory=list, description="Expected outcomes")
     tags: list[str] = Field(default_factory=list, description="Tags")
-    confidence: Confidence | None = Field(None, description="Admin-assessed certainty about this learning path")
+    confidence: Confidence | None = Field(
+        None, description="Admin-assessed certainty about this learning path"
+    )
 
 
 # =============================================================================

@@ -232,7 +232,9 @@ class AskesisUI:
             )
 
 
-async def _render_askesis_page(request: Request, *, content: Any, active: str, page_title: str) -> Any:
+async def _render_askesis_page(
+    request: Request, *, content: Any, active: str, page_title: str
+) -> Any:
     """Render Askesis sidebar pages with consistent defaults."""
     return await SidebarPage(
         content=content,

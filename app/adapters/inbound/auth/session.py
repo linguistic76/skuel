@@ -669,9 +669,7 @@ def get_session_middleware_config() -> dict[str, Any]:
 
     if not secret_key:
         if env in ("production", "staging"):
-            raise RuntimeError(
-                f"FATAL: {SESSION_SECRET_KEY_ENV} must be set in {env} environment"
-            )
+            raise RuntimeError(f"FATAL: {SESSION_SECRET_KEY_ENV} must be set in {env} environment")
         # Development mode: generate random key (NOT persisted - sessions will invalidate on restart)
         secret_key = secrets.token_urlsafe(32)
         logger.warning(

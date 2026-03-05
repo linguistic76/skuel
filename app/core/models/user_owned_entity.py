@@ -43,8 +43,8 @@ class UserOwnedEntity(Entity):
     # =========================================================================
     # USER OWNERSHIP
     # =========================================================================
-    user_uid: str | None = None     # Owner user UID (e.g. "user_john")
-    priority: str | None = None     # Priority enum value (LOW/MEDIUM/HIGH/CRITICAL)
+    user_uid: str | None = None  # Owner user UID (e.g. "user_john")
+    priority: str | None = None  # Priority enum value (LOW/MEDIUM/HIGH/CRITICAL)
 
     # =========================================================================
     # INITIALIZATION

@@ -70,7 +70,9 @@ JOURNALS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_submissions_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None) -> RouteList:
+def create_submissions_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None
+) -> RouteList:
     """
     Wire submissions API, UI, and sharing routes using configuration-driven registration.
 

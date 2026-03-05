@@ -126,9 +126,7 @@ class GraphAuthService:
 
             if username_result.value:
                 return Result.fail(
-                    Errors.validation(
-                        message="This username is unavailable", field="username"
-                    )
+                    Errors.validation(message="This username is unavailable", field="username")
                 )
 
             # Hash password

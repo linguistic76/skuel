@@ -228,7 +228,9 @@ def create_goals_intelligence_routes(
 # ---------------------------------------------------------------------------
 
 
-def create_principle_alignment_routes(_app: FastHTMLApp, rt: RouteDecorator, principles: Any) -> RouteList:
+def create_principle_alignment_routes(
+    _app: FastHTMLApp, rt: RouteDecorator, principles: Any
+) -> RouteList:
     """Register principle alignment and motivational intelligence endpoints."""
 
     @rt("/principles/list")
@@ -306,7 +308,9 @@ ORCHESTRATION_CONFIG = DomainRouteConfig(
 )
 
 
-def create_orchestration_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None) -> RouteList:
+def create_orchestration_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None
+) -> RouteList:
     """
     Wire orchestration API routes using DomainRouteConfig (Multi-Factory variant).
 

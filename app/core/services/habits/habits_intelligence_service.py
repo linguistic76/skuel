@@ -1215,9 +1215,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
     # ZPD BRIDGE (March 2026)
     # =========================================================================
 
-    async def get_zpd_knowledge_signals(
-        self, user_uid: str
-    ) -> Result[dict[str, Any]]:
+    async def get_zpd_knowledge_signals(self, user_uid: str) -> Result[dict[str, Any]]:
         """
         Extract knowledge reinforcement signals for ZPDService consumption.
 
@@ -1257,7 +1255,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         reinforcement_strength: dict[str, float] = {}
         at_risk_ku_uids: list[str] = []
 
-        for record in (result.value or []):
+        for record in result.value or []:
             ku_uids = [uid for uid in record.get("ku_uids", []) if uid]
             if not ku_uids:
                 continue

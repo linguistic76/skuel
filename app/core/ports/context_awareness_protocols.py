@@ -113,7 +113,9 @@ class TaskAwareness(Protocol):
     is_rich_context: bool
     entities_rich: dict[str, list[dict[str, Any]]]
 
-    def get_rich_entities(self, domain: str, filter_uids: set[str] | None = None) -> list[dict[str, Any]]: ...
+    def get_rich_entities(
+        self, domain: str, filter_uids: set[str] | None = None
+    ) -> list[dict[str, Any]]: ...
 
 
 @runtime_checkable
@@ -184,7 +186,9 @@ class HabitAwareness(Protocol):
     is_rich_context: bool
     entities_rich: dict[str, list[dict[str, Any]]]
 
-    def get_rich_entities(self, domain: str, filter_uids: set[str] | None = None) -> list[dict[str, Any]]: ...
+    def get_rich_entities(
+        self, domain: str, filter_uids: set[str] | None = None
+    ) -> list[dict[str, Any]]: ...
 
 
 @runtime_checkable
@@ -229,7 +233,9 @@ class GoalAwareness(Protocol):
     is_rich_context: bool
     entities_rich: dict[str, list[dict[str, Any]]]
 
-    def get_rich_entities(self, domain: str, filter_uids: set[str] | None = None) -> list[dict[str, Any]]: ...
+    def get_rich_entities(
+        self, domain: str, filter_uids: set[str] | None = None
+    ) -> list[dict[str, Any]]: ...
 
 
 @runtime_checkable
@@ -266,7 +272,9 @@ class EventAwareness(Protocol):
     is_rich_context: bool
     entities_rich: dict[str, list[dict[str, Any]]]
 
-    def get_rich_entities(self, domain: str, filter_uids: set[str] | None = None) -> list[dict[str, Any]]: ...
+    def get_rich_entities(
+        self, domain: str, filter_uids: set[str] | None = None
+    ) -> list[dict[str, Any]]: ...
 
 
 @runtime_checkable
@@ -294,7 +302,9 @@ class PrincipleAwareness(Protocol):
     is_rich_context: bool
     entities_rich: dict[str, list[dict[str, Any]]]
 
-    def get_rich_entities(self, domain: str, filter_uids: set[str] | None = None) -> list[dict[str, Any]]: ...
+    def get_rich_entities(
+        self, domain: str, filter_uids: set[str] | None = None
+    ) -> list[dict[str, Any]]: ...
 
 
 @runtime_checkable
@@ -326,7 +336,9 @@ class ChoiceAwareness(Protocol):
     is_rich_context: bool
     entities_rich: dict[str, list[dict[str, Any]]]
 
-    def get_rich_entities(self, domain: str, filter_uids: set[str] | None = None) -> list[dict[str, Any]]: ...
+    def get_rich_entities(
+        self, domain: str, filter_uids: set[str] | None = None
+    ) -> list[dict[str, Any]]: ...
 
 
 @runtime_checkable
@@ -480,7 +492,9 @@ class FullAwareness(Protocol):
     entities_rich: dict[str, list[dict[str, Any]]]
     knowledge_units_rich: dict[str, dict[str, Any]]
 
-    def get_rich_entities(self, domain: str, filter_uids: set[str] | None = None) -> list[dict[str, Any]]: ...
+    def get_rich_entities(
+        self, domain: str, filter_uids: set[str] | None = None
+    ) -> list[dict[str, Any]]: ...
 
 
 # =============================================================================

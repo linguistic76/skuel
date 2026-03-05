@@ -68,7 +68,7 @@ class Curriculum(Entity):
     # =========================================================================
     # CONFIDENCE (admin-assessed certainty about this curriculum content)
     # =========================================================================
-    confidence: str | None = None   # Confidence enum value (UNCERTAIN/LOW/MEDIUM/HIGH/CERTAIN)
+    confidence: str | None = None  # Confidence enum value (UNCERTAIN/LOW/MEDIUM/HIGH/CERTAIN)
 
     # =========================================================================
     # LEARNING METADATA (7 existing + 2 new = 9)

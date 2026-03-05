@@ -174,7 +174,9 @@ def create_calendar_optimization_routes(
 # ---------------------------------------------------------------------------
 
 
-def create_jupyter_sync_routes(_app: FastHTMLApp, rt: RouteDecorator, jupyter_sync: Any) -> RouteList:
+def create_jupyter_sync_routes(
+    _app: FastHTMLApp, rt: RouteDecorator, jupyter_sync: Any
+) -> RouteList:
     """Register Jupyter-Neo4j-Obsidian sync endpoints."""
 
     @rt("/jupyter/fetch")
@@ -225,7 +227,9 @@ def create_jupyter_sync_routes(_app: FastHTMLApp, rt: RouteDecorator, jupyter_sy
 # ---------------------------------------------------------------------------
 
 
-def create_performance_routes(_app: FastHTMLApp, rt: RouteDecorator, performance_optimization: Any) -> RouteList:
+def create_performance_routes(
+    _app: FastHTMLApp, rt: RouteDecorator, performance_optimization: Any
+) -> RouteList:
     """Register performance optimization endpoints."""
 
     @rt("/performance/metrics")
@@ -284,7 +288,9 @@ ADVANCED_CONFIG = DomainRouteConfig(
 )
 
 
-def create_advanced_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None) -> RouteList:
+def create_advanced_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None
+) -> RouteList:
     """
     Wire advanced API routes using DomainRouteConfig (Multi-Factory variant).
 

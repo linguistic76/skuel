@@ -1112,9 +1112,7 @@ class _BehavioralSignalsMixin:
     # ZPD BRIDGE (March 2026)
     # =========================================================================
 
-    async def get_zpd_behavioral_signals(
-        self, user_uid: str
-    ) -> Result[dict[str, Any]]:
+    async def get_zpd_behavioral_signals(self, user_uid: str) -> Result[dict[str, Any]]:
         """
         Extract behavioral readiness signals for ZPDService consumption.
 
@@ -1137,15 +1135,15 @@ class _BehavioralSignalsMixin:
         if adherence_result.is_error:
             principle_adherence_score = 0.0
         else:
-            principle_adherence_score = adherence_result.value.get(
-                "overall_adherence_score", 0.0
-            )
+            principle_adherence_score = adherence_result.value.get("overall_adherence_score", 0.0)
 
         # Decision consistency via dual-track system score
         # Use _calculate_system_decision_quality_for_dual_track directly (no user input needed)
-        system_level, consistency_score, _ = (
-            await self._calculate_system_decision_quality_for_dual_track(user_uid, period_days=30)
-        )
+        (
+            system_level,
+            consistency_score,
+            _,
+        ) = await self._calculate_system_decision_quality_for_dual_track(user_uid, period_days=30)
 
         # Active conflicts (principle tensions signal)
         # Count recent choices with unresolved principle conflicts
@@ -1155,9 +1153,7 @@ class _BehavioralSignalsMixin:
         MATCH (c)-[:CONFLICTS_WITH_PRINCIPLE]->(:Entity {ku_type: 'principle'})
         RETURN count(DISTINCT c) AS conflict_count
         """
-        conflict_result = await self.backend.execute_query(
-            conflict_query, {"user_uid": user_uid}
-        )
+        conflict_result = await self.backend.execute_query(conflict_query, {"user_uid": user_uid})
         active_conflict_count = 0
         if conflict_result.is_ok and conflict_result.value:
             active_conflict_count = conflict_result.value[0].get("conflict_count", 0)

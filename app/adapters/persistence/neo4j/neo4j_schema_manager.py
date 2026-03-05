@@ -48,7 +48,9 @@ def _validate_identifier(name: str, context: str = "field") -> None:
 
 def _validate_similarity(similarity: str) -> None:
     if similarity not in _VALID_SIMILARITY:
-        raise ValueError(f"Invalid similarity function: {similarity!r} (must be cosine or euclidean)")
+        raise ValueError(
+            f"Invalid similarity function: {similarity!r} (must be cosine or euclidean)"
+        )
 
 
 class Neo4jSchemaManager:

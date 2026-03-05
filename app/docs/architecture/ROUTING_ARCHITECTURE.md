@@ -252,10 +252,7 @@ class TasksService:
         self.backend = backend
 
     async def create_task(self, dto: TaskDTO) -> Result[Task]:
-        """
-        Business logic layer.
-        Returns Result[T] for error handling.
-        """
+        """Business logic layer."""
         # 1. Business validation
         if not dto.title:
             return Result.fail(Errors.validation(

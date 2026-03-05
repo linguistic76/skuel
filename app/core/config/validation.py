@@ -248,7 +248,6 @@ def validate_config(config: UnifiedConfig) -> list[str]:
     return errors
 
 
-
 def log_validation_report(errors: list[str]) -> None:
     """Log a formatted validation report"""
     if not errors:

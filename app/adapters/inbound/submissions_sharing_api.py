@@ -321,7 +321,9 @@ def create_submissions_sharing_api_routes(
             return Result.fail(Errors.validation("Missing required parameter: uid", field="uid"))
 
         if not core_service:
-            return Result.fail(Errors.system("Core service unavailable", operation="get_shared_users"))
+            return Result.fail(
+                Errors.system("Core service unavailable", operation="get_shared_users")
+            )
 
         # Verify ownership (only owner can see who submission is shared with)
         submission_result = await core_service.get_submission(submission_uid)
