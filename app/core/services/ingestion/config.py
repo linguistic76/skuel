@@ -90,11 +90,11 @@ def generate_ingestion_relationship_config(
         if rel.yaml_field_path is None:
             continue
 
-        # Filter by ingestion_ku_type:
+        # Filter by ingestion_entity_type:
         # - If set, only include for that specific EntityType
         # - If None, only include for the default EntityType for the label
-        if rel.ingestion_ku_type is not None:
-            if rel.ingestion_ku_type != entity_type:
+        if rel.ingestion_entity_type is not None:
+            if rel.ingestion_entity_type != entity_type:
                 continue
         elif entity_type != default_type:
             continue

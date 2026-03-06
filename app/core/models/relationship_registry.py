@@ -258,7 +258,7 @@ class UnifiedRelationshipDefinition:
     # Scopes yaml_field_path to a specific EntityType.
     # Needed when multiple EntityTypes share a Neo4j label.
     # None means: applies to the default EntityType for this label.
-    ingestion_ku_type: EntityType | None = None
+    ingestion_entity_type: EntityType | None = None
 
     def to_graph_enrichment_tuple(self) -> tuple[str, str, str, str]:
         """Generate graph enrichment pattern tuple for BaseService._graph_enrichment_patterns."""
