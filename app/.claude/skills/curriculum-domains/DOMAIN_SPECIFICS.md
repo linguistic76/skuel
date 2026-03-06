@@ -2,64 +2,98 @@
 
 > Special features and quirks for each Curriculum Domain.
 
-## KU (Knowledge Unit) - The Point
+## Article (Teaching Composition) - The Composition
 
-**Purpose:** Atomic knowledge content — the single brick. `Ku` is the leaf class in the model hierarchy; `Curriculum` is the base.
+**Purpose:** Essay-like teaching content that composes atomic Kus into narrative. `Article` extends `Curriculum` in the model hierarchy.
 
-**Sub-services (9):**
+**Sub-services (10):**
 
 | Sub-service | Purpose |
 |-------------|---------|
-| `KuCoreService` | CRUD operations (extends BaseService) |
-| `KuSearchService` | Text search, filtering (extends BaseService) |
-| `KuGraphService` | Graph navigation and relationships |
-| `KuSemanticService` | Semantic relationship management |
-| `KuPracticeService` | Event-driven practice tracking |
-| `KuInteractionService` | Pedagogical tracking (VIEWED→IN_PROGRESS→MASTERED) |
-| `KuAdaptiveService` | Adaptive learning recommendations |
-| `KuOrganizationService` | ORGANIZES relationships — non-linear navigation (MOC pattern) |
-| `KuAiService` | AI-powered KU operations |
+| `ArticleCoreService` | CRUD operations (extends BaseService) |
+| `ArticleSearchService` | Text search, filtering (extends BaseService) |
+| `ArticleGraphService` | Graph navigation and relationships |
+| `ArticleSemanticService` | Semantic relationship management |
+| `ArticlePracticeService` | Event-driven practice tracking |
+| `ArticleInteractionService` | Pedagogical tracking (VIEWED→IN_PROGRESS→MASTERED) |
+| `ArticleAdaptiveService` | Adaptive learning recommendations |
+| `ArticleOrganizationService` | ORGANIZES relationships — non-linear navigation (MOC pattern) |
+| `ArticleAiService` | AI-powered Article operations |
+| `ArticleRelationshipHelpers` | Relationship filtering utilities |
 
-**Factory:** `create_ku_sub_services()` - Specialized (handles circular core↔intelligence dependency)
+**Factory:** `create_article_sub_services()` - Specialized (handles circular core↔intelligence dependency)
 
 **Unique Features:**
 - **Substance tracking** - Measures how knowledge is LIVED (applied via Tasks, Habits, Events)
-- **Per-user context** - `calculate_user_substance(ku_uid, user_uid)` for personalized metrics
+- **Per-user context** - `calculate_user_substance(article_uid, user_uid)` for personalized metrics
 - **Semantic relationships** - REQUIRES_KNOWLEDGE, ENABLES, HAS_NARROWER, RELATED_TO
 - **Content ingestion** - YAML frontmatter + Markdown body
-- **Non-linear organization** - Any Ku can organize other Kus via ORGANIZES (emergent MOC pattern)
+- **Non-linear organization** - Any Article can organize other Articles via ORGANIZES (emergent MOC pattern)
+- **Composes atomic Kus** - `(Article)-[:USES_KU]->(Ku)` relationship
 
 **Key Methods:**
 ```python
-# Get KU with full context
-await ku_service.intelligence.get_ku_with_context(uid)
+# Get Article with full context
+await article_service.intelligence.get_article_with_context(uid)
 
 # Calculate substance for user
-await ku_service.intelligence.calculate_user_substance(ku_uid, user_uid)
+await article_service.intelligence.calculate_user_substance(article_uid, user_uid)
 
 # Non-linear organization (replaces old MOC service)
-await ku_service.organize_ku(parent_uid, child_uid, order=1, importance="core")
-await ku_service.get_subkus(parent_uid, depth=1)
-await ku_service.get_parent_kus(ku_uid)  # Multiple parents possible!
-await ku_service.is_organizer(ku_uid)
-await ku_service.list_root_organizers()
+await article_service.organize_article(parent_uid, child_uid, order=1, importance="core")
+await article_service.get_organized_children(parent_uid, depth=1)
+await article_service.get_parent_articles(article_uid)  # Multiple parents possible!
+await article_service.is_organizer(article_uid)
+await article_service.list_root_organizers()
 
 # Find ready-to-learn knowledge
-await ku_service.search.get_ready_to_learn(user_uid)
+await article_service.search.get_ready_to_learn(user_uid)
 
 # Semantic neighborhood
-await ku_service.semantic.get_semantic_neighborhood(ku_uid)
+await article_service.semantic.get_semantic_neighborhood(article_uid)
 ```
 
-**UID Format:** `ku_{slug}_{random}` (flat, not hierarchical - ADR-013)
+**UID Format:** `a_{slug}_{random}` (flat, not hierarchical - ADR-013)
 
-**MOC Pattern Note:** MOC is NOT an EntityType. Any Ku (or other Entity) "is" an organizer when it has outgoing ORGANIZES relationships. There is no separate `MocService` or `core/services/moc/` directory — this was dissolved into `KuOrganizationService`.
+**MOC Pattern Note:** MOC is NOT an EntityType. Any Article (or other Entity) "is" an organizer when it has outgoing ORGANIZES relationships. There is no separate `MocService` or `core/services/moc/` directory — this is managed by `ArticleOrganizationService`.
+
+---
+
+## KU (Atomic Knowledge Unit) - The Atom
+
+**Purpose:** Atomic knowledge unit — a single definable thing (concept, state, principle, substance, practice, value). `Ku` extends `Entity` directly (lightweight, like Resource).
+
+**Sub-services (2):**
+
+| Sub-service | Purpose |
+|-------------|---------|
+| `KuCoreService` | CRUD operations |
+| `KuSearchService` | Text search, filtering |
+
+**Unique Features:**
+- **Lightweight** - Extends Entity directly, not Curriculum
+- **Composed into Articles** - `(Article)-[:USES_KU]->(Ku)` relationship
+- **Trained by LS** - `(Ls)-[:TRAINS_KU]->(Ku)` relationship
+- **Namespace + category** - `ku_category` (KuCategory enum), `namespace`, `aliases`, `source`
+- **Reference node** - Ontology/reference, not essay-like teaching content
+
+**Key Methods:**
+```python
+# Basic CRUD
+await ku_service.core.create(...)
+await ku_service.search.search(query)
+
+# Find articles that use this Ku
+await ku_service.get_articles_using(ku_uid)
+```
+
+**UID Format:** `ku_{slug}_{random}`
 
 ---
 
 ## LS (Learning Step) - The Edge
 
-**Purpose:** A single step in a learning sequence — connects KUs in meaningful order.
+**Purpose:** A single step in a learning sequence — connects Articles and Kus in meaningful order.
 
 **Sub-services (4 - minimal design):**
 
@@ -76,7 +110,7 @@ await ku_service.semantic.get_semantic_neighborhood(ku_uid)
 - **Minimal design** - Intentionally simple, delegates complexity to LP
 - **Practice integration** - Links to Habits, Tasks, Events via relationships
 - **Guidance relationships** - GUIDED_BY_PRINCIPLE, OFFERS_CHOICE
-- **Prerequisite chains** - REQUIRES_STEP, REQUIRES_KNOWLEDGE
+- **Prerequisite chains** - REQUIRES_STEP, TRAINS_KU
 
 **Key Methods:**
 ```python
@@ -95,7 +129,7 @@ await ls_service.intelligence.practice_completeness_score(ls_uid)
 
 **Relationships Used:**
 - `REQUIRES_STEP` - Step prerequisites
-- `REQUIRES_KNOWLEDGE` - Knowledge prerequisites
+- `TRAINS_KU` - Trains atomic knowledge units
 - `BUILDS_HABIT`, `ASSIGNS_TASK`, `SCHEDULES_EVENT` - Practice integration
 - `GUIDED_BY_PRINCIPLE`, `OFFERS_CHOICE` - Guidance
 
@@ -141,8 +175,8 @@ await lp_service.intelligence.identify_path_blockers(lp_uid, user_uid)
 # Get optimal path recommendation
 await lp_service.intelligence.get_optimal_path_recommendation(user_uid, goal_uid)
 
-# Create path from KUs
-await lp_service.create_path_from_knowledge_units(user_uid, name, ku_uids)
+# Create path from Articles
+await lp_service.create_path_from_articles(user_uid, name, article_uids)
 ```
 
 **Relationships:**
@@ -155,13 +189,14 @@ await lp_service.create_path_from_knowledge_units(user_uid, name, ku_uids)
 
 ## Comparison Table
 
-| Feature | KU | LS | LP |
-|---------|----|----|-----|
-| **Sub-services** | 9 | 4 | 5 |
-| **Factory** | Specialized | Generic | Specialized |
-| **Complexity** | Highest | Lowest | Medium |
-| **User Progress** | Mastery level | Completion | Enrollment |
-| **Key Relationship** | REQUIRES_KNOWLEDGE | REQUIRES_STEP | CONTAINS_STEP |
-| **Special Pattern** | Substance + Organization | Practice | Validation |
-| **Navigation** | Point lookup + non-linear | Sequential | Linear path |
-| **Cross-Domain Dep** | None | None | LsService |
+| Feature | Article | KU | LS | LP |
+|---------|---------|----|----|-----|
+| **Sub-services** | 10 | 2 | 4 | 5 |
+| **Factory** | Specialized | — | Generic | Specialized |
+| **Extends** | Curriculum | Entity | Curriculum | Curriculum |
+| **Complexity** | Highest | Lowest | Low | Medium |
+| **User Progress** | Mastery level | — | Completion | Enrollment |
+| **Key Relationship** | USES_KU | (composed into Article) | TRAINS_KU | CONTAINS_STEP |
+| **Special Pattern** | Substance + Organization | Atomic reference | Practice | Validation |
+| **Navigation** | Point lookup + non-linear | Referenced from Articles | Sequential | Linear path |
+| **Cross-Domain Dep** | None | None | None | LsService |

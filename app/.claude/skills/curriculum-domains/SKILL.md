@@ -1,27 +1,30 @@
 # Curriculum Domains Skill
 
-> Use when building features for KU (Knowledge Units), LS (Learning Steps), LP (Learning Paths), or MOC (Maps of Content).
+> Use when building features for Article (teaching compositions), KU (atomic knowledge units), LS (Learning Steps), LP (Learning Paths), or MOC (Maps of Content).
 
 ## When to Use This Skill
 
 - Adding new features to any Curriculum Domain
-- Understanding how KU, LS, LP differ from Activity Domains
+- Understanding how Article, KU, LS, LP differ from Activity Domains
 - Implementing service methods for curriculum content
 - Working with shared (non-user-owned) content
 - Building learning path validation or adaptive sequencing
-- Working with KU organization (non-linear navigation, MOC-style)
+- Working with Article organization (non-linear navigation, MOC-style)
 
-## The 3 Curriculum Domains
+## The 4 Curriculum Domains
 
-Three structural patterns for organizing knowledge:
+Four structural patterns for organizing knowledge:
 
 | Domain | UID Format | Topology | Purpose | Sub-services | Factory |
 |--------|-----------|----------|---------|--------------|---------|
-| **KU** | `ku_{slug}_{random}` | Point | Atomic knowledge unit | 9 | Specialized (`create_ku_sub_services`) |
+| **Article** | `a_{slug}_{random}` | Composition | Teaching narrative (composes Kus) | 10 | Specialized (`create_article_sub_services`) |
+| **KU** | `ku_{slug}_{random}` | Atom | Atomic knowledge unit (concept, principle, practice) | 2 | — |
 | **LS** | `ls:{random}` | Edge | Sequential learning steps | 4 | Generic (`create_curriculum_sub_services`) |
 | **LP** | `lp:{random}` | Path | Complete learning sequences | 5 | Specialized (`create_lp_sub_services`) |
 
-**Note on MOC:** MOC (Map of Content) is NOT a separate domain or EntityType. Any Entity with outgoing `ORGANIZES` relationships IS an organizer. This emergent identity is managed via `KuOrganizationService` — a sub-service of `KuService`. See `core/services/ku/ku_organization_service.py`.
+**Composition:** `(Article)-[:USES_KU]->(Ku)` — Articles compose atomic Kus into narrative. `(Ls)-[:TRAINS_KU]->(Ku)` — Learning steps train specific Kus.
+
+**Note on MOC:** MOC (Map of Content) is NOT a separate domain or EntityType. Any Entity with outgoing `ORGANIZES` relationships IS an organizer. This emergent identity is managed via `ArticleOrganizationService` — a sub-service of `ArticleService`. See `core/services/article/article_organization_service.py`.
 
 ## Key Difference from Activity Domains
 
@@ -56,35 +59,34 @@ Factory / Manual             <- Creates sub-services
 ```
 
 **Key Patterns:**
-- **Factory pattern** - KU, LS, LP use factory functions for sub-service creation
+- **Factory pattern** - Article, LS, LP use factory functions for sub-service creation
 - **Internal intelligence** - ALL domains create intelligence services internally
 - **BaseService inheritance** - All core/search services extend BaseService with `_config = create_curriculum_domain_config(...)`
-- **KU Organization** - Non-linear navigation via `ORGANIZES` relationships (replaces old MOC domain)
+- **Article Organization** - Non-linear navigation via `ORGANIZES` relationships (replaces old MOC domain)
 
 ## Factory Functions
 
 | Domain | Factory | Location |
 |--------|---------|----------|
-| **KU** | `create_ku_sub_services()` | `core/utils/curriculum_domain_config.py` |
+| **Article** | `create_article_sub_services()` | `core/utils/curriculum_domain_config.py` |
 | **LS** | `create_curriculum_sub_services()` | `core/utils/curriculum_domain_config.py` |
 | **LP** | `create_lp_sub_services()` | `core/utils/curriculum_domain_config.py` |
 
 ## Model Locations
 
-All Curriculum models live in `core/models/curriculum/`:
-
-| Domain | Model | DTO |
-|--------|-------|-----|
-| **KU** | `ku.py` (leaf class) | `ku_dto.py` |
-| **LS** | `learning_step.py` | `learning_step_dto.py` |
-| **LP** | `learning_path.py` | `learning_path_dto.py` |
-| **Base** | `curriculum.py` | `curriculum_dto.py` |
+| Domain | Directory | Model | DTO |
+|--------|-----------|-------|-----|
+| **Article** | `core/models/curriculum/` | `article.py` (extends Curriculum) | `article_dto.py` |
+| **KU** | `core/models/ku/` | `ku.py` (extends Entity) | `ku_dto.py` |
+| **LS** | `core/models/curriculum/` | `learning_step.py` | `learning_step_dto.py` |
+| **LP** | `core/models/curriculum/` | `learning_path.py` | `learning_path_dto.py` |
+| **Base** | `core/models/curriculum/` | `curriculum.py` | `curriculum_dto.py` |
 
 ## Common Operations
 
 ### Get knowledge with context
 ```python
-result = await ku_service.intelligence.get_ku_with_context(uid)
+result = await article_service.intelligence.get_article_with_context(uid)
 ```
 
 ### Check learning step readiness
@@ -97,12 +99,12 @@ result = await ls_service.intelligence.is_ready(ls_uid, completed_step_uids)
 result = await lp_service.intelligence.validate_path_prerequisites(lp_uid)
 ```
 
-### KU Organization (non-linear navigation)
+### Article Organization (non-linear navigation)
 ```python
-# Organize KUs into a non-linear map
-await ku_service.organize_ku(parent_uid, child_uid, order=1, importance="core")
-await ku_service.get_subkus(parent_uid, depth=1)
-await ku_service.get_parent_kus(ku_uid)  # Multiple parents possible
+# Organize Articles into a non-linear map
+await article_service.organize_article(parent_uid, child_uid, order=1, importance="core")
+await article_service.get_organized_children(parent_uid, depth=1)
+await article_service.get_parent_articles(article_uid)  # Multiple parents possible
 ```
 
 ### Create with factory (LS example)
@@ -124,7 +126,7 @@ self.intelligence = common.intelligence
 ## Deep Dive Resources
 
 **Architecture:**
-- [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) - Three grouping patterns (KU, LS, LP)
+- [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) - Four grouping patterns (Article, KU, LS, LP)
 - [ADR-023](/docs/decisions/ADR-023-curriculum-baseservice-migration.md) - Curriculum BaseService migration
 - [FOURTEEN_DOMAIN_ARCHITECTURE.md](/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) - Complete domain architecture
 

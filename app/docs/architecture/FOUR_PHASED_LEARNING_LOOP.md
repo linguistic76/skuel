@@ -16,7 +16,7 @@ The Four-Phased Learning Loop is the **core purpose of SKUEL**. Every feature in
 codebase either feeds this loop, supports its infrastructure, or should be questioned.
 
 Learning is not consuming content. Learning is what happens when knowledge changes how you
-act, decide, and live. SKUEL models this through four phases: **what you can learn** (Ku),
+act, decide, and live. SKUEL models this through four phases: **what you can learn** (Article),
 **how you practise it** (Exercise), **what you produce** (Submission), and **what the
 system says back** (Feedback). Every layer is a frozen Python dataclass. Every connection
 is a Neo4j graph relationship. Every measurement flows from real user behaviour, not
@@ -33,7 +33,7 @@ self-reported progress.
 ║                                                              ║
 ║  CURRICULUM TRACK (artifact-based)                           ║
 ║  ─────────────────────────────────────────────────────────   ║
-║  [Ku] ──→ [Exercise] ──→ [Submission/Journal] ──→ [Feedback] ║
+║  [Article] → [Exercise] → [Submission/Journal] → [Feedback] ║
 ║   ↑             ↓              ↑↓                     ↓      ║
 ║  admin       teacher        student               teacher/AI  ║
 ║  creates     assigns     uploads/revises          assesses    ║
@@ -76,24 +76,25 @@ The mechanism differs, but the loop closes either way.
 
 ---
 
-## Phase 1: Ku — The Knowledge Unit
+## Phase 1: Article — The Teaching Composition
 
-**What:** Atomic curriculum content. A single "brick" of knowledge, admin-created and
-shared across all users. Every Exercise is grounded in one or more Ku nodes.
+**What:** Essay-like curriculum content that composes atomic Kus into narrative. Admin-created
+and shared across all users. Every Exercise is grounded in one or more Articles. Articles
+compose atomic Kus via `(Article)-[:USES_KU]->(Ku)`.
 
-**EntityType:** `EntityType.KU`
+**EntityType:** `EntityType.ARTICLE`
 **Loop role:** The *why* — the knowledge the loop exists to transmit.
-**See:** [ASKESIS_PEDAGOGICAL_ARCHITECTURE.md](/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md) — Askesis scaffolds Phase 1 (Ku discovery via ZPD-aware Socratic dialogue).
+**See:** [ASKESIS_PEDAGOGICAL_ARCHITECTURE.md](/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md) — Askesis scaffolds Phase 1 (Article discovery via ZPD-aware Socratic dialogue).
 
 ### Layer 1: What You Can Learn
 
-**File:** `core/models/curriculum/ku.py`
+**File:** `core/models/curriculum/article.py`
 
-A Knowledge Unit is a frozen dataclass — immutable once created, like a published textbook
+An Article is a frozen dataclass — immutable once created, like a published textbook
 page:
 
 ```
-Ku (frozen dataclass, inherits Curriculum → Entity)
+Article (frozen dataclass, inherits Curriculum → Entity)
 ├── Identity:    uid, title, content, domain
 ├── SEL Lens:    sel_category (SELCategory | None) — optional filter, not inherent
 ├── Difficulty:  learning_level, estimated_time_minutes, difficulty_rating (0.0-1.0)
@@ -101,9 +102,13 @@ Ku (frozen dataclass, inherits Curriculum → Entity)
 └── Substance:   times_applied_in_tasks, times_practiced_in_events, ...
 ```
 
+**Atomic Kus:** Articles compose atomic `Ku` entities (`EntityType.KU`, extends `Entity`
+directly — lightweight ontology nodes in `core/models/ku/ku.py`). The substance and mastery
+tracking described below applies to Articles; atomic Kus are reference nodes.
+
 #### SEL Navigation Lens
 
-A KU *may* carry an `sel_category` — a classification into the Social Emotional Learning
+An Article *may* carry an `sel_category` — a classification into the Social Emotional Learning
 framework. SEL is a navigation lens over KUs, not an inherent property of every piece of
 knowledge. `sel_category` is typed as `SELCategory | None` with a default of `None`; no
 silent default is injected.
@@ -121,31 +126,32 @@ presentation logic: `get_icon()`, `get_color()`, `get_description()`. The `DOMAI
 bridges activity domains into the SEL framework: principles map to self-awareness, habits to
 self-management, choices to responsible decision-making.
 
-The `KuAdaptiveService` uses `sel_category` as a filter — `find_by(sel_category=category.value)` —
-to surface KUs grouped by SEL competency. KUs without a meaningful classification simply won't
+The `ArticleAdaptiveService` uses `sel_category` as a filter — `find_by(sel_category=category.value)` —
+to surface Articles grouped by SEL competency. Articles without a meaningful classification simply won't
 appear in category-filtered views: not all knowledge fits neatly into an SEL lens.
 
-#### How KUs Are Born: Markdown to Graph
+#### How Articles Are Born: Markdown to Graph
 
-KUs originate as Markdown files with YAML frontmatter in the Obsidian vault
+Articles originate as Markdown files with YAML frontmatter in the Obsidian vault
 (`/home/mike/0bsidian/skuel/docs/`). The ingestion pipeline (`core/services/ingestion/`)
 parses the frontmatter, including the optional `sel_category` field.
 
-Once in Neo4j, KUs connect through graph relationships:
+Once in Neo4j, Articles connect through graph relationships:
 
 ```cypher
-(ku1:Curriculum)-[:REQUIRES_KNOWLEDGE]->(ku2:Curriculum)  // Prerequisites
-(ku1:Curriculum)-[:ENABLES_KNOWLEDGE]->(ku2:Curriculum)   // What mastering this unlocks
-(moc:Curriculum)-[:ORGANIZES]->(ku:Curriculum)            // MOC grouping (non-linear)
-(ku:Curriculum)-[:USED_IN_STEP]->(ls:LearningStep)        // Linear curriculum
+(a1:Article)-[:REQUIRES_KNOWLEDGE]->(a2:Article)       // Prerequisites
+(a1:Article)-[:ENABLES_KNOWLEDGE]->(a2:Article)        // What mastering this unlocks
+(moc:Article)-[:ORGANIZES]->(a:Article)                // MOC grouping (non-linear)
+(a:Article)-[:USES_KU]->(ku:Ku)                        // Composes atomic Kus
+(ls:LearningStep)-[:TRAINS_KU]->(ku:Ku)                // LS trains atomic Kus
 ```
 
 ### Layer 2: How You're Learning It — Mastery Tracking
 
 **File:** `core/models/curriculum/ku_intelligence.py`
 
-When a user interacts with a KU, a `MASTERED` relationship is created between `:User` and
-`:Curriculum`. The `KuMastery` dataclass models what that relationship means:
+When a user interacts with an Article, a `MASTERED` relationship is created between `:User` and
+`:Article`. The `KuMastery` dataclass models what that relationship means:
 
 ```
 KuMastery (frozen dataclass)
@@ -163,7 +169,7 @@ KuMastery (frozen dataclass)
 UNAWARE → INTRODUCED → FAMILIAR → PROFICIENT → ADVANCED → EXPERT → MASTERED
 ```
 
-The `KuInteractionService` (`core/services/ku/ku_interaction_service.py`) manages
+The `ArticleInteractionService` (`core/services/article/article_interaction_service.py`) manages
 pedagogical progression: `VIEWED` → `IN_PROGRESS` → `MASTERED`. Each transition is a graph
 relationship event.
 
@@ -177,9 +183,9 @@ This profile evolves from actual learning patterns, not questionnaires.
 
 ### Layer 3: Whether It's Changing Your Life — Substance Scoring
 
-**File:** `core/models/curriculum/ku.py`
+**File:** `core/models/curriculum/article.py`
 
-The `substance_score()` method on the `Ku` dataclass measures how knowledge is **lived**,
+The `substance_score()` method on the `Article` dataclass measures how knowledge is **lived**,
 not just consumed:
 
 | Application Type | Weight | Max | What It Measures |
@@ -194,28 +200,28 @@ Substance decays over time using exponential decay with a 30-day half-life (`_de
 Knowledge never fully disappears (floor at 0.2), but it fades without practice — exactly like
 human memory.
 
-The substance fields on the `Ku` model (`times_applied_in_tasks`, `times_practiced_in_events`,
+The substance fields on the `Article` model (`times_applied_in_tasks`, `times_practiced_in_events`,
 etc.) are updated via the event-driven architecture. When a user completes a task that
-references a KU, the `KuService` handles the `knowledge.applied_in_task` event and atomically
+references an Article, the `ArticleService` handles the `knowledge.applied_in_task` event and atomically
 increments the counter in Neo4j.
 
 ### The Adaptive Service: Connecting the Layers
 
-**File:** `core/services/ku/ku_adaptive_service.py`
+**File:** `core/services/article/article_adaptive_service.py`
 
-`KuAdaptiveService` answers the question: **"What should this person learn next?"**
+`ArticleAdaptiveService` answers the question: **"What should this person learn next?"**
 
 **Personalised curriculum delivery** (`get_personalized_curriculum`):
 
 ```
 1. Load user's learning intelligence (masteries, paths, velocity)
-2. Query all KUs in the requested SEL category
+2. Query all Articles in the requested SEL category
 3. Filter by readiness:
    - Not already mastered
    - Prerequisites met (via REQUIRES_KNOWLEDGE graph traversal)
    - Appropriate for user's current level
 4. Rank by learning value:
-   - Enables many future KUs (×10) — high leverage
+   - Enables many future Articles (×10) — high leverage
    - Matches preferred difficulty (×20) — flow state
    - Fits available time (×15) — practical
    - Foundational / no prerequisites (×5) — unblocked
@@ -229,7 +235,7 @@ a user's progress through one SEL category:
 ```
 KuCategoryProgress
 ├── user_uid, sel_category
-├── kus_mastered, kus_in_progress, kus_available, total_kus
+├── articles_mastered, articles_in_progress, articles_available, total_articles
 ├── completion_percentage (0-100), current_level (LearningLevel)
 └── started_at, last_activity, estimated_completion_date
 ```
@@ -264,18 +270,18 @@ values breadth alongside depth.
 
 | Component | What It Shows |
 |---|---|
-| `SELCategoryCard(category, progress)` | One category's progress bar, count badges, "Continue Learning" link to `/ku?sel={category}` |
-| `AdaptiveKUCard(ku, prerequisites_met)` | One recommended KU — time, difficulty, level badge, prerequisite status, link to `/ku/{uid}` |
+| `SELCategoryCard(category, progress)` | One category's progress bar, count badges, "Continue Learning" link to `/articles?sel={category}` |
+| `AdaptiveArticleCard(article, prerequisites_met)` | One recommended Article — time, difficulty, level badge, prerequisite status, link to `/articles/{uid}` |
 | `SELJourneyOverview(journey)` | Master view — overall %, recommended focus alert, grid of five `SELCategoryCard` components |
 
-**API routes** (`adapters/inbound/ku_api.py`):
+**API routes** (`adapters/inbound/article_api.py`):
 
 | Route | Purpose |
 |---|---|
-| `GET /api/ku/journey` | `KuLearningJourney` (JSON) |
-| `GET /api/ku/curriculum/{category}` | `list[Ku]` (JSON) |
-| `GET /api/ku/journey-html` | `SELJourneyOverview` (HTMX fragment) |
-| `GET /api/ku/curriculum-html/{category}` | Grid of `AdaptiveKUCard` (HTMX fragment) |
+| `GET /api/articles/journey` | `KuLearningJourney` (JSON) |
+| `GET /api/articles/curriculum/{category}` | `list[Article]` (JSON) |
+| `GET /api/articles/journey-html` | `SELJourneyOverview` (HTMX fragment) |
+| `GET /api/articles/curriculum-html/{category}` | Grid of `AdaptiveArticleCard` (HTMX fragment) |
 
 The HTML routes enable HTMX partial updates — the journey overview loads once, and clicking
 a category fetches that category's personalised curriculum as an HTML fragment.
@@ -289,7 +295,7 @@ LLM prompt embedded for AI-assisted feedback. Two scopes: `PERSONAL` (self-direc
 `ASSIGNED` (classroom with a Group target and due date).
 
 **EntityType:** `EntityType.EXERCISE`
-**Loop role:** The *how* — operationalises Ku into a concrete task. The `instructions`
+**Loop role:** The *how* — operationalises Article content into a concrete task. The `instructions`
 field serves double duty: directive for the student AND prompt for the AI when generating
 `SUBMISSION_FEEDBACK`.
 
@@ -305,7 +311,7 @@ into `processed_content` — the evaluable form. Two leaf types: `SUBMISSION` (s
 uploads) and `JOURNAL` (admin uploads for AI-only processing).
 
 **EntityType:** `EntityType.SUBMISSION` or `EntityType.JOURNAL`
-**Loop role:** The *evidence* — the student's demonstration of engagement with Ku.
+**Loop role:** The *evidence* — the student's demonstration of engagement with Article content.
 Without it, the Curriculum Track has no student voice.
 
 **See:** [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) —
@@ -386,15 +392,15 @@ New feedback sources add `ProcessorType` values; they do not create new EntityTy
 
 | Purpose | File |
 |---|---|
-| Ku domain model | `core/models/curriculum/ku.py` |
-| Ku mastery + intelligence models | `core/models/curriculum/ku_intelligence.py` |
+| Article domain model | `core/models/curriculum/article.py` |
+| Article mastery + intelligence models | `core/models/curriculum/ku_intelligence.py` |
 | Category progress + journey models | `core/models/curriculum/ku_progress.py` |
 | SELCategory + LearningLevel enums | `core/models/enums/learning_enums.py` |
-| Adaptive curriculum service | `core/services/ku/ku_adaptive_service.py` |
-| KU interaction service (mastery transitions) | `core/services/ku/ku_interaction_service.py` |
-| KU facade (wires sub-services) | `core/services/ku_service.py` |
+| Adaptive curriculum service | `core/services/article/article_adaptive_service.py` |
+| Article interaction service (mastery transitions) | `core/services/article/article_interaction_service.py` |
+| Article facade (wires sub-services) | `core/services/article_service.py` |
 | Learning experience UI components | `ui/patterns/ku_adaptive.py` |
-| KU API routes | `adapters/inbound/ku_api.py` |
+| Article API routes | `adapters/inbound/article_api.py` |
 | Ingestion pipeline | `core/services/ingestion/` |
 | Substance philosophy | `docs/architecture/knowledge_substance_philosophy.md` |
 | Curriculum grouping patterns (KU / LS / LP) | `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` |

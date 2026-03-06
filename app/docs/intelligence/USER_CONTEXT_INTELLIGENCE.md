@@ -124,11 +124,12 @@ UserContextIntelligence requires ALL 13 domain services because each contributes
 | **choices** | What decisions await? | `choices_service.relationships` (UnifiedRelationshipService) |
 | **principles** | What values guide this? | `principles_service.relationships` (UnifiedRelationshipService) |
 
-### Curriculum Domains (3) - LS/LP unified in January 2026
+### Curriculum Domains (4) - LS/LP unified in January 2026, Article/KU split March 2026
 
 | Service | Purpose | Implementation |
 |---------|---------|----------------|
-| **ku** | What knowledge is ready? | `ku_service` (KuGraphService) |
+| **article** | What teaching content is ready? | `article_service` (ArticleGraphService) |
+| **ku** | Atomic knowledge reference | `ku_service` (KuService) |
 | **ls** | Learning step relationships | `ls_service.relationships` (UnifiedRelationshipService) |
 | **lp** | Critical path to life path | `lp_service.relationships` (UnifiedRelationshipService) |
 

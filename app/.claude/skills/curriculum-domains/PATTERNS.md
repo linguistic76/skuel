@@ -1,6 +1,6 @@
 # Curriculum Domain Patterns
 
-> Implementation patterns for KU, LS, LP features.
+> Implementation patterns for Article, KU, LS, LP features.
 
 ---
 
@@ -11,11 +11,11 @@ All core/search services use `_config = create_curriculum_domain_config(...)` (n
 ```python
 from core.services.domain_config import create_curriculum_domain_config
 
-class KuCoreService(BaseService[KuOperations, Curriculum]):
+class ArticleCoreService(BaseService[ArticleOperations, Article]):
     _config = create_curriculum_domain_config(
-        dto_class=CurriculumDTO,
-        model_class=Curriculum,
-        domain_name="ku",
+        dto_class=ArticleDTO,
+        model_class=Article,
+        domain_name="articles",
         search_fields=("title", "description", "content"),
         category_field="domain",
     )
@@ -25,26 +25,26 @@ class KuCoreService(BaseService[KuOperations, Curriculum]):
 
 ---
 
-## Pattern: KU Organization (Non-Linear Navigation)
+## Pattern: Article Organization (Non-Linear Navigation)
 
-Any Ku can organize other Kus via `ORGANIZES` relationships. There is no `MocService` — this is `KuOrganizationService`:
+Any Article can organize other Articles via `ORGANIZES` relationships. There is no `MocService` — this is `ArticleOrganizationService`:
 
 ```python
 # Create non-linear structure
-await ku_service.organize_ku(
-    parent_uid="ku_yoga-fundamentals_abc123",
-    child_uid="ku_meditation-basics_xyz789",
+await article_service.organize_article(
+    parent_uid="a_yoga-fundamentals_abc123",
+    child_uid="a_meditation-basics_xyz789",
     order=1,
     importance="core",
 )
 
 # Navigate the structure
-subkus = await ku_service.get_subkus("ku_yoga-fundamentals_abc123", depth=2)
-parents = await ku_service.get_parent_kus("ku_meditation-basics_xyz789")
-root_organizers = await ku_service.list_root_organizers()
+children = await article_service.get_organized_children("a_yoga-fundamentals_abc123", depth=2)
+parents = await article_service.get_parent_articles("a_meditation-basics_xyz789")
+root_organizers = await article_service.list_root_organizers()
 
-# Check if a KU acts as an organizer
-is_org = await ku_service.is_organizer("ku_yoga-fundamentals_abc123")
+# Check if an Article acts as an organizer
+is_org = await article_service.is_organizer("a_yoga-fundamentals_abc123")
 ```
 
 **When to use this pattern:** When users want to navigate knowledge non-linearly (exploring a topic map rather than following a prescribed sequence). This replaces the old MOC domain entirely.
@@ -58,7 +58,7 @@ LP requires LsService injected at construction — the only cross-domain service
 ```python
 # In services_bootstrap.py (order matters!)
 ls_service = LsService(driver, graph_intel, event_bus)
-lp_service = LpService(driver, ls_service, graph_intel, event_bus)  # ← ls_service required
+lp_service = LpService(driver, ls_service, graph_intel, event_bus)  # <- ls_service required
 ```
 
 When adding a new LP feature that needs LS data, access it via `self.ls_service` (available on `LpCoreService`), not via direct Neo4j queries.

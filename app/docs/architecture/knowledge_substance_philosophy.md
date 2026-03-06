@@ -24,7 +24,7 @@ Learning Paths (lp) - sequences toward life goals
     ↑ composed of
 Learning Steps (ls) - curated knowledge + practice bundles
     ↑ built from
-Curriculum entities (ku) - atomic particles of applied knowledge
+Articles (teaching compositions, compose atomic Kus)
     ↕ BIDIRECTIONAL enrichment
 Supporting Domains - tasks, events, habits, journals, choices, principles
 ```
@@ -33,17 +33,17 @@ Supporting Domains - tasks, events, habits, journals, choices, principles
 
 ---
 
-## Bidirectional Relationship: KU ↔ Supporting Domains
+## Bidirectional Relationship: Article/KU ↔ Supporting Domains
 
-**Knowledge Units and Supporting Domains mutually enrich each other:**
+**Articles (teaching compositions) and atomic Kus mutually enrich Supporting Domains.** Substance scoring applies to Articles — the essay-like compositions that users interact with. Atomic Kus (`EntityType.KU`) are lightweight reference nodes composed into Articles via `USES_KU`.
 
-### 1. Forward Direction (KU → Supporting)
+### 1. Forward Direction (Article → Supporting)
 - Knowledge guides what tasks to create
 - Knowledge informs which events to schedule
 - Knowledge shapes which habits to build
 - Knowledge influences decisions/choices
 
-### 2. Reverse Direction (Supporting → KU)
+### 2. Reverse Direction (Supporting → Article)
 - Tasks give knowledge substance (practical application)
 - Events provide practice opportunities (repetition)
 - Habits integrate knowledge into lifestyle (automaticity)
@@ -224,10 +224,10 @@ user_substance_score = task_score + habit_score + event_score + journal_score + 
 
 ### Implementation
 
-- **Service:** `KuIntelligenceService.calculate_user_substance(ku_uid, user_context)`
-- **Facade:** `KuService.get_user_knowledge_context(ku_uid, user_context)`
-- **Route:** `/adapters/inbound/ku_api.py` (`get_knowledge_user_context_route`)
-- **Wiring:** `user_service` passed through `services_bootstrap.py` → `KuService` → `KuIntelligenceService`
+- **Service:** `ArticleIntelligenceService.calculate_user_substance(article_uid, user_context)`
+- **Facade:** `ArticleService.get_user_knowledge_context(article_uid, user_context)`
+- **Route:** `/adapters/inbound/article_api.py` (`get_knowledge_user_context_route`)
+- **Wiring:** `user_service` passed through `services_bootstrap.py` → `ArticleService` → `ArticleIntelligenceService`
 
 ### Future: UserContext Extensions
 
@@ -350,12 +350,12 @@ Div(
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| **Substance Fields** | `/core/models/ku/ku.py` | Substance fields on `Curriculum` model (Entity base + Ku union type file) |
-| **Decay Algorithm** | `/core/models/ku/ku.py` | Exponential decay, spaced repetition |
+| **Substance Fields** | `/core/models/curriculum/article.py` | Substance fields on `Article` model (extends Curriculum → Entity) |
+| **Decay Algorithm** | `/core/models/curriculum/article.py` | Exponential decay, spaced repetition |
 | **Domain Events** | `/core/events/ku_events.py` | 5 substance events |
-| **Event Listeners** | `/core/services/ku_service.py` | Atomic substance updates |
+| **Event Listeners** | `/core/services/article_service.py` | Atomic substance updates |
 | **Event Wiring** | `/services_bootstrap.py` | Subscribe KuService to events |
-| **Dashboard UI** | `/ui/substance_dashboard.py` | Substance visualization |
+| **Dashboard UI** | `/ui/substance_dashboard.py` | Substance visualization (Article-level) |
 | **Life Path Fields** | `/core/services/user/unified_user_context.py` | Life alignment tracking |
 
 ---
@@ -483,7 +483,7 @@ substance_score = min(1.0, sum([
 - [Substance Tracking Implementation](/home/mike/skuel/app/SUBSTANCE_TRACKING_IMPLEMENTATION.md)
 - [Knowledge Events Catalog](/home/mike/skuel/app/core/events/ku_events.py)
 - [Substance Dashboard Components](/home/mike/skuel/app/ui/substance_dashboard.py)
-- [KU Model Implementation](/home/mike/skuel/app/core/models/ku/ku.py)
+- [Article Model Implementation](/home/mike/skuel/app/core/models/curriculum/article.py)
 - [Event-Driven Architecture Guide](/home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md)
 
 ---
