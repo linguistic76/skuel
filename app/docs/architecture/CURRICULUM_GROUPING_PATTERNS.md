@@ -79,9 +79,9 @@ Sequential "Learn A then B"      Non-linear "Explore what interests you"
 
 **Location:** `/core/models/curriculum/ku.py`
 
-**EntityType:** `EntityType.KU = "ku"` — stored as `ku_type` property in Neo4j.
+**EntityType:** `EntityType.KU = "ku"` — stored as `entity_type` property in Neo4j.
 
-**Neo4j Labels:** `:Entity:Ku {ku_type: 'ku'}` (dual-label pattern, February 2026)
+**Neo4j Labels:** `:Entity:Ku {entity_type: 'ku'}` (dual-label pattern, February 2026)
 
 **Characteristics:**
 - Self-contained markdown content

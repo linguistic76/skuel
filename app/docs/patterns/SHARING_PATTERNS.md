@@ -589,7 +589,7 @@ def sharing_service(mock_backend):
 async def test_share_success(mock_backend, sharing_service):
     mock_backend.query_ownership_and_status = AsyncMock(
         return_value=Result.ok(
-            [{"actual_owner": "user_owner", "status": "completed", "ku_type": "submission"}]
+            [{"actual_owner": "user_owner", "status": "completed", "entity_type": "submission"}]
         )
     )
     mock_backend.create_share = AsyncMock(return_value=Result.ok([{"success": True}]))

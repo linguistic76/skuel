@@ -63,7 +63,7 @@ Unified status enums:
 
 ### Phase 8: Domain-First Model Hierarchy (2026-02-22)
 
-The "Everything is a Ku" architecture was evolved to a domain-first model hierarchy while preserving the unified Neo4j storage:
+The "Everything is a Ku" architecture was evolved to a domain-first model hierarchy while preserving the unified Neo4j storage (the `ku_type` field was later renamed to `entity_type` in March 2026 — see Phase 9 below):
 
 **Phase 0: Neo4j Multi-Label + Backend Infrastructure**
 - Added domain-specific Neo4j labels: every entity gets `:Entity` (universal) + domain label (`:Task`, `:Goal`, etc.)
@@ -76,7 +76,7 @@ The "Everything is a Ku" architecture was evolved to a domain-first model hierar
 - 17 class renames: `KuBase` → `Entity`, `TaskKu` → `Task`, `GoalKu` → `Goal`, etc.
 - 17 file renames via git mv: `ku_task.py` → `task.py`, etc.
 - 2 enum renames: `KuType` → `EntityType`, `KuStatus` → `EntityStatus` (still in `ku_enums.py`)
-- NOT renamed: `ku_enums.py` file, `Ku` union type, `ku_type` DB field (KuDTO was later deleted in Phase 5b, 2026-02-23)
+- NOT renamed at this time: `ku_enums.py` file, `Ku` union type, `ku_type` DB field (KuDTO was later deleted in Phase 5b, 2026-02-23; `ku_type` renamed to `entity_type` in Phase 9, 2026-03-06)
 - 278 Python files changed, zero new mypy errors
 
 **Phase 2: UserOwnedEntity Intermediate Class**
@@ -105,6 +105,16 @@ EntityDTO (~18 fields)
 - DTOs reduced from 138 fields to 30-50 fields each
 - Neo4j queries use domain labels instead of property filtering
 - Services use domain-specific types instead of God Object DTO
+
+### Phase 9: `ku_type` → `entity_type` Rename (2026-03-06)
+
+The `ku_type` field on Entity (and `parent_ku_uid`) were renamed to `entity_type` and `parent_entity_uid` to align naming with the actual class hierarchy. Entity is the universal base; Ku is one type of Entity. The "Everything is a Ku" philosophy was replaced with entity-centric naming.
+
+- `Entity.ku_type` → `Entity.entity_type` (Python field + Neo4j property)
+- `Entity.parent_ku_uid` → `Entity.parent_entity_uid`
+- `EntityStatus.can_transition_to(ku_type=)` → `can_transition_to(entity_type=)`
+- 149 Python files, 71 Neo4j nodes migrated
+- Migration script: `scripts/migrations/rename_ku_type_to_entity_type_2026.cypher`
 
 ## Key Files
 

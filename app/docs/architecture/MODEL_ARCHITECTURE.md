@@ -41,7 +41,7 @@ class TaskCreateRequest(BaseModel):
 # Tier 3 — Core domain (core/models/task/task.py)
 @dataclass(frozen=True)
 class Task(UserOwnedEntity):
-    ku_type: EntityType = EntityType.TASK  # Forced in __post_init__
+    entity_type: EntityType = EntityType.TASK  # Forced in __post_init__
 
 # Tier 2 — Transfer (core/models/task/task_dto.py)
 class TaskDTO(UserOwnedDTO):
@@ -55,13 +55,13 @@ class TaskDTO(UserOwnedDTO):
 ### Domain Models (Frozen Dataclasses)
 
 ```
-Entity (~19 fields: uid, title, ku_type, status, visibility, tags, domain,
-│       description, content, source, source_file, parent_ku_uid,
+Entity (~19 fields: uid, title, entity_type, status, visibility, tags, domain,
+│       description, content, source, source_file, parent_entity_uid,
 │       embedding, created_at, updated_at, ...)
 │
 ├── UserOwnedEntity (+user_uid, +priority, overrides visibility → PRIVATE)
 │   │
-│   ├── Task ─────────── forces ku_type=TASK
+│   ├── Task ─────────── forces entity_type=TASK
 │   ├── Goal ─────────── + goal_type, timeframe, measurement_type, target_date, milestones
 │   ├── Habit ────────── + polarity, habit_category, habit_difficulty, frequency, streak
 │   ├── Event ────────── + event_type, location, start_time, end_time, duration
@@ -69,14 +69,14 @@ Entity (~19 fields: uid, title, ku_type, status, visibility, tags, domain,
 │   ├── Principle ────── + principle_category, principle_source, strength, current_alignment
 │   │
 │   ├── Submission ───── + processor_type, file_path, file_type, processed_content
-│   │   ├── Journal              (forces ku_type=JOURNAL)
-│   │   └── SubmissionFeedback   (forces ku_type=SUBMISSION_FEEDBACK, +subject_uid)
-│   ├── ActivityReport ─── (forces ku_type=ACTIVITY_REPORT, NO file fields)
+│   │   ├── Journal              (forces entity_type=JOURNAL)
+│   │   └── SubmissionFeedback   (forces entity_type=SUBMISSION_FEEDBACK, +subject_uid)
+│   ├── ActivityReport ─── (forces entity_type=ACTIVITY_REPORT, NO file fields)
 │   │
 │   └── LifePath ─────── + alignment_level, vision_statement, alignment_score
 │
 ├── Curriculum (+complexity, learning_level, sel_category, quality_score, +21 fields)
-│   ├── Ku ───────────── forces ku_type=KU (atomic knowledge unit)
+│   ├── Ku ───────────── forces entity_type=KU (atomic knowledge unit)
 │   ├── LearningStep ─── + step_difficulty, order, lp_uid
 │   ├── LearningPath ─── + path_type, step_count, total_duration
 │   └── Exercise ─────── + scope (PERSONAL or ASSIGNED)
@@ -84,7 +84,7 @@ Entity (~19 fields: uid, title, ku_type, status, visibility, tags, domain,
 └── Resource ──────────── + source_url, author, resource_type, year, medium
 ```
 
-Every model forces its `ku_type` in `__post_init__()`. This drives:
+Every model forces its `entity_type` in `__post_init__()`. This drives:
 - **Status validation:** `EntityType.TASK.valid_statuses()` → which statuses a Task can have
 - **Default status:** `EntityType.HABIT.default_status()` → `ACTIVE` (not DRAFT)
 - **Neo4j labels:** `NeoLabel.from_entity_type(EntityType.TASK)` → `:Entity:Task`
@@ -206,7 +206,7 @@ SubmissionEntity = Submission | Journal | ActivityReport | SubmissionFeedback
 
 Cross-domain deserialization uses the dispatcher:
 ```python
-entity_class = ENTITY_TYPE_CLASS_MAP[dto.ku_type]
+entity_class = ENTITY_TYPE_CLASS_MAP[dto.entity_type]
 entity = entity_class.from_dto(dto)
 ```
 

@@ -153,9 +153,9 @@ ORDER BY root.title
 LIMIT $limit
 
 // ExerciseBackend — type-gated linking with WHERE guard
-MATCH (exercise:Entity {uid: $exercise_uid, ku_type: 'exercise'})
+MATCH (exercise:Entity {uid: $exercise_uid, entity_type: 'exercise'})
 MATCH (curriculum:Entity {uid: $curriculum_uid})
-WHERE curriculum.ku_type IN ['ku', 'resource']
+WHERE curriculum.entity_type IN ['ku', 'resource']
 MERGE (exercise)-[r:REQUIRES_KNOWLEDGE]->(curriculum)
 ON CREATE SET r.created_at = datetime()
 RETURN true AS success
@@ -179,7 +179,7 @@ RETURN true AS success
 **Solution**:
 ```cypher
 // LpBackend.get_paths_containing_ku() — match either relationship type
-MATCH (lp:Entity {ku_type: 'learning_path'})
+MATCH (lp:Entity {entity_type: 'learning_path'})
       -[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->
       (ku:Entity {uid: $ku_uid})
 RETURN DISTINCT lp.uid AS lp_uid
@@ -259,19 +259,19 @@ RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_organizer
 MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity)
 RETURN child.uid AS uid,
        child.title AS title,
-       child.ku_type AS ku_type,
+       child.entity_type AS entity_type,
        r.order AS order,
        r.importance AS importance
 ORDER BY r.order ASC
 LIMIT $limit
 
 // ExerciseBackend.get_required_knowledge() — multiple node properties
-MATCH (exercise:Entity {uid: $exercise_uid, ku_type: 'exercise'})
+MATCH (exercise:Entity {uid: $exercise_uid, entity_type: 'exercise'})
       -[:REQUIRES_KNOWLEDGE]->
       (curriculum:Entity)
 RETURN curriculum.uid AS uid,
        curriculum.title AS title,
-       curriculum.ku_type AS ku_type,
+       curriculum.entity_type AS entity_type,
        curriculum.complexity AS complexity,
        curriculum.learning_level AS learning_level
 ORDER BY curriculum.title

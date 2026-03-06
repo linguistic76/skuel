@@ -81,7 +81,7 @@ Exercise (scope=ASSIGNED)
        |
        v
 2. Student submits file → SubmissionsService.submit_file()
-       |                   Creates Entity with ku_type=SUBMISSION
+       |                   Creates Entity with entity_type=SUBMISSION
        v
 3. Processing routes by MIME type (not EntityType):
        audio/* → TranscriptionService → text
@@ -109,14 +109,14 @@ Exercise (scope=ASSIGNED)
 (student:User)-[:MEMBER_OF]->(group)
 
 // The submission
-(student)-[:OWNS]->(submission:Entity {ku_type: "submission"})
+(student)-[:OWNS]->(submission:Entity {entity_type: "submission"})
 (submission)-[:FULFILLS_EXERCISE]->(exercise)
 
 // Sharing for review
 (student)-[:SHARES_WITH {role: "teacher"}]->(submission)
 
 // Teacher feedback
-(teacher)-[:OWNS]->(feedback:Entity {ku_type: "submission_feedback"})
+(teacher)-[:OWNS]->(feedback:Entity {entity_type: "submission_feedback"})
 (feedback)-[:FEEDBACK_FOR]->(submission)
 ```
 
@@ -150,7 +150,7 @@ Curriculum Work                 Activity Domains
 
 | Field | Value |
 |-------|-------|
-| `ku_type` | `"submission_feedback"` |
+| `entity_type` | `"submission_feedback"` |
 | Inherits | `Submission(UserOwnedEntity)` |
 | `subject_uid` | UID of the submission being evaluated |
 | `processor_type` | `HUMAN` or `LLM` |
@@ -166,8 +166,8 @@ Both use atomic Cypher: create entity + `FEEDBACK_FOR` relationship + denormaliz
 
 **Graph pattern:**
 ```cypher
-(teacher:User)-[:OWNS]->(feedback:Entity:SubmissionFeedback {ku_type: 'submission_feedback'})
-(feedback)-[:FEEDBACK_FOR]->(submission:Entity {ku_type: 'submission'})
+(teacher:User)-[:OWNS]->(feedback:Entity:SubmissionFeedback {entity_type: 'submission_feedback'})
+(feedback)-[:FEEDBACK_FOR]->(submission:Entity {entity_type: 'submission'})
 ```
 
 ---
@@ -178,7 +178,7 @@ Both use atomic Cypher: create entity + `FEEDBACK_FOR` relationship + denormaliz
 
 | Field | Value |
 |-------|-------|
-| `ku_type` | `"activity_report"` |
+| `entity_type` | `"activity_report"` |
 | Inherits | `UserOwnedEntity` **directly** (no file fields) |
 | `subject_uid` | UID of the user whose activity was reviewed |
 | `processor_type` | `AUTOMATIC`, `LLM`, or `HUMAN` |
@@ -196,7 +196,7 @@ Both use atomic Cypher: create entity + `FEEDBACK_FOR` relationship + denormaliz
 **Graph pattern:**
 ```cypher
 (owner:User)-[:OWNS]->(feedback:Entity:ActivityReport {
-    ku_type: 'activity_report',
+    entity_type: 'activity_report',
     subject_uid: 'user_student_uid',
     time_period: '7d',
     processor_type: 'human'  // or 'llm' or 'automatic'
@@ -446,7 +446,7 @@ When `openai_service` is available, the generator:
 ```cypher
 // SUBMISSION_FEEDBACK — tied to a specific submission
 (:Entity:SubmissionFeedback {
-    uid, ku_type: 'submission_feedback',
+    uid, entity_type: 'submission_feedback',
     user_uid,        // owner (teacher or AI agent)
     subject_uid,     // submission being evaluated
     processor_type,  // 'human' or 'llm'
@@ -456,7 +456,7 @@ When `openai_service` is available, the generator:
 
 // ACTIVITY_REPORT — tied to a user's activity patterns
 (:Entity:ActivityReport {
-    uid, ku_type: 'activity_report',
+    uid, entity_type: 'activity_report',
     user_uid,        // owner (admin or system)
     subject_uid,     // user whose activity was reviewed
     processor_type,  // 'human', 'llm', or 'automatic'

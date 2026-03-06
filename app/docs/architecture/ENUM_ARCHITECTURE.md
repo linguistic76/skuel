@@ -41,7 +41,7 @@ from core.models.enums import EntityType, EntityStatus, Priority
 
 ### EntityType — What Is It? (16 values)
 
-EntityType is the type discriminator for every entity in SKUEL. It lives on the `ku_type` field of every Entity and determines valid statuses, default status, content origin, ownership rules, and Neo4j labels.
+EntityType is the type discriminator for every entity in SKUEL. It lives on the `entity_type` field of every Entity and determines valid statuses, default status, content origin, ownership rules, and Neo4j labels.
 
 **Five groups:**
 
@@ -128,7 +128,7 @@ Activity:
 | `is_terminal()` | bool | COMPLETED, FAILED, CANCELLED, or ARCHIVED? |
 | `is_active()` | bool | SUBMITTED, QUEUED, PROCESSING, ACTIVE, or SCHEDULED? |
 | `is_pending()` | bool | DRAFT, SUBMITTED, QUEUED, or SCHEDULED? |
-| `can_transition_to(target, ku_type)` | bool | Is this transition valid (optionally type-aware)? |
+| `can_transition_to(target, entity_type)` | bool | Is this transition valid (optionally type-aware)? |
 | `get_color()` | str | Hex color for UI (e.g., ACTIVE="#06B6D4" cyan, BLOCKED="#DC2626" red) |
 | `from_search_text(text)` | list[EntityStatus] | Find statuses matching search terms |
 
@@ -146,8 +146,8 @@ EntityType.HABIT.default_status()   # → EntityStatus.ACTIVE
 EntityType.EVENT.default_status()   # → EntityStatus.SCHEDULED
 
 # EntityStatus checks type-aware transitions
-EntityStatus.ACTIVE.can_transition_to(EntityStatus.BLOCKED, ku_type=EntityType.TASK)   # → True
-EntityStatus.ACTIVE.can_transition_to(EntityStatus.BLOCKED, ku_type=EntityType.EVENT)  # → False
+EntityStatus.ACTIVE.can_transition_to(EntityStatus.BLOCKED, entity_type=EntityType.TASK)   # → True
+EntityStatus.ACTIVE.can_transition_to(EntityStatus.BLOCKED, entity_type=EntityType.EVENT)  # → False
 ```
 
 This is why EntityType and EntityStatus live in the same file (`entity_enums.py`) — they form a tightly coupled validation system.
@@ -156,7 +156,7 @@ This is why EntityType and EntityStatus live in the same file (`entity_enums.py`
 
 ## Model Integration
 
-Enums wire into the model layer through a class hierarchy. Each level inherits enum fields and adds domain-specific ones. Every model forces its `ku_type` in `__post_init__()`, which drives status validation, default status, and Neo4j labels.
+Enums wire into the model layer through a class hierarchy. Each level inherits enum fields and adds domain-specific ones. Every model forces its `entity_type` in `__post_init__()`, which drives status validation, default status, and Neo4j labels.
 
 **For the full picture** — class hierarchy, per-model enum fields, three-tier flow, directory layout, sub-entities, and intelligence models — see [Model Architecture](MODEL_ARCHITECTURE.md).
 
@@ -164,7 +164,7 @@ Enums wire into the model layer through a class hierarchy. Each level inherits e
 
 | Base Class | Enum Fields | Models |
 |------------|-------------|--------|
-| Entity | ku_type, status, visibility | *(all 16 models)* |
+| Entity | entity_type, status, visibility | *(all 16 models)* |
 | UserOwnedEntity | *(inherits above)* | Task, Goal, Habit, Event, Choice, Principle, Submission types, LifePath |
 | Curriculum *(base class)* | + complexity, learning_level, sel_category | Ku, LearningStep, LearningPath, Exercise |
 
@@ -339,10 +339,10 @@ EntityType.TASK.valid_statuses()
 # → {DRAFT, SCHEDULED, ACTIVE, PAUSED, BLOCKED, COMPLETED, CANCELLED, POSTPONED, FAILED}
 
 # Can an active task become blocked?
-EntityStatus.ACTIVE.can_transition_to(EntityStatus.BLOCKED, ku_type=EntityType.TASK)  # → True
+EntityStatus.ACTIVE.can_transition_to(EntityStatus.BLOCKED, entity_type=EntityType.TASK)  # → True
 
 # Can a principle be "blocked"?
-EntityStatus.ACTIVE.can_transition_to(EntityStatus.BLOCKED, ku_type=EntityType.PRINCIPLE)  # → False
+EntityStatus.ACTIVE.can_transition_to(EntityStatus.BLOCKED, entity_type=EntityType.PRINCIPLE)  # → False
 ```
 
 ### 5. Role Hierarchy

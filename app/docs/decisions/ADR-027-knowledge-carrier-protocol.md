@@ -25,7 +25,7 @@ related: [ADR-017, ADR-023]
 
 **What is the issue we're facing?**
 
-SKUEL's philosophy is "everything is a KU" - Knowledge Units are the foundational building blocks that flow through all domains. However, this philosophy wasn't encoded in the type system, making it difficult for:
+SKUEL's Entity model treats all domain types as knowledge carriers — Entity is the universal base for all 17 domain types. However, this wasn't encoded in the type system, making it difficult for:
 
 1. **MCF (AI content authoring)** to understand which entities carry knowledge
 2. **Type-safe dispatch** for unified knowledge operations across domains
@@ -164,7 +164,7 @@ class ActivityCarrier(KnowledgeCarrier, Protocol):
 - ✅ Type-safe dispatch: `isinstance(entity, KnowledgeCarrier)` works
 - ✅ MCF can understand knowledge relationships via protocol introspection
 - ✅ SearchRouter can implement `search_knowledge_carriers()` method
-- ✅ Encodes "everything is a KU" philosophy in the type system
+- ✅ Encodes Entity-as-knowledge-carrier pattern in the type system
 - ✅ No breaking changes to existing code
 - ✅ No new Neo4j fields required
 

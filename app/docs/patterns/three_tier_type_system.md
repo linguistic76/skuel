@@ -127,7 +127,7 @@ class EntityDTO:
     """~18 common fields (identity, content, status, meta)."""
     uid: str
     title: str
-    ku_type: str  # EntityType value (stored as "ku_type" in Neo4j)
+    entity_type: str  # EntityType value (stored as "entity_type" in Neo4j)
     ...
 
 @dataclass
@@ -822,7 +822,7 @@ Does the domain have 3+ business logic methods?
 - `KuType` -> `EntityType` (15 values)
 - `KuStatus` -> `EntityStatus` (14 values)
 - `ku_enums.py` was deleted and split into 8 domain-specific enum files (Feb 2026); EntityType/EntityStatus live in `entity_enums.py`
-- `ku_type` database property was NOT renamed
+- `ku_type` field and Neo4j property renamed to `entity_type` (March 2026); `parent_ku_uid` renamed to `parent_entity_uid`
 
 **See:** [ADR-035](../decisions/ADR-035-tier-selection-guidelines.md), [ADR-041](../decisions/ADR-041-unified-ku-model.md)
 

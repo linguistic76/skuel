@@ -1162,7 +1162,7 @@ async def get_filtered_tasks(...) -> Result[tuple[list[Any], dict[str, int]]]:
 async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
     """Cypher COUNT aggregation — zero entity deserialization."""
     query = """
-    MATCH (n:Entity {user_uid: $user_uid, ku_type: 'task'})
+    MATCH (n:Entity {user_uid: $user_uid, entity_type: 'task'})
     RETURN count(n) AS total,
            count(CASE WHEN n.status = 'completed' THEN 1 END) AS completed,
            count(CASE WHEN n.due_date IS NOT NULL AND n.due_date < date()

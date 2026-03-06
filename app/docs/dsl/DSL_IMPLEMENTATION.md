@@ -117,16 +117,16 @@ def parse_context(value: str) -> list[EntityType]:
     """Parse @context() into EntityType list."""
     raw_contexts = [c.strip().lower() for c in value.split(',')]
 
-    ku_types = []
+    entity_types = []
     for ctx in raw_contexts:
-        ku_type = EntityType.from_string(ctx)
-        if ku_type:
-            ku_types.append(ku_type)
+        entity_type = EntityType.from_string(ctx)
+        if entity_type:
+            entity_types.append(entity_type)
         else:
             # Log warning: unknown context type
             pass
 
-    return ku_types
+    return entity_types
 ```
 
 **Example:**

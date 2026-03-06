@@ -52,24 +52,21 @@ close the loop: student does work, system or teacher responds.
 
 ---
 
-## Field Naming Convention: `ku_type` vs `EntityType`
+## Field Naming Convention: `entity_type` vs `EntityType`
 
-The Python enum is named `EntityType`, but the Python model field and Neo4j node
-property are both named **`ku_type`**. This applies to every entity in the loop.
+The Python enum is named `EntityType`. The Python model field and Neo4j node
+property are both named **`entity_type`** (renamed from `ku_type` in March 2026).
 
 ```python
-# Python model constructors use ku_type (not entity_type):
-ku = Ku(ku_type=EntityType.KU, ...)
-feedback = SubmissionFeedback(ku_type=EntityType.SUBMISSION_FEEDBACK, ...)
-report = ActivityReport(ku_type=EntityType.ACTIVITY_REPORT, ...)
+# Python model field:
+ku = Ku(entity_type=EntityType.KU, ...)
+feedback = SubmissionFeedback(entity_type=EntityType.SUBMISSION_FEEDBACK, ...)
+report = ActivityReport(entity_type=EntityType.ACTIVITY_REPORT, ...)
 
-# Cypher filters use ku_type as the stored property name:
-MATCH (n:Entity {ku_type: 'submission_feedback'})
-MATCH (n:Entity {ku_type: 'ku'})
+# Neo4j property:
+MATCH (n:Entity {entity_type: 'submission_feedback'})
+MATCH (n:Entity {entity_type: 'ku'})
 ```
-
-The enum VALUES were renamed (e.g. `AI_FEEDBACK` → `ACTIVITY_REPORT`) but the
-field name `ku_type` was not. Every code example in this skill follows this pattern.
 
 ---
 
@@ -570,7 +567,7 @@ that never closes the loop.
        ↓
 3. Student submits file
    SubmissionsService.submit_file()                 → core/services/submissions/submissions_core_service.py
-   Creates Entity with ku_type='submission', status SUBMITTED→QUEUED→PROCESSING→COMPLETED
+   Creates Entity with entity_type='submission', status SUBMITTED→QUEUED→PROCESSING→COMPLETED
        ↓
 4. FULFILLS_EXERCISE relationship created
    Auto-sharing: SHARES_WITH (student → teacher)
