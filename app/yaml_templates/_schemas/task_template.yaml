@@ -56,11 +56,12 @@ priority: medium
 status: draft
 
 # applies_knowledge_uids: Knowledge this task applies or practices
-# Type: List of KnowledgeUnit UIDs
-# Purpose: Link task to learning
+# Type: List of Article or Ku UIDs
+# Purpose: Link task to learning content
+# Note: Can reference Articles (a:...) for teaching content or Kus (ku:...) for atomic concepts
 applies_knowledge_uids:
-  - ku:related-knowledge-1
-  - ku:related-knowledge-2
+  - a:namespace:related-article
+  - ku:namespace:related-concept
 
 # fulfills_goal_uid: Goal this task contributes to
 # Type: Goal UID (single goal, not a list)
@@ -141,4 +142,4 @@ actual_effort: null
 # 5. Use status to track task lifecycle: draft → ready → in_progress → completed
 # 6. dependencies creates a task graph (prerequisite tasks must finish first)
 # 7. tags help with filtering and organization
-# 8. applies_knowledge_uids connects tasks to learning (can be multiple)
+# 8. applies_knowledge_uids connects tasks to learning (Articles or Kus)

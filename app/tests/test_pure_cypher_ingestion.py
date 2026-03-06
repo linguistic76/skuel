@@ -325,12 +325,20 @@ def test_entity_type_detection():
     result = service.detect_entity_type({"type": "task"}, Path("/tmp/test.yaml"))
     assert result == EntityType.TASK, "TASK detection should return EntityType.TASK"
 
-    result = service.detect_entity_type({"type": "ku"}, Path("/tmp/test.md"))
-    assert result == EntityType.ARTICLE, "KU detection should return EntityType.ARTICLE"
+    result = service.detect_entity_type({"type": "ku"}, Path("/tmp/test.yaml"))
+    assert result == EntityType.KU, "KU detection should return EntityType.KU"
+
+    # "knowledgeunit" and "knowledge" still map to ARTICLE (backward compat for old files)
+    result = service.detect_entity_type({"type": "knowledgeunit"}, Path("/tmp/test.yaml"))
+    assert result == EntityType.ARTICLE, "knowledgeunit should return EntityType.ARTICLE"
+
+    result = service.detect_entity_type({"type": "knowledge"}, Path("/tmp/test.yaml"))
+    assert result == EntityType.ARTICLE, "knowledge should return EntityType.ARTICLE"
 
     print("✅ Entity type detection works correctly!")
     print("   - Returns EntityType/NonKuDomain enum (type-safe!)")
-    print("   - Handles aliases (knowledge → KU, curriculum → KU)")
+    print("   - Handles aliases (knowledge → ARTICLE, knowledgeunit → ARTICLE)")
+    print("   - ku → KU (atomic knowledge unit)")
     print("   - Case insensitive")
     print("   - MOC flag detection works")
     print("   - All 14 domains are unified peers (January 2026)")
@@ -353,11 +361,11 @@ async def test_dry_run_validation():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmppath = Path(tmpdir)
 
-        # Test 1: Valid markdown file
+        # Test 1: Valid markdown file (type: article)
         valid_md = tmppath / "test-knowledge.md"
         valid_md.write_text("""---
 title: Test Knowledge Unit
-type: ku
+type: article
 ---
 This is the content of the knowledge unit.
 """)
@@ -460,13 +468,13 @@ async def test_parallel_directory_processing():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmppath = Path(tmpdir)
 
-        # Create 10 valid markdown files
+        # Create 10 valid markdown files (Articles = teaching content)
         for i in range(10):
-            (tmppath / f"ku-{i}.md").write_text(f"""---
-title: Knowledge Unit {i}
-type: ku
+            (tmppath / f"article-{i}.md").write_text(f"""---
+title: Article {i}
+type: article
 ---
-Content for KU {i}
+Content for Article {i}
 """)
 
         # Create 5 valid YAML files
@@ -491,13 +499,13 @@ description: Description for task {i}
         # Test 3: Test parse_file_sync helper directly (from batch module)
         from core.services.ingestion.batch import parse_file_sync
 
-        test_file = tmppath / "ku-0.md"
+        test_file = tmppath / "article-0.md"
         entity_type, entity_data, error = parse_file_sync(test_file)
         assert error is None, f"Should parse successfully: {error}"
         assert entity_type is not None
         assert entity_type.value == "article"
         assert entity_data is not None
-        assert entity_data["title"] == "Knowledge Unit 0"
+        assert entity_data["title"] == "Article 0"
 
         # Test 4: Test error handling in parallel processing
         # Add an invalid file

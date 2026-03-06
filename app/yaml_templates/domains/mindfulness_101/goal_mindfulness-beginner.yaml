@@ -21,10 +21,11 @@ start_date: null
 target_date: null
 
 # Learning Integration
+# Knowledge connections (Article UIDs for teaching content)
 required_knowledge_uids:
-  - ku:breath-awareness-basics
-  - ku:posture-basics
-  - ku:mind-wandering-happens
+  - a:mindfulness:breath-awareness-basics
+  - a:mindfulness:posture-basics
+  - a:mindfulness:mind-wandering-happens
 
 supporting_habit_uids:
   - habit:daily-2min-breath

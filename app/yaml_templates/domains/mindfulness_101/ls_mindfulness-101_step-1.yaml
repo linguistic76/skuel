@@ -8,12 +8,16 @@ description: |
   Your first step: Just two minutes of breath awareness.
   That's enough to begin building the foundation.
 
-# Knowledge Content
+# Knowledge Content (Article UIDs for teaching content)
 primary_knowledge_uids:
-  - ku:breath-awareness-basics
+  - a:mindfulness:breath-awareness-basics
 
 supporting_knowledge_uids:
-  - ku:posture-basics
+  - a:mindfulness:posture-basics
+
+# Atomic Kus this step trains (learning objectives)
+trains_ku_uids:
+  - ku:mindfulness:breath
 
 # Path Integration
 learning_path_uid: lp:mindfulness-101
@@ -21,7 +25,7 @@ sequence: 1
 
 # Prerequisites
 prerequisite_step_uids: []
-prerequisite_knowledge_uids: []
+prerequisite_knowledge_uids: []  # No prerequisites - true beginner step
 
 # Learning Guidance
 principle_uids:

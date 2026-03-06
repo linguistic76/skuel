@@ -1,0 +1,20 @@
+# Ku (Atomic Knowledge Unit) Example
+# ====================================
+# A single definable thing: concept, state, principle, substance, practice, or value.
+# See _schemas/ku_template.yaml for full field reference.
+
+version: 1.0
+type: Ku
+
+uid: ku:example:template-concept
+title: Template Concept
+namespace: example
+ku_category: concept
+aliases:
+  - template-idea
+  - example-notion
+source: research
+description: A placeholder atomic Ku for reference.
+tags:
+  - template
+  - example

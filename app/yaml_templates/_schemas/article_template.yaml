@@ -1,0 +1,126 @@
+# Article Template
+# ================
+# This is a TEMPLATE EXAMPLE, not a validation schema.
+# It shows ALL valid fields for Article YAML files.
+#
+# An Article is a teaching composition -- an essay-like narrative that
+# explains, teaches, and connects concepts. Articles compose atomic Kus
+# into coherent teaching narratives via USES_KU relationships.
+#
+# Article vs Ku:
+#   - Article: teaching composition (full markdown, learning metadata)
+#   - Ku: atomic reference node (no content body, no learning metadata)
+#
+# Purpose: Use this as a reference when creating teaching content.
+
+# REQUIRED FIELDS
+# ---------------
+
+version: 1.0
+type: Article
+
+# uid: Unique identifier
+# Pattern: a:{namespace}:{slug} or a:{slug}
+# Example: a:mindfulness:breath-awareness-basics, a:calculus:derivative-rules
+uid: a:namespace:example-slug
+
+# title: Display title for this article
+# Type: String
+# Example: "Breath Awareness -- Basics", "Buzzing, Stimulants, and Calm"
+title: Example Article Title
+
+# content: Full markdown teaching narrative
+# Format: Markdown with headers, bullets, code blocks, etc.
+# Minimum: 1 character
+content: |
+  ## Introduction
+
+  Your main teaching content goes here. Use markdown formatting.
+
+  ## Key Concepts
+
+  1. First concept
+  2. Second concept
+
+  ## Examples
+
+  Concrete examples that illustrate the teaching points.
+
+  ## Summary
+
+  Wrap up the key takeaways here.
+
+# OPTIONAL FIELDS
+# ---------------
+
+# domain: Knowledge domain classification
+# Valid values: personal, professional, technical, health, financial, social
+# Default: personal
+domain: personal
+
+# complexity: Difficulty level of the content
+# Valid values: basic, medium, advanced
+# Default: medium
+# Note: Use 'basic' not 'beginner'!
+complexity: basic
+
+# learning_level: Target learner level
+# Valid values: beginner, intermediate, advanced, expert
+# Default: null
+learning_level: beginner
+
+# estimated_time_minutes: Expected time to read/study
+# Type: Integer
+# Unit: Minutes
+# Example: 15 for a short article, 45 for a deep dive
+estimated_time_minutes: 15
+
+# learning_objectives: What the learner will gain
+# Type: List of strings
+# Purpose: Clear outcomes for the reader
+learning_objectives:
+  - Understand the basic concept
+  - Apply the technique in practice
+
+# uses_kus: Atomic Kus this Article composes into its narrative
+# Type: List of Ku UIDs
+# Purpose: Declares which atomic knowledge units this Article teaches
+# Graph: Creates (Article)-[:USES_KU]->(Ku) relationships
+uses_kus:
+  - ku:namespace:concept-1
+  - ku:namespace:concept-2
+
+# quality_score: Quality rating of this content
+# Type: Float between 0.0 and 1.0
+# Default: 0.0
+quality_score: 0.85
+
+# connections: Prerequisite and enabling relationships to other Articles
+# Type: Object with 'requires' and 'enables' lists
+# Purpose: Build knowledge graph between Articles
+connections:
+  requires:
+    - a:namespace:prerequisite-article
+  enables:
+    - a:namespace:next-article
+
+# tags: Descriptive tags for categorization
+# Type: List of strings
+tags:
+  - tag1
+  - tag2
+
+# METADATA FIELDS (Auto-populated, DO NOT SET)
+# --------------------------------------------
+# These fields are automatically set by the system:
+# - created_at: Timestamp when created
+# - updated_at: Timestamp when last modified
+
+# IMPORTANT NOTES
+# ---------------
+# 1. Article replaces the old "KnowledgeUnit" type (March 2026 rename)
+# 2. Old YAML files with type: KnowledgeUnit will be ingested as Articles
+# 3. content is REQUIRED -- Articles are teaching documents
+# 4. uses_kus links to atomic Ku nodes (the concepts this Article teaches)
+# 5. Use complexity (basic/medium/advanced) not difficulty for Articles
+# 6. connections.requires/enables build the Article prerequisite graph

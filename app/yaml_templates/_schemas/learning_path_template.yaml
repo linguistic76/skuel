@@ -57,11 +57,11 @@ steps:
   - ls:example-path:step-2
 
 # prerequisites: Knowledge required before starting this path
-# Type: List of KnowledgeUnit UIDs
+# Type: List of Article UIDs
 # Purpose: What the learner should know before beginning
-# Example: [ku:basic-concepts]
+# Example: [a:basics:fundamental-concepts]
 prerequisites:
-  - ku:prerequisite-knowledge
+  - a:example:prerequisite-knowledge
 
 # outcomes: Learning outcomes upon completion
 # Type: List of strings
@@ -98,7 +98,7 @@ created_by: system
 #   - uid: ls:example-path:step-1
 #     title: First Step Title
 #     intent: What to accomplish
-#     knowledge_uid: ku:first-topic
+#     knowledge_uid: a:example:first-topic
 #     sequence: 1
 #     mastery_threshold: 0.7
 #     estimated_hours: 1.0
@@ -106,7 +106,7 @@ created_by: system
 #   - uid: ls:example-path:step-2
 #     title: Second Step Title
 #     intent: What to accomplish next
-#     knowledge_uid: ku:second-topic
+#     knowledge_uid: a:example:second-topic
 #     sequence: 2
 #     mastery_threshold: 0.7
 #     estimated_hours: 0.5
@@ -122,5 +122,6 @@ created_by: system
 # 3. Use 'adaptive' for paths that adjust based on learner performance
 # 4. Use 'exploratory' for non-linear, learner-directed paths
 # 5. Use 'project_based' for hands-on learning with a final project
-# 6. prerequisites should list foundational knowledge needed to start
+# 6. prerequisites should list foundational Articles needed to start
+# 7. Kus are atomic reference nodes; Articles are teaching compositions
 # 7. outcomes should be concrete, measurable learning objectives

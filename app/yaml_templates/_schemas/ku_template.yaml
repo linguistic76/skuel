@@ -1,0 +1,99 @@
+# Ku (Atomic Knowledge Unit) Template
+# =====================================
+# This is a TEMPLATE EXAMPLE, not a validation schema.
+# It shows ALL valid fields for Ku YAML files.
+#
+# A Ku is a single definable thing: a concept, state, principle, substance,
+# practice, or value. Small enough to appear in many Articles without dragging
+# narrative. Ku is a reference node, not a teaching document.
+#
+# Ku vs Article:
+#   - Ku: atomic reference node (no content body, no learning metadata)
+#   - Article: teaching composition (full markdown content, complexity, learning_level)
+#
+# Articles compose Kus via USES_KU relationships.
+# Learning Steps train Kus via TRAINS_KU relationships.
+#
+# Purpose: Use this as a reference when creating atomic knowledge units.
+
+# REQUIRED FIELDS
+# ---------------
+
+version: 1.0
+type: Ku
+
+# uid: Unique identifier
+# Pattern: ku:{namespace}:{slug} or ku:{slug}
+# Example: ku:attention:buzzing, ku:nutrition:caffeine
+uid: ku:namespace:example-slug
+
+# title: Display title for this Ku
+# Type: String
+# Example: "Buzzing", "Caffeine", "Truth-Oriented Collaboration"
+title: Example Ku Title
+
+# OPTIONAL FIELDS
+# ---------------
+
+# namespace: Primary grouping for the Ku
+# Type: String (lowercase, no spaces)
+# Purpose: Groups related Kus (attention, nutrition, emotion, body, ...)
+# Example: attention, nutrition, body, emotion, cognition
+namespace: attention
+
+# ku_category: What kind of knowledge unit this is
+# Valid values: state, concept, principle, intake, substance, practice, value
+# Default: null
+# Example: state for observable conditions, concept for abstract ideas
+ku_category: state
+
+# aliases: Alternative names for this Ku
+# Type: List of strings
+# Purpose: Help with search and cross-referencing
+# Example: [buzzing, restlessness, mental agitation]
+aliases:
+  - alternative-name-1
+  - alternative-name-2
+
+# source: Where this knowledge comes from
+# Valid values: self_observation, research, teacher
+# Default: null
+# Example: self_observation for personal insight, research for evidence-based
+source: self_observation
+
+# description: Brief summary of this Ku
+# Type: String
+# Purpose: Optional brief description (NOT a full teaching narrative -- that's an Article)
+description: A brief description of this atomic knowledge unit
+
+# tags: Descriptive tags for categorization
+# Type: List of strings
+tags:
+  - tag1
+  - tag2
+
+# ENUM VALUE REFERENCE
+# --------------------
+
+# ku_category options:
+#   - state: Observable conditions (buzzing, calm, heightened_arousal)
+#   - concept: Abstract ideas (caffeine, attention, neuroplasticity)
+#   - principle: Guiding truths (truth_oriented_collaboration)
+#   - intake: Consumables (coffee_consumption, food)
+#   - substance: Chemical/physical agents (caffeine, melatonin)
+#   - practice: Actionable methods (meditation, breathwork)
+#   - value: Desired qualities (calmness, honesty, courage)
+
+# source options:
+#   - self_observation: From personal experience/observation
+#   - research: Evidence-based, from published research
+#   - teacher: Learned from a teacher or mentor
+
+# IMPORTANT NOTES
+# ---------------
+# 1. Ku is NOT a teaching document -- it has NO content body
+# 2. Ku extends Entity directly (not Curriculum -- no complexity, learning_level, etc.)
+# 3. Articles compose Kus: (Article)-[:USES_KU]->(Ku)
+# 4. Learning Steps train Kus: (Ls)-[:TRAINS_KU]->(Ku)
+# 5. Keep Kus atomic -- one definable thing per Ku
+# 6. Use Articles for narrative teaching content

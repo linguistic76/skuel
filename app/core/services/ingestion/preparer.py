@@ -210,7 +210,7 @@ def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> bool:
         EntityType.CHOICE,
         EntityType.PRINCIPLE,
     ]
-    return entity_type == EntityType.ARTICLE or entity_type in activity_domains
+    return entity_type in (EntityType.ARTICLE, EntityType.KU) or entity_type in activity_domains
 
 
 def prepare_entity_data_sync(

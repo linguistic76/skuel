@@ -1,0 +1,21 @@
+# Ku: Breath (atomic concept)
+# ============================
+# The act and awareness of breathing as a mindfulness anchor.
+
+version: 1.0
+type: Ku
+
+uid: ku:mindfulness:breath
+title: Breath
+namespace: mindfulness
+ku_category: practice
+aliases:
+  - breathing
+  - breath awareness
+  - mindful breathing
+source: research
+description: The natural rhythm of inhalation and exhalation, used as the primary anchor for attention in mindfulness practice.
+tags:
+  - mindfulness
+  - practice
+  - foundational

@@ -44,10 +44,11 @@ supports_goals:
 reinforces_habits:
   - habit:weekly-calculus-review
 
+# Knowledge connections (Articles for teaching content)
 related_knowledge_units:
-  - ku:calculus-fundamentals
-  - ku:derivative-rules
-  - ku:integration-fundamentals
+  - a:calculus:fundamentals
+  - a:calculus:derivative-rules
+  - a:calculus:integration-fundamentals
 
 # Participants
 participant_count: 4

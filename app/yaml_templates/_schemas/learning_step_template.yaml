@@ -27,11 +27,19 @@ title: Example Step Title
 # Example: "Pick one topic, run a single 25-minute block, and log it"
 intent: What the learner should achieve in this step
 
-# knowledge_uid: Reference to the KnowledgeUnit for this step
-# Type: String (must be valid KnowledgeUnit UID)
-# Pattern: ku:topic-name
-# Example: ku:note-taking-basics
-knowledge_uid: ku:example-topic
+# knowledge_uid: Reference to the Article for this step
+# Type: String (must be valid Article UID)
+# Pattern: a:namespace:slug
+# Example: a:study-skills:note-taking-basics
+knowledge_uid: a:example:topic
+
+# trains_ku_uids: Atomic Kus this step trains (learning objectives)
+# Type: List of Ku UIDs
+# Purpose: Declares which atomic knowledge units the learner will acquire
+# Graph: Creates (Ls)-[:TRAINS_KU]->(Ku) relationships
+# Example: [ku:study:note-taking, ku:study:spaced-repetition]
+trains_ku_uids:
+  - ku:example:concept-1
 
 # sequence: Order of this step in the learning path
 # Type: Integer >= 0
@@ -103,6 +111,8 @@ prerequisites:
 # -----
 # 1. LearningStep files are typically embedded in LearningPath YAML, not separate files
 # 2. The uid, knowledge_uid, and sequence fields are REQUIRED
-# 3. title and intent are REQUIRED by the LearningStepCreateRequest Pydantic model
+# 3. knowledge_uid references an Article (teaching content), not a Ku (atomic concept)
+# 4. trains_ku_uids references atomic Kus (learning objectives for this step)
+# 5. title and intent are REQUIRED by the LearningStepCreateRequest Pydantic model
 # 4. Progress tracking fields (current_mastery, completed, completed_at) are auto-managed
 # 5. prerequisites create a dependency graph for the learning path

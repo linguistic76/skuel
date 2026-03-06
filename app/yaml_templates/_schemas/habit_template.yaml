@@ -74,12 +74,13 @@ preferred_time: morning
 # Example: 25 for pomodoro sessions, 30 for review sessions
 duration_minutes: 25
 
-# linked_knowledge_uids: Knowledge units this habit reinforces
-# Type: List of KnowledgeUnit UIDs
-# Purpose: Connect habit practice to learning
+# linked_knowledge_uids: Knowledge this habit reinforces
+# Type: List of Article or Ku UIDs
+# Purpose: Connect habit practice to learning content
+# Note: Can reference Articles (a:...) for teaching content or Kus (ku:...) for atomic concepts
 linked_knowledge_uids:
-  - ku:related-knowledge-1
-  - ku:related-knowledge-2
+  - a:namespace:related-article
+  - ku:namespace:related-concept
 
 # linked_goal_uids: Goals this habit supports
 # Type: List of Goal UIDs
@@ -204,5 +205,5 @@ tags:
 # 3. Use 'recurrence_pattern' not 'habit_type' or 'frequency'
 # 4. Progress fields (streaks, completions) are auto-managed by system
 # 5. Cue-Routine-Reward pattern helps establish strong habits
-# 6. linked_* fields connect habits to broader learning ecosystem
+# 6. linked_knowledge_uids can reference Articles (a:...) or Kus (ku:...)
 # 7. prerequisite_habit_uids creates a progression path (simple → complex)

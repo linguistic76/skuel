@@ -19,11 +19,12 @@ from core.models.enums.entity_enums import EntityType, NonKuDomain
 
 # Map YAML type values to EntityType/NonKuDomain (handles aliases)
 TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
-    # Articles (teaching compositions — formerly "ku" in ingestion)
+    # Articles (teaching compositions)
     "article": EntityType.ARTICLE,
-    "ku": EntityType.ARTICLE,
-    "knowledge": EntityType.ARTICLE,
     "knowledgeunit": EntityType.ARTICLE,
+    "knowledge": EntityType.ARTICLE,
+    # Atomic Ku (knowledge unit — concept, state, principle, substance, practice, value)
+    "ku": EntityType.KU,
     # Maps of Content (MOC is emergent via ORGANIZES relationships)
     "moc": EntityType.ARTICLE,
     "mapofcontent": EntityType.ARTICLE,

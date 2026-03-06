@@ -1,0 +1,20 @@
+# Edge Template Example
+# =====================
+# Edge ingestion NOT yet wired -- see docs/roadmap/edge-ingestion-support.md
+# See _schemas/edge_template.yaml for full field reference.
+
+version: 1.0
+type: Edge
+
+from: ku:source:example
+to: ku:target:example
+relationship: RELATED_TO
+
+evidence: "Placeholder evidence for the relationship between these two Kus."
+confidence: 0.5
+polarity: 0
+temporality: days
+source: self_observation
+tags:
+  - template
+  - example

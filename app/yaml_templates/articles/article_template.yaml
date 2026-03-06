@@ -1,0 +1,39 @@
+# Article Example
+# ===============
+# A teaching composition that explains concepts through narrative.
+# See _schemas/article_template.yaml for full field reference.
+
+version: 1.0
+type: Article
+
+uid: a:example:template-article
+title: Template Article
+content: |
+  ## Introduction
+
+  This is a placeholder teaching article. Articles are essay-like narratives
+  that compose atomic Kus into coherent lessons.
+
+  ## Key Concepts
+
+  - Concept 1: explained in context
+  - Concept 2: connected to concept 1
+
+  ## Summary
+
+  Articles teach. Kus define. Together they form SKUEL's curriculum.
+
+domain: personal
+complexity: basic
+learning_level: beginner
+estimated_time_minutes: 10
+
+uses_kus: []
+
+connections:
+  requires: []
+  enables: []
+
+tags:
+  - template
+  - example

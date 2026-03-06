@@ -1,12 +1,12 @@
 version: 1.0
-type: KnowledgeUnit
+type: Article
 
-uid: ku:mind-wandering-happens
+uid: a:mindfulness:mind-wandering-happens
 title: Mind Wandering Happens
 content: |
   ## Mind Wandering is Normal
 
-  Your mind will wander during meditation. That's not a problem—it's the practice.
+  Your mind will wander during meditation. That's not a problem -- it's the practice.
 
   ### The Pattern
 
@@ -36,28 +36,16 @@ domain: personal
 complexity: medium
 quality_score: 0.90
 
-semantic_links:
-  - attention
-  - mindfulness
-  - meta-awareness
-  - self-compassion
+uses_kus:
+  - ku:mindfulness:attention
 
-prerequisites:
-  - ku:breath-awareness-basics
-
-enables:
-  - ku:labeling-thoughts
-  - ku:noting-practice
-  - ku:meta-awareness
-
-related_to:
-  - ku:self-compassion-basics
-  - ku:acceptance-practice
+connections:
+  requires:
+    - a:mindfulness:breath-awareness-basics
+  enables: []
 
 tags:
   - attention
   - mindfulness
   - beginner
   - meta-cognitive
-created_at: 2025-10-04T00:00:00Z
-updated_at: 2025-10-04T00:00:00Z

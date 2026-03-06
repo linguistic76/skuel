@@ -1,7 +1,7 @@
 version: 1.0
-type: KnowledgeUnit
+type: Article
 
-uid: ku:breath-awareness-basics
+uid: a:mindfulness:breath-awareness-basics
 title: Breath Awareness — Basics
 content: |
   ## Introduction to Breath Awareness
@@ -35,27 +35,18 @@ domain: personal
 complexity: basic
 quality_score: 0.85
 
-semantic_links:
-  - mindfulness
-  - meditation
-  - attention-training
-  - breath
+uses_kus:
+  - ku:mindfulness:breath
+  - ku:mindfulness:attention
 
-prerequisites: []
-
-enables:
-  - ku:posture-basics
-  - ku:mind-wandering-happens
-  - ku:walking-meditation
-
-related_to:
-  - ku:body-scan-basics
-  - ku:mindful-breathing-variations
+connections:
+  requires: []
+  enables:
+    - a:mindfulness:posture-basics
+    - a:mindfulness:mind-wandering-happens
 
 tags:
   - breath
   - meditation
   - beginner
   - foundational
-created_at: 2025-10-04T00:00:00Z
-updated_at: 2025-10-04T00:00:00Z

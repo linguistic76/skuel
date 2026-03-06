@@ -32,10 +32,11 @@ completion_status: not_started
 fulfills_goal_uid: goal:master-calculus-fundamentals
 reinforces_habit_uid: habit:daily-25min-focus-block
 
+# Knowledge connections (Articles for teaching content, Kus for atomic concepts)
 related_knowledge_units:
-  - ku:derivative-rules
-  - ku:chain-rule
-  - ku:derivative-applications
+  - a:calculus:derivative-rules
+  - a:calculus:chain-rule
+  - a:calculus:derivative-applications
 
 # Context and motivation
 context: |

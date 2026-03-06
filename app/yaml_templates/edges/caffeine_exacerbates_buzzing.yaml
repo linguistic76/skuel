@@ -1,0 +1,24 @@
+# Edge: Caffeine exacerbates Buzzing
+# ====================================
+# Edge ingestion NOT yet wired -- see docs/roadmap/edge-ingestion-support.md
+#
+# Personal observation: coffee consumption increases mental restlessness.
+
+version: 1.0
+type: Edge
+
+from: ku:nutrition:caffeine
+to: ku:attention:buzzing
+relationship: EXACERBATED_BY
+
+evidence: "After coffee I feel more restless and mentally speedy. The buzzing intensifies within 30 minutes of consumption and lasts 2-4 hours."
+confidence: 0.8
+polarity: 1
+temporality: hours
+source: self_observation
+observed_at: "2026-03-06T10:30:00+07:00"
+tags:
+  - stimulant
+  - observation
+  - caffeine
+  - attention

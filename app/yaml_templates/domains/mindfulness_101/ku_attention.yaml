@@ -1,0 +1,21 @@
+# Ku: Attention (atomic concept)
+# ===============================
+# The cognitive capacity to focus awareness on a chosen object.
+
+version: 1.0
+type: Ku
+
+uid: ku:mindfulness:attention
+title: Attention
+namespace: mindfulness
+ku_category: concept
+aliases:
+  - focus
+  - awareness
+  - concentration
+source: research
+description: The cognitive capacity to direct and sustain awareness on a chosen object. In mindfulness, attention is trained through repeated return to an anchor (like breath).
+tags:
+  - mindfulness
+  - concept
+  - foundational

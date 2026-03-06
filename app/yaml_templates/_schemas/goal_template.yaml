@@ -84,11 +84,12 @@ start_date: null
 target_date: null
 
 # required_knowledge_uids: Knowledge needed to achieve this goal
-# Type: List of KnowledgeUnit UIDs
+# Type: List of Article or Ku UIDs
 # Purpose: Prerequisites for goal success
+# Note: Can reference Articles (a:...) for teaching content or Kus (ku:...) for atomic concepts
 required_knowledge_uids:
-  - ku:required-knowledge-1
-  - ku:required-knowledge-2
+  - a:namespace:required-article
+  - ku:namespace:required-concept
 
 # supporting_habit_uids: Habits that support this goal
 # Type: List of Habit UIDs
@@ -231,7 +232,7 @@ strategies:
 # 3. Use 'process' not 'habit' for goal_type (common mistake!)
 # 4. measurement_type determines how progress is tracked
 # 5. For numeric goals, set target_value and unit_of_measurement
-# 6. required_knowledge_uids links to learning prerequisites
+# 6. required_knowledge_uids can reference Articles (a:...) or Kus (ku:...)
 # 7. supporting_habit_uids connects daily practices to goal achievement
 # 8. guiding_principle_uids grounds goal in values
 # 9. parent_goal_uid and sub_goal_uids create goal hierarchies

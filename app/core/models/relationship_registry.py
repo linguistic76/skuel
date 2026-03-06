@@ -2273,6 +2273,7 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 # All domain entities are :Entity nodes; virtual config keys kept for lookup.
 ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
     EntityType.ARTICLE: "Entity",
+    EntityType.KU: "Ku",
     EntityType.TASK: "Task",
     EntityType.GOAL: "Goal",
     EntityType.HABIT: "Habit",  # Virtual key — config lookup key for 'habit'}
@@ -2286,6 +2287,7 @@ ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
 
 LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
     "Entity": EntityType.ARTICLE,
+    "Ku": EntityType.KU,
     "Task": EntityType.TASK,
     "Goal": EntityType.GOAL,
     "Habit": EntityType.HABIT,

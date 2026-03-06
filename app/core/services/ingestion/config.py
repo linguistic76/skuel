@@ -143,6 +143,12 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         required_fields=("title", "content"),
         relationship_config=generate_ingestion_relationship_config(EntityType.ARTICLE),
     ),
+    EntityType.KU: EntityIngestionConfig(
+        entity_label="Ku",
+        uid_prefix="ku",
+        required_fields=("title",),
+        relationship_config=generate_ingestion_relationship_config(EntityType.KU),
+    ),
     EntityType.TASK: EntityIngestionConfig(
         entity_label="Task",
         uid_prefix="task",

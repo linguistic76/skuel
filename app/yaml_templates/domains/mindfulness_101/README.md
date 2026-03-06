@@ -5,21 +5,23 @@ A complete, beginner-friendly curriculum bundle for starting a mindfulness pract
 
 ## Bundle Contents
 
-### Core Curriculum (6 entities)
+### Atomic Kus (2)
+- `ku:mindfulness:breath` - The breath as a mindfulness anchor
+- `ku:mindfulness:attention` - The cognitive capacity to focus awareness
 
-**Knowledge Units** (ku)
-- `ku:breath-awareness-basics` - Foundation of breath awareness practice
-- `ku:posture-basics` - Simple posture guidelines
-- `ku:mind-wandering-happens` - Understanding and working with wandering mind
+### Articles (3)
+- `a:mindfulness:breath-awareness-basics` - Foundation of breath awareness practice
+- `a:mindfulness:posture-basics` - Simple posture guidelines
+- `a:mindfulness:mind-wandering-happens` - Understanding and working with wandering mind
 
-**Learning Steps** (ls)
+### Learning Steps (2)
 - `ls:mindfulness-101:step-1` - Two Minutes Today
 - `ls:mindfulness-101:step-2` - Name The Wanders
 
-**Learning Path** (lp)
+### Learning Path (1)
 - `lp:mindfulness-101` - Complete beginner sequence
 
-### Supporting Entities (13 entities)
+### Supporting Entities (11)
 
 **Principles** (2)
 - `principle:small-steps` - Small Steps Beat Big Bursts
@@ -39,205 +41,80 @@ A complete, beginner-friendly curriculum bundle for starting a mindfulness pract
 - `task:reflect-on-first-week` - Reflect on your first week
 
 **Events** (1)
-- `event:practice-block-2min` - Breath Practice — 2 min (calendar template)
+- `event:practice-block-2min` - Breath Practice -- 2 min (calendar template)
 
 **Goals** (1)
 - `goal:mindfulness-beginner` - Build a gentle daily starter practice
 
-**Conversations** (1)
-- `conversation:2025-10-04:breath-starter` - (To be created)
+**Total**: 21 entities
 
-**Total**: 19 entities (18 created + 1 pending)
+## Curriculum Model
 
-## Learning Journey
-
-### Step 1: Two Minutes Today
-**Objective**: Try one two-minute breath session, note what you notice
-
-**What You'll Learn**:
-- Basic breath awareness technique
-- Simple posture setup
-- Foundation for daily practice
-
-**Practice**:
-- Choose: Do 2 minutes right now OR 2 minutes before bed
-- Build habit: Daily 2-minute breath
-- Complete task: Log first 5 sessions
-
-**Guided by**: Principle of Small Steps
-
-### Step 2: Name The Wanders
-**Objective**: Label mind-wanders without judgment once per session
-
-**What You'll Learn**:
-- Mind wandering is normal and expected
-- Meta-awareness through gentle labeling
-- Non-judgmental observation
-
-**Practice**:
-- Choose: Label one wander per session
-- Build habit: Label wander daily
-- Complete task: Reflect on first week
-
-**Guided by**: Principle of Attention Over Intensity
-
-## Philosophy
-
-### Small Steps Beat Big Bursts
-Sustainable change comes from small, repeated actions. Two minutes daily beats one hour weekly.
-
-### Attention Over Intensity
-Quality of attention matters more than intensity of effort. Mindfulness is about noticing, not forcing.
-
-## Success Criteria (Goal: mindfulness-beginner)
-
-✅ Complete 5+ breath awareness sessions per week
-✅ Maintain practice for 4 consecutive weeks
-✅ Log reflections on progress
-✅ Develop ability to notice mind wandering
-
-### Milestones
-1. **First Session Complete** - Complete first 2-minute breath session
-2. **First Week Complete** - 5 sessions completed in first 7 days
-3. **Labeling Practice Added** - Begin labeling mind-wanders
-4. **Four Weeks Complete** - Maintain 5+ sessions/week for 4 weeks
-
-## Relationship Graph
+This bundle demonstrates SKUEL's four-entity curriculum model:
 
 ```
-Knowledge Units (ku)
-  └─> Learning Steps (ls)
-        └─> Learning Path (lp)
-
-Principles
-  └─> Guide Learning Steps
-  └─> Inspire Habits
-
-Choices
-  └─> Offered at Learning Steps
-  └─> Create Tasks
-  └─> Nudge Habits
-
-Habits
-  └─> Reinforce Knowledge
-  └─> Support Goals
-  └─> Project as Events
-
-Tasks
-  └─> Practice Knowledge
-  └─> Support Goals
-  └─> Project as Events
-
-Goal
-  └─> Aligns with Habits, Tasks, Principles, Knowledge
+Ku (atom)          Article (teaching)         Ls (step)          Lp (path)
+ku:breath    <--   a:breath-awareness   -->   ls:step-1    -->   lp:mindfulness-101
+ku:attention <--   a:mind-wandering     -->   ls:step-2    -->
+                   USES_KU                    TRAINS_KU
 ```
+
+- **Kus** are atomic reference nodes (breath, attention)
+- **Articles** compose Kus into teaching narratives via `USES_KU`
+- **Learning Steps** train specific Kus via `TRAINS_KU` and reference Articles for content
+- **Learning Path** sequences the steps
 
 ## Ingestion
 
-### Using YamlIngestionService
+### Using UnifiedIngestionService
 
 ```python
-from core.services.yaml_ingestion_service import YamlIngestionService
+from core.services.ingestion import UnifiedIngestionService
 from pathlib import Path
-from neo4j import AsyncGraphDatabase
-
-# Connect to Neo4j
-driver = AsyncGraphDatabase.driver(
-    "bolt://localhost:7687",
-    auth=("neo4j", "password")
-)
-
-# Create service
-service = YamlIngestionService(driver)
 
 # Ingest entire bundle (uses manifest for dependency order)
-result = await service.ingest_domain_bundle(
+result = await ingestion_service.ingest_directory(
     Path("yaml_templates/domains/mindfulness_101")
 )
-
-if result.is_ok:
-    stats = result.value
-    print(f"✅ Created {stats['total_successful']} entities")
-    print(f"Entities: {stats['entities_created']}")
 ```
 
 ### Import Order (from manifest)
 
-1. **Knowledge Units** - Foundation content
-2. **Supporting Entities** - Principles, choices, habits, tasks, events, goals
-3. **Learning Steps** - Steps that reference knowledge and supporting entities
-4. **Learning Path** - Path that references steps
-5. **Conversations** - Delivery layer that ties it all together
-
-## Querying the Graph
-
-### Find the learning path
-```cypher
-MATCH (lp:Lp {uid: 'lp:mindfulness-101'})
-RETURN lp
-```
-
-### Find all steps in path
-```cypher
-MATCH (lp:Lp {uid: 'lp:mindfulness-101'})-[:HAS_STEP]->(ls:Ls)
-RETURN ls ORDER BY ls.sequence
-```
-
-### Find knowledge for a step
-```cypher
-MATCH (ls:Ls {uid: 'ls:mindfulness-101:step-1'})
-MATCH (ls)-[:PRIMARY_KNOWLEDGE]->(ku:Curriculum)
-RETURN ku
-```
-
-### Find practice opportunities
-```cypher
-MATCH (ls:Ls {uid: 'ls:mindfulness-101:step-1'})
-OPTIONAL MATCH (ls)-[:SUGGESTS_HABIT]->(h:Habit)
-OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(t:Task)
-RETURN ls, collect(h) as habits, collect(t) as tasks
-```
-
-### Find guiding principles
-```cypher
-MATCH (lp:Lp {uid: 'lp:mindfulness-101'})
-MATCH (lp)-[:HAS_STEP]->(ls)
-MATCH (ls)-[:HAS_PRINCIPLE]->(p:Principle)
-RETURN DISTINCT p
-```
+1. **Kus** - Atomic knowledge units (referenced by Articles)
+2. **Articles** - Teaching content (references Kus)
+3. **Supporting Entities** - Principles, choices, habits, tasks, events, goals
+4. **Learning Steps** - Steps that reference Articles and train Kus
+5. **Learning Path** - Path that sequences steps
 
 ## Files
 
 ```
 mindfulness_101/
-├── README.md (this file)
-├── manifest.yaml
-│
-├── ku_breath-awareness-basics.yaml
-├── ku_posture-basics.yaml
-├── ku_mind-wandering-happens.yaml
-│
-├── ls_mindfulness-101_step-1.yaml
-├── ls_mindfulness-101_step-2.yaml
-│
-├── lp_mindfulness-101.yaml
-│
-├── principle_small-steps.yaml
-├── principle_attention-over-intensity.yaml
-│
-├── choice_2-minutes-right-now.yaml
-├── choice_2-minutes-before-bed.yaml
-├── choice_label-one-wander.yaml
-│
-├── habit_daily-2min-breath.yaml
-├── habit_label-wander-daily.yaml
-│
-├── task_log-first-5-sessions.yaml
-├── task_reflect-on-first-week.yaml
-│
-├── event_practice-block-2min.yaml
-│
-└── goal_mindfulness-beginner.yaml
+  README.md (this file)
+  manifest.yaml
+  # Atomic Kus
+  ku_breath.yaml
+  ku_attention.yaml
+  # Articles (teaching compositions)
+  article_breath-awareness-basics.yaml
+  article_posture-basics.yaml
+  article_mind-wandering-happens.yaml
+  # Learning
+  ls_mindfulness-101_step-1.yaml
+  ls_mindfulness-101_step-2.yaml
+  lp_mindfulness-101.yaml
+  # Supporting
+  principle_small-steps.yaml
+  principle_attention-over-intensity.yaml
+  choice_2-minutes-right-now.yaml
+  choice_2-minutes-before-bed.yaml
+  choice_label-one-wander.yaml
+  habit_daily-2min-breath.yaml
+  habit_label-wander-daily.yaml
+  task_log-first-5-sessions.yaml
+  task_reflect-on-first-week.yaml
+  event_practice-block-2min.yaml
+  goal_mindfulness-beginner.yaml
 ```
 
 ## Design Principles
@@ -247,20 +124,3 @@ mindfulness_101/
 3. **Practice-Oriented** - Every concept links to concrete action
 4. **Non-Judgmental** - Mind wandering is expected and welcomed
 5. **Beginner-Friendly** - No prerequisites, clear progression
-
-## Next Steps
-
-After completing Mindfulness 101, learners can:
-- Extend session duration gradually
-- Explore walking meditation
-- Add body scan practice
-- Develop loving-kindness meditation
-- Join community practice groups
-
-## Credits
-
-Inspired by:
-- Jon Kabat-Zinn - Mindfulness-Based Stress Reduction (MBSR)
-- BJ Fogg - Tiny Habits methodology
-- James Clear - Atomic Habits principles
-- Buddhist meditation traditions (secularized presentation)

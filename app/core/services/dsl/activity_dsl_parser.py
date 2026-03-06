@@ -60,7 +60,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 # DSL-specific aliases that map user-facing context strings to EntityType/NonKuDomain.
-# EntityType.from_string() handles most aliases (e.g. "ku" -> CURRICULUM, "ls" -> LEARNING_STEP),
+# EntityType.from_string() handles most aliases (e.g. "ku" -> KU, "ls" -> LEARNING_STEP),
 # but DSL historically accepted some forms not in the EntityType alias table.
 _DSL_CONTEXT_ALIASES: dict[str, EntityType | NonKuDomain] = {
     "learningstep": EntityType.LEARNING_STEP,

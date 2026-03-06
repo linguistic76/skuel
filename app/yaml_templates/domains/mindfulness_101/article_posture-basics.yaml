@@ -1,7 +1,7 @@
 version: 1.0
-type: KnowledgeUnit
+type: Article
 
-uid: ku:posture-basics
+uid: a:mindfulness:posture-basics
 title: Posture — Basics
 content: |
   ## Simple Posture Guidelines
@@ -33,24 +33,14 @@ domain: personal
 complexity: basic
 quality_score: 0.80
 
-semantic_links:
-  - posture
-  - meditation
-  - body-awareness
+uses_kus: []
 
-prerequisites:
-  - ku:breath-awareness-basics
-
-enables:
-  - ku:sitting-meditation
-  - ku:walking-meditation
-
-related_to:
-  - ku:body-scan-basics
+connections:
+  requires:
+    - a:mindfulness:breath-awareness-basics
+  enables: []
 
 tags:
   - posture
   - beginner
   - body-awareness
-created_at: 2025-10-04T00:00:00Z
-updated_at: 2025-10-04T00:00:00Z

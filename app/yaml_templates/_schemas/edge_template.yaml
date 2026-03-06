@@ -1,0 +1,83 @@
+# Edge Template
+# =============
+# This is a TEMPLATE EXAMPLE documenting the shape of standalone edge YAML.
+#
+# IMPORTANT: Edge ingestion is NOT yet wired in the ingestion pipeline.
+# See: docs/roadmap/edge-ingestion-support.md for the implementation plan.
+#
+# An Edge declares a relationship between two entities with evidence properties.
+# Edges capture observations, research findings, and causal/correlational links
+# between Kus (and eventually other entity types).
+#
+# Purpose: Document the edge shape for future ingestion support.
+
+# REQUIRED FIELDS
+# ---------------
+
+version: 1.0
+type: Edge
+
+# from: Source entity UID
+# Type: String (must be a valid entity UID)
+# Example: ku:attention:buzzing
+from: ku:attention:buzzing
+
+# to: Target entity UID
+# Type: String (must be a valid entity UID)
+# Example: ku:nutrition:coffee-consumption
+to: ku:nutrition:coffee-consumption
+
+# relationship: Neo4j relationship type
+# Type: String (should match a RelationshipName enum value)
+# Example: EXACERBATED_BY, REDUCED_BY, CORRELATED_WITH
+relationship: EXACERBATED_BY
+
+# EVIDENCE PROPERTIES
+# -------------------
+
+# evidence: Human-readable description of the observation or finding
+# Type: String
+# Purpose: "Why do we believe this relationship exists?"
+evidence: "After coffee I feel more restless and mentally speedy."
+
+# confidence: How confident we are in this relationship
+# Type: Float between 0.0 and 1.0
+# Example: 0.3 = uncertain, 0.7 = probable, 1.0 = certain
+confidence: 0.7
+
+# polarity: Direction of effect
+# Valid values: -1, 0, 1
+# -1 = inverse/reducing, 0 = neutral/unknown, 1 = positive/exacerbating
+polarity: 1
+
+# temporality: How quickly the effect manifests
+# Valid values: minutes, hours, days, chronic
+# Example: hours for caffeine effects, chronic for long-term habits
+temporality: hours
+
+# source: Where the evidence comes from
+# Valid values: self_observation, research, teacher, clinical
+# Example: self_observation for personal insight, research for published studies
+source: self_observation
+
+# OPTIONAL FIELDS
+# ---------------
+
+# observed_at: When this relationship was observed
+# Type: ISO 8601 datetime string
+# Example: "2026-03-06T10:30:00+07:00"
+observed_at: "2026-03-06T10:30:00+07:00"
+
+# tags: Descriptive tags
+# Type: List of strings
+tags:
+  - stimulant
+  - observation
+
+# NOTES
+# -----
+# 1. Edge ingestion is NOT yet implemented -- this template documents the target shape
+# 2. from/to UIDs must reference existing entities when ingestion is wired
+# 3. relationship must be a valid RelationshipName enum value
+# 4. Evidence properties are stored as Neo4j edge properties
+# 5. See docs/roadmap/edge-ingestion-support.md for implementation timeline

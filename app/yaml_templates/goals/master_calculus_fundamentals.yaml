@@ -37,13 +37,14 @@ priority: high
 
 # Learning path integration
 learning_path_uid: lp:calculus-fundamentals
+# Knowledge connections (Articles for teaching content)
 required_knowledge_units:
-  - ku:limits-introduction
-  - ku:derivative-definition
-  - ku:derivative-rules
-  - ku:chain-rule
-  - ku:integration-fundamentals
-  - ku:fundamental-theorem-calculus
+  - a:calculus:limits-introduction
+  - a:calculus:derivative-definition
+  - a:calculus:derivative-rules
+  - a:calculus:chain-rule
+  - a:calculus:integration-fundamentals
+  - a:calculus:fundamental-theorem-calculus
 
 # Habit support
 supporting_habits:

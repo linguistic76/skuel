@@ -17,8 +17,9 @@ preferred_time: null  # During any meditation session
 duration_minutes: 0  # Integrated into existing practice
 
 # Learning Integration
+# Knowledge connections (Article UIDs for teaching content)
 linked_knowledge_uids:
-  - ku:mind-wandering-happens
+  - a:mindfulness:mind-wandering-happens
 
 linked_goal_uids:
   - goal:mindfulness-beginner

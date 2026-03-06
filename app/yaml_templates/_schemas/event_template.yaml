@@ -103,10 +103,11 @@ tags:
   - template
 
 # linked_knowledge_uids: Knowledge related to this event
-# Type: List of KnowledgeUnit UIDs
+# Type: List of Article or Ku UIDs
 # Purpose: Connect event to learning content
+# Note: Can reference Articles (a:...) for teaching content or Kus (ku:...) for atomic concepts
 linked_knowledge_uids:
-  - ku:related-knowledge
+  - a:namespace:related-article
 
 # linked_goal_uids: Goals this event contributes to
 # Type: List of Goal UIDs
@@ -169,7 +170,7 @@ linked_task_uids:
 # 2. Event model HAS both 'created_at' and 'updated_at'
 # 3. For recurring events, use event_type: RECURRING and set recurrence_rule
 # 4. Use null for event_date, start_time, end_time when timing is flexible
-# 5. linked_* fields connect events to the broader learning ecosystem
+# 5. linked_knowledge_uids can reference Articles (a:...) or Kus (ku:...)
 # 6. is_online + meeting_url are used together for virtual events
 # 7. attendees is a list (can have multiple participants)
 # 8. Use tags for categorization and filtering
