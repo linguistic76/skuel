@@ -175,9 +175,11 @@ return Result.fail(f"Error: {e}")  # String-based""",
         "title": "No Wrapper Classes Around UniversalNeo4jBackend",
         "severity": "WARNING",
         "description": """Use UniversalNeo4jBackend directly instead of creating wrapper classes.
-The 100% dynamic pattern means no wrapper code is needed.""",
-        "good": """tasks_backend = UniversalNeo4jBackend[Task](driver, "Task", Task)""",
-        "bad": """class TasksBackend(UniversalNeo4jBackend[Task]):  # Wrapper not needed
+Domain backends in domain_backends.py are legitimate extensions with domain-specific
+relationship Cypher. New wrapper classes outside domain_backends.py are violations.""",
+        "good": """tasks_backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
+# Domain backends in domain_backends.py are legitimate (TasksBackend, ArticleBackend, etc.)""",
+        "bad": """class TasksBackend(UniversalNeo4jBackend[Task]):  # Don't create outside domain_backends.py
     pass""",
     },
     "SKUEL009": {
@@ -414,13 +416,9 @@ class SkuelLinter:
         "config/validation.py",  # Has print_validation_report() for CLI output
     ]
 
-    # Curriculum backends that legitimately extend UniversalNeo4jBackend
+    # Domain backends that legitimately extend UniversalNeo4jBackend
     CURRICULUM_BACKENDS: ClassVar[list[str]] = [
-        "ls_backend.py",
-        "lp_backend.py",
-        "moc_backend.py",
-        "ku_backend.py",
-        "domain_backends.py",  # HabitsBackend/GoalsBackend legitimately extend for domain methods
+        "domain_backends.py",  # All domain backends (Tasks, Goals, Habits, etc.) live here
     ]
 
     def __init__(
@@ -922,6 +920,7 @@ class SkuelLinter:
         """
         # Common relationship names that should use enum
         relationship_names = [
+            # Core domain relationships
             "SERVES_GOAL",
             "SERVES_LIFE_PATH",
             "APPLIES_KNOWLEDGE",
@@ -930,6 +929,7 @@ class SkuelLinter:
             "FULFILLS_GOAL",
             "SUPPORTS_GOAL",
             "ALIGNED_WITH_PRINCIPLE",
+            "GUIDED_BY_PRINCIPLE",
             "GUIDES_GOAL",
             "GUIDES_CHOICE",
             "HAS_STEP",
@@ -937,6 +937,25 @@ class SkuelLinter:
             "CONTRIBUTES_TO",
             "ENABLES",
             "PREREQUISITE",
+            # Article/Ku composition
+            "USES_KU",
+            "TRAINS_KU",
+            "ORGANIZES",
+            # Lateral relationships (Phase 5)
+            "BLOCKS",
+            "BLOCKED_BY",
+            "DEPENDS_ON",
+            "COMPLEMENTARY_TO",
+            "ALTERNATIVE_TO",
+            "PREREQUISITE_FOR",
+            "SIBLING",
+            # Sharing & groups
+            "SHARES_WITH",
+            "SHARED_WITH_GROUP",
+            "MEMBER_OF",
+            "FOR_GROUP",
+            # Ownership
+            "OWNS",
         ]
 
         # Track docstring context
@@ -1010,17 +1029,30 @@ class SkuelLinter:
         """
         # Entity types that should use enum
         entity_types = [
+            # Activity domains
             "task",
             "habit",
             "goal",
             "event",
             "choice",
             "principle",
-            "finance",
+            # Knowledge
+            "article",
             "ku",
-            "lp",
-            "ls",
-            "moc",
+            "resource",
+            # Curriculum structure
+            "learning_step",
+            "learning_path",
+            "exercise",
+            # Content
+            "submission",
+            "journal",
+            "activity_report",
+            "submission_feedback",
+            # Destination
+            "life_path",
+            # NonKuDomain
+            "finance",
         ]
 
         for line_num, line in enumerate(lines, start=1):

@@ -28,7 +28,7 @@ case "$1" in
   lint)
     echo -e "${YELLOW}Running linters...${NC}"
     poetry run ruff check
-    poetry run python scripts/lint_skuel_patterns.py
+    poetry run python scripts/lint_skuel.py
     ;;
 
   lint-fix)

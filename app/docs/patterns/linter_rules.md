@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-01-05
+updated: 2026-03-06
 category: patterns
 related_skills:
 - python
@@ -198,6 +198,8 @@ await backend.add_relationship(uid1, RelationshipName.SERVES_GOAL, uid2)
 
 **Note:** Cypher query strings still use literal relationship names (unavoidable).
 
+**Covered relationships (March 2026):** Core domain (SERVES_GOAL, FULFILLS_GOAL, etc.), Article/Ku composition (USES_KU, TRAINS_KU, ORGANIZES), lateral (BLOCKS, BLOCKED_BY, DEPENDS_ON, COMPLEMENTARY_TO, ALTERNATIVE_TO, PREREQUISITE_FOR, SIBLING), sharing (SHARES_WITH, SHARED_WITH_GROUP), groups (MEMBER_OF, FOR_GROUP), ownership (OWNS).
+
 ## Rule: SKUEL014 - EntityType / NonKuDomain Enum
 
 **Pattern:** Use `EntityType` or `NonKuDomain` enum instead of magic strings for entity type identification.
@@ -333,7 +335,7 @@ The linter automatically excludes certain files from specific rules:
 
 | Rule | Excluded Files/Patterns |
 |------|------------------------|
-| **SKUEL008** | Curriculum backends (`ls_backend.py`, `lp_backend.py`, `moc_backend.py`, `ku_backend.py`) - legitimate domain-specific extensions |
+| **SKUEL008** | Domain backends (`domain_backends.py`) - legitimate domain-specific extensions |
 | **SKUEL011** | UI routes (`*_ui.py`), components (`*_components.py`), tests, sort utilities |
 | **SKUEL012** | Tests, examples, mock utilities |
 | **SKUEL015** | Scripts, tests, examples, CLI utilities, `__main__` blocks, docstrings |
@@ -348,5 +350,5 @@ The linter automatically excludes certain files from specific rules:
 
 ---
 
-**Last Updated:** January 5, 2026
+**Last Updated:** March 6, 2026
 **Status:** Active - 15 rules enforcing SKUEL architectural patterns
