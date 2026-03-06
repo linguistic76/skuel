@@ -182,7 +182,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
         """
         Find learning steps that contain/teach this knowledge.
 
-        Complementary to KuGraphService.find_learning_steps_containing().
+        Complementary to ArticleGraphService.find_learning_steps_containing().
         Returns full LS entities instead of just UIDs.
 
         Graph Pattern: (Ls)-[:CONTAINS_KNOWLEDGE]->(Ku)

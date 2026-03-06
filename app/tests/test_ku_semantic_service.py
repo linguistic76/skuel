@@ -2,7 +2,7 @@
 Test KU Semantic Service
 =========================
 
-Tests for the KuSemanticService focused sub-service.
+Tests for the ArticleSemanticService focused sub-service.
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -16,7 +16,7 @@ from core.infrastructure.relationships.semantic_relationships import (
 )
 from core.models.curriculum.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain
-from core.services.ku.ku_semantic_service import KuSemanticService
+from core.services.article.article_semantic_service import ArticleSemanticService
 from core.utils.result_simplified import Result
 
 
@@ -35,7 +35,7 @@ def make_ku_dto(uid="ku.test.1", title="Test Title", domain="tech"):
 
 
 class TestKuSemanticServiceInitialization:
-    """Test KuSemanticService initialization."""
+    """Test ArticleSemanticService initialization."""
 
     def test_initialization_with_all_dependencies(self):
         """Test successful initialization with all dependencies."""
@@ -43,7 +43,7 @@ class TestKuSemanticServiceInitialization:
         neo4j = MagicMock()
         intelligence = MagicMock()
 
-        service = KuSemanticService(repo=repo, neo4j_adapter=neo4j, intelligence=intelligence)
+        service = ArticleSemanticService(repo=repo, neo4j_adapter=neo4j, intelligence=intelligence)
 
         assert service.repo == repo
         assert service.neo4j == neo4j
@@ -54,7 +54,7 @@ class TestKuSemanticServiceInitialization:
         repo = MagicMock()
         neo4j = MagicMock()
 
-        service = KuSemanticService(repo=repo, neo4j_adapter=neo4j)
+        service = ArticleSemanticService(repo=repo, neo4j_adapter=neo4j)
 
         assert service.repo == repo
         assert service.neo4j == neo4j
@@ -63,23 +63,23 @@ class TestKuSemanticServiceInitialization:
     def test_initialization_fails_without_repo(self):
         """Test that initialization fails without required repo."""
         with pytest.raises(ValueError, match="KU repository is required"):
-            KuSemanticService(repo=None, neo4j_adapter=MagicMock())
+            ArticleSemanticService(repo=None, neo4j_adapter=MagicMock())
 
     def test_initialization_fails_without_neo4j(self):
         """Test that initialization fails without required Neo4j adapter."""
         with pytest.raises(ValueError, match="Neo4j adapter is required"):
-            KuSemanticService(repo=MagicMock(), neo4j_adapter=None)
+            ArticleSemanticService(repo=MagicMock(), neo4j_adapter=None)
 
 
 class TestCreateWithSemanticRelationships:
     """Test creating knowledge units with semantic relationships."""
 
     @pytest.fixture
-    def service(self) -> KuSemanticService:
+    def service(self) -> ArticleSemanticService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
         neo4j = MagicMock()
-        return KuSemanticService(repo=repo, neo4j_adapter=neo4j)
+        return ArticleSemanticService(repo=repo, neo4j_adapter=neo4j)
 
     @pytest.mark.asyncio
     async def test_create_with_relationships_success(self, service):
@@ -134,11 +134,11 @@ class TestSemanticNeighborhood:
     """Test semantic neighborhood operations."""
 
     @pytest.fixture
-    def service(self) -> KuSemanticService:
+    def service(self) -> ArticleSemanticService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
         neo4j = MagicMock()
-        return KuSemanticService(repo=repo, neo4j_adapter=neo4j)
+        return ArticleSemanticService(repo=repo, neo4j_adapter=neo4j)
 
     @pytest.mark.asyncio
     async def test_get_semantic_neighborhood_unit_not_found(self, service):
@@ -223,11 +223,11 @@ class TestRelationshipManagement:
     """Test semantic relationship management operations."""
 
     @pytest.fixture
-    def service(self) -> KuSemanticService:
+    def service(self) -> ArticleSemanticService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
         neo4j = MagicMock()
-        return KuSemanticService(repo=repo, neo4j_adapter=neo4j)
+        return ArticleSemanticService(repo=repo, neo4j_adapter=neo4j)
 
     @pytest.mark.asyncio
     async def test_add_semantic_relationship_success(self, service):
@@ -344,11 +344,11 @@ class TestRelationshipDiscovery:
     """Test relationship discovery and inference operations."""
 
     @pytest.fixture
-    def service(self) -> KuSemanticService:
+    def service(self) -> ArticleSemanticService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
         neo4j = MagicMock()
-        return KuSemanticService(repo=repo, neo4j_adapter=neo4j)
+        return ArticleSemanticService(repo=repo, neo4j_adapter=neo4j)
 
     @pytest.mark.asyncio
     async def test_discover_semantic_bridges_success(self, service):
@@ -458,21 +458,21 @@ class TestRelationshipDiscovery:
 
 
 class TestFacadeDelegation:
-    """Test that KuService facade correctly delegates to semantic service."""
+    """Test that ArticleService facade correctly delegates to semantic service."""
 
     @pytest.mark.asyncio
     async def test_facade_delegates_semantic_methods(self):
         """Test that all semantic methods are delegated."""
-        from core.services.ku_service import KuService
+        from core.services.article_service import ArticleService
 
         # Create facade with mocked dependencies
         repo = MagicMock()
         content_repo = MagicMock()
         neo4j = MagicMock()
-        query_builder = MagicMock()  # Required for KuSearchService
+        query_builder = MagicMock()  # Required for ArticleSearchService
         graph_intel = MagicMock()
 
-        service = KuService(
+        service = ArticleService(
             repo=repo,
             content_repo=content_repo,
             neo4j_adapter=neo4j,

@@ -1,15 +1,15 @@
 """
-KuDTO - Atomic Knowledge Unit DTO (Tier 2 - Transfer)
-======================================================
+ArticleDTO - Teaching Composition DTO (Tier 2 - Transfer)
+=========================================================
 
-Mutable DTO for atomic knowledge unit entities (EntityType.KU).
+Mutable DTO for teaching composition entities (EntityType.ARTICLE).
 Inherits all 39 fields from CurriculumDTO — no additional fields needed.
-The Ku is the simplest curriculum entity: pure knowledge, no structure.
+The Article is the narrative curriculum entity: composed teaching content.
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── CurriculumDTO(EntityDTO) +21 curriculum-specific fields
-        └── KuDTO(CurriculumDTO)  ← this file (EntityType.KU)
+        └── ArticleDTO(CurriculumDTO)  ← this file (EntityType.ARTICLE)
 
 See: /docs/patterns/three_tier_type_system.md
 See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
@@ -23,11 +23,11 @@ from core.models.curriculum.curriculum_dto import CurriculumDTO
 
 
 @dataclass
-class KuDTO(CurriculumDTO):
-    """Mutable DTO for atomic knowledge unit entities (EntityType.KU).
+class ArticleDTO(CurriculumDTO):
+    """Mutable DTO for teaching composition entities (EntityType.ARTICLE).
 
     All 39 fields inherited from CurriculumDTO. No additional fields needed —
-    the Ku is the atomic base: pure knowledge without structural additions.
+    the Article inherits the full curriculum field set for narrative content.
     """
 
     pass

@@ -41,7 +41,8 @@ from typing import Any
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
 from core.models.curriculum.exercise import Exercise
-from core.models.curriculum.ku import Ku
+from core.models.curriculum.article import Article
+from core.models.ku.ku import Ku
 from core.models.curriculum.learning_path import LearningPath
 from core.models.entity import Entity
 from core.models.event.event import Event
@@ -593,24 +594,24 @@ class PrinciplesBackend(UniversalNeo4jBackend[Principle]):
         return await self.create_user_relationship(user_uid, principle_uid)
 
 
-class KuBackend(UniversalNeo4jBackend[Ku]):
+class ArticleBackend(UniversalNeo4jBackend[Article]):
     """
-    Domain backend for Ku (Knowledge Unit) entities.
+    Domain backend for Article (teaching composition) entities.
 
-    Extends UniversalNeo4jBackend[Ku] with explicit implementations of
+    Extends UniversalNeo4jBackend[Article] with explicit implementations of
     ORGANIZES relationship operations previously handled by QueryExecutor
-    in KuOrganizationService:
-    - is_organizer(ku_uid)                        → check ORGANIZES existence + ku_exists
+    in ArticleOrganizationService:
+    - is_organizer(article_uid)                    → check ORGANIZES existence
     - organize(parent_uid, child_uid, order)       → MERGE ORGANIZES relationship
     - unorganize(parent_uid, child_uid)            → DELETE ORGANIZES relationship
     - reorder(parent_uid, child_uid, new_order)    → SET r.order on ORGANIZES
     - get_organized_children(parent_uid, limit)   → fetch direct ORGANIZES children
-    - find_organizers(ku_uid)                      → find parent Kus
-    - list_root_organizers(limit)                  → Kus not organized by anyone
+    - find_organizers(article_uid)                 → find parent Articles
+    - list_root_organizers(limit)                  → Articles not organized by anyone
     """
 
     async def is_organizer(self, ku_uid: str) -> Result[bool]:
-        """Check if a Ku has organized children. Returns error if Ku not found."""
+        """Check if an Article has organized children. Returns error if not found."""
         query = """
         MATCH (ku:Entity {uid: $ku_uid})
         OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Entity)
@@ -621,17 +622,17 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
                 result = await session.run(query, {"ku_uid": ku_uid})
                 records = await result.data()
             if not records:
-                return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
+                return Result.fail(Errors.not_found(resource="Article", identifier=ku_uid))
             record = records[0]
             if not record["ku_exists"]:
-                return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
+                return Result.fail(Errors.not_found(resource="Article", identifier=ku_uid))
             return Result.ok(record["is_organizer"])
         except Exception as e:
             self.logger.error(f"Failed is_organizer check for {ku_uid}: {e}")
             return Result.fail(Errors.database(operation="is_organizer", message=str(e)))
 
     async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
-        """Create ORGANIZES relationship between two Kus."""
+        """Create ORGANIZES relationship between two Articles."""
         query = """
         MATCH (parent:Entity {uid: $parent_uid})
         MATCH (child:Entity {uid: $child_uid})
@@ -648,14 +649,14 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
                 records = await result.data()
             success = bool(records and records[0]["success"])
             if success:
-                self.logger.info(f"Organized Ku {child_uid} under {parent_uid} at position {order}")
+                self.logger.info(f"Organized Article {child_uid} under {parent_uid} at position {order}")
             return Result.ok(success)
         except Exception as e:
             self.logger.error(f"Failed organize {child_uid} under {parent_uid}: {e}")
             return Result.fail(Errors.database(operation="organize", message=str(e)))
 
     async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
-        """Remove ORGANIZES relationship between two Kus."""
+        """Remove ORGANIZES relationship between two Articles."""
         query = """
         MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
         DELETE r
@@ -677,7 +678,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
             return Result.fail(Errors.database(operation="unorganize", message=str(e)))
 
     async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
-        """Change the order of a child Ku within its parent organizer."""
+        """Change the order of a child Article within its parent organizer."""
         query = """
         MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
         SET r.order = $new_order
@@ -702,7 +703,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
     async def get_organized_children(
         self, parent_uid: str, limit: int | None = None
     ) -> Result[list[dict[str, Any]]]:
-        """Get direct ORGANIZES children of a Ku, ordered by position."""
+        """Get direct ORGANIZES children of an Article, ordered by position."""
         query = """
         MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity)
         RETURN child.uid AS uid, child.title AS title, r.order AS order
@@ -725,7 +726,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
             return Result.fail(Errors.database(operation="get_organized_children", message=str(e)))
 
     async def find_organizers(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
-        """Find all parent Kus that organize the given Ku."""
+        """Find all parent Articles that organize the given Article."""
         query = """
         MATCH (parent:Entity)-[r:ORGANIZES]->(ku:Entity {uid: $ku_uid})
         RETURN parent.uid AS uid, parent.title AS title, r.order AS order
@@ -767,6 +768,46 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
             self.logger.error(f"Failed list_root_organizers: {e}")
             return Result.fail(Errors.database(operation="list_root_organizers", message=str(e)))
 
+    async def link_to_ku(self, article_uid: str, ku_uid: str) -> Result[bool]:
+        """Create USES_KU relationship from Article to atomic Ku."""
+        query = """
+        MATCH (article:Entity {uid: $article_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
+        MERGE (article)-[r:USES_KU]->(ku)
+        RETURN true AS success
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query, {"article_uid": article_uid, "ku_uid": ku_uid}
+                )
+                records = await result.data()
+            if not records:
+                return Result.fail(
+                    Errors.not_found(resource="Article or Ku", identifier=f"{article_uid} / {ku_uid}")
+                )
+            return Result.ok(True)
+        except Exception as e:
+            self.logger.error(f"Failed link_to_ku {article_uid} -> {ku_uid}: {e}")
+            return Result.fail(Errors.database(operation="link_to_ku", message=str(e)))
+
+    async def get_used_kus(self, article_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all atomic Kus used by an Article via USES_KU."""
+        query = """
+        MATCH (article:Entity {uid: $article_uid})-[:USES_KU]->(ku:Entity)
+        RETURN ku.uid AS uid, ku.title AS title, ku.namespace AS namespace,
+               ku.ku_category AS ku_category
+        ORDER BY ku.title
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(query, {"article_uid": article_uid})
+                records = await result.data()
+            return Result.ok(records)
+        except Exception as e:
+            self.logger.error(f"Failed get_used_kus for {article_uid}: {e}")
+            return Result.fail(Errors.database(operation="get_used_kus", message=str(e)))
+
 
 class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     """
@@ -778,6 +819,31 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     Sharing and access control live in SharingBackend + UnifiedSharingService,
     operating across all entity types.
     """
+
+
+class KuBackend(UniversalNeo4jBackend[Ku]):
+    """Domain backend for atomic Knowledge Unit entities.
+
+    Lightweight reference nodes with reverse-traversal methods:
+    - get_articles_using(ku_uid) — Articles that USES_KU this Ku
+    """
+
+    async def get_articles_using(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all Articles that use this atomic Ku via USES_KU."""
+        query = """
+        MATCH (article:Entity)-[:USES_KU]->(ku:Entity {uid: $ku_uid})
+        RETURN article.uid AS uid, article.title AS title,
+               article.description AS description
+        ORDER BY article.title
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(query, {"ku_uid": ku_uid})
+                records = await result.data()
+            return Result.ok(records)
+        except Exception as e:
+            self.logger.error(f"Failed get_articles_using for {ku_uid}: {e}")
+            return Result.fail(Errors.database(operation="get_articles_using", message=str(e)))
 
 
 class LpBackend(UniversalNeo4jBackend[LearningPath]):
@@ -966,7 +1032,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
     predicates. Typed to Entity (the base class) since sharing spans all entity types.
 
     Moves sharing Cypher from the service layer into the persistence boundary,
-    following the same pattern as KuBackend (ORGANIZES), LpBackend (progress),
+    following the same pattern as ArticleBackend (ORGANIZES), LpBackend (progress),
     and ExerciseBackend (curriculum linking).
 
     See: /docs/patterns/SHARING_PATTERNS.md
@@ -1244,6 +1310,7 @@ __all__ = [
     "ExerciseBackend",
     "GoalsBackend",
     "HabitsBackend",
+    "ArticleBackend",
     "KuBackend",
     "LpBackend",
     "PrinciplesBackend",

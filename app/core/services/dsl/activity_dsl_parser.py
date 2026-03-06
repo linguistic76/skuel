@@ -242,14 +242,14 @@ class ParsedActivityLine:
     # CURRICULUM DOMAINS (3) - Type-Safe Checks
     # ========================================================================
 
-    def is_ku(self) -> bool:
+    def is_article(self) -> bool:
         """
-        Check if this is a KnowledgeUnit activity.
+        Check if this is an Article activity.
 
         Returns:
-            True if EntityType.KU is in contexts
+            True if EntityType.ARTICLE is in contexts
         """
-        return EntityType.KU in self.contexts
+        return EntityType.ARTICLE in self.contexts
 
     def is_ls(self) -> bool:
         """
@@ -343,7 +343,7 @@ class ParsedActivityLine:
         uids = []
         if self.primary_ku:
             uids.append(self.primary_ku)
-        uids.extend([link["id"] for link in self.links if link.get("type") == EntityType.KU.value])
+        uids.extend([link["id"] for link in self.links if link.get("type") in (EntityType.ARTICLE.value, EntityType.KU.value)])
         return uids
 
     def get_linked_choices(self) -> list[str]:
@@ -437,7 +437,7 @@ class ParsedJournal:
 
     def get_knowledge_units(self) -> list[ParsedActivityLine]:
         """Get all KnowledgeUnit activities."""
-        return [a for a in self.activities if a.is_ku()]
+        return [a for a in self.activities if a.is_article()]
 
     def get_learning_steps(self) -> list[ParsedActivityLine]:
         """Get all LearningStep activities."""
@@ -1009,7 +1009,7 @@ class ActivityDSLParser:
                     link_id = parts[1].strip()
 
                     # Normalize DSL prefix to EntityType value
-                    # e.g. @link(ku:...) -> type="curriculum" (EntityType.KU)
+                    # e.g. @link(ku:...) -> type="article" (EntityType.ARTICLE)
                     normalized = EntityType.from_string(link_type)
                     if normalized is not None:
                         link_type = normalized.value

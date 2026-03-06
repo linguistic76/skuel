@@ -444,3 +444,31 @@ if __name__ == "__main__":
     # Example: Query limits
     print(f"\nPreview limit: {QueryLimit.PREVIEW}")
     print(f"Description: {QueryLimit.get_description(QueryLimit.PREVIEW)}")
+
+
+# ============================================================================
+# KU NAMESPACES — Controlled vocabulary for atomic Knowledge Unit grouping
+# ============================================================================
+
+KU_NAMESPACES: Final[frozenset[str]] = frozenset(
+    {
+        "attention",
+        "behavior",
+        "body",
+        "breath",
+        "curriculum",
+        "emotion",
+        "environment",
+        "identity",
+        "meta",
+        "method",
+        "mind",
+        "movement",
+        "nervous_system",
+        "nutrition",
+        "practice",
+        "relationship",
+        "sleep",
+        "spirit",
+    }
+)

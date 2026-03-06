@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-from core.models.curriculum.ku import Ku
+from core.models.curriculum.article import Article
 from core.models.entity_types import ENTITY_TYPE_CLASS_MAP, CurriculumEntity
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
@@ -722,9 +722,9 @@ class CrossDomainQueries:
         from core.utils.neo4j_mapper import from_neo4j_node
 
         node_dict = dict(node)
-        entity_type_str = node_dict.get("ku_type", "ku")
-        entity_type = EntityType.from_string(entity_type_str) or EntityType.KU
-        model_class = ENTITY_TYPE_CLASS_MAP.get(entity_type, Ku)
+        entity_type_str = node_dict.get("ku_type", "article")
+        entity_type = EntityType.from_string(entity_type_str) or EntityType.ARTICLE
+        model_class = ENTITY_TYPE_CLASS_MAP.get(entity_type, Article)
         return from_neo4j_node(node_dict, model_class)  # type: ignore[return-value]
 
     def _neo4j_node_to_expense(self, node) -> ExpensePure:

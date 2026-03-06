@@ -3,7 +3,7 @@ Knowledge Analytics Engine
 ======================================
 
 **UTILITY SERVICE** - Injected dependency, not a standalone service.
-This service is used BY KuService and TasksService, not a duplicate.
+This service is used BY ArticleService and TasksService, not a duplicate.
 
 Advanced analytics and insights for knowledge-aware learning patterns.
 Provides learning pattern recognition, knowledge-aware priority scoring,
@@ -13,7 +13,7 @@ Architecture:
 - Lives at `/core/services/` level (not in `/ku/` directory)
 - Injected into TasksService for knowledge-aware task analysis
 - Specialized utility, not part of core KU CRUD operations
-- See `/core/services/ku/README.md` for architecture overview
+- See `/core/services/article/README.md` for architecture overview
 """
 
 import asyncio
@@ -805,7 +805,7 @@ class AnalyticsEngine:
         for ku_uid in knowledge_uids:
             # Extract domain from ku.domain.specific format
             parts = ku_uid.split(".")
-            if len(parts) >= 2 and parts[0] == EntityType.KU.value:  # UID prefix, not Neo4j label
+            if len(parts) >= 2 and parts[0] in (EntityType.ARTICLE.value, EntityType.KU.value, "a"):  # UID prefix, not Neo4j label
                 domains.append(parts[1])
         return domains
 

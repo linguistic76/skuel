@@ -15,7 +15,7 @@ Usage:
     )
 
     async def test_semantic_search(services_with_embeddings):
-        ku_search = KuSearchService(
+        ku_search = ArticleSearchService(
             backend=mock_backend,
             vector_search_service=services_with_embeddings["vector_search"],
             embeddings_service=services_with_embeddings["embeddings"]
@@ -200,7 +200,7 @@ def services_with_embeddings(mock_embeddings_service, mock_vector_search_service
 
     Example:
         async def test_semantic_search(services_with_embeddings):
-            service = KuSearchService(
+            service = ArticleSearchService(
                 backend=mock_backend,
                 embeddings_service=services_with_embeddings["embeddings"],
                 vector_search_service=services_with_embeddings["vector_search"]

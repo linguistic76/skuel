@@ -17,7 +17,7 @@ Event Catalog:
 - knowledge.informed_choice - Choice informed by knowledge
 
 Subscribers:
-- KuService (increment substance metrics)
+- ArticleService (increment substance metrics)
 - LearningAnalyticsService (track application patterns)
 - SpacedRepetitionService (schedule reviews)
 """
@@ -41,7 +41,7 @@ class KnowledgeAppliedInTask(BaseEvent):
     Updates: last_applied_date
 
     Subscribers:
-    - KuService (increment substance metric)
+    - ArticleService (increment substance metric)
     - LearningAnalyticsService (track application patterns)
 
     Published by:
@@ -72,7 +72,7 @@ class KnowledgePracticedInEvent(BaseEvent):
     Updates: last_practiced_date
 
     Subscribers:
-    - KuService (increment substance metric)
+    - ArticleService (increment substance metric)
     - SpacedRepetitionService (track practice frequency)
 
     Published by:
@@ -110,7 +110,7 @@ class KnowledgePracticed(BaseEvent):
     - SpacedRepetitionService (schedule reviews)
 
     Published by:
-    - KuPracticeService (when CalendarEventCompleted)
+    - ArticlePracticeService (when CalendarEventCompleted)
     - Study session tracking
     """
 
@@ -140,7 +140,7 @@ class KnowledgeBuiltIntoHabit(BaseEvent):
     because habits represent lifestyle integration.
 
     Subscribers:
-    - KuService (increment substance metric)
+    - ArticleService (increment substance metric)
     - LearningAnalyticsService (track habit formation patterns)
 
     Published by:
@@ -173,7 +173,7 @@ class KnowledgeInformedChoice(BaseEvent):
     to real decisions demonstrates practical understanding.
 
     Subscribers:
-    - KuService (increment substance metric)
+    - ArticleService (increment substance metric)
     - LearningAnalyticsService (track decision-making patterns)
 
     Published by:
@@ -208,7 +208,7 @@ class KnowledgeBulkAppliedInTask(BaseEvent):
     O(1) event publication overhead vs O(n).
 
     Subscribers:
-    - KuService (batch increment substance metrics)
+    - ArticleService (batch increment substance metrics)
     - LearningAnalyticsService (batch track application patterns)
 
     Published by:
@@ -241,7 +241,7 @@ class KnowledgeBulkBuiltIntoHabit(BaseEvent):
     More efficient than publishing N individual KnowledgeBuiltIntoHabit events.
 
     Subscribers:
-    - KuService (batch increment substance metrics)
+    - ArticleService (batch increment substance metrics)
     - LearningAnalyticsService (batch track habit formation patterns)
 
     Published by:
@@ -274,7 +274,7 @@ class KnowledgeBulkInformedChoice(BaseEvent):
     More efficient than publishing N individual KnowledgeInformedChoice events.
 
     Subscribers:
-    - KuService (batch increment substance metrics)
+    - ArticleService (batch increment substance metrics)
     - LearningAnalyticsService (batch track decision-making patterns)
 
     Published by:
@@ -351,7 +351,7 @@ async def create_habit(self, habit: Habit) -> Result[Habit]:
 Subscribing to Knowledge Substance Events:
 ===========================================
 
-# In KuService
+# In ArticleService
 async def handle_knowledge_applied_in_task(self, event: KnowledgeAppliedInTask) -> None:
     '''Increment substance metric when knowledge applied in task.'''
     try:

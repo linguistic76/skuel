@@ -12,7 +12,7 @@ User-facing routes for reading Knowledge Units with:
 - Lateral relationships visualization
 
 Routes:
-- GET /ku/{uid} - KU detail page with reading interface
+- GET /article/{uid} - KU detail page with reading interface
 """
 
 from typing import Any
@@ -91,7 +91,7 @@ def _nav_button(ku: dict | None, direction: str) -> Any:
                 Div(f"← {label}", cls="text-sm"),
                 cls="text-left",
             ),
-            href=f"/ku/{ku.get('uid')}",
+            href=f"/article/{ku.get('uid')}",
             cls="btn btn-outline",
         )
     return A(
@@ -100,12 +100,12 @@ def _nav_button(ku: dict | None, direction: str) -> Any:
             Div(f"{label} →", cls="text-sm"),
             cls="text-right",
         ),
-        href=f"/ku/{ku.get('uid')}",
+        href=f"/article/{ku.get('uid')}",
         cls="btn btn-outline",
     )
 
 
-def create_ku_reading_ui_routes(
+def create_article_reading_ui_routes(
     app: Any,
     rt: Any,
     ku_service: Any,
@@ -126,7 +126,7 @@ def create_ku_reading_ui_routes(
         List of registered route functions
     """
 
-    @rt("/ku/{uid}")
+    @rt("/article/{uid}")
     async def ku_detail_page(request: Request, uid: str) -> Any:
         """
         KU detail page with full reading interface.
@@ -225,7 +225,7 @@ def create_ku_reading_ui_routes(
             cls="btn btn-sm btn-outline btn-success"
             if is_marked_read
             else "btn btn-sm btn-primary",
-            hx_post=f"/api/ku/{uid}/mark-read",
+            hx_post=f"/api/article/{uid}/mark-read",
             hx_swap="outerHTML",
             hx_target="this",
             disabled=is_marked_read,
@@ -234,7 +234,7 @@ def create_ku_reading_ui_routes(
         bookmark_btn = Button(
             "Bookmarked" if is_bookmarked else "Bookmark",
             cls="btn btn-sm btn-secondary" if is_bookmarked else "btn btn-sm btn-ghost",
-            hx_post=f"/api/ku/{uid}/bookmark",
+            hx_post=f"/api/article/{uid}/bookmark",
             hx_swap="outerHTML",
             hx_target="this",
         )
@@ -338,11 +338,11 @@ def create_ku_reading_ui_routes(
             page_type=PageType.CUSTOM,
         )
 
-    logger.info("KU reading UI routes registered: /ku/{uid}")
+    logger.info("KU reading UI routes registered: /article/{uid}")
 
     return [
         ku_detail_page,
     ]
 
 
-__all__ = ["create_ku_reading_ui_routes"]
+__all__ = ["create_article_reading_ui_routes"]

@@ -13,7 +13,7 @@ Handles all semantic relationship operations for knowledge units.
 - Cross-domain semantic bridges
 
 **Dependencies:**
-- KuOperations (backend protocol)
+- ArticleOperations (backend protocol)
 - Neo4jAdapter (graph operations)
 - CypherGenerator (semantic query building)
 - SemanticRelationshipType (relationship types)
@@ -33,7 +33,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 
-class KuSemanticService:
+class ArticleSemanticService:
     """
     Semantic relationship management for knowledge units.
     """
@@ -43,7 +43,7 @@ class KuSemanticService:
         Initialize semantic service with required dependencies.
 
         Args:
-            repo: KuOperations backend,
+            repo: ArticleOperations backend,
             neo4j_adapter: Neo4j adapter for graph operations,
             intelligence: Optional intelligence service for relationship inference
         """
@@ -57,7 +57,7 @@ class KuSemanticService:
         self.neo4j = neo4j_adapter
         self.intelligence = intelligence
 
-        self.logger = get_logger("skuel.services.ku.semantic")
+        self.logger = get_logger("skuel.services.article.semantic")
 
     # ========================================================================
     # CREATE WITH RELATIONSHIPS

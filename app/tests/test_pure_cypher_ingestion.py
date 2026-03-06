@@ -155,7 +155,7 @@ def test_required_field_validation():
 
     # Test 1: Valid KU data (has title and content is skipped for early validation)
     valid_ku_data = {"title": "Test KU", "content": "Some content"}
-    result = service.validate_required_fields(EntityType.KU, valid_ku_data, mock_path)
+    result = service.validate_required_fields(EntityType.ARTICLE, valid_ku_data, mock_path)
     assert result.is_ok, f"Expected OK for valid KU data, got: {result}"
 
     # Test 2: Missing required field for principle (needs 'statement')
@@ -182,14 +182,14 @@ def test_required_field_validation():
     # Test 5: validate_entity_data - check post-preparation validation
     # Simulate prepared entity data missing content
     incomplete_ku_data = {"uid": "ku.test", "title": "Test"}  # Missing 'content'
-    result = service.validate_entity_data(EntityType.KU, incomplete_ku_data, mock_path)
+    result = service.validate_entity_data(EntityType.ARTICLE, incomplete_ku_data, mock_path)
     assert result.is_error, "Expected error for KU missing 'content' after preparation"
     error = result.expect_error()
     assert "content" in error.message, f"Expected 'content' in error: {error.message}"
 
     # Test 6: Complete KU data passes validation
     complete_ku_data = {"uid": "ku.test", "title": "Test", "content": "Body content"}
-    result = service.validate_entity_data(EntityType.KU, complete_ku_data, mock_path)
+    result = service.validate_entity_data(EntityType.ARTICLE, complete_ku_data, mock_path)
     assert result.is_ok, f"Expected OK for complete KU data, got: {result}"
 
     print("✅ Required field validation works correctly!")
@@ -237,7 +237,7 @@ def test_user_uid_injection():
     # Test 3: Curriculum domain (ku) should NOT get user_uid (shared knowledge)
     ku_data = {"title": "Test KU", "content": "Body content"}
     prepared = service.prepare_entity_data(
-        EntityType.KU, ku_data, "Body content", Path("/tmp/test-ku.md")
+        EntityType.ARTICLE, ku_data, "Body content", Path("/tmp/test-ku.md")
     )
     assert "user_uid" not in prepared, "KU should not have user_uid (shared knowledge)"
 
@@ -263,7 +263,7 @@ def test_user_uid_injection():
         assert config.requires_user_uid, f"{entity_type.value} should require user_uid"
 
     # Test 6: Curriculum domains should NOT require user_uid
-    curriculum_types = [EntityType.KU, EntityType.LEARNING_PATH, EntityType.LEARNING_STEP]
+    curriculum_types = [EntityType.ARTICLE, EntityType.LEARNING_PATH, EntityType.LEARNING_STEP]
     for entity_type in curriculum_types:
         config = ENTITY_CONFIGS[entity_type]
         assert not config.requires_user_uid, f"{entity_type.value} should NOT require user_uid"
@@ -299,17 +299,17 @@ def test_entity_type_detection():
     # Test 2: Type aliases are normalized
     data_with_alias = {"type": "knowledge", "title": "Test KU"}
     result = service.detect_entity_type(data_with_alias, Path("/tmp/test.yaml"))
-    assert result == EntityType.KU, f"Expected EntityType.KU (alias normalized), got {result}"
+    assert result == EntityType.ARTICLE, f"Expected EntityType.ARTICLE (alias normalized), got {result}"
 
     # Test 3: MOC flag detection (now maps to KU)
     data_with_moc_flag = {"moc": True, "title": "Map of Content"}
     result = service.detect_entity_type(data_with_moc_flag, Path("/tmp/test.md"))
-    assert result == EntityType.KU, f"Expected EntityType.KU (MOC flag), got {result}"
+    assert result == EntityType.ARTICLE, f"Expected EntityType.ARTICLE (MOC flag), got {result}"
 
     # Test 4: Default to KU for markdown without type
     data_no_type = {"title": "Some Knowledge"}
     result = service.detect_entity_type(data_no_type, Path("/tmp/test.md"))
-    assert result == EntityType.KU, f"Expected EntityType.KU (default for .md), got {result}"
+    assert result == EntityType.ARTICLE, f"Expected EntityType.ARTICLE (default for .md), got {result}"
 
     # Test 5: Case insensitivity
     data_uppercase = {"type": "HABIT", "title": "Exercise"}
@@ -326,7 +326,7 @@ def test_entity_type_detection():
     assert result == EntityType.TASK, "TASK detection should return EntityType.TASK"
 
     result = service.detect_entity_type({"type": "ku"}, Path("/tmp/test.md"))
-    assert result == EntityType.KU, "KU detection should return EntityType.KU"
+    assert result == EntityType.ARTICLE, "KU detection should return EntityType.ARTICLE"
 
     print("✅ Entity type detection works correctly!")
     print("   - Returns EntityType/NonKuDomain enum (type-safe!)")
@@ -365,8 +365,8 @@ This is the content of the knowledge unit.
         assert result.is_ok
         validation = result.value
         assert validation.valid, f"Expected valid, got errors: {validation.errors}"
-        assert validation.entity_type == "ku"
-        assert validation.uid == "ku.test-knowledge"
+        assert validation.entity_type == "article"
+        assert validation.uid == "a.test-knowledge"
         assert validation.title == "Test Knowledge Unit"
         assert validation.format == "markdown"
         assert validation.prepared_data is not None
@@ -495,7 +495,7 @@ description: Description for task {i}
         entity_type, entity_data, error = parse_file_sync(test_file)
         assert error is None, f"Should parse successfully: {error}"
         assert entity_type is not None
-        assert entity_type.value == "ku"
+        assert entity_type.value == "article"
         assert entity_data is not None
         assert entity_data["title"] == "Knowledge Unit 0"
 

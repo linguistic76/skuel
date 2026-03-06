@@ -1057,7 +1057,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                     ),
                     cls="card bg-base-200 shadow-sm hover:shadow-md transition-shadow",
                 ),
-                href=f"/ku/{ku['uid']}",
+                href=f"/article/{ku['uid']}",
             )
 
         ku_content = (

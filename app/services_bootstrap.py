@@ -22,7 +22,7 @@ THE 14 DOMAINS COMPOSED HERE
     7. finance → FinanceService - Expenses and budgets
 
 **Curriculum Domain Services (3):**
-    8. knowledge → KuService - Knowledge Units (ku:)
+    8. knowledge → ArticleService - Knowledge Units (ku:)
     9. ls → LsService - Learning Steps (ls:)
     10. lp → LpService - Learning Paths (lp:)
 
@@ -138,6 +138,7 @@ if TYPE_CHECKING:
     from core.services.habits_service import HabitsService
     from core.services.insight.insight_store import InsightStore
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
+    from core.services.article_service import ArticleService
     from core.services.ku_service import KuService
     from core.services.lp_service import LpService
     from core.services.ls_service import LsService
@@ -178,7 +179,7 @@ from core.ports import (
     # NOTE: LearningPathsOperations DELETED January 2026 - replaced by LpOperations
     # NOTE: JournalsOperations DELETED February 2026 - Journal merged into Reports
     # NOTE: ChoicesOperations, EventsOperations, GoalsOperations, HabitsOperations,
-    #       KuOperations, LpOperations, LsOperations, PrinciplesOperations, TasksOperations
+    #       ArticleOperations, LpOperations, LsOperations, PrinciplesOperations, TasksOperations
     #       moved to TYPE_CHECKING block — facade services use concrete types (March 2026)
     LifePathOperations,
     QueryExecutor,
@@ -235,8 +236,9 @@ class Services:
     # ========================================================================
     # CURRICULUM DOMAINS (3) - KU, LS, LP
     # ========================================================================
-    ku: "KuService | None" = None  # KuService (Knowledge Units) - atomic knowledge content
-    # adaptive_sel removed — absorbed into KuService.adaptive (February 2026)
+    article: "ArticleService | None" = None  # ArticleService (teaching compositions)
+    ku: "KuService | None" = None  # KuService (atomic knowledge units)
+    # adaptive_sel removed — absorbed into ArticleService.adaptive (February 2026)
     cross_domain: "AdaptiveLpCrossDomainService | None" = None
 
     # Content services
@@ -611,7 +613,7 @@ def _create_learning_services(
     from core.models.curriculum.learning_path import LearningPath
     from core.models.curriculum.learning_step import LearningStep
     from core.services.entity_retrieval import EntityRetrieval
-    from core.services.ku_service import KuService
+    from core.services.article_service import ArticleService
     from core.services.lp_service import LpService  # Intelligence created internally
     from core.services.ls_service import LsService
     from core.services.query_builder import QueryBuilder
@@ -666,9 +668,9 @@ def _create_learning_services(
     unified_query_builder = QueryBuilder(schema_service)
 
     # Create knowledge service using dynamic backends with REQUIRED query_builder
-    # January 2026: KuIntelligenceService created internally, no longer passed in
+    # January 2026: ArticleIntelligenceService created internally, no longer passed in
     # January 2026 - GenAI Integration: Pass vector search and embeddings services
-    ku_service = KuService(
+    ku_service = ArticleService(
         repo=knowledge_backend,
         content_repo=content_adapter,  # Neo4jContentAdapter implements ContentOperations protocol
         neo4j_adapter=neo4j_adapter,
@@ -676,11 +678,20 @@ def _create_learning_services(
         graph_intelligence_service=graph_intelligence,
         query_builder=unified_query_builder,  # QueryBuilder is now REQUIRED
         event_bus=event_bus,  # Event-driven architecture
-        # executor removed: KuOrganizationService now uses backend directly
+        # executor removed: ArticleOrganizationService now uses backend directly
         user_service=user_service,  # January 2026: KU-Activity Integration
         vector_search_service=vector_search_service,  # January 2026: GenAI vector search
         embeddings_service=embeddings_service,  # January 2026: GenAI embeddings (THE ONLY service)
     )
+
+    # Create atomic Ku service (lightweight ontology/reference nodes)
+    from core.services.ku.ku_core_service import KuCoreService
+    from core.services.ku.ku_search_service import KuSearchService
+    from core.services.ku_service import KuService
+
+    ku_core = KuCoreService(backend=ku_backend, event_bus=event_bus)
+    ku_search = KuSearchService(backend=ku_backend, event_bus=event_bus)
+    atomic_ku_service = KuService(core=ku_core, search=ku_search, backend=ku_backend)
 
     # Create progress services
     user_progress = UserProgressService(query_executor)
@@ -726,7 +737,7 @@ def _create_learning_services(
         chunking_service=chunking_service,
     )
 
-    # Adaptive SEL removed — now KuService.adaptive sub-service (February 2026)
+    # Adaptive SEL removed — now ArticleService.adaptive sub-service (February 2026)
 
     # NOTE: Askesis creation MOVED to compose_services() (January 2026)
     # This allows intelligence_factory to be passed at construction time (not post-wired)
@@ -742,7 +753,8 @@ def _create_learning_services(
 
     return {
         "learning_intelligence": learning_paths.intelligence,  # Access via facade
-        "ku_service": ku_service,
+        "article_service": ku_service,
+        "atomic_ku_service": atomic_ku_service,
         "user_progress": user_progress,
         # unified_progress DELETED (January 2026)
         "learning_paths": learning_paths,
@@ -1053,6 +1065,7 @@ async def compose_services(
             EventsBackend,
             GoalsBackend,
             HabitsBackend,
+            ArticleBackend,
             KuBackend,
             PrinciplesBackend,
             SubmissionsBackend,
@@ -1137,16 +1150,26 @@ async def compose_services(
         # User is NOT an activity domain - it's the identity layer all domains reference
         # See: CLAUDE.md §2.11 Domain Architecture Categories
         from adapters.persistence.neo4j.user_backend import UserBackend
-        from core.models.curriculum.ku import Ku
+        from core.models.curriculum.article import Article
 
         users_backend = UserBackend(driver)
-        knowledge_backend = KuBackend(
+        knowledge_backend = ArticleBackend(
             driver,
-            NeoLabel.KU,
-            Ku,
+            NeoLabel.ARTICLE,
+            Article,
             prometheus_metrics=prometheus_metrics,
             base_label=NeoLabel.ENTITY,
         )
+        from core.models.ku.ku import Ku as AtomicKu
+
+        ku_backend = KuBackend(
+            driver,
+            NeoLabel.KU,
+            AtomicKu,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        )
+
         from core.models.principle.principle import Principle
 
         principles_backend = PrinciplesBackend(
@@ -1495,7 +1518,7 @@ async def compose_services(
             from core.services.events.events_ai_service import EventsAIService
             from core.services.goals.goals_ai_service import GoalsAIService
             from core.services.habits.habits_ai_service import HabitsAIService
-            from core.services.ku.ku_ai_service import KuAIService
+            from core.services.article.article_ai_service import ArticleAIService
             from core.services.lp.lp_ai_service import LpAIService
             from core.services.ls.ls_ai_service import LsAIService
             from core.services.principles.principles_ai_service import PrinciplesAIService
@@ -1543,8 +1566,8 @@ async def compose_services(
             activity_services["principles"].ai = principles_ai
 
             # Create AI services for Curriculum Domains (4)
-            ku_ai = KuAIService(
-                backend=learning_services["ku_service"].core.backend,
+            ku_ai = ArticleAIService(
+                backend=learning_services["article_service"].core.backend,
                 llm_service=llm_service,
                 embeddings_service=embeddings_service,
             )
@@ -1559,7 +1582,7 @@ async def compose_services(
                 embeddings_service=embeddings_service,
             )
             # Wire AI services into Curriculum Domain facades (post-construction)
-            learning_services["ku_service"].ai = ku_ai
+            learning_services["article_service"].ai = ku_ai
             learning_services["learning_steps"].ai = ls_ai
             learning_services["learning_paths"].ai = lp_ai
 
@@ -1641,7 +1664,7 @@ async def compose_services(
                 anthropic_service=None,  # Only OpenAI configured for now
                 executor=query_executor,  # Creates SUBMISSION_FEEDBACK entity + FEEDBACK_FOR relationship
                 ku_interaction_service=learning_services[
-                    "ku_service"
+                    "article_service"
                 ].interaction,  # Closes mastery loop
             )
 
@@ -1675,7 +1698,7 @@ async def compose_services(
 
         teacher_review_service = TeacherReviewService(
             executor=query_executor,
-            ku_interaction_service=learning_services["ku_service"].interaction,
+            ku_interaction_service=learning_services["article_service"].interaction,
             event_bus=event_bus,
         )
         logger.info("✅ TeacherReviewService created (ADR-040)")
@@ -1736,7 +1759,7 @@ async def compose_services(
         lifepath_service = LifePathService(
             executor=query_executor,
             lp_service=learning_services["learning_paths"],
-            ku_service=learning_services["ku_service"],
+            ku_service=learning_services["article_service"],
             user_service=user_service,
             llm_service=llm_service,
         )
@@ -1756,7 +1779,7 @@ async def compose_services(
             # Finance Domain (1) - admin-only bookkeeping
             finance_service=core_services["finance"],
             # Curriculum Domains (3) - admin creates, all read
-            ku_service=learning_services["ku_service"],
+            ku_service=learning_services["article_service"],
             ls_service=learning_services["learning_steps"],
             lp_service=learning_services["learning_paths"],
             # Meta Domains (3)
@@ -1859,7 +1882,7 @@ async def compose_services(
             principle_service=activity_services["principles"],
             content_enrichment=content_enrichment,  # ✅ ContentEnrichmentService - Layer 2 reporting
             user_service=user_service,  # Life path alignment
-            ku_service=learning_services["ku_service"],  # Layer 0 reporting
+            ku_service=learning_services["article_service"],  # Layer 0 reporting
             lp_service=learning_services["learning_paths"],  # Layer 0 reporting
             event_bus=event_bus,  # Event-driven report generation
         )
@@ -2216,10 +2239,10 @@ async def compose_services(
         # Event completion → Knowledge practice tracking
         from core.events.calendar_event_events import CalendarEventCompleted
 
-        ku_service = learning_services["ku_service"]
+        ku_service = learning_services["article_service"]
         event_bus.subscribe(CalendarEventCompleted, ku_service.practice.handle_event_completed)
         logger.info(
-            "✅ KuPracticeService subscribed to CalendarEventCompleted (automatic practice tracking)"
+            "✅ ArticlePracticeService subscribed to CalendarEventCompleted (automatic practice tracking)"
         )
 
         # Habit streak milestone → Achievement badges
@@ -2293,7 +2316,7 @@ async def compose_services(
         # "Applied knowledge, not pure theory" - Track real-world knowledge application
         # ========================================================================
 
-        from core.events.ku_events import (
+        from core.events.article_events import (
             KnowledgeAppliedInTask,
             KnowledgeBuiltIntoHabit,
             KnowledgeBulkAppliedInTask,
@@ -2304,7 +2327,7 @@ async def compose_services(
         )
 
         # Get KU service from learning services
-        ku_service = learning_services["ku_service"]
+        ku_service = learning_services["article_service"]
 
         # Subscribe to substance tracking events (single-entity)
         event_bus.subscribe(KnowledgeAppliedInTask, ku_service.handle_knowledge_applied_in_task)
@@ -2325,7 +2348,7 @@ async def compose_services(
             KnowledgeBulkInformedChoice, ku_service.handle_knowledge_bulk_informed_choice
         )
 
-        logger.info("✅ KuService subscribed to substance tracking events:")
+        logger.info("✅ ArticleService subscribed to substance tracking events:")
         logger.info("   - KnowledgeAppliedInTask (weight: 0.05)")
         logger.info("   - KnowledgePracticedInEvent (weight: 0.05)")
         logger.info("   - KnowledgeBuiltIntoHabit (weight: 0.10, lifestyle integration)")
@@ -2389,7 +2412,7 @@ async def compose_services(
         event_bus.subscribe(
             LearningStepCompleted, ku_service.intelligence.handle_learning_step_completed
         )
-        logger.info("✅ KuIntelligenceService subscribed to LearningStepCompleted")
+        logger.info("✅ ArticleIntelligenceService subscribed to LearningStepCompleted")
 
         # ========================================================================
         # TIER 2 HANDLERS: Pattern-Based Event Intelligence (January 2026)
@@ -2440,7 +2463,8 @@ async def compose_services(
             # Finance (NOT an Activity Domain - separate facade)
             finance=core_services["finance"],
             # Knowledge
-            ku=learning_services["ku_service"],
+            article=learning_services["article_service"],
+            ku=learning_services["atomic_ku_service"],
             cross_domain=learning_services["cross_domain"],
             # Content
             content_enrichment=content_enrichment,
@@ -2583,7 +2607,7 @@ async def compose_services(
             choices=activity_services["choices"].relationships,
             principles=activity_services["principles"].relationships,
             # Curriculum Domains (3)
-            ku=learning_services["ku_service"].graph,  # KuGraphService
+            article=learning_services["article_service"].graph,  # ArticleGraphService
             ls=learning_services[
                 "learning_steps"
             ].relationships,  # Factory expects 'ls' parameter name

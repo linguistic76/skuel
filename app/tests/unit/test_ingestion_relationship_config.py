@@ -45,7 +45,7 @@ class TestIngestionRelationshipConfig:
         Previously used PREREQUISITE — accidental divergence from the registry.
         Now unified: all services query REQUIRES_KNOWLEDGE for KU prerequisites.
         """
-        config = ENTITY_CONFIGS[EntityType.KU].relationship_config
+        config = ENTITY_CONFIGS[EntityType.ARTICLE].relationship_config
         assert config is not None
         assert (
             config["connections.requires"]["rel_type"] == RelationshipName.REQUIRES_KNOWLEDGE.value
@@ -57,7 +57,7 @@ class TestIngestionRelationshipConfig:
 
         Previously used ENABLES — accidental divergence from the registry.
         """
-        config = ENTITY_CONFIGS[EntityType.KU].relationship_config
+        config = ENTITY_CONFIGS[EntityType.ARTICLE].relationship_config
         assert config is not None
         assert config["connections.enables"]["rel_type"] == RelationshipName.ENABLES_KNOWLEDGE.value
 
@@ -85,7 +85,7 @@ class TestIngestionRelationshipConfig:
 
     def test_curriculum_gets_organizes_relationship(self):
         """CURRICULUM config includes ORGANIZES for organization functionality."""
-        config = ENTITY_CONFIGS[EntityType.KU].relationship_config
+        config = ENTITY_CONFIGS[EntityType.ARTICLE].relationship_config
         assert config is not None
         assert "organizes" in config
         assert config["organizes"]["rel_type"] == RelationshipName.ORGANIZES.value

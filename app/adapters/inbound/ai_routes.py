@@ -383,9 +383,9 @@ def create_ai_routes(app, rt, services):
     async def knowledge_ai_related(request, uid: str, limit: int = 5):
         """Find semantically related knowledge units."""
         require_authenticated_user(request)
-        if not services.ku.ai:
+        if not services.article.ai:
             return _ai_unavailable_response("Knowledge")
-        result = await services.ku.ai.find_related_knowledge(uid, limit)
+        result = await services.article.ai.find_related_knowledge(uid, limit)
         if result.is_error:
             return JSONResponse(status_code=400, content={"error": str(result.error)})
         return {"related_knowledge": result.value}
@@ -396,9 +396,9 @@ def create_ai_routes(app, rt, services):
     async def knowledge_ai_search(request, query: str, limit: int = 10):
         """Semantic search for knowledge units."""
         require_authenticated_user(request)
-        if not services.ku.ai:
+        if not services.article.ai:
             return _ai_unavailable_response("Knowledge")
-        result = await services.ku.ai.semantic_search(query, limit)
+        result = await services.article.ai.semantic_search(query, limit)
         if result.is_error:
             return JSONResponse(status_code=400, content={"error": str(result.error)})
         return {"results": result.value}
@@ -409,9 +409,9 @@ def create_ai_routes(app, rt, services):
     async def knowledge_ai_summary(request, uid: str):
         """Generate AI summary of a knowledge unit."""
         require_authenticated_user(request)
-        if not services.ku.ai:
+        if not services.article.ai:
             return _ai_unavailable_response("Knowledge")
-        result = await services.ku.ai.generate_summary(uid)
+        result = await services.article.ai.generate_summary(uid)
         if result.is_error:
             return JSONResponse(status_code=400, content={"error": str(result.error)})
         return {"summary": result.value}
@@ -422,9 +422,9 @@ def create_ai_routes(app, rt, services):
     async def knowledge_ai_explain(request, uid: str, level: str = "intermediate"):
         """Explain a knowledge unit at a specified level."""
         require_authenticated_user(request)
-        if not services.ku.ai:
+        if not services.article.ai:
             return _ai_unavailable_response("Knowledge")
-        result = await services.ku.ai.explain_at_level(uid, level)
+        result = await services.article.ai.explain_at_level(uid, level)
         if result.is_error:
             return JSONResponse(status_code=400, content={"error": str(result.error)})
         return result.value
@@ -435,9 +435,9 @@ def create_ai_routes(app, rt, services):
     async def knowledge_ai_applications(request, uid: str):
         """Suggest practical applications of knowledge."""
         require_authenticated_user(request)
-        if not services.ku.ai:
+        if not services.article.ai:
             return _ai_unavailable_response("Knowledge")
-        result = await services.ku.ai.suggest_applications(uid)
+        result = await services.article.ai.suggest_applications(uid)
         if result.is_error:
             return JSONResponse(status_code=400, content={"error": str(result.error)})
         return result.value
@@ -572,7 +572,7 @@ def create_ai_routes(app, rt, services):
                 "events": services.events.ai is not None,
                 "choices": services.choices.ai is not None,
                 "principles": services.principles.ai is not None,
-                "knowledge": services.ku.ai is not None,
+                "knowledge": services.article.ai is not None,
                 "learning_steps": services.ls.ai is not None,
                 "learning_paths": services.lp.ai is not None,
             }

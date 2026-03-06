@@ -36,7 +36,7 @@ if TYPE_CHECKING:
         EventsOperations,
         GoalsOperations,
         HabitsOperations,
-        KuOperations,
+        ArticleOperations,
         TasksOperations,
     )
     from core.services.user import UserContext
@@ -62,7 +62,7 @@ class EntityExtractor:
 
     def __init__(
         self,
-        knowledge_service: KuOperations | None = None,
+        knowledge_service: ArticleOperations | None = None,
         tasks_service: TasksOperations | None = None,
         goals_service: GoalsOperations | None = None,
         habits_service: HabitsOperations | None = None,
@@ -72,7 +72,7 @@ class EntityExtractor:
         Initialize entity extractor.
 
         Args:
-            knowledge_service: KuOperations for knowledge entity lookup (optional)
+            knowledge_service: ArticleOperations for knowledge entity lookup (optional)
             tasks_service: TasksOperations for task entity lookup (optional)
             goals_service: GoalsOperations for goal entity lookup (optional)
             habits_service: HabitsOperations for habit entity lookup (optional)
@@ -82,7 +82,7 @@ class EntityExtractor:
             Domain services are optional - graceful degradation if unavailable.
             If service is None, that entity type won't be extracted.
         """
-        self.knowledge_service: KuOperations | None = knowledge_service
+        self.knowledge_service: ArticleOperations | None = knowledge_service
         self.tasks_service: TasksOperations | None = tasks_service
         self.goals_service: GoalsOperations | None = goals_service
         self.habits_service: HabitsOperations | None = habits_service

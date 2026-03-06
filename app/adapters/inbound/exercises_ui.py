@@ -315,7 +315,7 @@ class ExerciseUIComponents:
             ku_links = [
                 A(
                     ku.get("title") or ku.get("uid", "Untitled"),
-                    href=f"/ku/{ku.get('uid')}",
+                    href=f"/article/{ku.get('uid')}",
                     cls="link link-primary mr-3",
                 )
                 for ku in required_knowledge

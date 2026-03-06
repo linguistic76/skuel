@@ -27,7 +27,7 @@ class TestResourceKuCreation:
 
     def test_forces_ku_type_resource(self):
         """__post_init__ forces ku_type=RESOURCE regardless of input."""
-        r = Resource(uid="ku_test", title="Test", ku_type=EntityType.KU)
+        r = Resource(uid="ku_test", title="Test", ku_type=EntityType.ARTICLE)
         assert r.ku_type == EntityType.RESOURCE
 
     def test_resource_specific_fields_default_none(self):

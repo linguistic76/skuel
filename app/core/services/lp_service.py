@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from core.models.curriculum.learning_path import LearningPath
     from core.models.curriculum.learning_step import LearningStep
     from core.ports import EventBusOperations
-    from core.services.ku_service import KuService
+    from core.services.article_service import ArticleService
     from core.services.ls_service import LsService
 
 logger = get_logger(__name__)
@@ -64,7 +64,7 @@ class LpService:
         backend: Any,
         executor: Any,
         ls_service: LsService,
-        ku_service: KuService | None = None,
+        ku_service: ArticleService | None = None,
         progress_service: Any | None = None,
         graph_intelligence_service: Any | None = None,
         event_bus: EventBusOperations | None = None,
@@ -87,7 +87,7 @@ class LpService:
             backend: BackendOperations for LP entities (REQUIRED — created by composition root)
             executor: QueryExecutor for raw Cypher (REQUIRED — created by composition root)
             ls_service: LsService for learning step operations - REQUIRED
-            ku_service: Optional KuService for prerequisite queries
+            ku_service: Optional ArticleService for prerequisite queries
             progress_service: Optional UserProgressService for progress tracking
             graph_intelligence_service: GraphIntelligenceService - REQUIRED for cross-domain queries
             event_bus: Event bus for publishing domain events (optional)

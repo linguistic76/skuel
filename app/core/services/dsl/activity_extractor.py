@@ -429,7 +429,7 @@ class ActivityExtractorService:
         choices_service=None,  # ChoicesCoreService
         finance_service=None,  # FinanceCoreService
         # Curriculum Domains (3)
-        ku_service=None,  # KuCoreService
+        ku_service=None,  # ArticleCoreService
         ls_service=None,  # LsCoreService
         lp_service=None,  # LpCoreService
         # Meta Domains (3)

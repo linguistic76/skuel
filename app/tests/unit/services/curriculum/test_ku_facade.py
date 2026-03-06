@@ -1,5 +1,5 @@
 """
-Unit tests for KuService facade orchestration methods.
+Unit tests for ArticleService facade orchestration methods.
 
 Tests focus on explicit orchestration logic (validation guards, multi-step
 sequencing, enum conversion) — NOT pure delegation methods (*args/**kwargs).
@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-from core.services.ku_service import KuService
+from core.services.article_service import ArticleService
 from core.utils.result_simplified import Errors, Result
 
 # ---------------------------------------------------------------------------
@@ -27,11 +27,11 @@ def mock_repo() -> Mock:
 
 
 @pytest.fixture
-def ku_service(mock_repo: Mock) -> KuService:
-    # KuService has 9+ sub-services each with fail-fast dependencies.
+def ku_service(mock_repo: Mock) -> ArticleService:
+    # ArticleService has 9+ sub-services each with fail-fast dependencies.
     # Bypass __init__ entirely and wire sub-services directly — the pattern for
     # testing facade orchestration logic without touching infrastructure.
-    service = object.__new__(KuService)
+    service = object.__new__(ArticleService)
     service.core = AsyncMock()
     service.search_service = AsyncMock()
     service.search = service.search_service
@@ -53,7 +53,7 @@ def ku_service(mock_repo: Mock) -> KuService:
 
 class TestKuServiceOrganizationGuard:
     @pytest.mark.asyncio
-    async def test_organize_fails_when_organization_is_none(self, ku_service: KuService) -> None:
+    async def test_organize_fails_when_organization_is_none(self, ku_service: ArticleService) -> None:
         """organize() returns fail when organization service is None."""
         ku_service.organization = None
 
@@ -62,7 +62,7 @@ class TestKuServiceOrganizationGuard:
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_unorganize_fails_when_organization_is_none(self, ku_service: KuService) -> None:
+    async def test_unorganize_fails_when_organization_is_none(self, ku_service: ArticleService) -> None:
         """unorganize() returns fail when organization service is None."""
         ku_service.organization = None
 
@@ -72,7 +72,7 @@ class TestKuServiceOrganizationGuard:
 
     @pytest.mark.asyncio
     async def test_organize_delegates_when_organization_available(
-        self, ku_service: KuService
+        self, ku_service: ArticleService
     ) -> None:
         """organize() delegates to organization service when available."""
         ku_service.organization.organize = AsyncMock(return_value=Result.ok(True))
@@ -84,7 +84,7 @@ class TestKuServiceOrganizationGuard:
 
     @pytest.mark.asyncio
     async def test_get_organized_children_fails_when_organization_is_none(
-        self, ku_service: KuService
+        self, ku_service: ArticleService
     ) -> None:
         """get_organized_children() returns fail when organization service is None."""
         ku_service.organization = None
@@ -95,7 +95,7 @@ class TestKuServiceOrganizationGuard:
 
     @pytest.mark.asyncio
     async def test_find_organizers_fails_when_organization_is_none(
-        self, ku_service: KuService
+        self, ku_service: ArticleService
     ) -> None:
         """find_organizers() returns fail when organization service is None."""
         ku_service.organization = None
@@ -113,7 +113,7 @@ class TestKuServiceOrganizationGuard:
 class TestKuServiceGetKnowledgeRelationships:
     @pytest.mark.asyncio
     async def test_missing_relationship_type_returns_validation_error(
-        self, ku_service: KuService
+        self, ku_service: ArticleService
     ) -> None:
         """get_knowledge_relationships returns validation error when relationship_type is None."""
         result = await ku_service.get_knowledge_relationships("ku_abc123", relationship_type=None)
@@ -122,7 +122,7 @@ class TestKuServiceGetKnowledgeRelationships:
 
     @pytest.mark.asyncio
     async def test_invalid_relationship_type_returns_validation_error(
-        self, ku_service: KuService
+        self, ku_service: ArticleService
     ) -> None:
         """get_knowledge_relationships returns validation error for unknown type string."""
         result = await ku_service.get_knowledge_relationships(
@@ -133,7 +133,7 @@ class TestKuServiceGetKnowledgeRelationships:
 
     @pytest.mark.asyncio
     async def test_valid_relationship_type_delegates_to_semantic(
-        self, ku_service: KuService
+        self, ku_service: ArticleService
     ) -> None:
         """get_knowledge_relationships delegates to semantic service for valid type string."""
         ku_service.semantic.get_relationships_by_type = AsyncMock(
@@ -160,7 +160,7 @@ class TestKuServiceGetKnowledgeRelationships:
 class TestKuServiceTagManagement:
     @pytest.mark.asyncio
     async def test_add_knowledge_tags_merges_without_duplicates(
-        self, ku_service: KuService
+        self, ku_service: ArticleService
     ) -> None:
         """add_knowledge_tags merges new tags with existing without duplicates."""
         mock_ku = Mock()
@@ -176,7 +176,7 @@ class TestKuServiceTagManagement:
 
     @pytest.mark.asyncio
     async def test_add_knowledge_tags_propagates_core_get_failure(
-        self, ku_service: KuService
+        self, ku_service: ArticleService
     ) -> None:
         """add_knowledge_tags propagates failure from core.get without calling core.update."""
         ku_service.core.get = AsyncMock(
@@ -190,7 +190,7 @@ class TestKuServiceTagManagement:
 
     @pytest.mark.asyncio
     async def test_add_knowledge_tags_returns_not_found_for_missing_ku(
-        self, ku_service: KuService
+        self, ku_service: ArticleService
     ) -> None:
         """add_knowledge_tags returns not_found when core.get returns None."""
         ku_service.core.get = AsyncMock(return_value=Result.ok(None))
@@ -202,7 +202,7 @@ class TestKuServiceTagManagement:
 
     @pytest.mark.asyncio
     async def test_remove_knowledge_tags_filters_specified_tags(
-        self, ku_service: KuService
+        self, ku_service: ArticleService
     ) -> None:
         """remove_knowledge_tags removes specified tags and keeps the rest."""
         mock_ku = Mock()
@@ -220,7 +220,7 @@ class TestKuServiceTagManagement:
 
     @pytest.mark.asyncio
     async def test_remove_knowledge_tags_propagates_core_get_failure(
-        self, ku_service: KuService
+        self, ku_service: ArticleService
     ) -> None:
         """remove_knowledge_tags propagates failure from core.get without calling core.update."""
         ku_service.core.get = AsyncMock(
@@ -234,7 +234,7 @@ class TestKuServiceTagManagement:
 
     @pytest.mark.asyncio
     async def test_remove_knowledge_tags_returns_not_found_for_missing_ku(
-        self, ku_service: KuService
+        self, ku_service: ArticleService
     ) -> None:
         """remove_knowledge_tags returns not_found when core.get returns None."""
         ku_service.core.get = AsyncMock(return_value=Result.ok(None))

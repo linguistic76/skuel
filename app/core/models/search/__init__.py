@@ -44,7 +44,7 @@ Usage:
     # Advanced unified search (using SearchRequest, THE canonical model)
     request = SearchRequest(
         query_text="machine learning",
-        entity_types=[EntityType.KU, EntityType.TASK],
+        entity_types=[EntityType.ARTICLE, EntityType.TASK],
         connected_to_uid="ku.python-basics",
         connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
         tags_contain=["python"],

@@ -19,13 +19,14 @@ from core.models.enums.entity_enums import EntityType, NonKuDomain
 
 # Map YAML type values to EntityType/NonKuDomain (handles aliases)
 TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
-    # Knowledge Units
-    "ku": EntityType.KU,
-    "knowledge": EntityType.KU,
-    "knowledgeunit": EntityType.KU,
-    # Maps of Content (now CURRICULUM — MOC is emergent via ORGANIZES relationships)
-    "moc": EntityType.KU,
-    "mapofcontent": EntityType.KU,
+    # Articles (teaching compositions — formerly "ku" in ingestion)
+    "article": EntityType.ARTICLE,
+    "ku": EntityType.ARTICLE,
+    "knowledge": EntityType.ARTICLE,
+    "knowledgeunit": EntityType.ARTICLE,
+    # Maps of Content (MOC is emergent via ORGANIZES relationships)
+    "moc": EntityType.ARTICLE,
+    "mapofcontent": EntityType.ARTICLE,
     # Activity domains
     "task": EntityType.TASK,
     "goal": EntityType.GOAL,
@@ -104,13 +105,13 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> EntityType | No
         if non_ku:
             return non_ku
 
-    # Check for MOC flag (markdown convention) — MOC is now CURRICULUM
+    # Check for MOC flag (markdown convention) — MOC is now ARTICLE
     if data.get("moc") is True:
-        return EntityType.KU
+        return EntityType.ARTICLE
 
-    # Default to CURRICULUM for markdown files without explicit type
+    # Default to ARTICLE for markdown files without explicit type
     if file_path.suffix.lower() == ".md":
-        return EntityType.KU
+        return EntityType.ARTICLE
 
     raise ValueError(f"Cannot determine entity type for {file_path}")
 

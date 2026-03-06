@@ -62,7 +62,7 @@ if TYPE_CHECKING:
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService
     # LsRelationshipService deleted - LS now uses UnifiedRelationshipService
     from core.services.feedback import FeedbackRelationshipService
-    from core.services.ku.ku_graph_service import KuGraphService
+    from core.services.article.article_graph_service import ArticleGraphService
     from core.services.relationships import UnifiedRelationshipService
     from core.services.submissions import SubmissionsRelationshipService
     from core.services.user.unified_user_context import UserContext
@@ -94,7 +94,7 @@ class UserContextIntelligence(
     - principles: UnifiedRelationshipService - What values guide this?
 
     Curriculum Domains (3):
-    - ku: KuGraphService - What knowledge is ready?
+    - article: ArticleGraphService - What knowledge is ready?
     - ls: UnifiedRelationshipService - Learning step relationships (unified)
     - lp: UnifiedRelationshipService - Critical path to life path (unified)
 
@@ -136,7 +136,7 @@ class UserContextIntelligence(
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
         # Curriculum Domains (3) - REQUIRED
-        ku: KuGraphService,
+        article: ArticleGraphService,
         ls: UnifiedRelationshipService,  # January 2026: Unified
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
@@ -165,7 +165,7 @@ class UserContextIntelligence(
                 principles: Principles relationship service for value alignment
 
             Curriculum Domains (3):
-                ku: Knowledge unit service for learning readiness
+                article: Article service for learning readiness
                 ls: Learning step service for step sequencing
                 lp: Learning path service for critical path analysis
 
@@ -195,7 +195,7 @@ class UserContextIntelligence(
             "choices": choices,
             "principles": principles,
             # Curriculum Domains (3)
-            "ku": ku,
+            "article": article,
             "ls": ls,
             "lp": lp,
             # Processing Domains (3)
@@ -225,7 +225,7 @@ class UserContextIntelligence(
         self.principles = principles
 
         # Curriculum domains (3)
-        self.ku = ku
+        self.article = article
         self.ls = ls
         self.lp = lp
 

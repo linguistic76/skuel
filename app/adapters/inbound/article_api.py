@@ -28,12 +28,12 @@ from core.models.curriculum.curriculum_requests import CurriculumCreateRequest
 from core.models.entity_requests import EntityUpdateRequest
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
-from core.services.ku_service import KuService
+from core.services.article_service import ArticleService
 from core.utils.result_simplified import Errors, Result
 
 
-def create_ku_api_routes(
-    app: Any, rt: Any, ku_service: KuService, user_service: Any = None
+def create_article_api_routes(
+    app: Any, rt: Any, ku_service: ArticleService, user_service: Any = None
 ) -> list[Any]:
     """
     Create KU API routes using factory pattern.
@@ -68,9 +68,9 @@ def create_ku_api_routes(
 
     # Register all standard CRUD routes:
     # - POST /api/ku (create)
-    # - GET /api/ku/{uid} (get)
-    # - PUT /api/ku/{uid} (update)
-    # - DELETE /api/ku/{uid} (delete)
+    # - GET /api/article/{uid} (get)
+    # - PUT /api/article/{uid} (update)
+    # - DELETE /api/article/{uid} (delete)
     # - GET /api/ku (list with pagination)
     crud_factory.register_routes(app, rt)
 
@@ -85,9 +85,9 @@ def create_ku_api_routes(
     )
 
     # Register intelligence routes:
-    # - GET /api/ku/context?uid=...&depth=2 (entity with graph context)
-    # - GET /api/ku/analytics?period_days=30 (user performance analytics)
-    # - GET /api/ku/insights?uid=... (domain-specific insights)
+    # - GET /api/article/context?uid=...&depth=2 (entity with graph context)
+    # - GET /api/article/analytics?period_days=30 (user performance analytics)
+    # - GET /api/article/insights?uid=... (domain-specific insights)
     intelligence_factory.register_routes(app, rt)
 
     # ========================================================================
@@ -97,7 +97,7 @@ def create_ku_api_routes(
     # KU Relationships
     # ----------------
 
-    @rt("/api/ku/relationships", methods=["POST"])
+    @rt("/api/article/relationships", methods=["POST"])
     @require_admin(user_service_getter)
     @boundary_handler()
     async def create_ku_relationship_route(
@@ -114,23 +114,23 @@ def create_ku_api_routes(
             uid, target_uid, relationship_type, strength, description
         )
 
-    @rt("/api/ku/relationships", methods=["GET"])
+    @rt("/api/article/relationships", methods=["GET"])
     @boundary_handler()
     async def get_ku_relationships_route(request: Request, uid: str) -> Result[Any]:
         """Get relationships for a KU."""
         params = dict(request.query_params)
         relationship_type = params.get("type")
-        # Note: direction param not supported by KuService - ignoring for now
+        # Note: direction param not supported by ArticleService - ignoring for now
 
         return await ku_service.get_knowledge_relationships(uid, relationship_type)
 
-    @rt("/api/ku/prerequisites")
+    @rt("/api/article/prerequisites")
     @boundary_handler()
     async def get_ku_prerequisites_route(request: Request, uid: str) -> Result[Any]:
         """Get prerequisites for a KU."""
         return await ku_service.get_knowledge_prerequisites(uid)
 
-    @rt("/api/ku/dependencies")
+    @rt("/api/article/dependencies")
     @boundary_handler()
     async def get_ku_dependencies_route(request: Request, uid: str) -> Result[Any]:
         """Get what depends on this KU."""
@@ -139,7 +139,7 @@ def create_ku_api_routes(
     # Curriculum Content Operations
     # ---------------------
 
-    @rt("/api/ku/content", methods=["POST"])
+    @rt("/api/article/content", methods=["POST"])
     @require_admin(user_service_getter)
     @boundary_handler()
     async def update_ku_content_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
@@ -147,11 +147,11 @@ def create_ku_api_routes(
         body = await request.json()
         content = body.get("content")
         title = body.get("title")  # Optional title update
-        # Note: content_type and update_metadata params not supported by KuService
+        # Note: content_type and update_metadata params not supported by ArticleService
 
         return await ku_service.update_ku_content(uid, content, title)
 
-    @rt("/api/ku/tags", methods=["POST"])
+    @rt("/api/article/tags", methods=["POST"])
     @require_admin(user_service_getter)
     @boundary_handler()
     async def add_ku_tags_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
@@ -161,7 +161,7 @@ def create_ku_api_routes(
 
         return await ku_service.add_knowledge_tags(uid, tags)
 
-    @rt("/api/ku/tags", methods=["DELETE"])
+    @rt("/api/article/tags", methods=["DELETE"])
     @require_admin(user_service_getter)
     @boundary_handler()
     async def remove_ku_tags_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
@@ -174,18 +174,18 @@ def create_ku_api_routes(
     # KU Search and Discovery
     # -----------------------
 
-    @rt("/api/ku/search")
+    @rt("/api/article/search")
     @boundary_handler()
     async def search_ku_route(request: Request) -> Result[Any]:
         """Search KUs by content, title, or tags."""
         params = dict(request.query_params)
         query = params.get("q", "")
-        # Note: search_type param not supported by KuService - searches all by default
+        # Note: search_type param not supported by ArticleService - searches all by default
         limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=100)
 
         return await ku_service.search_knowledge_units(query, limit)
 
-    @rt("/api/ku/related")
+    @rt("/api/article/related")
     @boundary_handler()
     async def find_related_ku_route(request: Request, uid: str) -> Result[Any]:
         """Find KUs related to the given unit."""
@@ -195,7 +195,7 @@ def create_ku_api_routes(
 
         return await ku_service.find_related_knowledge(uid, similarity_threshold, limit)
 
-    @rt("/api/ku/recommendations")
+    @rt("/api/article/recommendations")
     @boundary_handler()
     async def get_ku_recommendations_route(request: Request, uid: str) -> Result[Any]:
         """Get personalized KU recommendations."""
@@ -208,13 +208,13 @@ def create_ku_api_routes(
     # KU Organization
     # ---------------
 
-    @rt("/api/ku/domains")
+    @rt("/api/article/domains")
     @boundary_handler()
     async def list_ku_domains_route(_request: Request) -> Result[Any]:
         """List all KU domains."""
         return await ku_service.list_knowledge_domains()
 
-    @rt("/api/ku/by-domain")
+    @rt("/api/article/by-domain")
     @boundary_handler()
     async def get_ku_by_domain_route(request: Request, domain: str) -> Result[Any]:
         """Get KUs in a specific domain."""
@@ -223,13 +223,13 @@ def create_ku_api_routes(
 
         return await ku_service.get_knowledge_by_domain(domain, limit)
 
-    @rt("/api/ku/categories")
+    @rt("/api/article/categories")
     @boundary_handler()
     async def list_ku_categories_route(_request: Request) -> Result[Any]:
         """List all KU categories."""
         return await ku_service.list_knowledge_categories()
 
-    @rt("/api/ku/tags")
+    @rt("/api/article/tags")
     @boundary_handler()
     async def list_ku_tags_route(request: Request) -> Result[Any]:
         """List all KU tags with usage counts."""
@@ -241,7 +241,7 @@ def create_ku_api_routes(
     # Curriculum Analytics
     # --------------------
 
-    @rt("/api/ku/stats")
+    @rt("/api/article/stats")
     @boundary_handler()
     async def get_ku_stats_route(request: Request, uid: str) -> Result[Any]:
         """Get statistics for a KU."""
@@ -251,7 +251,7 @@ def create_ku_api_routes(
     # USER CONTEXT ROUTES - KU-Activity Integration (January 2026)
     # ========================================================================
 
-    @rt("/api/ku/my-context")
+    @rt("/api/article/my-context")
     @boundary_handler()
     async def get_ku_user_context_route(request: Request, uid: str) -> Result[Any]:
         """
@@ -298,14 +298,14 @@ def create_ku_api_routes(
     # ADAPTIVE CURRICULUM ROUTES (absorbed from SEL)
     # ========================================================================
 
-    @rt("/api/ku/journey")
+    @rt("/api/article/journey")
     @boundary_handler()
     async def get_ku_journey(request: Request) -> Result[Any]:
         """Get user's SEL learning journey — progress across all 5 categories."""
         user_uid = require_authenticated_user(request)
         return await ku_service.get_sel_journey(user_uid)
 
-    @rt("/api/ku/curriculum/{category}")
+    @rt("/api/article/curriculum/{category}")
     @boundary_handler()
     async def get_personalized_curriculum(
         request: Request, category: str, limit: int = 10
@@ -322,7 +322,7 @@ def create_ku_api_routes(
             user_uid=user_uid, sel_category=sel_category, limit=limit
         )
 
-    @rt("/api/ku/journey-html")
+    @rt("/api/article/journey-html")
     async def get_ku_journey_html(request: Request) -> Any:
         """HTMX: Render SEL journey as HTML fragment."""
         from fasthtml.common import Div, P
@@ -340,7 +340,7 @@ def create_ku_api_routes(
 
         return SELJourneyOverview(result.value)
 
-    @rt("/api/ku/curriculum-html/{category}")
+    @rt("/api/article/curriculum-html/{category}")
     async def get_curriculum_html(request: Request, category: str, limit: int = 10) -> Any:
         """HTMX: Render personalized curriculum grid as HTML fragment."""
         from fasthtml.common import Div, P
@@ -401,13 +401,13 @@ def create_ku_api_routes(
         domain_name="ku",
         analytics_config={
             "summary": {
-                "path": "/api/ku/analytics/summary",
+                "path": "/api/article/analytics/summary",
                 "handler": handle_summary_analytics,
                 "description": "Get summary analytics for all KUs",
                 "methods": ["GET"],
             },
             "graph_structure": {
-                "path": "/api/ku/graph/structure",
+                "path": "/api/article/graph/structure",
                 "handler": handle_graph_structure,
                 "description": "Get KU graph structure and metrics",
                 "methods": ["GET"],

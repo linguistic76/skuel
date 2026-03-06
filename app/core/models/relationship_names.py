@@ -77,6 +77,10 @@ class RelationshipName(str, Enum):
     REINFORCED_BY_KNOWLEDGE = "REINFORCED_BY_KNOWLEDGE"  # Habits reinforced by knowledge
     BLOCKED_BY_KNOWLEDGE = "BLOCKED_BY_KNOWLEDGE"  # Tasks blocked by lack of knowledge
 
+    # Article → Ku composition
+    USES_KU = "USES_KU"  # (Article)-[:USES_KU]->(Ku) — article composes atomic Ku
+    TRAINS_KU = "TRAINS_KU"  # (Ls)-[:TRAINS_KU]->(Ku) — learning step trains atomic Ku
+
     # =========================================================================
     # TASK RELATIONSHIPS
     # Task dependencies, contributions, and cross-domain links

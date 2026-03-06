@@ -14,7 +14,7 @@ Architecture:
 - Lives at `/core/services/` level (not in `/ku/` directory)
 - Injected into search routes, personalized discovery adapter
 - Specialized utility for multi-strategy knowledge retrieval
-- See `/core/services/ku/README.md` for architecture overview
+- See `/core/services/article/README.md` for architecture overview
 """
 
 from dataclasses import dataclass
@@ -22,7 +22,7 @@ from operator import attrgetter
 from typing import Any, Protocol, runtime_checkable
 
 from core.constants import GraphDepth
-from core.models.curriculum.ku import Ku
+from core.models.curriculum.article import Article
 from core.models.query import (
     IndexStrategy,
     QueryElements,
@@ -32,7 +32,7 @@ from core.models.query import (
 )
 
 # Use protocol interfaces instead of ports
-from core.ports.curriculum_protocols import KuOperations
+from core.ports.curriculum_protocols import ArticleOperations
 from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 from core.services.user import UserContext
 from core.utils.logging import get_logger
@@ -72,7 +72,7 @@ logger = get_logger(__name__)
 class EnhancedResult:
     """A knowledge unit with retrieval enhancements"""
 
-    unit: Ku
+    unit: Article
     base_score: float  # Original search score
     vector_score: float  # Semantic similarity score
     graph_score: float  # Graph relevance score
@@ -101,7 +101,7 @@ class EntityRetrieval:
 
     def __init__(
         self,
-        knowledge_repo: KuOperations,
+        knowledge_repo: ArticleOperations,
         embeddings_service: Neo4jGenAIEmbeddingsService | None = None,
         unified_query_builder=None,  # Use the unified query builder service
         user_progress_service=None,  # Optional progress service for intelligent ranking

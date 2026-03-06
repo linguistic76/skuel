@@ -48,6 +48,7 @@ from core.models.curriculum.learning_step_dto import LearningStepDTO
 # NOTE (February 2026): Habit imports removed — Habit merged into Entity model
 # NOTE (February 2026): Ku is now a Union type alias; use Entity (the actual class) for model_class
 from core.models.entity import Entity
+from core.models.entity_dto import EntityDTO
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event_dto import EventDTO
@@ -1601,7 +1602,7 @@ PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 
 # KU (Knowledge Unit)
-KU_CONFIG = DomainRelationshipConfig(
+ARTICLE_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,
     entity_label="Entity",
     dto_class=CurriculumDTO,
@@ -1709,6 +1710,14 @@ KU_CONFIG = DomainRelationshipConfig(
             "organized_by",
             "organized_by",
         ),
+        # Composition: Article → atomic Ku
+        UnifiedRelationshipDefinition(
+            RelationshipName.USES_KU,
+            "Ku",
+            "outgoing",
+            "used_kus",
+            "uses_ku",
+        ),
     ),
     prerequisite_relationship_names=(RelationshipName.REQUIRES_KNOWLEDGE,),
     enables_relationship_names=(RelationshipName.ENABLES_KNOWLEDGE,),
@@ -1723,6 +1732,35 @@ KU_CONFIG = DomainRelationshipConfig(
         "context": QueryIntent.PREREQUISITE,
         "learning": QueryIntent.HIERARCHICAL,
     },
+)
+
+# Ku (Atomic Knowledge Unit) — lightweight ontology/reference node
+# Relationships (USES_KU, TRAINS_KU) added in Phase 7
+KU_CONFIG = DomainRelationshipConfig(
+    domain=Domain.KNOWLEDGE,
+    entity_label="Ku",
+    dto_class=EntityDTO,
+    model_class=Entity,
+    backend_get_method="get",
+    ownership_relationship=None,  # Shared content
+    is_shared_content=True,
+    relationships=(
+        # Incoming: Articles that compose this atomic Ku
+        UnifiedRelationshipDefinition(
+            RelationshipName.USES_KU,
+            "Entity",
+            "incoming",
+            "used_by_articles",
+            "used_by",
+        ),
+    ),
+    prerequisite_relationship_names=(),
+    enables_relationship_names=(),
+    bidirectional_relationships=(),
+    semantic_types=(),
+    scoring_weights=_build_scoring_weights(),
+    default_context_intent=QueryIntent.EXPLORATORY,
+    intent_mappings={},
 )
 
 # LS (Learning Step) — Entity with ku_type='learning_step'
@@ -1980,7 +2018,7 @@ DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
     # Curriculum Domains - Shared content
     # Note: LS and LP both use Domain.LEARNING
     # Use LABEL_CONFIGS for unambiguous lookup
-    Domain.KNOWLEDGE: KU_CONFIG,  # Primary for Domain.KNOWLEDGE
+    Domain.KNOWLEDGE: ARTICLE_CONFIG,  # Primary for Domain.KNOWLEDGE
     Domain.LEARNING: LS_CONFIG,  # Primary for Domain.LEARNING
 }
 
@@ -2001,7 +2039,8 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     # Principle Reflection (January 2026)
     "PrincipleReflection": PRINCIPLE_REFLECTION_CONFIG,
     # Curriculum Domains — all :Entity in Neo4j, virtual keys for config lookup
-    "Entity": KU_CONFIG,
+    "Entity": ARTICLE_CONFIG,
+    "Ku": KU_CONFIG,
     "Ls": LS_CONFIG,  # Virtual key — config lookup key for 'learning_step'}
     "Lp": LP_CONFIG,  # Virtual key — config lookup key for 'learning_path'}
     "Exercise": EXERCISE_CONFIG,  # Virtual key — config lookup key for 'exercise'}
@@ -2233,7 +2272,7 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 # Maps EntityType to registry config key (Neo4j label string).
 # All domain entities are :Entity nodes; virtual config keys kept for lookup.
 ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
-    EntityType.KU: "Entity",
+    EntityType.ARTICLE: "Entity",
     EntityType.TASK: "Task",
     EntityType.GOAL: "Goal",
     EntityType.HABIT: "Habit",  # Virtual key — config lookup key for 'habit'}
@@ -2246,7 +2285,7 @@ ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
 }
 
 LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
-    "Entity": EntityType.KU,
+    "Entity": EntityType.ARTICLE,
     "Task": EntityType.TASK,
     "Goal": EntityType.GOAL,
     "Habit": EntityType.HABIT,

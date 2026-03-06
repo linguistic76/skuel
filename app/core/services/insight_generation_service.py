@@ -18,7 +18,7 @@ Architecture:
 - Lives at `/core/services/` level (not in `/ku/` directory)
 - Injected into TasksService for automatic knowledge creation
 - Specialized utility for AI-powered knowledge generation
-- See `/core/services/ku/README.md` for architecture overview
+- See `/core/services/article/README.md` for architecture overview
 """
 
 from collections import defaultdict

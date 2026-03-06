@@ -54,7 +54,7 @@ def _ku_tabs(active_tab: str = "all") -> Any:
                 label,
                 role="tab",
                 cls=f"tab {'tab-active' if is_active else ''}",
-                hx_get=f"/ku/filter?sel_category={slug}" if slug != "all" else "/ku/filter",
+                hx_get=f"/article/filter?sel_category={slug}" if slug != "all" else "/article/filter",
                 hx_target="#ku-content",
                 hx_swap="innerHTML",
                 hx_push_url=f"/ku?sel={slug}" if slug != "all" else "/ku",
@@ -94,7 +94,7 @@ def _ku_moc_section() -> list[Any]:
             Div(
                 P("MOC navigation", cls="text-xs opacity-50"),
                 id="moc-nav-list",
-                hx_get="/ku/moc-nav",
+                hx_get="/article/moc-nav",
                 hx_trigger="load",
                 hx_swap="innerHTML",
             )
@@ -153,25 +153,25 @@ class KuUIComponents:
         quick_actions = [
             {
                 "label": "➕ New Knowledge",
-                "hx_get": "/ku/create",
+                "hx_get": "/article/create",
                 "hx_target": "#modal",
                 "class": "btn-primary",
             },
             {
                 "label": "🔍 Discovery",
-                "hx_get": "/ku/discovery",
+                "hx_get": "/article/discovery",
                 "hx_target": "#main-content",
                 "class": "btn-secondary",
             },
             {
                 "label": "📊 Analytics",
-                "hx_get": "/ku/analytics",
+                "hx_get": "/article/analytics",
                 "hx_target": "#main-content",
                 "class": "btn-outline",
             },
             {
                 "label": "🕸️ Graph View",
-                "hx_get": "/ku/graph",
+                "hx_get": "/article/graph",
                 "hx_target": "#main-content",
                 "class": "btn-ghost",
             },
@@ -185,7 +185,7 @@ class KuUIComponents:
             entity_renderer=KuUIComponents.render_ku_card,
             quick_actions=quick_actions,
             categories=domains,
-            filter_endpoint="/ku/filter",
+            filter_endpoint="/article/filter",
             request=request,
             active_page="knowledge",
         )
@@ -236,14 +236,14 @@ class KuUIComponents:
                 "👁️ View",
                 variant=ButtonT.outline,
                 cls="btn-sm",
-                hx_get=f"/ku/{uid}/details",
+                hx_get=f"/article/{uid}/details",
                 hx_target="#modal" if compact else "#main-content",
             ),
             Button(
                 "✏️ Edit",
                 variant=ButtonT.ghost,
                 cls="btn-sm",
-                hx_get=f"/ku/{uid}/edit",
+                hx_get=f"/article/{uid}/edit",
                 hx_target="#modal",
             ),
         ]
@@ -254,7 +254,7 @@ class KuUIComponents:
                     "🕸️ Graph",
                     variant=ButtonT.secondary,
                     cls="btn-sm",
-                    hx_get=f"/ku/{uid}/graph",
+                    hx_get=f"/article/{uid}/graph",
                     hx_target="#main-content",
                 )
             )
@@ -399,7 +399,7 @@ def parse_ku_filters(request: Request) -> KuFilters:
 # ============================================================================
 
 
-def create_ku_ui_routes(_app, rt, ku_service):
+def create_article_ui_routes(_app, rt, ku_service):
     """
     Create clean UI routes using component composition.
 
@@ -434,7 +434,7 @@ def create_ku_ui_routes(_app, rt, ku_service):
                     ),
                     cls="animate-pulse",
                 ),
-                hx_get="/api/ku/journey-html",
+                hx_get="/api/article/journey-html",
                 hx_trigger="load",
                 hx_swap="innerHTML",
                 id="ku-journey",
@@ -448,9 +448,9 @@ def create_ku_ui_routes(_app, rt, ku_service):
                     P("Loading knowledge units...", cls="text-center py-8 text-base-content/70"),
                     cls="animate-pulse",
                 ),
-                hx_get=f"/ku/filter?sel_category={sel_param}"
+                hx_get=f"/article/filter?sel_category={sel_param}"
                 if sel_param != "all"
-                else "/ku/filter",
+                else "/article/filter",
                 hx_trigger="load",
                 hx_swap="innerHTML",
                 id="ku-content",
@@ -471,22 +471,22 @@ def create_ku_ui_routes(_app, rt, ku_service):
             title_href="/ku",
         )
 
-    @rt("/ku/create")
+    @rt("/article/create")
     async def knowledge_create_form(_request) -> Any:
         """Create knowledge form - pure component"""
         return KuUIComponents.render_create_ku_form()
 
-    @rt("/ku/discovery")
+    @rt("/article/discovery")
     async def knowledge_discovery_dashboard(_request) -> Any:
         """Discovery dashboard - pure component"""
         return KuUIComponents.render_ku_discovery_dashboard()
 
-    @rt("/ku/analytics")
+    @rt("/article/analytics")
     async def knowledge_analytics_dashboard(_request) -> Any:
         """Analytics dashboard - pure component"""
         return KuUIComponents.render_ku_analytics_dashboard()
 
-    @rt("/ku/graph")
+    @rt("/article/graph")
     async def knowledge_graph_page(_request) -> Any:
         """Knowledge graph page - pure component"""
         return Card(
@@ -502,7 +502,7 @@ def create_ku_ui_routes(_app, rt, ku_service):
     # HTMX FRAGMENT ENDPOINTS
     # ========================================================================
 
-    @rt("/ku/filter")
+    @rt("/article/filter")
     async def knowledge_filter_fragment(request) -> Any:
         """Return filtered KU cards — supports domain and sel_category filters."""
         from ui.patterns.error_banner import render_error_banner
@@ -547,7 +547,7 @@ def create_ku_ui_routes(_app, rt, ku_service):
             else P("No knowledge units found", cls="text-center text-base-content/70 py-8")
         )
 
-    @rt("/ku/moc-nav")
+    @rt("/article/moc-nav")
     async def moc_nav_fragment(request) -> Any:
         """HTMX: Load Maps of Content navigation list for sidebar."""
         result = await ku_service.list_root_organizers(limit=20)
@@ -557,14 +557,14 @@ def create_ku_ui_routes(_app, rt, ku_service):
             *[
                 Anchor(
                     moc["title"],
-                    href=f"/ku/{moc['uid']}",
+                    href=f"/article/{moc['uid']}",
                     cls="block text-xs hover:text-primary truncate px-2 py-0.5",
                 )
                 for moc in result.value
             ],
         )
 
-    @rt("/ku/{uid}/details")
+    @rt("/article/{uid}/details")
     async def knowledge_details_modal(_request, uid: str) -> Any:
         """Knowledge details modal fragment"""
         return Card(
@@ -576,7 +576,7 @@ def create_ku_ui_routes(_app, rt, ku_service):
             cls="p-6",
         )
 
-    @rt("/ku/{uid}/edit")
+    @rt("/article/{uid}/edit")
     async def knowledge_edit_form(_request, uid: str) -> Any:
         """Edit knowledge form fragment"""
         return Card(
@@ -588,7 +588,7 @@ def create_ku_ui_routes(_app, rt, ku_service):
             cls="p-6",
         )
 
-    @rt("/ku/{uid}/graph")
+    @rt("/article/{uid}/graph")
     async def knowledge_graph_view(_request, uid: str) -> Any:
         """Knowledge graph view centered on specific unit"""
         return Card(
@@ -619,7 +619,7 @@ def create_ku_ui_routes(_app, rt, ku_service):
         }
 
         function expandKnowledgeCard(uid) {
-            htmx.ajax('GET', `/ku/${uid}/details`, '#knowledge-details');
+            htmx.ajax('GET', `/article/${uid}/details`, '#knowledge-details');
         }
 
         // HTMX event handlers
@@ -638,4 +638,4 @@ def create_ku_ui_routes(_app, rt, ku_service):
 
 
 # Export the route creation function
-__all__ = ["create_ku_ui_routes"]
+__all__ = ["create_article_ui_routes"]

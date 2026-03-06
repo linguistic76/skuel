@@ -24,7 +24,7 @@ from enum import Enum
 
 class EntityType(str, Enum):
     """
-    Type of Knowledge Unit — 16 manifestations of knowledge in SKUEL.
+    Type of Knowledge Unit — 17 manifestations of knowledge in SKUEL.
 
     "Everything is a Ku" — a task is knowledge about what needs doing,
     a principle is knowledge about what you believe, a goal is knowledge
@@ -32,7 +32,8 @@ class EntityType(str, Enum):
 
     Five groups:
         Knowledge (shared curriculum):
-            KU              → Admin-created atomic knowledge unit (lecture, book, doc)
+            ARTICLE         → Teaching composition (essay-like narrative, formerly Ku)
+            KU              → Atomic knowledge unit (concept, state, principle — lightweight)
             RESOURCE        → Books, talks, films, music (admin-only)
         Curriculum Structure:
             LEARNING_STEP   → Step in a learning path
@@ -53,12 +54,12 @@ class EntityType(str, Enum):
         Destination:
             LIFE_PATH       → Knowledge about your life direction
 
-    Any Ku can organize other Kus via ORGANIZES relationships (emergent
+    Any Article can organize other Articles via ORGANIZES relationships (emergent
     identity — no separate MOC type needed).
 
     Content origin tiers (see ContentOrigin):
         A  CURATED      → RESOURCE
-        B  CURRICULUM   → KU, LEARNING_STEP, LEARNING_PATH, EXERCISE
+        B  CURRICULUM   → ARTICLE, KU, LEARNING_STEP, LEARNING_PATH, EXERCISE
         C  USER_CREATED → Activities, SUBMISSION, JOURNAL, LIFE_PATH
         D  FEEDBACK     → ACTIVITY_REPORT, SUBMISSION_FEEDBACK
 
@@ -71,6 +72,7 @@ class EntityType(str, Enum):
     """
 
     # Knowledge (shared curriculum)
+    ARTICLE = "article"
     KU = "ku"
     RESOURCE = "resource"
 
@@ -197,7 +199,8 @@ class EntityType(str, Enum):
 
 # EntityType lookup tables (module-level for performance)
 _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
-    EntityType.KU: "Ku",
+    EntityType.ARTICLE: "Article",
+    EntityType.KU: "Knowledge Unit",
     EntityType.RESOURCE: "Resource",
     EntityType.LEARNING_STEP: "Learning Step",
     EntityType.LEARNING_PATH: "Learning Path",
@@ -215,7 +218,7 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.LIFE_PATH: "Life Path",
 }
 
-_KNOWLEDGE_TYPES = frozenset({EntityType.KU, EntityType.RESOURCE})
+_KNOWLEDGE_TYPES = frozenset({EntityType.ARTICLE, EntityType.KU, EntityType.RESOURCE})
 _CURRICULUM_STRUCTURE_TYPES = frozenset(
     {EntityType.LEARNING_STEP, EntityType.LEARNING_PATH, EntityType.EXERCISE}
 )
@@ -239,6 +242,7 @@ _ACTIVITY_TYPES = frozenset(
 )
 _SHARED_TYPES = frozenset(
     {
+        EntityType.ARTICLE,
         EntityType.KU,
         EntityType.RESOURCE,
         EntityType.LEARNING_STEP,
@@ -270,6 +274,7 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     # A — Admin-curated resources
     EntityType.RESOURCE: ContentOrigin.CURATED,
     # B — Curriculum structure and organization
+    EntityType.ARTICLE: ContentOrigin.CURRICULUM,
     EntityType.KU: ContentOrigin.CURRICULUM,
     EntityType.LEARNING_STEP: ContentOrigin.CURRICULUM,
     EntityType.LEARNING_PATH: ContentOrigin.CURRICULUM,
@@ -291,6 +296,7 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
 
 _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     # Canonical values
+    "article": EntityType.ARTICLE,
     "ku": EntityType.KU,
     "resource": EntityType.RESOURCE,
     "learning_step": EntityType.LEARNING_STEP,
@@ -307,9 +313,9 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "principle": EntityType.PRINCIPLE,
     "life_path": EntityType.LIFE_PATH,
     # Aliases
-    "knowledge": EntityType.KU,
-    "moc": EntityType.KU,
-    "map_of_content": EntityType.KU,
+    "knowledge": EntityType.ARTICLE,
+    "moc": EntityType.ARTICLE,
+    "map_of_content": EntityType.ARTICLE,
     "book": EntityType.RESOURCE,
     "film": EntityType.RESOURCE,
     "talk": EntityType.RESOURCE,
@@ -588,6 +594,13 @@ _VALID_TRANSITIONS: dict[EntityStatus, set[EntityStatus]] = {
 
 # Valid statuses per EntityType (from plan specification)
 _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
+    EntityType.ARTICLE: frozenset(
+        {
+            EntityStatus.DRAFT,
+            EntityStatus.COMPLETED,
+            EntityStatus.ARCHIVED,
+        }
+    ),
     EntityType.KU: frozenset(
         {
             EntityStatus.DRAFT,
@@ -731,6 +744,7 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
 }
 
 _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
+    EntityType.ARTICLE: EntityStatus.COMPLETED,
     EntityType.KU: EntityStatus.COMPLETED,
     EntityType.RESOURCE: EntityStatus.COMPLETED,
     EntityType.LEARNING_STEP: EntityStatus.DRAFT,

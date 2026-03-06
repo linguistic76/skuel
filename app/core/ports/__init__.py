@@ -22,7 +22,7 @@ Protocol Categories
 -------------------
 - Backend protocols: BackendOperations + 7 sub-protocols (ISP-compliant)
 - Domain protocols: TasksOperations, GoalsOperations, etc. (inherit from BackendOperations)
-- Curriculum protocols: CurriculumOperations + KuOperations, LsOperations, LpOperations (Nov 2025)
+- Curriculum protocols: CurriculumOperations + ArticleOperations, LsOperations, LpOperations (Nov 2025)
 - Search protocols: DomainSearchOperations, TasksSearchOperations, etc.
 - Infrastructure protocols: EventBusOperations, SchemaOperations, etc.
 
@@ -150,7 +150,7 @@ from .context_awareness_protocols import (
 from .curriculum_protocols import (
     CurriculumOperations,
     ExerciseOperations,
-    KuOperations,
+    ArticleOperations,
     LpOperations,
     LsOperations,
 )
@@ -228,7 +228,7 @@ from .query_types import (
 
 # Knowledge operation protocols
 # NOTE: KuOperationsLegacy, KuQueryOperations DELETED January 2026
-# Use KuOperations from curriculum_protocols.py
+# Use ArticleOperations from curriculum_protocols.py
 # NOTE: LearningPathsOperations DELETED January 2026 - use LpOperations from curriculum_protocols.py
 # Search operation protocols
 from .search_protocols import (
@@ -402,7 +402,7 @@ __all__ = [
     "IsMockEndpoint",
     "IsStubEndpoint",
     # "JournalsOperations", - REMOVED February 2026 - Journal merged into Reports
-    "KuOperations",  # Knowledge Unit operations (point)
+    "ArticleOperations",  # Knowledge Unit operations (point)
     # KuOperationsLegacy, KuQueryOperations DELETED January 2026
     "LeConstraint",
     # "LearningOperations", - DELETED January 2026

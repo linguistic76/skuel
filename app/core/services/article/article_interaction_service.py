@@ -55,7 +55,7 @@ class UserKuProgress:
     is_bookmarked: bool = False  # BOOKMARKED relationship exists
 
 
-class KuInteractionService:
+class ArticleInteractionService:
     """
     Tracks user interactions with knowledge units.
 
@@ -89,7 +89,7 @@ class KuInteractionService:
         """
         self.backend = backend
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.ku.interaction")
+        self.logger = get_logger("skuel.services.article.interaction")
 
     async def record_view(
         self,
@@ -391,7 +391,7 @@ class KuInteractionService:
             Result[None]: Success or database error
         """
         if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="KuInteractionService"))
+            return Result.fail(Errors.system("Backend required", service="ArticleInteractionService"))
 
         query = """
         MATCH (user:User {uid: $user_uid})
@@ -427,7 +427,7 @@ class KuInteractionService:
             Result[bool]: True if bookmarked, False if unbookmarked
         """
         if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="KuInteractionService"))
+            return Result.fail(Errors.system("Backend required", service="ArticleInteractionService"))
 
         # Check if bookmark exists
         check_query = """
@@ -502,7 +502,7 @@ class KuInteractionService:
             Result[bool]: True if mastered successfully
         """
         if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="KuInteractionService"))
+            return Result.fail(Errors.system("Backend required", service="ArticleInteractionService"))
 
         now = datetime.now(UTC).isoformat()
 
@@ -566,7 +566,7 @@ class KuInteractionService:
             Result[list[str]]: List of bookmarked KU UIDs
         """
         if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="KuInteractionService"))
+            return Result.fail(Errors.system("Backend required", service="ArticleInteractionService"))
 
         query = """
         MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Entity)

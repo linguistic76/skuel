@@ -43,7 +43,7 @@ SCAN_DIRS = [
 #
 RENAMED: dict[str, str] = {
     # EntityType enum values (Feb–Mar 2026)
-    "EntityType.CURRICULUM": "EntityType.KU",
+    "EntityType.CURRICULUM": "EntityType.ARTICLE",
     "EntityType.AI_FEEDBACK": "EntityType.ACTIVITY_REPORT",
     "EntityType.FEEDBACK_REPORT": "EntityType.SUBMISSION_FEEDBACK",
     # Class renames (Feb–Mar 2026)

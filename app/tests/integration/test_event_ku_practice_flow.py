@@ -6,7 +6,7 @@ Tests event-driven architecture for Event→KU practice tracking.
 
 This test suite verifies that:
 1. CalendarEventCompleted events trigger KU practice updates
-2. KuPracticeService.handle_event_completed() receives events
+2. ArticlePracticeService.handle_event_completed() receives events
 3. KU practice counts are incremented correctly (times_practiced_in_events)
 4. Last practiced dates are updated correctly
 5. KnowledgePracticed events are published when practice occurs
@@ -15,7 +15,7 @@ This test suite verifies that:
 
 Event Flow:
 -----------
-Event completed → CalendarEventCompleted event → KuPracticeService.handle_event_completed()
+Event completed → CalendarEventCompleted event → ArticlePracticeService.handle_event_completed()
     → Query Neo4j for (Event)-[:PRACTICES]->(KU) → Update KU practice counts
     → Publish KnowledgePracticed event
 """
@@ -28,7 +28,7 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.calendar_event_events import CalendarEventCompleted
-from core.events.ku_events import KnowledgePracticed
+from core.events.article_events import KnowledgePracticed
 from core.models.curriculum.curriculum import Curriculum
 from core.models.enums import (
     Domain,
@@ -36,7 +36,7 @@ from core.models.enums import (
     SELCategory,
 )
 from core.models.event.event import Event
-from core.services.ku.ku_practice_service import KuPracticeService
+from core.services.article.article_practice_service import ArticlePracticeService
 
 
 @pytest.mark.asyncio
@@ -62,8 +62,8 @@ class TestEventKuPracticeFlow:
 
     @pytest_asyncio.fixture
     async def ku_practice_service(self, event_bus, ku_backend):
-        """Create KuPracticeService with event bus and backend."""
-        return KuPracticeService(
+        """Create ArticlePracticeService with event bus and backend."""
+        return ArticlePracticeService(
             backend=ku_backend,  # For Event→KU Cypher queries
             event_bus=event_bus,
         )

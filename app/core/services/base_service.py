@@ -30,7 +30,7 @@ DOMAINS NOT USING THIS BASE SERVICE (8 of 14)
     7. FinanceService - Expenses and budgets (standalone facade)
 
 **Curriculum Domain Services (3)** - Standalone facades:
-    8. KuService - Knowledge Units (ku:)
+    8. ArticleService - Knowledge Units (ku:)
     9. LsService - Learning Steps (ls:)
     10. LpService - Learning Paths (lp:)
 

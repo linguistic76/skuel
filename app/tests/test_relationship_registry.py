@@ -17,7 +17,7 @@ from core.models.relationship_registry import (
     EVENTS_CONFIG,
     GOALS_CONFIG,
     HABITS_CONFIG,
-    KU_CONFIG,
+    ARTICLE_CONFIG,
     LABEL_CONFIGS,
     LP_CONFIG,
     LS_CONFIG,
@@ -62,8 +62,9 @@ class TestUnifiedRegistry:
             "Event",
             "Choice",
             "Principle",
-            # Curriculum Domains (4) - MOC removed January 2026 (now KU-based)
+            # Curriculum Domains (5) - MOC removed January 2026 (now KU-based)
             "Entity",
+            "Ku",
             "Ls",
             "Lp",
             "Exercise",  # Instruction templates
@@ -265,7 +266,7 @@ class TestNamedUnifiedConfigs:
 
     def test_curriculum_unified_configs_match_label_registry(self):
         """Verify curriculum *_CONFIG configs match LABEL_CONFIGS entries."""
-        assert KU_CONFIG is LABEL_CONFIGS["Entity"]
+        assert ARTICLE_CONFIG is LABEL_CONFIGS["Entity"]
         assert LS_CONFIG is LABEL_CONFIGS["Ls"]
         assert LP_CONFIG is LABEL_CONFIGS["Lp"]
 
@@ -278,7 +279,7 @@ class TestNamedUnifiedConfigs:
             EVENTS_CONFIG,
             CHOICES_CONFIG,
             PRINCIPLES_CONFIG,
-            KU_CONFIG,
+            ARTICLE_CONFIG,
             LS_CONFIG,
             LP_CONFIG,
         ]:
@@ -330,7 +331,7 @@ class TestRegistryIntegration:
     def test_ku_organizes_have_ordering(self):
         """Verify KU config has ordering on organizes relationships."""
         organizes_rel = None
-        for rel in KU_CONFIG.relationships:
+        for rel in ARTICLE_CONFIG.relationships:
             if rel.method_key == "organizes":
                 organizes_rel = rel
                 break

@@ -402,7 +402,7 @@ class TestOptionAJournalsProcessing:
         )
 
         assert curriculum_ku.ku_type != EntityType.SUBMISSION
-        assert curriculum_ku.ku_type == EntityType.KU
+        assert curriculum_ku.ku_type == EntityType.KU  # Curriculum base class uses Entity default
 
     async def test_no_llm_processing_in_report_pipeline(
         self, processing_pipeline, mock_submissions_service

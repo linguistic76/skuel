@@ -194,7 +194,7 @@ def temp_yaml_dir() -> Generator[Path, None, None]:
 
 @pytest_asyncio.fixture
 async def ku_backend(neo4j_driver):
-    """Create real KuService backend."""
+    """Create real ArticleService backend."""
     from core.models.curriculum.curriculum_dto import CurriculumDTO
 
     # Use "Entity" to match what UnifiedIngestionService creates
@@ -206,7 +206,7 @@ async def ku_backend(neo4j_driver):
 
 @pytest.fixture
 def mock_intelligence_service() -> AsyncMock:
-    """Create mock intelligence service for KuService."""
+    """Create mock intelligence service for ArticleService."""
     from unittest.mock import AsyncMock
 
     return AsyncMock()
@@ -226,10 +226,10 @@ def mock_graph_intel():
 
 @pytest.fixture
 def ku_service(ku_backend, mock_graph_intel):
-    """Create real KuService with Neo4j backend."""
+    """Create real ArticleService with Neo4j backend."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from core.services.ku_service import KuService
+    from core.services.article_service import ArticleService
 
     # Create mock dependencies (required by fail-fast pattern)
     mock_content_repo = AsyncMock()
@@ -237,7 +237,7 @@ def ku_service(ku_backend, mock_graph_intel):
     mock_neo4j_adapter = MagicMock()
 
     # January 2026: graph_intelligence_service now REQUIRED for unified Curriculum architecture
-    return KuService(
+    return ArticleService(
         repo=ku_backend,
         content_repo=mock_content_repo,
         graph_intelligence_service=mock_graph_intel,  # REQUIRED for cross-domain queries
@@ -406,8 +406,8 @@ async def services(neo4j_driver):
     - services.choices.relationships
     - services.principles.relationships
     - services.lp.relationships
-    - services.ku.graph
-    - services.ku.semantic
+    - services.article.graph
+    - services.article.semantic
     """
     from dataclasses import dataclass
     from unittest.mock import AsyncMock, MagicMock
@@ -419,7 +419,7 @@ async def services(neo4j_driver):
     from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
-    from core.services.ku_service import KuService
+    from core.services.article_service import ArticleService
     from core.services.lp_service import LpService
     from core.services.ls_service import LsService
     from core.services.principles_service import PrinciplesService
@@ -434,8 +434,9 @@ async def services(neo4j_driver):
         principles: PrinciplesService
         lp: LpService
         ls: LsService
-        ku: KuService
-        knowledge: KuService  # Alias for ku (used by rich context tests)
+        article: ArticleService
+        ku: ArticleService  # Alias for article (backward compat)
+        knowledge: ArticleService  # Alias for article (used by rich context tests)
         learning_paths: LpService  # Alias for lp (used by curriculum tests)
         learning_steps: LsService  # Alias for ls (used by curriculum tests)
         tasks: TasksService
@@ -568,7 +569,7 @@ async def services(neo4j_driver):
     mock_query_builder = MagicMock()
     mock_neo4j_adapter = MagicMock()
 
-    ku_service = KuService(
+    ku_service = ArticleService(
         repo=ku_backend,
         content_repo=mock_content_repo,
         query_builder=mock_query_builder,
@@ -626,8 +627,9 @@ async def services(neo4j_driver):
         principles=principles_service,
         lp=lp_service,
         ls=ls_service,
-        ku=ku_service,
-        knowledge=ku_service,  # Alias for ku (used by rich context tests)
+        article=ku_service,
+        ku=ku_service,  # Alias for article (backward compat)
+        knowledge=ku_service,  # Alias for article (used by rich context tests)
         learning_paths=lp_service,  # Alias for lp (used by curriculum tests)
         learning_steps=ls_service,  # Alias for ls (used by curriculum tests)
         tasks=tasks_service,

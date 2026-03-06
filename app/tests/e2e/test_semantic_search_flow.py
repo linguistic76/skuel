@@ -8,7 +8,7 @@ These tests validate the full integration of:
 - Neo4jGenAIEmbeddingsService - Embedding generation
 - UniversalNeo4jBackend - Database storage
 - Neo4jVectorSearchService - Vector similarity search
-- KuSearchService - Search orchestration
+- ArticleSearchService - Search orchestration
 
 All tests use mock embedding services to avoid API calls.
 """
@@ -54,7 +54,7 @@ async def test_complete_semantic_search_flow(
     from pathlib import Path
 
     prepared = await prepare_entity_data_async(
-        entity_type=EntityType.KU,
+        entity_type=EntityType.ARTICLE,
         data=ku_data,
         body=body_content.strip(),
         file_path=Path("/fake/path/test.md"),

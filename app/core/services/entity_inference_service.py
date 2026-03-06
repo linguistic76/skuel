@@ -13,7 +13,7 @@ Architecture:
 - Lives at `/core/services/` level (not in `/ku/` directory)
 - Injected into TasksService for automatic knowledge inference
 - Specialized utility for pattern-based knowledge detection
-- See `/core/services/ku/README.md` for architecture overview
+- See `/core/services/article/README.md` for architecture overview
 """
 
 from dataclasses import dataclass

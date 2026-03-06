@@ -23,8 +23,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.domain_backends import KuBackend
-    from core.services.ku_service import KuService
+    from adapters.persistence.neo4j.domain_backends import ArticleBackend
+    from core.services.article_service import ArticleService
 
 logger = get_logger(__name__)
 
@@ -69,7 +69,7 @@ class OrganizationView:
         }
 
 
-class KuOrganizationService:
+class ArticleOrganizationService:
     """
     Organization service for ORGANIZES relationships on Kus.
 
@@ -79,8 +79,8 @@ class KuOrganizationService:
 
     def __init__(
         self,
-        ku_service: "KuService",
-        backend: "KuBackend",
+        ku_service: "ArticleService",
+        backend: "ArticleBackend",
     ) -> None:
         self.ku_service = ku_service
         self.backend = backend

@@ -36,7 +36,7 @@ Usage Example:
     # Cross-domain search with entity types (unified search)
     request = SearchRequest(
         query_text="machine learning",
-        entity_types=[EntityType.KU, EntityType.TASK],
+        entity_types=[EntityType.ARTICLE, EntityType.TASK],
         tags_contain=["python", "ml"],
         tags_match_all=False,
     )

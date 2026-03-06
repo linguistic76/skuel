@@ -231,7 +231,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
 
             # Publish batch knowledge event for substance tracking (O(1) vs O(n))
             if habit_request.linked_knowledge_uids:
-                from core.events.ku_events import KnowledgeBulkBuiltIntoHabit
+                from core.events.article_events import KnowledgeBulkBuiltIntoHabit
 
                 knowledge_event = KnowledgeBulkBuiltIntoHabit(
                     knowledge_uids=tuple(habit_request.linked_knowledge_uids),

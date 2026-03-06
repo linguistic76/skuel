@@ -87,7 +87,7 @@ class AnalyticsService:
             principle_service: PrinciplesService facade (Layer 1)
             content_enrichment: ContentEnrichmentService (Layer 2) - for
             user_service: UserService for getting UserContext (Layer 3 - for Life Path)
-            ku_service: KuService for knowledge substance scores (Layer 0 - for )
+            ku_service: ArticleService for knowledge substance scores (Layer 0 - for )
             lp_service: LpService for Learning Path details (Layer 0 - for )
             report_dir: Directory for storing generated analytics
             event_bus: Event bus for automatic analytics generation

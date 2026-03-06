@@ -58,7 +58,7 @@ class AnalyticsLifePathService:
 
         Args:
             user_service: UserService for getting UserContext
-            ku_service: KuService for knowledge substance scores
+            ku_service: ArticleService for knowledge substance scores
             lp_service: LpService for Learning Path details
         """
         self.user_service = user_service
@@ -162,7 +162,7 @@ class AnalyticsLifePathService:
             if not self.ku_service:
                 return Result.fail(
                     Errors.system(
-                        "KuService not available - cannot get knowledge units",
+                        "ArticleService not available - cannot get knowledge units",
                         operation="calculate_life_path_alignment",
                     )
                 )

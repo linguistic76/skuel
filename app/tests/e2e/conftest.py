@@ -100,7 +100,7 @@ __all__ = [
     "ku_backend",
     "mock_intelligence_service",
     "mock_graph_intel",
-    "ku_service",
+    "article_service",
     "ingestion_service",
     "tasks_backend",
     "events_backend",

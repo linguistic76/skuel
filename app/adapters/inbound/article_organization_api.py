@@ -25,11 +25,11 @@ from adapters.inbound.route_factories import parse_int_query_param
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import KuOperations
+    from core.ports import ArticleOperations
 
 
-def create_ku_organization_api_routes(
-    app: Any, rt: Any, ku_service: "KuOperations", user_service: Any = None
+def create_article_organization_api_routes(
+    app: Any, rt: Any, ku_service: "ArticleOperations", user_service: Any = None
 ) -> list[Any]:
     """
     Create KU organization API routes.
@@ -48,7 +48,7 @@ def create_ku_organization_api_routes(
     # IDENTITY OPERATIONS
     # ========================================================================
 
-    @rt("/api/ku/{uid}/is-organizer")
+    @rt("/api/article/{uid}/is-organizer")
     @boundary_handler()
     async def is_organizer_route(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Check if a Ku has organized children."""
@@ -57,7 +57,7 @@ def create_ku_organization_api_routes(
             return Result.fail(result.expect_error())
         return Result.ok({"ku_uid": uid, "is_organizer": result.value})
 
-    @rt("/api/ku/{uid}/organization")
+    @rt("/api/article/{uid}/organization")
     @boundary_handler()
     async def get_organization_route(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get a Ku with its organized children hierarchy."""
@@ -70,7 +70,7 @@ def create_ku_organization_api_routes(
     # ORGANIZATION OPERATIONS (ADMIN ONLY)
     # ========================================================================
 
-    @rt("/api/ku/organize", methods=["POST"])
+    @rt("/api/article/organize", methods=["POST"])
     @require_admin(get_user_service)
     @boundary_handler(success_status=201)
     async def organize_route(request, current_user) -> Result[dict[str, Any]]:
@@ -94,7 +94,7 @@ def create_ku_organization_api_routes(
             {"success": result.value, "parent_uid": parent_uid, "child_uid": child_uid}
         )
 
-    @rt("/api/ku/unorganize", methods=["POST"])
+    @rt("/api/article/unorganize", methods=["POST"])
     @require_admin(get_user_service)
     @boundary_handler()
     async def unorganize_route(request, current_user) -> Result[dict[str, Any]]:
@@ -115,7 +115,7 @@ def create_ku_organization_api_routes(
             return Result.fail(result.expect_error())
         return Result.ok({"success": result.value})
 
-    @rt("/api/ku/reorder", methods=["POST"])
+    @rt("/api/article/reorder", methods=["POST"])
     @require_admin(get_user_service)
     @boundary_handler()
     async def reorder_route(request, current_user) -> Result[dict[str, Any]]:
@@ -142,13 +142,13 @@ def create_ku_organization_api_routes(
     # DISCOVERY OPERATIONS
     # ========================================================================
 
-    @rt("/api/ku/{uid}/organizers")
+    @rt("/api/article/{uid}/organizers")
     @boundary_handler()
     async def find_organizers_route(request: Request, uid: str) -> Result[list[Any]]:
         """Find all parent Kus that organize the given Ku."""
         return await ku_service.find_organizers(uid)
 
-    @rt("/api/ku/root-organizers")
+    @rt("/api/article/root-organizers")
     @boundary_handler()
     async def list_root_organizers_route(request: Request) -> Result[list[Any]]:
         """List Kus that organize others but are not themselves organized (root organizers)."""
@@ -156,7 +156,7 @@ def create_ku_organization_api_routes(
         limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
         return await ku_service.list_root_organizers(limit)
 
-    @rt("/api/ku/{uid}/organized-children")
+    @rt("/api/article/{uid}/organized-children")
     @boundary_handler()
     async def get_organized_children_route(request: Request, uid: str) -> Result[list[Any]]:
         """Get direct children of a Ku organized by ORGANIZES relationship."""

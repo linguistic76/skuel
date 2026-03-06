@@ -399,7 +399,8 @@ def create_ingestion_api_routes(
             from core.models.enums.entity_enums import EntityType
 
             domain_to_entity = {
-                "ku": EntityType.KU,
+                "article": EntityType.ARTICLE,
+                "ku": EntityType.ARTICLE,
                 "ls": EntityType.LEARNING_STEP,
                 "lp": EntityType.LEARNING_PATH,
                 "tasks": EntityType.TASK,

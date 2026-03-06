@@ -8,9 +8,9 @@ API routes for KU interaction tracking:
 - Get navigation (next/prev KU)
 
 Routes:
-- POST /api/ku/{uid}/mark-read - Mark KU as read
-- POST /api/ku/{uid}/bookmark - Toggle bookmark
-- GET /api/ku/{uid}/navigation - Get next/prev KU in MOC order
+- POST /api/article/{uid}/mark-read - Mark KU as read
+- POST /api/article/{uid}/bookmark - Toggle bookmark
+- GET /api/article/{uid}/navigation - Get next/prev KU in MOC order
 """
 
 from typing import Any
@@ -25,7 +25,7 @@ from core.utils.result_simplified import Result
 logger = get_logger("skuel.routes.ku.reading.api")
 
 
-def create_ku_reading_api_routes(
+def create_article_reading_api_routes(
     app: Any,
     rt: Any,
     ku_interaction_service: Any,
@@ -44,7 +44,7 @@ def create_ku_reading_api_routes(
         List of registered route functions
     """
 
-    @rt("/api/ku/{uid}/mark-read", methods=["POST"])
+    @rt("/api/article/{uid}/mark-read", methods=["POST"])
     async def mark_ku_as_read(request: Request, uid: str) -> Any:
         """Mark KU as read. Returns updated button HTML for HTMX swap."""
         user_uid = require_authenticated_user(request)
@@ -64,7 +64,7 @@ def create_ku_reading_api_routes(
             disabled=True,
         )
 
-    @rt("/api/ku/{uid}/bookmark", methods=["POST"])
+    @rt("/api/article/{uid}/bookmark", methods=["POST"])
     async def toggle_ku_bookmark(request: Request, uid: str) -> Any:
         """Toggle KU bookmark. Returns updated button HTML for HTMX swap."""
         user_uid = require_authenticated_user(request)
@@ -83,12 +83,12 @@ def create_ku_reading_api_routes(
         return Button(
             "Bookmarked" if is_bookmarked else "Bookmark",
             cls="btn btn-sm btn-secondary" if is_bookmarked else "btn btn-sm btn-ghost",
-            hx_post=f"/api/ku/{uid}/bookmark",
+            hx_post=f"/api/article/{uid}/bookmark",
             hx_swap="outerHTML",
             hx_target="this",
         )
 
-    @rt("/api/ku/{uid}/navigation")
+    @rt("/api/article/{uid}/navigation")
     @boundary_handler()
     async def get_ku_navigation(request: Request, uid: str) -> Result[dict[str, Any]]:
         """
@@ -152,4 +152,4 @@ def create_ku_reading_api_routes(
     ]
 
 
-__all__ = ["create_ku_reading_api_routes"]
+__all__ = ["create_article_reading_api_routes"]

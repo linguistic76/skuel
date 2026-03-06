@@ -448,7 +448,7 @@ async def validate_relationship_targets(
     Example:
         result = await validate_relationship_targets(
             entities=[{"uid": "ku.test", "connections.requires": ["ku.prereq"]}],
-            relationship_config=ENTITY_CONFIGS[EntityType.KU].relationship_config,
+            relationship_config=ENTITY_CONFIGS[EntityType.ARTICLE].relationship_config,
             driver=driver,
         )
         if not result.value.valid:

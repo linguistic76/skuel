@@ -764,7 +764,7 @@ def activity_to_ku_dict(activity: ParsedActivityLine) -> Result[ConversionResult
     Returns:
         Result containing dict for KnowledgeUnit creation
     """
-    if not activity.is_ku():
+    if not activity.is_article():
         return Result.fail(
             Errors.validation(
                 message="Activity is not a KU (missing 'ku' or 'knowledge' in @context)",
@@ -1364,7 +1364,7 @@ class ActivityEntityConverter:
             # CURRICULUM DOMAINS (3) - What I LEARN
             # ================================================================
 
-            if activity.is_ku():
+            if activity.is_article():
                 result = activity_to_ku_dict(activity)
                 if result.is_ok:
                     results["knowledge_units"].append(result.value)
@@ -1547,7 +1547,7 @@ class ActivityEntityConverter:
             # ================================================================
             # CURRICULUM DOMAINS (3) - EntityType
             # ================================================================
-            case EntityType.KU:
+            case EntityType.ARTICLE:
                 return activity_to_ku_dict(activity)
 
             case EntityType.LEARNING_STEP:

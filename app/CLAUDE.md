@@ -45,13 +45,18 @@ from core.ports import LpOperations  # Not ku_protocols.py
 
 In SKUEL, every entity represents a form of knowledge. Tasks are knowledge about what needs doing, Habits about behavioral patterns, Goals about desired outcomes. The `ku_type` field on Entity says "I am a Knowledge Unit, and my type is task/goal/habit/etc." This is coherent and intentional.
 
+**Article vs Ku (March 2026):**
+- **Article** (`EntityType.ARTICLE`, extends `Curriculum`) — essay-like teaching composition. The old "Ku" renamed. Services in `core/services/article/`, facade `ArticleService`.
+- **Ku** (`EntityType.KU`, extends `Entity`) — atomic knowledge unit. Lightweight ontology/reference node: a single definable thing (concept, state, principle, substance, practice, value). Services in `core/services/ku/`, facade `KuService`.
+- **Composition:** `(Article)-[:USES_KU]->(Ku)` — Articles compose atomic Kus into narrative.
+- **Learning loop:** Article → Exercise → Submission → Feedback
+
 **What `Ku` prefix means:** Knowledge-Unit-level concepts that span all entity types:
 - `ku_type` field — the Knowledge Unit type discriminator (stays)
 - `parent_ku_uid` field — derivation chain between Knowledge Units (stays)
-- `Ku` union type — represents the full KU concept (stays)
 - `entity_enums.py` — core enums: `EntityType`, `EntityStatus`, `ContentOrigin`, `ProcessorType`
-- `KuContent`, `KuMetadata`, `KuChunk` — content/metadata FOR Knowledge Units (stays)
-- `core/services/ku/` — legitimate KU/Curriculum domain services (stays)
+- `core/services/ku/` — atomic Ku domain services (CRUD, search, namespace)
+- `core/services/article/` — Article (teaching composition) domain services
 
 **What `Ku` prefix does NOT mean:** Domain-specific services use domain names, not `Ku`:
 - Reports services → Submissions/Feedback: `SubmissionsCoreService`, `FeedbackService`, etc. (renamed Feb 2026)
@@ -229,7 +234,9 @@ Future collaborators — human or AI — should read SKUEL's plain-English domai
 | 1-5 | Tasks, Goals, Habits, Choices, Principles | Activity | `{type}_{slug}_{random}` | User activities |
 | 6 | Events | Scheduling / Integration | `event_{slug}_{random}` | Cross-cutting scheduling layer; gives activities time-bound, schedulable form |
 | 7 | Finance | Finance | `expense_{random}` | Admin-only bookkeeping |
-| 8-10 | KU, LS, LP | Curriculum | `ku_{slug}_{random}`, `ls:{random}`, `lp:{random}` | Knowledge organization |
+| 8 | Article | Curriculum | `a_{slug}_{random}` | Teaching composition (essay-like, extends Curriculum) |
+| 9 | Ku | Curriculum | `ku_{slug}_{random}` | Atomic knowledge unit (lightweight, extends Entity) |
+| 10-11 | LS, LP | Curriculum | `ls:{random}`, `lp:{random}` | Knowledge organization |
 | 11 | Submissions + Feedback | Content | `ku_{slug}_{random}` | Student work + teacher/AI responses — uses Entity model hierarchy |
 | 12 | Groups | Organizational | `group_{slug}_{random}` | Teacher-student class management |
 | 13 | MOC | Organizational | N/A (emergent — any Entity with ORGANIZES) | Non-linear KU navigation |
@@ -259,17 +266,17 @@ Future collaborators — human or AI — should read SKUEL's plain-English domai
 - No intelligence service - pure bookkeeping
 - Unique: budgets, expense categories, recurring expenses
 
-**Curriculum Domains (3)** - Shared content (admin-created, publicly readable):
+**Curriculum Domains (4)** - Shared content (admin-created, publicly readable):
 - `ContentScope.SHARED` + `require_role=UserRole.ADMIN` - admin creates, all users read
 - `_user_ownership_relationship = None` - no ownership verification needed
-- KU (point), LS (edge), LP (path) - three grouping patterns
+- Article (teaching composition), Ku (atomic reference), LS (edge), LP (path) - four curriculum types
 - **Resource** (EntityType.RESOURCE) — books, talks, films, music. Admin-only shared content, feeds Askesis recommendations
 - Core + search services extend `BaseService`
 - **Admin-only creation** - regular users consume curriculum, admins build it
 - **Detail pages:** `/ku/{uid}`, `/ls/{uid}`, `/lp/{uid}` routes with lateral relationships (Phase 5, placeholder data)
 
 **Content/Processing Domain (1)**:
-- **Submissions + Feedback** - The educational loop `Ku → Exercise → Submission → Feedback`. Activity Domains are equal entry points via `ACTIVITY_REPORT`. EntityType discriminator:
+- **Submissions + Feedback** - The educational loop `Article → Exercise → Submission → Feedback`. Activity Domains are equal entry points via `ACTIVITY_REPORT`. EntityType discriminator:
   - **File submissions** (EntityType.SUBMISSION) — student uploads via `/submissions/submit`, `ProcessorType.HUMAN` or `LLM`
   - **AI-processed** (EntityType.JOURNAL) — user uploads via `/journals/submit`, `ProcessorType.LLM`, uses Exercise instructions
   - **Teacher/AI feedback** (EntityType.SUBMISSION_FEEDBACK) — tied to a specific submission via `subject_uid`; `ProcessorType.HUMAN` (teacher) or `LLM` (AI via Exercise)
@@ -318,11 +325,16 @@ All domains use `UniversalNeo4jBackend[T]` directly. Activity domains use `creat
 All 14 domains connect through Neo4j graph relationships:
 
 ```
-Knowledge (ku:) <--> Activity Domains
+Article <--> Ku (composition)
     |
-    +-- APPLIES_KNOWLEDGE (Tasks, Events apply KU)
-    +-- REQUIRES_KNOWLEDGE (Goals need KU)
-    +-- REINFORCES_KNOWLEDGE (Habits strengthen KU)
+    +-- USES_KU (Article composes atomic Kus)
+    +-- TRAINS_KU (Learning Step trains atomic Kus)
+
+Knowledge (Article/Ku) <--> Activity Domains
+    |
+    +-- APPLIES_KNOWLEDGE (Tasks, Events apply knowledge)
+    +-- REQUIRES_KNOWLEDGE (Goals need knowledge)
+    +-- REINFORCES_KNOWLEDGE (Habits strengthen knowledge)
 
 Goals <--> Tasks, Habits, Principles, LifePath
     |
@@ -441,8 +453,9 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 │   ├── LifePath                                      (Destination)
 │   ├── ActivityReport                                (Activity feedback — no file fields)
 │   └── Submission → Journal, SubmissionFeedback      (Submissions/Feedback)
+├── Ku(Entity) — atomic knowledge unit (namespace, ku_category, aliases, source)
 ├── Curriculum(Entity) +21 fields (base class only)
-│   ├── Ku(Curriculum) — atomic knowledge unit (EntityType.KU)
+│   ├── Article(Curriculum) — teaching composition (EntityType.ARTICLE)
 │   └── LearningStep, LearningPath, Exercise
 └── Resource(Entity) +7 fields                        (Curated content)
 ```
@@ -451,13 +464,14 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 ```
 EntityDTO (~18 fields)
 ├── UserOwnedDTO(EntityDTO) +3 → TaskDTO, GoalDTO, HabitDTO, EventDTO, ...
-├── CurriculumDTO(EntityDTO) → KuDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
+├── KuDTO(EntityDTO) — atomic Ku (namespace, ku_category, aliases, source)
+├── CurriculumDTO(EntityDTO) → ArticleDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO(EntityDTO)
 ```
 
-**KuDTO** is a thin subclass of CurriculumDTO (all 39 fields inherited). Cross-domain services use `ENTITY_TYPE_CLASS_MAP` for generic deserialization.
+**ArticleDTO** is a thin subclass of CurriculumDTO (all 39 fields inherited). **KuDTO** extends EntityDTO directly (4 extra fields). Cross-domain services use `ENTITY_TYPE_CLASS_MAP` for generic deserialization.
 
-**Key enums:** `EntityType` (16 values, discriminator), `EntityStatus` (14 values, THE status enum). Both in `entity_enums.py`.
+**Key enums:** `EntityType` (17 values incl. ARTICLE, discriminator), `EntityStatus` (14 values, THE status enum). Both in `entity_enums.py`.
 
 **Neo4j Multi-Label:** Every entity gets `:Entity` (universal) + domain label (`:Task`, `:Goal`, etc.). Backend uses `base_label=NeoLabel.ENTITY`. User relationships use `:OWNS`.
 
@@ -568,10 +582,10 @@ GraphDepth.DEFAULT                             # Named constants
 **Core Principle:** "Clear domain language -> clear types -> enforceable contracts"
 
 ```python
-# EntityType — 16 domain types (multi-label :Entity nodes in Neo4j)
+# EntityType — 17 domain types (multi-label :Entity nodes in Neo4j)
 class EntityType(str, Enum):
     TASK, HABIT, GOAL, EVENT, PRINCIPLE, CHOICE = ...  # Activity
-    KU, RESOURCE, LEARNING_STEP, LEARNING_PATH, EXERCISE = ...  # Curriculum
+    KU, ARTICLE, RESOURCE, LEARNING_STEP, LEARNING_PATH, EXERCISE = ...  # Curriculum
     JOURNAL, SUBMISSION, ACTIVITY_REPORT, SUBMISSION_FEEDBACK = ...  # Submissions + Feedback
     LIFE_PATH = "life_path"  # Destination
 
@@ -1139,7 +1153,8 @@ tasks = await backend.find_by(priority='high', due_date__gte=date.today())
 | `HabitsBackend` | Habits | habit relationship links |
 | `ChoicesBackend` | Choices | choice relationship links |
 | `PrinciplesBackend` | Principles | principle relationship links |
-| `KuBackend` | KU | `organize`, `unorganize`, `reorder`, `get_organized_children`, `find_organizers`, `list_root_organizers`, `is_organizer` |
+| `ArticleBackend` | Article | `organize`, `unorganize`, `reorder`, `get_organized_children`, `find_organizers`, `list_root_organizers`, `is_organizer`, `link_to_ku`, `get_used_kus` |
+| `KuBackend` | Ku (atomic) | `get_articles_using` |
 | `SubmissionsBackend` | Submissions | (empty — sharing methods moved to `SharingBackend`) |
 | `SharingBackend` | Cross-domain sharing | `create_share`, `delete_share`, `update_visibility`, `query_access`, `check_access`, `verify_shareable`, group sharing (12 methods total) |
 | `LpBackend` | Learning Path | `get_paths_containing_ku`, `get_ku_mastery_progress` |
@@ -1309,19 +1324,22 @@ from core.services.ingestion import UnifiedIngestionService
 
 ## Curriculum Grouping Patterns
 
-**Core Principle:** "Three patterns, two access paths"
+**Core Principle:** "Four patterns, two access paths"
 
 | Pattern | UID Format | Topology | Metaphor |
 |---------|-----------|----------|----------|
-| KU | `ku_{slug}_{random}` | Point | A single brick |
+| Ku | `ku_{slug}_{random}` | Atom | A single concept/fact |
+| Article | `a_{slug}_{random}` | Composition | A teaching narrative (composes Kus) |
 | LS | `ls:{random}` | Edge | A step in a staircase |
 | LP | `lp:{random}` | Path | The full staircase |
 
-**Two Paths to Knowledge (Montessori-Inspired):**
-- **LS Path:** Structured, linear, teacher-directed curriculum (KU → LS → LP)
-- **ORGANIZES Path:** Unstructured, graph, learner-directed exploration (any KU organizing other KUs)
+**Composition:** `(Article)-[:USES_KU]->(Ku)` — Articles compose atomic Kus into narrative. `(Ls)-[:TRAINS_KU]->(Ku)` — Learning steps train specific Kus.
 
-**MOC Architecture (February 2026):** MOC is NOT an EntityType — it's emergent identity. Any Entity "is" an organizer when it has outgoing ORGANIZES relationships. Organization managed by `KuOrganizationService` (sub-service of KuService).
+**Two Paths to Knowledge (Montessori-Inspired):**
+- **LS Path:** Structured, linear, teacher-directed curriculum (Article → LS → LP)
+- **ORGANIZES Path:** Unstructured, graph, learner-directed exploration (any Article organizing other Articles)
+
+**MOC Architecture (February 2026):** MOC is NOT an EntityType — it's emergent identity. Any Entity "is" an organizer when it has outgoing ORGANIZES relationships. Organization managed by `ArticleOrganizationService` (sub-service of ArticleService).
 
 **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`, `/docs/domains/moc.md`
 

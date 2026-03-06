@@ -43,11 +43,11 @@ from core.services.goals_service import GoalsService
 from core.services.habits_service import HabitsService
 
 # Facade services - Curriculum Domains
-from core.services.ku_service import KuService
+from core.services.article_service import ArticleService
 from core.services.lp_service import LpService
 from core.services.ls_service import LsService
 
-# NOTE: MOCService removed (February 2026) - organization logic absorbed into KuService
+# NOTE: MOCService removed (February 2026) - organization logic absorbed into ArticleService
 from core.services.principles_service import PrinciplesService
 from core.services.tasks_service import TasksService
 
@@ -110,7 +110,7 @@ class TestFacadeStructure:
         EventsService,
         ChoicesService,
         PrinciplesService,
-        KuService,
+        ArticleService,
         LsService,
         LpService,
     ]

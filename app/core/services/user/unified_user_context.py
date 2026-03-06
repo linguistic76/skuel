@@ -709,7 +709,7 @@ class UserContext:
 
         # Get substance scores for all life path knowledge
         # NOTE: This assumes knowledge_mastery dict contains substance scores
-        # In practice, this would query KuService for substance_score() values
+        # In practice, this would query ArticleService for substance_score() values
         total_substance = 0.0
         count = 0
 

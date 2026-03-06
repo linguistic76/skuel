@@ -2,7 +2,7 @@
 Test KU Search Service
 ======================
 
-Tests for the KuSearchService - BaseService pattern (January 2026 harmonization).
+Tests for the ArticleSearchService - BaseService pattern (January 2026 harmonization).
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -14,7 +14,7 @@ from core.models.curriculum.curriculum_dto import CurriculumDTO
 from core.models.entity import Entity
 from core.models.enums import Domain, SELCategory
 from core.models.enums.entity_enums import EntityType
-from core.services.ku.ku_search_service import KuSearchService
+from core.services.article.article_search_service import ArticleSearchService
 from core.utils.result_simplified import Result
 
 
@@ -23,7 +23,7 @@ def make_ku_entity(uid="ku.test.1", title="Test Title", domain=Domain.TECH):
     return Curriculum(
         uid=uid,
         title=title,
-        ku_type=EntityType.KU,
+        ku_type=EntityType.ARTICLE,
         domain=domain,
         sel_category=SELCategory.SELF_AWARENESS,  # Valid SELCategory value
         quality_score=0.0,
@@ -48,7 +48,7 @@ def make_unit_data(uid="ku.test.1", title="Test Title", domain="tech"):
 
 
 class TestKuSearchServiceInitialization:
-    """Test KuSearchService initialization - BaseService pattern."""
+    """Test ArticleSearchService initialization - BaseService pattern."""
 
     def test_initialization_with_all_dependencies(self):
         """Test successful initialization with all dependencies."""
@@ -57,7 +57,7 @@ class TestKuSearchServiceInitialization:
         intelligence = MagicMock()
         query_builder = MagicMock()
 
-        service = KuSearchService(
+        service = ArticleSearchService(
             backend=backend,
             content_repo=content_repo,
             intelligence=intelligence,
@@ -74,7 +74,7 @@ class TestKuSearchServiceInitialization:
         """Test initialization with only required backend."""
         backend = MagicMock()
 
-        service = KuSearchService(backend=backend)
+        service = ArticleSearchService(backend=backend)
 
         assert service.backend == backend
         assert service.content_repo is None
@@ -84,16 +84,16 @@ class TestKuSearchServiceInitialization:
     def test_entity_label_is_ku(self):
         """Test that entity_label returns 'Ku'."""
         backend = MagicMock()
-        service = KuSearchService(backend=backend)
+        service = ArticleSearchService(backend=backend)
 
         assert service.entity_label == "Entity"
 
     def test_class_attributes_configured_correctly(self):
         """Test that class attributes are configured for KU domain via DomainConfig."""
         backend = MagicMock()
-        service = KuSearchService(backend=backend)
+        service = ArticleSearchService(backend=backend)
 
-        # KuSearchService uses _config = DomainConfig(...) pattern
+        # ArticleSearchService uses _config = DomainConfig(...) pattern
         # Access through _config, not legacy _dto_class attribute
         assert service._config.dto_class == CurriculumDTO
         assert service._config.model_class == Entity
@@ -106,12 +106,12 @@ class TestTextSearch:
     """Test text search operations."""
 
     @pytest.fixture
-    def service(self) -> KuSearchService:
+    def service(self) -> ArticleSearchService:
         """Create service with mocked dependencies."""
         backend = MagicMock()
         content_repo = MagicMock()
         query_builder = AsyncMock()
-        return KuSearchService(
+        return ArticleSearchService(
             backend=backend,
             content_repo=content_repo,
             query_builder=query_builder,
@@ -180,12 +180,12 @@ class TestFacetedSearch:
     """Test faceted search operations."""
 
     @pytest.fixture
-    def service(self) -> KuSearchService:
+    def service(self) -> ArticleSearchService:
         """Create service with mocked dependencies."""
         backend = MagicMock()
         content_repo = MagicMock()
         query_builder = MagicMock()
-        return KuSearchService(
+        return ArticleSearchService(
             backend=backend,
             content_repo=content_repo,
             query_builder=query_builder,
@@ -238,12 +238,12 @@ class TestChunkSearch:
     """Test chunk-based search operations."""
 
     @pytest.fixture
-    def service(self) -> KuSearchService:
+    def service(self) -> ArticleSearchService:
         """Create service with mocked dependencies."""
         backend = MagicMock()
         content_repo = MagicMock()
         query_builder = MagicMock()
-        return KuSearchService(
+        return ArticleSearchService(
             backend=backend,
             content_repo=content_repo,
             query_builder=query_builder,
@@ -260,7 +260,7 @@ class TestChunkSearch:
     @pytest.mark.asyncio
     async def test_search_chunks_without_content_repo(self):
         """Test that search_chunks fails without content_repo."""
-        service = KuSearchService(backend=MagicMock(), content_repo=None)
+        service = ArticleSearchService(backend=MagicMock(), content_repo=None)
 
         result = await service.search_chunks("test query")
 
@@ -322,7 +322,7 @@ class TestSimilaritySearch:
     """Test similarity and feature-based search."""
 
     @pytest.fixture
-    def service(self) -> KuSearchService:
+    def service(self) -> ArticleSearchService:
         """Create service with mocks supporting async calls."""
         backend = MagicMock()
         backend.get = AsyncMock()
@@ -330,7 +330,7 @@ class TestSimilaritySearch:
         content_repo = MagicMock()
         intelligence = MagicMock()
         query_builder = MagicMock()
-        return KuSearchService(
+        return ArticleSearchService(
             backend=backend,
             content_repo=content_repo,
             intelligence=intelligence,
@@ -342,7 +342,7 @@ class TestSimilaritySearch:
         """Test that find_similar_content returns not_found when source unit missing."""
         backend = MagicMock()
         backend.get = AsyncMock(return_value=Result.fail(MagicMock()))
-        service = KuSearchService(
+        service = ArticleSearchService(
             backend=backend,
             content_repo=MagicMock(),
             intelligence=None,
@@ -387,7 +387,7 @@ class TestSimilaritySearch:
     @pytest.mark.asyncio
     async def test_search_by_features_without_intelligence(self):
         """Test that search_by_features fails without intelligence service."""
-        service = KuSearchService(
+        service = ArticleSearchService(
             backend=MagicMock(),
             content_repo=MagicMock(),
             intelligence=None,
@@ -433,12 +433,12 @@ class TestContextAwareSearch:
     """Test context-aware and semantic search."""
 
     @pytest.fixture
-    def service(self) -> KuSearchService:
+    def service(self) -> ArticleSearchService:
         """Create service with all mocks."""
         backend = MagicMock()
         content_repo = MagicMock()
         query_builder = MagicMock()
-        return KuSearchService(
+        return ArticleSearchService(
             backend=backend,
             content_repo=content_repo,
             query_builder=query_builder,
@@ -494,22 +494,22 @@ class TestContextAwareSearch:
 
 
 class TestFacadeDelegation:
-    """Test that KuService facade correctly delegates to search service."""
+    """Test that ArticleService facade correctly delegates to search service."""
 
     @pytest.mark.asyncio
     async def test_facade_delegates_search_methods(self):
         """Test that all search methods are delegated."""
-        from core.services.ku_service import KuService
+        from core.services.article_service import ArticleService
 
         # Create facade with mocked dependencies
-        # Note: backend is passed to KuSearchService (not repo)
+        # Note: backend is passed to ArticleSearchService (not repo)
         repo = MagicMock()
         content_repo = MagicMock()
         query_builder = AsyncMock()
         neo4j_adapter = MagicMock()
         graph_intel = MagicMock()  # Required by fail-fast architecture (ADR-030)
 
-        service = KuService(
+        service = ArticleService(
             repo=repo,
             content_repo=content_repo,
             query_builder=query_builder,

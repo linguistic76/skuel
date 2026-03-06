@@ -50,7 +50,7 @@ Usage:
     # Advanced search with graph and tag filters
     request = SearchRequest(
         query_text="machine learning",
-        entity_types=[EntityType.KU],
+        entity_types=[EntityType.ARTICLE],
         connected_to_uid="ku.python-basics",
         connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
         tags_contain=["python"],
@@ -223,7 +223,7 @@ class SearchRouter:
         # Finance (singular - standalone domain group)
         NonKuDomain.FINANCE: "finance",
         # Curriculum Domains (3) - ku, ls, lp form the knowledge foundation
-        EntityType.KU: "ku",
+        EntityType.ARTICLE: "article",
         EntityType.LEARNING_STEP: "learning_steps",
         EntityType.LEARNING_PATH: "learning_paths",
         # Content/Organization Domains
@@ -245,8 +245,8 @@ class SearchRouter:
             EntityType.EVENT,
             EntityType.CHOICE,
             EntityType.PRINCIPLE,
-            # Curriculum Domains (3) - KU, LS, LP
-            EntityType.KU,
+            # Curriculum Domains (3) - Article, LS, LP
+            EntityType.ARTICLE,
             EntityType.LEARNING_STEP,
             EntityType.LEARNING_PATH,
         }
@@ -567,8 +567,9 @@ class SearchRouter:
 
         # Map domain string to EntityType
         domain_to_entity = {
-            "knowledge": EntityType.KU,
-            "ku": EntityType.KU,
+            "knowledge": EntityType.ARTICLE,
+            "ku": EntityType.ARTICLE,
+            "article": EntityType.ARTICLE,
             "ls": EntityType.LEARNING_STEP,
             "lp": EntityType.LEARNING_PATH,
         }
@@ -769,7 +770,7 @@ class SearchRouter:
 
             request = SearchRequest(
                 query_text="machine learning",
-                entity_types=[EntityType.KU],
+                entity_types=[EntityType.ARTICLE],
                 connected_to_uid="ku.python-basics",
                 connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
                 tags_contain=["python"],

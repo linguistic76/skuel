@@ -21,7 +21,7 @@ BACKENDS IN USE (services_bootstrap.py)
     PrinciplesBackend[Principle] - principles_backend
 
 **Curriculum Domains (4):**
-    KuBackend[Ku] - knowledge_backend (ku:)
+    ArticleBackend[Article] - knowledge_backend (article:)
     UniversalNeo4jBackend[LearningStep] - ls_backend (ls:)
     LpBackend[LearningPath] - lp_backend (lp:)
     ExerciseBackend[Exercise] - exercise_backend

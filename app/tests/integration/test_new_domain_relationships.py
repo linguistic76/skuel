@@ -387,7 +387,7 @@ class TestKuRelationships:
     async def test_ku_relationships_fetch_basic(self, services):
         """Test fetch() method with real services (basic mode)."""
         # Create a test knowledge unit using core service
-        ku_result = await services.ku.core.create(
+        ku_result = await services.article.core.create(
             title="Test KU for Relationships",
             body="Testing relationship fetching",
             summary="Test KU",
@@ -398,7 +398,7 @@ class TestKuRelationships:
         ku = ku_result.value
 
         # Fetch relationships (basic mode - no semantic context)
-        rels = await KuRelationships.fetch(ku.uid, services.ku.graph)
+        rels = await KuRelationships.fetch(ku.uid, services.article.graph)
 
         # Verify structure
         assert isinstance(rels, KuRelationships)
@@ -417,7 +417,7 @@ class TestKuRelationships:
     async def test_ku_relationships_fetch_with_semantic_context(self, services):
         """Test fetch() method with semantic context enabled."""
         # Create a test knowledge unit using core service
-        ku_result = await services.ku.core.create(
+        ku_result = await services.article.core.create(
             title="Test KU with Semantic Context",
             body="Testing semantic relationship fetching",
             summary="Test KU with semantics",
@@ -430,8 +430,8 @@ class TestKuRelationships:
         # Fetch relationships with semantic context
         rels = await KuRelationships.fetch(
             ku.uid,
-            services.ku.graph,
-            semantic_service=services.ku.semantic,
+            services.article.graph,
+            semantic_service=services.article.semantic,
             include_semantic_context=True,
         )
 

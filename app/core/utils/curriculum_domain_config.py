@@ -36,7 +36,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from core.models.relationship_registry import (
-    KU_CONFIG,
+    ARTICLE_CONFIG,
     LP_CONFIG,
     LS_CONFIG,
 )
@@ -45,15 +45,15 @@ from core.services.relationships import UnifiedRelationshipService
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
-    from core.ports import EventBusOperations, KuOperations, QueryBuilderOperations
-    from core.services.ku.ku_adaptive_service import KuAdaptiveService
-    from core.services.ku.ku_core_service import KuCoreService
-    from core.services.ku.ku_graph_service import KuGraphService
-    from core.services.ku.ku_interaction_service import KuInteractionService
-    from core.services.ku.ku_practice_service import KuPracticeService
-    from core.services.ku.ku_search_service import KuSearchService
-    from core.services.ku.ku_semantic_service import KuSemanticService
-    from core.services.ku_intelligence_service import KuIntelligenceService
+    from core.ports import EventBusOperations, ArticleOperations, QueryBuilderOperations
+    from core.services.article.article_adaptive_service import ArticleAdaptiveService
+    from core.services.article.article_core_service import ArticleCoreService
+    from core.services.article.article_graph_service import ArticleGraphService
+    from core.services.article.article_interaction_service import ArticleInteractionService
+    from core.services.article.article_practice_service import ArticlePracticeService
+    from core.services.article.article_search_service import ArticleSearchService
+    from core.services.article.article_semantic_service import ArticleSemanticService
+    from core.services.article_intelligence_service import ArticleIntelligenceService
     from core.services.lp.lp_core_service import LpCoreService
     from core.services.lp.lp_progress_service import LpProgressService
     from core.services.lp.lp_search_service import LpSearchService
@@ -89,13 +89,13 @@ class CurriculumDomainConfig:
 # Registry of all 4 Curriculum Domain configurations
 CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
     "ku": CurriculumDomainConfig(
-        core_module="core.services.ku.ku_core_service",
-        core_class="KuCoreService",
-        search_module="core.services.ku.ku_search_service",
-        search_class="KuSearchService",
-        intelligence_module="core.services.ku_intelligence_service",
-        intelligence_class="KuIntelligenceService",
-        relationship_config=KU_CONFIG,
+        core_module="core.services.article.ku_core_service",
+        core_class="ArticleCoreService",
+        search_module="core.services.article.ku_search_service",
+        search_class="ArticleSearchService",
+        intelligence_module="core.services.article_intelligence_service",
+        intelligence_class="ArticleIntelligenceService",
+        relationship_config=ARTICLE_CONFIG,
         domain_name="ku",
         entity_label="Entity",
     ),
@@ -235,17 +235,17 @@ def create_curriculum_sub_services(
 
 @dataclass
 class KuSubServices:
-    """Container for all KuService sub-services created by the factory."""
+    """Container for all ArticleService sub-services created by the factory."""
 
-    core: "KuCoreService"
-    search: "KuSearchService"
-    graph: "KuGraphService"
-    semantic: "KuSemanticService"
-    practice: "KuPracticeService"
-    interaction: "KuInteractionService"
+    core: "ArticleCoreService"
+    search: "ArticleSearchService"
+    graph: "ArticleGraphService"
+    semantic: "ArticleSemanticService"
+    practice: "ArticlePracticeService"
+    interaction: "ArticleInteractionService"
     relationships: "UnifiedRelationshipService"
-    intelligence: "KuIntelligenceService"
-    adaptive: "KuAdaptiveService"
+    intelligence: "ArticleIntelligenceService"
+    adaptive: "ArticleAdaptiveService"
 
 
 @dataclass
@@ -261,7 +261,7 @@ class LpSubServices:
 
 
 def create_ku_sub_services(
-    backend: "KuOperations",
+    backend: "ArticleOperations",
     content_repo: Any | None,
     neo4j_adapter: Any | None,
     chunking_service: Any | None,
@@ -274,23 +274,23 @@ def create_ku_sub_services(
     embeddings_service: Any | None = None,
 ) -> KuSubServices:
     """
-    Factory function to create all 8 KuService sub-services.
+    Factory function to create all 8 ArticleService sub-services.
 
     Handles the circular dependency: Intelligence must be created
     BEFORE Core (Core depends on intelligence for content analysis).
 
     Creation Order:
     1. UnifiedRelationshipService (backend, config, graph_intel)
-    2. KuIntelligenceService (backend, graph_intel, relationships, embeddings, llm)
-    3. KuCoreService (repo, content_repo, intelligence, chunking, event_bus)
-    4. KuSearchService (backend, content_repo, intelligence, query_builder, vector_search, embeddings)
-    5. KuGraphService (repo, neo4j_adapter, graph_intel)
-    6. KuSemanticService (repo, neo4j_adapter, intelligence)
-    7. KuPracticeService (backend, event_bus)
-    8. KuInteractionService (backend, event_bus)
+    2. ArticleIntelligenceService (backend, graph_intel, relationships, embeddings, llm)
+    3. ArticleCoreService (repo, content_repo, intelligence, chunking, event_bus)
+    4. ArticleSearchService (backend, content_repo, intelligence, query_builder, vector_search, embeddings)
+    5. ArticleGraphService (repo, neo4j_adapter, graph_intel)
+    6. ArticleSemanticService (repo, neo4j_adapter, intelligence)
+    7. ArticlePracticeService (backend, event_bus)
+    8. ArticleInteractionService (backend, event_bus)
 
     Args:
-        backend: KuOperations backend - REQUIRED
+        backend: ArticleOperations backend - REQUIRED
         content_repo: Content storage backend (optional)
         neo4j_adapter: Neo4j adapter for graph operations (optional)
         chunking_service: Chunking service for RAG (optional)
@@ -306,25 +306,25 @@ def create_ku_sub_services(
         KuSubServices dataclass with all 8 sub-services
     """
     # Lazy imports to avoid circular dependencies
-    from core.services.ku.ku_adaptive_service import KuAdaptiveService
-    from core.services.ku.ku_core_service import KuCoreService
-    from core.services.ku.ku_graph_service import KuGraphService
-    from core.services.ku.ku_interaction_service import KuInteractionService
-    from core.services.ku.ku_practice_service import KuPracticeService
-    from core.services.ku.ku_search_service import KuSearchService
-    from core.services.ku.ku_semantic_service import KuSemanticService
-    from core.services.ku_intelligence_service import KuIntelligenceService
+    from core.services.article.article_adaptive_service import ArticleAdaptiveService
+    from core.services.article.article_core_service import ArticleCoreService
+    from core.services.article.article_graph_service import ArticleGraphService
+    from core.services.article.article_interaction_service import ArticleInteractionService
+    from core.services.article.article_practice_service import ArticlePracticeService
+    from core.services.article.article_search_service import ArticleSearchService
+    from core.services.article.article_semantic_service import ArticleSemanticService
+    from core.services.article_intelligence_service import ArticleIntelligenceService
 
     # Step 1: Create relationship service (needed by intelligence)
     relationships = UnifiedRelationshipService(
         backend=backend,
-        config=KU_CONFIG,
+        config=ARTICLE_CONFIG,
         graph_intel=graph_intelligence_service,
     )
 
     # Step 2: Create intelligence BEFORE core (circular dependency)
     # ADR-030: Analytics services have zero AI dependencies
-    intelligence = KuIntelligenceService(
+    intelligence = ArticleIntelligenceService(
         backend=backend,
         graph_intelligence_service=graph_intelligence_service,
         relationship_service=relationships,
@@ -332,7 +332,7 @@ def create_ku_sub_services(
     )
 
     # Step 3: Create core (requires intelligence)
-    core = KuCoreService(
+    core = ArticleCoreService(
         repo=backend,
         content_repo=content_repo,
         intelligence=intelligence,
@@ -341,7 +341,7 @@ def create_ku_sub_services(
     )
 
     # Step 4: Create search (with optional vector search - January 2026 GenAI)
-    search = KuSearchService(
+    search = ArticleSearchService(
         backend=backend,
         content_repo=content_repo,
         intelligence=intelligence,
@@ -351,27 +351,27 @@ def create_ku_sub_services(
     )
 
     # Step 5: Create graph
-    graph = KuGraphService(
+    graph = ArticleGraphService(
         repo=backend,
         neo4j_adapter=neo4j_adapter,
         graph_intel=graph_intelligence_service,
     )
 
     # Step 6: Create semantic
-    semantic = KuSemanticService(
+    semantic = ArticleSemanticService(
         repo=backend,
         neo4j_adapter=neo4j_adapter,
         intelligence=intelligence,
     )
 
     # Step 7: Create practice (event-driven)
-    practice = KuPracticeService(backend=backend, event_bus=event_bus)
+    practice = ArticlePracticeService(backend=backend, event_bus=event_bus)
 
     # Step 8: Create interaction (event-driven)
-    interaction = KuInteractionService(backend=backend, event_bus=event_bus)
+    interaction = ArticleInteractionService(backend=backend, event_bus=event_bus)
 
     # Step 9: Create adaptive curriculum service
-    adaptive = KuAdaptiveService(ku_backend=backend, user_service=user_service)
+    adaptive = ArticleAdaptiveService(ku_backend=backend, user_service=user_service)
 
     return KuSubServices(
         core=core,

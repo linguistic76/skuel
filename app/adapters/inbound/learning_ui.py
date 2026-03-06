@@ -872,7 +872,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
 
     routes.append(learning_analytics)
 
-    # KNOWLEDGE UNIT DETAIL PAGE: Moved to ku_reading_ui.py → /ku/{uid}
+    # KNOWLEDGE UNIT DETAIL PAGE: Moved to ku_reading_ui.py → /article/{uid}
 
     # ========================================================================
     # LEARNING STEP DETAIL PAGE

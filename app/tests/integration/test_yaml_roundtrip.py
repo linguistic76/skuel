@@ -35,7 +35,7 @@ class TestYAMLRoundTrip:
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.curriculum.curriculum_dto import CurriculumDTO
         from core.services.ingestion import UnifiedIngestionService
-        from core.services.ku_service import KuService
+        from core.services.article_service import ArticleService
 
         # Verify connection and clean database
         async with neo4j_driver.session() as session:
@@ -54,7 +54,7 @@ class TestYAMLRoundTrip:
         mock_query_builder = MagicMock()
         mock_neo4j_adapter = MagicMock()  # Required for graph operations
         mock_graph_intelligence = MagicMock()  # Required by fail-fast architecture
-        ku_service = KuService(
+        ku_service = ArticleService(
             repo=ku_backend,
             content_repo=mock_content_repo,
             query_builder=mock_query_builder,

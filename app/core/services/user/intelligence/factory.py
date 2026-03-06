@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.calendar_service import CalendarService
     from core.services.feedback import FeedbackRelationshipService
-    from core.services.ku.ku_graph_service import KuGraphService
+    from core.services.article.article_graph_service import ArticleGraphService
 
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService
     # LsRelationshipService deleted - LS now uses UnifiedRelationshipService
@@ -102,7 +102,7 @@ class UserContextIntelligenceFactory:
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
         # Curriculum Domains (3) - REQUIRED
-        ku: KuGraphService,
+        article: ArticleGraphService,
         ls: UnifiedRelationshipService,  # January 2026: Unified
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
@@ -129,7 +129,7 @@ class UserContextIntelligenceFactory:
                 principles: Principles relationship service
 
             Curriculum Domains (3):
-                ku: Knowledge unit graph service
+                article: Article graph service
                 ls: Learning step relationship service
                 lp: Learning path relationship service
 
@@ -157,7 +157,7 @@ class UserContextIntelligenceFactory:
             "choices": choices,
             "principles": principles,
             # Curriculum Domains (3)
-            "ku": ku,
+            "article": article,
             "ls": ls,
             "lp": lp,
             # Processing Domains (3)
@@ -184,7 +184,7 @@ class UserContextIntelligenceFactory:
         self._choices = choices
         self._principles = principles
         # Curriculum domains (3)
-        self._ku = ku
+        self._article = article
         self._ls = ls
         self._lp = lp
         # Processing domains (3)
@@ -218,7 +218,7 @@ class UserContextIntelligenceFactory:
             choices=self._choices,
             principles=self._principles,
             # Curriculum domains (3)
-            ku=self._ku,
+            article=self._article,
             ls=self._ls,
             lp=self._lp,
             # Processing domains (3)

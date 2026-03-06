@@ -41,7 +41,7 @@ def create_askesis_service(
         user_service=user_service,
         llm_service=learning_services.get("llm_service"),
         embeddings_service=learning_services.get("embeddings_service"),
-        knowledge_service=learning_services.get("ku_service"),
+        knowledge_service=learning_services.get("article_service"),
         tasks_service=activity_services.get("tasks"),
         goals_service=activity_services.get("goals"),
         habits_service=activity_services.get("habits"),

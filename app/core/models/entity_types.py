@@ -15,8 +15,9 @@ See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
 from core.models.choice.choice import Choice
+from core.models.curriculum.article import Article
 from core.models.curriculum.exercise import Exercise
-from core.models.curriculum.ku import Ku
+from core.models.ku.ku import Ku
 from core.models.curriculum.learning_path import LearningPath
 from core.models.curriculum.learning_step import LearningStep
 from core.models.entity import Entity
@@ -43,8 +44,11 @@ from core.models.task.task import Task
 ActivityEntity = Task | Goal | Habit | Event | Choice | Principle
 
 # Curriculum entities — carry learning_level, quality_score, sel_category, etc.
-# Ku is the atomic leaf; Curriculum is the base class.
-CurriculumEntity = Ku | LearningStep | LearningPath | Exercise
+# Article is the narrative curriculum leaf; Curriculum is the base class.
+CurriculumEntity = Article | LearningStep | LearningPath | Exercise
+
+# Atomic Ku — lightweight ontology/reference node (extends Entity directly, not Curriculum)
+KuEntity = Ku
 
 # Submission entities — carry file_path, processed_content, file_type, etc.
 SubmissionEntity = Submission | Journal | ActivityReport | SubmissionFeedback
@@ -62,6 +66,7 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.EVENT: Event,
     EntityType.CHOICE: Choice,
     EntityType.PRINCIPLE: Principle,
+    EntityType.ARTICLE: Article,
     EntityType.KU: Ku,
     EntityType.RESOURCE: Resource,
     EntityType.LEARNING_STEP: LearningStep,

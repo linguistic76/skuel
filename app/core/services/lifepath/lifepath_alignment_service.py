@@ -29,7 +29,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
-    from core.services.ku_service import KuService
+    from core.services.article_service import ArticleService
     from core.services.lp_service import LpService
     from core.services.user_service import UserService
 
@@ -55,7 +55,7 @@ class LifePathAlignmentService:
         self,
         executor: QueryExecutor | None = None,
         lp_service: LpService | None = None,
-        ku_service: KuService | None = None,
+        ku_service: ArticleService | None = None,
         user_service: UserService | None = None,
     ) -> None:
         """

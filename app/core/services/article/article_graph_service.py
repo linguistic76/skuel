@@ -13,7 +13,7 @@ Handles all graph operations for knowledge units.
 - Prerequisite chains
 
 **Dependencies:**
-- KuOperations (backend protocol)
+- ArticleOperations (backend protocol)
 - Neo4jAdapter (graph operations)
 - GraphIntelligence service (smart traversal)
 """
@@ -38,7 +38,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_priority_score
 
 
-class KuGraphService:
+class ArticleGraphService:
     """
     Graph navigation and relationship operations for knowledge units.
     """
@@ -48,7 +48,7 @@ class KuGraphService:
         Initialize graph service with required dependencies.
 
         Args:
-            repo: KuOperations backend,
+            repo: ArticleOperations backend,
             neo4j_adapter: Neo4j adapter for graph operations,
             graph_intel: Graph intelligence service for smart traversal
         """
@@ -62,7 +62,7 @@ class KuGraphService:
         self.neo4j = neo4j_adapter
         self.graph_intel = graph_intel
 
-        self.logger = get_logger("skuel.services.ku.graph")
+        self.logger = get_logger("skuel.services.article.graph")
 
     async def _execute_query(
         self, query: str, params: dict[str, Any], operation: str = "execute_query"

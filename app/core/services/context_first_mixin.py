@@ -338,7 +338,7 @@ class ContextFirstMixin(ABC):
                 # For now, return empty - implemented in relationship service
                 pass
 
-        elif entity_type == EntityType.KU.value:
+        elif entity_type in (EntityType.ARTICLE.value, EntityType.KU.value):
             # Check context for entities waiting on this knowledge
             # Would need graph query
             pass

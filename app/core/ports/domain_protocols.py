@@ -23,13 +23,13 @@ THE 14 DOMAINS AND THEIR PROTOCOLS
     7. FinancesOperations[ExpensePure]     - Expenses and budgets (admin-only, not an Activity Domain)
 
 **Curriculum Domain Protocols (3):**
-    8. KuOperations[Curriculum]            - Knowledge Units (ku:)
+    8. ArticleOperations[Curriculum]            - Knowledge Units (ku:)
     9. LsOperations[LearningStep]          - Learning Steps (ls:)
     10. LpOperations[LearningPath]         - Learning Paths (lp:)
 
 **Removed protocols (historical note):**
     - JournalsOperations removed Feb 2026 — Journal merged into Reports domain
-    - MocOperations removed Jan 2026 — MOC is emergent identity, uses KuOperations
+    - MocOperations removed Jan 2026 — MOC is emergent identity, uses ArticleOperations
     - AnalyticsLifePathService, AnalyticsService — no protocol (internal services)
 
 THE 4 CROSS-CUTTING SYSTEMS
