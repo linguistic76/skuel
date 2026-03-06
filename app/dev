@@ -27,8 +27,13 @@ case "$1" in
 
   lint)
     echo -e "${YELLOW}Running linters...${NC}"
-    poetry run ruff check
-    poetry run python scripts/lint_skuel.py
+    failed=0
+    poetry run ruff check || failed=1
+    poetry run python scripts/lint_skuel.py || failed=1
+    if [ $failed -eq 1 ]; then
+      echo -e "${RED}✗ Lint checks found issues${NC}"
+      exit 1
+    fi
     ;;
 
   lint-fix)
