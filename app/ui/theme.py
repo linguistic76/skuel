@@ -154,7 +154,7 @@ def daisy_headers(
     # SKUEL custom CSS and JS
     headers.extend(
         [
-            Link(rel="stylesheet", href="/static/css/skuel.css"),
+            Link(rel="stylesheet", href="/static/css/main.css"),
             Script(src="/static/js/skuel.js"),
         ]
     )

@@ -19,7 +19,7 @@ related_skills:
 
 # HTMX Version Standardization Guide
 
-*Last updated: 2026-01-15*
+*Last updated: 2026-03-06*
 
 ## Overview
 
@@ -59,38 +59,27 @@ When navigating from Page A to Page B (or vice versa), the different HTMX versio
 
 **All pages must return complete `Html(...)` documents with explicit headers.**
 
-### Correct Pattern
+### Correct Pattern: Use `BasePage` (Preferred)
 
 ```python
-from fasthtml.common import Html, Head, Body, Meta, Link, Script, Title
+from ui.layouts.base_page import BasePage
+
+# BasePage handles the entire Html document — head, navbar, body, modals, ARIA
+return BasePage(content, title="My Page", request=request)
+```
+
+### Correct Pattern: Use `build_head()` (For Custom Layouts)
+
+If you need a custom layout that can't use `BasePage`, use `build_head()` — the single source of truth for `<head>` content. Never manually construct the head.
+
+```python
+from fasthtml.common import Html, Body
+from ui.layouts.base_page import build_head
 
 def my_page(content, title="My Page"):
     return Html(
-        Head(
-            Meta(charset="UTF-8"),
-            Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
-            Title(f"{title} - SKUEL"),
-            # DaisyUI CSS
-            Link(
-                href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css",
-                rel="stylesheet",
-                type="text/css",
-            ),
-            # Tailwind CSS
-            Script(src="https://cdn.tailwindcss.com"),
-            # HTMX - MUST be 1.9.10 for navigation consistency
-            Script(src="https://unpkg.com/htmx.org@1.9.10"),
-            # Alpine.js - self-hosted
-            Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
-            # SKUEL custom assets
-            Link(rel="stylesheet", href="/static/css/output.css"),
-            Link(rel="stylesheet", href="/static/css/skuel.css"),
-            Script(src="/static/js/skuel.js"),
-        ),
-        Body(
-            content,
-            cls="bg-base-200",
-        ),
+        build_head(title),  # Canonical head with correct versions
+        Body(content, cls="bg-base-200"),
         **{"data-theme": "light"},
     )
 ```
@@ -127,12 +116,13 @@ def create_tasks_page(content, request=None, **kwargs):
 
 | File | Purpose |
 |------|---------|
-| `/ui/layouts/activity_layout.py` | Shared layout returning `Html` document |
+| `/ui/layouts/base_page.py` | `BasePage` + `build_head()` — canonical head builder |
+| `/ui/layouts/activity_layout.py` | Shared layout using `build_head()` |
 | `/ui/tasks/layout.py` | Tasks - delegates to `create_activity_page()` |
 | `/ui/goals/layout.py` | Goals - delegates to `create_activity_page()` |
 | `/ui/habits/layout.py` | Habits - delegates to `create_activity_page()` |
 | `/ui/events/layout.py` | Events - delegates to `create_activity_page()` |
-| `/ui/patterns/entity_dashboard.py` | `render_entity_dashboard()` returns `Html` |
+| `/ui/patterns/entity_dashboard.py` | `render_entity_dashboard()` uses `build_head()` |
 
 ## Version Matrix
 
@@ -142,7 +132,7 @@ SKUEL uses these specific versions for stability:
 |-----------|---------|--------|-------|
 | **HTMX** | 1.9.10 | CDN (unpkg.com) | Critical for navigation |
 | **Alpine.js** | 3.14.8 | Self-hosted | `/static/vendor/alpinejs/` |
-| **DaisyUI** | 4.4.19 | CDN | Component library |
+| **DaisyUI** | 5 | CDN | Component library |
 | **Tailwind** | Latest | CDN | Utility classes |
 
 ## Why HTMX 1.9.10?
@@ -269,15 +259,30 @@ Script(src="https://unpkg.com/htmx.org@1.9.10")
 ### Mistake 4: Not Using Shared Layout
 
 ```python
-# WRONG - custom implementation
+# WRONG - custom implementation with manual head
 def create_tasks_page(content):
-    return Html(...)  # Duplicates activity_layout.py
+    return Html(Head(...), Body(...))  # Duplicates build_head()
 
 # RIGHT - delegate to shared layout
 from ui.layouts.activity_layout import create_activity_page
 
 def create_tasks_page(content, request=None):
     return create_activity_page(content, domain="tasks", request=request)
+```
+
+### Mistake 5: Constructing Head Manually
+
+```python
+# WRONG - manual head construction (versions will drift)
+Head(
+    Link(href="https://cdn.jsdelivr.net/npm/daisyui@5/dist/full.min.css", ...),
+    Script(src="https://unpkg.com/htmx.org@1.9.10"),
+    ...
+)
+
+# RIGHT - use build_head() from base_page
+from ui.layouts.base_page import build_head
+build_head("Page Title")  # Single source of truth for all <head> content
 ```
 
 ## Historical Context
@@ -305,5 +310,5 @@ The navbar navigation bug was traced to HTMX version mismatch:
 
 ---
 
-**Last Updated:** January 15, 2026
+**Last Updated:** March 6, 2026
 **Maintained By:** SKUEL Core Team

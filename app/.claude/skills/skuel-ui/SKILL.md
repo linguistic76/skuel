@@ -35,7 +35,13 @@ return BasePage(
 )
 ```
 
-**Never build custom HTML structure** — no bare `Html(Head(...), Body(...))`. Always use BasePage.
+**Never build custom HTML structure** — no bare `Html(Head(...), Body(...))`. Always use `BasePage`. If a custom layout genuinely cannot use `BasePage`, use `build_head()` for the `<head>` — never construct it manually.
+
+```python
+# For custom layouts that can't use BasePage (e.g., ActivityLayout):
+from ui.layouts.base_page import build_head
+Html(build_head("Title", extra_css=["/static/css/calendar.css"]), Body(...))
+```
 
 ### Page Types
 
@@ -893,7 +899,7 @@ When building a new SKUEL page or feature, verify:
 
 | File | Purpose |
 |------|---------|
-| `/ui/layouts/base_page.py` | `BasePage` — foundation for all pages |
+| `/ui/layouts/base_page.py` | `BasePage` + `build_head()` — foundation for all pages |
 | `/ui/layouts/page_types.py` | `PageType` enum and config |
 | `/ui/layouts/navbar.py` | Navbar with profile dropdown |
 | `/ui/layouts/nav_config.py` | `PROFILE_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |

@@ -145,9 +145,9 @@ empty = SharedUIComponents.render_empty_state(
 
 **Purpose:** Complete dashboard layout with stats, actions, and entity list.
 
-**Returns:** Complete `Html` document (not `Div`) with explicit HTMX 1.9.10 headers.
+**Returns:** Complete `Html` document (not `Div`) using `build_head()` from `base_page.py`.
 
-> **Important:** This function returns a full `Html(Head(...), Body(...))` document to ensure consistent HTMX versioning across all pages. This prevents navigation issues caused by FastHTML's default HTMX 2.0.7 wrapping. See [UI Component Patterns - Page Layout Architecture](/docs/patterns/UI_COMPONENT_PATTERNS.md#page-layout-architecture-critical) for details.
+> **Important:** This function returns a full `Html(build_head(...), Body(...))` document to ensure consistent HTMX versioning across all pages. The `<head>` is provided by `build_head()` — the single source of truth for all vendor library versions (DaisyUI, HTMX, Alpine.js, etc.). See [UI Component Patterns - Page Layout Architecture](/docs/patterns/UI_COMPONENT_PATTERNS.md#page-layout-architecture-critical) for details.
 
 **Parameters:**
 - `title` (str): Dashboard title with emoji (e.g., "🎯 Habit Tracker")
@@ -675,6 +675,12 @@ entity_renderer=HabitCard  # Missing lambda/call
 - Updated wizard paths (`/habits/wizard/step1` instead of `/habits/create`)
 - All calling code continues to work with string-based action configs (internal translation to enums)
 
+### v2.1.0 (March 2026)
+- `render_entity_dashboard()` now uses `build_head()` from `base_page.py` instead of constructing its own `<head>`
+- Fixes stale DaisyUI version (was 4.4.19, now uses canonical version from `ui/theme.py`)
+- Removes reference to non-existent `skuel.css` (correct file is `main.css`)
+- Single source of truth: all version updates to `build_head()` automatically propagate
+
 ### v1.2.0 (January 2026)
 - **BREAKING:** `render_entity_dashboard()` now returns `Html` document instead of `Div`
 - Changed return type to ensure consistent HTMX 1.9.10 versioning across all pages
@@ -698,7 +704,7 @@ entity_renderer=HabitCard  # Missing lambda/call
 
 ---
 
-**Last Updated:** January 29, 2026
+**Last Updated:** March 6, 2026
 **Maintained By:** SKUEL Core Team
 **License:** MIT
 **Component Library:** DaisyUI with type-safe enums (v2.0.0+)
