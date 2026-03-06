@@ -220,7 +220,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
                 "title": path.title,
                 "description": path.description,
                 "domain": get_enum_value(path.domain),
-                "ku_type": "learning_path",
+                "entity_type": "learning_path",
             },
             steps,
         )
@@ -287,7 +287,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             """
             MATCH (p:Entity)
             WHERE p.uid IN $uids
-            OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {ku_type: 'learning_step'})
+            OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {entity_type: 'learning_step'})
             WITH p, collect({step: s, sequence: r.sequence}) as steps_data
             ORDER BY p.uid
             RETURN p, steps_data
@@ -315,7 +315,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         query_result = await self.backend.execute_query(
             """
             MATCH (p:Entity {uid: $uid})
-            OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {ku_type: 'learning_step'})
+            OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {entity_type: 'learning_step'})
             WITH p, collect({step: s, sequence: r.sequence}) as steps_data
             RETURN p, steps_data
             """,
@@ -379,7 +379,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             MATCH (lp:Entity {uid: $uid})
 
             // 1. Steps (with sequence and progress)
-            OPTIONAL MATCH (lp)-[r_step:HAS_STEP|CONTAINS_STEP]->(step:Entity {ku_type: 'learning_step'})
+            OPTIONAL MATCH (lp)-[r_step:HAS_STEP|CONTAINS_STEP]->(step:Entity {entity_type: 'learning_step'})
             WITH lp, collect({
                 uid: step.uid,
                 title: step.title,
@@ -392,7 +392,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
 
             // 2. Prerequisite knowledge
             OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(prereq_ku:Entity)
-            WHERE prereq_ku.ku_type IS NULL OR prereq_ku.ku_type = 'ku'
+            WHERE prereq_ku.entity_type IS NULL OR prereq_ku.entity_type = 'ku'
             WITH lp, steps_data, collect({
                 uid: prereq_ku.uid,
                 title: prereq_ku.title,
@@ -537,8 +537,8 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
     ) -> Result[list[LearningPath]]:
         """List all learning paths for a specific user."""
         query = """
-        MATCH (u:User {uid: $user_uid})-[:HAS_PATH]->(p:Entity {ku_type: 'learning_path'})
-        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {ku_type: 'learning_step'})
+        MATCH (u:User {uid: $user_uid})-[:HAS_PATH]->(p:Entity {entity_type: 'learning_path'})
+        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {entity_type: 'learning_step'})
         WITH p, collect({step: s, sequence: r.sequence}) as steps_data
         ORDER BY p.uid DESC
         """
@@ -585,8 +585,8 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         order_direction = "DESC" if order_desc else "ASC"
 
         query = f"""
-        MATCH (p:Entity {{ku_type: 'learning_path'}})
-        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {{ku_type: 'learning_step'}})
+        MATCH (p:Entity {{entity_type: 'learning_path'}})
+        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {{entity_type: 'learning_step'}})
         WITH p, collect({{step: s, sequence: r.sequence}}) as steps_data
         ORDER BY {order_field} {order_direction}
         """
@@ -709,7 +709,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         query = f"""
         MATCH (p:Entity {{uid: $uid}})
         SET {", ".join(set_clauses)}
-        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {{ku_type: 'learning_step'}})
+        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {{entity_type: 'learning_step'}})
         WITH p, collect(s) as steps
         RETURN p, steps
         """
@@ -759,7 +759,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         query_result = await self.backend.execute_query(
             """
             MATCH (p:Entity {uid: $uid})
-            OPTIONAL MATCH (p)-[:HAS_STEP]->(s:Entity {ku_type: 'learning_step'})
+            OPTIONAL MATCH (p)-[:HAS_STEP]->(s:Entity {entity_type: 'learning_step'})
             DETACH DELETE p, s
             RETURN count(p) as deleted_count
             """,
@@ -802,7 +802,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             # Returns [step1, step2, step3] in sequence order
         """
         query = f"""
-        MATCH (lp:Entity {{uid: $path_uid}})-[r:HAS_STEP*1..{depth}]->(ls:Entity {{ku_type: 'learning_step'}})
+        MATCH (lp:Entity {{uid: $path_uid}})-[r:HAS_STEP*1..{depth}]->(ls:Entity {{entity_type: 'learning_step'}})
         RETURN ls, r[0].sequence as sequence
         ORDER BY sequence
         """
@@ -837,7 +837,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             A learning step can belong to multiple paths. This returns the first match.
         """
         query = """
-        MATCH (lp:Entity {ku_type: 'learning_path'})-[:HAS_STEP]->(ls:Entity {uid: $step_uid})
+        MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(ls:Entity {uid: $step_uid})
         RETURN lp
         LIMIT 1
         """
@@ -987,7 +987,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
 
         # Reorder remaining steps to close gaps
         reorder_query = """
-        MATCH (lp:Entity {uid: $path_uid})-[r:HAS_STEP]->(ls:Entity {ku_type: 'learning_step'})
+        MATCH (lp:Entity {uid: $path_uid})-[r:HAS_STEP]->(ls:Entity {entity_type: 'learning_step'})
         WITH ls, r
         ORDER BY r.sequence
         WITH collect(ls) as steps
@@ -1059,7 +1059,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             MERGE (u:User {uid: $user_uid})
             CREATE (p:Entity {
                 uid: $uid,
-                ku_type: 'learning_path',
+                entity_type: 'learning_path',
                 title: $title,
                 description: $description,
                 domain: $domain,
@@ -1099,7 +1099,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
                 MATCH (p:Entity {uid: $path_uid})
                 CREATE (s:Entity {
                     uid: $uid,
-                    ku_type: 'learning_step',
+                    entity_type: 'learning_step',
                     title: $title,
                     intent: $intent,
                     description: $description,

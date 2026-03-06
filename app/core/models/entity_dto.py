@@ -42,8 +42,8 @@ class EntityDTO:
     # =========================================================================
     uid: str = ""
     title: str = ""
-    ku_type: EntityType = EntityType.KU
-    parent_ku_uid: str | None = None
+    entity_type: EntityType = EntityType.KU
+    parent_entity_uid: str | None = None
     domain: Domain = Domain.KNOWLEDGE
     created_by: str | None = None
 
@@ -79,8 +79,8 @@ class EntityDTO:
         data: dict[str, Any] = {
             "uid": self.uid,
             "title": self.title,
-            "ku_type": get_enum_value(self.ku_type),
-            "parent_ku_uid": self.parent_ku_uid,
+            "entity_type": get_enum_value(self.entity_type),
+            "parent_entity_uid": self.parent_entity_uid,
             "domain": get_enum_value(self.domain),
             "created_by": self.created_by,
             "content": self.content,
@@ -110,7 +110,7 @@ class EntityDTO:
             cls,
             data,
             enum_fields={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
             },
@@ -142,7 +142,7 @@ class EntityDTO:
                 "metadata",
             },
             enum_mappings={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
             },

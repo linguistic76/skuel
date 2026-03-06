@@ -44,7 +44,7 @@ class JournalDTO(SubmissionDTO):
             cls,
             data,
             enum_fields={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,

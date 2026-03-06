@@ -44,7 +44,7 @@ class TestEventsCoreOperations:
     async def events_backend(self, neo4j_driver, clean_neo4j):
         """Create events backend with clean database."""
         return UniversalNeo4jBackend[Event](
-            neo4j_driver, "Entity", Event, default_filters={"ku_type": "event"}
+            neo4j_driver, "Entity", Event, default_filters={"entity_type": "event"}
         )
 
     @pytest_asyncio.fixture
@@ -443,7 +443,7 @@ class TestEventsCoreOperations:
 
     async def test_event_without_optional_fields(self, events_service, test_user_uid):
         """Test creating an event with minimal required fields."""
-        # Arrange - Only required fields (Event forces ku_type=EVENT)
+        # Arrange - Only required fields (Event forces entity_type=EVENT)
         event = Event(
             uid="event.minimal",
             user_uid=test_user_uid,

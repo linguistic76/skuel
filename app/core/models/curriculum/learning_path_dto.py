@@ -76,7 +76,7 @@ class LearningPathDTO(CurriculumDTO):
             cls,
             data,
             enum_fields={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "complexity": KuComplexity,
@@ -143,7 +143,7 @@ class LearningPathDTO(CurriculumDTO):
                 "estimated_hours",
             },
             enum_mappings={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "complexity": KuComplexity,

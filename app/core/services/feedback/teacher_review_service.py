@@ -68,13 +68,13 @@ class TeacherReviewService:
         Get teacher's pending review queue.
 
         Returns Ku shared with the teacher via role="teacher",
-        optionally filtered by status or ku_type. Includes count of
+        optionally filtered by status or entity_type. Includes count of
         existing feedback rounds per submission.
 
         Args:
             teacher_uid: Teacher UID
             status_filter: Optional status filter (e.g., "submitted")
-            ku_type_filter: Optional ku_type filter (e.g., "submission", "task")
+            ku_type_filter: Optional entity_type filter (e.g., "submission", "task")
 
         Returns:
             Result containing list of review items
@@ -87,7 +87,7 @@ class TeacherReviewService:
             params["status_filter"] = status_filter
 
         if ku_type_filter:
-            where_clauses.append("report.ku_type = $ku_type_filter")
+            where_clauses.append("report.entity_type = $ku_type_filter")
             params["ku_type_filter"] = ku_type_filter
 
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
@@ -102,7 +102,7 @@ class TeacherReviewService:
         RETURN ku.uid as ku_uid,
                ku.title as title,
                ku.status as status,
-               ku.ku_type as ku_type,
+               ku.entity_type as entity_type,
                ku.created_at as submitted_at,
                student.uid as student_uid,
                student.name as student_name,
@@ -123,7 +123,7 @@ class TeacherReviewService:
                 "ku_uid": record["ku_uid"],
                 "title": record["title"],
                 "status": record["status"],
-                "ku_type": record["ku_type"],
+                "entity_type": record["entity_type"],
                 "submitted_at": record["submitted_at"],
                 "student_uid": record["student_uid"],
                 "student_name": record["student_name"],
@@ -227,7 +227,7 @@ class TeacherReviewService:
         CREATE (fb:Entity {
             uid: $feedback_uid,
             title: $title,
-            ku_type: $ku_type,
+            entity_type: $entity_type,
             user_uid: $teacher_uid,
             status: $completed_status,
             processor_type: $processor_type,
@@ -262,7 +262,7 @@ class TeacherReviewService:
                 "teacher_uid": teacher_uid,
                 "feedback": feedback,
                 "title": f"Feedback: {report_uid[:30]}",
-                "ku_type": EntityType.SUBMISSION_FEEDBACK.value,
+                "entity_type": EntityType.SUBMISSION_FEEDBACK.value,
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,
                 "now": now,
@@ -340,7 +340,7 @@ class TeacherReviewService:
         CREATE (fb:Entity {
             uid: $feedback_uid,
             title: $title,
-            ku_type: $ku_type,
+            entity_type: $entity_type,
             user_uid: $teacher_uid,
             status: $completed_status,
             processor_type: $processor_type,
@@ -375,7 +375,7 @@ class TeacherReviewService:
                 "teacher_uid": teacher_uid,
                 "notes": notes,
                 "title": f"Revision request: {report_uid[:30]}",
-                "ku_type": EntityType.SUBMISSION_FEEDBACK.value,
+                "entity_type": EntityType.SUBMISSION_FEEDBACK.value,
                 "revision_status": EntityStatus.REVISION_REQUESTED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,
@@ -723,7 +723,7 @@ class TeacherReviewService:
                s.content AS content,
                s.processed_content AS processed_content,
                s.original_filename AS original_filename,
-               s.ku_type AS ku_type,
+               s.entity_type AS entity_type,
                s.status AS status,
                s.created_at AS created_at,
                student.uid AS student_uid,
@@ -755,7 +755,7 @@ class TeacherReviewService:
                 "content": record["content"],
                 "processed_content": record["processed_content"],
                 "original_filename": record["original_filename"],
-                "ku_type": record["ku_type"],
+                "entity_type": record["entity_type"],
                 "status": record["status"],
                 "created_at": record["created_at"],
                 "student_uid": record["student_uid"],

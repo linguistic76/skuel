@@ -33,7 +33,7 @@ class TestCascadeDeleteTrue:
     async def task_backend(self, neo4j_driver, clean_neo4j):
         """Create Task backend with clean database."""
         return UniversalNeo4jBackend[Curriculum](
-            neo4j_driver, "Entity", Curriculum, default_filters={"ku_type": "task"}
+            neo4j_driver, "Entity", Curriculum, default_filters={"entity_type": "task"}
         )
 
     @pytest_asyncio.fixture

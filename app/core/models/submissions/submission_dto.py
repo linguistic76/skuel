@@ -118,7 +118,7 @@ class SubmissionDTO(UserOwnedDTO):
             cls,
             data,
             enum_fields={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,
@@ -176,7 +176,7 @@ class SubmissionDTO(UserOwnedDTO):
                 "subject_uid",
             },
             enum_mappings={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,

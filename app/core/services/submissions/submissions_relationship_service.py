@@ -4,7 +4,7 @@ Submission Relationship Service
 
 Creates graph relationships for Submission entity nodes.
 
-In the graph, Submissions are Entities (ku_type=submission/journal). This service
+In the graph, Submissions are Entities (entity_type=submission/journal). This service
 creates the relationships that connect a Submission to its context:
 
 Relationships Created:
@@ -65,7 +65,7 @@ class SubmissionsRelationshipService:
             temporal_result = await self._create_temporal_relationship(
                 entity.uid,
                 entity.user_uid,
-                entity.ku_type.value,
+                entity.entity_type.value,
             )
             relationships_created["temporal"] = temporal_result
 
@@ -106,7 +106,7 @@ class SubmissionsRelationshipService:
     # ========================================================================
 
     async def _create_temporal_relationship(
-        self, ku_uid: str, user_uid: str | None, ku_type: str
+        self, ku_uid: str, user_uid: str | None, entity_type: str
     ) -> int:
         """
         Create FOLLOWS relationship to most recent previous Ku of same type.
@@ -114,7 +114,7 @@ class SubmissionsRelationshipService:
         Args:
             ku_uid: UID of the new Ku
             user_uid: User identifier (None for curriculum)
-            ku_type: Type of Ku for filtering
+            entity_type: Type of Ku for filtering
 
         Returns:
             Count of relationships created (0 or 1)
@@ -124,7 +124,7 @@ class SubmissionsRelationshipService:
 
         cypher = """
         MATCH (new:Entity {uid: $ku_uid})
-        MATCH (prev:Entity {user_uid: $user_uid, ku_type: $ku_type})
+        MATCH (prev:Entity {user_uid: $user_uid, entity_type: $entity_type})
         WHERE prev.uid <> $ku_uid
           AND prev.created_at <= new.created_at
         WITH new, prev
@@ -139,7 +139,7 @@ class SubmissionsRelationshipService:
             {
                 "ku_uid": ku_uid,
                 "user_uid": user_uid,
-                "ku_type": ku_type,
+                "entity_type": entity_type,
             },
         )
         if result.is_error:

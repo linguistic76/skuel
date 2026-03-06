@@ -49,9 +49,9 @@ class Event(UserOwnedEntity):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=EVENT, then delegate to Entity for timestamps/status defaults."""
-        if self.ku_type != EntityType.EVENT:
-            object.__setattr__(self, "ku_type", EntityType.EVENT)
+        """Force entity_type=EVENT, then delegate to Entity for timestamps/status defaults."""
+        if self.entity_type != EntityType.EVENT:
+            object.__setattr__(self, "entity_type", EntityType.EVENT)
         super().__post_init__()
 
     # =========================================================================

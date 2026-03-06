@@ -52,7 +52,7 @@ class SubmissionOperations(Protocol):
         file_content: bytes,
         original_filename: str,
         user_uid: str,
-        ku_type: Any,
+        entity_type: Any,
         processor_type: Any = ...,
         file_type: str | None = None,
         metadata: dict[str, Any] | None = None,
@@ -69,7 +69,7 @@ class SubmissionOperations(Protocol):
     async def list_submissions(
         self,
         user_uid: str,
-        ku_type: Any | None = None,
+        entity_type: Any | None = None,
         status: Any | None = None,
         limit: int = 50,
         offset: int = 0,
@@ -139,7 +139,7 @@ class SubmissionOperations(Protocol):
         self,
         limit: int = 10,
         user_uid: str | None = None,
-        ku_type: Any | None = None,
+        entity_type: Any | None = None,
     ) -> Result[list[Any]]:
         """Get recent submissions. Returns Result[list[Submission]]."""
         ...
@@ -282,7 +282,7 @@ class SubmissionSearchOperations(Protocol):
         self,
         user_uid: str,
         query: str,
-        ku_type: Any | None = None,
+        entity_type: Any | None = None,
         limit: int = 50,
     ) -> Result[list[Any]]:
         """Search submissions with text and type filters. Returns Result[list[Submission]]."""
@@ -293,7 +293,7 @@ class SubmissionSearchOperations(Protocol):
         user_uid: str,
         start_date: date,
         end_date: date,
-        ku_type: Any | None = None,
+        entity_type: Any | None = None,
     ) -> Result[dict[str, Any]]:
         """Get submission statistics for a date range. Returns Result[dict]."""
         ...
@@ -301,7 +301,7 @@ class SubmissionSearchOperations(Protocol):
     async def get_recent_submissions(
         self,
         user_uid: str,
-        ku_type: Any | None = None,
+        entity_type: Any | None = None,
         limit: int = 10,
     ) -> Result[list[Any]]:
         """Get recent submissions. Returns Result[list[Submission]]."""

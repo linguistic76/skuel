@@ -39,9 +39,9 @@ class LearningPath(Curriculum):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=LEARNING_PATH, then delegate to Entity."""
-        if self.ku_type != EntityType.LEARNING_PATH:
-            object.__setattr__(self, "ku_type", EntityType.LEARNING_PATH)
+        """Force entity_type=LEARNING_PATH, then delegate to Entity."""
+        if self.entity_type != EntityType.LEARNING_PATH:
+            object.__setattr__(self, "entity_type", EntityType.LEARNING_PATH)
         super().__post_init__()
 
     # =========================================================================

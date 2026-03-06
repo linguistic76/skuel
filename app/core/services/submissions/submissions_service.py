@@ -54,7 +54,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         entity_label="Entity",
         search_fields=("title", "original_filename", "file_type"),
         search_order_by="created_at",
-        category_field="ku_type",
+        category_field="entity_type",
         user_ownership_relationship=RelationshipName.OWNS,
     )
 
@@ -100,11 +100,11 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         file_content: bytes,
         original_filename: str,
         user_uid: str,
-        ku_type: EntityType = EntityType.SUBMISSION,
+        entity_type: EntityType = EntityType.SUBMISSION,
         processor_type: ProcessorType = ProcessorType.AUTOMATIC,
         file_type: str | None = None,
         title: str | None = None,
-        parent_ku_uid: str | None = None,
+        parent_entity_uid: str | None = None,
         metadata: dict[str, Any] | None = None,
         applies_knowledge_uids: list[str] | None = None,
         fulfills_exercise_uid: str | None = None,
@@ -121,11 +121,11 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             file_content: Raw file bytes
             original_filename: Original filename from upload
             user_uid: User submitting the file
-            ku_type: Type of submission (default: SUBMISSION)
+            entity_type: Type of submission (default: SUBMISSION)
             processor_type: Processor to use (default: AUTOMATIC)
             file_type: MIME type (optional, will detect from filename)
             title: Optional title (defaults to filename)
-            parent_ku_uid: Optional parent submission UID for derivation chain
+            parent_entity_uid: Optional parent submission UID for derivation chain
             metadata: Additional metadata (optional)
             applies_knowledge_uids: Knowledge Units being applied
             fulfills_exercise_uid: Exercise UID if this submission responds to an
@@ -154,9 +154,9 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         submission = Submission(
             uid=uid,
             title=title or original_filename,
-            ku_type=ku_type,
+            entity_type=entity_type,
             user_uid=user_uid,
-            parent_ku_uid=parent_ku_uid,
+            parent_entity_uid=parent_entity_uid,
             status=EntityStatus.SUBMITTED,
             original_filename=original_filename,
             file_path=str(file_path),
@@ -194,7 +194,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
 
         self.logger.info(
             f"Submission submitted: {uid} "
-            f"(type={ku_type.value}, size={len(file_content)} bytes, "
+            f"(type={entity_type.value}, size={len(file_content)} bytes, "
             f"applies_knowledge={len(applies_knowledge_uids or [])} KUs)"
         )
 
@@ -202,7 +202,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         event = SubmissionCreated(
             submission_uid=uid,
             user_uid=user_uid,
-            ku_type=ku_type.value,
+            entity_type=entity_type.value,
             processor_type=processor_type.value,
             file_size=len(file_content),
             file_type=file_type,
@@ -258,7 +258,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
     async def list_submissions(
         self,
         user_uid: str,
-        ku_type: EntityType | None = None,
+        entity_type: EntityType | None = None,
         status: EntityStatus | None = None,
         limit: int = 50,
         offset: int = 0,
@@ -268,7 +268,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
 
         Args:
             user_uid: User UID
-            ku_type: Filter by type (optional)
+            entity_type: Filter by type (optional)
             status: Filter by status (optional)
             limit: Max results (default 50)
             offset: Pagination offset (default 0)
@@ -278,8 +278,8 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         """
         filters: dict[str, Any] = {"user_uid": user_uid}
 
-        if ku_type:
-            filters["ku_type"] = ku_type.value
+        if entity_type:
+            filters["entity_type"] = entity_type.value
 
         if status:
             filters["status"] = status.value
@@ -302,14 +302,14 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
     async def count_submissions(
         self,
         user_uid: str,
-        ku_type: EntityType | None = None,
+        entity_type: EntityType | None = None,
         status: EntityStatus | None = None,
     ) -> Result[int]:
         """Count submissions for a user with optional filters."""
         filters: dict[str, Any] = {"user_uid": user_uid}
 
-        if ku_type:
-            filters["ku_type"] = ku_type.value
+        if entity_type:
+            filters["entity_type"] = entity_type.value
 
         if status:
             filters["status"] = status.value
@@ -559,10 +559,10 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
 
         statistics: dict[str, Any] = {"total": total_result.value, "by_type": {}, "by_status": {}}
 
-        for ku_type in EntityType:
-            count_result = await self.count_submissions(user_uid, ku_type=ku_type)
+        for entity_type in EntityType:
+            count_result = await self.count_submissions(user_uid, entity_type=entity_type)
             if count_result.is_ok:
-                statistics["by_type"][ku_type.value] = count_result.value
+                statistics["by_type"][entity_type.value] = count_result.value
 
         for status in EntityStatus:
             count_result = await self.count_submissions(user_uid, status=status)

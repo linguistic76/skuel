@@ -141,7 +141,7 @@ from core.events.habit_events import (
 )
 
 # NOTE: Journal events DELETED (February 2026) - Journal merged into Submissions
-# Journal operations now fire SubmissionCreated/SubmissionDeleted events with ku_type="journal"
+# Journal operations now fire SubmissionCreated/SubmissionDeleted events with entity_type="journal"
 # Knowledge substance events (tracking real-world application)
 from core.events.article_events import (
     KnowledgeAppliedInTask,

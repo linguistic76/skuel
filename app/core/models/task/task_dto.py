@@ -118,7 +118,7 @@ class TaskDTO(UserOwnedDTO):
         return cls(
             uid=uid,
             title=title,
-            ku_type=EntityType.TASK,
+            entity_type=EntityType.TASK,
             user_uid=user_uid,
             **kwargs,
         )
@@ -198,7 +198,7 @@ class TaskDTO(UserOwnedDTO):
             cls,
             data,
             enum_fields={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,
@@ -277,7 +277,7 @@ class TaskDTO(UserOwnedDTO):
                 "learning_opportunities_count",
             },
             enum_mappings={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,

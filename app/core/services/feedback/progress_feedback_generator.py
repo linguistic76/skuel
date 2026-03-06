@@ -214,7 +214,7 @@ class ProgressFeedbackGenerator:
             event = SubmissionCreated(
                 submission_uid=report.uid,
                 user_uid=user_uid,
-                ku_type=EntityType.ACTIVITY_REPORT.value,
+                entity_type=EntityType.ACTIVITY_REPORT.value,
                 processor_type=processor_type.value,
                 occurred_at=datetime.now(),
             )
@@ -790,7 +790,7 @@ class ProgressFeedbackGenerator:
         """
         _query = """
         MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
-        WHERE ar.ku_type = 'activity_report'
+        WHERE ar.entity_type = 'activity_report'
           AND ar.created_at >= datetime() - duration({minutes: $cooldown_minutes})
         RETURN count(ar) AS recent_count
         """

@@ -152,7 +152,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         entity_label="Entity",
         search_fields=("title", "original_filename", "processed_content"),
         search_order_by="created_at",
-        category_field="ku_type",
+        category_field="entity_type",
         user_ownership_relationship=RelationshipName.OWNS,  # User-owned content
     )
 
@@ -291,7 +291,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         self,
         limit: int = 10,
         user_uid: str | None = None,
-        ku_type: EntityType | None = None,
+        entity_type: EntityType | None = None,
     ) -> Result[list[SubmissionEntity]]:
         """
         Get recent Ku entities.
@@ -299,7 +299,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Args:
             limit: Maximum number of Ku entities to return
             user_uid: Optional user filter
-            ku_type: Optional type filter (e.g., SUBMISSION, ACTIVITY_REPORT)
+            entity_type: Optional type filter (e.g., SUBMISSION, ACTIVITY_REPORT)
 
         Returns:
             Result containing list of Ku entities
@@ -308,8 +308,8 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         if user_uid:
             filters["user_uid"] = user_uid
-        if ku_type:
-            filters["ku_type"] = ku_type.value
+        if entity_type:
+            filters["entity_type"] = entity_type.value
 
         if filters:
             result = await self.backend.find_by(**filters)
@@ -457,7 +457,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             event = SubmissionDeleted(
                 submission_uid=uid,
                 user_uid=submission.user_uid if isinstance(submission, UserOwnedEntity) else None,
-                ku_type=submission.ku_type.value,
+                entity_type=submission.entity_type.value,
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
@@ -844,7 +844,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             "",
             getattr(submission, "processed_content", None) or submission.content or "",
             "",
-            f"**Type:** {submission.ku_type.value}" if submission.ku_type else "",
+            f"**Type:** {submission.entity_type.value}" if submission.entity_type else "",
             f"**Category:** {category}" if category else "",
             f"**Tags:** {', '.join(tags_list)}" if tags_list else "",
             f"**Status:** {submission.status.value}" if submission.status else "",
@@ -872,7 +872,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             entry_date.year, entry_date.month, entry_date.day, 23, 59, 59, tzinfo=UTC
         )
         query = """
-            MATCH (u:User {uid: $user_uid})-[:OWNS]->(j:Entity {ku_type: 'journal'})
+            MATCH (u:User {uid: $user_uid})-[:OWNS]->(j:Entity {entity_type: 'journal'})
             WHERE j.created_at >= $day_start AND j.created_at <= $day_end
             RETURN count(j) AS total
         """
@@ -917,7 +917,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         Create a journal-type Ku (JOURNAL with journal metadata).
 
-        Journals are Ku entities with ku_type=JOURNAL. max_retention controls
+        Journals are Ku entities with entity_type=JOURNAL. max_retention controls
         FIFO cleanup: when set (e.g., 3), oldest journals are deleted to
         maintain the limit. When None, journals are permanent.
 
@@ -968,7 +968,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         journal = Journal(
             uid=uid,
             title=title,
-            ku_type=EntityType.JOURNAL,
+            entity_type=EntityType.JOURNAL,
             user_uid=user_uid,
             status=EntityStatus.DRAFT,
             content=content,
@@ -994,7 +994,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """Get journals with FIFO retention (max_retention is set) for a user."""
         result = await self.backend.find_by(
             user_uid=user_uid,
-            ku_type=EntityType.JOURNAL.value,
+            entity_type=EntityType.JOURNAL.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -1008,7 +1008,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """Get permanent journals (no FIFO retention) for a user."""
         result = await self.backend.find_by(
             user_uid=user_uid,
-            ku_type=EntityType.JOURNAL.value,
+            entity_type=EntityType.JOURNAL.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -1039,7 +1039,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         result = await self.backend.find_by(
             user_uid=user_uid,
-            ku_type=EntityType.JOURNAL.value,
+            entity_type=EntityType.JOURNAL.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -1097,7 +1097,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             return Result.fail(result.expect_error())
 
         submission = result.value
-        if not submission or submission.ku_type != EntityType.JOURNAL:
+        if not submission or submission.entity_type != EntityType.JOURNAL:
             return Result.ok(None)
 
         return Result.ok(submission)
@@ -1134,7 +1134,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         # Check if the exercise is ASSIGNED scope and get group info
         exercise_result = await self.backend.execute_query(
             """
-            MATCH (exercise:Entity {uid: $exercise_uid, ku_type: 'exercise'})
+            MATCH (exercise:Entity {uid: $exercise_uid, entity_type: 'exercise'})
             OPTIONAL MATCH (exercise)-[:FOR_GROUP]->(g:Group)
             RETURN exercise.scope as scope,
                    exercise.user_uid as teacher_uid,
@@ -1237,7 +1237,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         fulfills_result = await self.backend.execute_query(
             f"""
             MATCH (ku:Entity {{uid: $ku_uid}})
-            MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
+            MATCH (exercise:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
             MERGE (ku)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
             RETURN true as success
             """,
@@ -1293,7 +1293,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         result = await self.backend.find_by(
             user_uid=user_uid,
-            ku_type=EntityType.JOURNAL.value,
+            entity_type=EntityType.JOURNAL.value,
         )
 
         if result.is_error:
@@ -1338,7 +1338,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         Create a teacher assessment (feedback) for a student.
 
-        Creates a submission with ku_type=SUBMISSION_FEEDBACK, auto-shares with student.
+        Creates a submission with entity_type=SUBMISSION_FEEDBACK, auto-shares with student.
         Verifies teacher has authority over student via shared group membership.
 
         Args:
@@ -1385,7 +1385,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         assessment = SubmissionFeedback(
             uid=uid,
             title=title,
-            ku_type=EntityType.SUBMISSION_FEEDBACK,
+            entity_type=EntityType.SUBMISSION_FEEDBACK,
             user_uid=teacher_uid,
             status=EntityStatus.COMPLETED,
             processor_type=ProcessorType.HUMAN,
@@ -1477,7 +1477,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         result = await self.backend.execute_query(
             """
             MATCH (k:Entity)-[:ASSESSMENT_OF]->(u:User {uid: $student_uid})
-            WHERE k.ku_type = 'submission_feedback'
+            WHERE k.entity_type = 'submission_feedback'
             RETURN k
             ORDER BY k.created_at DESC
             LIMIT $limit
@@ -1511,7 +1511,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         result = await self.backend.find_by(
             user_uid=teacher_uid,
-            ku_type=EntityType.SUBMISSION_FEEDBACK.value,
+            entity_type=EntityType.SUBMISSION_FEEDBACK.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -1531,7 +1531,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Pipeline:
         1. Try AI processing via ContentEnrichmentService (if available)
         2. Fall back to raw transcript if AI fails
-        3. Create Ku with ku_type=JOURNAL and journal metadata via create_journal_entry()
+        3. Create Ku with entity_type=JOURNAL and journal metadata via create_journal_entry()
         4. Triggers FIFO cleanup for VOICE journals
 
         Args:

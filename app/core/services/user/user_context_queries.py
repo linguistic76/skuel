@@ -854,7 +854,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // SUBMISSION & FEEDBACK STATS - Learning loop engagement tracking
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(sub:Entity)
-WHERE sub.ku_type IN ['submission', 'journal']
+WHERE sub.entity_type IN ['submission', 'journal']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -868,15 +868,15 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      life_path_uid, life_path_designated_at, life_path_alignment_score,
      active_moc_uids, moc_metadata,
      latest_ar, active_insights_raw,
-     count(CASE WHEN sub.ku_type = 'submission' THEN 1 END) AS total_submission_count,
-     count(CASE WHEN sub.ku_type = 'journal' THEN 1 END) AS total_journal_count,
+     count(CASE WHEN sub.entity_type = 'submission' THEN 1 END) AS total_submission_count,
+     count(CASE WHEN sub.entity_type = 'journal' THEN 1 END) AS total_journal_count,
      count(CASE WHEN sub.created_at >= datetime($window_start) THEN 1 END) AS submissions_in_window,
      max(sub.created_at) AS last_submission_date,
      collect(sub.uid) AS all_submission_uids
 
 // Feedback received for user's submissions
 OPTIONAL MATCH (user)-[:OWNS]->(owned_sub:Entity)<-[:FEEDBACK_FOR]-(fb:Entity)
-WHERE owned_sub.ku_type IN ['submission', 'journal']
+WHERE owned_sub.entity_type IN ['submission', 'journal']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -916,7 +916,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      size([uid IN all_submission_uids WHERE NOT uid IN submissions_with_feedback]) AS pending_feedback_count
 
 // Assigned exercises and unsubmitted exercises
-OPTIONAL MATCH (user)-[:MEMBER_OF]->(grp:Group)<-[:FOR_GROUP]-(ex:Entity {ku_type: 'exercise', scope: 'assigned'})
+OPTIONAL MATCH (user)-[:MEMBER_OF]->(grp:Group)<-[:FOR_GROUP]-(ex:Entity {entity_type: 'exercise', scope: 'assigned'})
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,

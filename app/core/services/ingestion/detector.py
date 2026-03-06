@@ -97,9 +97,9 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> EntityType | No
             return TYPE_MAPPING[explicit_type]
 
         # Try EntityType.from_string() as fallback (handles aliases)
-        ku_type = EntityType.from_string(explicit_type)
-        if ku_type:
-            return ku_type
+        entity_type = EntityType.from_string(explicit_type)
+        if entity_type:
+            return entity_type
 
         # Try NonKuDomain.from_string() as secondary fallback
         non_ku = NonKuDomain.from_string(explicit_type)

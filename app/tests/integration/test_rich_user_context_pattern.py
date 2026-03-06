@@ -45,7 +45,7 @@ class TestRichUserContextPattern:
         # Create prerequisite knowledge
         prereq_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
-            ku_type=EntityType.ARTICLE,
+            entity_type=EntityType.ARTICLE,
             title="Python Basics",
             domain=Domain.TECH,
         )
@@ -54,7 +54,7 @@ class TestRichUserContextPattern:
         # Create main knowledge unit
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
-            ku_type=EntityType.ARTICLE,
+            entity_type=EntityType.ARTICLE,
             title="Advanced Python",
             domain=Domain.TECH,
         )
@@ -111,19 +111,19 @@ class TestRichUserContextPattern:
         # MEGA-QUERY expects :Task, :Goal, :Event labels and OWNS rels
         await services.tasks.core.backend.driver.execute_query(
             """
-            MATCH (task:Entity {uid: $task_uid, ku_type: 'task'})
+            MATCH (task:Entity {uid: $task_uid, entity_type: 'task'})
             SET task:Task
             WITH task
             MATCH (user:User {uid: $user_uid})
             MERGE (user)-[:OWNS]->(task)
             WITH task
-            MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})
+            MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})
             SET goal:Goal
             WITH goal, task
             MATCH (user:User {uid: $user_uid})
             MERGE (user)-[:OWNS]->(goal)
             WITH task, goal
-            MATCH (event:Entity {uid: $event_uid, ku_type: 'event'})
+            MATCH (event:Entity {uid: $event_uid, entity_type: 'event'})
             SET event:Event
             WITH event
             MATCH (user:User {uid: $user_uid})
@@ -216,7 +216,7 @@ class TestRichUserContextPattern:
         # Create test data
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
-            ku_type=EntityType.ARTICLE,
+            entity_type=EntityType.ARTICLE,
             title="Test Knowledge",
             domain=Domain.TECH,
         )
@@ -241,13 +241,13 @@ class TestRichUserContextPattern:
         # Add secondary labels and relationships for MEGA-QUERY compatibility
         await services.tasks.core.backend.driver.execute_query(
             """
-            MATCH (task:Entity {uid: $task_uid, ku_type: 'task'})
+            MATCH (task:Entity {uid: $task_uid, entity_type: 'task'})
             SET task:Task
             WITH task
             MATCH (user:User {uid: $user_uid})
             MERGE (user)-[:OWNS]->(task)
             WITH task
-            MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})
+            MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})
             SET goal:Goal
             WITH goal
             MATCH (user:User {uid: $user_uid})
@@ -341,7 +341,7 @@ class TestRichUserContextPattern:
         # Create cross-domain test data
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
-            ku_type=EntityType.ARTICLE,
+            entity_type=EntityType.ARTICLE,
             title="Test Knowledge",
             domain=Domain.TECH,
         )
@@ -366,9 +366,9 @@ class TestRichUserContextPattern:
         # Create cross-domain relationships
         await services.tasks.core.backend.driver.execute_query(
             """
-            MATCH (task:Entity {uid: $task_uid, ku_type: 'task'})
+            MATCH (task:Entity {uid: $task_uid, entity_type: 'task'})
             MATCH (ku:Entity {uid: $ku_uid})
-            MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})
+            MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})
             CREATE (task)-[:APPLIES_KNOWLEDGE]->(ku)
             CREATE (task)-[:FULFILLS_GOAL]->(goal)
             CREATE (goal)-[:REQUIRES_KNOWLEDGE]->(ku)

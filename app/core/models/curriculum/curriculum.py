@@ -53,7 +53,7 @@ class Curriculum(Entity):
 
     Intermediate class adding learning metadata, substance tracking, and
     curriculum-specific methods to Entity. Leaf classes (Ku, LearningStep,
-    LearningPath, Exercise) inherit from Curriculum and set their own ku_type.
+    LearningPath, Exercise) inherit from Curriculum and set their own entity_type.
 
     All curriculum-specific structure lives in Neo4j graph relationships
     (ORGANIZES, PRIMARY_KNOWLEDGE, SUPPORTING_KNOWLEDGE).
@@ -62,7 +62,7 @@ class Curriculum(Entity):
     """
 
     def __post_init__(self) -> None:
-        """Delegate to Entity. Leaf classes (Ku, LearningStep, etc.) set their own ku_type."""
+        """Delegate to Entity. Leaf classes (Ku, LearningStep, etc.) set their own entity_type."""
         super().__post_init__()
 
     # =========================================================================

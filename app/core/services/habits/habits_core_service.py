@@ -686,7 +686,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
     async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
         """Count habit stats via Cypher COUNT — no entity deserialization."""
         query = """
-        MATCH (n:Entity {user_uid: $user_uid, ku_type: 'habit'})
+        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'habit'})
         RETURN
             count(n) AS total,
             count(CASE WHEN n.status = 'active' THEN 1 END) AS active,

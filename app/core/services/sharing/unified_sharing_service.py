@@ -194,11 +194,11 @@ class UnifiedSharingService:
         visibility = (
             Visibility(record["visibility"]) if record["visibility"] else Visibility.PRIVATE
         )
-        ku_type = record["ku_type"]
+        entity_type = record["entity_type"]
         has_share = record["has_direct_share"] or record["has_group_share"]
 
         # Curriculum entities are always accessible (shared curriculum content)
-        if ku_type in (EntityType.ARTICLE.value, EntityType.KU.value):
+        if entity_type in (EntityType.ARTICLE.value, EntityType.KU.value):
             return Result.ok(True)
         if user_uid == owner_uid_val:
             return Result.ok(True)
@@ -226,8 +226,8 @@ class UnifiedSharingService:
             return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
 
         status = records[0]["status"]
-        ku_type = records[0]["ku_type"]
-        return self._check_shareable(status, ku_type)
+        entity_type = records[0]["entity_type"]
+        return self._check_shareable(status, entity_type)
 
     # =========================================================================
     # QUERY
@@ -381,12 +381,12 @@ class UnifiedSharingService:
         if not require_shareable:
             return Result.ok(True)
 
-        return self._check_shareable(record["status"], record["ku_type"])
+        return self._check_shareable(record["status"], record["entity_type"])
 
     @staticmethod
-    def _check_shareable(status: str, ku_type: str) -> Result[bool]:
-        """Evaluate whether an entity with given status/ku_type can be shared."""
-        if ku_type in _ACTIVITY_ENTITY_TYPES:
+    def _check_shareable(status: str, entity_type: str) -> Result[bool]:
+        """Evaluate whether an entity with given status/entity_type can be shared."""
+        if entity_type in _ACTIVITY_ENTITY_TYPES:
             if status in ("active", "completed"):
                 return Result.ok(True)
             return Result.fail(

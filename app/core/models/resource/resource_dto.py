@@ -91,7 +91,7 @@ class ResourceDTO(EntityDTO):
             cls,
             data,
             enum_fields={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
             },
@@ -133,7 +133,7 @@ class ResourceDTO(EntityDTO):
                 "resource_duration_minutes",
             },
             enum_mappings={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
             },

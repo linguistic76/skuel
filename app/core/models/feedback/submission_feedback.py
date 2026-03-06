@@ -34,9 +34,9 @@ class SubmissionFeedback(Submission):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=SUBMISSION_FEEDBACK, then delegate to Submission."""
-        if self.ku_type != EntityType.SUBMISSION_FEEDBACK:
-            object.__setattr__(self, "ku_type", EntityType.SUBMISSION_FEEDBACK)
+        """Force entity_type=SUBMISSION_FEEDBACK, then delegate to Submission."""
+        if self.entity_type != EntityType.SUBMISSION_FEEDBACK:
+            object.__setattr__(self, "entity_type", EntityType.SUBMISSION_FEEDBACK)
         super().__post_init__()
 
     # =========================================================================

@@ -58,9 +58,9 @@ class Ku(Entity):
     source: str | None = None  # self_observation/research/teacher
 
     def __post_init__(self) -> None:
-        """Force ku_type=KU, then delegate to Entity."""
-        if self.ku_type != EntityType.KU:
-            object.__setattr__(self, "ku_type", EntityType.KU)
+        """Force entity_type=KU, then delegate to Entity."""
+        if self.entity_type != EntityType.KU:
+            object.__setattr__(self, "entity_type", EntityType.KU)
         # Normalize aliases from list to tuple (frozen dataclass)
         if isinstance(self.aliases, list):
             object.__setattr__(self, "aliases", tuple(self.aliases))

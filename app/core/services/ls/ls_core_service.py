@@ -124,7 +124,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         query = """
         CREATE (s:Entity {
             uid: $uid,
-            ku_type: 'learning_step',
+            entity_type: 'learning_step',
             title: $title,
             intent: $intent,
             description: $description,
@@ -334,7 +334,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             }) as knowledge_rels
 
             // 2. Prerequisite steps
-            OPTIONAL MATCH (ls)-[:REQUIRES_STEP]->(prereq_step:Entity {ku_type: 'learning_step'})
+            OPTIONAL MATCH (ls)-[:REQUIRES_STEP]->(prereq_step:Entity {entity_type: 'learning_step'})
             WITH ls, knowledge_rels, collect({
                 uid: prereq_step.uid,
                 title: prereq_step.title,
@@ -387,7 +387,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             }) as events
 
             // 9. Learning path context (if part of sequence)
-            OPTIONAL MATCH (lp:Entity {ku_type: 'learning_path'})-[r_path:HAS_STEP|CONTAINS_STEP]->(ls)
+            OPTIONAL MATCH (lp:Entity {entity_type: 'learning_path'})-[r_path:HAS_STEP|CONTAINS_STEP]->(ls)
             WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, {
                 uid: lp.uid,
                 name: lp.title,
@@ -396,7 +396,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             } as path_context
 
             // 10. Dependent steps (steps that require this one)
-            OPTIONAL MATCH (dependent:Entity {ku_type: 'learning_step'})-[:REQUIRES_STEP]->(ls)
+            OPTIONAL MATCH (dependent:Entity {entity_type: 'learning_step'})-[:REQUIRES_STEP]->(ls)
             WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, path_context, collect({
                 uid: dependent.uid,
                 title: dependent.title,
@@ -718,7 +718,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         if path_uid:
             # Get steps for specific path
             query = f"""
-            MATCH (p:Entity {{uid: $path_uid}})-[:HAS_STEP]->(s:Entity {{ku_type: 'learning_step'}})
+            MATCH (p:Entity {{uid: $path_uid}})-[:HAS_STEP]->(s:Entity {{entity_type: 'learning_step'}})
             {where_clause}
             OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Entity)
             WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
@@ -731,7 +731,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         else:
             # Get all steps
             query = f"""
-            MATCH (s:Entity {{ku_type: 'learning_step'}})
+            MATCH (s:Entity {{entity_type: 'learning_step'}})
             {where_clause}
             OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Entity)
             WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels

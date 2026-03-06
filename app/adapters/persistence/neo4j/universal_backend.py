@@ -184,7 +184,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
         # All domain entities use NeoLabel.ENTITY (universal label)
         tasks_backend = UniversalNeo4jBackend[Entity](
             driver=neo4j_driver, label=NeoLabel.ENTITY, entity_class=Entity,
-            default_filters={"ku_type": "task"},
+            default_filters={"entity_type": "task"},
         )
 
         # CRUD operations
@@ -363,7 +363,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
             node_var: Cypher variable name for the node (default "n").
 
         Returns:
-            Condition string like ``n.ku_type = $_df_ku_type`` or empty string.
+            Condition string like ``n.entity_type = $_df_entity_type`` or empty string.
         """
         if not self.default_filters:
             return ""

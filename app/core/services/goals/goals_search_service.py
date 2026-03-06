@@ -443,7 +443,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         """
         # Query for goals sharing tasks or habits
         cypher_query = """
-        MATCH (g:Entity {uid: $uid, ku_type: 'goal'})<-[:FULFILLS_GOAL|SUPPORTS_GOAL]-(shared)-[:FULFILLS_GOAL|SUPPORTS_GOAL]->(related:Entity {ku_type: 'goal'})
+        MATCH (g:Entity {uid: $uid, entity_type: 'goal'})<-[:FULFILLS_GOAL|SUPPORTS_GOAL]-(shared)-[:FULFILLS_GOAL|SUPPORTS_GOAL]->(related:Entity {entity_type: 'goal'})
         WHERE related <> g
         RETURN DISTINCT related as g, count(shared) as shared_count
         ORDER BY shared_count DESC

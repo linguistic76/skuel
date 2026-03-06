@@ -33,7 +33,7 @@ class SubmissionCreateRequest(CreateRequestBase):
     tags: list[str] = Field(default_factory=list, description="Tags")
 
     # Derivation
-    parent_ku_uid: str | None = Field(None, description="Curriculum Ku this assignment is based on")
+    parent_entity_uid: str | None = Field(None, description="Curriculum Ku this assignment is based on")
 
     # Processing
     processor_type: ProcessorType | None = Field(
@@ -54,7 +54,7 @@ class ActivityReportCreateRequest(CreateRequestBase):
     """Create an AI-derived report (AI_FEEDBACK type). System-initiated."""
 
     title: str = Field(min_length=1, max_length=200, description="Report title")
-    parent_ku_uid: str = Field(description="Assignment Ku this report derives from")
+    parent_entity_uid: str = Field(description="Assignment Ku this report derives from")
 
     # Content
     content: str | None = Field(None, description="AI-generated analysis")

@@ -785,7 +785,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
     async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
         """Count event stats via Cypher COUNT — no entity deserialization."""
         query = """
-        MATCH (n:Entity {user_uid: $user_uid, ku_type: 'event'})
+        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'event'})
         RETURN
             count(n) AS total,
             count(CASE WHEN n.status = 'scheduled' THEN 1 END) AS scheduled,

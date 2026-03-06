@@ -44,7 +44,7 @@ from starlette.requests import Request
 from adapters.inbound.auth import require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import parse_int_query_param
-from core.models.entity_converters import ku_to_response
+from core.models.entity_converters import entity_to_response
 from core.models.entity_requests import (
     ProgressReportGenerateRequest,
     ScheduleCreateRequest,
@@ -107,7 +107,7 @@ def create_progress_feedback_api_routes(
 
         return Result.ok(
             {
-                "report": ku_to_response(result.value),
+                "report": entity_to_response(result.value),
                 "message": "Progress report generated successfully",
             }
         )
@@ -121,7 +121,7 @@ def create_progress_feedback_api_routes(
 
         result = await report_service.list_submissions(
             user_uid=user_uid,
-            ku_type="activity_report",
+            entity_type="activity_report",
             limit=limit,
         )
 
@@ -131,7 +131,7 @@ def create_progress_feedback_api_routes(
         reports = result.value or []
         return Result.ok(
             {
-                "reports": [ku_to_response(r) for r in reports],
+                "reports": [entity_to_response(r) for r in reports],
                 "count": len(reports),
             }
         )
@@ -302,7 +302,7 @@ def create_progress_feedback_api_routes(
 
             return Result.ok(
                 {
-                    "feedback": ku_to_response(result.value),
+                    "feedback": entity_to_response(result.value),
                     "message": "Activity feedback submitted successfully",
                 }
             )
@@ -328,7 +328,7 @@ def create_progress_feedback_api_routes(
             feedbacks = result.value or []
             return Result.ok(
                 {
-                    "feedback": [ku_to_response(f) for f in feedbacks],
+                    "feedback": [entity_to_response(f) for f in feedbacks],
                     "count": len(feedbacks),
                 }
             )

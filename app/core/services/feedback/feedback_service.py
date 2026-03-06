@@ -234,7 +234,7 @@ class FeedbackService:
         CREATE (fb:Entity {
             uid: $feedback_uid,
             title: $title,
-            ku_type: $ku_type,
+            entity_type: $entity_type,
             user_uid: $user_uid,
             status: $completed_status,
             processor_type: $processor_type,
@@ -266,7 +266,7 @@ class FeedbackService:
                     "user_uid": user_uid,
                     "feedback_text": feedback_text,
                     "title": title,
-                    "ku_type": EntityType.SUBMISSION_FEEDBACK.value,
+                    "entity_type": EntityType.SUBMISSION_FEEDBACK.value,
                     "completed_status": EntityStatus.COMPLETED.value,
                     "processor_type": ProcessorType.LLM.value,
                     "now": now,
@@ -285,7 +285,7 @@ class FeedbackService:
 
             feedback_entity = SubmissionFeedback(
                 uid=feedback_uid,
-                ku_type=EntityType.SUBMISSION_FEEDBACK,
+                entity_type=EntityType.SUBMISSION_FEEDBACK,
                 title=title,
                 user_uid=user_uid,
                 status=EntityStatus.COMPLETED,
@@ -337,7 +337,7 @@ class FeedbackService:
             return
 
         query = """
-        MATCH (submission:Entity {uid: $submission_uid})-[:APPLIES_KNOWLEDGE]->(ku:Entity {ku_type: 'ku'})
+        MATCH (submission:Entity {uid: $submission_uid})-[:APPLIES_KNOWLEDGE]->(ku:Entity {entity_type: 'ku'})
         OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
         RETURN ku.uid AS ku_uid, student.uid AS student_uid
         """
@@ -384,7 +384,7 @@ class FeedbackService:
         )
         feedback_entity = SubmissionFeedback(
             uid=f"transient_{submission.uid}",
-            ku_type=EntityType.SUBMISSION_FEEDBACK,
+            entity_type=EntityType.SUBMISSION_FEEDBACK,
             title=title,
             user_uid=user_uid,
             status=EntityStatus.COMPLETED,

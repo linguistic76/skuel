@@ -136,7 +136,7 @@ class HabitDTO(UserOwnedDTO):
         return cls(
             uid=uid,
             title=title,
-            ku_type=EntityType.HABIT,
+            entity_type=EntityType.HABIT,
             user_uid=user_uid,
             **kwargs,
         )
@@ -216,7 +216,7 @@ class HabitDTO(UserOwnedDTO):
             cls,
             data,
             enum_fields={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,
@@ -297,7 +297,7 @@ class HabitDTO(UserOwnedDTO):
                 "curriculum_practice_type",
             },
             enum_mappings={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,

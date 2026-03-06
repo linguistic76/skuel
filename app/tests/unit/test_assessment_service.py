@@ -88,7 +88,7 @@ class TestCreateAssessment:
         assert mock_backend.create.call_count == 1
         created_ku = mock_backend.create.call_args[0][0]
         assert isinstance(created_ku, SubmissionFeedback)
-        assert created_ku.ku_type == EntityType.SUBMISSION_FEEDBACK
+        assert created_ku.entity_type == EntityType.SUBMISSION_FEEDBACK
         assert created_ku.user_uid == "user_teacher"
         assert created_ku.subject_uid == "user_student"
         assert created_ku.title == "Midterm Assessment"
@@ -227,7 +227,7 @@ class TestGetAssessments:
                     "k": {
                         "uid": "report_123",
                         "user_uid": "user_teacher",
-                        "ku_type": "submission_feedback",
+                        "entity_type": "submission_feedback",
                         "title": "Assessment 1",
                         "subject_uid": "user_student",
                     }

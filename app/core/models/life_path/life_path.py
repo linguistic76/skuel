@@ -14,7 +14,7 @@ Life-path-specific methods: is_designated, calculate_alignment_score,
 get_weakest_dimension, get_summary, from_dto.
 
 Note: LifePath is a designation on a Learning Path. When designated,
-the LP's ku_type changes from 'learning_path' to 'life_path'.
+the LP's entity_type changes from 'learning_path' to 'life_path'.
 Vision data lives on the User node. Alignment scores live on the
 ULTIMATE_PATH relationship. These fields are hydrated onto the Ku
 node for model consistency.
@@ -49,9 +49,9 @@ class LifePath(UserOwnedEntity):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=LIFE_PATH, then delegate to UserOwnedEntity."""
-        if self.ku_type != EntityType.LIFE_PATH:
-            object.__setattr__(self, "ku_type", EntityType.LIFE_PATH)
+        """Force entity_type=LIFE_PATH, then delegate to UserOwnedEntity."""
+        if self.entity_type != EntityType.LIFE_PATH:
+            object.__setattr__(self, "entity_type", EntityType.LIFE_PATH)
         super().__post_init__()
 
     # =========================================================================

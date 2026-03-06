@@ -103,7 +103,7 @@ class SubmissionsProcessingService:
             return Result.fail(
                 Errors.validation(
                     message="Only submission-type entities can be processed",
-                    field="ku_type",
+                    field="entity_type",
                 )
             )
 
@@ -252,7 +252,7 @@ class SubmissionsProcessingService:
         updated_submission = update_result.value
 
         # Check if journal processing is needed
-        is_journal = submission.ku_type == EntityType.JOURNAL
+        is_journal = submission.entity_type == EntityType.JOURNAL
 
         if is_journal:
             await self._process_journal(updated_submission, transcript_text, instructions)
@@ -306,7 +306,7 @@ class SubmissionsProcessingService:
         updated_submission = update_result.value
 
         # Check if journal processing is needed
-        is_journal = submission.ku_type == EntityType.JOURNAL
+        is_journal = submission.entity_type == EntityType.JOURNAL
 
         if is_journal:
             await self._process_journal(updated_submission, text_content, instructions)

@@ -56,7 +56,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         entity_label="Entity",
         search_fields=("title", "original_filename", "processed_content"),
         search_order_by="created_at",
-        category_field="ku_type",
+        category_field="entity_type",
         user_ownership_relationship=RelationshipName.OWNS,
     )
 
@@ -90,7 +90,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         self,
         user_uid: str,
         target_date: date,
-        ku_type: EntityType | None = None,
+        entity_type: EntityType | None = None,
     ) -> Result[Entity | None]:
         """
         Get Ku for a specific date.
@@ -98,14 +98,14 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         Args:
             user_uid: User identifier
             target_date: Date to search for
-            ku_type: Optional type filter
+            entity_type: Optional type filter
 
         Returns:
             Result containing Ku or None if not found
         """
         filters: dict[str, Any] = {"user_uid": user_uid, "limit": 1}
-        if ku_type:
-            filters["ku_type"] = ku_type.value
+        if entity_type:
+            filters["entity_type"] = entity_type.value
 
         result = await self.backend.find_by(**filters)
 
@@ -126,7 +126,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         user_uid: str,
         start_date: date,
         end_date: date,
-        ku_type: EntityType | None = None,
+        entity_type: EntityType | None = None,
         limit: int = 100,
     ) -> Result[list[Entity]]:
         """
@@ -136,7 +136,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             user_uid: User identifier
             start_date: Start date (inclusive)
             end_date: End date (inclusive)
-            ku_type: Optional type filter
+            entity_type: Optional type filter
             limit: Max results (default 100)
 
         Returns:
@@ -148,8 +148,8 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             "sort_by": "created_at",
             "sort_order": "desc",
         }
-        if ku_type:
-            filters["ku_type"] = ku_type.value
+        if entity_type:
+            filters["entity_type"] = entity_type.value
 
         result = await self.backend.find_by(**filters)
 
@@ -166,7 +166,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         self,
         user_uid: str,
         category: str,
-        ku_type: EntityType | None = None,
+        entity_type: EntityType | None = None,
         limit: int = 50,
     ) -> Result[list[Entity]]:
         """
@@ -175,7 +175,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         Args:
             user_uid: User identifier
             category: Category name
-            ku_type: Optional type filter
+            entity_type: Optional type filter
             limit: Max results
 
         Returns:
@@ -187,8 +187,8 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             "sort_by": "created_at",
             "sort_order": "desc",
         }
-        if ku_type:
-            filters["ku_type"] = ku_type.value
+        if entity_type:
+            filters["entity_type"] = entity_type.value
 
         result = await self.backend.find_by(**filters)
 
@@ -209,7 +209,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         mood: str,
         start_date: date | None = None,
         end_date: date | None = None,
-        ku_type: EntityType | None = None,
+        entity_type: EntityType | None = None,
         limit: int = 50,
     ) -> Result[list[Entity]]:
         """
@@ -220,7 +220,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             mood: Mood name
             start_date: Optional start date filter
             end_date: Optional end date filter
-            ku_type: Optional type filter
+            entity_type: Optional type filter
             limit: Max results
 
         Returns:
@@ -232,8 +232,8 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             "sort_by": "created_at",
             "sort_order": "desc",
         }
-        if ku_type:
-            filters["ku_type"] = ku_type.value
+        if entity_type:
+            filters["entity_type"] = entity_type.value
 
         result = await self.backend.find_by(**filters)
 
@@ -261,7 +261,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         self,
         user_uid: str,
         query: str,
-        ku_type: EntityType | None = None,
+        entity_type: EntityType | None = None,
         limit: int = 50,
     ) -> Result[list[Entity]]:
         """
@@ -272,7 +272,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         Args:
             user_uid: User identifier
             query: Search query string
-            ku_type: Optional type filter
+            entity_type: Optional type filter
             limit: Max results
 
         Returns:
@@ -284,8 +284,8 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             "sort_by": "created_at",
             "sort_order": "desc",
         }
-        if ku_type:
-            filters["ku_type"] = ku_type.value
+        if entity_type:
+            filters["entity_type"] = entity_type.value
 
         result = await self.backend.find_by(**filters)
 
@@ -321,18 +321,18 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
 
         Returns:
             Result containing list of dicts with uid, title, original_filename,
-            status, ku_type, created_at, and feedback_count.
+            status, entity_type, created_at, and feedback_count.
         """
         query = """
         MATCH (user:User {uid: $user_uid})-[:OWNS]->(s:Entity)
-        WHERE s.ku_type = 'submission'
-        OPTIONAL MATCH (fb:Entity {ku_type: 'submission_feedback'})-[:FEEDBACK_FOR]->(s)
+        WHERE s.entity_type = 'submission'
+        OPTIONAL MATCH (fb:Entity {entity_type: 'submission_feedback'})-[:FEEDBACK_FOR]->(s)
         WITH s, count(fb) AS feedback_count
         RETURN s.uid AS uid,
                s.title AS title,
                s.original_filename AS original_filename,
                s.status AS status,
-               s.ku_type AS ku_type,
+               s.entity_type AS entity_type,
                s.created_at AS created_at,
                feedback_count
         ORDER BY s.created_at DESC
@@ -350,7 +350,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
                     "title": record["title"],
                     "original_filename": record["original_filename"],
                     "status": record["status"],
-                    "ku_type": record["ku_type"],
+                    "entity_type": record["entity_type"],
                     "created_at": record["created_at"],
                     "feedback_count": record["feedback_count"] or 0,
                 }
@@ -368,7 +368,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         user_uid: str,
         start_date: date,
         end_date: date,
-        ku_type: EntityType | None = None,
+        entity_type: EntityType | None = None,
     ) -> Result[dict[str, Any]]:
         """
         Calculate Ku statistics for date range.
@@ -387,7 +387,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             user_uid=user_uid,
             start_date=start_date,
             end_date=end_date,
-            ku_type=ku_type,
+            entity_type=entity_type,
             limit=QueryLimit.COMPREHENSIVE,
         )
 
@@ -439,9 +439,9 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
 
         # Type distribution
         type_counts: dict[str, int] = {}
-        if not ku_type:
+        if not entity_type:
             for k in reports:
-                type_name = k.ku_type.value
+                type_name = k.entity_type.value
                 type_counts[type_name] = type_counts.get(type_name, 0) + 1
 
         return Result.ok(
@@ -505,7 +505,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     async def get_recent_submissions(
         self,
         user_uid: str,
-        ku_type: EntityType | None = None,
+        entity_type: EntityType | None = None,
         limit: int = 10,
     ) -> Result[list[Entity]]:
         """
@@ -513,7 +513,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
 
         Args:
             user_uid: User identifier
-            ku_type: Optional type filter
+            entity_type: Optional type filter
             limit: Max results (default 10)
 
         Returns:
@@ -525,7 +525,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             "sort_by": "created_at",
             "sort_order": "desc",
         }
-        if ku_type:
-            filters["ku_type"] = ku_type.value
+        if entity_type:
+            filters["entity_type"] = entity_type.value
 
         return await self.backend.find_by(**filters)

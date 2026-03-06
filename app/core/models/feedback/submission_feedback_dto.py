@@ -78,7 +78,7 @@ class SubmissionFeedbackDTO(SubmissionDTO):
             cls,
             data,
             enum_fields={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,
@@ -140,7 +140,7 @@ class SubmissionFeedbackDTO(SubmissionDTO):
                 "feedback_generated_at",
             },
             enum_mappings={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,

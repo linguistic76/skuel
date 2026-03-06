@@ -1675,7 +1675,7 @@ ARTICLE_CONFIG = DomainRelationshipConfig(
             "informs_choices",
             "informs_choices",
         ),
-        # Curriculum relationships (LS is now :Entity with ku_type='learning_step')
+        # Curriculum relationships (LS is now :Entity with entity_type='learning_step')
         UnifiedRelationshipDefinition(
             RelationshipName.CONTAINS_KNOWLEDGE,
             "Entity",
@@ -1764,7 +1764,7 @@ KU_CONFIG = DomainRelationshipConfig(
     intent_mappings={},
 )
 
-# LS (Learning Step) — Entity with ku_type='learning_step'
+# LS (Learning Step) — Entity with entity_type='learning_step'
 LS_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
     entity_label="Entity",
@@ -1885,7 +1885,7 @@ LS_CONFIG = DomainRelationshipConfig(
     },
 )
 
-# LP (Learning Path) — Entity with ku_type='learning_path'
+# LP (Learning Path) — Entity with entity_type='learning_path'
 LP_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
     entity_label="Entity",
@@ -1968,7 +1968,7 @@ LP_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 EXERCISE_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,  # Curriculum tier
-    entity_label="Entity",  # Exercise is a :Entity node with ku_type='exercise'
+    entity_label="Entity",  # Exercise is a :Entity node with entity_type='exercise'
     dto_class=ExerciseDTO,
     model_class=Entity,
     backend_get_method="get",

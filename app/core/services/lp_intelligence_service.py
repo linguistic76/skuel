@@ -530,7 +530,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         """
         cypher_query = f"""
         MATCH (path:Entity {{uid: $path_uid}})
-        MATCH (path)-[r:HAS_STEP]->(step:Entity {{ku_type: 'learning_step'}})
+        MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'learning_step'}})
         MATCH (k:Entity {{uid: step.knowledge_uid}})
 
         // Get all prerequisites using pure Cypher
@@ -538,7 +538,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
         // Check if prerequisites are in earlier steps
         WITH path, step, k, r.sequence as step_seq, prereqs
-        MATCH (path)-[r2:HAS_STEP]->(earlier:Entity {{ku_type: 'learning_step'}})
+        MATCH (path)-[r2:HAS_STEP]->(earlier:Entity {{entity_type: 'learning_step'}})
         WHERE r2.sequence < step_seq
 
         WITH step, k, step_seq, prereqs,
@@ -623,7 +623,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         WITH u, path, collect(mastered.uid) as mastered_uids
 
         // Get path steps
-        MATCH (path)-[r:HAS_STEP]->(step:Entity {{ku_type: 'learning_step'}})
+        MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'learning_step'}})
         MATCH (k:Entity {{uid: step.knowledge_uid}})
 
         // Check prerequisites
@@ -731,11 +731,11 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         WITH u, collect(mastered.uid) as mastered_uids
 
         // Get available paths
-        MATCH (path:Entity {{ku_type: 'learning_path'}})
+        MATCH (path:Entity {{entity_type: 'learning_path'}})
         WHERE NOT (u)-[:COMPLETED]->(path) {domain_filter}
 
         // Calculate path readiness
-        MATCH (path)-[:HAS_STEP]->(step:Entity {{ku_type: 'learning_step'}})
+        MATCH (path)-[:HAS_STEP]->(step:Entity {{entity_type: 'learning_step'}})
         MATCH (k:Entity {{uid: step.knowledge_uid}})
 
         // Get prerequisites
@@ -1185,7 +1185,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         {user_match}
 
         // Get all steps with knowledge
-        MATCH (path)-[r:HAS_STEP]->(step:Entity {{ku_type: 'learning_step'}})
+        MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'learning_step'}})
         MATCH (k:Entity {{uid: step.knowledge_uid}})
 
         // Get prerequisites using pure Cypher
@@ -1203,7 +1203,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
              END as readiness
 
         // Get related paths
-        OPTIONAL MATCH (path)-[:SIMILAR_TO]-(related:Entity {{ku_type: 'learning_path'}})
+        OPTIONAL MATCH (path)-[:SIMILAR_TO]-(related:Entity {{entity_type: 'learning_path'}})
 
         WITH path, collect({{
             step: step,

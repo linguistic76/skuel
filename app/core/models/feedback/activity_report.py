@@ -57,9 +57,9 @@ class ActivityReport(UserOwnedEntity):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=ACTIVITY_REPORT, then delegate to UserOwnedEntity."""
-        if self.ku_type != EntityType.ACTIVITY_REPORT:
-            object.__setattr__(self, "ku_type", EntityType.ACTIVITY_REPORT)
+        """Force entity_type=ACTIVITY_REPORT, then delegate to UserOwnedEntity."""
+        if self.entity_type != EntityType.ACTIVITY_REPORT:
+            object.__setattr__(self, "entity_type", EntityType.ACTIVITY_REPORT)
         if self.status is None:
             object.__setattr__(self, "status", EntityStatus.COMPLETED)
         super().__post_init__()
@@ -142,7 +142,7 @@ class ActivityReport(UserOwnedEntity):
         return cls(
             uid=uid,
             title=title,
-            ku_type=EntityType.ACTIVITY_REPORT,
+            entity_type=EntityType.ACTIVITY_REPORT,
             status=EntityStatus.COMPLETED,
             user_uid=user_uid,
             subject_uid=subject_uid,

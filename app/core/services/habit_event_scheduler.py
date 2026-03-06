@@ -274,7 +274,7 @@ class HabitEventScheduler:
 
             event = EventDTO(
                 uid=UIDGenerator.generate_random_uid("event"),
-                ku_type=EntityType.EVENT,
+                entity_type=EntityType.EVENT,
                 user_uid=user_context.user_uid,
                 title=f"MAINTAIN STREAK: {habit.title}",
                 event_date=date.today(),
@@ -356,7 +356,7 @@ class HabitEventScheduler:
 
             event = EventDTO(
                 uid=UIDGenerator.generate_random_uid("event"),
-                ku_type=EntityType.EVENT,
+                entity_type=EntityType.EVENT,
                 user_uid=user_context.user_uid,
                 title=f"{routine_type.title()} Routine: {habit.title}",
                 event_date=event_date_val,
@@ -423,7 +423,7 @@ class HabitEventScheduler:
 
                 event = EventDTO(
                     uid=UIDGenerator.generate_random_uid("event"),
-                    ku_type=EntityType.EVENT,
+                    entity_type=EntityType.EVENT,
                     user_uid=user_context.user_uid,
                     title=habit.title,
                     description=habit.description or f"Practice {habit.title}",
@@ -608,7 +608,7 @@ class HabitEventScheduler:
         return {
             "daily_habit": EventDTO(
                 uid=UIDGenerator.generate_random_uid("event"),
-                ku_type=EntityType.EVENT,
+                entity_type=EntityType.EVENT,
                 user_uid=placeholder_user,
                 title="Daily habit practice",
                 event_date=today,
@@ -618,7 +618,7 @@ class HabitEventScheduler:
             ),
             "morning_routine": EventDTO(
                 uid=UIDGenerator.generate_random_uid("event"),
-                ku_type=EntityType.EVENT,
+                entity_type=EntityType.EVENT,
                 user_uid=placeholder_user,
                 title="Morning routine",
                 event_date=today,
@@ -628,7 +628,7 @@ class HabitEventScheduler:
             ),
             "learning_session": EventDTO(
                 uid=UIDGenerator.generate_random_uid("event"),
-                ku_type=EntityType.EVENT,
+                entity_type=EntityType.EVENT,
                 user_uid=placeholder_user,
                 title="Learning session",
                 event_date=today,
@@ -638,7 +638,7 @@ class HabitEventScheduler:
             ),
             "streak_maintenance": EventDTO(
                 uid=UIDGenerator.generate_random_uid("event"),
-                ku_type=EntityType.EVENT,
+                entity_type=EntityType.EVENT,
                 user_uid=placeholder_user,
                 title="Maintain streak",
                 event_date=today,

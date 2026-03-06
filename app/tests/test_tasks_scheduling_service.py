@@ -70,7 +70,7 @@ def user_context() -> UserContext:
 @pytest.fixture
 def learning_position() -> LpPosition:
     """Create sample learning position."""
-    # Create learning steps (Entity with ku_type=LEARNING_STEP)
+    # Create learning steps (Entity with entity_type=LEARNING_STEP)
     step1 = LearningStep(
         uid="ls:python_fundamentals",
         title="Python Fundamentals",

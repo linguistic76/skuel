@@ -39,15 +39,15 @@ EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
 
 
 @overload
-def build_embedding_text(ku_type: EntityType, source: dict[str, Any]) -> str: ...
+def build_embedding_text(entity_type: EntityType, source: dict[str, Any]) -> str: ...
 
 
 @overload
-def build_embedding_text(ku_type: EntityType, source: HasAttributes) -> str: ...
+def build_embedding_text(entity_type: EntityType, source: HasAttributes) -> str: ...
 
 
 def build_embedding_text(
-    ku_type: EntityType,
+    entity_type: EntityType,
     source: dict[str, Any] | HasAttributes,
 ) -> str:
     """
@@ -57,7 +57,7 @@ def build_embedding_text(
     Returns empty string if no embeddable content found.
 
     Args:
-        ku_type: Type of entity (determines field mapping)
+        entity_type: Type of entity (determines field mapping)
         source: Either dict (from ingestion) or domain model (from worker)
 
     Returns:
@@ -93,7 +93,7 @@ def build_embedding_text(
         ''
     """
     # Get field mapping for this entity type
-    fields = EMBEDDING_FIELD_MAPS.get(ku_type)
+    fields = EMBEDDING_FIELD_MAPS.get(entity_type)
     if not fields:
         return ""
 
@@ -109,7 +109,7 @@ def build_embedding_text(
 
     # CURRICULUM and RESOURCE use double newlines for better semantic separation
     # (title, content blocks, summary are distinct concepts)
-    separator = "\n\n" if ku_type in {EntityType.ARTICLE, EntityType.RESOURCE} else "\n"
+    separator = "\n\n" if entity_type in {EntityType.ARTICLE, EntityType.RESOURCE} else "\n"
     return separator.join(parts)
 
 

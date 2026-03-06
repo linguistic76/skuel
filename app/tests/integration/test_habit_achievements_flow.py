@@ -53,7 +53,7 @@ class TestHabitAchievementsFlow:
     async def habit_backend(self, neo4j_driver, clean_neo4j):
         """Create Habit backend with clean database."""
         return UniversalNeo4jBackend[Habit](
-            neo4j_driver, "Entity", Habit, default_filters={"ku_type": "habit"}
+            neo4j_driver, "Entity", Habit, default_filters={"entity_type": "habit"}
         )
 
     @pytest_asyncio.fixture
@@ -86,7 +86,7 @@ class TestHabitAchievementsFlow:
         habit = Habit(
             uid="habit.daily_coding",
             user_uid=test_user_uid,
-            ku_type=EntityType.HABIT,
+            entity_type=EntityType.HABIT,
             title="Daily Coding Practice",
             description="Code for at least 30 minutes every day",
             habit_category=HabitCategory.LEARNING,
@@ -406,7 +406,7 @@ class TestHabitAchievementsFlow:
         habit2 = Habit(
             uid="habit.daily_reading",
             user_uid=test_user_uid,
-            ku_type=EntityType.HABIT,
+            entity_type=EntityType.HABIT,
             title="Daily Reading",
             description="Read for 20 minutes daily",
             habit_category=HabitCategory.LEARNING,

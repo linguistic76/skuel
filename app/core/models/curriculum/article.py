@@ -55,7 +55,7 @@ class Article(Curriculum):
     """
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "ku_type", EntityType.ARTICLE)
+        object.__setattr__(self, "entity_type", EntityType.ARTICLE)
         super().__post_init__()
 
     @classmethod

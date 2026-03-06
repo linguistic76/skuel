@@ -68,7 +68,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         properties: dict[str, Any] = {
             "uid": uid,
             "title": title,
-            "ku_type": EntityType.KU.value,
+            "entity_type": EntityType.KU.value,
             "namespace": namespace,
             "ku_category": ku_category,
             "aliases": aliases or [],

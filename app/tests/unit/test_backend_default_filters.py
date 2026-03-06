@@ -26,7 +26,7 @@ class SampleKu:
 
     uid: str
     title: str
-    ku_type: str = "task"
+    entity_type: str = "task"
     status: str = "active"
     created_at: str = "2026-01-01T00:00:00"
     description: str | None = None
@@ -67,8 +67,8 @@ class TestDefaultFiltersConstructor:
 
     def test_default_filters_stored(self):
         driver, _ = _mock_driver()
-        backend = _backend_with_filters(driver, {"ku_type": "task"})
-        assert backend.default_filters == {"ku_type": "task"}
+        backend = _backend_with_filters(driver, {"entity_type": "task"})
+        assert backend.default_filters == {"entity_type": "task"}
 
     def test_default_filters_none_becomes_empty(self):
         driver, _ = _mock_driver()
@@ -84,13 +84,13 @@ class TestDefaultFiltersConstructor:
 
     def test_filter_clause_with_filters(self):
         driver, _ = _mock_driver()
-        backend = _backend_with_filters(driver, {"ku_type": "task"})
-        assert backend._default_filter_clause() == "n.ku_type = $_df_ku_type"
+        backend = _backend_with_filters(driver, {"entity_type": "task"})
+        assert backend._default_filter_clause() == "n.entity_type = $_df_entity_type"
 
     def test_filter_clause_custom_node_var(self):
         driver, _ = _mock_driver()
-        backend = _backend_with_filters(driver, {"ku_type": "task"})
-        assert backend._default_filter_clause("e") == "e.ku_type = $_df_ku_type"
+        backend = _backend_with_filters(driver, {"entity_type": "task"})
+        assert backend._default_filter_clause("e") == "e.entity_type = $_df_entity_type"
 
     def test_filter_clause_empty(self):
         driver, _ = _mock_driver()
@@ -99,8 +99,8 @@ class TestDefaultFiltersConstructor:
 
     def test_filter_params(self):
         driver, _ = _mock_driver()
-        backend = _backend_with_filters(driver, {"ku_type": "task"})
-        assert backend._default_filter_params() == {"_df_ku_type": "task"}
+        backend = _backend_with_filters(driver, {"entity_type": "task"})
+        assert backend._default_filter_params() == {"_df_entity_type": "task"}
 
     def test_filter_params_empty(self):
         driver, _ = _mock_driver()
@@ -109,13 +109,13 @@ class TestDefaultFiltersConstructor:
 
     def test_inject_default_filters(self):
         driver, _ = _mock_driver()
-        backend = _backend_with_filters(driver, {"ku_type": "task", "status": "active"})
+        backend = _backend_with_filters(driver, {"entity_type": "task", "status": "active"})
         clauses: list[str] = []
         params: dict = {}
         backend._inject_default_filters(clauses, params, "e")
-        assert "e.ku_type = $_df_ku_type" in clauses
+        assert "e.entity_type = $_df_entity_type" in clauses
         assert "e.status = $_df_status" in clauses
-        assert params == {"_df_ku_type": "task", "_df_status": "active"}
+        assert params == {"_df_entity_type": "task", "_df_status": "active"}
 
     def test_inject_default_filters_noop_when_empty(self):
         driver, _ = _mock_driver()
@@ -128,9 +128,9 @@ class TestDefaultFiltersConstructor:
 
     def test_multiple_filters_clause(self):
         driver, _ = _mock_driver()
-        backend = _backend_with_filters(driver, {"ku_type": "task", "visibility": "private"})
+        backend = _backend_with_filters(driver, {"entity_type": "task", "visibility": "private"})
         clause = backend._default_filter_clause()
-        assert "n.ku_type = $_df_ku_type" in clause
+        assert "n.entity_type = $_df_entity_type" in clause
         assert "n.visibility = $_df_visibility" in clause
         assert " AND " in clause
 
@@ -146,7 +146,7 @@ class TestCreateWithDefaultFilters:
     @pytest.mark.asyncio
     async def test_create_sets_filter_properties(self):
         driver, session = _mock_driver()
-        backend = _backend_with_filters(driver, {"ku_type": "task"})
+        backend = _backend_with_filters(driver, {"entity_type": "task"})
 
         # Mock successful create
         mock_result = AsyncMock()
@@ -154,7 +154,7 @@ class TestCreateWithDefaultFilters:
             "n": {
                 "uid": "ku_test_abc",
                 "title": "Test",
-                "ku_type": "task",
+                "entity_type": "task",
                 "status": "active",
                 "created_at": "2026-01-01T00:00:00",
             }
@@ -165,10 +165,10 @@ class TestCreateWithDefaultFilters:
         entity = SampleKu(uid="ku_test_abc", title="Test")
         await backend.create(entity)
 
-        # Verify ku_type was in the props passed to Neo4j
+        # Verify entity_type was in the props passed to Neo4j
         call_args = session.run.call_args
         props = call_args[1]["props"] if "props" in call_args[1] else call_args[0][1]["props"]
-        assert props["ku_type"] == "task"
+        assert props["entity_type"] == "task"
 
 
 # ============================================================================
@@ -182,7 +182,7 @@ class TestGetWithDefaultFilters:
     @pytest.mark.asyncio
     async def test_get_includes_filter_in_query(self):
         driver, session = _mock_driver()
-        backend = _backend_with_filters(driver, {"ku_type": "task"})
+        backend = _backend_with_filters(driver, {"entity_type": "task"})
 
         mock_result = AsyncMock()
         mock_result.single.return_value = None
@@ -194,8 +194,8 @@ class TestGetWithDefaultFilters:
         query = call_args[0][0]
         params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
 
-        assert "n.ku_type = $_df_ku_type" in query
-        assert params["_df_ku_type"] == "task"
+        assert "n.entity_type = $_df_entity_type" in query
+        assert params["_df_entity_type"] == "task"
         assert params["uid"] == "ku_test_abc"
 
     @pytest.mark.asyncio
@@ -226,7 +226,7 @@ class TestGetManyWithDefaultFilters:
     @pytest.mark.asyncio
     async def test_get_many_includes_filter(self):
         driver, session = _mock_driver()
-        backend = _backend_with_filters(driver, {"ku_type": "task"})
+        backend = _backend_with_filters(driver, {"entity_type": "task"})
 
         mock_result = AsyncMock()
         mock_result.data.return_value = []
@@ -239,8 +239,8 @@ class TestGetManyWithDefaultFilters:
         params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
 
         assert "n.uid IN $uids" in query
-        assert "n.ku_type = $_df_ku_type" in query
-        assert params["_df_ku_type"] == "task"
+        assert "n.entity_type = $_df_entity_type" in query
+        assert params["_df_entity_type"] == "task"
         assert params["uids"] == ["uid1", "uid2"]
 
 
@@ -255,14 +255,14 @@ class TestUpdateWithDefaultFilters:
     @pytest.mark.asyncio
     async def test_update_includes_filter_in_query(self):
         driver, session = _mock_driver()
-        backend = _backend_with_filters(driver, {"ku_type": "task"})
+        backend = _backend_with_filters(driver, {"entity_type": "task"})
 
         mock_result = AsyncMock()
         mock_result.single.return_value = {
             "n": {
                 "uid": "ku_test_abc",
                 "title": "Updated",
-                "ku_type": "task",
+                "entity_type": "task",
                 "status": "active",
                 "created_at": "2026-01-01T00:00:00",
             }
@@ -275,35 +275,35 @@ class TestUpdateWithDefaultFilters:
         query = call_args[0][0]
         params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
 
-        assert "n.ku_type = $_df_ku_type" in query
-        assert params["_df_ku_type"] == "task"
+        assert "n.entity_type = $_df_entity_type" in query
+        assert params["_df_entity_type"] == "task"
 
     @pytest.mark.asyncio
     async def test_update_strips_filter_properties_from_updates(self):
-        """Prevent callers from overwriting ku_type via update()."""
+        """Prevent callers from overwriting entity_type via update()."""
         driver, session = _mock_driver()
-        backend = _backend_with_filters(driver, {"ku_type": "task"})
+        backend = _backend_with_filters(driver, {"entity_type": "task"})
 
         mock_result = AsyncMock()
         mock_result.single.return_value = {
             "n": {
                 "uid": "ku_test_abc",
                 "title": "Updated",
-                "ku_type": "task",
+                "entity_type": "task",
                 "status": "active",
                 "created_at": "2026-01-01T00:00:00",
             }
         }
         session.run.return_value = mock_result
 
-        # Try to sneak ku_type into updates
-        await backend.update("ku_test_abc", {"title": "Updated", "ku_type": "goal"})
+        # Try to sneak entity_type into updates
+        await backend.update("ku_test_abc", {"title": "Updated", "entity_type": "goal"})
 
         call_args = session.run.call_args
         params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
 
-        # ku_type should have been stripped from the updates dict
-        assert "ku_type" not in params["updates"]
+        # entity_type should have been stripped from the updates dict
+        assert "entity_type" not in params["updates"]
         assert params["updates"]["title"] == "Updated"
 
 
@@ -318,7 +318,7 @@ class TestDeleteWithDefaultFilters:
     @pytest.mark.asyncio
     async def test_delete_includes_filter_in_query(self):
         driver, session = _mock_driver()
-        backend = _backend_with_filters(driver, {"ku_type": "task"})
+        backend = _backend_with_filters(driver, {"entity_type": "task"})
 
         mock_result = AsyncMock()
         mock_summary = Mock()
@@ -332,8 +332,8 @@ class TestDeleteWithDefaultFilters:
         query = call_args[0][0]
         params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
 
-        assert "n.ku_type = $_df_ku_type" in query
-        assert params["_df_ku_type"] == "task"
+        assert "n.entity_type = $_df_entity_type" in query
+        assert params["_df_entity_type"] == "task"
 
 
 # ============================================================================
@@ -347,7 +347,7 @@ class TestSearchWithDefaultFilters:
     @pytest.mark.asyncio
     async def test_search_includes_filter(self):
         driver, session = _mock_driver()
-        backend = _backend_with_filters(driver, {"ku_type": "task"})
+        backend = _backend_with_filters(driver, {"entity_type": "task"})
 
         mock_result = AsyncMock()
         mock_result.data.return_value = []
@@ -359,9 +359,9 @@ class TestSearchWithDefaultFilters:
         query = call_args[0][0]
         params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
 
-        assert "n.ku_type = $_df_ku_type" in query
+        assert "n.entity_type = $_df_entity_type" in query
         assert "CONTAINS" in query
-        assert params["_df_ku_type"] == "task"
+        assert params["_df_entity_type"] == "task"
 
     @pytest.mark.asyncio
     async def test_search_no_filter_when_empty(self):
@@ -419,7 +419,7 @@ class TestBackwardCompatibility:
             "n": {
                 "uid": "ku_test",
                 "title": "Test",
-                "ku_type": "task",
+                "entity_type": "task",
                 "status": "active",
                 "created_at": "2026-01-01T00:00:00",
             }
@@ -433,5 +433,5 @@ class TestBackwardCompatibility:
         # (no extra properties injected beyond what the entity already has)
         call_args = session.run.call_args
         props = call_args[0][1]["props"] if len(call_args[0]) > 1 else call_args[1]["props"]
-        # ku_type should still be "task" because it comes from the entity default
-        assert props["ku_type"] == "task"
+        # entity_type should still be "task" because it comes from the entity default
+        assert props["entity_type"] == "task"

@@ -88,11 +88,11 @@ def _status_badge(status: str) -> Span:
     return Span(label, cls=f"badge {cls}")
 
 
-def _entity_type_badge(ku_type: str | None) -> Span:
+def _entity_type_badge(entity_type: str | None) -> Span:
     """Render a DaisyUI badge for entity type."""
-    if not ku_type:
+    if not entity_type:
         return Span()
-    label = ku_type.replace("_", " ").title()
+    label = entity_type.replace("_", " ").title()
     return Span(label, cls="badge badge-outline badge-sm")
 
 
@@ -159,7 +159,7 @@ def _render_queue_item(item: dict[str, Any]) -> Div:
     title = item.get("title") or "Untitled"
     student_name = item.get("student_name") or item.get("student_uid") or "Unknown"
     status = item.get("status") or "unknown"
-    ku_type = item.get("ku_type")
+    entity_type = item.get("entity_type")
     project_name = item.get("project_name")
     ku_uid = item.get("ku_uid", "")
     feedback_count = item.get("feedback_count", 0)
@@ -185,7 +185,7 @@ def _render_queue_item(item: dict[str, Any]) -> Div:
                 ),
                 Div(
                     feedback_indicator,
-                    _entity_type_badge(ku_type),
+                    _entity_type_badge(entity_type),
                     _status_badge(status),
                     cls="flex gap-2 items-center",
                 ),
@@ -245,7 +245,7 @@ def _render_submission_content(detail: dict[str, Any]) -> Div:
     Also surfaces exercise instructions for teacher reference.
     """
     title = detail.get("title") or "Untitled"
-    ku_type = detail.get("ku_type")
+    entity_type = detail.get("entity_type")
     status = detail.get("status") or ""
     student_name = detail.get("student_name") or detail.get("student_uid") or "Unknown"
     exercise_title = detail.get("exercise_title")
@@ -289,7 +289,7 @@ def _render_submission_content(detail: dict[str, Any]) -> Div:
                     cls="flex-1",
                 ),
                 Div(
-                    _entity_type_badge(ku_type),
+                    _entity_type_badge(entity_type),
                     _status_badge(status),
                     cls="flex gap-2 items-center",
                 ),

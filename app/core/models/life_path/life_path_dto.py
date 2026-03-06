@@ -120,7 +120,7 @@ class LifePathDTO(UserOwnedDTO):
             cls,
             data,
             enum_fields={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,
@@ -178,7 +178,7 @@ class LifePathDTO(UserOwnedDTO):
                 "vision_captured_at",
             },
             enum_mappings={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,

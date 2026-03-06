@@ -58,16 +58,16 @@ DEFAULT_USER_UID = os.environ.get("SKUEL_DEFAULT_USER_UID", "user:system")
 
 
 def generate_ingestion_relationship_config(
-    ku_type: EntityType,
+    entity_type: EntityType,
 ) -> dict[str, RelationshipConfig] | None:
     """
     Generate ingestion relationship config from the registry (single source of truth).
 
     Extracts UnifiedRelationshipDefinitions that have yaml_field_path set,
-    filtered by ku_type for disambiguation when multiple EntityTypes share a label.
+    filtered by entity_type for disambiguation when multiple EntityTypes share a label.
 
     Args:
-        ku_type: The EntityType to generate config for
+        entity_type: The EntityType to generate config for
 
     Returns:
         Dict mapping yaml_field_path -> RelationshipConfig, or None if no relationships.
@@ -75,7 +75,7 @@ def generate_ingestion_relationship_config(
 
     See: /docs/decisions/ADR-026-unified-relationship-registry.md
     """
-    entity_label = ENTITY_TYPE_TO_LABEL.get(ku_type)
+    entity_label = ENTITY_TYPE_TO_LABEL.get(entity_type)
     if not entity_label:
         return None
 
@@ -94,9 +94,9 @@ def generate_ingestion_relationship_config(
         # - If set, only include for that specific EntityType
         # - If None, only include for the default EntityType for the label
         if rel.ingestion_ku_type is not None:
-            if rel.ingestion_ku_type != ku_type:
+            if rel.ingestion_ku_type != entity_type:
                 continue
-        elif ku_type != default_type:
+        elif entity_type != default_type:
             continue
 
         result[rel.yaml_field_path] = RelationshipConfig(
@@ -210,7 +210,7 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         requires_user_uid=True,
     ),
     # NOTE: Journal merged into Reports (February 2026).
-    # Journal ingestion creates Entity nodes with ku_type="submission".
+    # Journal ingestion creates Entity nodes with entity_type="submission".
     # Kept as SUBMISSION entry — "journal" alias in TYPE_MAPPING resolves here.
     EntityType.SUBMISSION: EntityIngestionConfig(
         entity_label="Report",

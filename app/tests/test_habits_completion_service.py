@@ -64,7 +64,7 @@ def sample_habit() -> Habit:
         uid="habit.test.1",
         user_uid="user.mike",  # REQUIRED - habit ownership
         title="Morning Exercise",
-        ku_type=EntityType.HABIT,
+        entity_type=EntityType.HABIT,
         description="30 minutes of exercise",
         recurrence_pattern=RecurrencePattern.DAILY,
         target_days_per_week=7,

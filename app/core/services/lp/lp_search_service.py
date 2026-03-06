@@ -174,7 +174,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
         from core.utils.neo4j_mapper import from_neo4j_node
 
         cypher = """
-            MATCH (lp:Entity {ku_type: 'learning_path'})-[:ALIGNED_WITH_GOAL]->(g:Goal {uid: $goal_uid})
+            MATCH (lp:Entity {entity_type: 'learning_path'})-[:ALIGNED_WITH_GOAL]->(g:Goal {uid: $goal_uid})
             RETURN lp
             ORDER BY lp.updated_at DESC
             LIMIT $limit
@@ -214,7 +214,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
         from core.utils.neo4j_mapper import from_neo4j_node
 
         cypher = """
-            MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Entity {ku_type: 'learning_step'})<-[:HAS_STEP]-(lp:Entity {ku_type: 'learning_path'})
+            MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Entity {entity_type: 'learning_step'})<-[:HAS_STEP]-(lp:Entity {entity_type: 'learning_path'})
             RETURN DISTINCT lp
             ORDER BY lp.created_at DESC
             LIMIT $limit
@@ -283,7 +283,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
 
         # Build prioritization query
         cypher = """
-            MATCH (lp:Entity {ku_type: 'learning_path'})
+            MATCH (lp:Entity {entity_type: 'learning_path'})
             OPTIONAL MATCH (u:User {uid: $user_uid})-[enrolled:ENROLLED_IN]->(lp)
             OPTIONAL MATCH (lp)-[:ALIGNED_WITH_GOAL]->(g:Goal)<-[:OWNS]-(u2:User {uid: $user_uid})
             WITH lp, enrolled, count(g) as goal_alignment

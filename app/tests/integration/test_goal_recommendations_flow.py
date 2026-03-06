@@ -55,7 +55,7 @@ class TestGoalRecommendationsFlow:
     async def goal_backend(self, neo4j_driver, clean_neo4j):
         """Create Goal backend with clean database."""
         return UniversalNeo4jBackend[Goal](
-            neo4j_driver, "Entity", Goal, default_filters={"ku_type": "goal"}
+            neo4j_driver, "Entity", Goal, default_filters={"entity_type": "goal"}
         )
 
     @pytest_asyncio.fixture
@@ -67,14 +67,14 @@ class TestGoalRecommendationsFlow:
     async def habit_backend(self, neo4j_driver, clean_neo4j):
         """Create Habit backend with clean database."""
         return UniversalNeo4jBackend[Habit](
-            neo4j_driver, "Entity", Habit, default_filters={"ku_type": "habit"}
+            neo4j_driver, "Entity", Habit, default_filters={"entity_type": "habit"}
         )
 
     @pytest_asyncio.fixture
     async def principle_backend(self, neo4j_driver, clean_neo4j):
         """Create Principle backend with clean database."""
         return UniversalNeo4jBackend[Principle](
-            neo4j_driver, "Entity", Principle, default_filters={"ku_type": "principle"}
+            neo4j_driver, "Entity", Principle, default_filters={"entity_type": "principle"}
         )
 
     @pytest_asyncio.fixture
@@ -177,12 +177,12 @@ class TestGoalRecommendationsFlow:
         assert result.is_ok
         created_goal = result.value
 
-        # Set ku_type='knowledge_unit' on Entity nodes so production query matches
-        # (production _get_goal_context uses WHERE ku.ku_type = 'knowledge_unit')
+        # Set entity_type='knowledge_unit' on Entity nodes so production query matches
+        # (production _get_goal_context uses WHERE ku.entity_type = 'knowledge_unit')
         async with neo4j_driver.session() as session:
             for ku in kus:
                 await session.run(
-                    "MATCH (ku:Entity {uid: $uid}) SET ku.ku_type = 'knowledge_unit'",
+                    "MATCH (ku:Entity {uid: $uid}) SET ku.entity_type = 'knowledge_unit'",
                     uid=ku.uid,
                 )
 

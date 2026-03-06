@@ -50,14 +50,14 @@ class TestHabitGoalEventFlow:
     async def habits_backend(self, neo4j_driver, clean_neo4j):
         """Create habits backend with clean database."""
         return UniversalNeo4jBackend[Habit](
-            neo4j_driver, "Entity", Habit, default_filters={"ku_type": "habit"}
+            neo4j_driver, "Entity", Habit, default_filters={"entity_type": "habit"}
         )
 
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
         """Create goals backend with clean database."""
         return UniversalNeo4jBackend[Goal](
-            neo4j_driver, "Entity", Goal, default_filters={"ku_type": "goal"}
+            neo4j_driver, "Entity", Goal, default_filters={"entity_type": "goal"}
         )
 
     @pytest_asyncio.fixture
@@ -140,7 +140,7 @@ class TestHabitGoalEventFlow:
         habit = Habit(
             uid="habit.daily_meditation",
             user_uid=test_user_uid,
-            ku_type=EntityType.HABIT,
+            entity_type=EntityType.HABIT,
             title="Daily Meditation",
             description="10 minutes of mindfulness meditation",
             current_streak=0,
@@ -300,7 +300,7 @@ class TestHabitGoalEventFlow:
         unlinked_habit = Habit(
             uid="habit.unlinked_exercise",
             user_uid=test_user_uid,
-            ku_type=EntityType.HABIT,
+            entity_type=EntityType.HABIT,
             title="Daily Exercise",
             description="30 minutes of exercise",
             current_streak=7,
@@ -347,7 +347,7 @@ class TestHabitGoalEventFlow:
         habit = Habit(
             uid="habit.code_daily",
             user_uid=test_user_uid,
-            ku_type=EntityType.HABIT,
+            entity_type=EntityType.HABIT,
             title="Code Daily",
             description="1 hour of coding",
             current_streak=7,
@@ -407,7 +407,7 @@ class TestHabitGoalEventFlow:
         habit = Habit(
             uid="habit.healthy_eating",
             user_uid=test_user_uid,
-            ku_type=EntityType.HABIT,
+            entity_type=EntityType.HABIT,
             title="Healthy Eating",
             description="Track meals",
             current_streak=50,  # 50% of target (100 days)

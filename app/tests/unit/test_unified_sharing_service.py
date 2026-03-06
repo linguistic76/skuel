@@ -43,7 +43,7 @@ async def test_share_success(mock_backend, sharing_service):
     """Test successfully sharing an entity."""
     mock_backend.query_ownership_and_status = AsyncMock(
         return_value=Result.ok(
-            [{"actual_owner": "user_owner", "status": "completed", "ku_type": "submission"}]
+            [{"actual_owner": "user_owner", "status": "completed", "entity_type": "submission"}]
         )
     )
     mock_backend.create_share = AsyncMock(return_value=Result.ok([{"success": True}]))
@@ -64,7 +64,7 @@ async def test_share_not_owner(mock_backend, sharing_service):
     """Test sharing fails if user is not owner."""
     mock_backend.query_ownership_and_status = AsyncMock(
         return_value=Result.ok(
-            [{"actual_owner": "user_other", "status": "completed", "ku_type": "submission"}]
+            [{"actual_owner": "user_other", "status": "completed", "entity_type": "submission"}]
         )
     )
 
@@ -86,7 +86,7 @@ async def test_share_not_completed(mock_backend, sharing_service):
     """Test sharing fails if entity is not shareable (e.g. processing)."""
     mock_backend.query_ownership_and_status = AsyncMock(
         return_value=Result.ok(
-            [{"actual_owner": "user_owner", "status": "processing", "ku_type": "submission"}]
+            [{"actual_owner": "user_owner", "status": "processing", "entity_type": "submission"}]
         )
     )
 
@@ -128,7 +128,7 @@ async def test_unshare_success(mock_backend, sharing_service):
     """Test successfully unsharing an entity."""
     mock_backend.query_ownership_and_status = AsyncMock(
         return_value=Result.ok(
-            [{"actual_owner": "user_owner", "status": "completed", "ku_type": "submission"}]
+            [{"actual_owner": "user_owner", "status": "completed", "entity_type": "submission"}]
         )
     )
     mock_backend.delete_share = AsyncMock(return_value=Result.ok([{"deleted_count": 1}]))
@@ -148,7 +148,7 @@ async def test_unshare_not_owner(mock_backend, sharing_service):
     """Test unsharing fails if user is not owner."""
     mock_backend.query_ownership_and_status = AsyncMock(
         return_value=Result.ok(
-            [{"actual_owner": "user_other", "status": "completed", "ku_type": "submission"}]
+            [{"actual_owner": "user_other", "status": "completed", "entity_type": "submission"}]
         )
     )
 
@@ -168,7 +168,7 @@ async def test_unshare_no_relationship(mock_backend, sharing_service):
     """Test unsharing fails if no sharing relationship exists."""
     mock_backend.query_ownership_and_status = AsyncMock(
         return_value=Result.ok(
-            [{"actual_owner": "user_owner", "status": "completed", "ku_type": "submission"}]
+            [{"actual_owner": "user_owner", "status": "completed", "entity_type": "submission"}]
         )
     )
     mock_backend.delete_share = AsyncMock(return_value=Result.ok([{"deleted_count": 0}]))
@@ -243,7 +243,7 @@ async def test_get_shared_with_me_success(mock_backend, sharing_service):
     entity_data = {
         "uid": "report_123",
         "user_uid": "user_student",
-        "ku_type": "submission",
+        "entity_type": "submission",
         "status": "completed",
         "title": "My Report",
         "original_filename": "report.pdf",
@@ -288,7 +288,7 @@ async def test_set_visibility_to_public_success(mock_backend, sharing_service):
     """Test setting entity visibility to PUBLIC."""
     mock_backend.query_ownership_and_status = AsyncMock(
         return_value=Result.ok(
-            [{"actual_owner": "user_owner", "status": "completed", "ku_type": "submission"}]
+            [{"actual_owner": "user_owner", "status": "completed", "entity_type": "submission"}]
         )
     )
     mock_backend.update_visibility = AsyncMock(return_value=Result.ok([{"uid": "report_123"}]))
@@ -310,7 +310,7 @@ async def test_set_visibility_to_private_no_shareable_check(mock_backend, sharin
     """Test setting visibility to PRIVATE skips shareability check."""
     mock_backend.query_ownership_and_status = AsyncMock(
         return_value=Result.ok(
-            [{"actual_owner": "user_owner", "status": "active", "ku_type": "task"}]
+            [{"actual_owner": "user_owner", "status": "active", "entity_type": "task"}]
         )
     )
     mock_backend.update_visibility = AsyncMock(return_value=Result.ok([{"uid": "report_123"}]))
@@ -332,7 +332,7 @@ async def test_set_visibility_not_owner(mock_backend, sharing_service):
     """Test setting visibility fails if user is not owner."""
     mock_backend.query_ownership_and_status = AsyncMock(
         return_value=Result.ok(
-            [{"actual_owner": "user_other", "status": "completed", "ku_type": "submission"}]
+            [{"actual_owner": "user_other", "status": "completed", "entity_type": "submission"}]
         )
     )
 
@@ -360,7 +360,7 @@ async def test_check_access_owner(mock_backend, sharing_service):
                 {
                     "owner_uid": "user_owner",
                     "visibility": "private",
-                    "ku_type": "submission",
+                    "entity_type": "submission",
                     "has_direct_share": False,
                     "has_group_share": False,
                 }
@@ -386,7 +386,7 @@ async def test_check_access_public(mock_backend, sharing_service):
                 {
                     "owner_uid": "user_owner",
                     "visibility": "public",
-                    "ku_type": "submission",
+                    "entity_type": "submission",
                     "has_direct_share": False,
                     "has_group_share": False,
                 }
@@ -412,7 +412,7 @@ async def test_check_access_shared_with_relationship(mock_backend, sharing_servi
                 {
                     "owner_uid": "user_owner",
                     "visibility": "shared",
-                    "ku_type": "submission",
+                    "entity_type": "submission",
                     "has_direct_share": True,
                     "has_group_share": False,
                 }
@@ -438,7 +438,7 @@ async def test_check_access_private_not_owner(mock_backend, sharing_service):
                 {
                     "owner_uid": "user_owner",
                     "visibility": "private",
-                    "ku_type": "submission",
+                    "entity_type": "submission",
                     "has_direct_share": False,
                     "has_group_share": False,
                 }
@@ -478,7 +478,7 @@ async def test_check_access_entity_not_found(mock_backend, sharing_service):
 async def test_verify_shareable_completed(mock_backend, sharing_service):
     """Test verify_shareable succeeds for completed entities."""
     mock_backend.query_shareable_status = AsyncMock(
-        return_value=Result.ok([{"status": "completed", "ku_type": "submission"}])
+        return_value=Result.ok([{"status": "completed", "entity_type": "submission"}])
     )
 
     result = await sharing_service.verify_shareable(entity_uid="report_123")
@@ -491,7 +491,7 @@ async def test_verify_shareable_completed(mock_backend, sharing_service):
 async def test_verify_shareable_activity_active(mock_backend, sharing_service):
     """Test verify_shareable succeeds for active activity entities."""
     mock_backend.query_shareable_status = AsyncMock(
-        return_value=Result.ok([{"status": "active", "ku_type": "task"}])
+        return_value=Result.ok([{"status": "active", "entity_type": "task"}])
     )
 
     result = await sharing_service.verify_shareable(entity_uid="task_123")
@@ -504,7 +504,7 @@ async def test_verify_shareable_activity_active(mock_backend, sharing_service):
 async def test_verify_shareable_not_completed(mock_backend, sharing_service):
     """Test verify_shareable fails for non-completed non-activity entities."""
     mock_backend.query_shareable_status = AsyncMock(
-        return_value=Result.ok([{"status": "processing", "ku_type": "submission"}])
+        return_value=Result.ok([{"status": "processing", "entity_type": "submission"}])
     )
 
     result = await sharing_service.verify_shareable(entity_uid="report_123")

@@ -1235,9 +1235,9 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         """
         # Query all active habits with their REINFORCES_KNOWLEDGE relationships
         query = """
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(h:Entity {ku_type: 'habit'})
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(h:Entity {entity_type: 'habit'})
         WHERE h.status IN ['active', 'pending']
-        OPTIONAL MATCH (h)-[:REINFORCES_KNOWLEDGE]->(ku:Entity {ku_type: 'ku'})
+        OPTIONAL MATCH (h)-[:REINFORCES_KNOWLEDGE]->(ku:Entity {entity_type: 'ku'})
         RETURN
             h.uid AS habit_uid,
             h.current_streak AS current_streak,

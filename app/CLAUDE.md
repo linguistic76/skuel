@@ -39,29 +39,24 @@ from core.ports import LpOperations  # Not ku_protocols.py
 
 **See:** `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`
 
-## Ku Philosophy
+## Entity and Ku
 
-**Core Principle:** "Every entity is a Knowledge Unit — the name is the philosophy"
+**Core Principle:** "Entity is the universal base. Ku is one type of Entity."
 
-In SKUEL, every entity represents a form of knowledge. Tasks are knowledge about what needs doing, Habits about behavioral patterns, Goals about desired outcomes. The `ku_type` field on Entity says "I am a Knowledge Unit, and my type is task/goal/habit/etc." This is coherent and intentional.
+`Entity` is the base frozen dataclass for all 17 domain types. The `entity_type` field discriminates which kind of entity it is (Task, Goal, Habit, Article, Ku, etc.). The `parent_entity_uid` field tracks derivation chains.
 
 **Article vs Ku (March 2026):**
-- **Article** (`EntityType.ARTICLE`, extends `Curriculum`) — essay-like teaching composition. The old "Ku" renamed. Services in `core/services/article/`, facade `ArticleService`.
+- **Article** (`EntityType.ARTICLE`, extends `Curriculum`) — essay-like teaching composition. Services in `core/services/article/`, facade `ArticleService`.
 - **Ku** (`EntityType.KU`, extends `Entity`) — atomic knowledge unit. Lightweight ontology/reference node: a single definable thing (concept, state, principle, substance, practice, value). Services in `core/services/ku/`, facade `KuService`.
 - **Composition:** `(Article)-[:USES_KU]->(Ku)` — Articles compose atomic Kus into narrative.
 - **Learning loop:** Article → Exercise → Submission → Feedback
 
-**What `Ku` prefix means:** Knowledge-Unit-level concepts that span all entity types:
-- `ku_type` field — the Knowledge Unit type discriminator (stays)
-- `parent_ku_uid` field — derivation chain between Knowledge Units (stays)
+**Key fields on Entity:**
+- `entity_type` field — the EntityType discriminator (renamed from `ku_type`, March 2026)
+- `parent_entity_uid` field — derivation chain (renamed from `parent_ku_uid`, March 2026)
 - `entity_enums.py` — core enums: `EntityType`, `EntityStatus`, `ContentOrigin`, `ProcessorType`
 - `core/services/ku/` — atomic Ku domain services (CRUD, search, namespace)
 - `core/services/article/` — Article (teaching composition) domain services
-
-**What `Ku` prefix does NOT mean:** Domain-specific services use domain names, not `Ku`:
-- Reports services → Submissions/Feedback: `SubmissionsCoreService`, `FeedbackService`, etc. (renamed Feb 2026)
-- Request classes: `TaskCreateRequest`, not ~~`KuTaskCreateRequest`~~ (renamed Feb 2026)
-- Cross-domain services: `AnalyticsEngine`, not ~~`KuAnalyticsEngine`~~ (renamed Feb 2026)
 
 ## Naming Conventions
 

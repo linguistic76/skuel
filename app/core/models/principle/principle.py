@@ -53,9 +53,9 @@ class Principle(UserOwnedEntity):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=PRINCIPLE, then delegate to Entity for timestamps/status defaults."""
-        if self.ku_type != EntityType.PRINCIPLE:
-            object.__setattr__(self, "ku_type", EntityType.PRINCIPLE)
+        """Force entity_type=PRINCIPLE, then delegate to Entity for timestamps/status defaults."""
+        if self.entity_type != EntityType.PRINCIPLE:
+            object.__setattr__(self, "entity_type", EntityType.PRINCIPLE)
         super().__post_init__()
 
     # =========================================================================

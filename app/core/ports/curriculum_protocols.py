@@ -302,7 +302,7 @@ class ArticleOperations(CurriculumOperations["Article"], Protocol):
     - Substance tracking (applied knowledge measurement)
     - Domain-specific queries
 
-    Neo4j: Article nodes are :Entity:Article{ku_type='article'}
+    Neo4j: Article nodes are :Entity:Article{entity_type='article'}
     UID Format: "a_{slug}_{random}" (e.g., "a_python-basics_a1b2c3d4")
     """
 

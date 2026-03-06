@@ -93,7 +93,7 @@ class ChoiceDTO(UserOwnedDTO):
         return cls(
             uid=uid,
             title=title,
-            ku_type=EntityType.CHOICE,
+            entity_type=EntityType.CHOICE,
             user_uid=user_uid,
             **kwargs,
         )
@@ -149,7 +149,7 @@ class ChoiceDTO(UserOwnedDTO):
             cls,
             data,
             enum_fields={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,
@@ -215,7 +215,7 @@ class ChoiceDTO(UserOwnedDTO):
                 "expands_possibilities",
             },
             enum_mappings={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,

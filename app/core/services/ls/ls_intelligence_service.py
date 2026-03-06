@@ -265,7 +265,7 @@ class LsIntelligenceService(
 
         return await executor_result.value.execute(
             query="""
-                MATCH (ls:Entity {uid: $ls_uid})-[:REQUIRES_STEP]->(prereq:Entity {ku_type: 'learning_step'})
+                MATCH (ls:Entity {uid: $ls_uid})-[:REQUIRES_STEP]->(prereq:Entity {entity_type: 'learning_step'})
                 RETURN collect(prereq.uid) as prereq_uids
             """,
             params={"ls_uid": ls_uid},

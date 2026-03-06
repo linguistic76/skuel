@@ -20,7 +20,7 @@ from starlette.requests import Request
 from adapters.inbound.auth import require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import parse_int_query_param
-from core.models.entity_converters import ku_to_response
+from core.models.entity_converters import entity_to_response
 from core.models.feedback.feedback_requests import AssessmentCreateRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -72,7 +72,7 @@ def create_feedback_assessment_api_routes(
 
         return Result.ok(
             {
-                "report": ku_to_response(result.value),
+                "report": entity_to_response(result.value),
                 "message": "Assessment created successfully",
             }
         )
@@ -95,7 +95,7 @@ def create_feedback_assessment_api_routes(
         reports = result.value or []
         return Result.ok(
             {
-                "assessments": [ku_to_response(r) for r in reports],
+                "assessments": [entity_to_response(r) for r in reports],
                 "count": len(reports),
             }
         )
@@ -118,7 +118,7 @@ def create_feedback_assessment_api_routes(
         reports = result.value or []
         return Result.ok(
             {
-                "assessments": [ku_to_response(r) for r in reports],
+                "assessments": [entity_to_response(r) for r in reports],
                 "count": len(reports),
             }
         )

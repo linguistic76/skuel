@@ -729,7 +729,7 @@ def create_journals_ui_routes(
                 file_content=file_content,
                 original_filename=filename,
                 user_uid=user_uid,
-                ku_type=EntityType.JOURNAL,
+                entity_type=EntityType.JOURNAL,
                 processor_type=ProcessorType.LLM,
                 title=title,
                 metadata=metadata,

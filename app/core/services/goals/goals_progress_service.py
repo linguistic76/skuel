@@ -1014,7 +1014,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             )
 
             query = """
-            MATCH (goal:Entity {ku_type: 'goal'})-[:SUPPORTS_GOAL]->(task:Entity {uid: $task_uid, ku_type: 'task'})
+            MATCH (goal:Entity {entity_type: 'goal'})-[:SUPPORTS_GOAL]->(task:Entity {uid: $task_uid, entity_type: 'task'})
             WHERE goal.user_uid = $user_uid
             RETURN goal.uid as goal_uid
             """
@@ -1080,10 +1080,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         # Query all tasks linked to this goal and count completed
         query = """
-        MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(task:Entity {ku_type: 'task'})
+        MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})-[:SUPPORTS_GOAL]->(task:Entity {entity_type: 'task'})
         WHERE task.user_uid = $user_uid
         WITH count(task) as total_tasks
-        MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(completed:Entity {ku_type: 'task'})
+        MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})-[:SUPPORTS_GOAL]->(completed:Entity {entity_type: 'task'})
         WHERE completed.user_uid = $user_uid
           AND completed.status = 'completed'
         RETURN total_tasks, count(completed) as completed_tasks
@@ -1196,7 +1196,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             )
 
             query = """
-            MATCH (goal:Entity {ku_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Entity {uid: $habit_uid, ku_type: 'habit'})
+            MATCH (goal:Entity {entity_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Entity {uid: $habit_uid, entity_type: 'habit'})
             WHERE goal.user_uid = $user_uid
             RETURN goal.uid as goal_uid
             """
@@ -1269,10 +1269,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         # Query all habits linked to this goal and their average streak
         query = """
-        MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Entity {ku_type: 'habit'})
+        MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Entity {entity_type: 'habit'})
         WHERE habit.user_uid = $user_uid
         WITH count(habit) as total_habits
-        MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Entity {ku_type: 'habit'})
+        MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Entity {entity_type: 'habit'})
         WHERE habit.user_uid = $user_uid
         RETURN total_habits, avg(COALESCE(habit.current_streak, 0)) as avg_streak
         """

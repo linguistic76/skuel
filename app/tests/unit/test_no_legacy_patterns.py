@@ -135,7 +135,7 @@ class TestNoLegacyEnumValues:
         """NeoLabel.JOURNAL_PROJECT was migrated to Report — must not exist.
 
         Note: NeoLabel.JOURNAL is legitimate — it's the domain-specific label
-        for :Entity nodes with ku_type='journal' (content processing domain).
+        for :Entity nodes with entity_type='journal' (content processing domain).
         """
         from core.models.enums.neo_labels import NeoLabel
 

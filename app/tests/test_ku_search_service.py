@@ -23,7 +23,7 @@ def make_ku_entity(uid="ku.test.1", title="Test Title", domain=Domain.TECH):
     return Curriculum(
         uid=uid,
         title=title,
-        ku_type=EntityType.ARTICLE,
+        entity_type=EntityType.ARTICLE,
         domain=domain,
         sel_category=SELCategory.SELF_AWARENESS,  # Valid SELCategory value
         quality_score=0.0,

@@ -718,11 +718,11 @@ class CrossDomainQueries:
         return from_neo4j_node(dict(node), Goal)
 
     def _neo4j_node_to_entity(self, node) -> CurriculumEntity:
-        """Convert Neo4j node to curriculum domain model based on ku_type."""
+        """Convert Neo4j node to curriculum domain model based on entity_type."""
         from core.utils.neo4j_mapper import from_neo4j_node
 
         node_dict = dict(node)
-        entity_type_str = node_dict.get("ku_type", "article")
+        entity_type_str = node_dict.get("entity_type", "article")
         entity_type = EntityType.from_string(entity_type_str) or EntityType.ARTICLE
         model_class = ENTITY_TYPE_CLASS_MAP.get(entity_type, Article)
         return from_neo4j_node(node_dict, model_class)  # type: ignore[return-value]

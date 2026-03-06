@@ -43,9 +43,9 @@ class Task(UserOwnedEntity):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=TASK, then delegate to UserOwnedEntity for defaults."""
-        if self.ku_type != EntityType.TASK:
-            object.__setattr__(self, "ku_type", EntityType.TASK)
+        """Force entity_type=TASK, then delegate to UserOwnedEntity for defaults."""
+        if self.entity_type != EntityType.TASK:
+            object.__setattr__(self, "entity_type", EntityType.TASK)
         super().__post_init__()
 
     # =========================================================================

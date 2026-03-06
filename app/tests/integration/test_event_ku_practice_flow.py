@@ -57,7 +57,7 @@ class TestEventKuPracticeFlow:
     async def event_backend(self, neo4j_driver, clean_neo4j):
         """Create Event backend with clean database."""
         return UniversalNeo4jBackend[Event](
-            neo4j_driver, "Entity", Event, default_filters={"ku_type": "event"}
+            neo4j_driver, "Entity", Event, default_filters={"entity_type": "event"}
         )
 
     @pytest_asyncio.fixture
@@ -122,7 +122,7 @@ class TestEventKuPracticeFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (e:Entity {uid: $event_uid, ku_type: 'event'})
+                MATCH (e:Entity {uid: $event_uid, entity_type: 'event'})
                 SET e:Event
                 """,
                 event_uid=event.uid,

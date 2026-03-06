@@ -188,9 +188,9 @@ class EntityResponse(ResponseBase):
 
     uid: str
     title: str
-    ku_type: EntityType
+    entity_type: EntityType
     user_uid: str | None = None
-    parent_ku_uid: str | None = None
+    parent_entity_uid: str | None = None
     parent_uid: str | None = None
     domain: Domain
     created_by: str | None = None
@@ -322,9 +322,9 @@ class EntityResponse(ResponseBase):
             # Identity
             uid=dto.uid,
             title=dto.title,
-            ku_type=dto.ku_type,
+            entity_type=dto.entity_type,
             user_uid=dto.user_uid,
-            parent_ku_uid=dto.parent_ku_uid,
+            parent_entity_uid=dto.parent_entity_uid,
             parent_uid=dto.parent_uid,
             domain=dto.domain,
             created_by=dto.created_by,
@@ -425,7 +425,7 @@ class EntityResponse(ResponseBase):
             updated_at=dto.updated_at,
             # Computed
             is_user_owned=dto.user_uid is not None,
-            is_derived=dto.parent_ku_uid is not None,
+            is_derived=dto.parent_entity_uid is not None,
             estimated_reading_time=estimated_reading_time,
         )
 
@@ -471,21 +471,21 @@ class RemoveTagsRequest(BaseModel):
 class BulkCategorizeRequest(BaseModel):
     """Request to categorize multiple entities."""
 
-    ku_uids: list[str] = Field(..., min_length=1, description="List of Ku UIDs")
+    entity_uids: list[str] = Field(..., min_length=1, description="List of entity UIDs")
     category: str = Field(..., description="Category to assign")
 
 
 class BulkTagRequest(BaseModel):
     """Request to tag multiple entities."""
 
-    ku_uids: list[str] = Field(..., min_length=1, description="List of Ku UIDs")
+    entity_uids: list[str] = Field(..., min_length=1, description="List of entity UIDs")
     tags: list[str] = Field(..., min_length=1, description="List of tags to add")
 
 
 class BulkDeleteRequest(BaseModel):
     """Request to delete multiple entities."""
 
-    ku_uids: list[str] = Field(..., min_length=1, description="List of Ku UIDs to delete")
+    entity_uids: list[str] = Field(..., min_length=1, description="List of entity UIDs to delete")
     soft_delete: bool = Field(
         default=True,
         description="If True, archive instead of permanent delete",

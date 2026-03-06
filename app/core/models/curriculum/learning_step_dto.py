@@ -104,7 +104,7 @@ class LearningStepDTO(CurriculumDTO):
             cls,
             data,
             enum_fields={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "complexity": KuComplexity,
@@ -176,7 +176,7 @@ class LearningStepDTO(CurriculumDTO):
                 "step_difficulty",
             },
             enum_mappings={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "complexity": KuComplexity,

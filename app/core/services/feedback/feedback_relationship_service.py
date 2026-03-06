@@ -67,7 +67,7 @@ class FeedbackRelationshipService:
         """
         cypher = """
         MATCH (u:User {uid: $user_uid})-[:OWNS]->(submission:Entity)
-        WHERE submission.ku_type IN $submission_types
+        WHERE submission.entity_type IN $submission_types
           AND NOT ()-[:FEEDBACK_FOR]->(submission)
         RETURN submission.uid AS uid
         ORDER BY submission.created_at DESC
@@ -108,7 +108,7 @@ class FeedbackRelationshipService:
         """
         cypher = """
         MATCH (user:User {uid: $user_uid})-[:MEMBER_OF]->(group:Group)
-        MATCH (exercise:Entity {ku_type: 'exercise', scope: 'assigned'})-[:FOR_GROUP]->(group)
+        MATCH (exercise:Entity {entity_type: 'exercise', scope: 'assigned'})-[:FOR_GROUP]->(group)
         WHERE NOT (:Entity {user_uid: $user_uid})-[:FULFILLS_EXERCISE]->(exercise)
         RETURN exercise.uid AS uid,
                exercise.title AS title,
@@ -153,7 +153,7 @@ class FeedbackRelationshipService:
         """
         cypher = """
         MATCH (u:User {uid: $user_uid})-[:OWNS]->(submission:Entity)
-        WHERE submission.ku_type IN $submission_types
+        WHERE submission.entity_type IN $submission_types
         OPTIONAL MATCH (fb:Entity)-[:FEEDBACK_FOR]->(submission)
         WITH submission, count(fb) AS feedback_count
         RETURN

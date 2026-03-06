@@ -34,7 +34,7 @@ class SubmissionCreated(BaseEvent):
 
     submission_uid: str
     user_uid: str
-    ku_type: str  # EntityType enum value
+    entity_type: str  # EntityType enum value
     occurred_at: datetime
     # File fields - optional (journals don't have files)
     processor_type: str | None = None  # ProcessorType enum value
@@ -85,7 +85,7 @@ class SubmissionProcessingCompleted(BaseEvent):
 
     submission_uid: str
     user_uid: str
-    ku_type: str
+    entity_type: str
     has_processed_content: bool
     processing_duration_seconds: float | None
     occurred_at: datetime
@@ -131,7 +131,7 @@ class SubmissionDeleted(BaseEvent):
 
     submission_uid: str
     user_uid: str
-    ku_type: str
+    entity_type: str
     occurred_at: datetime
     metadata: dict[str, Any] | None = None
 

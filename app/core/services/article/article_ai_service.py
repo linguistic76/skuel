@@ -202,7 +202,7 @@ class ArticleAIService(BaseAIService[ArticleOperations, Article]):
             - text: Chunk text
             - context_window: Text with surrounding context
             - similarity_score: Cosine similarity to query (0.0-1.0)
-            - parent_ku_uid: Parent KU UID
+            - parent_entity_uid: Parent KU UID
             - parent_ku_title: Parent KU title
 
         Example:
@@ -257,7 +257,7 @@ class ArticleAIService(BaseAIService[ArticleOperations, Article]):
             chunk.text as text,
             chunk.context_window as context_window,
             score as similarity_score,
-            ku.uid as parent_ku_uid,
+            ku.uid as parent_entity_uid,
             ku.title as parent_ku_title
         ORDER BY score DESC
         LIMIT $limit

@@ -54,7 +54,7 @@ class TestOptionAJournalsProcessing:
             uid="report.test_transcript",
             title="Meeting Notes",
             user_uid="user.test",
-            ku_type=EntityType.SUBMISSION,
+            entity_type=EntityType.SUBMISSION,
             status=EntityStatus.SUBMITTED,
             file_path="/tmp/test_audio.mp3",
             file_type="audio/mpeg",
@@ -78,7 +78,7 @@ class TestOptionAJournalsProcessing:
                 uid=current_state["submission"].uid,
                 title=current_state["submission"].title,
                 user_uid=current_state["submission"].user_uid,
-                ku_type=current_state["submission"].ku_type,
+                entity_type=current_state["submission"].entity_type,
                 status=status,
                 file_path=current_state["submission"].file_path,
                 file_type=current_state["submission"].file_type,
@@ -98,7 +98,7 @@ class TestOptionAJournalsProcessing:
                 uid=current_state["submission"].uid,
                 title=current_state["submission"].title,
                 user_uid=current_state["submission"].user_uid,
-                ku_type=current_state["submission"].ku_type,
+                entity_type=current_state["submission"].entity_type,
                 status=current_state["submission"].status,
                 file_path=current_state["submission"].file_path,
                 file_type=current_state["submission"].file_type,
@@ -240,7 +240,7 @@ class TestOptionAJournalsProcessing:
             uid="report.test_text",
             title="Notes",
             user_uid="user.test",
-            ku_type=EntityType.SUBMISSION,
+            entity_type=EntityType.SUBMISSION,
             status=EntityStatus.SUBMITTED,
             file_path="/tmp/test_notes.txt",
             file_type="text/plain",
@@ -311,7 +311,7 @@ class TestOptionAJournalsProcessing:
             uid="report.processing",
             title="Processing",
             user_uid="user.test",
-            ku_type=EntityType.SUBMISSION,
+            entity_type=EntityType.SUBMISSION,
             status=EntityStatus.PROCESSING,  # Already processing
             file_path="/tmp/test.mp3",
             file_type="audio/mpeg",
@@ -344,7 +344,7 @@ class TestOptionAJournalsProcessing:
             uid="report.pdf",
             title="PDF Report",
             user_uid="user.test",
-            ku_type=EntityType.SUBMISSION,
+            entity_type=EntityType.SUBMISSION,
             status=EntityStatus.SUBMITTED,
             file_path="/tmp/test.pdf",
             file_type="application/pdf",  # Not yet supported
@@ -375,13 +375,13 @@ class TestOptionAJournalsProcessing:
     # ==========================================================================
 
     async def test_ku_type_discriminator_works(self, mock_submissions_service):
-        """Test that ku_type discriminator works correctly."""
+        """Test that entity_type discriminator works correctly."""
         # Arrange
         assignment_ku = Submission(
             uid="report.transcript_type",
             title="Transcript",
             user_uid="user.test",
-            ku_type=EntityType.SUBMISSION,
+            entity_type=EntityType.SUBMISSION,
             status=EntityStatus.SUBMITTED,
             file_path="/tmp/test.mp3",
             file_type="audio/mpeg",
@@ -393,7 +393,7 @@ class TestOptionAJournalsProcessing:
         )
 
         # Act & Assert
-        assert assignment_ku.ku_type == EntityType.SUBMISSION
+        assert assignment_ku.entity_type == EntityType.SUBMISSION
 
         # Can differentiate from other entity types
         curriculum_ku = Curriculum(
@@ -401,8 +401,8 @@ class TestOptionAJournalsProcessing:
             title="Curriculum Content",
         )
 
-        assert curriculum_ku.ku_type != EntityType.SUBMISSION
-        assert curriculum_ku.ku_type == EntityType.KU  # Curriculum base class uses Entity default
+        assert curriculum_ku.entity_type != EntityType.SUBMISSION
+        assert curriculum_ku.entity_type == EntityType.KU  # Curriculum base class uses Entity default
 
     async def test_no_llm_processing_in_report_pipeline(
         self, processing_pipeline, mock_submissions_service
@@ -439,7 +439,7 @@ class TestOptionAJournalsProcessing:
             uid="report.test_transcript",
             title="Meeting Notes",
             user_uid="user.test",
-            ku_type=EntityType.SUBMISSION,
+            entity_type=EntityType.SUBMISSION,
             status=EntityStatus.COMPLETED,
             file_path="/tmp/test_audio.mp3",
             file_type="audio/mpeg",

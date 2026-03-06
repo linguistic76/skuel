@@ -45,9 +45,9 @@ class Choice(UserOwnedEntity):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=CHOICE, then delegate to Entity for timestamps/status defaults."""
-        if self.ku_type != EntityType.CHOICE:
-            object.__setattr__(self, "ku_type", EntityType.CHOICE)
+        """Force entity_type=CHOICE, then delegate to Entity for timestamps/status defaults."""
+        if self.entity_type != EntityType.CHOICE:
+            object.__setattr__(self, "entity_type", EntityType.CHOICE)
         super().__post_init__()
 
     # =========================================================================

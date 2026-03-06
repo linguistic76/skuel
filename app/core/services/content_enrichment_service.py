@@ -245,7 +245,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         - Trending topics (last 30 days) for thematic continuity
         - Recent mood averages for emotional awareness
 
-        Updated February 2026: Queries Entity nodes with ku_type="submission"
+        Updated February 2026: Queries Entity nodes with entity_type="submission"
         (Journal→Report merge, assignment→submission rename).
 
         Args:
@@ -259,7 +259,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         // Recent journal-type reports (last 7 days)
         OPTIONAL MATCH (u)-[:OWNS]->(recent:Entity)
-        WHERE recent.ku_type = 'submission'
+        WHERE recent.entity_type = 'submission'
           AND recent.created_at >= datetime() - duration('P7D')
         WITH u, collect({
             uid: recent.uid,
@@ -282,7 +282,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         // Recent topics (from last 30 days) - journal-type reports
         OPTIONAL MATCH (u)-[:OWNS]->(j:Entity)
-        WHERE j.ku_type = 'submission'
+        WHERE j.entity_type = 'submission'
           AND j.created_at >= datetime() - duration('P30D')
           AND j.key_topics IS NOT NULL
         WITH u, recent_journals, active_goals,
@@ -469,7 +469,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         """
         Get recent journal entries for context awareness.
 
-        Updated February 2026: Queries Entity nodes with ku_type="submission".
+        Updated February 2026: Queries Entity nodes with entity_type="submission".
 
         Args:
             user_uid: User identifier
@@ -569,7 +569,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         """
         Extract recurring topics from recent journals.
 
-        Updated February 2026: Queries Entity nodes with ku_type="submission".
+        Updated February 2026: Queries Entity nodes with entity_type="submission".
 
         Args:
             user_uid: User identifier
@@ -829,7 +829,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         # Load from Neo4j (instructions stored as Exercise Entity nodes)
         query = """
-        MATCH (i:Entity {uid: $uid, ku_type: 'exercise'})
+        MATCH (i:Entity {uid: $uid, entity_type: 'exercise'})
         RETURN i.instructions as instructions, i.name as name
         """
 
@@ -907,7 +907,7 @@ Preserve the author's voice and authenticity while improving readability.
         CREATE (i:Entity:Exercise {
             uid: $uid,
             name: $name,
-            ku_type: 'exercise',
+            entity_type: 'exercise',
             instructions: $instructions,
             created_at: datetime(),
             char_count: size($instructions)
@@ -928,7 +928,7 @@ Preserve the author's voice and authenticity while improving readability.
     async def list_instruction_sets(self) -> Result[list[dict[str, Any]]]:
         """List all available exercise instruction sets."""
         query = """
-        MATCH (i:Entity {ku_type: 'exercise'})
+        MATCH (i:Entity {entity_type: 'exercise'})
         RETURN i.uid as uid, i.name as name, i.char_count as char_count
         ORDER BY i.name
         """
@@ -1350,7 +1350,7 @@ Return ONLY Markdown in this structure:
             event = SubmissionCreated(
                 submission_uid=ku_created.uid,
                 user_uid=ku_created.user_uid,
-                ku_type=ku_created.ku_type.value,
+                entity_type=ku_created.entity_type.value,
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
@@ -1385,7 +1385,7 @@ Return ONLY Markdown in this structure:
             event = SubmissionDeleted(
                 submission_uid=uid,
                 user_uid=ku_user_uid,
-                ku_type="submission",
+                entity_type="submission",
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
@@ -1446,7 +1446,7 @@ Return ONLY Markdown in this structure:
         ku = Submission(
             uid=UIDGenerator.generate_uid("ku"),
             user_uid=user_uid,
-            ku_type=EntityType.SUBMISSION,
+            entity_type=EntityType.SUBMISSION,
             status=EntityStatus.PROCESSING,
             title=insights.title,
             content=insights.formatted_content,
@@ -1484,7 +1484,7 @@ Return ONLY Markdown in this structure:
             Tuple of (matching reports, total_count)
         """
         # Get journal-type reports
-        filters: dict[str, Any] = {"ku_type": EntityType.SUBMISSION.value}
+        filters: dict[str, Any] = {"entity_type": EntityType.SUBMISSION.value}
         if user_uid:
             filters["user_uid"] = user_uid
 

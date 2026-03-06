@@ -44,7 +44,7 @@ class ExerciseService(BaseService):
     Simple CRUD service for Exercises (instruction templates).
 
     No complex logic - just create, read, update, delete operations.
-    Exercises are stored as :Entity nodes with ku_type="exercise" in Neo4j.
+    Exercises are stored as :Entity nodes with entity_type="exercise" in Neo4j.
     """
 
     _config = DomainConfig(
@@ -122,7 +122,7 @@ class ExerciseService(BaseService):
 
         exercise = Exercise(
             uid=uid,
-            ku_type=EntityType.EXERCISE,
+            entity_type=EntityType.EXERCISE,
             title=name,
             instructions=instructions,
             model=model,
@@ -157,7 +157,7 @@ class ExerciseService(BaseService):
         if scope == ExerciseScope.ASSIGNED and group_uid:
             rel_result = await self.backend.execute_query(
                 f"""
-                MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
+                MATCH (exercise:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
                 MATCH (group:Group {{uid: $group_uid}})
                 MERGE (exercise)-[:{RelationshipName.FOR_GROUP}]->(group)
                 RETURN true as success
@@ -280,7 +280,7 @@ class ExerciseService(BaseService):
             Result containing list of assigned exercises
         """
         result = await self.backend.find_by(
-            group_uid=group_uid, scope="assigned", ku_type="exercise"
+            group_uid=group_uid, scope="assigned", entity_type="exercise"
         )
         if result.is_error:
             return result
@@ -303,7 +303,7 @@ class ExerciseService(BaseService):
         result = await self.backend.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
-            MATCH (exercise:Entity {{ku_type: 'exercise'}})-[:{RelationshipName.FOR_GROUP}]->(group)
+            MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.FOR_GROUP}]->(group)
             WHERE exercise.scope = 'assigned'
             RETURN exercise
             ORDER BY exercise.due_date ASC, exercise.created_at DESC
@@ -337,7 +337,7 @@ class ExerciseService(BaseService):
         result = await self.backend.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
-            MATCH (exercise:Entity {{ku_type: 'exercise'}})-[:{RelationshipName.FOR_GROUP}]->(group)
+            MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.FOR_GROUP}]->(group)
             WHERE exercise.scope = 'assigned'
             OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
             RETURN exercise, sub IS NOT NULL AS has_submission, group.title AS group_name
@@ -497,8 +497,8 @@ class ExerciseService(BaseService):
         Curriculum → Exercise → Submission → Feedback
 
         Args:
-            exercise_uid: Exercise UID (ku_type='exercise')
-            curriculum_uid: Curriculum KU UID (ku_type='ku')
+            exercise_uid: Exercise UID (entity_type='exercise')
+            curriculum_uid: Curriculum KU UID (entity_type='ku')
 
         Returns:
             Result[bool] - True if relationship created
@@ -560,7 +560,7 @@ class ExerciseService(BaseService):
         """
         result = await self.backend.execute_query(
             f"""
-            MATCH (exercise:Entity {{ku_type: 'exercise'}})
+            MATCH (exercise:Entity {{entity_type: 'exercise'}})
                   -[:{RelationshipName.REQUIRES_KNOWLEDGE}]->
                   (curriculum:Entity {{uid: $curriculum_uid}})
             RETURN exercise.uid as uid,

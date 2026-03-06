@@ -228,7 +228,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
 
         dto = TaskDTO(
             uid=UIDGenerator.generate_random_uid("task"),
-            ku_type=EntityType.TASK,
+            entity_type=EntityType.TASK,
             user_uid=user_uid,
             title=task_request.title,
             description=task_request.description,
@@ -816,7 +816,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
     async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
         """Count task stats via Cypher COUNT — no entity deserialization."""
         query = """
-        MATCH (n:Entity {user_uid: $user_uid, ku_type: 'task'})
+        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'task'})
         RETURN
             count(n) AS total,
             count(CASE WHEN n.status = 'completed' THEN 1 END) AS completed,

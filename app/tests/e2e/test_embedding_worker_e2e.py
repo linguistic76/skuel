@@ -76,7 +76,7 @@ class TestEmbeddingWorkerEventProcessing:
                 CREATE (t:Entity:Task {
                     uid: $uid,
                     user_uid: $user_uid,
-                    ku_type: 'task',
+                    entity_type: 'task',
                     title: $title,
                     description: $description,
                     status: 'pending',
@@ -115,7 +115,7 @@ class TestEmbeddingWorkerEventProcessing:
             async with neo4j_driver.session() as session:
                 result = await session.run(
                     """
-                    MATCH (t:Entity {uid: $uid, ku_type: 'task'})
+                    MATCH (t:Entity {uid: $uid, entity_type: 'task'})
                     RETURN t.embedding IS NOT NULL as has_embedding,
                            size(t.embedding) as embedding_size
                     """,
@@ -136,7 +136,7 @@ class TestEmbeddingWorkerEventProcessing:
             # Cleanup: Delete test task
             async with neo4j_driver.session() as session:
                 await session.run(
-                    "MATCH (t:Entity {uid: $uid, ku_type: 'task'}) DETACH DELETE t", uid=task_uid
+                    "MATCH (t:Entity {uid: $uid, entity_type: 'task'}) DETACH DELETE t", uid=task_uid
                 )
 
     @pytest.mark.asyncio
@@ -160,7 +160,7 @@ class TestEmbeddingWorkerEventProcessing:
                 CREATE (t:Entity:Task {
                     uid: $uid,
                     user_uid: $user_uid,
-                    ku_type: 'task',
+                    entity_type: 'task',
                     title: $title,
                     description: $description,
                     status: 'pending',
@@ -179,7 +179,7 @@ class TestEmbeddingWorkerEventProcessing:
                 CREATE (g:Entity:Goal {
                     uid: $uid,
                     user_uid: $user_uid,
-                    ku_type: 'goal',
+                    entity_type: 'goal',
                     title: $title,
                     description: $description,
                     vision_statement: $vision,
@@ -229,7 +229,7 @@ class TestEmbeddingWorkerEventProcessing:
             async with neo4j_driver.session() as session:
                 # Check task
                 task_result = await session.run(
-                    "MATCH (t:Entity {uid: $uid, ku_type: 'task'}) RETURN t.embedding IS NOT NULL as has_embedding",
+                    "MATCH (t:Entity {uid: $uid, entity_type: 'task'}) RETURN t.embedding IS NOT NULL as has_embedding",
                     uid=task_uid,
                 )
                 task_record = await task_result.single()
@@ -237,7 +237,7 @@ class TestEmbeddingWorkerEventProcessing:
 
                 # Check goal
                 goal_result = await session.run(
-                    "MATCH (g:Entity {uid: $uid, ku_type: 'goal'}) RETURN g.embedding IS NOT NULL as has_embedding",
+                    "MATCH (g:Entity {uid: $uid, entity_type: 'goal'}) RETURN g.embedding IS NOT NULL as has_embedding",
                     uid=goal_uid,
                 )
                 goal_record = await goal_result.single()
@@ -251,10 +251,10 @@ class TestEmbeddingWorkerEventProcessing:
 
             async with neo4j_driver.session() as session:
                 await session.run(
-                    "MATCH (t:Entity {uid: $uid, ku_type: 'task'}) DETACH DELETE t", uid=task_uid
+                    "MATCH (t:Entity {uid: $uid, entity_type: 'task'}) DETACH DELETE t", uid=task_uid
                 )
                 await session.run(
-                    "MATCH (g:Entity {uid: $uid, ku_type: 'goal'}) DETACH DELETE g", uid=goal_uid
+                    "MATCH (g:Entity {uid: $uid, entity_type: 'goal'}) DETACH DELETE g", uid=goal_uid
                 )
 
 
@@ -281,7 +281,7 @@ class TestEmbeddingWorkerBatchProcessing:
                     CREATE (t:Entity:Task {
                         uid: $uid,
                         user_uid: $user_uid,
-                        ku_type: 'task',
+                        entity_type: 'task',
                         title: $title,
                         status: 'pending',
                         created_at: datetime()
@@ -317,7 +317,7 @@ class TestEmbeddingWorkerBatchProcessing:
             async with neo4j_driver.session() as session:
                 result = await session.run(
                     """
-                    MATCH (t:Entity {ku_type: 'task'})
+                    MATCH (t:Entity {entity_type: 'task'})
                     WHERE t.uid IN $uids
                     RETURN count(t) as total_tasks,
                            sum(CASE WHEN t.embedding IS NOT NULL THEN 1 ELSE 0 END) as with_embeddings
@@ -339,7 +339,7 @@ class TestEmbeddingWorkerBatchProcessing:
 
             async with neo4j_driver.session() as session:
                 await session.run(
-                    "MATCH (t:Entity {ku_type: 'task'}) WHERE t.uid IN $uids DETACH DELETE t",
+                    "MATCH (t:Entity {entity_type: 'task'}) WHERE t.uid IN $uids DETACH DELETE t",
                     uids=task_uids,
                 )
 
@@ -367,7 +367,7 @@ class TestEmbeddingWorkerErrorRecovery:
                 CREATE (t:Entity:Task {
                     uid: $uid,
                     user_uid: $user_uid,
-                    ku_type: 'task',
+                    entity_type: 'task',
                     title: $title,
                     status: 'pending',
                     created_at: datetime()
@@ -411,7 +411,7 @@ class TestEmbeddingWorkerErrorRecovery:
             # Verify valid task got embedding (worker didn't crash)
             async with neo4j_driver.session() as session:
                 result = await session.run(
-                    "MATCH (t:Entity {uid: $uid, ku_type: 'task'}) RETURN t.embedding IS NOT NULL as has_embedding",
+                    "MATCH (t:Entity {uid: $uid, entity_type: 'task'}) RETURN t.embedding IS NOT NULL as has_embedding",
                     uid=valid_uid,
                 )
                 record = await result.single()
@@ -426,5 +426,5 @@ class TestEmbeddingWorkerErrorRecovery:
 
             async with neo4j_driver.session() as session:
                 await session.run(
-                    "MATCH (t:Entity {uid: $uid, ku_type: 'task'}) DETACH DELETE t", uid=valid_uid
+                    "MATCH (t:Entity {uid: $uid, entity_type: 'task'}) DETACH DELETE t", uid=valid_uid
                 )

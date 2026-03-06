@@ -423,7 +423,7 @@ class TestCurriculumRelationships:
                     title: 'Python Journey',
                     description: 'Learn Python',
                     domain: 'tech',
-                    ku_type: 'learning_path',
+                    entity_type: 'learning_path',
                     created_at: datetime(),
                     updated_at: datetime()
                 })
@@ -431,7 +431,7 @@ class TestCurriculumRelationships:
                     uid: 'ls:step_1',
                     title: 'Step 1',
                     description: 'First step',
-                    ku_type: 'learning_step',
+                    entity_type: 'learning_step',
                     order: 1,
                     created_at: datetime(),
                     updated_at: datetime()
@@ -620,7 +620,7 @@ class TestCurriculumContextBuilder:
                     uid: 'lp:python_journey',
                     title: 'Python Journey',
                     description: 'Complete Python learning',
-                    ku_type: 'learning_path',
+                    entity_type: 'learning_path',
                     created_at: datetime(),
                     updated_at: datetime()
                 })
@@ -628,7 +628,7 @@ class TestCurriculumContextBuilder:
                     uid: 'lp:web_development',
                     title: 'Web Development',
                     description: 'Web dev path',
-                    ku_type: 'learning_path',
+                    entity_type: 'learning_path',
                     created_at: datetime(),
                     updated_at: datetime()
                 })
@@ -751,7 +751,7 @@ class TestCurriculumContextBuilder:
                     uid: 'lp:python_mastery',
                     title: 'Python Mastery',
                     description: 'Complete Python path',
-                    ku_type: 'learning_path',
+                    entity_type: 'learning_path',
                     created_at: datetime(),
                     updated_at: datetime()
                 })

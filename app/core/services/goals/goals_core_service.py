@@ -989,7 +989,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
         """Count goal stats via Cypher COUNT — no entity deserialization."""
         query = """
-        MATCH (n:Entity {user_uid: $user_uid, ku_type: 'goal'})
+        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'goal'})
         RETURN
             count(n) AS total,
             count(CASE WHEN n.status = 'active' THEN 1 END) AS active,

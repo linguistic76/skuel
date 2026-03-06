@@ -62,7 +62,7 @@ class KuDTO(EntityDTO):
             cls,
             data,
             enum_fields={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
             },
@@ -97,7 +97,7 @@ class KuDTO(EntityDTO):
                 "source",
             },
             enum_mappings={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
             },

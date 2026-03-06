@@ -872,7 +872,7 @@ class LpBackend(UniversalNeo4jBackend[LearningPath]):
             Result containing list of LP UIDs
         """
         query = """
-        MATCH (lp:Entity {ku_type: 'learning_path'})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        MATCH (lp:Entity {entity_type: 'learning_path'})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
         RETURN DISTINCT lp.uid as lp_uid
         """
         result = await self.execute_query(query, {"ku_uid": ku_uid})
@@ -931,17 +931,17 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         Create REQUIRES_KNOWLEDGE relationship from exercise to curriculum KU.
 
         Args:
-            exercise_uid: Exercise UID (ku_type='exercise')
-            curriculum_uid: Curriculum KU UID (ku_type='ku' or 'resource')
+            exercise_uid: Exercise UID (entity_type='exercise')
+            curriculum_uid: Curriculum KU UID (entity_type='ku' or 'resource')
 
         Returns:
             Result[bool] - True if relationship created
         """
         result = await self.execute_query(
             f"""
-            MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
+            MATCH (exercise:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
             MATCH (curriculum:Entity {{uid: $curriculum_uid}})
-            WHERE curriculum.ku_type IN ['ku', 'resource']
+            WHERE curriculum.entity_type IN ['ku', 'resource']
             MERGE (exercise)-[r:{RelationshipName.REQUIRES_KNOWLEDGE}]->(curriculum)
             ON CREATE SET r.created_at = datetime()
             RETURN true as success
@@ -973,7 +973,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         """
         result = await self.execute_query(
             f"""
-            MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
+            MATCH (exercise:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
                   -[r:{RelationshipName.REQUIRES_KNOWLEDGE}]->
                   (curriculum:Entity {{uid: $curriculum_uid}})
             DELETE r
@@ -1005,12 +1005,12 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         """
         result = await self.execute_query(
             f"""
-            MATCH (exercise:Entity {{uid: $exercise_uid, ku_type: 'exercise'}})
+            MATCH (exercise:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
                   -[:{RelationshipName.REQUIRES_KNOWLEDGE}]->
                   (curriculum:Entity)
             RETURN curriculum.uid as uid,
                    curriculum.title as title,
-                   curriculum.ku_type as ku_type,
+                   curriculum.entity_type as entity_type,
                    curriculum.complexity as complexity,
                    curriculum.learning_level as learning_level
             ORDER BY curriculum.title
@@ -1127,7 +1127,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             OPTIONAL MATCH (viewer2:User {uid: $user_uid})-[:MEMBER_OF]->(g:Group)<-[:SHARED_WITH_GROUP]-(ku)
             RETURN ku.user_uid as owner_uid,
                    ku.visibility as visibility,
-                   ku.ku_type as ku_type,
+                   ku.entity_type as entity_type,
                    count(viewer) > 0 as has_direct_share,
                    count(viewer2) > 0 as has_group_share
             """,
@@ -1141,11 +1141,11 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         self,
         entity_uid: str,
     ) -> Result[list[dict[str, Any]]]:
-        """Query status and ku_type for shareability check."""
+        """Query status and entity_type for shareability check."""
         result = await self.execute_query(
             """
             MATCH (ku:Entity {uid: $entity_uid})
-            RETURN ku.status as status, ku.ku_type as ku_type
+            RETURN ku.status as status, ku.entity_type as entity_type
             """,
             {"entity_uid": entity_uid},
         )
@@ -1163,7 +1163,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             MATCH (entity:Entity {uid: $entity_uid})
             RETURN entity.user_uid as actual_owner,
                    entity.status as status,
-                   entity.ku_type as ku_type
+                   entity.entity_type as entity_type
             """,
             {"entity_uid": entity_uid},
         )

@@ -43,7 +43,7 @@ class TestRichContextPattern:
         prereq_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Basics",
-            ku_type=EntityType.ARTICLE,
+            entity_type=EntityType.ARTICLE,
             domain=Domain.TECH,
         )
         prereq_result = await services.article.core.backend.create(prereq_dto.to_dict())
@@ -54,7 +54,7 @@ class TestRichContextPattern:
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Advanced Python",
-            ku_type=EntityType.ARTICLE,
+            entity_type=EntityType.ARTICLE,
             domain=Domain.TECH,
         )
         main_ku_result = await services.article.core.backend.create(ku_dto.to_dict())
@@ -134,7 +134,7 @@ class TestRichContextPattern:
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Deployment Best Practices",
-            ku_type=EntityType.ARTICLE,
+            entity_type=EntityType.ARTICLE,
             domain=Domain.TECH,
         )
         await services.article.core.backend.create(ku_dto.to_dict())
@@ -159,9 +159,9 @@ class TestRichContextPattern:
         # Create relationships
         await services.tasks.core.backend.driver.execute_query(
             """
-            MATCH (task:Entity {uid: $task_uid, ku_type: 'task'})
+            MATCH (task:Entity {uid: $task_uid, entity_type: 'task'})
             MATCH (ku:Entity {uid: $ku_uid})
-            MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})
+            MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})
             CREATE (task)-[:APPLIES_KNOWLEDGE {confidence: 0.85}]->(ku)
             CREATE (task)-[:FULFILLS_GOAL]->(goal)
             """,
@@ -217,8 +217,8 @@ class TestRichContextPattern:
         # Create relationship
         await services.goals.core.backend.driver.execute_query(
             """
-            MATCH (task:Entity {uid: $task_uid, ku_type: 'task'})
-            MATCH (goal:Entity {uid: $goal_uid, ku_type: 'goal'})
+            MATCH (task:Entity {uid: $task_uid, entity_type: 'task'})
+            MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})
             CREATE (task)-[:FULFILLS_GOAL]->(goal)
             """,
             {"task_uid": task_dto.uid, "goal_uid": goal_dto.uid},
@@ -255,7 +255,7 @@ class TestRichContextPattern:
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Test Knowledge",
-            ku_type=EntityType.ARTICLE,
+            entity_type=EntityType.ARTICLE,
             domain=Domain.TECH,
         )
         await services.article.core.backend.create(ku_dto.to_dict())

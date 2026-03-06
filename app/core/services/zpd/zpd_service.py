@@ -67,9 +67,9 @@ if TYPE_CHECKING:
 _ZONE_QUERY = """
 // ── Step 1: Current zone — KUs the user has meaningfully engaged ──────────
 MATCH (u:User {uid: $user_uid})
-OPTIONAL MATCH (u)-[:OWNS]->(t:Entity {ku_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku_t:Entity)
-OPTIONAL MATCH (u)-[:OWNS]->(j:Entity {ku_type: 'journal'})-[:APPLIES_KNOWLEDGE]->(ku_j:Entity)
-OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {ku_type: 'habit'})-[:REINFORCES_KNOWLEDGE]->(ku_h:Entity)
+OPTIONAL MATCH (u)-[:OWNS]->(t:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku_t:Entity)
+OPTIONAL MATCH (u)-[:OWNS]->(j:Entity {entity_type: 'journal'})-[:APPLIES_KNOWLEDGE]->(ku_j:Entity)
+OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {entity_type: 'habit'})-[:REINFORCES_KNOWLEDGE]->(ku_h:Entity)
 WITH u,
      collect(DISTINCT ku_t.uid) + collect(DISTINCT ku_j.uid) + collect(DISTINCT ku_h.uid)
      AS engaged_uids_raw
@@ -112,7 +112,7 @@ WITH engaged_uids, proximal_uids,
      }) AS prereq_data
 
 // ── Step 4: Engaged Learning Paths ───────────────────────────────────────
-OPTIONAL MATCH (lp:Entity {ku_type: 'learning_path'})-[:ORGANIZES]->(step:Entity)
+OPTIONAL MATCH (lp:Entity {entity_type: 'learning_path'})-[:ORGANIZES]->(step:Entity)
 WHERE step.uid IN engaged_uids
 WITH engaged_uids, proximal_uids, prereq_data,
      collect(DISTINCT lp.uid) AS engaged_path_uids
@@ -138,7 +138,7 @@ LIMIT 1
 
 # Minimum KU count to consider the curriculum graph "ready"
 _MIN_KU_COUNT_QUERY = """
-MATCH (ku:Entity {ku_type: 'ku'})
+MATCH (ku:Entity {entity_type: 'ku'})
 RETURN count(ku) AS ku_count
 """
 

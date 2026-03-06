@@ -253,7 +253,7 @@ PRINCIPLES = [
         "uid": "principle.001",
         "title": "Practice mindfulness daily",
         "description": "Commit to being present and aware in each moment",
-        "ku_type": EntityType.PRINCIPLE.value,
+        "entity_type": EntityType.PRINCIPLE.value,
         "domain": Domain.PERSONAL,
         "created_at": datetime.now(),
     },
@@ -347,11 +347,11 @@ async def seed_goals(driver):
 
 async def seed_choices(driver):
     """Seed sample choices"""
-    backend = UniversalNeo4jBackend(driver, "Choice", Entity, default_filters={"ku_type": "choice"})
+    backend = UniversalNeo4jBackend(driver, "Choice", Entity, default_filters={"entity_type": "choice"})
 
     logger.info("Seeding choices...")
     for choice_data in CHOICES:
-        choice_data["ku_type"] = "choice"
+        choice_data["entity_type"] = "choice"
         choice = Entity(**choice_data)
         result = await backend.create(choice)
         if result.is_ok:
@@ -365,7 +365,7 @@ async def seed_choices(driver):
 async def seed_principles(driver):
     """Seed sample principles"""
     backend = UniversalNeo4jBackend(
-        driver, "Principle", Entity, default_filters={"ku_type": "principle"}
+        driver, "Principle", Entity, default_filters={"entity_type": "principle"}
     )
 
     logger.info("Seeding principles...")

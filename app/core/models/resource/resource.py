@@ -40,9 +40,9 @@ class Resource(Entity):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=RESOURCE, then delegate to Entity."""
-        if self.ku_type != EntityType.RESOURCE:
-            object.__setattr__(self, "ku_type", EntityType.RESOURCE)
+        """Force entity_type=RESOURCE, then delegate to Entity."""
+        if self.entity_type != EntityType.RESOURCE:
+            object.__setattr__(self, "entity_type", EntityType.RESOURCE)
         super().__post_init__()
 
     # =========================================================================

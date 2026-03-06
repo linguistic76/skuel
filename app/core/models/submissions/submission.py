@@ -76,9 +76,9 @@ class Submission(UserOwnedEntity):
     """
 
     def __post_init__(self) -> None:
-        """Validate ku_type is a submission type, then delegate to UserOwnedEntity."""
-        if self.ku_type not in _SUBMISSION_KU_TYPES:
-            object.__setattr__(self, "ku_type", EntityType.SUBMISSION)
+        """Validate entity_type is a submission type, then delegate to UserOwnedEntity."""
+        if self.entity_type not in _SUBMISSION_KU_TYPES:
+            object.__setattr__(self, "entity_type", EntityType.SUBMISSION)
         super().__post_init__()
 
     # =========================================================================
@@ -162,7 +162,7 @@ class Submission(UserOwnedEntity):
 
     def explain_existence(self) -> str:
         """Explain why this submission exists."""
-        return self.description or self.summary or f"{self.ku_type.value}: {self.title}"
+        return self.description or self.summary or f"{self.entity_type.value}: {self.title}"
 
     # =========================================================================
     # CONVERSION (generic — uses Entity._from_dto / to_dto)
@@ -194,11 +194,11 @@ class Submission(UserOwnedEntity):
         return SubmissionDTO(**kwargs)
 
     def __str__(self) -> str:
-        return f"Submission(uid={self.uid}, type={self.ku_type.value}, title='{self.title}')"
+        return f"Submission(uid={self.uid}, type={self.entity_type.value}, title='{self.title}')"
 
     def __repr__(self) -> str:
         return (
-            f"Submission(uid='{self.uid}', ku_type={self.ku_type}, "
+            f"Submission(uid='{self.uid}', entity_type={self.entity_type}, "
             f"title='{self.title}', status={self.status}, "
             f"processor_type={self.processor_type}, user_uid={self.user_uid})"
         )

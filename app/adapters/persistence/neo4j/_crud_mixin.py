@@ -114,7 +114,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         start_time = time.time()
         node_data = to_neo4j_node(entity)
 
-        # Ensure default_filter properties are set on new nodes (e.g., ku_type)
+        # Ensure default_filter properties are set on new nodes (e.g., entity_type)
         node_data.update(self.default_filters)
 
         # Extract user_uid if present (for auto-relationship creation)
@@ -334,7 +334,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         # Add updated_at timestamp
         updates["updated_at"] = datetime.now().isoformat()
 
-        # Prevent overwriting default_filter properties (e.g., ku_type)
+        # Prevent overwriting default_filter properties (e.g., entity_type)
         for k in self.default_filters:
             updates.pop(k, None)
 

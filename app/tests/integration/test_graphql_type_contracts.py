@@ -176,7 +176,7 @@ async def type_contract_test_data(neo4j_driver, clean_neo4j, ensure_test_users):
                     s.sequence = $sequence,
                     s.mastery_threshold = $mastery_threshold,
                     s.estimated_hours = $estimated_hours,
-                    s.ku_type = 'learning_step',
+                    s.entity_type = 'learning_step',
                     s.created_at = datetime()
                 RETURN s
                 """,
@@ -193,7 +193,7 @@ async def type_contract_test_data(neo4j_driver, clean_neo4j, ensure_test_users):
                 p.estimated_hours = 9.0,
                 p.difficulty = 'intermediate',
                 p.domain = $domain,
-                p.ku_type = 'learning_path',
+                p.entity_type = 'learning_path',
                 p.created_at = datetime()
             RETURN p
             """,

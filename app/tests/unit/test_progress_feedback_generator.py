@@ -192,7 +192,7 @@ class TestGenerate:
         assert generator.activity_report_service.persist.call_count == 1
         created_ku = generator.activity_report_service.persist.call_args[0][0]
         assert isinstance(created_ku, ActivityReport)
-        assert created_ku.ku_type == EntityType.ACTIVITY_REPORT
+        assert created_ku.entity_type == EntityType.ACTIVITY_REPORT
         assert created_ku.status == EntityStatus.COMPLETED
         assert created_ku.processor_type == ProcessorType.AUTOMATIC
         assert created_ku.user_uid == "user_alice"

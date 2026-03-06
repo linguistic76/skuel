@@ -36,9 +36,9 @@ class Journal(Submission):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=JOURNAL, then delegate to Submission."""
-        if self.ku_type != EntityType.JOURNAL:
-            object.__setattr__(self, "ku_type", EntityType.JOURNAL)
+        """Force entity_type=JOURNAL, then delegate to Submission."""
+        if self.entity_type != EntityType.JOURNAL:
+            object.__setattr__(self, "entity_type", EntityType.JOURNAL)
         super().__post_init__()
 
     # =========================================================================

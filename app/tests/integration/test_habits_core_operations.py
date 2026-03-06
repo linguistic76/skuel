@@ -46,7 +46,7 @@ class TestHabitsCoreOperations:
     async def habits_backend(self, neo4j_driver, clean_neo4j):
         """Create habits backend with clean database."""
         return UniversalNeo4jBackend[Habit](
-            neo4j_driver, "Entity", Habit, default_filters={"ku_type": "habit"}
+            neo4j_driver, "Entity", Habit, default_filters={"entity_type": "habit"}
         )
 
     @pytest_asyncio.fixture
@@ -70,7 +70,7 @@ class TestHabitsCoreOperations:
             uid="habit.daily_meditation",
             user_uid=test_user_uid,
             title="Daily Meditation",
-            ku_type=EntityType.HABIT,
+            entity_type=EntityType.HABIT,
             description="Practice mindfulness meditation every morning",
             polarity=HabitPolarity.BUILD,
             habit_category=HabitCategory.MINDFULNESS,

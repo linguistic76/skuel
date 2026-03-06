@@ -51,7 +51,7 @@ class TestGoalsCoreOperations:
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
         return UniversalNeo4jBackend[Goal](
-            neo4j_driver, "Entity", Goal, default_filters={"ku_type": "goal"}
+            neo4j_driver, "Entity", Goal, default_filters={"entity_type": "goal"}
         )
 
     @pytest_asyncio.fixture
@@ -77,7 +77,7 @@ class TestGoalsCoreOperations:
             "user_uid": user_uid,
             "title": "Test Goal",
             "description": "A goal created for automated testing",
-            "ku_type": EntityType.GOAL,
+            "entity_type": EntityType.GOAL,
         }
         defaults.update(kwargs)
         return Goal(**defaults)
@@ -96,7 +96,7 @@ class TestGoalsCoreOperations:
         created = result.value
         assert created.uid == "goal_create_001"
         assert created.title == "Learn Neo4j"
-        assert created.ku_type == EntityType.GOAL
+        assert created.entity_type == EntityType.GOAL
 
     async def test_get_goal_by_uid(self, goals_core, user_uid):
         """A created goal can be retrieved by UID."""

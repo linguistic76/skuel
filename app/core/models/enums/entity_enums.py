@@ -24,11 +24,9 @@ from enum import Enum
 
 class EntityType(str, Enum):
     """
-    Type of Knowledge Unit — 17 manifestations of knowledge in SKUEL.
+    Type of Entity — 17 domain types in SKUEL.
 
-    "Everything is a Ku" — a task is knowledge about what needs doing,
-    a principle is knowledge about what you believe, a goal is knowledge
-    about where you're heading.
+    Discriminator for the `entity_type` field on Entity.
 
     Five groups:
         Knowledge (shared curriculum):
@@ -338,9 +336,9 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
 
 class EntityStatus(str, Enum):
     """
-    Processing lifecycle status for a Knowledge Unit.
+    Processing lifecycle status for an Entity.
 
-    14 values covering all lifecycle patterns across all KuTypes.
+    14 values covering all lifecycle patterns across all EntityTypes.
 
     Content processing lifecycle:
         DRAFT -> SUBMITTED -> QUEUED -> PROCESSING -> COMPLETED / FAILED
@@ -356,7 +354,7 @@ class EntityStatus(str, Enum):
 
     Terminal states: COMPLETED, FAILED, CANCELLED, ARCHIVED
 
-    Use `can_transition_to(target, ku_type)` for type-aware validation.
+    Use `can_transition_to(target, entity_type)` for type-aware validation.
     """
 
     DRAFT = "draft"
@@ -417,18 +415,18 @@ class EntityStatus(str, Enum):
             EntityStatus.SCHEDULED,
         }
 
-    def can_transition_to(self, target: EntityStatus, ku_type: EntityType | None = None) -> bool:
+    def can_transition_to(self, target: EntityStatus, entity_type: EntityType | None = None) -> bool:
         """
         Check if transition to target status is valid.
 
-        When ku_type is provided, validates both:
+        When entity_type is provided, validates both:
         1. Target is a valid status for that EntityType
         2. The transition itself is allowed
 
-        When ku_type is None, only checks the general transition map.
+        When entity_type is None, only checks the general transition map.
         """
-        if ku_type is not None:
-            valid = ku_type.valid_statuses()
+        if entity_type is not None:
+            valid = entity_type.valid_statuses()
             if self not in valid or target not in valid:
                 return False
         return target in _VALID_TRANSITIONS.get(self, set())

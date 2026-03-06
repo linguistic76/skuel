@@ -1422,7 +1422,7 @@ def create_submissions_ui_routes(
                 file_content=file_content,
                 original_filename=filename,
                 user_uid=user_uid,
-                ku_type=EntityType.SUBMISSION,
+                entity_type=EntityType.SUBMISSION,
                 processor_type=ProcessorType.HUMAN,
                 metadata={"identifier": identifier},
                 fulfills_exercise_uid=fulfills_exercise_uid,
@@ -1843,7 +1843,7 @@ def create_submissions_ui_routes(
             user_uid = require_authenticated_user(request)
             result = await _submissions_service.list_submissions(
                 user_uid=user_uid,
-                ku_type=EntityType.ACTIVITY_REPORT,
+                entity_type=EntityType.ACTIVITY_REPORT,
                 limit=10,
             )
             items = result.value if not result.is_error else []

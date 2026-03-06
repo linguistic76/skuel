@@ -364,7 +364,7 @@ class ActivityReportService:
         try:
             query_result = await self.executor.execute_query(
                 """
-                MATCH (n:Entity {ku_type: 'activity_report', subject_uid: $subject_uid})
+                MATCH (n:Entity {entity_type: 'activity_report', subject_uid: $subject_uid})
                 RETURN n
                 ORDER BY n.created_at DESC
                 LIMIT $limit
@@ -439,7 +439,7 @@ class ActivityReportService:
             now = datetime.now().isoformat()
             result = await self.executor.execute_query(
                 """
-                MATCH (n:Entity {uid: $uid, user_uid: $user_uid, ku_type: 'activity_report'})
+                MATCH (n:Entity {uid: $uid, user_uid: $user_uid, entity_type: 'activity_report'})
                 SET n.annotation_mode = $annotation_mode,
                     n.annotation_updated_at = datetime($now),
                     n.user_annotation = $user_annotation,
@@ -490,7 +490,7 @@ class ActivityReportService:
         try:
             result = await self.executor.execute_query(
                 """
-                MATCH (n:Entity {uid: $uid, user_uid: $user_uid, ku_type: 'activity_report'})
+                MATCH (n:Entity {uid: $uid, user_uid: $user_uid, entity_type: 'activity_report'})
                 RETURN n.uid AS uid, n.annotation_mode AS annotation_mode,
                        n.user_annotation AS user_annotation, n.user_revision AS user_revision,
                        n.annotation_updated_at AS annotation_updated_at
@@ -546,7 +546,7 @@ class ActivityReportService:
             # 1. Admin-written ActivityReports received by this user
             admin_snapshots_result = await self.executor.execute_query(
                 """
-                MATCH (n:Entity {ku_type: 'activity_report', subject_uid: $user_uid})
+                MATCH (n:Entity {entity_type: 'activity_report', subject_uid: $user_uid})
                 WHERE n.processor_type = 'human'
                 RETURN n.created_at AS accessed_at,
                        n.user_uid AS admin_uid,

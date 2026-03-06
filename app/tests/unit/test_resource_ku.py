@@ -23,12 +23,12 @@ class TestResourceKuCreation:
         r = Resource(uid="ku_yoga-book_abc123", title="Yoga for Beginners")
         assert r.uid == "ku_yoga-book_abc123"
         assert r.title == "Yoga for Beginners"
-        assert r.ku_type == EntityType.RESOURCE
+        assert r.entity_type == EntityType.RESOURCE
 
     def test_forces_ku_type_resource(self):
-        """__post_init__ forces ku_type=RESOURCE regardless of input."""
-        r = Resource(uid="ku_test", title="Test", ku_type=EntityType.ARTICLE)
-        assert r.ku_type == EntityType.RESOURCE
+        """__post_init__ forces entity_type=RESOURCE regardless of input."""
+        r = Resource(uid="ku_test", title="Test", entity_type=EntityType.ARTICLE)
+        assert r.entity_type == EntityType.RESOURCE
 
     def test_resource_specific_fields_default_none(self):
         """All 7 resource-specific fields default to None."""
@@ -93,11 +93,11 @@ class TestResourceDTORoundTrip:
     """Test Resource ↔ ResourceDTO lossless conversion."""
 
     def test_dto_to_resource_ku(self):
-        """ResourceDTO with ku_type=RESOURCE dispatches to Resource."""
+        """ResourceDTO with entity_type=RESOURCE dispatches to Resource."""
         dto = ResourceDTO(
             uid="ku_yoga-book_abc123",
             title="Yoga for Beginners",
-            ku_type=EntityType.RESOURCE,
+            entity_type=EntityType.RESOURCE,
             domain=Domain.KNOWLEDGE,
             author="BKS Iyengar",
             publisher="Schocken Books",
@@ -136,7 +136,7 @@ class TestResourceDTORoundTrip:
         dto1 = ResourceDTO(
             uid="ku_film_abc123",
             title="Jiro Dreams of Sushi",
-            ku_type=EntityType.RESOURCE,
+            entity_type=EntityType.RESOURCE,
             domain=Domain.KNOWLEDGE,
             author="David Gelb",
             publisher="Magnolia Pictures",
@@ -152,7 +152,7 @@ class TestResourceDTORoundTrip:
 
         assert dto2.uid == dto1.uid
         assert dto2.title == dto1.title
-        assert dto2.ku_type == dto1.ku_type
+        assert dto2.entity_type == dto1.entity_type
         assert dto2.author == dto1.author
         assert dto2.publisher == dto1.publisher
         assert dto2.publication_year == dto1.publication_year

@@ -60,8 +60,8 @@ class Entity:
     # =========================================================================
     uid: str
     title: str
-    ku_type: EntityType = EntityType.KU
-    parent_ku_uid: str | None = None  # Derivation chain — what Entity this was based on
+    entity_type: EntityType = EntityType.KU
+    parent_entity_uid: str | None = None  # Derivation chain — what Entity this was based on
     domain: Domain = Domain.KNOWLEDGE
     created_by: str | None = None
 
@@ -101,7 +101,7 @@ class Entity:
     # =========================================================================
 
     def __post_init__(self) -> None:
-        """Set conditional defaults based on ku_type."""
+        """Set conditional defaults based on entity_type."""
         now = datetime.now()
 
         if self.created_at is None:
@@ -113,7 +113,7 @@ class Entity:
 
         # Default status from EntityType (type-aware)
         if self.status is None:
-            object.__setattr__(self, "status", self.ku_type.default_status())
+            object.__setattr__(self, "status", self.entity_type.default_status())
 
         # Default visibility: PUBLIC for shared types (Entity direct children).
         # UserOwnedEntity overrides to PRIVATE before calling super().__post_init__().
@@ -148,7 +148,7 @@ class Entity:
     @property
     def is_derived(self) -> bool:
         """Check if this entity was derived from another entity."""
-        return self.parent_ku_uid is not None
+        return self.parent_entity_uid is not None
 
     # =========================================================================
     # STATUS / PROCESSING
@@ -197,11 +197,11 @@ class Entity:
     # =========================================================================
 
     def knowledge_relevance(self) -> float:
-        """KU IS knowledge — always returns 1.0."""
+        """Entity IS knowledge — always returns 1.0."""
         return 1.0
 
     def get_knowledge_uids(self) -> tuple[str, ...]:
-        """KU IS knowledge — returns its own UID."""
+        """Entity IS knowledge — returns its own UID."""
         return (self.uid,)
 
     # =========================================================================
@@ -259,14 +259,14 @@ class Entity:
     @classmethod
     def from_dto(cls, dto: "EntityDTO") -> "Entity":
         """
-        Dispatch to appropriate domain subclass based on dto.ku_type.
+        Dispatch to appropriate domain subclass based on dto.entity_type.
 
         Routes EntityType.TASK → Task, EntityType.GOAL → Goal, etc.
         Falls back to Curriculum for unmapped types.
         """
         from core.models.entity_types import ENTITY_TYPE_CLASS_MAP
 
-        target_class = ENTITY_TYPE_CLASS_MAP.get(dto.ku_type)
+        target_class = ENTITY_TYPE_CLASS_MAP.get(dto.entity_type)
         if target_class is None:
             from core.models.curriculum.curriculum import Curriculum
 
@@ -321,11 +321,11 @@ class Entity:
     # =========================================================================
 
     def __str__(self) -> str:
-        return f"Ku(uid={self.uid}, type={self.ku_type.value}, title='{self.title}')"
+        return f"Entity(uid={self.uid}, type={self.entity_type.value}, title='{self.title}')"
 
     def __repr__(self) -> str:
         return (
-            f"Ku(uid='{self.uid}', ku_type={self.ku_type}, "
+            f"Entity(uid='{self.uid}', entity_type={self.entity_type}, "
             f"title='{self.title}', domain={self.domain}, "
             f"status={self.status})"
         )

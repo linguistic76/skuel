@@ -1068,7 +1068,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         Get learning summary with relationship data from graph.
 
         Args:
-            habit: Habit domain model (ku_type='habit')
+            habit: Habit domain model (entity_type='habit')
 
         Returns:
             Result containing enriched learning summary dict
@@ -1146,7 +1146,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         Get curriculum metadata with relationship data from graph.
 
         Args:
-            habit: Habit domain model (ku_type='habit')
+            habit: Habit domain model (entity_type='habit')
 
         Returns:
             Result containing curriculum metadata dict
@@ -1173,7 +1173,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         Get prerequisite chain metadata with relationship data from graph.
 
         Args:
-            habit: Habit domain model (ku_type='habit')
+            habit: Habit domain model (entity_type='habit')
 
         Returns:
             Result containing prerequisite metadata dict

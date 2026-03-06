@@ -230,7 +230,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         """
         # Query for pending choices
         cypher_query = """
-        MATCH (c:Entity {ku_type: 'choice'})
+        MATCH (c:Entity {entity_type: 'choice'})
         WHERE c.user_uid = $user_uid
           AND c.status IN ['draft', 'active', 'scheduled']
         RETURN c
@@ -325,7 +325,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
 
         # Query for choices needing decision
         cypher_query = """
-        MATCH (c:Entity {ku_type: 'choice'})
+        MATCH (c:Entity {entity_type: 'choice'})
         WHERE c.user_uid = $user_uid
           AND c.decision_deadline <= date($end_date)
           AND c.status NOT IN ['completed', 'decided', 'cancelled', 'archived']
@@ -360,7 +360,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         """
         Get choices aligned with a specific principle.
 
-        Query: (Ku {ku_type: 'choice'})-[:ALIGNED_WITH_PRINCIPLE]->(Ku {ku_type: 'principle'})
+        Query: (Ku {entity_type: 'choice'})-[:ALIGNED_WITH_PRINCIPLE]->(Ku {entity_type: 'principle'})
 
         Args:
             principle_uid: Principle UID
@@ -371,7 +371,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         """
         # Query for choices aligned with principle
         cypher_query = """
-        MATCH (c:Entity {ku_type: 'choice'})-[r:ALIGNED_WITH_PRINCIPLE]->(p:Entity {uid: $principle_uid, ku_type: 'principle'})
+        MATCH (c:Entity {entity_type: 'choice'})-[r:ALIGNED_WITH_PRINCIPLE]->(p:Entity {uid: $principle_uid, entity_type: 'principle'})
         WHERE r.confidence >= $min_confidence
         RETURN c
         ORDER BY r.confidence DESC
@@ -415,7 +415,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
 
         # Query for decided choices
         cypher_query = """
-        MATCH (c:Entity {ku_type: 'choice'})
+        MATCH (c:Entity {entity_type: 'choice'})
         WHERE c.user_uid = $user_uid
           AND c.status IN ['active', 'completed']
           AND c.decided_at >= date($lookback_date)

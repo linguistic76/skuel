@@ -45,7 +45,7 @@ class TestTasksCoreOperations:
     async def tasks_backend(self, neo4j_driver, clean_neo4j):
         """Create tasks backend with clean database."""
         return UniversalNeo4jBackend[Task](
-            neo4j_driver, "Entity", Task, default_filters={"ku_type": "task"}
+            neo4j_driver, "Entity", Task, default_filters={"entity_type": "task"}
         )
 
     @pytest_asyncio.fixture
@@ -414,13 +414,13 @@ class TestTasksCoreOperations:
 
     async def test_task_without_optional_fields(self, tasks_service, test_user_uid):
         """Test creating a task with minimal required fields."""
-        # Arrange - Only required fields (ku_type=TASK for correct defaults)
+        # Arrange - Only required fields (entity_type=TASK for correct defaults)
         task = Task(
             uid="task.minimal",
             user_uid=test_user_uid,
             title="Minimal Task",
             description=None,  # Optional
-            ku_type=EntityType.TASK,
+            entity_type=EntityType.TASK,
         )
 
         # Act

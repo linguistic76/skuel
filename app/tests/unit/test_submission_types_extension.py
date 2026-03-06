@@ -73,7 +73,7 @@ class TestKuSubjectUid:
         ku = Submission(
             uid="ku_test_123",
             title="Test Ku",
-            ku_type=EntityType.SUBMISSION,
+            entity_type=EntityType.SUBMISSION,
             user_uid="user_alice",
             status=EntityStatus.COMPLETED,
         )
@@ -83,7 +83,7 @@ class TestKuSubjectUid:
         ku = SubmissionFeedback(
             uid="ku_test_123",
             title="Midterm Feedback",
-            ku_type=EntityType.SUBMISSION_FEEDBACK,
+            entity_type=EntityType.SUBMISSION_FEEDBACK,
             user_uid="user_teacher",
             status=EntityStatus.COMPLETED,
             subject_uid="user_student",
@@ -94,28 +94,28 @@ class TestKuSubjectUid:
         ku = ActivityReport(
             uid="ku_test_123",
             title="Progress Summary",
-            ku_type=EntityType.ACTIVITY_REPORT,
+            entity_type=EntityType.ACTIVITY_REPORT,
             user_uid="user_alice",
             status=EntityStatus.COMPLETED,
         )
-        assert ku.ku_type == EntityType.ACTIVITY_REPORT
+        assert ku.entity_type == EntityType.ACTIVITY_REPORT
 
     def test_is_feedback_report_by_type(self):
         ku = SubmissionFeedback(
             uid="ku_test_123",
             title="Teacher Feedback",
-            ku_type=EntityType.SUBMISSION_FEEDBACK,
+            entity_type=EntityType.SUBMISSION_FEEDBACK,
             user_uid="user_teacher",
             status=EntityStatus.COMPLETED,
             subject_uid="user_student",
         )
-        assert ku.ku_type == EntityType.SUBMISSION_FEEDBACK
+        assert ku.entity_type == EntityType.SUBMISSION_FEEDBACK
 
     def test_is_user_owned(self):
         ku = Submission(
             uid="ku_test_123",
             title="My Submission",
-            ku_type=EntityType.SUBMISSION,
+            entity_type=EntityType.SUBMISSION,
             user_uid="user_alice",
             status=EntityStatus.COMPLETED,
         )
@@ -125,7 +125,7 @@ class TestKuSubjectUid:
         ku = Curriculum(
             uid="ku_test_123",
             title="Shared Knowledge",
-            ku_type=EntityType.ARTICLE,
+            entity_type=EntityType.ARTICLE,
         )
         assert ku.is_user_owned is False
 
@@ -142,7 +142,7 @@ class TestKuConversions:
         ku = SubmissionFeedback(
             uid="ku_test_123",
             title="Teacher Feedback",
-            ku_type=EntityType.SUBMISSION_FEEDBACK,
+            entity_type=EntityType.SUBMISSION_FEEDBACK,
             user_uid="user_teacher",
             status=EntityStatus.COMPLETED,
             subject_uid="user_student",
@@ -154,7 +154,7 @@ class TestKuConversions:
         dto = SubmissionFeedbackDTO(
             uid="ku_test_123",
             title="Teacher Feedback",
-            ku_type=EntityType.SUBMISSION_FEEDBACK,
+            entity_type=EntityType.SUBMISSION_FEEDBACK,
             user_uid="user_teacher",
             status=EntityStatus.COMPLETED,
             subject_uid="user_student",
@@ -166,7 +166,7 @@ class TestKuConversions:
         ku = Submission(
             uid="ku_test_123",
             title="My Submission",
-            ku_type=EntityType.SUBMISSION,
+            entity_type=EntityType.SUBMISSION,
             user_uid="user_alice",
             status=EntityStatus.COMPLETED,
         )

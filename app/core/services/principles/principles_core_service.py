@@ -932,7 +932,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
     async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
         """Count principle stats via Cypher COUNT — no entity deserialization."""
         query = """
-        MATCH (n:Entity {user_uid: $user_uid, ku_type: 'principle'})
+        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'principle'})
         RETURN
             count(n) AS total,
             count(CASE WHEN n.strength = 'core' THEN 1 END) AS core,

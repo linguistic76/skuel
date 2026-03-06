@@ -44,7 +44,7 @@ def alignment_service(mock_backend) -> PrinciplesAlignmentService:
 def sample_principle_with_alignment() -> Principle:
     """Create sample principle with alignment history."""
     return Principle(
-        ku_type=EntityType.PRINCIPLE,
+        entity_type=EntityType.PRINCIPLE,
         uid="principle.integrity",
         user_uid="user.mike",  # REQUIRED - principle ownership
         title="Integrity",
@@ -82,7 +82,7 @@ def sample_principle_with_alignment() -> Principle:
 def sample_principle_no_alignment() -> Principle:
     """Create sample principle without alignment history."""
     return Principle(
-        ku_type=EntityType.PRINCIPLE,
+        entity_type=EntityType.PRINCIPLE,
         uid="principle.growth",
         user_uid="user.mike",  # REQUIRED - principle ownership
         title="Growth",
@@ -192,7 +192,7 @@ class TestCalculateAverageAlignment:
         """Test average with multiple principles having different alignment levels."""
         # Create principles with different alignment levels
         principle1 = Principle(
-            ku_type=EntityType.PRINCIPLE,
+            entity_type=EntityType.PRINCIPLE,
             uid="p1",
             user_uid="user.mike",  # REQUIRED - principle ownership
             title="P1",
@@ -215,7 +215,7 @@ class TestCalculateAverageAlignment:
         )
 
         principle2 = Principle(
-            ku_type=EntityType.PRINCIPLE,
+            entity_type=EntityType.PRINCIPLE,
             uid="p2",
             user_uid="user.mike",  # REQUIRED - principle ownership
             title="P2",

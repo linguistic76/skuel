@@ -37,25 +37,25 @@ class TestCurriculumKuCreation:
         cu = Curriculum(uid="ku_test_abc", title="Test Curriculum")
         assert cu.uid == "ku_test_abc"
         assert cu.title == "Test Curriculum"
-        # Curriculum base class uses Entity's default ku_type (EntityType.KU)
-        assert cu.ku_type == EntityType.KU
+        # Curriculum base class uses Entity's default entity_type (EntityType.KU)
+        assert cu.entity_type == EntityType.KU
 
     def test_does_not_force_ku_type(self):
-        """Curriculum base class does NOT force ku_type — only leaf classes do."""
-        # Passing ku_type=TASK is preserved (Curriculum is a base class, not a leaf)
-        cu = Curriculum(uid="ku_test", title="Test", ku_type=EntityType.TASK)
-        assert cu.ku_type == EntityType.TASK  # Not overridden
+        """Curriculum base class does NOT force entity_type — only leaf classes do."""
+        # Passing entity_type=TASK is preserved (Curriculum is a base class, not a leaf)
+        cu = Curriculum(uid="ku_test", title="Test", entity_type=EntityType.TASK)
+        assert cu.entity_type == EntityType.TASK  # Not overridden
 
     def test_article_leaf_forces_article_type(self):
-        """Article leaf class forces ku_type=EntityType.ARTICLE in __post_init__."""
-        article = Article(uid="a_test", title="Test", ku_type=EntityType.TASK)
-        assert article.ku_type == EntityType.ARTICLE  # Article always forces ARTICLE type
+        """Article leaf class forces entity_type=EntityType.ARTICLE in __post_init__."""
+        article = Article(uid="a_test", title="Test", entity_type=EntityType.TASK)
+        assert article.entity_type == EntityType.ARTICLE  # Article always forces ARTICLE type
 
     def test_article_basic_creation(self):
         """Article can be created and is a Curriculum instance."""
         article = Article(uid="a_python_abc123", title="Python Basics")
         assert article.uid == "a_python_abc123"
-        assert article.ku_type == EntityType.ARTICLE
+        assert article.entity_type == EntityType.ARTICLE
         assert isinstance(article, Curriculum)
         assert isinstance(article, Entity)
 
@@ -385,7 +385,7 @@ class TestCurriculumKuSubclassDTORoundTrip:
         dto = LearningStepDTO(
             uid="ls_test_abc",
             title="Learn Python Basics",
-            ku_type=EntityType.LEARNING_STEP,
+            entity_type=EntityType.LEARNING_STEP,
             complexity="advanced",
             learning_level=LearningLevel.INTERMEDIATE,
             difficulty_rating=0.7,
@@ -412,7 +412,7 @@ class TestCurriculumKuSubclassDTORoundTrip:
         dto = LearningPathDTO(
             uid="lp_test_abc",
             title="Python Learning Path",
-            ku_type=EntityType.LEARNING_PATH,
+            entity_type=EntityType.LEARNING_PATH,
             complexity="basic",
             estimated_time_minutes=120,
             quality_score=0.85,

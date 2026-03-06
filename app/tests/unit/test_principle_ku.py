@@ -18,7 +18,7 @@ from core.models.principle.principle import Principle
 def _make_principle(**overrides) -> Principle:
     """Create a Principle with sensible defaults, overridable by kwargs."""
     defaults = {
-        "ku_type": EntityType.PRINCIPLE,
+        "entity_type": EntityType.PRINCIPLE,
         "uid": "principle_test_abc123",
         "user_uid": "user_test",
         "title": "Test Principle",

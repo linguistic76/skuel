@@ -164,14 +164,14 @@ class TestExerciseServiceCurriculumLinking:
                 {
                     "uid": "ku_python_abc",
                     "title": "Python Basics",
-                    "ku_type": "curriculum",
+                    "entity_type": "curriculum",
                     "complexity": "beginner",
                     "learning_level": "beginner",
                 },
                 {
                     "uid": "ku_testing_def",
                     "title": "Testing Fundamentals",
-                    "ku_type": "curriculum",
+                    "entity_type": "curriculum",
                     "complexity": "intermediate",
                     "learning_level": "intermediate",
                 },

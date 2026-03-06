@@ -823,9 +823,9 @@ class ActivityDSLParser:
                 continue
 
             # Try EntityType (covers most domains)
-            ku_type = EntityType.from_string(v)
-            if ku_type is not None:
-                contexts.append(ku_type)
+            entity_type = EntityType.from_string(v)
+            if entity_type is not None:
+                contexts.append(entity_type)
                 continue
 
             # Try NonKuDomain (Finance, Calendar, Learning, Group)

@@ -40,9 +40,9 @@ class LearningStep(Curriculum):
     """
 
     def __post_init__(self) -> None:
-        """Force ku_type=LEARNING_STEP, then delegate to Entity."""
-        if self.ku_type != EntityType.LEARNING_STEP:
-            object.__setattr__(self, "ku_type", EntityType.LEARNING_STEP)
+        """Force entity_type=LEARNING_STEP, then delegate to Entity."""
+        if self.entity_type != EntityType.LEARNING_STEP:
+            object.__setattr__(self, "entity_type", EntityType.LEARNING_STEP)
         super().__post_init__()
 
     # =========================================================================

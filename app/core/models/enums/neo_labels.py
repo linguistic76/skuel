@@ -85,7 +85,7 @@ class NeoLabel(str, Enum):
     SUBMISSION_FEEDBACK = "SubmissionFeedback"
 
     # Instruction Templates (1)
-    EXERCISE = "Exercise"  # Domain label for :Entity nodes with ku_type="exercise"
+    EXERCISE = "Exercise"  # Domain label for :Entity nodes with entity_type="exercise"
 
     # Destination (1)
     LIFE_PATH = "LifePath"
@@ -138,14 +138,14 @@ class NeoLabel(str, Enum):
     # =========================================================================
 
     @classmethod
-    def from_entity_type(cls, ku_type: EntityType) -> NeoLabel:
+    def from_entity_type(cls, entity_type: EntityType) -> NeoLabel:
         """
         Get the domain-specific Neo4j label for a EntityType.
 
         Each EntityType maps to its own domain label for indexed queries.
 
         Args:
-            ku_type: The EntityType enum value
+            entity_type: The EntityType enum value
 
         Returns:
             Domain-specific NeoLabel
@@ -155,7 +155,7 @@ class NeoLabel(str, Enum):
             label = NeoLabel.from_entity_type(EntityType.KU)  # Returns NeoLabel.KU
         """
         _ensure_mapping()
-        return _ENTITY_TYPE_TO_LABEL[ku_type]
+        return _ENTITY_TYPE_TO_LABEL[entity_type]
 
     @classmethod
     def from_domain(cls, domain: EntityType | NonKuDomain) -> NeoLabel | None:

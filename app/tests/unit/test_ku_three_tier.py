@@ -37,7 +37,7 @@ class TestKuThreeTierRoundTrip:
         return CurriculumDTO(
             uid="a_test_abc123",
             title="Test Knowledge",
-            ku_type=EntityType.ARTICLE,
+            entity_type=EntityType.ARTICLE,
             domain=Domain.KNOWLEDGE,
             word_count=42,
             quality_score=0.85,
@@ -137,7 +137,7 @@ class TestKuThreeTierRoundTrip:
         dto = CurriculumDTO(
             uid="a_test_none",
             title="No SEL",
-            ku_type=EntityType.ARTICLE,
+            entity_type=EntityType.ARTICLE,
             domain=Domain.TECH,
             sel_category=None,
         )
@@ -288,7 +288,7 @@ class TestKuTypeDispatch:
 
     def test_resource_dispatches_to_resource_ku(self):
         """EntityType.RESOURCE dispatches to Resource, not Curriculum."""
-        dto = ResourceDTO(uid="ku_test_res", title="Test Resource", ku_type=EntityType.RESOURCE)
+        dto = ResourceDTO(uid="ku_test_res", title="Test Resource", entity_type=EntityType.RESOURCE)
         ku = Entity.from_dto(dto)
         assert isinstance(ku, Resource)
         assert not isinstance(ku, Curriculum)
@@ -297,7 +297,7 @@ class TestKuTypeDispatch:
         """EntityType.KU dispatches to atomic Ku (extends Entity directly, not Curriculum)."""
         from core.models.ku.ku import Ku
 
-        dto = EntityDTO(uid="ku_test_cur", title="Test Ku", ku_type=EntityType.KU)
+        dto = EntityDTO(uid="ku_test_cur", title="Test Ku", entity_type=EntityType.KU)
         ku = Entity.from_dto(dto)
         assert isinstance(ku, Ku)
         assert isinstance(ku, Entity)
@@ -305,7 +305,7 @@ class TestKuTypeDispatch:
 
     def test_task_dispatches_to_task_ku(self):
         """EntityType.TASK dispatches to Task, not Curriculum."""
-        dto = TaskDTO(uid="task_test_abc", title="Test Task", ku_type=EntityType.TASK)
+        dto = TaskDTO(uid="task_test_abc", title="Test Task", entity_type=EntityType.TASK)
         ku = Entity.from_dto(dto)
         assert isinstance(ku, Task)
         assert not isinstance(ku, Curriculum)
@@ -405,7 +405,7 @@ class TestCurriculumFieldSeparation:
         dto = TaskDTO(
             uid="task_test_rt",
             title="Task RT",
-            ku_type=EntityType.TASK,
+            entity_type=EntityType.TASK,
         )
         ku = Entity.from_dto(dto)
         assert isinstance(ku, Task)
@@ -420,7 +420,7 @@ class TestCurriculumFieldSeparation:
         dto = CurriculumDTO(
             uid="a_test_crt",
             title="Curriculum RT",
-            ku_type=EntityType.ARTICLE,
+            entity_type=EntityType.ARTICLE,
             complexity=KuComplexity.ADVANCED,
             learning_level=LearningLevel.EXPERT,
             sel_category=SELCategory.SELF_AWARENESS,

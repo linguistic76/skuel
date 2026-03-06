@@ -301,7 +301,9 @@
       "Bash(./dev health-modules --verbose 2>&1 | tail -15)",
       "Bash(./dev health-xref 2>&1 | head -30)",
       "Bash(INTELLIGENCE_TIER=core poetry run python -c \"from core.config.intelligence_tier import IntelligenceTier; t = IntelligenceTier.from_env\\(\\); print\\(f'Tier: {t}, ai_enabled: {t.ai_enabled}'\\)\")",
-      "Bash(grep -rn \"EXPOSE 8000\\\\|validate_environment_variables\\\\|infrastructure/readme\\\\|test\\\\.cypher\\\\|token.*sk-proj\\\\|hardcoded.*token\" /home/mike/skuel/app/docs/ /home/mike/skuel/app/CLAUDE.md /home/mike/skuel/app/.claude/ 2>/dev/null --include=\"*.md\" -l)"
+      "Bash(grep -rn \"EXPOSE 8000\\\\|validate_environment_variables\\\\|infrastructure/readme\\\\|test\\\\.cypher\\\\|token.*sk-proj\\\\|hardcoded.*token\" /home/mike/skuel/app/docs/ /home/mike/skuel/app/CLAUDE.md /home/mike/skuel/app/.claude/ 2>/dev/null --include=\"*.md\" -l)",
+      "Bash(git log --oneline -30 --all -- '*exercise*' '*submission*' '*feedback*' '*learning*loop*' 2>/dev/null | head -40)",
+      "Bash(cd /home/mike/skuel/app/yaml_templates/domains/mindfulness_101 && mv ku_breath-awareness-basics.yaml article_breath-awareness-basics.yaml && mv ku_posture-basics.yaml article_posture-basics.yaml && mv ku_mind-wandering-happens.yaml article_mind-wandering-happens.yaml && echo \"done\")"
     ]
   }
 }

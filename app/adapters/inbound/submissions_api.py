@@ -40,7 +40,7 @@ from starlette.responses import FileResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from core.models.entity_converters import ku_to_response
+from core.models.entity_converters import entity_to_response
 from core.models.entity_requests import (
     AddTagsRequest,
     BulkCategorizeRequest,
@@ -251,7 +251,7 @@ def create_submissions_api_routes(
             file_content=file_content,
             original_filename=filename,
             user_uid=user_uid,
-            ku_type=report_type,
+            entity_type=report_type,
             processor_type=processor_type,
             applies_knowledge_uids=applies_knowledge_uids if applies_knowledge_uids else None,
             fulfills_exercise_uid=fulfills_exercise_uid if fulfills_exercise_uid else None,
@@ -275,7 +275,7 @@ def create_submissions_api_routes(
                 # Processing failed but upload succeeded
                 return Result.ok(
                     {
-                        "submission": ku_to_response(submission),
+                        "submission": entity_to_response(submission),
                         "processing_status": "failed",
                         "processing_error": error.user_message or error.message,
                         "message": "File uploaded but processing failed",
@@ -287,7 +287,7 @@ def create_submissions_api_routes(
         # Return success response
         return Result.ok(
             {
-                "submission": ku_to_response(submission),
+                "submission": entity_to_response(submission),
                 "message": "File uploaded successfully",
             }
         )
@@ -342,7 +342,7 @@ def create_submissions_api_routes(
         # List reports
         result = await submission_service.list_submissions(
             user_uid=user_uid,
-            ku_type=parsed_report_type,
+            entity_type=parsed_report_type,
             status=parsed_status,
             limit=limit,
             offset=offset,
@@ -355,7 +355,7 @@ def create_submissions_api_routes(
 
         return Result.ok(
             {
-                "reports": [ku_to_response(a) for a in reports],
+                "reports": [entity_to_response(a) for a in reports],
                 "count": len(reports),
                 "limit": limit,
                 "offset": offset,
@@ -387,7 +387,7 @@ def create_submissions_api_routes(
         if not submission:
             return Result.fail(Errors.not_found(resource="Submission", identifier=uid))
 
-        return Result.ok(ku_to_response(submission))
+        return Result.ok(entity_to_response(submission))
 
     # ========================================================================
     # GET REPORT PROCESSED CONTENT
@@ -470,7 +470,7 @@ def create_submissions_api_routes(
 
         return Result.ok(
             {
-                "submission": ku_to_response(submission),
+                "submission": entity_to_response(submission),
                 "message": "Submission processed successfully",
             }
         )

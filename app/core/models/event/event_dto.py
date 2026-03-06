@@ -124,7 +124,7 @@ class EventDTO(UserOwnedDTO):
         return cls(
             uid=uid,
             title=title,
-            ku_type=EntityType.EVENT,
+            entity_type=EntityType.EVENT,
             user_uid=user_uid,
             **kwargs,
         )
@@ -197,7 +197,7 @@ class EventDTO(UserOwnedDTO):
             cls,
             data,
             enum_fields={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,
@@ -264,7 +264,7 @@ class EventDTO(UserOwnedDTO):
                 "skip_breaks_habit_streak",
             },
             enum_mappings={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,

@@ -22,7 +22,7 @@ class TestRelationshipBatchOperations:
     async def tasks_backend(self, neo4j_driver, clean_neo4j):
         """Create tasks backend with clean database."""
         return UniversalNeo4jBackend[Task](
-            neo4j_driver, "Entity", Task, default_filters={"ku_type": "task"}
+            neo4j_driver, "Entity", Task, default_filters={"entity_type": "task"}
         )
 
     async def test_get_relationships_batch_empty(self, tasks_backend):

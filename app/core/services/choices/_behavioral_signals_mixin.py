@@ -593,10 +593,10 @@ class _BehavioralSignalsMixin:
 
         # Query for choices with principle alignment in the period
         query = """
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Entity {ku_type: 'choice'})
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Entity {entity_type: 'choice'})
         WHERE c.created_at >= datetime() - duration({days: $period_days})
 
-        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Entity {ku_type: 'principle'})
+        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Entity {entity_type: 'principle'})
 
         WITH c,
              collect(DISTINCT p.uid) AS principle_uids,
@@ -741,16 +741,16 @@ class _BehavioralSignalsMixin:
         """
         # Query for choice and its principle relationships
         query = """
-        MATCH (c:Entity {uid: $choice_uid, ku_type: 'choice'})
+        MATCH (c:Entity {uid: $choice_uid, entity_type: 'choice'})
 
         // Get aligned principles
-        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(aligned:Entity {ku_type: 'principle'})
+        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(aligned:Entity {entity_type: 'principle'})
 
         // Get any conflicting principles
-        OPTIONAL MATCH (c)-[:CONFLICTS_WITH_PRINCIPLE]->(conflicting:Entity {ku_type: 'principle'})
+        OPTIONAL MATCH (c)-[:CONFLICTS_WITH_PRINCIPLE]->(conflicting:Entity {entity_type: 'principle'})
 
         // Get user's core principles for comparison
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(core:Entity {ku_type: 'principle'})
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(core:Entity {entity_type: 'principle'})
         WHERE core.strength IN ['CORE', 'STRONG']
 
         RETURN
@@ -884,9 +884,9 @@ class _BehavioralSignalsMixin:
         # Factor 3: Historical correlation (25% weight)
         # Query past decisions with similar patterns
         historical_query = """
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Entity {ku_type: 'choice'})
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Entity {entity_type: 'choice'})
         WHERE c.satisfaction_score IS NOT NULL
-        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Entity {ku_type: 'principle'})
+        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Entity {entity_type: 'principle'})
         WITH c, count(p) AS principle_count
         RETURN
             avg(CASE WHEN principle_count > 0 THEN c.satisfaction_score ELSE null END) AS aligned_avg,
@@ -1002,16 +1002,16 @@ class _BehavioralSignalsMixin:
         """
         # Query for life path contribution via principles
         query = """
-        MATCH (c:Entity {uid: $choice_uid, ku_type: 'choice'})
+        MATCH (c:Entity {uid: $choice_uid, entity_type: 'choice'})
 
         // Get user's life path
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Entity {ku_type: 'learning_path'})
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Entity {entity_type: 'learning_path'})
 
         // Direct contribution (if any)
         OPTIONAL MATCH (c)-[direct:SERVES_LIFE_PATH]->(lp)
 
         // Principle-mediated contribution
-        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Entity {ku_type: 'principle'})
+        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Entity {entity_type: 'principle'})
                        -[pserve:SERVES_LIFE_PATH]->(lp)
 
         RETURN
@@ -1144,9 +1144,9 @@ class _BehavioralSignalsMixin:
         # Active conflicts (principle tensions signal)
         # Count recent choices with unresolved principle conflicts
         conflict_query = """
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Entity {ku_type: 'choice'})
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Entity {entity_type: 'choice'})
         WHERE c.created_at >= datetime() - duration({days: 30})
-        MATCH (c)-[:CONFLICTS_WITH_PRINCIPLE]->(:Entity {ku_type: 'principle'})
+        MATCH (c)-[:CONFLICTS_WITH_PRINCIPLE]->(:Entity {entity_type: 'principle'})
         RETURN count(DISTINCT c) AS conflict_count
         """
         conflict_result = await self.backend.execute_query(conflict_query, {"user_uid": user_uid})

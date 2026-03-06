@@ -133,7 +133,7 @@ class CurriculumDTO(EntityDTO):
             cls,
             data,
             enum_fields={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "complexity": KuComplexity,
@@ -202,7 +202,7 @@ class CurriculumDTO(EntityDTO):
                 "last_choice_informed_date",
             },
             enum_mappings={
-                "ku_type": EntityType,
+                "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
                 "complexity": KuComplexity,

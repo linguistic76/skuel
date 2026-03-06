@@ -12,7 +12,7 @@ This service manages the user's life path designation:
 Note: LifePath is NOT a stored entity - it's a designation on an LP.
 Vision data is stored on the User node. Alignment scores are stored
 on the ULTIMATE_PATH relationship. The designated Ku gets its
-ku_type changed from 'learning_path' to 'life_path'.
+entity_type changed from 'learning_path' to 'life_path'.
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ class LifePathCoreService:
 
         query = """
         MATCH (u:User {uid: $user_uid})
-        OPTIONAL MATCH (u)-[r:ULTIMATE_PATH]->(lp:Entity {ku_type: 'life_path'})
+        OPTIONAL MATCH (u)-[r:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
         RETURN u.vision_statement AS vision_statement,
                u.vision_themes AS vision_themes,
                u.vision_captured_at AS vision_captured_at,
@@ -200,7 +200,7 @@ class LifePathCoreService:
         Designate a Learning Path as the user's life path.
 
         Creates the ULTIMATE_PATH relationship and sets the target
-        Ku's ku_type from 'learning_path' to 'life_path'.
+        Ku's entity_type from 'learning_path' to 'life_path'.
 
         Args:
             user_uid: User identifier
@@ -222,21 +222,21 @@ class LifePathCoreService:
 
         now = datetime.now()
 
-        # Remove existing ULTIMATE_PATH (if any), revert old LP's ku_type,
+        # Remove existing ULTIMATE_PATH (if any), revert old LP's entity_type,
         # then create new designation
         query = """
         MATCH (u:User {uid: $user_uid})
-        MATCH (lp:Entity {uid: $life_path_uid, ku_type: 'learning_path'})
+        MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'learning_path'})
 
-        // Revert previous designation's ku_type back to learning_path
-        OPTIONAL MATCH (u)-[old:ULTIMATE_PATH]->(old_lp:Entity {ku_type: 'life_path'})
-        SET old_lp.ku_type = 'learning_path'
+        // Revert previous designation's entity_type back to learning_path
+        OPTIONAL MATCH (u)-[old:ULTIMATE_PATH]->(old_lp:Entity {entity_type: 'life_path'})
+        SET old_lp.entity_type = 'learning_path'
         DELETE old
 
-        // Create new designation and promote ku_type
+        // Create new designation and promote entity_type
         WITH u, lp
         CREATE (u)-[r:ULTIMATE_PATH {designated_at: $designated_at}]->(lp)
-        SET lp.ku_type = 'life_path'
+        SET lp.entity_type = 'life_path'
 
         RETURN u.vision_statement AS vision_statement,
                u.vision_themes AS vision_themes,
@@ -290,7 +290,7 @@ class LifePathCoreService:
         """
         Remove user's life path designation.
 
-        Removes the ULTIMATE_PATH relationship, reverts the Ku's ku_type
+        Removes the ULTIMATE_PATH relationship, reverts the Ku's entity_type
         back to 'learning_path', but keeps vision data on the User node.
 
         Args:
@@ -305,8 +305,8 @@ class LifePathCoreService:
             )
 
         query = """
-        MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(lp:Entity {ku_type: 'life_path'})
-        SET lp.ku_type = 'learning_path'
+        MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
+        SET lp.entity_type = 'learning_path'
         DELETE r
         RETURN count(r) > 0 AS removed
         """
@@ -364,7 +364,7 @@ class LifePathCoreService:
 
         # Store alignment scores on the ULTIMATE_PATH relationship
         query = """
-        MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(lp:Entity {ku_type: 'life_path'})
+        MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
         SET r.alignment_score = $alignment_score,
             r.alignment_level = $alignment_level,
             r.alignment_updated_at = datetime()

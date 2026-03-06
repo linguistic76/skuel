@@ -134,7 +134,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
         from core.utils.neo4j_mapper import from_neo4j_node
 
         cypher = """
-            MATCH (lp:Entity {uid: $path_uid})-[:HAS_STEP]->(ls:Entity {ku_type: 'learning_step'})
+            MATCH (lp:Entity {uid: $path_uid})-[:HAS_STEP]->(ls:Entity {entity_type: 'learning_step'})
             RETURN ls
             ORDER BY ls.sequence ASC
             LIMIT $limit
@@ -162,8 +162,8 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
         from core.utils.neo4j_mapper import from_neo4j_node
 
         cypher = """
-            MATCH (ls:Entity {ku_type: 'learning_step'})
-            WHERE NOT (ls)<-[:HAS_STEP]-(:Entity {ku_type: 'learning_path'})
+            MATCH (ls:Entity {entity_type: 'learning_step'})
+            WHERE NOT (ls)<-[:HAS_STEP]-(:Entity {entity_type: 'learning_path'})
             RETURN ls
             ORDER BY ls.updated_at DESC
             LIMIT $limit
@@ -200,7 +200,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
         from core.utils.neo4j_mapper import from_neo4j_node
 
         cypher = """
-            MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Entity {ku_type: 'learning_step'})
+            MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Entity {entity_type: 'learning_step'})
             RETURN ls
             ORDER BY ls.sequence ASC
             LIMIT $limit
@@ -239,7 +239,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
 
         # Build prioritization query
         cypher = """
-            MATCH (ls:Entity {ku_type: 'learning_step'})
+            MATCH (ls:Entity {entity_type: 'learning_step'})
             OPTIONAL MATCH (u:User {uid: $user_uid})-[progress:STUDYING]->(ls)
             RETURN ls, progress
             ORDER BY
