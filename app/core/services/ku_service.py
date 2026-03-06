@@ -94,7 +94,5 @@ class KuService:
     async def get_articles(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
         """Get all Articles that use this atomic Ku via USES_KU."""
         if self.backend is None:
-            return Result.fail(
-                "KuService backend not configured for graph operations"
-            )
+            return Result.fail("KuService backend not configured for graph operations")
         return await self.backend.get_articles_using(ku_uid)

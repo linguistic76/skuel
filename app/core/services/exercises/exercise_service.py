@@ -356,9 +356,7 @@ class ExerciseService(BaseService):
             props["group_name"] = record.get("group_name", "")
             exercises.append(props)
 
-        self.logger.info(
-            f"Found {len(exercises)} exercises with status for student {user_uid}"
-        )
+        self.logger.info(f"Found {len(exercises)} exercises with status for student {user_uid}")
         return Result.ok(exercises)
 
     # ========================================================================

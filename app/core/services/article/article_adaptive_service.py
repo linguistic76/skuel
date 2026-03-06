@@ -123,7 +123,9 @@ class ArticleAdaptiveService:
         user_level = self._determine_user_level(user_intel, ku.sel_category)
         return ku.is_appropriate_for_level(user_level)
 
-    async def _check_prerequisites_met(self, user_intel: UserLearningIntelligence, ku: Article) -> bool:
+    async def _check_prerequisites_met(
+        self, user_intel: UserLearningIntelligence, ku: Article
+    ) -> bool:
         """Check if user has mastered all prerequisites for this KU."""
         try:
             prereq_result = await self.ku_backend.get_related_uids(
@@ -289,7 +291,10 @@ class ArticleAdaptiveService:
             mastered = sum(1 for ku in all_kus if ku.uid in user_intel.current_masteries)
 
             return CurriculumProgress(
-                user_uid=user_uid, sel_category=category, articles_mastered=mastered, total_articles=total
+                user_uid=user_uid,
+                sel_category=category,
+                articles_mastered=mastered,
+                total_articles=total,
             )
 
         except Exception as e:

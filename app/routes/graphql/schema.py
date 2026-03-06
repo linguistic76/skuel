@@ -615,7 +615,9 @@ class Query:
 
                     # Get prerequisites for this step's knowledge
                     if context.services.article:
-                        prereqs_result = await context.services.article.get_prerequisites(step_ku_uid)
+                        prereqs_result = await context.services.article.get_prerequisites(
+                            step_ku_uid
+                        )
 
                         if prereqs_result.is_ok and prereqs_result.value:
                             # Check for unmet prerequisites

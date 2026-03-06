@@ -649,7 +649,9 @@ class ArticleBackend(UniversalNeo4jBackend[Article]):
                 records = await result.data()
             success = bool(records and records[0]["success"])
             if success:
-                self.logger.info(f"Organized Article {child_uid} under {parent_uid} at position {order}")
+                self.logger.info(
+                    f"Organized Article {child_uid} under {parent_uid} at position {order}"
+                )
             return Result.ok(success)
         except Exception as e:
             self.logger.error(f"Failed organize {child_uid} under {parent_uid}: {e}")
@@ -778,13 +780,13 @@ class ArticleBackend(UniversalNeo4jBackend[Article]):
         """
         try:
             async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"article_uid": article_uid, "ku_uid": ku_uid}
-                )
+                result = await session.run(query, {"article_uid": article_uid, "ku_uid": ku_uid})
                 records = await result.data()
             if not records:
                 return Result.fail(
-                    Errors.not_found(resource="Article or Ku", identifier=f"{article_uid} / {ku_uid}")
+                    Errors.not_found(
+                        resource="Article or Ku", identifier=f"{article_uid} / {ku_uid}"
+                    )
                 )
             return Result.ok(True)
         except Exception as e:

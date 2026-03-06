@@ -53,7 +53,9 @@ def ku_service(mock_repo: Mock) -> ArticleService:
 
 class TestKuServiceOrganizationGuard:
     @pytest.mark.asyncio
-    async def test_organize_fails_when_organization_is_none(self, ku_service: ArticleService) -> None:
+    async def test_organize_fails_when_organization_is_none(
+        self, ku_service: ArticleService
+    ) -> None:
         """organize() returns fail when organization service is None."""
         ku_service.organization = None
 
@@ -62,7 +64,9 @@ class TestKuServiceOrganizationGuard:
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_unorganize_fails_when_organization_is_none(self, ku_service: ArticleService) -> None:
+    async def test_unorganize_fails_when_organization_is_none(
+        self, ku_service: ArticleService
+    ) -> None:
         """unorganize() returns fail when organization service is None."""
         ku_service.organization = None
 

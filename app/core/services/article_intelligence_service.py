@@ -93,7 +93,9 @@ class ArticleIntelligenceService(BaseAnalyticsService[ArticleOperations, Entity]
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Article, GraphContext]]:
+    async def get_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[Article, GraphContext]]:
         """
         Get knowledge unit with full graph context.
 

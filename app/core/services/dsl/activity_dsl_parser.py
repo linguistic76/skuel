@@ -343,7 +343,13 @@ class ParsedActivityLine:
         uids = []
         if self.primary_ku:
             uids.append(self.primary_ku)
-        uids.extend([link["id"] for link in self.links if link.get("type") in (EntityType.ARTICLE.value, EntityType.KU.value)])
+        uids.extend(
+            [
+                link["id"]
+                for link in self.links
+                if link.get("type") in (EntityType.ARTICLE.value, EntityType.KU.value)
+            ]
+        )
         return uids
 
     def get_linked_choices(self) -> list[str]:

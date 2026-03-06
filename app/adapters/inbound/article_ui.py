@@ -54,7 +54,9 @@ def _ku_tabs(active_tab: str = "all") -> Any:
                 label,
                 role="tab",
                 cls=f"tab {'tab-active' if is_active else ''}",
-                hx_get=f"/article/filter?sel_category={slug}" if slug != "all" else "/article/filter",
+                hx_get=f"/article/filter?sel_category={slug}"
+                if slug != "all"
+                else "/article/filter",
                 hx_target="#ku-content",
                 hx_swap="innerHTML",
                 hx_push_url=f"/ku?sel={slug}" if slug != "all" else "/ku",

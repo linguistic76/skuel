@@ -299,7 +299,9 @@ def test_entity_type_detection():
     # Test 2: Type aliases are normalized
     data_with_alias = {"type": "knowledge", "title": "Test KU"}
     result = service.detect_entity_type(data_with_alias, Path("/tmp/test.yaml"))
-    assert result == EntityType.ARTICLE, f"Expected EntityType.ARTICLE (alias normalized), got {result}"
+    assert result == EntityType.ARTICLE, (
+        f"Expected EntityType.ARTICLE (alias normalized), got {result}"
+    )
 
     # Test 3: MOC flag detection (now maps to KU)
     data_with_moc_flag = {"moc": True, "title": "Map of Content"}
@@ -309,7 +311,9 @@ def test_entity_type_detection():
     # Test 4: Default to KU for markdown without type
     data_no_type = {"title": "Some Knowledge"}
     result = service.detect_entity_type(data_no_type, Path("/tmp/test.md"))
-    assert result == EntityType.ARTICLE, f"Expected EntityType.ARTICLE (default for .md), got {result}"
+    assert result == EntityType.ARTICLE, (
+        f"Expected EntityType.ARTICLE (default for .md), got {result}"
+    )
 
     # Test 5: Case insensitivity
     data_uppercase = {"type": "HABIT", "title": "Exercise"}

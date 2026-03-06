@@ -805,7 +805,11 @@ class AnalyticsEngine:
         for ku_uid in knowledge_uids:
             # Extract domain from ku.domain.specific format
             parts = ku_uid.split(".")
-            if len(parts) >= 2 and parts[0] in (EntityType.ARTICLE.value, EntityType.KU.value, "a"):  # UID prefix, not Neo4j label
+            if len(parts) >= 2 and parts[0] in (
+                EntityType.ARTICLE.value,
+                EntityType.KU.value,
+                "a",
+            ):  # UID prefix, not Neo4j label
                 domains.append(parts[1])
         return domains
 
