@@ -940,7 +940,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
          due_date: ex.due_date
      } END) AS unsubmitted_raw
 
-WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,

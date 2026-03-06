@@ -595,6 +595,7 @@ def _create_learning_services(
     neo4j_adapter: Any,
     progress_backend: Any,
     knowledge_backend: Any,
+    atomic_ku_backend: Any,  # KuBackend for atomic Ku entities
     content_adapter: Any,  # ContentOperations protocol (Neo4jContentAdapter),
     chunking_service: Any,
     user_service: Any,
@@ -689,9 +690,9 @@ def _create_learning_services(
     from core.services.ku.ku_search_service import KuSearchService
     from core.services.ku_service import KuService
 
-    ku_core = KuCoreService(backend=ku_backend, event_bus=event_bus)
-    ku_search = KuSearchService(backend=ku_backend, event_bus=event_bus)
-    atomic_ku_service = KuService(core=ku_core, search=ku_search, backend=ku_backend)
+    ku_core = KuCoreService(backend=atomic_ku_backend)
+    ku_search = KuSearchService(backend=atomic_ku_backend)
+    atomic_ku_service = KuService(core=ku_core, search=ku_search, backend=atomic_ku_backend)
 
     # Create progress services
     user_progress = UserProgressService(query_executor)
@@ -1429,6 +1430,7 @@ async def compose_services(
             neo4j_adapter=neo4j_adapter,
             progress_backend=progress_backend,
             knowledge_backend=knowledge_backend,
+            atomic_ku_backend=ku_backend,
             content_adapter=content_adapter,
             chunking_service=chunking_service,
             user_service=user_service,
