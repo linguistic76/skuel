@@ -1,15 +1,12 @@
 """
-Knowledge Intelligence Entities
-===============================
+Mastery & Learning Intelligence Models
+=======================================
 
-Revolutionary persistent entities that bring learning intelligence to the Knowledge domain.
-These entities transform Knowledge from static content to adaptive, learning-aware intelligence
-that improves through user interaction patterns and relationship-based insights.
+Persistent entities for learning intelligence across the curriculum domain.
+Mastery applies to both Articles (teaching compositions) and atomic Kus
+(reference nodes) — the class names are entity-agnostic by design.
 
-This completes our architectural revolution:
-- Learning: Persistent paths that adapt
-- Search: Persistent queries that learn
-- Knowledge: Persistent mastery that evolves
+See: /docs/architecture/FOUR_PHASED_LEARNING_LOOP.md
 """
 
 from dataclasses import dataclass
@@ -55,7 +52,7 @@ class ContentPreference(str, Enum):
 
 
 @dataclass(frozen=True)
-class KuMastery:
+class Mastery:
     """
     Persistent Knowledge Mastery Intelligence.
 
@@ -241,7 +238,7 @@ class LearningPreference:
 
 
 @dataclass(frozen=True)
-class KuRecommendation:
+class LearningRecommendation:
     """
     Intelligent Knowledge Recommendation.
 
@@ -315,16 +312,16 @@ class KuRecommendation:
 # Factory functions for creating intelligence entities
 
 
-def create_knowledge_mastery(
+def create_mastery(
     user_uid: str,
     knowledge_uid: str,
     initial_level: MasteryLevel = MasteryLevel.INTRODUCED,
     evidence: list[str] | None = None,
-) -> KuMastery:
-    """Create initial knowledge mastery tracking."""
+) -> Mastery:
+    """Create initial mastery tracking for an Article or atomic Ku."""
     mastery_uid = f"mastery_{user_uid}_{knowledge_uid}"
 
-    return KuMastery(
+    return Mastery(
         uid=mastery_uid,
         user_uid=user_uid,
         knowledge_uid=knowledge_uid,

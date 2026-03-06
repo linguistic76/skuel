@@ -11,7 +11,7 @@ Sub-Services:
 - ArticleGraphService: Graph navigation and relationships
 - ArticleSemanticService: Semantic relationship management
 - ArticlePracticeService: Event-driven practice tracking
-- ArticleInteractionService: Pedagogical tracking (VIEWED->IN_PROGRESS->MASTERED)
+- ArticleMasteryService: Pedagogical tracking (VIEWED->IN_PROGRESS->MASTERED)
 
 Graph and Semantic services are internal implementation details.
 External callers should use the ArticleService facade methods.
@@ -56,7 +56,7 @@ class ArticleService:
     - ArticleGraphService: Graph navigation and relationships
     - ArticleSemanticService: Semantic relationship management
     - ArticlePracticeService: Event-driven practice tracking
-    - ArticleInteractionService: Pedagogical tracking
+    - ArticleMasteryService: Pedagogical tracking
     - UnifiedRelationshipService: Harmonious relationship operations
     - ArticleIntelligenceService: Intelligence and analytics
     - ArticleOrganizationService: ORGANIZES relationships (any Ku can organize others)
@@ -338,7 +338,7 @@ class ArticleService:
         self.graph = subs.graph
         self.semantic = subs.semantic
         self.practice = subs.practice
-        self.interaction = subs.interaction
+        self.mastery = subs.mastery
         self.relationships = subs.relationships
         self.intelligence = subs.intelligence
         self.adaptive = subs.adaptive

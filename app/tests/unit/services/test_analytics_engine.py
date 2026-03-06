@@ -20,7 +20,7 @@ import pytest
 from core.models.task.task import Task
 from core.services.analytics_engine import (
     AnalyticsEngine,
-    KuMasteryProgression,
+    MasteryProgression,
     LearningPattern,
     LearningPatternType,
 )
@@ -53,11 +53,11 @@ def make_learning_pattern(
     )
 
 
-def make_mastery_progression(knowledge_uid: str = "ku.python") -> KuMasteryProgression:
-    """Construct a minimal KuMasteryProgression."""
+def make_mastery_progression(knowledge_uid: str = "ku.python") -> MasteryProgression:
+    """Construct a minimal MasteryProgression."""
     from datetime import date
 
-    return KuMasteryProgression(
+    return MasteryProgression(
         knowledge_uid=knowledge_uid,
         current_mastery_level=0.5,
         mastery_trend=0.1,

@@ -214,7 +214,7 @@ async def test_dry_run_returns_preview(neo4j_driver, sample_ku_file):
     assert preview.total_files == 1
     assert len(preview.files_to_create) == 1
     assert preview.files_to_create[0]["uid"] == "ku.test-knowledge-dry-run"
-    assert preview.files_to_create[0]["entity_type"] == "article"
+    assert preview.files_to_create[0]["entity_type"] == "ku"
 
 
 # ============================================================================

@@ -61,7 +61,7 @@ class LearningPattern:
 
 
 @dataclass
-class KuMasteryProgression:
+class MasteryProgression:
     """Tracks mastery progression for a specific knowledge area."""
 
     knowledge_uid: str
@@ -127,7 +127,7 @@ class AnalyticsEngine:
         self.logger = get_logger("skuel.analytics.knowledge")
         self.relationship_service = relationship_service
         self._pattern_cache: dict[str, Any] = {}
-        self._mastery_progressions: dict[str, KuMasteryProgression] = {}
+        self._mastery_progressions: dict[str, MasteryProgression] = {}
 
     async def analyze_learning_patterns(
         self, tasks: list[Task], timeframe_days: int = 30
@@ -202,7 +202,7 @@ class AnalyticsEngine:
     async def calculate_knowledge_aware_priority(
         self,
         task: Task,
-        user_mastery_progressions: dict[str, KuMasteryProgression],
+        user_mastery_progressions: dict[str, MasteryProgression],
         learning_patterns: list[LearningPattern],
     ) -> Result[KuAwarePriority]:
         """
@@ -367,7 +367,7 @@ class AnalyticsEngine:
 
     async def track_knowledge_mastery_progression(
         self, tasks: list[Task], knowledge_uids: list[str]
-    ) -> Result[dict[str, KuMasteryProgression]]:
+    ) -> Result[dict[str, MasteryProgression]]:
         """
         Track knowledge mastery progression across specified knowledge areas.
 
@@ -824,7 +824,7 @@ class AnalyticsEngine:
         return priority_map.get(task.priority.upper() if task.priority else "MEDIUM", 0.5)
 
     async def _calculate_knowledge_enhancement_score(
-        self, task: Task, rels: TaskRelationships, progressions: dict[str, KuMasteryProgression]
+        self, task: Task, rels: TaskRelationships, progressions: dict[str, MasteryProgression]
     ) -> float:
         """Calculate knowledge enhancement potential score."""
         if not rels.applies_knowledge_uids:
@@ -872,7 +872,7 @@ class AnalyticsEngine:
         return min(1.0, base_score + pattern_boost)
 
     async def _calculate_mastery_progression_score(
-        self, task: Task, rels: TaskRelationships, progressions: dict[str, KuMasteryProgression]
+        self, task: Task, rels: TaskRelationships, progressions: dict[str, MasteryProgression]
     ) -> float:
         """Calculate mastery progression impact score."""
         if not (rels.applies_knowledge_uids or rels.prerequisite_knowledge_uids):
@@ -979,7 +979,7 @@ class AnalyticsEngine:
 
     async def _calculate_mastery_progression(
         self, knowledge_uid: str, tasks: list[Task]
-    ) -> KuMasteryProgression:
+    ) -> MasteryProgression:
         """Calculate mastery progression for a knowledge area."""
         completed_tasks = [t for t in tasks if t.status == EntityStatus.COMPLETED]
         validation_tasks = [t for t in completed_tasks if t.knowledge_mastery_check]
@@ -1049,7 +1049,7 @@ class AnalyticsEngine:
         # Next recommended difficulty
         next_difficulty = min(1.0, current_mastery + 0.2) if current_mastery > 0 else 0.3
 
-        return KuMasteryProgression(
+        return MasteryProgression(
             knowledge_uid=knowledge_uid,
             current_mastery_level=current_mastery,
             mastery_trend=max(-1.0, min(1.0, trend)),

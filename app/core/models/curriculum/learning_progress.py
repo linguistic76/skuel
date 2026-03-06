@@ -1,11 +1,11 @@
 """
-KU Category Progress Tracking Models
-=====================================
+Curriculum Progress Tracking Models
+====================================
 
-Models for tracking user progress through KU categories (e.g., SEL categories).
+Models for tracking user progress through curriculum categories (e.g., SEL categories).
 
 These models support adaptive curriculum delivery by tracking:
-- Progress through each KU category
+- Progress through each curriculum category
 - Current learning level
 - Overall learning journey across all categories
 """
@@ -17,9 +17,9 @@ from core.models.enums import LearningLevel, SELCategory
 
 
 @dataclass(frozen=True)
-class ReportCategoryProgress:
+class CurriculumProgress:
     """
-    Tracks user's progress through one KU category.
+    Tracks user's progress through one curriculum category (e.g., SEL category).
 
     Provides metrics for adaptive curriculum delivery, showing what the user
     has mastered, what's in progress, and what's available next.
@@ -29,10 +29,10 @@ class ReportCategoryProgress:
     sel_category: SELCategory
 
     # Progress Metrics
-    kus_mastered: int = 0
-    kus_in_progress: int = 0
-    kus_available: int = 0
-    total_kus: int = 0
+    articles_mastered: int = 0
+    articles_in_progress: int = 0
+    articles_available: int = 0
+    total_articles: int = 0
 
     # Computed Progress
     completion_percentage: float = 0.0  # 0-100
@@ -50,9 +50,9 @@ class ReportCategoryProgress:
         Returns:
             Float between 0-100 representing progress percentage
         """
-        if self.total_kus == 0:
+        if self.total_articles == 0:
             return 0.0
-        return (self.kus_mastered / self.total_kus) * 100
+        return (self.articles_mastered / self.total_articles) * 100
 
     def determine_level(self) -> LearningLevel:
         """
@@ -79,7 +79,7 @@ class ReportCategoryProgress:
 
     def is_just_starting(self) -> bool:
         """Check if user is just starting this category"""
-        return self.kus_mastered == 0
+        return self.articles_mastered == 0
 
     def is_completed(self) -> bool:
         """Check if user has completed this category"""
@@ -100,21 +100,21 @@ class ReportCategoryProgress:
 
 
 @dataclass(frozen=True)
-class KuLearningJourney:
+class LearningJourney:
     """
-    Complete learning journey for a user across all KU categories.
+    Complete learning journey for a user across all curriculum categories.
 
     Provides a holistic view of the user's progress through the entire
-    KU category framework, with recommendations for what to focus on next.
+    curriculum category framework, with recommendations for what to focus on next.
     """
 
     user_uid: str
-    category_progress: dict[SELCategory, ReportCategoryProgress]
+    category_progress: dict[SELCategory, CurriculumProgress]
     overall_completion: float = 0.0
 
     def get_next_recommended_category(self) -> SELCategory:
         """
-        Recommend which KU category to focus on next.
+        Recommend which curriculum category to focus on next.
 
         Business rules:
         1. Start with Self-Awareness (foundation)
@@ -183,7 +183,7 @@ class KuLearningJourney:
 
     def get_strongest_category(self) -> SELCategory:
         """
-        Get the KU category with highest progress.
+        Get the curriculum category with highest progress.
 
         Returns:
             SELCategory with most completion
@@ -200,7 +200,7 @@ class KuLearningJourney:
 
     def get_weakest_category(self) -> SELCategory:
         """
-        Get the KU category with lowest progress.
+        Get the curriculum category with lowest progress.
 
         Returns:
             SELCategory with least completion

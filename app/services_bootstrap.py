@@ -1667,7 +1667,7 @@ async def compose_services(
                 executor=query_executor,  # Creates SUBMISSION_FEEDBACK entity + FEEDBACK_FOR relationship
                 ku_interaction_service=learning_services[
                     "article_service"
-                ].interaction,  # Closes mastery loop
+                ].mastery,  # Closes mastery loop
             )
 
         exercise_backend = ExerciseBackend(
@@ -1700,7 +1700,7 @@ async def compose_services(
 
         teacher_review_service = TeacherReviewService(
             executor=query_executor,
-            ku_interaction_service=learning_services["article_service"].interaction,
+            ku_interaction_service=learning_services["article_service"].mastery,
             event_bus=event_bus,
         )
         logger.info("✅ TeacherReviewService created (ADR-040)")

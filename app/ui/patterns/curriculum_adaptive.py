@@ -1,13 +1,13 @@
 """
-KU Adaptive Curriculum Components
-=================================
+Curriculum Adaptive Components
+===============================
 
-DaisyUI/Tailwind components for adaptive KU curriculum delivery.
-Absorbed from SEL components — these display curriculum content organized by SEL categories.
+DaisyUI/Tailwind components for adaptive curriculum delivery.
+Display curriculum content organized by SEL categories.
 
 Components:
 - SELCategoryCard: Progress card for one SEL category
-- AdaptiveKUCard: Card for one KU in personalized curriculum
+- AdaptiveArticleCard: Card for one Article in personalized curriculum
 - SELJourneyOverview: Complete journey across all 5 categories
 """
 
@@ -15,7 +15,7 @@ from typing import Any
 
 from fasthtml.common import H1, H2, Div, P
 
-from core.models.curriculum.ku_progress import KuLearningJourney, ReportCategoryProgress
+from core.models.curriculum.learning_progress import CurriculumProgress, LearningJourney
 from core.models.entity_types import CurriculumEntity
 from core.models.enums import SELCategory
 from ui.enum_helpers import get_sel_icon
@@ -25,14 +25,14 @@ from ui.primitives.badge import Badge
 from ui.primitives.button import ButtonLink
 
 
-def SELCategoryCard(category: SELCategory, progress: ReportCategoryProgress) -> Any:
+def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
     """Card showing progress in one SEL category."""
     category_title = f"{get_sel_icon(category.value)} {category.value.replace('_', ' ').title()}"
 
     metadata = [
-        f"{progress.kus_mastered} mastered",
-        f"{progress.kus_in_progress} in progress",
-        f"{progress.kus_available} available",
+        f"{progress.articles_mastered} mastered",
+        f"{progress.articles_in_progress} in progress",
+        f"{progress.articles_available} available",
     ]
 
     card = EntityCard(
@@ -43,7 +43,7 @@ def SELCategoryCard(category: SELCategory, progress: ReportCategoryProgress) -> 
         metadata=metadata,
         actions=ButtonLink(
             "Continue Learning →",
-            href=f"/ku?sel={category.value}",
+            href=f"/articles?sel={category.value}",
             variant="primary",
             full_width=True,
         ),
@@ -52,8 +52,8 @@ def SELCategoryCard(category: SELCategory, progress: ReportCategoryProgress) -> 
 
     progress_section = Div(
         Progress(
-            value=progress.kus_mastered,
-            max_val=progress.total_kus,
+            value=progress.articles_mastered,
+            max_val=progress.total_articles,
             cls="progress progress-primary w-full",
         ),
         P(
@@ -105,7 +105,7 @@ def AdaptiveKUCard(ku: CurriculumEntity, prerequisites_met: bool = True) -> Any:
     )
 
 
-def SELJourneyOverview(journey: KuLearningJourney) -> Div:
+def SELJourneyOverview(journey: LearningJourney) -> Div:
     """Complete SEL journey overview showing progress across all 5 categories."""
     next_category = journey.get_next_recommended_category()
 

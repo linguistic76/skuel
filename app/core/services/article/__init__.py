@@ -15,7 +15,7 @@ Sub-services:
 - ArticleGraphService: Graph navigation and relationships
 - ArticleSemanticService: Semantic relationship management
 - ArticlePracticeService: Event-driven practice tracking
-- ArticleInteractionService: Pedagogical tracking (VIEWED->IN_PROGRESS->MASTERED)
+- ArticleMasteryService: Pedagogical tracking (VIEWED->IN_PROGRESS->MASTERED)
 
 DELETED (January 2026):
 - KuLpService: Redundant delegation to LpService (use LpService directly)
@@ -25,8 +25,8 @@ DELETED (January 2026):
 from core.services.article.article_adaptive_service import ArticleAdaptiveService
 from core.services.article.article_core_service import ArticleCoreService
 from core.services.article.article_graph_service import ArticleGraphService
-from core.services.article.article_interaction_service import (
-    ArticleInteractionService,
+from core.services.article.article_mastery_service import (
+    ArticleMasteryService,
     LearningState,
     UserKuProgress,
 )
@@ -38,7 +38,7 @@ __all__ = [
     "ArticleAdaptiveService",
     "ArticleCoreService",
     "ArticleGraphService",
-    "ArticleInteractionService",
+    "ArticleMasteryService",
     "ArticlePracticeService",
     "ArticleSearchService",
     "ArticleSemanticService",

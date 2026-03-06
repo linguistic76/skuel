@@ -22,14 +22,14 @@ from typing import TYPE_CHECKING
 
 from core.models.curriculum.curriculum import Curriculum
 from core.models.curriculum.article import Article
-from core.models.curriculum.ku_intelligence import (
+from core.models.curriculum.mastery import (
     ContentPreference,
-    KuMastery,
+    Mastery,
     LearningPreference,
     LearningVelocity,
     MasteryLevel,
 )
-from core.models.curriculum.ku_progress import KuLearningJourney, ReportCategoryProgress
+from core.models.curriculum.learning_progress import CurriculumProgress, LearningJourney
 from core.models.curriculum.learning_path import LearningPath
 from core.models.enums import Domain, LearningLevel, SELCategory
 from core.models.relationship_names import RelationshipName
@@ -250,7 +250,7 @@ class ArticleAdaptiveService:
     # ==========================================================================
 
     @with_error_handling(error_type="system", operation="get_sel_journey")
-    async def get_sel_journey(self, user_uid: str) -> Result[KuLearningJourney]:
+    async def get_sel_journey(self, user_uid: str) -> Result[LearningJourney]:
         """Get user's complete SEL journey across all categories."""
         category_progress = {}
 
@@ -262,7 +262,7 @@ class ArticleAdaptiveService:
         overall = total_progress / len(SELCategory)
 
         return Result.ok(
-            KuLearningJourney(
+            LearningJourney(
                 user_uid=user_uid,
                 category_progress=category_progress,
                 overall_completion=overall,
@@ -271,7 +271,7 @@ class ArticleAdaptiveService:
 
     async def _calculate_category_progress(
         self, user_uid: str, category: SELCategory
-    ) -> ReportCategoryProgress:
+    ) -> CurriculumProgress:
         """Calculate progress in one SEL category."""
         try:
             all_kus_result = await self.ku_backend.find_by(sel_category=category.value)
@@ -288,8 +288,8 @@ class ArticleAdaptiveService:
 
             mastered = sum(1 for ku in all_kus if ku.uid in user_intel.current_masteries)
 
-            return ReportCategoryProgress(
-                user_uid=user_uid, sel_category=category, kus_mastered=mastered, total_kus=total
+            return CurriculumProgress(
+                user_uid=user_uid, sel_category=category, articles_mastered=mastered, total_articles=total
             )
 
         except Exception as e:
@@ -297,8 +297,8 @@ class ArticleAdaptiveService:
                 "Error calculating category progress - returning empty",
                 extra={"user_uid": user_uid, "category": category.value, "error": str(e)},
             )
-            return ReportCategoryProgress(
-                user_uid=user_uid, sel_category=category, kus_mastered=0, total_kus=0
+            return CurriculumProgress(
+                user_uid=user_uid, sel_category=category, articles_mastered=0, total_articles=0
             )
 
     # ==========================================================================
@@ -411,7 +411,7 @@ class ArticleAdaptiveService:
     # INTELLIGENCE QUERY HELPERS
     # ==========================================================================
 
-    async def _query_user_masteries(self, user_uid: str) -> dict[str, KuMastery]:
+    async def _query_user_masteries(self, user_uid: str) -> dict[str, Mastery]:
         """Query user's MASTERED relationships from graph."""
         try:
             query = """
@@ -484,7 +484,7 @@ class ArticleAdaptiveService:
                     datetime.fromisoformat(updated_at_str) if updated_at_str else datetime.now()
                 )
 
-                mastery = KuMastery(
+                mastery = Mastery(
                     uid=f"mastery_{user_uid}_{ku_uid}",
                     user_uid=user_uid,
                     knowledge_uid=ku_uid,
@@ -562,10 +562,10 @@ class ArticleAdaptiveService:
             return []
 
     def _calculate_learning_velocities(
-        self, masteries: dict[str, KuMastery]
+        self, masteries: dict[str, Mastery]
     ) -> dict[Domain, LearningVelocity]:
         """Calculate learning velocity by domain from mastery patterns."""
-        domain_masteries: dict[Domain, list[KuMastery]] = {}
+        domain_masteries: dict[Domain, list[Mastery]] = {}
         for ku_uid, mastery in masteries.items():
             domain = self._extract_domain_from_uid(ku_uid)
             if domain not in domain_masteries:

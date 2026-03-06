@@ -388,7 +388,7 @@ class SkuelLinter:
         "_ui.py",  # UI routes handle mixed types defensively
         "_components.py",  # UI components handle mixed types defensively
         "base_service.py",  # Generic service class handles dynamic config objects
-        "ku_intelligence_service.py",  # Defensive checks for optional model methods
+        "article_intelligence_service.py",  # Defensive checks for optional model methods
     ]
 
     # Files where lambda is allowed

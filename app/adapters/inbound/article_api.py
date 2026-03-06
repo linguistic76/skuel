@@ -336,7 +336,7 @@ def create_article_api_routes(
                 cls="alert alert-error",
             )
 
-        from ui.patterns.ku_adaptive import SELJourneyOverview
+        from ui.patterns.curriculum_adaptive import SELJourneyOverview
 
         return SELJourneyOverview(result.value)
 
@@ -373,7 +373,7 @@ def create_article_api_routes(
                 icon="📚",
             )
 
-        from ui.patterns.ku_adaptive import AdaptiveKUCard
+        from ui.patterns.curriculum_adaptive import AdaptiveKUCard
 
         return Div(
             *[AdaptiveKUCard(ku) for ku in curriculum],

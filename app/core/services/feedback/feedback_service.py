@@ -31,7 +31,7 @@ from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
-    from core.services.article.article_interaction_service import ArticleInteractionService
+    from core.services.article.article_mastery_service import ArticleMasteryService
 
 logger = get_logger(__name__)
 
@@ -52,7 +52,7 @@ class FeedbackService:
         openai_service: OpenAIService | None = None,
         anthropic_service: AnthropicService | None = None,
         executor: "QueryExecutor | None" = None,
-        ku_interaction_service: "ArticleInteractionService | None" = None,
+        ku_interaction_service: "ArticleMasteryService | None" = None,
     ) -> None:
         """
         Initialize with AI services and query executor.

@@ -31,7 +31,7 @@ def create_article_reading_routes(app, rt, services, _sync_service=None):
     api_routes = create_article_reading_api_routes(
         app=app,
         rt=rt,
-        ku_interaction_service=services.article.interaction,
+        ku_interaction_service=services.article.mastery,
         ku_service=services.article,
     )
     routes.extend(api_routes)
@@ -41,7 +41,7 @@ def create_article_reading_routes(app, rt, services, _sync_service=None):
         app=app,
         rt=rt,
         ku_service=services.article,
-        ku_interaction_service=services.article.interaction,
+        ku_interaction_service=services.article.mastery,
         exercises_service=services.exercises,
     )
     routes.extend(ui_routes)

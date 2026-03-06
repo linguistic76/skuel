@@ -1,16 +1,16 @@
 """
-Knowledge Interaction Service - Pedagogical Tracking
-=====================================================
+Article Mastery Service - Pedagogical Tracking
+===============================================
 
-Tracks user interactions with knowledge units for self-directed learning.
+Tracks user mastery transitions for Articles (teaching compositions).
 
 State Progression:
     NONE -> VIEWED -> IN_PROGRESS -> MASTERED
 
 Responsibilities:
-- Record when user views curriculum content
+- Record when user views Article content
 - Track in-progress learning state
-- Query user's learning state for a KU
+- Manage MASTERED transitions
 - Support pedagogical search filters
 
 Architecture:
@@ -55,7 +55,7 @@ class UserKuProgress:
     is_bookmarked: bool = False  # BOOKMARKED relationship exists
 
 
-class ArticleInteractionService:
+class ArticleMasteryService:
     """
     Tracks user interactions with knowledge units.
 
@@ -89,7 +89,7 @@ class ArticleInteractionService:
         """
         self.backend = backend
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.article.interaction")
+        self.logger = get_logger("skuel.services.article.mastery")
 
     async def record_view(
         self,
@@ -391,7 +391,7 @@ class ArticleInteractionService:
             Result[None]: Success or database error
         """
         if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="ArticleInteractionService"))
+            return Result.fail(Errors.system("Backend required", service="ArticleMasteryService"))
 
         query = """
         MATCH (user:User {uid: $user_uid})
@@ -427,7 +427,7 @@ class ArticleInteractionService:
             Result[bool]: True if bookmarked, False if unbookmarked
         """
         if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="ArticleInteractionService"))
+            return Result.fail(Errors.system("Backend required", service="ArticleMasteryService"))
 
         # Check if bookmark exists
         check_query = """
@@ -502,7 +502,7 @@ class ArticleInteractionService:
             Result[bool]: True if mastered successfully
         """
         if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="ArticleInteractionService"))
+            return Result.fail(Errors.system("Backend required", service="ArticleMasteryService"))
 
         now = datetime.now(UTC).isoformat()
 
@@ -566,7 +566,7 @@ class ArticleInteractionService:
             Result[list[str]]: List of bookmarked KU UIDs
         """
         if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="ArticleInteractionService"))
+            return Result.fail(Errors.system("Backend required", service="ArticleMasteryService"))
 
         query = """
         MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Entity)

@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     from core.services.article.article_adaptive_service import ArticleAdaptiveService
     from core.services.article.article_core_service import ArticleCoreService
     from core.services.article.article_graph_service import ArticleGraphService
-    from core.services.article.article_interaction_service import ArticleInteractionService
+    from core.services.article.article_mastery_service import ArticleMasteryService
     from core.services.article.article_practice_service import ArticlePracticeService
     from core.services.article.article_search_service import ArticleSearchService
     from core.services.article.article_semantic_service import ArticleSemanticService
@@ -242,7 +242,7 @@ class KuSubServices:
     graph: "ArticleGraphService"
     semantic: "ArticleSemanticService"
     practice: "ArticlePracticeService"
-    interaction: "ArticleInteractionService"
+    mastery: "ArticleMasteryService"
     relationships: "UnifiedRelationshipService"
     intelligence: "ArticleIntelligenceService"
     adaptive: "ArticleAdaptiveService"
@@ -287,7 +287,7 @@ def create_ku_sub_services(
     5. ArticleGraphService (repo, neo4j_adapter, graph_intel)
     6. ArticleSemanticService (repo, neo4j_adapter, intelligence)
     7. ArticlePracticeService (backend, event_bus)
-    8. ArticleInteractionService (backend, event_bus)
+    8. ArticleMasteryService (backend, event_bus)
 
     Args:
         backend: ArticleOperations backend - REQUIRED
@@ -309,7 +309,7 @@ def create_ku_sub_services(
     from core.services.article.article_adaptive_service import ArticleAdaptiveService
     from core.services.article.article_core_service import ArticleCoreService
     from core.services.article.article_graph_service import ArticleGraphService
-    from core.services.article.article_interaction_service import ArticleInteractionService
+    from core.services.article.article_mastery_service import ArticleMasteryService
     from core.services.article.article_practice_service import ArticlePracticeService
     from core.services.article.article_search_service import ArticleSearchService
     from core.services.article.article_semantic_service import ArticleSemanticService
@@ -367,8 +367,8 @@ def create_ku_sub_services(
     # Step 7: Create practice (event-driven)
     practice = ArticlePracticeService(backend=backend, event_bus=event_bus)
 
-    # Step 8: Create interaction (event-driven)
-    interaction = ArticleInteractionService(backend=backend, event_bus=event_bus)
+    # Step 8: Create mastery (pedagogical tracking)
+    mastery = ArticleMasteryService(backend=backend, event_bus=event_bus)
 
     # Step 9: Create adaptive curriculum service
     adaptive = ArticleAdaptiveService(ku_backend=backend, user_service=user_service)
@@ -379,7 +379,7 @@ def create_ku_sub_services(
         graph=graph,
         semantic=semantic,
         practice=practice,
-        interaction=interaction,
+        mastery=mastery,
         relationships=relationships,
         intelligence=intelligence,
         adaptive=adaptive,
