@@ -1304,12 +1304,14 @@ The UnifiedIngestionService is not just a feature—it's a foundational core tha
 from core.services.ingestion import UnifiedIngestionService
 ```
 
-**Key Capabilities (2026-02-08):**
+**Key Capabilities:**
 - **Dry-Run Mode:** Preview changes before ingesting (`dry_run=True`)
 - **Incremental Ingestion:** Skip unchanged files (95%+ efficiency)
 - **Ingestion History:** Full audit trail in Neo4j (`:IngestionHistory` nodes)
 - **Real-Time Progress:** WebSocket-based updates
 - **Domain Integration:** Admin-only ingestion triggers on list pages
+- **Edge Ingestion (March 2026):** `type: Edge` YAML files create relationships between existing entities (MERGE-based, idempotent). Evidence properties: confidence, polarity, temporality, source. 5 evidence relationship types: `EXACERBATED_BY`, `REDUCED_BY`, `CORRELATED_WITH`, `CAUSES`, `PRECEDES`
+- **Full LS Field Wiring (March 2026):** All 11 Learning Step relationship fields wired for ingestion (TRAINS_KU, CONTAINS_KNOWLEDGE, REQUIRES_STEP, etc.). Article `uses_kus` also wired.
 
 **API Endpoints:**
 - `POST /api/ingest/file` - Single file

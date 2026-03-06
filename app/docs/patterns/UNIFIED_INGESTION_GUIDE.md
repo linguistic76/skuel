@@ -535,14 +535,71 @@ connections:
 | `guides_goal` | GUIDES_GOAL | Goal | Principle |
 | `inspires_habit` | INSPIRES_HABIT | Habit | Principle |
 | `contains_steps` | HAS_STEP | LS | LP |
-| `teaches_knowledge` | CONTAINS_KNOWLEDGE | KU | LS |
 | `organizes` | ORGANIZES | KU | MOC |
 
-> **Note:** KU-to-KU relationship types are unified with the Relationship Registry.
-> Ingestion config is derived from the registry, so `requires` maps to
-> `REQUIRES_KNOWLEDGE` and `enables` maps to `ENABLES_KNOWLEDGE` — the same
-> types used across all domains. See `core/services/ingestion/config.py` for the
-> full mapping.
+#### Article Composition Fields
+
+| YAML Field | Relationship Type | Target | Direction |
+|-----------|-------------------|--------|-----------|
+| `uses_kus` | USES_KU | Ku | outgoing |
+
+#### Learning Step Fields (11 total)
+
+| YAML Field | Relationship Type | Target | Direction |
+|-----------|-------------------|--------|-----------|
+| `primary_knowledge_uids` | CONTAINS_KNOWLEDGE | Entity | outgoing |
+| `trains_ku_uids` | TRAINS_KU | Ku | outgoing |
+| `prerequisite_step_uids` | REQUIRES_STEP | Entity | outgoing |
+| `prerequisite_knowledge_uids` | REQUIRES_KNOWLEDGE | Entity | outgoing |
+| `supporting_knowledge_uids` | REQUIRES_KNOWLEDGE | Entity | outgoing |
+| `principle_uids` | GUIDED_BY_PRINCIPLE | Principle | outgoing |
+| `choice_uids` | INFORMS_CHOICE | Entity | outgoing |
+| `habit_uids` | BUILDS_HABIT | Entity | outgoing |
+| `task_uids` | ASSIGNS_TASK | Task | outgoing |
+| `event_template_uids` | SCHEDULES_EVENT | Event | outgoing |
+| `learning_path_uids` | HAS_STEP | Entity | incoming |
+
+> **Note:** Single-value fields `learning_path_uid` and `knowledge_uid` are auto-converted
+> to their list equivalents (`learning_path_uids`, `primary_knowledge_uids`) during preparation.
+
+> **Note:** Relationship types are unified with the Relationship Registry.
+> Ingestion config is derived from the registry via `generate_ingestion_relationship_config()`.
+> See `core/services/ingestion/config.py` for the full mapping.
+
+---
+
+## Edge Ingestion (Standalone Relationships)
+
+Edge files declare relationships between existing entities. They create graph edges, not nodes.
+
+```yaml
+type: Edge
+from: ku:caffeine
+to: ku:tinnitus-buzzing
+relationship: EXACERBATED_BY
+confidence: 0.8
+polarity: -1
+temporality: hours
+source: self_observation
+evidence: "Buzzing consistently worse 30-60 min after coffee"
+tags: [health, nervous-system]
+```
+
+**How it works:**
+- `is_edge_type()` detects `type: Edge` before entity type detection
+- `validate_edge_data()` validates required fields and value constraints
+- `prepare_edge_data()` normalizes UIDs (colon→dot) and extracts evidence properties
+- `ingest_edge()` uses `MERGE (a)-[r:REL_TYPE]->(b) SET r += $props` (idempotent)
+- In batch mode, edges are processed AFTER entities (so referenced nodes exist)
+
+**Validation rules:**
+- Required: `from`, `to`, `relationship` (must be valid `RelationshipName`)
+- `confidence`: 0.0–1.0
+- `polarity`: -1, 0, or 1
+- `temporality`: minutes, hours, days, chronic
+- `source`: self_observation, research, teacher, clinical
+
+**Evidence relationship types:** `EXACERBATED_BY`, `REDUCED_BY`, `CORRELATED_WITH`, `CAUSES`, `PRECEDES`
 
 ---
 
@@ -580,6 +637,7 @@ class IngestionStats:
     nodes_created: int
     nodes_updated: int
     relationships_created: int
+    edges_created: int          # Standalone edge files ingested
     duration_seconds: float
     errors: list[dict] | None
 ```
