@@ -2,44 +2,25 @@
 Universal Neo4j Backend
 =======================
 
-SKUEL's 14-Domain Persistence Layer
-------------------------------------
+SKUEL's Entity Type Persistence Layer
+--------------------------------------
 
-This module provides the universal backend for the 14 domains in SKUEL.
-A single generic implementation replaces what would otherwise be 14+
+This module provides the universal backend for all entity types in SKUEL.
+A single generic implementation replaces what would otherwise be 17+
 separate domain-specific backend classes.
 
 BACKENDS IN USE (services_bootstrap.py)
 ----------------------------------------
 
-**Activity Domains (6):**
-    HabitsBackend[Habit] - habits_backend
-    GoalsBackend[Goal] - goals_backend
-    TasksBackend[Task] - tasks_backend
-    EventsBackend[Event] - events_backend
-    ChoicesBackend[Choice] - choices_backend
-    PrinciplesBackend[Principle] - principles_backend
+**Domain-specific backends:**
+    TasksBackend[Task], GoalsBackend[Goal], HabitsBackend[Habit]
+    EventsBackend[Event], ChoicesBackend[Choice], PrinciplesBackend[Principle]
+    ArticleBackend[Article], LpBackend[LearningPath], ExerciseBackend[Exercise]
+    SubmissionsBackend[Submission]
 
-**Curriculum Domains (4):**
-    ArticleBackend[Article] - knowledge_backend (article:)
-    UniversalNeo4jBackend[LearningStep] - ls_backend (ls:)
-    LpBackend[LearningPath] - lp_backend (lp:)
-    ExerciseBackend[Exercise] - exercise_backend
-
-**Finance Domains (2):**
-    UniversalNeo4jBackend[ExpensePure] - finance_backend
-    UniversalNeo4jBackend[InvoicePure] - invoice_backend
-
-**Content/Submissions (2):**
-    SubmissionsBackend[Submission] - submissions_backend
-    UniversalNeo4jBackend[ActivityReport] - ai_feedback_backend
-
-**Supporting (5):**
-    UniversalNeo4jBackend[HabitCompletion] - habit_completions_backend
-    UniversalNeo4jBackend[Transcription] - transcription_backend
-    UniversalNeo4jBackend[PrincipleReflection] - reflection_backend
-    UniversalNeo4jBackend[UserProgress] - progress_backend
-    UniversalNeo4jBackend[Askesis] - askesis_backend
+**Generic backends (UniversalNeo4jBackend[T]):**
+    LearningStep, ExpensePure, InvoicePure, ActivityReport
+    HabitCompletion, Transcription, PrincipleReflection, UserProgress, Askesis
 
 NOT USING THIS BACKEND
 ----------------------

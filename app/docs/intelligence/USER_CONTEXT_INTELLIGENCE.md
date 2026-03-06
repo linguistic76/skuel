@@ -30,7 +30,7 @@ UserContext provides the state. This service provides the synthesis.
 
 **Core Value Proposition:**
 - Combines user state (UserContext) with graph intelligence (13 domain services)
-- Answers "What should I work on?" across all 14 domains
+- Answers "What should I work on?" across all entity types
 - Provides schedule-aware, capacity-respecting recommendations
 - Measures life path alignment across 5 dimensions
 
@@ -1014,7 +1014,7 @@ async def get_coaching_recommendations(self, user_uid: str):
 
 ### Cross-Domain Synthesis
 
-**Unique Capability:** UserContextIntelligence is the ONLY service that synthesizes across all 14 domains:
+**Unique Capability:** UserContextIntelligence is the ONLY service that synthesizes across all entity types:
 
 | Synthesis Type | Domains Combined | Output |
 |----------------|------------------|--------|
@@ -1344,4 +1344,4 @@ except Exception as e:
 
 - **Intelligence Services Architecture** - Overview of all intelligence services
 - **UserContextIntelligence** - Quick reference for the 8 flagship methods
-- **14-Domain + 5-System Architecture** - Domain organization
+- **Entity Type + 5-System Architecture** - Domain organization

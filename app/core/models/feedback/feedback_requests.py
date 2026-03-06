@@ -4,7 +4,7 @@ SubmissionFeedback Domain Request Models
 
 Pydantic models for teacher/AI feedback on student submissions.
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from typing import Any

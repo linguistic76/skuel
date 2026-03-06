@@ -40,21 +40,14 @@ When Cache is Invalidated:
 --------------------------
 The cache is invalidated IMMEDIATELY when any of these domain events occur:
 
-    Activity Domain Events:
     - TaskCreated, TaskCompleted, TaskUpdated, TaskDeleted
     - GoalCreated, GoalAchieved, GoalMilestoneReached, GoalProgressUpdated
     - HabitCreated, HabitCompleted, HabitStreakBroken, HabitStreakMilestone
     - EventCreated, EventCompleted, EventUpdated, EventDeleted
     - ChoiceCreated, ChoiceUpdated, ChoiceDeleted
     - PrincipleCreated, PrincipleUpdated, PrincipleDeleted, PrincipleStrengthChanged
-
-    Finance Domain Events:
     - ExpenseCreated, ExpenseUpdated, ExpenseDeleted, ExpensePaid
-
-    Content Domain Events:
     - JournalCreated, JournalUpdated, JournalDeleted
-
-    Curriculum Domain Events:
     - KnowledgeCreated, LearningPathStarted, LearningPathCompleted
 
 Event subscriptions are wired in services_bootstrap.py:

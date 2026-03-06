@@ -20,17 +20,17 @@ import contextlib
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from core.models.curriculum.curriculum import Curriculum
 from core.models.curriculum.article import Article
+from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum.learning_path import LearningPath
+from core.models.curriculum.learning_progress import CurriculumProgress, LearningJourney
 from core.models.curriculum.mastery import (
     ContentPreference,
-    Mastery,
     LearningPreference,
     LearningVelocity,
+    Mastery,
     MasteryLevel,
 )
-from core.models.curriculum.learning_progress import CurriculumProgress, LearningJourney
-from core.models.curriculum.learning_path import LearningPath
 from core.models.enums import Domain, LearningLevel, SELCategory
 from core.models.relationship_names import RelationshipName
 from core.models.user.user_intelligence import IntelligenceSource, UserLearningIntelligence

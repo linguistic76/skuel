@@ -257,7 +257,7 @@ Habits/Events/Choices/Principles (Clean):
 - [x] Cross-reference: ADR ← pattern guide
 
 ### Related Documentation
-- Architecture docs: `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`
+- Architecture docs: `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`
 - Related ADRs: ADR-017, ADR-025, ADR-026
 - CLAUDE.md: Relationship Service Pattern section
 

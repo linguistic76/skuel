@@ -15,12 +15,12 @@ SKUEL originally had 14 separate domain model packages (`core/models/task/`, `co
 
 ## Decision
 
-**Everything is a Ku.** All 14 domain types are stored as unified `Ku` nodes in Neo4j, discriminated by `KuType`. One model (`Ku`), one DTO (`KuDTO`), one status enum (`KuStatus`).
+**Everything is a Ku.** All entity type types are stored as unified `Ku` nodes in Neo4j, discriminated by `KuType`. One model (`Ku`), one DTO (`KuDTO`), one status enum (`KuStatus`).
 **Update (2026-02-23):** KuDTO deleted. All services now use per-domain DTOs (TaskDTO, GoalDTO, etc.).
 
 ### Phase 1-6: Model Unification (2026-02-10 to 2026-02-13)
 
-Migrated all 14 domains to use the unified `Ku` model:
+Migrated all entity types to use the unified `Ku` model:
 - Deleted `core/models/task/`, `core/models/goal/`, `core/models/habit/` (request models kept)
 - Deleted `core/models/event/`, `core/models/choice/`, `core/models/principle/`
 - Deleted `core/models/lifepath/`
@@ -67,7 +67,7 @@ The "Everything is a Ku" architecture was evolved to a domain-first model hierar
 
 **Phase 0: Neo4j Multi-Label + Backend Infrastructure**
 - Added domain-specific Neo4j labels: every entity gets `:Entity` (universal) + domain label (`:Task`, `:Goal`, etc.)
-- `NeoLabel` enum gained 16 domain labels with `from_entity_type()` mapper
+- `NeoLabel` enum gained 17 entity type labels with `from_entity_type()` mapper
 - Backend `base_label=NeoLabel.ENTITY` for CREATE: `(n:Entity:Task)` dual labels
 - User relationships standardized to `:OWNS` (was `:HAS_KU`)
 - MEGA-QUERY fixed: now uses domain labels + OWNS relationships

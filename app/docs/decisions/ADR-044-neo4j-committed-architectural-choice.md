@@ -53,7 +53,7 @@ The hexagonal boundary in SKUEL is at `UniversalNeo4jBackend` (and its subclasse
 **What "committed" means in practice:**
 
 - The MEGA-QUERY (UserContext), graph traversal (context enrichment), and relationship-driven recommendations all depend on Neo4j's native capabilities.
-- The 14-domain architecture uses multi-label nodes (`:Entity:Task`, `:Entity:Ku`) — a Neo4j convention that has no direct analogue in relational or document databases.
+- The Entity Type Architecture uses multi-label nodes (`:Entity:Task`, `:Entity:Ku`) — a Neo4j convention that has no direct analogue in relational or document databases.
 - `ORGANIZES`, `SERVES_LIFE_PATH`, `SHARES_WITH`, `BLOCKS`, `PREREQUISITE_FOR` — these relationships are domain primitives, not storage implementation details.
 - The intelligence layer (UserContextIntelligence, BaseAnalyticsService) derives insights by traversing the graph. This is not a query optimization; it is how the domain works.
 
@@ -163,7 +163,7 @@ Neo4j is the committed platform for SKUEL across all three deployment stages (Do
 
 ### Related Documentation
 - Architecture: `/docs/patterns/protocol_architecture.md` — service protocol hierarchy
-- Architecture: `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` — 14-domain graph model
+- Architecture: `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` — entity type graph model
 - Linter: `/docs/patterns/linter_rules.md` — SKUEL001 enforcement
 - Code: `adapters/persistence/neo4j/universal_backend.py` — boundary implementation
 

@@ -107,7 +107,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
         Model: Domain model type
         DtoType: DTO type
 
-    This single service replaces 14 domain-specific relationship services by using
+    This single service replaces per-entity-type relationship services by using
     RelationshipConfig to capture all domain-specific behavior.
 
     **Key Design Principles:**

@@ -210,7 +210,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     # PREREQUISITE & RELATIONSHIP CHAIN OPERATIONS (January 2026 - Unified)
     # ========================================================================
     # These methods provide prerequisite/enables/hierarchy traversal for ANY domain.
-    # Previously only curriculum domains had these; now all 14 domains can use them.
+    # Previously only curriculum domains had these; now all entity types can use them.
     # Configure via: _prerequisite_relationships, _enables_relationships
 
     @with_error_handling("get_prerequisites", error_type="database", uid_param="uid")

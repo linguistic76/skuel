@@ -24,8 +24,8 @@ from core.constants import GraphDepth, QueryLimit
 
 if TYPE_CHECKING:
     from core.ports import (
-        EventBusOperations,
         ArticleOperations,
+        EventBusOperations,
         QueryBuilderOperations,
     )
     from core.services.user import UserContext

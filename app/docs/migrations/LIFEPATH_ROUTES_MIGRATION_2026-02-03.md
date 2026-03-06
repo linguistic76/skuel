@@ -161,4 +161,4 @@ See `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` for migration guide.
 
 - Pattern documentation: `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md`
 - Migration summary: `/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md`
-- LifePath architecture: `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`
+- LifePath architecture: `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`

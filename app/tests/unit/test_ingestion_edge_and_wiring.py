@@ -17,9 +17,8 @@ from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.services.ingestion.config import generate_ingestion_relationship_config
 from core.services.ingestion.detector import is_edge_type
-from core.services.ingestion.preparer import normalize_uid, prepare_edge_data, prepare_entity_data
+from core.services.ingestion.preparer import prepare_edge_data, prepare_entity_data
 from core.services.ingestion.validator import validate_edge_data
-
 
 # ============================================================================
 # EDGE DETECTION

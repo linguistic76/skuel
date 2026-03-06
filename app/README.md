@@ -92,9 +92,9 @@ Open your browser to: `http://localhost:8000`
 
 ## Architecture Overview
 
-### The 14-Domain + 5 Systems Architecture
+### 17 Entity Types + 5 Cross-Cutting Systems
 
-SKUEL organizes human experience into **14 domains** with **5 cross-cutting systems**:
+SKUEL organizes human experience into **17 entity types** with **5 cross-cutting systems**:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -103,31 +103,16 @@ SKUEL organizes human experience into **14 domains** with **5 cross-cutting syst
 └─────────────────────────────────────────────────────────────────┘
                               ↓ ↓ ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                      ACTIVITY DOMAINS (6)                       │
-│   Tasks • Habits • Goals • Events • Principles • Choices        │
-│                     "What I DO"                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                     FINANCE DOMAIN (1)                          │
-│                   "What I MANAGE"                               │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                   CURRICULUM DOMAINS (3)                        │
-│   KnowledgeUnit • LearningStep • LearningPath                  │
-│                    "What I LEARN"                               │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│              CONTENT/ORGANIZATION DOMAINS (3)                   │
-│          Assignments • Journals • MOC                           │
-│                 "How I ORGANIZE"                                │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                     LIFEPATH DOMAIN (1)                         │
-│              "Where I'm GOING - The Destination"                │
+│  ACTIVITY (5)          Tasks • Goals • Habits • Choices         │
+│                        Principles                               │
+│  SCHEDULING            Events (cross-cutting)                   │
+│  FINANCE               Expenses & budgets (admin-only)          │
+│  CURRICULUM            Article • Ku • Resource • LS • LP        │
+│                        Exercise                                 │
+│  CONTENT PROCESSING    Submission • Journal • ActivityReport    │
+│                        SubmissionFeedback                       │
+│  ORGANIZATION          Groups • MOC (emergent)                  │
+│  DESTINATION           LifePath — "Everything flows here"       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -269,7 +254,7 @@ poetry run ruff format .
 
 ### Primary Documentation: `/docs/`
 
-- **[Architecture](docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md)** - 14-domain architecture and system design
+- **[Architecture](docs/architecture/ENTITY_TYPE_ARCHITECTURE.md)** - Entity Type Architecture and system design
 - **[Architecture Decision Records (ADRs)](docs/decisions/)** - 20+ documented decisions
 - **[CLAUDE.md](CLAUDE.md)** - Quick reference for AI assistants and developers
 - **[TESTING.md](docs/TESTING.md)** - Test strategy and patterns
@@ -363,7 +348,7 @@ poetry run ruff format .
 
 ### Current State
 
-- **Architecture**: Stable - 14-domain + 5-system architecture complete
+- **Architecture**: Stable - entity type + 5-system architecture complete
 - **Integration Tests**: 808 passing (3 known failures in GraphQL test suite)
 - **Unit Tests**: 1082 passing (100%)
 - **Documentation**: 20+ ADRs, comprehensive `/docs/`
@@ -409,7 +394,7 @@ This demo creates 6 curriculum entities (3 KUs, 2 Learning Steps, 1 Learning Pat
 1. **Quick questions**: Check `CLAUDE.md`
 2. **Architecture decisions**: Review ADRs in `/docs/decisions/`
 3. **Implementation patterns**: See `/docs/patterns/`
-4. **System architecture**: Read `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`
+4. **System architecture**: Read `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`
 
 ### External Library Docs
 

@@ -3,7 +3,7 @@ Ingestion API Routes - Unified Content Ingestion API
 =====================================================
 
 API routes for the UnifiedIngestionService (ADR-014).
-Handles both MD and YAML formats for all 14 entity types.
+Handles both MD and YAML formats for all entity types.
 
 Security:
 - All routes require admin role

@@ -769,4 +769,4 @@ print(f"Needs ingestion: {decision.needs_ingestion} ({decision.reason})")
 
 - **Decision context:** [ADR-014](/docs/decisions/ADR-014-unified-ingestion.md) - Architecture decisions
 - **UID format:** [ADR-013](/docs/decisions/ADR-013-ku-uid-flat-identity.md) - Why dot notation
-- **Domain architecture:** `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`
+- **Domain architecture:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`

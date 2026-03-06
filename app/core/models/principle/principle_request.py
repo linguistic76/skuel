@@ -4,7 +4,7 @@ Principle Request Models
 
 Pydantic models for the Principle Activity Domain API boundaries.
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass

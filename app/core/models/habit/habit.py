@@ -23,7 +23,7 @@ get_effort_score, is_identity_based, get_atomic_habits_analysis, get_summary,
 explain_existence, category, from_dto.
 
 See: /.claude/plans/ku-decomposition-domain-types.md
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass

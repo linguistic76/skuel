@@ -246,6 +246,6 @@ poetry run pytest tests/integration/test_finance_core_operations.py -v
 ## See Also
 
 - [Finance Categories Guide](../architecture/FINANCE_CATEGORIES_GUIDE.md)
-- [14-Domain Architecture](../architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md)
+- [Entity Type Architecture](../architecture/ENTITY_TYPE_ARCHITECTURE.md)
 - [User Roles (ADR-018)](../decisions/ADR-018-user-roles-four-tier-system.md)
 - [Event-Driven Architecture](../patterns/event_driven_architecture.md)

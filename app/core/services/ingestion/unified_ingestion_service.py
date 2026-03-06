@@ -49,7 +49,7 @@ from .config import DEFAULT_MAX_FILE_SIZE_BYTES, DEFAULT_USER_UID, ENTITY_CONFIG
 from .detector import detect_entity_type, detect_format, is_edge_type
 from .parser import check_file_size, parse_markdown, parse_yaml
 from .preparer import generate_uid, normalize_uid, prepare_edge_data, prepare_entity_data
-from .types import BundleStats, DryRunPreview, EdgeIngestionResult, IncrementalStats, IngestionStats
+from .types import BundleStats, DryRunPreview, IncrementalStats, IngestionStats
 from .validator import (
     validate_directory,
     validate_edge_data,

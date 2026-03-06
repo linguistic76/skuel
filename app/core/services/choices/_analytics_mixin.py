@@ -7,7 +7,7 @@ batch_analyze_decision_complexity, get_decision_patterns,
 get_choice_quality_correlations, get_domain_decision_patterns.
 
 Part of choices_intelligence_service.py decomposition (March 2026).
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from __future__ import annotations

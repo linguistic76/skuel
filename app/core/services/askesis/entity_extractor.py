@@ -33,10 +33,10 @@ from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from core.ports import (
+        ArticleOperations,
         EventsOperations,
         GoalsOperations,
         HabitsOperations,
-        ArticleOperations,
         TasksOperations,
     )
     from core.services.user import UserContext

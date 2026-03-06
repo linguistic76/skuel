@@ -22,7 +22,7 @@ Use UPPERCASE for:
 - **Migrations** - Affect multiple systems
 
 **Examples:**
-- `FOURTEEN_DOMAIN_ARCHITECTURE.md` - Cross-domain architecture
+- `ENTITY_TYPE_ARCHITECTURE.md` - Cross-domain architecture
 - `PROTOCOL_REFERENCE.md` - Complete protocol catalog
 - `ERROR_HANDLING.md` - System-wide pattern
 - `SEARCH_ARCHITECTURE.md` - Multi-domain system
@@ -100,7 +100,7 @@ Some files may not follow this convention due to historical reasons. When updati
 
 | File | Reason |
 |------|--------|
-| `FOURTEEN_DOMAIN_ARCHITECTURE.md` | Cross-domain architecture |
+| `ENTITY_TYPE_ARCHITECTURE.md` | Cross-domain architecture |
 | `protocol_architecture.md` | Implementation pattern |
 | `ADR-018-user-roles-four-tier-system.md` | ADR format |
 | `search_service_pattern.md` | Single-pattern guide |

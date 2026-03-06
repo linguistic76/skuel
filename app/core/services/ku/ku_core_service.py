@@ -5,14 +5,14 @@ KuCoreService - Atomic Knowledge Unit CRUD
 CRUD operations for lightweight ontology/reference Kus.
 Uses BaseService with curriculum domain config (shared content, admin-created).
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from typing import Any
 
+from core.models.enums.entity_enums import EntityType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.models.enums.entity_enums import EntityType
 from core.ports.backend_operations_typing import BackendOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config

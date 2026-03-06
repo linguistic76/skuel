@@ -1,7 +1,7 @@
 """
 Askesis service composition — assembles AskesisService from bootstrap-level dependencies.
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md (Askesis cross-cutting system)
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md (Askesis cross-cutting system)
 """
 
 from __future__ import annotations

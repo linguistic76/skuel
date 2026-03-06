@@ -543,7 +543,7 @@ def create_askesis_api_routes(
     # UserContextIntelligence = UserContext + 13 Domain Services
     # = User State + Complete Graph Intelligence
     #
-    # The 13 Domains:
+    # Entity Types:
     # Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
     # Curriculum Domains (3): KU, LS, LP
     # Processing Domains (3): Submissions, Journals, Feedback
@@ -557,7 +557,7 @@ def create_askesis_api_routes(
         """
         🎯 THE FLAGSHIP METHOD - What should the user focus on TODAY?
 
-        Synthesizes ALL 13 domains to create a comprehensive daily plan:
+        Synthesizes all entity types to create a comprehensive daily plan:
         - At-risk habits (maintain streaks - highest priority)
         - Today's events (can't reschedule)
         - Overdue and actionable tasks

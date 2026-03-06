@@ -4,7 +4,7 @@ Ku Domain Enums
 
 Enums specific to the atomic Knowledge Unit (Ku) domain.
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from enum import Enum

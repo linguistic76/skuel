@@ -4,7 +4,7 @@ Ingestion Routes - Clean Architecture Factory
 
 Minimal factory that wires unified ingestion API and UI routes using DomainRouteConfig.
 
-Handles both MD and YAML formats for all 14 entity types.
+Handles both MD and YAML formats for all entity types.
 """
 
 from adapters.inbound.ingestion_api import create_ingestion_api_routes

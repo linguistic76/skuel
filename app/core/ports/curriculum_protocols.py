@@ -85,8 +85,8 @@ from .base_protocols import BackendOperations, GraphRelationshipOperations
 if TYPE_CHECKING:
     from datetime import date
 
-    from core.models.curriculum.exercise import Exercise
     from core.models.curriculum.article import Article
+    from core.models.curriculum.exercise import Exercise
     from core.models.curriculum.learning_path import LearningPath
     from core.models.curriculum.learning_step import LearningStep
     from core.utils.result_simplified import Result

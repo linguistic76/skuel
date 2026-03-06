@@ -2,17 +2,16 @@
 Lightweight Service Bootstrap for SKUEL
 =======================================
 
-SKUEL's 14-Domain + 4-System Service Composition
--------------------------------------------------
+SKUEL's Entity Type + Cross-Cutting System Service Composition
+---------------------------------------------------------------
 
 This module is the composition root for SKUEL's complete architecture.
 It wires together all domain services and cross-cutting systems using
 constructor injection - no heavy DI framework required.
 
-THE 14 DOMAINS COMPOSED HERE
-----------------------------
+ENTITY TYPE SERVICES COMPOSED HERE
+-----------------------------------
 
-**Activity Domain Services (7):**
     1. tasks → TasksService - Work items and dependencies
     2. goals → GoalsService - Objectives and milestones
     3. habits → HabitsService - Recurring behaviors and streaks
@@ -20,16 +19,12 @@ THE 14 DOMAINS COMPOSED HERE
     5. choices → ChoicesService - Decisions and outcomes
     6. principles → PrinciplesService - Values and alignment
     7. finance → FinanceService - Expenses and budgets
-
-**Curriculum Domain Services (3):**
     8. knowledge → ArticleService - Knowledge Units (ku:)
     9. ls → LsService - Learning Steps (ls:)
     10. lp → LpService - Learning Paths (lp:)
-
-**Content/Organization Domain Services (4):**
     11. submissions → SubmissionsCoreService - File processing + journals
     12. life_path → AnalyticsLifePathService - Life goal alignment
-    14. analytics → AnalyticsService - Statistical aggregation
+    13. analytics → AnalyticsService - Statistical aggregation
 
 THE 4 CROSS-CUTTING SYSTEMS
 ---------------------------
@@ -98,7 +93,7 @@ See Also:
     /FUTURE_SERVICES.md - Pre-wired infrastructure services explanation
 """
 
-__version__ = "4.0"  # Updated with 14-domain + 4-system architecture
+__version__ = "4.0"  # Entity type + cross-cutting system architecture
 
 
 import os
@@ -119,6 +114,7 @@ if TYPE_CHECKING:
         AdaptiveLpCrossDomainService,
     )
     from core.services.analytics_service import AnalyticsService
+    from core.services.article_service import ArticleService
     from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
     from core.services.background.progress_feedback_worker import ProgressFeedbackWorker
@@ -138,7 +134,6 @@ if TYPE_CHECKING:
     from core.services.habits_service import HabitsService
     from core.services.insight.insight_store import InsightStore
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
-    from core.services.article_service import ArticleService
     from core.services.ku_service import KuService
     from core.services.lp_service import LpService
     from core.services.ls_service import LsService
@@ -342,7 +337,7 @@ class Services:
 
     # Unified Ingestion Service (ADR-014: Merged MD + YAML ingestion)
     unified_ingestion: IngestionOperations | None = (
-        None  # UnifiedIngestionService - handles both MD and YAML for all 14 entity types
+        None  # UnifiedIngestionService - handles both MD and YAML for all entity types
     )
 
     # The Destination - LifePath (Domain #14)
@@ -613,8 +608,8 @@ def _create_learning_services(
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.models.curriculum.learning_path import LearningPath
     from core.models.curriculum.learning_step import LearningStep
-    from core.services.entity_retrieval import EntityRetrieval
     from core.services.article_service import ArticleService
+    from core.services.entity_retrieval import EntityRetrieval
     from core.services.lp_service import LpService  # Intelligence created internally
     from core.services.ls_service import LsService
     from core.services.query_builder import QueryBuilder
@@ -1062,11 +1057,11 @@ async def compose_services(
         # 100% Dynamic Pattern: Instantiate UniversalNeo4jBackend directly at point of use
         # "The plant (models) grows on the lattice (UniversalNeo4jBackend)"
         from adapters.persistence.neo4j.domain_backends import (
+            ArticleBackend,
             ChoicesBackend,
             EventsBackend,
             GoalsBackend,
             HabitsBackend,
-            ArticleBackend,
             KuBackend,
             PrinciplesBackend,
             SubmissionsBackend,
@@ -1514,13 +1509,13 @@ async def compose_services(
         # Create AI services when LLM/embeddings are available
         # AI services are OPTIONAL - the app functions fully without them
         if llm_service and embeddings_service:
+            from core.services.article.article_ai_service import ArticleAIService
             from core.services.askesis_ai_service import AskesisAIService
             from core.services.choices.choices_ai_service import ChoicesAIService
             from core.services.context_aware_ai_service import ContextAwareAIService
             from core.services.events.events_ai_service import EventsAIService
             from core.services.goals.goals_ai_service import GoalsAIService
             from core.services.habits.habits_ai_service import HabitsAIService
-            from core.services.article.article_ai_service import ArticleAIService
             from core.services.lp.lp_ai_service import LpAIService
             from core.services.ls.ls_ai_service import LsAIService
             from core.services.principles.principles_ai_service import PrinciplesAIService
@@ -2555,7 +2550,7 @@ async def compose_services(
         # UserContextIntelligence = UserContext + 13 Domain Services
         # This is THE service that answers: "What should I work on next?"
         #
-        # The 13 Domains:
+        # Entity Types:
         # - Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
         # - Curriculum Domains (3): KU, LS, LP
         # - Processing Domains (2): Reports (includes journals), Analytics

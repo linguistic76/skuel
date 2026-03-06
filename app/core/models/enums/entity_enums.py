@@ -6,7 +6,7 @@ Core enums for entity type discrimination, processing lifecycle,
 content origin, and domain classification.
 
 Organized in 5 sections:
-1. Core Identity: EntityType (16 values), ContentOrigin (4 tiers)
+1. Core Identity: EntityType (17 values), ContentOrigin (4 tiers)
 2. Processing Lifecycle: EntityStatus (14 values), ProcessorType (4 values)
 3. Domain Classification: Domain, NonKuDomain, DomainIdentifier
 4. Analytics: AnalyticsDomain
@@ -24,33 +24,28 @@ from enum import Enum
 
 class EntityType(str, Enum):
     """
-    Type of Entity — 17 domain types in SKUEL.
+    Type of Entity — 17 entity types in SKUEL.
 
     Discriminator for the `entity_type` field on Entity.
 
-    Five groups:
-        Knowledge (shared curriculum):
-            ARTICLE         → Teaching composition (essay-like narrative, formerly Ku)
-            KU              → Atomic knowledge unit (concept, state, principle — lightweight)
-            RESOURCE        → Books, talks, films, music (admin-only)
-        Curriculum Structure:
-            LEARNING_STEP   → Step in a learning path
-            LEARNING_PATH   → Ordered sequence of steps
-            EXERCISE        → Instruction template for practicing curriculum
-        Content Processing:
-            JOURNAL             → Raw student submission (voice/text, informal)
-            SUBMISSION          → Student-uploaded work (file submissions)
-            ACTIVITY_REPORT     → AI/human feedback about activity patterns
-            SUBMISSION_FEEDBACK → Teacher or AI feedback on a submission
-        Activity (user-owned):
-            TASK            → Knowledge about what needs doing
-            GOAL            → Knowledge about where you're heading
-            HABIT           → Knowledge about what you practice
-            EVENT           → Knowledge about what you attend
-            CHOICE          → Knowledge about decisions you make
-            PRINCIPLE       → Knowledge about what you believe
-        Destination:
-            LIFE_PATH       → Knowledge about your life direction
+    Entity types (alphabetical):
+        ACTIVITY_REPORT     → AI/human feedback about activity patterns
+        ARTICLE             → Teaching composition (essay-like narrative)
+        CHOICE              → Knowledge about decisions you make
+        EVENT               → Knowledge about what you attend
+        EXERCISE            → Instruction template for practicing curriculum
+        GOAL                → Knowledge about where you're heading
+        HABIT               → Knowledge about what you practice
+        JOURNAL             → Raw student submission (voice/text, informal)
+        KU                  → Atomic knowledge unit (concept, state, principle)
+        LEARNING_PATH       → Ordered sequence of steps
+        LEARNING_STEP       → Step in a learning path
+        LIFE_PATH           → Knowledge about your life direction
+        PRINCIPLE           → Knowledge about what you believe
+        RESOURCE            → Books, talks, films, music (admin-only)
+        SUBMISSION          → Student-uploaded work (file submissions)
+        SUBMISSION_FEEDBACK → Teacher or AI feedback on a submission
+        TASK                → Knowledge about what needs doing
 
     Any Article can organize other Articles via ORGANIZES relationships (emergent
     identity — no separate MOC type needed).
@@ -69,16 +64,14 @@ class EntityType(str, Enum):
         Destination:         user_uid = student (user-owned)
     """
 
-    # Knowledge (shared curriculum)
+    # Shared curriculum (admin-created, publicly readable)
     ARTICLE = "article"
     KU = "ku"
     RESOURCE = "resource"
-
-    # Curriculum structure
     LEARNING_STEP = "learning_step"
     LEARNING_PATH = "learning_path"
 
-    # Content processing (derivation chain)
+    # Content processing (user-owned, derivation chain)
     JOURNAL = "journal"
     SUBMISSION = "submission"
     ACTIVITY_REPORT = "activity_report"
@@ -415,7 +408,9 @@ class EntityStatus(str, Enum):
             EntityStatus.SCHEDULED,
         }
 
-    def can_transition_to(self, target: EntityStatus, entity_type: EntityType | None = None) -> bool:
+    def can_transition_to(
+        self, target: EntityStatus, entity_type: EntityType | None = None
+    ) -> bool:
         """
         Check if transition to target status is valid.
 
@@ -888,7 +883,7 @@ class NonKuDomain(str, Enum):
 
 
 # Union type for any domain identifier in SKUEL.
-# EntityType covers all 16 entity manifestations; NonKuDomain covers the 4 non-entity domains.
+# EntityType covers all 17 entity types; NonKuDomain covers the 4 non-entity domains.
 DomainIdentifier = EntityType | NonKuDomain
 
 

@@ -9,7 +9,7 @@ tags: [lifepath, destination-domain, domain]
 
 # LifePath Domain
 
-**Type:** Destination Domain (The 14th Domain)
+**Type:** Destination Domain
 **Purpose:** "Am I living my life path?"
 
 ## Core Philosophy
@@ -250,4 +250,4 @@ LifePath measures whether your SYSTEMS (habits, knowledge, principles) are align
 - [LP Domain](lp.md) - One LP is the "life path"
 - [ADR-011: Life Path Alignment Query](../decisions/ADR-011-life-path-alignment-query.md)
 - [Knowledge Substance Philosophy](../architecture/knowledge_substance_philosophy.md)
-- [Fourteen Domain Architecture](../architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md)
+- [Entity Type Architecture](../architecture/ENTITY_TYPE_ARCHITECTURE.md)

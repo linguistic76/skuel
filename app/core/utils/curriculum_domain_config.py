@@ -45,7 +45,7 @@ from core.services.relationships import UnifiedRelationshipService
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
-    from core.ports import EventBusOperations, ArticleOperations, QueryBuilderOperations
+    from core.ports import ArticleOperations, EventBusOperations, QueryBuilderOperations
     from core.services.article.article_adaptive_service import ArticleAdaptiveService
     from core.services.article.article_core_service import ArticleCoreService
     from core.services.article.article_graph_service import ArticleGraphService

@@ -238,7 +238,7 @@ class BaseUpdatePayload(TypedDict, total=False):
     Base update payload for CRUD operations.
 
     All domain update payloads extend this. These fields are common across
-    all 14 domains.
+    all entity types.
 
     Core Fields:
         title: Entity title/name

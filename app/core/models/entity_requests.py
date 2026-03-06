@@ -8,7 +8,7 @@ Pydantic models shared across all entity types:
 - Bulk operations (tags, categorize, delete)
 - Schedule management (progress report generation)
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from datetime import date, datetime, time

@@ -23,7 +23,7 @@ related: []
 
 ## Quick Links
 
-- [Domains](#domains) - The 14-domain architecture documentation
+- [Domains](#domains) - Entity type architecture documentation
 - [Architecture](#architecture) - System design and domain structure
 - [Patterns](#patterns) - Implementation patterns and coding standards
 - [DSL](#dsl) - Activity DSL specification and usage
@@ -48,32 +48,26 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 ## Domains
 
-*The 14-domain architecture: 6 Activity + 1 Finance + 3 Curriculum + 1 Content + 2 Organizational + 1 Destination*
+*17 Entity Types with behavioral traits — see [Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md)*
 
-| Document | Category | Description |
-|----------|----------|-------------|
-| [Domains Overview](domains/README.md) | Overview | Complete domain architecture reference |
-| **Activity Domains (6)** |
-| [Tasks](domains/tasks.md) | Activity | Work items with dependencies and deadlines |
-| [Goals](domains/goals.md) | Activity | Objectives with milestones and progress |
-| [Habits](domains/habits.md) | Activity | Recurring behaviors with streak tracking |
-| [Events](domains/events.md) | Activity | Calendar items with scheduling |
-| [Choices](domains/choices.md) | Activity | Decisions with outcome tracking |
-| [Principles](domains/principles.md) | Activity | Values that guide goals and choices |
-| **Finance Domain (1)** |
-| [Finance](domains/finance.md) | Finance | Expense and budget tracking |
-| **Curriculum Domains (3)** |
-| [KU (Knowledge Unit)](domains/ku.md) | Curriculum | Atomic knowledge unit (point topology) |
-| [LS (Learning Step)](domains/ls.md) | Curriculum | Sequential steps aggregating KUs (edge topology) |
-| [LP (Learning Path)](domains/lp.md) | Curriculum | Complete learning sequences (path topology) |
-| **Content Domain (1)** |
-| [Submissions + Feedback](domains/submissions.md) | Content | Ku→Exercise→Submission→Feedback learning loop |
-| [Journals](domains/journals.md) | Content | User journals (EntityType.JOURNAL, AI-processed) |
-| **Organizational Domains (2)** |
-| Groups | Organization | Teacher-student class management (ADR-040) — doc pending |
-| [MOC (Map of Content)](domains/moc.md) | Organization | KU-based non-linear navigation (graph topology) |
-| **Destination Domain (1)** |
-| [LifePath](domains/lifepath.md) | Destination | "Am I living my life path?" |
+| Document | Description |
+|----------|-------------|
+| [Domains Overview](domains/README.md) | Complete entity type reference |
+| [Tasks](domains/tasks.md) | Work items with dependencies and deadlines |
+| [Goals](domains/goals.md) | Objectives with milestones and progress |
+| [Habits](domains/habits.md) | Recurring behaviors with streak tracking |
+| [Events](domains/events.md) | Calendar items with scheduling |
+| [Choices](domains/choices.md) | Decisions with outcome tracking |
+| [Principles](domains/principles.md) | Values that guide goals and choices |
+| [Finance](domains/finance.md) | Expense and budget tracking (admin-only) |
+| [KU (Knowledge Unit)](domains/ku.md) | Atomic knowledge unit (point topology) |
+| [LS (Learning Step)](domains/ls.md) | Sequential steps aggregating KUs (edge topology) |
+| [LP (Learning Path)](domains/lp.md) | Complete learning sequences (path topology) |
+| [Submissions + Feedback](domains/submissions.md) | Article→Exercise→Submission→Feedback learning loop |
+| [Journals](domains/journals.md) | User journals (EntityType.JOURNAL, AI-processed) |
+| Groups | Teacher-student class management (ADR-040) — doc pending |
+| [MOC (Map of Content)](domains/moc.md) | Non-linear navigation (graph topology via ORGANIZES) |
+| [LifePath](domains/lifepath.md) | "Am I living my life path?" |
 
 ---
 
@@ -94,7 +88,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[Model Architecture](architecture/MODEL_ARCHITECTURE.md)** | **2026-02-23** | **290** |
 | **[Relationships Architecture](architecture/RELATIONSHIPS_ARCHITECTURE.md)** | **2026-03-03** | **—** |
 | **[Feedback Architecture](architecture/FEEDBACK_ARCHITECTURE.md)** | **2026-03-03** | **—** |
-| [SKUEL Architecture — 14 Domains + 5 Cross-Cutting Systems](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) | 2026-03-03 | — |
+| [SKUEL Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md) | 2026-03-07 | — |
 | [SKUEL Routing Architecture: Routes, Services, and ...](architecture/ROUTING_ARCHITECTURE.md) | 2025-11-27 | 647 |
 | [Search Architecture - Unified Search System](architecture/SEARCH_ARCHITECTURE.md) | 2026-03-03 | — |
 | [Service Architecture: File Organization & Topology](architecture/SERVICE_TOPOLOGY.md) | 2026-03-03 | — |

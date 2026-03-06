@@ -354,7 +354,7 @@ skills:
     library_package: null  # SKUEL pattern, not external library
     library_version: null
     primary_docs:
-      - /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+      - /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
       - /docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md
       - /docs/domains/tasks.md
       - /docs/domains/goals.md

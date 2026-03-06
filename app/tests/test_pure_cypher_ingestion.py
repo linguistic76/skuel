@@ -345,7 +345,7 @@ def test_entity_type_detection():
     print("   - ku → KU (atomic knowledge unit)")
     print("   - Case insensitive")
     print("   - MOC flag detection works")
-    print("   - All 14 domains are unified peers (January 2026)")
+    print("   - All entity types are unified peers (January 2026)")
 
 
 @pytest.mark.asyncio

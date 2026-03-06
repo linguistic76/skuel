@@ -25,7 +25,7 @@ def DashboardLayout(
 ) -> Div:
     """Standard dashboard layout for domain pages.
 
-    This layout provides a consistent structure used across all 14 domains:
+    This layout provides a consistent structure used across all entity types:
     - Page title with optional subtitle
     - Quick action buttons (top right)
     - Stats grid showing key metrics

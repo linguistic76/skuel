@@ -131,7 +131,7 @@ Students see assessments at `/submissions/feedback`.
 
 ## See Also
 
-- [14-Domain Architecture](../architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) - Content/Processing section
+- [Entity Type Architecture](../architecture/ENTITY_TYPE_ARCHITECTURE.md) - Content/Processing section
 - [Sharing Patterns](../patterns/SHARING_PATTERNS.md) - Three-level visibility
 - [ADR-040](../decisions/ADR-040-teacher-assignment-workflow.md) - Teacher assignment workflow
 - [Protocol Reference](../reference/PROTOCOL_REFERENCE.md) - Submission + Feedback protocols

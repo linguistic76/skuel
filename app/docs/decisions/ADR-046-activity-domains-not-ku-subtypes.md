@@ -6,7 +6,7 @@
 
 ## Context
 
-SKUEL's 14-domain architecture includes several domain categories: Activity (5), Scheduling (1), Finance (1), Curriculum (4), Content (1), Organizational (2), and Destination (1). This ADR concerns the relationship between the 5 Activity Domains and Ku specifically.
+SKUEL's Entity Type Architecture includes several domain categories: Activity (5), Scheduling (1), Finance (1), Curriculum (4), Content (1), Organizational (2), and Destination (1). This ADR concerns the relationship between the 5 Activity Domains and Ku specifically.
 
 - **Ku** — atomic knowledge reference node. A single definable thing: concept, state, principle, substance, practice, value. Extends `Entity` directly with 4 fields (`namespace`, `ku_category`, `aliases`, `source`). Shared content, admin-created. (`core/models/ku/ku.py`)
 
@@ -88,4 +88,4 @@ When modeling a new concept:
 
 - ADR-041: Unified Ku Model
 - `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
-- `docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`
+- `docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`

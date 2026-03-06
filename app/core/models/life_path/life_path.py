@@ -20,7 +20,7 @@ ULTIMATE_PATH relationship. These fields are hydrated onto the Ku
 node for model consistency.
 
 See: /.claude/plans/ku-decomposition-domain-types.md
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass

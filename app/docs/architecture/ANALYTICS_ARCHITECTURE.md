@@ -386,4 +386,4 @@ Analytics and `ActivityReport` are often confused — both aggregate activity da
 - [FEEDBACK_ARCHITECTURE.md](FEEDBACK_ARCHITECTURE.md) — `ActivityReport` and `SubmissionFeedback` patterns
 - [FEEDBACK_ARCHITECTURE.md](FEEDBACK_ARCHITECTURE.md) — Submission pipeline, Exercise, visibility model
 - [INTELLIGENCE_SERVICES_INDEX.md](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md) — Domain intelligence services (extend `BaseAnalyticsService`)
-- [14-Domain Architecture](FOURTEEN_DOMAIN_ARCHITECTURE.md)
+- [Entity Type Architecture](ENTITY_TYPE_ARCHITECTURE.md)

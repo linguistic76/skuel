@@ -2,20 +2,20 @@
 Unified Base Service - Relationship-Centric Architecture
 ========================================================
 
-SKUEL's 14-Domain + 4-System Architecture - Service Foundation
---------------------------------------------------------------
+SKUEL's Entity Type Architecture - Service Foundation
+------------------------------------------------------
 
-This module provides the base service class for **6 of the 14 Domains**.
+This module provides the base service class for 6 entity type services.
 Core principle: Everything has relationships - that's what makes SKUEL
 powerful as a knowledge graph platform.
 
 **DECOMPOSED**: January 2026 - BaseService now inherits from 7 focused mixins
 following Single Responsibility Principle. See /core/services/mixins/ for details.
 
-DOMAINS USING THIS BASE SERVICE (6 of 14)
-----------------------------------------
+ENTITY TYPES USING THIS BASE SERVICE (6)
+-----------------------------------------
 
-**Activity Domain Services with BaseService (6 of 7):**
+**Activity Services with BaseService (6):**
     1. TasksService(BaseService[TasksOperations, Task])
     2. GoalsService(BaseService[GoalsOperations, Goal])
     3. HabitsService(BaseService[HabitsOperations, Habit])
@@ -23,8 +23,8 @@ DOMAINS USING THIS BASE SERVICE (6 of 14)
     5. ChoicesService(BaseService[ChoicesOperations, Choice])
     6. PrinciplesService(BaseService[PrinciplesOperations, Principle])
 
-DOMAINS NOT USING THIS BASE SERVICE (8 of 14)
---------------------------------------------
+ENTITY TYPES NOT USING THIS BASE SERVICE
+-----------------------------------------
 
 **Activity Domain (1 of 7)** - Standalone facade:
     7. FinanceService - Expenses and budgets (standalone facade)

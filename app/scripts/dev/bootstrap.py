@@ -679,7 +679,7 @@ async def _wire_all_routes(
 
         create_ingestion_routes(app, rt, services)
         logger.info(
-            "✅ Ingestion routes registered (unified MD + YAML for 14 entity types, admin-only)"
+            "✅ Ingestion routes registered (unified MD + YAML for all entity types, admin-only)"
         )
 
     # Composite routes

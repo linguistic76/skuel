@@ -20,7 +20,7 @@ Grouping patterns (Article is the point, LS is the edge, LP is the path):
     LP      → a learning path (ordered sequence of steps)
 
 See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from __future__ import annotations

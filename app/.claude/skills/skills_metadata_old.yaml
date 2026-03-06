@@ -143,7 +143,7 @@ skills:
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns, base-analytics-service]
     primary_docs:
-      - /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+      - /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
       - /docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md
       - /docs/domains/tasks.md
       - /docs/domains/goals.md

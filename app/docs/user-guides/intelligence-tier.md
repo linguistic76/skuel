@@ -26,7 +26,7 @@ If unset, the tier defaults to `full` — existing deployments with API keys kee
 
 | Feature | Works? |
 |---------|--------|
-| Create, read, update, delete entities (all 14 domains) | Yes |
+| Create, read, update, delete entities (all entity types) | Yes |
 | 13 analytics intelligence services (BaseAnalyticsService) | Yes |
 | UserContext (~240 fields, MEGA-QUERY) | Yes |
 | Daily planning ("What should I work on today?") | Yes |

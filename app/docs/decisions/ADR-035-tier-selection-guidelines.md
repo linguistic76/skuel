@@ -42,7 +42,7 @@ Investigation revealed:
 - No decision record exists explaining when to skip Tier 3
 
 **Constraints:**
-- Must maintain backward compatibility with existing 14 domains
+- Must maintain backward compatibility with existing entity types
 - Pattern choice affects development velocity (boilerplate vs structure)
 - Type safety via `DomainModelProtocol` requires Tier 3 (frozen dataclasses)
 - Conversion boilerplate is a legitimate cost that must be justified
@@ -175,7 +175,7 @@ Neo4j → DTO → Pydantic Response (no business logic)
 
 ### Neutral Consequences
 
-ℹ️ **14 domains, 2 patterns**: 12 use Pattern A, 2 use Pattern B
+ℹ️ **entity types, 2 patterns**: 12 use Pattern A, 2 use Pattern B
 ℹ️ **Conversion boilerplate**: Remains in Pattern A domains (justified by business logic)
 ℹ️ **Code generation**: Could reduce boilerplate in future (but not implemented)
 

@@ -8,7 +8,7 @@ Pydantic models for:
 
 SubmissionFeedback request models live in core.models.feedback.feedback_requests.
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from pydantic import Field
@@ -33,7 +33,9 @@ class SubmissionCreateRequest(CreateRequestBase):
     tags: list[str] = Field(default_factory=list, description="Tags")
 
     # Derivation
-    parent_entity_uid: str | None = Field(None, description="Curriculum Ku this assignment is based on")
+    parent_entity_uid: str | None = Field(
+        None, description="Curriculum Ku this assignment is based on"
+    )
 
     # Processing
     processor_type: ProcessorType | None = Field(

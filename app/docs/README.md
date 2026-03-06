@@ -27,8 +27,8 @@ tags: [documentation, index, hub, architecture, patterns]
 - **[CLAUDE.md](/home/mike/skuel/app/CLAUDE.md)** - Main instructions for Claude/AI assistants
 
 **By role:**
-- **New to SKUEL?** → [Architecture](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md)
-- **Adding a feature?** → [14-Domain Architecture](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md)
+- **New to SKUEL?** → [Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md)
+- **Adding a feature?** → [Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md)
 - **Writing queries?** → [Query Architecture](patterns/query_architecture.md)
 - **Working with relationships?** → [Unified Relationship Service](patterns/UNIFIED_RELATIONSHIP_SERVICE.md)
 
@@ -38,7 +38,7 @@ tags: [documentation, index, hub, architecture, patterns]
 
 | Category | Description | Key Documents |
 |----------|-------------|---------------|
-| **[architecture/](architecture/)** | System design, domain structure | [14-Domain Architecture](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md), [Feedback Architecture](architecture/FEEDBACK_ARCHITECTURE.md) |
+| **[architecture/](architecture/)** | System design, domain structure | [Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md), [Feedback Architecture](architecture/FEEDBACK_ARCHITECTURE.md) |
 | **[patterns/](patterns/)** | Implementation patterns, coding standards | [Query Architecture](patterns/query_architecture.md), [Error Handling](patterns/ERROR_HANDLING.md) |
 | **[decisions/](decisions/)** | Architecture Decision Records (ADRs) | [ADR-015 MEGA-QUERY](decisions/ADR-015-mega-query-rich-queries-completion.md), [ADR-016 Context Builder](decisions/ADR-016-context-builder-decomposition.md) |
 | **[dsl/](dsl/)** | Activity DSL specification | [DSL Specification](dsl/DSL_SPECIFICATION.md), [DSL Usage Guide](dsl/DSL_USAGE_GUIDE.md) |
@@ -58,7 +58,7 @@ tags: [documentation, index, hub, architecture, patterns]
 
 | Pattern | Documentation | Status |
 |---------|---------------|--------|
-| **14-Domain Architecture** | [FOURTEEN_DOMAIN_ARCHITECTURE.md](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) | Active |
+| **Entity Type Architecture** | [ENTITY_TYPE_ARCHITECTURE.md](architecture/ENTITY_TYPE_ARCHITECTURE.md) | Active |
 | **6 Activity Domains** | Tasks, Goals, Habits, Events, Choices, Principles | Active |
 | **UnifiedRelationshipService** | [UNIFIED_RELATIONSHIP_SERVICE.md](patterns/UNIFIED_RELATIONSHIP_SERVICE.md) | Active (6 domains) |
 | **MEGA-QUERY** | [ADR-015](decisions/ADR-015-mega-query-rich-queries-completion.md) | Active |
@@ -124,7 +124,7 @@ related: [other_doc.md]
 
 | Casing | When to Use | Examples |
 |--------|-------------|----------|
-| **UPPERCASE** | Major reference docs, complete guides, architecture overviews | `FOURTEEN_DOMAIN_ARCHITECTURE.md`, `ERROR_HANDLING.md`, `SIMPLE_SEARCH_SETUP_GUIDE.md` |
+| **UPPERCASE** | Major reference docs, complete guides, architecture overviews | `ENTITY_TYPE_ARCHITECTURE.md`, `ERROR_HANDLING.md`, `SIMPLE_SEARCH_SETUP_GUIDE.md` |
 | **lowercase** | Specific patterns, tactical guides, focused topics | `query_architecture.md`, `search_service_pattern.md`, `three_tier_type_system.md` |
 
 **Directory Patterns:**
@@ -147,7 +147,7 @@ related: [other_doc.md]
 
 | Task | Start Here |
 |------|------------|
-| Add new domain | [FOURTEEN_DOMAIN_ARCHITECTURE.md](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) |
+| Add new entity type | [ENTITY_TYPE_ARCHITECTURE.md](architecture/ENTITY_TYPE_ARCHITECTURE.md) |
 | Add relationships | [UNIFIED_RELATIONSHIP_SERVICE.md](patterns/UNIFIED_RELATIONSHIP_SERVICE.md) |
 | Write Cypher queries | [query_architecture.md](patterns/query_architecture.md) |
 | Handle errors | [ERROR_HANDLING.md](patterns/ERROR_HANDLING.md) |

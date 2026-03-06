@@ -9,7 +9,7 @@ Adds 2 feedback-specific fields:
 - feedback: str | None — the feedback text
 - feedback_generated_at: datetime | None — when feedback was generated
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass

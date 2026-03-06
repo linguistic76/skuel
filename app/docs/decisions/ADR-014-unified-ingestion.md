@@ -267,7 +267,7 @@ ENTITY_CONFIGS: dict[str, EntityIngestionConfig] = {
 ### Related Documentation
 - **Implementation guide:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` - How to use the ingestion service
 - ADR-013: KU UID Flat Identity Design
-- `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`
+- `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`
 
 ---
 

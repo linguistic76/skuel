@@ -38,7 +38,7 @@ SKUEL chose to use **established open-source observability tools** (Prometheus +
 **"Use proven tools for infrastructure, build custom solutions for domain logic."**
 
 SKUEL's development philosophy:
-- ✅ **Build custom**: Domain-specific features (14 domains, graph relationships, intelligence services)
+- ✅ **Build custom**: Domain-specific features (entity types, graph relationships, intelligence services)
 - ❌ **Don't build custom**: Infrastructure that already exists and is battle-tested
 
 Prometheus + Grafana represent **50+ years of combined development** by dedicated teams:
@@ -151,7 +151,7 @@ Graph Health dashboard shows 16 panels with time-series, gauges, pie charts
 
 **Solution**: Prometheus + Grafana provide this **without reinventing infrastructure**.
 
-**Benefit**: Development time spent on SKUEL's unique value (14-domain architecture, graph intelligence) instead of rebuilding Grafana.
+**Benefit**: Development time spent on SKUEL's unique value (Entity Type Architecture, graph intelligence) instead of rebuilding Grafana.
 
 ### The Boundary: What Goes Where?
 
@@ -955,7 +955,7 @@ All dashboards are version-controlled in git:
 - Prometheus Documentation: https://prometheus.io/docs/
 - Grafana Documentation: https://grafana.com/docs/
 - PromQL Guide: https://prometheus.io/docs/prometheus/latest/querying/basics/
-- SKUEL Architecture: `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`
+- SKUEL Architecture: `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`
 - SKUEL Event System: `/docs/patterns/event_driven_architecture.md`
 
 ---

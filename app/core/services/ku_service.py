@@ -6,7 +6,7 @@ Facade for atomic Ku operations. Delegates to:
 - .core: CRUD operations (KuCoreService)
 - .search: Search and namespace queries (KuSearchService)
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from typing import TYPE_CHECKING, Any

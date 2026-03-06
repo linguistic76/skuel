@@ -13,7 +13,7 @@ Note: LP steps are graph relationships (HAS_STEP), not model attributes.
 The `steps` property returns an empty tuple — use LpService.get_steps() instead.
 
 See: /.claude/plans/crispy-spinning-wozniak.md
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass

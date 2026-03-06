@@ -15,7 +15,7 @@ Provides:
 Requires on concrete class:
     backend, logger (set by UnifiedRelationshipService.__init__)
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from __future__ import annotations

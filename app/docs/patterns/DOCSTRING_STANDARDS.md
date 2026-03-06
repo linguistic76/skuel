@@ -112,7 +112,7 @@ class TasksService:
     - tasks_search: Search and filtering
     - tasks_intelligence: Analytics and recommendations
 
-    See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+    See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
     See: /docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md
 
     Usage:
@@ -169,7 +169,7 @@ Central cross-domain intelligence hub providing:
 - Schedule-aware task suggestions
 - Learning opportunity identification
 
-This service aggregates data from all 14 domains to provide
+This service aggregates data from all entity types to provide
 holistic insights about the user's state and next best actions.
 
 Architecture:
@@ -444,8 +444,8 @@ async def find_by(self, **filters) -> Result[list[T]]:
 
 ### Docstrings → Architecture
 
-**When docstring says**: "Part of 14-domain architecture"
-**User reads**: `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`
+**When docstring says**: "Part of Entity Type Architecture"
+**User reads**: `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`
 
 **When docstring says**: "Orchestrates sub-services"
 **User reads**: `/docs/architecture/ROUTING_ARCHITECTURE.md`

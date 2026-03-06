@@ -667,7 +667,7 @@ class AdminSummary(UserOwnedEntity):  # New entity for admin-written feedback?
 - [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)
 - [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md)
 - [SHARING_PATTERNS.md](/docs/patterns/SHARING_PATTERNS.md)
-- [FOURTEEN_DOMAIN_ARCHITECTURE.md](/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md)
+- [ENTITY_TYPE_ARCHITECTURE.md](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md)
 
 ---
 

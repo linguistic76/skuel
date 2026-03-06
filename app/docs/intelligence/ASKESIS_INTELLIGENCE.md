@@ -4,7 +4,7 @@
 
 ## Overview
 
-Askesis is SKUEL's **cross-cutting intelligence system** that synthesizes all 14 domains to answer the fundamental question: *"What should I work on next?"*
+Askesis is SKUEL's **cross-cutting intelligence system** that synthesizes all entity types to answer the fundamental question: *"What should I work on next?"*
 
 Unlike domain intelligence services that focus on a single domain, Askesis orchestrates across ALL domains to provide holistic life context intelligence.
 
@@ -47,7 +47,7 @@ UserContextIntelligenceFactory (13-Domain Synthesis)
 
 | Aspect | Domain Intelligence | Askesis |
 |--------|---------------------|---------|
-| **Scope** | Single domain (Tasks, Goals, etc.) | All 14 domains |
+| **Scope** | Single domain (Tasks, Goals, etc.) | all entity types |
 | **Inheritance** | `BaseAnalyticsService[T]` | Custom facade pattern |
 | **Entity Focus** | Domain-specific entities | User's complete life context |
 | **Primary Question** | "What's happening in this domain?" | "What should I work on next?" |

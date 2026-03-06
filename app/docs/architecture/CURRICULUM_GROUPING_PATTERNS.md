@@ -430,7 +430,7 @@ Curriculum Domains use `_user_ownership_relationship = None`:
 - Same KU, LS, LP available to all users
 - User progress tracked separately via LEARNING, MASTERED relationships
 
-**See:** `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` § "Curriculum Domain Service Architecture"
+**See:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` § "Curriculum Domain Service Architecture"
 
 ---
 

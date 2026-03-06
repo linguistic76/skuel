@@ -4,7 +4,7 @@ updated: 2026-01-30
 status: implemented
 category: decisions
 tags: [adr, decisions, ku, uid, identity, curriculum, universal-hierarchical-pattern]
-related: [FOURTEEN_DOMAIN_ARCHITECTURE.md, CURRICULUM_GROUPING_PATTERNS.md, UNIVERSAL_HIERARCHICAL_PATTERN.md]
+related: [ENTITY_TYPE_ARCHITECTURE.md, CURRICULUM_GROUPING_PATTERNS.md, UNIVERSAL_HIERARCHICAL_PATTERN.md]
 ---
 
 # ADR-013: KU UID Flat Identity Design
@@ -16,7 +16,7 @@ related: [FOURTEEN_DOMAIN_ARCHITECTURE.md, CURRICULUM_GROUPING_PATTERNS.md, UNIV
 **Decision Type:** ☑️ Pattern/Practice  ⬜ Query Architecture  ⬜ Graph Schema  ⬜ Performance Optimization
 
 **Related ADRs:**
-- Related to: 14-Domain Architecture
+- Related to: Entity Type Architecture
 - Related to: Curriculum Grouping Patterns (KU, LS, LP, MOC)
 
 ---
@@ -301,7 +301,7 @@ SET r.order = 1,
 ## Documentation & Communication
 
 ### Related Documentation
-- `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` - KU as "point" topology
+- `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` - KU as "point" topology
 - `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` - KU, LS, LP, MOC relationships
 - `/CLAUDE.md` - UID prefix documentation
 

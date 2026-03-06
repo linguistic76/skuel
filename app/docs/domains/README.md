@@ -9,65 +9,34 @@ tags: [domains, reference, architecture]
 
 # Domain Documentation
 
-This folder contains documentation for each of SKUEL's 14 domains.
+This folder contains documentation for each of SKUEL's entity types.
 
-## Domain Categories
+## Entity Types
 
-### Activity Domains (6)
-User-facing entities with shared patterns via `UnifiedRelationshipService`:
+Each entity type is a peer — behavioral traits (not category membership) determine infrastructure behavior. See [ADR-047](../decisions/ADR-047-entity-types-replace-domain-categories.md).
 
-| Domain | File | UID Prefix | Key Purpose |
-|--------|------|------------|-------------|
+| Entity Type | File | UID Prefix | Key Purpose |
+|-------------|------|------------|-------------|
 | [Tasks](tasks.md) | `task:` | Work items with dependencies and deadlines |
 | [Goals](goals.md) | `goal:` | Objectives with milestones and progress |
 | [Habits](habits.md) | `habit:` | Recurring behaviors with streak tracking |
 | [Events](events.md) | `event:` | Calendar items with scheduling |
 | [Choices](choices.md) | `choice:` | Decisions with outcome tracking |
 | [Principles](principles.md) | `principle:` | Values that guide goals and choices |
-
-### Finance Domain (1)
-Standalone expense/budget tracker (NOT an Activity Domain):
-
-| Domain | File | UID Prefix | Key Purpose |
-|--------|------|------------|-------------|
-| [Finance](finance.md) | `expense:` | Expense and budget tracking |
-
-### Curriculum Domains (3)
-Three knowledge organization patterns:
-
-| Domain | File | UID Prefix | Topology | Key Purpose |
-|--------|------|------------|----------|-------------|
-| [KU](ku.md) | `ku:` | Point | Atomic knowledge content |
-| [LS](ls.md) | `ls:` | Edge | Sequential learning steps |
-| [LP](lp.md) | `lp:` | Path | Complete learning sequences |
-
-### Content/Processing Domains (2)
-Content processing and file handling:
-
-| Domain | File | UID Prefix | Key Purpose |
-|--------|------|------------|-------------|
+| [Finance](finance.md) | `expense:` | Expense and budget tracking (admin-only) |
+| [KU](ku.md) | `ku:` | Atomic knowledge unit (point topology) |
+| [LS](ls.md) | `ls:` | Sequential learning steps (edge topology) |
+| [LP](lp.md) | `lp:` | Complete learning sequences (path topology) |
 | [Journals](journals.md) | `journal:` | Two-tier system: Voice (ephemeral) + Curated (permanent) |
-| [Assignments](assignments.md) | `assignment:` | User-facing assignment interface |
+| [Submissions](submissions.md) | N/A | Student work + feedback |
+| [MOC](moc.md) | `ku:` | Non-linear navigation (graph topology via ORGANIZES) |
+| [LifePath](lifepath.md) | `lp:` | "Am I living my life path?" |
 
-### Organizational Domain (1)
-KU-based knowledge organization:
+**MOC Architecture:** MOC is NOT a separate entity — it IS a KU with ORGANIZES relationships. A KU "is" a MOC when it has outgoing ORGANIZES relationships (emergent identity).
 
-| Domain | File | UID Prefix | Key Purpose |
-|--------|------|------------|-------------|
-| [MOC](moc.md) | `ku:` | KU-based non-linear navigation (graph topology via ORGANIZES) |
-
-**MOC Architecture (January 2026):** MOC is NOT a separate entity - it IS a KU with ORGANIZES relationships. A KU "is" a MOC when it has outgoing ORGANIZES relationships (emergent identity).
-
-**Journals Two-Tier System (December 2025):**
+**Journals Two-Tier System:**
 - **PJ1 (Voice)**: Audio journals, max 3 stored, FIFO auto-cleanup (`JOURNAL_VOICE`)
 - **PJ2 (Curated)**: Text/markdown journals, permanent storage (`JOURNAL_CURATED`)
-
-### The Destination (1)
-The ultimate goal all domains flow toward:
-
-| Domain | File | Key Purpose |
-|--------|------|-------------|
-| [LifePath](lifepath.md) | "Am I living my life path?" |
 
 ## Quick Reference
 
@@ -148,6 +117,6 @@ class LpService(BaseService[LpOperations, LearningPath]):
 
 ## See Also
 
-- [14-Domain Architecture](../architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md)
+- [Entity Type Architecture](../architecture/ENTITY_TYPE_ARCHITECTURE.md)
 - [UnifiedRelationshipService](../patterns/UNIFIED_RELATIONSHIP_SERVICE.md)
 - [Relationship Registry](../../core/models/relationship_registry.py)

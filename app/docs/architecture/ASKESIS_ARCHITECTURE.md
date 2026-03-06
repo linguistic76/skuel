@@ -4,7 +4,7 @@
 
 ## Overview
 
-Askesis is one of SKUEL's **5 Cross-Cutting Systems** providing life context synthesis and action recommendations. Unlike Activity Domain services that manage entities, Askesis synthesizes across ALL 14 domains to answer: *"What should I work on next?"*
+Askesis is one of SKUEL's **5 Cross-Cutting Systems** providing life context synthesis and action recommendations. Unlike Activity Domain services that manage entities, Askesis synthesizes across all entity types to answer: *"What should I work on next?"*
 
 ---
 
@@ -156,7 +156,7 @@ This eliminates the former circular dependency between UserStateAnalyzer and Act
 
 Askesis is fundamentally different:
 1. **No entities** - Doesn't manage Askesis entities in Neo4j
-2. **Cross-domain** - Synthesizes ALL 14 domains
+2. **Cross-domain** - Synthesizes all entity types
 3. **Intelligence-focused** - Recommendations, not CRUD
 4. **Factory-dependent** - Requires UserContextIntelligenceFactory
 

@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-The Universal Hierarchical Pattern has been **fully implemented** across SKUEL, achieving complete consistency in how hierarchy is stored and managed across all 14 domains.
+The Universal Hierarchical Pattern has been **fully implemented** across SKUEL, achieving complete consistency in how hierarchy is stored and managed across all entity types.
 
 **Core Achievement:** "All hierarchy is graph relationships, never UID encoding"
 
@@ -509,7 +509,7 @@ The Universal Hierarchical Pattern is **fully implemented and documented** acros
 **Tests Needed:** ⏳ Recommended
 **Documentation:** ✅ Comprehensive
 
-The Universal Hierarchical Pattern extends SKUEL's graph-first philosophy to entity identity, ensuring that the structure of relationships matches the structure of data storage - consistent, flexible, and graph-native across all 14 domains.
+The Universal Hierarchical Pattern extends SKUEL's graph-first philosophy to entity identity, ensuring that the structure of relationships matches the structure of data storage - consistent, flexible, and graph-native across all entity types.
 
 ---
 

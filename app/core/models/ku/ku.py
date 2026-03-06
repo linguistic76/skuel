@@ -16,7 +16,7 @@ UID Format: ku_{namespace}-{slug}_{random}
     e.g., ku_attention-buzzing_a1b2c3d4
     Namespace derived from middle segment at first hyphen.
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from __future__ import annotations

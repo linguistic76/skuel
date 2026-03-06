@@ -20,9 +20,9 @@ import pytest
 from core.models.task.task import Task
 from core.services.analytics_engine import (
     AnalyticsEngine,
-    MasteryProgression,
     LearningPattern,
     LearningPatternType,
+    MasteryProgression,
 )
 from core.utils.result_simplified import Result
 

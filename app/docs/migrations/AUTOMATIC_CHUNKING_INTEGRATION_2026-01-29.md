@@ -558,7 +558,7 @@ User Question
 ## Related Documents
 
 ### Architecture
-- `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` - KU domain overview
+- `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` - KU domain overview
 - `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md` - Service composition
 - `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` - Ingestion patterns
 

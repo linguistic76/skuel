@@ -15,7 +15,7 @@ from core.models.ku.ku_dto import KuDTO
 from core.ports.backend_operations_typing import BackendOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 
 class KuSearchService(BaseService[BackendOperations[Ku], Ku]):

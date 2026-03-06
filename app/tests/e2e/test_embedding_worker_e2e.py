@@ -136,7 +136,8 @@ class TestEmbeddingWorkerEventProcessing:
             # Cleanup: Delete test task
             async with neo4j_driver.session() as session:
                 await session.run(
-                    "MATCH (t:Entity {uid: $uid, entity_type: 'task'}) DETACH DELETE t", uid=task_uid
+                    "MATCH (t:Entity {uid: $uid, entity_type: 'task'}) DETACH DELETE t",
+                    uid=task_uid,
                 )
 
     @pytest.mark.asyncio
@@ -251,10 +252,12 @@ class TestEmbeddingWorkerEventProcessing:
 
             async with neo4j_driver.session() as session:
                 await session.run(
-                    "MATCH (t:Entity {uid: $uid, entity_type: 'task'}) DETACH DELETE t", uid=task_uid
+                    "MATCH (t:Entity {uid: $uid, entity_type: 'task'}) DETACH DELETE t",
+                    uid=task_uid,
                 )
                 await session.run(
-                    "MATCH (g:Entity {uid: $uid, entity_type: 'goal'}) DETACH DELETE g", uid=goal_uid
+                    "MATCH (g:Entity {uid: $uid, entity_type: 'goal'}) DETACH DELETE g",
+                    uid=goal_uid,
                 )
 
 
@@ -426,5 +429,6 @@ class TestEmbeddingWorkerErrorRecovery:
 
             async with neo4j_driver.session() as session:
                 await session.run(
-                    "MATCH (t:Entity {uid: $uid, entity_type: 'task'}) DETACH DELETE t", uid=valid_uid
+                    "MATCH (t:Entity {uid: $uid, entity_type: 'task'}) DETACH DELETE t",
+                    uid=valid_uid,
                 )

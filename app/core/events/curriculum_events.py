@@ -1,5 +1,5 @@
 """
-Curriculum Domain Events (LS)
+Curriculum Events (LS)
 ==============================
 
 *Last updated: 2026-01-20*

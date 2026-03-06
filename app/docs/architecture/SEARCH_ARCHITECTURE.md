@@ -152,7 +152,7 @@ response = await search_router.faceted_search(request, user_uid)
 
 **How it Works:**
 1. Single comprehensive Cypher query
-2. Fetches ~240 fields of user state across all 14 domains
+2. Fetches ~240 fields of user state across all entity types
 3. Powers capacity warnings, result ranking, personalized facet suggestions
 
 **Relationship to Search:**

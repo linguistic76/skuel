@@ -19,7 +19,7 @@ diagnose_system_health, calculate_system_strength, calculate_habit_velocity,
 is_overdue, is_achieved, days_remaining, get_summary, explain_existence.
 
 See: /.claude/plans/ku-decomposition-domain-types.md
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass

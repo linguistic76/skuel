@@ -6,7 +6,7 @@ Protocol interfaces for SKUEL's Askesis service - the life context synthesis
 and action recommendation system.
 
 Askesis is a CROSS-CUTTING SYSTEM (not a standard domain) that synthesizes
-all 14 domains to answer: "What should I work on next?"
+all entity types to answer: "What should I work on next?"
 
 Unlike domain protocols that inherit from BackendOperations[T], Askesis protocols
 define high-level intelligence operations that span multiple domains.
@@ -230,7 +230,7 @@ class AskesisQueryOperations(Protocol):
 class AskesisDomainSynthesisOperations(Protocol):
     """13-Domain synthesis operations for cross-cutting intelligence.
 
-    These are THE flagship methods that synthesize all 14 domains to provide
+    These are THE flagship methods that synthesize all entity types to provide
     comprehensive life context intelligence.
 
     Requires: UserContextIntelligenceFactory (wired at construction)
@@ -244,7 +244,7 @@ class AskesisDomainSynthesisOperations(Protocol):
     ) -> Result[DailyWorkPlan]:
         """Get THE optimal work plan for TODAY.
 
-        THE FLAGSHIP METHOD - synthesizes all 14 domains to answer:
+        THE FLAGSHIP METHOD - synthesizes all entity types to answer:
         "What should I focus on today?"
 
         Considers:

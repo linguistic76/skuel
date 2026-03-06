@@ -36,14 +36,14 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 # Backend protocol
 from core.ports import BackendOperations
 
+# Facade services - Curriculum Domains
+from core.services.article_service import ArticleService
+
 # Facade services - Activity Domains
 from core.services.choices_service import ChoicesService
 from core.services.events_service import EventsService
 from core.services.goals_service import GoalsService
 from core.services.habits_service import HabitsService
-
-# Facade services - Curriculum Domains
-from core.services.article_service import ArticleService
 from core.services.lp_service import LpService
 from core.services.ls_service import LsService
 

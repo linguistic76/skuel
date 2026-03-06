@@ -13,7 +13,7 @@ UserContextIntelligence instances when given a UserContext.
 - The 13 domain services are singletons (created once at bootstrap)
 - Factory pattern separates service wiring from context binding
 
-**The 13 Domains:**
+**Entity Types:**
 - Activity Domains (6): tasks, goals, habits, events, choices, principles
 - Curriculum Domains (3): ku, ls, lp
 - Processing Domains (3): submissions, feedback, analytics
@@ -45,9 +45,9 @@ from core.services.user.intelligence.core import UserContextIntelligence
 if TYPE_CHECKING:
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
+    from core.services.article.article_graph_service import ArticleGraphService
     from core.services.calendar_service import CalendarService
     from core.services.feedback import FeedbackRelationshipService
-    from core.services.article.article_graph_service import ArticleGraphService
 
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService
     # LsRelationshipService deleted - LS now uses UnifiedRelationshipService
@@ -69,7 +69,7 @@ class UserContextIntelligenceFactory:
     - The 13 domain services are singletons (created once at bootstrap)
     - Factory pattern separates service wiring from context binding
 
-    **The 13 Domains:**
+    **Entity Types:**
     - Activity Domains (6): tasks, goals, habits, events, choices, principles
     - Curriculum Domains (3): ku, ls, lp
     - Processing Domains (3): submissions, feedback, analytics

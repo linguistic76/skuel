@@ -633,7 +633,7 @@ RETURN completed_weight / total_weight as progress_percentage
 
 ### Pattern Documentation
 - `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` - KU, LS, LP patterns
-- `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` - Domain overview
+- `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` - Domain overview
 
 ### Decision Records
 - `/docs/decisions/ADR-013-ku-uid-flat-identity.md` - KU flat identity decision

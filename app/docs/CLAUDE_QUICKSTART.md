@@ -19,7 +19,7 @@ related: [README.md, INDEX.md]
 ## TL;DR - The Essentials
 
 1. **Read CLAUDE.md first** - `/home/mike/skuel/app/CLAUDE.md` (~1000 lines of project rules)
-2. **14 domains + 5 systems** - All flow toward LifePath (domain #14)
+2. **17 entity types + 5 systems** - All flow toward LifePath
 3. **6 Activity Domains** use `UnifiedRelationshipService` - Tasks, Goals, Habits, Events, Choices, Principles
 4. **Result[T] everywhere** - Use `.is_error` not `.is_err`
 5. **Poetry for everything** - `poetry run python`, `poetry run pytest`
@@ -28,18 +28,16 @@ related: [README.md, INDEX.md]
 
 ## Architecture at a Glance
 
-### The 14 Domains
+### Entity Types (17)
 
 ```
-Activity Domains (6)     Curriculum (3)      Content/Org (3)   Destination (1)
-├── Tasks                ├── KU (point)      ├── Journals      └── LifePath
-├── Goals                ├── LS (edge)       ├── Assignments
-├── Habits               └── LP (path)       └── MOC (graph)
-├── Events
-├── Choices
-└── Principles
-
-+ Finance (standalone, NOT an Activity Domain)
+Activity (5)             Curriculum (5+)     Content/Processing    Other
+├── Tasks                ├── Ku              ├── Submission        ├── Finance
+├── Goals                ├── Article         ├── Journal           ├── Groups
+├── Habits               ├── LearningStep    ├── ActivityReport    ├── MOC (emergent)
+├── Choices              ├── LearningPath    └── SubmissionFeedback└── LifePath
+└── Principles           ├── Exercise
++ Events (scheduling)    └── Resource
 ```
 
 ### Key Files to Know

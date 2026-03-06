@@ -349,7 +349,7 @@ RETURN path
 
 **Graph Architecture:**
 - `/docs/architecture/../patterns/query_architecture.md` - Database design
-- `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` - Domain model
+- `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` - Domain model
 - `/docs/patterns/query_architecture.md` - Query patterns
 
 **UX Patterns:**

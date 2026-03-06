@@ -41,13 +41,13 @@ class SearchResult:
 # Task-based search mappings
 TASK_MAP = {
     "add domain": [
-        "/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md",
+        "/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md",
         "/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md",
         "/docs/reference/templates/service_creation.md",
         "/.claude/skills/activity-domains/SKILL.md",
     ],
     "add domain service": [
-        "/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md",
+        "/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md",
         "/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md",
         "/docs/reference/templates/service_creation.md",
     ],

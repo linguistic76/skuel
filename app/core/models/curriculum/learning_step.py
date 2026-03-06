@@ -14,7 +14,7 @@ Learning-step-specific methods: get_combined_knowledge_uids, get_all_knowledge_u
 calculate_mastery_progress, is_mastered, calculate_learning_impact, get_summary, from_dto.
 
 See: /.claude/plans/crispy-spinning-wozniak.md
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass

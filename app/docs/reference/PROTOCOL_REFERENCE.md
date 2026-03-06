@@ -296,7 +296,7 @@ class SupportsHealthCheck(Protocol):
 ## Domain Operations Protocols
 
 **Location:** `/core/ports/domain_protocols.py`
-**Purpose:** Backend/persistence-layer interfaces for all 14 domains
+**Purpose:** Backend/persistence-layer interfaces for all entity types
 **Core Principle:** "Results internally, exceptions at boundaries"
 
 All domain operation protocols use `Result[T]` return types and define **persistence-layer operations only** — CRUD, graph queries, and relationship management. Service-level methods (state transitions, event publishing, orchestration) exist on facade services as explicit delegation methods but are **not** part of the backend protocol contract.

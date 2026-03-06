@@ -134,7 +134,7 @@ class AskesisService:
         if deps.intelligence_factory is None:
             raise ValueError(
                 "intelligence_factory is REQUIRED for AskesisService. "
-                "Askesis cannot synthesize across 13 domains without it."
+                "Askesis cannot synthesize across entity types without it."
             )
 
         # Store dependencies
@@ -326,7 +326,7 @@ class AskesisService:
     # UserContextIntelligence = UserContext + 13 Domain Services
     # = User State + Complete Graph Intelligence
     #
-    # The 13 Domains:
+    # Entity Types:
     # Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
     # Curriculum Domains (3): KU, LS, LP
     # Processing Domains (3): Assignments, Journals, Reports
@@ -343,7 +343,7 @@ class AskesisService:
         """
         🎯 THE FLAGSHIP METHOD - What should the user focus on TODAY?
 
-        Synthesizes ALL 13 domains to create a comprehensive daily plan:
+        Synthesizes all entity types to create a comprehensive daily plan:
         - At-risk habits (maintain streaks - highest priority)
         - Today's events (can't reschedule)
         - Overdue and actionable tasks
@@ -651,7 +651,7 @@ class AskesisService:
     # USERCONTEXT + KNOWLEDGE INTEGRATION
     # =========================================================================
     # These methods find relevant knowledge based on the user's current
-    # activities across all 13 domains. They bridge UserContext awareness
+    # activities across all entity types. They bridge UserContext awareness
     # with knowledge recommendations.
     #
     # Architecture:

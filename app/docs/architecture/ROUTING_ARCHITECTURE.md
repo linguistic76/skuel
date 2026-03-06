@@ -112,7 +112,7 @@ This document provides a detailed explanation of how **Routes**, **Services**, a
 │   ├── tasks_ui.py                   # UI components (8K)
 │   ├── events_routes.py              # Similar pattern
 │   ├── events_api.py
-│   └── ... (14 domains total)
+│   └── ... (entity types total)
 │
 └── persistence/                       # Data Access
     ├── neo4j/
@@ -139,7 +139,7 @@ This document provides a detailed explanation of how **Routes**, **Services**, a
 ├── services/                         # Business Logic
 │   ├── tasks_service.py             # Task facade (explicit delegation methods)
 │   ├── events_service.py            # Event facade
-│   └── ... (14 domain services)
+│   └── ... (entity type services)
 │
 ├── models/                          # Domain Models
 │   ├── task/
@@ -150,7 +150,7 @@ This document provides a detailed explanation of how **Routes**, **Services**, a
 │   │   ├── event.py
 │   │   ├── event_dto.py
 │   │   └── event_request.py
-│   └── ... (14 domains)
+│   └── ... (entity types)
 │
 └── utils/
     ├── result_simplified.py         # Result[T] pattern
@@ -827,7 +827,7 @@ async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
     tasks_backend = TasksBackend(driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
     events_backend = EventsBackend(driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY)
     habits_backend = HabitsBackend(driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
-    # ... all 14 domains
+    # ... all entity types
 
     # 6. Create services with backend injection and optional AI services
     tasks_service = TasksService(backend=tasks_backend)
@@ -841,7 +841,7 @@ async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
         vector_search_service=vector_search_service,  # Optional - can be None
         embeddings_service=genai_embeddings_service,  # Optional - can be None
     )
-    # ... all 14 domains
+    # ... all entity types
 
     # 7. Return services container
     services = Services(
@@ -849,7 +849,7 @@ async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
         events=events_service,
         habits=habits_service,
         ku=ku_service,
-        # ... all 14 domains
+        # ... all entity types
     )
 
     return Result.ok(services)
@@ -878,7 +878,7 @@ async def startup():
     create_tasks_routes(app, rt, services)
     create_events_routes(app, rt, services)
     create_habits_routes(app, rt, services)
-    # ... all 14 domains
+    # ... all entity types
 
     # 5. Start server
     serve()

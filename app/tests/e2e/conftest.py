@@ -22,7 +22,6 @@ from tests.integration.conftest import (
     habits_backend,
     ingestion_service,
     ku_backend,
-    ku_service,
     lp_relationship_service,
     mock_graph_intel,
     mock_intelligence_service,

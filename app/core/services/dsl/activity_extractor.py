@@ -235,7 +235,7 @@ class ActivityExtractionResult:
 
     @property
     def total_created(self) -> int:
-        """Total entities created across all 13 domains + 1."""
+        """Total entities created across all entity types."""
         return (
             # Activity Domains (7)
             self.tasks_created
@@ -403,7 +403,7 @@ class ActivityExtractorService:
 
     if result.is_ok:
         extraction = result.value
-        print(f"Created {extraction.total_created} entities across 13 domains")
+        print(f"Created {extraction.total_created} entities across entity types")
         print(f"Tasks: {extraction.tasks_created}")
         print(f"KUs: {extraction.kus_created}")
         print(f"LifePath: {extraction.lifepath_items_created}")
@@ -540,7 +540,7 @@ class ActivityExtractorService:
         extraction.parse_errors = parsed.parse_errors
 
         # ================================================================
-        # Count by type - ALL 13 domains + 1
+        # Count by type - all entity types
         # ================================================================
 
         # Activity Domains (7)
@@ -582,7 +582,7 @@ class ActivityExtractorService:
         )
 
         # ================================================================
-        # Step 2: Create entities for each activity type - ALL 13 domains + 1
+        # Step 2: Create entities for each activity type - all entity types
         # ================================================================
 
         # ================================================================
@@ -767,7 +767,7 @@ class ActivityExtractorService:
 
         self.logger.info(
             f"Extraction complete for {report.uid}: "
-            f"created {extraction.total_created} entities across 13 domains "
+            f"created {extraction.total_created} entities across entity types "
             f"({len(extraction.creation_errors)} errors)"
         )
 
@@ -1443,7 +1443,7 @@ class ActivityExtractorService:
             content: Submission content to parse
 
         Returns:
-            Dict with activity counts and previews for all 13 domains + 1
+            Dict with activity counts and previews for all entity types
         """
         result = self.parser.parse_journal(content)
 

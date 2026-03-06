@@ -16,7 +16,7 @@ review_frequency: annual
 
 ## Overview
 
-SKUEL's intelligence layer provides graph-based analytics and insights across all 14 domains. The unified architecture uses a **two-tier design** (ADR-030):
+SKUEL's intelligence layer provides graph-based analytics and insights across all entity types. The unified architecture uses a **two-tier design** (ADR-030):
 
 - **`BaseAnalyticsService`** - Graph analytics with NO AI dependencies (all 10 domain services extend this)
 - **`BaseAIService`** - Optional AI-powered features (LLM, embeddings) for future use
@@ -433,7 +433,7 @@ from core.services.intelligence import (
 |---------|-------|-------|-----------|
 | **Askesis** | [ASKESIS_INTELLIGENCE.md](./ASKESIS_INTELLIGENCE.md) | ~1,180 (facade + 5 sub-services) | Life context synthesis, 13-domain recommendations (flagship: `get_daily_work_plan()`) |
 
-**Note:** Askesis uses a custom facade pattern (not `BaseAnalyticsService`) because it synthesizes across ALL 14 domains rather than managing a single domain's entities.
+**Note:** Askesis uses a custom facade pattern (not `BaseAnalyticsService`) because it synthesizes across all entity types rather than managing a single domain's entities.
 
 ---
 
@@ -648,7 +648,7 @@ poetry run python -m pytest tests/integration/intelligence/ -k "test_predict_goa
 - `/docs/intelligence/SHARED_INTELLIGENCE_UTILITIES.md` - **Shared utilities consolidation (5-phase guide)**
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - Unified base service pattern (now BaseAnalyticsService)
 - `/docs/decisions/ADR-021-user-context-intelligence-modularization.md` - UserContext modular package
-- `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` - Domain overview
+- `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` - Domain overview
 - `/CLAUDE.md` - Intelligence Services Architecture section
 
 ### Implementation

@@ -37,7 +37,7 @@ from core.ports import LpOperations  # Not ku_protocols.py
 
 **Design Philosophy:** Type errors are teachers, showing us where components don't flow together properly. When errors appear, investigate the fundamental design first rather than working around with quick fixes. Deal with fundamentals. Deal with the core.
 
-**See:** `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`
+**See:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`
 
 ## Entity and Ku
 
@@ -218,78 +218,82 @@ Future collaborators — human or AI — should read SKUEL's plain-English domai
 
 **See:** `/docs/dsl/DSL_SPECIFICATION.md`
 
-## SKUEL's 14-Domain + 5-System Architecture
+## SKUEL's 17 Entity Types + 5 Cross-Cutting Systems
 
 **Core Principle:** "Everything flows toward the life path"
 
-### The 14 Domains
+### The 17 Entity Types
 
-| # | Domain | Group | UID Format | Purpose |
-|---|--------|-------|-----------|---------|
-| 1-5 | Tasks, Goals, Habits, Choices, Principles | Activity | `{type}_{slug}_{random}` | User activities |
-| 6 | Events | Scheduling / Integration | `event_{slug}_{random}` | Cross-cutting scheduling layer; gives activities time-bound, schedulable form |
-| 7 | Finance | Finance | `expense_{random}` | Admin-only bookkeeping |
-| 8 | Article | Curriculum | `a_{slug}_{random}` | Teaching composition (essay-like, extends Curriculum) |
-| 9 | Ku | Curriculum | `ku_{slug}_{random}` | Atomic knowledge unit (lightweight, extends Entity) |
-| 10-11 | LS, LP | Curriculum | `ls:{random}`, `lp:{random}` | Knowledge organization |
-| 11 | Submissions + Feedback | Content | `ku_{slug}_{random}` | Student work + teacher/AI responses — uses Entity model hierarchy |
-| 12 | Groups | Organizational | `group_{slug}_{random}` | Teacher-student class management |
-| 13 | MOC | Organizational | N/A (emergent — any Entity with ORGANIZES) | Non-linear KU navigation |
-| 14 | LifePath | Destination | `lp_{random}` | "Am I living my life path?" |
+| EntityType | What It Is | UID Format | Ownership |
+|------------|-----------|-----------|-----------|
+| Task | Work to be done | `task_{slug}_{random}` | User-owned |
+| Goal | Outcome to achieve | `goal_{slug}_{random}` | User-owned |
+| Habit | Behavior to build | `habit_{slug}_{random}` | User-owned |
+| Choice | Decision to make | `choice_{slug}_{random}` | User-owned |
+| Principle | Value to embody | `principle_{slug}_{random}` | User-owned |
+| Event | Time commitment to keep | `event_{slug}_{random}` | User-owned |
+| Finance | Admin-only bookkeeping | `expense_{random}` | Admin-only |
+| Article | Teaching composition (essay-like) | `a_{slug}_{random}` | Admin-created, shared |
+| Ku | Atomic knowledge unit | `ku_{slug}_{random}` | Admin-created, shared |
+| Resource | Curated content (books, talks, films) | N/A | Admin-created, shared |
+| LearningStep | Step in a learning path | `ls:{random}` | Admin-created, shared |
+| LearningPath | Ordered sequence of steps | `lp:{random}` | Admin-created, shared |
+| Exercise | Instruction template for practicing curriculum | N/A | Admin-created, shared |
+| Submission | Student-uploaded work | N/A | User-owned |
+| Journal | Reflective writing (voice/text) | N/A | User-owned |
+| ActivityReport | Feedback about activity patterns over time | N/A | User-owned |
+| SubmissionFeedback | Assessment tied to a specific submission | N/A | User-owned |
+| LifePath | The user's life direction | `lp_{random}` | User-owned |
+| Groups | Teacher-student class management | `group_{slug}_{random}` | Teacher-owned |
+| MOC | Non-linear KU navigation | N/A (emergent — any Entity with ORGANIZES) | Emergent |
 
-### Domain Category Details
+### Behavioral Traits (ADR-047)
 
-**Activity Domains (5)** - User-facing entities with harmonized patterns:
-- Tasks, Goals, Habits, Choices, Principles
+Entity types have behavioral traits — not category membership — that determine infrastructure behavior:
+
+| Trait | Method | What It Determines |
+|-------|--------|--------------------|
+| **Ownership** | `requires_user_uid()` | User-owned vs shared (admin-created) |
+| **Content Origin** | `content_origin()` | Where content comes from (Curated, Curriculum, User-Created, Feedback) |
+| **Activity** | `is_activity()` | Shares Activity infrastructure (factory, facade, sub-services) |
+| **Processable** | `is_processable()` | Goes through a processing pipeline |
+| **Derived** | `is_derived()` | Has parent in derivation chain |
+
+### Entity Type Details
+
+**Activity Entity Types (5)** — Task, Goal, Habit, Choice, Principle:
 - All use facade pattern with `.core`, `.search`, `.intelligence` sub-services
 - All created via `create_common_sub_services()` factory in `activity_domain_config.py`
 - User-owned content with ownership verification
-- Protocol-typed: `TasksOperations`, `GoalsOperations`, etc.
-- **Detail pages:** All 5 domains have `/{domain}/{uid}` routes with lateral relationships visualization (Phase 5)
+- **Detail pages:** `/{domain}/{uid}` routes with lateral relationships visualization
 
-**Events Domain (1)** - Cross-cutting scheduling / integration layer:
-- NOT a peer Activity Domain — serves the 5 Activity Domains by giving activities a time-bound, schedulable form
+**Events** — Cross-cutting scheduling / integration layer:
+- NOT an Activity entity type — serves the 5 Activity types by giving activities a time-bound, schedulable form
 - Has explicit integration sub-services: `EventsHabitIntegrationService`, `EventsLearningService`
-- `ActivityType` enum (12 types: TASK, HABIT, EVENT, LEARNING, MILESTONE, DEADLINE, etc.) provides calendar/timeline polymorphism across domain types — more polymorphic than other domains
-- Supports Principles only indirectly (Principles → Choices → Events)
-- Same infrastructure (BaseService, DomainConfig, UserOwnedEntity) but cross-cutting in function
-- `/{events}/{uid}` routes with lateral relationships visualization (Phase 5)
+- `ActivityType` enum (12 types) provides calendar/timeline polymorphism across entity types
 
-**Finance Domain (1)** - Standalone bookkeeping, NOT an Activity Domain:
-- Admin-only access (no ownership checks, ADMIN role required)
-- Does NOT use `BaseService` or `BaseAnalyticsService`
-- No intelligence service - pure bookkeeping
-- Unique: budgets, expense categories, recurring expenses
+**Finance** — Standalone bookkeeping:
+- Admin-only access (ADMIN role required), does NOT use `BaseService` or `BaseAnalyticsService`
 
-**Curriculum Domains (4)** - Shared content (admin-created, publicly readable):
-- `ContentScope.SHARED` + `require_role=UserRole.ADMIN` - admin creates, all users read
-- `_user_ownership_relationship = None` - no ownership verification needed
-- Article (teaching composition), Ku (atomic reference), LS (edge), LP (path) - four curriculum types
-- **Resource** (EntityType.RESOURCE) — books, talks, films, music. Admin-only shared content, feeds Askesis recommendations
-- Core + search services extend `BaseService`
-- **Admin-only creation** - regular users consume curriculum, admins build it
-- **Detail pages:** `/ku/{uid}`, `/ls/{uid}`, `/lp/{uid}` routes with lateral relationships (Phase 5, placeholder data)
+**Article, Ku, Resource, LearningStep, LearningPath, Exercise** — Curriculum:
+- `ContentScope.SHARED` + `require_role=UserRole.ADMIN` — admin creates, all users read
+- Article (teaching composition), Ku (atomic reference), LS (edge), LP (path)
+- **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
 
-**Content/Processing Domain (1)**:
-- **Submissions + Feedback** - The educational loop `Article → Exercise → Submission → Feedback`. Activity Domains are equal entry points via `ACTIVITY_REPORT`. EntityType discriminator:
-  - **File submissions** (EntityType.SUBMISSION) — student uploads via `/submissions/submit`, `ProcessorType.HUMAN` or `LLM`
-  - **AI-processed** (EntityType.JOURNAL) — user uploads via `/journals/submit`, `ProcessorType.LLM`, uses Exercise instructions
-  - **Teacher/AI feedback** (EntityType.SUBMISSION_FEEDBACK) — tied to a specific submission via `subject_uid`; `ProcessorType.HUMAN` (teacher) or `LLM` (AI via Exercise)
-  - **Activity feedback** (EntityType.ACTIVITY_REPORT) — NOT tied to a submission; responds to activity patterns over a time window; `ProcessorType.AUTOMATIC` (scheduled), `LLM` (on-demand), or `HUMAN` (admin-written); inherits `UserOwnedEntity` directly (no file fields)
+**Submission, Journal, SubmissionFeedback, ActivityReport** — Content processing:
+- The educational loop `Article → Exercise → Submission → Feedback`
+- Activity entity types are equal entry points via `ACTIVITY_REPORT`
 - **Services split:** `core/services/submissions/` (student work) + `core/services/feedback/` (responses)
-- **Models split:** `core/models/submissions/` + `core/models/feedback/`
-- **See:** `/docs/architecture/FEEDBACK_ARCHITECTURE.md` — canonical feedback reference
-- **See:** `@learning-loop` skill — four-phase development lens (Ku → Exercise → Submission → Feedback)
+- **See:** `/docs/architecture/FEEDBACK_ARCHITECTURE.md`, `@learning-loop` skill
 
-**Organizational Domains (2)**:
-- **Groups** - Teacher-student class management (ADR-040). Teacher creates group, adds students via MEMBER_OF. Exercises target groups via FOR_GROUP.
-- **MOC** - Non-linear knowledge navigation. MOC is NOT an EntityType — any Entity can organize others via ORGANIZES relationships (emergent identity). Organization managed by `KuOrganizationService` (sub-service of KuService).
+**Groups** — Teacher-student class management (ADR-040)
 
-**LifePath Domain (1)** - The Destination:
-- Philosophy: "The user's vision is understood via words, UserContext via actions"
+**MOC** — Non-linear knowledge navigation. MOC is NOT an EntityType — any Entity can organize others via ORGANIZES relationships (emergent identity). Managed by `KuOrganizationService`.
+
+**LifePath** — The Destination:
 - Bridges VISION (declared intent) with ACTION (behavior)
 - Alignment score 0.0-1.0 across 5 dimensions: knowledge 25%, activity 25%, goal 20%, principle 15%, momentum 15%
-- All domains connect via `SERVES_LIFE_PATH` relationships
+- All entity types connect via `SERVES_LIFE_PATH` relationships
 
 ### The 5 Cross-Cutting Systems
 
@@ -313,11 +317,11 @@ UniversalNeo4jBackend[T]  <- ONE instance per domain, NO wrappers
     Sub-services          <- .core, .search, .intelligence
 ```
 
-All domains use `UniversalNeo4jBackend[T]` directly. Activity domains use `create_common_sub_services()` factory.
+All entity types use `UniversalNeo4jBackend[T]` directly. Activity types use `create_common_sub_services()` factory.
 
 ### Cross-Domain Relationships
 
-All 14 domains connect through Neo4j graph relationships:
+Entity types connect through Neo4j graph relationships:
 
 ```
 Article <--> Ku (composition)
@@ -325,7 +329,7 @@ Article <--> Ku (composition)
     +-- USES_KU (Article composes atomic Kus)
     +-- TRAINS_KU (Learning Step trains atomic Kus)
 
-Knowledge (Article/Ku) <--> Activity Domains
+Knowledge (Article/Ku) <--> Activity Types
     |
     +-- APPLIES_KNOWLEDGE (Tasks, Events apply knowledge)
     +-- REQUIRES_KNOWLEDGE (Goals need knowledge)
@@ -349,7 +353,7 @@ Groups <--> Assignments, Users
     +-- MEMBER_OF (Student belongs to Group)
     +-- OWNS (Teacher owns Group)
 
-LifePath <--> All Domains
+LifePath <--> All Entity Types
     |
     +-- ULTIMATE_PATH: (User)-[:ULTIMATE_PATH]->(Lp)
     +-- SERVES_LIFE_PATH: (Entity)-[:SERVES_LIFE_PATH]->(Lp)
@@ -385,7 +389,7 @@ LifePath <--> All Domains
 | Service Composition | `/services_bootstrap.py` |
 | Generic Backend | `/adapters/persistence/neo4j/universal_backend.py` |
 
-**See:** `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`, `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md`
+**See:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`, `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md`
 
 ## Type Safety Architecture
 
@@ -510,7 +514,7 @@ async def admin_route(request, current_user): ...
 
 **Core Principle:** "UserContext is THE single object for understanding a user's complete state"
 
-**The Problem:** Without UserContext, understanding a user requires 14+ separate queries across 14 domains. Stats are disconnected from UIDs. Intelligence can't see across domain boundaries.
+**The Problem:** Without UserContext, understanding a user requires separate queries across all entity types. Stats are disconnected from UIDs. Intelligence can't see across domain boundaries.
 
 **The Solution:** One object (~250 fields), built by one query (MEGA-QUERY), consumed by all intelligence services. Stats computed FROM UIDs — no duplication.
 

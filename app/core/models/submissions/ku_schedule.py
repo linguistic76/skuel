@@ -10,7 +10,7 @@ A KuSchedule defines recurring progress Ku generation:
 - Progress depth (summary, standard, detailed)
 - Active/inactive toggle
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass, field

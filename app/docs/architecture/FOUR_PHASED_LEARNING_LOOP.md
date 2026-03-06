@@ -5,7 +5,7 @@ status: current
 category: architecture
 related:
 - FEEDBACK_ARCHITECTURE.md
-- FOURTEEN_DOMAIN_ARCHITECTURE.md
+- ENTITY_TYPE_ARCHITECTURE.md
 ---
 
 # The Four-Phased Learning Loop
@@ -413,7 +413,7 @@ New feedback sources add `ProcessorType` values; they do not create new EntityTy
 |----------|---------------|
 | [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) | Canonical feedback reference — all services, APIs, graph patterns, ProcessorType taxonomy |
 | [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) | Curriculum Track pipeline — Exercise, Submission, teacher review, visibility model, all APIs |
-| [FOURTEEN_DOMAIN_ARCHITECTURE.md](/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) | How the loop fits the 14-domain architecture |
+| [ENTITY_TYPE_ARCHITECTURE.md](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) | How the loop fits the Entity Type Architecture |
 | [ADR-038: Content Sharing](/docs/decisions/ADR-038-content-sharing-model.md) | Three-level visibility model for submissions |
 | [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md) | ASSIGNED exercise, auto-sharing, teacher review queue |
 | `.claude/skills/learning-loop/SKILL.md` | Developer guide — implementation details, service architecture, anti-patterns |

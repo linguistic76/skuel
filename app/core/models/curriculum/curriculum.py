@@ -27,7 +27,7 @@ Hierarchy:
 
 Note: Resource(Entity) is NOT a Curriculum subclass (Tier A raw content).
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 See: /docs/architecture/knowledge_substance_philosophy.md
 See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 """

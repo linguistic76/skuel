@@ -34,8 +34,8 @@ class TestYAMLRoundTrip:
 
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.curriculum.curriculum_dto import CurriculumDTO
-        from core.services.ingestion import UnifiedIngestionService
         from core.services.article_service import ArticleService
+        from core.services.ingestion import UnifiedIngestionService
 
         # Verify connection and clean database
         async with neo4j_driver.session() as session:

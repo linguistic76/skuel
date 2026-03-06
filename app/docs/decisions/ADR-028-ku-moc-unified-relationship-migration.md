@@ -113,7 +113,7 @@ KU and MOC domains had specialized relationship services (MocRelationshipService
 - ✅ KU domain has `self.relationships` for consistent relationship access
 - ✅ ~650 lines deleted (MocRelationshipService)
 - ✅ Clear separation: relationship CRUD vs graph intelligence
-- ✅ All 14 domains now use `self.relationships` pattern
+- ✅ all entity types now use `self.relationships` pattern
 
 ### Negative Consequences
 - ⚠️ KuGraphService and KuSemanticService remain separate services

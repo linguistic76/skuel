@@ -21,7 +21,7 @@ related: []
 
 **What is the issue we're facing?**
 
-SKUEL's 14 domains each required relationship management for graph traversal, cross-domain connections, and semantic relationships. Initially, this was implemented with 14 separate domain-specific relationship services:
+SKUEL's entity types each required relationship management for graph traversal, cross-domain connections, and semantic relationships. Initially, this was implemented with 14 separate domain-specific relationship services:
 
 - TasksRelationshipService
 - GoalsRelationshipService
@@ -110,7 +110,7 @@ knowledge_uids = await tasks_service.get_related_uids("knowledge", task_uid)
 ## Alternatives Considered
 
 ### Alternative 1: Full Abstraction (All Domains)
-**Description:** Force all 14 domains through UnifiedRelationshipService
+**Description:** Force all entity types through UnifiedRelationshipService
 
 **Pros:**
 - Maximum code reduction

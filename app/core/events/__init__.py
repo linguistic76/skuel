@@ -67,6 +67,19 @@ References:
 """
 
 # Base classes and protocols
+# NOTE: Journal events DELETED (February 2026) - Journal merged into Submissions
+# Journal operations now fire SubmissionCreated/SubmissionDeleted events with entity_type="journal"
+# Knowledge substance events (tracking real-world application)
+from core.events.article_events import (
+    KnowledgeAppliedInTask,
+    KnowledgeBuiltIntoHabit,
+    KnowledgeBulkAppliedInTask,
+    KnowledgeBulkBuiltIntoHabit,
+    KnowledgeBulkInformedChoice,
+    KnowledgeInformedChoice,
+    KnowledgePracticed,
+    KnowledgePracticedInEvent,
+)
 from core.events.base import BaseEvent, DomainEvent, EventMetadata
 
 # Calendar Event events
@@ -138,20 +151,6 @@ from core.events.habit_events import (
     HabitMissed,
     HabitStreakBroken,
     HabitStreakMilestone,
-)
-
-# NOTE: Journal events DELETED (February 2026) - Journal merged into Submissions
-# Journal operations now fire SubmissionCreated/SubmissionDeleted events with entity_type="journal"
-# Knowledge substance events (tracking real-world application)
-from core.events.article_events import (
-    KnowledgeAppliedInTask,
-    KnowledgeBuiltIntoHabit,
-    KnowledgeBulkAppliedInTask,
-    KnowledgeBulkBuiltIntoHabit,
-    KnowledgeBulkInformedChoice,
-    KnowledgeInformedChoice,
-    KnowledgePracticed,
-    KnowledgePracticedInEvent,
 )
 
 # Learning events

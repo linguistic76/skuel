@@ -2,14 +2,14 @@
 Domain Service Protocols
 =========================
 
-SKUEL's 14-Domain + 4-System Protocol Architecture
----------------------------------------------------
+SKUEL's Entity Type Protocol Architecture
+------------------------------------------
 
 This module defines the service interfaces for SKUEL's complete architecture.
-Each domain has an Operations protocol that services must implement.
+Each entity type has an Operations protocol that services must implement.
 
-THE 14 DOMAINS AND THEIR PROTOCOLS
-----------------------------------
+ENTITY TYPE PROTOCOLS
+---------------------
 
 **Activity Domain Protocols (6):**
     1. TasksOperations[Task]               - Work items and dependencies

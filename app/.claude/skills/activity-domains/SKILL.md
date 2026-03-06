@@ -81,7 +81,7 @@ await service.link_{domain}_to_principle(entity_uid, principle_uid)
 ## Deep Dive Resources
 
 **Architecture:**
-- [FOURTEEN_DOMAIN_ARCHITECTURE.md](/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) - Complete domain architecture (14 domains)
+- [ENTITY_TYPE_ARCHITECTURE.md](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) - Complete domain architecture (entity types)
 - [SERVICE_TOPOLOGY.md](/docs/architecture/SERVICE_TOPOLOGY.md) - Service architecture diagrams
 
 **Patterns:**

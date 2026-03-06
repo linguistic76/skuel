@@ -703,7 +703,7 @@ class LpService:
 
 ### Related Documentation
 
-- `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` - Domain overview
+- `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` - Domain overview
 - `/core/ports/search_protocols.py` - Protocol definition
 - `/core/services/base_service.py` - BaseService with generic filter methods
 - `/core/services/search/config.py` - Centralized search field configuration

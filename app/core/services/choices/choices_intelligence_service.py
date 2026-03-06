@@ -14,7 +14,7 @@ Architecture: Shell delegates to 3 focused mixins in the same directory:
                                   predict_decision_quality, calculate_life_path_contribution,
                                   get_zpd_behavioral_signals()
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from __future__ import annotations

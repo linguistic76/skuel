@@ -20,7 +20,7 @@ Hierarchy:
     ├── Curriculum(Entity) → LearningStep, LearningPath, Exercise
     └── Resource(Entity)
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass

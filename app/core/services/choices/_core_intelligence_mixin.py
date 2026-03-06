@@ -6,7 +6,7 @@ Graph-context methods: get_choice_with_context, get_decision_intelligence,
 analyze_choice_impact.
 
 Part of choices_intelligence_service.py decomposition (March 2026).
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from __future__ import annotations

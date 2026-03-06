@@ -38,7 +38,7 @@ This created:
 1. Simplify codebase - reduce cognitive load
 2. Enable cross-domain features - activities can use curriculum features and vice versa
 3. Flatten EntityType enum - remove categorization methods
-4. Philosophical alignment - all 14 domains as peers, not two categories
+4. Philosophical alignment - all entity types as peers, not two categories
 
 ---
 
@@ -198,7 +198,7 @@ Removed category helper methods from ParsedActivityLine and ParsedJournal:
 ## Consequences
 
 ### Positive Consequences
-- **Unified architecture** - One BaseService for all 14 domains
+- **Unified architecture** - One BaseService for all entity types
 - **Cross-domain features** - Any domain can use prerequisite/enables/mastery tracking
 - **Massive code reduction** - ~2,800+ lines deleted:
   - 819 lines: CurriculumBaseService

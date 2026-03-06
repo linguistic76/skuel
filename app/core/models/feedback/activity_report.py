@@ -15,7 +15,7 @@ ProcessorType discriminates the source:
 
 Inherits from UserOwnedEntity directly (NOT Submission — no file fields apply).
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
 """
 

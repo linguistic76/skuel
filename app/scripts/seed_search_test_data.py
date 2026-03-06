@@ -347,7 +347,9 @@ async def seed_goals(driver):
 
 async def seed_choices(driver):
     """Seed sample choices"""
-    backend = UniversalNeo4jBackend(driver, "Choice", Entity, default_filters={"entity_type": "choice"})
+    backend = UniversalNeo4jBackend(
+        driver, "Choice", Entity, default_filters={"entity_type": "choice"}
+    )
 
     logger.info("Seeding choices...")
     for choice_data in CHOICES:

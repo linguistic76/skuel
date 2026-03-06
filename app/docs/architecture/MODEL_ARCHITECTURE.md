@@ -149,7 +149,7 @@ core/models/{domain}/
 
 | File | Purpose |
 |------|---------|
-| `entity.py` | Base frozen dataclass — all 16 EntityType models extend this |
+| `entity.py` | Base frozen dataclass — all 17 EntityType models extend this |
 | `user_owned_entity.py` | Intermediate class adding user_uid, priority |
 | `entity_dto.py` | Base DTO mirroring Entity fields |
 | `user_owned_dto.py` | Intermediate DTO adding visibility, priority |
@@ -249,5 +249,5 @@ These models are consumed by `BaseAnalyticsService` subclasses — they never to
 - [Enum Architecture](ENUM_ARCHITECTURE.md) — Enum landscape, enum-to-model wiring, dynamic patterns
 - [Three-Tier Type System](/docs/patterns/three_tier_type_system.md) — Pattern details and rationale
 - [Domain Patterns Catalog](/docs/patterns/DOMAIN_PATTERNS_CATALOG.md) — Per-domain examples
-- [14-Domain Architecture](FOURTEEN_DOMAIN_ARCHITECTURE.md) — Domain categories and relationships
+- [Entity Type Architecture](ENTITY_TYPE_ARCHITECTURE.md) — Entity types and relationships
 - Source: `core/models/` (194 files, 30 packages)

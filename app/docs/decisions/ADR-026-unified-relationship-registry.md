@@ -310,7 +310,7 @@ RELATED_TO_MOC = "RELATED_TO_MOC"          # (moc)-[:RELATED_TO_MOC]->(moc)
 - [ ] Update CLAUDE.md with quick reference (if widely used)
 
 ### Related Documentation
-- Architecture docs: `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`
+- Architecture docs: `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`
 - Pattern guide: `/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md`
 - Other ADRs: ADR-017, ADR-025
 

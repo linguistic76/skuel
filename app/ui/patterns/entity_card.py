@@ -1,4 +1,4 @@
-"""Entity card pattern used across all 14 SKUEL domains.
+"""Entity card pattern used across all SKUEL entity types.
 
 This is the primary pattern for displaying domain entities (Tasks, Goals,
 Habits, Events, etc.) in lists and grids. It provides consistent layout
@@ -178,7 +178,7 @@ def EntityCard(
 ) -> Div:
     """Generic entity card for all SKUEL domains with variant support.
 
-    This card pattern is designed to work with all 14 domains:
+    This card pattern is designed to work with all entity types:
     Tasks, Goals, Habits, Events, Choices, Principles, Finance,
     KU, LS, LP, MOC, Journals, Reports, and LifePath.
 

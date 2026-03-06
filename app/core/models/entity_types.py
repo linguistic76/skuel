@@ -2,7 +2,7 @@
 Entity Type Aliases and Class Dispatch Map
 ==========================================
 
-Type aliases and the EntityType→class map for all 16 domain models.
+Type aliases and the EntityType→class map for all 17 entity types.
 
 For construction: Use the specific subclass (Task, Ku, Goal, etc.)
 For dispatched deserialization: Use Entity.from_dto(dto)
@@ -11,13 +11,12 @@ For domain-specific annotations: Use ActivityEntity, CurriculumEntity, Submissio
 
 ENTITY_TYPE_CLASS_MAP maps each EntityType enum to its domain-specific subclass.
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from core.models.choice.choice import Choice
 from core.models.curriculum.article import Article
 from core.models.curriculum.exercise import Exercise
-from core.models.ku.ku import Ku
 from core.models.curriculum.learning_path import LearningPath
 from core.models.curriculum.learning_step import LearningStep
 from core.models.entity import Entity
@@ -27,6 +26,7 @@ from core.models.feedback.activity_report import ActivityReport
 from core.models.feedback.submission_feedback import SubmissionFeedback
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
+from core.models.ku.ku import Ku
 from core.models.life_path.life_path import LifePath
 from core.models.principle.principle import Principle
 from core.models.resource.resource import Resource

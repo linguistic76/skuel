@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob
 
 ## Quick Start
 
-SKUEL uses Neo4j as its graph database with a 14-domain architecture. All domains flow toward LifePath (the destination).
+SKUEL uses Neo4j as its graph database with a Entity Type Architecture. All domains flow toward LifePath (the destination).
 
 ### Entity Labels (Neo4j Node Labels)
 

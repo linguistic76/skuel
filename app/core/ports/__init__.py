@@ -148,9 +148,9 @@ from .context_awareness_protocols import (
 # Three curriculum domains: KU (point), LS (edge), LP (path)
 # NOTE: MOC is KU-based (January 2026) - no separate MocOperations protocol
 from .curriculum_protocols import (
+    ArticleOperations,
     CurriculumOperations,
     ExerciseOperations,
-    ArticleOperations,
     LpOperations,
     LsOperations,
 )

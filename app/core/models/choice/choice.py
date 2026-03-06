@@ -15,7 +15,7 @@ Choice-specific methods: has_high_stakes, calculate_decision_complexity,
 get_decision_quality_score, get_summary, explain_existence, category, from_dto.
 
 See: /.claude/plans/ku-decomposition-domain-types.md
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass

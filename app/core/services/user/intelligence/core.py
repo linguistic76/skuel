@@ -9,28 +9,17 @@ purpose - helping users understand where they are in their learning journey
 and determining what to work on next.
 
 **Architecture:**
-UserContextIntelligence = UserContext + 13 Domain Services
+UserContextIntelligence = UserContext + Domain Services
                         = User State + Complete Graph Intelligence
 
-**The 13 Domains (Symmetric Architecture):**
+**Entity Types:**
 
-    Activity Domains (6 pairs):
-    - Tasks + Events: What to do / When to do it
-    - Goals + Habits: Where heading / How to sustain
-    - Choices + Principles: Decisions made / Values guiding
-
-    Curriculum Domains (3):
-    - KU (KnowledgeUnits): Atomic knowledge content
-    - LS (LearningSteps): Learning sequences
-    - LP (LearningPaths): Complete learning journeys
-
-    Processing Domains (3):
-    - Submissions: Student work graph relationships (FOLLOWS, RELATED_TO, SUPPORTS_GOAL)
-    - Feedback: Feedback loop graph queries (pending submissions, completion rate)
-    - Analytics: Cross-domain analytics
-
-    Temporal Domain (1):
-    - Calendar: When everything happens (schedule-aware intelligence)
+    Activity (5): Tasks, Goals, Habits, Choices, Principles
+    Scheduling: Events (cross-cutting, gives activities time-bound form)
+    Curriculum: Article, Ku, LearningStep, LearningPath, Exercise, Resource
+    Content processing: Submission, Journal, ActivityReport, SubmissionFeedback
+    Destination: LifePath
+    Cross-cutting: Calendar, Analytics, Feedback
 
 **The 8 Core Methods (via mixins):**
 1. get_optimal_next_learning_steps() - What should I learn next?
@@ -57,12 +46,12 @@ from core.services.user.intelligence.temporal_momentum import TemporalMomentumMi
 if TYPE_CHECKING:
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
+    from core.services.article.article_graph_service import ArticleGraphService
     from core.services.calendar_service import CalendarService
 
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService
     # LsRelationshipService deleted - LS now uses UnifiedRelationshipService
     from core.services.feedback import FeedbackRelationshipService
-    from core.services.article.article_graph_service import ArticleGraphService
     from core.services.relationships import UnifiedRelationshipService
     from core.services.submissions import SubmissionsRelationshipService
     from core.services.user.unified_user_context import UserContext
@@ -83,7 +72,7 @@ class UserContextIntelligence(
     This service synthesizes user state (UserContext) with graph
     intelligence (13 domain services) to answer: "What should I work on?"
 
-    **Required Dependencies (13 domains):**
+    **Required Dependencies (entity types):**
 
     Activity Domains (6) - All use UnifiedRelationshipService with domain configs:
     - tasks: UnifiedRelationshipService - What can I do now?
@@ -107,7 +96,7 @@ class UserContextIntelligence(
     - calendar: CalendarService - Schedule-aware intelligence
 
     **Philosophy:**
-    SKUEL runs at full capacity or not at all. All 13 domains are REQUIRED
+    SKUEL runs at full capacity or not at all. all entity types are REQUIRED
     because each contributes unique intelligence to the daily planning.
     The symmetric domain architecture reflects the complete educational
     support system.

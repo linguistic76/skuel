@@ -13,7 +13,7 @@ Inherits common fields from Entity. Adds 7 resource-specific fields:
 Resources are admin-curated shared content that feeds Askesis recommendations.
 They do NOT carry learning/substance fields (those belong to Curriculum).
 
-See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass
