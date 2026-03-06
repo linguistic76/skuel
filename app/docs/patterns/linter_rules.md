@@ -14,10 +14,6 @@ For implementation guidance, see:
 - [@python](../../.claude/skills/python/SKILL.md)
 
 
-## Quick Reference
-
-SKUEL uses automated linting to enforce architectural patterns that cannot be caught by standard type checkers.
-
 ## Core Principle: "Automated enforcement prevents pattern violations"
 
 **SKUEL uses automated linting to enforce architectural patterns** that cannot be caught by standard type checkers.
