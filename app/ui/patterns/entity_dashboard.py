@@ -38,22 +38,18 @@ from fasthtml.common import (
     Body,
     Div,
     Form,
-    Head,
     Html,
     Label,
-    Link,
-    Meta,
     Option,
     P,
-    Script,
     Span,
-    Title,
 )
 
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.forms import Input, InputT, Select
+from ui.layouts.base_page import build_head
 from ui.layouts.navbar import create_navbar, create_navbar_for_request
 
 if TYPE_CHECKING:
@@ -169,30 +165,9 @@ class SharedUIComponents:
         # Clean title for page (remove emoji prefix)
         page_title = title.lstrip("📋🎯🔄📅🔀⚖️ ")
 
-        # Return complete Html document with explicit headers
+        # Return complete Html document with canonical head
         return Html(
-            Head(
-                Meta(charset="UTF-8"),
-                Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
-                Title(f"{page_title} - SKUEL"),
-                # DaisyUI CSS
-                Link(
-                    href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css",
-                    rel="stylesheet",
-                    type="text/css",
-                ),
-                # Tailwind CSS
-                Script(src="https://cdn.tailwindcss.com"),
-                # HTMX - using 1.9.10 to match other working pages
-                Script(src="https://unpkg.com/htmx.org@1.9.10"),
-                # Alpine.js
-                Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
-                # SKUEL custom CSS
-                Link(rel="stylesheet", href="/static/css/output.css"),
-                Link(rel="stylesheet", href="/static/css/skuel.css"),
-                # SKUEL JavaScript (Alpine components)
-                Script(src="/static/js/skuel.js"),
-            ),
+            build_head(page_title),
             Body(
                 navbar,
                 dashboard_content,

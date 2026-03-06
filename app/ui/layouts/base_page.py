@@ -36,11 +36,14 @@ if TYPE_CHECKING:
     from starlette.requests import Request
 
 
-def _build_head(
+def build_head(
     title: str,
     extra_css: list[str] | None = None,
 ) -> "FT":
-    """Build complete HTML head for BasePage (complete document).
+    """Build complete HTML head for any SKUEL page.
+
+    This is the single source of truth for <head> content. Used by BasePage,
+    ActivityLayout, SharedUIComponents, and any code that returns a full Html document.
 
     Args:
         title: Page title (appended with " - SKUEL")
@@ -200,7 +203,7 @@ async def BasePage(
         )
 
     return Html(
-        _build_head(title, extra_css),
+        build_head(title, extra_css),
         Body(
             # Skip link for keyboard navigation (WCAG 2.1 Level AA)
             A(
@@ -260,4 +263,4 @@ async def BasePage(
     )
 
 
-__all__ = ["BasePage"]
+__all__ = ["BasePage", "build_head"]

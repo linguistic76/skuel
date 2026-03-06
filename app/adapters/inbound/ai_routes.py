@@ -12,8 +12,11 @@ This follows SKUEL's fail-fast philosophy:
 - Return clear error responses rather than silent failures
 - No hiding problems or pretending things work
 
-Pattern: Check if facade.ai is available, return 503 if not.
+Pattern: Each route is declared as a config tuple; _ai_route handles auth,
+availability check, error propagation, and response wrapping.
 """
+
+from typing import Any
 
 from starlette.responses import JSONResponse
 
@@ -23,545 +26,451 @@ from core.utils.logging import get_logger
 logger = get_logger("skuel.routes.ai")
 
 
-def _ai_unavailable_response(domain: str) -> JSONResponse:
+def _ai_unavailable_response(domain_label: str) -> JSONResponse:
     """Return explicit 503 when AI service is unavailable."""
     return JSONResponse(
         status_code=503,
         content={
             "error": "AI service unavailable",
-            "message": f"{domain} AI features require LLM/embeddings services",
-            "domain": domain,
+            "message": f"{domain_label} AI features require LLM/embeddings services",
+            "domain": domain_label,
         },
     )
 
 
-def create_ai_routes(app, rt, services):
+async def _ai_route(
+    request: Any,
+    services: Any,
+    domain_attr: str,
+    domain_label: str,
+    method_name: str,
+    args: tuple[Any, ...],
+    wrap_key: str | None = None,
+) -> dict[str, Any] | JSONResponse:
+    """Shared handler for all AI routes.
+
+    Handles auth, AI availability check, method call, error propagation,
+    and optional response wrapping.
+
+    Args:
+        request: Starlette request
+        services: Service container
+        domain_attr: Attribute name on services (e.g. "tasks", "article")
+        domain_label: Human-readable domain name for error messages
+        method_name: AI service method to call
+        args: Positional args to pass to the method
+        wrap_key: If set, wrap result.value as {wrap_key: value}; otherwise return raw
     """
-    Create routes for AI-powered domain features.
+    require_authenticated_user(request)
+    facade = getattr(services, domain_attr)
+    if not facade.ai:
+        return _ai_unavailable_response(domain_label)
+    result = await getattr(facade.ai, method_name)(*args)
+    if result.is_error:
+        return JSONResponse(status_code=400, content={"error": str(result.error)})
+    if wrap_key:
+        return {wrap_key: result.value}
+    return result.value
+
+
+def create_ai_routes(app: Any, rt: Any, services: Any) -> list[Any]:
+    """Create routes for AI-powered domain features.
 
     All routes check if the domain's .ai service is available.
     Returns 503 Service Unavailable if AI is not configured.
-
-    Args:
-        app: FastHTML app instance
-        rt: Route decorator
-        services: Service container
-
-    Returns:
-        List of registered route functions
     """
-    routes = []
+    route_count = 0
 
-    # ==========================================================================
+    # ------------------------------------------------------------------
     # TASKS AI ROUTES
-    # ==========================================================================
+    # ------------------------------------------------------------------
 
     @rt("/api/tasks/ai/similar")
-    async def tasks_ai_similar(request, uid: str, limit: int = 5):
+    async def tasks_ai_similar(request: Any, uid: str, limit: int = 5) -> Any:
         """Find semantically similar tasks."""
-        require_authenticated_user(request)
-        if not services.tasks.ai:
-            return _ai_unavailable_response("Tasks")
-        result = await services.tasks.ai.find_similar_tasks(uid, limit)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"similar_tasks": result.value}
-
-    routes.append(tasks_ai_similar)
+        return await _ai_route(
+            request,
+            services,
+            "tasks",
+            "Tasks",
+            "find_similar_tasks",
+            (uid, limit),
+            wrap_key="similar_tasks",
+        )
 
     @rt("/api/tasks/ai/insight")
-    async def tasks_ai_insight(request, uid: str):
+    async def tasks_ai_insight(request: Any, uid: str) -> Any:
         """Generate AI insight about a task."""
-        require_authenticated_user(request)
-        if not services.tasks.ai:
-            return _ai_unavailable_response("Tasks")
-        result = await services.tasks.ai.generate_task_insight(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"insight": result.value}
-
-    routes.append(tasks_ai_insight)
+        return await _ai_route(
+            request, services, "tasks", "Tasks", "generate_task_insight", (uid,), wrap_key="insight"
+        )
 
     @rt("/api/tasks/ai/knowledge-generation")
-    async def tasks_ai_knowledge_generation(request, uid: str):
+    async def tasks_ai_knowledge_generation(request: Any, uid: str) -> Any:
         """Identify knowledge generation opportunities from a task."""
-        require_authenticated_user(request)
-        if not services.tasks.ai:
-            return _ai_unavailable_response("Tasks")
-        result = await services.tasks.ai.identify_knowledge_generation(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
+        return await _ai_route(
+            request, services, "tasks", "Tasks", "identify_knowledge_generation", (uid,)
+        )
 
-    routes.append(tasks_ai_knowledge_generation)
-
-    # ==========================================================================
+    # ------------------------------------------------------------------
     # GOALS AI ROUTES
-    # ==========================================================================
+    # ------------------------------------------------------------------
 
     @rt("/api/goals/ai/similar")
-    async def goals_ai_similar(request, uid: str, limit: int = 5):
+    async def goals_ai_similar(request: Any, uid: str, limit: int = 5) -> Any:
         """Find semantically similar goals."""
-        require_authenticated_user(request)
-        if not services.goals.ai:
-            return _ai_unavailable_response("Goals")
-        result = await services.goals.ai.find_similar_goals(uid, limit)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"similar_goals": result.value}
-
-    routes.append(goals_ai_similar)
+        return await _ai_route(
+            request,
+            services,
+            "goals",
+            "Goals",
+            "find_similar_goals",
+            (uid, limit),
+            wrap_key="similar_goals",
+        )
 
     @rt("/api/goals/ai/insight")
-    async def goals_ai_insight(request, uid: str):
+    async def goals_ai_insight(request: Any, uid: str) -> Any:
         """Generate AI insight about a goal."""
-        require_authenticated_user(request)
-        if not services.goals.ai:
-            return _ai_unavailable_response("Goals")
-        result = await services.goals.ai.generate_goal_insight(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"insight": result.value}
-
-    routes.append(goals_ai_insight)
+        return await _ai_route(
+            request, services, "goals", "Goals", "generate_goal_insight", (uid,), wrap_key="insight"
+        )
 
     @rt("/api/goals/ai/milestones")
-    async def goals_ai_milestones(request, uid: str):
+    async def goals_ai_milestones(request: Any, uid: str) -> Any:
         """Generate suggested milestones for a goal."""
-        require_authenticated_user(request)
-        if not services.goals.ai:
-            return _ai_unavailable_response("Goals")
-        result = await services.goals.ai.generate_milestones(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
-
-    routes.append(goals_ai_milestones)
+        return await _ai_route(request, services, "goals", "Goals", "generate_milestones", (uid,))
 
     @rt("/api/goals/ai/smart-refinement")
-    async def goals_ai_smart_refinement(request, uid: str):
+    async def goals_ai_smart_refinement(request: Any, uid: str) -> Any:
         """Suggest SMART refinements for a goal."""
-        require_authenticated_user(request)
-        if not services.goals.ai:
-            return _ai_unavailable_response("Goals")
-        result = await services.goals.ai.suggest_smart_refinement(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
+        return await _ai_route(
+            request, services, "goals", "Goals", "suggest_smart_refinement", (uid,)
+        )
 
-    routes.append(goals_ai_smart_refinement)
-
-    # ==========================================================================
+    # ------------------------------------------------------------------
     # HABITS AI ROUTES
-    # ==========================================================================
+    # ------------------------------------------------------------------
 
     @rt("/api/habits/ai/similar")
-    async def habits_ai_similar(request, uid: str, limit: int = 5):
+    async def habits_ai_similar(request: Any, uid: str, limit: int = 5) -> Any:
         """Find semantically similar habits."""
-        require_authenticated_user(request)
-        if not services.habits.ai:
-            return _ai_unavailable_response("Habits")
-        result = await services.habits.ai.find_similar_habits(uid, limit)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"similar_habits": result.value}
-
-    routes.append(habits_ai_similar)
+        return await _ai_route(
+            request,
+            services,
+            "habits",
+            "Habits",
+            "find_similar_habits",
+            (uid, limit),
+            wrap_key="similar_habits",
+        )
 
     @rt("/api/habits/ai/streak-insight")
-    async def habits_ai_streak_insight(request, uid: str):
+    async def habits_ai_streak_insight(request: Any, uid: str) -> Any:
         """Generate AI insight about habit streak patterns."""
-        require_authenticated_user(request)
-        if not services.habits.ai:
-            return _ai_unavailable_response("Habits")
-        result = await services.habits.ai.generate_streak_insight(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"insight": result.value}
-
-    routes.append(habits_ai_streak_insight)
+        return await _ai_route(
+            request,
+            services,
+            "habits",
+            "Habits",
+            "generate_streak_insight",
+            (uid,),
+            wrap_key="insight",
+        )
 
     @rt("/api/habits/ai/habit-stack")
-    async def habits_ai_habit_stack(request, uid: str):
+    async def habits_ai_habit_stack(request: Any, uid: str) -> Any:
         """Suggest habit stacking opportunities."""
-        require_authenticated_user(request)
-        if not services.habits.ai:
-            return _ai_unavailable_response("Habits")
-        result = await services.habits.ai.suggest_habit_stack(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
-
-    routes.append(habits_ai_habit_stack)
+        return await _ai_route(request, services, "habits", "Habits", "suggest_habit_stack", (uid,))
 
     @rt("/api/habits/ai/optimize-loop")
-    async def habits_ai_optimize_loop(request, uid: str):
+    async def habits_ai_optimize_loop(request: Any, uid: str) -> Any:
         """Optimize the cue-routine-reward loop for a habit."""
-        require_authenticated_user(request)
-        if not services.habits.ai:
-            return _ai_unavailable_response("Habits")
-        result = await services.habits.ai.optimize_habit_loop(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
+        return await _ai_route(request, services, "habits", "Habits", "optimize_habit_loop", (uid,))
 
-    routes.append(habits_ai_optimize_loop)
-
-    # ==========================================================================
+    # ------------------------------------------------------------------
     # EVENTS AI ROUTES
-    # ==========================================================================
+    # ------------------------------------------------------------------
 
     @rt("/api/events/ai/similar")
-    async def events_ai_similar(request, uid: str, limit: int = 5):
+    async def events_ai_similar(request: Any, uid: str, limit: int = 5) -> Any:
         """Find semantically similar events."""
-        require_authenticated_user(request)
-        if not services.events.ai:
-            return _ai_unavailable_response("Events")
-        result = await services.events.ai.find_similar_events(uid, limit)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"similar_events": result.value}
-
-    routes.append(events_ai_similar)
+        return await _ai_route(
+            request,
+            services,
+            "events",
+            "Events",
+            "find_similar_events",
+            (uid, limit),
+            wrap_key="similar_events",
+        )
 
     @rt("/api/events/ai/insight")
-    async def events_ai_insight(request, uid: str):
+    async def events_ai_insight(request: Any, uid: str) -> Any:
         """Generate AI insight about an event."""
-        require_authenticated_user(request)
-        if not services.events.ai:
-            return _ai_unavailable_response("Events")
-        result = await services.events.ai.generate_event_insight(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"insight": result.value}
-
-    routes.append(events_ai_insight)
+        return await _ai_route(
+            request,
+            services,
+            "events",
+            "Events",
+            "generate_event_insight",
+            (uid,),
+            wrap_key="insight",
+        )
 
     @rt("/api/events/ai/preparation")
-    async def events_ai_preparation(request, uid: str):
+    async def events_ai_preparation(request: Any, uid: str) -> Any:
         """Generate preparation checklist for an event."""
-        require_authenticated_user(request)
-        if not services.events.ai:
-            return _ai_unavailable_response("Events")
-        result = await services.events.ai.generate_preparation_checklist(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
-
-    routes.append(events_ai_preparation)
+        return await _ai_route(
+            request, services, "events", "Events", "generate_preparation_checklist", (uid,)
+        )
 
     @rt("/api/events/ai/reflection")
-    async def events_ai_reflection(request, uid: str):
+    async def events_ai_reflection(request: Any, uid: str) -> Any:
         """Generate reflection prompts for an event."""
-        require_authenticated_user(request)
-        if not services.events.ai:
-            return _ai_unavailable_response("Events")
-        result = await services.events.ai.suggest_reflection_prompts(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
+        return await _ai_route(
+            request, services, "events", "Events", "suggest_reflection_prompts", (uid,)
+        )
 
-    routes.append(events_ai_reflection)
-
-    # ==========================================================================
+    # ------------------------------------------------------------------
     # CHOICES AI ROUTES
-    # ==========================================================================
+    # ------------------------------------------------------------------
 
     @rt("/api/choices/ai/similar")
-    async def choices_ai_similar(request, uid: str, limit: int = 5):
+    async def choices_ai_similar(request: Any, uid: str, limit: int = 5) -> Any:
         """Find semantically similar choices."""
-        require_authenticated_user(request)
-        if not services.choices.ai:
-            return _ai_unavailable_response("Choices")
-        result = await services.choices.ai.find_similar_choices(uid, limit)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"similar_choices": result.value}
-
-    routes.append(choices_ai_similar)
+        return await _ai_route(
+            request,
+            services,
+            "choices",
+            "Choices",
+            "find_similar_choices",
+            (uid, limit),
+            wrap_key="similar_choices",
+        )
 
     @rt("/api/choices/ai/insight")
-    async def choices_ai_insight(request, uid: str):
+    async def choices_ai_insight(request: Any, uid: str) -> Any:
         """Generate AI insight about a choice."""
-        require_authenticated_user(request)
-        if not services.choices.ai:
-            return _ai_unavailable_response("Choices")
-        result = await services.choices.ai.generate_choice_insight(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"insight": result.value}
-
-    routes.append(choices_ai_insight)
+        return await _ai_route(
+            request,
+            services,
+            "choices",
+            "Choices",
+            "generate_choice_insight",
+            (uid,),
+            wrap_key="insight",
+        )
 
     @rt("/api/choices/ai/framework")
-    async def choices_ai_framework(request, uid: str):
+    async def choices_ai_framework(request: Any, uid: str) -> Any:
         """Suggest a decision-making framework for a choice."""
-        require_authenticated_user(request)
-        if not services.choices.ai:
-            return _ai_unavailable_response("Choices")
-        result = await services.choices.ai.suggest_decision_framework(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
-
-    routes.append(choices_ai_framework)
+        return await _ai_route(
+            request, services, "choices", "Choices", "suggest_decision_framework", (uid,)
+        )
 
     @rt("/api/choices/ai/alternatives")
-    async def choices_ai_alternatives(request, uid: str):
+    async def choices_ai_alternatives(request: Any, uid: str) -> Any:
         """Generate alternative options for a choice."""
-        require_authenticated_user(request)
-        if not services.choices.ai:
-            return _ai_unavailable_response("Choices")
-        result = await services.choices.ai.generate_alternatives(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
+        return await _ai_route(
+            request, services, "choices", "Choices", "generate_alternatives", (uid,)
+        )
 
-    routes.append(choices_ai_alternatives)
-
-    # ==========================================================================
+    # ------------------------------------------------------------------
     # PRINCIPLES AI ROUTES
-    # ==========================================================================
+    # ------------------------------------------------------------------
 
     @rt("/api/principles/ai/similar")
-    async def principles_ai_similar(request, uid: str, limit: int = 5):
+    async def principles_ai_similar(request: Any, uid: str, limit: int = 5) -> Any:
         """Find semantically similar principles."""
-        require_authenticated_user(request)
-        if not services.principles.ai:
-            return _ai_unavailable_response("Principles")
-        result = await services.principles.ai.find_similar_principles(uid, limit)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"similar_principles": result.value}
-
-    routes.append(principles_ai_similar)
+        return await _ai_route(
+            request,
+            services,
+            "principles",
+            "Principles",
+            "find_similar_principles",
+            (uid, limit),
+            wrap_key="similar_principles",
+        )
 
     @rt("/api/principles/ai/insight")
-    async def principles_ai_insight(request, uid: str):
+    async def principles_ai_insight(request: Any, uid: str) -> Any:
         """Generate AI insight about a principle."""
-        require_authenticated_user(request)
-        if not services.principles.ai:
-            return _ai_unavailable_response("Principles")
-        result = await services.principles.ai.generate_principle_insight(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"insight": result.value}
-
-    routes.append(principles_ai_insight)
+        return await _ai_route(
+            request,
+            services,
+            "principles",
+            "Principles",
+            "generate_principle_insight",
+            (uid,),
+            wrap_key="insight",
+        )
 
     @rt("/api/principles/ai/deepen")
-    async def principles_ai_deepen(request, uid: str):
+    async def principles_ai_deepen(request: Any, uid: str) -> Any:
         """Deepen understanding of a principle."""
-        require_authenticated_user(request)
-        if not services.principles.ai:
-            return _ai_unavailable_response("Principles")
-        result = await services.principles.ai.deepen_principle(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
-
-    routes.append(principles_ai_deepen)
+        return await _ai_route(
+            request, services, "principles", "Principles", "deepen_principle", (uid,)
+        )
 
     @rt("/api/principles/ai/practices")
-    async def principles_ai_practices(request, uid: str):
+    async def principles_ai_practices(request: Any, uid: str) -> Any:
         """Suggest practices to embody a principle."""
-        require_authenticated_user(request)
-        if not services.principles.ai:
-            return _ai_unavailable_response("Principles")
-        result = await services.principles.ai.suggest_practices(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
+        return await _ai_route(
+            request, services, "principles", "Principles", "suggest_practices", (uid,)
+        )
 
-    routes.append(principles_ai_practices)
-
-    # ==========================================================================
-    # KNOWLEDGE (KU) AI ROUTES
-    # ==========================================================================
+    # ------------------------------------------------------------------
+    # KNOWLEDGE (ARTICLE) AI ROUTES
+    # ------------------------------------------------------------------
 
     @rt("/api/knowledge/ai/related")
-    async def knowledge_ai_related(request, uid: str, limit: int = 5):
+    async def knowledge_ai_related(request: Any, uid: str, limit: int = 5) -> Any:
         """Find semantically related knowledge units."""
-        require_authenticated_user(request)
-        if not services.article.ai:
-            return _ai_unavailable_response("Knowledge")
-        result = await services.article.ai.find_related_knowledge(uid, limit)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"related_knowledge": result.value}
-
-    routes.append(knowledge_ai_related)
+        return await _ai_route(
+            request,
+            services,
+            "article",
+            "Knowledge",
+            "find_related_knowledge",
+            (uid, limit),
+            wrap_key="related_knowledge",
+        )
 
     @rt("/api/knowledge/ai/search")
-    async def knowledge_ai_search(request, query: str, limit: int = 10):
+    async def knowledge_ai_search(request: Any, query: str, limit: int = 10) -> Any:
         """Semantic search for knowledge units."""
-        require_authenticated_user(request)
-        if not services.article.ai:
-            return _ai_unavailable_response("Knowledge")
-        result = await services.article.ai.semantic_search(query, limit)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"results": result.value}
-
-    routes.append(knowledge_ai_search)
+        return await _ai_route(
+            request,
+            services,
+            "article",
+            "Knowledge",
+            "semantic_search",
+            (query, limit),
+            wrap_key="results",
+        )
 
     @rt("/api/knowledge/ai/summary")
-    async def knowledge_ai_summary(request, uid: str):
+    async def knowledge_ai_summary(request: Any, uid: str) -> Any:
         """Generate AI summary of a knowledge unit."""
-        require_authenticated_user(request)
-        if not services.article.ai:
-            return _ai_unavailable_response("Knowledge")
-        result = await services.article.ai.generate_summary(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"summary": result.value}
-
-    routes.append(knowledge_ai_summary)
+        return await _ai_route(
+            request,
+            services,
+            "article",
+            "Knowledge",
+            "generate_summary",
+            (uid,),
+            wrap_key="summary",
+        )
 
     @rt("/api/knowledge/ai/explain")
-    async def knowledge_ai_explain(request, uid: str, level: str = "intermediate"):
+    async def knowledge_ai_explain(request: Any, uid: str, level: str = "intermediate") -> Any:
         """Explain a knowledge unit at a specified level."""
-        require_authenticated_user(request)
-        if not services.article.ai:
-            return _ai_unavailable_response("Knowledge")
-        result = await services.article.ai.explain_at_level(uid, level)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
-
-    routes.append(knowledge_ai_explain)
+        return await _ai_route(
+            request, services, "article", "Knowledge", "explain_at_level", (uid, level)
+        )
 
     @rt("/api/knowledge/ai/applications")
-    async def knowledge_ai_applications(request, uid: str):
+    async def knowledge_ai_applications(request: Any, uid: str) -> Any:
         """Suggest practical applications of knowledge."""
-        require_authenticated_user(request)
-        if not services.article.ai:
-            return _ai_unavailable_response("Knowledge")
-        result = await services.article.ai.suggest_applications(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
+        return await _ai_route(
+            request, services, "article", "Knowledge", "suggest_applications", (uid,)
+        )
 
-    routes.append(knowledge_ai_applications)
-
-    # ==========================================================================
+    # ------------------------------------------------------------------
     # LEARNING STEPS (LS) AI ROUTES
-    # ==========================================================================
+    # ------------------------------------------------------------------
 
     @rt("/api/learning-steps/ai/similar")
-    async def ls_ai_similar(request, uid: str, limit: int = 5):
+    async def ls_ai_similar(request: Any, uid: str, limit: int = 5) -> Any:
         """Find semantically similar learning steps."""
-        require_authenticated_user(request)
-        if not services.ls.ai:
-            return _ai_unavailable_response("Learning Steps")
-        result = await services.ls.ai.find_similar_steps(uid, limit)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"similar_steps": result.value}
-
-    routes.append(ls_ai_similar)
+        return await _ai_route(
+            request,
+            services,
+            "ls",
+            "Learning Steps",
+            "find_similar_steps",
+            (uid, limit),
+            wrap_key="similar_steps",
+        )
 
     @rt("/api/learning-steps/ai/insight")
-    async def ls_ai_insight(request, uid: str):
+    async def ls_ai_insight(request: Any, uid: str) -> Any:
         """Generate AI insight about a learning step."""
-        require_authenticated_user(request)
-        if not services.ls.ai:
-            return _ai_unavailable_response("Learning Steps")
-        result = await services.ls.ai.generate_step_insight(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"insight": result.value}
-
-    routes.append(ls_ai_insight)
+        return await _ai_route(
+            request,
+            services,
+            "ls",
+            "Learning Steps",
+            "generate_step_insight",
+            (uid,),
+            wrap_key="insight",
+        )
 
     @rt("/api/learning-steps/ai/explain")
-    async def ls_ai_explain(request, uid: str, level: str = "intermediate"):
+    async def ls_ai_explain(request: Any, uid: str, level: str = "intermediate") -> Any:
         """Explain a learning step at a specified level."""
-        require_authenticated_user(request)
-        if not services.ls.ai:
-            return _ai_unavailable_response("Learning Steps")
-        result = await services.ls.ai.explain_step(uid, level)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
-
-    routes.append(ls_ai_explain)
+        return await _ai_route(
+            request, services, "ls", "Learning Steps", "explain_step", (uid, level)
+        )
 
     @rt("/api/learning-steps/ai/practice")
-    async def ls_ai_practice(request, uid: str):
+    async def ls_ai_practice(request: Any, uid: str) -> Any:
         """Suggest practice activities for a learning step."""
-        require_authenticated_user(request)
-        if not services.ls.ai:
-            return _ai_unavailable_response("Learning Steps")
-        result = await services.ls.ai.suggest_practice_activities(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
+        return await _ai_route(
+            request, services, "ls", "Learning Steps", "suggest_practice_activities", (uid,)
+        )
 
-    routes.append(ls_ai_practice)
-
-    # ==========================================================================
+    # ------------------------------------------------------------------
     # LEARNING PATHS (LP) AI ROUTES
-    # ==========================================================================
+    # ------------------------------------------------------------------
 
     @rt("/api/learning-paths/ai/similar")
-    async def lp_ai_similar(request, uid: str, limit: int = 5):
+    async def lp_ai_similar(request: Any, uid: str, limit: int = 5) -> Any:
         """Find semantically similar learning paths."""
-        require_authenticated_user(request)
-        if not services.lp.ai:
-            return _ai_unavailable_response("Learning Paths")
-        result = await services.lp.ai.find_similar_paths(uid, limit)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"similar_paths": result.value}
-
-    routes.append(lp_ai_similar)
+        return await _ai_route(
+            request,
+            services,
+            "lp",
+            "Learning Paths",
+            "find_similar_paths",
+            (uid, limit),
+            wrap_key="similar_paths",
+        )
 
     @rt("/api/learning-paths/ai/insight")
-    async def lp_ai_insight(request, uid: str):
+    async def lp_ai_insight(request: Any, uid: str) -> Any:
         """Generate AI insight about a learning path."""
-        require_authenticated_user(request)
-        if not services.lp.ai:
-            return _ai_unavailable_response("Learning Paths")
-        result = await services.lp.ai.generate_path_insight(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"insight": result.value}
-
-    routes.append(lp_ai_insight)
+        return await _ai_route(
+            request,
+            services,
+            "lp",
+            "Learning Paths",
+            "generate_path_insight",
+            (uid,),
+            wrap_key="insight",
+        )
 
     @rt("/api/learning-paths/ai/overview")
-    async def lp_ai_overview(request, uid: str):
+    async def lp_ai_overview(request: Any, uid: str) -> Any:
         """Generate an engaging overview of a learning path."""
-        require_authenticated_user(request)
-        if not services.lp.ai:
-            return _ai_unavailable_response("Learning Paths")
-        result = await services.lp.ai.generate_path_overview(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
-
-    routes.append(lp_ai_overview)
+        return await _ai_route(
+            request, services, "lp", "Learning Paths", "generate_path_overview", (uid,)
+        )
 
     @rt("/api/learning-paths/ai/strategy")
-    async def lp_ai_strategy(request, uid: str):
+    async def lp_ai_strategy(request: Any, uid: str) -> Any:
         """Suggest a completion strategy for a learning path."""
-        require_authenticated_user(request)
-        if not services.lp.ai:
-            return _ai_unavailable_response("Learning Paths")
-        result = await services.lp.ai.suggest_completion_strategy(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
+        return await _ai_route(
+            request, services, "lp", "Learning Paths", "suggest_completion_strategy", (uid,)
+        )
 
-    routes.append(lp_ai_strategy)
-
-    # ==========================================================================
+    # ------------------------------------------------------------------
     # AI STATUS ENDPOINT
-    # ==========================================================================
+    # ------------------------------------------------------------------
 
     @rt("/api/ai/status")
-    async def ai_status(request):
+    async def ai_status(request: Any) -> dict[str, Any]:
         """Check which AI services are available."""
         require_authenticated_user(request)
         return {
@@ -578,12 +487,12 @@ def create_ai_routes(app, rt, services):
             }
         }
 
-    routes.append(ai_status)
+    # Count routes for logging (decorators register immediately)
+    route_count = 31  # 30 AI routes + 1 status
+    logger.info(f"AI routes registered ({route_count} endpoints)")
 
-    logger.info(f"✅ AI routes registered ({len(routes)} endpoints)")
-    logger.info("   - Pattern: Check .ai availability, return 503 if unavailable")
-
-    return routes
+    # Return empty list — @rt() registers routes immediately
+    return []
 
 
 __all__ = ["create_ai_routes"]

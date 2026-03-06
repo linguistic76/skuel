@@ -20,8 +20,9 @@ Usage:
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Body, Div, Head, Html, Link, Meta, Script, Title
+from fasthtml.common import Body, Div, Html
 
+from ui.layouts.base_page import build_head
 from ui.layouts.navbar import create_navbar, create_navbar_for_request
 
 if TYPE_CHECKING:
@@ -103,35 +104,10 @@ class ActivityLayout:
             )
 
         # Get domain-specific CSS files
-        css_links = [
-            Link(rel="stylesheet", href=css_path) for css_path in DOMAIN_CSS.get(self.domain, [])
-        ]
+        domain_css = DOMAIN_CSS.get(self.domain, [])
 
         return Html(
-            Head(
-                Meta(charset="UTF-8"),
-                Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
-                Title(f"{self.title} - SKUEL"),
-                # DaisyUI CSS
-                Link(
-                    href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css",
-                    rel="stylesheet",
-                    type="text/css",
-                ),
-                # Tailwind CSS CDN (for JIT compilation of all utility classes)
-                Script(src="https://cdn.tailwindcss.com"),
-                # HTMX - using 1.9.10 to match other working pages
-                Script(src="https://unpkg.com/htmx.org@1.9.10"),
-                # Alpine.js
-                Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
-                # SKUEL custom CSS
-                Link(rel="stylesheet", href="/static/css/output.css"),
-                Link(rel="stylesheet", href="/static/css/skuel.css"),
-                # Domain-specific CSS
-                *css_links,
-                # SKUEL JavaScript (Alpine components)
-                Script(src="/static/js/skuel.js"),
-            ),
+            build_head(self.title, extra_css=domain_css or None),
             Body(
                 navbar,
                 # Main content area with full width
