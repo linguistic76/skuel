@@ -31,13 +31,13 @@ related: [README.md, INDEX.md]
 ### Entity Types (17)
 
 ```
-Activity (5)             Curriculum (5+)     Content/Processing    Other
-├── Tasks                ├── Ku              ├── Submission        ├── Finance
-├── Goals                ├── Article         ├── Journal           ├── Groups
-├── Habits               ├── LearningStep    ├── ActivityReport    ├── MOC (emergent)
-├── Choices              ├── LearningPath    └── SubmissionFeedback└── LifePath
-└── Principles           ├── Exercise
-+ Events (scheduling)    └── Resource
+Activity (6)             Curriculum (5)      Content/Processing    Other
+├── Tasks                ├── Article         ├── Submission        ├── Resource
+├── Goals                ├── Ku              ├── Journal           ├── Finance
+├── Habits               ├── LearningStep    ├── ActivityReport    ├── Groups
+├── Events               ├── LearningPath    └── SubmissionFeedback├── MOC (emergent)
+├── Choices              └── Exercise                              └── LifePath
+└── Principles
 ```
 
 ### Key Files to Know

@@ -14,9 +14,9 @@ UserContextIntelligence = UserContext + Domain Services
 
 **Entity Types:**
 
-    Activity (5): Tasks, Goals, Habits, Choices, Principles
-    Scheduling: Events (cross-cutting, gives activities time-bound form)
-    Curriculum: Article, Ku, LearningStep, LearningPath, Exercise, Resource
+    Activity (6): Tasks, Goals, Habits, Events, Choices, Principles
+    Curriculum: Article, Ku, LearningStep, LearningPath, Exercise
+    Curated Content: Resource
     Content processing: Submission, Journal, ActivityReport, SubmissionFeedback
     Destination: LifePath
     Cross-cutting: Calendar, Analytics, Feedback

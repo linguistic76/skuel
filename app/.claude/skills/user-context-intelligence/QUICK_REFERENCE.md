@@ -300,7 +300,7 @@ class ScheduleAwareRecommendation:
 class UserContextIntelligenceFactory:
     def __init__(
         self,
-        # Activity (5) + Events (Scheduling/Integration)
+        # Activity (6)
         tasks: UnifiedRelationshipService,
         goals: UnifiedRelationshipService,
         habits: UnifiedRelationshipService,

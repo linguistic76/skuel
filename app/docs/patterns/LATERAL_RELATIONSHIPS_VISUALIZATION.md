@@ -401,7 +401,7 @@ class LateralRouteFactory:
 def create_lateral_routes(app, rt, services):
     """Register lateral routes for all 9 domains."""
 
-    # Activity (5) + Events
+    # Activity (6)
     tasks_factory = LateralRouteFactory(
         app=app, rt=rt, domain="tasks",
         lateral_service=services.tasks_lateral,

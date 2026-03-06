@@ -329,8 +329,7 @@ If `entities_rich` is empty, these mixins return empty signals and the daily pla
 
 The 13 domains used in Askesis intelligence:
 
-- **Activity (5):** Tasks, Goals, Habits, Choices, Principles
-- **Scheduling Domain (1):** Events (cross-cutting; serves Activity Domains)
+- **Activity (6):** Tasks, Goals, Habits, Events, Choices, Principles
 - **Curriculum (3):** KU, LS, LP
 - **Processing (3):** Submissions, Journals, Feedback
 - **Temporal Domain (1):** Calendar

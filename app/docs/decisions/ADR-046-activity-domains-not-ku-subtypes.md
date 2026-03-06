@@ -6,11 +6,11 @@
 
 ## Context
 
-SKUEL's Entity Type Architecture includes several domain categories: Activity (5), Scheduling (1), Finance (1), Curriculum (4), Content (1), Organizational (2), and Destination (1). This ADR concerns the relationship between the 5 Activity Domains and Ku specifically.
+SKUEL's Entity Type Architecture includes several groupings: Activity (6), Finance (1), Curriculum (5), Curated Content (1), Organizational (2), and Destination (1). This ADR concerns the relationship between the 6 Activity Domains and Ku specifically.
 
 - **Ku** — atomic knowledge reference node. A single definable thing: concept, state, principle, substance, practice, value. Extends `Entity` directly with 4 fields (`namespace`, `ku_category`, `aliases`, `source`). Shared content, admin-created. (`core/models/ku/ku.py`)
 
-- **Activity Domains** — the 5 user-owned operational entities (Task, Goal, Habit, Choice, Principle). Each has domain-specific fields (scheduling, recurrence, completion logic, context metadata). Extends `UserOwnedEntity(Entity)`. Events (the scheduling/integration layer) also connects to knowledge through the same pattern.
+- **Activity Domains** — the 6 user-owned operational entities (Task, Goal, Habit, Event, Choice, Principle). Each has domain-specific fields (scheduling, recurrence, completion logic, context metadata). Extends `UserOwnedEntity(Entity)`.
 
 The question: should Activity entities inherit from Ku, or link to Ku through graph relationships?
 

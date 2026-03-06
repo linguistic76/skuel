@@ -261,24 +261,24 @@ Entity types have behavioral traits — not category membership — that determi
 
 ### Entity Type Details
 
-**Activity Entity Types (5)** — Task, Goal, Habit, Choice, Principle:
+**Activity Entity Types (6)** — Task, Goal, Habit, Event, Choice, Principle:
 - All use facade pattern with `.core`, `.search`, `.intelligence` sub-services
 - All created via `create_common_sub_services()` factory in `activity_domain_config.py`
 - User-owned content with ownership verification
 - **Detail pages:** `/{domain}/{uid}` routes with lateral relationships visualization
-
-**Events** — Cross-cutting scheduling / integration layer:
-- NOT an Activity entity type — serves the 5 Activity types by giving activities a time-bound, schedulable form
-- Has explicit integration sub-services: `EventsHabitIntegrationService`, `EventsLearningService`
-- `ActivityType` enum (12 types) provides calendar/timeline polymorphism across entity types
+- Events additionally has integration sub-services (`EventsHabitIntegrationService`, `EventsLearningService`); the **Calendar** cross-cutting system handles scheduling aggregation
 
 **Finance** — Standalone bookkeeping:
 - Admin-only access (ADMIN role required), does NOT use `BaseService` or `BaseAnalyticsService`
 
-**Article, Ku, Resource, LearningStep, LearningPath, Exercise** — Curriculum:
+**Article, Ku, LearningStep, LearningPath, Exercise** — Curriculum:
 - `ContentScope.SHARED` + `require_role=UserRole.ADMIN` — admin creates, all users read
 - Article (teaching composition), Ku (atomic reference), LS (edge), LP (path)
 - **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
+
+**Resource** — Curated external content:
+- Pointers to external content (books, talks, films) that Askesis can recommend
+- `ContentScope.SHARED` + `ContentOrigin.CURATED` — NOT curriculum, does not participate in learning loop
 
 **Submission, Journal, SubmissionFeedback, ActivityReport** — Content processing:
 - The educational loop `Article → Exercise → Submission → Feedback`
@@ -985,7 +985,7 @@ result: PrerequisiteResult = PrerequisiteHelper.check_prerequisites(
 
 **Evolution (2026-02-06):** Activity Domains moved from profile sidebar to **navbar avatar dropdown**. Profile sidebar now contains: Overview, Shared With Me, Curriculum, Account.
 
-**Evolution (2026-02-16):** Events moved from main navbar to profile dropdown — all 5 Activity Domains + Events now live in the avatar menu.
+**Evolution (2026-02-16):** Events moved from main navbar to profile dropdown — all 6 Activity Domains now live in the avatar menu.
 
 **Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Submissions, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage` from `ui/patterns/sidebar.py`). Custom CSS/JS files deleted. Mobile uses horizontal DaisyUI tabs.
 
@@ -993,7 +993,7 @@ result: PrerequisiteResult = PrerequisiteHelper.check_prerequisites(
 - `/ui/layouts/base_page.py` - Unified page wrapper (`BasePage`)
 - `/ui/layouts/page_types.py` - Page type enum and config
 - `/ui/layouts/navbar.py` - Navbar with profile dropdown (`_profile_dropdown`)
-- `/ui/layouts/nav_config.py` - `PROFILE_DROPDOWN_ITEMS` (5 activity domains)
+- `/ui/layouts/nav_config.py` - `PROFILE_DROPDOWN_ITEMS` (6 activity domains)
 - `/ui/patterns/sidebar.py` - Unified sidebar component (`SidebarItem`, `SidebarNav`, `SidebarPage`)
 - `/ui/patterns/` - PageHeader, SectionHeader, form_generator, card_generator, entity_dashboard, error_banner
 - `/ui/{domain}/views.py` - Domain view components (tasks, goals, habits, events, choices, principles)
@@ -1002,7 +1002,7 @@ result: PrerequisiteResult = PrerequisiteHelper.check_prerequisites(
 - `/ui/tokens.py` - Spacing, container, card tokens
 
 **Navbar Profile Dropdown (Desktop):**
-Avatar click opens DaisyUI dropdown with Tasks, Goals, Habits, Choices, Principles. On mobile (<640px), these appear in the hamburger menu under "Activity Domains" section.
+Avatar click opens DaisyUI dropdown with Tasks, Goals, Habits, Events, Choices, Principles. On mobile (<640px), these appear in the hamburger menu under "Activity Domains" section.
 
 **See:** `/docs/patterns/UI_COMPONENT_PATTERNS.md`
 
@@ -1255,8 +1255,7 @@ SKUEL's BaseService architecture uses 7 focused mixins + facade pattern with 3-1
 
 **Architecture Overview:**
 - **7 Mixins:** ConversionHelpers, CRUD, Search, Relationships, TimeQuery, UserProgress, Context
-- **5 Activity Domains:** Tasks (7 sub-services), Goals (9), Habits (8), Choices (4), Principles (7)
-- **Events Domain:** 7 sub-services (cross-cutting scheduling/integration layer)
+- **6 Activity Domains:** Tasks (7 sub-services), Goals (9), Habits (8), Events (7), Choices (4), Principles (7)
 - **Facade Pattern:** Explicit `async def` delegation methods (~35-50 methods per facade)
 - **Factory Pattern:** `create_common_sub_services()` eliminates ~80 lines of boilerplate
 

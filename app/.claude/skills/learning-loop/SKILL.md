@@ -364,7 +364,7 @@ the same method.
 **LLM generation flow:**
 ```
 1. Call `context_builder.build_rich(user_uid, time_period=...)` — MEGA_QUERY with
-   activity window; `context.entities_rich` covers all 5 Activity Domains + Events;
+   activity window; `context.entities_rich` covers all 6 Activity Domains;
    `context.knowledge_units_rich`, `context.enrolled_paths_rich`,
    `context.active_learning_steps_rich` cover the Curriculum track
 2. Cross-reference active Insights

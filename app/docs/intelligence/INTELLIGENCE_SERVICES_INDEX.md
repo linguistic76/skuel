@@ -24,7 +24,7 @@ SKUEL's intelligence layer provides graph-based analytics and insights across al
 The app functions fully without any LLM dependencies - AI services enhance but are not required.
 
 **Total Intelligence Services:** 13
-- **Activity Domains:** 5 (Tasks, Goals, Habits, Choices, Principles) + Events (Scheduling/Integration)
+- **Activity Domains:** 6 (Tasks, Goals, Habits, Events, Choices, Principles)
 - **Curriculum Domains:** 4 (KU, LS, LP, MOC)
 - **Meta Intelligence:** 1 (UserContext - central intelligence hub)
 - **Cross-Cutting:** 1 (Askesis - life context synthesis)
@@ -395,7 +395,7 @@ from core.services.intelligence import (
 
 ## Intelligence Services by Domain
 
-### Activity (5) + Events
+### Activity (6)
 
 | Service | Guide | Lines | Key Focus |
 |---------|-------|-------|-----------|

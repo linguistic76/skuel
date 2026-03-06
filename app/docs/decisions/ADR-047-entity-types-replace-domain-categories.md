@@ -76,9 +76,7 @@ These methods already exist on `EntityType` in `entity_enums.py`. They are the a
 
 ### The One Named Group: Activity
 
-The 5 Activity entity types (Task, Goal, Habit, Choice, Principle) genuinely share infrastructure — `create_common_sub_services()` factory, facade pattern, `create_activity_domain_route_config()`, `UserOwnedEntity` base class with identical access patterns. This grouping reflects shared code, not an imposed label.
-
-Events shares the infrastructure but serves a cross-cutting scheduling/integration function. It is not an Activity entity type.
+The 6 Activity entity types (Task, Goal, Habit, Event, Choice, Principle) genuinely share infrastructure — `create_common_sub_services()` factory, facade pattern, `create_activity_domain_route_config()`, `UserOwnedEntity` base class with identical access patterns. This grouping reflects shared code, not an imposed label.
 
 ### Everything Else: Peers Connected by Graph
 

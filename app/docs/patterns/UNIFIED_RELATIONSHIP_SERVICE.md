@@ -35,7 +35,7 @@ For implementation guidance, see:
 **Scope:** This service covers the **service layer** (graph enrichment, context queries, relationship operations). The **ingestion layer** (`core/services/ingestion/config.py`) also derives its config from the registry via its own `generate_ingestion_relationship_config()` function — see ADR-026 "Ingestion Config Unified" section.
 
 **Scope:** All 10 searchable domains now have relationship configs:
-- **Activity (5) + Events:** Tasks, Goals, Habits, Events, Choices, Principles (user-owned)
+- **Activity (6):** Tasks, Goals, Habits, Events, Choices, Principles (user-owned)
 - **Curriculum (3):** KU, LS, LP (shared content)
 - **Content/Organization Domains (3):** Journals, Assignments, MOC (MOC provides navigation across curriculum)
 - **Finance is NOT an Activity Domain** - it's a standalone expense/budget tracker
@@ -205,7 +205,7 @@ All 9 domains have named configs in `core.models.relationship_registry`:
 
 | Config | Domain | Entity Label | Key Relationships |
 |--------|--------|--------------|-------------------|
-| **Activity (5) + Events** |
+| **Activity (6)** |
 | `TASKS_CONFIG` | TASKS | Task | APPLIES_KNOWLEDGE, FULFILLS_GOAL, DEPENDS_ON |
 | `GOALS_CONFIG` | GOALS | Goal | REQUIRES_KNOWLEDGE, SUPPORTS_GOAL, SUBGOAL_OF |
 | `HABITS_CONFIG` | HABITS | Habit | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL, EMBODIES_PRINCIPLE |
@@ -624,7 +624,7 @@ SKUEL uses two distinct relationship service patterns, each optimized for differ
 
 ### Helper-Based Pattern (UnifiedRelationshipService)
 
-**For:** Activity (5) + Events - Tasks, Goals, Habits, Events, Choices, Principles
+**For:** Activity (6) - Tasks, Goals, Habits, Events, Choices, Principles
 
 **Characteristics:**
 - BackendOperations[T] protocol + BaseService inheritance

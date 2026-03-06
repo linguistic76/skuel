@@ -103,12 +103,11 @@ SKUEL organizes human experience into **17 entity types** with **5 cross-cutting
 └─────────────────────────────────────────────────────────────────┘
                               ↓ ↓ ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  ACTIVITY (5)          Tasks • Goals • Habits • Choices         │
-│                        Principles                               │
-│  SCHEDULING            Events (cross-cutting)                   │
+│  ACTIVITY (6)          Tasks • Goals • Habits • Events           │
+│                        Choices • Principles                     │
 │  FINANCE               Expenses & budgets (admin-only)          │
-│  CURRICULUM            Article • Ku • Resource • LS • LP        │
-│                        Exercise                                 │
+│  CURRICULUM            Article • Ku • LS • LP • Exercise        │
+│  CURATED CONTENT       Resource (books, talks, films)           │
 │  CONTENT PROCESSING    Submission • Journal • ActivityReport    │
 │                        SubmissionFeedback                       │
 │  ORGANIZATION          Groups • MOC (emergent)                  │

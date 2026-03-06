@@ -169,11 +169,13 @@ These methods exist on `EntityType` in `entity_enums.py`. They are the architect
 
 **See:** [ADR-047](../decisions/ADR-047-entity-types-replace-domain-categories.md)
 
-### The Activity Entity Types (5)
+### The Activity Entity Types (6)
 
-Task, Goal, Habit, Choice, and Principle genuinely share infrastructure — `create_common_sub_services()` factory, facade pattern, `create_activity_domain_route_config()`, `UserOwnedEntity` base class with identical access patterns. This grouping reflects shared code, not an imposed label.
+Task, Goal, Habit, Event, Choice, and Principle genuinely share infrastructure — `create_common_sub_services()` factory, facade pattern, `create_activity_domain_route_config()`, `UserOwnedEntity` base class with identical access patterns. This grouping reflects shared code, not an imposed label.
 
-**Service pattern** (all 5 + Events):
+Events additionally has integration sub-services (`EventsHabitIntegrationService`, `EventsLearningService`) that bridge it with other Activity types. The `ActivityType` enum (12 types) gives Events polymorphic calendar coverage. The **Calendar** cross-cutting system aggregates Events, Tasks, Habits, and Goals into a unified timeline — Calendar is the scheduling system, Events are the things being scheduled.
+
+**Service pattern** (all 6):
 
 ```
 {Domain}Service (Facade)
@@ -187,10 +189,6 @@ Common sub-services created via `create_common_sub_services()` factory (`core/ut
 
 **Access model**: `ContentScope.USER_OWNED` — user creates, only owner sees via `(User)-[:OWNS]->(Entity)`.
 
-### Events — Cross-Cutting Scheduling
-
-Events shares Activity infrastructure but serves a cross-cutting scheduling/integration function. It is NOT an Activity entity type — it gives activities a time-bound, schedulable form. Has explicit integration sub-services: `EventsHabitIntegrationService`, `EventsLearningService`. `ActivityType` enum (12 types) provides calendar/timeline polymorphism across entity types.
-
 ### Finance — Admin-Only Bookkeeping
 
 Standalone facade with 4 sub-services (Core, Budget, Reporting, Invoice). No intelligence service, no relationship configuration. All Finance routes require ADMIN role. Does NOT use `BaseService` or `BaseAnalyticsService`.
@@ -198,6 +196,10 @@ Standalone facade with 4 sub-services (Core, Budget, Reporting, Invoice). No int
 ### Article, Ku, LearningStep, LearningPath, Exercise — Curriculum
 
 Educational foundation. Article extends `Curriculum(Entity)`. Ku extends `Entity` directly (lightweight atomic unit). All admin-created, publicly readable via `ContentScope.SHARED`.
+
+### Resource — Curated External Content
+
+Pointers to external content (books, talks, films) that Askesis can recommend. Resource extends `Entity` directly (+7 fields). Admin-created, publicly readable via `ContentScope.SHARED`. Resource is NOT curriculum — it does not participate in the `Article → Exercise → Submission → Feedback` loop. Its `ContentOrigin` is `CURATED` (tier A), distinct from curriculum's `CURRICULUM` (tier B).
 
 **Two paths to knowledge (Montessori-inspired):**
 - **LS Path**: Structured, linear, teacher-directed (Article -> LS -> LP)

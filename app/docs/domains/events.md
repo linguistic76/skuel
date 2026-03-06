@@ -9,14 +9,16 @@ tags: [events, scheduling-domain, integration-domain, domain]
 
 # Events Domain
 
-**Type:** Scheduling / Integration Domain (domain #6 of 14)
+**Type:** Activity Domain (1 of 6)
 **UID Prefix:** `event:`
 **Entity Label:** `Event`
 **Config:** `EVENTS_CONFIG` (from `core.models.relationship_registry`)
 
 ## Purpose
 
-Events is a cross-cutting scheduling and integration layer that serves the 5 Activity Domains (Tasks, Goals, Habits, Choices, Principles) by giving activities a time-bound, schedulable form. It is NOT a peer Activity Domain — its sub-services are integration bridges (`EventsHabitIntegrationService`, `EventsLearningService`) rather than domain-deepening services. The `ActivityType` enum (12 types: TASK, HABIT, EVENT, LEARNING, MILESTONE, DEADLINE, etc.) gives Events polymorphic calendar coverage across domain types. Principles are supported only indirectly (Principles → Choices → Events).
+Events represents time commitments — things a user attends, participates in, or schedules. It is one of the 6 Activity Domains alongside Tasks, Goals, Habits, Choices, and Principles. Events shares the same infrastructure as all Activity Domains: `create_common_sub_services()` factory, facade pattern, `UserOwnedEntity` base class.
+
+Events additionally has integration sub-services (`EventsHabitIntegrationService`, `EventsLearningService`) that bridge it with other Activity types, and the `ActivityType` enum (12 types: TASK, HABIT, EVENT, LEARNING, MILESTONE, DEADLINE, etc.) gives Events polymorphic calendar coverage. The **Calendar** cross-cutting system aggregates Events alongside Tasks, Habits, and Goals into a unified timeline — Calendar is the scheduling system, Events are the things being scheduled.
 
 ## Key Files
 

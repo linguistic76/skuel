@@ -1,6 +1,6 @@
 # Common Activity Domain Patterns
 
-> Patterns shared across the 5 Activity Domains (Tasks, Goals, Habits, Choices, Principles). Events uses this same infrastructure but is a Scheduling / Integration Domain, not a peer Activity Domain.
+> Patterns shared across the 6 Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles).
 
 ## BaseService Inheritance
 

@@ -16,7 +16,7 @@
 
 ### Activity Domains - Generic Factory
 
-The 5 Activity Domains (Tasks, Goals, Habits, Choices, Principles) plus Events (Scheduling/Integration domain) use a single generic factory:
+The 6 Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles) use a single generic factory:
 
 ```python
 # Uses create_common_sub_services() for ALL activity domains

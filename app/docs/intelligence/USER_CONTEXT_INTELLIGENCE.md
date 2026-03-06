@@ -113,7 +113,7 @@ UserContextIntelligence provides 8 core methods across 5 mixins:
 
 UserContextIntelligence requires ALL 13 domain services because each contributes unique intelligence:
 
-### Activity (5) + Events - All use UnifiedRelationshipService
+### Activity (6) - All use UnifiedRelationshipService
 
 | Service | Purpose | Implementation |
 |---------|---------|----------------|
@@ -159,7 +159,7 @@ UserContextIntelligence requires ALL 13 domain services because each contributes
 class UserContextIntelligenceFactory:
     def __init__(
         self,
-        # Activity (5) + Events - All UnifiedRelationshipService with domain configs
+        # Activity (6) - All UnifiedRelationshipService with domain configs
         tasks: UnifiedRelationshipService,
         goals: UnifiedRelationshipService,
         habits: UnifiedRelationshipService,
@@ -912,7 +912,7 @@ from core.services.user.intelligence import UserContextIntelligenceFactory
 
 # Create factory with all 13 domain services
 factory = UserContextIntelligenceFactory(
-    # Activity (5) + Events
+    # Activity (6)
     tasks=tasks_service.relationships,
     goals=goals_service.relationships,
     habits=habits_service.relationships,

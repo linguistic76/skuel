@@ -129,9 +129,9 @@ __all__ = ["create_{domain}_routes"]
 
 ## The 5 Pattern Variants
 
-### 0. Activity Domain — THE Standard for the 5 Activity Domains (+ Events)
+### 0. Activity Domain — THE Standard for the 6 Activity Domains
 
-**When to use:** Any of the 5 Activity Domains (Tasks, Goals, Habits, Choices, Principles) or Events (Scheduling/Integration domain that shares this infrastructure). This is the highest-level convenience — pre-populates CRUD, Query, and Intelligence factory configs automatically.
+**When to use:** Any of the 6 Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles). This is the highest-level convenience — pre-populates CRUD, Query, and Intelligence factory configs automatically.
 
 **Exemplar:** `adapters/inbound/tasks_routes.py`
 

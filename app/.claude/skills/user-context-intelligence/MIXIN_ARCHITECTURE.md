@@ -336,7 +336,7 @@ class UserContextIntelligence(...):
     def __init__(
         self,
         context: UserContext,
-        # Activity (5) + Events (Scheduling/Integration)
+        # Activity (6)
         tasks: UnifiedRelationshipService,
         goals: UnifiedRelationshipService,
         habits: UnifiedRelationshipService,

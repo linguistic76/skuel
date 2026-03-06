@@ -53,23 +53,25 @@ class EntityType(str, Enum):
     Content origin tiers (see ContentOrigin):
         A  CURATED      → RESOURCE
         B  CURRICULUM   → ARTICLE, KU, LEARNING_STEP, LEARNING_PATH, EXERCISE
-        C  USER_CREATED → Activities, SUBMISSION, JOURNAL, LIFE_PATH
+        C  USER_CREATED → Activities (6), SUBMISSION, JOURNAL, LIFE_PATH
         D  FEEDBACK     → ACTIVITY_REPORT, SUBMISSION_FEEDBACK
 
     Ownership rules:
-        Knowledge group:     user_uid = None (shared content, admin-created)
-        Curriculum structure: user_uid = None (shared structure)
-        Content processing:  user_uid = student/teacher (user-owned)
-        Activity group:      user_uid = student (user-owned)
-        Destination:         user_uid = student (user-owned)
+        Curriculum + Resource: user_uid = None (shared content, admin-created)
+        Content processing:    user_uid = student/teacher (user-owned)
+        Activity (6):          user_uid = student (user-owned)
+        Destination:           user_uid = student (user-owned)
     """
 
-    # Shared curriculum (admin-created, publicly readable)
+    # Curriculum (admin-created, shared)
     ARTICLE = "article"
     KU = "ku"
-    RESOURCE = "resource"
     LEARNING_STEP = "learning_step"
     LEARNING_PATH = "learning_path"
+    EXERCISE = "exercise"
+
+    # Curated external content (admin-created, shared)
+    RESOURCE = "resource"
 
     # Content processing (user-owned, derivation chain)
     JOURNAL = "journal"
@@ -84,9 +86,6 @@ class EntityType(str, Enum):
     EVENT = "event"
     CHOICE = "choice"
     PRINCIPLE = "principle"
-
-    # Curriculum instruction templates
-    EXERCISE = "exercise"
 
     # Destination
     LIFE_PATH = "life_path"
@@ -104,7 +103,7 @@ class EntityType(str, Enum):
     # -------------------------------------------------------------------------
 
     def is_knowledge(self) -> bool:
-        """Check if this is shared curriculum knowledge (admin-created)."""
+        """Check if this is curriculum knowledge content (Article or Ku)."""
         return self in _KNOWLEDGE_TYPES
 
     def is_curriculum_structure(self) -> bool:
@@ -209,7 +208,7 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.LIFE_PATH: "Life Path",
 }
 
-_KNOWLEDGE_TYPES = frozenset({EntityType.ARTICLE, EntityType.KU, EntityType.RESOURCE})
+_KNOWLEDGE_TYPES = frozenset({EntityType.ARTICLE, EntityType.KU})
 _CURRICULUM_STRUCTURE_TYPES = frozenset(
     {EntityType.LEARNING_STEP, EntityType.LEARNING_PATH, EntityType.EXERCISE}
 )

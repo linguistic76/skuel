@@ -74,7 +74,7 @@ This architecture enables:
 **Current Production Status:**
 
 ✅ **Deployed across 9 domains** (January 2026):
-- Activity (5) + Events: Tasks, Goals, Habits, Events, Choices, Principles
+- Activity (6): Tasks, Goals, Habits, Events, Choices, Principles
 - Curriculum (3): KU, LS, LP
 
 ✅ **40/40 automated tests passing**

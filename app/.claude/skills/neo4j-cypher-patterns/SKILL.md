@@ -23,18 +23,19 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 | Events | `Event` | `event_{slug}_{random}` | `event_team-standup_ghi012` |
 | Choices | `Choice` | `choice_{slug}_{random}` | `choice_accept-offer_jkl345` |
 | Principles | `Principle` | `principle_{slug}_{random}` | `principle_small-steps_mno678` |
-| **Curriculum (4) — shared content** | | | |
+| **Curriculum (5) — shared content** | | | |
+| Articles | `Article` | `a_{slug}_{random}` | `a_intro-to-python_abc123` |
 | Knowledge Units | `Ku` | `ku_{slug}_{random}` | `ku_python-basics_abc123` |
-| Resources | `Resource` | *(no fixed format)* | |
 | Learning Steps | `LearningStep` | `ls:{random}` | `ls:intro-to-python` |
 | Learning Paths | `LearningPath` | `lp:{random}` | `lp:become-python-developer` |
+| Exercises | `Exercise` | `ku_{slug}_{random}` | |
+| **Curated Content — shared content** | | | |
+| Resources | `Resource` | *(no fixed format)* | |
 | **Submissions/Feedback (4)** | | | |
 | Submissions | `Submission` | `ku_{slug}_{random}` | `ku_my-essay_abc123` |
 | Journals | `Journal` | `ku_{slug}_{random}` | |
 | Activity Reports | `ActivityReport` | `ku_{slug}_{random}` | |
 | Submission Feedback | `SubmissionFeedback` | `ku_{slug}_{random}` | |
-| **Instruction** | | | |
-| Exercises | `Exercise` | `ku_{slug}_{random}` | |
 | **Destination** | | | |
 | Life Path | `LifePath` | `lp_{random}` | `lp_abc123` |
 | **Other** | | | |

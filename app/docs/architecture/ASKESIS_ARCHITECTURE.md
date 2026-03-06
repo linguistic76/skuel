@@ -23,7 +23,7 @@ Askesis is one of SKUEL's **5 Cross-Cutting Systems** providing life context syn
 ### Askesis vs. Domain Services
 
 ```
-Activity (5) + Events          Askesis
+Activity (6)                   Askesis
 ┌─────────────────┐          ┌─────────────────┐
 │ TasksService    │          │                 │
 │ GoalsService    │──────────│ AskesisService  │
