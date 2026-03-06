@@ -891,7 +891,7 @@ async def _hybrid_search(
 
 **Implementation:**
 ```python
-# In /core/services/knowledge/ku_intelligence_service.py
+# In /core/services/article_intelligence_service.py
 
 async def infer_semantic_relationships(
     self,

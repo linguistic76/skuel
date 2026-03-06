@@ -31,7 +31,7 @@
 | `article_graph_service.py` | Graph navigation |
 | `article_semantic_service.py` | Semantic relationship management |
 | `article_practice_service.py` | Practice tracking |
-| `article_interaction_service.py` | Pedagogical tracking (VIEWED → IN_PROGRESS → MASTERED) |
+| `article_mastery_service.py` | Pedagogical tracking (VIEWED → IN_PROGRESS → MASTERED) |
 | `article_adaptive_service.py` | Adaptive learning recommendations |
 | `article_organization_service.py` | ORGANIZES relationships (non-linear nav / MOC pattern) |
 | `article_ai_service.py` | AI-powered Article operations |

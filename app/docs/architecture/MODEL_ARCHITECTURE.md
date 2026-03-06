@@ -236,7 +236,7 @@ Per-domain `*_intelligence.py` files contain persistent learning state and analy
 | Task | TaskIntelligence, TaskCompletionContext | Energy levels, procrastination triggers |
 | Habit | HabitIntelligence, HabitCompletionContext | Failure reasons, completion context |
 | Principle | PrincipleIntelligence | Alignment tracking, reflection analysis |
-| Curriculum | KuMastery, KuRecommendation, LearningPreference | Mastery tracking, content recommendation |
+| Curriculum | Mastery, LearningRecommendation, LearningPreference | Mastery tracking, content recommendation |
 | Finance | FinanceIntelligence | Budget tracking, spending analysis |
 | User | UserLearningIntelligence | Cross-domain learning state |
 

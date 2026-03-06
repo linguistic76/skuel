@@ -148,13 +148,13 @@ Once in Neo4j, Articles connect through graph relationships:
 
 ### Layer 2: How You're Learning It — Mastery Tracking
 
-**File:** `core/models/curriculum/ku_intelligence.py`
+**File:** `core/models/curriculum/mastery.py`
 
 When a user interacts with an Article, a `MASTERED` relationship is created between `:User` and
-`:Article`. The `KuMastery` dataclass models what that relationship means:
+`:Article`. The `Mastery` dataclass models what that relationship means:
 
 ```
-KuMastery (frozen dataclass)
+Mastery (frozen dataclass)
 ├── Identity:    uid, user_uid, knowledge_uid
 ├── Mastery:     mastery_level (MasteryLevel), mastery_score (0.0-1.0)
 ├── Confidence:  confidence_score (0.0-1.0)
@@ -169,7 +169,7 @@ KuMastery (frozen dataclass)
 UNAWARE → INTRODUCED → FAMILIAR → PROFICIENT → ADVANCED → EXPERT → MASTERED
 ```
 
-The `ArticleInteractionService` (`core/services/article/article_interaction_service.py`) manages
+The `ArticleMasteryService` (`core/services/article/article_mastery_service.py`) manages
 pedagogical progression: `VIEWED` → `IN_PROGRESS` → `MASTERED`. Each transition is a graph
 relationship event.
 
@@ -229,7 +229,7 @@ increments the counter in Neo4j.
 5. Return top N recommendations
 ```
 
-**`KuCategoryProgress`** (`core/models/curriculum/ku_progress.py`) — a frozen snapshot of
+**`CurriculumProgress`** (`core/models/curriculum/learning_progress.py`) — a frozen snapshot of
 a user's progress through one SEL category:
 
 ```
@@ -246,13 +246,13 @@ KuCategoryProgress
 `needs_attention()` returns `True` if a user started a category but hasn't touched it in
 7+ days — a signal for the UI.
 
-**`KuLearningJourney`** (`core/models/curriculum/ku_progress.py`) — progress across all
+**`LearningJourney`** (`core/models/curriculum/learning_progress.py`) — progress across all
 five SEL categories:
 
 ```
-KuLearningJourney
+LearningJourney
 ├── user_uid
-├── category_progress: dict[SELCategory, KuCategoryProgress]
+├── category_progress: dict[SELCategory, CurriculumProgress]
 └── overall_completion: float (0-100)
 ```
 
@@ -266,7 +266,7 @@ values breadth alongside depth.
 
 ### UI: Making Learning Visible
 
-**File:** `ui/patterns/ku_adaptive.py`
+**File:** `ui/patterns/curriculum_adaptive.py`
 
 | Component | What It Shows |
 |---|---|
@@ -278,7 +278,7 @@ values breadth alongside depth.
 
 | Route | Purpose |
 |---|---|
-| `GET /api/articles/journey` | `KuLearningJourney` (JSON) |
+| `GET /api/articles/journey` | `LearningJourney` (JSON) |
 | `GET /api/articles/curriculum/{category}` | `list[Article]` (JSON) |
 | `GET /api/articles/journey-html` | `SELJourneyOverview` (HTMX fragment) |
 | `GET /api/articles/curriculum-html/{category}` | Grid of `AdaptiveArticleCard` (HTMX fragment) |
@@ -393,13 +393,13 @@ New feedback sources add `ProcessorType` values; they do not create new EntityTy
 | Purpose | File |
 |---|---|
 | Article domain model | `core/models/curriculum/article.py` |
-| Article mastery + intelligence models | `core/models/curriculum/ku_intelligence.py` |
-| Category progress + journey models | `core/models/curriculum/ku_progress.py` |
+| Mastery + intelligence models | `core/models/curriculum/mastery.py` |
+| Curriculum progress + journey models | `core/models/curriculum/learning_progress.py` |
 | SELCategory + LearningLevel enums | `core/models/enums/learning_enums.py` |
 | Adaptive curriculum service | `core/services/article/article_adaptive_service.py` |
-| Article interaction service (mastery transitions) | `core/services/article/article_interaction_service.py` |
+| Article mastery service (MASTERED transitions) | `core/services/article/article_mastery_service.py` |
 | Article facade (wires sub-services) | `core/services/article_service.py` |
-| Learning experience UI components | `ui/patterns/ku_adaptive.py` |
+| Learning experience UI components | `ui/patterns/curriculum_adaptive.py` |
 | Article API routes | `adapters/inbound/article_api.py` |
 | Ingestion pipeline | `core/services/ingestion/` |
 | Substance philosophy | `docs/architecture/knowledge_substance_philosophy.md` |

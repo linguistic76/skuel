@@ -11,7 +11,7 @@ This directory contains modular sub-services for Article (teaching composition) 
 │   ├── article_search_service.py           # Search and discovery
 │   ├── article_graph_service.py            # Graph traversal, prerequisites
 │   ├── article_semantic_service.py         # Semantic relationships
-│   ├── article_interaction_service.py      # Pedagogical state tracking
+│   ├── article_mastery_service.py          # Pedagogical state tracking
 │   ├── article_practice_service.py         # Event-driven practice tracking
 │   ├── article_ai_service.py              # Optional AI features
 │   ├── article_adaptive_service.py        # Adaptive learning recommendations
@@ -105,7 +105,7 @@ This directory contains modular sub-services for Article (teaching composition) 
 
 ---
 
-### 5. `article_interaction_service.py` - Pedagogical State Tracking
+### 5. `article_mastery_service.py` - Pedagogical State Tracking
 **Responsibilities:**
 - Track user learning state progression
 - Record when user views Article content

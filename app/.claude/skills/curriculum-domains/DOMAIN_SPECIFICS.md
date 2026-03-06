@@ -15,7 +15,7 @@
 | `ArticleGraphService` | Graph navigation and relationships |
 | `ArticleSemanticService` | Semantic relationship management |
 | `ArticlePracticeService` | Event-driven practice tracking |
-| `ArticleInteractionService` | Pedagogical tracking (VIEWED→IN_PROGRESS→MASTERED) |
+| `ArticleMasteryService` | Pedagogical tracking (VIEWED→IN_PROGRESS→MASTERED) |
 | `ArticleAdaptiveService` | Adaptive learning recommendations |
 | `ArticleOrganizationService` | ORGANIZES relationships — non-linear navigation (MOC pattern) |
 | `ArticleAiService` | AI-powered Article operations |

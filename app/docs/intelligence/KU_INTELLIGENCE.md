@@ -1,10 +1,10 @@
-# KuIntelligenceService - Semantic Knowledge & Cross-Domain Discovery
+# ArticleIntelligenceService - Semantic Knowledge & Cross-Domain Discovery
 
 ## Overview
 
-**Architecture:** Extends `BaseAnalyticsService[KuOperations, Ku]`
-**Location:** `/core/services/ku_intelligence_service.py`
-**Service Name:** `ku.intelligence`
+**Architecture:** Extends `BaseAnalyticsService[ArticleOperations, Article]`
+**Location:** `/core/services/article_intelligence_service.py`
+**Service Name:** `article.intelligence`
 **Lines:** ~728
 **Updated:** January 2026 (Protocol Compliance & Embeddings Service)
 
@@ -533,7 +533,7 @@ When `Neo4jGenAIEmbeddingsService` is available, the service provides:
 
 ### Unit Tests
 ```bash
-poetry run python -m pytest tests/unit/services/test_ku_intelligence_service.py -v
+poetry run python -m pytest tests/unit/services/test_article_intelligence_service.py -v
 ```
 
 ### Integration Tests
@@ -548,7 +548,7 @@ poetry run python -m pytest tests/integration/intelligence/ -k "test_get_knowled
 ### Example Test
 ```python
 from unittest.mock import Mock
-from core.services.ku_intelligence_service import KuIntelligenceService
+from core.services.article_intelligence_service import ArticleIntelligenceService
 
 # Create mock services
 backend = Mock()
