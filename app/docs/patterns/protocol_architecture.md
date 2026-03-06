@@ -294,7 +294,7 @@ class Services:
 ### Phase 3: Route Signatures (14 files updated)
 All API route functions now use protocol types instead of concrete classes. Note: Activity and Curriculum domain facades were later updated again in Phase 2 of the explicit delegation migration (February 2026) to use concrete service class types.
 
-**Activity Domains (6) — now use concrete service class:**
+**Activity (5) + Events — now use concrete service class:**
 - `tasks_api.py` → `TasksService`
 - `goals_api.py` → `GoalsService`
 - `habits_api.py` → `HabitsService`
@@ -302,7 +302,7 @@ All API route functions now use protocol types instead of concrete classes. Note
 - `choices_api.py` → `ChoicesService`
 - `principles_api.py` → `PrinciplesService`
 
-**Curriculum Domains (4) — now use concrete service class:**
+**Curriculum (4) — now use concrete service class:**
 - `knowledge_api.py` → `KuService`
 - `learning_api.py` → `LpService`
 - `learning_steps_api.py` → `LsService`

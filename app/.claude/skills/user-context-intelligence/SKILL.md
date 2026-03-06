@@ -67,9 +67,7 @@ UserContextIntelligence = UserContext + 13 Domain Services
 
 `UserContextIntelligence` requires ALL 13 domain services at construction:
 
-### Activity Domains (5) + Events
-
-All use `UnifiedRelationshipService` with domain configs. Events is a Scheduling/Integration domain, not a peer Activity Domain, but is wired here as a domain service:
+### Activity (5) + Events (scheduling)
 
 | Service | Attribute | Purpose |
 |---------|-----------|---------|
@@ -80,7 +78,7 @@ All use `UnifiedRelationshipService` with domain configs. Events is a Scheduling
 | Choices | `self.choices` | Pending decisions |
 | Principles | `self.principles` | Value alignment |
 
-### Curriculum Domains (3)
+### Curriculum (3)
 
 | Service | Attribute | Purpose |
 |---------|-----------|---------|
@@ -88,7 +86,7 @@ All use `UnifiedRelationshipService` with domain configs. Events is a Scheduling
 | LS | `self.ls` | Learning step sequencing (UnifiedRelationshipService) |
 | LP | `self.lp` | Life path analysis (UnifiedRelationshipService) |
 
-### Processing Domains (3)
+### Processing (3)
 
 | Service | Attribute | Purpose |
 |---------|-----------|---------|
@@ -289,14 +287,14 @@ from core.services.user.intelligence import UserContextIntelligenceFactory
 
 # At bootstrap (services_bootstrap.py)
 factory = UserContextIntelligenceFactory(
-    # Activity Domains (5) + Events (Scheduling/Integration)
+    # Activity (5) + Events (scheduling)
     tasks=tasks_service.relationships,
     goals=goals_service.relationships,
     habits=habits_service.relationships,
     events=events_service.relationships,
     choices=choices_service.relationships,
     principles=principles_service.relationships,
-    # Curriculum Domains (3)
+    # Curriculum (3)
     ku=ku_service.graph,
     ls=ls_service.relationships,
     lp=lp_service.relationships,
@@ -341,8 +339,8 @@ async def get_ready_to_work_on_today(
     THE FLAGSHIP METHOD - What should I focus on TODAY?
 
     Currently synthesizes 10 of 13 wired domains:
-    - Activity Domains (5) + Events: tasks, habits, goals, events, choices, principles
-    - Curriculum Domains (3): ku, ls, lp
+    - Activity (5) + Events: tasks, habits, goals, events, choices, principles
+    - Curriculum (3): ku, ls, lp
     - Submissions Domain (1): self.feedback — Priority 2.5: unsubmitted exercises
 
     Processing Domains (2): wired, not yet called

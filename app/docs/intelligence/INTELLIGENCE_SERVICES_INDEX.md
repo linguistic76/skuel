@@ -395,7 +395,7 @@ from core.services.intelligence import (
 
 ## Intelligence Services by Domain
 
-### Activity Domains (6)
+### Activity (5) + Events
 
 | Service | Guide | Lines | Key Focus |
 |---------|-------|-------|-----------|
@@ -408,7 +408,7 @@ from core.services.intelligence import (
 
 ---
 
-### Curriculum Domains (4)
+### Curriculum (4)
 
 | Service | Guide | Lines | Key Focus |
 |---------|-------|-------|-----------|

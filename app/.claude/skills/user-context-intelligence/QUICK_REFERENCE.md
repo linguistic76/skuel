@@ -300,18 +300,18 @@ class ScheduleAwareRecommendation:
 class UserContextIntelligenceFactory:
     def __init__(
         self,
-        # Activity Domains (5) + Events (Scheduling/Integration)
+        # Activity (5) + Events (Scheduling/Integration)
         tasks: UnifiedRelationshipService,
         goals: UnifiedRelationshipService,
         habits: UnifiedRelationshipService,
         events: UnifiedRelationshipService,
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
-        # Curriculum Domains (3)
+        # Curriculum (3)
         ku: KuGraphService,
         ls: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
-        # Processing Domains (3)
+        # Processing (3)
         submissions: SubmissionsRelationshipService,
         feedback: FeedbackRelationshipService,
         analytics: AnalyticsRelationshipService,

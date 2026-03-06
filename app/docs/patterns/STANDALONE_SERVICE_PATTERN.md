@@ -34,9 +34,9 @@ Use a standalone service (no `BaseService` inheritance) when:
 
 | Category | Base Class | Characteristics | Examples |
 |----------|------------|-----------------|----------|
-| **Activity Domains (6)** | BaseService | Direct CRUD, entity creation | Tasks, Goals, Habits, Events, Choices, Principles |
+| **Activity (5) + Events** | BaseService | Direct CRUD, entity creation | Tasks, Goals, Habits, Events, Choices, Principles |
 | **Finance Domain (1)** | Standalone facade | Admin-only, 5 sub-services | Finance |
-| **Curriculum Domains (3)** | Standalone facades | Knowledge organization | KU, LS, LP |
+| **Curriculum (3)** | Standalone facades | Knowledge organization | KU, LS, LP |
 | **Content/Organization (3)** | Standalone | File upload, AI processing, navigation | Journals, Assignments, MOC |
 | **Transcription** | **Standalone** | Audio processing pipeline | TranscriptionService |
 

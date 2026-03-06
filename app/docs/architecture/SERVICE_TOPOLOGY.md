@@ -31,8 +31,8 @@ Services with **both** a root-level facade AND a subfolder of sub-services.
 
 | Category | Services | Sub-service count |
 |----------|----------|-------------------|
-| Activity Domains (6) | tasks, goals, habits, events, choices, principles | 5–11 per domain |
-| Curriculum Domains (3) | ku, lp, ls | 4–11 per domain |
+| Activity (5) + Events | tasks, goals, habits, events, choices, principles | 5–11 per domain |
+| Curriculum (3) | ku, lp, ls | 4–11 per domain |
 | Cross-Cutting (4) | user, askesis, finance, lifepath | varies |
 
 **Structure:**

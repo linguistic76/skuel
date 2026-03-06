@@ -35,8 +35,8 @@ For implementation guidance, see:
 **Scope:** This service covers the **service layer** (graph enrichment, context queries, relationship operations). The **ingestion layer** (`core/services/ingestion/config.py`) also derives its config from the registry via its own `generate_ingestion_relationship_config()` function — see ADR-026 "Ingestion Config Unified" section.
 
 **Scope:** All 10 searchable domains now have relationship configs:
-- **Activity Domains (6):** Tasks, Goals, Habits, Events, Choices, Principles (user-owned)
-- **Curriculum Domains (3):** KU, LS, LP (shared content)
+- **Activity (5) + Events:** Tasks, Goals, Habits, Events, Choices, Principles (user-owned)
+- **Curriculum (3):** KU, LS, LP (shared content)
 - **Content/Organization Domains (3):** Journals, Assignments, MOC (MOC provides navigation across curriculum)
 - **Finance is NOT an Activity Domain** - it's a standalone expense/budget tracker
 
@@ -205,14 +205,14 @@ All 9 domains have named configs in `core.models.relationship_registry`:
 
 | Config | Domain | Entity Label | Key Relationships |
 |--------|--------|--------------|-------------------|
-| **Activity Domains (6)** |
+| **Activity (5) + Events** |
 | `TASKS_CONFIG` | TASKS | Task | APPLIES_KNOWLEDGE, FULFILLS_GOAL, DEPENDS_ON |
 | `GOALS_CONFIG` | GOALS | Goal | REQUIRES_KNOWLEDGE, SUPPORTS_GOAL, SUBGOAL_OF |
 | `HABITS_CONFIG` | HABITS | Habit | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL, EMBODIES_PRINCIPLE |
 | `EVENTS_CONFIG` | EVENTS | Event | APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL, CONFLICTS_WITH |
 | `CHOICES_CONFIG` | CHOICES | Choice | INFORMED_BY_KNOWLEDGE, INFORMED_BY_PRINCIPLE, AFFECTS_GOAL |
 | `PRINCIPLES_CONFIG` | PRINCIPLES | Principle | GROUNDED_IN_KNOWLEDGE, GUIDES_GOAL, GUIDES_CHOICE |
-| **Curriculum Domains (3)** |
+| **Curriculum (3)** |
 | `KU_CONFIG` | KNOWLEDGE | Ku | REQUIRES, ENABLES, ORGANIZES, HAS_NARROWER |
 | `LS_CONFIG` | LEARNING | Ls | CONTAINS_KNOWLEDGE, BUILDS_HABIT, ASSIGNS_TASK |
 | `LP_CONFIG` | LEARNING | Lp | HAS_STEP, ALIGNED_WITH_GOAL, HAS_MILESTONE_EVENT |
@@ -624,7 +624,7 @@ SKUEL uses two distinct relationship service patterns, each optimized for differ
 
 ### Helper-Based Pattern (UnifiedRelationshipService)
 
-**For:** Activity Domains (6) - Tasks, Goals, Habits, Events, Choices, Principles
+**For:** Activity (5) + Events - Tasks, Goals, Habits, Events, Choices, Principles
 
 **Characteristics:**
 - BackendOperations[T] protocol + BaseService inheritance
@@ -635,7 +635,7 @@ SKUEL uses two distinct relationship service patterns, each optimized for differ
 
 ### Direct Driver Pattern (Domain-Specific Services)
 
-**For:** Curriculum Domains (3) + MOC - LP, LS, KU, and MOC (Content/Org navigation)
+**For:** Curriculum (3) + MOC - LP, LS, KU, and MOC (Content/Org navigation)
 
 **Characteristics:**
 - AsyncDriver + GraphQueryExecutor (raw Cypher)

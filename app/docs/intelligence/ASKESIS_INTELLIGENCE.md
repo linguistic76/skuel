@@ -329,10 +329,10 @@ If `entities_rich` is empty, these mixins return empty signals and the daily pla
 
 The 13 domains used in Askesis intelligence:
 
-- **Activity Domains (5):** Tasks, Goals, Habits, Choices, Principles
+- **Activity (5):** Tasks, Goals, Habits, Choices, Principles
 - **Scheduling Domain (1):** Events (cross-cutting; serves Activity Domains)
-- **Curriculum Domains (3):** KU, LS, LP
-- **Processing Domains (3):** Submissions, Journals, Feedback
+- **Curriculum (3):** KU, LS, LP
+- **Processing (3):** Submissions, Journals, Feedback
 - **Temporal Domain (1):** Calendar
 
 > Pre-February 2026: "Processing Domains" were called "Assignments, Journals, Reports". These were renamed in the Reports → Submissions + Feedback migration (February 2026) and the EntityType rename (`AI_FEEDBACK → ACTIVITY_REPORT`, `FEEDBACK_REPORT → SUBMISSION_FEEDBACK`) in March 2026.

@@ -66,18 +66,18 @@ async def get_daily_plan(user_uid: str):
 class UserContextIntelligenceFactory:
     def __init__(
         self,
-        # Activity Domains (5) + Events (Scheduling/Integration)
+        # Activity (5) + Events (Scheduling/Integration)
         tasks: UnifiedRelationshipService,
         goals: UnifiedRelationshipService,
         habits: UnifiedRelationshipService,
         events: UnifiedRelationshipService,
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
-        # Curriculum Domains (3)
+        # Curriculum (3)
         ku: KuGraphService,
         ls: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
-        # Processing Domains (3)
+        # Processing (3)
         submissions: SubmissionsRelationshipService,
         feedback: FeedbackRelationshipService,
         analytics: AnalyticsRelationshipService,
@@ -136,14 +136,14 @@ class UserContextIntelligenceFactory:
         """Create intelligence instance bound to user context."""
         return UserContextIntelligence(
             context=context,
-            # Activity domains (6)
+            # Activity (5) + Events
             tasks=self._tasks,
             goals=self._goals,
             habits=self._habits,
             events=self._events,
             choices=self._choices,
             principles=self._principles,
-            # Curriculum domains (3)
+            # Curriculum (3)
             ku=self._ku,
             ls=self._ls,
             lp=self._lp,
@@ -173,18 +173,18 @@ async def compose_services(neo4j_driver, event_bus=None) -> Result[Services]:
 
     # Create factory with relationship services from facades
     context_intelligence_factory = UserContextIntelligenceFactory(
-        # Activity Domains (5) + Events (Scheduling/Integration) - from facade .relationships
+        # Activity (5) + Events (Scheduling/Integration) - from facade .relationships
         tasks=tasks_service.relationships,
         goals=goals_service.relationships,
         habits=habits_service.relationships,
         events=events_service.relationships,
         choices=choices_service.relationships,
         principles=principles_service.relationships,
-        # Curriculum Domains (3)
+        # Curriculum (3)
         ku=ku_service.graph,           # KuGraphService
         ls=ls_service.relationships,   # UnifiedRelationshipService
         lp=lp_service.relationships,   # UnifiedRelationshipService
-        # Processing Domains (3)
+        # Processing (3)
         submissions=submissions_relationship_service,
         feedback=feedback_relationship_service,
         analytics=analytics_relationship_service,

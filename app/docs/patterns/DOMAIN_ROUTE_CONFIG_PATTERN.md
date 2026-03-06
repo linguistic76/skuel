@@ -986,7 +986,7 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
 
 ### Current Users (27 files - 77% adoption)
 
-**Activity Domains (6):**
+**Activity (5) + Events:**
 1. `/adapters/inbound/tasks_routes.py` (33 lines)
 2. `/adapters/inbound/goals_routes.py` (31 lines)
 3. `/adapters/inbound/habits_routes.py` (35 lines)

@@ -113,7 +113,7 @@ UserContextIntelligence provides 8 core methods across 5 mixins:
 
 UserContextIntelligence requires ALL 13 domain services because each contributes unique intelligence:
 
-### Activity Domains (6) - All use UnifiedRelationshipService
+### Activity (5) + Events - All use UnifiedRelationshipService
 
 | Service | Purpose | Implementation |
 |---------|---------|----------------|
@@ -124,7 +124,7 @@ UserContextIntelligence requires ALL 13 domain services because each contributes
 | **choices** | What decisions await? | `choices_service.relationships` (UnifiedRelationshipService) |
 | **principles** | What values guide this? | `principles_service.relationships` (UnifiedRelationshipService) |
 
-### Curriculum Domains (4) - LS/LP unified in January 2026, Article/KU split March 2026
+### Curriculum (4) - LS/LP unified in January 2026, Article/KU split March 2026
 
 | Service | Purpose | Implementation |
 |---------|---------|----------------|
@@ -138,7 +138,7 @@ UserContextIntelligence requires ALL 13 domain services because each contributes
 - `LpRelationshipService` DELETED → LP now uses `UnifiedRelationshipService` with LP domain config
 - All curriculum relationships now use the same unified service pattern as Activity domains
 
-### Processing Domains (2)
+### Processing (2)
 
 | Service | Purpose | Implementation |
 |---------|---------|----------------|
@@ -159,18 +159,18 @@ UserContextIntelligence requires ALL 13 domain services because each contributes
 class UserContextIntelligenceFactory:
     def __init__(
         self,
-        # Activity Domains (6) - All UnifiedRelationshipService with domain configs
+        # Activity (5) + Events - All UnifiedRelationshipService with domain configs
         tasks: UnifiedRelationshipService,
         goals: UnifiedRelationshipService,
         habits: UnifiedRelationshipService,
         events: UnifiedRelationshipService,
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
-        # Curriculum Domains (3)
+        # Curriculum (3)
         ku: KuGraphService,
         ls: UnifiedRelationshipService,  # January 2026: Unified
         lp: UnifiedRelationshipService,  # January 2026: Unified
-        # Processing Domains (2) — journals merged into reports Feb 2026
+        # Processing (2) — journals merged into reports Feb 2026
         reports: SubmissionsRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
@@ -912,18 +912,18 @@ from core.services.user.intelligence import UserContextIntelligenceFactory
 
 # Create factory with all 13 domain services
 factory = UserContextIntelligenceFactory(
-    # Activity Domains (6)
+    # Activity (5) + Events
     tasks=tasks_service.relationships,
     goals=goals_service.relationships,
     habits=habits_service.relationships,
     events=events_service.relationships,
     choices=choices_service.relationships,
     principles=principles_service.relationships,
-    # Curriculum Domains (3)
+    # Curriculum (3)
     ku=ku_service.graph,
     ls=ls_service.relationships,
     lp=lp_service.relationships,
-    # Processing Domains (3)
+    # Processing (3)
     assignments=assignments_service.relationships,
     journals=journals_service.relationships,
     reports=reports_service.relationships,
