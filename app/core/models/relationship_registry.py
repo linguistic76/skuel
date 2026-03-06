@@ -1717,6 +1717,7 @@ ARTICLE_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "used_kus",
             "uses_ku",
+            yaml_field_path="uses_kus",
         ),
     ),
     prerequisite_relationship_names=(RelationshipName.REQUIRES_KNOWLEDGE,),
@@ -1780,7 +1781,15 @@ LS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "knowledge_units",
             "knowledge",
-            yaml_field_path="connections.teaches_knowledge",
+            yaml_field_path="primary_knowledge_uids",
+        ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.TRAINS_KU,
+            "Ku",
+            "outgoing",
+            "trained_kus",
+            "trains_ku",
+            yaml_field_path="trains_ku_uids",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_STEP,
@@ -1788,6 +1797,7 @@ LS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "prerequisites",
             "prerequisite_steps",
+            yaml_field_path="prerequisite_step_uids",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
@@ -1795,6 +1805,15 @@ LS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "prerequisite_knowledge_units",
             "prerequisite_knowledge",
+            yaml_field_path="prerequisite_knowledge_uids",
+        ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.REQUIRES_KNOWLEDGE,
+            "Entity",
+            "outgoing",
+            "supporting_knowledge_units",
+            "supporting_knowledge",
+            yaml_field_path="supporting_knowledge_uids",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.GUIDED_BY_PRINCIPLE,
@@ -1802,6 +1821,7 @@ LS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "guiding_principles",
             "principles",
+            yaml_field_path="principle_uids",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMS_CHOICE,
@@ -1809,6 +1829,7 @@ LS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "informed_choices",
             "choices",
+            yaml_field_path="choice_uids",
         ),
         # Practice patterns
         UnifiedRelationshipDefinition(
@@ -1817,6 +1838,7 @@ LS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "builds_habits",
             "practice_habits",
+            yaml_field_path="habit_uids",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ASSIGNS_TASK,
@@ -1824,6 +1846,7 @@ LS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "assigned_tasks",
             "practice_tasks",
+            yaml_field_path="task_uids",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SCHEDULES_EVENT,
@@ -1831,6 +1854,7 @@ LS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "scheduled_events",
             "practice_events",
+            yaml_field_path="event_template_uids",
         ),
         # Incoming: Other → Ls (LP is now also :Entity)
         UnifiedRelationshipDefinition(
@@ -1839,6 +1863,8 @@ LS_CONFIG = DomainRelationshipConfig(
             "incoming",
             "learning_paths",
             "in_paths",
+            yaml_field_path="learning_path_uids",
+            single=True,
         ),
     ),
     prerequisite_relationship_names=(

@@ -117,8 +117,14 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> EntityType | No
     raise ValueError(f"Cannot determine entity type for {file_path}")
 
 
+def is_edge_type(data: dict[str, Any]) -> bool:
+    """Check if parsed YAML data represents a standalone edge (not an entity)."""
+    return data.get("type", "").lower().strip() == "edge"
+
+
 __all__ = [
     "TYPE_MAPPING",
     "detect_entity_type",
     "detect_format",
+    "is_edge_type",
 ]

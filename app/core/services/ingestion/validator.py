@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -532,8 +533,82 @@ async def validate_relationship_targets(
     return Result.ok(validation)
 
 
+_VALID_POLARITIES = {-1, 0, 1}
+_VALID_TEMPORALITIES = {"minutes", "hours", "days", "chronic"}
+_VALID_SOURCES = {"self_observation", "research", "teacher", "clinical"}
+
+
+def validate_edge_data(data: dict[str, Any]) -> Result[None]:
+    """
+    Validate that edge data has all required fields and valid values.
+
+    Required: from, to, relationship
+    Optional: confidence (0.0-1.0), polarity (-1/0/1),
+              temporality (minutes/hours/days/chronic),
+              source (self_observation/research/teacher/clinical)
+
+    Args:
+        data: Parsed edge YAML data
+
+    Returns:
+        Result[None] - Ok if valid, Fail with validation error
+    """
+    errors: list[str] = []
+
+    # Required fields
+    if not data.get("from"):
+        errors.append("Missing required field: 'from'")
+    if not data.get("to"):
+        errors.append("Missing required field: 'to'")
+    if not data.get("relationship"):
+        errors.append("Missing required field: 'relationship'")
+    elif not RelationshipName.is_valid(data["relationship"]):
+        errors.append(f"Unknown relationship type: '{data['relationship']}'")
+
+    # Optional field validation
+    confidence = data.get("confidence")
+    if confidence is not None:
+        try:
+            conf_val = float(confidence)
+            if not 0.0 <= conf_val <= 1.0:
+                errors.append(f"confidence must be 0.0-1.0, got {conf_val}")
+        except (TypeError, ValueError):
+            errors.append(f"confidence must be a number, got '{confidence}'")
+
+    polarity = data.get("polarity")
+    if polarity is not None:
+        try:
+            pol_val = int(polarity)
+            if pol_val not in _VALID_POLARITIES:
+                errors.append(f"polarity must be -1, 0, or 1, got {pol_val}")
+        except (TypeError, ValueError):
+            errors.append(f"polarity must be an integer, got '{polarity}'")
+
+    temporality = data.get("temporality")
+    if temporality is not None and temporality not in _VALID_TEMPORALITIES:
+        errors.append(
+            f"temporality must be one of {sorted(_VALID_TEMPORALITIES)}, got '{temporality}'"
+        )
+
+    source = data.get("source")
+    if source is not None and source not in _VALID_SOURCES:
+        errors.append(f"source must be one of {sorted(_VALID_SOURCES)}, got '{source}'")
+
+    if errors:
+        return Result.fail(
+            Errors.validation(
+                "; ".join(errors),
+                field="edge",
+                user_message=f"Edge validation failed: {'; '.join(errors)}",
+            )
+        )
+
+    return Result.ok(None)
+
+
 __all__ = [
     "validate_directory",
+    "validate_edge_data",
     "validate_entity_data",
     "validate_file",
     "validate_relationship_targets",

@@ -291,6 +291,16 @@ class RelationshipName(str, Enum):
     )
 
     # =========================================================================
+    # EVIDENCE RELATIONSHIPS
+    # Observable connections between knowledge units
+    # =========================================================================
+    EXACERBATED_BY = "EXACERBATED_BY"
+    REDUCED_BY = "REDUCED_BY"
+    CORRELATED_WITH = "CORRELATED_WITH"
+    CAUSES = "CAUSES"
+    PRECEDES = "PRECEDES"
+
+    # =========================================================================
     # NOTIFICATION RELATIONSHIPS
     # In-app notification delivery
     # =========================================================================
@@ -417,6 +427,17 @@ class RelationshipName(str, Enum):
             self.HAS_CHOICE,
         }
         return self in ownership_types
+
+    def is_evidence_relationship(self) -> bool:
+        """Check if this is an evidence relationship between knowledge units."""
+        evidence_types = {
+            self.EXACERBATED_BY,
+            self.REDUCED_BY,
+            self.CORRELATED_WITH,
+            self.CAUSES,
+            self.PRECEDES,
+        }
+        return self in evidence_types
 
     def is_learning_progress_relationship(self) -> bool:
         """Check if this is a user learning progress relationship.

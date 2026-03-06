@@ -13,6 +13,16 @@ from typing import Any
 
 
 @dataclass
+class EdgeIngestionResult:
+    """Result from ingesting standalone edge files."""
+
+    edges_created: int = 0
+    edges_updated: int = 0
+    errors: list[dict[str, Any]] = field(default_factory=list)
+    missing_entities: list[str] = field(default_factory=list)
+
+
+@dataclass
 class IngestionStats:
     """Statistics from an ingestion operation."""
 
@@ -22,6 +32,7 @@ class IngestionStats:
     nodes_created: int = 0
     nodes_updated: int = 0
     relationships_created: int = 0
+    edges_created: int = 0
     duration_seconds: float = 0.0
     errors: list[dict[str, Any]] | None = field(default_factory=list)
 
@@ -233,6 +244,7 @@ __all__ = [
     "BundleStats",
     "DirectoryValidationResult",
     "DryRunPreview",
+    "EdgeIngestionResult",
     "IngestionError",
     "IngestionStats",
     "RelationshipValidationResult",

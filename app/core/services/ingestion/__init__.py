@@ -50,7 +50,7 @@ from .config import (
 )
 
 # Detector functions
-from .detector import detect_entity_type, detect_format
+from .detector import detect_entity_type, detect_format, is_edge_type
 
 # Ingestion history
 from .ingestion_history import IngestionHistoryEntry, IngestionHistoryService
@@ -62,7 +62,7 @@ from .ingestion_tracker import FileIngestionMetadata, IngestionDecision, Ingesti
 from .parser import parse_markdown, parse_yaml
 
 # Preparer functions
-from .preparer import generate_uid, normalize_uid, prepare_entity_data
+from .preparer import generate_uid, normalize_uid, prepare_edge_data, prepare_entity_data
 
 # Progress tracking
 from .progress_tracker import ProgressTracker
@@ -72,6 +72,7 @@ from .types import (
     BundleStats,
     DirectoryValidationResult,
     DryRunPreview,
+    EdgeIngestionResult,
     IncrementalStats,
     IngestionError,
     IngestionStats,
@@ -85,6 +86,7 @@ from .unified_ingestion_service import UnifiedIngestionService
 # Validator functions
 from .validator import (
     validate_directory,
+    validate_edge_data,
     validate_entity_data,
     validate_file,
     validate_relationship_targets,
@@ -102,6 +104,7 @@ __all__ = [
     "BundleStats",
     "DirectoryValidationResult",
     "DryRunPreview",
+    "EdgeIngestionResult",
     "IncrementalStats",
     "IngestionError",
     "IngestionStats",
@@ -121,15 +124,18 @@ __all__ = [
     # Detector
     "detect_entity_type",
     "detect_format",
+    "is_edge_type",
     # Preparer
     "generate_uid",
     "normalize_uid",
+    "prepare_edge_data",
     "prepare_entity_data",
     # Parser
     "parse_markdown",
     "parse_yaml",
     # Validator
     "validate_directory",
+    "validate_edge_data",
     "validate_entity_data",
     "validate_file",
     "validate_relationship_targets",

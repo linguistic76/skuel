@@ -29,12 +29,17 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 from .config import DEFAULT_MAX_CONCURRENT_PARSING, DEFAULT_MAX_FILE_SIZE_BYTES, ENTITY_CONFIGS
-from .detector import detect_entity_type, detect_format
+from .detector import detect_entity_type, detect_format, is_edge_type
 from .ingestion_tracker import IngestionTracker
 from .parser import FRONTMATTER_PATTERN, check_file_size, parse_markdown, parse_yaml
-from .preparer import normalize_uid, prepare_entity_data
+from .preparer import normalize_uid, prepare_edge_data, prepare_entity_data
 from .types import BundleStats, DryRunPreview, IncrementalStats, IngestionError, IngestionStats
-from .validator import validate_entity_data, validate_relationship_targets, validate_required_fields
+from .validator import (
+    validate_edge_data,
+    validate_entity_data,
+    validate_relationship_targets,
+    validate_required_fields,
+)
 
 logger = get_logger("skuel.services.ingestion.batch")
 
@@ -229,7 +234,29 @@ def parse_file_sync(
             data = parse_result.value
             body = None
 
-        # Stage 3: Entity type detection
+        # Stage 3a: Check for edge type (edges are NOT entities)
+        if is_edge_type(data):
+            validation = validate_edge_data(data)
+            if validation.is_error:
+                err = validation.expect_error()
+                error = create_error(
+                    file_path=file_path,
+                    error=err.user_message or err.message,
+                    stage="validation",
+                    error_type="validation",
+                    entity_type="edge",
+                    suggestion="Check edge YAML: requires 'from', 'to', 'relationship' fields.",
+                )
+                return (None, None, error.to_dict())
+            edge_data = prepare_edge_data(data, file_path)
+            # Return with sentinel: entity_type=None but entity_data has "_edge" marker
+            edge_data["_is_edge"] = True
+            # Use a cast-compatible return: (None, edge_data, None) won't match
+            # the entity_type check downstream, so we use a special convention:
+            # Return (None, edge_data, None) — the caller checks _is_edge
+            return (None, edge_data, None)  # type: ignore[return-value]
+
+        # Stage 3b: Entity type detection
         try:
             entity_type = detect_entity_type(data, file_path)
             entity_type_str = entity_type.value
@@ -507,6 +534,7 @@ async def ingest_directory(
 
     # Group entities by type for batch processing (keyed by EntityType | NonKuDomain)
     entities_by_type: dict[EntityType | NonKuDomain, list[dict[str, Any]]] = {}
+    edge_files: list[dict[str, Any]] = []  # Prepared edge data for separate processing
     file_entity_map: dict[
         str, tuple[EntityType | NonKuDomain, str]
     ] = {}  # file_path -> (entity_type, uid)
@@ -518,6 +546,10 @@ async def ingest_directory(
 
         if error is not None:
             errors.append(error)
+        elif entity_data is not None and entity_data.get("_is_edge"):
+            # Edge file — processed separately after entity ingestion
+            entity_data.pop("_is_edge", None)
+            edge_files.append(entity_data)
         elif entity_type is not None and entity_data is not None:
             if entity_type not in entities_by_type:
                 entities_by_type[entity_type] = []
@@ -663,6 +695,51 @@ async def ingest_directory(
             )
             errors.append(batch_error.to_dict())
 
+    # Ingest edge files (after entities, so referenced nodes likely exist)
+    total_edges_created = 0
+    if edge_files and driver is not None:
+        for edge_data in edge_files:
+            from_uid = edge_data["from_uid"]
+            to_uid = edge_data["to_uid"]
+            rel_type = edge_data["relationship"]
+            props = edge_data["properties"]
+
+            query = f"""
+            MATCH (a {{uid: $from_uid}})
+            MATCH (b {{uid: $to_uid}})
+            MERGE (a)-[r:{rel_type}]->(b)
+            SET r += $props
+            RETURN true AS ok
+            """
+            try:
+                records, _, _ = await driver.execute_query(
+                    query,
+                    from_uid=from_uid,
+                    to_uid=to_uid,
+                    props=props,
+                )
+                if records:
+                    total_edges_created += 1
+                else:
+                    edge_error = IngestionError(
+                        file=props.get("source_file", "<edge>"),
+                        error=f"Entity not found: from={from_uid} or to={to_uid}",
+                        stage="edge_ingestion",
+                        error_type="not_found",
+                    )
+                    errors.append(edge_error.to_dict())
+            except Exception as e:
+                edge_error = IngestionError(
+                    file=props.get("source_file", "<edge>"),
+                    error=str(e),
+                    stage="edge_ingestion",
+                    error_type="database",
+                )
+                errors.append(edge_error.to_dict())
+
+        if total_edges_created:
+            logger.info(f"Ingested {total_edges_created} edges from {len(edge_files)} edge files")
+
     # Update ingestion metadata for successfully processed files
     if tracker is not None and ingestion_mode != "full":
         ingestion_updates: list[tuple[Path, str, str]] = []
@@ -689,6 +766,7 @@ async def ingest_directory(
                 nodes_created=total_nodes_created,
                 nodes_updated=total_nodes_updated,
                 relationships_created=total_relationships_created,
+                edges_created=total_edges_created,
                 duration_seconds=duration,
                 errors=errors if errors else None,
             )

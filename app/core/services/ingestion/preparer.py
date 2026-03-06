@@ -119,6 +119,44 @@ async def prepare_entity_data_async(
     if body is not None and entity_type in (EntityType.ARTICLE, EntityType.SUBMISSION):
         entity_data["content"] = body
 
+    # Article: normalize USES_KU UIDs
+    if entity_type == EntityType.ARTICLE:
+        if "uses_kus" in entity_data and isinstance(entity_data["uses_kus"], list):
+            entity_data["uses_kus"] = [normalize_uid(uid) for uid in entity_data["uses_kus"]]
+
+    # Learning Step: normalize relationship fields
+    if entity_type == EntityType.LEARNING_STEP:
+        # Convert single learning_path_uid to list
+        lp_uid = entity_data.pop("learning_path_uid", None)
+        if lp_uid:
+            entity_data["learning_path_uids"] = [normalize_uid(lp_uid)]
+
+        # Merge knowledge_uid (single) into primary_knowledge_uids (list)
+        knowledge_uid = entity_data.pop("knowledge_uid", None)
+        if knowledge_uid:
+            normalized = normalize_uid(knowledge_uid)
+            existing = [normalize_uid(u) for u in entity_data.get("primary_knowledge_uids", [])]
+            if normalized not in existing:
+                entity_data.setdefault("primary_knowledge_uids", []).insert(0, normalized)
+
+        # Normalize UIDs in all relationship list fields
+        uid_list_fields = [
+            "primary_knowledge_uids",
+            "supporting_knowledge_uids",
+            "trains_ku_uids",
+            "prerequisite_step_uids",
+            "prerequisite_knowledge_uids",
+            "principle_uids",
+            "choice_uids",
+            "habit_uids",
+            "task_uids",
+            "event_template_uids",
+            "learning_path_uids",
+        ]
+        for field in uid_list_fields:
+            if field in entity_data and isinstance(entity_data[field], list):
+                entity_data[field] = [normalize_uid(uid) for uid in entity_data[field]]
+
     # Handle title fallback from filename
     if "title" not in entity_data and "name" not in entity_data:
         entity_data["title"] = file_path.stem.replace("-", " ").title()
@@ -249,6 +287,44 @@ def prepare_entity_data_sync(
     if body is not None and entity_type in (EntityType.ARTICLE, EntityType.SUBMISSION):
         entity_data["content"] = body
 
+    # Article: normalize USES_KU UIDs
+    if entity_type == EntityType.ARTICLE:
+        if "uses_kus" in entity_data and isinstance(entity_data["uses_kus"], list):
+            entity_data["uses_kus"] = [normalize_uid(uid) for uid in entity_data["uses_kus"]]
+
+    # Learning Step: normalize relationship fields
+    if entity_type == EntityType.LEARNING_STEP:
+        # Convert single learning_path_uid to list
+        lp_uid = entity_data.pop("learning_path_uid", None)
+        if lp_uid:
+            entity_data["learning_path_uids"] = [normalize_uid(lp_uid)]
+
+        # Merge knowledge_uid (single) into primary_knowledge_uids (list)
+        knowledge_uid = entity_data.pop("knowledge_uid", None)
+        if knowledge_uid:
+            normalized = normalize_uid(knowledge_uid)
+            existing = [normalize_uid(u) for u in entity_data.get("primary_knowledge_uids", [])]
+            if normalized not in existing:
+                entity_data.setdefault("primary_knowledge_uids", []).insert(0, normalized)
+
+        # Normalize UIDs in all relationship list fields
+        uid_list_fields = [
+            "primary_knowledge_uids",
+            "supporting_knowledge_uids",
+            "trains_ku_uids",
+            "prerequisite_step_uids",
+            "prerequisite_knowledge_uids",
+            "principle_uids",
+            "choice_uids",
+            "habit_uids",
+            "task_uids",
+            "event_template_uids",
+            "learning_path_uids",
+        ]
+        for field in uid_list_fields:
+            if field in entity_data and isinstance(entity_data[field], list):
+                entity_data[field] = [normalize_uid(uid) for uid in entity_data[field]]
+
     # Handle title fallback from filename
     if "title" not in entity_data and "name" not in entity_data:
         entity_data["title"] = file_path.stem.replace("-", " ").title()
@@ -294,9 +370,55 @@ def prepare_entity_data_sync(
 prepare_entity_data = prepare_entity_data_sync
 
 
+def prepare_edge_data(
+    data: dict[str, Any],
+    file_path: Path | None = None,
+) -> dict[str, Any]:
+    """
+    Prepare edge data for ingestion into Neo4j.
+
+    Normalizes from/to UIDs and extracts evidence properties.
+
+    Args:
+        data: Parsed edge YAML data (already validated)
+        file_path: Optional source file path for provenance
+
+    Returns:
+        Dict with from_uid, to_uid, relationship, and evidence properties
+    """
+    now = datetime.now().isoformat()
+
+    edge_data: dict[str, Any] = {
+        "from_uid": normalize_uid(data["from"]),
+        "to_uid": normalize_uid(data["to"]),
+        "relationship": data["relationship"],
+    }
+
+    # Evidence properties (stored on the relationship edge)
+    props: dict[str, Any] = {
+        "created_at": now,
+        "updated_at": now,
+    }
+
+    # Optional evidence fields
+    for field in ("evidence", "confidence", "polarity", "temporality", "source", "observed_at"):
+        if field in data and data[field] is not None:
+            props[field] = data[field]
+
+    if "tags" in data and isinstance(data["tags"], list):
+        props["tags"] = data["tags"]
+
+    if file_path:
+        props["source_file"] = str(file_path)
+
+    edge_data["properties"] = props
+    return edge_data
+
+
 __all__ = [
     "generate_uid",
     "normalize_uid",
+    "prepare_edge_data",
     "prepare_entity_data",
     "prepare_entity_data_sync",
     "prepare_entity_data_async",

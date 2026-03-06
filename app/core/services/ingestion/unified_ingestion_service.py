@@ -46,12 +46,13 @@ from core.utils.result_simplified import Errors, Result
 
 from .batch import ProgressCallback, find_entity_file, ingest_bundle, ingest_directory, ingest_vault
 from .config import DEFAULT_MAX_FILE_SIZE_BYTES, DEFAULT_USER_UID, ENTITY_CONFIGS
-from .detector import detect_entity_type, detect_format
+from .detector import detect_entity_type, detect_format, is_edge_type
 from .parser import check_file_size, parse_markdown, parse_yaml
-from .preparer import generate_uid, normalize_uid, prepare_entity_data
-from .types import BundleStats, DryRunPreview, IncrementalStats, IngestionStats
+from .preparer import generate_uid, normalize_uid, prepare_edge_data, prepare_entity_data
+from .types import BundleStats, DryRunPreview, EdgeIngestionResult, IncrementalStats, IngestionStats
 from .validator import (
     validate_directory,
+    validate_edge_data,
     validate_entity_data,
     validate_file,
     validate_required_fields,
@@ -223,6 +224,90 @@ class UnifiedIngestionService:
         return check_file_size(file_path, self.max_file_size_bytes)
 
     # ========================================================================
+    # EDGE INGESTION
+    # ========================================================================
+
+    @with_error_handling("ingest_edge", error_type="system")
+    async def ingest_edge(self, edge_data: dict[str, Any]) -> Result[dict[str, Any]]:
+        """
+        Ingest a standalone edge (relationship) into Neo4j.
+
+        Uses raw Cypher (not BulkIngestionEngine) since edges create
+        relationships, not nodes.
+
+        Args:
+            edge_data: Prepared edge data from prepare_edge_data()
+
+        Returns:
+            Result with edge details (from_uid, to_uid, relationship, created)
+        """
+        from_uid = edge_data["from_uid"]
+        to_uid = edge_data["to_uid"]
+        rel_type = edge_data["relationship"]
+        props = edge_data["properties"]
+
+        # Validated against RelationshipName enum, safe to interpolate
+        query = f"""
+        MATCH (a {{uid: $from_uid}})
+        MATCH (b {{uid: $to_uid}})
+        MERGE (a)-[r:{rel_type}]->(b)
+        SET r += $props
+        RETURN a.uid AS from_uid, b.uid AS to_uid, type(r) AS rel_type,
+               CASE WHEN r.created_at = $props.created_at THEN true ELSE false END AS created
+        """
+
+        try:
+            records, _, _ = await self.driver.execute_query(
+                query,
+                from_uid=from_uid,
+                to_uid=to_uid,
+                props=props,
+            )
+
+            if not records:
+                # One or both entities not found
+                missing: list[str] = []
+                for uid, label in [(from_uid, "from"), (to_uid, "to")]:
+                    check_records, _, _ = await self.driver.execute_query(
+                        "MATCH (n {uid: $uid}) RETURN n.uid", uid=uid
+                    )
+                    if not check_records:
+                        missing.append(f"{label}={uid}")
+                return Result.fail(
+                    Errors.not_found(
+                        f"Entity not found: {', '.join(missing)}",
+                        user_message=f"Cannot create edge — missing entities: {', '.join(missing)}",
+                    )
+                )
+
+            record = records[0]
+            was_created = record["created"]
+            self.logger.info(
+                f"{'Created' if was_created else 'Updated'} edge: "
+                f"({from_uid})-[:{rel_type}]->({to_uid})"
+            )
+
+            return Result.ok(
+                {
+                    "from_uid": from_uid,
+                    "to_uid": to_uid,
+                    "relationship": rel_type,
+                    "created": was_created,
+                    "success": True,
+                }
+            )
+
+        except Exception as e:
+            self.logger.error(f"Failed to ingest edge ({from_uid})-[:{rel_type}]->({to_uid}): {e}")
+            return Result.fail(
+                Errors.database(
+                    f"Edge ingestion failed: {e}",
+                    operation="ingest_edge",
+                    details={"from": from_uid, "to": to_uid, "rel_type": rel_type},
+                )
+            )
+
+    # ========================================================================
     # SINGLE FILE INGESTION
     # ========================================================================
 
@@ -232,7 +317,8 @@ class UnifiedIngestionService:
         Ingest a single file (MD or YAML) into Neo4j.
 
         Auto-detects format and entity type, normalizes UID,
-        and persists using BulkIngestionEngine.
+        and persists using BulkIngestionEngine. If the file declares
+        type: Edge, it is ingested as a relationship instead of a node.
 
         Args:
             file_path: Path to file to ingest
@@ -258,6 +344,14 @@ class UnifiedIngestionService:
                 return Result.fail(parse_result.expect_error())
             data = parse_result.value
             body = None
+
+        # Check for edge type BEFORE entity type detection
+        if is_edge_type(data):
+            validation = validate_edge_data(data)
+            if validation.is_error:
+                return Result.fail(validation.expect_error())
+            prepared = prepare_edge_data(data, file_path)
+            return await self.ingest_edge(prepared)
 
         # Detect domain type (returns EntityType/NonKuDomain enum - type-safe!)
         entity_type = detect_entity_type(data, file_path)
