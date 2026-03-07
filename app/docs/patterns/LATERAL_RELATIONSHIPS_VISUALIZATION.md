@@ -448,7 +448,7 @@ async def task_detail_page(request: Any, uid: str) -> Any:
             entity_type="tasks",
         ),
 
-        cls="container mx-auto p-6 max-w-4xl",
+        cls=f"{Container.NARROW} {Spacing.PAGE}",
     )
 
     return BasePage(content=content, ...)
