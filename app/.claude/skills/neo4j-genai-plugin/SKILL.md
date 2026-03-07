@@ -218,20 +218,22 @@ ORDER BY score DESC
 
 ### Vector Index Architecture
 
-SKUEL has **4 HNSW vector indexes** configured:
+SKUEL has **2 HNSW vector indexes** synced at bootstrap via `sync_vector_indexes()`:
 
-| Index Name | Label | Property | Dimensions | Similarity | Provider |
+| Index Name | Label | Property | Dimensions | Similarity | Coverage |
 |-----------|-------|----------|------------|------------|----------|
-| `ku_embeddings` | KnowledgeUnit | `embedding` | 1536 | Cosine | OpenAI |
-| `ls_embeddings` | LearningSequence | `embedding` | 1536 | Cosine | OpenAI |
-| `lp_embeddings` | LearningPath | `embedding` | 1536 | Cosine | OpenAI |
-| `user_embeddings` | User | `embedding` | 1536 | Cosine | OpenAI |
+| `entity_embedding_idx` | Entity | `embedding` | 1536 | Cosine | All 13 entity types (multi-label) |
+| `contentchunk_embedding_idx` | ContentChunk | `embedding` | 1536 | Cosine | RAG chunks |
+
+The `Entity` index covers all entity types because Neo4j nodes are multi-labeled (`:Entity:Task`, `:Entity:Goal`, etc.).
+
+**13 entity types with embeddings:** Article, Ku, Exercise, LearningStep, LearningPath, Resource, RevisedExercise, Task, Goal, Habit, Event, Choice, Principle.
 
 **Index Configuration (HNSW parameters):**
 ```cypher
-CREATE VECTOR INDEX ku_embeddings IF NOT EXISTS
-FOR (ku:KnowledgeUnit)
-ON (ku.embedding)
+CREATE VECTOR INDEX entity_embedding_idx IF NOT EXISTS
+FOR (n:Entity)
+ON (n.embedding)
 OPTIONS {
   indexConfig: {
     `vector.dimensions`: 1536,

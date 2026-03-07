@@ -139,14 +139,12 @@ if not search_result.is_error:
 | `VECTOR_SEARCH_MIN_SIMILARITY` | `float` | `0.7` | Minimum similarity threshold |
 | `VECTOR_SEARCH_HYBRID_WEIGHT` | `float` | `0.7` | Vector weight in hybrid (0-1) |
 
-### Vector Indexes (4 total)
+### Vector Indexes (2 total — synced at bootstrap)
 
 | Index Name | Label | Property | Dimensions | Use Case |
 |-----------|-------|----------|------------|----------|
-| `ku_embeddings` | `KnowledgeUnit` | `embedding` | 1536 | KU semantic search |
-| `ls_embeddings` | `LearningSequence` | `embedding` | 1536 | LS semantic search |
-| `lp_embeddings` | `LearningPath` | `embedding` | 1536 | LP semantic search |
-| `user_embeddings` | `User` | `embedding` | 1536 | User interest/profile |
+| `entity_embedding_idx` | `Entity` | `embedding` | 1536 | All 13 entity types (multi-label) |
+| `contentchunk_embedding_idx` | `ContentChunk` | `embedding` | 1536 | RAG chunks |
 
 ### GenAIConfig Class
 
