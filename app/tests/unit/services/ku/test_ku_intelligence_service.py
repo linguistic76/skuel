@@ -6,7 +6,7 @@ Tests graph analytics for atomic Knowledge Units:
 - Domain-specific methods (get_usage_summary, is_trained, is_organized, get_organization_depth)
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 

@@ -49,13 +49,13 @@ from core.models.curriculum.learning_step_dto import LearningStepDTO
 # NOTE (February 2026): Ku is now a Union type alias; use Entity (the actual class) for model_class
 from core.models.entity import Entity
 from core.models.entity_dto import EntityDTO
-from core.models.ku.ku import Ku
-from core.models.ku.ku_dto import KuDTO
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event_dto import EventDTO
 from core.models.goal.goal_dto import GoalDTO
 from core.models.habit.habit_dto import HabitDTO
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.models.principle.principle_dto import PrincipleDTO
 
 # NOTE (February 2026): MOC is not a separate EntityType.
