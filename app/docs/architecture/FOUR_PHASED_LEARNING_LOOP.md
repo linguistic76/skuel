@@ -400,10 +400,13 @@ revision cycle explicitly rather than implicitly.
 services.revised_exercises              # RevisedExerciseService
 ```
 
-**API routes:** `POST /api/revised-exercises/create`, `GET /api/revised-exercises/get`,
+**API routes (teacher):** `POST /api/revised-exercises/create`, `GET /api/revised-exercises/get`,
 `GET /api/revised-exercises/list`, `GET /api/revised-exercises/for-student`,
 `GET /api/revised-exercises/chain`, `POST /api/revised-exercises/update`,
-`POST /api/revised-exercises/delete` — all teacher-only.
+`POST /api/revised-exercises/delete`.
+**API routes (student):** `GET /api/revised-exercises/my-revisions` (list targeting current user),
+`GET /api/revised-exercises/view?uid=` (view if student or owning teacher).
+**Event:** `RevisedExerciseCreated` (`revised_exercise.created`) — published on creation.
 
 ---
 

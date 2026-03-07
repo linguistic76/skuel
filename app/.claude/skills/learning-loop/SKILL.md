@@ -432,6 +432,13 @@ await backend.get_revision_chain(exercise_uid)             # All revisions order
 (submission:Entity:Submission)-[:FULFILLS_EXERCISE]->(re)  // reuses existing rel type
 ```
 
+**Event:** `RevisedExerciseCreated` (`revised_exercise.created`) — published on creation,
+enables student notification and learning loop progression tracking.
+
+**Student access:** Students discover their revisions via `GET /api/revised-exercises/my-revisions`
+and view details via `GET /api/revised-exercises/view?uid=`. Ownership check: student sees
+only revisions targeting them (`student_uid` match) or owned by them (teacher path).
+
 **Loop role:** RevisedExercise is the *refinement* — it bridges feedback back into a
 new exercise, closing the revision cycle explicitly rather than implicitly.
 
@@ -524,6 +531,8 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Activity review (admin)** | `/api/activity-review/queue` | GET | Admin |
 | **Activity review (user)** | `/api/activity-review/history` | GET | User |
 | **Annotation** | `/api/activity-reports/annotate` | POST | User |
+| **Revised exercises (student)** | `/api/revised-exercises/my-revisions` | GET | Student |
+| **Revised exercises (student)** | `/api/revised-exercises/view?uid=` | GET | Student or Teacher |
 
 ---
 
@@ -599,7 +608,7 @@ that never closes the loop.
 | `core/models/curriculum/exercise.py` | 2 | Exercise frozen dataclass |
 | `core/models/curriculum/revised_exercise.py` | 5 | RevisedExercise frozen dataclass |
 | `core/services/revised_exercises/revised_exercise_service.py` | 5 | RevisedExercise CRUD + chain queries |
-| `adapters/inbound/revised_exercises_api.py` | 5 | RevisedExercise API routes (teacher-only) |
+| `adapters/inbound/revised_exercises_api.py` | 5 | RevisedExercise API routes (teacher + student-facing) |
 | `core/ports/curriculum_protocols.py` | 5 | `RevisedExerciseOperations` protocol |
 | `core/models/submissions/submission.py` | 3 | Submission base + JOURNAL |
 | `core/models/feedback/submission_feedback.py` | 4 | SubmissionFeedback model |
