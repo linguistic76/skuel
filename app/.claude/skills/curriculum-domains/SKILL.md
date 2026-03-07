@@ -18,7 +18,7 @@ Four structural patterns for organizing knowledge:
 | Domain | UID Format | Topology | Purpose | Sub-services | Factory |
 |--------|-----------|----------|---------|--------------|---------|
 | **Article** | `a_{slug}_{random}` | Composition | Teaching narrative (composes Kus) | 10 | Specialized (`create_article_sub_services`) |
-| **KU** | `ku_{slug}_{random}` | Atom | Atomic knowledge unit (concept, principle, practice) | 2 | — |
+| **KU** | `ku_{slug}_{random}` | Atom | Atomic knowledge unit (concept, principle, practice) | 4 | Generic (`create_curriculum_sub_services`) |
 | **LS** | `ls:{random}` | Edge | Sequential learning steps | 4 | Generic (`create_curriculum_sub_services`) |
 | **LP** | `lp:{random}` | Path | Complete learning sequences | 5 | Specialized (`create_lp_sub_services`) |
 

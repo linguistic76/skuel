@@ -39,7 +39,7 @@ self.intelligence = common.intelligence
 | Domain | Pattern | Factory Function |
 |--------|---------|-----------------|
 | **Article** | Specialized factory | `create_article_sub_services()` |
-| **KU** | No factory (2 services) | — |
+| **KU** | Generic factory (4 services) | `create_curriculum_sub_services()` |
 | **LS** | Generic factory | `create_curriculum_sub_services()` |
 | **LP** | Specialized factory | `create_lp_sub_services()` |
 
@@ -163,7 +163,7 @@ The content (Article, KU, LS, LP, MOC) is shared across all users, but each user
 
 **Factory Complexity Hierarchy:**
 ```
-No Factory (KU) → Generic Factory (LS) → Specialized Factory (Article, LP)
-        ↓                    ↓                           ↓
-   Simplest            Simple, uniform           Custom dependencies
+Generic Factory (KU, LS) → Specialized Factory (Article, LP)
+           ↓                           ↓
+     Simple, uniform           Custom dependencies
 ```

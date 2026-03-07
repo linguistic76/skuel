@@ -207,18 +207,24 @@ Pointers to external content (books, talks, films) that Askesis can recommend. R
 
 **Service architecture:**
 ```
-KuService (facade)
-+-- KuCoreService, KuSearchService, KuGraphService
-+-- KuSemanticService, KuLpService, KuPracticeService
-+-- KuOrganizationService, KuInteractionService
+KuService (facade) — 4 sub-services via create_curriculum_sub_services()
+├── core: KuCoreService
+├── search_service: KuSearchService
+├── relationships: UnifiedRelationshipService
+└── intelligence: KuIntelligenceService
 
-LpService (facade)
-+-- LpCoreService, LpValidationService, LpContextService
-+-- LpAnalysisService, LpAdaptiveService, LpProgressService
-+-- LpRelationshipService, LpSearchService
+LsService (facade) — 4 sub-services via create_curriculum_sub_services()
+├── core: LsCoreService
+├── search: LsSearchService
+├── relationships: UnifiedRelationshipService
+└── intelligence: LsIntelligenceService
 
-LsService (facade)
-+-- LsCoreService, LsRelationshipService, LsSearchService
+LpService (facade) — 5 sub-services via create_lp_sub_services()
+├── core: LpCoreService
+├── search: LpSearchService
+├── relationships: UnifiedRelationshipService
+├── intelligence: LpIntelligenceService
+└── progress: LpProgressService
 ```
 
 **Knowledge Substance Philosophy** — knowledge measured by how it's LIVED:

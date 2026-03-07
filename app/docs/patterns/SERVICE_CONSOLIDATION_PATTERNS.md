@@ -554,16 +554,15 @@ DOMAIN_CONFIG = DomainRelationshipConfig(
 
 ## 6. Domain-Specific Factories (Curriculum)
 
-Specialized factory functions for KU and LP domains with complex initialization requirements.
+Specialized factory functions for curriculum domains with complex initialization requirements.
 
 ### The Problem
 
-Activity domains use `create_common_sub_services()` with standard signatures. Curriculum domains (KU, LP) have non-standard requirements:
+Activity domains use `create_common_sub_services()` with standard signatures. Some curriculum domains have non-standard requirements:
 
-- **KU**: 8 sub-services + circular dependency (intelligence must be created before core)
+- **Article**: 9 sub-services + circular dependency (intelligence must be created before core)
 - **LP**: 5 sub-services + cross-domain dependency (requires `ls_service`)
-- **LS**: Uses generic factory (standard signatures)
-- **MOC**: Has circular dependencies (core ↔ section) handled in facade
+- **KU, LS**: Use generic `create_curriculum_sub_services()` factory (4 sub-services each)
 
 ### The Solution
 
@@ -578,10 +577,10 @@ from core.utils.curriculum_domain_config import (
 )
 ```
 
-### KU Factory
+### Article Factory
 
 ```python
-# In KuService.__init__
+# In ArticleService.__init__
 from core.utils.curriculum_domain_config import create_ku_sub_services
 
 subs = create_ku_sub_services(
@@ -590,11 +589,9 @@ subs = create_ku_sub_services(
     neo4j_adapter=neo4j_adapter,
     chunking_service=chunking_service,
     graph_intelligence_service=graph_intelligence_service,
-    embeddings_service=embeddings_service,
-    llm_service=llm_service,
     query_builder=query_builder,
     event_bus=event_bus,
-    driver=driver,
+    _driver=driver,
 )
 
 # Assign sub-services from factory result
@@ -603,16 +600,37 @@ self.search_service = subs.search
 self.graph = subs.graph
 self.semantic = subs.semantic
 self.practice = subs.practice
-self.interaction = subs.interaction
+self.mastery = subs.mastery
 self.relationships = subs.relationships
 self.intelligence = subs.intelligence
+self.adaptive = subs.adaptive
 ```
 
 **Creation Order (handles circular dependency):**
 1. `UnifiedRelationshipService` (needed by intelligence)
-2. `KuIntelligenceService` (BEFORE core - core depends on intelligence)
-3. `KuCoreService` (requires intelligence)
-4. `KuSearchService`, `KuGraphService`, `KuSemanticService`, `KuPracticeService`, `KuInteractionService`
+2. `ArticleIntelligenceService` (BEFORE core — core depends on intelligence)
+3. `ArticleCoreService` (requires intelligence)
+4. `ArticleSearchService`, `ArticleGraphService`, `ArticleSemanticService`, `ArticlePracticeService`, `ArticleMasteryService`, `ArticleAdaptiveService`
+
+### KU and LS — Generic Factory
+
+KU and LS both use `create_curriculum_sub_services()` for 4 standard sub-services:
+
+```python
+# In KuService.__init__ (and LsService.__init__)
+from core.utils.curriculum_domain_config import create_curriculum_sub_services
+
+common = create_curriculum_sub_services(
+    domain="ku",  # or "ls"
+    backend=backend,
+    graph_intel=graph_intel,
+    event_bus=event_bus,
+)
+self.core = common.core
+self.search_service = common.search
+self.relationships = common.relationships
+self.intelligence = common.intelligence
+```
 
 ### LP Factory
 

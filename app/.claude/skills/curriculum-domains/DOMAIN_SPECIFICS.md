@@ -63,12 +63,14 @@ await article_service.semantic.get_semantic_neighborhood(article_uid)
 
 **Purpose:** Atomic knowledge unit — a single definable thing (concept, state, principle, substance, practice, value). `Ku` extends `Entity` directly (lightweight, like Resource).
 
-**Sub-services (2):**
+**Sub-services (4):** Created via `create_curriculum_sub_services("ku", ...)` — matches LS topology.
 
 | Sub-service | Purpose |
 |-------------|---------|
 | `KuCoreService` | CRUD operations |
 | `KuSearchService` | Text search, filtering |
+| `UnifiedRelationshipService` | Graph relationship operations |
+| `KuIntelligenceService` | Usage analysis, organization depth, graph analytics |
 
 **Unique Features:**
 - **Lightweight** - Extends Entity directly, not Curriculum

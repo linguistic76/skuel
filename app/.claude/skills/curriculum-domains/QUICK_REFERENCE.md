@@ -19,7 +19,7 @@
 | Domain | Facade | Core | Search | Intelligence |
 |--------|--------|------|--------|--------------|
 | Article | `core/services/article_service.py` | `article/article_core_service.py` | `article/article_search_service.py` | (via `article_adaptive_service.py`) |
-| KU | `core/services/ku_service.py` | `ku/ku_core_service.py` | `ku/ku_search_service.py` | — |
+| KU | `core/services/ku_service.py` | `ku/ku_core_service.py` | `ku/ku_search_service.py` | `ku/ku_intelligence_service.py` |
 | LS | `core/services/ls_service.py` | `ls/ls_core_service.py` | `ls/ls_search_service.py` | `ls/ls_intelligence_service.py` |
 | LP | `core/services/lp_service.py` | `lp/lp_core_service.py` | `lp/lp_search_service.py` | `lp_intelligence_service.py` (top-level) |
 
@@ -156,9 +156,10 @@ async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
 article_service.adaptive.get_recommendations(user_uid)
 article_service.organization.get_organized_children(parent_uid)  # Non-linear nav
 
-# KU - lightweight CRUD + search (2 sub-services)
-ku_service.core.create(...)
-ku_service.search.search(...)
+# KU - 4 sub-services, generic factory (matches LS)
+ku_service.core.create_ku(...)
+ku_service.search_service.search(...)
+ku_service.intelligence.get_usage_summary(ku_uid)
 
 # LS - 4 sub-services, generic factory
 ls_service.intelligence.is_ready(ls_uid, completed_uids)
@@ -173,7 +174,7 @@ lp_service.intelligence.get_adaptive_sequence(lp_uid, user_uid)
 | Domain | Count | Key Services |
 |--------|-------|--------------|
 | **Article** | 10 | core, search, graph, semantic, practice, interaction, adaptive, organization, ai, relationship_helpers |
-| **KU** | 2 | core, search |
+| **KU** | 4 | core, search, relationships, intelligence |
 | **LS** | 4 | core, search, intelligence, (ai) |
 | **LP** | 5 | core, search, progress, intelligence, (ai) |
 
