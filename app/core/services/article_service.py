@@ -288,7 +288,7 @@ class ArticleService:
         Services run at full capacity or fail immediately at startup.
 
         **January 2026 - Factory Pattern (Architecture Consistency Review):**
-        Uses create_ku_sub_services() factory for consistent initialization.
+        Uses create_article_sub_services() factory for consistent initialization.
         Factory handles circular dependency: intelligence created before core.
 
         Args:
@@ -320,9 +320,9 @@ class ArticleService:
             )
 
         # Create all sub-services via factory (January 2026 - Architecture Consistency)
-        from core.utils.curriculum_domain_config import create_ku_sub_services
+        from core.utils.curriculum_domain_config import create_article_sub_services
 
-        subs = create_ku_sub_services(
+        subs = create_article_sub_services(
             backend=repo,
             content_repo=content_repo,
             neo4j_adapter=neo4j_adapter,

@@ -229,13 +229,13 @@ def create_curriculum_sub_services(
 
 # =============================================================================
 # DOMAIN-SPECIFIC FACTORIES
-# KU and LP have complex dependencies that require specialized factories.
+# Article and LP have complex dependencies that require specialized factories.
 # LS uses the generic create_curriculum_sub_services() above.
 # =============================================================================
 
 
 @dataclass
-class KuSubServices:
+class ArticleSubServices:
     """Container for all ArticleService sub-services created by the factory."""
 
     core: "ArticleCoreService"
@@ -261,7 +261,7 @@ class LpSubServices:
     backend: Any  # BackendOperations[Ku] — protocol-typed to avoid adapter import
 
 
-def create_ku_sub_services(
+def create_article_sub_services(
     backend: "ArticleOperations",
     content_repo: Any | None,
     neo4j_adapter: Any | None,
@@ -273,7 +273,7 @@ def create_ku_sub_services(
     user_service: Any | None = None,
     vector_search_service: Any | None = None,
     embeddings_service: Any | None = None,
-) -> KuSubServices:
+) -> ArticleSubServices:
     """
     Factory function to create all 8 ArticleService sub-services.
 
@@ -304,7 +304,7 @@ def create_ku_sub_services(
         embeddings_service: Optional Neo4jGenAIEmbeddingsService for embedding generation (January 2026 - GenAI)
 
     Returns:
-        KuSubServices dataclass with all 8 sub-services
+        ArticleSubServices dataclass with all 8 sub-services
     """
     # Lazy imports to avoid circular dependencies
     from core.services.article.article_adaptive_service import ArticleAdaptiveService
@@ -374,7 +374,7 @@ def create_ku_sub_services(
     # Step 9: Create adaptive curriculum service
     adaptive = ArticleAdaptiveService(ku_backend=backend, user_service=user_service)
 
-    return KuSubServices(
+    return ArticleSubServices(
         core=core,
         search=search,
         graph=graph,

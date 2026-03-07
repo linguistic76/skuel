@@ -570,9 +570,9 @@ Domain-specific factory functions in `/core/utils/curriculum_domain_config.py`:
 
 ```python
 from core.utils.curriculum_domain_config import (
-    create_ku_sub_services,
+    create_article_sub_services,
     create_lp_sub_services,
-    KuSubServices,
+    ArticleSubServices,
     LpSubServices,
 )
 ```
@@ -581,9 +581,9 @@ from core.utils.curriculum_domain_config import (
 
 ```python
 # In ArticleService.__init__
-from core.utils.curriculum_domain_config import create_ku_sub_services
+from core.utils.curriculum_domain_config import create_article_sub_services
 
-subs = create_ku_sub_services(
+subs = create_article_sub_services(
     backend=repo,
     content_repo=content_repo,
     neo4j_adapter=neo4j_adapter,
@@ -667,15 +667,16 @@ self.progress = subs.progress
 
 ```python
 @dataclass
-class KuSubServices:
-    core: KuCoreService
-    search: KuSearchService
-    graph: KuGraphService
-    semantic: KuSemanticService
-    practice: KuPracticeService
-    interaction: KuInteractionService
+class ArticleSubServices:
+    core: ArticleCoreService
+    search: ArticleSearchService
+    graph: ArticleGraphService
+    semantic: ArticleSemanticService
+    practice: ArticlePracticeService
+    mastery: ArticleMasteryService
     relationships: UnifiedRelationshipService
-    intelligence: KuIntelligenceService
+    intelligence: ArticleIntelligenceService
+    adaptive: ArticleAdaptiveService
 
 @dataclass
 class LpSubServices:
@@ -692,7 +693,7 @@ class LpSubServices:
 | Domain | Factory | Reason |
 |--------|---------|--------|
 | **LS** | `create_curriculum_sub_services()` | Standard 4-service pattern |
-| **KU** | `create_ku_sub_services()` | 8 services + circular dependency |
+| **Article** | `create_article_sub_services()` | 9 services + circular dependency |
 | **LP** | `create_lp_sub_services()` | 5 services + cross-domain dependency |
 | **MOC** | Manual in facade | Circular (core ↔ section) requires post-init wiring |
 
@@ -715,7 +716,7 @@ class LpSubServices:
 | Explicit Delegation | `/core/services/tasks_service.py` | Explicit `async def` methods on facade class (no import needed) |
 | Relationship Registry | `/core/models/relationship_registry.py` | `from core.models.relationship_registry import generate_graph_enrichment` |
 | Post-Query Processors | `/core/models/query/cypher/post_processors.py` | `from core.models.query.cypher.post_processors import apply_processor, PROCESSOR_REGISTRY` |
-| KU/LP Factories | `/core/utils/curriculum_domain_config.py` | `from core.utils.curriculum_domain_config import create_ku_sub_services, create_lp_sub_services` |
+| Article/LP Factories | `/core/utils/curriculum_domain_config.py` | `from core.utils.curriculum_domain_config import create_article_sub_services, create_lp_sub_services` |
 
 ---
 
