@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
+from core.utils.error_boundary import safe_backend_operation
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -162,6 +163,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                     )
                 )
 
+    @safe_backend_operation("get_node_labels")
     async def _get_node_labels(
         self, from_uid: str, to_uid: str
     ) -> Result[tuple[builtins.list[str], builtins.list[str]]]:
@@ -185,40 +187,30 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             >>> print(source_labels)  # ["Task"]
             >>> print(target_labels)  # ["Entity", "Entity"]
         """
-        try:
-            query = """
-            MATCH (a {uid: $from_uid})
-            MATCH (b {uid: $to_uid})
-            RETURN labels(a) as source_labels, labels(b) as target_labels
-            """
+        query = """
+        MATCH (a {uid: $from_uid})
+        MATCH (b {uid: $to_uid})
+        RETURN labels(a) as source_labels, labels(b) as target_labels
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"from_uid": from_uid, "to_uid": to_uid})
-                record = await result.single()
+        async with self.driver.session() as session:
+            result = await session.run(query, {"from_uid": from_uid, "to_uid": to_uid})
+            record = await result.single()
 
-                if not record:
-                    return Result.fail(
-                        Errors.not_found(
-                            resource="Node",
-                            identifier=f"{from_uid} or {to_uid}",
-                        )
+            if not record:
+                return Result.fail(
+                    Errors.not_found(
+                        resource="Node",
+                        identifier=f"{from_uid} or {to_uid}",
                     )
-
-                source_labels = record.get("source_labels", [])
-                target_labels = record.get("target_labels", [])
-
-                return Result.ok((source_labels, target_labels))
-
-        except Exception as e:
-            self.logger.error(f"Failed to get node labels: {e}")
-            return Result.fail(
-                Errors.database(
-                    operation="get_node_labels",
-                    message=str(e),
-                    details={"from_uid": from_uid, "to_uid": to_uid},
                 )
-            )
 
+            source_labels = record.get("source_labels", [])
+            target_labels = record.get("target_labels", [])
+
+            return Result.ok((source_labels, target_labels))
+
+    @safe_backend_operation("create_relationship")
     async def create_relationship(
         self,
         from_uid: str,
@@ -399,42 +391,28 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         # RELATIONSHIP CREATION (All Validation Passed)
         # ========================================================================
 
-        try:
-            props = properties or {}
+        props = properties or {}
 
-            query = f"""
-            MATCH (a {{uid: $from_uid}})
-            MATCH (b {{uid: $to_uid}})
-            MERGE (a)-[r:{relationship_type}]->(b)
-            SET r += $properties
-            RETURN r
-            """
+        query = f"""
+        MATCH (a {{uid: $from_uid}})
+        MATCH (b {{uid: $to_uid}})
+        MERGE (a)-[r:{relationship_type}]->(b)
+        SET r += $properties
+        RETURN r
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"from_uid": from_uid, "to_uid": to_uid, "properties": props}
-                )
-                await result.single()
-
-            self.logger.debug(
-                f"Created relationship: {from_uid} --[{relationship_type}]-> {to_uid}"
+        async with self.driver.session() as session:
+            result = await session.run(
+                query, {"from_uid": from_uid, "to_uid": to_uid, "properties": props}
             )
-            return Result.ok(True)
+            await result.single()
 
-        except Exception as e:
-            self.logger.error(f"Failed to create relationship: {e}")
-            return Result.fail(
-                Errors.database(
-                    operation="create_relationship",
-                    message=str(e),
-                    details={
-                        "from_uid": from_uid,
-                        "to_uid": to_uid,
-                        "relationship_type": relationship_type,
-                    },
-                )
-            )
+        self.logger.debug(
+            f"Created relationship: {from_uid} --[{relationship_type}]-> {to_uid}"
+        )
+        return Result.ok(True)
 
+    @safe_backend_operation("delete_relationship")
     async def delete_relationship(
         self, from_uid: str, to_uid: str, relationship_type: RelationshipName
     ) -> Result[bool]:
@@ -456,28 +434,24 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                 relationship_type=RelationshipName.APPLIES_KNOWLEDGE
             )
         """
-        try:
-            rel_type = relationship_type.value
-            query = f"""
-            MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
-            DETACH DELETE r
-            RETURN count(r) as deleted_count
-            """
+        rel_type = relationship_type.value
+        query = f"""
+        MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
+        DETACH DELETE r
+        RETURN count(r) as deleted_count
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"from_uid": from_uid, "to_uid": to_uid})
-                record = await result.single()
-                deleted_count = record["deleted_count"] if record else 0
+        async with self.driver.session() as session:
+            result = await session.run(query, {"from_uid": from_uid, "to_uid": to_uid})
+            record = await result.single()
+            deleted_count = record["deleted_count"] if record else 0
 
-            self.logger.debug(
-                f"Deleted {deleted_count} relationship(s): {from_uid} --[{rel_type}]-> {to_uid}"
-            )
-            return Result.ok(True)
+        self.logger.debug(
+            f"Deleted {deleted_count} relationship(s): {from_uid} --[{rel_type}]-> {to_uid}"
+        )
+        return Result.ok(True)
 
-        except Exception as e:
-            self.logger.error(f"Failed to delete relationship: {e}")
-            return Result.fail(Errors.database(operation="delete_relationship", message=str(e)))
-
+    @safe_backend_operation("delete_relationships_batch")
     async def delete_relationships_batch(
         self, relationships: builtins.list[tuple[str, str, str]]
     ) -> Result[int]:
@@ -503,29 +477,23 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         """
         from core.infrastructure.batch import BatchOperationHelper
 
-        try:
-            if not relationships:
-                return Result.ok(0)
+        if not relationships:
+            return Result.ok(0)
 
-            # Use BatchOperationHelper for query generation
-            query_result = BatchOperationHelper.build_relationship_delete_query(relationships)
+        # Use BatchOperationHelper for query generation
+        query_result = BatchOperationHelper.build_relationship_delete_query(relationships)
 
-            async with self.driver.session() as session:
-                result = await session.run(query_result.query, query_result.params)
-                record = await result.single()
-                deleted_count = record["deleted_count"] if record else 0
+        async with self.driver.session() as session:
+            result = await session.run(query_result.query, query_result.params)
+            record = await result.single()
+            deleted_count = record["deleted_count"] if record else 0
 
-            self.logger.debug(
-                f"Batch deleted {deleted_count} relationships ({len(relationships)} requested)"
-            )
-            return Result.ok(deleted_count)
+        self.logger.debug(
+            f"Batch deleted {deleted_count} relationships ({len(relationships)} requested)"
+        )
+        return Result.ok(deleted_count)
 
-        except Exception as e:
-            self.logger.error(f"Failed to batch delete relationships: {e}")
-            return Result.fail(
-                Errors.database(operation="delete_relationships_batch", message=str(e))
-            )
-
+    @safe_backend_operation("has_relationship")
     async def has_relationship(
         self, from_uid: str, to_uid: str, relationship_type: RelationshipName
     ) -> Result[bool]:
@@ -579,24 +547,20 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             - get_relationship_metadata(): Get relationship properties
             - count_related(): Count all relationships of a type
         """
-        try:
-            rel_type = relationship_type.value
-            query = f"""
-            MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
-            RETURN count(r) > 0 as exists
-            """
+        rel_type = relationship_type.value
+        query = f"""
+        MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
+        RETURN count(r) > 0 as exists
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"from_uid": from_uid, "to_uid": to_uid})
-                record = await result.single()
-                exists = record["exists"] if record else False
+        async with self.driver.session() as session:
+            result = await session.run(query, {"from_uid": from_uid, "to_uid": to_uid})
+            record = await result.single()
+            exists = record["exists"] if record else False
 
-            return Result.ok(exists)
+        return Result.ok(exists)
 
-        except Exception as e:
-            self.logger.error(f"Failed to check relationship existence: {e}")
-            return Result.fail(Errors.database(operation="has_relationship", message=str(e)))
-
+    @safe_backend_operation("count_related")
     async def count_related(
         self,
         uid: str,
@@ -644,50 +608,46 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             )
             print(f"Goal has {essential_count.value} essential habits")
         """
-        try:
-            # Extract string value for Cypher query
-            rel_type = relationship_type.value
+        # Extract string value for Cypher query
+        rel_type = relationship_type.value
 
-            # Build Cypher pattern using helper (with named relationship variable for property access)
-            pattern_result = self._build_direction_pattern(
-                relationship_type=rel_type,
-                direction=direction,
-                rel_var="r",
-            )
-            if pattern_result.is_error:
-                return Result.fail(pattern_result.expect_error())
-            pattern = pattern_result.value
+        # Build Cypher pattern using helper (with named relationship variable for property access)
+        pattern_result = self._build_direction_pattern(
+            relationship_type=rel_type,
+            direction=direction,
+            rel_var="r",
+        )
+        if pattern_result.is_error:
+            return Result.fail(pattern_result.expect_error())
+        pattern = pattern_result.value
 
-            # Build WHERE clause for property filtering
-            where_clauses = []
-            params = {"uid": uid}
+        # Build WHERE clause for property filtering
+        where_clauses = []
+        params = {"uid": uid}
 
-            if properties:
-                for key, value in properties.items():
-                    param_name = f"prop_{key}"
-                    where_clauses.append(f"r.{key} = ${param_name}")
-                    params[param_name] = value
+        if properties:
+            for key, value in properties.items():
+                param_name = f"prop_{key}"
+                where_clauses.append(f"r.{key} = ${param_name}")
+                params[param_name] = value
 
-            where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+        where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
-            query = f"""
-            MATCH (n {{uid: $uid}})
-            MATCH {pattern}
-            {where_clause}
-            RETURN count(related) as count
-            """
+        query = f"""
+        MATCH (n {{uid: $uid}})
+        MATCH {pattern}
+        {where_clause}
+        RETURN count(related) as count
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, params)
-                record = await result.single()
-                count = record["count"] if record else 0
+        async with self.driver.session() as session:
+            result = await session.run(query, params)
+            record = await result.single()
+            count = record["count"] if record else 0
 
-            return Result.ok(count)
+        return Result.ok(count)
 
-        except Exception as e:
-            self.logger.error(f"Failed to count related entities: {e}")
-            return Result.fail(Errors.database(operation="count_related", message=str(e)))
-
+    @safe_backend_operation("create_relationships_batch")
     async def create_relationships_batch(
         self, relationships: builtins.list[tuple[str, str, str, dict[str, Any] | None]]
     ) -> Result[int]:
@@ -842,22 +802,15 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         # Uses BatchOperationHelper for pure Cypher query generation
         from core.infrastructure.batch import BatchOperationHelper
 
-        try:
-            # Generate queries grouped by relationship type
-            queries = BatchOperationHelper.build_relationship_create_queries(relationships)
+        # Generate queries grouped by relationship type
+        queries = BatchOperationHelper.build_relationship_create_queries(relationships)
 
-            total_created = 0
-            async with self.driver.session() as session:
-                for query, rels_data in queries:
-                    result = await session.run(query, {"rels": rels_data})
-                    record = await result.single()
-                    total_created += record["created_count"] if record else 0
+        total_created = 0
+        async with self.driver.session() as session:
+            for query, rels_data in queries:
+                result = await session.run(query, {"rels": rels_data})
+                record = await result.single()
+                total_created += record["created_count"] if record else 0
 
-            self.logger.info(f"Created {total_created} relationships in batch")
-            return Result.ok(total_created)
-
-        except Exception as e:
-            self.logger.error(f"Failed to create relationships batch: {e}")
-            return Result.fail(
-                Errors.database(operation="create_relationships_batch", message=str(e))
-            )
+        self.logger.info(f"Created {total_created} relationships in batch")
+        return Result.ok(total_created)

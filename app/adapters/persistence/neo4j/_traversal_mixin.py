@@ -19,7 +19,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.relationship_names import RelationshipName
-from core.utils.result_simplified import Errors, Result
+from core.utils.error_boundary import safe_backend_operation
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     import builtins
@@ -88,6 +89,7 @@ class _TraversalMixin:
             properties=properties,
         )
 
+    @safe_backend_operation("get_relationships")
     async def get_relationships(
         self, uid: str, direction: Direction = "both"
     ) -> Result[builtins.list[dict[str, Any]]]:
@@ -107,39 +109,35 @@ class _TraversalMixin:
                 - direction: "outgoing" or "incoming"
                 - properties: Relationship properties
         """
-        try:
-            # Build direction-specific query
-            if direction == "outgoing":
-                cypher = """
-                MATCH (n {uid: $uid})-[r]->(target)
-                RETURN type(r) as type, target.uid as target_uid,
-                       'outgoing' as direction, properties(r) as properties
-                """
-            elif direction == "incoming":
-                cypher = """
-                MATCH (n {uid: $uid})<-[r]-(source)
-                RETURN type(r) as type, source.uid as target_uid,
-                       'incoming' as direction, properties(r) as properties
-                """
-            else:  # both
-                cypher = """
-                MATCH (n {uid: $uid})-[r]-(other)
-                WITH r, other,
-                     CASE WHEN startNode(r).uid = $uid THEN 'outgoing' ELSE 'incoming' END as dir
-                RETURN type(r) as type, other.uid as target_uid,
-                       dir as direction, properties(r) as properties
-                """
+        # Build direction-specific query
+        if direction == "outgoing":
+            cypher = """
+            MATCH (n {uid: $uid})-[r]->(target)
+            RETURN type(r) as type, target.uid as target_uid,
+                   'outgoing' as direction, properties(r) as properties
+            """
+        elif direction == "incoming":
+            cypher = """
+            MATCH (n {uid: $uid})<-[r]-(source)
+            RETURN type(r) as type, source.uid as target_uid,
+                   'incoming' as direction, properties(r) as properties
+            """
+        else:  # both
+            cypher = """
+            MATCH (n {uid: $uid})-[r]-(other)
+            WITH r, other,
+                 CASE WHEN startNode(r).uid = $uid THEN 'outgoing' ELSE 'incoming' END as dir
+            RETURN type(r) as type, other.uid as target_uid,
+                   dir as direction, properties(r) as properties
+            """
 
-            async with self.driver.session() as session:
-                result = await session.run(cypher, {"uid": uid})
-                records = await result.data()
+        async with self.driver.session() as session:
+            result = await session.run(cypher, {"uid": uid})
+            records = await result.data()
 
-            return Result.ok(records)
+        return Result.ok(records)
 
-        except Exception as e:
-            self.logger.error(f"Failed to get relationships for {uid}: {e}")
-            return Result.fail(Errors.database(operation="get_relationships", message=str(e)))
-
+    @safe_backend_operation("traverse")
     async def traverse(
         self,
         start_uid: str,
@@ -165,38 +163,34 @@ class _TraversalMixin:
                 - depth: Distance from start node
                 - properties: Node properties (if include_properties=True)
         """
-        try:
-            # Build relationship filter
-            rel_filter = f":{rel_pattern}" if rel_pattern else ""
+        # Build relationship filter
+        rel_filter = f":{rel_pattern}" if rel_pattern else ""
 
-            if include_properties:
-                cypher = f"""
-                MATCH path = (start {{uid: $start_uid}})-[{rel_filter}*1..{max_depth}]-(node)
-                UNWIND range(1, length(path)) as depth
-                WITH node, depth, labels(node) as node_labels, properties(node) as props
-                RETURN DISTINCT node.uid as uid, node_labels as labels,
-                       min(depth) as depth, props as properties
-                ORDER BY depth
-                """
-            else:
-                cypher = f"""
-                MATCH path = (start {{uid: $start_uid}})-[{rel_filter}*1..{max_depth}]-(node)
-                UNWIND range(1, length(path)) as depth
-                WITH node, depth, labels(node) as node_labels
-                RETURN DISTINCT node.uid as uid, node_labels as labels, min(depth) as depth
-                ORDER BY depth
-                """
+        if include_properties:
+            cypher = f"""
+            MATCH path = (start {{uid: $start_uid}})-[{rel_filter}*1..{max_depth}]-(node)
+            UNWIND range(1, length(path)) as depth
+            WITH node, depth, labels(node) as node_labels, properties(node) as props
+            RETURN DISTINCT node.uid as uid, node_labels as labels,
+                   min(depth) as depth, props as properties
+            ORDER BY depth
+            """
+        else:
+            cypher = f"""
+            MATCH path = (start {{uid: $start_uid}})-[{rel_filter}*1..{max_depth}]-(node)
+            UNWIND range(1, length(path)) as depth
+            WITH node, depth, labels(node) as node_labels
+            RETURN DISTINCT node.uid as uid, node_labels as labels, min(depth) as depth
+            ORDER BY depth
+            """
 
-            async with self.driver.session() as session:
-                result = await session.run(cypher, {"start_uid": start_uid})
-                records = await result.data()
+        async with self.driver.session() as session:
+            result = await session.run(cypher, {"start_uid": start_uid})
+            records = await result.data()
 
-            return Result.ok(records)
+        return Result.ok(records)
 
-        except Exception as e:
-            self.logger.error(f"Failed to traverse from {start_uid}: {e}")
-            return Result.fail(Errors.database(operation="traverse", message=str(e)))
-
+    @safe_backend_operation("find_path")
     async def find_path(
         self,
         from_uid: str,
@@ -221,32 +215,29 @@ class _TraversalMixin:
                 - uid: Node UID
                 - labels: Node labels
         """
+        # Build relationship filter
+        rel_filter = "|".join(rel_types) if rel_types else ""
+        rel_clause = f":{rel_filter}" if rel_filter else ""
+
+        cypher = f"""
+        MATCH path = shortestPath(
+            (start {{uid: $from_uid}})-[{rel_clause}*..{max_depth}]-(end {{uid: $to_uid}})
+        )
+        UNWIND nodes(path) as node
+        RETURN node.uid as uid, labels(node) as labels
+        """
+
         try:
-            # Build relationship filter
-            rel_filter = "|".join(rel_types) if rel_types else ""
-            rel_clause = f":{rel_filter}" if rel_filter else ""
-
-            cypher = f"""
-            MATCH path = shortestPath(
-                (start {{uid: $from_uid}})-[{rel_clause}*..{max_depth}]-(end {{uid: $to_uid}})
-            )
-            UNWIND nodes(path) as node
-            RETURN node.uid as uid, labels(node) as labels
-            """
-
             async with self.driver.session() as session:
                 result = await session.run(cypher, {"from_uid": from_uid, "to_uid": to_uid})
                 records = await result.data()
-
-            if not records:
-                return Result.ok(None)
-
-            return Result.ok(records)
-
         except Exception as e:
             # Neo4j returns error if no path exists in some versions
             if "no path" in str(e).lower():
                 return Result.ok(None)
+            raise  # Let @safe_backend_operation handle other errors
 
-            self.logger.error(f"Failed to find path from {from_uid} to {to_uid}: {e}")
-            return Result.fail(Errors.database(operation="find_path", message=str(e)))
+        if not records:
+            return Result.ok(None)
+
+        return Result.ok(records)

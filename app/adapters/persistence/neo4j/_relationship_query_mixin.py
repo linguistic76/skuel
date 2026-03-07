@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.persistence.neo4j.relationship_builders import RelationshipBuilder
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
+from core.utils.error_boundary import safe_backend_operation
 from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
 
@@ -90,6 +91,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
     # These methods query relationships from graph edges, not node properties.
     # This enables removing relationship fields from domain models.
 
+    @safe_backend_operation("get_related_entities")
     async def get_related_entities(
         self, uid: str, relationship_type: str, direction: str = "outgoing", limit: int = 100
     ) -> Result[builtins.list[T]]:
@@ -113,50 +115,44 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
                 direction="incoming"
             )
         """
-        try:
-            # Build Cypher pattern using helper
-            pattern_result = self._build_direction_pattern(
-                relationship_type=relationship_type,
-                direction=direction,
-                target_label=self.label,
-            )
-            if pattern_result.is_error:
-                return Result.fail(pattern_result.expect_error())
-            pattern = pattern_result.value
+        # Build Cypher pattern using helper
+        pattern_result = self._build_direction_pattern(
+            relationship_type=relationship_type,
+            direction=direction,
+            target_label=self.label,
+        )
+        if pattern_result.is_error:
+            return Result.fail(pattern_result.expect_error())
+        pattern = pattern_result.value
 
-            df_clause = self._default_filter_clause()
-            where_line = f"WHERE {df_clause}" if df_clause else ""
+        df_clause = self._default_filter_clause()
+        where_line = f"WHERE {df_clause}" if df_clause else ""
 
-            query = f"""
-            MATCH (n:{self.label} {{uid: $uid}})
-            {where_line}
-            MATCH {pattern}
-            RETURN related
-            LIMIT $limit
-            """
+        query = f"""
+        MATCH (n:{self.label} {{uid: $uid}})
+        {where_line}
+        MATCH {pattern}
+        RETURN related
+        LIMIT $limit
+        """
 
-            params: dict[str, Any] = {"uid": uid, "limit": limit}
-            params.update(self._default_filter_params())
+        params: dict[str, Any] = {"uid": uid, "limit": limit}
+        params.update(self._default_filter_params())
 
-            async with self.driver.session() as session:
-                result = await session.run(query, params)
-                records = [record async for record in result]
+        async with self.driver.session() as session:
+            result = await session.run(query, params)
+            records = [record async for record in result]
 
-                entities = []
-                for record in records:
-                    node = record["related"]
-                    entity = from_neo4j_node(node, self.entity_class)
-                    entities.append(entity)
+            entities = []
+            for record in records:
+                node = record["related"]
+                entity = from_neo4j_node(node, self.entity_class)
+                entities.append(entity)
 
-                self.logger.debug(f"Found {len(entities)} related entities via {relationship_type}")
-                return Result.ok(entities)
+            self.logger.debug(f"Found {len(entities)} related entities via {relationship_type}")
+            return Result.ok(entities)
 
-        except Exception as e:
-            self.logger.error(f"Failed to get related entities: {e}")
-            return Result.fail(
-                Errors.database(operation="get_related_entities", message=str(e), entity=self.label)
-            )
-
+    @safe_backend_operation("get_related_uids")
     async def get_related_uids(
         self,
         uid: str,
@@ -242,52 +238,48 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         See: /docs/architecture/GRAPH_NATIVE_ANALYSIS.md for architecture details
         """
-        try:
-            # Extract string value for Cypher query
-            rel_type = relationship_type.value
+        # Extract string value for Cypher query
+        rel_type = relationship_type.value
 
-            # Build Cypher pattern using helper (with named relationship variable for property access)
-            pattern_result = self._build_direction_pattern(
-                relationship_type=rel_type,
-                direction=direction,
-                rel_var="r",
-            )
-            if pattern_result.is_error:
-                return Result.fail(pattern_result.expect_error())
-            pattern = pattern_result.value
+        # Build Cypher pattern using helper (with named relationship variable for property access)
+        pattern_result = self._build_direction_pattern(
+            relationship_type=rel_type,
+            direction=direction,
+            rel_var="r",
+        )
+        if pattern_result.is_error:
+            return Result.fail(pattern_result.expect_error())
+        pattern = pattern_result.value
 
-            # Build WHERE clause for property filtering
-            where_clauses = []
-            params = {"uid": uid, "limit": limit}
+        # Build WHERE clause for property filtering
+        where_clauses = []
+        params = {"uid": uid, "limit": limit}
 
-            if properties:
-                for key, value in properties.items():
-                    param_name = f"prop_{key}"
-                    where_clauses.append(f"r.{key} = ${param_name}")
-                    params[param_name] = value
+        if properties:
+            for key, value in properties.items():
+                param_name = f"prop_{key}"
+                where_clauses.append(f"r.{key} = ${param_name}")
+                params[param_name] = value
 
-            where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+        where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
-            query = f"""
-            MATCH (n {{uid: $uid}})
-            MATCH {pattern}
-            {where_clause}
-            RETURN related.uid as uid
-            LIMIT $limit
-            """
+        query = f"""
+        MATCH (n {{uid: $uid}})
+        MATCH {pattern}
+        {where_clause}
+        RETURN related.uid as uid
+        LIMIT $limit
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, params)
-                records = [record async for record in result]
-                uids = [record["uid"] for record in records if record["uid"]]
+        async with self.driver.session() as session:
+            result = await session.run(query, params)
+            records = [record async for record in result]
+            uids = [record["uid"] for record in records if record["uid"]]
 
-                self.logger.debug(f"Found {len(uids)} related UIDs via {relationship_type}")
-                return Result.ok(uids)
+            self.logger.debug(f"Found {len(uids)} related UIDs via {relationship_type}")
+            return Result.ok(uids)
 
-        except Exception as e:
-            self.logger.error(f"Failed to get related UIDs: {e}")
-            return Result.fail(Errors.database(operation="get_related_uids", message=str(e)))
-
+    @safe_backend_operation("get_relationship_metadata")
     async def get_relationship_metadata(
         self, from_uid: str, to_uid: str, relationship_type: RelationshipName
     ) -> Result[RelationshipMetadata | None]:
@@ -313,31 +305,25 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
                 relationship_type=RelationshipName.REQUIRES_KNOWLEDGE
             )
         """
-        try:
-            rel_type = relationship_type.value
-            query = f"""
-            MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
-            RETURN properties(r) as props
-            """
+        rel_type = relationship_type.value
+        query = f"""
+        MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
+        RETURN properties(r) as props
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"from_uid": from_uid, "to_uid": to_uid})
-                record = await result.single()
+        async with self.driver.session() as session:
+            result = await session.run(query, {"from_uid": from_uid, "to_uid": to_uid})
+            record = await result.single()
 
-                if not record:
-                    return Result.ok(None)
+            if not record:
+                return Result.ok(None)
 
-                # Cast to RelationshipMetadata for type safety
-                # TypedDict is structural - Neo4j properties map naturally
-                props: RelationshipMetadata = dict(record["props"])  # type: ignore[assignment]
-                return Result.ok(props)
+            # Cast to RelationshipMetadata for type safety
+            # TypedDict is structural - Neo4j properties map naturally
+            props: RelationshipMetadata = dict(record["props"])  # type: ignore[assignment]
+            return Result.ok(props)
 
-        except Exception as e:
-            self.logger.error(f"Failed to get relationship metadata: {e}")
-            return Result.fail(
-                Errors.database(operation="get_relationship_metadata", message=str(e))
-            )
-
+    @safe_backend_operation("update_relationship_properties")
     async def update_relationship_properties(
         self,
         from_uid: str,
@@ -369,42 +355,36 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
                 properties={"confidence": 0.95, "last_verified": datetime.now().isoformat()}
             )
         """
-        try:
-            if not properties:
-                return Result.ok(True)  # Nothing to update
+        if not properties:
+            return Result.ok(True)  # Nothing to update
 
-            rel_type = relationship_type.value
-            query = f"""
-            MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
-            SET r += $properties
-            RETURN r
-            """
+        rel_type = relationship_type.value
+        query = f"""
+        MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
+        SET r += $properties
+        RETURN r
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"from_uid": from_uid, "to_uid": to_uid, "properties": properties}
-                )
-                record = await result.single()
-
-                if not record:
-                    return Result.fail(
-                        Errors.not_found(
-                            resource="Relationship",
-                            identifier=f"{from_uid} --[{rel_type}]-> {to_uid}",
-                        )
-                    )
-
-                self.logger.debug(
-                    f"Updated {len(properties)} properties on {from_uid} --[{rel_type}]-> {to_uid}"
-                )
-                return Result.ok(True)
-
-        except Exception as e:
-            self.logger.error(f"Failed to update relationship properties: {e}")
-            return Result.fail(
-                Errors.database(operation="update_relationship_properties", message=str(e))
+        async with self.driver.session() as session:
+            result = await session.run(
+                query, {"from_uid": from_uid, "to_uid": to_uid, "properties": properties}
             )
+            record = await result.single()
 
+            if not record:
+                return Result.fail(
+                    Errors.not_found(
+                        resource="Relationship",
+                        identifier=f"{from_uid} --[{rel_type}]-> {to_uid}",
+                    )
+                )
+
+            self.logger.debug(
+                f"Updated {len(properties)} properties on {from_uid} --[{rel_type}]-> {to_uid}"
+            )
+            return Result.ok(True)
+
+    @safe_backend_operation("get_relationships_batch")
     async def get_relationships_batch(
         self, relationships: builtins.list[tuple[str, str, str]]
     ) -> Result[builtins.list[dict[str, Any]]]:
@@ -429,31 +409,27 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         """
         from core.infrastructure.batch import BatchOperationHelper
 
-        try:
-            if not relationships:
-                return Result.ok([])
+        if not relationships:
+            return Result.ok([])
 
-            # Use BatchOperationHelper for query generation
-            query_result = BatchOperationHelper.build_relationship_properties_query(relationships)
+        # Use BatchOperationHelper for query generation
+        query_result = BatchOperationHelper.build_relationship_properties_query(relationships)
 
-            async with self.driver.session() as session:
-                result = await session.run(query_result.query, query_result.params)
-                records = [record async for record in result]
+        async with self.driver.session() as session:
+            result = await session.run(query_result.query, query_result.params)
+            records = [record async for record in result]
 
-                # Convert to list of dicts (empty dict if None)
-                metadata_list = [
-                    dict(record["props"]) if record["props"] else {} for record in records
-                ]
+            # Convert to list of dicts (empty dict if None)
+            metadata_list = [
+                dict(record["props"]) if record["props"] else {} for record in records
+            ]
 
-                self.logger.debug(
-                    f"Fetched metadata for {len(metadata_list)} relationships ({len(relationships)} requested)"
-                )
-                return Result.ok(metadata_list)
+            self.logger.debug(
+                f"Fetched metadata for {len(metadata_list)} relationships ({len(relationships)} requested)"
+            )
+            return Result.ok(metadata_list)
 
-        except Exception as e:
-            self.logger.error(f"Failed to get relationships batch: {e}")
-            return Result.fail(Errors.database(operation="get_relationships_batch", message=str(e)))
-
+    @safe_backend_operation("count_relationships_batch")
     async def count_relationships_batch(
         self, requests: builtins.list[tuple[str, str, str | None]]
     ) -> Result[dict[tuple[str, str, str], int]]:
@@ -478,36 +454,29 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         """
         from core.infrastructure.batch import BatchOperationHelper
 
-        try:
-            if not requests:
-                return Result.ok({})
+        if not requests:
+            return Result.ok({})
 
-            counts: dict[tuple[str, str, str], int] = {}
+        counts: dict[tuple[str, str, str], int] = {}
 
-            # Use BatchOperationHelper to generate optimized queries by direction
-            query_results = BatchOperationHelper.build_multi_direction_count_queries(requests)
+        # Use BatchOperationHelper to generate optimized queries by direction
+        query_results = BatchOperationHelper.build_multi_direction_count_queries(requests)
 
-            async with self.driver.session() as session:
-                # Execute each direction's query
-                for direction, query_result in query_results.items():
-                    result = await session.run(query_result.query, query_result.params)
-                    async for record in result:
-                        counts[(record["uid"], record["rel_type"], direction)] = record["count"]
+        async with self.driver.session() as session:
+            # Execute each direction's query
+            for direction, query_result in query_results.items():
+                result = await session.run(query_result.query, query_result.params)
+                async for record in result:
+                    counts[(record["uid"], record["rel_type"], direction)] = record["count"]
 
-                # Fill in zeros for requests that had no results
-                for uid, rel_type, direction in requests:
-                    key = (uid, rel_type, direction or "outgoing")
-                    if key not in counts:
-                        counts[key] = 0
+            # Fill in zeros for requests that had no results
+            for uid, rel_type, direction in requests:
+                key = (uid, rel_type, direction or "outgoing")
+                if key not in counts:
+                    counts[key] = 0
 
-                self.logger.debug(f"Batch counted {len(counts)} relationship patterns")
-                return Result.ok(counts)
-
-        except Exception as e:
-            self.logger.error(f"Failed to count relationships batch: {e}")
-            return Result.fail(
-                Errors.database(operation="count_relationships_batch", message=str(e))
-            )
+            self.logger.debug(f"Batch counted {len(counts)} relationship patterns")
+            return Result.ok(counts)
 
     # ============================================================================
     # RICH EDGE PROPERTIES
@@ -517,6 +486,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
     #
     # These methods provide typed access to rich edge metadata.
 
+    @safe_backend_operation("get_edge_metadata")
     async def get_edge_metadata(
         self, from_uid: str, to_uid: str, relationship_type: RelationshipName
     ) -> Result[EdgeMetadata | None]:
@@ -548,23 +518,19 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         """
         from core.models.semantic import EdgeMetadata
 
-        try:
-            props_result = await self.get_relationship_metadata(from_uid, to_uid, relationship_type)
+        props_result = await self.get_relationship_metadata(from_uid, to_uid, relationship_type)
 
-            if not props_result.is_ok:
-                return Result.fail(props_result.expect_error())
+        if not props_result.is_ok:
+            return Result.fail(props_result.expect_error())
 
-            if props_result.value is None:
-                return Result.ok(None)
+        if props_result.value is None:
+            return Result.ok(None)
 
-            # Convert dict to EdgeMetadata
-            metadata = EdgeMetadata.from_neo4j_properties(props_result.value)
-            return Result.ok(metadata)
+        # Convert dict to EdgeMetadata
+        metadata = EdgeMetadata.from_neo4j_properties(props_result.value)
+        return Result.ok(metadata)
 
-        except Exception as e:
-            self.logger.error(f"Failed to get edge metadata: {e}")
-            return Result.fail(Errors.database(operation="get_edge_metadata", message=str(e)))
-
+    @safe_backend_operation("update_edge_metadata")
     async def update_edge_metadata(
         self, from_uid: str, to_uid: str, relationship_type: str, edge_metadata: EdgeMetadata
     ) -> Result[bool]:
@@ -589,36 +555,31 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
                 updated = metadata_result.value.increment_traversal()
                 await backend.update_edge_metadata(from_uid, to_uid, "PREREQUISITE", updated)
         """
+        query = f"""
+        MATCH (a {{uid: $from_uid}})-[r:{relationship_type}]->(b {{uid: $to_uid}})
+        SET r = $metadata
+        RETURN r
+        """
 
-        try:
-            query = f"""
-            MATCH (a {{uid: $from_uid}})-[r:{relationship_type}]->(b {{uid: $to_uid}})
-            SET r = $metadata
-            RETURN r
-            """
+        metadata_props = edge_metadata.to_neo4j_properties()
 
-            metadata_props = edge_metadata.to_neo4j_properties()
+        async with self.driver.session() as session:
+            result = await session.run(
+                query, {"from_uid": from_uid, "to_uid": to_uid, "metadata": metadata_props}
+            )
+            record = await result.single()
 
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"from_uid": from_uid, "to_uid": to_uid, "metadata": metadata_props}
-                )
-                record = await result.single()
-
-                if not record:
-                    return Result.fail(
-                        Errors.not_found(
-                            f"Relationship not found: {from_uid} --[{relationship_type}]-> {to_uid}"
-                        )
+            if not record:
+                return Result.fail(
+                    Errors.not_found(
+                        f"Relationship not found: {from_uid} --[{relationship_type}]-> {to_uid}"
                     )
+                )
 
-                self.logger.debug(f"Updated edge metadata for {from_uid} -> {to_uid}")
-                return Result.ok(True)
+            self.logger.debug(f"Updated edge metadata for {from_uid} -> {to_uid}")
+            return Result.ok(True)
 
-        except Exception as e:
-            self.logger.error(f"Failed to update edge metadata: {e}")
-            return Result.fail(Errors.database(operation="update_edge_metadata", message=str(e)))
-
+    @safe_backend_operation("increment_traversal_count")
     async def increment_traversal_count(
         self, from_uid: str, to_uid: str, relationship_type: str
     ) -> Result[bool]:
@@ -644,36 +605,29 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
                 relationship_type="PREREQUISITE"
             )
         """
-        try:
-            query = f"""
-            MATCH (a {{uid: $from_uid}})-[r:{relationship_type}]->(b {{uid: $to_uid}})
-            SET r.traversal_count = coalesce(r.traversal_count, 0) + 1,
-                r.last_traversed = datetime()
-            RETURN r.traversal_count as count
-            """
+        query = f"""
+        MATCH (a {{uid: $from_uid}})-[r:{relationship_type}]->(b {{uid: $to_uid}})
+        SET r.traversal_count = coalesce(r.traversal_count, 0) + 1,
+            r.last_traversed = datetime()
+        RETURN r.traversal_count as count
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"from_uid": from_uid, "to_uid": to_uid})
-                record = await result.single()
+        async with self.driver.session() as session:
+            result = await session.run(query, {"from_uid": from_uid, "to_uid": to_uid})
+            record = await result.single()
 
-                if not record:
-                    return Result.fail(
-                        Errors.not_found(
-                            f"Relationship not found: {from_uid} --[{relationship_type}]-> {to_uid}"
-                        )
+            if not record:
+                return Result.fail(
+                    Errors.not_found(
+                        f"Relationship not found: {from_uid} --[{relationship_type}]-> {to_uid}"
                     )
-
-                new_count = record["count"]
-                self.logger.debug(
-                    f"Incremented traversal count to {new_count} for {from_uid} -> {to_uid}"
                 )
-                return Result.ok(True)
 
-        except Exception as e:
-            self.logger.error(f"Failed to increment traversal count: {e}")
-            return Result.fail(
-                Errors.database(operation="increment_traversal_count", message=str(e))
+            new_count = record["count"]
+            self.logger.debug(
+                f"Incremented traversal count to {new_count} for {from_uid} -> {to_uid}"
             )
+            return Result.ok(True)
 
     # ============================================================================
     # RELATIONSHIP-FIRST API - FLUENT INTERFACE
