@@ -23,9 +23,9 @@ No ownership verification needed - admin sees all finance data.
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from adapters.outbound.invoice_renderer import render_invoice_html
 from core.models.finance.invoice import (
     InvoicePure,
     InvoiceStatus,
@@ -50,17 +50,14 @@ class FinanceInvoiceService:
     def __init__(
         self,
         backend: BackendOperations[InvoicePure],
-        template_dir: Path | None = None,
     ) -> None:
         """
         Initialize invoice service.
 
         Args:
             backend: Protocol-based backend for invoice operations
-            template_dir: Directory containing PDF templates (default: templates/)
         """
         self.backend = backend
-        self.template_dir = template_dir or Path("templates")
         self.logger = get_logger("finance.invoice")
 
     @property
@@ -264,8 +261,8 @@ class FinanceInvoiceService:
         invoice = result.value
 
         try:
-            # Generate HTML from template
-            html_content = self._render_invoice_html(invoice)
+            # Render HTML via outbound adapter (presentation logic lives there)
+            html_content = render_invoice_html(invoice)
 
             # Convert to PDF using WeasyPrint
             from weasyprint import HTML  # type: ignore[import-untyped]
@@ -283,232 +280,6 @@ class FinanceInvoiceService:
         except Exception as e:
             self.logger.error(f"PDF generation failed for {uid}: {e}")
             return Result.fail(Errors.system(f"PDF generation failed: {e}"))
-
-    def _render_invoice_html(self, invoice: InvoicePure) -> str:
-        """
-        Render invoice to HTML string.
-
-        Args:
-            invoice: Invoice to render
-
-        Returns:
-            HTML string for PDF conversion
-        """
-        # Build line items table rows
-        items_html = ""
-        for item in invoice.items:
-            items_html += f"""
-            <tr>
-                <td>{item.description}</td>
-                <td class="text-right">{item.quantity:.2f}</td>
-                <td class="text-right">${item.unit_price:.2f}</td>
-                <td class="text-right">${item.amount:.2f}</td>
-            </tr>
-            """
-
-        # Format dates
-        invoice_date_str = invoice.invoice_date.strftime("%B %d, %Y")
-        due_date_str = invoice.due_date.strftime("%B %d, %Y") if invoice.due_date else "N/A"
-
-        # Invoice type label
-        type_label = "INVOICE" if invoice.is_outgoing() else "BILL"
-        direction_label = "Bill To:" if invoice.is_outgoing() else "From:"
-
-        # Status badge color
-        status_colors = {
-            "draft": "#6b7280",
-            "sent": "#3b82f6",
-            "pending": "#f59e0b",
-            "paid": "#10b981",
-            "overdue": "#ef4444",
-            "cancelled": "#9ca3af",
-        }
-        status_color = status_colors.get(invoice.status.value, "#6b7280")
-
-        return f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            margin: 0;
-            padding: 40px;
-            color: #1f2937;
-            font-size: 14px;
-        }}
-        .header {{
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 40px;
-            border-bottom: 2px solid #e5e7eb;
-            padding-bottom: 20px;
-        }}
-        .title {{
-            font-size: 28px;
-            font-weight: bold;
-            color: #111827;
-        }}
-        .invoice-number {{
-            font-size: 12px;
-            color: #6b7280;
-            margin-top: 4px;
-        }}
-        .status-badge {{
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 9999px;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            color: white;
-            background-color: {status_color};
-        }}
-        .info-section {{
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 30px;
-        }}
-        .info-block {{
-            max-width: 45%;
-        }}
-        .info-label {{
-            font-size: 12px;
-            color: #6b7280;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }}
-        .info-value {{
-            font-size: 16px;
-            font-weight: 500;
-        }}
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }}
-        th {{
-            background-color: #f9fafb;
-            border-bottom: 2px solid #e5e7eb;
-            padding: 12px 8px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 12px;
-            text-transform: uppercase;
-            color: #6b7280;
-        }}
-        td {{
-            border-bottom: 1px solid #e5e7eb;
-            padding: 12px 8px;
-        }}
-        .text-right {{
-            text-align: right;
-        }}
-        .totals {{
-            margin-top: 30px;
-            text-align: right;
-        }}
-        .total-row {{
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 8px;
-        }}
-        .total-label {{
-            width: 120px;
-            text-align: right;
-            padding-right: 20px;
-            color: #6b7280;
-        }}
-        .total-value {{
-            width: 120px;
-            text-align: right;
-            font-weight: 500;
-        }}
-        .grand-total {{
-            font-size: 18px;
-            font-weight: bold;
-            border-top: 2px solid #111827;
-            padding-top: 8px;
-            margin-top: 8px;
-        }}
-        .notes {{
-            margin-top: 40px;
-            padding: 16px;
-            background-color: #f9fafb;
-            border-radius: 8px;
-        }}
-        .notes-label {{
-            font-size: 12px;
-            color: #6b7280;
-            text-transform: uppercase;
-            margin-bottom: 8px;
-        }}
-        .footer {{
-            margin-top: 60px;
-            text-align: center;
-            font-size: 12px;
-            color: #9ca3af;
-        }}
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div>
-            <div class="title">{type_label}</div>
-            <div class="invoice-number">{invoice.uid}</div>
-        </div>
-        <div>
-            <span class="status-badge">{invoice.status.value.upper()}</span>
-        </div>
-    </div>
-
-    <div class="info-section">
-        <div class="info-block">
-            <div class="info-label">{direction_label}</div>
-            <div class="info-value">{invoice.counterparty}</div>
-        </div>
-        <div class="info-block" style="text-align: right;">
-            <div class="info-label">Invoice Date</div>
-            <div class="info-value">{invoice_date_str}</div>
-            <div class="info-label" style="margin-top: 12px;">Due Date</div>
-            <div class="info-value">{due_date_str}</div>
-        </div>
-    </div>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Description</th>
-                <th class="text-right">Qty</th>
-                <th class="text-right">Unit Price</th>
-                <th class="text-right">Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            {items_html}
-        </tbody>
-    </table>
-
-    <div class="totals">
-        <div class="total-row">
-            <div class="total-label">Subtotal</div>
-            <div class="total-value">${invoice.subtotal:.2f}</div>
-        </div>
-        <div class="total-row grand-total">
-            <div class="total-label">Total</div>
-            <div class="total-value">${invoice.total:.2f}</div>
-        </div>
-    </div>
-
-    {"<div class='notes'><div class='notes-label'>Notes</div><div>" + invoice.notes + "</div></div>" if invoice.notes else ""}
-
-    <div class="footer">
-        Generated by SKUEL Finance
-    </div>
-</body>
-</html>
-        """
 
     # ========================================================================
     # VALIDATION
