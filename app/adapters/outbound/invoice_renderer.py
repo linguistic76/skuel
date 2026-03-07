@@ -1,14 +1,14 @@
 """
-Invoice HTML Renderer
-=====================
+Invoice Renderer
+================
 
-Renders InvoicePure domain models to HTML for PDF generation via WeasyPrint.
+Renders InvoicePure domain models to HTML and PDF.
 
 Architecture:
-    This is an outbound adapter — it transforms domain models into a
-    presentation format (HTML) for an external tool (WeasyPrint).
-    The core service delegates here; presentation logic stays out of
-    the service layer.
+    This is an outbound adapter — it transforms domain models into
+    presentation formats (HTML, PDF) using external tools (WeasyPrint).
+    The core service delegates here; presentation and rendering logic
+    stays out of the service layer.
 """
 
 from __future__ import annotations
@@ -263,4 +263,21 @@ def render_invoice_html(invoice: InvoicePure) -> str:
         """
 
 
-__all__ = ["render_invoice_html"]
+def render_invoice_pdf(invoice: InvoicePure) -> bytes:
+    """
+    Render an invoice to PDF bytes via WeasyPrint.
+
+    Args:
+        invoice: Invoice domain model
+
+    Returns:
+        PDF file content as bytes
+    """
+    html_content = render_invoice_html(invoice)
+
+    from weasyprint import HTML  # type: ignore[import-untyped]
+
+    return HTML(string=html_content).write_pdf()
+
+
+__all__ = ["render_invoice_html", "render_invoice_pdf"]

@@ -6,7 +6,7 @@ Invoice management service for Finance domain.
 
 This service handles:
 - Invoice CRUD operations
-- PDF generation via WeasyPrint
+- PDF generation (delegated to outbound adapter)
 - Invoice status management
 
 Architecture Pattern:
@@ -25,7 +25,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from adapters.outbound.invoice_renderer import render_invoice_html
+from adapters.outbound.invoice_renderer import render_invoice_pdf
 from core.models.finance.invoice import (
     InvoicePure,
     InvoiceStatus,
@@ -242,7 +242,7 @@ class FinanceInvoiceService:
         """
         Generate PDF for an invoice.
 
-        Uses WeasyPrint to render HTML template to PDF.
+        Delegates to outbound adapter for HTML rendering and PDF conversion.
 
         Args:
             uid: Invoice UID
@@ -261,16 +261,8 @@ class FinanceInvoiceService:
         invoice = result.value
 
         try:
-            # Render HTML via outbound adapter (presentation logic lives there)
-            html_content = render_invoice_html(invoice)
-
-            # Convert to PDF using WeasyPrint
-            from weasyprint import HTML  # type: ignore[import-untyped]
-
-            pdf_bytes = HTML(string=html_content).write_pdf()
-
+            pdf_bytes = render_invoice_pdf(invoice)
             self.logger.info(f"Generated PDF for invoice {uid}")
-
             return Result.ok(pdf_bytes)
 
         except ImportError:
