@@ -67,6 +67,7 @@ from ui.profile.layout import (
     ProfileDomainItem,
     create_profile_page,
 )
+from ui.feedback import get_submission_status_badge_class
 from ui.profile.overview import OverviewView, render_domain_card_preview
 
 logger = get_logger("skuel.routes.user_profile")
@@ -898,7 +899,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                         H4(report.original_filename, cls="card-title text-sm"),
                         Span(
                             report.status,
-                            cls=f"badge badge-sm {_get_status_badge_class(report.status)}",
+                            cls=f"badge badge-sm {get_submission_status_badge_class(report.status)}",
                         ),
                         cls="flex items-center justify-between",
                     ),
@@ -927,18 +928,6 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 ),
                 cls="card bg-base-200 shadow-sm hover:shadow-md transition-shadow",
             )
-
-        def _get_status_badge_class(status: str) -> str:
-            """Get DaisyUI badge class for report status."""
-            classes = {
-                "submitted": "badge-warning",
-                "queued": "badge-warning",
-                "processing": "badge-info",
-                "completed": "badge-success",
-                "failed": "badge-error",
-                "manual_review": "badge-ghost",
-            }
-            return classes.get(status, "badge-ghost")
 
         # Content view
         content = Div(

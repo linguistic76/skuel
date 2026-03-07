@@ -38,6 +38,7 @@ from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.buttons import Button, ButtonT
+from ui.feedback import get_submission_status_badge_class
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -117,17 +118,7 @@ def _render_upload_status(
     )
 
 
-def _get_status_badge_class(status: str) -> str:
-    """Get DaisyUI badge class for report status."""
-    classes = {
-        "submitted": "badge-warning",
-        "queued": "badge-warning",
-        "processing": "badge-info",
-        "completed": "badge-success",
-        "failed": "badge-error",
-        "manual_review": "badge-ghost",
-    }
-    return classes.get(status, "badge-ghost")
+_get_status_badge_class = get_submission_status_badge_class
 
 
 def _get_report_identifier(report: Any) -> str:

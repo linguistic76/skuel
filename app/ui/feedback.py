@@ -26,7 +26,24 @@ __all__ = [
     "Loading",
     "Progress",
     "RadialProgress",
+    "get_submission_status_badge_class",
 ]
+
+
+def get_submission_status_badge_class(status: str) -> str:
+    """Get DaisyUI badge class for submission/report status.
+
+    Centralised mapping used by submissions_ui, journals_ui, and user_profile_ui.
+    """
+    classes = {
+        "submitted": "badge-warning",
+        "queued": "badge-warning",
+        "processing": "badge-info",
+        "completed": "badge-success",
+        "failed": "badge-error",
+        "manual_review": "badge-ghost",
+    }
+    return classes.get(status, "badge-ghost")
 
 
 class AlertT(str, Enum):
