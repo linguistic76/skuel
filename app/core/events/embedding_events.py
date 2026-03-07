@@ -91,3 +91,66 @@ class PrincipleEmbeddingRequested(EmbeddingRequested):
     @property
     def event_type(self) -> str:
         return "principle.embedding_requested"
+
+
+@dataclass(frozen=True)
+class ArticleEmbeddingRequested(EmbeddingRequested):
+    """Article-specific embedding request."""
+
+    @property
+    def event_type(self) -> str:
+        return "article.embedding_requested"
+
+
+@dataclass(frozen=True)
+class KuEmbeddingRequested(EmbeddingRequested):
+    """Ku-specific embedding request."""
+
+    @property
+    def event_type(self) -> str:
+        return "ku.embedding_requested"
+
+
+@dataclass(frozen=True)
+class ResourceEmbeddingRequested(EmbeddingRequested):
+    """Resource-specific embedding request."""
+
+    @property
+    def event_type(self) -> str:
+        return "resource.embedding_requested"
+
+
+@dataclass(frozen=True)
+class ExerciseEmbeddingRequested(EmbeddingRequested):
+    """Exercise-specific embedding request."""
+
+    @property
+    def event_type(self) -> str:
+        return "exercise.embedding_requested"
+
+
+@dataclass(frozen=True)
+class LearningStepEmbeddingRequested(EmbeddingRequested):
+    """LearningStep-specific embedding request."""
+
+    @property
+    def event_type(self) -> str:
+        return "learning_step.embedding_requested"
+
+
+@dataclass(frozen=True)
+class LearningPathEmbeddingRequested(EmbeddingRequested):
+    """LearningPath-specific embedding request."""
+
+    @property
+    def event_type(self) -> str:
+        return "learning_path.embedding_requested"
+
+
+@dataclass(frozen=True)
+class RevisedExerciseEmbeddingRequested(EmbeddingRequested):
+    """RevisedExercise-specific embedding request."""
+
+    @property
+    def event_type(self) -> str:
+        return "revised_exercise.embedding_requested"

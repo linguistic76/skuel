@@ -230,6 +230,28 @@ class ArticleCoreService(BaseService[CurriculumOperations[Entity], Entity], Meta
         )
         await publish_event(self.event_bus, event, self.logger)
 
+        # Publish entity-level embedding request (background worker generates async)
+        from core.models.enums.entity_enums import EntityType
+        from core.utils.embedding_text_builder import build_embedding_text
+
+        embedding_text = build_embedding_text(
+            EntityType.ARTICLE,
+            {"title": title.strip(), "content": body, "summary": summary or title[:100]},
+        )
+        if embedding_text:
+            from core.events import ArticleEmbeddingRequested
+
+            now = datetime.now(UTC)
+            embedding_event = ArticleEmbeddingRequested(
+                entity_uid=uid,
+                entity_type="article",
+                embedding_text=embedding_text,
+                user_uid=metadata.get("created_by_user", "user:system"),
+                requested_at=now,
+                occurred_at=now,
+            )
+            await publish_event(self.event_bus, embedding_event, self.logger)
+
         self.logger.info(f"Created knowledge unit: {uid}")
         return Result.ok(dto)
 

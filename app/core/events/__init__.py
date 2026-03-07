@@ -117,12 +117,19 @@ from core.events.curriculum_events import (
 
 # Embedding events (async background generation)
 from core.events.embedding_events import (
+    ArticleEmbeddingRequested,
     ChoiceEmbeddingRequested,
     EmbeddingRequested,
     EventEmbeddingRequested,
+    ExerciseEmbeddingRequested,
     GoalEmbeddingRequested,
     HabitEmbeddingRequested,
+    KuEmbeddingRequested,
+    LearningPathEmbeddingRequested,
+    LearningStepEmbeddingRequested,
     PrincipleEmbeddingRequested,
+    ResourceEmbeddingRequested,
+    RevisedExerciseEmbeddingRequested,
     TaskEmbeddingRequested,
 )
 
@@ -232,12 +239,19 @@ __all__ = [
     "ChunkEmbeddingRequested",
     "ChunkEmbeddingsCompleted",
     # Embedding events (async background generation)
+    "ArticleEmbeddingRequested",
     "ChoiceEmbeddingRequested",
     "EmbeddingRequested",
     "EventEmbeddingRequested",
+    "ExerciseEmbeddingRequested",
     "GoalEmbeddingRequested",
     "HabitEmbeddingRequested",
+    "KuEmbeddingRequested",
+    "LearningPathEmbeddingRequested",
+    "LearningStepEmbeddingRequested",
     "PrincipleEmbeddingRequested",
+    "ResourceEmbeddingRequested",
+    "RevisedExerciseEmbeddingRequested",
     "TaskEmbeddingRequested",
     # Calendar Events
     "CalendarEventCreated",
@@ -348,6 +362,13 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "event.embedding_requested": EventEmbeddingRequested,
     "choice.embedding_requested": ChoiceEmbeddingRequested,
     "principle.embedding_requested": PrincipleEmbeddingRequested,
+    "article.embedding_requested": ArticleEmbeddingRequested,
+    "ku.embedding_requested": KuEmbeddingRequested,
+    "resource.embedding_requested": ResourceEmbeddingRequested,
+    "exercise.embedding_requested": ExerciseEmbeddingRequested,
+    "learning_step.embedding_requested": LearningStepEmbeddingRequested,
+    "learning_path.embedding_requested": LearningPathEmbeddingRequested,
+    "revised_exercise.embedding_requested": RevisedExerciseEmbeddingRequested,
     # Tasks
     "task.created": TaskCreated,
     "task.completed": TaskCompleted,

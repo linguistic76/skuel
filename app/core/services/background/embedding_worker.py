@@ -26,13 +26,20 @@ import asyncio
 from typing import Any
 
 from core.events import (
+    ArticleEmbeddingRequested,
     ChoiceEmbeddingRequested,
     ChunkEmbeddingRequested,
     ChunkEmbeddingsCompleted,
     EventEmbeddingRequested,
+    ExerciseEmbeddingRequested,
     GoalEmbeddingRequested,
     HabitEmbeddingRequested,
+    KuEmbeddingRequested,
+    LearningPathEmbeddingRequested,
+    LearningStepEmbeddingRequested,
     PrincipleEmbeddingRequested,
+    ResourceEmbeddingRequested,
+    RevisedExerciseEmbeddingRequested,
     TaskEmbeddingRequested,
     publish_event,
 )
@@ -104,13 +111,22 @@ class EmbeddingBackgroundWorker:
 
         Subscribes to all domain embedding request events and starts batch processing loop.
         """
-        # Subscribe to all embedding request events
+        # Subscribe to all embedding request events — Activity domains
         self.event_bus.subscribe(TaskEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(GoalEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(HabitEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(EventEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(ChoiceEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(PrincipleEmbeddingRequested, self._queue_request)
+
+        # Subscribe to all embedding request events — Curriculum types
+        self.event_bus.subscribe(ArticleEmbeddingRequested, self._queue_request)
+        self.event_bus.subscribe(KuEmbeddingRequested, self._queue_request)
+        self.event_bus.subscribe(ResourceEmbeddingRequested, self._queue_request)
+        self.event_bus.subscribe(ExerciseEmbeddingRequested, self._queue_request)
+        self.event_bus.subscribe(LearningStepEmbeddingRequested, self._queue_request)
+        self.event_bus.subscribe(LearningPathEmbeddingRequested, self._queue_request)
+        self.event_bus.subscribe(RevisedExerciseEmbeddingRequested, self._queue_request)
 
         # Subscribe to chunk embedding requests (separate queue)
         self.event_bus.subscribe(ChunkEmbeddingRequested, self._queue_chunk_request)
@@ -302,7 +318,7 @@ class EmbeddingBackgroundWorker:
             True if stored successfully, False otherwise
         """
         try:
-            # Map entity type to Neo4j label (capitalized)
+            # Map entity type to Neo4j label
             label_map = {
                 "task": "Task",
                 "goal": "Goal",
@@ -310,6 +326,13 @@ class EmbeddingBackgroundWorker:
                 "event": "Event",
                 "choice": "Choice",
                 "principle": "Principle",
+                "article": "Article",
+                "ku": "Ku",
+                "resource": "Resource",
+                "exercise": "Exercise",
+                "learning_step": "LearningStep",
+                "learning_path": "LearningPath",
+                "revised_exercise": "RevisedExercise",
             }
             label = label_map.get(entity_type, entity_type.capitalize())
 

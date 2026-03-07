@@ -997,6 +997,22 @@ async def compose_services(
         else:
             logger.warning(f"⚠️ Auth index sync had issues: {auth_index_result.error}")
 
+        # Create vector indexes for semantic search (idempotent — safe on every startup)
+        vector_labels = [
+            "Entity",  # Base label — covers all entity types via multi-label
+            "ContentChunk",  # RAG chunks
+        ]
+        vector_result = await schema_manager.sync_vector_indexes(
+            entity_labels=vector_labels, dimension=1536, similarity="cosine"
+        )
+        if vector_result.is_ok:
+            created = vector_result.value.get("created", [])
+            logger.info(
+                f"✅ Vector indexes synced: {', '.join(created) if created else 'all exist'}"
+            )
+        else:
+            logger.warning(f"⚠️ Vector index sync had issues: {vector_result.error}")
+
         # Cleanup expired sessions and reset tokens (daily maintenance at startup)
         from adapters.persistence.neo4j.session_backend import SessionBackend
 
@@ -1474,7 +1490,7 @@ async def compose_services(
                 )
                 logger.info("✅ Embedding background worker created (batch_size=25, interval=30s)")
                 logger.info(
-                    "   Worker will process embeddings for: Tasks, Goals, Habits, Events, Choices, Principles"
+                    "   Worker handles: 6 Activity + 7 Curriculum entity types + content chunks"
                 )
             except Exception as e:
                 logger.warning(f"Failed to initialize embedding background worker: {e}")

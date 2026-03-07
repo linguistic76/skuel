@@ -36,6 +36,9 @@ EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
     EntityType.CHOICE: ("title", "description", "decision_context", "outcome"),
     EntityType.PRINCIPLE: ("title", "statement", "description"),
     EntityType.REVISED_EXERCISE: ("title", "instructions", "revision_rationale"),
+    EntityType.EXERCISE: ("title", "instructions", "description"),
+    EntityType.LEARNING_STEP: ("title", "intent", "description"),
+    EntityType.LEARNING_PATH: ("title", "description", "outcomes"),
 }
 
 
@@ -108,9 +111,18 @@ def build_embedding_text(
     if not parts:
         return ""
 
-    # CURRICULUM and RESOURCE use double newlines for better semantic separation
+    # Curriculum and Resource types use double newlines for better semantic separation
     # (title, content blocks, summary are distinct concepts)
-    separator = "\n\n" if entity_type in {EntityType.ARTICLE, EntityType.RESOURCE} else "\n"
+    _curriculum_types = {
+        EntityType.ARTICLE,
+        EntityType.KU,
+        EntityType.RESOURCE,
+        EntityType.EXERCISE,
+        EntityType.LEARNING_STEP,
+        EntityType.LEARNING_PATH,
+        EntityType.REVISED_EXERCISE,
+    }
+    separator = "\n\n" if entity_type in _curriculum_types else "\n"
     return separator.join(parts)
 
 

@@ -270,6 +270,27 @@ class RevisedExerciseService(BaseService):
             self.logger,
         )
 
+        # Publish embedding request (background worker generates async)
+        from core.utils.embedding_text_builder import build_embedding_text
+
+        embedding_text = build_embedding_text(EntityType.REVISED_EXERCISE, revised_exercise)
+        if embedding_text:
+            from core.events import RevisedExerciseEmbeddingRequested
+
+            now = datetime.now()
+            await publish_event(
+                self.event_bus,
+                RevisedExerciseEmbeddingRequested(
+                    entity_uid=uid,
+                    entity_type="revised_exercise",
+                    embedding_text=embedding_text,
+                    user_uid=teacher_uid,
+                    requested_at=now,
+                    occurred_at=now,
+                ),
+                self.logger,
+            )
+
         return Result.ok(revised_exercise)
 
     # ========================================================================

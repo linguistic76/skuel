@@ -234,21 +234,28 @@ def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> bool:
     """
     Determine if entity type should have embeddings.
 
-    Priority entities for semantic search:
-    - Ku: Substantial content (learning material)
-    - All 6 Activity Domains: Tasks, Goals, Habits, Events, Choices, Principles
-
-    Updated January 2026 to include all activity domains for complete semantic search coverage.
+    All content-bearing entity types receive embeddings for semantic search:
+    - Curriculum: Article, Ku, Exercise, LearningStep, LearningPath, Resource, RevisedExercise
+    - Activity: Task, Goal, Habit, Event, Choice, Principle
     """
-    activity_domains = [
+    embeddable_types = {
+        # Curriculum
+        EntityType.ARTICLE,
+        EntityType.KU,
+        EntityType.EXERCISE,
+        EntityType.LEARNING_STEP,
+        EntityType.LEARNING_PATH,
+        EntityType.RESOURCE,
+        EntityType.REVISED_EXERCISE,
+        # Activity domains
         EntityType.TASK,
         EntityType.GOAL,
         EntityType.HABIT,
         EntityType.EVENT,
         EntityType.CHOICE,
         EntityType.PRINCIPLE,
-    ]
-    return entity_type in (EntityType.ARTICLE, EntityType.KU) or entity_type in activity_domains
+    }
+    return entity_type in embeddable_types
 
 
 def prepare_entity_data_sync(
