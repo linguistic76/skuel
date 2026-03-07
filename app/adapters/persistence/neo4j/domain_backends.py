@@ -36,7 +36,7 @@ See: /docs/patterns/OWNERSHIP_VERIFICATION.md
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
@@ -53,6 +53,9 @@ from core.models.relationship_names import RelationshipName
 from core.models.submissions.submission import Submission
 from core.models.task.task import Task
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.models.curriculum.revised_exercise import RevisedExercise  # noqa: F401
 
 
 class HabitsBackend(UniversalNeo4jBackend[Habit]):
@@ -1032,9 +1035,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
     - get_revision_chain — Query all revisions of an original exercise
     """
 
-    async def link_to_feedback(
-        self, re_uid: str, feedback_uid: str
-    ) -> Result[bool]:
+    async def link_to_feedback(self, re_uid: str, feedback_uid: str) -> Result[bool]:
         """Create RESPONDS_TO_FEEDBACK relationship from revised exercise to feedback."""
         result = await self.execute_query(
             f"""
@@ -1059,9 +1060,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             )
         return Result.ok(True)
 
-    async def link_to_exercise(
-        self, re_uid: str, exercise_uid: str
-    ) -> Result[bool]:
+    async def link_to_exercise(self, re_uid: str, exercise_uid: str) -> Result[bool]:
         """Create REVISES_EXERCISE relationship from revised exercise to original exercise."""
         result = await self.execute_query(
             f"""
@@ -1085,9 +1084,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             )
         return Result.ok(True)
 
-    async def get_revision_chain(
-        self, exercise_uid: str
-    ) -> Result[list[dict[str, Any]]]:
+    async def get_revision_chain(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
         """
         Get all revised exercises in the revision chain for an original exercise.
 

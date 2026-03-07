@@ -225,7 +225,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         # Prerequisite task relationships
         if task_data.prerequisite_task_uids:
             relationships.extend(
-                (task.uid, prereq_uid, "BLOCKED_BY", None)
+                (task.uid, prereq_uid, RelationshipName.BLOCKED_BY.value, None)
                 for prereq_uid in task_data.prerequisite_task_uids
             )
 

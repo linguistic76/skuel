@@ -275,8 +275,8 @@ class UnifiedIngestionService:
                         missing.append(f"{label}={uid}")
                 return Result.fail(
                     Errors.not_found(
-                        f"Entity not found: {', '.join(missing)}",
-                        user_message=f"Cannot create edge — missing entities: {', '.join(missing)}",
+                        resource="Entity",
+                        identifier=", ".join(missing),
                     )
                 )
 
@@ -301,9 +301,8 @@ class UnifiedIngestionService:
             self.logger.error(f"Failed to ingest edge ({from_uid})-[:{rel_type}]->({to_uid}): {e}")
             return Result.fail(
                 Errors.database(
-                    f"Edge ingestion failed: {e}",
                     operation="ingest_edge",
-                    details={"from": from_uid, "to": to_uid, "rel_type": rel_type},
+                    message=f"Edge ingestion failed: {e}",
                 )
             )
 

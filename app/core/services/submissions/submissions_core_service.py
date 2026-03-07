@@ -884,14 +884,16 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             return 0
         return int(result.value[0]["total"]) if result.value else 0
 
-    async def generate_journal_title(self, user_uid: str, entry_date: date | None = None) -> str:
+    async def generate_journal_title(
+        self, user_uid: str, entry_date: date | None = None
+    ) -> Result[str]:
         """Generate canonical journal title with sequence number for the given day.
 
         Format: Journal — {user_id} — {Mar 02, 2026} — #{order}
         """
         resolved_date = entry_date or date.today()
         existing_count = await self._count_journals_for_date(user_uid, resolved_date)
-        return Journal.generate_title(user_uid, resolved_date, order=existing_count + 1)
+        return Result.ok(Journal.generate_title(user_uid, resolved_date, order=existing_count + 1))
 
     @with_error_handling("create_journal_entry", error_type="database")
     async def create_journal_entry(
@@ -941,7 +943,8 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         resolved_date = entry_date or date.today()
         if title is None:
-            title = await self.generate_journal_title(user_uid, resolved_date)
+            title_result = await self.generate_journal_title(user_uid, resolved_date)
+            title = title_result.value if title_result.is_ok else f"Journal — {resolved_date}"
 
         uid = UIDGenerator.generate_uid("je", title)
 
@@ -1208,9 +1211,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                 )
 
                 if student_result.is_error:
-                    self.logger.error(
-                        f"Error verifying student membership: {student_result.error}"
-                    )
+                    self.logger.error(f"Error verifying student membership: {student_result.error}")
                     return Result.ok(False)
 
                 student_records = student_result.value or []

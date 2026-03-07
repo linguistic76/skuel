@@ -764,18 +764,18 @@ def create_submissions_api_routes(
             - user_uid: User UID
 
             JSON body:
-            - ku_uids: List of submission UIDs
+            - entity_uids: List of submission UIDs
             - category: Category string
             """
             body = await request.json()
             req = BulkCategorizeRequest.model_validate(body)
 
-            ownership_result = await _validate_owned_submissions(req.ku_uids, user_uid)
+            ownership_result = await _validate_owned_submissions(req.entity_uids, user_uid)
             if ownership_result.is_error:
                 return Result.fail(ownership_result.expect_error())
 
             return await submissions_core_service.bulk_categorize(
-                uids=req.ku_uids, category=req.category
+                uids=req.entity_uids, category=req.category
             )
 
         @rt("/api/submissions/bulk/tag")
@@ -788,17 +788,17 @@ def create_submissions_api_routes(
             - user_uid: User UID
 
             JSON body:
-            - ku_uids: List of submission UIDs
+            - entity_uids: List of submission UIDs
             - tags: List of tag strings
             """
             body = await request.json()
             req = BulkTagRequest.model_validate(body)
 
-            ownership_result = await _validate_owned_submissions(req.ku_uids, user_uid)
+            ownership_result = await _validate_owned_submissions(req.entity_uids, user_uid)
             if ownership_result.is_error:
                 return Result.fail(ownership_result.expect_error())
 
-            return await submissions_core_service.bulk_tag(uids=req.ku_uids, tags=req.tags)
+            return await submissions_core_service.bulk_tag(uids=req.entity_uids, tags=req.tags)
 
         @rt("/api/submissions/bulk/delete")
         @boundary_handler()
@@ -810,18 +810,18 @@ def create_submissions_api_routes(
             - user_uid: User UID
 
             JSON body:
-            - ku_uids: List of submission UIDs
+            - entity_uids: List of submission UIDs
             - soft_delete: Boolean (default True)
             """
             body = await request.json()
             req = BulkDeleteRequest.model_validate(body)
 
-            ownership_result = await _validate_owned_submissions(req.ku_uids, user_uid)
+            ownership_result = await _validate_owned_submissions(req.entity_uids, user_uid)
             if ownership_result.is_error:
                 return Result.fail(ownership_result.expect_error())
 
             return await submissions_core_service.bulk_delete(
-                uids=req.ku_uids, soft_delete=req.soft_delete
+                uids=req.entity_uids, soft_delete=req.soft_delete
             )
 
         @rt("/api/submissions/by-category")

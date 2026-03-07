@@ -678,8 +678,11 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
 
             # Task dependencies (bidirectional DEPENDS_ON)
             # Use directional markers (->DEPENDS_ON / <-DEPENDS_ON) to distinguish
+            depends_on = RelationshipName.DEPENDS_ON.value
             if NeoLabel.ENTITY.value in labels and (
-                "->DEPENDS_ON" in via_rels or "DEPENDS_ON" in via_rels or "<-DEPENDS_ON" in via_rels
+                f"->{depends_on}" in via_rels
+                or depends_on in via_rels
+                or f"<-{depends_on}" in via_rels
             ):
                 task_entity = PathAwareTask(
                     uid=entity["uid"],
@@ -690,10 +693,10 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
                 )
 
                 # Check for directional relationship markers
-                if "->DEPENDS_ON" in via_rels or "DEPENDS_ON" in via_rels:
+                if f"->{depends_on}" in via_rels or depends_on in via_rels:
                     # Outgoing DEPENDS_ON = this task depends on the related task (prerequisite)
                     prerequisites.append(task_entity)
-                elif "<-DEPENDS_ON" in via_rels:
+                elif f"<-{depends_on}" in via_rels:
                     # Incoming DEPENDS_ON = related task depends on this one (dependent)
                     dependents.append(task_entity)
 

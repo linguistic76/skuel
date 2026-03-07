@@ -12,10 +12,9 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from typing import TYPE_CHECKING, Any
 
 from core.models.ku.ku import Ku
-from core.models.ku.ku_dto import KuDTO
 from core.services.ku.ku_core_service import KuCoreService
 from core.services.ku.ku_search_service import KuSearchService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.domain_backends import KuBackend
@@ -35,7 +34,7 @@ class KuService:
         backend: "KuBackend | None" = None,
     ) -> None:
         self.core = core
-        self.search = search
+        self.search_service = search
         self.backend = backend
 
     # =========================================================================
@@ -53,7 +52,7 @@ class KuService:
         summary: str | None = None,
         domain: str | None = None,
         tags: list[str] | None = None,
-    ) -> Result[KuDTO]:
+    ) -> Result[Ku | None]:
         """Create a new atomic Knowledge Unit."""
         return await self.core.create_ku(
             title=title,
@@ -67,7 +66,7 @@ class KuService:
             tags=tags,
         )
 
-    async def get_ku(self, uid: str) -> Result[Ku]:
+    async def get_ku(self, uid: str) -> Result[Ku | None]:
         """Get a Knowledge Unit by UID."""
         return await self.core.get_ku(uid)
 
@@ -77,15 +76,15 @@ class KuService:
 
     async def search(self, query: str, user_uid: str | None = None) -> Result[list[Any]]:
         """Full-text search across Kus."""
-        return await self.search.search(query, user_uid)
+        return await self.search_service.search(query, user_uid)
 
     async def get_by_namespace(self, namespace: str) -> Result[list[dict[str, Any]]]:
         """Get all Kus in a specific namespace."""
-        return await self.search.get_by_namespace(namespace)
+        return await self.search_service.get_by_namespace(namespace)
 
     async def search_by_alias(self, alias: str) -> Result[list[dict[str, Any]]]:
         """Search Kus by alias (alternative name)."""
-        return await self.search.search_by_alias(alias)
+        return await self.search_service.search_by_alias(alias)
 
     # =========================================================================
     # GRAPH (reverse traversal via backend)
@@ -94,5 +93,7 @@ class KuService:
     async def get_articles(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
         """Get all Articles that use this atomic Ku via USES_KU."""
         if self.backend is None:
-            return Result.fail("KuService backend not configured for graph operations")
+            return Result.fail(
+                Errors.system("KuService backend not configured for graph operations")
+            )
         return await self.backend.get_articles_using(ku_uid)

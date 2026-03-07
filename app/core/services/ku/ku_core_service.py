@@ -47,7 +47,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         summary: str | None = None,
         domain: str | None = None,
         tags: list[str] | None = None,
-    ) -> Result[KuDTO]:
+    ) -> Result[Ku | None]:
         """Create a new atomic Knowledge Unit.
 
         Args:
@@ -82,12 +82,12 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         # Filter None values
         properties = {k: v for k, v in properties.items() if v is not None}
 
-        result = await self.backend.create(properties)
+        result: Result[Ku | None] = await self.backend.create(properties)
         if result.is_error:
             return result
 
         return await self.backend.get(uid)
 
-    async def get_ku(self, uid: str) -> Result[Ku]:
+    async def get_ku(self, uid: str) -> Result[Ku | None]:
         """Get a Knowledge Unit by UID."""
         return await self.backend.get(uid)

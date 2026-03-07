@@ -70,7 +70,8 @@ async def _ai_route(
         return JSONResponse(status_code=400, content={"error": str(result.error)})
     if wrap_key:
         return {wrap_key: result.value}
-    return result.value
+    value: dict[str, Any] = result.value
+    return value
 
 
 def create_ai_routes(app: Any, rt: Any, services: Any) -> list[Any]:

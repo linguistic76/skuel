@@ -22,11 +22,11 @@ import os
 from datetime import date, datetime
 from typing import Any, ClassVar
 
-from core.models.enums.neo_labels import NeoLabel
 from core.models.curriculum.exercise import Exercise
 from core.models.curriculum.exercise_dto import ExerciseDTO
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType, ProcessorType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.submissions_enums import ExerciseScope
 from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
@@ -45,7 +45,7 @@ class ExerciseService(BaseService):
     Simple CRUD service for Exercises (instruction templates).
 
     No complex logic - just create, read, update, delete operations.
-    Exercises are stored as :Entity nodes with entity_type="exercise" in Neo4j.
+    Exercises are stored as :Entity nodes with entity_type=EntityType.EXERCISE in Neo4j.
     """
 
     _config = DomainConfig(
@@ -295,7 +295,7 @@ class ExerciseService(BaseService):
             Result containing list of assigned exercises
         """
         result = await self.backend.find_by(
-            group_uid=group_uid, scope="assigned", entity_type="exercise"
+            group_uid=group_uid, scope="assigned", entity_type=EntityType.EXERCISE.value
         )
         if result.is_error:
             return result

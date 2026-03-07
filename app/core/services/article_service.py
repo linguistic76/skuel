@@ -1243,8 +1243,8 @@ class ArticleService:
 
     async def link_to_ku(self, article_uid: str, ku_uid: str) -> Result[bool]:
         """Link this Article to an atomic Ku via USES_KU."""
-        return await self.backend.link_to_ku(article_uid, ku_uid)
+        return await self.core.backend.link_to_ku(article_uid, ku_uid)  # type: ignore[attr-defined]
 
     async def get_used_kus(self, article_uid: str) -> Result[list[dict[str, Any]]]:
         """Get all atomic Kus used by this Article."""
-        return await self.backend.get_used_kus(article_uid)
+        return await self.core.backend.get_used_kus(article_uid)  # type: ignore[attr-defined]

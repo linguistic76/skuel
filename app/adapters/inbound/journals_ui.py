@@ -705,7 +705,8 @@ def create_journals_ui_routes(
             if custom_title:
                 title = custom_title
             elif submissions_core_service:
-                title = await submissions_core_service.generate_journal_title(user_uid)
+                title_result = await submissions_core_service.generate_journal_title(user_uid)
+                title = title_result.value if title_result.is_ok else filename
             else:
                 title = filename
 

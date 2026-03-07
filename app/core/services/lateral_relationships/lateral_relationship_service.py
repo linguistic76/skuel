@@ -990,12 +990,12 @@ class LateralRelationshipService:
         def get_relationship_color(rel_type: str) -> str:
             """Map relationship type to color."""
             color_map = {
-                "BLOCKS": "#EF4444",  # Red
-                "PREREQUISITE_FOR": "#F59E0B",  # Orange
-                "ALTERNATIVE_TO": "#3B82F6",  # Blue
-                "COMPLEMENTARY_TO": "#10B981",  # Green
-                "RELATED_TO": "#6B7280",  # Gray
-                "SIBLING": "#8B5CF6",  # Purple
+                RelationshipName.BLOCKS.value: "#EF4444",  # Red
+                RelationshipName.PREREQUISITE_FOR.value: "#F59E0B",  # Orange
+                RelationshipName.ALTERNATIVE_TO.value: "#3B82F6",  # Blue
+                RelationshipName.COMPLEMENTARY_TO.value: "#10B981",  # Green
+                RelationshipName.RELATED_TO.value: "#6B7280",  # Gray
+                RelationshipName.SIBLING.value: "#8B5CF6",  # Purple
             }
             return color_map.get(rel_type, "#6B7280")
 

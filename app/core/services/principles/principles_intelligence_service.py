@@ -475,7 +475,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
 
             # Get inspired habits
             habits_result = await self.relationships.get_related_uids(
-                principle.uid, "GUIDED_BY_PRINCIPLE", "incoming"
+                principle.uid, RelationshipName.GUIDED_BY_PRINCIPLE.value, "incoming"
             )
             if habits_result.is_ok and habits_result.value:
                 for habit_uid in habits_result.value:
@@ -1307,7 +1307,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
             habit_uids: list[str] = []
             if self.relationships:
                 habit_result = await self.relationships.get_related_uids(
-                    event.principle_uid, "GUIDED_BY_PRINCIPLE", "incoming"
+                    event.principle_uid, RelationshipName.GUIDED_BY_PRINCIPLE.value, "incoming"
                 )
                 if habit_result.is_ok:
                     habit_uids = habit_result.value

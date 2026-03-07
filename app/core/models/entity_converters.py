@@ -26,9 +26,9 @@ def entity_to_response(entity: Entity) -> dict[str, Any]:
     response: dict[str, Any] = {
         "uid": entity.uid,
         "title": entity.title,
-        "entity_type": ku.entity_type.value,
+        "entity_type": entity.entity_type.value,
         "user_uid": entity.user_uid if isinstance(entity, UserOwnedEntity) else None,
-        "parent_entity_uid": ku.parent_entity_uid,
+        "parent_entity_uid": entity.parent_entity_uid,
         "domain": entity.domain.value,
         "created_by": entity.created_by,
         "status": entity.status.value,

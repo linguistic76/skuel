@@ -6,7 +6,7 @@ API routes for RevisedExercise CRUD operations. Teachers create revised
 exercises in response to SubmissionFeedback to guide student revisions.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
@@ -19,13 +19,16 @@ from core.models.curriculum.revised_exercise_request import (
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
+if TYPE_CHECKING:
+    from core.services.revised_exercises.revised_exercise_service import RevisedExerciseService
+
 logger = get_logger(__name__)
 
 
 def create_revised_exercises_api_routes(
     app: Any,
     rt: Any,
-    revised_exercise_service: Any,
+    revised_exercise_service: "RevisedExerciseService",
     user_service: Any = None,
 ) -> list[Any]:
     """Create revised exercises API routes."""
@@ -41,9 +44,7 @@ def create_revised_exercises_api_routes(
     @rt("/api/revised-exercises/create", methods=["POST"])
     @require_teacher(get_user_service_instance)
     @boundary_handler(success_status=201)
-    async def create_revised_exercise(
-        request: Request, current_user: Any = None
-    ) -> Result[Any]:
+    async def create_revised_exercise(request: Request, current_user: Any = None) -> Result[Any]:
         """Create a new RevisedExercise."""
         teacher_uid = require_authenticated_user(request)
 
@@ -73,9 +74,7 @@ def create_revised_exercises_api_routes(
     @rt("/api/revised-exercises/get", methods=["GET"])
     @require_teacher(get_user_service_instance)
     @boundary_handler()
-    async def get_revised_exercise(
-        request: Request, current_user: Any = None
-    ) -> Result[Any]:
+    async def get_revised_exercise(request: Request, current_user: Any = None) -> Result[Any]:
         """Get a RevisedExercise by UID."""
         uid = request.query_params.get("uid")
         if not uid:
@@ -85,9 +84,7 @@ def create_revised_exercises_api_routes(
     @rt("/api/revised-exercises/list", methods=["GET"])
     @require_teacher(get_user_service_instance)
     @boundary_handler()
-    async def list_revised_exercises(
-        request: Request, current_user: Any = None
-    ) -> Result[Any]:
+    async def list_revised_exercises(request: Request, current_user: Any = None) -> Result[Any]:
         """List revised exercises for the current teacher."""
         teacher_uid = require_authenticated_user(request)
         return await revised_exercise_service.list_for_teacher(teacher_uid)
@@ -95,32 +92,22 @@ def create_revised_exercises_api_routes(
     @rt("/api/revised-exercises/for-student", methods=["GET"])
     @require_teacher(get_user_service_instance)
     @boundary_handler()
-    async def list_for_student(
-        request: Request, current_user: Any = None
-    ) -> Result[Any]:
+    async def list_for_student(request: Request, current_user: Any = None) -> Result[Any]:
         """List revised exercises targeting a specific student (scoped to requesting teacher)."""
         teacher_uid = require_authenticated_user(request)
         student_uid = request.query_params.get("student_uid")
         if not student_uid:
-            return Result.fail(
-                Errors.validation("student_uid is required", field="student_uid")
-            )
-        return await revised_exercise_service.list_for_student(
-            student_uid, teacher_uid=teacher_uid
-        )
+            return Result.fail(Errors.validation("student_uid is required", field="student_uid"))
+        return await revised_exercise_service.list_for_student(student_uid, teacher_uid=teacher_uid)
 
     @rt("/api/revised-exercises/chain", methods=["GET"])
     @require_teacher(get_user_service_instance)
     @boundary_handler()
-    async def get_revision_chain(
-        request: Request, current_user: Any = None
-    ) -> Result[Any]:
+    async def get_revision_chain(request: Request, current_user: Any = None) -> Result[Any]:
         """Get the revision chain for an original exercise."""
         exercise_uid = request.query_params.get("exercise_uid")
         if not exercise_uid:
-            return Result.fail(
-                Errors.validation("exercise_uid is required", field="exercise_uid")
-            )
+            return Result.fail(Errors.validation("exercise_uid is required", field="exercise_uid"))
         return await revised_exercise_service.get_revision_chain(exercise_uid)
 
     # ========================================================================
@@ -130,9 +117,7 @@ def create_revised_exercises_api_routes(
     @rt("/api/revised-exercises/update", methods=["POST"])
     @require_teacher(get_user_service_instance)
     @boundary_handler()
-    async def update_revised_exercise(
-        request: Request, current_user: Any = None
-    ) -> Result[Any]:
+    async def update_revised_exercise(request: Request, current_user: Any = None) -> Result[Any]:
         """Update a RevisedExercise."""
         uid = request.query_params.get("uid")
         if not uid:
@@ -179,9 +164,7 @@ def create_revised_exercises_api_routes(
         entity = result.value
         # Ownership check: student_uid OR user_uid (teacher/owner)
         if entity.student_uid != user_uid and entity.user_uid != user_uid:
-            return Result.fail(
-                Errors.not_found(resource="RevisedExercise", identifier=uid)
-            )
+            return Result.fail(Errors.not_found(resource="RevisedExercise", identifier=uid))
         return result
 
     # ========================================================================
@@ -191,9 +174,7 @@ def create_revised_exercises_api_routes(
     @rt("/api/revised-exercises/delete", methods=["POST"])
     @require_teacher(get_user_service_instance)
     @boundary_handler()
-    async def delete_revised_exercise(
-        request: Request, current_user: Any = None
-    ) -> Result[Any]:
+    async def delete_revised_exercise(request: Request, current_user: Any = None) -> Result[Any]:
         """Delete a RevisedExercise."""
         uid = request.query_params.get("uid")
         if not uid:
