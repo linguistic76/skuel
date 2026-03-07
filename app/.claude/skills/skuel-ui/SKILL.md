@@ -498,17 +498,57 @@ Alpine.data('collapsibleSidebar', function(storageKey) {
 
 ## 5. Form Patterns
 
+### FormGenerator (Preferred)
+
+Use `FormGenerator` for all standard forms. It introspects Pydantic request models and generates DaisyUI-styled forms with correct types, constraints, labels, and Alpine.js validation.
+
+```python
+from ui.patterns.form_generator import FormGenerator
+
+# Basic — all fields from model
+FormGenerator.from_model(TaskCreateRequest, action="/api/tasks")
+
+# With sections (use for Activity Domain create forms)
+FormGenerator.from_model(
+    GoalCreateRequest,
+    action="/api/goals",
+    sections={
+        "Basic Information": ["title", "description", "why_important"],
+        "Classification": ["goal_type", "domain", "priority"],
+        "Timeline": ["start_date", "target_date"],
+    },
+    help_texts={"why_important": "What makes this goal meaningful?"},
+    form_attrs={"hx_post": "/api/goals", "hx_target": "#goals-container"},
+)
+
+# Edit form from existing entity
+FormGenerator.from_instance(
+    TaskUpdateRequest, existing_task,
+    action=f"/tasks/edit-save?uid={task.uid}",
+    submit_label="Save Changes",
+)
+
+# Fragment mode — embed in article content (no <form> tag, no submit button)
+exercise_fields = FormGenerator.from_model(
+    ExerciseSubmissionRequest,
+    include_fields=["response", "confidence_level"],
+    as_fragment=True,
+)
+```
+
+**Full guide:** See `/docs/patterns/FORM_GENERATOR_GUIDE.md`
+
 ### Three-Tier Validation
 
 | Tier | Technology | Error Type | When |
 |------|------------|-----------|------|
-| **Client hints** | HTML5 `required`, `maxlength`, `min`/`max` | Browser native | Always |
+| **Client hints** | HTML5 `required`, `maxlength`, `min`/`max` | Browser native | Always (FormGenerator adds these from Pydantic constraints) |
 | **Early validation** | Pure Python function | `Result[None]` with clear message | Before Pydantic, custom rules |
 | **Schema validation** | Pydantic request model | 422 Unprocessable Entity | Type safety |
 
-### Form Structure (DaisyUI)
+### Manual Form Structure (DaisyUI)
 
-Always wrap inputs in `form-control` + `label`:
+For forms that need full custom control beyond FormGenerator's capabilities:
 
 ```python
 from ui.buttons import Button, ButtonT
@@ -516,36 +556,26 @@ from ui.forms import FormControl, Input, Label, LabelText, Select, Textarea
 
 def create_task_form(action_url: str = "/tasks/quick-add") -> Any:
     return Form(
-        # Required text field
         FormControl(
             Label(LabelText("Title *")),
             Input(type="text", name="title", placeholder="What needs to be done?",
-                  required=True, maxlength=200, cls="input input-bordered w-full"),
+                  required=True, maxlength=200),
         ),
-        # Optional textarea
         FormControl(
             Label(LabelText("Description")),
-            Textarea(name="description", rows=4, cls="textarea textarea-bordered w-full"),
+            Textarea(name="description", rows=4),
         ),
-        # Select dropdown
         FormControl(
             Label(LabelText("Priority")),
             Select(
                 Option("Select...", value="", selected=True),
-                Option("🔴 Critical", value="critical"),
-                Option("🟠 High", value="high"),
-                Option("🟡 Medium", value="medium"),
-                Option("🟢 Low", value="low"),
-                name="priority", cls="select select-bordered w-full",
+                Option("Critical", value="critical"),
+                Option("High", value="high"),
+                Option("Medium", value="medium"),
+                Option("Low", value="low"),
+                name="priority",
             ),
         ),
-        # Date input with constraint
-        FormControl(
-            Label(LabelText("Due Date")),
-            Input(type="date", name="due_date",
-                  min=str(date.today()), cls="input input-bordered w-full"),
-        ),
-        # Submit
         Button("Create Task", variant=ButtonT.primary, type="submit", cls="w-full mt-4"),
         hx_post=action_url,
         hx_target="#task-list",
@@ -904,7 +934,8 @@ When building a new SKUEL page or feature, verify:
 | `/ui/layouts/navbar.py` | Navbar with profile dropdown |
 | `/ui/layouts/nav_config.py` | `PROFILE_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
-| `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `StatsGrid` |
+| `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `StatsGrid`, `FormGenerator` |
+| `/ui/patterns/form_generator.py` | `FormGenerator` — dynamic form generation from Pydantic models |
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
 | `ui/buttons.py`, `ui/cards.py`, `ui/forms.py`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML DaisyUI wrappers — 8 focused modules (March 2026) |
 | `/static/js/skuel.js` | All Alpine.data() components |

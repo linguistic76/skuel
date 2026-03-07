@@ -106,45 +106,28 @@ if result.is_ok:
 
 ## Form Validation Integration
 
-### Step 1: Update FormGenerator
+FormGenerator handles all three integration points automatically:
 
-Add validation attributes to generated forms:
-
-```python
-# In FormGenerator.generate_form():
-@staticmethod
-def generate_form(...):
-    return Form(
-        **{"x-data": "formValidator", "@submit": "validate($event)"},
-        # ... existing fields
-    )
-```
-
-### Step 2: Add Error Clearing on Input
-
-Update input generation to clear errors on input:
+1. **Alpine.js formValidator** — every form gets `x-data="formValidator"` and `@submit="validate($event)"` by default
+2. **Error clearing** — every input gets `@input="clearError('field_name')"` for real-time error dismissal
+3. **Error display** — each field has a hidden `<div id="field-error">` shown by the `formValidator` Alpine component
 
 ```python
-# In FormGenerator._generate_field():
-input_attrs = {
-    **{"@input": f"clearError('{field_name}')"},
-    # ... other attributes
-}
+# FormGenerator.from_model() produces forms with all validation wiring built in:
+from ui.patterns.form_generator import FormGenerator
+
+form = FormGenerator.from_model(
+    TaskCreateRequest,
+    action="/api/tasks",
+    method="POST",
+)
+# Result: <form x-data="formValidator" @submit="validate($event)" ...>
+#   <input name="title" @input="clearError('title')" required ...>
+#   <div id="title-error" role="alert" style="display:none;"></div>
+# </form>
 ```
 
-### Step 3: Pass Pydantic Errors to Input Component
-
-```python
-# In route handlers with form errors:
-if validation_errors:
-    errors_dict = {field: str(error) for field, error in validation_errors.items()}
-
-    return FormGenerator.generate_form(
-        model=TaskCreateRequest,
-        errors=errors_dict,  # Pass errors to form
-        ...
-    )
-```
+See `/docs/patterns/FORM_GENERATOR_GUIDE.md` for full API reference.
 
 ---
 
