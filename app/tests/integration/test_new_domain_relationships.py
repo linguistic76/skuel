@@ -25,7 +25,7 @@ from datetime import date
 import pytest
 
 from core.models.choice.choice_request import ChoiceCreateRequest
-from core.models.curriculum.ku_relationships import KuRelationships
+from core.models.ku.ku_relationships import KuRelationships
 from core.models.curriculum.lp_relationships import LpRelationships
 from core.models.principle.principle_relationships import PrincipleRelationships
 from core.services.choices.choice_relationships import ChoiceRelationships

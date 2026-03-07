@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.constants import ConfidenceLevel
-from core.models.curriculum.ku_inference import KnowledgeConnection
+from core.models.curriculum.inference import KnowledgeConnection
 from core.models.task.task_dto import TaskDTO
 
 # Import the advanced inference engine

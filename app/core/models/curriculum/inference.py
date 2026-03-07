@@ -3,7 +3,7 @@ Knowledge Inference Data Models
 ================================
 
 Core data structures for knowledge inference operations.
-Used by ku_inference_service for automatic knowledge connection detection.
+Used by entity_inference_service for automatic knowledge connection detection.
 """
 
 from dataclasses import dataclass

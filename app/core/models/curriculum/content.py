@@ -1,9 +1,9 @@
 """
-Knowledge Content Model
-=======================
+Curriculum Content Model
+=========================
 
 Rich content storage with automatic chunking for RAG.
-Separated from KnowledgeUnit to keep the graph lean while maintaining
+Separated from curriculum entities to keep the graph lean while maintaining
 rich content for learning and retrieval.
 
 Following three-tier architecture with immutable domain models.
@@ -14,23 +14,23 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from .ku_chunks import KuChunk, KuChunkType, chunk_content
+from .content_chunks import ContentChunk, ContentChunkType, chunk_content
 
 
 @dataclass(frozen=True)
-class KuContent:
+class CurriculumContent:
     """
-    Immutable content facet for a KnowledgeUnit.
+    Immutable content facet for a curriculum entity.
 
     Stores the actual learning content separately from the lean
-    KnowledgeUnit metadata. This enables efficient graph traversal
+    curriculum entity metadata. This enables efficient graph traversal
     while maintaining rich content for the RAG system.
 
-    Connected to KnowledgeUnit via HAS_CONTENT relationship.
+    Connected to curriculum entity via HAS_CONTENT relationship.
     """
 
     # Identity
-    unit_uid: str  # Links to KnowledgeUnit.uid
+    unit_uid: str  # Links to parent curriculum entity uid
 
     # Content
     body: str  # Full markdown content
@@ -44,7 +44,7 @@ class KuContent:
     updated_at: datetime = field(default_factory=datetime.now)
 
     # Chunks - automatically created, not optional
-    chunks: tuple[KuChunk, ...] = ()  # Immutable tuple of chunks
+    chunks: tuple[ContentChunk, ...] = ()  # Immutable tuple of chunks
 
     def __post_init__(self) -> None:
         """Validate, calculate content hash, and create chunks"""
@@ -96,36 +96,36 @@ class KuContent:
         current_hash = hashlib.sha256(self.body.encode()).hexdigest()
         return current_hash == self.body_sha256
 
-    def get_chunks_by_type(self, chunk_type: KuChunkType) -> tuple[KuChunk, ...]:
+    def get_chunks_by_type(self, chunk_type: ContentChunkType) -> tuple[ContentChunk, ...]:
         """Get all chunks of a specific type"""
         return tuple(c for c in self.chunks if c.chunk_type == chunk_type)
 
-    def search_chunks(self, query: str) -> tuple[KuChunk, ...]:
+    def search_chunks(self, query: str) -> tuple[ContentChunk, ...]:
         """Simple text search within chunks"""
         query_lower = query.lower()
         return tuple(c for c in self.chunks if query_lower in c.text.lower())
 
-    def get_chunk(self, chunk_index: int) -> KuChunk | None:
+    def get_chunk(self, chunk_index: int) -> ContentChunk | None:
         """Get a specific chunk by index"""
         if 0 <= chunk_index < len(self.chunks):
             return self.chunks[chunk_index]
         return None
 
-    def get_definitions(self) -> tuple[KuChunk, ...]:
+    def get_definitions(self) -> tuple[ContentChunk, ...]:
         """Get all definition chunks"""
-        return self.get_chunks_by_type(KuChunkType.DEFINITION)
+        return self.get_chunks_by_type(ContentChunkType.DEFINITION)
 
-    def get_examples(self) -> tuple[KuChunk, ...]:
+    def get_examples(self) -> tuple[ContentChunk, ...]:
         """Get all example chunks"""
-        return self.get_chunks_by_type(KuChunkType.EXAMPLE)
+        return self.get_chunks_by_type(ContentChunkType.EXAMPLE)
 
-    def get_exercises(self) -> tuple[KuChunk, ...]:
+    def get_exercises(self) -> tuple[ContentChunk, ...]:
         """Get all exercise chunks"""
-        return self.get_chunks_by_type(KuChunkType.EXERCISE)
+        return self.get_chunks_by_type(ContentChunkType.EXERCISE)
 
-    def get_code_blocks(self) -> tuple[KuChunk, ...]:
+    def get_code_blocks(self) -> tuple[ContentChunk, ...]:
         """Get all code chunks"""
-        return self.get_chunks_by_type(KuChunkType.CODE)
+        return self.get_chunks_by_type(ContentChunkType.CODE)
 
     def has_code(self) -> bool:
         """Check if content contains code blocks"""
@@ -144,7 +144,7 @@ class KuContent:
         code_words = 0
 
         for chunk in self.chunks:
-            if chunk.chunk_type == KuChunkType.CODE:
+            if chunk.chunk_type == ContentChunkType.CODE:
                 code_words += chunk.word_count
             else:
                 regular_words += chunk.word_count
@@ -224,7 +224,7 @@ class KuContent:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "KuContent":
+    def from_dict(cls, data: dict[str, Any]) -> "CurriculumContent":
         """Create from dictionary (e.g., from database)"""
         # Handle datetime conversion
         if isinstance(data.get("created_at"), str):
@@ -235,10 +235,10 @@ class KuContent:
         # Handle chunks conversion
         if "chunks" in data and isinstance(data["chunks"], list):
             chunk_objects = [
-                KuChunk(
+                ContentChunk(
                     parent_uid=chunk_data["parent_uid"],
                     chunk_index=chunk_data["chunk_index"],
-                    chunk_type=KuChunkType(chunk_data["chunk_type"]),
+                    chunk_type=ContentChunkType(chunk_data["chunk_type"]),
                     text=chunk_data["text"],
                     context_before=chunk_data.get("context_before", ""),
                     context_after=chunk_data.get("context_after", ""),
@@ -264,19 +264,19 @@ class KuContent:
         format: str = "markdown",
         language: str = "en",
         source_path: str | None = None,
-    ) -> "KuContent":
+    ) -> "CurriculumContent":
         """
-        Factory method to create new KnowledgeContent with automatic chunking.
+        Factory method to create new CurriculumContent with automatic chunking.
 
         Args:
-            unit_uid: The parent KnowledgeUnit UID,
+            unit_uid: The parent curriculum entity UID,
             body: The content text,
             format: Content format (markdown/html/text),
             language: ISO language code,
             source_path: Original file path if imported
 
         Returns:
-            New KnowledgeContent instance with chunks
+            New CurriculumContent instance with chunks
         """
         return cls(
             unit_uid=unit_uid, body=body, format=format, language=language, source_path=source_path
@@ -285,7 +285,7 @@ class KuContent:
     def __str__(self) -> str:
         """String representation"""
         return (
-            f"KnowledgeContent(unit_uid={self.unit_uid}, "
+            f"CurriculumContent(unit_uid={self.unit_uid}, "
             f"words={self.word_count}, chunks={self.chunk_count})"
         )
 
@@ -293,7 +293,7 @@ class KuContent:
         """Developer representation"""
         sha_preview = self.body_sha256[:8] if self.body_sha256 else "None"
         return (
-            f"KnowledgeContent(unit_uid='{self.unit_uid}', "
+            f"CurriculumContent(unit_uid='{self.unit_uid}', "
             f"format='{self.format}', word_count={self.word_count}, "
             f"chunk_count={self.chunk_count}, sha256='{sha_preview}...')"
         )

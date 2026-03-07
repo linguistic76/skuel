@@ -32,7 +32,7 @@ from routes.graphql.context import GraphQLContext
 if TYPE_CHECKING:
     from core.models.curriculum.learning_step import LearningStep as LsModel
     from core.utils.result_simplified import Result
-    from routes.graphql.protocols import KnowledgeUnitLike, LearningStepLike
+    from routes.graphql.protocols import CurriculumEntityLike, LearningStepLike
 from routes.graphql.types import (
     Blocker,
     CrossDomainOpportunity,
@@ -116,12 +116,12 @@ def build_low_progress_blocker(
     )
 
 
-def check_deprecated_content(ku: KnowledgeUnitLike) -> tuple[bool, bool]:
+def check_deprecated_content(ku: CurriculumEntityLike) -> tuple[bool, bool]:
     """
     Check if knowledge unit is deprecated or outdated using structural typing.
 
     Args:
-        ku: Any object satisfying KnowledgeUnitLike protocol (has uid, title, metadata)
+        ku: Any object satisfying CurriculumEntityLike protocol (has uid, title, metadata)
 
     Returns:
         Tuple of (is_deprecated, is_outdated)
@@ -1077,7 +1077,7 @@ class Query:
             # Knowledge units can have metadata indicating deprecation or last_updated
             is_deprecated, is_outdated = check_deprecated_content(
                 ku
-            )  # CurriculumEntity satisfies KnowledgeUnitLike protocol
+            )  # CurriculumEntity satisfies CurriculumEntityLike protocol
 
             if is_deprecated:
                 blockers.append(

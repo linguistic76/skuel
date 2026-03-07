@@ -19,13 +19,9 @@ from neo4j import AsyncGraphDatabase
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
 from core.ingestion.vector_manager import Vector, VectorManager, VectorSpace
-from core.models.curriculum.curriculum import Curriculum as KnowledgeUnit
+from core.models.curriculum.curriculum import Curriculum
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-
-# Primary aliases
-KnowledgeUnitPure = KnowledgeUnit
-LifePrinciplePure = KnowledgeUnit
 
 logger = get_logger(__name__)
 
@@ -52,13 +48,13 @@ class VaultIngester:
 
     def collect_knowledge_units(self, vault_path: Path) -> list[dict[str, Any]]:
         """
-        Collect all KnowledgeUnit YAML files from vault.
+        Collect all curriculum entity YAML files from vault.
 
         Args:
             vault_path: Path to Obsidian vault
 
         Returns:
-            List of KnowledgeUnit data dictionaries
+            List of curriculum entity data dictionaries
         """
         items = []
         ku_path = vault_path / "knowledge_units"
@@ -82,11 +78,11 @@ class VaultIngester:
                         "mentions_in": conn.get("mentions_in", []) or [],
                     }
                     items.append(ku)
-                    logger.debug(f"Collected KnowledgeUnit: {ku['uid']}")
+                    logger.debug(f"Collected curriculum entity: {ku['uid']}")
             except Exception as e:
                 logger.error(f"Failed to parse {yaml_file}: {e}")
 
-        logger.info(f"Collected {len(items)} KnowledgeUnits")
+        logger.info(f"Collected {len(items)} curriculum entities")
         return items
 
     def collect_life_principles(self, vault_path: Path) -> list[dict[str, Any]]:
@@ -130,7 +126,7 @@ class VaultIngester:
         self, vault_path: Path, batch_size: int = 500
     ) -> Result[dict[str, Any]]:
         """
-        Bulk ingest KnowledgeUnits with relationships.
+        Bulk ingest curriculum entities with relationships.
 
         Args:
             vault_path: Path to Obsidian vault,
@@ -141,11 +137,11 @@ class VaultIngester:
         """
         items = self.collect_knowledge_units(vault_path)
         if not items:
-            return Result.ok({"message": "No KnowledgeUnits found"})
+            return Result.ok({"message": "No curriculum entities found"})
 
         # Create bulk ingestion engine
         engine = BulkIngestionEngine(
-            driver=self.driver, entity_type=KnowledgeUnitPure, entity_label="Curriculum"
+            driver=self.driver, entity_type=Curriculum, entity_label="Curriculum"
         )
 
         # Ensure constraints exist
@@ -165,8 +161,8 @@ class VaultIngester:
         entities = []
         for item in items:
             try:
-                # Create KnowledgeUnitPure instance
-                entity = KnowledgeUnitPure(
+                # Create Curriculum instance
+                entity = Curriculum(
                     uid=item["uid"],
                     title=item["title"],
                     type=item.get("type", "concept"),
@@ -182,7 +178,7 @@ class VaultIngester:
                 logger.error(f"Failed to create entity for {item['uid']}: {e}")
 
         # Perform bulk ingestion with relationships
-        logger.info(f"Starting bulk ingestion of {len(entities)} KnowledgeUnits")
+        logger.info(f"Starting bulk ingestion of {len(entities)} curriculum entities")
         result = await engine.upsert_with_relationships(
             entities=entities, relationship_config=rel_config, batch_size=batch_size
         )
@@ -213,7 +209,7 @@ class VaultIngester:
 
         # Create bulk ingestion engine
         engine = BulkIngestionEngine(
-            driver=self.driver, entity_type=LifePrinciplePure, entity_label="LifePrinciple"
+            driver=self.driver, entity_type=Curriculum, entity_label="LifePrinciple"
         )
 
         # Ensure constraints exist
@@ -295,9 +291,9 @@ class VaultIngester:
         start_time = datetime.now()
         results = {}
 
-        # Ingest KnowledgeUnits
+        # Ingest Curriculum Entities
         logger.info("=" * 60)
-        logger.info("PHASE 1: Ingesting KnowledgeUnits")
+        logger.info("PHASE 1: Ingesting Curriculum Entities")
         logger.info("=" * 60)
         ku_result = await self.ingest_knowledge_units(vault_path)
         if ku_result.is_ok():
@@ -355,7 +351,7 @@ async def main():
 
             if "knowledge_units" in stats:
                 ku = stats["knowledge_units"]
-                print("\nKnowledgeUnits:")
+                print("\nCurriculum Entities:")
                 print(f"  - Processed: {ku.get('total_processed', 0)}")
                 print(f"  - Created: {ku.get('nodes_created', 0)}")
                 print(f"  - Updated: {ku.get('nodes_updated', 0)}")

@@ -10,8 +10,8 @@ metadata extraction, and search optimization.
 
 Handles the separation of concerns:
 - Curriculum: Lean graph metadata (the domain model)
-- KuContent: Rich content with chunks (content FOR Knowledge Units)
-- KuMetadata: Analytics and search optimization (metadata FOR Knowledge Units)
+- CurriculumContent: Rich content with chunks (content for curriculum entities)
+- ContentMetadata: Analytics and search optimization (metadata for curriculum entities)
 
 Architecture:
 - Lives at `/core/services/` level (not in `/ku/` directory)
@@ -24,9 +24,9 @@ from operator import itemgetter
 from typing import Any, TypedDict
 
 from core.models.curriculum.article import Article
-from core.models.curriculum.ku_chunks import KuChunk, KuChunkType
-from core.models.curriculum.ku_content import KuContent
-from core.models.curriculum.ku_metadata import KuMetadata
+from core.models.curriculum.content_chunks import ContentChunk, ContentChunkType
+from core.models.curriculum.content import CurriculumContent
+from core.models.curriculum.content_metadata import ContentMetadata
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -72,8 +72,8 @@ class EntityChunkingService:
     Service for processing curriculum entity content into chunks and metadata.
 
     This service handles:
-    1. Creating KuContent with automatic chunking
-    2. Generating KuMetadata for search and analytics
+    1. Creating CurriculumContent with automatic chunking
+    2. Generating ContentMetadata for search and analytics
     3. Managing the relationship between Curriculum, Content, and Metadata
     4. Providing search and retrieval operations on chunks
 
@@ -84,8 +84,8 @@ class EntityChunkingService:
     def __init__(self) -> None:
         """Initialize the chunking service"""
         self.logger = logger
-        self._content_cache: dict[str, KuContent] = {}
-        self._metadata_cache: dict[str, KuMetadata] = {}
+        self._content_cache: dict[str, CurriculumContent] = {}
+        self._metadata_cache: dict[str, ContentMetadata] = {}
 
     # ==========================================================================
     # CONTENT PROCESSING
@@ -97,7 +97,7 @@ class EntityChunkingService:
         content_body: str,
         format: str = "markdown",
         source_path: str | None = None,
-    ) -> Result[tuple[KuContent, KuMetadata]]:
+    ) -> Result[tuple[CurriculumContent, ContentMetadata]]:
         """
         Process knowledge content during ingestion (simplified interface).
 
@@ -112,16 +112,16 @@ class EntityChunkingService:
             source_path: Original file path if imported
 
         Returns:
-            Result containing tuple of (KuContent, KuMetadata)
+            Result containing tuple of (CurriculumContent, ContentMetadata)
         """
         try:
-            # Create KuContent with automatic chunking
-            content = KuContent.create(
+            # Create CurriculumContent with automatic chunking
+            content = CurriculumContent.create(
                 unit_uid=parent_uid, body=content_body, format=format, source_path=source_path
             )
 
             # Generate metadata from content
-            metadata = KuMetadata.from_content(content)
+            metadata = ContentMetadata.from_content(content)
 
             # Cache for quick retrieval
             self._content_cache[parent_uid] = content
@@ -150,7 +150,7 @@ class EntityChunkingService:
         content_body: str,
         format: str = "markdown",
         source_path: str | None = None,
-    ) -> Result[tuple[KuContent, KuMetadata]]:
+    ) -> Result[tuple[CurriculumContent, ContentMetadata]]:
         """
         Process knowledge content to create rich content and metadata.
 
@@ -161,16 +161,16 @@ class EntityChunkingService:
             source_path: Original file path if imported
 
         Returns:
-            Result containing tuple of (KuContent, KuMetadata)
+            Result containing tuple of (CurriculumContent, ContentMetadata)
         """
         try:
-            # Create KuContent with automatic chunking
-            content = KuContent.create(
+            # Create CurriculumContent with automatic chunking
+            content = CurriculumContent.create(
                 unit_uid=knowledge.uid, body=content_body, format=format, source_path=source_path
             )
 
             # Generate metadata from content
-            metadata = KuMetadata.from_content(content)
+            metadata = ContentMetadata.from_content(content)
 
             # Cache for quick retrieval
             self._content_cache[knowledge.uid] = content
@@ -193,12 +193,12 @@ class EntityChunkingService:
 
     async def update_ku_content(
         self, knowledge: Article, new_content_body: str
-    ) -> Result[tuple[KuContent, KuMetadata]]:
+    ) -> Result[tuple[CurriculumContent, ContentMetadata]]:
         """
         Update existing knowledge content with new text.
 
         This will:
-        1. Create new KuContent with fresh chunks
+        1. Create new CurriculumContent with fresh chunks
         2. Regenerate metadata
         3. Update caches
 
@@ -207,7 +207,7 @@ class EntityChunkingService:
             new_content_body: The new content text
 
         Returns:
-            Result containing updated (KuContent, KuMetadata)
+            Result containing updated (CurriculumContent, ContentMetadata)
         """
         # Get existing content to preserve format and source
         existing = self._content_cache.get(knowledge.uid)
@@ -226,8 +226,8 @@ class EntityChunkingService:
     # ==========================================================================
 
     async def get_chunks_for_knowledge(
-        self, knowledge_uid: str, chunk_type: KuChunkType | None = None
-    ) -> Result[list[KuChunk]]:
+        self, knowledge_uid: str, chunk_type: ContentChunkType | None = None
+    ) -> Result[list[ContentChunk]]:
         """
         Get chunks for a knowledge unit, optionally filtered by type.
 
@@ -236,7 +236,7 @@ class EntityChunkingService:
             chunk_type: Optional chunk type filter
 
         Returns:
-            Result containing list of KuChunk objects
+            Result containing list of ContentChunk objects
         """
         content = self._content_cache.get(knowledge_uid)
         if not content:
@@ -255,7 +255,7 @@ class EntityChunkingService:
         self,
         query: str,
         knowledge_uids: list[str] | None = None,
-        chunk_types: list[KuChunkType] | None = None,
+        chunk_types: list[ContentChunkType] | None = None,
         limit: int = 20,
     ) -> Result[list[dict[str, Any]]]:
         """
@@ -312,7 +312,9 @@ class EntityChunkingService:
 
         return Result.ok(results[:limit])
 
-    async def get_learning_chunks(self, knowledge_uid: str) -> Result[dict[str, list[KuChunk]]]:
+    async def get_learning_chunks(
+        self, knowledge_uid: str
+    ) -> Result[dict[str, list[ContentChunk]]]:
         """
         Get chunks organized by learning type.
 
@@ -337,11 +339,11 @@ class EntityChunkingService:
 
         categorized = {
             "definitions": list(content.get_definitions()),
-            "explanations": list(content.get_chunks_by_type(KuChunkType.EXPLANATION)),
+            "explanations": list(content.get_chunks_by_type(ContentChunkType.EXPLANATION)),
             "examples": list(content.get_examples()),
             "exercises": list(content.get_exercises()),
             "code": list(content.get_code_blocks()),
-            "summaries": list(content.get_chunks_by_type(KuChunkType.SUMMARY)),
+            "summaries": list(content.get_chunks_by_type(ContentChunkType.SUMMARY)),
         }
 
         return Result.ok(categorized)
@@ -350,7 +352,7 @@ class EntityChunkingService:
     # METADATA OPERATIONS
     # ==========================================================================
 
-    async def get_metadata(self, knowledge_uid: str) -> Result[KuMetadata]:
+    async def get_metadata(self, knowledge_uid: str) -> Result[ContentMetadata]:
         """
         Get metadata for a knowledge unit.
 
@@ -358,7 +360,7 @@ class EntityChunkingService:
             knowledge_uid: UID of the knowledge unit
 
         Returns:
-            Result containing KuMetadata
+            Result containing ContentMetadata
         """
         metadata = self._metadata_cache.get(knowledge_uid)
         if not metadata:

@@ -1,8 +1,8 @@
 """
-Knowledge Metadata Model
-========================
+Content Metadata Model
+=======================
 
-Analytics and search optimization metadata for knowledge content.
+Analytics and search optimization metadata for curriculum content.
 This is computed metadata that can be regenerated from the content.
 
 Useful for search indexing, content analytics, and learning recommendations.
@@ -13,11 +13,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from .ku_content import KuContent
+from .content import CurriculumContent
 
 
 @dataclass(frozen=True)
-class KuMetadata:
+class ContentMetadata:
     """
     Immutable metadata for content analysis and search optimization.
 
@@ -26,7 +26,7 @@ class KuMetadata:
     """
 
     # Identity
-    unit_uid: str  # Links to KnowledgeUnit.uid
+    unit_uid: str  # Links to parent curriculum entity uid
 
     # Text statistics
     word_count: int = 0
@@ -75,9 +75,9 @@ class KuMetadata:
     # ==========================================================================
 
     @classmethod
-    def from_content(cls, content: KuContent) -> "KuMetadata":
+    def from_content(cls, content: CurriculumContent) -> "ContentMetadata":
         """
-        Generate comprehensive metadata from KuContent.
+        Generate comprehensive metadata from CurriculumContent.
 
         Analyzes content structure, extracts key information, and computes
         statistics for search and analytics.

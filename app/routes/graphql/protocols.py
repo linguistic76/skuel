@@ -45,24 +45,23 @@ class LearningStepLike(Protocol):
     title: str
 
 
-class KnowledgeUnitLike(Protocol):
+class CurriculumEntityLike(Protocol):
     """
-    Structural contract for knowledge unit data in GraphQL.
+    Structural contract for curriculum entity data in GraphQL.
 
     Any object satisfying this protocol can be used in GraphQL resolvers
-    that need knowledge unit data. This includes:
-    - Ku (domain model)
+    that need curriculum entity data. This includes:
+    - Article, Ku (domain models)
     - EntityDTO (data transfer object)
-    - KnowledgeNode (GraphQL type)
     - Any other object with these attributes
 
     The metadata field is optional (can be None) to support various
-    knowledge representations.
+    curriculum representations.
 
     Example:
-        def check_deprecated(ku: KnowledgeUnitLike) -> bool:
-            if ku.metadata:
-                return ku.metadata.get('deprecated', False)
+        def check_deprecated(entity: CurriculumEntityLike) -> bool:
+            if entity.metadata:
+                return entity.metadata.get('deprecated', False)
             return False
     """
 

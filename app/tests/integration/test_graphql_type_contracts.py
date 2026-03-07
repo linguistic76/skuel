@@ -11,7 +11,7 @@ Tests verify that:
 Test Coverage:
 - LearningPath service returns properly typed Ls objects
 - Knowledge service returns properly typed Ku objects
-- Protocol satisfaction (LearningStepLike, KnowledgeUnitLike)
+- Protocol satisfaction (LearningStepLike, CurriculumEntityLike)
 - DTO conversion (from_domain() methods)
 
 Run with:
@@ -39,7 +39,7 @@ from core.services.ls_service import LsService
 from routes.graphql.types import LearningStep
 
 if TYPE_CHECKING:
-    from routes.graphql.protocols import KnowledgeUnitLike, LearningStepLike
+    from routes.graphql.protocols import CurriculumEntityLike, LearningStepLike
 
 # ============================================================================
 # Test Fixtures
@@ -377,7 +377,7 @@ async def test_ls_satisfies_learning_step_like_protocol(lp_service, type_contrac
 @pytest.mark.asyncio
 async def test_ku_satisfies_knowledge_unit_like_protocol(ku_service, type_contract_test_data):
     """
-    Verify that EntityDTO satisfies KnowledgeUnitLike protocol.
+    Verify that EntityDTO satisfies CurriculumEntityLike protocol.
 
     Protocol Contract:
         - Has uid: str attribute
@@ -390,13 +390,13 @@ async def test_ku_satisfies_knowledge_unit_like_protocol(ku_service, type_contra
     ku = result.value
     assert ku is not None
 
-    # Act - Assign to protocol type (EntityDTO satisfies KnowledgeUnitLike)
-    knowledge: KnowledgeUnitLike = ku
+    # Act - Assign to protocol type (EntityDTO satisfies CurriculumEntityLike)
+    knowledge: CurriculumEntityLike = ku
 
     # Assert - Protocol guarantees these attributes exist
-    assert hasattr(knowledge, "uid"), "KnowledgeUnitLike requires uid attribute"
-    assert hasattr(knowledge, "title"), "KnowledgeUnitLike requires title attribute"
-    assert hasattr(knowledge, "metadata"), "KnowledgeUnitLike requires metadata attribute"
+    assert hasattr(knowledge, "uid"), "CurriculumEntityLike requires uid attribute"
+    assert hasattr(knowledge, "title"), "CurriculumEntityLike requires title attribute"
+    assert hasattr(knowledge, "metadata"), "CurriculumEntityLike requires metadata attribute"
 
     # Assert - Types match protocol
     assert isinstance(knowledge.uid, str), "uid should be string"

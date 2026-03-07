@@ -1,1 +1,1 @@
-"""Curriculum domain models — KU, Learning Steps, Learning Paths, Exercises."""
+"""Curriculum domain models — Articles, Learning Steps, Learning Paths, Exercises."""

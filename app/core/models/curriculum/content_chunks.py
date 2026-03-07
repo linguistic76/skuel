@@ -1,9 +1,9 @@
 """
-Knowledge Content Chunking System
-==================================
+Content Chunking System
+========================
 
 Semantic chunking for RAG (Retrieval Augmented Generation) operations.
-All content is automatically chunked for optimal retrieval.
+All curriculum content is automatically chunked for optimal retrieval.
 
 SKUEL Principle: Chunking is not optional - all content is chunked for retrieval.
 """
@@ -15,7 +15,7 @@ from enum import Enum
 from typing import Any
 
 
-class KuChunkType(Enum):
+class ContentChunkType(Enum):
     """Types of content chunks for semantic categorization"""
 
     DEFINITION = "definition"
@@ -30,7 +30,7 @@ class KuChunkType(Enum):
 
 
 @dataclass(frozen=True)
-class KuChunk:
+class ContentChunk:
     """
     A semantic chunk of content for optimal retrieval.
 
@@ -39,9 +39,9 @@ class KuChunk:
     """
 
     # Identity
-    parent_uid: str  # KnowledgeUnit uid
+    parent_uid: str  # Parent curriculum entity uid
     chunk_index: int  # Position in document
-    chunk_type: KuChunkType  # Semantic type of content
+    chunk_type: ContentChunkType  # Semantic type of content
 
     # Content
     text: str  # The actual chunk text
@@ -120,7 +120,7 @@ class KuChunk:
         return hashlib.md5(text_preview.encode()).hexdigest()[:8]
 
 
-class KuChunkingStrategy:
+class ContentChunkingStrategy:
     """
     Strategy for chunking content into semantic segments.
 
@@ -133,7 +133,7 @@ class KuChunkingStrategy:
     CONTEXT_SIZE = 100  # Words of context to preserve
 
     @classmethod
-    def chunk_markdown(cls, content: str, parent_uid: str) -> list[KuChunk]:
+    def chunk_markdown(cls, content: str, parent_uid: str) -> list[ContentChunk]:
         """
         Chunk markdown content semantically.
 
@@ -143,7 +143,7 @@ class KuChunkingStrategy:
         3. Maintain context between chunks
         4. Optimize for retrieval size
         """
-        chunks: list[KuChunk] = []
+        chunks: list[ContentChunk] = []
         chunk_index = 0
 
         # Split by headers while preserving them
@@ -172,7 +172,7 @@ class KuChunkingStrategy:
                 if i < len(sub_chunks) - 1:
                     context_after = sub_chunks[i + 1]["text"][: cls.CONTEXT_SIZE]
 
-                chunk = KuChunk(
+                chunk = ContentChunk(
                     parent_uid=parent_uid,
                     chunk_index=chunk_index,
                     chunk_type=sub_chunk["type"],
@@ -192,11 +192,11 @@ class KuChunkingStrategy:
         return chunks
 
     @classmethod
-    def chunk_plain_text(cls, content: str, parent_uid: str) -> list[KuChunk]:
+    def chunk_plain_text(cls, content: str, parent_uid: str) -> list[ContentChunk]:
         """
         Chunk plain text by paragraphs and size limits.
         """
-        chunks: list[KuChunk] = []
+        chunks: list[ContentChunk] = []
         paragraphs = content.split("\n\n")
         chunk_index = 0
 
@@ -211,10 +211,10 @@ class KuChunkingStrategy:
                     context_before = chunks[-1].text[-cls.CONTEXT_SIZE :] if chunks else ""
                     context_after = ""  # Will be updated
 
-                    chunk = KuChunk(
+                    chunk = ContentChunk(
                         parent_uid=parent_uid,
                         chunk_index=chunk_index,
-                        chunk_type=KuChunkType.SECTION,
+                        chunk_type=ContentChunkType.SECTION,
                         text=sub_para,
                         context_before=context_before,
                         context_after=context_after,
@@ -228,10 +228,10 @@ class KuChunkingStrategy:
                     paragraphs[i + 1][: cls.CONTEXT_SIZE] if i < len(paragraphs) - 1 else ""
                 )
 
-                chunk = KuChunk(
+                chunk = ContentChunk(
                     parent_uid=parent_uid,
                     chunk_index=chunk_index,
-                    chunk_type=KuChunkType.SECTION,
+                    chunk_type=ContentChunkType.SECTION,
                     text=para.strip(),
                     context_before=context_before,
                     context_after=context_after,
@@ -315,7 +315,7 @@ class KuChunkingStrategy:
                     sub_chunks.append(
                         {
                             "text": code_blocks[idx],
-                            "type": KuChunkType.CODE,
+                            "type": ContentChunkType.CODE,
                             "metadata": {"section_heading": heading},
                         }
                     )
@@ -344,7 +344,7 @@ class KuChunkingStrategy:
         return sub_chunks
 
     @classmethod
-    def _detect_chunk_type(cls, text: str, heading: str | None) -> KuChunkType:
+    def _detect_chunk_type(cls, text: str, heading: str | None) -> ContentChunkType:
         """Detect the semantic type of a chunk based on content patterns"""
         text_lower = text.lower()
 
@@ -352,29 +352,29 @@ class KuChunkingStrategy:
         if heading:
             heading_lower = heading.lower()
             if "introduction" in heading_lower or "overview" in heading_lower:
-                return KuChunkType.INTRODUCTION
+                return ContentChunkType.INTRODUCTION
             elif "example" in heading_lower:
-                return KuChunkType.EXAMPLE
+                return ContentChunkType.EXAMPLE
             elif "exercise" in heading_lower or "practice" in heading_lower:
-                return KuChunkType.EXERCISE
+                return ContentChunkType.EXERCISE
             elif "summary" in heading_lower or "conclusion" in heading_lower:
-                return KuChunkType.SUMMARY
+                return ContentChunkType.SUMMARY
             elif "definition" in heading_lower:
-                return KuChunkType.DEFINITION
+                return ContentChunkType.DEFINITION
 
         # Content-based detection
         if text_lower.startswith(("definition:", "define:", "what is", "a ", "an ", "the term")):
-            return KuChunkType.DEFINITION
+            return ContentChunkType.DEFINITION
         elif "for example" in text_lower or "example:" in text_lower or "e.g." in text_lower:
-            return KuChunkType.EXAMPLE
+            return ContentChunkType.EXAMPLE
         elif "exercise" in text_lower or "try this" in text_lower or "practice:" in text_lower:
-            return KuChunkType.EXERCISE
+            return ContentChunkType.EXERCISE
         elif text_lower.startswith(("in summary", "to summarize", "in conclusion")):
-            return KuChunkType.SUMMARY
+            return ContentChunkType.SUMMARY
         elif len(text) < 200 and text.endswith(".") and ":" in text:
-            return KuChunkType.DEFINITION
+            return ContentChunkType.DEFINITION
         else:
-            return KuChunkType.EXPLANATION
+            return ContentChunkType.EXPLANATION
 
     @classmethod
     def _split_large_text(cls, text: str) -> list[str]:
@@ -401,7 +401,7 @@ class KuChunkingStrategy:
         return chunks
 
     @classmethod
-    def _update_chunk_contexts(cls, chunks: list[KuChunk]) -> None:
+    def _update_chunk_contexts(cls, chunks: list[ContentChunk]) -> None:
         """Update context_after for all chunks based on their neighbors"""
         for i in range(len(chunks) - 1):
             current_chunk = chunks[i]
@@ -414,30 +414,32 @@ class KuChunkingStrategy:
                 )
 
 
-def chunk_content(content: str, parent_uid: str, format: str = "markdown") -> list[KuChunk]:
+def chunk_content(content: str, parent_uid: str, format: str = "markdown") -> list[ContentChunk]:
     """
     Main entry point for content chunking.
 
     Args:
         content: The text content to chunk,
-        parent_uid: UID of the parent KnowledgeUnit,
+        parent_uid: UID of the parent curriculum entity,
         format: Content format (markdown or plain)
 
     Returns:
-        List of KuChunk objects
+        List of ContentChunk objects
     """
     if format.lower() == "markdown":
-        return KuChunkingStrategy.chunk_markdown(content, parent_uid)
+        return ContentChunkingStrategy.chunk_markdown(content, parent_uid)
     else:
-        return KuChunkingStrategy.chunk_plain_text(content, parent_uid)
+        return ContentChunkingStrategy.chunk_plain_text(content, parent_uid)
 
 
-def get_chunks_by_type(chunks: list[KuChunk], chunk_type: KuChunkType) -> list[KuChunk]:
+def get_chunks_by_type(
+    chunks: list[ContentChunk], chunk_type: ContentChunkType
+) -> list[ContentChunk]:
     """Filter chunks by type"""
     return [c for c in chunks if c.chunk_type == chunk_type]
 
 
-def search_chunks(chunks: list[KuChunk], query: str) -> list[KuChunk]:
+def search_chunks(chunks: list[ContentChunk], query: str) -> list[ContentChunk]:
     """Simple text search within chunks"""
     query_lower = query.lower()
     return [c for c in chunks if query_lower in c.text.lower()]
