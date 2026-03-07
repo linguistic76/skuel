@@ -177,6 +177,7 @@ from core.events.principle_events import (
 from core.events.submission_events import (
     AssessmentCreated,
     FeedbackSubmitted,
+    RevisedExerciseCreated,
     SubmissionApproved,
     SubmissionCreated,
     SubmissionDeleted,
@@ -215,6 +216,7 @@ __all__ = [
     # Submission events
     "AssessmentCreated",
     "FeedbackSubmitted",
+    "RevisedExerciseCreated",
     "SubmissionApproved",
     "SubmissionCreated",
     "SubmissionDeleted",
@@ -334,6 +336,7 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "submission.approved": SubmissionApproved,
     "submission.assessment_created": AssessmentCreated,
     "submission.revision_requested": SubmissionRevisionRequested,
+    "revised_exercise.created": RevisedExerciseCreated,
     # Chunk embedding events (async background generation for RAG)
     "chunk.embedding_requested": ChunkEmbeddingRequested,
     "chunk.embeddings_completed": ChunkEmbeddingsCompleted,
@@ -511,6 +514,7 @@ SUBMISSION_EVENTS = [
     SubmissionApproved,
     AssessmentCreated,
     SubmissionRevisionRequested,
+    RevisedExerciseCreated,
 ]
 
 TASK_EVENTS = [

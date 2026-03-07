@@ -152,6 +152,36 @@ def create_revised_exercises_api_routes(
         )
 
     # ========================================================================
+    # STUDENT-FACING (no role decorator — authenticated users only)
+    # ========================================================================
+
+    @rt("/api/revised-exercises/my-revisions", methods=["GET"])
+    @boundary_handler()
+    async def my_revisions(request: Request) -> Result[Any]:
+        """List revised exercises targeting the current user (student view)."""
+        user_uid = require_authenticated_user(request)
+        return await revised_exercise_service.list_for_student(user_uid)
+
+    @rt("/api/revised-exercises/view", methods=["GET"])
+    @boundary_handler()
+    async def view_revised_exercise(request: Request) -> Result[Any]:
+        """View a RevisedExercise (student or owning teacher)."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid")
+        if not uid:
+            return Result.fail(Errors.validation("uid is required", field="uid"))
+        result = await revised_exercise_service.get_revised_exercise(uid)
+        if result.is_error:
+            return result
+        entity = result.value
+        # Ownership check: student_uid OR user_uid (teacher/owner)
+        if entity.student_uid != user_uid and entity.user_uid != user_uid:
+            return Result.fail(
+                Errors.not_found(resource="RevisedExercise", identifier=uid)
+            )
+        return result
+
+    # ========================================================================
     # DELETE
     # ========================================================================
 

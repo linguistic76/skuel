@@ -1692,7 +1692,9 @@ async def compose_services(
             prometheus_metrics=prometheus_metrics,
             base_label=NeoLabel.ENTITY,
         )
-        revised_exercise_service = RevisedExerciseService(backend=revised_exercise_backend)
+        revised_exercise_service = RevisedExerciseService(
+            backend=revised_exercise_backend, event_bus=event_bus
+        )
         logger.info("✅ RevisedExerciseService created (five-phase learning loop)")
 
         # Create group service (ADR-040: Teacher Assignment Workflow)

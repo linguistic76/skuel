@@ -48,10 +48,11 @@ class RevisedExerciseService(BaseService):
         user_ownership_relationship=RelationshipName.OWNS,
     )
 
-    def __init__(self, backend: Any) -> None:
-        """Initialize with backend."""
+    def __init__(self, backend: Any, event_bus: Any | None = None) -> None:
+        """Initialize with backend and optional event bus."""
         super().__init__(backend, "revised_exercises")
         self.backend = backend
+        self.event_bus = event_bus
         self.logger = logger
         logger.info("RevisedExerciseService initialized")
 
@@ -164,6 +165,25 @@ class RevisedExerciseService(BaseService):
             f"RevisedExercise created: {uid} (revision {revision_number} "
             f"of {original_exercise_uid} for {student_uid})"
         )
+
+        # Publish event for downstream coordination (notifications, dashboard)
+        from core.events import publish_event
+        from core.events.submission_events import RevisedExerciseCreated
+
+        await publish_event(
+            self.event_bus,
+            RevisedExerciseCreated(
+                revised_exercise_uid=uid,
+                teacher_uid=teacher_uid,
+                student_uid=student_uid,
+                original_exercise_uid=original_exercise_uid,
+                feedback_uid=feedback_uid,
+                revision_number=revision_number,
+                occurred_at=datetime.now(),
+            ),
+            self.logger,
+        )
+
         return Result.ok(revised_exercise)
 
     # ========================================================================

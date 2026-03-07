@@ -1132,13 +1132,16 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         from core.models.relationship_names import RelationshipName
 
         # Check if the exercise is ASSIGNED scope and get group info
+        # Accepts both Exercise and RevisedExercise entity types
         exercise_result = await self.backend.execute_query(
             """
-            MATCH (exercise:Entity {uid: $exercise_uid, entity_type: 'exercise'})
+            MATCH (exercise:Entity {uid: $exercise_uid})
+            WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
             OPTIONAL MATCH (exercise)-[:FOR_GROUP]->(g:Group)
-            RETURN exercise.scope as scope,
+            RETURN exercise.entity_type as exercise_entity_type,
+                   exercise.scope as scope,
                    exercise.user_uid as teacher_uid,
-                   exercise.scope as exercise_scope,
+                   exercise.student_uid as student_uid,
                    exercise.title as exercise_title,
                    g.uid as group_uid
             """,
@@ -1153,37 +1156,71 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if not records:
             return Result.ok(False)  # Exercise not found — not an error
 
-        scope = records[0]["scope"]
-        if scope != "assigned":
-            return Result.ok(False)  # Not an assigned exercise
-
+        exercise_entity_type = records[0]["exercise_entity_type"]
         teacher_uid = records[0]["teacher_uid"]
-        group_uid = records[0]["group_uid"]
         exercise_title = records[0].get("exercise_title") or ""
 
-        # Verify student is a member of the target group (if group exists)
-        if group_uid:
-            student_result = await self.backend.execute_query(
+        if exercise_entity_type == "revised_exercise":
+            # RevisedExercise path: always "assigned", targets a specific student
+            re_student_uid = records[0]["student_uid"]
+
+            # Verify submitting student matches the targeted student
+            submitter_result = await self.backend.execute_query(
                 """
                 MATCH (student:User)-[:OWNS]->(ku:Entity {uid: $ku_uid})
-                OPTIONAL MATCH (student)-[:MEMBER_OF]->(g:Group {uid: $group_uid})
-                RETURN student.uid as student_uid, g.uid as member_of_group
+                RETURN student.uid as student_uid
                 """,
-                {"ku_uid": ku_uid, "group_uid": group_uid},
+                {"ku_uid": ku_uid},
             )
-
-            if student_result.is_error:
-                self.logger.error(f"Error verifying student membership: {student_result.error}")
+            if submitter_result.is_error:
+                self.logger.error(f"Error querying submitter: {submitter_result.error}")
                 return Result.ok(False)
 
-            student_records = student_result.value or []
-            if student_records and not student_records[0]["member_of_group"]:
-                student_uid = student_records[0]["student_uid"]
+            submitter_records = submitter_result.value or []
+            if not submitter_records:
+                return Result.ok(False)
+
+            submitter_uid = submitter_records[0]["student_uid"]
+            if submitter_uid != re_student_uid:
                 self.logger.warning(
-                    f"Student {student_uid} is not a member of group {group_uid} "
-                    f"for exercise {exercise_uid}"
+                    f"Student {submitter_uid} submitted against RevisedExercise "
+                    f"{exercise_uid} targeting {re_student_uid}"
                 )
                 return Result.ok(False)
+            # Skip group membership check — RevisedExercises target students directly
+        else:
+            # Standard Exercise path: check scope and group membership
+            scope = records[0]["scope"]
+            if scope != "assigned":
+                return Result.ok(False)  # Not an assigned exercise
+
+            group_uid = records[0]["group_uid"]
+
+            # Verify student is a member of the target group (if group exists)
+            if group_uid:
+                student_result = await self.backend.execute_query(
+                    """
+                    MATCH (student:User)-[:OWNS]->(ku:Entity {uid: $ku_uid})
+                    OPTIONAL MATCH (student)-[:MEMBER_OF]->(g:Group {uid: $group_uid})
+                    RETURN student.uid as student_uid, g.uid as member_of_group
+                    """,
+                    {"ku_uid": ku_uid, "group_uid": group_uid},
+                )
+
+                if student_result.is_error:
+                    self.logger.error(
+                        f"Error verifying student membership: {student_result.error}"
+                    )
+                    return Result.ok(False)
+
+                student_records = student_result.value or []
+                if student_records and not student_records[0]["member_of_group"]:
+                    student_uid = student_records[0]["student_uid"]
+                    self.logger.warning(
+                        f"Student {student_uid} is not a member of group {group_uid} "
+                        f"for exercise {exercise_uid}"
+                    )
+                    return Result.ok(False)
 
         # 0. Auto-generate canonical title from exercise
         if exercise_title:
@@ -1234,10 +1271,12 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                     self.logger.info(f"Updated submission title to: {new_title}")
 
         # 1. Create FULFILLS_EXERCISE relationship
+        # Accepts both Exercise and RevisedExercise entity types
         fulfills_result = await self.backend.execute_query(
             f"""
             MATCH (ku:Entity {{uid: $ku_uid}})
-            MATCH (exercise:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
+            MATCH (exercise:Entity {{uid: $exercise_uid}})
+            WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
             MERGE (ku)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
             RETURN true as success
             """,

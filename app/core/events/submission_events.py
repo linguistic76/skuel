@@ -270,3 +270,27 @@ class SubmissionRevisionRequested(BaseEvent):
     @property
     def event_type(self) -> str:
         return "submission.revision_requested"
+
+
+@dataclass(frozen=True)
+class RevisedExerciseCreated(BaseEvent):
+    """
+    Published when a teacher creates a RevisedExercise for a student.
+
+    Triggers:
+    - Student notification that revision instructions are available
+    - Learning loop progression tracking
+    """
+
+    revised_exercise_uid: str
+    teacher_uid: str
+    student_uid: str
+    original_exercise_uid: str
+    feedback_uid: str
+    revision_number: int
+    occurred_at: datetime
+    metadata: dict[str, Any] | None = None
+
+    @property
+    def event_type(self) -> str:
+        return "revised_exercise.created"
