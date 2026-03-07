@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, Div, Form, Option, P, Script, Span
+from fasthtml.common import H1, H2, H3, Div, P, Script, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -38,7 +38,6 @@ from core.utils.result_simplified import Errors, Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.feedback import Progress
-from ui.forms import Input, Label, Select
 from ui.goals.layout import create_goals_page
 from ui.goals.views import GoalsViewComponents
 from ui.habits.atomic_components import AtomicHabitsComponents
@@ -300,141 +299,41 @@ class GoalUIComponents:
 
     @staticmethod
     def render_create_goal_form() -> Any:
-        """
-        Create goal form component with relationship context capture.
-
-        Adds guidance manifestations and derivation reasoning
-        to make entity connections comprehensible.
-
-        Uses FormGenerator for dynamic form generation from GoalCreateRequest.
-        """
-        # Use FormGenerator for type-safe, dynamic form generation
-        form_gen = FormGenerator()
-
-        # Custom field configurations with semantic grouping
-        field_configs = {
-            "title": {
-                "placeholder": "e.g., Establish daily meditation practice",
-                "label": "Goal Title",
-                "section": "basic",
-                "section_title": "📋 Basic Information",
-            },
-            "description": {
-                "placeholder": "Detailed description of this goal",
-                "label": "Description",
-                "section": "basic",
-            },
-            "why_important": {
-                "placeholder": "Personal significance and motivation",
-                "label": "Why is this important?",
-                "section": "basic",
-            },
-            "choice_reasoning": {
-                "placeholder": "e.g., Chose to prioritize mental health over constant productivity",
-                "label": "What choice led you to create this goal?",
-                "section": "connections",
-                "section_title": "🔗 Connection Reasoning",
-                "section_description": "Help yourself understand WHY and HOW this goal connects to your values",
-                "help_text": "💡 Optional: Explain the decision that created this goal",
-            },
-            "choice_confidence": {
-                "placeholder": "80",
-                "label": "How confident are you in this choice? (0-100%)",
-                "section": "connections",
-            },
-            "principle_guidance": {
-                "placeholder": "e.g., Following 'small steps > big plans' by starting with just 2 minutes",
-                "label": "How do your principles guide this goal?",
-                "section": "connections",
-                "help_text": "💡 Optional: Describe how your values shape this goal",
-            },
-        }
-
-        # Generate form sections
-        basic_section = Div(
-            H3("📋 Basic Information", cls="text-lg font-semibold mb-3 text-base-content/70"),
-            *[
-                form_gen._generate_field(
-                    field_name,
-                    GoalCreateRequest.model_fields[field_name],
-                    GoalCreateRequest.__annotations__[field_name],
-                )
-                for field_name, config in field_configs.items()
-                if config.get("section") == "basic"
-            ],
-            cls="mb-6 pb-6 border-b border-base-200",
-        )
-
-        connections_section = Div(
-            H3("🔗 Connection Reasoning", cls="text-lg font-semibold mb-2 text-base-content/70"),
-            P(
-                "Help yourself understand WHY and HOW this goal connects to your values",
-                cls="text-sm text-base-content/60 mb-3",
-            ),
-            *[
-                Div(
-                    form_gen._generate_field(
-                        field_name,
-                        GoalCreateRequest.model_fields[field_name],
-                        GoalCreateRequest.__annotations__[field_name],
-                    ),
-                    P(config.get("help_text", ""), cls="text-xs text-base-content/50 mt-1")
-                    if config.get("help_text")
-                    else None,
-                    cls="mb-3",
-                )
-                for field_name, config in field_configs.items()
-                if config.get("section") == "connections"
-            ],
-            cls="mb-6 pb-6 border-b border-base-200",
-        )
-
+        """Create goal form using FormGenerator with sections."""
         return Card(
-            H2("🎯 Create New Goal", cls="text-xl font-bold mb-4"),
-            Form(
-                basic_section,
-                connections_section,
-                # Classification Section
-                Div(
-                    H3("🏷️ Classification", cls="text-lg font-semibold mb-3 text-base-content/70"),
-                    Div(
-                        Label("Priority", htmlfor="priority", cls="block text-sm font-medium mb-1"),
-                        Select(
-                            Option("Low", value="low"),
-                            Option("Medium", value="medium", selected=True),
-                            Option("High", value="high"),
-                            Option("Critical", value="critical"),
-                            name="priority",
-                            id="priority",
-                            cls="select select-bordered w-full",
-                        ),
-                        cls="mb-3",
-                    ),
-                    Div(
-                        Label(
-                            "Target Date",
-                            htmlfor="target_date",
-                            cls="block text-sm font-medium mb-1",
-                        ),
-                        Input(
-                            type="date",
-                            name="target_date",
-                            id="target_date",
-                            cls="input input-bordered w-full",
-                        ),
-                        cls="mb-3",
-                    ),
-                    cls="mb-6",
-                ),
-                # Submit Button
-                Div(
-                    Button("Create Goal 🎯", type="submit", variant=ButtonT.primary, cls="w-full"),
-                    cls="mt-6",
-                ),
-                hx_post="/api/goals",
-                hx_target="#goals-container",
-                hx_swap="outerHTML",
-                cls="space-y-4",
+            H2("Create New Goal", cls="text-xl font-bold mb-4"),
+            FormGenerator.from_model(
+                GoalCreateRequest,
+                action="/api/goals",
+                method="POST",
+                submit_label="Create Goal",
+                sections={
+                    "Basic Information": [
+                        "title", "description", "why_important", "vision_statement",
+                    ],
+                    "Classification": [
+                        "goal_type", "domain", "timeframe", "priority",
+                    ],
+                    "Timeline & Measurement": [
+                        "start_date", "target_date", "measurement_type",
+                        "target_value", "unit_of_measurement",
+                    ],
+                    "Motivation": [
+                        "success_criteria", "potential_obstacles", "strategies",
+                    ],
+                },
+                help_texts={
+                    "why_important": "What makes this goal meaningful to you?",
+                    "vision_statement": "Describe the long-term vision this goal serves",
+                    "success_criteria": "How will you know you've achieved this goal?",
+                    "potential_obstacles": "Comma-separated list of anticipated challenges",
+                    "strategies": "Comma-separated list of strategies to overcome obstacles",
+                },
+                form_attrs={
+                    "hx_post": "/api/goals",
+                    "hx_target": "#goals-container",
+                    "hx_swap": "outerHTML",
+                },
             ),
             cls="p-6 max-w-2xl mx-auto",
         )

@@ -1,7 +1,5 @@
 """
-Tests for FormGenerator pre-fill support.
-
-Tests the values parameter on from_model() and the from_instance() convenience method.
+Tests for FormGenerator — pre-fill, sections, help text, hidden fields, fragments.
 """
 
 from dataclasses import dataclass
@@ -77,7 +75,6 @@ class TestFromModelWithValues:
             SampleCreateRequest, action="/test", include_fields=["title"]
         )
         html = get_form_html(form)
-        # Input should not have a value attribute
         assert 'name="title"' in html
         assert 'value="My Task"' not in html
 
@@ -119,9 +116,7 @@ class TestFromModelWithValues:
             values={"priority": Priority.HIGH},
         )
         html = get_form_html(form)
-        # HIGH should be selected
         assert 'value="high" selected' in html
-        # Others should not be selected
         assert 'value="low" selected' not in html
         assert 'value="medium" selected' not in html
 
@@ -132,7 +127,6 @@ class TestFromModelWithValues:
             include_fields=["priority"],
         )
         html = get_form_html(form)
-        # The "-- Select --" placeholder should be selected (optional field)
         assert "-- Select --" in html
 
     def test_date_input_prefilled(self):
@@ -274,3 +268,361 @@ class TestFromInstance:
         html = get_form_html(form)
         assert "Update" in html
         assert 'hx-post="/api/update"' in html
+
+
+# ============================================================================
+# Tests: sections
+# ============================================================================
+
+
+class TestSections:
+    """Test sectioned form generation."""
+
+    def test_sections_creates_grouped_fields(self):
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            sections={
+                "Basic Info": ["title", "description"],
+                "Settings": ["priority", "due_date"],
+            },
+        )
+        html = get_form_html(form)
+        assert "Basic Info" in html
+        assert "Settings" in html
+        assert 'name="title"' in html
+        assert 'name="priority"' in html
+
+    def test_sections_have_dividers_except_last(self):
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            sections={
+                "First": ["title"],
+                "Second": ["description"],
+                "Last": ["priority"],
+            },
+        )
+        html = get_form_html(form)
+        # First and second sections should have border-b divider
+        # Last section should not
+        assert "border-b" in html
+        # Count occurrences: 2 sections with border, 1 without
+        assert html.count("border-b border-base-200") == 2
+
+    def test_sections_with_exclude_fields(self):
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            sections={
+                "Info": ["title", "description", "priority"],
+            },
+            exclude_fields=["description"],
+        )
+        html = get_form_html(form)
+        assert 'name="title"' in html
+        assert 'name="description"' not in html
+        assert 'name="priority"' in html
+
+    def test_sections_skip_nonexistent_fields(self):
+        """Fields in sections that don't exist on the model are silently skipped."""
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            sections={
+                "Info": ["title", "nonexistent_field"],
+            },
+        )
+        html = get_form_html(form)
+        assert 'name="title"' in html
+        assert "nonexistent_field" not in html
+
+    def test_sections_with_values(self):
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            sections={
+                "Info": ["title", "priority"],
+            },
+            values={"title": "Prefilled", "priority": Priority.HIGH},
+        )
+        html = get_form_html(form)
+        assert 'value="Prefilled"' in html
+        assert 'value="high" selected' in html
+
+    def test_sections_ignore_include_fields(self):
+        """When sections is provided, include_fields is ignored."""
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            sections={"Info": ["title", "description"]},
+            include_fields=["priority"],  # Should be ignored
+        )
+        html = get_form_html(form)
+        assert 'name="title"' in html
+        assert 'name="description"' in html
+
+
+# ============================================================================
+# Tests: help_texts
+# ============================================================================
+
+
+class TestHelpTexts:
+    """Test per-field help text."""
+
+    def test_help_text_rendered(self):
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            include_fields=["title"],
+            help_texts={"title": "Enter a clear, actionable title"},
+        )
+        html = get_form_html(form)
+        assert "Enter a clear, actionable title" in html
+
+    def test_no_help_text_by_default(self):
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            include_fields=["title"],
+        )
+        html = get_form_html(form)
+        assert "text-base-content/70" not in html or "Enter a clear" not in html
+
+    def test_help_text_in_sections(self):
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            sections={"Info": ["title", "description"]},
+            help_texts={"description": "Be as detailed as possible"},
+        )
+        html = get_form_html(form)
+        assert "Be as detailed as possible" in html
+
+
+# ============================================================================
+# Tests: hidden_fields
+# ============================================================================
+
+
+class TestHiddenFields:
+    """Test hidden input generation."""
+
+    def test_hidden_field_rendered(self):
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            include_fields=["title"],
+            hidden_fields={"entity_uid": "task_abc123"},
+        )
+        html = get_form_html(form)
+        assert 'type="hidden"' in html
+        assert 'name="entity_uid"' in html
+        assert 'value="task_abc123"' in html
+
+    def test_multiple_hidden_fields(self):
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            include_fields=["title"],
+            hidden_fields={"uid": "task_1", "version": "2"},
+        )
+        html = get_form_html(form)
+        assert 'name="uid"' in html
+        assert 'name="version"' in html
+
+
+# ============================================================================
+# Tests: as_fragment
+# ============================================================================
+
+
+class TestAsFragment:
+    """Test fragment mode for article embedding."""
+
+    def test_fragment_returns_div_not_form(self):
+        result = FormGenerator.from_model(
+            SampleCreateRequest,
+            include_fields=["title", "description"],
+            as_fragment=True,
+        )
+        html = get_form_html(result)
+        # Should be a div, not a form
+        assert html.startswith("<div")
+        assert "<form" not in html
+
+    def test_fragment_has_no_submit_button(self):
+        result = FormGenerator.from_model(
+            SampleCreateRequest,
+            include_fields=["title"],
+            as_fragment=True,
+        )
+        html = get_form_html(result)
+        assert 'type="submit"' not in html
+
+    def test_fragment_still_has_fields(self):
+        result = FormGenerator.from_model(
+            SampleCreateRequest,
+            include_fields=["title", "priority"],
+            as_fragment=True,
+        )
+        html = get_form_html(result)
+        assert 'name="title"' in html
+        assert 'name="priority"' in html
+
+    def test_fragment_with_values(self):
+        result = FormGenerator.from_model(
+            SampleCreateRequest,
+            include_fields=["title"],
+            values={"title": "Embedded"},
+            as_fragment=True,
+        )
+        html = get_form_html(result)
+        assert 'value="Embedded"' in html
+
+    def test_fragment_with_hidden_fields(self):
+        result = FormGenerator.from_model(
+            SampleCreateRequest,
+            include_fields=["title"],
+            hidden_fields={"exercise_uid": "ex_123"},
+            as_fragment=True,
+        )
+        html = get_form_html(result)
+        assert 'type="hidden"' in html
+        assert 'value="ex_123"' in html
+
+    def test_fragment_with_form_attrs(self):
+        result = FormGenerator.from_model(
+            SampleCreateRequest,
+            include_fields=["title"],
+            form_attrs={"id": "exercise-fields"},
+            as_fragment=True,
+        )
+        html = get_form_html(result)
+        assert 'id="exercise-fields"' in html
+
+
+# ============================================================================
+# Tests: custom_widgets wrapping
+# ============================================================================
+
+
+class TestCustomWidgets:
+    """Test that custom widgets are wrapped with label and error display."""
+
+    def test_custom_widget_gets_label(self):
+        from ui.forms import Textarea
+
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            include_fields=["description"],
+            custom_widgets={
+                "description": Textarea(
+                    name="description", rows=8, placeholder="Custom..."
+                ),
+            },
+        )
+        html = get_form_html(form)
+        # Should have the label from the model's field description
+        assert "Description" in html
+        # Should have the custom textarea
+        assert 'rows="8"' in html
+        assert "Custom..." in html
+        # Should have error display div
+        assert 'id="description-error"' in html
+
+    def test_custom_widget_with_help_text(self):
+        from ui.forms import Input
+
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            include_fields=["title"],
+            custom_widgets={"title": Input(type="text", name="title")},
+            help_texts={"title": "Custom help for title"},
+        )
+        html = get_form_html(form)
+        assert "Custom help for title" in html
+
+
+# ============================================================================
+# Tests: DaisyUI wrapper integration
+# ============================================================================
+
+
+class TestDaisyUIIntegration:
+    """Test that generated widgets use DaisyUI variant classes."""
+
+    def test_text_input_has_daisyui_classes(self):
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            include_fields=["title"],
+        )
+        html = get_form_html(form)
+        assert "input-bordered" in html
+
+    def test_select_has_daisyui_classes(self):
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            include_fields=["priority"],
+        )
+        html = get_form_html(form)
+        assert "select-bordered" in html
+
+    def test_checkbox_has_daisyui_classes(self):
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            include_fields=["is_active"],
+        )
+        html = get_form_html(form)
+        assert "checkbox" in html
+
+    def test_textarea_has_daisyui_classes(self):
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            include_fields=["description"],
+        )
+        html = get_form_html(form)
+        assert "textarea-bordered" in html
+
+
+# ============================================================================
+# Tests: Alpine.js integration
+# ============================================================================
+
+
+class TestAlpineIntegration:
+    """Test Alpine.js formValidator defaults and overrides."""
+
+    def test_default_alpine_validator(self):
+        form = FormGenerator.from_model(
+            SampleCreateRequest, action="/test", include_fields=["title"]
+        )
+        html = get_form_html(form)
+        assert 'x-data="formValidator"' in html
+
+    def test_alpine_override_via_form_attrs(self):
+        form = FormGenerator.from_model(
+            SampleCreateRequest,
+            action="/test",
+            include_fields=["title"],
+            form_attrs={"x-data": "customComponent"},
+        )
+        html = get_form_html(form)
+        assert 'x-data="customComponent"' in html
+        assert "formValidator" not in html
+
+    def test_fragment_mode_no_alpine(self):
+        result = FormGenerator.from_model(
+            SampleCreateRequest,
+            include_fields=["title"],
+            as_fragment=True,
+        )
+        html = get_form_html(result)
+        assert "formValidator" not in html
