@@ -1179,7 +1179,7 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 - `/search` routes -> `SearchRouter.faceted_search()`
 - `/api/search/unified` -> `SearchRouter.advanced_search()`
 
-**Searchable Domains:** All 9 - Task, Goal, Habit, Event, Choice, Principle, KU, LS, LP
+**Searchable Domains:** All 12 - Task, Goal, Habit, Event, Choice, Principle, Article, LS, LP, Exercise, RevisedExercise, Submission
 
 **BaseService Configuration** (ONE PATH FORWARD - January 2026):
 

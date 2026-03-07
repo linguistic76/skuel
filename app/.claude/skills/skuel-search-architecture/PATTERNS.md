@@ -283,7 +283,7 @@ class KuSearchService(BaseService[KuOperations, Entity]):
 - `create_curriculum_domain_config()` sets ownership to None (shared content)
 - Direct class-attribute style (`_dto_class = ...`) was removed January 2026 — always use DomainConfig
 
-**Real-world usage**: All 9 domain search services
+**Real-world usage**: All 12 searchable domain services
 
 ---
 

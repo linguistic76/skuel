@@ -23,7 +23,7 @@ External Callers (One Path Forward):
 
 SearchRouter (THE Orchestrator):
 ├── EntityType/NonKuDomain → domain search service (type-safe dispatch)
-│   └── ALL 9 searchable domains
+│   └── ALL 12 searchable domains
 └── Cross-domain           → self.search_domains() (aggregation)
 ```
 
@@ -41,13 +41,15 @@ SearchRouter (THE Orchestrator):
 
 **Backend structure (March 2026):** `universal_backend.py` is a shell; all persistence operations live in 6 focused mixin files. `_relationship_mixin.py` was split into `_relationship_query_mixin.py` (graph-native queries, `relate()` fluent API, edge metadata) and `_relationship_crud_mixin.py` (create/delete/validate, `has_relationship`, batch ops). Public API unchanged.
 
-## Searchable Domains (9 — No MOC)
+## Searchable Domains (12 — No MOC)
 
-| Domain | Entities | Search Mode | Pattern |
-|--------|----------|-------------|---------|
-| **All 9 Domains** | Task, Goal, Habit, Event, Choice, Principle, KU, LS, LP | Graph-Aware | BaseService |
+| Group | Entities | Search Mode | Pattern |
+|-------|----------|-------------|---------|
+| **Activity (6)** | Task, Goal, Habit, Event, Choice, Principle | Graph-Aware | BaseService |
+| **Curriculum (3)** | Article, LS, LP | Graph-Aware | BaseService |
+| **Learning Loop (3)** | Exercise, RevisedExercise, Submission | Simple | BaseService |
 
-**Note:** MOC is NOT a searchable domain — it is emergent identity (any Ku with ORGANIZES relationships). The Activity/Curriculum distinction has been eliminated; all 9 domains are peers.
+**Note:** MOC is NOT a searchable domain — it is emergent identity (any Ku with ORGANIZES relationships). Learning Loop entities use simple text search (not graph-aware).
 
 ## Unified BaseService Pattern (ADR-023, January 2026 DomainConfig)
 
@@ -102,7 +104,7 @@ results = await search_router.search_domains(
 )
 ```
 
-### Unified Search (All 9 Domains)
+### Unified Search (All 12 Domains)
 
 ```python
 # Search across everything
@@ -140,13 +142,13 @@ await lp_service.search.get_aligned_with_goal("goal:learn-python")
 |--------|----------|
 | `search(entity_type, query)` | Single-domain text search |
 | `search_domains(entity_types, query)` | Multi-domain aggregation |
-| `unified_search(query)` | All 9 domains |
+| `unified_search(query)` | All 12 domains |
 | `advanced_search(SearchRequest)` | Filters, graph patterns, tags |
 | `faceted_search(request, user_uid)` | Legacy; prefer `advanced_search` |
 
 | Aspect | Value |
 |--------|-------|
-| **Domains** | 9 (Task, Goal, Habit, Event, Choice, Principle, KU, LS, LP) |
+| **Domains** | 12 (Task, Goal, Habit, Event, Choice, Principle, Article, LS, LP, Exercise, RevisedExercise, Submission) |
 | **User Ownership** | Activity domains use OWNS; Curriculum uses None (shared) |
 | **Result Type** | `UnifiedSearchResult` with `results_by_domain` + `top_results` |
 | **Dispatch** | EntityType/NonKuDomain enum (type-safe, no string checks) |
@@ -177,7 +179,7 @@ Tasks, Goals, Events, and Choices use the base implementation. Only Habits and P
 1. **Always use SearchRouter** for external access — never call domain services directly from routes
 2. **Curriculum content is shared** — `_user_ownership_relationship = None` (no OWNS filter)
 3. **MOC is not a searchable domain** — it's emergent identity via ORGANIZES relationships on Ku nodes
-4. **9 searchable domains, not 10** — there is no MOC EntityType
+4. **12 searchable domains** — 6 Activity + 3 Curriculum + 3 Learning Loop; MOC is not an EntityType
 
 ## UserContext and Search
 

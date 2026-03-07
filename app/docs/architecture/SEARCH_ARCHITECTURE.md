@@ -53,14 +53,15 @@ SKUEL's search architecture consists of **three complementary systems** that wor
 
 **Core Principle:** "Property filters for speed, graph patterns for depth, user context for personalization, semantic relationships for relevance"
 
-## Searchable Domains (9 total)
+## Searchable Domains (12 total)
 
-All 9 domains use `graph_aware_faceted_search()` via `SearchRouter`. The Activity/Curriculum distinction has been eliminated — all domains are peers (ADR-023).
+All 12 domains are searchable via `SearchRouter`. Activity and Curriculum domains use `graph_aware_faceted_search()`; Learning Loop domains use simple text search (ADR-023).
 
-| Group | Domains | Ownership |
-|-------|---------|-----------|
-| Activity (6) | Tasks, Goals, Habits, Events, Choices, Principles | User-owned (`OWNS`) |
-| Curriculum (3) | KU, LS, LP | Shared content (no ownership filter) |
+| Group | Domains | Ownership | Search Mode |
+|-------|---------|-----------|-------------|
+| Activity (6) | Tasks, Goals, Habits, Events, Choices, Principles | User-owned (`OWNS`) | Graph-Aware |
+| Curriculum (3) | Article, LS, LP | Shared content (no ownership filter) | Graph-Aware |
+| Learning Loop (3) | Exercise, RevisedExercise, Submission | Mixed (Exercise shared, others user-owned) | Simple |
 
 **Note:** MOC is emergent identity (any entity with `ORGANIZES` relationships), not an `EntityType`, and is not a standalone searchable domain.
 
@@ -70,9 +71,13 @@ _GRAPH_AWARE_DOMAINS: frozenset[str] = frozenset(
 )
 
 _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
+    # Activity (6)
     EntityType.TASK, EntityType.GOAL, EntityType.HABIT,
     EntityType.EVENT, EntityType.CHOICE, EntityType.PRINCIPLE,
-    EntityType.KU, EntityType.LEARNING_STEP, EntityType.LEARNING_PATH,
+    # Curriculum (3)
+    EntityType.ARTICLE, EntityType.LEARNING_STEP, EntityType.LEARNING_PATH,
+    # Learning Loop (3)
+    EntityType.EXERCISE, EntityType.REVISED_EXERCISE, EntityType.SUBMISSION,
 })
 ```
 
@@ -112,7 +117,7 @@ response = await search_router.faceted_search(request, user_uid)
 
 **Purpose:** Rich relationship context leveraging Neo4j's graph structure
 
-**When Used:** All 9 searchable domains when relationship filters are present, or always for graph-aware domains
+**When Used:** All 9 graph-aware domains when relationship filters are present, or always for graph-aware domains
 
 **Implementation:** `SearchRouter.faceted_search()` → domain service `.graph_aware_faceted_search()`
 
@@ -737,7 +742,7 @@ Graph Relationships:
 
 1. **New property filter**: Add field to `SearchRequest`, update `to_neo4j_filters()`
 2. **New relationship filter**: Add bool field, update `has_relationship_filters()` and `to_graph_patterns()`
-3. **New searchable domain**: Add to `_SEARCHABLE_DOMAINS`, add `_GRAPH_AWARE_DOMAINS` entry, add handler `_graph_aware_search_{domain}()`
+3. **New searchable domain**: Add to `_SEARCHABLE_DOMAINS` and `_SERVICE_REGISTRY`, add `SearchFieldConfig` in `config.py`. For graph-aware search, also add `_GRAPH_AWARE_DOMAINS` entry and handler `_graph_aware_search_{domain}()`
 4. **New semantic relationship type**: Add to `relationship_type_weights` in `VectorSearchConfig`
 
 ---
@@ -762,7 +767,7 @@ Graph Relationships:
 
 ## See Also
 
-- [SEARCH_SERVICE_METHODS.md](../reference/SEARCH_SERVICE_METHODS.md) — Method catalog for all 9 search services
+- [SEARCH_SERVICE_METHODS.md](../reference/SEARCH_SERVICE_METHODS.md) — Method catalog for search services
 - [SEARCH_MODELS.md](../reference/models/SEARCH_MODELS.md) — Complete `SearchRequest`/`SearchResponse` documentation
 - [search_service_pattern.md](../patterns/search_service_pattern.md) — How to implement domain search services
 - [UNIFIED_USER_ARCHITECTURE.md](UNIFIED_USER_ARCHITECTURE.md) — UserContext and MEGA-QUERY
