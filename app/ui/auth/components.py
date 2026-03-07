@@ -97,33 +97,6 @@ class AuthComponents:
                 <a href="/register" class="font-semibold text-primary/80 hover:text-primary">Create an account</a>
             </p>
 
-            <script>
-            document.getElementById('login-form').addEventListener('submit', async function(e) {{
-                e.preventDefault();
-                const formData = new FormData(this);
-                try {{
-                    const response = await fetch('/login/submit', {{
-                        method: 'POST',
-                        body: formData,
-                        credentials: 'same-origin',
-                        redirect: 'follow'
-                    }});
-                    // If redirected, navigate to the final URL
-                    if (response.redirected) {{
-                        window.location.href = response.url;
-                        return;
-                    }}
-                    // Otherwise, handle HTML response (error page)
-                    const html = await response.text();
-                    document.open();
-                    document.write(html);
-                    document.close();
-                }} catch (error) {{
-                    console.error('Login error:', error);
-                    alert('Login failed: ' + error.message);
-                }}
-            }});
-            </script>
         </div>
     </div>
 </body>
@@ -632,9 +605,10 @@ class AuthComponents:
         Render email verified callback page.
 
         Returns:
-            Email verified UI with JavaScript redirect as NotStr
+            Email verified UI with meta-refresh redirect as NotStr
         """
         return NotStr("""
+        <meta http-equiv="refresh" content="2;url=/login">
         <div class="min-h-screen bg-base-200 flex items-center justify-center p-6">
             <div class="card bg-base-100 shadow-xl max-w-lg w-full">
                 <div class="card-body text-center">
@@ -649,74 +623,8 @@ class AuthComponents:
                     </p>
                 </div>
             </div>
-
-            <script>
-                // Extract tokens from URL fragment
-                const hash = window.location.hash.substring(1);
-                const params = new URLSearchParams(hash);
-                const accessToken = params.get('access_token');
-                const type = params.get('type');
-                console.log('Auth callback type:', type);
-
-                // Redirect to login after 2 seconds
-                setTimeout(() => {
-                    window.location.href = '/login';
-                }, 2000);
-            </script>
         </div>
         """)
-
-    @staticmethod
-    def render_login_success_redirect(display_name: str, user_uid: str) -> str:
-        """
-        Render login success page HTML string with redirect.
-
-        This returns raw HTML string for direct Response object creation,
-        as it needs to set session cookies before the response is sent.
-
-        Args:
-            display_name: User's display name
-            user_uid: User's UID
-
-        Returns:
-            Raw HTML string for login success page
-        """
-        return f"""
-        <!DOCTYPE html>
-        <html data-theme="light">
-        <head>
-            <title>Login Successful</title>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
-            <script src="https://cdn.tailwindcss.com"></script>
-        </head>
-        <body class="min-h-screen bg-base-200 flex items-center justify-center p-6">
-            <div class="card bg-base-100 shadow-xl max-w-lg w-full">
-                <div class="card-body text-center">
-                    <div class="text-6xl mb-4">✅</div>
-                    <h1 class="card-title text-3xl font-bold justify-center mb-2">Login Successful!</h1>
-                    <p class="text-lg text-base-content/70 mb-2">Welcome back, {display_name}!</p>
-                    <p class="text-base-content/80 mb-6">
-                        <span class="loading loading-spinner loading-sm"></span>
-                        Redirecting to your profile...
-                    </p>
-
-                    <div class="card-actions justify-center">
-                        <a href="/profile" class="btn btn-primary">Go to Profile</a>
-                    </div>
-                </div>
-            </div>
-
-            <script>
-                console.log('Session established for user: {user_uid}');
-                setTimeout(function() {{
-                    window.location.href = '/profile';
-                }}, 2000);
-            </script>
-        </body>
-        </html>
-        """
 
 
 __all__ = ["AuthComponents"]
