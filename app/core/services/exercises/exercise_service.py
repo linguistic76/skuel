@@ -558,6 +558,13 @@ class ExerciseService(BaseService):
             )
         return result
 
+    @with_error_handling("get_exercise_for_submission", error_type="database")
+    async def get_exercise_for_submission(
+        self, submission_uid: str
+    ) -> Result[dict[str, Any] | None]:
+        """Get the exercise that a submission fulfills via FULFILLS_EXERCISE relationship."""
+        return await self.backend.get_exercise_for_submission(submission_uid)
+
     @with_error_handling("get_exercises_for_curriculum", error_type="database")
     async def get_exercises_for_curriculum(
         self, curriculum_uid: str

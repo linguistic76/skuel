@@ -113,6 +113,7 @@ if TYPE_CHECKING:
     from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
         AdaptiveLpCrossDomainService,
     )
+    from core.services.admin_stats_service import AdminStatsService
     from core.services.analytics_service import AnalyticsService
     from core.services.article_service import ArticleService
     from core.services.askesis_ai_service import AskesisAIService
@@ -293,6 +294,9 @@ class Services:
     )
     system_service: SystemServiceOperations | None = (
         None  # SystemService - health checks and system monitoring
+    )
+    admin_stats: "AdminStatsService | None" = (
+        None  # AdminStatsService - cross-domain admin dashboard statistics
     )
     visualization: VisualizationOperations | None = (
         None  # VisualizationService - Chart.js/Vis.js/Gantt adapters
@@ -1622,6 +1626,9 @@ async def compose_services(
         system_service = SystemService()
         logger.info("✅ System service created (health checks enabled)")
 
+        # AdminStatsService: cross-domain stats for admin dashboard
+        from core.services.admin_stats_service import AdminStatsService
+
         # Create visualization service (Chart.js/Vis.js/Gantt adapters)
         from core.services.visualization_service import VisualizationService
 
@@ -2512,6 +2519,7 @@ async def compose_services(
             unified_ingestion=unified_ingestion,  # ADR-014: Merged MD + YAML ingestion
             calendar=calendar_service,
             system_service=system_service,
+            admin_stats=AdminStatsService(query_executor=query_executor),
             visualization=visualization_service,  # Chart.js/Vis.js/Gantt adapters
             transcription=core_services["transcription"],
             # User management

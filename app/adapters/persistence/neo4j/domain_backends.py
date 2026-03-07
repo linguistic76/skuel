@@ -1024,6 +1024,32 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             return Result.fail(result.expect_error())
         return Result.ok([dict(record) for record in (result.value or [])])
 
+    async def get_exercise_for_submission(
+        self, submission_uid: str
+    ) -> Result[dict[str, Any] | None]:
+        """Get the exercise that a submission fulfills via FULFILLS_EXERCISE relationship.
+
+        Args:
+            submission_uid: Submission UID
+
+        Returns:
+            Result containing exercise summary dict or None if not linked
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (s:Entity {{uid: $uid}})-[:{RelationshipName.FULFILLS_EXERCISE}]->(ex:Entity:Exercise)
+            RETURN ex.uid AS exercise_uid, ex.title AS exercise_title
+            LIMIT 1
+            """,
+            {"uid": submission_uid},
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        records = result.value or []
+        if not records:
+            return Result.ok(None)
+        return Result.ok(dict(records[0]))
+
 
 class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
     """

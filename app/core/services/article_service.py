@@ -94,6 +94,10 @@ class ArticleService:
     async def get_user_mastery(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.get_user_mastery(*args, **kwargs)
 
+    async def get_all_user_knowledge_status(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all knowledge entities with per-user VIEWED/BOOKMARKED/MASTERED status."""
+        return await self.mastery.get_all_user_knowledge_status(user_uid)
+
     async def get_chunks(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.core.get_chunks(*args, **kwargs)
 

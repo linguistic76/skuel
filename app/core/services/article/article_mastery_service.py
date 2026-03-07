@@ -583,3 +583,39 @@ class ArticleMasteryService:
 
         self.logger.debug(f"Retrieved {len(ku_uids)} bookmarked KUs for {user_uid}")
         return Result.ok(ku_uids)
+
+    async def get_all_user_knowledge_status(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all knowledge entities with per-user VIEWED/BOOKMARKED/MASTERED status.
+
+        Used by the knowledge discovery UI to show user's interaction history.
+
+        Args:
+            user_uid: User UID
+
+        Returns:
+            Result containing list of dicts with keys:
+                uid, title, domain, viewed, bookmarked, mastered
+        """
+        if not self.backend:
+            return Result.fail(Errors.system("Backend required", service="ArticleMasteryService"))
+
+        query = """
+        MATCH (ku:Entity)
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[v:VIEWED]->(ku)
+        OPTIONAL MATCH (u2:User {uid: $user_uid})-[b:BOOKMARKED]->(ku)
+        OPTIONAL MATCH (u3:User {uid: $user_uid})-[m:MASTERED]->(ku)
+        RETURN ku.uid AS uid, ku.title AS title, ku.domain AS domain,
+               v IS NOT NULL AS viewed,
+               b IS NOT NULL AS bookmarked,
+               m IS NOT NULL AS mastered
+        ORDER BY ku.title ASC, ku.uid ASC
+        """
+
+        result = await self.backend.execute_query(query, {"user_uid": user_uid})
+
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        records = [dict(r) for r in (result.value or [])]
+        self.logger.debug(f"Retrieved knowledge status for {len(records)} entities for {user_uid}")
+        return Result.ok(records)

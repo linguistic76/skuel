@@ -1585,20 +1585,12 @@ def create_submissions_ui_routes(
             if not _exercises_service:
                 return Div(id="exercise-link")
 
-            # Query the FULFILLS_EXERCISE relationship
-            result = await _exercises_service.backend.execute_query(
-                """
-                MATCH (s:Entity {uid: $uid})-[:FULFILLS_EXERCISE]->(ex:Entity:Exercise)
-                RETURN ex.uid AS exercise_uid, ex.title AS exercise_title
-                LIMIT 1
-                """,
-                {"uid": uid},
-            )
+            result = await _exercises_service.get_exercise_for_submission(uid)
 
             if result.is_error or not result.value:
                 return Div(id="exercise-link")
 
-            record = result.value[0]
+            record = result.value
             ex_title = record.get("exercise_title", "Exercise")
 
             return Div(

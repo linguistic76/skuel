@@ -1004,27 +1004,14 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         """
         from fasthtml.common import H2, H4, A, Div, P, Span
 
-        # Query all KUs with user's relationship status
+        # Query all KUs with user's relationship status via ArticleService
         all_kus: list[dict] = []
-        if services.neo4j_driver:
-            try:
-                records, _, _ = await services.neo4j_driver.execute_query(
-                    """
-                    MATCH (ku:Entity)
-                    OPTIONAL MATCH (u:User {uid: $user_uid})-[v:VIEWED]->(ku)
-                    OPTIONAL MATCH (u2:User {uid: $user_uid})-[b:BOOKMARKED]->(ku)
-                    OPTIONAL MATCH (u3:User {uid: $user_uid})-[m:MASTERED]->(ku)
-                    RETURN ku.uid AS uid, ku.title AS title, ku.domain AS domain,
-                           v IS NOT NULL AS viewed,
-                           b IS NOT NULL AS bookmarked,
-                           m IS NOT NULL AS mastered
-                    ORDER BY ku.title ASC, ku.uid ASC
-                    """,
-                    user_uid=user_uid,
-                )
-                all_kus = [dict(r) for r in records]
-            except Exception as e:
-                logger.warning(f"Failed to fetch KUs: {e}")
+        if services.article:
+            result = await services.article.get_all_user_knowledge_status(user_uid)
+            if result.is_error:
+                logger.warning(f"Failed to fetch KUs: {result.expect_error()}")
+            else:
+                all_kus = result.value or []
 
         # Build KU cards
         def entity_card(ku: dict) -> Any:
