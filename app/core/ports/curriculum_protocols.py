@@ -1131,8 +1131,15 @@ class RevisedExerciseOperations(Protocol):
         """List revised exercises owned by a teacher."""
         ...
 
-    async def list_for_student(self, student_uid: str) -> Result[list[Any]]:
-        """List revised exercises targeting a student."""
+    async def list_for_student(
+        self, student_uid: str, teacher_uid: str | None = None
+    ) -> Result[list[Any]]:
+        """List revised exercises targeting a student.
+
+        Args:
+            student_uid: The student whose revisions to list.
+            teacher_uid: If provided, scope to revisions owned by this teacher.
+        """
         ...
 
     async def get_revision_chain(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:

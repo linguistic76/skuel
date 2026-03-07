@@ -98,13 +98,16 @@ def create_revised_exercises_api_routes(
     async def list_for_student(
         request: Request, current_user: Any = None
     ) -> Result[Any]:
-        """List revised exercises targeting a specific student."""
+        """List revised exercises targeting a specific student (scoped to requesting teacher)."""
+        teacher_uid = require_authenticated_user(request)
         student_uid = request.query_params.get("student_uid")
         if not student_uid:
             return Result.fail(
                 Errors.validation("student_uid is required", field="student_uid")
             )
-        return await revised_exercise_service.list_for_student(student_uid)
+        return await revised_exercise_service.list_for_student(
+            student_uid, teacher_uid=teacher_uid
+        )
 
     @rt("/api/revised-exercises/chain", methods=["GET"])
     @require_teacher(get_user_service_instance)

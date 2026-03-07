@@ -65,6 +65,48 @@ class RevisedExerciseService(BaseService):
     # CREATE
     # ========================================================================
 
+    @with_error_handling("verify_teacher_authority", error_type="database")
+    async def _verify_teacher_authority(
+        self,
+        teacher_uid: str,
+        feedback_uid: str,
+        student_uid: str,
+    ) -> Result[bool]:
+        """Verify the teacher has review authority over the feedback.
+
+        Checks the graph path:
+        - (Feedback)-[:FEEDBACK_FOR]->(Submission) exists
+        - (Teacher)-[:SHARES_WITH {role:'teacher'}]->(Submission)
+        - (Student)-[:OWNS]->(Submission)
+        """
+        result = await self.backend.execute_query(
+            """
+            MATCH (fb:Entity {uid: $feedback_uid})-[:FEEDBACK_FOR]->(submission:Entity)
+            MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(submission)
+            MATCH (student:User {uid: $student_uid})-[:OWNS]->(submission)
+            RETURN submission.uid AS submission_uid
+            """,
+            {
+                "feedback_uid": feedback_uid,
+                "teacher_uid": teacher_uid,
+                "student_uid": student_uid,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        records = result.value or []
+        if not records:
+            return Result.fail(
+                Errors.validation(
+                    "Teacher does not have review authority over this feedback. "
+                    "The feedback must be linked to a submission that is shared "
+                    "with the teacher and owned by the specified student.",
+                    field="feedback_uid",
+                )
+            )
+        return Result.ok(True)
+
     @with_error_handling("create_revised_exercise", error_type="database")
     async def create_revised_exercise(
         self,
@@ -87,6 +129,10 @@ class RevisedExerciseService(BaseService):
         - RESPONDS_TO_FEEDBACK (revised_exercise → feedback)
         - REVISES_EXERCISE (revised_exercise → original exercise)
 
+        Access control: Verifies the teacher has SHARES_WITH {role:'teacher'}
+        on the submission linked to the feedback, and the student_uid owns
+        that submission.
+
         Args:
             teacher_uid: Teacher who creates this revision
             original_exercise_uid: UID of the original Exercise
@@ -102,6 +148,13 @@ class RevisedExerciseService(BaseService):
         Returns:
             Result[RevisedExercise] - The created revised exercise
         """
+        # Verify teacher has review authority over this feedback/student
+        auth_result = await self._verify_teacher_authority(
+            teacher_uid, feedback_uid, student_uid
+        )
+        if auth_result.is_error:
+            return Result.fail(auth_result.expect_error())
+
         # Determine revision number from existing chain
         chain_result = await self.backend.get_revision_chain(original_exercise_uid)
         revision_number = 1
@@ -225,16 +278,33 @@ class RevisedExerciseService(BaseService):
         return Result.ok(exercises)
 
     @with_error_handling("list_for_student", error_type="database")
-    async def list_for_student(self, student_uid: str) -> Result[list[RevisedExercise]]:
-        """List all revised exercises targeting a specific student."""
-        result = await self.backend.execute_query(
+    async def list_for_student(
+        self, student_uid: str, teacher_uid: str | None = None
+    ) -> Result[list[RevisedExercise]]:
+        """List revised exercises targeting a specific student.
+
+        Args:
+            student_uid: The student whose revisions to list.
+            teacher_uid: If provided, only return revisions owned by this teacher.
+                Used by teacher-facing routes to prevent cross-teacher leakage.
+                Omitted for student-facing routes (students see all their own revisions).
+        """
+        if teacher_uid:
+            query = f"""
+            MATCH (u:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(re:RevisedExercise {{student_uid: $student_uid}})
+            RETURN re
+            ORDER BY re.created_at DESC
             """
+            params = {"student_uid": student_uid, "teacher_uid": teacher_uid}
+        else:
+            query = """
             MATCH (re:RevisedExercise {student_uid: $student_uid})
             RETURN re
             ORDER BY re.created_at DESC
-            """,
-            {"student_uid": student_uid},
-        )
+            """
+            params = {"student_uid": student_uid}
+
+        result = await self.backend.execute_query(query, params)
         if result.is_error:
             return Result.fail(result.expect_error())
 
