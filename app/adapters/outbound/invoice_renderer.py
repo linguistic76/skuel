@@ -277,7 +277,8 @@ def render_invoice_pdf(invoice: InvoicePure) -> bytes:
 
     from weasyprint import HTML  # type: ignore[import-untyped]
 
-    return HTML(string=html_content).write_pdf()
+    pdf: bytes = HTML(string=html_content).write_pdf()  # type: ignore[assignment]
+    return pdf
 
 
 __all__ = ["render_invoice_html", "render_invoice_pdf"]

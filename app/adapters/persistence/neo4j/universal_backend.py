@@ -114,7 +114,7 @@ from adapters.persistence.neo4j._user_entity_mixin import _UserEntityMixin
 logger = get_logger(__name__)
 
 
-class UniversalNeo4jBackend[T: DomainModelProtocol](
+class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mixin MRO overrides are intentional
     _CrudMixin[T],
     _SearchMixin[T],
     _RelationshipQueryMixin[T],

@@ -15,9 +15,12 @@ See: /docs/patterns/ERROR_HANDLING.md
 import logging
 from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import Any
+from typing import Any, ParamSpec, TypeVar
 
 from core.utils.result_simplified import Errors, Result
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +30,9 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 
-def exception_to_result(func: Callable) -> Callable:
+def exception_to_result(
+    func: Callable[_P, Awaitable[_R]],
+) -> Callable[_P, Awaitable[_R]]:
     """
     Decorator that catches exceptions and converts them to Result.fail().
     Used internally in services to ensure all operations return Results.
@@ -40,18 +45,18 @@ def exception_to_result(func: Callable) -> Callable:
     """
 
     @wraps(func)
-    async def wrapper(*args: Any, **kwargs: Any) -> Result[Any]:
+    async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
         try:
             result = await func(*args, **kwargs)
             # Ensure we return a Result
             if not isinstance(result, Result):
-                return Result.ok(result)
+                return Result.ok(result)  # type: ignore[return-value]
             return result
         except Exception as e:
             logger.error(f"Exception in {func.__name__}: {e}")
-            return Result.fail(Errors.system(message=f"Exception in {func.__name__}", exception=e))
+            return Result.fail(Errors.system(message=f"Exception in {func.__name__}", exception=e))  # type: ignore[return-value]
 
-    return wrapper
+    return wrapper  # type: ignore[return-value]
 
 
 def chain_results(*operations: Callable[..., Awaitable[Result[Any]]]) -> Callable:
@@ -90,7 +95,9 @@ def chain_results(*operations: Callable[..., Awaitable[Result[Any]]]) -> Callabl
 # ============================================================================
 
 
-def safe_backend_operation(operation_name: str) -> Callable[[Callable], Callable]:
+def safe_backend_operation(
+    operation_name: str,
+) -> Callable[[Callable[_P, Awaitable[_R]]], Callable[_P, Awaitable[_R]]]:
     """
     Decorator for backend operations that ensures they return Results.
     Catches database exceptions and converts them to Result.fail().
@@ -103,14 +110,14 @@ def safe_backend_operation(operation_name: str) -> Callable[[Callable], Callable
             return self._deserialize(record)
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[_P, Awaitable[_R]]) -> Callable[_P, Awaitable[_R]]:
         @wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Result:
+        async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
             try:
                 result = await func(*args, **kwargs)
                 # Wrap non-Result returns
                 if not isinstance(result, Result):
-                    return Result.ok(result)
+                    return Result.ok(result)  # type: ignore[return-value]
                 return result
 
             except Exception as e:
@@ -119,9 +126,9 @@ def safe_backend_operation(operation_name: str) -> Callable[[Callable], Callable
                 from core.utils.result_simplified import Errors
 
                 error = Errors.database(operation=operation_name, message=str(e))
-                return Result.fail(error)
+                return Result.fail(error)  # type: ignore[return-value]
 
-        return wrapper
+        return wrapper  # type: ignore[return-value]
 
     return decorator
 
