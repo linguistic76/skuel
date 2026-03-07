@@ -91,12 +91,12 @@ The user management section (`/admin/users`) provides:
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                      SERVICE LAYER                                       │
 │                                                                          │
-│   UserService          SystemService         Neo4j Driver (Direct)       │
-│   ├─ list_users()      ├─ get_health_status()  ├─ User detail stats     │
-│   ├─ get_user()        └─ get_health_summary() ├─ Users list + counts   │
-│   ├─ update_role()                             ├─ KU system metrics     │
-│   ├─ deactivate_user()                         ├─ User KU progress      │
-│   └─ activate_user()                           └─ User KU detail        │
+│   UserService          SystemService         AdminStatsService            │
+│   ├─ list_users()      ├─ get_health_status()  ├─ get_user_detail_stats()│
+│   ├─ get_user()        └─ get_health_summary() ├─ get_users_with_activity_counts()│
+│   ├─ update_role()                             ├─ get_entity_system_metrics()│
+│   ├─ deactivate_user()                         ├─ get_all_users_progress()│
+│   └─ activate_user()                           └─ get_user_ku_detail()   │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -215,19 +215,22 @@ KU learning progression monitoring:
 | `render_user_ku_summary(summary)` | Individual user KU summary cards |
 | `render_user_ku_detail_list(ku_list)` | Per-KU detail table for a user (status, views, time spent) |
 
-**Cypher Helpers** (in `admin_dashboard_ui.py`):
+**AdminStatsService** (`core/services/admin_stats_service.py`):
 
-| Function | Purpose |
-|----------|---------|
-| `_get_user_detail_stats(services, uid)` | 14-field user stats: activity counts, learning, sessions |
-| `_get_users_with_activity_counts(services, role, active)` | All users with task/goal/habit/KU counts for list table |
-| `_get_entity_system_metrics(services)` | Aggregate KU counts, VIEWED/IN_PROGRESS/MASTERED totals |
-| `_get_all_users_progress(services)` | Per-user KU progress (mastered, in_progress, viewed counts) |
-| `_get_user_detail(services, uid)` | Detailed KU list for a user with relationship data |
+Cross-domain aggregation queries, injected with `QueryExecutor`. Registered on `Services` dataclass as `services.admin_stats`.
 
-**`_get_user_detail_stats` returns:**
+| Method | Purpose |
+|--------|---------|
+| `get_user_detail_stats(user_uid)` | 14-field user stats: activity counts, learning, sessions |
+| `get_users_with_activity_counts(role_filter, active_only)` | All users with task/goal/habit/KU counts for list table |
+| `get_entity_system_metrics()` | Aggregate KU counts, VIEWED/IN_PROGRESS/MASTERED totals |
+| `get_all_users_progress()` | Per-user KU progress (mastered, in_progress, viewed counts) |
+| `get_user_ku_detail(user_uid)` | Detailed KU list for a user with relationship data |
+
+**`get_user_detail_stats` returns:**
 
 ```python
+Result[dict[str, int]]  # Keys:
 {
     "tasks_total": 0, "tasks_completed": 0,       # OWNS → Task
     "goals_total": 0, "goals_active": 0,           # OWNS → Goal
@@ -242,7 +245,7 @@ KU learning progression monitoring:
 }
 ```
 
-All helpers use pure Cypher via `services.neo4j_driver.execute_query()` (no APOC — SKUEL001 compliant). Each returns graceful defaults (`{}` or `[]`) on error.
+All methods use pure Cypher via `QueryExecutor` (no APOC — SKUEL001 compliant). Each returns `Result[T]` with proper error propagation.
 
 ### AdminSystemComponents
 
@@ -390,7 +393,7 @@ The dashboard uses HTMX for dynamic updates without full page reloads:
 1. Admin navigates to /admin/users/{uid}
    │
    ├─ UserService.get_user(uid) → user identity
-   ├─ _get_user_detail_stats(services, uid) → 14-field stats dict
+   ├─ services.admin_stats.get_user_detail_stats(uid) → Result[dict]
    │     └─ Single Cypher query with incremental WITHs:
    │        OWNS → Task/Goal/Habit/Event/Choice/Principle (counts)
    │        VIEWED/IN_PROGRESS/MASTERED → Ku (learning)
@@ -406,13 +409,13 @@ The dashboard uses HTMX for dynamic updates without full page reloads:
    └─ Session Activity section (2 stat cards)
 ```
 
-**Design decision: Direct Cypher vs UserContext**
+**Design decision: AdminStatsService vs UserContext**
 
-The admin user detail page uses direct Neo4j queries rather than `UserContext` because:
+The admin user detail page uses `AdminStatsService` (cross-domain aggregation queries) rather than `UserContext` because:
 - **UserContext** is designed for the logged-in user's intelligence ("What should I work on?")
 - **Admin inspection** needs simple counts ("What has this user done?")
-- Direct queries are lighter (14 fields vs ~240 in UserContext)
-- Follows the existing Learning Dashboard pattern (`_get_entity_system_metrics`, etc.)
+- Dedicated queries are lighter (14 fields vs ~240 in UserContext)
+- Queries span User, Activity, Learning, and Session nodes — no single domain backend covers them
 
 ---
 

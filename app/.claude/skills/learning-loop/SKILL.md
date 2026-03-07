@@ -161,6 +161,7 @@ services.exercises.core           # CRUD; ExerciseBackend for Cypher
 await backend.link_to_curriculum(exercise_uid, ku_uid)      # REQUIRES_KNOWLEDGE
 await backend.unlink_from_curriculum(exercise_uid, ku_uid)  # DELETE relationship
 await backend.get_required_knowledge(exercise_uid)          # list KUs required
+await backend.get_exercise_for_submission(submission_uid)   # FULFILLS_EXERCISE lookup
 ```
 
 **Graph pattern:**
@@ -490,7 +491,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | Phase | Service | Protocol | Backend | Key Methods |
 |-------|---------|----------|---------|-------------|
 | **Ku** | `KuService` | `KuOperations` | `KuBackend` | `organize`, `get_subkus`, CRUD |
-| **Exercise** | `ExerciseService` | `ExerciseOperations` | `ExerciseBackend` | `link_to_curriculum`, `get_student_exercises`, `get_student_exercises_with_status`, CRUD |
+| **Exercise** | `ExerciseService` | `ExerciseOperations` | `ExerciseBackend` | `link_to_curriculum`, `get_exercise_for_submission`, `get_student_exercises`, `get_student_exercises_with_status`, CRUD |
 | **RevisedExercise** | `RevisedExerciseService` | `RevisedExerciseOperations` | `RevisedExerciseBackend` | CRUD, `list_for_teacher`, `list_for_student`, `get_revision_chain` |
 | **Submission** | `SubmissionsService` | `SubmissionOperations` | `SubmissionsBackend` | `submit_file`, `check_access`, share methods |
 | **Submission processing** | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | `SubmissionsBackend` | Processing pipeline |
