@@ -420,9 +420,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             records = [record async for record in result]
 
             # Convert to list of dicts (empty dict if None)
-            metadata_list = [
-                dict(record["props"]) if record["props"] else {} for record in records
-            ]
+            metadata_list = [dict(record["props"]) if record["props"] else {} for record in records]
 
             self.logger.debug(
                 f"Fetched metadata for {len(metadata_list)} relationships ({len(relationships)} requested)"

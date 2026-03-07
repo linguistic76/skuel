@@ -95,9 +95,7 @@ class GraphAuthService:
 
             password_error = validate_password(password)
             if password_error:
-                return Result.fail(
-                    Errors.validation(message=password_error, field="password")
-                )
+                return Result.fail(Errors.validation(message=password_error, field="password"))
 
             if not username or len(username) < 3:
                 return Result.fail(
@@ -447,9 +445,7 @@ class GraphAuthService:
             # Validate new password
             password_error = validate_password(new_password)
             if password_error:
-                return Result.fail(
-                    Errors.validation(message=password_error, field="new_password")
-                )
+                return Result.fail(Errors.validation(message=password_error, field="new_password"))
 
             # Get user
             user_result = await self.user_backend.get_user_by_uid(user_uid)
@@ -594,9 +590,7 @@ class GraphAuthService:
             # Validate new password
             password_error = validate_password(new_password)
             if password_error:
-                return Result.fail(
-                    Errors.validation(message=password_error, field="new_password")
-                )
+                return Result.fail(Errors.validation(message=password_error, field="new_password"))
 
             # Get token
             token_result = await self.session_backend.get_reset_token(token_value)

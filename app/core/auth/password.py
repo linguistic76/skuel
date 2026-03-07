@@ -101,4 +101,10 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-__all__ = ["BCRYPT_ROUNDS", "MIN_PASSWORD_LENGTH", "hash_password", "validate_password", "verify_password"]
+__all__ = [
+    "BCRYPT_ROUNDS",
+    "MIN_PASSWORD_LENGTH",
+    "hash_password",
+    "validate_password",
+    "verify_password",
+]

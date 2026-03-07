@@ -407,9 +407,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             )
             await result.single()
 
-        self.logger.debug(
-            f"Created relationship: {from_uid} --[{relationship_type}]-> {to_uid}"
-        )
+        self.logger.debug(f"Created relationship: {from_uid} --[{relationship_type}]-> {to_uid}")
         return Result.ok(True)
 
     @safe_backend_operation("delete_relationship")
