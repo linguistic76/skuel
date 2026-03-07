@@ -58,6 +58,7 @@ def make_context(
     ctx.latest_activity_report_period = None
     ctx.entities_rich = {}
     ctx.unsubmitted_exercises = unsubmitted_exercises or []
+    ctx.pending_revised_exercises = []
     return ctx
 
 

@@ -11,6 +11,7 @@ This is the core value proposition: "What should I work on next?"
 - Activity Domains (6): tasks, habits, goals, events, choices, principles
 - Curriculum Domains (3): ku, ls, lp
 - Submissions Domain (1): context.unsubmitted_exercises — Priority 2.5
+- Revised Exercises (1): context.pending_revised_exercises — Priority 2.3
 """
 
 from __future__ import annotations
@@ -141,6 +142,31 @@ class DailyPlanningMixin:
             for contextual_event in events_result.value:
                 events_uids.append(contextual_event.uid)
                 estimated_time += 30  # ~30 min per event
+
+        # =====================================================================
+        # PRIORITY 2.3: Pending revised exercises (teacher-created revisions)
+        # Higher priority than regular exercises — teacher wrote targeted feedback.
+        # =====================================================================
+        if self.context.pending_revised_exercises:
+            for rev_dict in self.context.pending_revised_exercises[:3]:
+                est_time = 45  # ~45 min to address a revision (shorter than fresh exercise)
+                if not respect_capacity or estimated_time + est_time <= available_time:
+                    contextual_ex = ContextualExercise(
+                        uid=rev_dict["uid"],
+                        title=rev_dict.get("title", "Revision"),
+                        due_date=None,  # Revised exercises don't have due dates
+                        is_overdue=False,
+                        days_until_due=None,
+                    )
+                    exercises_uids.append(rev_dict["uid"])
+                    contextual_exercises_list.append(contextual_ex)
+                    estimated_time += est_time
+
+            if len(self.context.pending_revised_exercises) > 0:
+                count = len(self.context.pending_revised_exercises)
+                warnings_list.append(
+                    f"{count} pending revision{'s' if count > 1 else ''} from teacher feedback"
+                )
 
         # =====================================================================
         # PRIORITY 2.5: Unsubmitted exercises (from UserContext — no extra query)
@@ -336,14 +362,20 @@ class DailyPlanningMixin:
             priorities.append(f"Attend {len(plan.events)} scheduled events")
 
         if plan.exercises:
+            revision_count = len(self.context.pending_revised_exercises)
             overdue_ex = [e for e in plan.contextual_exercises if e.is_overdue]
+            if revision_count > 0:
+                priorities.append(
+                    f"Address {revision_count} pending revision{'s' if revision_count > 1 else ''} from teacher feedback"
+                )
             if overdue_ex:
                 priorities.append(
                     f"Submit {len(overdue_ex)} overdue exercise{'s' if len(overdue_ex) > 1 else ''} (teacher assignment)"
                 )
-            else:
+            remaining = len(plan.exercises) - revision_count - len(overdue_ex)
+            if remaining > 0:
                 priorities.append(
-                    f"Complete {len(plan.exercises)} exercise submission{'s' if len(plan.exercises) > 1 else ''}"
+                    f"Complete {remaining} exercise submission{'s' if remaining > 1 else ''}"
                 )
 
         if any("overdue" in w.lower() for w in plan.warnings):
@@ -378,7 +410,10 @@ class DailyPlanningMixin:
 
         # Exercise focus
         if plan.exercises:
-            rationale_parts.append("Teacher assignment submissions due")
+            if self.context.pending_revised_exercises:
+                rationale_parts.append("Teacher revision feedback to address")
+            else:
+                rationale_parts.append("Teacher assignment submissions due")
 
         # Task focus
         if plan.tasks:

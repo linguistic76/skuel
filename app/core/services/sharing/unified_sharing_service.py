@@ -36,7 +36,9 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.services.sharing")
 
 # Entity types that can be shared while active (not just completed)
-_ACTIVITY_ENTITY_TYPES = frozenset({"task", "goal", "habit", "event", "choice", "principle"})
+_ACTIVITY_ENTITY_TYPES = frozenset({
+    "task", "goal", "habit", "event", "choice", "principle", "revised_exercise",
+})
 
 
 class UnifiedSharingService:

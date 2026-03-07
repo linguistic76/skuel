@@ -354,6 +354,9 @@ class UserContext:
     unsubmitted_exercises: list[dict[str, Any]] = field(
         default_factory=list
     )  # Up to 5: {uid, title, due_date}, due_date ASC
+    pending_revised_exercises: list[dict[str, Any]] = field(
+        default_factory=list
+    )  # Up to 5: {uid, title, instructions, revision_number, ...}
 
     # =========================================================================
     # PROGRESS AWARENESS - Unified progress tracking

@@ -105,12 +105,14 @@ class TestCreateRevisedExerciseAccessControl:
     @pytest.mark.asyncio
     async def test_allows_creation_with_authority(self, service, mock_backend):
         """Creation proceeds when teacher has review authority."""
-        # First call: authority check succeeds
-        # Second call: get_revision_chain (via backend method)
-        # Third call: OWNS relationship creation
+        # execute_query calls:
+        #   1. authority check
+        #   2. OWNS relationship
+        #   3. SHARES_WITH auto-share to student
         mock_backend.execute_query.side_effect = [
             Result.ok([{"submission_uid": "sub_123"}]),  # authority check
             Result.ok(True),  # OWNS relationship
+            Result.ok(True),  # SHARES_WITH auto-share
         ]
         mock_backend.get_revision_chain.return_value = Result.ok([])
         mock_backend.create.return_value = Result.ok(AsyncMock(uid="re_test_abc"))
@@ -127,6 +129,35 @@ class TestCreateRevisedExerciseAccessControl:
 
         assert not result.is_error
         mock_backend.create.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_auto_shares_with_student(self, service, mock_backend):
+        """RevisedExercise is auto-shared with the student via SHARES_WITH."""
+        mock_backend.execute_query.side_effect = [
+            Result.ok([{"submission_uid": "sub_123"}]),  # authority check
+            Result.ok(True),  # OWNS relationship
+            Result.ok(True),  # SHARES_WITH auto-share
+        ]
+        mock_backend.get_revision_chain.return_value = Result.ok([])
+        mock_backend.create.return_value = Result.ok(AsyncMock(uid="re_test_abc"))
+        mock_backend.link_to_feedback = AsyncMock(return_value=Result.ok(True))
+        mock_backend.link_to_exercise = AsyncMock(return_value=Result.ok(True))
+
+        await service.create_revised_exercise(
+            teacher_uid="user_teacher",
+            original_exercise_uid="ex_123",
+            feedback_uid="fb_123",
+            student_uid="user_student",
+            instructions="Please revise section 2",
+        )
+
+        # Third execute_query call is the SHARES_WITH auto-share
+        assert mock_backend.execute_query.call_count == 3
+        share_query = mock_backend.execute_query.call_args_list[2][0][0]
+        share_params = mock_backend.execute_query.call_args_list[2][0][1]
+        assert "SHARES_WITH" in share_query
+        assert "visibility" in share_query
+        assert share_params["student_uid"] == "user_student"
 
 
 class TestListForStudentScoping:

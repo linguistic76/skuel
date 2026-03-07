@@ -478,6 +478,20 @@ class UserContextPopulator:
             for ex in raw_exercises
             if ex and ex.get("uid")
         ]
+        raw_revisions = stats.get("pending_revised_exercises", [])
+        context.pending_revised_exercises = [
+            {
+                "uid": rev["uid"],
+                "title": rev.get("title", "Revision"),
+                "instructions": rev.get("instructions"),
+                "original_exercise_uid": rev.get("original_exercise_uid"),
+                "feedback_uid": rev.get("feedback_uid"),
+                "revision_number": rev.get("revision_number", 1),
+                "created_at": str(rev["created_at"]) if rev.get("created_at") else None,
+            }
+            for rev in raw_revisions
+            if rev and rev.get("uid")
+        ]
 
     def populate_cross_domain_insights(
         self, context: "UserContext", insights_raw: list[dict[str, Any]] | None

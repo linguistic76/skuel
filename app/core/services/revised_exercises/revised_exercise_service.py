@@ -214,6 +214,28 @@ class RevisedExerciseService(BaseService):
                 f"Failed to create REVISES_EXERCISE: {exercise_result.error}"
             )
 
+        # Auto-share with student so it appears in their "Shared With Me" inbox.
+        # Same pattern as assignment auto-sharing (ADR-040).
+        share_result = await self.backend.execute_query(
+            f"""
+            MATCH (student:User {{uid: $student_uid}})
+            MATCH (re:Entity {{uid: $re_uid}})
+            MERGE (student)-[r:{RelationshipName.SHARES_WITH.value}]->(re)
+            ON CREATE SET r.shared_at = $shared_at, r.role = 'student'
+            SET re.visibility = 'shared'
+            RETURN true as success
+            """,
+            {
+                "student_uid": student_uid,
+                "re_uid": uid,
+                "shared_at": datetime.now().isoformat(),
+            },
+        )
+        if share_result.is_error:
+            self.logger.warning(
+                f"Failed to auto-share with student: {share_result.error}"
+            )
+
         self.logger.info(
             f"RevisedExercise created: {uid} (revision {revision_number} "
             f"of {original_exercise_uid} for {student_uid})"

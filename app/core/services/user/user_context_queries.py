@@ -960,6 +960,39 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      assigned_exercise_count - size([x IN unsubmitted_raw WHERE x IS NOT NULL]) AS completed_exercise_count,
      [x IN unsubmitted_raw WHERE x IS NOT NULL][0..5] AS unsubmitted_exercises
 
+// REVISED EXERCISES — Pending teacher-created revisions targeting this student
+// A RevisedExercise is "pending" when the student hasn't submitted against it yet.
+OPTIONAL MATCH (re:RevisedExercise {student_uid: user.uid})
+WHERE NOT EXISTS {
+    MATCH (:Entity {user_uid: user.uid})-[:FULFILLS_EXERCISE]->(re)
+}
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids, events_rich,
+     core_principle_uids, principles_rich,
+     pending_choice_uids, choices_rich,
+     enrolled_path_uids, paths_rich,
+     steps_rich,
+     life_path_uid, life_path_designated_at, life_path_alignment_score,
+     active_moc_uids, moc_metadata,
+     latest_ar, active_insights_raw,
+     total_submission_count, total_journal_count, submissions_in_window,
+     last_submission_date,
+     feedback_received_count, feedback_in_window, pending_feedback_count,
+     assigned_exercise_count, completed_exercise_count, unsubmitted_exercises,
+     [x IN collect(CASE WHEN re IS NOT NULL THEN {
+         uid: re.uid,
+         title: coalesce(re.title, 'Revision'),
+         instructions: re.instructions,
+         original_exercise_uid: re.original_exercise_uid,
+         feedback_uid: re.feedback_uid,
+         revision_number: re.revision_number,
+         created_at: re.created_at
+     } END) WHERE x IS NOT NULL][0..5] AS pending_revised_exercises
+
 // ====================================================================
 // Return BOTH UIDs (standard context) AND rich data (rich context)
 // ====================================================================
@@ -1039,7 +1072,8 @@ RETURN {
         pending_feedback_count: pending_feedback_count,
         assigned_exercise_count: assigned_exercise_count,
         completed_exercise_count: completed_exercise_count,
-        unsubmitted_exercises: unsubmitted_exercises
+        unsubmitted_exercises: unsubmitted_exercises,
+        pending_revised_exercises: pending_revised_exercises
     }
 } as result
 """
