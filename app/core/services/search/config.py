@@ -182,6 +182,27 @@ SEARCH_FIELD_CONFIG: dict[EntityType | NonKuDomain, SearchFieldConfig] = {
         order_by="created_at",
     ),
     # =========================================================================
+    # LEARNING LOOP (3) - Exercise -> Submission -> RevisedExercise
+    # =========================================================================
+    EntityType.EXERCISE: SearchFieldConfig(
+        text_fields=("title", "instructions"),
+        array_fields=("tags",),
+        filter_fields=("status", "domain"),
+        order_by="created_at",
+    ),
+    EntityType.REVISED_EXERCISE: SearchFieldConfig(
+        text_fields=("title", "instructions"),
+        array_fields=("tags",),
+        filter_fields=("status",),
+        order_by="created_at",
+    ),
+    EntityType.SUBMISSION: SearchFieldConfig(
+        text_fields=("title", "original_filename", "processed_content"),
+        array_fields=("tags",),
+        filter_fields=("entity_type", "status"),
+        order_by="created_at",
+    ),
+    # =========================================================================
     # FINANCE DOMAIN (1) - Standalone financial tracking
     # =========================================================================
     NonKuDomain.FINANCE: SearchFieldConfig(
