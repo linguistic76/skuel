@@ -48,9 +48,7 @@ class TestVerifyTeacherAuthority:
     @pytest.mark.asyncio
     async def test_accepts_when_authority_exists(self, service, mock_backend):
         """Teacher with SHARES_WITH on submission is accepted."""
-        mock_backend.execute_query.return_value = Result.ok(
-            [{"submission_uid": "sub_123"}]
-        )
+        mock_backend.execute_query.return_value = Result.ok([{"submission_uid": "sub_123"}])
 
         result = await service._verify_teacher_authority(
             teacher_uid="user_teacher",

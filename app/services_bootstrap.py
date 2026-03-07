@@ -161,7 +161,6 @@ from core.ports import (
     # Infrastructure
     EventBusOperations,
     ExerciseOperations,
-    RevisedExerciseOperations,
     # Submission + SubmissionFeedback protocols
     FeedbackOperations,
     FinancesOperations,
@@ -179,6 +178,7 @@ from core.ports import (
     #       moved to TYPE_CHECKING block — facade services use concrete types (March 2026)
     LifePathOperations,
     QueryExecutor,
+    RevisedExerciseOperations,
     SearchOperations,
     SharingOperations,
     SubmissionOperations,

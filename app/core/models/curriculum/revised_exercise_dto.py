@@ -71,9 +71,7 @@ class RevisedExerciseDTO(UserOwnedDTO):
                 "model": self.model,
                 "context_notes": list(self.context_notes) if self.context_notes else [],
                 "feedback_points_addressed": (
-                    list(self.feedback_points_addressed)
-                    if self.feedback_points_addressed
-                    else []
+                    list(self.feedback_points_addressed) if self.feedback_points_addressed else []
                 ),
                 "revision_rationale": self.revision_rationale,
             }

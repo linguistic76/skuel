@@ -19,17 +19,11 @@ class RevisedExerciseCreateRequest(BaseModel):
         ..., description="UID of the original Exercise being revised"
     )
 
-    feedback_uid: str = Field(
-        ..., description="UID of the SubmissionFeedback this addresses"
-    )
+    feedback_uid: str = Field(..., description="UID of the SubmissionFeedback this addresses")
 
-    student_uid: str = Field(
-        ..., description="UID of the student this revision targets"
-    )
+    student_uid: str = Field(..., description="UID of the student this revision targets")
 
-    instructions: str = Field(
-        ..., min_length=1, description="Plain text revision instructions"
-    )
+    instructions: str = Field(..., min_length=1, description="Plain text revision instructions")
 
     title: str | None = Field(
         default=None,
@@ -62,9 +56,7 @@ class RevisedExerciseUpdateRequest(BaseModel):
         default=None, min_length=1, description="Updated revision instructions"
     )
 
-    title: str | None = Field(
-        default=None, max_length=200, description="Updated display title"
-    )
+    title: str | None = Field(default=None, max_length=200, description="Updated display title")
 
     model: str | None = Field(default=None, description="Updated model selection")
 
@@ -76,6 +68,4 @@ class RevisedExerciseUpdateRequest(BaseModel):
         default=None, description="Updated feedback points (replaces existing)"
     )
 
-    revision_rationale: str | None = Field(
-        default=None, description="Updated revision rationale"
-    )
+    revision_rationale: str | None = Field(default=None, description="Updated revision rationale")

@@ -14,11 +14,11 @@ Core Capabilities:
 from datetime import date, timedelta
 from typing import Any, ClassVar
 
-from core.models.enums.neo_labels import NeoLabel
 from core.constants import QueryLimit
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.submissions.submission_dto import SubmissionDTO
 from core.ports import BackendOperations
