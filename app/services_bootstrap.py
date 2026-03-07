@@ -905,9 +905,8 @@ async def compose_services(
         metrics_cache: MetricsCache for performance tracking (optional)
 
     Returns:
-        Result[tuple[Services, knowledge_backend]]: Success with wired services or failure
-        with detailed error. Returns tuple of (Services, KnowledgeUniversalBackend) for
-        GraphQL injection. SearchRouter is available via services.search_router.
+        Result[Services]: Success with wired services or failure with detailed error.
+        SearchRouter is available via services.search_router.
 
     Raises:
         ValueError: If any required dependency is missing
@@ -2685,8 +2684,7 @@ async def compose_services(
         logger.info("✅ SearchRouter created (One Path Forward)")
 
         logger.info("✅ Service composition complete")
-        # Return only (services, knowledge_backend) - search_backend is internal to SearchRouter
-        return Result.ok((services, knowledge_backend))
+        return Result.ok(services)
 
     except Exception as e:
         import traceback

@@ -189,16 +189,14 @@ class Query:
         """
         context: GraphQLContext = info.context
 
-        # GraphQL uses direct backend access for flexible querying
-        # Protocol-typed services don't expose backend operations
-        if not context.knowledge_backend:
+        if not context.services.article:
             return []
 
         # GUARDRAIL: Validate list limit
         safe_limit = validate_list_limit(limit)
 
         # Build filter based on domain
-        filters = {}
+        filters: dict[str, Any] = {}
         if domain:
             try:
                 filters["domain"] = Domain[domain.upper()]
@@ -206,13 +204,13 @@ class Query:
                 # Invalid domain, return empty
                 return []
 
-        # Get knowledge units using universal backend's find_by()
-        # NOTE: Cypher query is in repository/backend, not here (guardrail #1)
-        # GraphQL bypasses service layer for flexible backend queries
-        result = await context.knowledge_backend.find_by(limit=safe_limit, **filters)
+        # Delegate to service layer (guardrail #1: no Cypher in resolvers)
+        result = await context.services.article.core.list(limit=safe_limit, filters=filters)
 
         if result.is_error or not result.value:
             return []
+
+        entities, _count = result.value
 
         # Convert to GraphQL types
         return [
@@ -222,9 +220,9 @@ class Query:
                 summary=ku.summary or "",
                 domain=ku.domain.value,
                 tags=ku.tags or [],
-                quality_score=ku.quality_score,
+                quality_score=ku.quality_score,  # type: ignore[attr-defined]  # boundary: Entity→Article at runtime
             )
-            for ku in result.value
+            for ku in entities
         ]
 
     @strawberry.field

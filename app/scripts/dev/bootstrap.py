@@ -82,7 +82,7 @@ async def bootstrap_skuel() -> AppContainer:
         ) = await _build_infrastructure()
 
         # Step 3: Compose business services
-        services, knowledge_backend = await _compose_services(
+        services = await _compose_services(
             neo4j_adapter, event_bus, config, prometheus_metrics, metrics_cache
         )
 
@@ -90,10 +90,7 @@ async def bootstrap_skuel() -> AppContainer:
         static_dir = getattr(config.application, "static_directory", None)
         app, rt = _create_web_app(config, static_dir)
 
-        # Store neo4j driver on app state (still needed for some routes)
-        app.state.neo4j_driver = neo4j_adapter.driver
-
-        await _wire_routes(app, rt, services, knowledge_backend, config, prometheus_metrics)
+        await _wire_routes(app, rt, services, config, prometheus_metrics)
 
         container = AppContainer(
             app=app, rt=rt, services=services, config=config, prometheus_metrics=prometheus_metrics
@@ -326,7 +323,7 @@ async def _compose_services(
     config: UnifiedConfig,
     prometheus_metrics: Any,
     metrics_cache: Any,
-) -> tuple[Services, Any]:
+) -> Services:
     """
     Step 3: Compose all business services with dependency injection.
 
@@ -334,9 +331,8 @@ async def _compose_services(
     Following "Result inside, exception at boundary" pattern.
 
     Returns:
-        Tuple of (Services, KnowledgeUniversalBackend)
+        Services with all business services wired
     """
-    # Call compose_services which returns Result[tuple[Services, knowledge_backend]]
     services_result = await compose_services(
         neo4j_adapter, event_bus, config, prometheus_metrics, metrics_cache
     )
@@ -347,22 +343,20 @@ async def _compose_services(
         logger.error(f"❌ Service composition failed: {error.message}")
         raise RuntimeError(f"Failed to compose services: {error.message}") from None
 
-    # Extract successful value (tuple)
-    services, knowledge_backend = services_result.value
+    services = services_result.value
     logger.info("✅ All services composed and ready")
-    return services, knowledge_backend
+    return services
 
 
 async def _wire_routes(
     app: Any,
     rt: Any,
     services: Services,
-    knowledge_backend: Any,
     config: UnifiedConfig,
     prometheus_metrics: Any,
 ) -> None:
     """Step 4: Wire all routes with explicit service dependencies"""
-    await _wire_all_routes(app, rt, services, knowledge_backend, config, prometheus_metrics)
+    await _wire_all_routes(app, rt, services, config, prometheus_metrics)
     logger.info("✅ Routes wired with explicit dependencies")
 
 
@@ -461,7 +455,6 @@ async def _wire_all_routes(
     app: Any,
     rt: Any,
     services: Services,
-    knowledge_backend: Any,
     _config: UnifiedConfig,
     prometheus_metrics: Any,
 ) -> None:
@@ -472,7 +465,6 @@ async def _wire_all_routes(
         app: FastHTML app
         rt: FastHTML router
         services: All business services (includes SearchRouter)
-        knowledge_backend: KnowledgeUniversalBackend for GraphQL flexible queries
         _config: Application configuration
 
     This uses the streamlined route organization with 4 consolidated files:
@@ -808,13 +800,8 @@ async def _wire_all_routes(
     # One Path Forward: GraphQL uses SearchRouter (January 2026)
     from adapters.inbound.graphql_routes import create_graphql_routes_manual
 
-    # Get driver from app state (set during bootstrap)
-    driver = app.state.neo4j_driver
-
     # SearchRouter is THE path for all search (One Path Forward)
-    create_graphql_routes_manual(
-        app, rt, services, services.search_router, driver, knowledge_backend
-    )
+    create_graphql_routes_manual(app, rt, services, services.search_router)
     logger.info("✅ GraphQL API registered at /graphql (via SearchRouter)")
 
 

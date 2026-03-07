@@ -33,12 +33,6 @@ class GraphQLContext:
     # Search router (One Path Forward, January 2026)
     search_router: Any  # SearchRouter - THE search orchestrator
 
-    # Neo4j driver (for query helpers that need direct graph access)
-    driver: Any  # Neo4j driver instance
-
-    # Knowledge backend (for flexible GraphQL queries - bypasses protocol layer)
-    knowledge_backend: Any  # KnowledgeUniversalBackend
-
     # DataLoaders (created per request for batching)
     knowledge_loader: DataLoader[str, Any]
     task_loader: DataLoader[str, Any]
@@ -166,8 +160,6 @@ async def batch_load_learning_steps(keys: list[str], context: GraphQLContext) ->
 def create_graphql_context(
     services: Services,
     search_router: Any,
-    driver: Any,
-    knowledge_backend: Any,
     user_uid: str | None = None,
 ) -> GraphQLContext:
     """
@@ -176,8 +168,6 @@ def create_graphql_context(
     Args:
         services: Bootstrapped SKUEL services
         search_router: SearchRouter for search functionality (One Path Forward)
-        driver: Neo4j driver instance (for query helpers)
-        knowledge_backend: KnowledgeUniversalBackend for flexible queries
         user_uid: Optional user ID for personalized queries
 
     Returns:
@@ -187,8 +177,6 @@ def create_graphql_context(
     context = GraphQLContext(
         services=services,
         search_router=search_router,
-        driver=driver,
-        knowledge_backend=knowledge_backend,
         knowledge_loader=None,  # type: ignore[arg-type]  # Set below
         task_loader=None,  # type: ignore[arg-type]  # Set below
         learning_path_loader=None,  # type: ignore[arg-type]  # Set below

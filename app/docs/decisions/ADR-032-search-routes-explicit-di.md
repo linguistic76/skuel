@@ -114,7 +114,7 @@ Search routes now match GraphQL routes pattern:
 | Route Type | Function Call |
 |------------|---------------|
 | **Search** | `create_search_routes(app, rt, services, services.search_router)` |
-| **GraphQL** | `create_graphql_routes_manual(app, rt, services, services.search_router, driver, knowledge_backend)` |
+| **GraphQL** | `create_graphql_routes_manual(app, rt, services, services.search_router)` |
 
 ---
 
@@ -332,12 +332,7 @@ def create_search_routes(
 create_search_routes(app, rt, services, services.search_router)
 
 # GraphQL (established pattern)
-create_graphql_routes_manual(
-    app, rt, services,
-    services.search_router,
-    driver,
-    knowledge_backend
-)
+create_graphql_routes_manual(app, rt, services, services.search_router)
 ```
 
 Both meta-services now follow the same explicit dependency injection pattern.

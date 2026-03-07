@@ -39,9 +39,7 @@ logger = get_logger(__name__)
 # Manual implementation using FastHTML routes (not FastAPI mounting)
 
 
-def create_graphql_routes_manual(
-    app: Any, rt: Any, services: Services, search_router: Any, driver: Any, knowledge_backend: Any
-) -> None:
+def create_graphql_routes_manual(app: Any, rt: Any, services: Services, search_router: Any) -> None:
     """
     Wire GraphQL routes manually (if mounting doesn't work with FastHTML).
 
@@ -50,8 +48,6 @@ def create_graphql_routes_manual(
         rt: FastHTML router
         services: Business services
         search_router: SearchRouter for search functionality (One Path Forward)
-        driver: Neo4j driver instance (for query helpers)
-        knowledge_backend: KnowledgeUniversalBackend for flexible queries
 
     This creates routes directly without mounting.
     """
@@ -140,10 +136,8 @@ def create_graphql_routes_manual(
 
         logger.info(f"GraphQL request from authenticated user: {user_uid}")
 
-        # Create authenticated context with search router, driver, and knowledge backend
-        context = create_graphql_context(
-            services, search_router, driver, knowledge_backend, user_uid=user_uid
-        )
+        # Create authenticated context with search router
+        context = create_graphql_context(services, search_router, user_uid=user_uid)
 
         # Execute query
         result = await schema.execute(
@@ -186,10 +180,8 @@ def create_graphql_routes_manual(
         # AUTHENTICATION: Require authenticated user (January 2026 hardening)
         user_uid = require_authenticated_user(request)
 
-        # Create authenticated context with search router, driver, and knowledge backend
-        context = create_graphql_context(
-            services, search_router, driver, knowledge_backend, user_uid=user_uid
-        )
+        # Create authenticated context with search router
+        context = create_graphql_context(services, search_router, user_uid=user_uid)
 
         # Execute query
         result = await schema.execute(query=query, variable_values=variables, context_value=context)
