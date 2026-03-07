@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports import BackendOperations
@@ -194,6 +194,112 @@ class FeedbackRelationshipService:
                 "with_feedback": record["with_feedback"],
                 "without_feedback": record["without_feedback"],
                 "total_feedback": record["total_feedback"],
+            }
+        )
+
+    # ========================================================================
+    # LEARNING LOOP CHAIN TRAVERSAL
+    # ========================================================================
+
+    async def get_learning_loop_chain(self, exercise_uid: str) -> Result[dict[str, Any]]:
+        """
+        Traverse the full learning loop chain from an exercise.
+
+        Teacher/admin view: "show me everything related to this exercise."
+
+        Graph pattern (mixed directions):
+            (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
+            (SubmissionFeedback)-[:FEEDBACK_FOR]->(Submission)
+            (RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionFeedback)
+            (RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)
+
+        Args:
+            exercise_uid: UID of the exercise or revised exercise
+
+        Returns:
+            Result[dict] with keys: exercise, submissions, feedback, revised_exercises
+        """
+        cypher = """
+        MATCH (ex:Entity {uid: $exercise_uid})
+        WHERE ex.entity_type IN ['exercise', 'revised_exercise']
+        OPTIONAL MATCH (sub:Entity)-[:FULFILLS_EXERCISE]->(ex)
+          WHERE sub.entity_type = 'submission'
+        OPTIONAL MATCH (fb:Entity)-[:FEEDBACK_FOR]->(sub)
+          WHERE fb.entity_type = 'submission_feedback'
+        OPTIONAL MATCH (re:Entity)-[:RESPONDS_TO_FEEDBACK]->(fb)
+          WHERE re.entity_type = 'revised_exercise'
+        RETURN ex {.uid, .title, .entity_type, .status, .created_at} AS exercise,
+               collect(DISTINCT sub {.uid, .title, .status, .created_at, .user_uid}) AS submissions,
+               collect(DISTINCT fb {.uid, .title, .processor_type, .created_at}) AS feedback,
+               collect(DISTINCT re {.uid, .title, .revision_number, .created_at}) AS revised_exercises
+        """
+        result = await self.backend.execute_query(cypher, {"exercise_uid": exercise_uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        records = result.value or []
+        if not records or records[0].get("exercise") is None:
+            return Result.fail(Errors.not_found(resource="Exercise", identifier=exercise_uid))
+
+        record = records[0]
+        return Result.ok(
+            {
+                "exercise": dict(record["exercise"]) if record["exercise"] else {},
+                "submissions": [dict(s) for s in record.get("submissions", []) if s.get("uid")],
+                "feedback": [dict(f) for f in record.get("feedback", []) if f.get("uid")],
+                "revised_exercises": [
+                    dict(r) for r in record.get("revised_exercises", []) if r.get("uid")
+                ],
+            }
+        )
+
+    async def get_submission_chain(self, submission_uid: str) -> Result[dict[str, Any]]:
+        """
+        Traverse the learning loop chain from a specific submission.
+
+        Student view: "what happened after I submitted?"
+
+        Graph pattern:
+            (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
+            (SubmissionFeedback)-[:FEEDBACK_FOR]->(Submission)
+            (RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionFeedback)
+
+        Args:
+            submission_uid: UID of the submission
+
+        Returns:
+            Result[dict] with keys: submission, exercise, feedback, revised_exercises
+        """
+        cypher = """
+        MATCH (sub:Entity {uid: $submission_uid, entity_type: 'submission'})
+        OPTIONAL MATCH (sub)-[:FULFILLS_EXERCISE]->(ex:Entity)
+          WHERE ex.entity_type IN ['exercise', 'revised_exercise']
+        OPTIONAL MATCH (fb:Entity)-[:FEEDBACK_FOR]->(sub)
+          WHERE fb.entity_type = 'submission_feedback'
+        OPTIONAL MATCH (re:Entity)-[:RESPONDS_TO_FEEDBACK]->(fb)
+          WHERE re.entity_type = 'revised_exercise'
+        RETURN sub {.uid, .title, .status, .created_at, .user_uid} AS submission,
+               ex {.uid, .title, .entity_type, .status} AS exercise,
+               collect(DISTINCT fb {.uid, .title, .processor_type, .created_at}) AS feedback,
+               collect(DISTINCT re {.uid, .title, .revision_number, .student_uid, .created_at}) AS revised_exercises
+        """
+        result = await self.backend.execute_query(cypher, {"submission_uid": submission_uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        records = result.value or []
+        if not records or records[0].get("submission") is None:
+            return Result.fail(Errors.not_found(resource="Submission", identifier=submission_uid))
+
+        record = records[0]
+        return Result.ok(
+            {
+                "submission": dict(record["submission"]) if record["submission"] else {},
+                "exercise": dict(record["exercise"]) if record.get("exercise") else None,
+                "feedback": [dict(f) for f in record.get("feedback", []) if f.get("uid")],
+                "revised_exercises": [
+                    dict(r) for r in record.get("revised_exercises", []) if r.get("uid")
+                ],
             }
         )
 

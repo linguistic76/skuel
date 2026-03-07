@@ -1,36 +1,67 @@
-# Learning Loop Cross-Domain Search (Level 3)
+# Learning Loop Cross-Domain Search
 
 *Created: 2026-03-07*
 
-## Status: Roadmap
+## Status
 
-Level 1+2 (registry wiring, search config) are complete. This doc covers Level 3: cross-loop graph traversal search.
+| Level | Description | Status |
+|-------|-------------|--------|
+| 1 | Registry wiring (EntityType, NeoLabel, RelationshipName) | Complete |
+| 2 | Search config (SearchRouter domain dispatch, `_simple_domain_search`) | Complete |
+| 3a | Graph-aware search for Exercise, RevisedExercise, Submission | Complete |
+| 3b | Learning loop chain traversal on FeedbackRelationshipService | Complete |
 
-## Cross-Loop Graph Traversal
+## Level 3a: Graph-Aware Search
 
-Given an Article UID, traverse the full learning loop chain to find related entities:
+Exercise, RevisedExercise, and Submission now use `graph_aware_faceted_search` via SearchRouter instead of falling through to `_simple_domain_search`.
+
+**Changes:**
+- Added `_graph_enrichment_patterns` ClassVar to `ExerciseService`, `RevisedExerciseService`, `SubmissionsSearchService`
+- Modified `SearchRouter._graph_aware_domain_search` to check if the service itself implements `SupportsGraphAwareSearch` (not just `.search` sub-service)
+- Added `_DOMAIN_ATTR_ALIASES` for `submissions → submissions_search` mapping
+- Expanded `_GRAPH_AWARE_DOMAINS` from 9 to 12
+
+**Graph enrichment per domain:**
+
+| Domain | Enrichment Patterns |
+|--------|-------------------|
+| Exercise | `REQUIRES_KNOWLEDGE` (outgoing), `FOR_GROUP` (outgoing), `FULFILLS_EXERCISE` (incoming) |
+| RevisedExercise | `RESPONDS_TO_FEEDBACK` (outgoing), `REVISES_EXERCISE` (outgoing), `FULFILLS_EXERCISE` (incoming) |
+| Submission | `FULFILLS_EXERCISE` (outgoing), `FEEDBACK_FOR` (incoming) |
+
+## Level 3b: Learning Loop Chain Traversal
+
+Two methods on `FeedbackRelationshipService` for multi-hop graph traversal:
+
+### `get_learning_loop_chain(exercise_uid)`
+
+Teacher/admin view: "show me everything related to this exercise."
 
 ```
-Article -[:FULFILLS_EXERCISE]-> Exercise
-Exercise -[:FEEDBACK_FOR]-> SubmissionFeedback
-SubmissionFeedback -[:RESPONDS_TO_FEEDBACK]-> RevisedExercise
-RevisedExercise -[:REVISES_EXERCISE]-> Exercise (back to loop)
+(Submission)-[:FULFILLS_EXERCISE]->(Exercise)
+(SubmissionFeedback)-[:FEEDBACK_FOR]->(Submission)
+(RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionFeedback)
 ```
 
-### Use Cases
+Returns: `{exercise, submissions, feedback, revised_exercises}`
 
-1. **Teacher view:** "Show me everything related to the photosynthesis article" -- returns the article, all exercises, student submissions, feedback, and revised exercises
-2. **Student view:** "What revised exercises exist for content I've submitted?" -- traverses from Submission back through feedback to RevisedExercise
-3. **Curriculum audit:** "Which articles have no exercises yet?" -- find Articles with no incoming FULFILLS_EXERCISE
+### `get_submission_chain(submission_uid)`
 
-### Implementation Approach
+Student view: "what happened after I submitted?"
 
-Add a `search_learning_chain(article_uid)` method to SearchRouter that:
-1. Starts from the Article node
-2. Traverses FULFILLS_EXERCISE, FEEDBACK_FOR, RESPONDS_TO_FEEDBACK, REVISES_EXERCISE
-3. Returns grouped results by entity type
+```
+(Submission)-[:FULFILLS_EXERCISE]->(Exercise)
+(SubmissionFeedback)-[:FEEDBACK_FOR]->(Submission)
+(RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionFeedback)
+```
 
-### Future: SubmissionFeedback and ActivityReport Search
+Returns: `{submission, exercise, feedback, revised_exercises}`
+
+### Protocol
+
+`FeedbackRelationshipOperations` in `core/ports/feedback_protocols.py` covers all 5 methods (3 existing + 2 new).
+
+## Future: SubmissionFeedback and ActivityReport Search
 
 These entities currently lack BaseService-based search:
 - **SubmissionFeedback**: `FeedbackService` is an LLM generator, not a BaseService. Would need a `SubmissionFeedbackSearchService` extending BaseService.

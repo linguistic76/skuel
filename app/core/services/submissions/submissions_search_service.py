@@ -12,8 +12,9 @@ Core Capabilities:
 """
 
 from datetime import date, timedelta
-from typing import Any
+from typing import Any, ClassVar
 
+from core.models.enums.neo_labels import NeoLabel
 from core.constants import QueryLimit
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
@@ -58,6 +59,19 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         search_order_by="created_at",
         category_field="entity_type",
         user_ownership_relationship=RelationshipName.OWNS,
+    )
+
+    # Graph enrichment for graph_aware_faceted_search (SearchRouter integration)
+    _graph_enrichment_patterns: ClassVar[
+        tuple[tuple[str, str, str] | tuple[str, str, str, str], ...]
+    ] = (
+        (RelationshipName.FULFILLS_EXERCISE.value, NeoLabel.ENTITY.value, "fulfills_exercise"),
+        (
+            RelationshipName.FEEDBACK_FOR.value,
+            NeoLabel.ENTITY.value,
+            "feedback_received",
+            "incoming",
+        ),
     )
 
     def __init__(self, ku_backend: BackendOperations[SubmissionEntity], event_bus=None) -> None:

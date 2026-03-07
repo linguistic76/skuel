@@ -184,7 +184,7 @@ class SearchRouter:
     """
     Routes search requests to appropriate domain services based on EntityType/NonKuDomain.
 
-    Provides a unified entry point for searching across SKUEL's 15 domains,
+    Provides a unified entry point for searching across SKUEL's 12 searchable domains,
     with automatic service discovery and result aggregation.
 
     The router uses EntityType/NonKuDomain enums for type-safe dispatch, eliminating
@@ -501,11 +501,29 @@ class SearchRouter:
             return Result.fail(Errors.database(operation="faceted_search", message=str(e)))
 
     # Domains that support graph_aware_faceted_search (January 2026 - Unified Search)
-    # Includes Activity Domains + All Curriculum Domains (KU, LS, LP)
+    # Includes Activity Domains (6) + Curriculum Domains (3) + Learning Loop (3)
     # One Path Forward: All domains use the same search pattern
     _GRAPH_AWARE_DOMAINS: frozenset[str] = frozenset(
-        {"tasks", "goals", "habits", "events", "choices", "principles", "ku", "ls", "lp"}
+        {
+            "tasks",
+            "goals",
+            "habits",
+            "events",
+            "choices",
+            "principles",
+            "ku",
+            "ls",
+            "lp",
+            "exercises",
+            "revised_exercises",
+            "submissions",
+        }
     )
+
+    # Domain string → Services attribute name (when they differ)
+    _DOMAIN_ATTR_ALIASES: dict[str, str] = {
+        "submissions": "submissions_search",
+    }
 
     async def _graph_aware_domain_search(
         self,
@@ -524,14 +542,22 @@ class SearchRouter:
 
         from core.models.search_request import SearchResponse
 
-        # Map domain to service attribute
-        service_attr = domain_str  # tasks, goals, ku, etc.
+        # Map domain to service attribute (alias support for submissions → submissions_search)
+        service_attr = self._DOMAIN_ATTR_ALIASES.get(domain_str, domain_str)
         domain_service = getattr(self.services, service_attr, None)
         if domain_service is None:
             return None
 
+        # Try facade pattern first (.search sub-service), then check service itself
         search_service = getattr(domain_service, "search", None)
-        if search_service is None or not isinstance(search_service, SupportsGraphAwareSearch):
+        if search_service is not None and not callable(search_service):
+            # Facade pattern: .search property returns sub-service
+            if not isinstance(search_service, SupportsGraphAwareSearch):
+                return None
+        elif isinstance(domain_service, SupportsGraphAwareSearch):
+            # Service itself implements graph-aware search (Exercise, Submission, etc.)
+            search_service = domain_service
+        else:
             return None
 
         self.logger.debug(f"Graph-aware domain search: {domain_str}")

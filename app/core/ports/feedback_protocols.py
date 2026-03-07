@@ -279,6 +279,23 @@ class ReviewQueueOperations(Protocol):
 
 
 @runtime_checkable
+class FeedbackRelationshipOperations(Protocol):
+    """Pure-Cypher Level 1 queries for learning loop graph traversal.
+
+    Route consumer: context intelligence, learning loop chain API
+    Implementation: FeedbackRelationshipService
+    """
+
+    async def get_pending_submissions(self, user_uid: str) -> Result[list[str]]: ...
+    async def get_unsubmitted_exercises(
+        self, user_uid: str, limit: int = 5
+    ) -> Result[list[dict[str, str | None]]]: ...
+    async def get_feedback_summary(self, user_uid: str) -> Result[dict[str, int]]: ...
+    async def get_learning_loop_chain(self, exercise_uid: str) -> Result[dict[str, Any]]: ...
+    async def get_submission_chain(self, submission_uid: str) -> Result[dict[str, Any]]: ...
+
+
+@runtime_checkable
 class TeacherReviewOperations(Protocol):
     """Teacher review workflow — Phase 4 (Feedback) of the learning loop.
 

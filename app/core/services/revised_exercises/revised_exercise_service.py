@@ -15,8 +15,9 @@ as regular Exercise submissions).
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, ClassVar
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.curriculum.revised_exercise import RevisedExercise
 from core.models.curriculum.revised_exercise_dto import RevisedExerciseDTO
 from core.models.enums.entity_enums import EntityType
@@ -46,6 +47,24 @@ class RevisedExerciseService(BaseService):
         search_fields=("title", "instructions"),
         search_order_by="created_at",
         user_ownership_relationship=RelationshipName.OWNS,
+    )
+
+    # Graph enrichment for graph_aware_faceted_search (SearchRouter integration)
+    _graph_enrichment_patterns: ClassVar[
+        tuple[tuple[str, str, str] | tuple[str, str, str, str], ...]
+    ] = (
+        (
+            RelationshipName.RESPONDS_TO_FEEDBACK.value,
+            NeoLabel.ENTITY.value,
+            "responds_to_feedback",
+        ),
+        (RelationshipName.REVISES_EXERCISE.value, NeoLabel.ENTITY.value, "revises_exercise"),
+        (
+            RelationshipName.FULFILLS_EXERCISE.value,
+            NeoLabel.ENTITY.value,
+            "submissions",
+            "incoming",
+        ),
     )
 
     def __init__(self, backend: Any, event_bus: Any | None = None) -> None:
@@ -149,9 +168,7 @@ class RevisedExerciseService(BaseService):
             Result[RevisedExercise] - The created revised exercise
         """
         # Verify teacher has review authority over this feedback/student
-        auth_result = await self._verify_teacher_authority(
-            teacher_uid, feedback_uid, student_uid
-        )
+        auth_result = await self._verify_teacher_authority(teacher_uid, feedback_uid, student_uid)
         if auth_result.is_error:
             return Result.fail(auth_result.expect_error())
 
@@ -203,16 +220,12 @@ class RevisedExerciseService(BaseService):
         # Create RESPONDS_TO_FEEDBACK relationship
         feedback_result = await self.backend.link_to_feedback(uid, feedback_uid)
         if feedback_result.is_error:
-            self.logger.warning(
-                f"Failed to create RESPONDS_TO_FEEDBACK: {feedback_result.error}"
-            )
+            self.logger.warning(f"Failed to create RESPONDS_TO_FEEDBACK: {feedback_result.error}")
 
         # Create REVISES_EXERCISE relationship
         exercise_result = await self.backend.link_to_exercise(uid, original_exercise_uid)
         if exercise_result.is_error:
-            self.logger.warning(
-                f"Failed to create REVISES_EXERCISE: {exercise_result.error}"
-            )
+            self.logger.warning(f"Failed to create REVISES_EXERCISE: {exercise_result.error}")
 
         # Auto-share with student so it appears in their "Shared With Me" inbox.
         # Same pattern as assignment auto-sharing (ADR-040).
@@ -232,9 +245,7 @@ class RevisedExerciseService(BaseService):
             },
         )
         if share_result.is_error:
-            self.logger.warning(
-                f"Failed to auto-share with student: {share_result.error}"
-            )
+            self.logger.warning(f"Failed to auto-share with student: {share_result.error}")
 
         self.logger.info(
             f"RevisedExercise created: {uid} (revision {revision_number} "
@@ -341,9 +352,7 @@ class RevisedExerciseService(BaseService):
         return Result.ok(exercises)
 
     @with_error_handling("get_revision_chain", error_type="database")
-    async def get_revision_chain(
-        self, exercise_uid: str
-    ) -> Result[list[dict[str, Any]]]:
+    async def get_revision_chain(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
         """Get all revisions in the chain for an original exercise."""
         return await self.backend.get_revision_chain(exercise_uid)
 

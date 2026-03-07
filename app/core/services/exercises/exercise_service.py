@@ -20,8 +20,9 @@ Formerly AssignmentService — renamed to Exercise for domain clarity.
 import json
 import os
 from datetime import date, datetime
-from typing import Any
+from typing import Any, ClassVar
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.curriculum.exercise import Exercise
 from core.models.curriculum.exercise_dto import ExerciseDTO
 from core.models.enums import Domain
@@ -54,6 +55,20 @@ class ExerciseService(BaseService):
         search_fields=("title", "instructions"),
         search_order_by="created_at",
         user_ownership_relationship=RelationshipName.OWNS,
+    )
+
+    # Graph enrichment for graph_aware_faceted_search (SearchRouter integration)
+    _graph_enrichment_patterns: ClassVar[
+        tuple[tuple[str, str, str] | tuple[str, str, str, str], ...]
+    ] = (
+        (RelationshipName.REQUIRES_KNOWLEDGE.value, NeoLabel.ENTITY.value, "required_knowledge"),
+        (RelationshipName.FOR_GROUP.value, NeoLabel.GROUP.value, "for_groups"),
+        (
+            RelationshipName.FULFILLS_EXERCISE.value,
+            NeoLabel.ENTITY.value,
+            "submissions",
+            "incoming",
+        ),
     )
 
     def __init__(self, backend: Any) -> None:
