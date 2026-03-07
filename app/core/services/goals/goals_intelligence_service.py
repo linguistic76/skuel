@@ -17,7 +17,7 @@ Responsibilities:
 
 import math
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from operator import attrgetter
 from typing import TYPE_CHECKING, Any
 
@@ -170,7 +170,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         return await self.get_goal_with_context(uid, depth)
 
     async def get_performance_analytics(
-        self, user_uid: str, _period_days: int = 30
+        self, user_uid: str, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """
         Get goal performance analytics for a user.
@@ -180,17 +180,16 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
 
         Args:
             user_uid: User UID
-            _period_days: Placeholder - not yet implemented. Will filter by period when added.
+            period_days: Number of days to include. Goals created or updated within
+                this window are returned. Defaults to 30.
 
         Returns:
             Result containing analytics data dict
-
-        Note: _period_days uses underscore prefix per CLAUDE.md convention to indicate
-        "API contract defined, implementation deferred". Currently calculates analytics
-        over ALL goals. Future enhancement: filter by created_at/updated_at within period.
         """
-        # TODO [FEATURE]: Filter by period_days when time-based filtering is implemented
-        goals_result = await self.backend.find_by(user_uid=user_uid)
+        cutoff = datetime.now(UTC) - timedelta(days=period_days)
+        goals_result = await self.backend.find_by(
+            user_uid=user_uid, updated_at__gte=cutoff.isoformat()
+        )
         if goals_result.is_error:
             return Result.fail(goals_result.expect_error())
 
@@ -222,7 +221,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         return Result.ok(
             {
                 "user_uid": user_uid,
-                "period_days": _period_days,
+                "period_days": period_days,
                 "total_goals": total_goals,
                 "active_goals": len(active_goals),
                 "completed_goals": len(completed_goals),

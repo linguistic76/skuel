@@ -429,7 +429,7 @@ class AnalyticsLifePathService:
         Returns:
             Dict with historical alignment scores and trend direction
         """
-        # TODO [FEATURE]: Full implementation would:
+        # TODO(blocked:graph-data): Full implementation would:
         # 1. Query historical alignment scores for this user+life_path combination
         # 2. Use user_uid and life_path_uid to filter historical snapshots
         # 3. Calculate 7-day and 30-day rolling averages

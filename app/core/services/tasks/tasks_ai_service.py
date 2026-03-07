@@ -118,7 +118,7 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
         if task.description:
             search_text += f" {task.description}"
 
-        # TODO [PERFORMANCE]: Use vector similarity or limit query instead of fetching all tasks
+        # TODO(blocked:embeddings): Use vector similarity or limit query instead of fetching all tasks
         all_tasks_result = await self.backend.find_by(user_uid=task.user_uid)
         if all_tasks_result.is_error:
             return Result.fail(all_tasks_result.expect_error())

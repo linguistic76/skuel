@@ -153,11 +153,15 @@ consistent error handling throughout the application.""",
         "title": "TODO/FIXME Comments",
         "severity": "INFO",
         "description": """Tracks TODO and FIXME comments for technical debt visibility.
-These markers indicate incomplete implementations or planned improvements.
+Categorized TODOs use parenthetical tags to indicate blocker type:
 
-This rule is informational only - it doesn't block CI but makes
-technical debt visible during code review.""",
-        "good": """# Completed implementation with no TODOs""",
+- TODO(blocked:<reason>): Waiting on external dependency (graph-data, embeddings, test-infra)
+- TODO(deferred): Deliberately postponed feature work
+- TODO(implementable): Ready to implement, no blockers
+
+Uncategorized TODOs should be tagged with one of the above categories.""",
+        "good": """# TODO(blocked:graph-data): Needs alignment snapshot nodes in Neo4j
+# TODO(deferred): Record context-aware completion data""",
         "bad": """# TODO: Implement this feature later
 # FIXME: This needs to be refactored""",
     },
@@ -1197,12 +1201,22 @@ class SkuelLinter:
         This rule is informational only - it doesn't block CI but makes
         technical debt visible during code review.
         """
-        pattern = r"#.*\b(TODO|FIXME)\b"
+        pattern = r"#.*\b(TODO|FIXME)(?:\(([^)]+)\))?"
 
         for line_num, line in enumerate(lines, start=1):
             match = re.search(pattern, line)
             if match:
                 marker = match.group(1)
+                category = match.group(2)
+                if category:
+                    message = f"{marker}({category}) - categorized debt marker"
+                    suggestion = f"Category: {category}"
+                else:
+                    message = f"{marker} comment - uncategorized debt marker"
+                    suggestion = (
+                        "Add category: TODO(blocked:<reason>), "
+                        "TODO(deferred), or TODO(implementable)"
+                    )
                 self.result.violations.append(
                     Violation(
                         file_path=rel_path,
@@ -1210,8 +1224,8 @@ class SkuelLinter:
                         column=match.start(),
                         severity=Severity.INFO,
                         rule_id="SKUEL006",
-                        message=f"{marker} comment - technical debt marker",
-                        suggestion="Resolve or document this item in issue tracker",
+                        message=message,
+                        suggestion=suggestion,
                         line_content=line.strip(),
                     )
                 )

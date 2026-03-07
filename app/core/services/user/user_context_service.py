@@ -475,7 +475,7 @@ class UserContextService:
         if complete_result.is_error:
             return Result.fail(complete_result.expect_error())
 
-        # TODO [ENHANCEMENT]: Record context-aware completion data
+        # TODO(deferred): Record context-aware completion data
         # - Update knowledge application tracking
         # - Record time investment
         # - Update learning progress

@@ -207,7 +207,7 @@ def sync_doc_cross_references(file_path: Path, dry_run: bool = True) -> DocUpdat
 
     # Check if Related Skills section already exists
     if has_related_skills_section(body):
-        # TODO: Could update existing section in future
+        # TODO(deferred): Could update existing section in future
         return DocUpdate(
             file_path=file_path,
             original_content=original_content,

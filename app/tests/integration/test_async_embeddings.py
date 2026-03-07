@@ -557,5 +557,5 @@ class TestPrincipleEmbeddingEvents:
         assert "expand knowledge and skills" in event.embedding_text
 
 
-# TODO: Add end-to-end test with real Neo4j
-# TODO: Add performance benchmarking test
+# TODO(blocked:test-infra): Add end-to-end test with real Neo4j
+# TODO(blocked:test-infra): Add performance benchmarking test
