@@ -23,9 +23,10 @@ Usage:
 Version: 2.0.0 (January 2026) - DaisyUI Migration
 """
 
+import types
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, get_args, get_origin
+from typing import Any, Union, get_args, get_origin
 
 from fasthtml.common import Div, Form, Label, Option
 from pydantic import BaseModel
@@ -45,6 +46,22 @@ from ui.buttons import Button, ButtonT
 from ui.forms import Input, InputT, Select, Textarea
 
 logger = get_logger("skuel.components.form_generator")
+
+
+def _is_union_type(origin: type | None) -> bool:
+    """Check if origin is a Union type (handles both typing.Union and PEP 604 X | Y)."""
+    return origin is Union or origin is types.UnionType
+
+
+def _unwrap_optional(annotation: type) -> type:
+    """Extract T from Optional[T] or T | None. Returns annotation unchanged if not optional."""
+    origin = get_origin(annotation)
+    if origin is not None and _is_union_type(origin):
+        args = get_args(annotation)
+        if args:
+            non_none = [a for a in args if a is not type(None)]
+            return non_none[0] if non_none else str
+    return annotation
 
 
 class FieldWidgetMapper:
@@ -73,13 +90,9 @@ class FieldWidgetMapper:
 
         # Get origin type (handles Optional, List, etc.)
         origin = get_origin(annotation)
-        if origin is not None and (origin is type(None) or str(origin) == "typing.Union"):
-            # Handle Optional[T] → extract T
-            args = get_args(annotation)
-            if args:
-                annotation = (
-                    args[0] if args[0] is not type(None) else (args[1] if len(args) > 1 else str)
-                )
+        if origin is not None and _is_union_type(origin):
+            # Handle Optional[T] / T | None → extract T
+            annotation = _unwrap_optional(annotation)
 
         # Enum → select dropdown
         if isinstance(annotation, type) and issubclass(annotation, Enum):
@@ -236,6 +249,7 @@ class FormGenerator:
         field_order: list[str] | None = None,
         custom_widgets: dict[str, Any] | None = None,
         form_attrs: dict[str, Any] | None = None,
+        values: dict[str, Any] | None = None,
     ) -> Form:
         """
         Generate form from Pydantic model introspection.
@@ -249,7 +263,8 @@ class FormGenerator:
             exclude_fields: Exclude these fields (None = exclude none),
             field_order: Custom field ordering (None = model order),
             custom_widgets: Override widgets for specific fields,
-            form_attrs: Additional form attributes (hx_*, cls, etc.)
+            form_attrs: Additional form attributes (hx_*, cls, etc.),
+            values: Pre-fill values for edit forms (field_name -> value)
 
         Returns:
             DaisyUI Form component
@@ -288,6 +303,7 @@ class FormGenerator:
         # Generate form fields
         form_fields = []
         custom_widgets = custom_widgets or {}
+        values = values or {}
 
         for field_name in field_names:
             field_info = model_fields[field_name]
@@ -298,8 +314,9 @@ class FormGenerator:
                 continue
 
             # Generate field component via introspection
+            field_value = values.get(field_name)
             field_component = FormGenerator._generate_field(
-                field_name, field_info, model_class.__annotations__[field_name]
+                field_name, field_info, model_class.__annotations__[field_name], field_value
             )
 
             form_fields.append(field_component)
@@ -328,7 +345,44 @@ class FormGenerator:
         return form
 
     @staticmethod
-    def _generate_field(field_name: str, field_info: FieldInfo, annotation: type) -> Div:
+    def from_instance(
+        model_class: type[BaseModel],
+        instance: Any,
+        action: str,
+        method: str = "POST",
+        submit_label: str = "Save",
+        **kwargs: Any,
+    ) -> Form:
+        """
+        Generate pre-filled form from an existing entity instance.
+
+        Extracts values from the instance (frozen dataclass or dict) by matching
+        field names against the Pydantic model's fields.
+
+        Args:
+            model_class: Pydantic model class to introspect
+            instance: Domain model (dataclass) or dict with current values
+            action: Form action URL
+            method: HTTP method
+            submit_label: Label for submit button
+            **kwargs: Passed through to from_model (include_fields, exclude_fields, etc.)
+        """
+        if isinstance(instance, dict):
+            values = instance
+        else:
+            values = {
+                field_name: getattr(instance, field_name, None)
+                for field_name in model_class.model_fields
+                if hasattr(instance, field_name)
+            }
+        return FormGenerator.from_model(
+            model_class, action, method, submit_label, values=values, **kwargs
+        )
+
+    @staticmethod
+    def _generate_field(
+        field_name: str, field_info: FieldInfo, annotation: type, value: Any = None
+    ) -> Div:
         """
         Generate a single form field with label and input.
 
@@ -352,7 +406,7 @@ class FormGenerator:
 
         # Build widget based on type
         widget = FormGenerator._build_widget(
-            field_name, widget_type, annotation, placeholder, constraints, is_required
+            field_name, widget_type, annotation, placeholder, constraints, is_required, value
         )
 
         # Wrap in form control div with error display
@@ -377,6 +431,7 @@ class FormGenerator:
         placeholder: str | None,
         constraints: dict[str, Any],
         is_required: bool,
+        value: Any = None,
     ) -> Any:
         """
         Build the actual input widget.
@@ -386,7 +441,24 @@ class FormGenerator:
         - textarea
         - select (for enums)
         - checkbox
+
+        When value is provided, the widget is pre-filled:
+        - text/number/date inputs: value= attribute
+        - textarea: value passed as child content
+        - select: matching Option gets selected=True
+        - checkbox: checked= attribute
         """
+        # Normalize value: extract .value from Enum instances
+        normalized_value = value.value if isinstance(value, Enum) else value
+
+        # Format date/datetime for HTML inputs
+        if (
+            normalized_value is not None
+            and widget_type in ("date", "datetime-local")
+            and hasattr(normalized_value, "isoformat")
+        ):
+            normalized_value = normalized_value.isoformat()
+
         base_attrs = {
             "name": field_name,
             "cls": "input" if widget_type != "textarea" else "textarea",
@@ -405,28 +477,34 @@ class FormGenerator:
         if widget_type == "textarea":
             base_attrs["cls"] = "textarea"
             base_attrs["rows"] = 4
+            text_value = str(normalized_value) if normalized_value else ""
+            if text_value:
+                return Textarea(text_value, **base_attrs)
             return Textarea(**base_attrs)
 
         # Select (for enums)
         if widget_type == "select":
-            # Extract enum values via introspection
-            origin = get_origin(annotation)
-            if origin is not None:
-                args = get_args(annotation)
-                if args:
-                    annotation = (
-                        args[0]
-                        if args[0] is not type(None)
-                        else (args[1] if len(args) > 1 else annotation)
-                    )
+            # Extract enum type from Optional[EnumType] / EnumType | None
+            annotation = _unwrap_optional(annotation)
 
             if isinstance(annotation, type) and issubclass(annotation, Enum):
                 # Type is known to be Enum, use .value directly (per CLAUDE.md Oct 5 update)
-                options = [Option(str(member.value), value=member.value) for member in annotation]
+                options = [
+                    Option(
+                        str(member.value),
+                        value=member.value,
+                        selected=(
+                            normalized_value is not None and member.value == normalized_value
+                        ),
+                    )
+                    for member in annotation
+                ]
 
                 # Add empty option if not required
                 if not is_required:
-                    options.insert(0, Option("-- Select --", value=""))
+                    options.insert(
+                        0, Option("-- Select --", value="", selected=(normalized_value is None))
+                    )
 
                 base_attrs["cls"] = "select"
                 return Select(*options, **base_attrs)
@@ -435,10 +513,14 @@ class FormGenerator:
         if widget_type == "checkbox":
             base_attrs["type"] = "checkbox"
             base_attrs["cls"] = "checkbox"
+            if normalized_value:
+                base_attrs["checked"] = True
             return Input(**base_attrs)
 
         # Standard inputs (text, number, date, etc.)
         base_attrs["type"] = widget_type
+        if normalized_value is not None:
+            base_attrs["value"] = str(normalized_value)
         return Input(**base_attrs)
 
 
@@ -503,6 +585,20 @@ class FormGeneratorExamples:
                 "hx_swap": "beforeend",
                 "cls": "space-y-4 p-4 bg-base-100 rounded shadow",
             },
+        )
+
+    @staticmethod
+    def edit_form_example(task: Any) -> Any:
+        """Pre-filled edit form from existing entity"""
+        from core.models.task.task_request import TaskUpdateRequest
+
+        return FormGenerator.from_instance(
+            TaskUpdateRequest,
+            task,
+            action=f"/tasks/edit-save?uid={task.uid}",
+            method="POST",
+            submit_label="Save Changes",
+            include_fields=["title", "description", "due_date", "priority", "status"],
         )
 
 
