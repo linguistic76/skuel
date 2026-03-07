@@ -149,7 +149,7 @@ core/models/{domain}/
 
 | File | Purpose |
 |------|---------|
-| `entity.py` | Base frozen dataclass — all 17 EntityType models extend this |
+| `entity.py` | Base frozen dataclass — all 18 EntityType models extend this |
 | `user_owned_entity.py` | Intermediate class adding user_uid, priority |
 | `entity_dto.py` | Base DTO mirroring Entity fields |
 | `user_owned_dto.py` | Intermediate DTO adding visibility, priority |

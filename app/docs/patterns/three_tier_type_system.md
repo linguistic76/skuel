@@ -730,7 +730,7 @@ The `total=False` makes all fields optional, matching the partial update semanti
 | `/core/models/protocols/domain_model_protocol.py` | Protocol definition |
 | `/core/models/enums/entity_enums.py` | EntityType, EntityStatus enums |
 | `/adapters/persistence/neo4j/universal_backend.py` | Generic backend with multi-label support |
-| `/adapters/persistence/neo4j/neo_label.py` | NeoLabel enum (ENTITY + 17 entity type labels) |
+| `/adapters/persistence/neo4j/neo_label.py` | NeoLabel enum (ENTITY + 18 entity type labels) |
 | `/adapters/persistence/neo4j/user_backend.py` | User backend |
 | `/core/services/base_service.py` | Base service |
 | `/core/ports/query_types.py` | TypedDict definitions |

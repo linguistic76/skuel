@@ -1,21 +1,22 @@
 ---
 name: learning-loop
 description: >
-  Expert guide for SKUEL's Four-Phased Learning Loop — the core purpose of the app.
-  Use when building or reviewing any feature involving Ku, Exercise, Submission, or Feedback.
-  TRIGGER when: working on submissions, exercises, feedback generation, activity reports,
-  teacher review, AI assessment, or when designing a new feature and asking "where does this fit?".
-  This skill provides the development lens: every new feature must either strengthen a loop phase
-  or improve the transition between phases. Features that serve no loop purpose are candidates
-  for deletion per SKUEL's One Path Forward philosophy.
+  Expert guide for SKUEL's Five-Phased Learning Loop — the core purpose of the app.
+  Use when building or reviewing any feature involving Article, Exercise, Submission, Feedback,
+  or RevisedExercise. TRIGGER when: working on submissions, exercises, feedback generation,
+  activity reports, revised exercises, teacher review, AI assessment, or when designing a new
+  feature and asking "where does this fit?". This skill provides the development lens: every
+  new feature must either strengthen a loop phase or improve the transition between phases.
+  Features that serve no loop purpose are candidates for deletion per SKUEL's One Path Forward
+  philosophy.
 allowed-tools: Read, Grep, Glob
 ---
 
-# The Four-Phased Learning Loop
+# The Five-Phased Learning Loop
 
 > "Knowledge is learned by doing, evaluated by responding, and refined by reflecting."
 
-The Four-Phased Learning Loop is the **core purpose of SKUEL**. Every feature in the
+The Five-Phased Learning Loop is the **core purpose of SKUEL**. Every feature in the
 codebase either feeds this loop, supports its infrastructure, or should be questioned.
 Understanding the loop is the prerequisite for all architectural decisions.
 
@@ -24,25 +25,30 @@ Understanding the loop is the prerequisite for all architectural decisions.
 ## The Loop at a Glance
 
 ```
-╔══════════════════════════════════════════════════════════════╗
-║              FOUR-PHASED LEARNING LOOP                       ║
-╠══════════════════════════════════════════════════════════════╣
-║                                                              ║
-║  CURRICULUM TRACK (artifact-based)                           ║
-║  ─────────────────────────────────────────────────────────   ║
-║  [Ku] ──→ [Exercise] ──→ [Submission/Journal] ──→ [Feedback] ║
-║   ↑             ↓              ↑↓                     ↓      ║
-║  admin       teacher        student               teacher/AI  ║
-║  creates     assigns     uploads/revises          assesses    ║
-║                              └──── revision cycle ────┘      ║
-║                                                              ║
-║  ACTIVITY TRACK (aggregate-based)                            ║
-║  ─────────────────────────────────────────────────────────   ║
-║  [Tasks + Goals + Habits + Events + Choices + Principles]    ║
-║                    ↓ (over time window)                      ║
-║             [Activity Report] ←── AI or Admin               ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════════════╗
+║                    FIVE-PHASED LEARNING LOOP                            ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║                                                                          ║
+║  CURRICULUM TRACK (artifact-based)                                       ║
+║  ────────────────────────────────────────────────────────────────────    ║
+║  [Article] → [Exercise] → [Submission/Journal] → [Feedback]             ║
+║   ↑             ↓              ↑↓                     ↓                  ║
+║  admin       teacher        student               teacher/AI             ║
+║  creates     assigns     uploads/revises          assesses               ║
+║                                                      ↓                   ║
+║                                              [RevisedExercise]           ║
+║                                               teacher creates            ║
+║                                              targeted revision           ║
+║                                                      ↓                   ║
+║                                              [Submission v2] → ...       ║
+║                                                                          ║
+║  ACTIVITY TRACK (aggregate-based)                                        ║
+║  ────────────────────────────────────────────────────────────────────    ║
+║  [Tasks + Goals + Habits + Events + Choices + Principles]                ║
+║                    ↓ (over time window)                                   ║
+║             [Activity Report] ←── AI or Admin                            ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
 ```
 
 **Two tracks, one loop.** Activity Domains are equal entry points — a user's lived
@@ -378,26 +384,83 @@ the same method.
 
 ---
 
+## Phase 5: RevisedExercise — The Targeted Revision
+
+**What it is:** A teacher-created revision of an Exercise that addresses specific gaps
+identified in `SubmissionFeedback`. Forces a reflection step between feedback and
+resubmission.
+
+```
+Article → Exercise v1 → Submission v1 → SubmissionFeedback v1
+                                              ↓
+                                        RevisedExercise v2 → Submission v2 → ...
+```
+
+**EntityType:** `EntityType.REVISED_EXERCISE`
+**Model:** `core/models/curriculum/revised_exercise.py` — `RevisedExercise(UserOwnedEntity)` frozen dataclass
+**DTO:** `core/models/curriculum/revised_exercise_dto.py`
+**Neo4j label:** `:Entity:RevisedExercise`
+
+**Key design:**
+- Inherits `UserOwnedEntity` (NOT Curriculum) — needs `user_uid` but not 21 Curriculum fields
+- First entity type combining `ContentOrigin.CURRICULUM` with `requires_user_uid()=True`
+- Teacher-owned, student-targeted (student visibility via `student_uid` field)
+- `revision_number` auto-determined from existing chain length
+
+**Services:**
+```python
+services.revised_exercises              # RevisedExerciseService — CRUD + chain queries
+```
+
+**Backend:**
+```python
+# RevisedExerciseBackend — domain-specific relationship Cypher
+await backend.link_to_feedback(re_uid, feedback_uid)      # RESPONDS_TO_FEEDBACK
+await backend.link_to_exercise(re_uid, exercise_uid)      # REVISES_EXERCISE
+await backend.get_revision_chain(exercise_uid)             # All revisions ordered
+```
+
+**Graph pattern:**
+```cypher
+(teacher:User)-[:OWNS]->(re:Entity:RevisedExercise {
+    original_exercise_uid: '...',
+    student_uid: '...',
+    revision_number: 2
+})
+(re)-[:RESPONDS_TO_FEEDBACK]->(feedback:Entity:SubmissionFeedback)
+(re)-[:REVISES_EXERCISE]->(exercise:Entity:Exercise)
+(submission:Entity:Submission)-[:FULFILLS_EXERCISE]->(re)  // reuses existing rel type
+```
+
+**Loop role:** RevisedExercise is the *refinement* — it bridges feedback back into a
+new exercise, closing the revision cycle explicitly rather than implicitly.
+
+---
+
 ## The Binding Graph Relationships
 
 | Relationship | Connects | Purpose |
 |---|---|---|
 | `REQUIRES_KNOWLEDGE` | `Exercise` → `Ku` | Exercise is grounded in this knowledge |
 | `FOR_GROUP` | `Exercise` → `Group` | ASSIGNED exercise targets this classroom |
-| `FULFILLS_EXERCISE` | `Submission` → `Exercise` | Student's work satisfies this exercise |
+| `FULFILLS_EXERCISE` | `Submission` → `Exercise` or `RevisedExercise` | Student's work satisfies this exercise |
 | `SHARES_WITH` | `Submission` → `User` | Auto-share to teacher for ASSIGNED exercises |
 | `FEEDBACK_FOR` | `SubmissionFeedback` → `Submission` | Feedback evaluates this specific artifact |
+| `RESPONDS_TO_FEEDBACK` | `RevisedExercise` → `SubmissionFeedback` | Revision addresses this feedback |
+| `REVISES_EXERCISE` | `RevisedExercise` → `Exercise` | Revision of this original exercise |
 
 **RelationshipName enum locations:**
 ```python
 from core.models.enums.relationship_names import RelationshipName
 
-RelationshipName.REQUIRES_KNOWLEDGE   # Exercise → Ku
-RelationshipName.FOR_GROUP            # Exercise → Group
-RelationshipName.FULFILLS_EXERCISE    # Submission → Exercise
-RelationshipName.SHARES_WITH          # Submission → User (also group sharing)
-RelationshipName.FEEDBACK_FOR         # SubmissionFeedback → Submission
-RelationshipName.SHARED_WITH_GROUP    # Submission → Group (group sharing)
+RelationshipName.REQUIRES_KNOWLEDGE      # Exercise → Ku
+RelationshipName.FOR_GROUP               # Exercise → Group
+RelationshipName.FULFILLS_EXERCISE       # Submission → Exercise (or RevisedExercise)
+RelationshipName.SHARES_WITH             # Submission → User (also group sharing)
+RelationshipName.FEEDBACK_FOR            # SubmissionFeedback → Submission
+RelationshipName.SHARED_WITH_GROUP       # Submission → Group (group sharing)
+RelationshipName.RESPONDS_TO_FEEDBACK    # RevisedExercise → SubmissionFeedback
+RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 ```
 
 ---
@@ -408,6 +471,7 @@ RelationshipName.SHARED_WITH_GROUP    # Submission → Group (group sharing)
 |-------|---------|----------|---------|-------------|
 | **Ku** | `KuService` | `KuOperations` | `KuBackend` | `organize`, `get_subkus`, CRUD |
 | **Exercise** | `ExerciseService` | `ExerciseOperations` | `ExerciseBackend` | `link_to_curriculum`, `get_student_exercises`, `get_student_exercises_with_status`, CRUD |
+| **RevisedExercise** | `RevisedExerciseService` | `RevisedExerciseOperations` | `RevisedExerciseBackend` | CRUD, `list_for_teacher`, `list_for_student`, `get_revision_chain` |
 | **Submission** | `SubmissionsService` | `SubmissionOperations` | `SubmissionsBackend` | `submit_file`, `check_access`, share methods |
 | **Submission processing** | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | `SubmissionsBackend` | Processing pipeline |
 | **Submission feedback** | `FeedbackService` + `SubmissionsCoreService` | `FeedbackOperations` | `SubmissionsBackend` | `generate_feedback`, `create_assessment` |
@@ -470,17 +534,18 @@ RelationshipName.SHARED_WITH_GROUP    # Submission → Group (group sharing)
 ### Questions to ask before building or extending
 
 1. **Which phase does this touch?**
-   - Ku (knowledge content) → Phase 1
+   - Article/Ku (knowledge content) → Phase 1
    - Exercise (assignment/template) → Phase 2
    - Submission processing → Phase 3
    - Feedback generation or display → Phase 4
+   - RevisedExercise (targeted revision) → Phase 5
    - Supporting infrastructure (sharing, groups, scheduling) → loop support
 
 2. **Does it strengthen a phase or improve a transition?**
    - Strengthens a phase: Better AI feedback, richer Ku content, cleaner submission UI
    - Improves a transition: Faster Ku→Exercise linking, auto-share on submission, annotation tools
 
-3. **If it touches none of the four phases, why does it exist?**
+3. **If it touches none of the five phases, why does it exist?**
    - Is it genuinely cross-cutting infrastructure (auth, search, calendar)?
    - Or is it isolated logic that accumulated without serving the loop?
    - Per One Path Forward: isolated logic with no loop connection is a deletion candidate.
@@ -532,6 +597,10 @@ that never closes the loop.
 |------|-------|---------|
 | `core/models/curriculum/ku.py` | 1 | Ku frozen dataclass |
 | `core/models/curriculum/exercise.py` | 2 | Exercise frozen dataclass |
+| `core/models/curriculum/revised_exercise.py` | 5 | RevisedExercise frozen dataclass |
+| `core/services/revised_exercises/revised_exercise_service.py` | 5 | RevisedExercise CRUD + chain queries |
+| `adapters/inbound/revised_exercises_api.py` | 5 | RevisedExercise API routes (teacher-only) |
+| `core/ports/curriculum_protocols.py` | 5 | `RevisedExerciseOperations` protocol |
 | `core/models/submissions/submission.py` | 3 | Submission base + JOURNAL |
 | `core/models/feedback/submission_feedback.py` | 4 | SubmissionFeedback model |
 | `core/models/feedback/activity_report.py` | 4 | ActivityReport model |
@@ -661,7 +730,7 @@ class AdminSummary(UserOwnedEntity):  # New entity for admin-written feedback?
 
 ## Deep Dive Resources
 
-- [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) — entry-point overview: two tracks, four phases, how MEGA_QUERY feeds the loop
+- [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) — entry-point overview: two tracks, five phases, how MEGA_QUERY feeds the loop
 - [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) — canonical feedback reference
 - [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) — canonical feedback reference — all services, APIs, graph patterns, ProcessorType taxonomy, Exercise pipeline
 - [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)

@@ -63,7 +63,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [KU (Knowledge Unit)](domains/ku.md) | Atomic knowledge unit (point topology) |
 | [LS (Learning Step)](domains/ls.md) | Sequential steps aggregating KUs (edge topology) |
 | [LP (Learning Path)](domains/lp.md) | Complete learning sequences (path topology) |
-| [Submissions + Feedback](domains/submissions.md) | Article→Exercise→Submission→Feedback learning loop |
+| [Submissions + Feedback](domains/submissions.md) | Article→Exercise→Submission→Feedback→RevisedExercise learning loop |
 | [Journals](domains/journals.md) | User journals (EntityType.JOURNAL, AI-processed) |
 | Groups | Teacher-student class management (ADR-040) — doc pending |
 | [MOC (Map of Content)](domains/moc.md) | Non-linear navigation (graph topology via ORGANIZES) |
@@ -83,7 +83,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[Enum Architecture](architecture/ENUM_ARCHITECTURE.md)** | **2026-03-05** | **~330** |
 | **[Priority & Confidence Architecture](architecture/PRIORITY_CONFIDENCE_ARCHITECTURE.md)** | **2026-03-05** | **~130** |
 | [Finance Categories System](architecture/FINANCE_CATEGORIES_GUIDE.md) | 2025-11-27 | 562 |
-| **[Four-Phased Learning Loop](architecture/FOUR_PHASED_LEARNING_LOOP.md)** | **2026-03-02** | **~130** |
+| **[Five-Phased Learning Loop](architecture/FOUR_PHASED_LEARNING_LOOP.md)** | **2026-03-07** | **~130** |
 | [Knowledge Substance Philosophy](architecture/knowledge_substance_philosophy.md) | 2025-10-17 | 371 |
 | **[Model Architecture](architecture/MODEL_ARCHITECTURE.md)** | **2026-02-23** | **290** |
 | **[Relationships Architecture](architecture/RELATIONSHIPS_ARCHITECTURE.md)** | **2026-03-03** | **—** |

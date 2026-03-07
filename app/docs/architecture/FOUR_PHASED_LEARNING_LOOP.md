@@ -1,6 +1,6 @@
 ---
-title: Four-Phased Learning Loop
-updated: 2026-03-03
+title: Five-Phased Learning Loop
+updated: 2026-03-07
 status: current
 category: architecture
 related:
@@ -8,45 +8,50 @@ related:
 - ENTITY_TYPE_ARCHITECTURE.md
 ---
 
-# The Four-Phased Learning Loop
+# The Five-Phased Learning Loop
 
 > "Knowledge is learned by doing, evaluated by responding, and refined by reflecting."
 
-The Four-Phased Learning Loop is the **core purpose of SKUEL**. Every feature in the
+The Five-Phased Learning Loop is the **core purpose of SKUEL**. Every feature in the
 codebase either feeds this loop, supports its infrastructure, or should be questioned.
 
 Learning is not consuming content. Learning is what happens when knowledge changes how you
-act, decide, and live. SKUEL models this through four phases: **what you can learn** (Article),
-**how you practise it** (Exercise), **what you produce** (Submission), and **what the
-system says back** (Feedback). Every layer is a frozen Python dataclass. Every connection
-is a Neo4j graph relationship. Every measurement flows from real user behaviour, not
-self-reported progress.
+act, decide, and live. SKUEL models this through five phases: **what you can learn** (Article),
+**how you practise it** (Exercise), **what you produce** (Submission), **what the
+system says back** (Feedback), and **how the teacher guides revision** (RevisedExercise).
+Every layer is a frozen Python dataclass. Every connection is a Neo4j graph relationship.
+Every measurement flows from real user behaviour, not self-reported progress.
 
 ---
 
 ## The Loop
 
 ```
-╔══════════════════════════════════════════════════════════════╗
-║              FOUR-PHASED LEARNING LOOP                       ║
-╠══════════════════════════════════════════════════════════════╣
-║                                                              ║
-║  CURRICULUM TRACK (artifact-based)                           ║
-║  ─────────────────────────────────────────────────────────   ║
-║  [Article] → [Exercise] → [Submission/Journal] → [Feedback] ║
-║   ↑             ↓              ↑↓                     ↓      ║
-║  admin       teacher        student               teacher/AI  ║
-║  creates     assigns     uploads/revises          assesses    ║
-║                              └──── revision cycle ────┘      ║
-║                                                              ║
-║  ACTIVITY TRACK (aggregate-based)                            ║
-║  ─────────────────────────────────────────────────────────   ║
-║  [Tasks + Goals + Habits + Events + Choices + Principles]    ║
-║       + [KU mastery + LP progress + LS progress]             ║
-║                    ↓ (over time window)                      ║
-║             [Activity Report] ←── AI or Admin               ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════════════╗
+║                    FIVE-PHASED LEARNING LOOP                            ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║                                                                          ║
+║  CURRICULUM TRACK (artifact-based)                                       ║
+║  ────────────────────────────────────────────────────────────────────    ║
+║  [Article] → [Exercise] → [Submission/Journal] → [Feedback]             ║
+║   ↑             ↓              ↑↓                     ↓                  ║
+║  admin       teacher        student               teacher/AI             ║
+║  creates     assigns     uploads/revises          assesses               ║
+║                                                      ↓                   ║
+║                                              [RevisedExercise]           ║
+║                                               teacher creates            ║
+║                                              targeted revision           ║
+║                                                      ↓                   ║
+║                                              [Submission v2] → ...       ║
+║                                                                          ║
+║  ACTIVITY TRACK (aggregate-based)                                        ║
+║  ────────────────────────────────────────────────────────────────────    ║
+║  [Tasks + Goals + Habits + Events + Choices + Principles]                ║
+║       + [KU mastery + LP progress + LS progress]                         ║
+║                    ↓ (over time window)                                   ║
+║             [Activity Report] ←── AI or Admin                            ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
@@ -350,6 +355,58 @@ canonical taxonomy, all services, API routes, ProcessorType table, graph pattern
 
 ---
 
+## Phase 5: RevisedExercise — The Targeted Revision
+
+**What:** A teacher-created revision of an Exercise that addresses specific gaps identified
+in `SubmissionFeedback`. The teacher creates targeted, revised instructions for a specific
+student. The student then submits against the RevisedExercise, receives new feedback, and the
+cycle continues indefinitely. This forces a **reflection step** between feedback and
+resubmission, making revision pedagogically explicit.
+
+```
+Article → Exercise v1 → Submission v1 → SubmissionFeedback v1
+                                              ↓
+                                        RevisedExercise v2 → Submission v2 → SubmissionFeedback v2
+                                              ↓
+                                        RevisedExercise v3 → ...
+```
+
+**EntityType:** `EntityType.REVISED_EXERCISE`
+**Model:** `core/models/curriculum/revised_exercise.py` — `RevisedExercise(UserOwnedEntity)` frozen dataclass
+**Loop role:** The *refinement* — bridges feedback back into a new exercise, closing the
+revision cycle explicitly rather than implicitly.
+
+**Key design:**
+- Inherits `UserOwnedEntity` (NOT Curriculum) — needs `user_uid` but not 21 Curriculum fields
+- First entity type combining `ContentOrigin.CURRICULUM` with `requires_user_uid()=True`
+- Teacher-owned, student-targeted (student visibility via `student_uid` field)
+- `revision_number` auto-determined from existing chain length
+
+**Graph relationships:**
+```cypher
+(teacher:User)-[:OWNS]->(re:Entity:RevisedExercise {
+    original_exercise_uid: '...',
+    feedback_uid: '...',
+    student_uid: '...',
+    revision_number: 2
+})
+(re)-[:RESPONDS_TO_FEEDBACK]->(feedback:Entity:SubmissionFeedback)
+(re)-[:REVISES_EXERCISE]->(exercise:Entity:Exercise)
+(submission:Entity:Submission)-[:FULFILLS_EXERCISE]->(re)  // reuses existing rel type
+```
+
+**Services:**
+```python
+services.revised_exercises              # RevisedExerciseService
+```
+
+**API routes:** `POST /api/revised-exercises/create`, `GET /api/revised-exercises/get`,
+`GET /api/revised-exercises/list`, `GET /api/revised-exercises/for-student`,
+`GET /api/revised-exercises/chain`, `POST /api/revised-exercises/update`,
+`POST /api/revised-exercises/delete` — all teacher-only.
+
+---
+
 ## How UserContext Feeds the Loop
 
 The Activity Track's data source is `UserContext.build_rich()` — the MEGA_QUERY extended
@@ -404,6 +461,9 @@ New feedback sources add `ProcessorType` values; they do not create new EntityTy
 | Ingestion pipeline | `core/services/ingestion/` |
 | Substance philosophy | `docs/architecture/knowledge_substance_philosophy.md` |
 | Curriculum grouping patterns (KU / LS / LP) | `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` |
+| RevisedExercise domain model | `core/models/curriculum/revised_exercise.py` |
+| RevisedExercise service | `core/services/revised_exercises/revised_exercise_service.py` |
+| RevisedExercise API routes | `adapters/inbound/revised_exercises_api.py` |
 
 ---
 

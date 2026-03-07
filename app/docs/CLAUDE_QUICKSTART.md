@@ -19,7 +19,7 @@ related: [README.md, INDEX.md]
 ## TL;DR - The Essentials
 
 1. **Read CLAUDE.md first** - `/home/mike/skuel/app/CLAUDE.md` (~1000 lines of project rules)
-2. **17 entity types + 5 systems** - All flow toward LifePath
+2. **18 entity types + 5 systems** - All flow toward LifePath
 3. **6 Activity Domains** use `UnifiedRelationshipService` - Tasks, Goals, Habits, Events, Choices, Principles
 4. **Result[T] everywhere** - Use `.is_error` not `.is_err`
 5. **Poetry for everything** - `poetry run python`, `poetry run pytest`

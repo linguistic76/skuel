@@ -53,7 +53,7 @@ For each skill, this section shows all related documentation (architecture docs,
 
 ### @learning-loop
 
-**Description:** SKUEL's Four-Phased Learning Loop — Ku → Exercise → Submission → Feedback
+**Description:** SKUEL's Five-Phased Learning Loop — Article → Exercise → Submission → Feedback → RevisedExercise
 
 **Architecture:**
 - [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md)

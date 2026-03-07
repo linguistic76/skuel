@@ -281,7 +281,7 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 
 ## Where Feedback Sits in the 4-Layer Architecture
 
-The 4-phase learning loop is: **KU → Exercise → Submission → Feedback**
+The 5-phase learning loop is: **Article → Exercise → Submission → Feedback → RevisedExercise**
 
 The first three stages are **leaf domains** — each owns its own Neo4j nodes and fits the standard 4-layer pattern:
 

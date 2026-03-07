@@ -147,7 +147,7 @@ CREATE (n:Entity:Goal {uid: $uid, ...})
 
 **Key files:**
 - `/core/models/entity.py` — `Entity` + `UserOwnedEntity` base classes
-- `/core/models/enums/entity_enums.py` — `EntityType` (17 values), `EntityStatus`
+- `/core/models/enums/entity_enums.py` — `EntityType` (18 values), `EntityStatus`
 
 ---
 
@@ -199,7 +199,7 @@ Educational foundation. Article extends `Curriculum(Entity)`. Ku extends `Entity
 
 ### Resource — Curated External Content
 
-Pointers to external content (books, talks, films) that Askesis can recommend. Resource extends `Entity` directly (+7 fields). Admin-created, publicly readable via `ContentScope.SHARED`. Resource is NOT curriculum — it does not participate in the `Article → Exercise → Submission → Feedback` loop. Its `ContentOrigin` is `CURATED` (tier A), distinct from curriculum's `CURRICULUM` (tier B).
+Pointers to external content (books, talks, films) that Askesis can recommend. Resource extends `Entity` directly (+7 fields). Admin-created, publicly readable via `ContentScope.SHARED`. Resource is NOT curriculum — it does not participate in the `Article → Exercise → Submission → Feedback → RevisedExercise` loop. Its `ContentOrigin` is `CURATED` (tier A), distinct from curriculum's `CURRICULUM` (tier B).
 
 **Two paths to knowledge (Montessori-inspired):**
 - **LS Path**: Structured, linear, teacher-directed (Article -> LS -> LP)
@@ -235,7 +235,7 @@ LsService (facade)
 
 ### Submission, Journal, SubmissionFeedback, ActivityReport — Content Processing
 
-The educational loop: `Article -> Exercise -> Submission -> Feedback`. Activity entity types are equal entry points via `ACTIVITY_REPORT`.
+The educational loop: `Article -> Exercise -> Submission -> Feedback -> RevisedExercise -> ...`. Activity entity types are equal entry points via `ACTIVITY_REPORT`.
 
 | EntityType | Inherits | ProcessorType | Description |
 |------------|---------|---------------|-------------|
@@ -251,6 +251,22 @@ The educational loop: `Article -> Exercise -> Submission -> Feedback`. Activity 
 - `core/services/feedback/` — `FeedbackService`, `ProgressFeedbackGenerator`, `ProgressScheduleService`
 
 **See:** `/docs/architecture/FEEDBACK_ARCHITECTURE.md`
+
+### RevisedExercise — Five-Phase Learning Loop
+
+Teacher-created revision of an Exercise that addresses specific `SubmissionFeedback` gaps. Extends `UserOwnedEntity` (NOT Curriculum — needs `user_uid` but not 21 Curriculum fields). First entity type combining `ContentOrigin.CURRICULUM` with `requires_user_uid()=True`.
+
+| EntityType | Inherits | Description |
+|------------|---------|-------------|
+| `REVISED_EXERCISE` | `UserOwnedEntity` | Teacher's revised instructions targeting a specific student |
+
+**Graph relationships:**
+- `RESPONDS_TO_FEEDBACK` → SubmissionFeedback (what feedback this addresses)
+- `REVISES_EXERCISE` → Exercise (what exercise this revises)
+- `FULFILLS_EXERCISE` ← Submission (student submits against this)
+
+**Service:** `core/services/revised_exercises/revised_exercise_service.py`
+**See:** `/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md`
 
 ### Groups — Teacher-Student Organization
 
