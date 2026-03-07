@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from core.models.relationship_registry import (
     ARTICLE_CONFIG,
+    KU_CONFIG,
     LP_CONFIG,
     LS_CONFIG,
 )
@@ -89,15 +90,15 @@ class CurriculumDomainConfig:
 # Registry of all 4 Curriculum Domain configurations
 CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
     "ku": CurriculumDomainConfig(
-        core_module="core.services.article.ku_core_service",
-        core_class="ArticleCoreService",
-        search_module="core.services.article.ku_search_service",
-        search_class="ArticleSearchService",
-        intelligence_module="core.services.article_intelligence_service",
-        intelligence_class="ArticleIntelligenceService",
-        relationship_config=ARTICLE_CONFIG,
+        core_module="core.services.ku.ku_core_service",
+        core_class="KuCoreService",
+        search_module="core.services.ku.ku_search_service",
+        search_class="KuSearchService",
+        intelligence_module="core.services.ku.ku_intelligence_service",
+        intelligence_class="KuIntelligenceService",
+        relationship_config=KU_CONFIG,
         domain_name="ku",
-        entity_label="Entity",
+        entity_label="Ku",
     ),
     "ls": CurriculumDomainConfig(
         core_module="core.services.ls.ls_core_service",

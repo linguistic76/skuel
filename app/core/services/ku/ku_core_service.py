@@ -26,6 +26,10 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
     No user ownership — uses curriculum domain config.
     """
 
+    def __init__(self, backend: BackendOperations[Ku], event_bus: Any = None) -> None:
+        super().__init__(backend=backend)
+        self.event_bus = event_bus
+
     _config = create_curriculum_domain_config(
         dto_class=KuDTO,
         model_class=Ku,

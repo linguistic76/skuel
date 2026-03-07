@@ -49,6 +49,8 @@ from core.models.curriculum.learning_step_dto import LearningStepDTO
 # NOTE (February 2026): Ku is now a Union type alias; use Entity (the actual class) for model_class
 from core.models.entity import Entity
 from core.models.entity_dto import EntityDTO
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event_dto import EventDTO
@@ -1736,12 +1738,11 @@ ARTICLE_CONFIG = DomainRelationshipConfig(
 )
 
 # Ku (Atomic Knowledge Unit) — lightweight ontology/reference node
-# Relationships (USES_KU, TRAINS_KU) added in Phase 7
 KU_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,
     entity_label="Ku",
-    dto_class=EntityDTO,
-    model_class=Entity,
+    dto_class=KuDTO,
+    model_class=Ku,
     backend_get_method="get",
     ownership_relationship=None,  # Shared content
     is_shared_content=True,
@@ -1754,14 +1755,34 @@ KU_CONFIG = DomainRelationshipConfig(
             "used_by_articles",
             "used_by",
         ),
+        # Incoming: Learning Steps that train this Ku
+        UnifiedRelationshipDefinition(
+            RelationshipName.TRAINS_KU,
+            "Entity",
+            "incoming",
+            "trained_by_steps",
+            "trained_by",
+        ),
     ),
     prerequisite_relationship_names=(),
     enables_relationship_names=(),
-    bidirectional_relationships=(),
+    bidirectional_relationships=(
+        # Ku hierarchy / MOC structure
+        UnifiedRelationshipDefinition(
+            RelationshipName.ORGANIZES,
+            "Ku",
+            "outgoing",
+            "organized_children",
+            "organizes",
+        ),
+    ),
     semantic_types=(),
-    scoring_weights=_build_scoring_weights(),
+    scoring_weights=_build_scoring_weights(knowledge=0.5),
     default_context_intent=QueryIntent.EXPLORATORY,
-    intent_mappings={},
+    intent_mappings={
+        "context": QueryIntent.EXPLORATORY,
+        "learning": QueryIntent.HIERARCHICAL,
+    },
 )
 
 # LS (Learning Step) — Entity with entity_type='learning_step'

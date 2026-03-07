@@ -2,22 +2,29 @@
 KuService - Atomic Knowledge Unit Facade
 ==========================================
 
-Facade for atomic Ku operations. Delegates to:
+Facade for atomic Ku operations. Delegates to 4 sub-services via factory:
 - .core: CRUD operations (KuCoreService)
-- .search: Search and namespace queries (KuSearchService)
+- .search_service: Search and namespace queries (KuSearchService)
+- .relationships: Graph relationship operations (UnifiedRelationshipService)
+- .intelligence: Graph analytics (KuIntelligenceService)
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku.ku import Ku
-from core.services.ku.ku_core_service import KuCoreService
-from core.services.ku.ku_search_service import KuSearchService
+from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.domain_backends import KuBackend
+    from core.models.graph_context import GraphContext
+    from core.models.ku.ku import Ku
+    from core.services.ku.ku_intelligence_service import KuIntelligenceService
+
+logger = get_logger(__name__)
 
 
 class KuService:
@@ -25,17 +32,51 @@ class KuService:
 
     Ku is a lightweight ontology/reference node — a single definable thing:
     concept, state, principle, substance, practice, or value.
+
+    Uses create_curriculum_sub_services() factory for consistent initialization,
+    matching LS and Activity Domain patterns.
     """
 
     def __init__(
         self,
-        core: KuCoreService,
-        search: KuSearchService,
-        backend: "KuBackend | None" = None,
+        backend: Any = None,
+        graph_intel: Any = None,
+        event_bus: Any = None,
     ) -> None:
-        self.core = core
-        self.search_service = search
-        self.backend = backend
+        if not backend:
+            raise ValueError(
+                "KuService backend is REQUIRED. "
+                "SKUEL follows fail-fast architecture — all required dependencies "
+                "must be provided at initialization."
+            )
+        if not graph_intel:
+            raise ValueError(
+                "KuService graph_intel is REQUIRED. "
+                "SKUEL follows fail-fast architecture — graph intelligence enables "
+                "cross-domain queries for curriculum domains."
+            )
+
+        from core.utils.curriculum_domain_config import (
+            CurriculumCommonSubServices,
+            create_curriculum_sub_services,
+        )
+
+        common: CurriculumCommonSubServices[KuIntelligenceService] = (
+            create_curriculum_sub_services(
+                domain="ku",
+                backend=backend,
+                graph_intel=graph_intel,
+                event_bus=event_bus,
+            )
+        )
+
+        self.core = common.core
+        self.search_service = common.search
+        self.relationships = common.relationships
+        self.intelligence: KuIntelligenceService = common.intelligence
+        self.backend: KuBackend = backend  # For get_articles() reverse traversal
+
+        logger.debug("KuService facade initialized with 4 sub-services via factory")
 
     # =========================================================================
     # CRUD (delegated to core)
@@ -85,6 +126,20 @@ class KuService:
     async def search_by_alias(self, alias: str) -> Result[list[dict[str, Any]]]:
         """Search Kus by alias (alternative name)."""
         return await self.search_service.search_by_alias(alias)
+
+    # =========================================================================
+    # INTELLIGENCE (delegated to intelligence)
+    # =========================================================================
+
+    async def get_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[Ku, GraphContext]]:
+        """Get Ku with full graph context."""
+        return await self.intelligence.get_with_context(uid, depth)
+
+    async def get_usage_summary(self, ku_uid: str) -> Result[dict[str, int]]:
+        """Count articles, learning steps, and organized children for a Ku."""
+        return await self.intelligence.get_usage_summary(ku_uid)
 
     # =========================================================================
     # GRAPH (reverse traversal via backend)

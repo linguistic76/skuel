@@ -689,13 +689,13 @@ def _create_learning_services(
     )
 
     # Create atomic Ku service (lightweight ontology/reference nodes)
-    from core.services.ku.ku_core_service import KuCoreService
-    from core.services.ku.ku_search_service import KuSearchService
     from core.services.ku_service import KuService
 
-    ku_core = KuCoreService(backend=atomic_ku_backend)
-    ku_search = KuSearchService(backend=atomic_ku_backend)
-    atomic_ku_service = KuService(core=ku_core, search=ku_search, backend=atomic_ku_backend)
+    atomic_ku_service = KuService(
+        backend=atomic_ku_backend,
+        graph_intel=graph_intelligence,
+        event_bus=event_bus,
+    )
 
     # Create progress services
     user_progress = UserProgressService(query_executor)
