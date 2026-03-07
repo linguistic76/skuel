@@ -7,7 +7,7 @@ No Status or Analytics factories — all remaining routes are manual.
 """
 
 from adapters.inbound.choices_api import create_choices_api_routes
-from adapters.inbound.choices_ui import create_choice_ui_routes
+from adapters.inbound.choices_ui import create_choices_ui_routes
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
@@ -19,7 +19,7 @@ CHOICES_CONFIG = create_activity_domain_route_config(
     domain_name="choices",
     primary_service_attr="choices",
     api_factory=create_choices_api_routes,
-    ui_factory=create_choice_ui_routes,
+    ui_factory=create_choices_ui_routes,
     create_schema=ChoiceCreateRequest,
     update_schema=EntityUpdateRequest,
     uid_prefix="choice",

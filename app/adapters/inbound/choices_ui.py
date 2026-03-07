@@ -74,7 +74,7 @@ def parse_filters(request) -> Filters:
 # ============================================================================
 
 
-def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services: Any = None):
+def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services: Any = None):
     """
     Create three-view choice UI routes (standalone, analytics as third tab).
 
@@ -258,7 +258,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
             error_content = Div(
                 ChoicesViewComponents.render_view_tabs(active_view=view),
                 render_error_banner("Failed to load choices"),
-                cls="p-4 lg:p-8 max-w-7xl mx-auto",
+                cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
             return await create_choices_page(error_content, request=request)
 
@@ -266,7 +266,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
             error_content = Div(
                 ChoicesViewComponents.render_view_tabs(active_view=view),
                 render_error_banner("Failed to load choice types"),
-                cls="p-4 lg:p-8 max-w-7xl mx-auto",
+                cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
             return await create_choices_page(error_content, request=request)
 
@@ -274,7 +274,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
             error_content = Div(
                 ChoicesViewComponents.render_view_tabs(active_view=view),
                 render_error_banner("Failed to load domains"),
-                cls="p-4 lg:p-8 max-w-7xl mx-auto",
+                cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
             return await create_choices_page(error_content, request=request)
 
@@ -316,7 +316,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         page_content = Div(
             ChoicesViewComponents.render_view_tabs(active_view=view),
             Div(view_content, id="view-content", role="tabpanel"),
-            cls="p-4 lg:p-8 max-w-7xl mx-auto",
+            cls=f"{Spacing.PAGE} {Container.WIDE}",
         )
 
         return await create_choices_page(page_content, request=request)
@@ -1100,4 +1100,4 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
 
 
 # Export the route creation function
-__all__ = ["create_choice_ui_routes"]
+__all__ = ["create_choices_ui_routes"]

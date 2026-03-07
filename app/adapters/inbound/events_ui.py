@@ -50,6 +50,7 @@ from ui.layouts.page_types import PageType
 from ui.patterns.entity_dashboard import SharedUIComponents
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.relationships import EntityRelationshipsSection
+from ui.tokens import Container, Spacing
 
 logger = get_logger("skuel.routes.events.ui")
 
@@ -185,7 +186,7 @@ def parse_filters(request) -> Filters:
     )
 
 
-def create_events_ui_routes(_app, rt, events_service: EventsService):
+def create_events_ui_routes(_app, rt, events_service: EventsService, services: Any = None):
     """
     Create three-view event UI routes (standalone, calendar-first).
 
@@ -260,7 +261,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
             error_content = Div(
                 EventsViewComponents.render_view_tabs(active_view=view),
                 render_error_banner("Failed to load events"),
-                cls="p-4 lg:p-8 max-w-7xl mx-auto",
+                cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
             return await create_events_page(error_content, request=request)
 
@@ -268,7 +269,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
             error_content = Div(
                 EventsViewComponents.render_view_tabs(active_view=view),
                 render_error_banner("Failed to load event types"),
-                cls="p-4 lg:p-8 max-w-7xl mx-auto",
+                cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
             return await create_events_page(error_content, request=request)
 
@@ -310,7 +311,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
         page_content = Div(
             EventsViewComponents.render_view_tabs(active_view=view),
             Div(view_content, id="view-content", role="tabpanel"),
-            cls="p-4 lg:p-8 max-w-7xl mx-auto",
+            cls=f"{Spacing.PAGE} {Container.WIDE}",
         )
 
         return await create_events_page(page_content, request=request)
@@ -863,7 +864,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
                 entity_uid=event.uid,
                 entity_type="events",
             ),
-            cls="container mx-auto p-6 max-w-4xl",
+            cls=f"{Container.NARROW} {Spacing.PAGE}",
         )
 
         return await BasePage(

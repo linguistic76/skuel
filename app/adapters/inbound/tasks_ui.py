@@ -16,13 +16,16 @@ Routes:
 - GET /tasks/autocomplete/assignees - Assignee suggestions
 """
 
+__version__ = "2.0"
+
 import contextlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
 
-from fasthtml.common import H1, H2, Div, JSONResponse, P, Response, Span
+from fasthtml.common import H1, H2, Div, JSONResponse, P, Span
+from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
@@ -572,9 +575,7 @@ def create_tasks_ui_routes(
         user_uid = require_authenticated_user(request)
 
         try:
-            task, error = await require_owned_entity(
-                tasks_service.core, uid, user_uid, "Task"
-            )
+            task, error = await require_owned_entity(tasks_service.core, uid, user_uid, "Task")
             if error:
                 return error
 
@@ -659,9 +660,7 @@ def create_tasks_ui_routes(
         if not uid:
             return Response("Task UID required", status_code=400)
 
-        task, error = await require_owned_entity(
-            tasks_service.core, uid, user_uid, "Task"
-        )
+        task, error = await require_owned_entity(tasks_service.core, uid, user_uid, "Task")
         if error:
             return error
 
@@ -685,9 +684,7 @@ def create_tasks_ui_routes(
             if not uid:
                 return Response("Task UID required", status_code=400)
 
-            _, error = await require_owned_entity(
-                tasks_service.core, uid, user_uid, "Task"
-            )
+            _, error = await require_owned_entity(tasks_service.core, uid, user_uid, "Task")
             if error:
                 return error
 

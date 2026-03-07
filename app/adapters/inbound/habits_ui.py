@@ -1925,7 +1925,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                 entity_uid=habit.uid,
                 entity_type="habits",
             ),
-            cls="container mx-auto p-6 max-w-4xl",
+            cls=f"{Container.NARROW} {Spacing.PAGE}",
         )
 
         return await BasePage(
