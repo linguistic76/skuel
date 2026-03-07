@@ -31,6 +31,7 @@ from adapters.inbound.route_factories import (
     QuickAddConfig,
     QuickAddRouteFactory,
     parse_int_query_param,
+    require_owned_entity,
 )
 from adapters.inbound.ui_helpers import render_safe_error_response
 from core.constants import QueryLimit
@@ -696,15 +697,12 @@ def create_principles_ui_routes(
         """Return edit form for a principle (modal)."""
         user_uid = require_authenticated_user(request)
 
-        if not principles_service:
-            return Response("Service unavailable", status_code=503)
+        principle, error = await require_owned_entity(
+            principles_service and principles_service.core, uid, user_uid, "Principle"
+        )
+        if error:
+            return error
 
-        # Ownership verification - returns NotFound if user doesn't own this principle
-        result = await principles_service.core.verify_ownership(uid, user_uid)
-        if result.is_error:
-            return Response(f"Principle not found: {uid}", status_code=404)
-
-        principle = result.value
         categories_result = await get_categories()
 
         # Handle categories error
@@ -718,13 +716,11 @@ def create_principles_ui_routes(
         """Save principle edits."""
         user_uid = require_authenticated_user(request)
 
-        if not principles_service:
-            return Response("Service unavailable", status_code=503)
-
-        # Ownership verification before mutation
-        ownership_result = await principles_service.core.verify_ownership(uid, user_uid)
-        if ownership_result.is_error:
-            return Response(f"Principle not found: {uid}", status_code=404)
+        _, error = await require_owned_entity(
+            principles_service and principles_service.core, uid, user_uid, "Principle"
+        )
+        if error:
+            return error
 
         form = await request.form()
 
@@ -786,15 +782,12 @@ def create_principles_ui_routes(
         """Return reflection form for a principle (modal)."""
         user_uid = require_authenticated_user(request)
 
-        if not principles_service:
-            return Response("Service unavailable", status_code=503)
+        principle, error = await require_owned_entity(
+            principles_service and principles_service.core, uid, user_uid, "Principle"
+        )
+        if error:
+            return error
 
-        # Ownership verification - returns NotFound if user doesn't own this principle
-        result = await principles_service.core.verify_ownership(uid, user_uid)
-        if result.is_error:
-            return Response(f"Principle not found: {uid}", status_code=404)
-
-        principle = result.value
         return PrinciplesViewComponents.render_reflect_form(principle)
 
     @rt("/principles/{uid}/reflections")
@@ -802,13 +795,11 @@ def create_principles_ui_routes(
         """Get reflection history for a principle."""
         user_uid = require_authenticated_user(request)
 
-        if not principles_service:
-            return Response("Service unavailable", status_code=503)
-
-        # Ownership verification - returns NotFound if user doesn't own this principle
-        principle_result = await principles_service.core.verify_ownership(uid, user_uid)
-        if principle_result.is_error:
-            return Response(f"Principle not found: {uid}", status_code=404)
+        principle, error = await require_owned_entity(
+            principles_service and principles_service.core, uid, user_uid, "Principle"
+        )
+        if error:
+            return error
 
         # Get reflections
         result = await principles_service.reflection.get_reflections_for_principle(
@@ -830,7 +821,7 @@ def create_principles_ui_routes(
 
         # Return reflection history component
         return PrinciplesViewComponents.render_reflection_history(
-            principle=principle_result.value,
+            principle=principle,
             reflections=reflections,
         )
 

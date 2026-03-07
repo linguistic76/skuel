@@ -26,7 +26,11 @@ from fasthtml.common import H1, H2, Div, JSONResponse, P, Response, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
-from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
+from adapters.inbound.route_factories import (
+    QuickAddConfig,
+    QuickAddRouteFactory,
+    require_owned_entity,
+)
 from adapters.inbound.ui_helpers import (
     parse_calendar_params,
     render_safe_error_response,
@@ -568,12 +572,11 @@ def create_tasks_ui_routes(
         user_uid = require_authenticated_user(request)
 
         try:
-            # Ownership verification before mutation
-            get_result = await tasks_service.core.verify_ownership(uid, user_uid)
-            if get_result.is_error:
-                return Response("Task not found", status_code=404)
-
-            task = get_result.value
+            task, error = await require_owned_entity(
+                tasks_service.core, uid, user_uid, "Task"
+            )
+            if error:
+                return error
 
             # Toggle status
             if task.status == EntityStatus.COMPLETED:
@@ -656,12 +659,11 @@ def create_tasks_ui_routes(
         if not uid:
             return Response("Task UID required", status_code=400)
 
-        # Ownership verification - returns NotFound if user doesn't own this task
-        get_result = await tasks_service.core.verify_ownership(uid, user_uid)
-        if get_result.is_error:
-            return Response("Task not found", status_code=404)
-
-        task = get_result.value
+        task, error = await require_owned_entity(
+            tasks_service.core, uid, user_uid, "Task"
+        )
+        if error:
+            return error
 
         # Get projects for autocomplete
         projects_result = await get_distinct_projects(user_uid)
@@ -683,10 +685,11 @@ def create_tasks_ui_routes(
             if not uid:
                 return Response("Task UID required", status_code=400)
 
-            # Ownership verification before mutation
-            ownership_result = await tasks_service.core.verify_ownership(uid, user_uid)
-            if ownership_result.is_error:
-                return Response("Task not found", status_code=404)
+            _, error = await require_owned_entity(
+                tasks_service.core, uid, user_uid, "Task"
+            )
+            if error:
+                return error
 
             form = await request.form()
 

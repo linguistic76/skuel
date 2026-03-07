@@ -26,7 +26,11 @@ from fasthtml.common import H1, H2, H3, Div, Form, Option, P, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
+from adapters.inbound.route_factories import (
+    QuickAddConfig,
+    QuickAddRouteFactory,
+    require_owned_entity,
+)
 from adapters.inbound.ui_helpers import render_safe_error_response
 from core.ports.query_types import ActivityFilterSpec
 from core.services.choices_service import ChoicesService
@@ -521,15 +525,12 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         """Show modal to make a decision on a choice."""
         user_uid = require_authenticated_user(request)
 
-        if not choices_service:
-            return Response("Service unavailable", status_code=503)
+        choice, error = await require_owned_entity(
+            choices_service and choices_service.core, uid, user_uid, "Choice"
+        )
+        if error:
+            return error
 
-        # Ownership verification - returns NotFound if user doesn't own this choice
-        result = await choices_service.core.verify_ownership(uid, user_uid)
-        if result.is_error:
-            return Response("Choice not found", status_code=404)
-
-        choice = result.value
         options = getattr(choice, "options", []) or []
 
         if len(options) < 2:
@@ -632,13 +633,11 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         """Submit the decision for a choice."""
         user_uid = require_authenticated_user(request)
 
-        if not choices_service:
-            return Response("Service unavailable", status_code=503)
-
-        # Ownership verification before mutation
-        ownership_result = await choices_service.core.verify_ownership(uid, user_uid)
-        if ownership_result.is_error:
-            return Response("Choice not found", status_code=404)
+        _, error = await require_owned_entity(
+            choices_service and choices_service.core, uid, user_uid, "Choice"
+        )
+        if error:
+            return error
 
         form = await request.form()
         selected_option_uid = form.get("selected_option_uid")
@@ -674,15 +673,12 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         """Show modal to edit a choice."""
         user_uid = require_authenticated_user(request)
 
-        if not choices_service:
-            return Response("Service unavailable", status_code=503)
+        choice, error = await require_owned_entity(
+            choices_service and choices_service.core, uid, user_uid, "Choice"
+        )
+        if error:
+            return error
 
-        # Ownership verification - returns NotFound if user doesn't own this choice
-        result = await choices_service.core.verify_ownership(uid, user_uid)
-        if result.is_error:
-            return Response("Choice not found", status_code=404)
-
-        choice = result.value
         # Must match Domain enum values in core/models/enums/entity_enums.py
         domains = ["personal", "business", "health", "finance", "social"]
         priorities = ["critical", "high", "medium", "low"]
@@ -774,13 +770,11 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         """Submit choice edits."""
         user_uid = require_authenticated_user(request)
 
-        if not choices_service:
-            return Response("Service unavailable", status_code=503)
-
-        # Ownership verification before mutation
-        ownership_result = await choices_service.core.verify_ownership(uid, user_uid)
-        if ownership_result.is_error:
-            return Response("Choice not found", status_code=404)
+        _, error = await require_owned_entity(
+            choices_service and choices_service.core, uid, user_uid, "Choice"
+        )
+        if error:
+            return error
 
         form = await request.form()
 
@@ -828,13 +822,11 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         """Show modal to add an option to a choice."""
         user_uid = require_authenticated_user(request)
 
-        if not choices_service:
-            return Response("Service unavailable", status_code=503)
-
-        # Ownership verification - returns NotFound if user doesn't own this choice
-        ownership_result = await choices_service.core.verify_ownership(uid, user_uid)
-        if ownership_result.is_error:
-            return Response("Choice not found", status_code=404)
+        _, error = await require_owned_entity(
+            choices_service and choices_service.core, uid, user_uid, "Choice"
+        )
+        if error:
+            return error
 
         return Div(
             Div(
@@ -890,13 +882,11 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesService, services:
         """Submit new option for a choice."""
         user_uid = require_authenticated_user(request)
 
-        if not choices_service:
-            return Response("Service unavailable", status_code=503)
-
-        # Ownership verification before mutation
-        ownership_result = await choices_service.core.verify_ownership(uid, user_uid)
-        if ownership_result.is_error:
-            return Response("Choice not found", status_code=404)
+        _, error = await require_owned_entity(
+            choices_service and choices_service.core, uid, user_uid, "Choice"
+        )
+        if error:
+            return error
 
         form = await request.form()
         title = form.get("title", "").strip()

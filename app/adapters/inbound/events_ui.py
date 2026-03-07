@@ -25,7 +25,11 @@ from fasthtml.common import H1, H2, Div, Form, Option, P, Span
 from starlette.responses import RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
+from adapters.inbound.route_factories import (
+    QuickAddConfig,
+    QuickAddRouteFactory,
+    require_owned_entity,
+)
 from adapters.inbound.ui_helpers import (
     parse_calendar_params,
     render_safe_error_response,
@@ -497,16 +501,12 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
         """Return edit form modal for an event."""
         user_uid = require_authenticated_user(request)
 
-        # Get the event with ownership verification
-        if not events_service or not events_service.core:
-            return Response("Service unavailable", status_code=503)
+        event, error = await require_owned_entity(
+            events_service and events_service.core, uid, user_uid, "Event"
+        )
+        if error:
+            return error
 
-        # Ownership verification - returns NotFound if user doesn't own this event
-        result = await events_service.core.verify_ownership(uid, user_uid)
-        if result.is_error:
-            return Response("Event not found", status_code=404)
-
-        event = result.value
         event_types_result = await get_event_types()
         event_types = [] if event_types_result.is_error else event_types_result.value
 
@@ -679,13 +679,11 @@ def create_events_ui_routes(_app, rt, events_service: EventsService):
         """Update an event via form submission."""
         user_uid = require_authenticated_user(request)
 
-        if not events_service or not events_service.core:
-            return Response("Service unavailable", status_code=503)
-
-        # Ownership verification before mutation
-        ownership_result = await events_service.core.verify_ownership(uid, user_uid)
-        if ownership_result.is_error:
-            return Response("Event not found", status_code=404)
+        _, error = await require_owned_entity(
+            events_service and events_service.core, uid, user_uid, "Event"
+        )
+        if error:
+            return error
 
         form = await request.form()
 

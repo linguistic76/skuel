@@ -43,6 +43,7 @@ from adapters.inbound.route_factories.quick_add_factory import (
 from adapters.inbound.route_factories.route_helpers import (
     check_required_role,
     parse_int_query_param,
+    require_owned_entity,
     verify_entity_ownership,
 )
 from adapters.inbound.route_factories.status_route_factory import (
@@ -70,6 +71,7 @@ __all__ = [
     # Shared route helpers
     "check_required_role",
     "parse_int_query_param",
+    "require_owned_entity",
     "verify_entity_ownership",
     # Status route factory (December 2025)
     "StatusOperations",

@@ -16,6 +16,8 @@ See: /docs/patterns/AUTH_PATTERNS.md, /docs/patterns/OWNERSHIP_VERIFICATION.md
 from collections.abc import Callable, Mapping
 from typing import Any, cast
 
+from starlette.responses import Response
+
 from adapters.inbound.auth.session import require_authenticated_user
 from core.models.enums import UserRole
 from core.utils.logging import get_logger
@@ -145,4 +147,44 @@ def parse_int_query_param(
     return value
 
 
-__all__ = ["check_required_role", "parse_int_query_param", "verify_entity_ownership"]
+async def require_owned_entity(
+    service_core: Any | None,
+    uid: str,
+    user_uid: str,
+    entity_name: str = "Entity",
+) -> tuple[Any | None, Response | None]:
+    """
+    Combined service availability + ownership verification for UI routes.
+
+    Eliminates the repeated 5-line pattern:
+        if not service: return Response("Service unavailable", 503)
+        result = await service.core.verify_ownership(uid, user_uid)
+        if result.is_error: return Response("X not found", 404)
+
+    Returns (entity, None) on success, (None, error_response) on failure.
+
+    Usage:
+        entity, error = await require_owned_entity(
+            service and service.core, uid, user_uid, "Choice"
+        )
+        if error:
+            return error
+
+    Security: Returns generic "not found" (404), never includes UID in response.
+
+    See: /docs/patterns/OWNERSHIP_VERIFICATION.md
+    """
+    if service_core is None:
+        return None, Response("Service unavailable", status_code=503)
+    result: Result[Any] = cast("Result[Any]", await service_core.verify_ownership(uid, user_uid))
+    if result.is_error:
+        return None, Response(f"{entity_name} not found", status_code=404)
+    return result.value, None
+
+
+__all__ = [
+    "check_required_role",
+    "parse_int_query_param",
+    "require_owned_entity",
+    "verify_entity_ownership",
+]
