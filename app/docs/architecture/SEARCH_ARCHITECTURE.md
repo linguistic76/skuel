@@ -55,19 +55,21 @@ SKUEL's search architecture consists of **three complementary systems** that wor
 
 ## Searchable Domains (12 total)
 
-All 12 domains are searchable via `SearchRouter`. Activity and Curriculum domains use `graph_aware_faceted_search()`; Learning Loop domains use simple text search (ADR-023).
+All 12 domains are searchable via `SearchRouter` using `graph_aware_faceted_search()`.
 
 | Group | Domains | Ownership | Search Mode |
 |-------|---------|-----------|-------------|
 | Activity (6) | Tasks, Goals, Habits, Events, Choices, Principles | User-owned (`OWNS`) | Graph-Aware |
 | Curriculum (3) | Article, LS, LP | Shared content (no ownership filter) | Graph-Aware |
-| Learning Loop (3) | Exercise, RevisedExercise, Submission | Mixed (Exercise shared, others user-owned) | Simple |
+| Learning Loop (3) | Exercise, RevisedExercise, Submission | User-owned (`OWNS`) | Graph-Aware |
 
 **Note:** MOC is emergent identity (any entity with `ORGANIZES` relationships), not an `EntityType`, and is not a standalone searchable domain.
 
 ```python
 _GRAPH_AWARE_DOMAINS: frozenset[str] = frozenset(
-    {"tasks", "goals", "habits", "events", "choices", "principles", "ku", "ls", "lp"}
+    {"tasks", "goals", "habits", "events", "choices", "principles",
+     "ku", "ls", "lp",
+     "exercises", "revised_exercises", "submissions"}
 )
 
 _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
@@ -117,7 +119,7 @@ response = await search_router.faceted_search(request, user_uid)
 
 **Purpose:** Rich relationship context leveraging Neo4j's graph structure
 
-**When Used:** All 9 graph-aware domains when relationship filters are present, or always for graph-aware domains
+**When Used:** All 12 graph-aware domains when relationship filters are present, or always for graph-aware domains
 
 **Implementation:** `SearchRouter.faceted_search()` → domain service `.graph_aware_faceted_search()`
 
@@ -531,15 +533,18 @@ Key design: **query text is OPTIONAL** — filter-only search is valid.
 
 `SearchRouter` has handlers for each domain that build the `_graph_context`:
 
-| Domain | Handler | Graph Context Fields |
-|--------|---------|---------------------|
-| KU | `_graph_aware_search_knowledge()` | prerequisites, enables, supporting_goals |
-| Tasks | `_graph_aware_search_tasks()` | applied_knowledge, fulfills_goals, blocked_by |
-| Goals | `_graph_aware_search_goals()` | required_knowledge, contributing_tasks, sub_goals |
-| Habits | `_graph_aware_search_habits()` | reinforced_knowledge, supporting_goals |
-| Events | `_graph_aware_search_events()` | applied_knowledge, linked_goals |
-| Choices | `_graph_aware_search_choices()` | informed_by_knowledge, guided_by_principles |
-| Principles | `_graph_aware_search_principles()` | grounded_knowledge, guided_goals |
+| Domain | Graph Context Fields |
+|--------|---------------------|
+| KU | prerequisites, enables, supporting_goals |
+| Tasks | applied_knowledge, fulfills_goals, blocked_by |
+| Goals | required_knowledge, contributing_tasks, sub_goals |
+| Habits | reinforced_knowledge, supporting_goals |
+| Events | applied_knowledge, linked_goals |
+| Choices | informed_by_knowledge, guided_by_principles |
+| Principles | grounded_knowledge, guided_goals |
+| Exercise | required_knowledge, for_groups, submissions (incoming) |
+| RevisedExercise | responds_to_feedback, revises_exercise, submissions (incoming) |
+| Submission | fulfills_exercise, feedback_received (incoming) |
 
 ---
 

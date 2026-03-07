@@ -633,7 +633,7 @@ that never closes the loop.
 | `core/services/feedback/teacher_review_service.py` | 4 | Teacher review workflow (review queue, revision, approval) |
 | `core/services/background/progress_feedback_worker.py` | 4 | Scheduled activity report background worker |
 | `core/ports/submission_protocols.py` | 3 | Submission protocol interfaces |
-| `core/ports/feedback_protocols.py` | 4 | All feedback protocols incl. `TeacherReviewOperations` |
+| `core/ports/feedback_protocols.py` | 4 | All feedback protocols incl. `TeacherReviewOperations`, `FeedbackRelationshipOperations` |
 | `core/ports/group_protocols.py` | support | `GroupOperations` only (group CRUD + membership) |
 | `core/services/sharing/unified_sharing_service.py` | 3 | Entity-agnostic sharing |
 | `adapters/persistence/neo4j/domain_backends.py` | all | Domain-specific Cypher |

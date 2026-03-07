@@ -275,6 +275,14 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 | `ActivityReportService` | `ActivityReportOperations` | `ACTIVITY_REPORT` (HUMAN or via persist()) | Processor-neutral CRUD; all write paths converge here |
 | `ReviewQueueService` | `ReviewQueueOperations` | `ReviewRequest` nodes | User-initiated review queue management |
 
+**Graph intelligence (Level 1 — no LLM):**
+
+| Service | Protocol | Responsibility |
+|---------|----------|---------------|
+| `FeedbackRelationshipService` | `FeedbackRelationshipOperations` | Pending submissions, feedback summary, learning loop chain traversal |
+
+Methods: `get_pending_submissions()`, `get_unsubmitted_exercises()`, `get_feedback_summary()`, `get_learning_loop_chain(exercise_uid)`, `get_submission_chain(submission_uid)`. Used by `UserContextIntelligenceFactory`.
+
 **Protocols:** `core/ports/feedback_protocols.py`
 
 ---

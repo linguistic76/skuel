@@ -628,7 +628,7 @@ EntityType.from_string("ku")         # -> EntityType.KU (canonical)
 | **Intelligence** | `intelligence_protocols.py` | Analytics operations | 1 protocol |
 | **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence + CRUD | 6 protocols |
 | **Submission** | `submission_protocols.py` | SubmissionOperations, SubmissionProcessingOps, SubmissionSharingOps, SubmissionSearchOps | 4 protocols |
-| **Feedback** | `feedback_protocols.py` | FeedbackOperations (human + AI), ProgressFeedbackOps, ProgressScheduleOps | 3 protocols |
+| **Feedback** | `feedback_protocols.py` | FeedbackOperations (human + AI), ProgressFeedbackOps, ProgressScheduleOps, FeedbackRelationshipOps | 4 protocols |
 | **Groups** | `group_protocols.py` | Group CRUD, teacher review | 2 protocols |
 | **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration, Lateral | 10 protocols |
 

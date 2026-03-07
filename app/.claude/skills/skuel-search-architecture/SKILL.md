@@ -47,9 +47,9 @@ SearchRouter (THE Orchestrator):
 |-------|----------|-------------|---------|
 | **Activity (6)** | Task, Goal, Habit, Event, Choice, Principle | Graph-Aware | BaseService |
 | **Curriculum (3)** | Article, LS, LP | Graph-Aware | BaseService |
-| **Learning Loop (3)** | Exercise, RevisedExercise, Submission | Simple | BaseService |
+| **Learning Loop (3)** | Exercise, RevisedExercise, Submission | Graph-Aware | BaseService |
 
-**Note:** MOC is NOT a searchable domain — it is emergent identity (any Ku with ORGANIZES relationships). Learning Loop entities use simple text search (not graph-aware).
+**Note:** MOC is NOT a searchable domain — it is emergent identity (any Ku with ORGANIZES relationships). Learning Loop services implement `SupportsGraphAwareSearch` directly (no `.search` sub-service). SearchRouter detects this via `isinstance(domain_service, SupportsGraphAwareSearch)` fallback.
 
 ## Unified BaseService Pattern (ADR-023, January 2026 DomainConfig)
 
