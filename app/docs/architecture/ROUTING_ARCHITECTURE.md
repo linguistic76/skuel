@@ -287,7 +287,7 @@ class TasksService:
 
 from adapters.persistence.neo4j.universal_neo4j_backend import UniversalNeo4jBackend
 from core.ports.domain_protocols import TaskOperations
-from core.utils.backend_decorators import safe_backend_operation
+from core.utils.error_boundary import safe_backend_operation
 
 class TasksUniversalBackend(UniversalNeo4jBackend, TaskOperations):
     """
