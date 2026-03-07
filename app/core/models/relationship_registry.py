@@ -2019,6 +2019,64 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
     },
 )
 
+# -----------------------------------------------------------------------------
+# REVISED_EXERCISE (Five-Phase Learning Loop — teacher-owned, student-targeted)
+# RevisedExercise responds to SubmissionFeedback and revises an Exercise
+# -----------------------------------------------------------------------------
+REVISED_EXERCISE_CONFIG = DomainRelationshipConfig(
+    domain=Domain.KNOWLEDGE,  # Curriculum tier
+    entity_label="Entity",  # RevisedExercise is a :Entity node
+    dto_class=EntityDTO,
+    model_class=Entity,
+    backend_get_method="get",
+    ownership_relationship=RelationshipName.OWNS,
+    is_shared_content=False,  # Teacher-owned, student-targeted
+    relationships=(
+        # Outgoing: RevisedExercise → SubmissionFeedback (what feedback it addresses)
+        UnifiedRelationshipDefinition(
+            RelationshipName.RESPONDS_TO_FEEDBACK,
+            "Entity",
+            "outgoing",
+            "source_feedback",
+            "source_feedback",
+            fields=("uid", "title", "status"),
+            single=True,
+        ),
+        # Outgoing: RevisedExercise → Exercise (which exercise it revises)
+        UnifiedRelationshipDefinition(
+            RelationshipName.REVISES_EXERCISE,
+            "Entity",
+            "outgoing",
+            "original_exercise",
+            "original_exercise",
+            fields=("uid", "title"),
+            single=True,
+        ),
+        # Incoming: Submission → RevisedExercise (student submissions fulfilling this revision)
+        UnifiedRelationshipDefinition(
+            RelationshipName.FULFILLS_EXERCISE,
+            "Entity",
+            "incoming",
+            "submissions",
+            "submissions",
+            fields=("uid", "title", "status", "user_uid"),
+        ),
+    ),
+    prerequisite_relationship_names=(),
+    enables_relationship_names=(),
+    bidirectional_relationships=(),
+    semantic_types=(
+        SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
+        SemanticRelationshipType.PROVIDES_PRACTICAL_APPLICATION,
+    ),
+    scoring_weights=_build_scoring_weights(knowledge=0.5, goals=0.3, alignment=0.2),
+    default_context_intent=QueryIntent.PREREQUISITE,
+    intent_mappings={
+        "context": QueryIntent.PREREQUISITE,
+        "revision": QueryIntent.PRACTICE,
+    },
+)
+
 # =============================================================================
 # NOTE (February 2026): MOC_CONFIG REMOVED
 # =============================================================================
@@ -2070,6 +2128,7 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     "Ls": LS_CONFIG,  # Virtual key — config lookup key for 'learning_step'}
     "Lp": LP_CONFIG,  # Virtual key — config lookup key for 'learning_path'}
     "Exercise": EXERCISE_CONFIG,  # Virtual key — config lookup key for 'exercise'}
+    "RevisedExercise": REVISED_EXERCISE_CONFIG,  # Virtual key — config lookup key for 'revised_exercise'}
 }
 
 

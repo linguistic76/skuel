@@ -1097,6 +1097,66 @@ class ExerciseOperations(Protocol):
         ...
 
 
+class RevisedExerciseOperations(Protocol):
+    """Revised exercise operations for the five-phase learning loop.
+
+    RevisedExercise is a UserOwnedEntity (teacher-owned, student-targeted)
+    that provides targeted revision instructions after SubmissionFeedback.
+
+    Route consumer: revised_exercises_api.py
+    Implementation: RevisedExerciseService
+    """
+
+    async def create_revised_exercise(
+        self,
+        teacher_uid: str,
+        original_exercise_uid: str,
+        feedback_uid: str,
+        student_uid: str,
+        instructions: str,
+        title: str | None = None,
+        model: str = "claude-sonnet-4-6",
+        context_notes: list[str] | None = None,
+        feedback_points_addressed: list[str] | None = None,
+        revision_rationale: str | None = None,
+    ) -> Result[Any]:
+        """Create a RevisedExercise. Returns Result[RevisedExercise]."""
+        ...
+
+    async def get_revised_exercise(self, uid: str) -> Result[Any]:
+        """Get revised exercise by UID. Returns Result[RevisedExercise]."""
+        ...
+
+    async def list_for_teacher(self, teacher_uid: str) -> Result[list[Any]]:
+        """List revised exercises owned by a teacher."""
+        ...
+
+    async def list_for_student(self, student_uid: str) -> Result[list[Any]]:
+        """List revised exercises targeting a student."""
+        ...
+
+    async def get_revision_chain(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all revisions in the chain for an original exercise."""
+        ...
+
+    async def update_revised_exercise(
+        self,
+        uid: str,
+        instructions: str | None = None,
+        title: str | None = None,
+        model: str | None = None,
+        context_notes: list[str] | None = None,
+        feedback_points_addressed: list[str] | None = None,
+        revision_rationale: str | None = None,
+    ) -> Result[Any]:
+        """Update a revised exercise."""
+        ...
+
+    async def delete_revised_exercise(self, uid: str) -> Result[bool]:
+        """Delete a revised exercise."""
+        ...
+
+
 # =============================================================================
 # MOC OPERATIONS - REMOVED JANUARY 2026
 # =============================================================================

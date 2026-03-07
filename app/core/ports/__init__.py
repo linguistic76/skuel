@@ -153,6 +153,7 @@ from .curriculum_protocols import (
     ExerciseOperations,
     LpOperations,
     LsOperations,
+    RevisedExerciseOperations,
 )
 
 # Domain operation protocols
@@ -436,8 +437,9 @@ __all__ = [
     "ProgressFeedbackOperations",
     "ProgressScheduleOperations",
     "ReviewQueueOperations",
-    # ========== EXERCISE PROTOCOL ==========
+    # ========== EXERCISE PROTOCOLS ==========
     "ExerciseOperations",
+    "RevisedExerciseOperations",
     "RelationshipCrudOperations",  # Edge CRUD (6 methods)
     "RelationshipMetadata",
     "RelationshipMetadataOperations",  # Edge properties (3 methods)

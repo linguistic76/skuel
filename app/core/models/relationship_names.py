@@ -276,6 +276,11 @@ class RelationshipName(str, Enum):
     FULFILLS_EXERCISE = "FULFILLS_EXERCISE"
     # (Entity)-[:SHARED_WITH_GROUP {shared_at, share_version}]->(Group) - Group-level sharing
     SHARED_WITH_GROUP = "SHARED_WITH_GROUP"
+    # Revision cycle (5-phase learning loop)
+    # (RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionFeedback)
+    RESPONDS_TO_FEEDBACK = "RESPONDS_TO_FEEDBACK"
+    # (RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)
+    REVISES_EXERCISE = "REVISES_EXERCISE"
 
     # =========================================================================
     # CONTENT/PROCESSING RELATIONSHIPS

@@ -2,7 +2,7 @@
 Entity Type Aliases and Class Dispatch Map
 ==========================================
 
-Type aliases and the EntityType→class map for all 17 entity types.
+Type aliases and the EntityType→class map for all 18 entity types.
 
 For construction: Use the specific subclass (Task, Ku, Goal, etc.)
 For dispatched deserialization: Use Entity.from_dto(dto)
@@ -18,6 +18,7 @@ from core.models.choice.choice import Choice
 from core.models.curriculum.article import Article
 from core.models.curriculum.exercise import Exercise
 from core.models.curriculum.learning_path import LearningPath
+from core.models.curriculum.revised_exercise import RevisedExercise
 from core.models.curriculum.learning_step import LearningStep
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
@@ -72,6 +73,7 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.LEARNING_STEP: LearningStep,
     EntityType.LEARNING_PATH: LearningPath,
     EntityType.EXERCISE: Exercise,
+    EntityType.REVISED_EXERCISE: RevisedExercise,
     EntityType.SUBMISSION: Submission,
     EntityType.JOURNAL: Journal,
     EntityType.ACTIVITY_REPORT: ActivityReport,

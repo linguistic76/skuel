@@ -68,6 +68,7 @@ class TestUnifiedRegistry:
             "Ls",
             "Lp",
             "Exercise",  # Instruction templates
+            "RevisedExercise",  # Five-phase learning loop revision cycle
             # Note: MapOfContent and MOCSection removed - MOC is now KU with ORGANIZES relationships
             # Other entities
             "User",  # User entity relationships

@@ -84,8 +84,9 @@ class NeoLabel(str, Enum):
     ACTIVITY_REPORT = "ActivityReport"
     SUBMISSION_FEEDBACK = "SubmissionFeedback"
 
-    # Instruction Templates (1)
+    # Instruction Templates (2)
     EXERCISE = "Exercise"  # Domain label for :Entity nodes with entity_type="exercise"
+    REVISED_EXERCISE = "RevisedExercise"  # Targeted revision instructions after feedback
 
     # Destination (1)
     LIFE_PATH = "LifePath"
@@ -246,6 +247,7 @@ def _init_ku_type_mapping() -> None:
             EntityType.LEARNING_STEP: NeoLabel.LEARNING_STEP,
             EntityType.LEARNING_PATH: NeoLabel.LEARNING_PATH,
             EntityType.EXERCISE: NeoLabel.EXERCISE,
+            EntityType.REVISED_EXERCISE: NeoLabel.REVISED_EXERCISE,
             EntityType.SUBMISSION: NeoLabel.SUBMISSION,
             EntityType.JOURNAL: NeoLabel.JOURNAL,
             EntityType.ACTIVITY_REPORT: NeoLabel.ACTIVITY_REPORT,

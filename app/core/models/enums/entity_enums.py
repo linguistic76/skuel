@@ -6,7 +6,7 @@ Core enums for entity type discrimination, processing lifecycle,
 content origin, and domain classification.
 
 Organized in 5 sections:
-1. Core Identity: EntityType (17 values), ContentOrigin (4 tiers)
+1. Core Identity: EntityType (18 values), ContentOrigin (4 tiers)
 2. Processing Lifecycle: EntityStatus (14 values), ProcessorType (4 values)
 3. Domain Classification: Domain, NonKuDomain, DomainIdentifier
 4. Analytics: AnalyticsDomain
@@ -24,7 +24,7 @@ from enum import Enum
 
 class EntityType(str, Enum):
     """
-    Type of Entity — 17 entity types in SKUEL.
+    Type of Entity — 18 entity types in SKUEL.
 
     Discriminator for the `entity_type` field on Entity.
 
@@ -43,6 +43,7 @@ class EntityType(str, Enum):
         LIFE_PATH           → Knowledge about your life direction
         PRINCIPLE           → Knowledge about what you believe
         RESOURCE            → Books, talks, films, music (admin-only)
+        REVISED_EXERCISE    → Targeted revision instructions after feedback
         SUBMISSION          → Student-uploaded work (file submissions)
         SUBMISSION_FEEDBACK → Teacher or AI feedback on a submission
         TASK                → Knowledge about what needs doing
@@ -52,7 +53,7 @@ class EntityType(str, Enum):
 
     Content origin tiers (see ContentOrigin):
         A  CURATED      → RESOURCE
-        B  CURRICULUM   → ARTICLE, KU, LEARNING_STEP, LEARNING_PATH, EXERCISE
+        B  CURRICULUM   → ARTICLE, KU, LEARNING_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE
         C  USER_CREATED → Activities (6), SUBMISSION, JOURNAL, LIFE_PATH
         D  FEEDBACK     → ACTIVITY_REPORT, SUBMISSION_FEEDBACK
 
@@ -69,6 +70,9 @@ class EntityType(str, Enum):
     LEARNING_STEP = "learning_step"
     LEARNING_PATH = "learning_path"
     EXERCISE = "exercise"
+
+    # Revision cycle (teacher-owned, student-targeted)
+    REVISED_EXERCISE = "revised_exercise"
 
     # Curated external content (admin-created, shared)
     RESOURCE = "resource"
@@ -149,6 +153,7 @@ class EntityType(str, Enum):
             EntityType.SUBMISSION,
             EntityType.ACTIVITY_REPORT,
             EntityType.SUBMISSION_FEEDBACK,
+            EntityType.REVISED_EXERCISE,
         }
 
     def is_processable(self) -> bool:
@@ -205,6 +210,7 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.CHOICE: "Choice",
     EntityType.PRINCIPLE: "Principle",
     EntityType.EXERCISE: "Exercise",
+    EntityType.REVISED_EXERCISE: "Revised Exercise",
     EntityType.LIFE_PATH: "Life Path",
 }
 
@@ -269,6 +275,7 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.LEARNING_STEP: ContentOrigin.CURRICULUM,
     EntityType.LEARNING_PATH: ContentOrigin.CURRICULUM,
     EntityType.EXERCISE: ContentOrigin.CURRICULUM,
+    EntityType.REVISED_EXERCISE: ContentOrigin.CURRICULUM,
     # C — User-generated content
     EntityType.TASK: ContentOrigin.USER_CREATED,
     EntityType.GOAL: ContentOrigin.USER_CREATED,
@@ -315,8 +322,10 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "path": EntityType.LEARNING_PATH,
     "report": EntityType.ACTIVITY_REPORT,
     "exercise": EntityType.EXERCISE,
+    "revised_exercise": EntityType.REVISED_EXERCISE,
     "assignment": EntityType.EXERCISE,
     "feedback": EntityType.SUBMISSION_FEEDBACK,
+    "revised_ex": EntityType.REVISED_EXERCISE,
     "lifepath": EntityType.LIFE_PATH,
 }
 
@@ -727,6 +736,14 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
+    EntityType.REVISED_EXERCISE: frozenset(
+        {
+            EntityStatus.DRAFT,
+            EntityStatus.ACTIVE,
+            EntityStatus.COMPLETED,
+            EntityStatus.ARCHIVED,
+        }
+    ),
     EntityType.LIFE_PATH: frozenset(
         {
             EntityStatus.ACTIVE,
@@ -742,6 +759,7 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
     EntityType.LEARNING_STEP: EntityStatus.DRAFT,
     EntityType.LEARNING_PATH: EntityStatus.DRAFT,
     EntityType.EXERCISE: EntityStatus.DRAFT,
+    EntityType.REVISED_EXERCISE: EntityStatus.DRAFT,
     EntityType.JOURNAL: EntityStatus.DRAFT,
     EntityType.SUBMISSION: EntityStatus.DRAFT,
     EntityType.ACTIVITY_REPORT: EntityStatus.DRAFT,
@@ -882,7 +900,7 @@ class NonKuDomain(str, Enum):
 
 
 # Union type for any domain identifier in SKUEL.
-# EntityType covers all 17 entity types; NonKuDomain covers the 4 non-entity domains.
+# EntityType covers all 18 entity types; NonKuDomain covers the 4 non-entity domains.
 DomainIdentifier = EntityType | NonKuDomain
 
 

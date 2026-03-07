@@ -776,6 +776,13 @@ async def _wire_all_routes(
         create_exercises_routes(app, rt, services)
         logger.info("✅ Exercise routes registered")
 
+    # Revised Exercise routes (five-phase learning loop)
+    if services.revised_exercises:
+        from adapters.inbound.revised_exercises_routes import create_revised_exercises_routes
+
+        create_revised_exercises_routes(app, rt, services)
+        logger.info("✅ Revised Exercise routes registered (five-phase learning loop)")
+
     # Group routes (ADR-040: Teacher Assignment Workflow)
     if services.group_service:
         from adapters.inbound.groups_routes import create_groups_routes

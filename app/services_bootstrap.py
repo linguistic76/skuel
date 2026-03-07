@@ -161,6 +161,7 @@ from core.ports import (
     # Infrastructure
     EventBusOperations,
     ExerciseOperations,
+    RevisedExerciseOperations,
     # Submission + SubmissionFeedback protocols
     FeedbackOperations,
     FinancesOperations,
@@ -244,6 +245,9 @@ class Services:
     feedback: FeedbackOperations | None = None  # FeedbackService - LLM feedback on report content
     exercises: ExerciseOperations | None = (
         None  # ExerciseService - Reusable LLM instruction templates
+    )
+    revised_exercises: RevisedExerciseOperations | None = (
+        None  # RevisedExerciseService - Five-phase learning loop revision cycle
     )
 
     # Journal processing services
@@ -1676,6 +1680,21 @@ async def compose_services(
         exercise_service = ExerciseService(backend=exercise_backend)
         logger.info("✅ Reports feedback and exercise services created")
 
+        # Create revised exercise service (five-phase learning loop)
+        from adapters.persistence.neo4j.domain_backends import RevisedExerciseBackend
+        from core.models.curriculum.revised_exercise import RevisedExercise
+        from core.services.revised_exercises import RevisedExerciseService
+
+        revised_exercise_backend = RevisedExerciseBackend(
+            driver=driver,
+            label=NeoLabel.REVISED_EXERCISE,
+            entity_class=RevisedExercise,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        )
+        revised_exercise_service = RevisedExerciseService(backend=revised_exercise_backend)
+        logger.info("✅ RevisedExerciseService created (five-phase learning loop)")
+
         # Create group service (ADR-040: Teacher Assignment Workflow)
         from core.models.group.group import Group
         from core.services.groups import GroupService
@@ -2467,6 +2486,7 @@ async def compose_services(
             content_enrichment=content_enrichment,
             feedback=feedback_service,  # LLM feedback on submissions/journals
             exercises=exercise_service,  # Reusable LLM instruction templates
+            revised_exercises=revised_exercise_service,  # Five-phase learning loop revisions
             journal_generator=journal_generator,  # je_output formatting and disk storage
             # Group & Teaching (ADR-040: Teacher exercise workflow)
             group_service=group_service,

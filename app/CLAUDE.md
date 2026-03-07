@@ -43,13 +43,13 @@ from core.ports import LpOperations  # Not ku_protocols.py
 
 **Core Principle:** "Entity is the universal base. Ku is one type of Entity."
 
-`Entity` is the base frozen dataclass for all 17 domain types. The `entity_type` field discriminates which kind of entity it is (Task, Goal, Habit, Article, Ku, etc.). The `parent_entity_uid` field tracks derivation chains.
+`Entity` is the base frozen dataclass for all 18 domain types. The `entity_type` field discriminates which kind of entity it is (Task, Goal, Habit, Article, Ku, etc.). The `parent_entity_uid` field tracks derivation chains.
 
 **Article vs Ku (March 2026):**
 - **Article** (`EntityType.ARTICLE`, extends `Curriculum`) — essay-like teaching composition. Services in `core/services/article/`, facade `ArticleService`.
 - **Ku** (`EntityType.KU`, extends `Entity`) — atomic knowledge unit. Lightweight ontology/reference node: a single definable thing (concept, state, principle, substance, practice, value). Services in `core/services/ku/`, facade `KuService`.
 - **Composition:** `(Article)-[:USES_KU]->(Ku)` — Articles compose atomic Kus into narrative.
-- **Learning loop:** Article → Exercise → Submission → Feedback
+- **Learning loop:** Article → Exercise → Submission → Feedback → RevisedExercise → ...
 
 **Key fields on Entity:**
 - `entity_type` field — the EntityType discriminator (renamed from `ku_type`, March 2026)
@@ -218,11 +218,11 @@ Future collaborators — human or AI — should read SKUEL's plain-English domai
 
 **See:** `/docs/dsl/DSL_SPECIFICATION.md`
 
-## SKUEL's 17 Entity Types + 5 Cross-Cutting Systems
+## SKUEL's 18 Entity Types + 5 Cross-Cutting Systems
 
 **Core Principle:** "Everything flows toward the life path"
 
-### The 17 Entity Types
+### The 18 Entity Types
 
 | EntityType | What It Is | UID Format | Ownership |
 |------------|-----------|-----------|-----------|
@@ -239,6 +239,7 @@ Future collaborators — human or AI — should read SKUEL's plain-English domai
 | LearningStep | Step in a learning path | `ls:{random}` | Admin-created, shared |
 | LearningPath | Ordered sequence of steps | `lp:{random}` | Admin-created, shared |
 | Exercise | Instruction template for practicing curriculum | N/A | Admin-created, shared |
+| RevisedExercise | Targeted revision instructions after feedback | `re_{slug}_{random}` | Teacher-owned |
 | Submission | Student-uploaded work | N/A | User-owned |
 | Journal | Reflective writing (voice/text) | N/A | User-owned |
 | ActivityReport | Feedback about activity patterns over time | N/A | User-owned |
@@ -281,7 +282,7 @@ Entity types have behavioral traits — not category membership — that determi
 - `ContentScope.SHARED` + `ContentOrigin.CURATED` — NOT curriculum, does not participate in learning loop
 
 **Submission, Journal, SubmissionFeedback, ActivityReport** — Content processing:
-- The educational loop `Article → Exercise → Submission → Feedback`
+- The educational loop `Article → Exercise → Submission → Feedback → RevisedExercise → ...`
 - Activity entity types are equal entry points via `ACTIVITY_REPORT`
 - **Services split:** `core/services/submissions/` (student work) + `core/services/feedback/` (responses)
 - **See:** `/docs/architecture/FEEDBACK_ARCHITECTURE.md`, `@learning-loop` skill
@@ -470,7 +471,7 @@ EntityDTO (~18 fields)
 
 **ArticleDTO** is a thin subclass of CurriculumDTO (all 39 fields inherited). **KuDTO** extends EntityDTO directly (4 extra fields). Cross-domain services use `ENTITY_TYPE_CLASS_MAP` for generic deserialization.
 
-**Key enums:** `EntityType` (17 values incl. ARTICLE, discriminator), `EntityStatus` (14 values, THE status enum). Both in `entity_enums.py`.
+**Key enums:** `EntityType` (18 values incl. ARTICLE, discriminator), `EntityStatus` (14 values, THE status enum). Both in `entity_enums.py`.
 
 **Neo4j Multi-Label:** Every entity gets `:Entity` (universal) + domain label (`:Task`, `:Goal`, etc.). Backend uses `base_label=NeoLabel.ENTITY`. User relationships use `:OWNS`.
 
@@ -581,7 +582,7 @@ GraphDepth.DEFAULT                             # Named constants
 **Core Principle:** "Clear domain language -> clear types -> enforceable contracts"
 
 ```python
-# EntityType — 17 domain types (multi-label :Entity nodes in Neo4j)
+# EntityType — 18 domain types (multi-label :Entity nodes in Neo4j)
 class EntityType(str, Enum):
     TASK, HABIT, GOAL, EVENT, PRINCIPLE, CHOICE = ...  # Activity
     KU, ARTICLE, RESOURCE, LEARNING_STEP, LEARNING_PATH, EXERCISE = ...  # Curriculum

@@ -1022,6 +1022,98 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         return Result.ok([dict(record) for record in (result.value or [])])
 
 
+class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
+    """
+    Domain backend for RevisedExercise entities.
+
+    Provides relationship-specific Cypher for the five-phase learning loop:
+    - link_to_feedback   — MERGE RESPONDS_TO_FEEDBACK relationship
+    - link_to_exercise   — MERGE REVISES_EXERCISE relationship
+    - get_revision_chain — Query all revisions of an original exercise
+    """
+
+    async def link_to_feedback(
+        self, re_uid: str, feedback_uid: str
+    ) -> Result[bool]:
+        """Create RESPONDS_TO_FEEDBACK relationship from revised exercise to feedback."""
+        result = await self.execute_query(
+            f"""
+            MATCH (re:Entity {{uid: $re_uid, entity_type: 'revised_exercise'}})
+            MATCH (fb:Entity {{uid: $feedback_uid}})
+            WHERE fb.entity_type IN ['submission_feedback', 'activity_report']
+            MERGE (re)-[r:{RelationshipName.RESPONDS_TO_FEEDBACK}]->(fb)
+            ON CREATE SET r.created_at = datetime()
+            RETURN true as success
+            """,
+            {"re_uid": re_uid, "feedback_uid": feedback_uid},
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        records = result.value or []
+        if not records:
+            return Result.fail(
+                Errors.not_found(
+                    resource="RESPONDS_TO_FEEDBACK relationship",
+                    identifier=f"{re_uid} -> {feedback_uid}",
+                )
+            )
+        return Result.ok(True)
+
+    async def link_to_exercise(
+        self, re_uid: str, exercise_uid: str
+    ) -> Result[bool]:
+        """Create REVISES_EXERCISE relationship from revised exercise to original exercise."""
+        result = await self.execute_query(
+            f"""
+            MATCH (re:Entity {{uid: $re_uid, entity_type: 'revised_exercise'}})
+            MATCH (ex:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
+            MERGE (re)-[r:{RelationshipName.REVISES_EXERCISE}]->(ex)
+            ON CREATE SET r.created_at = datetime()
+            RETURN true as success
+            """,
+            {"re_uid": re_uid, "exercise_uid": exercise_uid},
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        records = result.value or []
+        if not records:
+            return Result.fail(
+                Errors.not_found(
+                    resource="REVISES_EXERCISE relationship",
+                    identifier=f"{re_uid} -> {exercise_uid}",
+                )
+            )
+        return Result.ok(True)
+
+    async def get_revision_chain(
+        self, exercise_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Get all revised exercises in the revision chain for an original exercise.
+
+        Returns revisions ordered by revision_number ascending.
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (re:Entity {{entity_type: 'revised_exercise'}})
+                  -[:{RelationshipName.REVISES_EXERCISE}]->
+                  (ex:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
+            RETURN re.uid as uid,
+                   re.title as title,
+                   re.revision_number as revision_number,
+                   re.student_uid as student_uid,
+                   re.feedback_uid as feedback_uid,
+                   re.status as status,
+                   re.created_at as created_at
+            ORDER BY re.revision_number ASC
+            """,
+            {"exercise_uid": exercise_uid},
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        return Result.ok([dict(record) for record in (result.value or [])])
+
+
 # Entity types that can be shared while active (not just completed)
 _ACTIVITY_ENTITY_TYPES = frozenset({"task", "goal", "habit", "event", "choice", "principle"})
 
