@@ -392,6 +392,7 @@ revision cycle explicitly rather than implicitly.
 })
 (re)-[:RESPONDS_TO_FEEDBACK]->(feedback:Entity:SubmissionFeedback)
 (re)-[:REVISES_EXERCISE]->(exercise:Entity:Exercise)
+(student:User)-[:SHARES_WITH {role: 'student'}]->(re)     // auto-created on creation
 (submission:Entity:Submission)-[:FULFILLS_EXERCISE]->(re)  // reuses existing rel type
 ```
 
@@ -410,6 +411,12 @@ services.revised_exercises              # RevisedExerciseService
 
 **Access control:** `create_revised_exercise` verifies the teacher has `SHARES_WITH {role:'teacher'}`
 on the submission linked to the feedback, and the `student_uid` owns that submission.
+
+**Student discovery:** On creation, a `SHARES_WITH {role: 'student'}` relationship is auto-created
+from the student to the RevisedExercise (same pattern as ADR-040 assignment auto-sharing). This means:
+- Revisions appear in the student's "Shared With Me" inbox
+- MEGA-QUERY picks them up as `pending_revised_exercises` on UserContext
+- `get_ready_to_work_on_today()` surfaces them at Priority 2.3
 `/api/revised-exercises/for-student` scopes results to revisions owned by the requesting teacher.
 
 ---

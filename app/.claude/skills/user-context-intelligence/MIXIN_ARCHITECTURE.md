@@ -279,6 +279,7 @@ async def get_ready_to_work_on_today(
     Priority Order:
     1. At-risk habits (maintain streaks)
     2. Today's events (can't reschedule)
+    2.3. Pending revised exercises (from context.pending_revised_exercises — teacher feedback to address)
     2.5. Unsubmitted exercises (from context.unsubmitted_exercises — no extra query)
     3. Overdue and actionable tasks
     4. Daily habits (consistency)

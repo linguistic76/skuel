@@ -265,7 +265,7 @@ class UserContextQueryExecutor:
 | `populate_progress_metrics()` | `overall_progress` | Both |
 | `populate_derived_fields()` | `tasks_by_goal`, `at_risk_habits`, `blocked_task_uids` | Rich only |
 | `populate_activity_report()` | `latest_activity_report_*` fields | Both |
-| `populate_submission_stats()` | `total_submission_count`, `pending_feedback_count`, `unsubmitted_exercises`, etc. (10 fields) | Rich only |
+| `populate_submission_stats()` | `total_submission_count`, `pending_feedback_count`, `unsubmitted_exercises`, `pending_revised_exercises`, etc. (11 fields) | Rich only |
 | `populate_cross_domain_insights()` | `cross_domain_insights` | Rich only |
 
 ---
@@ -305,7 +305,7 @@ Both CONSOLIDATED_QUERY (standard) and MEGA-QUERY (rich) fetch the latest `Activ
 
 ### Submission & Feedback Stats — Rich Path Only
 
-MEGA-QUERY populates 10 submission/feedback tracking fields via `populate_submission_stats()`:
+MEGA-QUERY populates 11 submission/feedback tracking fields via `populate_submission_stats()`:
 
 | UserContext Field | What |
 |-----------------|------|
@@ -319,8 +319,9 @@ MEGA-QUERY populates 10 submission/feedback tracking fields via `populate_submis
 | `assigned_exercise_count` | Exercises assigned via Group membership |
 | `completed_exercise_count` | Assigned exercises with submissions |
 | `unsubmitted_exercises` | Up to 5 pending exercises (uid, title, due_date), due_date ASC |
+| `pending_revised_exercises` | Up to 5 pending revisions (uid, title, instructions, revision_number, ...), created_at DESC |
 
-These fields are separate from `entities_rich` — they are scalar/list fields on `UserContext`, similar to `latest_activity_report_*` fields. `DailyPlanningMixin` reads `context.unsubmitted_exercises` directly at Priority 2.5 instead of making a separate service call.
+These fields are separate from `entities_rich` — they are scalar/list fields on `UserContext`, similar to `latest_activity_report_*` fields. `DailyPlanningMixin` reads `context.pending_revised_exercises` at Priority 2.3 (teacher revision feedback to address) and `context.unsubmitted_exercises` at Priority 2.5 (assigned exercises).
 
 ### Caching
 

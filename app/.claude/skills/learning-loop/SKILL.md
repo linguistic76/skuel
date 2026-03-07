@@ -443,9 +443,13 @@ enables student notification and learning loop progression tracking.
   arbitrary students' feedback.
 - **List for student (teacher route):** `list_for_student(student_uid, teacher_uid=)` scopes
   results to revisions owned by the requesting teacher, preventing cross-teacher leakage.
-- **Student access:** Students discover their revisions via `GET /api/revised-exercises/my-revisions`
-  and view details via `GET /api/revised-exercises/view?uid=`. Ownership check: student sees
-  only revisions targeting them (`student_uid` match) or owned by them (teacher path).
+- **Student access:** On creation, a `SHARES_WITH {role: 'student'}` relationship is auto-created
+  from the student to the RevisedExercise. Students discover revisions through:
+  - "Shared With Me" inbox (SHARES_WITH relationship)
+  - `GET /api/revised-exercises/my-revisions` (student_uid match)
+  - `GET /api/revised-exercises/view?uid=` (student_uid or owner match)
+  - Daily planning: `get_ready_to_work_on_today()` surfaces them at Priority 2.3 via
+    `context.pending_revised_exercises` (populated by MEGA-QUERY)
 
 **Loop role:** RevisedExercise is the *refinement* — it bridges feedback back into a
 new exercise, closing the revision cycle explicitly rather than implicitly.
@@ -460,6 +464,7 @@ new exercise, closing the revision cycle explicitly rather than implicitly.
 | `FOR_GROUP` | `Exercise` → `Group` | ASSIGNED exercise targets this classroom |
 | `FULFILLS_EXERCISE` | `Submission` → `Exercise` or `RevisedExercise` | Student's work satisfies this exercise |
 | `SHARES_WITH` | `Submission` → `User` | Auto-share to teacher for ASSIGNED exercises |
+| `SHARES_WITH` | `User` → `RevisedExercise` | Auto-share revision to student on creation |
 | `FEEDBACK_FOR` | `SubmissionFeedback` → `Submission` | Feedback evaluates this specific artifact |
 | `RESPONDS_TO_FEEDBACK` | `RevisedExercise` → `SubmissionFeedback` | Revision addresses this feedback |
 | `REVISES_EXERCISE` | `RevisedExercise` → `Exercise` | Revision of this original exercise |

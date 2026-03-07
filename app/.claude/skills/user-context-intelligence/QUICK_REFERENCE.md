@@ -380,6 +380,7 @@ plan = await intelligence.get_ready_to_work_on_today()
 | `assigned_exercise_count` | `int` | Exercises assigned via Group |
 | `completed_exercise_count` | `int` | Assigned exercises completed |
 | `unsubmitted_exercises` | `list[dict]` | Up to 5 pending exercises ({uid, title, due_date}) |
+| `pending_revised_exercises` | `list[dict]` | Up to 5 pending revisions ({uid, title, instructions, revision_number, ...}) |
 
 ---
 

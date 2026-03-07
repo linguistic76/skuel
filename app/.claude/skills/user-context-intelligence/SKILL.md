@@ -100,7 +100,7 @@ UserContextIntelligence = UserContext + 13 Domain Services
 > |---------|--------|
 > | `self.submissions` | Wired, not called (cross-domain submission state planned) |
 > | `self.analytics` | Wired, not called (cross-domain pattern queries planned) |
-> | `self.feedback` | Wired. Exercise data now flows via MEGA-QUERY → `context.unsubmitted_exercises` (Priority 2.5 in daily planning reads this field directly) |
+> | `self.feedback` | Wired. Exercise data now flows via MEGA-QUERY → `context.unsubmitted_exercises` (Priority 2.5) and `context.pending_revised_exercises` (Priority 2.3). Daily planning reads both fields directly. |
 
 ### Temporal Domain (1)
 
@@ -209,7 +209,7 @@ alongside active entities. Used by **both** intelligence methods and feedback se
 (`ProgressFeedbackGenerator`, `ActivityReportService`). Default `window="30d"` always
 provides the standard 30-day window.
 
-**Submission & feedback stats (March 2026):** `build_rich()` now populates 10 new fields via `populate_submission_stats()`: submission counts, feedback tracking, and `unsubmitted_exercises`. `DailyPlanningMixin` reads `context.unsubmitted_exercises` directly at Priority 2.5, eliminating the previous `feedback.get_unsubmitted_exercises()` service call.
+**Submission & feedback stats (March 2026):** `build_rich()` now populates 11 fields via `populate_submission_stats()`: submission counts, feedback tracking, `unsubmitted_exercises`, and `pending_revised_exercises`. `DailyPlanningMixin` reads `context.pending_revised_exercises` at Priority 2.3 (teacher revision feedback) and `context.unsubmitted_exercises` at Priority 2.5 (assigned exercises).
 
 **The rule:** Always pass `build_rich()` context to intelligence. `require_rich_context()` will catch mistakes:
 
