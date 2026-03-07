@@ -17,6 +17,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from core.utils.frontmatter import parse_frontmatter as _parse_frontmatter
+
 
 @dataclass
 class HeadingNode:
@@ -97,19 +99,7 @@ def slugify(text: str) -> str:
 
 def parse_frontmatter(content: str) -> tuple[dict, str]:
     """Extract YAML frontmatter and body."""
-    import yaml
-
-    pattern = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
-    match = pattern.match(content)
-
-    if match:
-        try:
-            frontmatter = yaml.safe_load(match.group(1)) or {}
-            body = content[match.end() :]
-            return frontmatter, body
-        except yaml.YAMLError:
-            return {}, content
-    return {}, content
+    return _parse_frontmatter(content)
 
 
 def parse_hierarchy_markdown(content: str) -> HierarchyStructure:

@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
+from core.utils.frontmatter import parse_frontmatter as _parse_frontmatter
 
 
 @dataclass
@@ -139,19 +139,7 @@ TASK_MAP = {
 
 def parse_frontmatter(content: str) -> dict[str, Any]:
     """Parse YAML frontmatter from markdown content."""
-    if not content.startswith("---"):
-        return {}
-
-    end_match = re.search(r"\n---\n", content[3:])
-    if not end_match:
-        return {}
-
-    frontmatter_text = content[3 : end_match.start() + 3]
-
-    try:
-        return yaml.safe_load(frontmatter_text) or {}
-    except yaml.YAMLError:
-        return {}
+    return _parse_frontmatter(content)[0]
 
 
 def extract_snippet(content: str, query: str, max_length: int = 150) -> str:

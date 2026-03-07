@@ -8,21 +8,18 @@ Pure parsing logic, independent of ingestion orchestration.
 Extracted from unified_ingestion_service.py for separation of concerns.
 """
 
-import re
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from core.utils.frontmatter import split_frontmatter
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 from .config import DEFAULT_MAX_FILE_SIZE_BYTES
 
 logger = get_logger("skuel.services.ingestion.parser")
-
-# Pattern for extracting YAML frontmatter from markdown files
-FRONTMATTER_PATTERN = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
 def format_file_size(size_bytes: int) -> str:
@@ -118,12 +115,10 @@ def parse_markdown(
 
         content = file_path.read_text(encoding="utf-8")
 
-        match = FRONTMATTER_PATTERN.match(content)
-        if match:
-            frontmatter_str = match.group(1)
-            body = content[match.end() :]
+        raw_yaml, body = split_frontmatter(content)
+        if raw_yaml is not None:
             try:
-                frontmatter = yaml.safe_load(frontmatter_str) or {}
+                frontmatter = yaml.safe_load(raw_yaml) or {}
             except yaml.YAMLError as e:
                 logger.warning(
                     "Failed to parse YAML frontmatter - using empty frontmatter",
@@ -136,7 +131,6 @@ def parse_markdown(
                 frontmatter = {}
         else:
             frontmatter = {}
-            body = content
 
         return Result.ok((frontmatter, body))
 
@@ -214,7 +208,6 @@ def parse_yaml(
 
 
 __all__ = [
-    "FRONTMATTER_PATTERN",
     "check_file_size",
     "extract_yaml_error_location",
     "format_file_size",

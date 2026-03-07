@@ -31,7 +31,9 @@ from core.utils.result_simplified import Errors, Result
 from .config import DEFAULT_MAX_CONCURRENT_PARSING, DEFAULT_MAX_FILE_SIZE_BYTES, ENTITY_CONFIGS
 from .detector import detect_entity_type, detect_format, is_edge_type
 from .ingestion_tracker import IngestionTracker
-from .parser import FRONTMATTER_PATTERN, check_file_size, parse_markdown, parse_yaml
+from core.utils.frontmatter import split_frontmatter
+
+from .parser import check_file_size, parse_markdown, parse_yaml
 from .preparer import normalize_uid, prepare_edge_data, prepare_entity_data
 from .types import BundleStats, DryRunPreview, IncrementalStats, IngestionError, IngestionStats
 from .validator import (
@@ -1007,9 +1009,9 @@ def find_entity_file(
             if check_file_size(md_file, max_file_size_bytes).is_error:
                 continue
             content = md_file.read_text()
-            match = FRONTMATTER_PATTERN.match(content)
-            if match:
-                frontmatter = yaml.safe_load(match.group(1))
+            raw_yaml, _ = split_frontmatter(content)
+            if raw_yaml is not None:
+                frontmatter = yaml.safe_load(raw_yaml)
                 if frontmatter and normalize_uid(frontmatter.get("uid", "")) == normalized_uid:
                     return md_file
         except Exception as e:

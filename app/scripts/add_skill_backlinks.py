@@ -10,11 +10,12 @@ Usage:
     poetry run python scripts/add_skill_backlinks.py --apply   # Apply changes
 """
 
-import re
 import sys
 from pathlib import Path
 
 import yaml
+
+from core.utils.frontmatter import parse_frontmatter as _parse_frontmatter
 
 
 def load_skills_metadata(metadata_path: Path) -> list[dict]:
@@ -53,23 +54,7 @@ def parse_frontmatter(content: str) -> tuple[dict, str]:
     Returns (frontmatter_dict, body_content).
     If no frontmatter, returns (empty_dict, full_content).
     """
-    if not content.startswith("---"):
-        return {}, content
-
-    # Find closing ---
-    end_match = re.search(r"\n---\n", content[3:])
-    if not end_match:
-        return {}, content
-
-    frontmatter_text = content[3 : end_match.start() + 3]
-    body = content[end_match.end() + 3 :]
-
-    try:
-        frontmatter = yaml.safe_load(frontmatter_text) or {}
-    except yaml.YAMLError:
-        return {}, content
-
-    return frontmatter, body
+    return _parse_frontmatter(content)
 
 
 def serialize_frontmatter(frontmatter: dict) -> str:

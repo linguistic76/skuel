@@ -9,6 +9,8 @@ to the related_skills field in YAML frontmatter.
 import re
 from pathlib import Path
 
+from core.utils.frontmatter import split_frontmatter
+
 # Mapping from validation warnings: {file_path: [skills_to_add]}
 MISSING_REVERSE_LINKS: dict[str, list[str]] = {
     "/docs/patterns/UI_COMPONENT_PATTERNS.md": [
@@ -57,15 +59,7 @@ MISSING_REVERSE_LINKS: dict[str, list[str]] = {
 
 def extract_frontmatter(content: str) -> tuple[str | None, str]:
     """Extract YAML frontmatter and body from markdown content."""
-    if not content.startswith("---"):
-        return None, content
-
-    # Find the closing ---
-    parts = content.split("---", 2)
-    if len(parts) < 3:
-        return None, content
-
-    return parts[1], parts[2]
+    return split_frontmatter(content)
 
 
 def parse_related_skills(frontmatter: str) -> set[str]:

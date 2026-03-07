@@ -15,13 +15,14 @@ Usage:
     poetry run python scripts/skills_validator.py --fix     # Auto-fix backlinks (future)
 """
 
-import re
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+from core.utils.frontmatter import parse_frontmatter as _parse_frontmatter
 
 
 @dataclass
@@ -251,22 +252,7 @@ def parse_frontmatter(doc_path: Path) -> dict:
     Returns empty dict if no frontmatter found.
     """
     content = doc_path.read_text(encoding="utf-8")
-
-    # Check for YAML frontmatter
-    if not content.startswith("---"):
-        return {}
-
-    # Find closing ---
-    end_match = re.search(r"\n---\n", content[3:])
-    if not end_match:
-        return {}
-
-    frontmatter_text = content[3 : end_match.start() + 3]
-
-    try:
-        return yaml.safe_load(frontmatter_text) or {}
-    except yaml.YAMLError:
-        return {}
+    return _parse_frontmatter(content)[0]
 
 
 def validate_backlinks(skills: list[dict], project_root: Path) -> list[ValidationError]:

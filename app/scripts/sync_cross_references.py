@@ -32,6 +32,8 @@ from typing import Any
 
 import yaml
 
+from core.utils.frontmatter import split_frontmatter
+
 
 @dataclass
 class DocUpdate:
@@ -51,17 +53,13 @@ def extract_frontmatter(content: str) -> tuple[dict[str, Any] | None, str, str]:
 
     Returns: (frontmatter dict, frontmatter text, body)
     """
-    if not content.startswith("---\n"):
+    raw, body = split_frontmatter(content)
+    if raw is None:
         return None, "", content
 
-    match = re.match(r"^---\n(.*?)\n---\n(.*)$", content, re.DOTALL)
-    if not match:
-        return None, "", content
-
-    frontmatter_text, body = match.groups()
     try:
-        frontmatter = yaml.safe_load(frontmatter_text)
-        return frontmatter, frontmatter_text, body
+        frontmatter = yaml.safe_load(raw)
+        return frontmatter, raw, body
     except yaml.YAMLError:
         return None, "", content
 

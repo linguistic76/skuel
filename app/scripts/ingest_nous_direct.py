@@ -8,8 +8,9 @@ Bypasses the UnifiedIngestionService to work around the dataclass bug.
 import asyncio
 from pathlib import Path
 
-import yaml
 from dotenv import load_dotenv
+
+from core.utils.frontmatter import parse_frontmatter
 
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
@@ -24,20 +25,7 @@ def parse_markdown_file(file_path: Path) -> dict | None:
     """Parse a markdown file with YAML frontmatter."""
     content = file_path.read_text(encoding="utf-8")
 
-    # Parse YAML frontmatter
-    if not content.startswith("---"):
-        return None
-
-    parts = content.split("---", 2)
-    if len(parts) < 3:
-        return None
-
-    try:
-        frontmatter = yaml.safe_load(parts[1])
-        body = parts[2].strip()
-    except yaml.YAMLError:
-        return None
-
+    frontmatter, body = parse_frontmatter(content)
     if not frontmatter:
         return None
 
@@ -47,7 +35,7 @@ def parse_markdown_file(file_path: Path) -> dict | None:
         "title": frontmatter.get("title", ""),
         "description": frontmatter.get("description", ""),
         "icon": frontmatter.get("icon", ""),  # Emoji icon for sections
-        "content": body,
+        "content": body.strip(),
         "parent_uid": frontmatter.get("parent_uid"),
         "section_uid": frontmatter.get("section_uid"),
         "moc_uid": frontmatter.get("moc_uid", "moc_nous"),

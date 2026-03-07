@@ -20,6 +20,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 
+from core.utils.frontmatter import parse_frontmatter
+
 
 @dataclass
 class DocMeta:
@@ -36,30 +38,7 @@ class DocMeta:
 
 def extract_frontmatter(content: str) -> dict:
     """Extract YAML frontmatter from content."""
-    if not content.startswith("---\n"):
-        return {}
-
-    end_idx = content.find("\n---\n", 4)
-    if end_idx == -1:
-        return {}
-
-    frontmatter_text = content[4:end_idx]
-    result = {}
-
-    for line in frontmatter_text.split("\n"):
-        if ":" in line:
-            key, value = line.split(":", 1)
-            key = key.strip()
-            value = value.strip()
-
-            # Handle list values like tags: [a, b, c]
-            if value.startswith("[") and value.endswith("]"):
-                items = value[1:-1].split(",")
-                value = [item.strip() for item in items if item.strip()]
-
-            result[key] = value
-
-    return result
+    return parse_frontmatter(content)[0]
 
 
 def extract_title_from_content(content: str, filename: str) -> str:

@@ -25,6 +25,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from core.utils.frontmatter import parse_frontmatter
+
 
 @dataclass
 class DocMetadata:
@@ -80,30 +82,8 @@ class DocsReport:
 
 def extract_frontmatter(content: str) -> tuple[dict, bool]:
     """Extract YAML frontmatter from content. Returns (data, has_frontmatter)."""
-    if not content.startswith("---\n"):
-        return {}, False
-
-    end_idx = content.find("\n---\n", 4)
-    if end_idx == -1:
-        return {}, False
-
-    frontmatter_text = content[4:end_idx]
-    result = {}
-
-    for line in frontmatter_text.split("\n"):
-        if ":" in line:
-            key, value = line.split(":", 1)
-            key = key.strip()
-            value = value.strip()
-
-            # Handle list values like tags: [a, b, c]
-            if value.startswith("[") and value.endswith("]"):
-                items = value[1:-1].split(",")
-                value = [item.strip() for item in items if item.strip()]
-
-            result[key] = value
-
-    return result, True
+    result = parse_frontmatter(content)[0]
+    return result, bool(result)
 
 
 def extract_internal_links(content: str) -> list[str]:

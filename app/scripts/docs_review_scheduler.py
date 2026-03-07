@@ -17,13 +17,12 @@ Usage:
 """
 
 import json
-import re
 import sys
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-import yaml
+from core.utils.frontmatter import parse_frontmatter as _parse_frontmatter
 
 
 @dataclass
@@ -87,20 +86,7 @@ DEFAULT_FREQUENCIES = {
 def parse_frontmatter(doc_path: Path) -> dict:
     """Parse YAML frontmatter from a markdown file."""
     content = doc_path.read_text(encoding="utf-8")
-
-    if not content.startswith("---"):
-        return {}
-
-    end_match = re.search(r"\n---\n", content[3:])
-    if not end_match:
-        return {}
-
-    frontmatter_text = content[3 : end_match.start() + 3]
-
-    try:
-        return yaml.safe_load(frontmatter_text) or {}
-    except yaml.YAMLError:
-        return {}
+    return _parse_frontmatter(content)[0]
 
 
 def calculate_review_status(

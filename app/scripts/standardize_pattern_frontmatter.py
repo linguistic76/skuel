@@ -15,6 +15,8 @@ from typing import Any
 
 import yaml
 
+from core.utils.frontmatter import parse_frontmatter as _parse_frontmatter
+
 # Valid SKUEL skills (authoritative list from .claude/skills/)
 VALID_SKILLS = {
     "accessibility-guide",
@@ -48,20 +50,10 @@ VALID_SKILLS = {
 
 def extract_frontmatter(content: str) -> tuple[dict[str, Any] | None, str]:
     """Extract YAML frontmatter and body from markdown content."""
-    if not content.startswith("---\n"):
+    frontmatter, body = _parse_frontmatter(content)
+    if not frontmatter:
         return None, content
-
-    # Find the closing ---
-    match = re.match(r"^---\n(.*?)\n---\n(.*)$", content, re.DOTALL)
-    if not match:
-        return None, content
-
-    frontmatter_text, body = match.groups()
-    try:
-        frontmatter = yaml.safe_load(frontmatter_text)
-        return frontmatter, body
-    except yaml.YAMLError:
-        return None, content
+    return frontmatter, body
 
 
 def extract_title_from_body(body: str) -> str:
