@@ -332,7 +332,7 @@ from fasthtml.common import H1, H2, H3, P, A, Form, Li, Ul
 # SKUEL DaisyUI wrappers — 8 focused modules (March 2026)
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody, CardTitle, CardActions, CardT
-from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT, Progress, ProgressT, RadialProgress
+from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT, Progress, ProgressT, RadialProgress, get_submission_status_badge_class
 from ui.forms import Checkbox, FormControl, Input, InputT, Label, LabelText, Radio, Range, Select, Textarea, Toggle
 from ui.layout import Container, DivCentered, DivFullySpaced, DivHStacked, DivVStacked, Grid, Size
 from ui.modals import Modal, ModalAction, ModalBackdrop, ModalBox

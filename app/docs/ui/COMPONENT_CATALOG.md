@@ -43,7 +43,7 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 | `ui.cards` | `CardT`, `Card`, `CardBody`, `CardTitle`, `CardActions`, `CardFigure` |
 | `ui.forms` | `InputT`, `Input`, `Select`, `Textarea`, `FormControl`, `Label`, `LabelText`, `Checkbox`, `Radio`, `Toggle`, `Range` |
 | `ui.modals` | `Modal`, `ModalBox`, `ModalAction`, `ModalBackdrop` |
-| `ui.feedback` | `AlertT`, `BadgeT`, `ProgressT`, `LoadingT`, `Alert`, `Badge`, `Loading`, `Progress`, `RadialProgress` |
+| `ui.feedback` | `AlertT`, `BadgeT`, `ProgressT`, `LoadingT`, `Alert`, `Badge`, `Loading`, `Progress`, `RadialProgress`, `get_submission_status_badge_class` |
 | `ui.navigation` | `Navbar`, `NavbarStart`, `NavbarCenter`, `NavbarEnd`, `Menu`, `MenuItem`, `Dropdown`, `DropdownTrigger`, `DropdownContent`, `Tabs`, `Tab` |
 | `ui.data` | `Table`, `Stats`, `Stat`, `StatTitle`, `StatValue`, `StatDesc`, `StatFigure`, `Tooltip`, `Divider`, `Avatar`, `AvatarGroup` |
 
@@ -52,7 +52,7 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.forms import FormControl, Input, InputT, Label, LabelText, Select, Textarea
-from ui.feedback import Alert, AlertT, Badge, Progress, ProgressT
+from ui.feedback import Alert, AlertT, Badge, Progress, ProgressT, get_submission_status_badge_class
 from ui.layout import Container, DivHStacked, DivVStacked, Size
 from ui.modals import Modal, ModalAction, ModalBackdrop, ModalBox
 from ui.navigation import Dropdown, DropdownContent, DropdownTrigger, Menu, MenuItem, Navbar
