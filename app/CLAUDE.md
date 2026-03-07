@@ -98,6 +98,14 @@ Future collaborators should read SKUEL's plain-English domain descriptions and A
 
 **See:** `/docs/dsl/DSL_SPECIFICATION.md`
 
+## Analog + Digital Runtime Architecture
+
+**Core Principle:** "The Analog layer is not a degraded version of the Digital layer — it is the foundation"
+
+SKUEL separates runtime into two layers. The **Analog layer** (graph structure, CRUD, ingestion, keyword search, analytics, user context) is complete on its own — fully functional at $0 with no API keys. The **Digital layer** (embeddings, vector search, LLM feedback, Askesis) enhances the Analog layer with machine understanding. Toggle with `INTELLIGENCE_TIER=core|full` in `.env`.
+
+**See:** `/docs/architecture/ANALOG_DIGITAL_ARCHITECTURE.md`, `/docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md`
+
 ## SKUEL's 18 Entity Types + 5 Cross-Cutting Systems
 
 **Core Principle:** "Everything flows toward the life path"
