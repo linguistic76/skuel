@@ -34,9 +34,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class KuIntelligenceService(
-    BaseAnalyticsService["BackendOperations[Ku]", "Ku"]
-):
+class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"]):
     """
     Intelligence service for atomic Knowledge Units.
 
@@ -78,9 +76,7 @@ class KuIntelligenceService(
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS
     # ========================================================================
 
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Ku, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
         """Get Ku with full graph context (articles, learning steps, children)."""
         if self.orchestrator is None:
             return Result.fail(

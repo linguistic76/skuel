@@ -45,9 +45,7 @@ class TestKuIntelligenceGetWithContext:
     async def test_delegates_to_orchestrator(self):
         backend = _make_backend()
         graph_intel = MagicMock()
-        service = KuIntelligenceService(
-            backend=backend, graph_intelligence_service=graph_intel
-        )
+        service = KuIntelligenceService(backend=backend, graph_intelligence_service=graph_intel)
 
         mock_context = MagicMock()
         ku = _make_ku()

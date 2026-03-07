@@ -147,9 +147,7 @@ class TestKuServiceIntelligenceDelegation:
 
         await service.get_with_context("ku_test_abc123", depth=3)
 
-        common.intelligence.get_with_context.assert_awaited_once_with(
-            "ku_test_abc123", 3
-        )
+        common.intelligence.get_with_context.assert_awaited_once_with("ku_test_abc123", 3)
 
     @pytest.mark.asyncio
     async def test_get_usage_summary_delegates(self):

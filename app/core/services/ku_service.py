@@ -61,13 +61,11 @@ class KuService:
             create_curriculum_sub_services,
         )
 
-        common: CurriculumCommonSubServices[KuIntelligenceService] = (
-            create_curriculum_sub_services(
-                domain="ku",
-                backend=backend,
-                graph_intel=graph_intel,
-                event_bus=event_bus,
-            )
+        common: CurriculumCommonSubServices[KuIntelligenceService] = create_curriculum_sub_services(
+            domain="ku",
+            backend=backend,
+            graph_intel=graph_intel,
+            event_bus=event_bus,
         )
 
         self.core = common.core
@@ -131,9 +129,7 @@ class KuService:
     # INTELLIGENCE (delegated to intelligence)
     # =========================================================================
 
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Ku, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
         """Get Ku with full graph context."""
         return await self.intelligence.get_with_context(uid, depth)
 
