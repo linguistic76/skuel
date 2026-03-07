@@ -435,9 +435,17 @@ await backend.get_revision_chain(exercise_uid)             # All revisions order
 **Event:** `RevisedExerciseCreated` (`revised_exercise.created`) — published on creation,
 enables student notification and learning loop progression tracking.
 
-**Student access:** Students discover their revisions via `GET /api/revised-exercises/my-revisions`
-and view details via `GET /api/revised-exercises/view?uid=`. Ownership check: student sees
-only revisions targeting them (`student_uid` match) or owned by them (teacher path).
+**Access control:**
+- **Create:** `create_revised_exercise` verifies the teacher has `SHARES_WITH {role:'teacher'}`
+  on the submission linked to the feedback, and the `student_uid` owns that submission.
+  Graph path checked: `(Teacher)-[:SHARES_WITH]->(Submission)<-[:FEEDBACK_FOR]-(Feedback)` +
+  `(Student)-[:OWNS]->(Submission)`. Prevents teachers from creating revisions targeting
+  arbitrary students' feedback.
+- **List for student (teacher route):** `list_for_student(student_uid, teacher_uid=)` scopes
+  results to revisions owned by the requesting teacher, preventing cross-teacher leakage.
+- **Student access:** Students discover their revisions via `GET /api/revised-exercises/my-revisions`
+  and view details via `GET /api/revised-exercises/view?uid=`. Ownership check: student sees
+  only revisions targeting them (`student_uid` match) or owned by them (teacher path).
 
 **Loop role:** RevisedExercise is the *refinement* — it bridges feedback back into a
 new exercise, closing the revision cycle explicitly rather than implicitly.

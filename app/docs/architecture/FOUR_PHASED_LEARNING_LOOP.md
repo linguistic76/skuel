@@ -408,6 +408,10 @@ services.revised_exercises              # RevisedExerciseService
 `GET /api/revised-exercises/view?uid=` (view if student or owning teacher).
 **Event:** `RevisedExerciseCreated` (`revised_exercise.created`) — published on creation.
 
+**Access control:** `create_revised_exercise` verifies the teacher has `SHARES_WITH {role:'teacher'}`
+on the submission linked to the feedback, and the `student_uid` owns that submission.
+`/api/revised-exercises/for-student` scopes results to revisions owned by the requesting teacher.
+
 ---
 
 ## How UserContext Feeds the Loop
