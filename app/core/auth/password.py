@@ -24,6 +24,21 @@ logger = get_logger("skuel.auth.password")
 BCRYPT_ROUNDS = 12
 
 
+MIN_PASSWORD_LENGTH = 8
+
+
+def validate_password(password: str) -> str | None:
+    """Validate password against policy rules.
+
+    Returns None if valid, or an error message string if invalid.
+    """
+    if not password:
+        return "Password is required"
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return f"Password must be at least {MIN_PASSWORD_LENGTH} characters"
+    return None
+
+
 def hash_password(password: str) -> str:
     """
     Hash a password using bcrypt.
@@ -86,4 +101,4 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-__all__ = ["BCRYPT_ROUNDS", "hash_password", "verify_password"]
+__all__ = ["BCRYPT_ROUNDS", "MIN_PASSWORD_LENGTH", "hash_password", "validate_password", "verify_password"]

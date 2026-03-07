@@ -20,7 +20,7 @@ See Also:
 
 from typing import Any
 
-from core.auth.password import hash_password, verify_password
+from core.auth.password import hash_password, validate_password, verify_password
 from core.models.auth.auth_event import AuthEventType, create_auth_event
 from core.models.auth.password_reset_token import create_password_reset_token
 from core.models.auth.session import create_session
@@ -93,11 +93,10 @@ class GraphAuthService:
                     Errors.validation(message="Invalid email address", field="email")
                 )
 
-            if not password or len(password) < 8:
+            password_error = validate_password(password)
+            if password_error:
                 return Result.fail(
-                    Errors.validation(
-                        message="Password must be at least 8 characters", field="password"
-                    )
+                    Errors.validation(message=password_error, field="password")
                 )
 
             if not username or len(username) < 3:
@@ -446,11 +445,10 @@ class GraphAuthService:
         """
         try:
             # Validate new password
-            if not new_password or len(new_password) < 8:
+            password_error = validate_password(new_password)
+            if password_error:
                 return Result.fail(
-                    Errors.validation(
-                        message="Password must be at least 8 characters", field="new_password"
-                    )
+                    Errors.validation(message=password_error, field="new_password")
                 )
 
             # Get user
@@ -594,11 +592,10 @@ class GraphAuthService:
         """
         try:
             # Validate new password
-            if not new_password or len(new_password) < 8:
+            password_error = validate_password(new_password)
+            if password_error:
                 return Result.fail(
-                    Errors.validation(
-                        message="Password must be at least 8 characters", field="new_password"
-                    )
+                    Errors.validation(message=password_error, field="new_password")
                 )
 
             # Get token

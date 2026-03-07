@@ -121,12 +121,6 @@ def create_auth_ui_routes(
                     error_message="Passwords do not match"
                 )
 
-            if len(password) < 8:  # Graph-native uses 8 character minimum
-                logger.warning("Validation failed: Password too short")
-                return AuthComponents.render_registration_page(
-                    error_message="Password must be at least 8 characters"
-                )
-
             if not accept_terms:
                 logger.warning("Validation failed: Terms not accepted")
                 return AuthComponents.render_registration_page(
@@ -362,12 +356,6 @@ def create_auth_ui_routes(
             if password != confirm_password:
                 return AuthComponents.render_reset_password_page(
                     error_message="Passwords do not match",
-                    token=token,
-                )
-
-            if len(password) < 8:
-                return AuthComponents.render_reset_password_page(
-                    error_message="Password must be at least 8 characters",
                     token=token,
                 )
 
