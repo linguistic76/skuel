@@ -175,15 +175,57 @@ class Habit(UserOwnedEntity):
         """Check if this is an identity-based habit."""
         return self.is_identity_habit
 
+    def predict_goal_impact(self) -> float:
+        """Predict this habit's impact on linked goals (0.0-1.0)."""
+        consistency = self.calculate_consistency_score()
+        effort = self.get_effort_score()
+        return min(1.0, (consistency * 0.7) + (effort * 0.3))
+
     def get_atomic_habits_analysis(self) -> dict[str, Any]:
-        """Get Atomic Habits analysis for this habit."""
+        """Get Atomic Habits analysis for this habit.
+
+        Returns nested structure with four categories:
+        - identity: Identity reinforcement metrics
+        - behavioral_design: Cue/routine/reward completeness
+        - habit_quality: Streak, completion, and success metrics
+        - system_contribution: Goal system integration
+        """
+        has_cue = bool(self.cue)
+        has_routine = bool(self.routine)
+        has_reward = bool(self.reward)
+        design_elements = sum([has_cue, has_routine, has_reward])
+
+        votes_to_establishment = max(0, 50 - self.identity_votes_cast)
+        identity_strength = (
+            min(1.0, self.identity_votes_cast / 50) if self.is_identity_habit else 0.0
+        )
+
         return {
-            "cue": self.cue or "Not defined",
-            "routine": self.routine or "Not defined",
-            "reward": self.reward or "Not defined",
-            "identity": self.reinforces_identity or "Not defined",
-            "has_complete_loop": bool(self.cue and self.routine and self.reward),
-            "is_identity_based": self.is_identity_habit,
+            "identity": {
+                "is_identity_based": self.is_identity_habit,
+                "identity_strength": identity_strength,
+                "votes_cast": self.identity_votes_cast,
+                "votes_to_establishment": votes_to_establishment,
+                "reinforces_identity": self.reinforces_identity or "Not defined",
+            },
+            "behavioral_design": {
+                "has_cue": has_cue,
+                "has_routine": has_routine,
+                "has_reward": has_reward,
+                "design_completeness": design_elements / 3.0,
+            },
+            "habit_quality": {
+                "current_streak": self.current_streak,
+                "best_streak": self.best_streak,
+                "is_on_streak": self.current_streak > 0,
+                "total_completions": self.total_completions,
+                "success_rate": self.success_rate,
+            },
+            "system_contribution": {
+                "part_of_system": False,  # Determined by service layer with graph data
+                "consistency_score": self.calculate_consistency_score(),
+                "supports_goal_count": 0,  # Determined by service layer with graph data
+            },
         }
 
     def get_summary(self, max_length: int = 200) -> str:

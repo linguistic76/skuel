@@ -46,14 +46,18 @@ from core.services.habits.habits_intelligence_service import HabitsIntelligenceS
 from core.services.habits.habits_learning_service import HabitsLearningService
 from core.services.habits.habits_planning_service import HabitsPlanningService
 from core.services.habits.habits_progress_service import HabitsProgressService
+from core.services.habits.habits_goal_analytics_service import HabitsGoalAnalyticsService
+from core.services.habits.habits_pattern_service import HabitsPatternService
 from core.services.habits.habits_scheduling_service import HabitsSchedulingService
 
 __all__ = [
     "HabitSearchService",
     "HabitsCoreService",
     "HabitsEventIntegrationService",
+    "HabitsGoalAnalyticsService",
     "HabitsIntelligenceService",
     "HabitsLearningService",
+    "HabitsPatternService",
     "HabitsPlanningService",
     "HabitsProgressService",
     "HabitsSchedulingService",

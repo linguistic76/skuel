@@ -1937,6 +1937,10 @@ async def compose_services(
         context_service.habits_service = activity_services["habits"]
         logger.info("✅ UserContextService wired with GoalTaskGenerator and HabitsService")
 
+        # Post-wire goals_service into habits goal_analytics (cross-domain dependency)
+        activity_services["habits"].goal_analytics.goals_service = activity_services["goals"]
+        logger.info("✅ HabitsGoalAnalyticsService wired with GoalsService")
+
         # Create advanced services
         advanced = _create_advanced_services(driver, query_executor=query_executor)
         await advanced["performance_optimization"].initialize()

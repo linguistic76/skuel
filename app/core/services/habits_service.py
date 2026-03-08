@@ -42,6 +42,8 @@ from core.services.habits import (
 from core.services.habits.habit_achievement_service import HabitAchievementService
 from core.services.habits.habits_ai_service import HabitsAIService
 from core.services.habits.habits_completion_service import HabitsCompletionService
+from core.services.habits.habits_goal_analytics_service import HabitsGoalAnalyticsService
+from core.services.habits.habits_pattern_service import HabitsPatternService
 
 # Unified relationship service (replaces HabitsRelationshipService)
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
@@ -379,10 +381,14 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             event_bus=event_bus,
         )
 
+        # Pattern recognition + goal analytics (March 2026)
+        self.patterns = HabitsPatternService(habits_core=self.core)
+        self.goal_analytics = HabitsGoalAnalyticsService(habits_service=self)
+
         self.logger.info(
-            "HabitsService facade initialized with 11 sub-services: "
+            "HabitsService facade initialized with 13 sub-services: "
             "core, search, progress, learning, planning, scheduling, relationships, "
-            "intelligence, event_integration, achievements, completions"
+            "intelligence, event_integration, achievements, completions, patterns, goal_analytics"
         )
 
     # ========================================================================
@@ -396,6 +402,103 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
 
     # Note: Backend access uses inherited BaseService._backend property
     # Custom backend property removed November 2025 - was unnecessary indirection
+
+    # ========================================================================
+    # ORCHESTRATION METHODS (cross-domain coordination)
+    # ========================================================================
+
+    async def complete_with_goal_impacts(
+        self,
+        habit_uid: str,
+        user_uid: str,
+        goals_service: Any = None,
+    ) -> Result[Any]:
+        """
+        Complete a habit and calculate goal impacts.
+
+        Delegates streak/identity logic to HabitsCompletionService.record_completion()
+        (no duplication). Then estimates goal strength deltas if goals_service is available.
+
+        Returns Result with dict: {"habit": Habit, "goal_impacts": list[dict]}.
+        """
+        # 1. Ownership verification
+        ownership_result = await self.core.verify_ownership(habit_uid, user_uid)
+        if ownership_result.is_error:
+            return Result.fail(ownership_result.expect_error())
+
+        # 2. Record completion — handles ALL streak/identity logic
+        completion_result = await self.completions.record_completion(habit_uid, user_uid)
+        if completion_result.is_error:
+            return Result.fail(completion_result.expect_error())
+
+        # 3. Get updated habit
+        habit_result = await self.core.get_habit(habit_uid)
+        if habit_result.is_error:
+            return Result.fail(habit_result.expect_error())
+        updated_habit = habit_result.value
+
+        # 4. Calculate goal impacts
+        goal_impacts: list[dict[str, Any]] = []
+        if goals_service:
+            linked_goal_uids: list[str] = getattr(updated_habit, "linked_goal_uids", [])
+            for goal_uid in linked_goal_uids:
+                try:
+                    goal_result = await goals_service.get_goal(goal_uid)
+                    if goal_result.is_error:
+                        continue
+                    goal = goal_result.value
+                    if goal is None:
+                        continue
+
+                    old_strength = goal.calculate_system_strength()
+                    new_strength = goal.calculate_system_strength()
+                    strength_delta = (new_strength - old_strength) * 100
+
+                    goal_impacts.append(
+                        {
+                            "title": goal.title,
+                            "system_strength_delta": round(strength_delta, 1),
+                            "velocity_delta": 1,
+                        }
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Failed to calculate impact for goal {goal_uid}: {e}")
+
+        return Result.ok({"habit": updated_habit, "goal_impacts": goal_impacts})
+
+    async def create_with_goal_links(
+        self,
+        create_request: HabitCreateRequest,
+        user_uid: str,
+        goal_essentiality: dict[str, str] | None = None,
+        goals_service: Any = None,
+    ) -> Result[Any]:
+        """
+        Create a habit and optionally link it to goals with essentiality.
+
+        Form parsing stays in the route handler; this method handles
+        creation + cross-domain goal linking orchestration.
+        """
+        # 1. Create the habit
+        result = await self.create_habit(create_request, user_uid)
+        if result.is_error:
+            return result
+
+        habit = result.value
+
+        # 2. Link to goals with essentiality
+        if goals_service and goal_essentiality:
+            for goal_uid, essentiality in goal_essentiality.items():
+                try:
+                    await goals_service.link_goal_to_habit(
+                        goal_uid=goal_uid,
+                        habit_uid=habit.uid,
+                        contribution_type=essentiality,
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Failed to link habit to goal {goal_uid}: {e}")
+
+        return Result.ok(habit)
 
     # ========================================================================
     # COMPLETION TRACKING - Delegate to HabitsCompletionService

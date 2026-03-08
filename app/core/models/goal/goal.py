@@ -193,12 +193,60 @@ class Goal(UserOwnedEntity):
     def diagnose_system_health(
         self, habit_success_rates: dict[str, float] | None = None
     ) -> dict[str, Any]:
-        """Diagnose the health of a goal's habit system."""
+        """Diagnose the health of a goal's habit system.
+
+        Returns dict with keys: system_strength, health, habit_count,
+        system_exists, diagnosis, warnings, recommendations.
+        """
         strength = self.calculate_system_strength(habit_success_rates)
+        habit_count = len(habit_success_rates) if habit_success_rates else 0
+        system_exists = habit_count > 0
+        health = "strong" if strength >= 0.7 else "moderate" if strength >= 0.4 else "weak"
+
+        # Build diagnosis text
+        if not system_exists:
+            diagnosis = "No supporting habits linked to this goal"
+        elif health == "strong":
+            diagnosis = f"Goal system is strong with {habit_count} supporting habits"
+        elif health == "moderate":
+            diagnosis = (
+                f"Goal system needs attention — {habit_count} habits at moderate consistency"
+            )
+        else:
+            diagnosis = f"Goal system is weak — {habit_count} habits with low consistency"
+
+        # Build warnings
+        warnings: list[str] = []
+        if not system_exists:
+            warnings.append(
+                "No habits support this goal — progress depends entirely on manual effort"
+            )
+        elif habit_count < 2:
+            warnings.append("Only one supporting habit — system is fragile")
+        if habit_success_rates:
+            low_performers = [uid for uid, rate in habit_success_rates.items() if rate < 0.3]
+            if low_performers:
+                warnings.append(f"{len(low_performers)} habit(s) below 30% success rate")
+
+        # Build recommendations
+        recommendations: list[str] = []
+        if not system_exists:
+            recommendations.append("Link at least 2-3 habits to create a supporting system")
+        elif habit_count < 3:
+            recommendations.append("Add more supporting habits to strengthen the system")
+        if health == "weak":
+            recommendations.append("Focus on making existing habits easier before adding new ones")
+        if health == "moderate":
+            recommendations.append("Improve consistency of weakest habits first")
+
         return {
             "system_strength": strength,
-            "health": "strong" if strength >= 0.7 else "moderate" if strength >= 0.4 else "weak",
-            "habit_count": len(habit_success_rates) if habit_success_rates else 0,
+            "health": health,
+            "habit_count": habit_count,
+            "system_exists": system_exists,
+            "diagnosis": diagnosis,
+            "warnings": warnings,
+            "recommendations": recommendations,
         }
 
     def get_summary(self, max_length: int = 200) -> str:

@@ -18,7 +18,6 @@ __version__ = "2.0"
 
 from dataclasses import dataclass
 from datetime import date, timedelta
-from operator import itemgetter
 from typing import Any
 
 from fasthtml.common import H1, H2, H3, Div, P, Span
@@ -742,8 +741,17 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
             is_identity_habit=bool(wizard_data.get("identity", "").strip()),
         )
 
-        # Create habit via service
-        result = await habits_service.create_habit(create_request, user_uid)
+        # Extract goal essentiality from form fields (goal_essentiality_goal_123 = "essential")
+        goal_essentiality = {
+            key.replace("goal_essentiality_", ""): value
+            for key, value in wizard_data.items()
+            if key.startswith("goal_essentiality_")
+        }
+
+        # Create habit + link to goals via service orchestration
+        result = await habits_service.create_with_goal_links(
+            create_request, user_uid, goal_essentiality or None, goals_service
+        )
 
         if result.is_error:
             logger.error(f"Failed to create habit: {result.error}")
@@ -763,30 +771,10 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
 
         habit = result.value
 
-        # Link to goals with essentiality if goals_service is available
-        if goals_service:
-            # Extract goal essentiality from form data
-            # Form fields like: goal_essentiality_goal_123 = "essential"
-            goal_essentiality = {}
-            for key, value in wizard_data.items():
-                if key.startswith("goal_essentiality_"):
-                    goal_uid = key.replace("goal_essentiality_", "")
-                    goal_essentiality[goal_uid] = value
-
-            # Link habit to each goal with essentiality
-            for goal_uid, essentiality in goal_essentiality.items():
-                try:
-                    # Create relationship with essentiality property
-                    await goals_service.link_goal_to_habit(
-                        goal_uid=goal_uid, habit_uid=habit.uid, contribution_type=essentiality
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to link habit to goal {goal_uid}: {e}")
-
         # Return success message and redirect to habits dashboard
         return Div(
             Card(
-                H2("✅ Habit Created!", cls="text-2xl font-bold text-green-600 mb-4 text-center"),
+                H2("Habit Created!", cls="text-2xl font-bold text-green-600 mb-4 text-center"),
                 P(
                     f"Successfully created: {habit.title}",
                     cls="text-lg text-base-content/70 mb-2 text-center",
@@ -822,99 +810,16 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
     @rt("/habits/{uid}/complete")
     async def habit_complete(request, uid: str) -> Any:
         """Complete habit: update streak, cast identity vote, recalculate goal impacts"""
-        from datetime import date
-
         user_uid = require_authenticated_user(request)
 
-        # Ownership verification before mutation
-        habit_result = await habits_service.core.verify_ownership(uid, user_uid)
-        if habit_result.is_error:
-            logger.warning(f"Habit access denied or not found: {uid} for user {user_uid}")
-            return Div(P("Error: Could not find habit", cls="text-red-600"), cls="p-4")
-
-        habit = habit_result.value
-
-        # Store old values for delta calculation
-
-        # Update completion tracking
-        completion_date = date.today()
-        updates = {
-            "total_completions": habit.total_completions + 1,
-            "last_completed": completion_date,
-        }
-
-        # Update streak
-        if habit.last_completed:
-            days_since = (completion_date - habit.last_completed).days
-            if days_since == 1:
-                updates["current_streak"] = habit.current_streak + 1
-            elif days_since > 1:
-                updates["current_streak"] = 1  # Streak broken, restart
-        else:
-            updates["current_streak"] = 1  # First completion
-
-        current_streak: int = updates.get("current_streak", 1)  # type: ignore[assignment]
-        updates["best_streak"] = max(current_streak, habit.best_streak)
-
-        # Cast identity vote if applicable
-        if habit.is_identity_habit:
-            updates["identity_votes_cast"] = habit.identity_votes_cast + 1
-
-        # Update habit via service
-        update_result = await habits_service.update(uid, updates)
-        if update_result.is_error:
-            logger.error(f"Failed to update habit: {update_result.error}")
+        result = await habits_service.complete_with_goal_impacts(uid, user_uid, goals_service)
+        if result.is_error:
+            logger.warning(f"Habit completion failed for {uid}: {result.error}")
             return Div(P("Error: Could not complete habit", cls="text-red-600"), cls="p-4")
 
-        updated_habit = update_result.value
+        updated_habit = result.value["habit"]
+        goal_impacts = result.value["goal_impacts"]
 
-        # Calculate goal impacts if goals_service available
-        goal_impacts = []
-        linked_goal_uids: list[str] = getattr(habit, "linked_goal_uids", [])
-        if goals_service and linked_goal_uids:
-            for goal_uid in linked_goal_uids:
-                try:
-                    goal_result = await goals_service.get_goal(goal_uid)
-                    if goal_result.is_error:
-                        continue
-
-                    goal = goal_result.value
-                    if goal is None:
-                        continue
-
-                    # Store old values
-                    old_strength = getattr(goal, "cached_system_strength", None)
-                    if old_strength is None:
-                        try:
-                            old_strength = goal.calculate_system_strength()
-                        except (AttributeError, ValueError, TypeError) as e:
-                            logger.warning(
-                                f"Failed to calculate system strength for {goal_uid}: {e}"
-                            )
-                            old_strength = 0
-
-                    # Recalculate system strength
-                    try:
-                        new_strength = goal.calculate_system_strength()
-                        strength_delta = (new_strength - old_strength) * 100
-                    except Exception as e:
-                        logger.warning(f"Failed to calculate system strength for {goal_uid}: {e}")
-                        strength_delta = 0
-
-                    # Calculate velocity change (simplified - just show positive impact)
-                    velocity_delta = 1  # Each completion adds to velocity
-
-                    goal_impacts.append(
-                        {
-                            "title": goal.title,
-                            "system_strength_delta": round(strength_delta, 1),
-                            "velocity_delta": velocity_delta,
-                        }
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to calculate impact for goal {goal_uid}: {e}")
-
-        # Render celebration modal
         return AtomicHabitsComponents.render_habit_completion_celebration(
             habit_name=updated_habit.title,
             identity=updated_habit.reinforces_identity,
@@ -943,140 +848,17 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         """Pattern recognition for a habit"""
         user_uid = require_authenticated_user(request)
 
-        # Ownership verification - returns NotFound if user doesn't own this habit
-        habit_result = await habits_service.core.verify_ownership(uid, user_uid)
-
-        if habit_result.is_error:
-            logger.warning(f"Habit access denied or not found: {uid} for user {user_uid}")
+        result = await habits_service.patterns.analyze_patterns(uid, user_uid)
+        if result.is_error:
+            logger.warning(f"Habit pattern analysis failed for {uid}: {result.error}")
             return Div(P("Error: Could not find habit", cls="text-red-600"), cls="p-4")
 
-        habit = habit_result.value
-
-        # Get complete Atomic Habits analysis
-        analysis = habit.get_atomic_habits_analysis()
-
-        # Transform analysis into pattern format for rendering
-        success_patterns = []
-        failure_patterns = []
-
-        # Extract success patterns from analysis
-
-        # Pattern 1: Identity-based success
-        if analysis["identity"]["is_identity_based"]:
-            identity_strength = analysis["identity"]["identity_strength"]
-            if identity_strength > 0.5:
-                success_patterns.append(
-                    {
-                        "pattern": f"Identity reinforcement: '{analysis['identity']['reinforces_identity']}'",
-                        "confidence": identity_strength,
-                        "recommendation": f"Keep reinforcing this identity - {analysis['identity']['votes_to_establishment']} more completions to full establishment",
-                    }
-                )
-
-        # Pattern 2: Behavioral design completeness
-        design_score = analysis["behavioral_design"]["design_completeness"]
-        if design_score >= 0.66:  # Has at least 2 of 3 elements
-            success_patterns.append(
-                {
-                    "pattern": f"Strong habit design ({int(design_score * 100)}% complete)",
-                    "confidence": design_score,
-                    "recommendation": "Clear cue-routine-reward loop is working",
-                }
-            )
-
-        # Pattern 3: Streak momentum
-        if (
-            analysis["habit_quality"]["is_on_streak"]
-            and analysis["habit_quality"]["current_streak"] > 3
-        ):
-            streak_confidence = min(0.9, 0.5 + (analysis["habit_quality"]["current_streak"] / 30))
-            success_patterns.append(
-                {
-                    "pattern": f"Momentum building: {analysis['habit_quality']['current_streak']}-day streak",
-                    "confidence": streak_confidence,
-                    "recommendation": "Momentum matters - maintain the streak!",
-                }
-            )
-
-        # Pattern 4: Success rate
-        if analysis["habit_quality"]["success_rate"] > 0.6:
-            success_patterns.append(
-                {
-                    "pattern": f"High success rate: {int(analysis['habit_quality']['success_rate'] * 100)}%",
-                    "confidence": analysis["habit_quality"]["success_rate"],
-                    "recommendation": "Current approach is working - keep it up",
-                }
-            )
-
-        # Pattern 5: System integration
-        if analysis["system_contribution"]["part_of_system"]:
-            consistency = analysis["system_contribution"]["consistency_score"]
-            success_patterns.append(
-                {
-                    "pattern": f"Part of goal system ({analysis['system_contribution']['supports_goal_count']} goals)",
-                    "confidence": consistency,
-                    "recommendation": "Systems-based approach is effective",
-                }
-            )
-
-        # Extract failure patterns from analysis
-
-        # Failure 1: Low success rate
-        if analysis["habit_quality"]["success_rate"] < 0.5:
-            failure_patterns.append(
-                {
-                    "pattern": f"Low success rate: {int(analysis['habit_quality']['success_rate'] * 100)}%",
-                    "confidence": 1.0 - analysis["habit_quality"]["success_rate"],
-                    "recommendation": "Consider making habit easier or more rewarding",
-                }
-            )
-
-        # Failure 2: Broken streak
-        if (
-            not analysis["habit_quality"]["is_on_streak"]
-            and analysis["habit_quality"]["best_streak"] > 0
-        ):
-            failure_patterns.append(
-                {
-                    "pattern": f"Streak broken (previous best: {analysis['habit_quality']['best_streak']} days)",
-                    "confidence": 0.75,
-                    "recommendation": f"Rebuild streak - you've achieved {analysis['habit_quality']['best_streak']} days before",
-                }
-            )
-
-        # Failure 3: Incomplete design
-        if design_score < 0.66:
-            missing_elements = []
-            if not analysis["behavioral_design"]["has_cue"]:
-                missing_elements.append("cue")
-            if not analysis["behavioral_design"]["has_reward"]:
-                missing_elements.append("reward")
-
-            if missing_elements:
-                failure_patterns.append(
-                    {
-                        "pattern": f"Incomplete habit design (missing: {', '.join(missing_elements)})",
-                        "confidence": 1.0 - design_score,
-                        "recommendation": f"Define clear {missing_elements[0]} to strengthen habit loop",
-                    }
-                )
-
-        # Failure 4: No goal system
-        if not analysis["system_contribution"]["part_of_system"]:
-            failure_patterns.append(
-                {
-                    "pattern": "Habit not linked to goals (no systems thinking)",
-                    "confidence": 0.70,
-                    "recommendation": "Link this habit to a goal to create a system",
-                }
-            )
-
-        # Build pattern data for rendering
+        analysis = result.value
         pattern_data = {
-            "name": habit.title,
-            "total_completions": analysis["habit_quality"]["total_completions"],
-            "success_patterns": success_patterns,
-            "failure_patterns": failure_patterns,
+            "name": analysis.name,
+            "total_completions": analysis.total_completions,
+            "success_patterns": analysis.success_patterns,
+            "failure_patterns": analysis.failure_patterns,
         }
 
         return AtomicHabitsIntelligence.render_pattern_recognition(pattern_data)
@@ -1084,68 +866,20 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
     @rt("/goals/{uid}/system-health")
     async def goal_system_health_view(_request, uid: str) -> Any:
         """System health diagnostics for a goal"""
-        # Fetch goal from backend
-        if not goals_service:
-            return Div(P("Goals service not available", cls="text-red-600"), cls="p-4")
+        result = await habits_service.goal_analytics.get_system_health(uid)
+        if result.is_error:
+            logger.error(f"Failed to get system health for goal {uid}: {result.error}")
+            return Div(P("Error: Could not analyze goal system", cls="text-red-600"), cls="p-4")
 
-        goal_result = await goals_service.get_goal(uid)
-
-        if goal_result.is_error:
-            logger.error(f"Failed to get goal {uid}: {goal_result.error}")
-            return Div(P("Error: Could not find goal", cls="text-red-600"), cls="p-4")
-
-        goal = goal_result.value
-        if goal is None:
-            return Div(P("Goal not found", cls="text-red-600"), cls="p-4")
-
-        # Fetch all habits for this goal and build success rate map
-        # NOTE: get_goal_habits returns supporting habits; essentiality grouping
-        # requires GoalRelationships.fetch() which is not available through the facade.
-        all_habit_uids_result = await goals_service.get_goal_habits(goal.uid)
-        all_habit_uids: list[str] = (
-            all_habit_uids_result.value if all_habit_uids_result.is_ok else []
-        )
-        habit_success_rates: dict[str, float] = {}
-
-        # Build habit breakdown with details
-        habit_breakdown = []
-
-        for habit_uid in all_habit_uids:
-            try:
-                habit_result = await habits_service.get_habit(habit_uid)
-                if habit_result.is_error:
-                    logger.warning(f"Failed to fetch habit {habit_uid}: {habit_result.error}")
-                    continue
-
-                habit = habit_result.value
-
-                # Store success rate for diagnosis
-                habit_success_rates[habit_uid] = habit.success_rate
-
-                # Build habit detail for breakdown
-                habit_breakdown.append(
-                    {
-                        "name": habit.title,
-                        "essentiality": "supporting",
-                        "consistency": habit.calculate_consistency_score(),
-                        "impact": habit.predict_goal_impact(),
-                    }
-                )
-            except Exception as e:
-                logger.warning(f"Error processing habit {habit_uid}: {e}")
-
-        # Get system health diagnosis
-        diagnosis = goal.diagnose_system_health(habit_success_rates)
-
-        # Build system health data for rendering
+        health = result.value
         system_health = {
-            "goal_title": goal.title,
-            "system_strength": diagnosis["system_strength"],
-            "diagnosis": diagnosis["diagnosis"],
-            "warnings": diagnosis["warnings"],
-            "recommendations": diagnosis["recommendations"],
-            "habit_breakdown": habit_breakdown,
-            "system_exists": diagnosis.get("system_exists", True),
+            "goal_title": health.goal_title,
+            "system_strength": health.system_strength,
+            "diagnosis": health.diagnosis,
+            "warnings": health.warnings,
+            "recommendations": health.recommendations,
+            "habit_breakdown": health.habit_breakdown,
+            "system_exists": health.system_exists,
         }
 
         return AtomicHabitsIntelligence.render_system_health_diagnostics(system_health)
@@ -1153,89 +887,19 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
     @rt("/goals/{uid}/velocity")
     async def goal_velocity_view(_request, uid: str) -> Any:
         """Velocity tracking for a goal"""
-        # Fetch goal from backend
-        if not goals_service:
-            return Div(P("Goals service not available", cls="text-red-600"), cls="p-4")
+        result = await habits_service.goal_analytics.get_velocity(uid)
+        if result.is_error:
+            logger.error(f"Failed to get velocity for goal {uid}: {result.error}")
+            return Div(P("Error: Could not analyze goal velocity", cls="text-red-600"), cls="p-4")
 
-        goal_result = await goals_service.get_goal(uid)
-
-        if goal_result.is_error:
-            logger.error(f"Failed to get goal {uid}: {goal_result.error}")
-            return Div(P("Error: Could not find goal", cls="text-red-600"), cls="p-4")
-
-        goal = goal_result.value
-        if goal is None:
-            return Div(P("Goal not found", cls="text-red-600"), cls="p-4")
-
-        # Fetch all habits and build completion counts
-        all_habit_uids_result = await goals_service.get_goal_habits(goal.uid)
-        all_habit_uids: list[str] = (
-            all_habit_uids_result.value if all_habit_uids_result.is_ok else []
-        )
-        habit_completion_counts: dict[str, int] = {}
-
-        # Build weighted breakdown by essentiality
-        weighted_breakdown = {"essential": 0, "critical": 0, "supporting": 0, "optional": 0}
-
-        for habit_uid in all_habit_uids:
-            try:
-                habit_result = await habits_service.get_habit(habit_uid)
-                if habit_result.is_error:
-                    logger.warning(f"Failed to fetch habit {habit_uid}: {habit_result.error}")
-                    continue
-
-                habit = habit_result.value
-
-                # Store total completions for velocity calculation
-                habit_completion_counts[habit_uid] = habit.total_completions
-
-                # All habits returned by get_goal_habits are supporting
-                weighted_breakdown["supporting"] += habit.total_completions
-
-            except Exception as e:
-                logger.warning(f"Error processing habit {habit_uid}: {e}")
-
-        # Calculate current velocity
-        current_velocity = goal.calculate_habit_velocity(habit_completion_counts)
-
-        # Calculate total weighted completions
-        total_weighted_completions = sum(weighted_breakdown.values())
-
-        # Generate simplified velocity trend (last 4 weeks estimate)
-        # NOTE: This is a simplified version. Full implementation would require
-        # historical completion tracking in the database.
-        velocity_trend = []
-
-        if current_velocity > 0:
-            # Estimate weekly progression assuming linear growth to current velocity
-            for i in range(1, 5):
-                week_velocity = (current_velocity / 4) * i
-                velocity_trend.append({"week": f"Week {i}", "velocity": round(week_velocity, 1)})
-        else:
-            # No velocity data - all zeros
-            velocity_trend.extend([{"week": f"Week {i}", "velocity": 0.0} for i in range(1, 5)])
-
-        # Determine trend
-        last_velocity: float = float(velocity_trend[-1]["velocity"]) if velocity_trend else 0.0
-        first_velocity: float = float(velocity_trend[0]["velocity"]) if velocity_trend else 0.0
-        if len(velocity_trend) > 1 and last_velocity > 0:
-            if last_velocity > first_velocity:
-                trend = "increasing"
-            elif last_velocity < first_velocity:
-                trend = "decreasing"
-            else:
-                trend = "stable"
-        else:
-            trend = "stable"
-
-        # Build velocity data for rendering
+        vel = result.value
         velocity_data = {
-            "goal_title": goal.title,
-            "current_velocity": current_velocity,
-            "trend": trend,
-            "velocity_trend": velocity_trend,
-            "weighted_breakdown": weighted_breakdown,
-            "total_weighted_completions": int(total_weighted_completions),
+            "goal_title": vel.goal_title,
+            "current_velocity": vel.current_velocity,
+            "trend": vel.trend,
+            "velocity_trend": vel.velocity_trend,
+            "weighted_breakdown": vel.weighted_breakdown,
+            "total_weighted_completions": vel.total_weighted_completions,
         }
 
         return AtomicHabitsIntelligence.render_velocity_tracking(velocity_data)
@@ -1243,89 +907,17 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
     @rt("/goals/{uid}/impact")
     async def goal_impact_view(_request, uid: str) -> Any:
         """Impact analysis for a goal"""
-        # Fetch goal from backend
-        if not goals_service:
-            return Div(P("Goals service not available", cls="text-red-600"), cls="p-4")
+        result = await habits_service.goal_analytics.get_impact_analysis(uid)
+        if result.is_error:
+            logger.error(f"Failed to get impact analysis for goal {uid}: {result.error}")
+            return Div(P("Error: Could not analyze goal impact", cls="text-red-600"), cls="p-4")
 
-        goal_result = await goals_service.get_goal(uid)
-
-        if goal_result.is_error:
-            logger.error(f"Failed to get goal {uid}: {goal_result.error}")
-            return Div(P("Error: Could not find goal", cls="text-red-600"), cls="p-4")
-
-        goal = goal_result.value
-        if goal is None:
-            return Div(P("Goal not found", cls="text-red-600"), cls="p-4")
-
-        # Fetch all habits and build completion counts for velocity
-        all_habit_uids_result = await goals_service.get_goal_habits(goal.uid)
-        all_habit_uids: list[str] = (
-            all_habit_uids_result.value if all_habit_uids_result.is_ok else []
-        )
-        habit_completion_counts: dict[str, int] = {}
-        habit_success_rates: dict[str, float] = {}
-
-        # Build habit impacts list
-        habit_impacts = []
-
-        for habit_uid in all_habit_uids:
-            try:
-                habit_result = await habits_service.get_habit(habit_uid)
-                if habit_result.is_error:
-                    logger.warning(f"Failed to fetch habit {habit_uid}: {habit_result.error}")
-                    continue
-
-                habit = habit_result.value
-
-                # Store for velocity calculation
-                habit_completion_counts[habit_uid] = habit.total_completions
-                habit_success_rates[habit_uid] = habit.success_rate
-
-                # Get habit impact prediction
-                impact_score = habit.predict_goal_impact()
-
-                # Get consistency
-                consistency = habit.calculate_consistency_score()
-
-                # Build habit impact detail
-                habit_impacts.append(
-                    {
-                        "name": habit.title,
-                        "essentiality": "supporting",
-                        "impact_score": impact_score,
-                        "consistency": consistency,
-                    }
-                )
-
-            except Exception as e:
-                logger.warning(f"Error processing habit {habit_uid}: {e}")
-
-        # Sort habits by impact score (highest first)
-        habit_impacts.sort(key=itemgetter("impact_score"), reverse=True)
-
-        # Calculate achievement probability
-        # Formula: 60% system strength + 40% velocity (normalized)
-        system_strength = goal.calculate_system_strength(habit_success_rates=habit_success_rates)
-        velocity = goal.calculate_habit_velocity(habit_completion_counts)
-
-        # Normalize velocity to 0-1 scale (150 = excellent velocity = 1.0)
-        normalized_velocity = min(velocity / 150.0, 1.0)
-
-        # Achievement probability (0-1 scale, displayed as percentage)
-        achievement_probability = (system_strength * 0.6) + (normalized_velocity * 0.4)
-
-        # Calculate overall impact (average of all habit impacts)
-        if habit_impacts:
-            overall_impact = sum(h["impact_score"] for h in habit_impacts) / len(habit_impacts)
-        else:
-            overall_impact = 0.0
-
-        # Build impact data for rendering
+        impact = result.value
         impact_data = {
-            "goal_title": goal.title,
-            "achievement_probability": achievement_probability,  # 0-1 scale
-            "overall_impact": overall_impact,  # 0-1 scale
-            "habits": habit_impacts,
+            "goal_title": impact.goal_title,
+            "achievement_probability": impact.achievement_probability,
+            "overall_impact": impact.overall_impact,
+            "habits": impact.habits,
         }
 
         return AtomicHabitsIntelligence.render_goal_impact_analysis(impact_data)
