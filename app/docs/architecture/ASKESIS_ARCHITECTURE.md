@@ -1,6 +1,6 @@
 # Askesis Architecture - Cross-Cutting Intelligence System
 
-**Last Updated:** March 4, 2026
+**Last Updated:** March 8, 2026
 
 ## Overview
 
@@ -48,18 +48,19 @@ Askesis uses a **pure facade pattern** with zero business logic in the main serv
 ```python
 @dataclass(frozen=True)
 class AskesisDeps:
-    """Typed dependency container — intelligence_factory is required, others optional."""
-    intelligence_factory: UserContextIntelligenceFactory  # REQUIRED
-    graph_intelligence_service: Any | None = None
-    user_service: Any | None = None
-    llm_service: Any | None = None
-    embeddings_service: Any | None = None
-    knowledge_service: Any | None = None
-    tasks_service: Any | None = None
-    goals_service: Any | None = None
-    habits_service: Any | None = None
-    events_service: Any | None = None
-    citation_service: Any | None = None
+    """Typed dependency container — all deps required (March 2026 streamlining)."""
+    intelligence_factory: UserContextIntelligenceFactory
+    graph_intelligence_service: Any
+    user_service: Any
+    llm_service: Any
+    embeddings_service: Any
+    knowledge_service: Any
+    tasks_service: Any
+    goals_service: Any
+    habits_service: Any
+    events_service: Any
+    citation_service: Any | None = None   # Not yet wired in bootstrap
+    zpd_service: Any | None = None        # Optional: requires curriculum graph ≥ 3 KUs
 
 
 class AskesisService:
@@ -105,8 +106,7 @@ AskesisService (Facade)
 │   ├── answer_user_question()
 │   └── process_query_with_context()
 ├── IntentClassifier (January 2026 - extracted from QueryProcessor)
-│   ├── classify_intent()
-│   └── classify_via_keywords() (fallback)
+│   └── classify_intent()
 ├── ResponseGenerator (January 2026 - extracted from QueryProcessor)
 │   ├── build_llm_context()
 │   ├── generate_actions()
@@ -166,27 +166,33 @@ Askesis is fundamentally different:
 
 ### Creation Location
 
-Askesis is created in `compose_services()` AFTER the intelligence factory, via `create_askesis_service()` (March 2026):
+Askesis is created in `compose_services()` AFTER the intelligence factory, via `create_askesis_service()` — **only when `INTELLIGENCE_TIER=full`** (March 2026):
 
 ```python
 # /services_bootstrap.py (PHASE 4)
 from core.services.askesis_factory import create_askesis_service
 
-# First: Create factory with all 13 domain services
-context_intelligence_factory = UserContextIntelligenceFactory(
-    tasks=activity_services["tasks"].relationships,
-    goals=activity_services["goals"].relationships,
-    # ... all 13 domains
-)
+if tier.ai_enabled:
+    # First: Create factory with all 13 domain services
+    context_intelligence_factory = UserContextIntelligenceFactory(
+        tasks=activity_services["tasks"].relationships,
+        goals=activity_services["goals"].relationships,
+        # ... all 13 domains
+    )
 
-# Then: Create Askesis via factory function (handles AskesisDeps construction)
-services.askesis = create_askesis_service(
-    intelligence_factory=context_intelligence_factory,
-    learning_services=learning_services,   # keys: graph_intelligence, llm_service, embeddings_service, ku_service
-    activity_services=activity_services,   # keys: tasks, goals, habits, events
-    user_service=user_service,
-)
+    # Then: Create Askesis via factory function (handles AskesisDeps construction)
+    # KeyError on missing deps is intentional — fail-fast, no degraded mode
+    services.askesis = create_askesis_service(
+        intelligence_factory=context_intelligence_factory,
+        learning_services=learning_services,
+        activity_services=activity_services,
+        user_service=user_service,
+    )
+else:
+    logger.info("Askesis: skipped (INTELLIGENCE_TIER=%s)", tier.value)
 ```
+
+In CORE tier, `services.askesis` is `None` and Askesis API routes return 404 via `ai_guard.py`.
 
 ### Why This Order?
 
@@ -415,6 +421,7 @@ principles_rich = entities_rich.get("principles", [])
 | **March 2026** | `AskesisDeps` typed dataclass replaces positional kwargs; `create_askesis_service()` factory in `askesis_factory.py` handles bootstrap construction |
 | **March 2026** | `JournalInsight` frozen dataclass added — ZPD signal extraction point from processed journals (Phase 2 stub) |
 | **March 2026** | 4 pedagogical prompt templates added: `askesis_scaffold_entry`, `askesis_socratic_turn`, `askesis_ku_bridge`, `askesis_journal_reflection` |
+| **March 2026** | Backwards compatibility removed: all `AskesisDeps` fields required (except `citation_service`, `zpd_service`), keyword fallback deleted from IntentClassifier, template fallback deleted from QueryProcessor, Askesis creation gated behind `INTELLIGENCE_TIER=full` |
 
 ---
 
@@ -430,7 +437,7 @@ Six stub implementations were completed to bring Askesis from ~60-70% to ~95% fu
 | `_build_user_learning_context_query()` | `context_retriever.py` | Comprehensive Cypher with 5 OPTIONAL MATCH clauses |
 | `_analyze_blocked_knowledge_prerequisites()` | `context_retriever.py` | Gap analysis using Neo4j relationship traversal |
 | `_identify_quick_wins_and_high_impact()` | `context_retriever.py` | Classification based on prerequisite count |
-| `_generate_context_aware_response()` | `query_processor.py` | LLM integration with template fallback |
+| `_generate_context_aware_response()` | `query_processor.py` | LLM integration (required) |
 | `_order_by_prerequisites()` | `askesis_service.py` | Kahn's algorithm for topological sort |
 
 ### Semantic Search Implementation
@@ -459,23 +466,16 @@ async def _find_similar_knowledge(self, query: str, _user_uid: str) -> list[tupl
 
 ### LLM Integration
 
-`QueryProcessor._generate_context_aware_response()` now uses LLMService:
+`QueryProcessor._generate_context_aware_response()` uses LLMService directly — no fallback:
 
 ```python
 async def _generate_context_aware_response(...) -> str:
-    if self.llm_service:
-        try:
-            # Build context for LLM
-            context = self._build_llm_context(current_knowledge, active_learning, ...)
-            response = await self.llm_service.generate_context_aware_answer(
-                query=query_message, context=context, intent=intent.value
-            )
-            return response
-        except Exception as e:
-            logger.warning("LLM failed, using template: %s", e)
-
-    # Template fallback for graceful degradation
-    return self._build_template_response(...)
+    # Build context for LLM
+    context = self._build_llm_context(current_knowledge, active_learning, ...)
+    response = await self.llm_service.generate_context_aware_answer(
+        query=query_message, context=context, intent=intent.value
+    )
+    return response
 ```
 
 ### Prerequisite Ordering (Kahn's Algorithm)

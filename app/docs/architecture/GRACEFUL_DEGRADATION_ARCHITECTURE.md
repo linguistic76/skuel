@@ -66,7 +66,7 @@ INTELLIGENCE_TIER=core
 - `OpenAIService` — not created
 - All 12 `BaseAIService` instances — not created
 - Search falls back to keyword (fulltext indexes)
-- Askesis degrades gracefully (`llm_service=None`)
+- Askesis is **not created** (requires FULL tier — no degraded mode)
 - Vector indexes still synced at bootstrap (idempotent, ready for when you switch back)
 
 ### Turn on AI/Embeddings (Full mode)
