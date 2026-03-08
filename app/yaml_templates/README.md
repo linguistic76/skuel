@@ -108,7 +108,7 @@ confidence: 0.8
 source: self_observation
 ```
 
-**Note:** Edge ingestion is not yet wired. See `docs/roadmap/edge-ingestion-support.md`.
+**Note:** Edge ingestion is fully wired — both single-file (`ingest_file`) and batch (`ingest_directory`) detect `type: Edge` and create relationships with evidence properties automatically.
 
 ### 4. Learning Step & Path
 

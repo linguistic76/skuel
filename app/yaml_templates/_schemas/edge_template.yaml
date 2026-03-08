@@ -2,9 +2,6 @@
 # =============
 # This is a TEMPLATE EXAMPLE documenting the shape of standalone edge YAML.
 #
-# IMPORTANT: Edge ingestion is NOT yet wired in the ingestion pipeline.
-# See: docs/roadmap/edge-ingestion-support.md for the implementation plan.
-#
 # An Edge declares a relationship between two entities with evidence properties.
 # Edges capture observations, research findings, and causal/correlational links
 # between Kus (and eventually other entity types).

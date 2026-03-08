@@ -55,7 +55,7 @@ Articles compose Kus via `USES_KU` relationships. Learning Steps train Kus via `
 
 ## Edge Templates
 
-Edge YAML documents evidence relationships between entities (e.g., "caffeine exacerbates buzzing"). Edge ingestion is **not yet wired** in the pipeline. See `docs/roadmap/edge-ingestion-support.md`.
+Edge YAML documents evidence relationships between entities (e.g., "caffeine exacerbates buzzing"). Edge ingestion is fully wired — both single-file and batch ingestion detect `type: Edge` and create relationships with evidence properties automatically.
 
 ## Knowledge UID References in Activity Domains
 

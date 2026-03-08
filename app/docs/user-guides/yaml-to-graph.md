@@ -461,7 +461,7 @@ Use `connections:` when the relationship is structural and certain — ordering 
 
 The `RelationshipName` enum (`core/models/relationship_names.py`) defines five evidence relationship types: `EXACERBATED_BY`, `REDUCED_BY`, `CORRELATED_WITH`, `CAUSES`, `PRECEDES`.
 
-> **Note:** Edge ingestion is documented and validated but not yet wired into the automated pipeline. See `docs/roadmap/edge-ingestion-support.md` for status.
+> **Note:** Edge ingestion uses raw Cypher (MATCH/MERGE) rather than the BulkIngestionEngine, since edges create relationships, not nodes. Both single-file and batch ingestion detect `type: Edge` automatically.
 
 ---
 

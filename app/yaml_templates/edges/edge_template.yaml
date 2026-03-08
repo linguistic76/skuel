@@ -1,6 +1,5 @@
 # Edge Template Example
 # =====================
-# Edge ingestion NOT yet wired -- see docs/roadmap/edge-ingestion-support.md
 # See _schemas/edge_template.yaml for full field reference.
 
 version: 1.0

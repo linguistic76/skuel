@@ -1,7 +1,5 @@
 # Edge: Caffeine exacerbates Buzzing
 # ====================================
-# Edge ingestion NOT yet wired -- see docs/roadmap/edge-ingestion-support.md
-#
 # Personal observation: coffee consumption increases mental restlessness.
 
 version: 1.0
