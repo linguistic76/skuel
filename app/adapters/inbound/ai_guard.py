@@ -23,7 +23,7 @@ def is_ai_available(services: Any) -> bool:
     """Check whether AI services are enabled on the current Services container."""
     tier = getattr(services, "intelligence_tier", None)
     if tier is None:
-        return True  # Backward-compatible default
+        return False
     return bool(tier.ai_enabled)
 
 

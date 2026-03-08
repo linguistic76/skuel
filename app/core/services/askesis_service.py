@@ -64,23 +64,27 @@ logger = get_logger(__name__)
 class AskesisDeps:
     """Typed dependency container for AskesisService.
 
-    intelligence_factory is required (fail-fast). All domain services are optional
-    per ADR-043 Intelligence Tier toggle.
+    All services are required — Askesis is only created in FULL intelligence tier.
+    No graceful degradation: it works or it doesn't.
+
+    March 2026: Made all deps required (was optional per ADR-043, but Askesis
+    is now gated at bootstrap — only created when INTELLIGENCE_TIER=FULL).
     """
 
     intelligence_factory: UserContextIntelligenceFactory
-    graph_intelligence_service: Any | None = None  # boundary: protocol not yet extracted
-    user_service: Any | None = None
-    llm_service: Any | None = None
-    embeddings_service: Any | None = None
-    knowledge_service: Any | None = None
-    tasks_service: Any | None = None
-    goals_service: Any | None = None
-    habits_service: Any | None = None
-    events_service: Any | None = None
+    graph_intelligence_service: Any  # boundary: protocol not yet extracted
+    user_service: Any
+    llm_service: Any
+    embeddings_service: Any
+    knowledge_service: Any
+    tasks_service: Any
+    goals_service: Any
+    habits_service: Any
+    events_service: Any
+    # Citation service — optional until wired in bootstrap
     citation_service: Any | None = None
     # ZPD service — enriches analyze_user_state() with curriculum graph assessment.
-    # None when INTELLIGENCE_TIER=CORE or curriculum graph has < 3 KUs.
+    # None when curriculum graph has < 3 KUs (data condition, not degradation).
     # See: core/services/zpd/zpd_service.py
     zpd_service: ZPDOperations | None = None
 
@@ -101,9 +105,9 @@ class AskesisService:
 
     Architecture:
     - Zero business logic (pure explicit delegation)
-    - Maintains backward compatibility with original service
     - Single entry point for Askesis intelligence
     - Composed of 7 focused sub-services
+    - All dependencies required — no degraded modes
 
     Delegation (February 2026):
     - All 9 simple delegations are explicit async def methods
@@ -124,11 +128,8 @@ class AskesisService:
         Initialize facade with all sub-services.
 
         Args:
-            deps: Typed AskesisDeps container — intelligence_factory is required,
-                  all domain services are optional per ADR-043 Intelligence Tier toggle.
-
-        Raises:
-            ValueError: If deps.intelligence_factory is None (REQUIRED for 13-domain synthesis)
+            deps: Typed AskesisDeps container — all services required.
+                  Askesis is only created when INTELLIGENCE_TIER=FULL.
         """
         # Fail-fast: intelligence_factory is REQUIRED (January 2026 architecture evolution)
         if deps.intelligence_factory is None:

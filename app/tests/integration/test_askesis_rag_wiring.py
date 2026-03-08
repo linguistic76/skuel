@@ -14,11 +14,14 @@ import os
 
 import pytest
 
-# Skip condition: requires OPENAI_API_KEY for bootstrap
+from core.config.intelligence_tier import IntelligenceTier
+
+# Skip condition: requires OPENAI_API_KEY and FULL tier for Askesis
 _has_openai_key = bool(os.getenv("OPENAI_API_KEY"))
+_tier = IntelligenceTier.from_env()
 _skip_without_credentials = pytest.mark.skipif(
-    not _has_openai_key,
-    reason="Requires OPENAI_API_KEY environment variable for full app bootstrap",
+    not _has_openai_key or not _tier.ai_enabled,
+    reason="Requires OPENAI_API_KEY and INTELLIGENCE_TIER=full for Askesis tests",
 )
 
 

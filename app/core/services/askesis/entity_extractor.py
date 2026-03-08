@@ -23,6 +23,8 @@ This service is part of the refactored EnhancedAskesisService architecture:
 Architecture:
 - Requires domain services (knowledge, tasks, goals, habits, events) for entity lookup
 - Uses fuzzy matching for flexible entity recognition
+
+March 2026: All domain services required — no graceful degradation.
 """
 
 from __future__ import annotations
@@ -62,31 +64,27 @@ class EntityExtractor:
 
     def __init__(
         self,
-        knowledge_service: ArticleOperations | None = None,
-        tasks_service: TasksOperations | None = None,
-        goals_service: GoalsOperations | None = None,
-        habits_service: HabitsOperations | None = None,
-        events_service: EventsOperations | None = None,
+        knowledge_service: ArticleOperations,
+        tasks_service: TasksOperations,
+        goals_service: GoalsOperations,
+        habits_service: HabitsOperations,
+        events_service: EventsOperations,
     ) -> None:
         """
         Initialize entity extractor.
 
         Args:
-            knowledge_service: ArticleOperations for knowledge entity lookup (optional)
-            tasks_service: TasksOperations for task entity lookup (optional)
-            goals_service: GoalsOperations for goal entity lookup (optional)
-            habits_service: HabitsOperations for habit entity lookup (optional)
-            events_service: EventsOperations for event entity lookup (optional)
-
-        Note:
-            Domain services are optional - graceful degradation if unavailable.
-            If service is None, that entity type won't be extracted.
+            knowledge_service: ArticleOperations for knowledge entity lookup
+            tasks_service: TasksOperations for task entity lookup
+            goals_service: GoalsOperations for goal entity lookup
+            habits_service: HabitsOperations for habit entity lookup
+            events_service: EventsOperations for event entity lookup
         """
-        self.knowledge_service: ArticleOperations | None = knowledge_service
-        self.tasks_service: TasksOperations | None = tasks_service
-        self.goals_service: GoalsOperations | None = goals_service
-        self.habits_service: HabitsOperations | None = habits_service
-        self.events_service: EventsOperations | None = events_service
+        self.knowledge_service: ArticleOperations = knowledge_service
+        self.tasks_service: TasksOperations = tasks_service
+        self.goals_service: GoalsOperations = goals_service
+        self.habits_service: HabitsOperations = habits_service
+        self.events_service: EventsOperations = events_service
 
         logger.info("EntityExtractor initialized")
 
@@ -120,46 +118,22 @@ class EntityExtractor:
             "Should I work on the Python task?"
             → {"tasks": [{"uid": "task.python_project", "title": "Python Project"}]}
         """
+        query_lower = query.lower()
+
         entities = {
-            "knowledge": [],
-            "tasks": [],
-            "goals": [],
-            "habits": [],
-            "events": [],
+            "knowledge": await self._extract_knowledge_entities(query_lower, user_context),
+            "tasks": await self._extract_task_entities(query_lower, user_context),
+            "goals": await self._extract_goal_entities(query_lower, user_context),
+            "habits": await self._extract_habit_entities(query_lower, user_context),
+            "events": await self._extract_event_entities(query_lower, user_context),
             "principles": [],
             "choices": [],
         }
 
-        query_lower = query.lower()
+        total_matches = sum(len(ent_list) for ent_list in entities.values())
+        logger.info(f"Extracted {total_matches} entities from query: {query[:50]}")
 
-        try:
-            # Extract knowledge entities
-            entities["knowledge"] = await self._extract_knowledge_entities(
-                query_lower, user_context
-            )
-
-            # Extract task entities
-            entities["tasks"] = await self._extract_task_entities(query_lower, user_context)
-
-            # Extract goal entities
-            entities["goals"] = await self._extract_goal_entities(query_lower, user_context)
-
-            # Extract habit entities
-            entities["habits"] = await self._extract_habit_entities(query_lower, user_context)
-
-            # Extract event entities
-            entities["events"] = await self._extract_event_entities(query_lower, user_context)
-
-            # Count total matches
-            total_matches = sum(len(ent_list) for ent_list in entities.values())
-
-            logger.info(f"Extracted {total_matches} entities from query: {query[:50]}")
-
-            return entities
-
-        except Exception as e:
-            logger.error(f"Entity extraction failed: {e}")
-            return entities  # Return empty dict
+        return entities
 
     # ========================================================================
     # PRIVATE - ENTITY TYPE EXTRACTION
@@ -179,9 +153,6 @@ class EntityExtractor:
             List of dicts with 'uid' and 'title' keys for matched knowledge units
         """
         matched = []
-
-        if not self.knowledge_service:
-            return matched
 
         # Get all knowledge UIDs from context
         all_knowledge_uids = (
@@ -223,9 +194,6 @@ class EntityExtractor:
         Returns:
             List of dicts with 'uid' and 'title' keys for matched tasks
         """
-        if not self.tasks_service:
-            return []
-
         matched = []
         all_task_uids = user_context.active_task_uids
 
@@ -262,9 +230,6 @@ class EntityExtractor:
         Returns:
             List of dicts with 'uid' and 'title' keys for matched goals
         """
-        if not self.goals_service:
-            return []
-
         matched = []
         all_goal_uids = user_context.active_goal_uids
 
@@ -301,9 +266,6 @@ class EntityExtractor:
         Returns:
             List of dicts with 'uid' and 'title' keys for matched habits
         """
-        if not self.habits_service:
-            return []
-
         matched = []
         all_habit_uids = user_context.active_habit_uids
 
@@ -340,9 +302,6 @@ class EntityExtractor:
         Returns:
             List of dicts with 'uid' and 'title' keys for matched events
         """
-        if not self.events_service:
-            return []
-
         matched = []
         # Combine today + upcoming events, preserving order and removing duplicates
         seen = set()

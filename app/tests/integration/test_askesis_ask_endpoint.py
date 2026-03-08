@@ -14,11 +14,15 @@ import os
 
 import pytest
 
-# Skip if OPENAI_API_KEY not set (required for full app bootstrap)
+from core.config.intelligence_tier import IntelligenceTier
+
+# Skip if OPENAI_API_KEY not set or intelligence tier is CORE
+# Askesis requires FULL tier — no degraded mode
 _has_openai_key = bool(os.getenv("OPENAI_API_KEY"))
+_tier = IntelligenceTier.from_env()
 pytestmark = pytest.mark.skipif(
-    not _has_openai_key,
-    reason="Requires OPENAI_API_KEY environment variable for full app bootstrap",
+    not _has_openai_key or not _tier.ai_enabled,
+    reason="Requires OPENAI_API_KEY and INTELLIGENCE_TIER=full for Askesis tests",
 )
 
 
@@ -73,7 +77,7 @@ async def test_ask_endpoint_success(skuel_app, populated_test_data):
     assert isinstance(data["suggested_actions"], list), "Suggested actions should be a list"
     assert isinstance(data["confidence"], int | float), "Confidence should be numeric"
     assert 0.0 <= data["confidence"] <= 1.0, "Confidence should be between 0 and 1"
-    assert data["mode"] in ("llm_generated", "template"), "Mode should be llm_generated or template"
+    assert data["mode"] == "llm_generated", "Mode should be llm_generated"
 
 
 @pytest.mark.asyncio

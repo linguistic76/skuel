@@ -7,15 +7,15 @@ Extracted from QueryProcessor for single responsibility.
 
 Responsibilities:
 - Classify query intent using embeddings-based semantic classification
-- Provide keyword-based fallback for offline scenarios
 - Manage lazy-loaded intent exemplar embeddings
 
 Architecture:
-- Requires EmbeddingsService for semantic classification
+- Requires EmbeddingsService for semantic classification (fail-fast if unavailable)
 - Uses INTENT_EXEMPLARS for semantic similarity matching
 - Returns QueryIntent enum values
 
 January 2026: Extracted from QueryProcessor as part of Askesis design improvement.
+March 2026: Removed keyword fallback — embeddings required, no degraded mode.
 """
 
 from __future__ import annotations
@@ -118,16 +118,12 @@ class IntentClassifier:
             intent = result.value  # QueryIntent.HIERARCHICAL
     """
 
-    def __init__(self, embeddings_service: Any = None) -> None:
+    def __init__(self, embeddings_service: Any) -> None:
         """
         Initialize intent classifier.
 
         Args:
-            embeddings_service: EmbeddingsService for semantic search
-
-        Note:
-            embeddings_service is required for semantic classification.
-            If None, classify_intent() will return Result.fail().
+            embeddings_service: EmbeddingsService for semantic search (required)
         """
         self.embeddings_service = embeddings_service
 
@@ -138,39 +134,22 @@ class IntentClassifier:
 
     async def classify_intent(self, query: str) -> Result[QueryIntent]:
         """
-        Classify query intent using embeddings-based semantic classification
-        with keyword-based fallback.
-
-        Strategy:
-        1. Embedding-based classification (semantic understanding) — primary
-        2. Keyword-based classification — fallback if embeddings unavailable or fail
-        3. Returns high-confidence intent or defaults to SPECIFIC
+        Classify query intent using embeddings-based semantic classification.
 
         Args:
             query: User's natural language question
 
         Returns:
-            Result[QueryIntent] - Always succeeds (keyword fallback guarantees a result)
+            Result[QueryIntent] - Classified intent or error if classification fails
         """
-        # Try embedding-based classification first
-        if self.embeddings_service:
-            try:
-                intent = await self._classify_via_embeddings(query)
-                if intent:
-                    logger.debug("Intent classified via embeddings: %s", intent.value)
-                    return Result.ok(intent)
+        intent = await self._classify_via_embeddings(query)
+        if intent:
+            logger.debug("Intent classified via embeddings: %s", intent.value)
+            return Result.ok(intent)
 
-                # Low confidence from embeddings — fall through to keywords
-                logger.debug("Low confidence embedding match — trying keyword fallback")
-            except (ValueError, Exception) as e:
-                logger.warning("Embedding classification failed, using keyword fallback: %s", e)
-        else:
-            logger.debug("EmbeddingsService unavailable — using keyword classification")
-
-        # Keyword-based fallback (always available, always succeeds)
-        intent = self.classify_via_keywords(query)
-        logger.debug("Intent classified via keywords: %s", intent.value)
-        return Result.ok(intent)
+        # Low confidence — default to SPECIFIC (this is a classification result, not a fallback)
+        logger.debug("Low confidence embedding match — defaulting to SPECIFIC")
+        return Result.ok(QueryIntent.SPECIFIC)
 
     async def _classify_via_embeddings(self, query: str) -> QueryIntent | None:
         """
@@ -227,85 +206,47 @@ class IntentClassifier:
 
         return None
 
-    def classify_via_keywords(self, query: str) -> QueryIntent:
-        """
-        Classify intent using keyword matching (fallback approach).
-
-        Args:
-            query: User's question
-
-        Returns:
-            QueryIntent enum value (always returns a value)
-        """
-        message_lower = query.lower()
-
-        if any(word in message_lower for word in ["learn", "study", "understand", "master"]):
-            return QueryIntent.HIERARCHICAL
-        elif any(word in message_lower for word in ["prerequisite", "need", "require", "before"]):
-            return QueryIntent.PREREQUISITE
-        elif any(word in message_lower for word in ["practice", "apply", "use", "exercise"]):
-            return QueryIntent.PRACTICE
-        elif any(word in message_lower for word in ["explore", "discover", "find", "what"]):
-            return QueryIntent.EXPLORATORY
-        elif any(word in message_lower for word in ["relate", "connect", "similar", "link"]):
-            return QueryIntent.RELATIONSHIP
-        elif any(
-            word in message_lower
-            for word in ["how many", "count", "total", "statistics", "metrics", "summary"]
-        ):
-            return QueryIntent.AGGREGATION
-        else:
-            return QueryIntent.SPECIFIC
-
     async def _ensure_exemplars_loaded(self) -> None:
         """
         Lazy-load intent exemplar embeddings on first use.
 
         Generates embeddings for all INTENT_EXEMPLARS and caches them
-        for efficient intent classification. If loading fails entirely,
-        sets an empty dict so callers can detect and fall back to keywords.
+        for efficient intent classification.
+
+        Raises:
+            ValueError: If exemplar embedding generation fails
         """
         if self._intent_exemplar_embeddings is not None:
-            return  # Already loaded (even if empty from a previous failed attempt)
+            return  # Already loaded
 
         logger.info("Loading intent exemplar embeddings (one-time initialization)...")
 
         exemplar_embeddings: dict[QueryIntent, list[list[float]]] = {}
-        total_failures = 0
 
         for intent, exemplar_queries in INTENT_EXEMPLARS.items():
             embeddings_for_intent = []
 
             for exemplar_query in exemplar_queries:
-                try:
-                    embedding_result = await self.embeddings_service.create_embedding(
-                        exemplar_query
-                    )
-                    if embedding_result.is_ok:
-                        embeddings_for_intent.append(embedding_result.value)
-                    else:
-                        total_failures += 1
-                except Exception:
-                    total_failures += 1
-
-            if embeddings_for_intent:
-                exemplar_embeddings[intent] = embeddings_for_intent
-                logger.debug(
-                    "Loaded %d exemplars for %s", len(embeddings_for_intent), intent.value
+                embedding_result = await self.embeddings_service.create_embedding(
+                    exemplar_query
                 )
+                if embedding_result.is_ok:
+                    embeddings_for_intent.append(embedding_result.value)
+                else:
+                    raise ValueError(
+                        f"Failed to create embedding for intent exemplar "
+                        f"'{exemplar_query}' ({intent.value}): {embedding_result.error}"
+                    )
+
+            exemplar_embeddings[intent] = embeddings_for_intent
+            logger.debug(
+                "Loaded %d exemplars for %s", len(embeddings_for_intent), intent.value
+            )
 
         self._intent_exemplar_embeddings = exemplar_embeddings
-
-        if total_failures > 0:
-            logger.warning(
-                "Intent exemplar loading: %d intents loaded, %d individual embeddings failed",
-                len(exemplar_embeddings),
-                total_failures,
-            )
-        else:
-            logger.info(
-                "Intent exemplar embeddings loaded (%d intents)", len(exemplar_embeddings)
-            )
+        logger.info(
+            "Intent exemplar embeddings loaded (%d intents)", len(exemplar_embeddings)
+        )
 
     @staticmethod
     def _cosine_similarity(vec1: list[float], vec2: list[float]) -> float:

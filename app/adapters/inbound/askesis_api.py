@@ -23,7 +23,6 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
-from adapters.inbound.ai_guard import ai_unavailable_result
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import parse_int_query_param
@@ -132,10 +131,6 @@ def create_askesis_api_routes(
         Example:
             GET /api/askesis/ask?user_uid=user.mike&question=What should I learn next?
         """
-        # Defense-in-depth: RAG pipeline requires LLM (ADR-043)
-        if not getattr(askesis_service, "llm_service", True):
-            return ai_unavailable_result("RAG question answering")
-
         user_uid = require_authenticated_user(request)
         question = request.query_params.get("question")
 
@@ -448,10 +443,6 @@ def create_askesis_api_routes(
 
         Uses the RAG pipeline to suggest relevant domains and entities.
         """
-        # Defense-in-depth: RAG pipeline requires LLM (ADR-043)
-        if not getattr(askesis_service, "llm_service", True):
-            return ai_unavailable_result("domain suggestions")
-
         user_uid = require_authenticated_user(request)
         body = await request.json()
 

@@ -2679,20 +2679,23 @@ async def compose_services(
         context_service.intelligence_factory = context_intelligence_factory
         logger.info("✅ UserContextService wired with intelligence factory")
 
-        # Create Askesis service NOW with intelligence_factory as REQUIRED parameter
-        # (January 2026: Moved from _create_learning_services() to eliminate post-wiring)
-        from core.services.askesis_factory import create_askesis_service
+        # Create Askesis service — FULL tier only (no degraded mode)
+        # March 2026: Gated behind tier.ai_enabled — Askesis requires all AI deps
+        if tier.ai_enabled:
+            from core.services.askesis_factory import create_askesis_service
 
-        services.askesis = create_askesis_service(
-            intelligence_factory=context_intelligence_factory,
-            learning_services=learning_services,
-            activity_services=activity_services,
-            user_service=user_service,
-            zpd_service=zpd_service,
-        )
-        logger.info(
-            "✅ Askesis service created with intelligence_factory (13-domain synthesis + ZPD)"
-        )
+            services.askesis = create_askesis_service(
+                intelligence_factory=context_intelligence_factory,
+                learning_services=learning_services,
+                activity_services=activity_services,
+                user_service=user_service,
+                zpd_service=zpd_service,
+            )
+            logger.info(
+                "✅ Askesis service created with intelligence_factory (13-domain synthesis + ZPD)"
+            )
+        else:
+            logger.info("⏭️ Askesis service skipped (intelligence tier: CORE)")
 
         # ========================================================================
         # CREATE SEARCH ROUTER (One Path Forward, January 2026)

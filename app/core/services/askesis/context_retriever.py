@@ -35,7 +35,7 @@ from core.models.enums import Domain
 from core.models.query import QueryIntent
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.services.user import UserContext
@@ -55,25 +55,24 @@ class ContextRetriever:
     - Identify quick wins and high-impact gaps
 
     Architecture:
-    - Requires GraphIntelligenceService for graph queries (optional)
-    - Requires EmbeddingsService for semantic search (optional)
+    - Requires GraphIntelligenceService for graph queries
+    - Requires EmbeddingsService for semantic search
     - Returns frozen dataclasses (LearningContext)
+
+    March 2026: Both services required — no graceful degradation.
     """
 
     def __init__(
         self,
-        graph_intelligence_service: Any = None,
-        embeddings_service: Any = None,
+        graph_intelligence_service: Any,
+        embeddings_service: Any,
     ) -> None:
         """
         Initialize context retriever.
 
         Args:
-            graph_intelligence_service: GraphIntelligenceService for graph intelligence queries (optional)
-            embeddings_service: EmbeddingsService for semantic search (optional)
-
-        Note:
-            Both services are optional - graceful degradation if unavailable.
+            graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
+            embeddings_service: EmbeddingsService for semantic search
         """
         self.graph_intel = graph_intelligence_service
         self.embeddings_service = embeddings_service
@@ -192,14 +191,6 @@ class ContextRetriever:
 
         Performance: 150ms → 18ms (8x faster)
         """
-        if not self.graph_intel:
-            return Result.fail(
-                Errors.system(
-                    message="GraphIntelligenceService not available",
-                    operation="get_learning_context",
-                )
-            )
-
         # Build user learning context query using CypherGenerator helper
         query, params = self._build_user_learning_context_query(user_uid, depth)
 
@@ -268,14 +259,6 @@ class ContextRetriever:
 
         Performance: 200ms → 25ms (8x faster)
         """
-        if not self.graph_intel:
-            return Result.fail(
-                Errors.system(
-                    message="GraphIntelligenceService not available",
-                    operation="analyze_knowledge_gaps",
-                )
-            )
-
         # Step 1: Get learning context
         context_result = await self.get_learning_context(user_uid, GraphDepth.DEFAULT)
 
@@ -323,57 +306,46 @@ class ContextRetriever:
         Returns:
             List of (uid, similarity_score, title) tuples
         """
-        if not self.embeddings_service:
+        # Step 1: Embed the query (returns Result[list[float]])
+        query_result = await self.embeddings_service.create_embedding(query)
+        if query_result.is_error:
+            logger.warning("Failed to create query embedding for semantic search")
+            return []
+        query_embedding = query_result.value
+
+        # Step 2: Get KUs with embeddings from graph
+        ku_query = """
+        MATCH (ku:Entity)
+        WHERE ku.embedding IS NOT NULL
+        RETURN ku.uid AS uid, ku.title AS title, ku.embedding AS embedding
+        LIMIT 100
+        """
+        result = await self.graph_intel.execute_query(ku_query)
+        if result.is_error or not result.value:
+            logger.debug("No KUs with embeddings found for semantic search")
             return []
 
-        try:
-            # Step 1: Embed the query (returns Result[list[float]])
-            query_result = await self.embeddings_service.create_embedding(query)
-            if query_result.is_error:
-                logger.warning("Failed to create query embedding for semantic search")
-                return []
-            query_embedding = query_result.value
+        # Step 3: Build embeddings list
+        embeddings_list = [
+            (record["uid"], record["embedding"])
+            for record in result.value
+            if record.get("embedding")
+        ]
 
-            # Step 2: Get KUs with embeddings from graph
-            if not self.graph_intel:
-                return []
-
-            ku_query = """
-            MATCH (ku:Entity)
-            WHERE ku.embedding IS NOT NULL
-            RETURN ku.uid AS uid, ku.title AS title, ku.embedding AS embedding
-            LIMIT 100
-            """
-            result = await self.graph_intel.execute_query(ku_query)
-            if result.is_error or not result.value:
-                logger.debug("No KUs with embeddings found for semantic search")
-                return []
-
-            # Step 3: Build embeddings list
-            embeddings_list = [
-                (record["uid"], record["embedding"])
-                for record in result.value
-                if record.get("embedding")
-            ]
-
-            if not embeddings_list:
-                return []
-
-            # Step 4: Find similar using EmbeddingsService
-            similar = self.embeddings_service.find_similar(
-                query_embedding=query_embedding,
-                embeddings=embeddings_list,
-                threshold=0.6,
-                top_k=5,
-            )
-
-            # Step 5: Map back to (uid, score, title)
-            title_map = {r["uid"]: r["title"] for r in result.value}
-            return [(uid, score, title_map.get(uid, "Unknown")) for uid, score in similar]
-
-        except Exception as e:
-            logger.error("Semantic search failed: %s", e)
+        if not embeddings_list:
             return []
+
+        # Step 4: Find similar using EmbeddingsService
+        similar = self.embeddings_service.find_similar(
+            query_embedding=query_embedding,
+            embeddings=embeddings_list,
+            threshold=0.6,
+            top_k=5,
+        )
+
+        # Step 5: Map back to (uid, score, title)
+        title_map = {r["uid"]: r["title"] for r in result.value}
+        return [(uid, score, title_map.get(uid, "Unknown")) for uid, score in similar]
 
     def _build_user_learning_context_query(
         self, user_uid: str, depth: int
@@ -463,7 +435,7 @@ class ContextRetriever:
         Returns:
             List of gap analysis dicts with prerequisite chains and impact scores
         """
-        if not self.graph_intel or not blocked_knowledge:
+        if not blocked_knowledge:
             return []
 
         gap_analysis = []

@@ -6,7 +6,6 @@ Tests the askesis entity extraction service:
 - Exact match extraction
 - Partial word match extraction
 - Acronym match extraction
-- Graceful degradation without services
 """
 
 from __future__ import annotations
@@ -118,19 +117,33 @@ def mock_goals_service():
 
 
 @pytest.fixture
-def extractor_with_services(mock_ku_service, mock_tasks_service, mock_goals_service):
-    """EntityExtractor with domain services."""
-    return EntityExtractor(
-        knowledge_service=mock_ku_service,  # FIX: was ku_service
-        tasks_service=mock_tasks_service,
-        goals_service=mock_goals_service,
-    )
+def mock_habits_service():
+    """Create mock HabitsService."""
+    habits_service = Mock()
+    habits_service.get = AsyncMock(return_value=Result.fail(Errors.not_found("Entity", "none")))
+    return habits_service
 
 
 @pytest.fixture
-def extractor_no_services():
-    """EntityExtractor without domain services (graceful degradation)."""
-    return EntityExtractor()
+def mock_events_service():
+    """Create mock EventsService."""
+    events_service = Mock()
+    events_service.get = AsyncMock(return_value=Result.fail(Errors.not_found("Entity", "none")))
+    return events_service
+
+
+@pytest.fixture
+def extractor_with_services(
+    mock_ku_service, mock_tasks_service, mock_goals_service, mock_habits_service, mock_events_service
+):
+    """EntityExtractor with all domain services."""
+    return EntityExtractor(
+        knowledge_service=mock_ku_service,
+        tasks_service=mock_tasks_service,
+        goals_service=mock_goals_service,
+        habits_service=mock_habits_service,
+        events_service=mock_events_service,
+    )
 
 
 @pytest.fixture
@@ -212,28 +225,6 @@ class TestAcronymMatchExtraction:
         )
 
         assert isinstance(entities, dict)
-
-
-# ============================================================================
-# TESTS: Graceful Degradation
-# ============================================================================
-
-
-class TestGracefulDegradation:
-    """Test graceful degradation without services."""
-
-    @pytest.mark.asyncio
-    async def test_extract_entities_graceful_degradation(self, extractor_no_services, user_context):
-        """Works without domain services, returns empty entity types."""
-        query = "What should I work on?"
-
-        entities = await extractor_no_services.extract_entities_from_query(
-            query=query,
-            user_context=user_context,
-        )
-
-        assert isinstance(entities, dict)
-        # Should return dict (possibly empty for entity types without services)
 
 
 if __name__ == "__main__":

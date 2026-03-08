@@ -24,10 +24,11 @@ Architecture:
 - Orchestrates sub-services for query processing
 - Delegates intent classification to IntentClassifier
 - Delegates response generation to ResponseGenerator
-- Fail-fast design: requires LLMService for natural language generation
+- All dependencies required — no fallbacks or degraded modes
 
 January 2026: Refactored to use IntentClassifier and ResponseGenerator
 for single responsibility and reduced file size (962 → ~500 lines).
+March 2026: Removed all fallback/template paths — works or fails.
 """
 
 from __future__ import annotations
@@ -78,13 +79,13 @@ class QueryProcessor:
 
     def __init__(
         self,
-        intent_classifier: IntentClassifier | None = None,
-        response_generator: ResponseGenerator | None = None,
-        entity_extractor: EntityExtractor | None = None,
-        context_retriever: ContextRetriever | None = None,
-        user_service: UserService | None = None,
-        llm_service: LLMService | None = None,
-        graph_intelligence_service: GraphIntelligenceService | None = None,
+        intent_classifier: IntentClassifier,
+        response_generator: ResponseGenerator,
+        entity_extractor: EntityExtractor,
+        context_retriever: ContextRetriever,
+        user_service: UserService,
+        llm_service: LLMService,
+        graph_intelligence_service: GraphIntelligenceService,
         citation_service: AskesisCitationService | None = None,
     ) -> None:
         """
@@ -96,9 +97,9 @@ class QueryProcessor:
             entity_extractor: EntityExtractor for entity extraction
             context_retriever: ContextRetriever for context retrieval
             user_service: UserService for accessing UserContext
-            llm_service: LLMService for natural language generation (required)
+            llm_service: LLMService for natural language generation
             graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
-            citation_service: AskesisCitationService for source and evidence transparency
+            citation_service: AskesisCitationService for source and evidence transparency (optional)
         """
         self.intent_classifier = intent_classifier
         self.response_generator = response_generator
@@ -141,16 +142,7 @@ class QueryProcessor:
             - "What do I need to learn before async programming?"
             - "Show me my progress in Python"
         """
-        # Step 1: Get full user context (hard requirement — no fallback possible)
-        if not self.user_service:
-            return Result.fail(
-                Errors.system(
-                    message="UserService not available - cannot retrieve user context",
-                    operation="answer_user_question",
-                    user_message="Unable to load your profile. Please try again shortly.",
-                )
-            )
-
+        # Step 1: Get full user context
         user_context_result = await self.user_service.get_rich_unified_context(user_uid)
         if user_context_result.is_error:
             error = user_context_result.expect_error()
@@ -165,93 +157,60 @@ class QueryProcessor:
 
         user_context = user_context_result.value
 
-        # Step 2: Classify query intent (via IntentClassifier, with fallback)
-        if not self.intent_classifier:
-            logger.warning("IntentClassifier unavailable — defaulting to SPECIFIC intent")
-            intent = QueryIntent.SPECIFIC
-        else:
-            intent_result = await self.intent_classifier.classify_intent(question)
-            if intent_result.is_error:
-                logger.warning(
-                    "Intent classification failed — defaulting to SPECIFIC: %s",
-                    intent_result.error,
+        # Step 2: Classify query intent
+        intent_result = await self.intent_classifier.classify_intent(question)
+        if intent_result.is_error:
+            return Result.fail(
+                Errors.system(
+                    message=f"Intent classification failed: {intent_result.error}",
+                    operation="answer_user_question",
+                    user_message="Unable to understand your question. Please try rephrasing.",
                 )
-                intent = QueryIntent.SPECIFIC
-            else:
-                intent = intent_result.value
+            )
+        intent = intent_result.value
 
-        # Step 3: Extract entities mentioned in query (non-critical — errors are swallowed)
-        extracted_entities: dict[str, Any] = {}
-        if self.entity_extractor:
-            try:
-                extracted_entities = await self.entity_extractor.extract_entities_from_query(
-                    question, user_context
-                )
-            except Exception as e:
-                logger.warning("Entity extraction failed (non-critical): %s", e)
+        # Step 3: Extract entities mentioned in query
+        extracted_entities = await self.entity_extractor.extract_entities_from_query(
+            question, user_context
+        )
 
-        # Step 4: Retrieve relevant entities based on intent (non-critical)
-        relevant_context: dict[str, Any] = {}
-        if self.context_retriever:
-            try:
-                relevant_context = await self.context_retriever.retrieve_relevant_context(
-                    user_context, question, intent
-                )
-            except Exception as e:
-                logger.warning("Context retrieval failed (non-critical): %s", e)
+        # Step 4: Retrieve relevant entities based on intent
+        relevant_context = await self.context_retriever.retrieve_relevant_context(
+            user_context, question, intent
+        )
 
         # Add extracted entities to context
         if any(extracted_entities.values()):
             relevant_context["mentioned_entities"] = extracted_entities
 
         # Step 5: Build LLM-friendly context and generate answer
-        llm_context = ""
-        if self.response_generator:
-            llm_context = self.response_generator.build_llm_context(user_context, question)
+        llm_context = self.response_generator.build_llm_context(user_context, question)
 
-        # Step 6: Generate natural language answer using LLM (with template fallback)
-        answer: str | None = None
-        if self.llm_service:
-            try:
-                answer = await self.llm_service.generate_context_aware_answer(
-                    query=question,
-                    user_context=llm_context,
-                    additional_context=relevant_context,
-                    intent=intent,
-                )
-            except Exception as e:
-                logger.warning("LLM answer generation failed, using template fallback: %s", e)
+        # Step 6: Generate natural language answer using LLM
+        answer = await self.llm_service.generate_context_aware_answer(
+            query=question,
+            user_context=llm_context,
+            additional_context=relevant_context,
+            intent=intent,
+        )
 
-        if not answer:
-            # Template fallback when LLM is unavailable or fails
-            answer = self._build_fallback_answer(user_context, question, intent)
+        # Step 7: Generate suggested actions
+        suggested_actions = self.response_generator.generate_actions(
+            user_context, intent, relevant_context
+        )
 
-        # Step 7: Generate suggested actions (via ResponseGenerator)
-        suggested_actions: list[dict[str, Any]] = []
-        if self.response_generator:
-            suggested_actions = self.response_generator.generate_actions(
-                user_context, intent, relevant_context
-            )
-
-        # Step 8: Add citations for knowledge units (non-critical)
+        # Step 8: Add citations for knowledge units
         citations_text = ""
         if intent in (QueryIntent.PREREQUISITE, QueryIntent.HIERARCHICAL):
             knowledge_entities = extracted_entities.get("knowledge", [])
             if knowledge_entities:
                 knowledge_uids = [ku.get("uid") for ku in knowledge_entities if ku.get("uid")]
-                try:
-                    citations_text = await self._retrieve_citations_for_knowledge_units(
-                        knowledge_uids, min_evidence_count=1
-                    )
-                except Exception as e:
-                    logger.warning("Citation retrieval failed (non-critical): %s", e)
-
-        # Append citations to answer if available
-        final_answer = answer
-        if citations_text:
-            final_answer = answer + citations_text
+                citations_text = await self._retrieve_citations_for_knowledge_units(
+                    knowledge_uids, min_evidence_count=1
+                )
 
         # Step 9: Package response with calculated confidence
+        final_answer = answer + citations_text if citations_text else answer
         confidence = QueryProcessorConfidence.calculate(
             has_context=bool(relevant_context),
             has_citations=bool(citations_text),
@@ -262,7 +221,7 @@ class QueryProcessor:
             "context_used": relevant_context,
             "suggested_actions": suggested_actions,
             "confidence": confidence,
-            "mode": "llm_generated" if self.llm_service else "template",
+            "mode": "llm_generated",
             "has_citations": bool(citations_text),
         }
 
@@ -308,14 +267,6 @@ class QueryProcessor:
 
         Performance: 180ms → 22ms (8x faster)
         """
-        if not self.context_retriever or not self.graph_intel:
-            return Result.fail(
-                Errors.system(
-                    message="GraphIntelligenceService not available - Phase 1-4 queries disabled",
-                    operation="process_query_with_context",
-                )
-            )
-
         # Step 1: Get complete learning context in single query
         context_result = await self.context_retriever.get_learning_context(user_uid, depth)
 
@@ -324,20 +275,17 @@ class QueryProcessor:
 
         context_data = context_result.value
 
-        # Step 2: Determine query intent (via IntentClassifier, with fallback)
-        if not self.intent_classifier:
-            logger.warning("IntentClassifier unavailable — defaulting to SPECIFIC intent")
-            intent = QueryIntent.SPECIFIC
-        else:
-            intent_result = await self.intent_classifier.classify_intent(query_message)
-            if intent_result.is_error:
-                logger.warning(
-                    "Intent classification failed — defaulting to SPECIFIC: %s",
-                    intent_result.error,
+        # Step 2: Determine query intent
+        intent_result = await self.intent_classifier.classify_intent(query_message)
+        if intent_result.is_error:
+            return Result.fail(
+                Errors.system(
+                    message=f"Intent classification failed: {intent_result.error}",
+                    operation="process_query_with_context",
+                    user_message="Unable to understand your question. Please try rephrasing.",
                 )
-                intent = QueryIntent.SPECIFIC
-            else:
-                intent = intent_result.value
+            )
+        intent = intent_result.value
 
         # Extract context nodes
         current_knowledge = context_data["knowledge_units"]
@@ -355,14 +303,10 @@ class QueryProcessor:
             intent=intent,
         )
 
-        # Step 4: Generate suggested actions (via ResponseGenerator)
-        suggested_actions: list[dict[str, Any]] = []
-        if self.response_generator:
-            suggested_actions = self.response_generator.generate_suggested_actions(
-                query_message, context_data, intent
-            )
-        else:
-            logger.warning("ResponseGenerator unavailable — returning empty suggested actions")
+        # Step 4: Generate suggested actions
+        suggested_actions = self.response_generator.generate_suggested_actions(
+            query_message, context_data, intent
+        )
 
         # Step 5: Build and return result
         result_dict = self._build_query_response_result(
@@ -376,29 +320,6 @@ class QueryProcessor:
         )
 
         return Result.ok(result_dict)
-
-    def _build_fallback_answer(
-        self, user_context: Any, question: str, intent: QueryIntent
-    ) -> str:
-        """Build a template answer when LLM is unavailable or fails."""
-        parts = [f"Based on your current state (regarding: {question[:80]}):\n"]
-
-        task_count = len(getattr(user_context, "active_task_uids", []))
-        goal_count = len(getattr(user_context, "active_goal_uids", []))
-        habit_count = len(getattr(user_context, "active_habit_uids", []))
-
-        parts.append(f"You have {task_count} active tasks, {goal_count} goals, and {habit_count} habits.\n")
-
-        if intent == QueryIntent.HIERARCHICAL:
-            parts.append("For structured learning, follow your active learning paths.")
-        elif intent == QueryIntent.PREREQUISITE:
-            parts.append("Check the suggested_actions for prerequisite recommendations.")
-        elif intent == QueryIntent.PRACTICE:
-            parts.append("Look at your active tasks for practice opportunities.")
-        else:
-            parts.append("See suggested_actions for specific next steps.")
-
-        return "\n".join(parts)
 
     # ========================================================================
     # PRIVATE - RESPONSE GENERATION
@@ -416,8 +337,6 @@ class QueryProcessor:
         """
         Generate AI response using complete context.
 
-        Uses LLM service if available, otherwise falls back to template response.
-
         Args:
             query_message: User's query
             current_knowledge: Knowledge units
@@ -429,81 +348,36 @@ class QueryProcessor:
         Returns:
             Generated response string
         """
-        # Use LLM service if available
-        if self.llm_service:
-            try:
-                # Build context summary for LLM
-                def extract_title(item: Any) -> str:
-                    """Extract title from object or dict."""
-                    if isinstance(item, dict):
-                        return str(item.get("title", "Unknown"))[:50]
-                    title = getattr(item, "title", None)
-                    return str(title)[:50] if title else "Unknown"
 
-                context = {
-                    "knowledge_count": len(current_knowledge),
-                    "learning_paths_count": len(active_learning),
-                    "active_tasks_count": len(active_tasks),
-                    "goals_count": len(related_goals),
-                    "knowledge_titles": [extract_title(k) for k in current_knowledge[:5]],
-                    "intent": intent.value,
-                }
+        def extract_title(item: Any) -> str:
+            """Extract title from object or dict."""
+            if isinstance(item, dict):
+                return str(item.get("title", "Unknown"))[:50]
+            title = getattr(item, "title", None)
+            return str(title)[:50] if title else "Unknown"
 
-                additional_context = {
-                    "knowledge_units": [{"title": extract_title(k)} for k in current_knowledge[:5]],
-                    "learning_paths": [{"title": extract_title(lp)} for lp in active_learning[:3]],
-                    "tasks": [{"title": extract_title(t)} for t in active_tasks[:5]],
-                    "goals": [{"title": extract_title(g)} for g in related_goals[:3]],
-                }
+        context = {
+            "knowledge_count": len(current_knowledge),
+            "learning_paths_count": len(active_learning),
+            "active_tasks_count": len(active_tasks),
+            "goals_count": len(related_goals),
+            "knowledge_titles": [extract_title(k) for k in current_knowledge[:5]],
+            "intent": intent.value,
+        }
 
-                # Generate response via LLM
-                return await self.llm_service.generate_context_aware_answer(
-                    query=query_message,
-                    user_context=context,
-                    additional_context=additional_context,
-                    intent=intent,
-                )
+        additional_context = {
+            "knowledge_units": [{"title": extract_title(k)} for k in current_knowledge[:5]],
+            "learning_paths": [{"title": extract_title(lp)} for lp in active_learning[:3]],
+            "tasks": [{"title": extract_title(t)} for t in active_tasks[:5]],
+            "goals": [{"title": extract_title(g)} for g in related_goals[:3]],
+        }
 
-            except Exception as e:
-                logger.warning("LLM response generation failed, using template: %s", e)
-                # Fall through to template response
-
-        # Fallback to template response
-        return self._build_template_response(
-            query_message, current_knowledge, active_learning, active_tasks, related_goals, intent
+        return await self.llm_service.generate_context_aware_answer(
+            query=query_message,
+            user_context=context,
+            additional_context=additional_context,
+            intent=intent,
         )
-
-    def _build_template_response(
-        self,
-        _query_message: str,
-        current_knowledge: list[Any],
-        active_learning: list[Any],
-        active_tasks: list[Any],
-        _related_goals: list[Any],
-        intent: QueryIntent,
-    ) -> str:
-        """Build template response as fallback when LLM is unavailable."""
-        knowledge_count = len(current_knowledge)
-        learning_count = len(active_learning)
-        task_count = len(active_tasks)
-
-        response = "Based on your current learning state:\n\n"
-        response += f"You have {knowledge_count} knowledge areas tracked, "
-        response += f"{learning_count} active learning paths, "
-        response += f"and {task_count} related tasks.\n\n"
-
-        if intent == QueryIntent.HIERARCHICAL:
-            response += (
-                "For structured learning, I recommend following your active learning paths. "
-            )
-        elif intent == QueryIntent.PREREQUISITE:
-            response += "Let me identify the prerequisites you need. "
-        elif intent == QueryIntent.PRACTICE:
-            response += "Here are opportunities to apply your knowledge through tasks. "
-
-        response += "\n\nSee suggested_actions for specific next steps."
-
-        return response
 
     def _build_query_response_result(
         self,

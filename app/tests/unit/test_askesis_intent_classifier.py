@@ -4,7 +4,6 @@ Test Suite for IntentClassifier
 
 Tests the askesis intent classification service:
 - Embedding-based classification
-- Keyword fallback classification
 - Confidence threshold handling
 - Intent type coverage
 """
@@ -49,17 +48,6 @@ def classifier_with_embeddings(mock_embeddings):
     return IntentClassifier(embeddings_service=mock_embeddings)
 
 
-@pytest.fixture
-def classifier_no_embeddings():
-    """IntentClassifier without embeddings (keyword fallback)."""
-    # Note: IntentClassifier may require embeddings - adjust based on implementation
-    try:
-        return IntentClassifier()
-    except (ValueError, TypeError):
-        # If embeddings required, skip tests that need this fixture
-        pytest.skip("IntentClassifier requires embeddings_service")
-
-
 # ============================================================================
 # TESTS: Embedding-Based Classification
 # ============================================================================
@@ -99,36 +87,6 @@ class TestEmbeddingBasedClassification:
         assert result.is_ok
         assert isinstance(result.value, QueryIntent)
         # Should classify as PRACTICE
-
-
-# ============================================================================
-# TESTS: Keyword Fallback Classification
-# ============================================================================
-
-
-class TestKeywordFallbackClassification:
-    """Test keyword-based fallback classification."""
-
-    @pytest.mark.asyncio
-    async def test_classify_via_keywords_learning(self, classifier_with_embeddings):
-        """Keywords detect learning-related intents."""
-        intent = classifier_with_embeddings.classify_via_keywords("learn skills develop master")
-
-        assert isinstance(intent, QueryIntent)
-
-    @pytest.mark.asyncio
-    async def test_classify_via_keywords_prerequisite(self, classifier_with_embeddings):
-        """Keywords detect prerequisite intents."""
-        intent = classifier_with_embeddings.classify_via_keywords("what do I need before starting")
-
-        assert isinstance(intent, QueryIntent)
-
-    @pytest.mark.asyncio
-    async def test_classify_via_keywords_practice(self, classifier_with_embeddings):
-        """Keywords detect practice intents."""
-        intent = classifier_with_embeddings.classify_via_keywords("exercises practice apply")
-
-        assert isinstance(intent, QueryIntent)
 
 
 # ============================================================================
