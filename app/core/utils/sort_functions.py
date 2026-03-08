@@ -8,12 +8,29 @@ Following clean code principle: no lambdas, only named functions.
 
 from typing import Any
 
+from core.models.enums import Priority
 from core.ports.base_protocols import (
     HasPriority,
     HasRelevanceScore,
     HasScore,
     HasToNumeric,
 )
+
+# Centralized priority sort orders — lower value = higher priority (sorted first).
+# Used by Tasks (enum keys) and Goals/Choices/Events (string keys).
+PRIORITY_SORT_ORDER: dict[Priority, int] = {
+    Priority.CRITICAL: 0,
+    Priority.HIGH: 1,
+    Priority.MEDIUM: 2,
+    Priority.LOW: 3,
+}
+
+PRIORITY_STRING_SORT_ORDER: dict[str, int] = {
+    "critical": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 3,
+}
 
 
 def sort_by_start_time(event: Any) -> Any:

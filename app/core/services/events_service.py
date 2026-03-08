@@ -16,7 +16,6 @@ Sub-Services:
 from __future__ import annotations
 
 from datetime import date, datetime, time
-from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
@@ -24,7 +23,7 @@ from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeR
 from core.models.enums import EntityStatus, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.ports import get_enum_value
+from core.ports import get_enum_attr_str, get_enum_value
 from core.ports.query_types import EventUpdatePayload
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -75,12 +74,7 @@ def _null_callable() -> None:
 
 def _get_event_status_value(event: Any) -> str:
     """Get status value (handles both enum and string)."""
-    status = getattr(event, "status", None)
-    if status is None:
-        return "scheduled"
-    if isinstance(status, Enum):
-        return str(status.value).lower()
-    return str(status).lower()
+    return get_enum_attr_str(event, "status", "scheduled")
 
 
 def _apply_event_sort(events: list[Any], sort_by: str = "start_time") -> list[Any]:

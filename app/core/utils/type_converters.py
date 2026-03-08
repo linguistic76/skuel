@@ -170,7 +170,45 @@ def get_enum_value(obj: Any) -> Any:
     return obj
 
 
+def get_enum_attr_str(obj: Any, attr: str, default: str = "") -> str:
+    """Extract an attribute as a lowercase string, handling both enum and string values.
+
+    Combines getattr + enum extraction + lowercase normalization into one call.
+    Replaces duplicated domain-specific enum extractors across service facades.
+
+    Args:
+        obj: Object to extract attribute from
+        attr: Attribute name to read
+        default: Value to return if attribute is None or missing
+
+    Returns:
+        Lowercase string representation of the attribute value
+
+    Examples:
+        >>> from enum import Enum
+        >>> class Status(Enum):
+        ...     ACTIVE = "active"
+        >>> from types import SimpleNamespace
+        >>> obj = SimpleNamespace(status=Status.ACTIVE)
+        >>> get_enum_attr_str(obj, "status")
+        'active'
+
+        >>> get_enum_attr_str(SimpleNamespace(status="Pending"), "status")
+        'pending'
+
+        >>> get_enum_attr_str(SimpleNamespace(), "status", "unknown")
+        'unknown'
+    """
+    value = getattr(obj, attr, None)
+    if value is None:
+        return default
+    if isinstance(value, _EnumLike):
+        return str(value.value).lower()
+    return str(value).lower()
+
+
 __all__ = [
+    "get_enum_attr_str",
     "get_enum_value",
     "to_dict",
 ]

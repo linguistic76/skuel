@@ -122,7 +122,8 @@ from .base_protocols import (
     SupportsRelatedSearch,
     SupportsSearch,
     SupportsSearchWithFilters,
-    # Helper Functions (2)
+    # Helper Functions (3)
+    get_enum_attr_str,
     get_enum_value,
     to_dict,
 )
@@ -468,7 +469,8 @@ __all__ = [
     "UserContextOperations",
     "UserOperations",
     "VisualizationOperations",
-    # ========== HELPER FUNCTIONS (2) ==========
+    # ========== HELPER FUNCTIONS (3) ==========
+    "get_enum_attr_str",
     "get_enum_value",
     "to_dict",
     # ========== ZPD PROTOCOL (1 - March 2026) ==========

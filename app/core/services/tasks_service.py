@@ -51,6 +51,7 @@ from core.utils.activity_domain_config import create_common_sub_services
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import (
+    PRIORITY_SORT_ORDER,
     get_created_at_attr,
     get_project_and_title,
     get_task_due_date_sort_key,
@@ -158,20 +159,12 @@ def _apply_task_secondary_filters(
     return tasks
 
 
-_TASK_PRIORITY_ORDER: dict[Priority, int] = {
-    Priority.CRITICAL: 0,
-    Priority.HIGH: 1,
-    Priority.MEDIUM: 2,
-    Priority.LOW: 3,
-}
-
-
 def _apply_task_sort(tasks: list[Any], sort_by: str = "due_date") -> list[Any]:
     """Sort tasks by specified field."""
     if sort_by == "due_date":
         return sorted(tasks, key=get_task_due_date_sort_key)
     elif sort_by == "priority":
-        priority_sort_key = make_priority_order_getter(_TASK_PRIORITY_ORDER)
+        priority_sort_key = make_priority_order_getter(PRIORITY_SORT_ORDER)
         return sorted(tasks, key=priority_sort_key)
     elif sort_by == "created_at":
         return sorted(tasks, key=get_created_at_attr, reverse=True)

@@ -1028,6 +1028,19 @@ def get_enum_value(obj: Any) -> Any:
     return obj
 
 
+def get_enum_attr_str(obj: Any, attr: str, default: str = "") -> str:
+    """Extract an attribute as a lowercase string, handling both enum and string values.
+
+    See core.utils.type_converters.get_enum_attr_str for full documentation.
+    """
+    value = getattr(obj, attr, None)
+    if value is None:
+        return default
+    if isinstance(value, EnumLike):
+        return str(value.value).lower()
+    return str(value).lower()
+
+
 # ============================================================================
 # EXPLICIT EXPORTS - ISP-compliant protocols (streamlined Nov 2025)
 # NOTE: Deepgram protocols moved to adapters/external/deepgram/
@@ -1103,7 +1116,8 @@ __all__ = [
     "SupportsRelatedSearch",
     "SupportsSearch",
     "SupportsSearchWithFilters",
-    # Helper Functions (2)
+    # Helper Functions (3)
+    "get_enum_attr_str",
     "get_enum_value",
     "to_dict",
 ]

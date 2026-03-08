@@ -14,7 +14,6 @@ Sub-Services:
 
 from __future__ import annotations
 
-from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from core.models.choice.choice import Choice
@@ -35,10 +34,12 @@ from core.utils.activity_domain_config import CommonSubServices, create_common_s
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import (
+    PRIORITY_STRING_SORT_ORDER,
     get_created_at_attr,
     get_decision_deadline,
     make_priority_string_getter,
 )
+from core.utils.type_converters import get_enum_attr_str
 
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
@@ -52,20 +53,12 @@ if TYPE_CHECKING:
 
 def _get_choice_enum_value(obj: Any, attr: str, default: str = "") -> str:
     """Extract value from attribute (handles both enum and string)."""
-    value = getattr(obj, attr, None)
-    if value is None:
-        return default
-    if isinstance(value, Enum):
-        return str(value.value).lower()
-    return str(value).lower()
-
-
-_CHOICE_PRIORITY_ORDER: dict[str, int] = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    return get_enum_attr_str(obj, attr, default)
 
 
 def _get_choice_priority(c: Any) -> str:
     """Extract priority string for sort key (SKUEL012: named function, no lambda)."""
-    return _get_choice_enum_value(c, "priority", "medium")
+    return get_enum_attr_str(c, "priority", "medium")
 
 
 def _apply_choice_sort(choices: list[Any], sort_by: str = "deadline") -> list[Any]:
@@ -73,7 +66,7 @@ def _apply_choice_sort(choices: list[Any], sort_by: str = "deadline") -> list[An
     if sort_by == "deadline":
         return sorted(choices, key=get_decision_deadline)
     elif sort_by == "priority":
-        sort_key = make_priority_string_getter(_CHOICE_PRIORITY_ORDER, _get_choice_priority)
+        sort_key = make_priority_string_getter(PRIORITY_STRING_SORT_ORDER, _get_choice_priority)
         return sorted(choices, key=sort_key)
     elif sort_by == "created_at":
         return sorted(choices, key=get_created_at_attr, reverse=True)

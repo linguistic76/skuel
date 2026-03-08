@@ -18,7 +18,6 @@ Sub-Services:
 from __future__ import annotations
 
 from datetime import date
-from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus, Priority
@@ -48,10 +47,12 @@ from core.utils.dto_helpers import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
+    PRIORITY_STRING_SORT_ORDER,
     get_created_at_attr,
     get_current_value,
     make_priority_string_getter,
 )
+from core.utils.type_converters import get_enum_attr_str
 
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
@@ -64,18 +65,12 @@ if TYPE_CHECKING:
 
 def _get_goal_status_str(goal: Any) -> str:
     """Extract status as lowercase string, handling both enum and string."""
-    status = getattr(goal, "status", "active")
-    if isinstance(status, Enum):
-        return str(status.value).lower()
-    return str(status).lower()
+    return get_enum_attr_str(goal, "status", "active")
 
 
 def _get_goal_priority_str(goal: Any) -> str:
     """Extract priority as lowercase string, handling both enum and string."""
-    priority = getattr(goal, "priority", "medium")
-    if isinstance(priority, Enum):
-        return str(priority.value).lower()
-    return str(priority).lower()
+    return get_enum_attr_str(goal, "priority", "medium")
 
 
 def _get_goal_target_date(goal: Any) -> date:
@@ -93,15 +88,14 @@ def _get_goal_target_date(goal: Any) -> date:
     return date.max
 
 
-_GOAL_PRIORITY_ORDER: dict[str, int] = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-
-
 def _apply_goal_sort(goals: list[Any], sort_by: str = "target_date") -> list[Any]:
     """Sort goals by specified field."""
     if sort_by == "target_date":
         return sorted(goals, key=_get_goal_target_date)
     elif sort_by == "priority":
-        sort_key = make_priority_string_getter(_GOAL_PRIORITY_ORDER, _get_goal_priority_str)
+        sort_key = make_priority_string_getter(
+            PRIORITY_STRING_SORT_ORDER, _get_goal_priority_str
+        )
         return sorted(goals, key=sort_key)
     elif sort_by == "progress":
         return sorted(goals, key=get_current_value, reverse=True)
