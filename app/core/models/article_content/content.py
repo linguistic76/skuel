@@ -1,6 +1,6 @@
 """
-Curriculum Content Model
-=========================
+Article Content Model
+======================
 
 Rich content storage with automatic chunking for RAG.
 Separated from curriculum entities to keep the graph lean while maintaining

@@ -19,6 +19,9 @@ Module Organization:
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
 - learning_enums: LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus, etc.
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
+- ku_enums: KuCategory
+- finance_enums: ExpenseStatus, PaymentMethod, ExpenseCategory, BudgetPeriod
+- transcription_enums: TranscriptionStatus
 
 Usage:
     from core.models.enums import Priority, EntityStatus, EntityType
@@ -43,6 +46,9 @@ from .choice_enums import ChoiceType
 # Curriculum enums - learning path and step classification
 from .curriculum_enums import LpType, StepDifficulty
 
+# Finance enums (RecurrencePattern intentionally excluded — conflicts with scheduling_enums)
+from .finance_enums import BudgetPeriod, ExpenseCategory, ExpenseStatus, PaymentMethod
+
 # Entity enums - core identity, lifecycle, and domain classification
 from .entity_enums import (
     AnalyticsDomain,
@@ -59,6 +65,9 @@ from .entity_enums import (
 
 # Goal enums
 from .goal_enums import GoalTimeframe, GoalType, HabitEssentiality, MeasurementType
+
+# Ku enums
+from .ku_enums import KuCategory
 
 # Habit enums
 from .habit_enums import CompletionStatus, HabitCategory, HabitDifficulty, HabitPolarity
@@ -116,6 +125,9 @@ from .scheduling_enums import (
     TimeOfDay,
 )
 
+# Transcription enums
+from .transcription_enums import TranscriptionStatus
+
 # Submissions enums - processing, scheduling, and assignment
 from .submissions_enums import (
     AnalysisDepth,
@@ -136,6 +148,7 @@ __all__ = [
     "AnalyticsDomain",
     "AnalysisDepth",
     "BridgeType",
+    "BudgetPeriod",
     "CacheStrategy",
     "ChoiceType",
     "CompletionStatus",
@@ -157,6 +170,8 @@ __all__ = [
     "EntityStatus",
     "EntityType",
     "ErrorSeverity",
+    "ExpenseCategory",
+    "ExpenseStatus",
     "ExtractionMethod",
     "FacetType",
     "FormattingStyle",
@@ -171,6 +186,7 @@ __all__ = [
     "Intent",
     "KnowledgeStatus",
     "KnowledgeType",
+    "KuCategory",
     "KuComplexity",
     "LearningLevel",
     "LearningModality",
@@ -180,6 +196,7 @@ __all__ = [
     "MessageRole",
     "NeoLabel",
     "NonKuDomain",
+    "PaymentMethod",
     "Personality",
     "PracticeLevel",
     "PrincipleCategory",
@@ -202,6 +219,7 @@ __all__ = [
     "SystemConstants",
     "ThemeCategory",
     "TimeOfDay",
+    "TranscriptionStatus",
     "TrendDirection",
     "UserRole",
     "Visibility",

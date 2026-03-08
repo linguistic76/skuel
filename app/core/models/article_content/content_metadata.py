@@ -1,8 +1,8 @@
 """
-Content Metadata Model
-=======================
+Article Content Metadata Model
+================================
 
-Analytics and search optimization metadata for curriculum content.
+Analytics and search optimization metadata for article content.
 This is computed metadata that can be regenerated from the content.
 
 Useful for search indexing, content analytics, and learning recommendations.
