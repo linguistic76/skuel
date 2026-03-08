@@ -32,7 +32,7 @@ Main Entry Point:
     await lifepath.core.designate_life_path(user_uid, lp_uid)
 
     # Calculate alignment
-    alignment = await lifepath.alignment.calculate_alignment(user_uid)
+    alignment = await lifepath.get_alignment(user_uid)
 """
 
 from .lifepath_alignment_service import LifePathAlignmentService

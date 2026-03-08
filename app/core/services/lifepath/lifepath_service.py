@@ -66,7 +66,7 @@ class LifePathService:
         designation = await lifepath.core.designate_life_path(user_uid, lp_uid)
 
         # Calculate alignment
-        alignment = await lifepath.alignment.calculate_alignment(user_uid)
+        alignment = await lifepath.get_alignment(user_uid)
 
         # Get recommendations
         recs = await lifepath.intelligence.get_recommendations(user_uid, alignment)
@@ -105,8 +105,9 @@ class LifePathService:
             executor=executor,
             lp_service=lp_service,
             ku_service=ku_service,
-            user_service=user_service,
         )
+
+        self.user_service = user_service
 
         self.intelligence = LifePathIntelligenceService(
             user_service=user_service,
@@ -201,19 +202,21 @@ class LifePathService:
 
         designation = designation_result.value
 
-        # Step 2: Calculate initial alignment
-        alignment_result = await self.alignment.calculate_alignment(user_uid)
-
+        # Step 2: Build UserContext and calculate initial alignment
         alignment_data = {}
-        if alignment_result.is_ok:
-            alignment_data = alignment_result.value
+        ctx_result = await self._build_context(user_uid)
+        if ctx_result.is_ok:
+            alignment_result = await self.alignment.calculate_alignment(ctx_result.value)
 
-            # Update stored alignment score
-            await self.core.update_alignment_score(
-                user_uid=user_uid,
-                alignment_score=alignment_data.get("alignment_score", 0.0),
-                dimension_scores=alignment_data.get("dimensions"),
-            )
+            if alignment_result.is_ok:
+                alignment_data = alignment_result.value
+
+                # Update stored alignment score
+                await self.core.update_alignment_score(
+                    user_uid=user_uid,
+                    alignment_score=alignment_data.get("alignment_score", 0.0),
+                    dimension_scores=alignment_data.get("dimensions"),
+                )
 
         # Step 3: Get initial recommendations
         recommendations_result = await self.intelligence.get_recommendations(
@@ -271,9 +274,11 @@ class LifePathService:
         # Get alignment
         alignment_data = {}
         if designation.has_designation:
-            alignment_result = await self.alignment.calculate_alignment(user_uid)
-            if alignment_result.is_ok:
-                alignment_data = alignment_result.value
+            ctx_result = await self._build_context(user_uid)
+            if ctx_result.is_ok:
+                alignment_result = await self.alignment.calculate_alignment(ctx_result.value)
+                if alignment_result.is_ok:
+                    alignment_data = alignment_result.value
 
         # Get recommendations
         recommendations = []
@@ -315,6 +320,32 @@ class LifePathService:
                 "daily_focus": daily_focus,
             }
         )
+
+    async def get_alignment(self, user_uid: str) -> Result[dict[str, Any]]:
+        """
+        Get alignment data for a user.
+
+        Builds UserContext and delegates to alignment sub-service.
+
+        Args:
+            user_uid: User identifier
+
+        Returns:
+            Result with alignment analysis
+        """
+        ctx_result = await self._build_context(user_uid)
+        if ctx_result.is_error:
+            return Result.fail(ctx_result.expect_error())
+
+        return await self.alignment.calculate_alignment(ctx_result.value)
+
+    async def _build_context(self, user_uid: str) -> Result[UserContext]:
+        """Build UserContext via user_service."""
+        if not self.user_service:
+            from core.services.user.unified_user_context import UserContext
+
+            return Result.ok(UserContext(user_uid=user_uid, username=""))
+        return await self.user_service.get_user_context(user_uid)
 
     async def _get_getting_started_recommendations(self) -> list[dict[str, Any]]:
         """Get recommendations for users without a vision."""

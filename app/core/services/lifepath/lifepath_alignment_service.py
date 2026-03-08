@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from core.ports import QueryExecutor
     from core.services.article_service import ArticleService
     from core.services.lp_service import LpService
-    from core.services.user_service import UserService
+    from core.services.user.unified_user_context import UserContext
 
 logger = get_logger(__name__)
 
@@ -56,7 +56,6 @@ class LifePathAlignmentService:
         executor: QueryExecutor | None = None,
         lp_service: LpService | None = None,
         ku_service: ArticleService | None = None,
-        user_service: UserService | None = None,
     ) -> None:
         """
         Initialize alignment service.
@@ -65,15 +64,13 @@ class LifePathAlignmentService:
             executor: QueryExecutor for database operations
             lp_service: LP service for path details
             ku_service: KU service for knowledge substance
-            user_service: User service for context
         """
         self.executor = executor
         self.lp_service = lp_service
         self.ku_service = ku_service
-        self.user_service = user_service
         logger.info("LifePathAlignmentService initialized")
 
-    async def calculate_alignment(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def calculate_alignment(self, context: UserContext) -> Result[dict[str, Any]]:
         """
         Calculate comprehensive life path alignment.
 
@@ -81,11 +78,12 @@ class LifePathAlignmentService:
         user is LIVING their life path or just learning about it.
 
         Args:
-            user_uid: User identifier
+            context: Pre-built UserContext for the subject user
 
         Returns:
             Result containing comprehensive alignment analysis
         """
+        user_uid = context.user_uid
         logger.info(f"Calculating life path alignment for user {user_uid}")
 
         # Get user's life path

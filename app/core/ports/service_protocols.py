@@ -318,8 +318,8 @@ class LifePathAlignmentOperations(Protocol):
     Implementation: LifePathAlignmentService
     """
 
-    async def calculate_alignment(self, user_uid: str) -> Result[Any]:
-        """Calculate life path alignment. Returns Result[dict | WordActionAlignment]."""
+    async def calculate_alignment(self, context: Any) -> Result[Any]:
+        """Calculate life path alignment. Accepts pre-built UserContext."""
         ...
 
 
@@ -353,6 +353,10 @@ class LifePathOperations(Protocol):
         life_path_uid: str,
     ) -> Result[dict[str, Any]]:
         """Designate LP as life path and calculate alignment. Returns Result[dict]."""
+        ...
+
+    async def get_alignment(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Get alignment data. Builds context and delegates to alignment sub-service."""
         ...
 
 

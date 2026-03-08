@@ -113,7 +113,7 @@ def create_lifepath_api_routes(
                 Errors.system("LifePath service unavailable", operation="get_alignment")
             )
 
-        return await lifepath_service.alignment.calculate_alignment(user_uid)
+        return await lifepath_service.get_alignment(user_uid)
 
     logger.info("LifePath API routes registered (4 routes)")
 
