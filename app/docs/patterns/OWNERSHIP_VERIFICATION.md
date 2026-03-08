@@ -115,7 +115,7 @@ crud_factory = CRUDRouteFactory(
 crud_factory = CRUDRouteFactory(
     service=ku_service,
     domain_name="ku",
-    create_schema=CurriculumCreateRequest,
+    create_schema=ArticleCreateRequest,
     update_schema=EntityUpdateRequest,
     scope=ContentScope.SHARED,  # KU is shared, not user-owned
 )

@@ -325,7 +325,7 @@ See [API_VALIDATION_PATTERNS.md](API_VALIDATION_PATTERNS.md) for comprehensive v
 - Literal types for enums (ExpenseStatus, PaymentMethod, etc.)
 
 **Knowledge Domain** (`core/models/article/article_request.py` and `core/models/pathways/pathways_request.py`):
-- `CurriculumCreateRequest`, `EntityUpdateRequest` (used for curriculum CRUD)
+- `ArticleCreateRequest` (articles), `LearningStepCreateRequest`, `LearningPathCreateRequest` (pathways)
 
 **Activity Domain Request Models** (domain-specific packages):
 - `TaskCreateRequest`, `TaskUpdateRequest` (`core/models/task/task_request.py`)
