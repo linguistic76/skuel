@@ -72,12 +72,9 @@ CURRICULUM_ORDER = ["knowledge", "learning-steps", "learning-paths"]
 
 def _status_badge(status: str) -> "FT":
     """Status indicator dot."""
-    color_map = {
-        "healthy": "bg-success",
-        "warning": "bg-warning",
-        "critical": "bg-error",
-    }
-    color = color_map.get(status, "bg-base-content/60")
+    from ui.badge_classes import health_dot_class
+
+    color = health_dot_class(status)
     return Span(cls=f"w-2 h-2 rounded-full {color}", title=f"Status: {status}")
 
 

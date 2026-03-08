@@ -962,11 +962,7 @@ class PrinciplesViewComponents:
 
         # Quality badge
         quality_label = "deep" if quality >= 0.7 else "moderate" if quality >= 0.4 else "shallow"
-        quality_colors = {
-            "deep": "badge-success",
-            "moderate": "badge-warning",
-            "shallow": "badge-ghost",
-        }
+        from ui.badge_classes import quality_badge_class
 
         return Div(
             Div(
@@ -976,7 +972,7 @@ class PrinciplesViewComponents:
                     Span(alignment_text, cls=f"badge {color_cls} ml-2"),
                     Span(
                         quality_label,
-                        cls=f"badge {quality_colors.get(quality_label, 'badge-ghost')} ml-2",
+                        cls=f"badge {quality_badge_class(quality_label)} ml-2",
                     ),
                     cls="flex items-center gap-2 mb-2",
                 ),

@@ -621,20 +621,11 @@ def get_priority_badge_class(priority: str | Priority) -> str:
     Returns:
         Badge CSS class (e.g., "badge-warning")
     """
-    if isinstance(priority, str):
-        try:
-            priority = Priority(priority)
-        except ValueError:
-            return "badge-neutral"
+    from ui.badge_classes import priority_badge_class
 
-    color = priority.get_color()
-    color_to_class = {
-        "#10B981": "badge-success",  # Low (green)
-        "#3B82F6": "badge-info",  # Medium (blue)
-        "#F59E0B": "badge-warning",  # High (amber)
-        "#DC2626": "badge-error",  # Critical (red)
-    }
-    return color_to_class.get(color, "badge-neutral")
+    if isinstance(priority, str):
+        return priority_badge_class(priority)
+    return priority_badge_class(priority.value)
 
 
 def get_status_badge_class(status: str | EntityStatus) -> str:
@@ -647,24 +638,11 @@ def get_status_badge_class(status: str | EntityStatus) -> str:
     Returns:
         Badge CSS class (e.g., "badge-success")
     """
-    if isinstance(status, str):
-        try:
-            status = EntityStatus(status)
-        except ValueError:
-            return "badge-neutral"
+    from ui.badge_classes import status_badge_class
 
-    color = status.get_color()
-    color_to_class = {
-        "#10B981": "badge-success",  # Completed (green)
-        "#06B6D4": "badge-info",  # In Progress (cyan)
-        "#F59E0B": "badge-warning",  # Paused (amber)
-        "#DC2626": "badge-error",  # Blocked (red)
-        "#EF4444": "badge-error",  # Failed (red)
-        "#3B82F6": "badge-info",  # Scheduled (blue)
-        "#6B7280": "badge-neutral",  # Cancelled (gray)
-        "#9CA3AF": "badge-ghost",  # Draft/Archived (light gray)
-    }
-    return color_to_class.get(color, "badge-neutral")
+    if isinstance(status, str):
+        return status_badge_class(status)
+    return status_badge_class(status.value)
 
 
 def get_status_text_color(status: str | EntityStatus) -> str:

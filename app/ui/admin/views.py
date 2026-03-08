@@ -30,18 +30,12 @@ from ui.patterns.entity_dashboard import SharedUIComponents
 class AdminUIComponents:
     """User management UI components for admin dashboard."""
 
-    # Role badge color mapping
-    ROLE_COLORS: ClassVar[dict[str, str]] = {
-        "admin": "badge-error",
-        "teacher": "badge-warning",
-        "member": "badge-success",
-        "registered": "badge-info",
-    }
-
     @staticmethod
     def render_role_badge(role: str) -> Span:
         """Render a role badge with appropriate color."""
-        color_class = AdminUIComponents.ROLE_COLORS.get(role, "badge-neutral")
+        from ui.badge_classes import role_badge_class
+
+        color_class = role_badge_class(role)
         return Span(
             role.upper(),
             cls=f"badge {color_class} font-semibold",
@@ -586,14 +580,7 @@ class AdminUIComponents:
                 P("No reports submitted yet.", cls="text-base-content/50 text-sm py-4"),
             )
 
-        status_badge: dict[str, str] = {
-            "completed": "badge-success",
-            "processing": "badge-warning",
-            "submitted": "badge-info",
-            "failed": "badge-error",
-            "manual_review": "badge-warning",
-            "revision_requested": "badge-warning",
-        }
+        from ui.badge_classes import submission_status_badge_class
 
         rows = []
         for report in reports:
@@ -609,7 +596,7 @@ class AdminUIComponents:
                     Td(
                         Span(
                             status.replace("_", " ").upper(),
-                            cls=f"badge {status_badge.get(status, 'badge-neutral')} badge-sm",
+                            cls=f"badge {submission_status_badge_class(status)} badge-sm",
                         )
                     ),
                     Td(created, cls="text-sm text-base-content/50"),

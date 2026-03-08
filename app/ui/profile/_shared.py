@@ -193,12 +193,9 @@ def DomainSummaryCard(
     Returns:
         Card div with stats
     """
-    status_colors = {
-        "healthy": "bg-success/10 border-success",
-        "warning": "bg-warning/10 border-warning",
-        "critical": "bg-error/10 border-error",
-    }
-    status_bg = status_colors.get(status, "bg-base-100 border-base-300 shadow-sm")
+    from ui.badge_classes import health_bg_class
+
+    status_bg = health_bg_class(status)
 
     stats_html = []
     for label, value in stats:
@@ -325,16 +322,9 @@ def _item_list(
 
         status_badge = ""
         if status:
-            status_colors = {
-                "completed": "text-success",
-                "in_progress": "text-warning",
-                "pending": "text-base-content/60",
-                "overdue": "text-error",
-                "at_risk": "text-error",
-                "keystone": "text-success",
-                "near_complete": "text-primary",
-            }
-            status_color = status_colors.get(status, "text-base-content/60")
+            from ui.badge_classes import status_text_class
+
+            status_color = status_text_class(status)
             status_badge = Span(
                 status.replace("_", " ").title(),
                 cls=f"text-xs font-medium {status_color}",

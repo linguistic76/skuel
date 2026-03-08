@@ -164,13 +164,9 @@ class AtomicHabitsMobile:
         is_completed = habit.get("completed_today", False)
 
         # Essentiality badge color
-        essentiality_colors = {
-            "essential": "badge-error",
-            "critical": "badge-warning",
-            "supporting": "badge-info",
-            "optional": "badge-ghost",
-        }
-        badge_color = essentiality_colors.get(essentiality, "badge-ghost")
+        from ui.badge_classes import essentiality_badge_class
+
+        badge_color = essentiality_badge_class(essentiality)
 
         return Card(
             CardBody(

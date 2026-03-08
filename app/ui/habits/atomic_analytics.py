@@ -573,13 +573,9 @@ class AtomicHabitsAnalytics:
     @staticmethod
     def _get_essentiality_color(essentiality: str) -> str:
         """Get color class for essentiality level."""
-        colors = {
-            "essential": "badge-error",
-            "critical": "badge-warning",
-            "supporting": "badge-info",
-            "optional": "badge-ghost",
-        }
-        return colors.get(essentiality.lower(), "badge-ghost")
+        from ui.badge_classes import essentiality_badge_class
+
+        return essentiality_badge_class(essentiality)
 
     @staticmethod
     def render_export_modal(export_format: str = "csv") -> Div:

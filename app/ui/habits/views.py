@@ -202,13 +202,10 @@ class HabitsViewComponents:
         frequency = habit.recurrence_pattern or "daily"
 
         # Status color
+        from ui.badge_classes import status_badge_class
+
         status_str = str(status).lower().replace("habitstatus.", "")
-        status_colors = {
-            "active": "badge-success",
-            "paused": "badge-warning",
-            "completed": "badge-info",
-        }
-        status_badge = status_colors.get(status_str, "badge-ghost")
+        status_badge = status_badge_class(status_str)
 
         # Streak indicator
         streak_color = "text-success" if current_streak > 0 else "text-base-content/50"

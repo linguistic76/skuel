@@ -656,16 +656,9 @@ class AtomicHabitsIntelligence:
         consistency = habit.get("consistency", 0)
 
         # Essentiality colors
-        essentiality_colors = {
-            "essential": ("🔴", "border-red-500", "bg-red-50"),
-            "critical": ("🟠", "border-orange-500", "bg-orange-50"),
-            "supporting": ("🟡", "border-yellow-500", "bg-yellow-50"),
-            "optional": ("🟢", "border-green-500", "bg-green-50"),
-        }
+        from ui.badge_classes import essentiality_styled
 
-        icon, border, bg = essentiality_colors.get(
-            essentiality, ("⚪", "border-base-300", "bg-base-200")
-        )
+        icon, border, bg = essentiality_styled(essentiality)
 
         return Div(
             Div(

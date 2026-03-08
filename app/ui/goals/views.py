@@ -222,24 +222,14 @@ class GoalsViewComponents:
         target_date = goal.target_date
 
         # Status color
+        from ui.badge_classes import priority_text_class, status_badge_class
+
         status_str = str(status).lower().replace("goalstatus.", "")
-        status_colors = {
-            "active": "badge-success",
-            "completed": "badge-info",
-            "paused": "badge-warning",
-            "cancelled": "badge-error",
-        }
-        status_badge = status_colors.get(status_str, "badge-ghost")
+        status_badge = status_badge_class(status_str)
 
         # Priority color
         priority_str = str(priority).lower()
-        priority_colors = {
-            "critical": "text-error",
-            "high": "text-warning",
-            "medium": "text-info",
-            "low": "text-base-content/70",
-        }
-        priority_color = priority_colors.get(priority_str, "text-base-content/70")
+        priority_color = priority_text_class(priority_str)
 
         return Div(
             Div(

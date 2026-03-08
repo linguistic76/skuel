@@ -107,27 +107,14 @@ class FieldRendererMapper:
     @staticmethod
     def _render_enum(value: Enum) -> Span:
         """Render enum value as a badge"""
+        from ui.badge_classes import status_badge_class
+
         # Type is known to be Enum, use .value directly (per CLAUDE.md Oct 5 update)
         display = str(value.value)
 
-        # Determine badge color based on common enum names
-        color_map = {
-            "high": "badge-error",
-            "medium": "badge-warning",
-            "low": "badge-info",
-            "completed": "badge-success",
-            "done": "badge-success",
-            "in_progress": "badge-warning",
-            "todo": "badge-info",
-            "pending": "badge-info",
-            "blocked": "badge-error",
-            "active": "badge-success",
-            "inactive": "badge-ghost",
-        }
-
         # Match on lowercase value/name
         key = str(display).lower().replace(" ", "_")
-        badge_cls = color_map.get(key, "badge-neutral")
+        badge_cls = status_badge_class(key)
 
         return Span(str(display), cls=f"badge {badge_cls}")
 
