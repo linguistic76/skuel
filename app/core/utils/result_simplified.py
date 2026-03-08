@@ -731,7 +731,12 @@ class Errors:
         )
 
     @staticmethod
-    def system(message: str, exception: Exception | None = None, **details: Any) -> ErrorContext:
+    def system(
+        message: str,
+        exception: Exception | None = None,
+        user_message: str | None = None,
+        **details: Any,
+    ) -> ErrorContext:
         """Create a system error for unexpected failures."""
         error_details = details.copy()
         if exception:
@@ -744,7 +749,7 @@ class Errors:
             message=message,
             severity=ErrorSeverity.CRITICAL,
             details=error_details,
-            user_message="An unexpected error occurred",
+            user_message=user_message or "An unexpected error occurred",
             source_location=ErrorContext.capture_current_location(),
             stack_trace=traceback.format_exc() if exception else None,
         )

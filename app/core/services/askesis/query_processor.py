@@ -141,18 +141,27 @@ class QueryProcessor:
             - "What do I need to learn before async programming?"
             - "Show me my progress in Python"
         """
-        # Step 1: Get full user context
+        # Step 1: Get full user context (hard requirement — no fallback possible)
         if not self.user_service:
             return Result.fail(
                 Errors.system(
                     message="UserService not available - cannot retrieve user context",
                     operation="answer_user_question",
+                    user_message="Unable to load your profile. Please try again shortly.",
                 )
             )
 
         user_context_result = await self.user_service.get_rich_unified_context(user_uid)
         if user_context_result.is_error:
-            return Result.fail(user_context_result.expect_error())
+            error = user_context_result.expect_error()
+            logger.error("Failed to load user context for RAG pipeline: %s", error.message)
+            return Result.fail(
+                Errors.system(
+                    message=f"User context retrieval failed: {error.message}",
+                    operation="answer_user_question",
+                    user_message="Unable to load your learning data. Please try again shortly.",
+                )
+            )
 
         user_context = user_context_result.value
 
