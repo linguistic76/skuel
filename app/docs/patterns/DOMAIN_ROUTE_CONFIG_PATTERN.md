@@ -699,10 +699,16 @@ def create_insights_routes(app, rt, services, _sync_service=None):
 # Configuration for main LP routes
 LEARNING_CONFIG = DomainRouteConfig(
     domain_name="learning",
-    primary_service_attr="learning",  # services.learning
+    primary_service_attr="lp",  # services.lp
     api_factory=create_learning_api_routes,
     ui_factory=create_learning_ui_routes,
-    api_related_services={},
+    api_related_services={
+        "user_service": "user_service",
+        "user_progress": "user_progress",
+    },
+    ui_related_services={
+        "user_progress": "user_progress",
+    },
 )
 
 
@@ -718,9 +724,11 @@ def create_learning_routes(app, rt, services, _sync_service=None):
     # Register main LP routes via DomainRouteConfig (soft-fail if service missing)
     routes = register_domain_routes(app, rt, services, LEARNING_CONFIG)
 
-    # Handle LS routes separately (optional - skipped if learning_steps service missing)
-    if services and services.learning_steps:
-        ls_routes = create_learning_steps_api_routes(app, rt, services.learning_steps)
+    # Handle LS routes separately (optional - skipped if ls service missing)
+    if services and services.ls:
+        ls_routes = create_learning_steps_api_routes(
+            app, rt, services.ls, user_service=getattr(services, "user_service", None)
+        )
         logger.info(f"  ✅ Learning Steps (LS) API routes registered: {len(ls_routes)} endpoints")
         routes.extend(ls_routes)
 
@@ -729,10 +737,10 @@ def create_learning_routes(app, rt, services, _sync_service=None):
 
 **Key features:**
 - Shows how to handle multiple related services (LP + LS) in one route file
-- Uses DomainRouteConfig for main LP routes
+- Uses DomainRouteConfig for main LP routes with `ui_related_services` for UI factory injection
 - Adds custom logic for optional LS routes registration
 - Demonstrates extending the pattern for complex domain hierarchies
-- Soft-fail pattern for optional services (learning_steps may be None)
+- Soft-fail pattern for optional services (ls may be None)
 
 ### Example 9: Self-Contained Facade with Complex UI (LifePath)
 

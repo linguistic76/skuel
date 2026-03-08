@@ -157,6 +157,45 @@ Here's what the loop looks like in practice:
 
 ---
 
+## The Learning Dashboard
+
+The Learning Dashboard at `/learning` is your home base for tracking progress through the loop. Everything you see here is live data — your actual Learning Paths, your real mastery progress, your knowledge profile.
+
+### What you see
+
+- **Learning Overview** — Total hours across your enrolled paths, concepts mastered, active path count, and completion rate. These numbers come from your real engagement history, not projections.
+- **Active Learning Paths** — Each path shows your current progress percentage, which step you're on, and difficulty level. Click "Continue Learning" to jump to where you left off.
+- **Analytics** (at `/learning/analytics`) — A deeper view: concepts mastered vs. in-progress, average retention score, concepts needing review, and concepts you're struggling with.
+
+### Learning Paths and Steps
+
+A Learning Path is a structured sequence of Learning Steps. Each step references specific curriculum (Articles, Kus) and tracks your mastery independently.
+
+| Concept | What it is |
+|---------|-----------|
+| **Learning Path** | An ordered sequence of steps toward a learning goal. Has outcomes, estimated hours, and a difficulty level. |
+| **Learning Step** | One unit of work within a path. Has its own mastery threshold, difficulty, estimated hours, and links to knowledge units. |
+| **Mastery** | Each step tracks mastery 0.0-1.0. A step is "mastered" when your score crosses its threshold (default 0.7). |
+
+**How paths connect to the loop:** Steps within a path point to Articles and Exercises. When you complete an Exercise's submission-feedback cycle, your mastery on the related step increases. The path's progress is the ratio of mastered steps to total steps.
+
+### Browsing and enrolling
+
+Visit `/learning/browse` to see all available Learning Paths. Each card shows the path's difficulty, estimated hours, and tags. Click "View Details" to see the full step list, learning outcomes, and your enrollment status. Enroll to add a path to your dashboard.
+
+### For teachers creating paths
+
+Learning Paths are curriculum — created by teachers or admins, shared with all users. When you create a path:
+
+1. Define the path's title, description, outcomes, and estimated hours
+2. Create Learning Steps in sequence, each referencing the Articles and Kus students should engage with
+3. Set mastery thresholds per step (higher for critical concepts, lower for introductory ones)
+4. Students enroll and progress through steps by completing the associated Exercises
+
+The path structure gives students a clear road through your curriculum while the loop (Exercise -> Submission -> Feedback -> Revision) ensures they actually engage with each step's content.
+
+---
+
 ## For Teachers
 
 Teachers drive the loop from the other side:
