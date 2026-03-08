@@ -6,7 +6,7 @@
 # Edges capture observations, research findings, and causal/correlational links
 # between Kus (and eventually other entity types).
 #
-# Purpose: Document the edge shape for future ingestion support.
+# Purpose: Document the edge shape for ingestion.
 
 # REQUIRED FIELDS
 # ---------------
@@ -73,8 +73,7 @@ tags:
 
 # NOTES
 # -----
-# 1. Edge ingestion is NOT yet implemented -- this template documents the target shape
-# 2. from/to UIDs must reference existing entities when ingestion is wired
-# 3. relationship must be a valid RelationshipName enum value
-# 4. Evidence properties are stored as Neo4j edge properties
-# 5. See docs/roadmap/edge-ingestion-support.md for implementation timeline
+# 1. from/to UIDs must reference existing entities in Neo4j
+# 2. relationship must be a valid RelationshipName enum value
+# 3. Evidence properties are stored as Neo4j relationship properties
+# 4. Both single-file and batch ingestion detect type: Edge automatically

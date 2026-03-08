@@ -1,96 +1,79 @@
-# Roadmap: Edge Ingestion Support
+# Edge Ingestion Support
 
-**Status:** Not started
-**Priority:** Next after template evolution work
-**Depends on:** YAML template evolution (complete)
+*Created: 2026-03-07*
+*Completed: 2026-03-08*
+
+**Status:** Complete
 
 ## Summary
 
-Enable standalone edge YAML files to be ingested into Neo4j as typed, evidence-bearing relationships between entities.
+Standalone edge YAML files (`type: Edge`) are ingested into Neo4j as typed, evidence-bearing relationships between entities.
 
-## Current State
+## What Was Built
 
-- Edge YAML template exists at `yaml_templates/_schemas/edge_template.yaml`
-- Example edge at `yaml_templates/edges/caffeine_exacerbates_buzzing.yaml`
-- `TYPE_MAPPING` in `detector.py` does NOT include `"edge"` or `"relationship"`
-- No `EntityIngestionConfig` for edges (edges are not entities)
-- Evidence relationships like `EXACERBATED_BY` are not yet in `RelationshipName` enum
+### Detection
 
-## Implementation Plan
+`is_edge_type()` in `detector.py` checks for `type: Edge` in parsed YAML. Edges are NOT entities — they bypass `EntityType` detection entirely.
 
-### 1. TYPE_MAPPING Addition
+### Validation
 
-Add edge detection to `core/services/ingestion/detector.py`:
-
-```python
-# In TYPE_MAPPING or separate EDGE_TYPE_MAPPING
-"edge": "EDGE"
-"relationship": "EDGE"
-```
-
-Edges are NOT entities, so they should not map to `EntityType`. A separate detection path is needed.
-
-### 2. Edge-Specific Validation
-
-Before creating a relationship:
-- `from` UID must reference an existing entity in Neo4j
-- `to` UID must reference an existing entity in Neo4j
-- `relationship` must be a valid `RelationshipName` enum value (or allowlisted evidence type)
+`validate_edge_data()` in `validator.py` enforces:
+- `from` UID must be present
+- `to` UID must be present
+- `relationship` must be a valid `RelationshipName` enum value
 - `confidence` must be 0.0-1.0
 - `polarity` must be -1, 0, or 1
 - `temporality` must be one of: minutes, hours, days, chronic
 - `source` must be one of: self_observation, research, teacher, clinical
 
-### 3. Property Mapping to Neo4j
+### Preparation
 
-Edge properties stored directly on the Neo4j relationship:
+`prepare_edge_data()` in `preparer.py` normalizes UIDs (colon to dot) and extracts evidence properties into a structured dict with `from_uid`, `to_uid`, `relationship`, and `properties`.
+
+### Ingestion
+
+`UnifiedIngestionService.ingest_edge()` runs raw Cypher (not BulkIngestionEngine, since edges create relationships, not nodes):
 
 ```cypher
-MATCH (from:Entity {uid: $from_uid})
-MATCH (to:Entity {uid: $to_uid})
-CREATE (from)-[r:EXACERBATED_BY {
-  evidence: $evidence,
-  confidence: $confidence,
-  polarity: $polarity,
-  temporality: $temporality,
-  source: $source,
-  observed_at: $observed_at,
-  created_at: datetime()
-}]->(to)
+MATCH (a {uid: $from_uid})
+MATCH (b {uid: $to_uid})
+MERGE (a)-[r:EXACERBATED_BY]->(b)
+SET r += $props
 ```
 
-### 4. New Evidence Relationship Types
+If either entity is missing, returns a `NotFound` error identifying which UID(s) don't exist.
 
-Add to `RelationshipName` enum:
-- `EXACERBATED_BY` - A worsens B
-- `REDUCED_BY` - A lessens B
-- `CORRELATED_WITH` - A and B co-occur
-- `CAUSES` - A directly causes B
-- `PRECEDES` - A temporally precedes B
+### Single-File and Batch Support
 
-### 5. Ingestion Pipeline Changes
+- `ingest_file()` detects `type: Edge` and routes to `ingest_edge()`
+- `batch.py` marks edge data with `_is_edge` sentinel for downstream routing during directory ingestion
 
-The `UnifiedIngestionService` needs a separate code path for edges:
-- Detect `type: Edge` in YAML
-- Skip entity creation (no node)
-- Validate from/to UIDs exist
-- Create relationship with evidence properties
+### Evidence Relationship Types
 
-### 6. Batch Edge Ingestion
+Five evidence types in `RelationshipName` enum:
 
-Support ingesting a directory of edge files:
-- Read all edge YAML files
-- Group by from/to pairs (merge evidence)
-- Validate all referenced UIDs
-- Create relationships in batch
+| Type | Meaning |
+|------|---------|
+| `EXACERBATED_BY` | A worsens B |
+| `REDUCED_BY` | A lessens B |
+| `CORRELATED_WITH` | A and B co-occur |
+| `CAUSES` | A directly causes B |
+| `PRECEDES` | A temporally precedes B |
+
+## Key Files
+
+| File | Role |
+|------|------|
+| `core/services/ingestion/detector.py` | `is_edge_type()` |
+| `core/services/ingestion/validator.py` | `validate_edge_data()` |
+| `core/services/ingestion/preparer.py` | `prepare_edge_data()` |
+| `core/services/ingestion/unified_ingestion_service.py` | `ingest_edge()` |
+| `core/services/ingestion/batch.py` | Batch edge handling |
+| `yaml_templates/_schemas/edge_template.yaml` | Full field reference |
+| `yaml_templates/edges/caffeine_exacerbates_buzzing.yaml` | Working example |
 
 ## Open Questions
 
-1. Should evidence relationships be additive (multiple edges between same nodes) or merged?
+1. Should evidence relationships be additive (multiple edges between same nodes) or merged? Currently uses MERGE — same from/to/type updates rather than duplicates.
 2. Should confidence decay over time without re-observation?
-3. How do evidence edges interact with the existing `RelationshipName` enum?
-4. Should edge ingestion support markdown files (frontmatter + evidence body)?
-
-## Timeline
-
-After the YAML template evolution is complete and Ku ingestion is verified working.
+3. Should edge ingestion support markdown files (frontmatter + evidence body)?
