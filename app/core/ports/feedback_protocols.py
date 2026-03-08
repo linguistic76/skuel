@@ -34,9 +34,12 @@ See: /docs/patterns/protocol_architecture.md
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.services.user.unified_user_context import UserContext
 
 
 @runtime_checkable
@@ -196,12 +199,12 @@ class ActivityReportOperations(Protocol):
 
     async def create_snapshot(
         self,
-        subject_uid: str,
+        context: "UserContext",
         time_period: str = "7d",
         domains: list[str] | None = None,
         admin_uid: str = "",
     ) -> Result[Any]:
-        """Generate activity snapshot for admin review. Returns Result[dict]."""
+        """Build activity snapshot from pre-built UserContext for admin review. Returns Result[dict]."""
         ...
 
     async def submit_feedback(

@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.ports.feedback_protocols import ActivityReportOperations, ReviewQueueOperations
+    from core.services.user.user_context_builder import UserContextBuilder
 
 from fasthtml.common import (
     H3,
@@ -159,6 +160,7 @@ def create_activity_review_ui_routes(
     activity_report: "ActivityReportOperations",
     review_queue: "ReviewQueueOperations | None" = None,
     user_service: Any = None,
+    context_builder: "UserContextBuilder | None" = None,
 ) -> list[Any]:
     """
     Create Activity Review admin UI routes.
@@ -168,6 +170,7 @@ def create_activity_review_ui_routes(
         rt: Router instance
         activity_report: ActivityReportService for snapshot + feedback operations
         review_queue: ReviewQueueService for pending review queue
+        context_builder: UserContextBuilder for building UserContext (required for snapshots)
         user_service: UserService for admin role checks
 
     Returns:
@@ -426,8 +429,17 @@ def create_activity_review_ui_routes(
             )
 
         try:
+            if not context_builder:
+                return Div(P("Context builder not configured.", cls="text-error text-sm"))
+
+            ctx_result = await context_builder.build_rich(subject_uid, window=time_period)
+            if ctx_result.is_error:
+                return Div(
+                    P(f"Failed to build context: {ctx_result.error}", cls="text-error text-sm")
+                )
+
             result = await activity_report.create_snapshot(
-                subject_uid=subject_uid,
+                context=ctx_result.value,
                 time_period=time_period,
                 domains=domains,
             )

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.ports import BackendOperations, QueryExecutor
     from core.ports.infrastructure_protocols import EventBusOperations
+    from core.services.user.unified_user_context import UserContext
     from core.services.user.user_context_builder import UserContextBuilder
 
 from core.constants import FeedbackTimePeriod
@@ -74,16 +75,15 @@ class ActivityReportService:
 
     async def create_snapshot(
         self,
-        subject_uid: str,
+        context: "UserContext",
         time_period: str = "7d",
         domains: list[str] | None = None,
         admin_uid: str = "",
     ) -> Result[dict[str, Any]]:
         """
-        Query a user's activity data for a given time window.
+        Build a structured snapshot from a pre-built UserContext for admin review.
 
-        Produces a structured snapshot dict for admin review. The admin
-        reads this data, then calls submit_feedback() with their
+        The admin reads this data, then calls submit_feedback() with their
         written assessment.
 
         IMPORTANT: This method reads private user content across all activity
@@ -91,23 +91,18 @@ class ActivityReportService:
         See ADR-042 (Privacy as First-Class Citizen).
 
         Args:
-            subject_uid: The user whose activity to snapshot
-            time_period: Time window (7d, 14d, 30d, 90d)
+            context: UserContext built with build_rich(subject_uid, window=time_period)
+            time_period: Time window label (7d, 14d, 30d, 90d) — for metadata only
             domains: Domains to include (None = all activity domains)
             admin_uid: UID of the admin performing the snapshot (used for audit trail)
 
         Returns:
             Result[dict] — snapshot data with per-domain activity summaries
         """
+        subject_uid = context.user_uid
         days = FeedbackTimePeriod.DAYS.get(time_period, FeedbackTimePeriod.DEFAULT_DAYS)
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
-
-        ctx_result = await self.context_builder.build_rich(subject_uid, window=time_period)
-        if ctx_result.is_error:
-            return Result.fail(ctx_result.expect_error())
-
-        context = ctx_result.value
 
         # Publish audit event so the subject_uid can see when their data was accessed.
         # This enables the privacy audit endpoint (GET /api/privacy/audit) to surface

@@ -118,6 +118,7 @@ def create_submissions_routes(
             activity_report=activity_report_svc,
             review_queue=review_queue_svc,
             user_service=getattr(services, "user_service", None),
+            context_builder=getattr(activity_report_svc, "context_builder", None),
         )
         routes.extend(progress_routes or [])
         logger.info("Progress feedback + activity report routes registered")
@@ -133,6 +134,7 @@ def create_submissions_routes(
             activity_report_svc,
             review_queue=getattr(services, "review_queue", None),
             user_service=getattr(services, "user_service", None),
+            context_builder=getattr(activity_report_svc, "context_builder", None),
         )
         routes.extend(ar_routes or [])
         logger.info("Activity review UI routes registered")

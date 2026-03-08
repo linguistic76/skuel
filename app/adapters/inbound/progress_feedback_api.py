@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     )
     from core.ports.infrastructure_protocols import UserOperations
     from core.ports.submission_protocols import SubmissionOperations
+    from core.services.user.user_context_builder import UserContextBuilder
 
 from starlette.requests import Request
 
@@ -65,6 +66,7 @@ def create_progress_feedback_api_routes(
     activity_report: "ActivityReportOperations | None" = None,
     review_queue: "ReviewQueueOperations | None" = None,
     user_service: "UserOperations | None" = None,
+    context_builder: "UserContextBuilder | None" = None,
 ) -> list[Any]:
     """
     Create progress feedback, schedule, and activity review API routes.
@@ -246,12 +248,23 @@ def create_progress_feedback_api_routes(
                 return Result.fail(
                     Errors.validation("subject_uid is required", field="subject_uid")
                 )
+            if not context_builder:
+                return Result.fail(
+                    Errors.system(
+                        message="context_builder required for snapshots",
+                        operation="get_activity_snapshot",
+                    )
+                )
             time_period = request.query_params.get("time_period", "7d")
             domains_param = request.query_params.get("domains", "")
             domains = [d.strip() for d in domains_param.split(",") if d.strip()] or None
 
+            ctx_result = await context_builder.build_rich(subject_uid, window=time_period)
+            if ctx_result.is_error:
+                return Result.fail(ctx_result.expect_error())
+
             result = await activity_report.create_snapshot(
-                subject_uid=subject_uid,
+                context=ctx_result.value,
                 time_period=time_period,
                 domains=domains,
                 admin_uid=current_user.uid,
