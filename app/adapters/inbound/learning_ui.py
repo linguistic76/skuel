@@ -4,6 +4,7 @@ Learning UI Components
 
 Component-based UI routes for learning management.
 All pages use BasePage for consistent layout.
+Wired to real LpService and UserProgressService.
 """
 
 from typing import Any
@@ -13,7 +14,6 @@ from fasthtml.common import (
     H2,
     H3,
     H4,
-    H5,
     Div,
     Header,
     Li,
@@ -23,9 +23,9 @@ from fasthtml.common import (
     Ul,
 )
 
+from adapters.inbound.auth import require_authenticated_user
 from core.models.curriculum.curriculum_requests import LearningPathFilterRequest
 from core.utils.logging import get_logger
-from core.utils.uid_generator import UIDGenerator
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.forms import Label, Select
@@ -34,16 +34,20 @@ from ui.layouts.page_types import PageType
 from ui.patterns.form_generator import FormGenerator
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.ui_types import (
-    AchievementData,
     ActivePathData,
-    LearningPathDetail,
     LearningStatsData,
-    LessonData,
-    ModuleData,
-    UserLearningOverview,
 )
 
 logger = get_logger("skuel.ui.learning")
+
+
+def _difficulty_label(rating: float) -> str:
+    """Convert 0.0-1.0 difficulty rating to human-readable label."""
+    if rating <= 0.35:
+        return "beginner"
+    if rating <= 0.65:
+        return "intermediate"
+    return "advanced"
 
 
 class LearningUIComponents:
@@ -130,9 +134,9 @@ class LearningUIComponents:
                 # Current Step & Time
                 Div(
                     P(f"Current: {path.current_step}", cls="text-sm text-base-content/80"),
-                    P(f"⏱️ {path.time_invested} invested", cls="text-xs text-base-content/60"),
+                    P(f"{path.time_invested} invested", cls="text-xs text-base-content/60"),
                     P(
-                        f"📅 {path.estimated_completion} to complete",
+                        f"{path.estimated_completion} to complete",
                         cls="text-xs text-base-content/60",
                     ),
                     cls="space-y-1 mb-4",
@@ -153,7 +157,7 @@ class LearningUIComponents:
         )
 
     @staticmethod
-    def render_learning_path_browser_card(path) -> Any:
+    def render_learning_path_browser_card(path: dict[str, Any]) -> Any:
         """Create a learning path card for the browse page."""
         return Card(
             Div(
@@ -166,9 +170,7 @@ class LearningUIComponents:
                 # Path Info
                 Div(
                     Div(
-                        Span(f"⭐ {path['rating']}", cls="text-sm mr-3"),
-                        Span(f"👥 {path['learners']}", cls="text-sm mr-3"),
-                        Span(f"⏱️ {path['estimated_hours']}h", cls="text-sm"),
+                        Span(f"{path['estimated_hours']}h", cls="text-sm"),
                         cls="text-base-content/60 mb-2",
                     ),
                     Span(path["difficulty"].title(), cls="badge badge-primary mb-3"),
@@ -178,7 +180,7 @@ class LearningUIComponents:
                 Div(
                     *[
                         Span(tag, cls="badge badge-outline badge-sm mr-1 mb-1")
-                        for tag in path.get("tags", [])[:3]  # Show first 3 tags
+                        for tag in path.get("tags", [])[:3]
                     ],
                     cls="mb-4",
                 ),
@@ -207,148 +209,125 @@ class LearningUIComponents:
         )
 
     @staticmethod
-    def render_curriculum_module(module: ModuleData, index: int) -> Any:
-        """Create a curriculum module component."""
-        status_colors = {
-            "completed": "badge-success",
-            "in_progress": "badge-warning",
-            "not_started": "badge-outline",
-        }
-
-        status_icons = {"completed": "✅", "in_progress": "🔄", "not_started": "⭕"}
+    def render_step_item(step: Any, index: int, is_mastered: bool) -> Any:
+        """Render a single learning step in a path's curriculum list."""
+        mastery_badge = (
+            Span("Mastered", cls="badge badge-success badge-sm")
+            if is_mastered
+            else Span("Not started", cls="badge badge-outline badge-sm")
+        )
+        difficulty = _difficulty_label(step.difficulty_rating) if step.difficulty_rating else ""
+        difficulty_badge = (
+            Span(difficulty.title(), cls="badge badge-primary badge-sm") if difficulty else None
+        )
+        hours_text = f"{step.estimated_hours:.0f}h" if step.estimated_hours else ""
 
         return Div(
             Div(
-                # Module Header
-                Div(
-                    Span(f"Module {index}", cls="badge badge-primary mr-2"),
-                    H4(module.title, cls="text-lg font-semibold"),
-                    Span(
-                        status_icons[module.status],
-                        module.status.replace("_", " ").title(),
-                        cls=f"badge {status_colors[module.status]}",
-                    ),
-                    cls="flex items-center justify-between mb-2",
-                ),
-                # Module Info
-                Div(
-                    P(module.description, cls="text-base-content/70 mb-2"),
-                    P(
-                        f"Estimated time: {module.estimated_time}",
-                        cls="text-sm text-base-content/60",
-                    ),
-                    cls="mb-3",
-                ),
-                # Lessons
-                Div(
-                    H5("Lessons:", cls="font-medium text-sm mb-2"),
-                    Div(
-                        *[
-                            Div(
-                                Span("✅" if lesson.completed else "⭕", cls="mr-2"),
-                                Span(lesson.title, cls="flex-1"),
-                                Span(lesson.duration, cls="text-xs text-base-content/60 mr-2"),
-                                Span(lesson.lesson_type, cls="badge badge-outline badge-xs"),
-                                cls="flex items-center py-1",
-                            )
-                            for lesson in module.lessons
-                        ],
-                        cls="space-y-1",
-                    ),
-                    cls="ml-4",
-                ),
-                cls="p-4",
+                # Sequence number
+                Span(f"Step {index}", cls="badge badge-primary mr-2"),
+                # Title
+                H4(step.title or f"Step {index}", cls="text-lg font-semibold flex-1"),
+                # Mastery status
+                mastery_badge,
+                cls="flex items-center justify-between mb-2",
             ),
-            cls="border border-base-300 rounded-lg hover:bg-base-100 transition-colors",
-        )
-
-    @staticmethod
-    def render_achievement_item(achievement: AchievementData) -> Any:
-        """Create an achievement display item."""
-        type_icons = {"milestone": "🏆", "streak": "🔥", "mastery": "🎯", "collaboration": "🤝"}
-
-        return Div(
-            Span(type_icons.get(achievement.achievement_type, "🏅"), cls="text-xl mr-3"),
             Div(
-                P(achievement.title, cls="font-medium"),
-                P(achievement.description, cls="text-sm text-base-content/60"),
-                cls="flex-1",
+                P(
+                    step.description or step.intent or "",
+                    cls="text-base-content/70 mb-2",
+                ),
+                Div(
+                    Span(hours_text, cls="text-sm text-base-content/60 mr-3") if hours_text else None,
+                    difficulty_badge,
+                    cls="flex items-center gap-2",
+                ),
+                cls="ml-8",
             ),
-            cls="flex items-start p-3 bg-base-100 rounded-lg",
-        )
-
-    @staticmethod
-    def render_insight_item(icon, title, description, priority) -> Any:
-        """Create a learning insight display item."""
-        priority_colors = {"high": "border-error", "medium": "border-warning", "low": "border-info"}
-
-        return Div(
-            Span(icon, cls="text-xl mr-3"),
-            Div(
-                P(title, cls="font-medium"),
-                P(description, cls="text-sm text-base-content/60"),
-                cls="flex-1",
-            ),
-            cls=f"flex items-start p-3 border-l-4 {priority_colors.get(priority, 'border-info')} bg-base-100 rounded-r-lg",
+            cls="border border-base-300 rounded-lg p-4 hover:bg-base-100 transition-colors",
         )
 
 
-def create_learning_ui_routes(_app, rt, _learning_service):
+def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
     """Create UI routes for learning management."""
 
-    routes = []
+    routes: list[Any] = []
 
     @rt("/learning")
     async def learning_dashboard(request) -> Any:
         """Main learning dashboard with progress overview and active paths."""
+        user_uid = require_authenticated_user(request)
 
-        # Sample data (replace with actual service calls) - using frozen dataclasses for type safety
-        user_learning_overview = UserLearningOverview(
-            user_uid="user_123",
-            active_paths=[
-                ActivePathData(
-                    uid=UIDGenerator.generate_uid("learning_path", "python_fundamentals"),
-                    title="Python Programming Fundamentals",
-                    progress=67.5,
-                    current_step="Data Structures",
-                    estimated_completion="3 days",
-                    difficulty="beginner",
-                    time_invested="18.5 hours",
-                ),
-                ActivePathData(
-                    uid=UIDGenerator.generate_uid("learning_path", "data_analysis"),
-                    title="Data Analysis with Pandas",
-                    progress=42.0,
-                    current_step="Data Cleaning",
-                    estimated_completion="1 week",
-                    difficulty="intermediate",
-                    time_invested="12.2 hours",
-                ),
-            ],
-            recent_achievements=[
-                AchievementData(
-                    achievement_type="milestone",
-                    title="Completed Python Basics",
-                    description="95% mastery in fundamental concepts",
-                    earned_at="2024-01-25T16:30:00Z",
-                ),
-                AchievementData(
-                    achievement_type="streak",
-                    title="7-Day Learning Streak",
-                    description="Consistent daily practice",
-                    earned_at="2024-01-26T20:00:00Z",
-                ),
-            ],
-            learning_stats=LearningStatsData(
-                total_hours=47.3,
-                concepts_mastered=23,
-                active_streak=7,
-                completion_rate=0.87,
-            ),
+        # Fetch user's learning paths
+        active_paths: list[ActivePathData] = []
+        total_hours = 0.0
+        paths_result = await lp_service.list_user_paths(user_uid)
+        if not paths_result.is_error and paths_result.value:
+            for path in paths_result.value:
+                steps = path.metadata.get("steps", []) if path.metadata else []
+                total_steps = len(steps)
+                mastered_count = sum(1 for s in steps if s.is_mastered())
+                progress = (mastered_count / total_steps * 100.0) if total_steps > 0 else 0.0
+                # Find first non-mastered step as current
+                current_step = "Complete"
+                for s in steps:
+                    if not s.is_mastered():
+                        current_step = s.title or "Next step"
+                        break
+                total_hours += path.estimated_hours or 0
+                active_paths.append(
+                    ActivePathData(
+                        uid=path.uid,
+                        title=path.title or "Untitled Path",
+                        progress=progress,
+                        current_step=current_step,
+                        estimated_completion=f"{int(path.estimated_hours or 0)}h total",
+                        difficulty=_difficulty_label(path.difficulty_rating),
+                        time_invested=f"{int(path.estimated_hours or 0)}h est.",
+                    )
+                )
+
+        # Fetch knowledge profile for stats
+        concepts_mastered = 0
+        completion_rate = 0.0
+        if user_progress:
+            profile_result = await user_progress.build_user_knowledge_profile(user_uid)
+            if not profile_result.is_error and profile_result.value:
+                profile = profile_result.value
+                concepts_mastered = len(profile.mastered_knowledge)
+
+        if active_paths:
+            completed = sum(1 for p in active_paths if p.progress >= 100.0)
+            completion_rate = completed / len(active_paths)
+
+        stats = LearningStatsData(
+            total_hours=total_hours,
+            concepts_mastered=concepts_mastered,
+            active_streak=0,
+            completion_rate=completion_rate,
         )
 
+        # Build active paths section
+        if active_paths:
+            paths_section = Div(
+                *[LearningUIComponents.render_learning_path_card(p) for p in active_paths],
+                cls="space-y-4",
+            )
+        else:
+            paths_section = Div(
+                P(
+                    "No active learning paths yet. Start exploring!",
+                    cls="text-base-content/60 text-center py-8",
+                ),
+                Button(
+                    "Browse Learning Paths",
+                    variant=ButtonT.primary,
+                    **{"hx-get": "/learning/browse", "hx-target": "#main-content"},
+                ),
+                cls="text-center",
+            )
+
         content = Div(
-            # Header
             Header(
                 H1("Learning Dashboard", cls="text-3xl font-bold text-primary"),
                 P(
@@ -361,39 +340,35 @@ def create_learning_ui_routes(_app, rt, _learning_service):
             Card(
                 H2("Learning Overview", cls="text-xl font-semibold mb-4"),
                 Div(
-                    # Stats Cards
                     Div(
                         Div(
                             Span("Learning Hours", cls="text-sm text-base-content/70"),
-                            Span(
-                                f"{user_learning_overview.learning_stats.total_hours}",
-                                cls="text-2xl font-bold text-primary",
-                            ),
-                            P("Total time invested", cls="text-xs text-base-content/60"),
+                            Span(f"{stats.total_hours:.0f}", cls="text-2xl font-bold text-primary"),
+                            P("Total estimated hours", cls="text-xs text-base-content/60"),
                             cls="stat text-center",
                         ),
                         Div(
                             Span("Concepts Mastered", cls="text-sm text-base-content/70"),
                             Span(
-                                str(user_learning_overview.learning_stats.concepts_mastered),
+                                str(stats.concepts_mastered),
                                 cls="text-2xl font-bold text-success",
                             ),
                             P("Across all learning paths", cls="text-xs text-base-content/60"),
                             cls="stat text-center",
                         ),
                         Div(
-                            Span("Learning Streak", cls="text-sm text-base-content/70"),
+                            Span("Active Paths", cls="text-sm text-base-content/70"),
                             Span(
-                                f"{user_learning_overview.learning_stats.active_streak} Days",
+                                str(len(active_paths)),
                                 cls="text-2xl font-bold text-primary",
                             ),
-                            P("Consistent practice", cls="text-xs text-base-content/60"),
+                            P("In progress", cls="text-xs text-base-content/60"),
                             cls="stat text-center",
                         ),
                         Div(
                             Span("Completion Rate", cls="text-sm text-base-content/70"),
                             Span(
-                                f"{user_learning_overview.learning_stats.completion_rate * 100:.0f}%",
+                                f"{stats.completion_rate * 100:.0f}%",
                                 cls="text-2xl font-bold text-warning",
                             ),
                             P("Started paths finished", cls="text-xs text-base-content/60"),
@@ -410,32 +385,14 @@ def create_learning_ui_routes(_app, rt, _learning_service):
                 Div(
                     H2("Active Learning Paths", cls="text-xl font-semibold mb-4"),
                     Button(
-                        "📚 Browse Learning Paths",
+                        "Browse Learning Paths",
                         variant=ButtonT.primary,
                         cls="btn-sm",
                         **{"hx-get": "/learning/browse", "hx-target": "#main-content"},
                     ),
                     cls="flex justify-between items-center mb-4",
                 ),
-                Div(
-                    *[
-                        LearningUIComponents.render_learning_path_card(path)
-                        for path in user_learning_overview.active_paths
-                    ],
-                    cls="space-y-4",
-                ),
-                cls="mb-8",
-            ),
-            # Recent Achievements
-            Card(
-                H2("Recent Achievements", cls="text-xl font-semibold mb-4"),
-                Div(
-                    *[
-                        LearningUIComponents.render_achievement_item(achievement)
-                        for achievement in user_learning_overview.recent_achievements
-                    ],
-                    cls="space-y-3",
-                ),
+                paths_section,
                 cls="mb-8",
             ),
             # Quick Actions
@@ -443,24 +400,14 @@ def create_learning_ui_routes(_app, rt, _learning_service):
                 H2("Quick Actions", cls="text-xl font-semibold mb-4"),
                 Div(
                     Button(
-                        "🎯 Continue Learning",
-                        variant=ButtonT.primary,
-                        **{"hx-get": "/learning/continue", "hx-target": "#main-content"},
-                    ),
-                    Button(
-                        "📊 View Analytics",
+                        "View Analytics",
                         variant=ButtonT.secondary,
                         **{"hx-get": "/learning/analytics", "hx-target": "#main-content"},
                     ),
                     Button(
-                        "🎲 Discover New Topics",
+                        "Browse Paths",
                         variant=ButtonT.outline,
-                        **{"hx-get": "/learning/discover", "hx-target": "#main-content"},
-                    ),
-                    Button(
-                        "👥 Join Study Groups",
-                        variant=ButtonT.outline,
-                        **{"hx-get": "/learning/community", "hx-target": "#main-content"},
+                        **{"hx-get": "/learning/browse", "hx-target": "#main-content"},
                     ),
                     cls="flex flex-wrap gap-3",
                 ),
@@ -482,46 +429,38 @@ def create_learning_ui_routes(_app, rt, _learning_service):
     @rt("/learning/browse")
     async def browse_learning_paths(request) -> Any:
         """Browse available learning paths with filtering and recommendations."""
+        available_paths: list[dict[str, Any]] = []
+        paths_result = await lp_service.list_all_paths(limit=50)
+        if not paths_result.is_error and paths_result.value:
+            available_paths.extend(
+                {
+                    "uid": path.uid,
+                    "title": path.title or "Untitled Path",
+                    "description": path.description or "",
+                    "difficulty": _difficulty_label(path.difficulty_rating),
+                    "estimated_hours": int(path.estimated_hours or 0),
+                    "tags": list(path.tags) if path.tags else [],
+                }
+                for path in paths_result.value
+            )
 
-        # Sample learning paths data
-        available_paths = [
-            {
-                "uid": UIDGenerator.generate_uid("path", "machine_learning"),
-                "title": "Machine Learning Fundamentals",
-                "description": "Learn the basics of machine learning algorithms and applications",
-                "difficulty": "intermediate",
-                "estimated_hours": 35,
-                "rating": 4.7,
-                "learners": 1247,
-                "tags": ["python", "algorithms", "data_science"],
-                "prerequisites": ["python_fundamentals", "statistics_basics"],
-            },
-            {
-                "uid": UIDGenerator.generate_uid("path", "web_development"),
-                "title": "Full-Stack Web Development",
-                "description": "Complete guide to building modern web applications",
-                "difficulty": "beginner",
-                "estimated_hours": 60,
-                "rating": 4.5,
-                "learners": 2134,
-                "tags": ["javascript", "html", "css", "react", "node"],
-                "prerequisites": ["basic_programming"],
-            },
-            {
-                "uid": UIDGenerator.generate_uid("path", "cloud_computing"),
-                "title": "Cloud Computing with AWS",
-                "description": "Master cloud infrastructure and deployment strategies",
-                "difficulty": "advanced",
-                "estimated_hours": 45,
-                "rating": 4.6,
-                "learners": 892,
-                "tags": ["aws", "cloud", "devops", "infrastructure"],
-                "prerequisites": ["linux_basics", "networking", "programming_experience"],
-            },
-        ]
+        if available_paths:
+            grid_content = Div(
+                *[
+                    LearningUIComponents.render_learning_path_browser_card(p)
+                    for p in available_paths
+                ],
+                cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+            )
+        else:
+            grid_content = Div(
+                P(
+                    "No learning paths available yet.",
+                    cls="text-base-content/60 text-center py-8",
+                ),
+            )
 
         content = Div(
-            # Header
             Header(
                 H1("Browse Learning Paths", cls="text-3xl font-bold text-primary"),
                 P(
@@ -541,13 +480,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
             ),
             # Learning Paths Grid
             Div(
-                Div(
-                    *[
-                        LearningUIComponents.render_learning_path_browser_card(path)
-                        for path in available_paths
-                    ],
-                    cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
-                ),
+                grid_content,
                 id="learning-paths-grid",
                 cls="mb-8",
             ),
@@ -567,136 +500,92 @@ def create_learning_ui_routes(_app, rt, _learning_service):
     @rt("/learning/path/{path_uid}")
     async def learning_path_detail(request, path_uid: str) -> Any:
         """Detailed view of a specific learning path with curriculum and progress."""
+        path_result = await lp_service.get_learning_path(path_uid)
+        if path_result.is_error or not path_result.value:
+            content = Div(
+                Card(
+                    H1("Learning Path Not Found", cls="text-2xl font-bold mb-4"),
+                    P(
+                        f"Could not find learning path: {path_uid}",
+                        cls="text-base-content/70 mb-4",
+                    ),
+                    Button(
+                        "Back to Learning",
+                        **{"hx-get": "/learning", "hx-target": "body"},
+                        variant=ButtonT.ghost,
+                    ),
+                    cls="p-6",
+                ),
+                cls="container mx-auto px-4 py-6",
+            )
+            return await BasePage(
+                content=content,
+                title="Path Not Found",
+                page_type=PageType.STANDARD,
+                request=request,
+                active_page="learning",
+            )
 
-        # Sample path detail data - using frozen dataclasses for type safety
-        path_detail = LearningPathDetail(
-            uid=path_uid,
-            title="Python Programming Fundamentals",
-            description="Master the basics of Python programming with hands-on projects and real-world applications",
-            difficulty="beginner",
-            estimated_hours=25,
-            rating=4.8,
-            learners=3247,
-            progress=67.5,
-            is_enrolled=True,
-            curriculum=[
-                ModuleData(
-                    module_id="module_1",
-                    title="Python Basics",
-                    description="Variables, data types, and basic operations",
-                    estimated_time="3 hours",
-                    status="completed",
-                    lessons=[
-                        LessonData(
-                            title="Introduction to Python",
-                            duration="15 min",
-                            lesson_type="video",
-                            completed=True,
-                        ),
-                        LessonData(
-                            title="Variables and Data Types",
-                            duration="20 min",
-                            lesson_type="interactive",
-                            completed=True,
-                        ),
-                        LessonData(
-                            title="Basic Operations",
-                            duration="25 min",
-                            lesson_type="hands_on",
-                            completed=True,
-                        ),
-                    ],
-                ),
-                ModuleData(
-                    module_id="module_2",
-                    title="Control Structures",
-                    description="If statements, loops, and functions",
-                    estimated_time="4 hours",
-                    status="completed",
-                    lessons=[
-                        LessonData(
-                            title="Conditional Statements",
-                            duration="30 min",
-                            lesson_type="video",
-                            completed=True,
-                        ),
-                        LessonData(
-                            title="Loops and Iteration",
-                            duration="35 min",
-                            lesson_type="interactive",
-                            completed=True,
-                        ),
-                        LessonData(
-                            title="Functions and Scope",
-                            duration="40 min",
-                            lesson_type="hands_on",
-                            completed=True,
-                        ),
-                    ],
-                ),
-                ModuleData(
-                    module_id="module_3",
-                    title="Data Structures",
-                    description="Lists, dictionaries, and sets",
-                    estimated_time="5 hours",
-                    status="in_progress",
-                    lessons=[
-                        LessonData(
-                            title="Working with Lists",
-                            duration="30 min",
-                            lesson_type="video",
-                            completed=True,
-                        ),
-                        LessonData(
-                            title="Dictionary Operations",
-                            duration="35 min",
-                            lesson_type="interactive",
-                            completed=False,
-                        ),
-                        LessonData(
-                            title="Sets and Advanced Operations",
-                            duration="40 min",
-                            lesson_type="hands_on",
-                            completed=False,
-                        ),
-                    ],
-                ),
-            ],
-            prerequisites=["basic_computer_skills"],
-            learning_outcomes=[
-                "Write Python scripts confidently",
-                "Understand core programming concepts",
-                "Debug and troubleshoot code",
-                "Apply Python to solve real problems",
-            ],
-        )
+        path = path_result.value
+        steps = path.metadata.get("steps", []) if path.metadata else []
+        total_steps = len(steps)
+
+        # Check enrollment and mastery
+        mastered_uids: set[str] = set()
+        is_enrolled = False
+        user_uid = require_authenticated_user(request)
+        if user_progress:
+            profile_result = await user_progress.build_user_knowledge_profile(user_uid)
+            if not profile_result.is_error and profile_result.value:
+                profile = profile_result.value
+                mastered_uids = profile.mastered_uids
+                is_enrolled = path_uid in profile.active_learning_paths
+
+        mastered_steps = sum(1 for s in steps if s.uid in mastered_uids or s.is_mastered())
+        progress = (mastered_steps / total_steps * 100.0) if total_steps > 0 else 0.0
+
+        # Build steps list
+        if steps:
+            steps_section = Div(
+                *[
+                    LearningUIComponents.render_step_item(
+                        s, i + 1, s.uid in mastered_uids or s.is_mastered()
+                    )
+                    for i, s in enumerate(steps)
+                ],
+                cls="space-y-4",
+            )
+        else:
+            steps_section = P("No steps defined for this path yet.", cls="text-base-content/60")
+
+        # Learning outcomes
+        outcomes = path.outcomes or ()
+        difficulty = _difficulty_label(path.difficulty_rating)
 
         content = Div(
             # Header with Path Info
             Header(
                 Div(
-                    H1(path_detail.title, cls="text-3xl font-bold text-primary"),
-                    P(path_detail.description, cls="text-lg text-base-content/70 mt-2"),
+                    H1(path.title or "Untitled Path", cls="text-3xl font-bold text-primary"),
+                    P(path.description or "", cls="text-lg text-base-content/70 mt-2"),
                     Div(
-                        Span(f"⭐ {path_detail.rating}", cls="badge badge-warning mr-2"),
-                        Span(f"👥 {path_detail.learners} learners", cls="badge badge-info mr-2"),
                         Span(
-                            f"⏱️ {path_detail.estimated_hours} hours",
+                            f"{int(path.estimated_hours or 0)} hours",
                             cls="badge badge-secondary mr-2",
                         ),
-                        Span(f"📊 {path_detail.difficulty.title()}", cls="badge badge-primary"),
+                        Span(f"{difficulty.title()}", cls="badge badge-primary mr-2"),
+                        Span(f"{total_steps} steps", cls="badge badge-info"),
                         cls="flex flex-wrap gap-2 mt-4",
                     ),
                     cls="flex-1",
                 ),
                 Div(
-                    # Progress Circle
                     Div(
-                        Span(f"{path_detail.progress:.0f}%", cls="text-2xl font-bold"),
+                        Span(f"{progress:.0f}%", cls="text-2xl font-bold"),
                         cls="radial-progress text-primary",
-                        style=f"--value:{path_detail.progress}",
+                        style=f"--value:{progress}",
                     )
-                    if path_detail.is_enrolled
+                    if is_enrolled
                     else Button(
                         "Enroll Now",
                         variant=ButtonT.primary,
@@ -710,82 +599,32 @@ def create_learning_ui_routes(_app, rt, _learning_service):
                 ),
                 cls="flex items-start justify-between mb-8",
             ),
-            # Action Buttons
-            Div(
-                Button(
-                    "🎯 Continue Learning",
-                    variant=ButtonT.primary,
-                    **{
-                        "hx-get": f"/learning/path/{path_uid}/continue",
-                        "hx-target": "#main-content",
-                    },
-                )
-                if path_detail.is_enrolled
-                else None,
-                Button(
-                    "📊 View Progress",
-                    variant=ButtonT.secondary,
-                    **{
-                        "hx-get": f"/learning/path/{path_uid}/progress",
-                        "hx-target": "#main-content",
-                    },
-                ),
-                Button(
-                    "💬 Discussion Forum",
-                    variant=ButtonT.outline,
-                    **{"hx-get": f"/learning/path/{path_uid}/forum", "hx-target": "#main-content"},
-                ),
-                cls="flex flex-wrap gap-3 mb-8",
-            ),
-            # Curriculum
+            # Curriculum — flat step list
             Card(
                 H2("Curriculum", cls="text-xl font-semibold mb-4"),
-                Div(
-                    *[
-                        LearningUIComponents.render_curriculum_module(module, index + 1)
-                        for index, module in enumerate(path_detail.curriculum)
-                    ],
-                    cls="space-y-4",
-                ),
+                steps_section,
                 cls="mb-8",
             ),
-            # Learning Outcomes & Prerequisites
-            Div(
-                Card(
-                    H3("Learning Outcomes", cls="text-lg font-semibold mb-3"),
-                    Ul(
-                        *[
-                            Li(Span("✅", cls="mr-2"), outcome, cls="flex items-start")
-                            for outcome in path_detail.learning_outcomes
-                        ],
-                        cls="space-y-2",
-                    ),
-                    cls="h-fit",
-                ),
-                Card(
-                    H3("Prerequisites", cls="text-lg font-semibold mb-3"),
-                    Div(
-                        *[
-                            Span(
-                                prereq.replace("_", " ").title(),
-                                cls="badge badge-outline mr-2 mb-2",
-                            )
-                            for prereq in path_detail.prerequisites
-                        ]
-                        if path_detail.prerequisites
-                        else [Span("No prerequisites required", cls="text-base-content/60")],
-                        cls="flex flex-wrap",
-                    ),
-                    cls="h-fit",
-                ),
-                cls="grid grid-cols-1 lg:grid-cols-2 gap-6",
+            # Learning Outcomes
+            Card(
+                H3("Learning Outcomes", cls="text-lg font-semibold mb-3"),
+                Ul(
+                    *[
+                        Li(Span("->", cls="mr-2"), outcome, cls="flex items-start")
+                        for outcome in outcomes
+                    ],
+                    cls="space-y-2",
+                )
+                if outcomes
+                else P("No learning outcomes specified.", cls="text-base-content/60"),
+                cls="mb-8",
             ),
             cls="container mx-auto px-4 py-6",
         )
 
         return await BasePage(
             content=content,
-            title=f"Learning Path: {path_detail.title}",
+            title=f"Learning Path: {path.title or path_uid}",
             page_type=PageType.STANDARD,
             request=request,
             active_page="learning",
@@ -795,66 +634,80 @@ def create_learning_ui_routes(_app, rt, _learning_service):
 
     @rt("/learning/analytics")
     async def learning_analytics(request) -> Any:
-        """Learning analytics dashboard with comprehensive insights."""
+        """Learning analytics dashboard with real data from user progress profile."""
+        user_uid = require_authenticated_user(request)
+
+        concepts_mastered = 0
+        in_progress = 0
+        needs_review = 0
+        struggling = 0
+        active_paths_count = 0
+        avg_retention = 0.0
+
+        if user_progress:
+            profile_result = await user_progress.build_user_knowledge_profile(user_uid)
+            if not profile_result.is_error and profile_result.value:
+                profile = profile_result.value
+                concepts_mastered = len(profile.mastered_knowledge)
+                in_progress = len(profile.in_progress_knowledge)
+                needs_review = len(profile.needs_review_uids)
+                struggling = len(profile.struggling_uids)
+                active_paths_count = len(profile.active_learning_paths)
+                if profile.mastered_knowledge:
+                    avg_retention = sum(
+                        m.retention_score for m in profile.mastered_knowledge
+                    ) / len(profile.mastered_knowledge)
 
         content = Div(
-            # Header
             Header(
                 H1("Learning Analytics", cls="text-3xl font-bold text-primary"),
                 P(
-                    "Comprehensive insights into your learning journey",
+                    "Insights into your learning journey",
                     cls="text-lg text-base-content/70 mt-2",
                 ),
                 cls="mb-8",
             ),
             # Analytics Overview
             Card(
-                H2("Learning Performance", cls="text-xl font-semibold mb-4"),
+                H2("Knowledge Profile", cls="text-xl font-semibold mb-4"),
                 Div(
-                    # Performance Metrics
                     Div(
                         Div(
-                            Span("Learning Velocity", cls="text-sm text-base-content/70"),
-                            Span("2.3", cls="text-2xl font-bold text-primary"),
-                            P("concepts/day", cls="text-xs text-base-content/60"),
+                            Span("Concepts Mastered", cls="text-sm text-base-content/70"),
+                            Span(str(concepts_mastered), cls="text-2xl font-bold text-success"),
+                            P("Knowledge units mastered", cls="text-xs text-base-content/60"),
                             cls="stat text-center",
                         ),
                         Div(
-                            Span("Retention Rate", cls="text-sm text-base-content/70"),
-                            Span("87%", cls="text-2xl font-bold text-success"),
-                            P("knowledge retained", cls="text-xs text-base-content/60"),
+                            Span("In Progress", cls="text-sm text-base-content/70"),
+                            Span(str(in_progress), cls="text-2xl font-bold text-primary"),
+                            P("Currently learning", cls="text-xs text-base-content/60"),
                             cls="stat text-center",
                         ),
                         Div(
-                            Span("Efficiency Score", cls="text-sm text-base-content/70"),
-                            Span("94", cls="text-2xl font-bold text-primary"),
-                            P("out of 100", cls="text-xs text-base-content/60"),
+                            Span("Avg Retention", cls="text-sm text-base-content/70"),
+                            Span(
+                                f"{avg_retention * 100:.0f}%",
+                                cls="text-2xl font-bold text-warning",
+                            ),
+                            P("Across mastered concepts", cls="text-xs text-base-content/60"),
                             cls="stat text-center",
                         ),
                         cls="stats stats-horizontal shadow w-full",
                     ),
                     cls="mb-6",
                 ),
-                # Learning Insights
+                cls="mb-8",
+            ),
+            # Detail Cards
+            Card(
+                H2("Learning Health", cls="text-xl font-semibold mb-4"),
                 Div(
-                    H3("Key Insights", cls="font-semibold mb-3"),
                     Div(
-                        LearningUIComponents.render_insight_item(
-                            "📈", "Peak Learning Time", "9-11 AM shows 40% higher focus", "high"
-                        ),
-                        LearningUIComponents.render_insight_item(
-                            "🎯",
-                            "Optimal Session Length",
-                            "25-minute sessions maximize retention",
-                            "medium",
-                        ),
-                        LearningUIComponents.render_insight_item(
-                            "🔄",
-                            "Review Schedule",
-                            "Review concepts every 3 days for best retention",
-                            "medium",
-                        ),
-                        cls="space-y-3",
+                        _render_stat_card("Active Paths", str(active_paths_count), "Learning paths in progress"),
+                        _render_stat_card("Needs Review", str(needs_review), "Concepts to revisit"),
+                        _render_stat_card("Struggling", str(struggling), "Concepts needing extra work"),
+                        cls="grid grid-cols-1 md:grid-cols-3 gap-4",
                     ),
                 ),
                 cls="mb-8",
@@ -872,36 +725,57 @@ def create_learning_ui_routes(_app, rt, _learning_service):
 
     routes.append(learning_analytics)
 
-    # KNOWLEDGE UNIT DETAIL PAGE: Moved to ku_reading_ui.py → /article/{uid}
-
     # ========================================================================
     # LEARNING STEP DETAIL PAGE
     # ========================================================================
 
     @rt("/ls/{uid}")
     async def ls_detail_view(request, uid: str) -> Any:
-        """
-        Learning Step detail view with full context and relationships.
+        """Learning Step detail view with full context and relationships."""
+        step_result = await lp_service.get_step(uid)
 
-        Shows LS details plus lateral relationships visualization.
-        """
-        # Note: This is a placeholder. Needs ls_service to be passed in
-        content = Div(
-            Card(
-                H1(f"📖 Learning Step: {uid}", cls="text-2xl font-bold mb-4"),
-                P("Learning Step detail page", cls="text-base-content/70 mb-4"),
+        if not step_result.is_error and step_result.value:
+            step = step_result.value
+            difficulty = _difficulty_label(step.difficulty_rating) if step.difficulty_rating else ""
+            hours_text = f"{step.estimated_hours:.1f} hours" if step.estimated_hours else ""
+
+            detail_content = Card(
+                H1(step.title or f"Learning Step: {uid}", cls="text-2xl font-bold mb-4"),
+                P(step.description or step.intent or "", cls="text-base-content/70 mb-4"),
+                Div(
+                    Span(f"Sequence: {step.sequence}", cls="badge badge-info mr-2")
+                    if step.sequence
+                    else None,
+                    Span(difficulty.title(), cls="badge badge-primary mr-2") if difficulty else None,
+                    Span(hours_text, cls="badge badge-secondary mr-2") if hours_text else None,
+                    Span(
+                        f"Mastery: {step.current_mastery * 100:.0f}%",
+                        cls="badge badge-success" if step.is_mastered() else "badge badge-outline",
+                    ),
+                    cls="flex flex-wrap gap-2 mb-4",
+                ),
                 Button(
-                    "← Back to Learning",
+                    "Back to Learning",
                     **{"hx-get": "/learning", "hx-target": "body"},
                     variant=ButtonT.ghost,
                 ),
                 cls="p-6 mb-4",
-            ),
-            # Lateral Relationships Section
-            EntityRelationshipsSection(
-                entity_uid=uid,
-                entity_type="ls",
-            ),
+            )
+        else:
+            detail_content = Card(
+                H1(f"Learning Step: {uid}", cls="text-2xl font-bold mb-4"),
+                P("Learning step not found.", cls="text-base-content/70 mb-4"),
+                Button(
+                    "Back to Learning",
+                    **{"hx-get": "/learning", "hx-target": "body"},
+                    variant=ButtonT.ghost,
+                ),
+                cls="p-6 mb-4",
+            )
+
+        content = Div(
+            detail_content,
+            EntityRelationshipsSection(entity_uid=uid, entity_type="ls"),
             cls="container mx-auto p-6 max-w-4xl",
         )
 
@@ -921,29 +795,54 @@ def create_learning_ui_routes(_app, rt, _learning_service):
 
     @rt("/lp/{uid}")
     async def lp_detail_view(request, uid: str) -> Any:
-        """
-        Learning Path detail view with full context and relationships.
+        """Learning Path detail view with full context and relationships."""
+        path_result = await lp_service.get_learning_path(uid)
 
-        Shows LP details plus lateral relationships visualization.
-        Note: This complements the existing /learning/path/{path_uid} route.
-        """
-        # Note: This is a placeholder. Needs lp_service to be passed in
-        content = Div(
-            Card(
-                H1(f"🎓 Learning Path: {uid}", cls="text-2xl font-bold mb-4"),
-                P("Learning Path detail page", cls="text-base-content/70 mb-4"),
+        if not path_result.is_error and path_result.value:
+            path = path_result.value
+            steps = path.metadata.get("steps", []) if path.metadata else []
+            difficulty = _difficulty_label(path.difficulty_rating)
+            outcomes = path.outcomes or ()
+
+            detail_content = Card(
+                H1(path.title or f"Learning Path: {uid}", cls="text-2xl font-bold mb-4"),
+                P(path.description or "", cls="text-base-content/70 mb-4"),
+                Div(
+                    Span(difficulty.title(), cls="badge badge-primary mr-2"),
+                    Span(f"{int(path.estimated_hours or 0)}h", cls="badge badge-secondary mr-2"),
+                    Span(f"{len(steps)} steps", cls="badge badge-info mr-2"),
+                    Span(str(path.path_type.value if path.path_type else "standard"), cls="badge badge-outline"),
+                    cls="flex flex-wrap gap-2 mb-4",
+                ),
+                Div(
+                    H3("Outcomes", cls="font-semibold mb-2"),
+                    Ul(*[Li(o) for o in outcomes], cls="list-disc ml-4"),
+                    cls="mb-4",
+                )
+                if outcomes
+                else None,
                 Button(
-                    "← Back to Learning",
+                    "Back to Learning",
                     **{"hx-get": "/learning", "hx-target": "body"},
                     variant=ButtonT.ghost,
                 ),
                 cls="p-6 mb-4",
-            ),
-            # Lateral Relationships Section
-            EntityRelationshipsSection(
-                entity_uid=uid,
-                entity_type="lp",
-            ),
+            )
+        else:
+            detail_content = Card(
+                H1(f"Learning Path: {uid}", cls="text-2xl font-bold mb-4"),
+                P("Learning path not found.", cls="text-base-content/70 mb-4"),
+                Button(
+                    "Back to Learning",
+                    **{"hx-get": "/learning", "hx-target": "body"},
+                    variant=ButtonT.ghost,
+                ),
+                cls="p-6 mb-4",
+            )
+
+        content = Div(
+            detail_content,
+            EntityRelationshipsSection(entity_uid=uid, entity_type="lp"),
             cls="container mx-auto p-6 max-w-4xl",
         )
 
@@ -957,9 +856,20 @@ def create_learning_ui_routes(_app, rt, _learning_service):
 
     routes.append(lp_detail_view)
 
-    logger.info(f"✅ Learning UI routes registered: {len(routes)} endpoints")
+    logger.info(f"Learning UI routes registered: {len(routes)} endpoints")
     return routes
 
 
-# Export the route creation function
+def _render_stat_card(title: str, value: str, description: str) -> Any:
+    """Render a simple stat card for analytics."""
+    return Card(
+        Div(
+            P(title, cls="text-sm text-base-content/70"),
+            P(value, cls="text-2xl font-bold"),
+            P(description, cls="text-xs text-base-content/60"),
+            cls="text-center p-4",
+        ),
+    )
+
+
 __all__ = ["create_learning_ui_routes"]

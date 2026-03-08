@@ -36,6 +36,9 @@ LEARNING_CONFIG = DomainRouteConfig(
         "user_service": "user_service",
         "user_progress": "user_progress",
     },
+    ui_related_services={
+        "user_progress": "user_progress",
+    },
 )
 
 
