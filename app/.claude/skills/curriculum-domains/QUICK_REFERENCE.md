@@ -55,7 +55,7 @@
 |--------|-----------|
 | Article | `adapters/inbound/article_routes.py` (all Article sub-services) |
 | KU | (via Article routes or dedicated — see `article_routes.py`) |
-| LS + LP | `adapters/inbound/learning_routes.py` |
+| LS + LP | `adapters/inbound/pathways_routes.py` |
 
 **Note**: No separate `ls_routes.py`, `lp_routes.py`, or `moc_routes.py` files exist.
 

@@ -304,7 +304,7 @@ All API route functions now use protocol types instead of concrete classes. Note
 
 **Curriculum (4) — now use concrete service class:**
 - `knowledge_api.py` → `KuService`
-- `learning_api.py` → `LpService`
+- `pathways_api.py` → `LpService`
 - `learning_steps_api.py` → `LsService`
 - `moc_api.py` → `KuService` (MOC is KU-based)
 

@@ -159,13 +159,13 @@ Here's what the loop looks like in practice:
 
 ## The Learning Dashboard
 
-The Learning Dashboard at `/learning` is your home base for tracking progress through the loop. Everything you see here is live data — your actual Learning Paths, your real mastery progress, your knowledge profile.
+The Pathways Dashboard at `/pathways` is your home base for tracking progress through the loop. Everything you see here is live data — your actual Learning Paths, your real mastery progress, your knowledge profile.
 
 ### What you see
 
 - **Learning Overview** — Total hours across your enrolled paths, concepts mastered, active path count, and completion rate. These numbers come from your real engagement history, not projections.
 - **Active Learning Paths** — Each path shows your current progress percentage, which step you're on, and difficulty level. Click "Continue Learning" to jump to where you left off.
-- **Analytics** (at `/learning/analytics`) — A deeper view: concepts mastered vs. in-progress, average retention score, concepts needing review, and concepts you're struggling with.
+- **Analytics** (at `/pathways/analytics`) — A deeper view: concepts mastered vs. in-progress, average retention score, concepts needing review, and concepts you're struggling with.
 
 ### Learning Paths and Steps
 
@@ -181,7 +181,7 @@ A Learning Path is a structured sequence of Learning Steps. Each step references
 
 ### Browsing and enrolling
 
-Visit `/learning/browse` to see all available Learning Paths. Each card shows the path's difficulty, estimated hours, and tags. Click "View Details" to see the full step list, learning outcomes, and your enrollment status. Enroll to add a path to your dashboard.
+Visit `/pathways/browse` to see all available Learning Paths. Each card shows the path's difficulty, estimated hours, and tags. Click "View Details" to see the full step list, learning outcomes, and your enrollment status. Enroll to add a path to your dashboard.
 
 ### For teachers creating paths
 

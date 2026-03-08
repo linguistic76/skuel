@@ -130,7 +130,7 @@ async def create_route(request):
 ### Updated Files
 
 - `goals_api.py` - 3 routes (progress, milestones, habits)
-- `learning_api.py` - 3 routes (paths, progress, steps) - uses return statement method
+- `pathways_api.py` - 3 routes (paths, progress, steps) - uses return statement method
 - `principles_api.py` - 2 routes (expressions, links)
 - `system_api.py` - 2 routes (register, thresholds)
 - All other domain APIs - Already using factory or correct status codes

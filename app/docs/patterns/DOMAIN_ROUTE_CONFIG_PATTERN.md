@@ -691,17 +691,17 @@ def create_insights_routes(app, rt, services, _sync_service=None):
 - Pattern: DomainRouteConfig + manual extension (not all-or-nothing)
 - History routes are domain-specific (not covered by standard CRUD)
 
-### Example 8: Complex Multi-Service (Learning with LS Routes)
+### Example 8: Complex Multi-Service (Pathways with LS Routes)
 
-**File:** `/adapters/inbound/learning_routes.py`
+**File:** `/adapters/inbound/pathways_routes.py`
 
 ```python
 # Configuration for main LP routes
-LEARNING_CONFIG = DomainRouteConfig(
-    domain_name="learning",
+PATHWAYS_CONFIG = DomainRouteConfig(
+    domain_name="pathways",
     primary_service_attr="lp",  # services.lp
-    api_factory=create_learning_api_routes,
-    ui_factory=create_learning_ui_routes,
+    api_factory=create_pathways_api_routes,
+    ui_factory=create_pathways_ui_routes,
     api_related_services={
         "user_service": "user_service",
         "user_progress": "user_progress",
@@ -712,9 +712,9 @@ LEARNING_CONFIG = DomainRouteConfig(
 )
 
 
-def create_learning_routes(app, rt, services, _sync_service=None):
+def create_pathways_routes(app, rt, services, _sync_service=None):
     """
-    Wire learning API and UI routes using configuration-driven registration.
+    Wire pathways API and UI routes using configuration-driven registration.
 
     Handles two distinct concerns:
     1. LP (Learning Path) routes - via DomainRouteConfig
@@ -722,14 +722,14 @@ def create_learning_routes(app, rt, services, _sync_service=None):
     """
 
     # Register main LP routes via DomainRouteConfig (soft-fail if service missing)
-    routes = register_domain_routes(app, rt, services, LEARNING_CONFIG)
+    routes = register_domain_routes(app, rt, services, PATHWAYS_CONFIG)
 
     # Handle LS routes separately (optional - skipped if ls service missing)
     if services and services.ls:
         ls_routes = create_learning_steps_api_routes(
             app, rt, services.ls, user_service=getattr(services, "user_service", None)
         )
-        logger.info(f"  ✅ Learning Steps (LS) API routes registered: {len(ls_routes)} endpoints")
+        logger.info(f"  Learning Steps (LS) API routes registered: {len(ls_routes)} endpoints")
         routes.extend(ls_routes)
 
     return routes
@@ -1003,7 +1003,7 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
 6. `/adapters/inbound/principles_routes.py` (32 lines)
 
 **Other Domains (7):** *(Migrated 2026-01-24)*
-7. `/adapters/inbound/learning_routes.py` (72 lines) - LP + LS routes
+7. `/adapters/inbound/pathways_routes.py` (72 lines) - LP + LS routes
 8. `/adapters/inbound/article_routes.py` (49 lines) - Article routes
 9. `/adapters/inbound/context_routes.py` (49 lines) - UserContext routes
 10. `/adapters/inbound/reports_routes.py` (63 lines) - Meta-analysis

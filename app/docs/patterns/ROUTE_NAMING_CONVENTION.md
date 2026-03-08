@@ -60,7 +60,7 @@ def create_tasks_routes(app, rt, services):
 | Choices | `choices_routes.py` | `choices_api.py` | `choice_ui.py` |
 | Principles | `principles_routes.py` | `principles_api.py` | `principles_ui.py` |
 | Knowledge | `knowledge_routes.py` | `knowledge_api.py` | `knowledge_ui.py` |
-| Learning | `learning_routes.py` | `learning_api.py` | `learning_ui.py` |
+| Pathways | `pathways_routes.py` | `pathways_api.py` | `pathways_ui.py` |
 | Reports | `reports_routes.py` | `reports_api.py` | `reports_ui.py` |
 | Askesis | `askesis_routes.py` | `askesis_api.py` | `askesis_ui.py` |
 | Context | `context_routes.py` | `context_aware_api.py` | `context_aware_ui.py` |
