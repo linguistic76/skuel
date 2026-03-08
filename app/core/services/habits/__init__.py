@@ -4,14 +4,14 @@ Habits Sub-Services
 
 This package contains focused sub-services that compose the unified HabitsService facade.
 
-Architecture: Facade Pattern (8 sub-services)
+Architecture: Facade Pattern (13 sub-services)
 - Each sub-service handles ONE specific responsibility
 - HabitsService (facade) delegates to appropriate sub-service via explicit delegation methods
 - ~50+ auto-generated delegation methods + explicit orchestration methods
 - Most complex Activity Domain (streaks, consistency, event integration)
 - Zero breaking changes to external code
 
-Sub-Services:
+Sub-Services (in this package):
 - HabitsCoreService: CRUD operations, event publishing
 - HabitSearchService: Search, discovery, filtering
 - HabitsProgressService: Streaks, consistency tracking, keystone habits
@@ -20,6 +20,8 @@ Sub-Services:
 - HabitsSchedulingService: Smart scheduling, capacity management
 - HabitsEventIntegrationService: Cross-domain event scheduling integration
 - HabitsIntelligenceService: Pure Cypher analytics (NO AI dependencies)
+- HabitsPatternService: Atomic Habits pattern recognition with confidence scoring
+- HabitsGoalAnalyticsService: Cross-domain Habits->Goals analytics (system health, velocity, impact)
 
 Common Import Pattern (Production):
     from core.services.habits_service import HabitsService  # Facade

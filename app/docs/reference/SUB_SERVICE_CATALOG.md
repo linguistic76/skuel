@@ -8,7 +8,7 @@
 
 ## Overview
 
-SKUEL's Activity Domain services (Tasks, Goals, Habits, Events, Choices, Principles) use a **facade pattern** with 3-11 specialized sub-services per domain. This catalog maps responsibilities to sub-services so developers can quickly find the right service for their needs.
+SKUEL's Activity Domain services (Tasks, Goals, Habits, Events, Choices, Principles) use a **facade pattern** with 3-13 specialized sub-services per domain. This catalog maps responsibilities to sub-services so developers can quickly find the right service for their needs.
 
 ### Quick Navigation
 
@@ -487,12 +487,12 @@ self.intelligence = common.intelligence
 |--------|-------------------|------------|-----------------|
 | Tasks | 7 | 4 | 3 (progress, scheduling, planning) |
 | Goals | 9 | 4 | 5 (progress, scheduling, learning, recommendation, + custom) |
-| Habits | 11 | 4 | 7 (progress, scheduling, planning, learning, completions, events, achievements) |
+| Habits | 13 | 4 | 9 (progress, scheduling, planning, learning, completions, events, achievements, patterns, goal_analytics) |
 | Events | 8 | 4 | 4 (progress, scheduling, + custom) |
 | Choices | 7 | 4 | 3 (learning, + custom) |
 | Principles | 3 | 3 | 0 (core, search, intelligence only) |
 
-**Most Complex:** Habits (11 sub-services)
+**Most Complex:** Habits (13 sub-services)
 **Simplest:** Principles (3 sub-services)
 
 ---

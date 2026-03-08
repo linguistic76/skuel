@@ -15,6 +15,9 @@ Sub-Services:
 - HabitsIntelligenceService: pure Cypher analytics
 - HabitsEventIntegrationService: Cross-domain event scheduling integration
 - HabitAchievementService: Achievement badge awarding
+- HabitsCompletionService: Completion tracking with quality scores and streaks
+- HabitsPatternService: Atomic Habits pattern recognition with confidence scoring
+- HabitsGoalAnalyticsService: Cross-domain Habits->Goals analytics
 """
 
 from __future__ import annotations

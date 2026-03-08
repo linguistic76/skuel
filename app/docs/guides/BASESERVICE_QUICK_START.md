@@ -10,7 +10,7 @@
 
 ## TL;DR - 30 Second Summary
 
-SKUEL uses **BaseService** (7 mixins) + **Facade Pattern** (3-11 sub-services) for all Activity Domains.
+SKUEL uses **BaseService** (7 mixins) + **Facade Pattern** (3-13 sub-services) for all Activity Domains.
 
 **For Production:**
 ```python
