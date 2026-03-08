@@ -509,7 +509,7 @@ LifePathService exposes a `.alignment` sub-service. The protocol models this wit
 ```python
 @runtime_checkable
 class LifePathAlignmentOperations(Protocol):
-    async def calculate_alignment(self, user_uid: str) -> Result[Any]: ...
+    async def calculate_alignment(self, context: Any) -> Result[Any]: ...
 
 @runtime_checkable
 class LifePathOperations(Protocol):
@@ -518,9 +518,10 @@ class LifePathOperations(Protocol):
     async def get_full_status(self, user_uid: str) -> Result[dict[str, Any]]: ...
     async def capture_and_recommend(self, user_uid: str, vision_statement: str) -> Result[dict[str, Any]]: ...
     async def designate_and_calculate(self, user_uid: str, life_path_uid: str) -> Result[dict[str, Any]]: ...
+    async def get_alignment(self, user_uid: str) -> Result[dict[str, Any]]: ...
 ```
 
-Routes access it as `lifepath_service.alignment.calculate_alignment(user_uid)`.
+Routes access it as `lifepath_service.get_alignment(user_uid)`. The facade builds UserContext internally and delegates to `alignment.calculate_alignment(context)`.
 
 ### Mixed Async/Sync Pattern: VisualizationOperations
 

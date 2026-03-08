@@ -218,7 +218,7 @@ recommendations = await lifepath.vision.recommend_learning_paths(vision.themes)
 designation = await lifepath.core.designate_life_path(user_uid, "lp:tech-leadership")
 
 # 4. Calculate alignment
-alignment = await lifepath.alignment.calculate_alignment(user_uid)
+alignment = await lifepath.get_alignment(user_uid)
 # alignment_score: 0.72 (ALIGNED)
 # weakest dimension: "knowledge" (needs more KU mastery)
 
