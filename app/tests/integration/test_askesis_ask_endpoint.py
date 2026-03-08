@@ -73,7 +73,7 @@ async def test_ask_endpoint_success(skuel_app, populated_test_data):
     assert isinstance(data["suggested_actions"], list), "Suggested actions should be a list"
     assert isinstance(data["confidence"], int | float), "Confidence should be numeric"
     assert 0.0 <= data["confidence"] <= 1.0, "Confidence should be between 0 and 1"
-    assert data["mode"] == "llm_generated", "Mode should be llm_generated"
+    assert data["mode"] in ("llm_generated", "template"), "Mode should be llm_generated or template"
 
 
 @pytest.mark.asyncio

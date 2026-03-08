@@ -156,77 +156,86 @@ class QueryProcessor:
 
         user_context = user_context_result.value
 
-        # Step 2: Classify query intent (via IntentClassifier)
+        # Step 2: Classify query intent (via IntentClassifier, with fallback)
         if not self.intent_classifier:
-            return Result.fail(
-                Errors.system(
-                    message="IntentClassifier not available - cannot classify query",
-                    operation="answer_user_question",
+            logger.warning("IntentClassifier unavailable — defaulting to SPECIFIC intent")
+            intent = QueryIntent.SPECIFIC
+        else:
+            intent_result = await self.intent_classifier.classify_intent(question)
+            if intent_result.is_error:
+                logger.warning(
+                    "Intent classification failed — defaulting to SPECIFIC: %s",
+                    intent_result.error,
                 )
-            )
-        intent_result = await self.intent_classifier.classify_intent(question)
-        if intent_result.is_error:
-            return Result.fail(intent_result.expect_error())
-        intent = intent_result.value
+                intent = QueryIntent.SPECIFIC
+            else:
+                intent = intent_result.value
 
-        # Step 3: Extract entities mentioned in query
+        # Step 3: Extract entities mentioned in query (non-critical — errors are swallowed)
         extracted_entities: dict[str, Any] = {}
         if self.entity_extractor:
-            extracted_entities = await self.entity_extractor.extract_entities_from_query(
-                question, user_context
-            )
+            try:
+                extracted_entities = await self.entity_extractor.extract_entities_from_query(
+                    question, user_context
+                )
+            except Exception as e:
+                logger.warning("Entity extraction failed (non-critical): %s", e)
 
-        # Step 4: Retrieve relevant entities based on intent
+        # Step 4: Retrieve relevant entities based on intent (non-critical)
         relevant_context: dict[str, Any] = {}
         if self.context_retriever:
-            relevant_context = await self.context_retriever.retrieve_relevant_context(
-                user_context, question, intent
-            )
+            try:
+                relevant_context = await self.context_retriever.retrieve_relevant_context(
+                    user_context, question, intent
+                )
+            except Exception as e:
+                logger.warning("Context retrieval failed (non-critical): %s", e)
 
         # Add extracted entities to context
         if any(extracted_entities.values()):
             relevant_context["mentioned_entities"] = extracted_entities
 
-        # Step 5: Build LLM-friendly context (via ResponseGenerator)
-        if not self.response_generator:
-            return Result.fail(
-                Errors.system(
-                    message="ResponseGenerator not available - cannot build context",
-                    operation="answer_user_question",
-                )
-            )
-        llm_context = self.response_generator.build_llm_context(user_context, question)
+        # Step 5: Build LLM-friendly context and generate answer
+        llm_context = ""
+        if self.response_generator:
+            llm_context = self.response_generator.build_llm_context(user_context, question)
 
-        # Step 6: Generate natural language answer using LLM
-        if not self.llm_service:
-            return Result.fail(
-                Errors.system(
-                    message="LLMService is required for answering user questions",
-                    operation="answer_user_question",
+        # Step 6: Generate natural language answer using LLM (with template fallback)
+        answer: str | None = None
+        if self.llm_service:
+            try:
+                answer = await self.llm_service.generate_context_aware_answer(
+                    query=question,
+                    user_context=llm_context,
+                    additional_context=relevant_context,
+                    intent=intent,
                 )
-            )
+            except Exception as e:
+                logger.warning("LLM answer generation failed, using template fallback: %s", e)
 
-        answer = await self.llm_service.generate_context_aware_answer(
-            query=question,
-            user_context=llm_context,
-            additional_context=relevant_context,
-            intent=intent,
-        )
+        if not answer:
+            # Template fallback when LLM is unavailable or fails
+            answer = self._build_fallback_answer(user_context, question, intent)
 
         # Step 7: Generate suggested actions (via ResponseGenerator)
-        suggested_actions = self.response_generator.generate_actions(
-            user_context, intent, relevant_context
-        )
+        suggested_actions: list[dict[str, Any]] = []
+        if self.response_generator:
+            suggested_actions = self.response_generator.generate_actions(
+                user_context, intent, relevant_context
+            )
 
-        # Step 8: Add citations for knowledge units
+        # Step 8: Add citations for knowledge units (non-critical)
         citations_text = ""
         if intent in (QueryIntent.PREREQUISITE, QueryIntent.HIERARCHICAL):
             knowledge_entities = extracted_entities.get("knowledge", [])
             if knowledge_entities:
                 knowledge_uids = [ku.get("uid") for ku in knowledge_entities if ku.get("uid")]
-                citations_text = await self._retrieve_citations_for_knowledge_units(
-                    knowledge_uids, min_evidence_count=1
-                )
+                try:
+                    citations_text = await self._retrieve_citations_for_knowledge_units(
+                        knowledge_uids, min_evidence_count=1
+                    )
+                except Exception as e:
+                    logger.warning("Citation retrieval failed (non-critical): %s", e)
 
         # Append citations to answer if available
         final_answer = answer
@@ -244,7 +253,7 @@ class QueryProcessor:
             "context_used": relevant_context,
             "suggested_actions": suggested_actions,
             "confidence": confidence,
-            "mode": "llm_generated",
+            "mode": "llm_generated" if self.llm_service else "template",
             "has_citations": bool(citations_text),
         }
 
@@ -306,18 +315,20 @@ class QueryProcessor:
 
         context_data = context_result.value
 
-        # Step 2: Determine query intent (via IntentClassifier)
+        # Step 2: Determine query intent (via IntentClassifier, with fallback)
         if not self.intent_classifier:
-            return Result.fail(
-                Errors.system(
-                    message="IntentClassifier not available - cannot classify query",
-                    operation="process_query_with_context",
+            logger.warning("IntentClassifier unavailable — defaulting to SPECIFIC intent")
+            intent = QueryIntent.SPECIFIC
+        else:
+            intent_result = await self.intent_classifier.classify_intent(query_message)
+            if intent_result.is_error:
+                logger.warning(
+                    "Intent classification failed — defaulting to SPECIFIC: %s",
+                    intent_result.error,
                 )
-            )
-        intent_result = await self.intent_classifier.classify_intent(query_message)
-        if intent_result.is_error:
-            return Result.fail(intent_result.expect_error())
-        intent = intent_result.value
+                intent = QueryIntent.SPECIFIC
+            else:
+                intent = intent_result.value
 
         # Extract context nodes
         current_knowledge = context_data["knowledge_units"]
@@ -336,16 +347,13 @@ class QueryProcessor:
         )
 
         # Step 4: Generate suggested actions (via ResponseGenerator)
-        if not self.response_generator:
-            return Result.fail(
-                Errors.system(
-                    message="ResponseGenerator not available - cannot generate actions",
-                    operation="process_query_with_context",
-                )
+        suggested_actions: list[dict[str, Any]] = []
+        if self.response_generator:
+            suggested_actions = self.response_generator.generate_suggested_actions(
+                query_message, context_data, intent
             )
-        suggested_actions = self.response_generator.generate_suggested_actions(
-            query_message, context_data, intent
-        )
+        else:
+            logger.warning("ResponseGenerator unavailable — returning empty suggested actions")
 
         # Step 5: Build and return result
         result_dict = self._build_query_response_result(
@@ -359,6 +367,29 @@ class QueryProcessor:
         )
 
         return Result.ok(result_dict)
+
+    def _build_fallback_answer(
+        self, user_context: Any, question: str, intent: QueryIntent
+    ) -> str:
+        """Build a template answer when LLM is unavailable or fails."""
+        parts = [f"Based on your current state (regarding: {question[:80]}):\n"]
+
+        task_count = len(getattr(user_context, "active_task_uids", []))
+        goal_count = len(getattr(user_context, "active_goal_uids", []))
+        habit_count = len(getattr(user_context, "active_habit_uids", []))
+
+        parts.append(f"You have {task_count} active tasks, {goal_count} goals, and {habit_count} habits.\n")
+
+        if intent == QueryIntent.HIERARCHICAL:
+            parts.append("For structured learning, follow your active learning paths.")
+        elif intent == QueryIntent.PREREQUISITE:
+            parts.append("Check the suggested_actions for prerequisite recommendations.")
+        elif intent == QueryIntent.PRACTICE:
+            parts.append("Look at your active tasks for practice opportunities.")
+        else:
+            parts.append("See suggested_actions for specific next steps.")
+
+        return "\n".join(parts)
 
     # ========================================================================
     # PRIVATE - RESPONSE GENERATION
