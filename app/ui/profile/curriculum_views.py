@@ -190,7 +190,7 @@ def _learning_paths_list(context: UserContext) -> Div:
                     ),
                     cls="w-full",
                 ),
-                href=f"/learning/paths/{uid}" if uid else "#",
+                href=f"/pathways/path/{uid}" if uid else "#",
                 cls="block p-3 bg-base-100 rounded-lg hover:bg-base-200 transition-colors",
             )
         )
@@ -230,7 +230,7 @@ def _ready_to_learn_list(context: UserContext) -> Div:
             A(
                 Span("💡", cls="mr-2"),
                 Span(title, cls="font-medium text-base-content"),
-                href=f"/learning/article/{uid}",
+                href=f"/pathways/article/{uid}",
                 cls="flex items-center p-3 bg-base-100 rounded-lg hover:bg-base-200 transition-colors",
             )
         )

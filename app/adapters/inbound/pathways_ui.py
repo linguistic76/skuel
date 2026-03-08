@@ -1,8 +1,8 @@
 """
-Learning UI Components
+Pathways UI Components
 ======================
 
-Component-based UI routes for learning management.
+Component-based UI routes for structured learning pathway browsing and progress.
 All pages use BasePage for consistent layout.
 Wired to real LpService and UserProgressService.
 """
@@ -38,7 +38,7 @@ from ui.ui_types import (
     LearningStatsData,
 )
 
-logger = get_logger("skuel.ui.learning")
+logger = get_logger("skuel.ui.pathways")
 
 
 def _difficulty_label(rating: float) -> str:
@@ -50,15 +50,15 @@ def _difficulty_label(rating: float) -> str:
     return "advanced"
 
 
-class LearningUIComponents:
-    """Reusable component library for learning management interface."""
+class PathwaysUIComponents:
+    """Reusable component library for pathway browsing interface."""
 
     @staticmethod
     def render_filter_form() -> Any:
         """Learning path filter form using FormGenerator with custom select widgets."""
         return FormGenerator.from_model(
             LearningPathFilterRequest,
-            action="/api/learning/filter-paths",
+            action="/api/pathways/filter-paths",
             method="POST",
             include_fields=["difficulty", "domain", "duration"],
             custom_widgets={
@@ -102,7 +102,7 @@ class LearningUIComponents:
             },
             form_attrs={
                 "cls": "space-y-4",
-                "hx_post": "/api/learning/filter-paths",
+                "hx_post": "/api/pathways/filter-paths",
                 "hx_target": "#learning-paths-grid",
             },
             submit_label="Apply Filters",
@@ -147,7 +147,7 @@ class LearningUIComponents:
                     variant=ButtonT.primary,
                     cls="btn-sm w-full",
                     **{
-                        "hx-get": f"/learning/path/{path.uid}/continue",
+                        "hx-get": f"/pathways/path/{path.uid}/continue",
                         "hx-target": "#main-content",
                     },
                 ),
@@ -190,14 +190,14 @@ class LearningUIComponents:
                         "View Details",
                         variant=ButtonT.outline,
                         cls="btn-sm flex-1",
-                        **{"hx-get": f"/learning/path/{path['uid']}", "hx-target": "#main-content"},
+                        **{"hx-get": f"/pathways/path/{path['uid']}", "hx-target": "#main-content"},
                     ),
                     Button(
                         "Enroll",
                         variant=ButtonT.primary,
                         cls="btn-sm flex-1",
                         **{
-                            "hx-post": f"/api/learning/enroll/{path['uid']}",
+                            "hx-post": f"/api/pathways/enroll/{path['uid']}",
                             "hx-target": "#main-content",
                         },
                     ),
@@ -250,14 +250,14 @@ class LearningUIComponents:
         )
 
 
-def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
-    """Create UI routes for learning management."""
+def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None):
+    """Create UI routes for pathway browsing and progress tracking."""
 
     routes: list[Any] = []
 
-    @rt("/learning")
-    async def learning_dashboard(request) -> Any:
-        """Main learning dashboard with progress overview and active paths."""
+    @rt("/pathways")
+    async def pathways_dashboard(request) -> Any:
+        """Main pathways dashboard with progress overview and active paths."""
         user_uid = require_authenticated_user(request)
 
         # Fetch user's learning paths
@@ -312,7 +312,7 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
         # Build active paths section
         if active_paths:
             paths_section = Div(
-                *[LearningUIComponents.render_learning_path_card(p) for p in active_paths],
+                *[PathwaysUIComponents.render_learning_path_card(p) for p in active_paths],
                 cls="space-y-4",
             )
         else:
@@ -324,14 +324,14 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
                 Button(
                     "Browse Learning Paths",
                     variant=ButtonT.primary,
-                    **{"hx-get": "/learning/browse", "hx-target": "#main-content"},
+                    **{"hx-get": "/pathways/browse", "hx-target": "#main-content"},
                 ),
                 cls="text-center",
             )
 
         content = Div(
             Header(
-                H1("Learning Dashboard", cls="text-3xl font-bold text-primary"),
+                H1("Pathways Dashboard", cls="text-3xl font-bold text-primary"),
                 P(
                     "Track your learning journey and discover new knowledge",
                     cls="text-lg text-base-content/70 mt-2",
@@ -390,7 +390,7 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
                         "Browse Learning Paths",
                         variant=ButtonT.primary,
                         cls="btn-sm",
-                        **{"hx-get": "/learning/browse", "hx-target": "#main-content"},
+                        **{"hx-get": "/pathways/browse", "hx-target": "#main-content"},
                     ),
                     cls="flex justify-between items-center mb-4",
                 ),
@@ -404,12 +404,12 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
                     Button(
                         "View Analytics",
                         variant=ButtonT.secondary,
-                        **{"hx-get": "/learning/analytics", "hx-target": "#main-content"},
+                        **{"hx-get": "/pathways/analytics", "hx-target": "#main-content"},
                     ),
                     Button(
                         "Browse Paths",
                         variant=ButtonT.outline,
-                        **{"hx-get": "/learning/browse", "hx-target": "#main-content"},
+                        **{"hx-get": "/pathways/browse", "hx-target": "#main-content"},
                     ),
                     cls="flex flex-wrap gap-3",
                 ),
@@ -420,15 +420,15 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
 
         return await BasePage(
             content=content,
-            title="Learning Dashboard",
+            title="Pathways Dashboard",
             page_type=PageType.STANDARD,
             request=request,
-            active_page="learning",
+            active_page="pathways",
         )
 
-    routes.append(learning_dashboard)
+    routes.append(pathways_dashboard)
 
-    @rt("/learning/browse")
+    @rt("/pathways/browse")
     async def browse_learning_paths(request) -> Any:
         """Browse available learning paths with filtering and recommendations."""
         available_paths: list[dict[str, Any]] = []
@@ -449,7 +449,7 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
         if available_paths:
             grid_content = Div(
                 *[
-                    LearningUIComponents.render_learning_path_browser_card(p)
+                    PathwaysUIComponents.render_learning_path_browser_card(p)
                     for p in available_paths
                 ],
                 cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
@@ -475,7 +475,7 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
             Card(
                 H3("Filter Learning Paths", cls="text-lg font-semibold mb-4"),
                 Div(
-                    LearningUIComponents.render_filter_form(),
+                    PathwaysUIComponents.render_filter_form(),
                     cls="grid grid-cols-1 md:grid-cols-3 gap-4",
                 ),
                 cls="mb-8",
@@ -494,12 +494,12 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
             title="Browse Learning Paths",
             page_type=PageType.STANDARD,
             request=request,
-            active_page="learning",
+            active_page="pathways",
         )
 
     routes.append(browse_learning_paths)
 
-    @rt("/learning/path/{path_uid}")
+    @rt("/pathways/path/{path_uid}")
     async def learning_path_detail(request, path_uid: str) -> Any:
         """Detailed view of a specific learning path with curriculum and progress."""
         path_result = await lp_service.get_learning_path(path_uid)
@@ -512,8 +512,8 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
                         cls="text-base-content/70 mb-4",
                     ),
                     Button(
-                        "Back to Learning",
-                        **{"hx-get": "/learning", "hx-target": "body"},
+                        "Back to Pathways",
+                        **{"hx-get": "/pathways", "hx-target": "body"},
                         variant=ButtonT.ghost,
                     ),
                     cls="p-6",
@@ -525,7 +525,7 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
                 title="Path Not Found",
                 page_type=PageType.STANDARD,
                 request=request,
-                active_page="learning",
+                active_page="pathways",
             )
 
         path = path_result.value
@@ -550,7 +550,7 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
         if steps:
             steps_section = Div(
                 *[
-                    LearningUIComponents.render_step_item(
+                    PathwaysUIComponents.render_step_item(
                         s, i + 1, s.uid in mastered_uids or s.is_mastered()
                     )
                     for i, s in enumerate(steps)
@@ -593,7 +593,7 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
                         variant=ButtonT.primary,
                         cls="btn-lg",
                         **{
-                            "hx-post": f"/api/learning/enroll/{path_uid}",
+                            "hx-post": f"/api/pathways/enroll/{path_uid}",
                             "hx-target": "#main-content",
                         },
                     ),
@@ -629,12 +629,12 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
             title=f"Learning Path: {path.title or path_uid}",
             page_type=PageType.STANDARD,
             request=request,
-            active_page="learning",
+            active_page="pathways",
         )
 
     routes.append(learning_path_detail)
 
-    @rt("/learning/analytics")
+    @rt("/pathways/analytics")
     async def learning_analytics(request) -> Any:
         """Learning analytics dashboard with real data from user progress profile."""
         user_uid = require_authenticated_user(request)
@@ -726,7 +726,7 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
             title="Learning Analytics",
             page_type=PageType.STANDARD,
             request=request,
-            active_page="learning",
+            active_page="pathways",
         )
 
     routes.append(learning_analytics)
@@ -763,8 +763,8 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
                     cls="flex flex-wrap gap-2 mb-4",
                 ),
                 Button(
-                    "Back to Learning",
-                    **{"hx-get": "/learning", "hx-target": "body"},
+                    "Back to Pathways",
+                    **{"hx-get": "/pathways", "hx-target": "body"},
                     variant=ButtonT.ghost,
                 ),
                 cls="p-6 mb-4",
@@ -774,8 +774,8 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
                 H1(f"Learning Step: {uid}", cls="text-2xl font-bold mb-4"),
                 P("Learning step not found.", cls="text-base-content/70 mb-4"),
                 Button(
-                    "Back to Learning",
-                    **{"hx-get": "/learning", "hx-target": "body"},
+                    "Back to Pathways",
+                    **{"hx-get": "/pathways", "hx-target": "body"},
                     variant=ButtonT.ghost,
                 ),
                 cls="p-6 mb-4",
@@ -792,7 +792,7 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
             title=f"LS: {uid}",
             page_type=PageType.STANDARD,
             request=request,
-            active_page="learning",
+            active_page="pathways",
         )
 
     routes.append(ls_detail_view)
@@ -833,8 +833,8 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
                 if outcomes
                 else None,
                 Button(
-                    "Back to Learning",
-                    **{"hx-get": "/learning", "hx-target": "body"},
+                    "Back to Pathways",
+                    **{"hx-get": "/pathways", "hx-target": "body"},
                     variant=ButtonT.ghost,
                 ),
                 cls="p-6 mb-4",
@@ -844,8 +844,8 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
                 H1(f"Learning Path: {uid}", cls="text-2xl font-bold mb-4"),
                 P("Learning path not found.", cls="text-base-content/70 mb-4"),
                 Button(
-                    "Back to Learning",
-                    **{"hx-get": "/learning", "hx-target": "body"},
+                    "Back to Pathways",
+                    **{"hx-get": "/pathways", "hx-target": "body"},
                     variant=ButtonT.ghost,
                 ),
                 cls="p-6 mb-4",
@@ -862,12 +862,12 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
             title=f"LP: {uid}",
             page_type=PageType.STANDARD,
             request=request,
-            active_page="learning",
+            active_page="pathways",
         )
 
     routes.append(lp_detail_view)
 
-    logger.info(f"Learning UI routes registered: {len(routes)} endpoints")
+    logger.info(f"Pathways UI routes registered: {len(routes)} endpoints")
     return routes
 
 
@@ -883,4 +883,4 @@ def _render_stat_card(title: str, value: str, description: str) -> Any:
     )
 
 
-__all__ = ["create_learning_ui_routes"]
+__all__ = ["create_pathways_ui_routes"]

@@ -1,37 +1,31 @@
 """
-Learning Routes - Configuration-Driven Registration
-===================================================
+Pathways Routes - Configuration-Driven Registration
+====================================================
 
-Wires Learning API and UI routes using DomainRouteConfig pattern.
+Wires Pathways API and UI routes using DomainRouteConfig pattern.
 
 This file handles:
 - LP (Learning Path) routes via DomainRouteConfig
 - LS (Learning Steps) routes as separate concern (optional)
 
-Benefits:
-- Consistent with other domain route files
-- Soft-fail service validation (no ValueError)
-- Clean separation of concerns
-- Minimal boilerplate
-
-Version: 2.0 (Migrated to DomainRouteConfig pattern)
+Version: 3.0 (Renamed from learning_routes.py)
 """
 
-from adapters.inbound.learning_api import create_learning_api_routes
 from adapters.inbound.learning_steps_api import create_learning_steps_api_routes
-from adapters.inbound.learning_ui import create_learning_ui_routes
+from adapters.inbound.pathways_api import create_pathways_api_routes
+from adapters.inbound.pathways_ui import create_pathways_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.utils.logging import get_logger
 
-logger = get_logger("skuel.routes.learning")
+logger = get_logger("skuel.routes.pathways")
 
 
 # Configuration for main LP routes
-LEARNING_CONFIG = DomainRouteConfig(
-    domain_name="learning",
+PATHWAYS_CONFIG = DomainRouteConfig(
+    domain_name="pathways",
     primary_service_attr="lp",  # services.lp
-    api_factory=create_learning_api_routes,
-    ui_factory=create_learning_ui_routes,
+    api_factory=create_pathways_api_routes,
+    ui_factory=create_pathways_ui_routes,
     api_related_services={
         "user_service": "user_service",
         "user_progress": "user_progress",
@@ -42,9 +36,9 @@ LEARNING_CONFIG = DomainRouteConfig(
 )
 
 
-def create_learning_routes(app, rt, services, _sync_service=None):
+def create_pathways_routes(app, rt, services, _sync_service=None):
     """
-    Wire learning API and UI routes using configuration-driven registration.
+    Wire pathways API and UI routes using configuration-driven registration.
 
     Handles two distinct concerns:
     1. LP (Learning Path) routes - via DomainRouteConfig
@@ -61,17 +55,17 @@ def create_learning_routes(app, rt, services, _sync_service=None):
     """
 
     # Register main LP routes via DomainRouteConfig (soft-fail if service missing)
-    routes = register_domain_routes(app, rt, services, LEARNING_CONFIG)
+    routes = register_domain_routes(app, rt, services, PATHWAYS_CONFIG)
 
     # Handle LS routes separately (optional - skipped if learning_steps service missing)
     if services and services.ls:
         ls_routes = create_learning_steps_api_routes(
             app, rt, services.ls, user_service=getattr(services, "user_service", None)
         )
-        logger.info(f"  ✅ Learning Steps (LS) API routes registered: {len(ls_routes)} endpoints")
+        logger.info(f"  Learning Steps (LS) API routes registered: {len(ls_routes)} endpoints")
         routes.extend(ls_routes)
 
     return routes
 
 
-__all__ = ["create_learning_routes"]
+__all__ = ["create_pathways_routes"]

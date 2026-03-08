@@ -39,7 +39,7 @@ class NavItem:
 MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
     NavItem("Teaching", "/teaching", "teaching", requires_teacher=True),
     NavItem("Knowledge", "/profile/knowledge", "knowledge", hide_for_admin=True),
-    NavItem("Curriculum", "/curriculum", "curriculum", hide_for_admin=True),
+    NavItem("Pathways", "/pathways", "pathways", hide_for_admin=True),
 )
 
 # Admin-only navigation item - prepended to nav when user is admin

@@ -988,7 +988,7 @@ def _learning_steps_card(steps: "list[LearningStep]") -> Div:
                     else None,
                     cls="py-2 border-b border-base-300 last:border-0",
                 ),
-                href=f"/learning/ku/{step.ku_uid}",
+                href=f"/pathways/ku/{step.ku_uid}",
                 cls="block hover:bg-base-200/50 -mx-2 px-2 rounded transition-colors",
             )
         )

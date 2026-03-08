@@ -334,7 +334,7 @@ def create_article_reading_ui_routes(
             content=content,
             title=ku.title,
             request=request,
-            active_page="learning",
+            active_page="pathways",
             page_type=PageType.CUSTOM,
         )
 

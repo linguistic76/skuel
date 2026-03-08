@@ -698,14 +698,14 @@ async def _wire_all_routes(
         create_transcription_routes(app, rt, services, None)
         logger.info("✅ Transcription routes registered")
 
-    # Learning routes with clean architecture
+    # Pathways routes (LP browsing + progress)
     if services.lp:
-        from adapters.inbound.learning_routes import create_learning_routes
+        from adapters.inbound.pathways_routes import create_pathways_routes
 
-        create_learning_routes(app, rt, services, None)  # sync removed Jan 2026
-        logger.info("✅ Learning routes registered (clean architecture)")
+        create_pathways_routes(app, rt, services, None)
+        logger.info("✅ Pathways routes registered")
     else:
-        logger.warning("Learning service not available - skipping learning routes")
+        logger.warning("LP service not available - skipping pathways routes")
 
     # Askesis routes - AI Learning Assistant (DomainRouteConfig)
     from adapters.inbound.askesis_routes import create_askesis_routes
@@ -736,11 +736,14 @@ async def _wire_all_routes(
     setup_user_profile_routes(rt, services)
     logger.info("✅ User profile hub routes registered")
 
-    # Curriculum Hub (green C icon in navbar)
-    from adapters.inbound.curriculum_ui import create_curriculum_ui_routes
+    # /curriculum redirect -> /pathways (curriculum hub deleted)
+    from starlette.responses import RedirectResponse
 
-    create_curriculum_ui_routes(app, rt, services)
-    logger.info("✅ Curriculum hub routes registered")
+    @rt("/curriculum")
+    async def curriculum_redirect(request):
+        return RedirectResponse("/pathways", status_code=301)
+
+    logger.info("✅ /curriculum redirects to /pathways")
 
     # User pins routes (entity pinning/bookmarking)
     if services.user_relationships:

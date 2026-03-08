@@ -1,18 +1,15 @@
 """
-Learning API Routes - Migrated to CRUDRouteFactory
+Pathways API Routes - Migrated to CRUDRouteFactory
 ===================================================
 
-Migrated to use CRUDRouteFactory for standard CRUD operations.
-
-Before: 235 lines with manual CRUD routes
-After: ~150 lines with CRUDRouteFactory + domain-specific routes
+Structured pathway browsing, progress tracking, and recommendations.
 
 This file uses:
 - CRUDRouteFactory for standard CRUD routes (create, get, update, delete, list)
 - Manual routes for domain-specific operations (progress, steps, recommendations)
 """
 
-__version__ = "3.0"
+__version__ = "4.0"
 
 import dataclasses
 from datetime import datetime
@@ -34,10 +31,10 @@ from core.services.lp_service import LpService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-logger = get_logger("skuel.routes.learning.api")
+logger = get_logger("skuel.routes.pathways.api")
 
 
-def create_learning_api_routes(
+def create_pathways_api_routes(
     app: Any,
     rt: Any,
     learning_service: LpService,
@@ -45,7 +42,7 @@ def create_learning_api_routes(
     user_progress: Any = None,
 ) -> list[Any]:
     """
-    Create learning API routes using factory pattern.
+    Create pathways API routes using factory pattern.
 
     SECURITY: CRUD write operations (create, update, delete) require ADMIN role.
     Read operations (get, list) are public.
@@ -66,7 +63,7 @@ def create_learning_api_routes(
 
     crud_factory = CRUDRouteFactory(
         service=learning_service,
-        domain_name="learning",
+        domain_name="pathways",
         create_schema=LearningPathCreateRequest,
         update_schema=EntityUpdateRequest,
         uid_prefix="lp",
@@ -76,11 +73,11 @@ def create_learning_api_routes(
     )
 
     # Register all standard CRUD routes:
-    # - POST /api/learning (create)
-    # - GET /api/learning/{uid} (get)
-    # - PUT /api/learning/{uid} (update)
-    # - DELETE /api/learning/{uid} (delete)
-    # - GET /api/learning (list with pagination)
+    # - POST /api/pathways (create)
+    # - GET /api/pathways/{uid} (get)
+    # - PUT /api/pathways/{uid} (update)
+    # - DELETE /api/pathways/{uid} (delete)
+    # - GET /api/pathways (list with pagination)
     crud_factory.register_routes(app, rt)
 
     # ========================================================================
@@ -89,14 +86,14 @@ def create_learning_api_routes(
 
     intelligence_factory = IntelligenceRouteFactory(
         intelligence_service=learning_service.intelligence,
-        domain_name="learning",
+        domain_name="pathways",
         scope=ContentScope.SHARED,  # Curriculum content is shared
     )
 
     # Register intelligence routes:
-    # - GET /api/learning/context?uid=...&depth=2 (entity with graph context)
-    # - GET /api/learning/analytics?period_days=30 (user performance analytics)
-    # - GET /api/learning/insights?uid=... (domain-specific insights)
+    # - GET /api/pathways/context?uid=...&depth=2 (entity with graph context)
+    # - GET /api/pathways/analytics?period_days=30 (user performance analytics)
+    # - GET /api/pathways/insights?uid=... (domain-specific insights)
     intelligence_factory.register_routes(app, rt)
 
     # ========================================================================
@@ -106,13 +103,13 @@ def create_learning_api_routes(
     # Path Steps
     # ----------
 
-    @rt("/api/learning/steps")
+    @rt("/api/pathways/steps")
     @boundary_handler()
     async def get_path_steps_route(request: Request, path_uid: str) -> Result[Any]:
         """Get all steps for a learning path."""
         return await learning_service.get_path_steps(path_uid)
 
-    @rt("/api/learning/current-step")
+    @rt("/api/pathways/current-step")
     @boundary_handler()
     async def get_current_step_route(request: Request, path_uid: str) -> Result[Any]:
         """Get the current (first incomplete) step in a learning path."""
@@ -132,7 +129,7 @@ def create_learning_api_routes(
     # Progress Tracking
     # -----------------
 
-    @rt("/api/learning/progress")
+    @rt("/api/pathways/progress")
     @boundary_handler(success_status=201)
     async def update_progress_route(request: Request) -> Result[Any]:
         """Update progress for a learning step.
@@ -198,7 +195,7 @@ def create_learning_api_routes(
             }
         )
 
-    @rt("/api/learning/progress/summary")
+    @rt("/api/pathways/progress/summary")
     @boundary_handler()
     async def get_progress_summary_route(request: Request) -> Result[Any]:
         """Get comprehensive learning progress summary for a user."""
@@ -233,7 +230,7 @@ def create_learning_api_routes(
     # Path Recommendations
     # --------------------
 
-    @rt("/api/learning/recommendations")
+    @rt("/api/pathways/recommendations")
     @boundary_handler()
     async def get_path_recommendations_route(request: Request) -> Result[Any]:
         """Get recommended learning paths for a user."""
@@ -245,34 +242,9 @@ def create_learning_api_routes(
             )
         )
 
-    logger.info("✅ Learning API routes registered (CRUDRouteFactory + 6 domain routes)")
+    logger.info("Pathways API routes registered (CRUDRouteFactory + 6 domain routes)")
     return []  # Routes registered via @rt() decorators (no objects returned)
 
 
 # Export the route creation function
-__all__ = ["create_learning_api_routes"]
-
-
-# Migration Statistics:
-# ========================================
-# Before (manual CRUD): 235 lines
-# After (CRUDRouteFactory): ~110 lines
-# Reduction: 125 lines (53% reduction)
-#
-# Routes Generated by CRUDRouteFactory:
-# - POST /api/learning (create)
-# - GET /api/learning/{uid} (get)
-# - PUT /api/learning/{uid} (update)
-# - DELETE /api/learning/{uid} (delete)
-# - GET /api/learning (list with pagination)
-#
-# Domain-Specific Routes (Manual):
-# - GET /api/learning/{path_uid}/steps (get steps)
-# - GET /api/learning/{path_uid}/current-step (get current step)
-# - POST /api/learning/progress (update progress)
-# - GET /api/learning/progress/summary (get progress summary)
-# - GET /api/learning/recommendations (get recommendations)
-#
-# Next Steps:
-# - Task 4: Add LS CRUD operations to LpService
-# - Task 5: Create learning_steps_api.py with CRUDRouteFactory for standalone LS management
+__all__ = ["create_pathways_api_routes"]
