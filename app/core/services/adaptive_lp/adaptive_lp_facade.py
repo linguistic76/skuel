@@ -2,10 +2,7 @@
 Adaptive Learning Path Facade
 ==============================
 
-Unified interface composing all adaptive learning path sub-services.
-
-Provides backward compatibility with the original AdaptiveLpService
-while delegating to specialized sub-services:
+Unified interface composing all adaptive learning path sub-services:
 - Core: Dynamic path generation and knowledge analysis
 - Recommendations: Adaptive recommendations based on gaps
 - Cross-Domain: Cross-domain opportunity discovery
@@ -98,7 +95,7 @@ class AdaptiveLpFacade:
         """
         Generate a dynamic learning path based on a specific user goal.
 
-        Delegates to AdaptiveLpCoreService.
+        Builds UserContext via user_service, then delegates to AdaptiveLpCoreService.
 
         Args:
             user_uid: User to generate path for,
@@ -108,8 +105,24 @@ class AdaptiveLpFacade:
         Returns:
             Result containing AdaptiveLp
         """
+        # Build UserContext (MEGA-QUERY via user_service)
+        if not self.user_service:
+            return Result.fail(
+                Errors.system(
+                    message="user_service required for UserContext",
+                    operation="generate_goal_driven_learning_path",
+                )
+            )
+
+        user_context_result = await self.user_service.get_user_context(user_uid)
+        if user_context_result.is_error:
+            return Result.fail(user_context_result.expect_error())
+        user_context = user_context_result.value
+
         return await self.core_service.generate_goal_driven_learning_path(
-            user_uid=user_uid, goal_uid=goal_uid, learning_style_override=learning_style_override
+            context=user_context,
+            goal_uid=goal_uid,
+            learning_style_override=learning_style_override,
         )
 
     # ========================================================================

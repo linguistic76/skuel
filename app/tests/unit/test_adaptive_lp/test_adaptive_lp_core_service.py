@@ -21,6 +21,7 @@ from core.services.adaptive_lp.adaptive_lp_models import (
     LearningStyle,
     LpType,
 )
+from core.services.user import UserContext
 from core.utils.result_simplified import Result
 
 # ============================================================================
@@ -167,6 +168,20 @@ def core_service(mock_ku_service, mock_goals_service, mock_tasks_service):
 
 
 @pytest.fixture
+def mock_user_context():
+    """Create mock UserContext for core service methods."""
+    return UserContext(
+        user_uid="user_001",
+        mastered_knowledge_uids={"ku_001", "ku_002"},
+        in_progress_knowledge_uids={"ku_003"},
+        knowledge_mastery={"ku_001": 0.9, "ku_002": 0.8, "ku_003": 0.3},
+        prerequisites_completed={"ku_001"},
+        prerequisites_needed={"ku_003": ["ku_001", "ku_002"]},
+        recently_mastered_uids={"ku_001"},
+    )
+
+
+@pytest.fixture
 def core_service_no_deps():
     """Create AdaptiveLpCoreService without dependencies."""
     return AdaptiveLpCoreService()
@@ -181,23 +196,27 @@ class TestLearningPathGeneration:
     """Test goal-driven learning path generation."""
 
     @pytest.mark.asyncio
-    async def test_generate_goal_driven_learning_path_basic(self, core_service):
+    async def test_generate_goal_driven_learning_path_basic(
+        self, core_service, mock_user_context
+    ):
         """Basic learning path generation returns AdaptiveLp."""
         result = await core_service.generate_goal_driven_learning_path(
-            user_uid="user_001",
+            context=mock_user_context,
             goal_uid="goal_001",
         )
 
         assert result.is_ok
         lp = result.value
         assert isinstance(lp, AdaptiveLp)
-        assert lp.path_type == LpType.GOAL_DRIVEN  # FIX: was lp_type
+        assert lp.path_type == LpType.GOAL_DRIVEN
 
     @pytest.mark.asyncio
-    async def test_generate_goal_driven_learning_path_with_style_override(self, core_service):
+    async def test_generate_goal_driven_learning_path_with_style_override(
+        self, core_service, mock_user_context
+    ):
         """Learning path respects learning style override."""
         result = await core_service.generate_goal_driven_learning_path(
-            user_uid="user_001",
+            context=mock_user_context,
             goal_uid="goal_001",
             learning_style_override=LearningStyle.PRACTICAL,
         )
@@ -210,17 +229,17 @@ class TestLearningPathGeneration:
         assert 0.0 <= lp.learning_style_match <= 1.0
 
     @pytest.mark.asyncio
-    async def test_generate_path_without_services_returns_error(self, core_service_no_deps):
-        """Path generation without required services returns error or empty path."""
+    async def test_generate_path_without_services_returns_error(
+        self, core_service_no_deps, mock_user_context
+    ):
+        """Path generation without required services returns error."""
         result = await core_service_no_deps.generate_goal_driven_learning_path(
-            user_uid="user_001",
+            context=mock_user_context,
             goal_uid="goal_001",
         )
 
-        # Either error or empty path is acceptable
-        if result.is_ok:
-            lp = result.value
-            assert len(lp.knowledge_steps) == 0 or lp is not None
+        # Without goals_service, should return error
+        assert result.is_error
 
 
 # ============================================================================

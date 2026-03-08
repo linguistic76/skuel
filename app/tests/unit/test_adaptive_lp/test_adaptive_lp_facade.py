@@ -164,7 +164,7 @@ class TestFacadeDelegation:
 
     @pytest.mark.asyncio
     async def test_facade_delegates_to_core_service(self, facade):
-        """generate_goal_driven_learning_path delegates to core_service."""
+        """generate_goal_driven_learning_path builds UserContext and delegates to core_service."""
         # Mock the core_service method
         facade.core_service.generate_goal_driven_learning_path = AsyncMock(
             return_value=Result.ok(Mock())
@@ -175,7 +175,9 @@ class TestFacadeDelegation:
             goal_uid="goal_001",
         )
 
-        assert result.is_ok  # Verify behavior
+        assert result.is_ok
+        # Facade builds UserContext via user_service first
+        facade.user_service.get_user_context.assert_called_once_with("user_001")
         facade.core_service.generate_goal_driven_learning_path.assert_called_once()
 
     @pytest.mark.asyncio

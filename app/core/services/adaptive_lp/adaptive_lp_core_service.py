@@ -96,19 +96,24 @@ class AdaptiveLpCoreService:
 
     @with_error_handling(error_type="system", uid_param="goal_uid")
     async def generate_goal_driven_learning_path(
-        self, user_uid: str, goal_uid: str, learning_style_override: str | None = None
+        self,
+        context: "UserContext",
+        goal_uid: str,
+        learning_style_override: str | None = None,
     ) -> Result[AdaptiveLp]:
         """
         Generate a dynamic learning path based on a specific user goal.
 
         Args:
-            user_uid: User to generate path for,
-            goal_uid: Specific goal to target,
+            context: UserContext with complete user state (built by facade via MEGA-QUERY)
+            goal_uid: Specific goal to target
             learning_style_override: Override detected learning style
 
         Returns:
             Result containing AdaptiveLp
         """
+        user_uid = context.user_uid
+
         # Get the target goal
         if not self.goals_service:
             return Result.fail(
@@ -133,17 +138,8 @@ class AdaptiveLpCoreService:
                 return Result.fail(style_result.expect_error())
             learning_style = style_result.value
 
-        # Analyze current knowledge state
-        # NOTE: This internal method needs UserContext but receives user_uid
-        # Create minimal context as temporary workaround until facade refactor
-        from core.services.user import UserContext
-
-        minimal_context = UserContext(user_uid=user_uid)
-        self.logger.warning(
-            "generate_from_goal_internal uses minimal UserContext - "
-            "consider refactoring to accept context parameter"
-        )
-        knowledge_state_result = await self.analyze_user_knowledge_state(minimal_context)
+        # Analyze current knowledge state from UserContext (no re-query)
+        knowledge_state_result = await self.analyze_user_knowledge_state(context)
         if knowledge_state_result.is_error:
             return Result.fail(knowledge_state_result.expect_error())
         knowledge_state = knowledge_state_result.value
