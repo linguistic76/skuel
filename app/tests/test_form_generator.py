@@ -519,9 +519,7 @@ class TestCustomWidgets:
             action="/test",
             include_fields=["description"],
             custom_widgets={
-                "description": Textarea(
-                    name="description", rows=8, placeholder="Custom..."
-                ),
+                "description": Textarea(name="description", rows=8, placeholder="Custom..."),
             },
         )
         html = get_form_html(form)

@@ -309,17 +309,28 @@ class GoalUIComponents:
                 submit_label="Create Goal",
                 sections={
                     "Basic Information": [
-                        "title", "description", "why_important", "vision_statement",
+                        "title",
+                        "description",
+                        "why_important",
+                        "vision_statement",
                     ],
                     "Classification": [
-                        "goal_type", "domain", "timeframe", "priority",
+                        "goal_type",
+                        "domain",
+                        "timeframe",
+                        "priority",
                     ],
                     "Timeline & Measurement": [
-                        "start_date", "target_date", "measurement_type",
-                        "target_value", "unit_of_measurement",
+                        "start_date",
+                        "target_date",
+                        "measurement_type",
+                        "target_value",
+                        "unit_of_measurement",
                     ],
                     "Motivation": [
-                        "success_criteria", "potential_obstacles", "strategies",
+                        "success_criteria",
+                        "potential_obstacles",
+                        "strategies",
                     ],
                 },
                 help_texts={

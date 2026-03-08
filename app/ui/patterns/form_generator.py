@@ -229,17 +229,29 @@ class FormGenerator:
         # Build form content — sectioned or flat
         if sections:
             form_fields = FormGenerator._build_sectioned_fields(
-                model_class, model_fields, sections, exclude_fields,
-                custom_widgets, help_texts, values,
+                model_class,
+                model_fields,
+                sections,
+                exclude_fields,
+                custom_widgets,
+                help_texts,
+                values,
             )
         else:
             field_names = FormGenerator._resolve_field_names(
-                model_fields, include_fields, exclude_fields, field_order,
+                model_fields,
+                include_fields,
+                exclude_fields,
+                field_order,
             )
             form_fields = [
                 FormGenerator._generate_field(
-                    name, model_fields[name], model_class.__annotations__[name],
-                    values.get(name), custom_widgets.get(name), help_texts.get(name),
+                    name,
+                    model_fields[name],
+                    model_class.__annotations__[name],
+                    values.get(name),
+                    custom_widgets.get(name),
+                    help_texts.get(name),
                 )
                 for name in field_names
             ]
@@ -256,9 +268,7 @@ class FormGenerator:
             return Div(*form_fields, **wrapper_attrs)
 
         # Full form mode
-        form_fields.append(
-            Button(submit_label, type="submit", variant=ButtonT.primary, cls="mt-4")
-        )
+        form_fields.append(Button(submit_label, type="submit", variant=ButtonT.primary, cls="mt-4"))
 
         attrs: dict[str, Any] = {
             "action": action,
@@ -346,8 +356,12 @@ class FormGenerator:
                     continue
                 fields.append(
                     FormGenerator._generate_field(
-                        name, model_fields[name], model_class.__annotations__[name],
-                        values.get(name), custom_widgets.get(name), help_texts.get(name),
+                        name,
+                        model_fields[name],
+                        model_class.__annotations__[name],
+                        values.get(name),
+                        custom_widgets.get(name),
+                        help_texts.get(name),
                     )
                 )
             if fields:
@@ -379,7 +393,11 @@ class FormGenerator:
         # Custom widgets still get wrapped with label and error display
         if custom_widget is not None:
             return FormGenerator._wrap_field(
-                field_name, label_text, custom_widget, is_required, help_text,
+                field_name,
+                label_text,
+                custom_widget,
+                is_required,
+                help_text,
             )
 
         widget_type = FieldWidgetMapper.get_widget_type(field_name, field_info, annotation)
@@ -387,11 +405,21 @@ class FormGenerator:
         constraints = FieldWidgetMapper.extract_constraints(field_info)
 
         widget = FormGenerator._build_widget(
-            field_name, widget_type, annotation, placeholder, constraints, is_required, value,
+            field_name,
+            widget_type,
+            annotation,
+            placeholder,
+            constraints,
+            is_required,
+            value,
         )
 
         return FormGenerator._wrap_field(
-            field_name, label_text, widget, is_required, help_text,
+            field_name,
+            label_text,
+            widget,
+            is_required,
+            help_text,
         )
 
     @staticmethod
