@@ -128,10 +128,13 @@ class ProgressFeedbackGenerator:
         )
 
         try:
-            # 1. Query historical completions (raw stats)
-            completions = await self._query_completions(
-                user_uid, start_date, end_date, domains, window=time_period
-            )
+            # 1. Build UserContext once (single MEGA-QUERY round-trip)
+            ctx_result = await self.context_builder.build_rich(user_uid, window=time_period)
+            if ctx_result.is_error:
+                logger.warning(f"Failed to build context for {user_uid}: {ctx_result.error}")
+                completions = self._empty_completions()
+            else:
+                completions = self._completions_from_context(ctx_result.value, domains)
 
             # 2. Get active insights if requested
             insights: list[Any] = []
@@ -242,7 +245,7 @@ class ProgressFeedbackGenerator:
         """Send activity stats to LLM and return qualitative feedback text.
 
         Args:
-            completions: Raw activity stats from _query_completions()
+            completions: Raw activity stats from _completions_from_context()
             insights: Active insights for the user
             time_period: e.g. "7d"
             depth: "summary" | "standard" | "detailed"
@@ -410,33 +413,6 @@ class ProgressFeedbackGenerator:
             "ls_active": 0,
             "ls_details": [],
         }
-
-    async def _query_completions(
-        self,
-        user_uid: str,
-        start_date: datetime,
-        end_date: datetime,
-        domains: list[str] | None = None,
-        window: str = "7d",
-    ) -> dict[str, Any]:
-        """Query historical completions via UserContextBuilder.build_rich().
-
-        Delegates to context_builder.build_rich() with the given window, then maps
-        context.entities_rich into the completions dict consumed by
-        _build_report_content() and _build_llm_prompt().
-
-        Staleness note: If a UserContext cache is active (e.g. a 5-minute TTL),
-        data returned here may not reflect activity performed in the last few minutes.
-        Scheduled (AUTOMATIC) reports tolerate this. If user-initiated reports need
-        guaranteed freshness, the caller should pass a fresh context or bypass the cache
-        before calling this method.
-        """
-        ctx_result = await self.context_builder.build_rich(user_uid, window=window)
-        if ctx_result.is_error:
-            logger.warning(f"Failed to query activity completions: {ctx_result.error}")
-            return self._empty_completions()
-
-        return self._completions_from_context(ctx_result.value, domains)
 
     def _completions_from_context(
         self,

@@ -108,40 +108,33 @@ class TestTimePeriodMapping:
 # ============================================================================
 
 
-class TestQueryCompletionsSingleRoundTrip:
-    """_query_completions issues exactly one UserContextBuilder.build_rich() call."""
+class TestContextBuildingSingleRoundTrip:
+    """generate() builds UserContext via a single build_rich() call."""
 
     @pytest.mark.asyncio
-    async def test_single_query_call(self, generator):
-        """Delegates to UserContextBuilder for a single round-trip."""
+    async def test_single_build_rich_call(self, generator):
+        """generate() calls build_rich exactly once."""
         generator.context_builder.build_rich.reset_mock()
-        await generator._query_completions(
-            "user_alice",
-            datetime.now() - timedelta(days=7),
-            datetime.now(),
-        )
+        await generator.generate(user_uid="user_alice")
         assert generator.context_builder.build_rich.call_count == 1
 
     @pytest.mark.asyncio
     async def test_build_rich_called_with_window(self, generator):
         """build_rich is called with the correct window parameter."""
         generator.context_builder.build_rich.reset_mock()
-        start = datetime.now() - timedelta(days=7)
-        await generator._query_completions("user_alice", start, datetime.now(), window="7d")
+        await generator.generate(user_uid="user_alice", time_period="14d")
         _, kwargs = generator.context_builder.build_rich.call_args
-        assert kwargs.get("window") == "7d"
+        assert kwargs.get("window") == "14d"
 
     @pytest.mark.asyncio
-    async def test_empty_result_returns_zero_counts(self, generator):
-        """Empty entities_rich (no window data) returns all-zero completions."""
-        result = await generator._query_completions(
-            "user_ghost",
-            datetime.now() - timedelta(days=7),
-            datetime.now(),
-        )
-        assert result["tasks_completed"] == 0
-        assert result["events_attended"] == 0
-        assert result["choices_made"] == 0
+    async def test_empty_context_produces_zero_counts(self, generator):
+        """Empty entities_rich produces all-zero metadata counts."""
+        result = await generator.generate(user_uid="user_ghost")
+        assert result.is_ok
+        report = generator.activity_report_service.persist.call_args[0][0]
+        assert report.metadata["tasks_completed"] == 0
+        assert report.metadata["events_attended"] == 0
+        assert report.metadata["choices_made"] == 0
 
 
 class TestPreviousAnnotationParameter:
