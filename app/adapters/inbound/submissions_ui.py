@@ -12,7 +12,6 @@ Desktop: collapsible sidebar. Mobile: horizontal tabs.
 """
 
 from dataclasses import dataclass
-from datetime import date
 from typing import Any
 
 from fasthtml.common import (
@@ -22,12 +21,9 @@ from fasthtml.common import (
     A,
     Div,
     Form,
-    Input,
     Label,
-    NotStr,
     Option,
     P,
-    Script,
     Select,
     Span,
 )
@@ -38,308 +34,34 @@ from adapters.inbound.auth import require_authenticated_user
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
-from ui.feedback import get_submission_status_badge_class
 from ui.layouts.base_page import BasePage
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
+from ui.submissions.assignments import render_assignments_list
+from ui.submissions.cards import (
+    render_processed_content,
+    render_submission_detail,
+    render_submissions_grid,
+    render_upload_status,
+)
+from ui.submissions.feedback import (
+    render_activity_feedback_list,
+    render_progress_report_list,
+    render_received_feedback_list,
+    render_yours_list,
+)
+from ui.submissions.forms import (
+    render_category_selector,
+    render_filters_section,
+    render_submissions_grid_container,
+    render_tags_manager,
+    render_upload_form,
+    render_yours_list_container,
+    upload_form_script,
+)
+from ui.submissions.sharing import render_sharing_section
 
 logger = get_logger("skuel.routes.submissions.ui")
-
-
-# ============================================================================
-# HTMX FRAGMENT RENDERING FUNCTIONS
-# ============================================================================
-
-
-def _render_upload_status(
-    status: str,
-    message: str,
-    submission_uid: str | None = None,
-    is_error: bool = False,
-) -> Any:
-    """Render upload status as HTML fragment for HTMX swap."""
-    if is_error:
-        return Div(
-            Div(
-                H4("Upload Failed", cls="mb-0"),
-                P(message, cls="mb-0"),
-                cls="alert alert-error",
-            ),
-            id="upload-status",
-        )
-
-    return Div(
-        Div(
-            H4("File Uploaded Successfully!", cls="mb-0"),
-            P(f"Submission ID: {submission_uid}", cls="mb-0") if submission_uid else None,
-            P(f"Status: {status}", cls="mb-0"),
-            cls="alert alert-success",
-        ),
-        id="upload-status",
-    )
-
-
-def _get_submission_identifier(submission: Any) -> str:
-    """Extract the identifier from submission metadata, falling back to report_type."""
-    metadata = getattr(submission, "metadata", None)
-    if isinstance(metadata, dict):
-        identifier = metadata.get("identifier")
-        if identifier:
-            return str(identifier)
-    return getattr(submission, "report_type", "unknown")
-
-
-_get_status_badge_class = get_submission_status_badge_class
-
-
-def _render_submission_card(submission: Any, is_pinned: bool = False) -> Any:
-    """
-    Render a single submission card.
-
-    Args:
-        submission: Submission entity
-        is_pinned: Whether this submission is pinned
-    """
-    from ui.patterns.pin_button import PinButton
-
-    file_size_mb = (submission.file_size / 1024 / 1024) if submission.file_size else 0
-    identifier = _get_submission_identifier(submission)
-    return Div(
-        Div(
-            Div(
-                Div(
-                    H4(submission.original_filename, cls="mb-0 font-semibold"),
-                    P(
-                        f"{identifier} \u2022 {file_size_mb:.2f} MB",
-                        cls="text-sm text-base-content/60 mb-0",
-                    ),
-                    cls="flex-1",
-                ),
-                Div(
-                    Span(
-                        submission.status,
-                        cls=f"badge {_get_status_badge_class(submission.status)}",
-                    ),
-                ),
-                Div(
-                    PinButton(entity_uid=submission.uid, is_pinned=is_pinned, size="xs"),
-                    A(
-                        "View",
-                        href=f"/submissions/{submission.uid}",
-                        cls="btn btn-sm btn-ghost",
-                    ),
-                    cls="flex gap-2",
-                ),
-                cls="flex items-center gap-4",
-            ),
-            cls="card-body p-4",
-        ),
-        cls="card bg-base-100 shadow-sm mb-2",
-    )
-
-
-def _render_submissions_grid(submissions: list[Any]) -> Any:
-    """Render submissions grid as HTML fragment for HTMX swap."""
-    if not submissions:
-        return Div(
-            P("No submissions found.", cls="text-center text-base-content/60"),
-            id="submissions-grid-container",
-        )
-
-    return Div(
-        *[_render_submission_card(a) for a in submissions],
-        id="submissions-grid-container",
-    )
-
-
-def _render_submission_detail(submission: Any) -> Any:
-    """Render submission detail info as HTML fragment."""
-    file_size_mb = (submission.file_size / 1024 / 1024) if submission.file_size else 0
-    processing_duration = getattr(submission, "processing_duration_seconds", None)
-    created_at = getattr(submission, "created_at", None)
-    identifier = _get_submission_identifier(submission)
-
-    return Div(
-        Div(
-            Div(
-                P("Filename", cls="text-xs text-base-content/60 mb-0"),
-                P(submission.original_filename, cls="mb-0 font-bold"),
-            ),
-            Div(
-                P("Identifier", cls="text-xs text-base-content/60 mb-0"),
-                P(identifier, cls="mb-0 font-semibold"),
-            ),
-            Div(
-                P("Status", cls="text-xs text-base-content/60 mb-0"),
-                P(
-                    Span(
-                        submission.status,
-                        cls=f"badge {_get_status_badge_class(submission.status)}",
-                    ),
-                    cls="mb-0",
-                ),
-            ),
-            Div(
-                P("File Size", cls="text-xs text-base-content/60 mb-0"),
-                P(f"{file_size_mb:.2f} MB", cls="mb-0"),
-            ),
-            Div(
-                P("Processing Duration", cls="text-xs text-base-content/60 mb-0"),
-                P(f"{processing_duration or 'N/A'} seconds", cls="mb-0"),
-            ),
-            Div(
-                P("Created", cls="text-xs text-base-content/60 mb-0"),
-                P(str(created_at) if created_at else "N/A", cls="mb-0"),
-            ),
-            cls="grid grid-cols-1 md:grid-cols-2 gap-4",
-        ),
-        id="submission-info",
-    )
-
-
-def _render_processed_content(content: str | None, has_content: bool) -> Any:
-    """Render processed content as HTML fragment."""
-    if not has_content or not content:
-        return Div(
-            P("No processed content available.", cls="text-base-content/60"),
-            id="processed-content",
-            cls="p-4 bg-base-200 rounded-lg",
-        )
-
-    return Div(
-        Div(content, cls="text-sm", style="white-space: pre-wrap"),
-        id="processed-content",
-        cls="p-4 bg-base-200 rounded-lg",
-        style="max-height: 600px; overflow-y: auto;",
-    )
-
-
-def _render_category_selector(submission: Any) -> Any:
-    """Render category selector for submission."""
-    current_category = submission.metadata.get("category") if submission.metadata else None
-    categories = ["daily", "weekly", "reflection", "work", "personal", "other"]
-
-    return Div(
-        Label("Category:", cls="label"),
-        Select(
-            *[
-                Option(cat.title(), value=cat, selected=(cat == current_category))
-                for cat in categories
-            ],
-            cls="select select-bordered w-full",
-            hx_post=f"/api/submissions/categorize?submission_uid={submission.uid}&user_uid={submission.user_uid}",
-            hx_trigger="change",
-            hx_target=f"#category-display-{submission.uid}",
-            hx_swap="outerHTML",
-            hx_vals="js:{category: event.target.value}",
-        ),
-        id=f"category-selector-{submission.uid}",
-        cls="form-control",
-    )
-
-
-def _render_category_display(submission: Any) -> Any:
-    """Render category display with edit button."""
-    current_category = (
-        submission.metadata.get("category", "none") if submission.metadata else "none"
-    )
-
-    return Div(
-        Span(f"Category: {current_category.title()}", cls="badge badge-primary"),
-        Button(
-            "Change",
-            cls="btn btn-xs btn-ghost ml-2",
-            hx_get=f"/submissions/{submission.uid}/category-selector",
-            hx_target=f"#category-display-{submission.uid}",
-            hx_swap="outerHTML",
-        ),
-        id=f"category-display-{submission.uid}",
-    )
-
-
-def _render_tags_manager(submission: Any) -> Any:
-    """Render tags manager for submission."""
-    tags = submission.metadata.get("tags", []) if submission.metadata else []
-
-    tag_elements = [
-        Span(
-            tag,
-            Button(
-                "\u00d7",
-                cls="btn btn-xs btn-ghost ml-1",
-                hx_post=f"/api/submissions/tags/remove?submission_uid={submission.uid}&user_uid={submission.user_uid}",
-                hx_vals=f'js:{{tags: ["{tag}"]}}',
-                hx_target=f"#tags-manager-{submission.uid}",
-                hx_swap="outerHTML",
-            ),
-            cls="badge badge-secondary mr-2 mb-2",
-        )
-        for tag in tags
-    ]
-
-    return Div(
-        Div(*tag_elements, cls="flex flex-wrap")
-        if tags
-        else Div("No tags", cls="text-sm text-base-content/60"),
-        Form(
-            Input(
-                type="text",
-                name="new_tag",
-                placeholder="Add tag...",
-                cls="input input-bordered input-sm w-full max-w-xs",
-            ),
-            Button("Add Tag", type="submit", cls="btn btn-primary btn-sm ml-2"),
-            cls="flex items-center mt-2",
-            hx_post=f"/api/submissions/tags/add?submission_uid={submission.uid}&user_uid={submission.user_uid}",
-            hx_vals="js:{tags: [document.querySelector('[name=\"new_tag\"]').value]}",
-            hx_target=f"#tags-manager-{submission.uid}",
-            hx_swap="outerHTML",
-        ),
-        id=f"tags-manager-{submission.uid}",
-        cls="p-4 bg-base-200 rounded-lg",
-    )
-
-
-def _render_status_buttons(submission: Any) -> Any:
-    """Render status workflow buttons (publish/archive/draft)."""
-    current_status = submission.status
-
-    return Div(
-        Div(
-            Button(
-                "Publish",
-                cls="btn btn-success btn-sm",
-                hx_post=f"/api/submissions/publish?submission_uid={submission.uid}&user_uid={submission.user_uid}",
-                hx_target=f"#status-buttons-{submission.uid}",
-                hx_swap="outerHTML",
-                disabled=(current_status == "published"),
-            ),
-            Button(
-                "Archive",
-                cls="btn btn-warning btn-sm ml-2",
-                hx_post=f"/api/submissions/archive?submission_uid={submission.uid}&user_uid={submission.user_uid}",
-                hx_target=f"#status-buttons-{submission.uid}",
-                hx_swap="outerHTML",
-                disabled=(current_status == "archived"),
-            ),
-            Button(
-                "Mark as Draft",
-                cls="btn btn-ghost btn-sm ml-2",
-                hx_post=f"/api/submissions/draft?submission_uid={submission.uid}&user_uid={submission.user_uid}",
-                hx_target=f"#status-buttons-{submission.uid}",
-                hx_swap="outerHTML",
-                disabled=(current_status == "draft"),
-            ),
-            cls="flex gap-2",
-        ),
-        Div(
-            Span(
-                f"Current status: {current_status}", cls="text-xs text-base-content/60 mt-2 block"
-            ),
-        ),
-        id=f"status-buttons-{submission.uid}",
-        cls="p-4 bg-base-200 rounded-lg",
-    )
 
 
 # ============================================================================
@@ -356,223 +78,10 @@ class SubmissionFilters:
 
 
 def parse_submission_filters(request: Request) -> SubmissionFilters:
-    """
-    Extract submission filter parameters from request query params.
-
-    Args:
-        request: Starlette request object
-
-    Returns:
-        Typed SubmissionFilters with defaults applied
-    """
+    """Extract submission filter parameters from request query params."""
     return SubmissionFilters(
         report_type=request.query_params.get("report_type", ""),
         status=request.query_params.get("status", ""),
-    )
-
-
-# ============================================================================
-# SHARING UI COMPONENTS
-# ============================================================================
-
-
-def _render_visibility_dropdown(submission: Any) -> Any:
-    """
-    Render visibility level dropdown.
-
-    Only shows for completed reports (quality control).
-    Uses HTMX for instant updates.
-    """
-    current_visibility = getattr(submission, "visibility", "private")
-    is_shareable = getattr(submission, "status", "") == "completed"
-
-    if not is_shareable:
-        return Div(
-            Span("Private", cls="badge badge-ghost"),
-            P(
-                "Only completed reports can be shared",
-                cls="text-xs text-base-content/60 mt-1 mb-0",
-            ),
-            cls="mb-4",
-        )
-
-    visibility_options = [
-        ("private", "Private", "Only you can see"),
-        ("shared", "Shared", "Specific users only"),
-        ("public", "Public", "Portfolio showcase"),
-    ]
-
-    return Div(
-        Label("Visibility:", cls="label label-text font-bold"),
-        Select(
-            *[
-                Option(
-                    label,
-                    value=val,
-                    selected=(val == current_visibility),
-                )
-                for val, label, _desc in visibility_options
-            ],
-            name="visibility",
-            cls="select select-bordered w-full",
-            hx_post="/api/submissions/set-visibility",
-            hx_trigger="change",
-            hx_vals=f"js:{{report_uid: '{submission.uid}', visibility: event.target.value}}",
-            hx_target="#visibility-status",
-            hx_swap="innerHTML",
-        ),
-        Div(
-            P(
-                next(
-                    (desc for val, _lbl, desc in visibility_options if val == current_visibility),
-                    "",
-                ),
-                cls="text-xs text-base-content/60 mb-0",
-            ),
-            id="visibility-status",
-            cls="mt-1",
-        ),
-        cls="form-control mb-4",
-    )
-
-
-def _render_share_modal(report_uid: str) -> Any:
-    """
-    Render modal for sharing submission with a user.
-
-    Uses Alpine.js for modal state management.
-    HTMX for form submission.
-    """
-    return Div(
-        # Modal structure (DaisyUI modal with Alpine.js x-show)
-        Div(
-            Div(
-                # Modal box
-                Div(
-                    # Close button
-                    Form(
-                        Button(
-                            "\u2715",
-                            cls="btn btn-sm btn-circle btn-ghost absolute right-2 top-2",
-                            **{"@click": "shareModal = false"},
-                        ),
-                        method="dialog",
-                    ),
-                    # Modal content
-                    H3("Share Report", cls="font-bold text-lg mb-4"),
-                    # Share form
-                    Form(
-                        Div(
-                            Label("User UID:", cls="label label-text"),
-                            Input(
-                                type="text",
-                                name="recipient_uid",
-                                placeholder="user_teacher",
-                                cls="input input-bordered w-full",
-                                required=True,
-                            ),
-                            cls="form-control mb-3",
-                        ),
-                        Div(
-                            Label("Role:", cls="label label-text"),
-                            Select(
-                                Option("Viewer", value="viewer", selected=True),
-                                Option("Teacher", value="teacher"),
-                                Option("Peer", value="peer"),
-                                Option("Mentor", value="mentor"),
-                                name="role",
-                                cls="select select-bordered w-full",
-                            ),
-                            cls="form-control mb-4",
-                        ),
-                        Div(
-                            Button(
-                                "Cancel",
-                                type="button",
-                                cls="btn btn-ghost",
-                                **{"@click": "shareModal = false"},
-                            ),
-                            Button(
-                                "Share",
-                                type="submit",
-                                cls="btn btn-primary",
-                            ),
-                            cls="flex gap-2 justify-end",
-                        ),
-                        hx_post="/api/submissions/share",
-                        hx_vals=f"js:{{report_uid: '{report_uid}', recipient_uid: document.querySelector('input[name=recipient_uid]').value, role: document.querySelector('select[name=role]').value}}",
-                        hx_target="#shared-users-list",
-                        hx_swap="innerHTML",
-                        **{
-                            "@submit.prevent": "$el.dispatchEvent(new Event('htmx:trigger')); shareModal = false"
-                        },
-                    ),
-                    cls="modal-box",
-                ),
-                cls="modal-backdrop",
-                **{"@click": "shareModal = false"},
-            ),
-            cls="modal",
-            **{"x-show": "shareModal", "x-cloak": ""},
-        ),
-        # Open modal button
-        Button(
-            "Share with User",
-            cls="btn btn-primary btn-sm",
-            **{"@click": "shareModal = true"},
-        ),
-    )
-
-
-def _render_shared_users_list(report_uid: str) -> Any:
-    """
-    Render list of users submission is shared with.
-
-    Loaded dynamically via HTMX on page load.
-    """
-    return Div(
-        H4("Shared With", cls="font-bold mb-2"),
-        Div(
-            P("Loading shared users...", cls="text-base-content/60 text-sm"),
-            id="shared-users-list",
-            hx_get=f"/submissions/{report_uid}/shared-users",
-            hx_trigger="load",
-            hx_swap="innerHTML",
-        ),
-        cls="mt-4",
-    )
-
-
-def _render_sharing_section(submission: Any) -> Any:
-    """
-    Render complete sharing section for submission detail page.
-
-    Includes:
-    - Visibility dropdown
-    - Share button (opens modal)
-    - Shared users list
-
-    Only shown for submission owner.
-    """
-    return Div(
-        H4("Sharing & Visibility", cls="font-bold text-lg mb-4"),
-        Div(
-            # Visibility controls
-            _render_visibility_dropdown(submission),
-            # Share modal and button
-            Div(
-                _render_share_modal(submission.uid),
-                cls="mb-4",
-            ),
-            # Shared users list
-            _render_shared_users_list(submission.uid),
-            cls="space-y-2",
-        ),
-        id="sharing-section",
-        cls="card bg-base-200 p-4 rounded-lg mt-6",
-        **{
-            "x-data": "{ shareModal: false }",  # Alpine.js data for modal state
-        },
     )
 
 
@@ -588,615 +97,6 @@ SUBMISSIONS_SIDEBAR_ITEMS = [
     SidebarItem("Feedback", "/submissions/feedback", "feedback", icon="💬"),
     SidebarItem("Progress", "/submissions/progress", "progress", icon="📊"),
 ]
-
-
-# ============================================================================
-# ASSIGNMENTS RENDERING
-# ============================================================================
-
-
-def _render_assignments_list(exercises: list[dict[str, Any]]) -> Any:
-    """Render student's assigned exercises with submission status."""
-    if not exercises:
-        return Div(
-            P(
-                "No exercises assigned yet. You'll see exercises here when a teacher assigns them to your group.",
-                cls="text-center text-base-content/60 py-8",
-            ),
-            cls="card bg-base-100 shadow-sm p-6",
-        )
-
-    cards = [_render_assignment_card(ex) for ex in exercises]
-    return Div(*cards, cls="space-y-4")
-
-
-def _render_assignment_card(ex: dict[str, Any]) -> Any:
-    """Render a single exercise assignment card."""
-    uid = ex.get("uid", "")
-    title = ex.get("title", "Untitled Exercise")
-    instructions = ex.get("instructions") or ""
-    due_date_str = ex.get("due_date")
-    group_name = ex.get("group_name", "")
-    has_submission = ex.get("has_submission", False)
-
-    # Status badge
-    if has_submission:
-        status_badge = Span("Submitted", cls="badge badge-success")
-    elif due_date_str:
-        try:
-            due = date.fromisoformat(str(due_date_str))
-            days_until = (due - date.today()).days
-            if days_until < 0:
-                status_badge = Span(f"Overdue ({-days_until}d)", cls="badge badge-error")
-            elif days_until <= 3:
-                status_badge = Span(f"Due in {days_until}d", cls="badge badge-warning")
-            else:
-                status_badge = Span(f"Due in {days_until}d", cls="badge badge-info")
-        except (ValueError, TypeError):
-            status_badge = Span("Pending", cls="badge badge-ghost")
-    else:
-        status_badge = Span("No deadline", cls="badge badge-ghost")
-
-    # Instructions preview (truncated)
-    instructions_preview = ""
-    if instructions:
-        preview_text = instructions[:200] + ("..." if len(instructions) > 200 else "")
-        instructions_preview = P(preview_text, cls="text-sm text-base-content/70 mt-2")
-
-    # Group name
-    group_tag = Span(group_name, cls="badge badge-outline badge-sm") if group_name else ""
-
-    # Due date display
-    due_display = ""
-    if due_date_str:
-        due_display = Span(f"Due: {due_date_str}", cls="text-sm text-base-content/60")
-
-    # Action button
-    if has_submission:
-        action = Span("Already submitted", cls="text-sm text-success")
-    else:
-        action = A(
-            "Submit",
-            href=f"/submissions/submit?exercise_uid={uid}",
-            cls="btn btn-primary btn-sm",
-        )
-
-    return Div(
-        Div(
-            Div(
-                Div(
-                    H4(title, cls="card-title text-lg"),
-                    status_badge,
-                    cls="flex items-center gap-2 flex-wrap",
-                ),
-                Div(group_tag, due_display, cls="flex items-center gap-3 mt-1"),
-                instructions_preview,
-                cls="flex-1",
-            ),
-            Div(action, cls="flex items-center"),
-            cls="flex justify-between gap-4",
-        ),
-        cls="card bg-base-100 shadow-sm p-4",
-    )
-
-
-# ============================================================================
-# CONTENT FRAGMENTS (extracted from former monolithic dashboard)
-# ============================================================================
-
-
-def _render_upload_form(
-    assigned_exercises: list[Any] | None = None,
-    selected_exercise_uid: str | None = None,
-) -> Any:
-    """Render the file upload form card with optional exercise selector."""
-    # Build exercise selector if exercises exist
-    exercise_section: Any = ""
-    if assigned_exercises:
-        exercise_options = [Option("None — standalone submission", value="")]
-
-        def _exercise_option(p: Any) -> Any:
-            uid = p.uid
-            label = getattr(p, "title", None) or getattr(p, "name", None) or uid
-            return Option(label, value=uid, selected=(uid == selected_exercise_uid))
-
-        exercise_options.extend(_exercise_option(p) for p in assigned_exercises)
-        exercise_section = Div(
-            Label("Exercise (optional)", cls="label"),
-            Select(
-                *exercise_options,
-                name="fulfills_exercise_uid",
-                cls="select select-bordered w-full",
-            ),
-            P(
-                "Link this submission to a teacher exercise",
-                cls="text-xs text-base-content/60 mt-1",
-            ),
-            cls="mb-4",
-        )
-
-    return Div(
-        Div(
-            Form(
-                # Exercise selector (only if exercises exist)
-                exercise_section,
-                # Identifier input (loose KU reference)
-                Div(
-                    Label("Identifier", cls="label"),
-                    Input(
-                        type="text",
-                        name="identifier",
-                        placeholder="e.g. meditation-basics, yoga-101",
-                        cls="input input-bordered w-full",
-                        required=True,
-                    ),
-                    P(
-                        "A short label linking this submission to a Knowledge Unit",
-                        cls="text-xs text-base-content/60 mt-1",
-                    ),
-                    cls="mb-4",
-                ),
-                # File input with label styling
-                Div(
-                    Label(
-                        Div(
-                            P("Select File", cls="text-center mb-0"),
-                            P(
-                                "Click to browse for files (audio, text, PDF, images, video)",
-                                cls="text-sm text-base-content/60 text-center mt-0",
-                            ),
-                            cls="p-4 text-center bg-base-200 rounded-lg cursor-pointer border-2 border-dashed border-base-300",
-                        ),
-                        Input(
-                            type="file",
-                            name="file",
-                            accept="audio/*,text/*,.pdf,.doc,.docx,image/*,video/*",
-                            cls="hidden",
-                            required=True,
-                        ),
-                        cls="w-full cursor-pointer",
-                    ),
-                    cls="mb-4",
-                ),
-                # Submit button
-                Div(
-                    Button(
-                        "Submit for Review",
-                        variant=ButtonT.primary,
-                        type="submit",
-                    ),
-                    cls="text-center",
-                ),
-                # Upload status (HTMX target)
-                Div(id="upload-status", cls="mt-4 text-center"),
-                # HTMX attributes for form submission
-                **{
-                    "hx-post": "/submissions/upload",
-                    "hx-target": "#upload-status",
-                    "hx-swap": "outerHTML",
-                    "hx-encoding": "multipart/form-data",
-                },
-                id="upload-form",
-            ),
-            cls="card-body",
-        ),
-        cls="card bg-base-100 shadow-sm hover:shadow-md transition-shadow",
-    )
-
-
-def _upload_form_script() -> Any:
-    """HTMX event handlers for upload form UX polish."""
-    return Script(
-        NotStr("""
-        document.body.addEventListener('htmx:beforeRequest', function(evt) {
-            var form = evt.detail.elt;
-            if (form.id === 'upload-form') {
-                var btn = form.querySelector('button[type="submit"]');
-                if (btn) {
-                    btn.disabled = true;
-                    btn.textContent = 'Uploading...';
-                }
-            }
-        });
-
-        document.body.addEventListener('htmx:afterRequest', function(evt) {
-            var form = evt.detail.elt;
-            if (form.id === 'upload-form') {
-                form.reset();
-                var btn = form.querySelector('button[type="submit"]');
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = 'Submit for Review';
-                }
-                htmx.trigger('#submissions-grid-container', 'load');
-            }
-        });
-    """)
-    )
-
-
-def _render_filters_section() -> Any:
-    """Render the status and type filter controls card."""
-    return Div(
-        Div(
-            Form(
-                Div(
-                    Div(
-                        Label("Type", cls="label"),
-                        Select(
-                            Option("All Types", value="", selected=True),
-                            Option("Submission", value="submission"),
-                            Option("Transcript", value="transcript"),
-                            Option("Journal", value="journal"),
-                            Option("Progress Report", value="progress"),
-                            Option("Assessment", value="assessment"),
-                            name="report_type",
-                            cls="select select-bordered w-full",
-                        ),
-                        cls="flex-1",
-                    ),
-                    Div(
-                        Label("Status", cls="label"),
-                        Select(
-                            Option("All Status", value="", selected=True),
-                            Option("Submitted", value="submitted"),
-                            Option("Queued", value="queued"),
-                            Option("Processing", value="processing"),
-                            Option("Completed", value="completed"),
-                            Option("Failed", value="failed"),
-                            Option("Manual Review", value="manual_review"),
-                            name="status",
-                            cls="select select-bordered w-full",
-                        ),
-                        cls="flex-1",
-                    ),
-                    cls="flex gap-4",
-                ),
-                **{
-                    "hx-get": "/submissions/grid",
-                    "hx-target": "#submissions-grid-container",
-                    "hx-swap": "outerHTML",
-                    "hx-trigger": "change from:select",
-                },
-                id="filter-form",
-            ),
-            cls="card-body",
-        ),
-        cls="card bg-base-100 shadow-sm mb-6",
-    )
-
-
-def _render_submissions_grid_container() -> Any:
-    """Render the HTMX-loading reports grid container."""
-    return Div(
-        P("Loading reports...", cls="text-center text-base-content/60"),
-        id="submissions-grid-container",
-        cls="mt-4",
-        **{
-            "hx-get": "/submissions/grid",
-            "hx-trigger": "load",
-            "hx-swap": "outerHTML",
-        },
-    )
-
-
-# ============================================================================
-# STUDENT SUBMISSION HISTORY HELPERS
-# ============================================================================
-
-
-def _render_review_status_badge(status: str, feedback_count: int) -> Any:
-    """Return a DaisyUI badge indicating the teacher review outcome."""
-    if feedback_count > 0 and status == "completed":
-        return Span("Reviewed", cls="badge badge-success badge-sm")
-    if status == "revision_requested":
-        return Span("Revision Needed", cls="badge badge-warning badge-sm")
-    if feedback_count == 0 and status == "submitted":
-        return Span("Awaiting Review", cls="badge badge-neutral badge-sm")
-    return Span(status.replace("_", " ").title(), cls="badge badge-ghost badge-sm")
-
-
-def _render_submission_history_row(item: dict) -> Any:
-    """Render a single submission row with review status for the history list."""
-    filename = item.get("original_filename") or item.get("title") or "Untitled"
-    status = item.get("status") or "submitted"
-    feedback_count = item.get("feedback_count") or 0
-    uid = item.get("uid", "")
-
-    created_raw = item.get("created_at")
-    if created_raw:
-        try:
-            from datetime import datetime
-
-            dt = datetime.fromisoformat(str(created_raw))
-            created_str = dt.strftime("%d %b %Y")
-        except (ValueError, TypeError):
-            created_str = str(created_raw)[:10]
-    else:
-        created_str = ""
-
-    feedback_chip: Any = ""
-    if feedback_count > 0:
-        label = f"{feedback_count} feedback round{'s' if feedback_count != 1 else ''}"
-        feedback_chip = Span(label, cls="badge badge-outline badge-sm ml-2")
-
-    return Div(
-        Div(
-            Div(
-                P(filename, cls="font-semibold mb-0"),
-                P(created_str, cls="text-xs text-base-content/50 mb-0"),
-                cls="flex-1",
-            ),
-            Div(
-                _render_review_status_badge(status, feedback_count),
-                feedback_chip,
-                cls="flex items-center gap-2",
-            ),
-            A(
-                "View",
-                href=f"/submissions/{uid}",
-                cls="btn btn-sm btn-ghost ml-3",
-            ),
-            cls="flex items-center gap-4",
-        ),
-        cls="card bg-base-100 shadow-sm mb-2",
-    )
-
-
-def _render_yours_list(items: list[dict]) -> Any:
-    """Render the full list of submissions with feedback status (HTMX swap target)."""
-    if not items:
-        return Div(
-            P(
-                "No submissions yet.",
-                cls="text-center text-base-content/60 py-8",
-            ),
-            id="submissions-yours-list",
-        )
-    return Div(
-        *[_render_submission_history_row(item) for item in items],
-        id="submissions-yours-list",
-    )
-
-
-def _render_yours_list_container() -> Any:
-    """HTMX-loading container for the submissions history list."""
-    return Div(
-        P("Loading your submissions...", cls="text-center text-base-content/60"),
-        id="submissions-yours-list",
-        cls="mt-4",
-        **{
-            "hx-get": "/submissions/yours/list",
-            "hx-trigger": "load",
-            "hx-swap": "outerHTML",
-        },
-    )
-
-
-def _render_feedback_card(assessment: Any) -> Any:
-    """Render a single received-feedback card (server-side, no inline JS)."""
-    uid = getattr(assessment, "uid", "") or ""
-    title = getattr(assessment, "title", "") or "Assessment"
-    content = getattr(assessment, "content", "") or ""
-    preview = content[:200] + ("..." if len(content) > 200 else "")
-    created_at = getattr(assessment, "created_at", None)
-    user_uid = getattr(assessment, "user_uid", "") or ""
-
-    processor_type = getattr(assessment, "processor_type", None)
-    if processor_type:
-        # Use getattr sentinel pattern (SKUEL011: no hasattr)
-        _missing = object()
-        ptype_val = getattr(processor_type, "value", _missing)
-        ptype_str = ptype_val if ptype_val is not _missing else str(processor_type)
-        source_label = "AI" if ptype_str == "llm" else "Teacher"
-    else:
-        source_label = "Teacher"
-
-    date_str = ""
-    if created_at:
-        try:
-            from datetime import datetime
-
-            dt = datetime.fromisoformat(str(created_at))
-            date_str = dt.strftime("%d %b %Y")
-        except (ValueError, TypeError):
-            date_str = str(created_at)[:10]
-
-    return Div(
-        Div(
-            Div(
-                H4(title, cls="font-semibold mb-1"),
-                P(
-                    f"From: {user_uid} · {date_str} · {source_label}",
-                    cls="text-sm text-base-content/60 mb-2",
-                ),
-                P(preview, cls="text-sm"),
-                A("View Full", href=f"/submissions/{uid}", cls="btn btn-sm btn-ghost mt-2"),
-                cls="card-body p-4",
-            ),
-            cls="card bg-base-100 shadow-sm mb-3",
-        ),
-    )
-
-
-def _render_received_feedback_list(items: list[Any]) -> Any:
-    """Render the full list of received feedback (HTMX swap target)."""
-    if not items:
-        return Div(
-            P("No feedback yet.", cls="text-center text-base-content/60 py-6"),
-            P(
-                "Assessments from teachers will appear here once submitted.",
-                cls="text-sm text-center text-base-content/40",
-            ),
-            id="feedback-list",
-        )
-    return Div(
-        *[_render_feedback_card(a) for a in items],
-        id="feedback-list",
-    )
-
-
-# ============================================================================
-# PROCESSOR BADGE + ACTIVITY/PROGRESS RENDERING HELPERS
-# ============================================================================
-
-_PROCESSOR_LABELS = {"llm": "LLM", "automatic": "Scheduled", "human": "Admin"}
-_PROCESSOR_BADGE_CLASSES = {
-    "llm": "badge-info",
-    "automatic": "badge-ghost",
-    "human": "badge-primary",
-}
-
-
-def _get_processor_type_str(report: Any) -> str:
-    """Extract processor_type as lowercase string from a report/entity."""
-    processor_type = getattr(report, "processor_type", None)
-    if processor_type is None:
-        return ""
-    _missing = object()
-    ptype_val = getattr(processor_type, "value", _missing)
-    return str(ptype_val if ptype_val is not _missing else processor_type).lower()
-
-
-def _render_processor_badge(processor_type_str: str) -> Any:
-    """Render a DaisyUI badge for processor type (LLM / Scheduled / Admin)."""
-    label = _PROCESSOR_LABELS.get(processor_type_str, processor_type_str or "AI")
-    badge_cls = _PROCESSOR_BADGE_CLASSES.get(processor_type_str, "badge-ghost")
-    return Span(label, cls=f"badge {badge_cls} badge-sm")
-
-
-def _format_date(dt_value: Any) -> str:
-    """Format a datetime-like value to a display string."""
-    if not dt_value:
-        return ""
-    try:
-        from datetime import datetime
-
-        dt = datetime.fromisoformat(str(dt_value))
-        return dt.strftime("%d %b %Y")
-    except (ValueError, TypeError):
-        return str(dt_value)[:10]
-
-
-def _render_activity_feedback_card(report: Any) -> Any:
-    """Render a single activity feedback card (server-side)."""
-    title = getattr(report, "title", "") or "Activity Feedback"
-    created_at = getattr(report, "created_at", None)
-    time_period = getattr(report, "time_period", None)
-    content = getattr(report, "processed_content", "") or ""
-    truncated = content[:200] + ("..." if len(content) > 200 else "")
-    ptype_str = _get_processor_type_str(report)
-    date_str = _format_date(created_at)
-
-    date_parts = [date_str] if date_str else []
-    if time_period:
-        date_parts.append(str(time_period))
-    subtitle = " \u00b7 ".join(date_parts)
-
-    return Div(
-        Div(
-            Div(
-                Div(
-                    P(title, cls="font-semibold mb-0 text-sm"),
-                    P(subtitle, cls="text-xs text-base-content/50 mb-1") if subtitle else None,
-                ),
-                _render_processor_badge(ptype_str),
-                cls="flex items-start justify-between gap-2",
-            ),
-            P(truncated, cls="text-xs text-base-content/70 mt-1") if truncated else None,
-            cls="card-body p-3",
-        ),
-        cls="card bg-base-100 border border-base-200 mb-2",
-    )
-
-
-def _render_activity_feedback_list(items: list[Any]) -> Any:
-    """Render the full list of activity feedback (HTMX swap target)."""
-    if not items:
-        return Div(
-            P(
-                "No activity feedback yet.",
-                cls="text-center text-base-content/60 py-4",
-            ),
-            id="activity-feedback-list",
-        )
-    return Div(
-        *[_render_activity_feedback_card(r) for r in items],
-        id="activity-feedback-list",
-    )
-
-
-def _render_progress_report_card(report: Any) -> Any:
-    """Render a single progress report card (server-side)."""
-    title = getattr(report, "title", "") or "Activity Feedback"
-    created_at = getattr(report, "created_at", None)
-    time_period = getattr(report, "time_period", None)
-    depth = getattr(report, "depth", None)
-    domains_covered = getattr(report, "domains_covered", ()) or ()
-    content = getattr(report, "processed_content", "") or ""
-    ptype_str = _get_processor_type_str(report)
-    date_str = _format_date(created_at)
-
-    # Badges row
-    badges = []
-    if time_period:
-        badges.append(Span(str(time_period), cls="badge badge-outline badge-sm"))
-    if depth:
-        badges.append(Span(str(depth), cls="badge badge-outline badge-sm"))
-    badges.append(_render_processor_badge(ptype_str))
-
-    # Domain badges
-    domain_badges = [Span(str(d), cls="badge badge-ghost badge-xs") for d in domains_covered]
-
-    # Collapsible content
-    if content:
-        content_section = Div(
-            NotStr(
-                "<details class='mt-2'>"
-                "<summary class='cursor-pointer text-sm text-base-content/70 select-none'>"
-                "Read insights</summary>"
-            ),
-            P(content, cls="text-sm mt-2 whitespace-pre-wrap"),
-            NotStr("</details>"),
-        )
-    else:
-        content_section = P(
-            "No insights generated yet.",
-            cls="text-sm text-base-content/40 mt-1",
-        )
-
-    return Div(
-        Div(
-            Div(
-                Div(
-                    H4(title, cls="font-semibold mb-0"),
-                    P(date_str, cls="text-xs text-base-content/60 mb-0") if date_str else None,
-                ),
-                cls="flex items-start justify-between gap-4 mb-2",
-            ),
-            Div(*badges, cls="flex flex-wrap gap-1 mb-2") if badges else None,
-            Div(*domain_badges, cls="flex flex-wrap gap-1 mb-2") if domain_badges else None,
-            content_section,
-            cls="card-body p-4",
-        ),
-        cls="card bg-base-100 shadow-sm mb-3",
-    )
-
-
-def _render_progress_report_list(items: list[Any]) -> Any:
-    """Render the full list of progress reports (HTMX swap target)."""
-    if not items:
-        return Div(
-            P(
-                "No activity feedback yet. Generate your first one above!",
-                cls="text-center text-base-content/60 py-4",
-            ),
-            id="progress-list",
-        )
-    return Div(
-        *[_render_progress_report_card(r) for r in items],
-        id="progress-list",
-    )
 
 
 # ============================================================================
@@ -1260,8 +160,8 @@ def create_submissions_ui_routes(
 
         content = Div(
             PageHeader("Submit", subtitle="Upload a file linked to a Knowledge Unit"),
-            _render_upload_form(assigned_exercises, selected_exercise_uid=selected_exercise_uid),
-            _upload_form_script(),
+            render_upload_form(assigned_exercises, selected_exercise_uid=selected_exercise_uid),
+            upload_form_script(),
         )
         return await SidebarPage(
             content=content,
@@ -1292,7 +192,7 @@ def create_submissions_ui_routes(
                 "Assignments",
                 subtitle="Exercises assigned by your teachers",
             ),
-            _render_assignments_list(exercises),
+            render_assignments_list(exercises),
         )
         return await SidebarPage(
             content=content,
@@ -1313,8 +213,8 @@ def create_submissions_ui_routes(
         require_authenticated_user(request)
         content = Div(
             PageHeader("Browse Submissions", subtitle="Filter and find submissions"),
-            _render_filters_section(),
-            _render_submissions_grid_container(),
+            render_filters_section(),
+            render_submissions_grid_container(),
         )
         return await SidebarPage(
             content=content,
@@ -1338,7 +238,7 @@ def create_submissions_ui_routes(
                 "Your Submissions",
                 subtitle="See which submissions have been reviewed by a teacher",
             ),
-            _render_yours_list_container(),
+            render_yours_list_container(),
         )
         return await SidebarPage(
             content=content,
@@ -1371,7 +271,7 @@ def create_submissions_ui_routes(
                 user_uid
             )
             items = result.value if not result.is_error else []
-            return _render_yours_list(items)
+            return render_yours_list(items)
         except Exception as e:
             logger.error(f"Error loading submissions history: {e}", exc_info=True)
             return Div(
@@ -1389,10 +289,10 @@ def create_submissions_ui_routes(
             identifier = str(raw_identifier).strip() if raw_identifier else ""
 
             if not identifier:
-                return _render_upload_status("error", "Identifier is required", is_error=True)
+                return render_upload_status("error", "Identifier is required", is_error=True)
 
             if not uploaded_file or not isinstance(uploaded_file, UploadFile):
-                return _render_upload_status("error", "No file provided", is_error=True)
+                return render_upload_status("error", "No file provided", is_error=True)
 
             user_uid = require_authenticated_user(request)
             file_content = await uploaded_file.read()
@@ -1420,10 +320,10 @@ def create_submissions_ui_routes(
             )
 
             if result.is_error:
-                return _render_upload_status("error", str(result.error), is_error=True)
+                return render_upload_status("error", str(result.error), is_error=True)
 
             submission = result.value
-            return _render_upload_status(
+            return render_upload_status(
                 status=submission.status,
                 message="File uploaded successfully",
                 submission_uid=submission.uid,
@@ -1431,18 +331,16 @@ def create_submissions_ui_routes(
 
         except Exception as e:
             logger.error(f"Error uploading submission: {e}", exc_info=True)
-            return _render_upload_status("error", f"Upload failed: {e}", is_error=True)
+            return render_upload_status("error", f"Upload failed: {e}", is_error=True)
 
     @rt("/submissions/grid")
     async def get_submissions_grid(request: Request) -> Any:
         """HTMX endpoint for loading reports grid with filters."""
         try:
-            user_uid = require_authenticated_user(request)  # Enforce authentication
+            user_uid = require_authenticated_user(request)
 
-            # Parse typed filter parameters
             filters = parse_submission_filters(request)
 
-            # Build filter kwargs
             kwargs = {"user_uid": user_uid, "limit": 50}
             if filters.report_type:
                 kwargs["report_type"] = filters.report_type
@@ -1458,7 +356,7 @@ def create_submissions_ui_routes(
                 )
 
             reports = result.value or []
-            return _render_submissions_grid(reports)
+            return render_submissions_grid(reports)
 
         except Exception as e:
             logger.error(f"Error loading reports: {e}", exc_info=True)
@@ -1491,7 +389,7 @@ def create_submissions_ui_routes(
                     ),
                     id="submission-info",
                 )
-            return _render_submission_detail(submission)
+            return render_submission_detail(submission)
 
         except Exception as e:
             logger.error(f"Error loading submission info: {e}", exc_info=True)
@@ -1510,15 +408,15 @@ def create_submissions_ui_routes(
             result = await _submissions_service.get_submission(uid)
 
             if result.is_error or not result.value:
-                return _render_processed_content(None, False)
+                return render_processed_content(None, False)
 
             submission = result.value
             content = submission.processed_content if submission else None
-            return _render_processed_content(content, bool(content))
+            return render_processed_content(content, bool(content))
 
         except Exception as e:
             logger.error(f"Error loading submission content: {e}", exc_info=True)
-            return _render_processed_content(None, False)
+            return render_processed_content(None, False)
 
     # ========================================================================
     # FEEDBACK & EXERCISE LINK HTMX ENDPOINTS
@@ -1607,7 +505,7 @@ def create_submissions_ui_routes(
                 return Div("Report not found", cls="text-error")
 
             submission = result.value
-            return _render_category_selector(submission)
+            return render_category_selector(submission)
 
         except Exception as e:
             logger.error(f"Error loading category selector: {e}", exc_info=True)
@@ -1622,7 +520,7 @@ def create_submissions_ui_routes(
                 return Div("Report not found", cls="text-error")
 
             submission = result.value
-            return _render_tags_manager(submission)
+            return render_tags_manager(submission)
 
         except Exception as e:
             logger.error(f"Error loading tags manager: {e}", exc_info=True)
@@ -1699,7 +597,7 @@ def create_submissions_ui_routes(
                 student_uid=user_uid
             )
             items = result.value if not result.is_error else []
-            return _render_received_feedback_list(items)
+            return render_received_feedback_list(items)
         except Exception as e:
             logger.error(f"Error loading feedback list: {e}", exc_info=True)
             return Div(
@@ -1722,7 +620,7 @@ def create_submissions_ui_routes(
                 )
             result = await _activity_report_service.get_history(subject_uid=user_uid, limit=10)
             items = result.value if not result.is_error else []
-            return _render_activity_feedback_list(items)
+            return render_activity_feedback_list(items)
         except Exception as e:
             logger.error(f"Error loading activity feedback list: {e}", exc_info=True)
             return Div(
@@ -1830,7 +728,7 @@ def create_submissions_ui_routes(
                 limit=10,
             )
             items = result.value if not result.is_error else []
-            return _render_progress_report_list(items)
+            return render_progress_report_list(items)
         except Exception as e:
             logger.error(f"Error loading progress report list: {e}", exc_info=True)
             return Div(
@@ -1840,16 +738,10 @@ def create_submissions_ui_routes(
 
     @rt("/submissions/{uid}/shared-users")
     async def get_shared_users_ui(request: Request, uid: str) -> Any:
-        """
-        HTMX endpoint for rendering shared users list.
-
-        Returns HTML fragment showing users the submission is shared with.
-        """
+        """HTMX endpoint for rendering shared users list."""
         try:
             _user_uid = require_authenticated_user(request)
 
-            # Note: This would ideally use the sharing service
-            # For now, return placeholder UI that will be populated via API
             return Div(
                 P(
                     "Shared users list will appear here after sharing",
@@ -1883,20 +775,16 @@ def create_submissions_ui_routes(
         - Download links for original and processed files
         - Sharing controls (visibility, share button, shared users)
         """
-        user_uid = require_authenticated_user(request)  # Enforce authentication
+        user_uid = require_authenticated_user(request)
 
-        # Fetch submission to determine if user is owner (for sharing controls)
-        # Note: In production, this would use get_with_access_check()
         submission_result = await _submissions_service.get_submission(uid)
         is_owner = False
         if not submission_result.is_error and submission_result.value is not None:
             is_owner = submission_result.value.user_uid == user_uid
 
-        # Detail view card with HTMX loading
         detail_card = Div(
             Div(
                 H3("Submission Details", cls="card-title"),
-                # Report info container (loaded via HTMX)
                 Div(
                     P("Loading submission details...", cls="text-center text-base-content/60"),
                     id="submission-info",
@@ -1907,7 +795,6 @@ def create_submissions_ui_routes(
                         "hx-swap": "outerHTML",
                     },
                 ),
-                # Exercise link (loaded via HTMX)
                 Div(
                     id="exercise-link",
                     **{
@@ -1916,7 +803,6 @@ def create_submissions_ui_routes(
                         "hx-swap": "outerHTML",
                     },
                 ),
-                # Processed content section (loaded via HTMX)
                 Div(
                     H4("Processed Content", cls="mt-6 mb-4"),
                     Div(
@@ -1933,7 +819,6 @@ def create_submissions_ui_routes(
                     id="content-section",
                     cls="mb-4",
                 ),
-                # Feedback section (loaded via HTMX)
                 Div(
                     P("Loading feedback...", cls="text-center text-base-content/60 py-2"),
                     id="feedback-section",
@@ -1944,13 +829,11 @@ def create_submissions_ui_routes(
                         "hx-swap": "outerHTML",
                     },
                 ),
-                # Sharing section (only for owner)
                 (
-                    _render_sharing_section(submission_result.value)
+                    render_sharing_section(submission_result.value)
                     if is_owner and not submission_result.is_error
                     else None
                 ),
-                # Action buttons - use proper link instead of onclick
                 Div(
                     A(
                         "\u2190 Back to Submissions",

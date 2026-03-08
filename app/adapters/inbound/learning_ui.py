@@ -238,7 +238,9 @@ class LearningUIComponents:
                     cls="text-base-content/70 mb-2",
                 ),
                 Div(
-                    Span(hours_text, cls="text-sm text-base-content/60 mr-3") if hours_text else None,
+                    Span(hours_text, cls="text-sm text-base-content/60 mr-3")
+                    if hours_text
+                    else None,
                     difficulty_badge,
                     cls="flex items-center gap-2",
                 ),
@@ -704,9 +706,13 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
                 H2("Learning Health", cls="text-xl font-semibold mb-4"),
                 Div(
                     Div(
-                        _render_stat_card("Active Paths", str(active_paths_count), "Learning paths in progress"),
+                        _render_stat_card(
+                            "Active Paths", str(active_paths_count), "Learning paths in progress"
+                        ),
                         _render_stat_card("Needs Review", str(needs_review), "Concepts to revisit"),
-                        _render_stat_card("Struggling", str(struggling), "Concepts needing extra work"),
+                        _render_stat_card(
+                            "Struggling", str(struggling), "Concepts needing extra work"
+                        ),
                         cls="grid grid-cols-1 md:grid-cols-3 gap-4",
                     ),
                 ),
@@ -746,7 +752,9 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
                     Span(f"Sequence: {step.sequence}", cls="badge badge-info mr-2")
                     if step.sequence
                     else None,
-                    Span(difficulty.title(), cls="badge badge-primary mr-2") if difficulty else None,
+                    Span(difficulty.title(), cls="badge badge-primary mr-2")
+                    if difficulty
+                    else None,
                     Span(hours_text, cls="badge badge-secondary mr-2") if hours_text else None,
                     Span(
                         f"Mastery: {step.current_mastery * 100:.0f}%",
@@ -811,7 +819,10 @@ def create_learning_ui_routes(_app, rt, lp_service, user_progress=None):
                     Span(difficulty.title(), cls="badge badge-primary mr-2"),
                     Span(f"{int(path.estimated_hours or 0)}h", cls="badge badge-secondary mr-2"),
                     Span(f"{len(steps)} steps", cls="badge badge-info mr-2"),
-                    Span(str(path.path_type.value if path.path_type else "standard"), cls="badge badge-outline"),
+                    Span(
+                        str(path.path_type.value if path.path_type else "standard"),
+                        cls="badge badge-outline",
+                    ),
                     cls="flex flex-wrap gap-2 mb-4",
                 ),
                 Div(

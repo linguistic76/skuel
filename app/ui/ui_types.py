@@ -183,5 +183,3 @@ class UserLearningOverview:
     active_paths: list[ActivePathData]
     recent_achievements: list[AchievementData]
     learning_stats: LearningStatsData
-
-
