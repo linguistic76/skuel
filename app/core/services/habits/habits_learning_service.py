@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Any
 
 from core.events import HabitCreated, publish_event
-from core.models.curriculum.lp_position import LpPosition
+from core.models.pathways.lp_position import LpPosition
 from core.models.enums import Domain, EntityStatus
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.habit import Habit

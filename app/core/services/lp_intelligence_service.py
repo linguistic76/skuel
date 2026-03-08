@@ -32,8 +32,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-from core.models.curriculum.learning_path import LearningPath
-from core.models.curriculum.learning_path_dto import LearningPathDTO
+from core.models.pathways.learning_path import LearningPath
+from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.models.entity import Entity
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext

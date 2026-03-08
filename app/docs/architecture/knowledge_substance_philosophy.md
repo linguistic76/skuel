@@ -350,8 +350,8 @@ Div(
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| **Substance Fields** | `/core/models/curriculum/article.py` | Substance fields on `Article` model (extends Curriculum → Entity) |
-| **Decay Algorithm** | `/core/models/curriculum/article.py` | Exponential decay, spaced repetition |
+| **Substance Fields** | `/core/models/article/article.py` | Substance fields on `Article` model (extends Curriculum → Entity) |
+| **Decay Algorithm** | `/core/models/article/article.py` | Exponential decay, spaced repetition |
 | **Domain Events** | `/core/events/ku_events.py` | 5 substance events |
 | **Event Listeners** | `/core/services/article_service.py` | Atomic substance updates |
 | **Event Wiring** | `/services_bootstrap.py` | Subscribe KuService to events |
@@ -483,7 +483,7 @@ substance_score = min(1.0, sum([
 - [Substance Tracking Implementation](/home/mike/skuel/app/SUBSTANCE_TRACKING_IMPLEMENTATION.md)
 - [Knowledge Events Catalog](/home/mike/skuel/app/core/events/ku_events.py)
 - [Substance Dashboard Components](/home/mike/skuel/app/ui/substance_dashboard.py)
-- [Article Model Implementation](/home/mike/skuel/app/core/models/curriculum/article.py)
+- [Article Model Implementation](/home/mike/skuel/app/core/models/article/article.py)
 - [Event-Driven Architecture Guide](/home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md)
 
 ---

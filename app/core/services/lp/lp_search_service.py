@@ -21,8 +21,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from core.models.curriculum.learning_path import LearningPath
-from core.models.curriculum.learning_path_dto import LearningPathDTO
+from core.models.pathways.learning_path import LearningPath
+from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.models.enums import Domain
 from core.models.enums.curriculum_enums import LpType
 from core.models.search.query_parser import ParsedSearchQuery

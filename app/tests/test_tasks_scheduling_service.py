@@ -18,9 +18,9 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.models.curriculum.learning_path import LearningPath
-from core.models.curriculum.learning_step import LearningStep
-from core.models.curriculum.lp_position import LpPosition
+from core.models.pathways.learning_path import LearningPath
+from core.models.pathways.learning_step import LearningStep
+from core.models.pathways.lp_position import LpPosition
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest

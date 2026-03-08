@@ -34,8 +34,8 @@ from core.events.curriculum_events import (
     LearningStepDeleted,
     LearningStepUpdated,
 )
-from core.models.curriculum.learning_step import LearningStep
-from core.models.curriculum.learning_step_dto import LearningStepDTO
+from core.models.pathways.learning_step import LearningStep
+from core.models.pathways.learning_step_dto import LearningStepDTO
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config

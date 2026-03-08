@@ -268,7 +268,7 @@ class Entity:
 
         target_class = ENTITY_TYPE_CLASS_MAP.get(dto.entity_type)
         if target_class is None:
-            from core.models.curriculum.curriculum import Curriculum
+            from core.models.curriculum import Curriculum
 
             target_class = Curriculum
         return target_class._from_dto(dto)

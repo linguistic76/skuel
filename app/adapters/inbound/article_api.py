@@ -24,7 +24,7 @@ from adapters.inbound.route_factories import (
     parse_int_query_param,
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
-from core.models.curriculum.curriculum_requests import CurriculumCreateRequest
+from core.models.article.article_request import ArticleCreateRequest
 from core.models.entity_requests import EntityUpdateRequest
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
@@ -58,7 +58,7 @@ def create_article_api_routes(
     crud_factory = CRUDRouteFactory(
         service=ku_service,
         domain_name="ku",
-        create_schema=CurriculumCreateRequest,
+        create_schema=ArticleCreateRequest,
         update_schema=EntityUpdateRequest,
         uid_prefix="ku",
         scope=ContentScope.SHARED,

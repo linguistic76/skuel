@@ -39,10 +39,10 @@ from typing import Any
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.choice.choice_dto import ChoiceDTO
-from core.models.curriculum.curriculum_dto import CurriculumDTO
-from core.models.curriculum.exercise_dto import ExerciseDTO
-from core.models.curriculum.learning_path_dto import LearningPathDTO
-from core.models.curriculum.learning_step_dto import LearningStepDTO
+from core.models.curriculum_dto import CurriculumDTO
+from core.models.exercises.exercise_dto import ExerciseDTO
+from core.models.pathways.learning_path_dto import LearningPathDTO
+from core.models.pathways.learning_step_dto import LearningStepDTO
 
 # Curriculum domain imports - (February 2026): LS/LP unified into Entity model
 # NOTE (February 2026): Habit imports removed — Habit merged into Entity model

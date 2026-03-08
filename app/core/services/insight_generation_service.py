@@ -28,7 +28,7 @@ from enum import Enum
 from operator import attrgetter
 from typing import Any
 
-from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.task.task import Task as Task
 from core.ports import HasMetadata, HasSummary

@@ -93,7 +93,7 @@ compose atomic Kus via `(Article)-[:USES_KU]->(Ku)`.
 
 ### Layer 1: What You Can Learn
 
-**File:** `core/models/curriculum/article.py`
+**File:** `core/models/article/article.py`
 
 An Article is a frozen dataclass — immutable once created, like a published textbook
 page:
@@ -153,7 +153,7 @@ Once in Neo4j, Articles connect through graph relationships:
 
 ### Layer 2: How You're Learning It — Mastery Tracking
 
-**File:** `core/models/curriculum/mastery.py`
+**File:** `core/models/pathways/mastery.py`
 
 When a user interacts with an Article, a `MASTERED` relationship is created between `:User` and
 `:Article`. The `Mastery` dataclass models what that relationship means:
@@ -188,7 +188,7 @@ This profile evolves from actual learning patterns, not questionnaires.
 
 ### Layer 3: Whether It's Changing Your Life — Substance Scoring
 
-**File:** `core/models/curriculum/article.py`
+**File:** `core/models/article/article.py`
 
 The `substance_score()` method on the `Article` dataclass measures how knowledge is **lived**,
 not just consumed:
@@ -234,7 +234,7 @@ increments the counter in Neo4j.
 5. Return top N recommendations
 ```
 
-**`CurriculumProgress`** (`core/models/curriculum/learning_progress.py`) — a frozen snapshot of
+**`CurriculumProgress`** (`core/models/pathways/learning_progress.py`) — a frozen snapshot of
 a user's progress through one SEL category:
 
 ```
@@ -251,7 +251,7 @@ KuCategoryProgress
 `needs_attention()` returns `True` if a user started a category but hasn't touched it in
 7+ days — a signal for the UI.
 
-**`LearningJourney`** (`core/models/curriculum/learning_progress.py`) — progress across all
+**`LearningJourney`** (`core/models/pathways/learning_progress.py`) — progress across all
 five SEL categories:
 
 ```
@@ -372,7 +372,7 @@ Article → Exercise v1 → Submission v1 → SubmissionFeedback v1
 ```
 
 **EntityType:** `EntityType.REVISED_EXERCISE`
-**Model:** `core/models/curriculum/revised_exercise.py` — `RevisedExercise(UserOwnedEntity)` frozen dataclass
+**Model:** `core/models/exercises/revised_exercise.py` — `RevisedExercise(UserOwnedEntity)` frozen dataclass
 **Loop role:** The *refinement* — bridges feedback back into a new exercise, closing the
 revision cycle explicitly rather than implicitly.
 
@@ -463,9 +463,9 @@ New feedback sources add `ProcessorType` values; they do not create new EntityTy
 
 | Purpose | File |
 |---|---|
-| Article domain model | `core/models/curriculum/article.py` |
-| Mastery + intelligence models | `core/models/curriculum/mastery.py` |
-| Curriculum progress + journey models | `core/models/curriculum/learning_progress.py` |
+| Article domain model | `core/models/article/article.py` |
+| Mastery + intelligence models | `core/models/pathways/mastery.py` |
+| Curriculum progress + journey models | `core/models/pathways/learning_progress.py` |
 | SELCategory + LearningLevel enums | `core/models/enums/learning_enums.py` |
 | Adaptive curriculum service | `core/services/article/article_adaptive_service.py` |
 | Article mastery service (MASTERED transitions) | `core/services/article/article_mastery_service.py` |
@@ -475,7 +475,7 @@ New feedback sources add `ProcessorType` values; they do not create new EntityTy
 | Ingestion pipeline | `core/services/ingestion/` |
 | Substance philosophy | `docs/architecture/knowledge_substance_philosophy.md` |
 | Curriculum grouping patterns (KU / LS / LP) | `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` |
-| RevisedExercise domain model | `core/models/curriculum/revised_exercise.py` |
+| RevisedExercise domain model | `core/models/exercises/revised_exercise.py` |
 | RevisedExercise service | `core/services/revised_exercises/revised_exercise_service.py` |
 | RevisedExercise API routes | `adapters/inbound/revised_exercises_api.py` |
 

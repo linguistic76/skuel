@@ -15,7 +15,7 @@ from typing import Any
 
 from fasthtml.common import H1, H2, Div, P
 
-from core.models.curriculum.learning_progress import CurriculumProgress, LearningJourney
+from core.models.pathways.learning_progress import CurriculumProgress, LearningJourney
 from core.models.entity_types import CurriculumEntity
 from core.models.enums import SELCategory
 from ui.enum_helpers import get_sel_icon

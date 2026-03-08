@@ -52,7 +52,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_dict_count_getter
 
 if TYPE_CHECKING:
-    from core.models.curriculum.lp_position import LpPosition
+    from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.habits.habits_completion_service import HabitsCompletionService
     from core.services.user.unified_user_context import UserContext

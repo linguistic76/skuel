@@ -21,8 +21,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from core.models.curriculum.learning_step import LearningStep
-from core.models.curriculum.learning_step_dto import LearningStepDTO
+from core.models.pathways.learning_step import LearningStep
+from core.models.pathways.learning_step_dto import LearningStepDTO
 from core.models.enums import Domain
 from core.models.enums.curriculum_enums import StepDifficulty
 from core.models.enums.entity_enums import EntityStatus

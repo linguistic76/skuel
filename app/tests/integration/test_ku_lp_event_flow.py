@@ -33,8 +33,8 @@ from core.events.learning_events import (
     LearningPathCompleted,
     LearningPathProgressUpdated,
 )
-from core.models.curriculum.curriculum import Curriculum
-from core.models.curriculum.learning_path import LearningPath
+from core.models.curriculum import Curriculum
+from core.models.pathways.learning_path import LearningPath
 from core.models.enums import Domain, SELCategory
 from core.models.enums.curriculum_enums import LpType
 from core.models.enums.neo_labels import NeoLabel

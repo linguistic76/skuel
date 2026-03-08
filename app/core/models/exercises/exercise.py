@@ -39,12 +39,12 @@ from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING
 
-from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.submissions_enums import ExerciseScope
 
 if TYPE_CHECKING:
-    from core.models.curriculum.exercise_dto import ExerciseDTO
+    from core.models.exercises.exercise_dto import ExerciseDTO
     from core.models.entity_dto import EntityDTO
 
 
@@ -160,7 +160,7 @@ class Exercise(Curriculum):
         import dataclasses
         from typing import Any
 
-        from core.models.curriculum.exercise_dto import ExerciseDTO
+        from core.models.exercises.exercise_dto import ExerciseDTO
 
         dto_field_names = {f.name for f in dataclasses.fields(ExerciseDTO)}
         kwargs: dict[str, Any] = {}

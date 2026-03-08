@@ -21,7 +21,7 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRouteFactory
-from core.models.curriculum.curriculum_requests import (
+from core.models.pathways.pathways_request import (
     LearningPathCreateRequest,
     LearningPathProgressRequest,
 )

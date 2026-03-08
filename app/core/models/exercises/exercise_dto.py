@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from datetime import date
 
-from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.submissions_enums import ExerciseScope

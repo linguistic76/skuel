@@ -134,7 +134,11 @@ core/models/{domain}/
 | `event/` | Event + EventDTO + requests | Activity | + calendar_models.py |
 | `choice/` | Choice + ChoiceDTO | Activity | + ChoiceOption sub-model |
 | `principle/` | Principle + PrincipleDTO + requests | Activity | + Reflection sub-entity, PrincipleIntelligence |
-| `curriculum/` | Curriculum (base), Ku, LS, LP, Exercise + DTOs | Curriculum | + KU content/metadata/chunks/relationships, 22 files |
+| `article/` | Article + ArticleDTO | Curriculum | Teaching compositions |
+| `exercises/` | Exercise, RevisedExercise + DTOs + requests | Curriculum | Exercise and revision models |
+| `pathways/` | LearningStep, LearningPath + DTOs, Mastery, LpPosition, LpRelationships, LearningProgress | Curriculum | LP/LS pathway models |
+| `content/` | Content, ContentChunks, ContentMetadata | Curriculum | Content processing models |
+| `ku/` | Ku + KuDTO | Curriculum | Atomic knowledge units |
 | `resource/` | Resource + ResourceDTO | Shared | Curated content (books, talks) |
 | `submissions/` | Submission, Journal + DTOs | Submissions | + submission_requests.py, ku_schedule.py |
 | `feedback/` | ActivityReport + ActivityReportDTO, SubmissionFeedback + SubmissionFeedbackDTO | Feedback | ActivityReport: no file fields; SubmissionFeedback: tied to submission via subject_uid |
@@ -202,7 +206,7 @@ CurriculumEntity = Ku | LearningStep | LearningPath | Exercise  # Ku is the atom
 SubmissionEntity = Submission | Journal | ActivityReport | SubmissionFeedback
 ```
 
-**Note:** `Ku` is a leaf domain class (`Ku(Curriculum)`), not a union type alias. The old union `Ku = Task | Goal | ...` was dissolved when `core/models/ku/` was reorganised into `core/models/curriculum/` (February 2026).
+**Note:** `Ku` is a leaf domain class (`Ku(Curriculum)`), not a union type alias. The old union `Ku = Task | Goal | ...` was dissolved when `core/models/ku/` was created as a dedicated directory for atomic knowledge units (February 2026).
 
 Cross-domain deserialization uses the dispatcher:
 ```python

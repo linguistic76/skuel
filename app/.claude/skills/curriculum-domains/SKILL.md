@@ -76,11 +76,11 @@ Factory / Manual             <- Creates sub-services
 
 | Domain | Directory | Model | DTO |
 |--------|-----------|-------|-----|
-| **Article** | `core/models/curriculum/` | `article.py` (extends Curriculum) | `article_dto.py` |
+| **Article** | `core/models/article/` | `article.py` (extends Curriculum) | `article_dto.py` |
 | **KU** | `core/models/ku/` | `ku.py` (extends Entity) | `ku_dto.py` |
-| **LS** | `core/models/curriculum/` | `learning_step.py` | `learning_step_dto.py` |
-| **LP** | `core/models/curriculum/` | `learning_path.py` | `learning_path_dto.py` |
-| **Base** | `core/models/curriculum/` | `curriculum.py` | `curriculum_dto.py` |
+| **LS** | `core/models/pathways/` | `learning_step.py` | `learning_step_dto.py` |
+| **LP** | `core/models/pathways/` | `learning_path.py` | `learning_path_dto.py` |
+| **Base** | `core/models/` | `curriculum.py` | `curriculum_dto.py` |
 
 ## Common Operations
 

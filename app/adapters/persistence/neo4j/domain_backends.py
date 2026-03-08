@@ -40,9 +40,9 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
-from core.models.curriculum.article import Article
-from core.models.curriculum.exercise import Exercise
-from core.models.curriculum.learning_path import LearningPath
+from core.models.article.article import Article
+from core.models.exercises.exercise import Exercise
+from core.models.pathways.learning_path import LearningPath
 from core.models.entity import Entity
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
@@ -55,7 +55,7 @@ from core.models.task.task import Task
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.models.curriculum.revised_exercise import RevisedExercise  # noqa: F401
+    from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
 
 
 class HabitsBackend(UniversalNeo4jBackend[Habit]):

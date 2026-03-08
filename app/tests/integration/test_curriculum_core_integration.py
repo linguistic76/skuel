@@ -24,9 +24,9 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 
 # Domain models - use domain-specific types
-from core.models.curriculum.curriculum import Curriculum
-from core.models.curriculum.learning_path import LearningPath
-from core.models.curriculum.learning_step import LearningStep
+from core.models.curriculum import Curriculum
+from core.models.pathways.learning_path import LearningPath
+from core.models.pathways.learning_step import LearningStep
 from core.models.enums import Domain, LearningLevel, SELCategory
 
 # ============================================================================

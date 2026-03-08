@@ -24,8 +24,8 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import make_attribute_sort_key
 
 if TYPE_CHECKING:
-    from core.models.curriculum.learning_path import LearningPath
-    from core.models.curriculum.learning_step import LearningStep
+    from core.models.pathways.learning_path import LearningPath
+    from core.models.pathways.learning_step import LearningStep
     from core.ports import EventBusOperations
     from core.services.article_service import ArticleService
     from core.services.ls_service import LsService

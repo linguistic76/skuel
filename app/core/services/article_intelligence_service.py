@@ -22,8 +22,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.events.curriculum_events import LearningStepCompleted
-from core.models.curriculum.article import Article
-from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.article.article import Article
+from core.models.curriculum_dto import CurriculumDTO
 from core.models.entity import Entity
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext

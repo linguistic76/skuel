@@ -22,7 +22,7 @@ from operator import attrgetter
 from typing import Any, Protocol, runtime_checkable
 
 from core.constants import GraphDepth
-from core.models.curriculum.article import Article
+from core.models.article.article import Article
 from core.models.query import (
     IndexStrategy,
     QueryElements,

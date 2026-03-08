@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.curriculum_dto import CurriculumDTO
 
 
 @dataclass

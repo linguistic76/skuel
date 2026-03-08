@@ -22,7 +22,7 @@ from datetime import date, time
 
 import pytest
 
-from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event_dto import EventDTO

@@ -26,8 +26,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.curriculum.learning_step import LearningStep
-from core.models.curriculum.learning_step_dto import LearningStepDTO
+from core.models.pathways.learning_step import LearningStep
+from core.models.pathways.learning_step_dto import LearningStepDTO
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
 from core.services.base_analytics_service import BaseAnalyticsService

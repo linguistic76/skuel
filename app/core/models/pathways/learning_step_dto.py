@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
 from core.models.enums.curriculum_enums import StepDifficulty
 from core.models.enums.entity_enums import EntityStatus, EntityType

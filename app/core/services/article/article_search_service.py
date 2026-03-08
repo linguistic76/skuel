@@ -25,8 +25,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.constants import QueryLimit
-from core.models.curriculum.article import Article
-from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.article.article import Article
+from core.models.curriculum_dto import CurriculumDTO
 from core.models.entity import Entity
 from core.models.enums import KuComplexity
 from core.models.enums.neo_labels import NeoLabel

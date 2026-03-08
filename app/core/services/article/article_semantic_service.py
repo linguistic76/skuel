@@ -26,7 +26,7 @@ from core.infrastructure.relationships.semantic_relationships import (
     SemanticRelationshipType,
     SemanticTriple,
 )
-from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.curriculum_dto import CurriculumDTO
 from core.models.query import build_semantic_context
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger

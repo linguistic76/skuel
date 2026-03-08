@@ -20,9 +20,9 @@ import asyncio
 
 import pytest
 
-from core.models.curriculum.curriculum_dto import CurriculumDTO
-from core.models.curriculum.learning_path_dto import LearningPathDTO
-from core.models.curriculum.learning_step_dto import LearningStepDTO
+from core.models.curriculum_dto import CurriculumDTO
+from core.models.pathways.learning_path_dto import LearningPathDTO
+from core.models.pathways.learning_step_dto import LearningStepDTO
 from core.models.enums import Domain, Priority
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.principle_enums import PrincipleCategory

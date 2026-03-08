@@ -77,7 +77,7 @@ Sequential "Learn A then B"      Non-linear "Explore what interests you"
 **Python Class:** `Ku(Curriculum)` — the concrete leaf class for atomic knowledge units.
 `Curriculum` is the shared base class; `Ku`, `LearningStep`, `LearningPath`, and `Exercise` are the leaf types.
 
-**Location:** `/core/models/curriculum/ku.py`
+**Location:** `/core/models/ku/ku.py`
 
 **EntityType:** `EntityType.KU = "ku"` — stored as `entity_type` property in Neo4j.
 
@@ -346,10 +346,10 @@ The `UnifiedIngestionService` (at `core/services/ingestion/`) handles all curric
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| Ku Model | `/core/models/curriculum/ku.py` | Ku leaf class (`Ku(Curriculum)`) |
-| LS Model | `/core/models/curriculum/learning_step.py` | Learning Step definition |
-| LP Model | `/core/models/curriculum/learning_path.py` | Learning Path definition |
-| Curriculum Base | `/core/models/curriculum/curriculum.py` | Shared base class for Ku, LS, LP |
+| Ku Model | `/core/models/ku/ku.py` | Ku leaf class (`Ku(Curriculum)`) |
+| LS Model | `/core/models/pathways/learning_step.py` | Learning Step definition |
+| LP Model | `/core/models/pathways/learning_path.py` | Learning Path definition |
+| Curriculum Base | `/core/models/curriculum.py` | Shared base class for Ku, LS, LP |
 | KuService | `/core/services/ku_service.py` | Ku facade (CRUD, graph, semantics, organization) |
 | KuOrganizationService | `/core/services/ku/ku_organization_service.py` | ORGANIZES relationship management (MOC) |
 | KuIntelligenceService | `/core/services/ku_intelligence_service.py` | Standalone analytics for KU domain |
@@ -361,7 +361,7 @@ The `UnifiedIngestionService` (at `core/services/ingestion/`) handles all curric
 | Ingestion | `/core/services/ingestion/` | Ingest all patterns from markdown |
 | Unified Registry | `/core/models/relationship_registry.py` | All domain relationship configs |
 
-**Note (February 2026):** `/core/models/ku/` monolith dissolved — all curriculum models now in `/core/models/curriculum/`. MOC has no separate model or service; it is handled by `KuOrganizationService`.
+**Note (March 2026):** Curriculum models decomposed from `/core/models/curriculum/` into domain-specific directories: `/core/models/article/`, `/core/models/exercises/`, `/core/models/pathways/`, `/core/models/content/`, and `/core/models/ku/`. Base classes in `/core/models/curriculum.py` and `/core/models/curriculum_dto.py`. MOC has no separate model or service; it is handled by `KuOrganizationService`.
 
 ---
 

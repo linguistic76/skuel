@@ -20,10 +20,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.curriculum.learning_path_dto import LearningPathDTO
+    from core.models.pathways.learning_path_dto import LearningPathDTO
     from core.models.entity_dto import EntityDTO
 
-from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum import Curriculum
 from core.models.enums.curriculum_enums import LpType
 from core.models.enums.entity_enums import EntityType
 
@@ -94,7 +94,7 @@ class LearningPath(Curriculum):
         import dataclasses
         from typing import Any
 
-        from core.models.curriculum.learning_path_dto import LearningPathDTO
+        from core.models.pathways.learning_path_dto import LearningPathDTO
 
         dto_field_names = {f.name for f in dataclasses.fields(LearningPathDTO)}
         kwargs: dict[str, Any] = {}

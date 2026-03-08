@@ -27,7 +27,7 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.goal_events import GoalAchieved, GoalRecommendationsGenerated
-from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum import Curriculum
 from core.models.enums import (
     Domain,
     SELCategory,

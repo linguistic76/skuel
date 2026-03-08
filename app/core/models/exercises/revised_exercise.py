@@ -28,7 +28,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.user_owned_entity import UserOwnedEntity
 
 if TYPE_CHECKING:
-    from core.models.curriculum.revised_exercise_dto import RevisedExerciseDTO
+    from core.models.exercises.revised_exercise_dto import RevisedExerciseDTO
     from core.models.entity_dto import EntityDTO
 
 
@@ -137,7 +137,7 @@ class RevisedExercise(UserOwnedEntity):
         import dataclasses
         from typing import Any
 
-        from core.models.curriculum.revised_exercise_dto import RevisedExerciseDTO
+        from core.models.exercises.revised_exercise_dto import RevisedExerciseDTO
 
         dto_field_names = {f.name for f in dataclasses.fields(RevisedExerciseDTO)}
         kwargs: dict[str, Any] = {}

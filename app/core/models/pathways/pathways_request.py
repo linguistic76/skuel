@@ -1,11 +1,4 @@
-"""
-Curriculum Domain Request Models
-=================================
-
-Pydantic models for the 3 Curriculum Domains:
-KU (Curriculum), Learning Steps, Learning Paths.
-
-Also includes MOC create request.
+"""Pathways domain request models — Learning Steps, Learning Paths.
 
 See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 """
@@ -15,56 +8,10 @@ from pydantic import BaseModel, Field
 from core.models.enums import (
     Confidence,
     Domain,
-    KuComplexity,
-    LearningLevel,
     Priority,
-    SELCategory,
 )
 from core.models.enums.curriculum_enums import LpType, StepDifficulty
 from core.models.request_base import CreateRequestBase
-
-# =============================================================================
-# CREATE REQUESTS — Content Processing (Curriculum)
-# =============================================================================
-
-
-class CurriculumCreateRequest(CreateRequestBase):
-    """Create admin-authored curriculum knowledge (CURRICULUM type)."""
-
-    title: str = Field(min_length=1, max_length=200, description="Title of the knowledge unit")
-    domain: Domain = Field(description="Knowledge domain")
-
-    # Content
-    content: str | None = Field(None, description="Body text")
-    summary: str | None = Field(None, max_length=500, description="Brief summary")
-    tags: list[str] = Field(default_factory=list, description="Tags for categorization")
-
-    # Learning metadata
-    complexity: KuComplexity = Field(default=KuComplexity.MEDIUM, description="Difficulty level")
-    sel_category: SELCategory | None = Field(None, description="SEL category lens")
-    learning_level: LearningLevel = Field(
-        default=LearningLevel.BEGINNER, description="Target learning level"
-    )
-    estimated_time_minutes: int = Field(default=15, ge=1, description="Estimated completion time")
-    difficulty_rating: float = Field(default=0.5, ge=0.0, le=1.0, description="Difficulty 0.0-1.0")
-    confidence: Confidence | None = Field(
-        None, description="Admin-assessed certainty about this knowledge"
-    )
-
-
-# =============================================================================
-# CREATE REQUESTS — Shared/Curriculum (MOC, LS, LP)
-# =============================================================================
-
-
-class MocCreateRequest(CreateRequestBase):
-    """Create an MOC entity (Map of Content — KU organizing KUs). Admin-only, shared."""
-
-    title: str = Field(min_length=1, max_length=200, description="MOC title")
-    content: str | None = Field(None, description="MOC content")
-    summary: str | None = Field(None, max_length=500, description="Brief summary")
-    domain: Domain = Field(default=Domain.KNOWLEDGE, description="Knowledge domain")
-    tags: list[str] = Field(default_factory=list, description="Tags")
 
 
 class LearningStepCreateRequest(CreateRequestBase):
@@ -127,11 +74,6 @@ class LearningPathCreateRequest(CreateRequestBase):
     confidence: Confidence | None = Field(
         None, description="Admin-assessed certainty about this learning path"
     )
-
-
-# =============================================================================
-# LEARNING PATH FILTER & PROGRESS
-# =============================================================================
 
 
 class LearningPathFilterRequest(BaseModel):

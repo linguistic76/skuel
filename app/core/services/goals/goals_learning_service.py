@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import GoalCreated, publish_event
-from core.models.curriculum.lp_position import LpPosition
+from core.models.pathways.lp_position import LpPosition
 from core.models.enums import Domain, EntityStatus
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO

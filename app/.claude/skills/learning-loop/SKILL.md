@@ -82,8 +82,8 @@ MATCH (n:Entity {entity_type: 'ku'})
 and shared across all users. The curriculum track begins here.
 
 **EntityType:** `EntityType.KU`
-**Model:** `core/models/curriculum/ku.py` — `Ku(Curriculum)` frozen dataclass
-**DTO:** `core/models/curriculum/ku_dto.py`
+**Model:** `core/models/ku/ku.py` — `Ku(Curriculum)` frozen dataclass
+**DTO:** `core/models/ku/ku_dto.py`
 **UID format:** `ku_{slug}_{random}`
 **Neo4j label:** `:Entity:Ku`
 
@@ -127,8 +127,8 @@ they are demonstrating engagement with specific Ku content.
 with an LLM prompt embedded for AI-assisted feedback.
 
 **EntityType:** `EntityType.EXERCISE`
-**Model:** `core/models/curriculum/exercise.py` — `Exercise(Curriculum)` frozen dataclass
-**DTO:** `core/models/curriculum/exercise_dto.py`
+**Model:** `core/models/exercises/exercise.py` — `Exercise(Curriculum)` frozen dataclass
+**DTO:** `core/models/exercises/exercise_dto.py`
 **Neo4j label:** `:Entity:Exercise`
 
 **Key fields:**
@@ -398,8 +398,8 @@ Article → Exercise v1 → Submission v1 → SubmissionFeedback v1
 ```
 
 **EntityType:** `EntityType.REVISED_EXERCISE`
-**Model:** `core/models/curriculum/revised_exercise.py` — `RevisedExercise(UserOwnedEntity)` frozen dataclass
-**DTO:** `core/models/curriculum/revised_exercise_dto.py`
+**Model:** `core/models/exercises/revised_exercise.py` — `RevisedExercise(UserOwnedEntity)` frozen dataclass
+**DTO:** `core/models/exercises/revised_exercise_dto.py`
 **Neo4j label:** `:Entity:RevisedExercise`
 
 **Key design:**
@@ -618,9 +618,9 @@ that never closes the loop.
 
 | File | Phase | Purpose |
 |------|-------|---------|
-| `core/models/curriculum/ku.py` | 1 | Ku frozen dataclass |
-| `core/models/curriculum/exercise.py` | 2 | Exercise frozen dataclass |
-| `core/models/curriculum/revised_exercise.py` | 5 | RevisedExercise frozen dataclass |
+| `core/models/ku/ku.py` | 1 | Ku frozen dataclass |
+| `core/models/exercises/exercise.py` | 2 | Exercise frozen dataclass |
+| `core/models/exercises/revised_exercise.py` | 5 | RevisedExercise frozen dataclass |
 | `core/services/revised_exercises/revised_exercise_service.py` | 5 | RevisedExercise CRUD + chain queries |
 | `adapters/inbound/revised_exercises_api.py` | 5 | RevisedExercise API routes (teacher + student-facing) |
 | `core/ports/curriculum_protocols.py` | 5 | `RevisedExerciseOperations` protocol |

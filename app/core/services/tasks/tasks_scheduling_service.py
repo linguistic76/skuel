@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
 
-from core.models.curriculum.lp_position import LpPosition
+from core.models.pathways.lp_position import LpPosition
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task

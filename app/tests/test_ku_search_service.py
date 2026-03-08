@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.curriculum.curriculum import Curriculum
-from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.curriculum import Curriculum
+from core.models.curriculum_dto import CurriculumDTO
 from core.models.entity import Entity
 from core.models.enums import Domain, SELCategory
 from core.models.enums.entity_enums import EntityType

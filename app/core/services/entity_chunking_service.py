@@ -23,10 +23,10 @@ Architecture:
 from operator import itemgetter
 from typing import Any, TypedDict
 
-from core.models.curriculum.article import Article
-from core.models.curriculum.content import CurriculumContent
-from core.models.curriculum.content_chunks import ContentChunk, ContentChunkType
-from core.models.curriculum.content_metadata import ContentMetadata
+from core.models.article.article import Article
+from core.models.content.content import CurriculumContent
+from core.models.content.content_chunks import ContentChunk, ContentChunkType
+from core.models.content.content_metadata import ContentMetadata
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

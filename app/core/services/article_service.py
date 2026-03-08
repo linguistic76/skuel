@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 # Import models for type hints
 # SemanticRelationshipType needed at runtime for enum conversion
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.curriculum_dto import CurriculumDTO
 from core.ports.base_protocols import HasUID
 
 # Import sub-services

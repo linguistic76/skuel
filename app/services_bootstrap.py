@@ -608,8 +608,8 @@ def _create_learning_services(
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-    from core.models.curriculum.learning_path import LearningPath
-    from core.models.curriculum.learning_step import LearningStep
+    from core.models.pathways.learning_path import LearningPath
+    from core.models.pathways.learning_step import LearningStep
     from core.services.article_service import ArticleService
     from core.services.entity_retrieval import EntityRetrieval
     from core.services.lp_service import LpService  # Intelligence created internally
@@ -1163,7 +1163,7 @@ async def compose_services(
         # User is NOT an activity domain - it's the identity layer all domains reference
         # See: CLAUDE.md §2.11 Domain Architecture Categories
         from adapters.persistence.neo4j.user_backend import UserBackend
-        from core.models.curriculum.article import Article
+        from core.models.article.article import Article
 
         users_backend = UserBackend(driver)
         knowledge_backend = ArticleBackend(
@@ -1669,7 +1669,7 @@ async def compose_services(
 
         # Create Reports feedback and exercise services
         from adapters.persistence.neo4j.domain_backends import ExerciseBackend
-        from core.models.curriculum.exercise import Exercise
+        from core.models.exercises.exercise import Exercise
         from core.services.exercises import ExerciseService
         from core.services.feedback import FeedbackService
 
@@ -1698,7 +1698,7 @@ async def compose_services(
 
         # Create revised exercise service (five-phase learning loop)
         from adapters.persistence.neo4j.domain_backends import RevisedExerciseBackend
-        from core.models.curriculum.revised_exercise import RevisedExercise
+        from core.models.exercises.revised_exercise import RevisedExercise
         from core.services.revised_exercises import RevisedExerciseService
 
         revised_exercise_backend = RevisedExerciseBackend(

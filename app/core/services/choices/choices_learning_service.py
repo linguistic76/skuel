@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_request import ChoiceCreateRequest
-from core.models.curriculum.learning_step import LearningStep
+from core.models.pathways.learning_step import LearningStep
 from core.models.enums import Domain, EntityStatus, Priority
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -21,7 +21,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.models.curriculum.lp_position import LpPosition
+    from core.models.pathways.lp_position import LpPosition
     from core.ports.domain_protocols import ChoicesOperations
 
 

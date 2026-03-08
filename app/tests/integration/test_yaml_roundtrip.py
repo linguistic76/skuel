@@ -33,7 +33,7 @@ class TestYAMLRoundTrip:
         from unittest.mock import AsyncMock, MagicMock
 
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-        from core.models.curriculum.curriculum_dto import CurriculumDTO
+        from core.models.curriculum_dto import CurriculumDTO
         from core.services.article_service import ArticleService
         from core.services.ingestion import UnifiedIngestionService
 

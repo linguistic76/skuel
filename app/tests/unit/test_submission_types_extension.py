@@ -6,7 +6,7 @@ Tests EntityType enum values, display names,
 is_processable, subject_uid on submission subclasses, and converter logic.
 """
 
-from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.feedback.activity_report import ActivityReport
 from core.models.feedback.submission_feedback import SubmissionFeedback

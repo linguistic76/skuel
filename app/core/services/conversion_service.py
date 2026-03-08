@@ -19,7 +19,7 @@ from typing import Any, Protocol, TypeVar, runtime_checkable
 from core.models.choice.choice import Choice
 from core.models.choice.choice_option import ChoiceOption
 from core.models.choice.choice_request import ChoiceCreateRequest
-from core.models.curriculum.curriculum_requests import CurriculumCreateRequest as KuCreateRequest
+from core.models.article.article_request import ArticleCreateRequest as KuCreateRequest
 from core.models.entity import Entity
 from core.models.entity_requests import EntityUpdateRequest
 

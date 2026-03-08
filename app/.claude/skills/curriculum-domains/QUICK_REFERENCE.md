@@ -8,12 +8,12 @@
 
 | Domain | Directory | Model | DTO | Request |
 |--------|-----------|-------|-----|---------|
-| **Base** | `core/models/curriculum/` | `curriculum.py` | `curriculum_dto.py` | `curriculum_requests.py` |
-| **Article** | `core/models/curriculum/` | `article.py` (extends Curriculum) | `article_dto.py` | `curriculum_requests.py` |
+| **Base** | `core/models/` | `curriculum.py` | `curriculum_dto.py` | — |
+| **Article** | `core/models/article/` | `article.py` (extends Curriculum) | `article_dto.py` | `article_request.py` |
 | **KU** | `core/models/ku/` | `ku.py` (extends Entity) | `ku_dto.py` | — |
-| **LS** | `core/models/curriculum/` | `learning_step.py` | `learning_step_dto.py` | `curriculum_requests.py` |
-| **LP** | `core/models/curriculum/` | `learning_path.py` | `learning_path_dto.py` | `curriculum_requests.py` |
-| **Exercise** | `core/models/curriculum/` | `exercise.py` | `exercise_dto.py` | `exercise_request.py` |
+| **LS** | `core/models/pathways/` | `learning_step.py` | `learning_step_dto.py` | `pathways_request.py` |
+| **LP** | `core/models/pathways/` | `learning_path.py` | `learning_path_dto.py` | `pathways_request.py` |
+| **Exercise** | `core/models/exercises/` | `exercise.py` | `exercise_dto.py` | `exercise_request.py` |
 
 ### Services (Facade + Sub-services)
 | Domain | Facade | Core | Search | Intelligence |
@@ -114,16 +114,16 @@
 
 ```python
 # Models
-from core.models.curriculum.curriculum import Curriculum
-from core.models.curriculum.curriculum_dto import CurriculumDTO
-from core.models.curriculum.article import Article
-from core.models.curriculum.article_dto import ArticleDTO
+from core.models.curriculum import Curriculum
+from core.models.curriculum_dto import CurriculumDTO
+from core.models.article.article import Article
+from core.models.article.article_dto import ArticleDTO
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.models.curriculum.learning_step import LearningStep
-from core.models.curriculum.learning_step_dto import LearningStepDTO
-from core.models.curriculum.learning_path import LearningPath
-from core.models.curriculum.learning_path_dto import LearningPathDTO
+from core.models.pathways.learning_step import LearningStep
+from core.models.pathways.learning_step_dto import LearningStepDTO
+from core.models.pathways.learning_path import LearningPath
+from core.models.pathways.learning_path_dto import LearningPathDTO
 
 # Results
 from core.utils.result_simplified import Result

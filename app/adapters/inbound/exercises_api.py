@@ -14,7 +14,7 @@ from fasthtml.common import Request
 from adapters.inbound.auth import require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import CRUDRouteFactory
-from core.models.curriculum.exercise_request import (
+from core.models.exercises.exercise_request import (
     ExerciseCreateRequest,
     ExerciseUpdateRequest,
     FeedbackGenerateRequest,

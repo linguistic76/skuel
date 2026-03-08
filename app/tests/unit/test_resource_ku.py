@@ -6,7 +6,7 @@ Tests for Resource creation, field defaults, DTO round-trip,
 and dispatch from Entity.from_dto().
 """
 
-from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum import Curriculum
 from core.models.entity import Entity
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType

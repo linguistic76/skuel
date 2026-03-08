@@ -21,10 +21,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.curriculum.learning_step_dto import LearningStepDTO
+    from core.models.pathways.learning_step_dto import LearningStepDTO
     from core.models.entity_dto import EntityDTO
 
-from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum import Curriculum
 from core.models.enums.curriculum_enums import StepDifficulty
 from core.models.enums.entity_enums import EntityType
 
@@ -132,7 +132,7 @@ class LearningStep(Curriculum):
         import dataclasses
         from typing import Any
 
-        from core.models.curriculum.learning_step_dto import LearningStepDTO
+        from core.models.pathways.learning_step_dto import LearningStepDTO
 
         dto_field_names = {f.name for f in dataclasses.fields(LearningStepDTO)}
         kwargs: dict[str, Any] = {}

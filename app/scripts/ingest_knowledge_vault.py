@@ -19,7 +19,7 @@ from neo4j import AsyncGraphDatabase
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
 from core.ingestion.vector_manager import Vector, VectorManager, VectorSpace
-from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum import Curriculum
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 

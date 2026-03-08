@@ -26,7 +26,7 @@ from core.utils.logging import get_logger
 if TYPE_CHECKING:
     import builtins
 
-    from core.models.curriculum.learning_step import LearningStep
+    from core.models.pathways.learning_step import LearningStep
     from core.services.ls.ls_intelligence_service import LsIntelligenceService
     from core.utils.result_simplified import Result
 

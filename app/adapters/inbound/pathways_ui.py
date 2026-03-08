@@ -24,7 +24,7 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth import require_authenticated_user
-from core.models.curriculum.curriculum_requests import LearningPathFilterRequest
+from core.models.pathways.pathways_request import LearningPathFilterRequest
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card

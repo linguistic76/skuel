@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.curriculum.curriculum_dto import CurriculumDTO
+from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain
 from core.services.article.article_graph_service import ArticleGraphService
 from core.utils.result_simplified import Result

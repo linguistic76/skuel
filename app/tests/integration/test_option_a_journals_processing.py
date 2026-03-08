@@ -29,7 +29,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import pytest_asyncio
 
-from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.submissions.submission import Submission
 from core.services.submissions import SubmissionsProcessingService

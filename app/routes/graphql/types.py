@@ -18,7 +18,7 @@ from routes.graphql.context import GraphQLContext
 from routes.graphql.query_helpers import GraphQLQueryHelpers
 
 if TYPE_CHECKING:
-    from core.models.curriculum.learning_step import LearningStep as LsModel
+    from core.models.pathways.learning_step import LearningStep as LsModel
     from core.utils.result_simplified import Result
 
 

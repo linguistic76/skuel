@@ -30,7 +30,7 @@ from routes.graphql.config import get_graphql_config, validate_list_limit
 from routes.graphql.context import GraphQLContext
 
 if TYPE_CHECKING:
-    from core.models.curriculum.learning_step import LearningStep as LsModel
+    from core.models.pathways.learning_step import LearningStep as LsModel
     from core.utils.result_simplified import Result
     from routes.graphql.protocols import CurriculumEntityLike, LearningStepLike
 from routes.graphql.types import (

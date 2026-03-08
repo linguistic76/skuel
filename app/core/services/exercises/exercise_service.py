@@ -22,8 +22,8 @@ import os
 from datetime import date, datetime
 from typing import Any, ClassVar
 
-from core.models.curriculum.exercise import Exercise
-from core.models.curriculum.exercise_dto import ExerciseDTO
+from core.models.exercises.exercise import Exercise
+from core.models.exercises.exercise_dto import ExerciseDTO
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.models.enums.neo_labels import NeoLabel

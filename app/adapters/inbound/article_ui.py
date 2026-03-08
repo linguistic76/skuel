@@ -17,7 +17,7 @@ from fasthtml.common import A as Anchor
 from starlette.requests import Request
 from starlette.responses import Response
 
-from core.models.curriculum.curriculum_requests import CurriculumCreateRequest as KuCreateRequest
+from core.models.article.article_request import ArticleCreateRequest as KuCreateRequest
 from core.models.enums import SELCategory
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT

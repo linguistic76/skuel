@@ -15,7 +15,7 @@ NOTE: LS is a Curriculum domain - content is SHARED (no user_uid ownership).
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.curriculum.learning_step import LearningStep
+from core.models.pathways.learning_step import LearningStep
 from core.ports import LsOperations
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result

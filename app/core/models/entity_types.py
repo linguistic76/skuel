@@ -15,11 +15,11 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from core.models.choice.choice import Choice
-from core.models.curriculum.article import Article
-from core.models.curriculum.exercise import Exercise
-from core.models.curriculum.learning_path import LearningPath
-from core.models.curriculum.learning_step import LearningStep
-from core.models.curriculum.revised_exercise import RevisedExercise
+from core.models.article.article import Article
+from core.models.exercises.exercise import Exercise
+from core.models.pathways.learning_path import LearningPath
+from core.models.pathways.learning_step import LearningStep
+from core.models.exercises.revised_exercise import RevisedExercise
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event

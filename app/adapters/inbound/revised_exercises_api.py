@@ -12,7 +12,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
-from core.models.curriculum.revised_exercise_request import (
+from core.models.exercises.revised_exercise_request import (
     RevisedExerciseCreateRequest,
     RevisedExerciseUpdateRequest,
 )

@@ -39,7 +39,7 @@ from math import exp, log
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.models.curriculum.curriculum_dto import CurriculumDTO
+    from core.models.curriculum_dto import CurriculumDTO
     from core.models.entity_dto import EntityDTO
 
 from core.models.entity import Entity
@@ -485,7 +485,7 @@ class Curriculum(Entity):
         """Convert Curriculum to domain-specific CurriculumDTO."""
         import dataclasses
 
-        from core.models.curriculum.curriculum_dto import CurriculumDTO
+        from core.models.curriculum_dto import CurriculumDTO
 
         dto_field_names = {f.name for f in dataclasses.fields(CurriculumDTO)}
         kwargs: dict[str, Any] = {}

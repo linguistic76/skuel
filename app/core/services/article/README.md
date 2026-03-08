@@ -266,6 +266,6 @@ Separation of graph analytics from AI features.
 
 - **CLAUDE.md**: Project architectural patterns and conventions
 - **Protocol definitions**: `/core/ports/curriculum_protocols.py`
-- **Domain models**: `/core/models/curriculum/article.py`, `/core/models/curriculum/article_dto.py`
+- **Domain models**: `/core/models/article/article.py`, `/core/models/article/article_dto.py`
 - **Bootstrap**: `/services_bootstrap.py` (composition root)
 - **ADR-030**: Intelligence services architecture (graph analytics vs AI)

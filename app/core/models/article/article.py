@@ -30,11 +30,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.models.curriculum.article_dto import ArticleDTO
-    from core.models.curriculum.curriculum_dto import CurriculumDTO
+    from core.models.article.article_dto import ArticleDTO
+    from core.models.curriculum_dto import CurriculumDTO
     from core.models.entity_dto import EntityDTO
 
-from core.models.curriculum.curriculum import Curriculum
+from core.models.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityType
 
 
@@ -65,7 +65,7 @@ class Article(Curriculum):
 
     def to_dto(self) -> ArticleDTO:  # type: ignore[override]
         """Convert Article to domain-specific ArticleDTO."""
-        from core.models.curriculum.article_dto import ArticleDTO
+        from core.models.article.article_dto import ArticleDTO
 
         dto_field_names = {f.name for f in dataclasses.fields(ArticleDTO)}
         kwargs: dict[str, Any] = {}

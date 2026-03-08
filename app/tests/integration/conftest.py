@@ -195,7 +195,7 @@ def temp_yaml_dir() -> Generator[Path, None, None]:
 @pytest_asyncio.fixture
 async def ku_backend(neo4j_driver):
     """Create real ArticleService backend."""
-    from core.models.curriculum.curriculum_dto import CurriculumDTO
+    from core.models.curriculum_dto import CurriculumDTO
 
     # Use "Entity" to match what UnifiedIngestionService creates
     # IMPORTANT: Must use CurriculumDTO (not EntityDTO) to include quality_score, complexity, etc.

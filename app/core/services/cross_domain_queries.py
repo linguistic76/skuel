@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-from core.models.curriculum.article import Article
+from core.models.article.article import Article
 from core.models.entity_types import ENTITY_TYPE_CLASS_MAP, CurriculumEntity
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
