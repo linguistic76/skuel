@@ -17,6 +17,7 @@ Extracted from unified_ingestion_service.py for separation of concerns.
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from core.ingestion.bulk_ingestion import RelationshipConfig
@@ -127,6 +128,13 @@ class EntityIngestionConfig:
 
 # ENTITY_CONFIGS — Ingestion Entity Configuration
 #
+# 13 of 18 entity types are file-ingestible. The following are excluded:
+#   - EXERCISE: Created via API by teachers, not from content files
+#   - REVISED_EXERCISE: Created via API as part of the feedback loop
+#   - RESOURCE: Created via API with curated metadata
+#   - GROUPS: Created via API for teacher-student management
+#   - JOURNAL: Merged into SUBMISSION (the "journal" alias in TYPE_MAPPING resolves there)
+#
 # Relationship configs are derived from the Relationship Registry via
 # generate_ingestion_relationship_config(). Only entries with yaml_field_path
 # set in the registry generate ingestion relationships.
@@ -226,11 +234,54 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
 }
 
 
+# ============================================================================
+# FILE COLLECTION
+# ============================================================================
+
+
+def _file_mtime(path: Path) -> float:
+    """Get file modification time for sorting."""
+    return path.stat().st_mtime
+
+
+def collect_files(directory: Path, pattern: str = "*") -> list[Path]:
+    """
+    Collect all supported files (MD, YAML, YML) from a directory.
+
+    Simplifies pattern matching with clear semantics:
+    - "*" or "**/*" -> all supported files recursively
+    - "*.md" -> only markdown files recursively
+    - "specific-name" -> files with that exact stem
+
+    Args:
+        directory: Directory to search
+        pattern: Glob pattern (default "*" for all files)
+
+    Returns:
+        List of file paths sorted by modification time (newest first)
+    """
+    all_files: list[Path] = []
+
+    if pattern in ("*", "**/*"):
+        all_files.extend(directory.glob("**/*.md"))
+        all_files.extend(directory.glob("**/*.yaml"))
+        all_files.extend(directory.glob("**/*.yml"))
+    elif pattern.endswith(".md") or pattern.endswith((".yaml", ".yml")):
+        all_files.extend(directory.glob(f"**/{pattern}"))
+    else:
+        all_files.extend(directory.glob(f"**/{pattern}.md"))
+        all_files.extend(directory.glob(f"**/{pattern}.yaml"))
+        all_files.extend(directory.glob(f"**/{pattern}.yml"))
+
+    return sorted(all_files, key=_file_mtime, reverse=True)
+
+
 __all__ = [
     "DEFAULT_MAX_CONCURRENT_PARSING",
     "DEFAULT_MAX_FILE_SIZE_BYTES",
     "DEFAULT_USER_UID",
     "ENTITY_CONFIGS",
     "EntityIngestionConfig",
+    "collect_files",
     "generate_ingestion_relationship_config",
 ]

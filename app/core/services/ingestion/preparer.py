@@ -31,7 +31,7 @@ def normalize_uid(uid: str) -> str:
     Normalize UID to dot notation.
 
     Converts colon notation to dot notation:
-        "ku:machine-learning" → "ku.machine-learning"
+        "ku:machine-learning" -> "ku.machine-learning"
 
     Args:
         uid: Raw UID from file
@@ -65,16 +65,15 @@ def generate_uid(entity_type: EntityType | NonKuDomain, file_path: Path) -> str:
     return f"{prefix}.{file_path.stem}"
 
 
-async def prepare_entity_data_async(
+def _prepare_core(
     entity_type: EntityType | NonKuDomain,
     data: dict[str, Any],
     body: str | None,
     file_path: Path,
     default_user_uid: str = "user:system",
-    embeddings_service: Any | None = None,
 ) -> dict[str, Any]:
     """
-    Async version of prepare_entity_data with embedding generation.
+    Core entity data preparation logic shared by sync and async paths.
 
     Handles:
     - UID generation/normalization
@@ -82,7 +81,6 @@ async def prepare_entity_data_async(
     - Default value injection
     - Relationship data flattening
     - Timestamp injection
-    - Embedding generation (NEW - January 2026)
 
     Args:
         entity_type: EntityType | NonKuDomain enum value
@@ -90,7 +88,6 @@ async def prepare_entity_data_async(
         body: Body content (for markdown) or None
         file_path: Source file path
         default_user_uid: Default user UID for multi-tenant entities
-        embeddings_service: Optional Neo4jGenAIEmbeddingsService for embedding generation
 
     Returns:
         Prepared entity data dict
@@ -173,7 +170,7 @@ async def prepare_entity_data_async(
         entity_data["user_uid"] = default_user_uid
 
     # Flatten relationship data for BulkIngestionEngine
-    # Format: "connections.requires" → flat key in metadata
+    # Format: "connections.requires" -> flat key in metadata
     connections = entity_data.pop("connections", {})
     if connections:
         for key, value in connections.items():
@@ -198,12 +195,45 @@ async def prepare_entity_data_async(
     entity_data.setdefault("created_at", now)
     entity_data["updated_at"] = now
 
-    # Generate embeddings (NEW - January 2026)
-    # Priority entities: Ku, Task, Goal, LpStep - others don't need embeddings
+    return entity_data
+
+
+async def prepare_entity_data_async(
+    entity_type: EntityType | NonKuDomain,
+    data: dict[str, Any],
+    body: str | None,
+    file_path: Path,
+    default_user_uid: str = "user:system",
+    embeddings_service: Any | None = None,
+) -> dict[str, Any]:
+    """
+    Async version of prepare_entity_data with embedding generation.
+
+    Delegates core preparation to _prepare_core(), then optionally generates
+    embeddings for content-bearing entity types.
+
+    Args:
+        entity_type: EntityType | NonKuDomain enum value
+        data: Parsed frontmatter/YAML data
+        body: Body content (for markdown) or None
+        file_path: Source file path
+        default_user_uid: Default user UID for multi-tenant entities
+        embeddings_service: Optional Neo4jGenAIEmbeddingsService for embedding generation
+
+    Returns:
+        Prepared entity data dict
+
+    Raises:
+        ValueError: If entity type is unknown
+    """
+    entity_data = _prepare_core(entity_type, data, body, file_path, default_user_uid)
+
+    # Generate embeddings for content-bearing entity types
     if embeddings_service and _should_generate_embedding(entity_type):
         embedding_text = build_embedding_text(entity_type, entity_data)
 
         if embedding_text:
+            now = entity_data["updated_at"]
             try:
                 embedding_result = await embeddings_service.create_embedding(
                     text=embedding_text,
@@ -211,7 +241,6 @@ async def prepare_entity_data_async(
                 )
 
                 if embedding_result.is_ok:
-                    # Store as list for JSON compatibility (will be converted to tuple in domain model)
                     entity_data["embedding"] = embedding_result.value
                     entity_data["embedding_model"] = embeddings_service.model
                     entity_data["embedding_updated_at"] = now
@@ -221,11 +250,9 @@ async def prepare_entity_data_async(
                         f"Failed to generate embedding for {entity_data['uid']}: "
                         f"{embedding_result.expect_error()}"
                     )
-                    # Continue without embedding (graceful degradation)
 
             except Exception as e:
                 logger.warning(f"Exception generating embedding for {entity_data['uid']}: {e}")
-                # Continue without embedding (graceful degradation)
 
     return entity_data
 
@@ -258,7 +285,7 @@ def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> bool:
     return entity_type in embeddable_types
 
 
-def prepare_entity_data_sync(
+def prepare_entity_data(
     entity_type: EntityType | NonKuDomain,
     data: dict[str, Any],
     body: str | None,
@@ -266,115 +293,14 @@ def prepare_entity_data_sync(
     default_user_uid: str = "user:system",
 ) -> dict[str, Any]:
     """
-    Synchronous version of prepare_entity_data for batch operations.
+    Synchronous entity data preparation (no embedding generation).
 
-    Does NOT generate embeddings - use async version for embedding generation.
-    This version is used in thread pool operations where async is not available.
+    Delegates to _prepare_core(). For embedding generation, use
+    prepare_entity_data_async() instead.
 
-    See prepare_entity_data() for full documentation.
+    See _prepare_core() for full documentation.
     """
-    config = ENTITY_CONFIGS.get(entity_type)
-    if not config:
-        raise ValueError(f"Unknown entity type: {entity_type.value}")
-
-    # Start with data copy
-    entity_data = dict(data)
-
-    # Remove YAML-only metadata fields
-    for field in ("version", "type", "created_at", "updated_at"):
-        entity_data.pop(field, None)
-
-    # Handle UID
-    if "uid" in entity_data:
-        entity_data["uid"] = normalize_uid(entity_data["uid"])
-    else:
-        entity_data["uid"] = generate_uid(entity_type, file_path)
-
-    # Handle content for markdown files
-    if body is not None and entity_type in (EntityType.ARTICLE, EntityType.SUBMISSION):
-        entity_data["content"] = body
-
-    # Article: normalize USES_KU UIDs
-    if entity_type == EntityType.ARTICLE:
-        if "uses_kus" in entity_data and isinstance(entity_data["uses_kus"], list):
-            entity_data["uses_kus"] = [normalize_uid(uid) for uid in entity_data["uses_kus"]]
-
-    # Learning Step: normalize relationship fields
-    if entity_type == EntityType.LEARNING_STEP:
-        # Convert single learning_path_uid to list
-        lp_uid = entity_data.pop("learning_path_uid", None)
-        if lp_uid:
-            entity_data["learning_path_uids"] = [normalize_uid(lp_uid)]
-
-        # Merge knowledge_uid (single) into primary_knowledge_uids (list)
-        knowledge_uid = entity_data.pop("knowledge_uid", None)
-        if knowledge_uid:
-            normalized = normalize_uid(knowledge_uid)
-            existing = [normalize_uid(u) for u in entity_data.get("primary_knowledge_uids", [])]
-            if normalized not in existing:
-                entity_data.setdefault("primary_knowledge_uids", []).insert(0, normalized)
-
-        # Normalize UIDs in all relationship list fields
-        uid_list_fields = [
-            "primary_knowledge_uids",
-            "supporting_knowledge_uids",
-            "trains_ku_uids",
-            "prerequisite_step_uids",
-            "prerequisite_knowledge_uids",
-            "principle_uids",
-            "choice_uids",
-            "habit_uids",
-            "task_uids",
-            "event_template_uids",
-            "learning_path_uids",
-        ]
-        for field in uid_list_fields:
-            if field in entity_data and isinstance(entity_data[field], list):
-                entity_data[field] = [normalize_uid(uid) for uid in entity_data[field]]
-
-    # Handle title fallback from filename
-    if "title" not in entity_data and "name" not in entity_data:
-        entity_data["title"] = file_path.stem.replace("-", " ").title()
-
-    # Apply default values
-    if config.default_values:
-        for key, value in config.default_values.items():
-            if key not in entity_data:
-                entity_data[key] = value
-
-    # Inject user_uid for multi-tenant entity types
-    if config.requires_user_uid and "user_uid" not in entity_data:
-        entity_data["user_uid"] = default_user_uid
-
-    # Flatten relationship data
-    connections = entity_data.pop("connections", {})
-    if connections:
-        for key, value in connections.items():
-            if value:
-                entity_data[f"connections.{key}"] = value
-
-    contains = entity_data.pop("contains", {})
-    if contains:
-        for key, value in contains.items():
-            if value:
-                entity_data[f"contains.{key}"] = value
-
-    recommends = entity_data.pop("recommends", {})
-    if recommends:
-        for key, value in recommends.items():
-            if value:
-                entity_data[f"recommends.{key}"] = value
-
-    # Add timestamps
-    now = datetime.now().isoformat()
-    entity_data.setdefault("created_at", now)
-    entity_data["updated_at"] = now
-
-    return entity_data
-
-
-# Alias for backward compatibility with batch operations
-prepare_entity_data = prepare_entity_data_sync
+    return _prepare_core(entity_type, data, body, file_path, default_user_uid)
 
 
 def prepare_edge_data(
@@ -427,6 +353,5 @@ __all__ = [
     "normalize_uid",
     "prepare_edge_data",
     "prepare_entity_data",
-    "prepare_entity_data_sync",
     "prepare_entity_data_async",
 ]

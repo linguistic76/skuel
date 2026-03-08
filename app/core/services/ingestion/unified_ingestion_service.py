@@ -48,7 +48,13 @@ from .batch import ProgressCallback, find_entity_file, ingest_bundle, ingest_dir
 from .config import DEFAULT_MAX_FILE_SIZE_BYTES, DEFAULT_USER_UID, ENTITY_CONFIGS
 from .detector import detect_entity_type, detect_format, is_edge_type
 from .parser import check_file_size, parse_markdown, parse_yaml
-from .preparer import generate_uid, normalize_uid, prepare_edge_data, prepare_entity_data
+from .preparer import (
+    generate_uid,
+    normalize_uid,
+    prepare_edge_data,
+    prepare_entity_data,
+    prepare_entity_data_async,
+)
 from .types import BundleStats, DryRunPreview, IncrementalStats, IngestionStats
 from .validator import (
     validate_directory,
@@ -67,7 +73,7 @@ class UnifiedIngestionService:
 
     Orchestrates capabilities from decomposed modules:
     - Auto-detects file format (MD vs YAML)
-    - Routes to appropriate entity type (14 types)
+    - Routes to appropriate entity type (18 entity types)
     - Normalizes UIDs to dot notation
     - Uses BulkIngestionEngine for batch performance
     - Creates graph-native relationships
@@ -147,6 +153,8 @@ class UnifiedIngestionService:
 
         # Lazy-initialized engines per domain type (keyed by EntityType/NonKuDomain)
         self._engines: dict[EntityType | NonKuDomain, BulkIngestionEngine[Any]] = {}
+        # Track which engines have had constraints ensured (avoid per-file round-trip)
+        self._constraints_ensured: set[EntityType | NonKuDomain] = set()
 
     def _get_engine(self, entity_type: EntityType | NonKuDomain) -> BulkIngestionEngine[Any]:
         """Get or create a BulkIngestionEngine for the entity type."""
@@ -162,6 +170,17 @@ class UnifiedIngestionService:
                 entity_label=config.entity_label,
             )
         return self._engines[entity_type]
+
+    async def _get_engine_with_constraints(
+        self,
+        entity_type: EntityType | NonKuDomain,
+    ) -> BulkIngestionEngine[Any]:
+        """Get engine and ensure constraints once per entity type per service lifetime."""
+        engine = self._get_engine(entity_type)
+        if entity_type not in self._constraints_ensured:
+            await engine.ensure_constraints()
+            self._constraints_ensured.add(entity_type)
+        return engine
 
     # ========================================================================
     # DELEGATED METHODS (for backward compatibility)
@@ -368,8 +387,15 @@ class UnifiedIngestionService:
         if validation_result.is_error:
             return Result.fail(validation_result.expect_error())
 
-        # Prepare entity data
-        entity_data = prepare_entity_data(entity_type, data, body, file_path, self.default_user_uid)
+        # Prepare entity data (async path generates embeddings if service available)
+        entity_data = await prepare_entity_data_async(
+            entity_type,
+            data,
+            body,
+            file_path,
+            self.default_user_uid,
+            embeddings_service=self.embeddings,
+        )
 
         # Validate entity data after preparation (ensures auto-generated fields present)
         validation_result = validate_entity_data(entity_type, entity_data, file_path)
@@ -383,11 +409,8 @@ class UnifiedIngestionService:
             if ku_content_body:
                 entity_data["word_count"] = len(ku_content_body.split())
 
-        # Get engine for this entity type
-        engine = self._get_engine(entity_type)
-
-        # Ensure constraints
-        await engine.ensure_constraints()
+        # Get engine (constraints ensured once per entity type, not per file)
+        engine = await self._get_engine_with_constraints(entity_type)
 
         # Ingest with relationships
         rel_config = config.relationship_config or {}

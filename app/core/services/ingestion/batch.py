@@ -25,14 +25,18 @@ import yaml
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.utils.frontmatter import split_frontmatter
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-from .config import DEFAULT_MAX_CONCURRENT_PARSING, DEFAULT_MAX_FILE_SIZE_BYTES, ENTITY_CONFIGS
+from .config import (
+    DEFAULT_MAX_CONCURRENT_PARSING,
+    DEFAULT_MAX_FILE_SIZE_BYTES,
+    ENTITY_CONFIGS,
+    collect_files,
+)
 from .detector import detect_entity_type, detect_format, is_edge_type
 from .ingestion_tracker import IngestionTracker
-from core.utils.frontmatter import split_frontmatter
-
 from .parser import check_file_size, parse_markdown, parse_yaml
 from .preparer import normalize_uid, prepare_edge_data, prepare_entity_data
 from .types import BundleStats, DryRunPreview, IncrementalStats, IngestionError, IngestionStats
@@ -47,51 +51,6 @@ logger = get_logger("skuel.services.ingestion.batch")
 
 # Type alias for progress callback
 ProgressCallback = Callable[[int, int, str], None]  # (current, total, current_file)
-
-
-def _file_mtime(path: Path) -> float:
-    """Get file modification time for sorting."""
-    return path.stat().st_mtime
-
-
-def collect_files(directory: Path, pattern: str = "*") -> list[Path]:
-    """
-    Collect all supported files (MD, YAML, YML) from a directory.
-
-    Simplifies the confusing pattern matching logic by providing clear semantics:
-    - "*" or "**/*" → all supported files recursively
-    - "*.md" → only markdown files recursively
-    - "specific-name" → files with that exact stem
-
-    Args:
-        directory: Directory to search
-        pattern: Glob pattern (default "*" for all files)
-
-    Returns:
-        List of file paths sorted by modification time (newest first)
-    """
-    all_files: list[Path] = []
-
-    # Determine search behavior based on pattern
-    if pattern in ("*", "**/*"):
-        # Match all supported file types
-        all_files.extend(directory.glob("**/*.md"))
-        all_files.extend(directory.glob("**/*.yaml"))
-        all_files.extend(directory.glob("**/*.yml"))
-    elif pattern.endswith(".md"):
-        # Markdown files only
-        all_files.extend(directory.glob(f"**/{pattern}"))
-    elif pattern.endswith((".yaml", ".yml")):
-        # YAML files only
-        all_files.extend(directory.glob(f"**/{pattern}"))
-    else:
-        # Specific file name - try all extensions
-        all_files.extend(directory.glob(f"**/{pattern}.md"))
-        all_files.extend(directory.glob(f"**/{pattern}.yaml"))
-        all_files.extend(directory.glob(f"**/{pattern}.yml"))
-
-    # Sort by modification time (newest first) for better cache behavior
-    return sorted(all_files, key=_file_mtime, reverse=True)
 
 
 def create_error(
@@ -161,7 +120,6 @@ async def check_existing_entities(
     result = await driver.execute_query(
         query,
         {"uids": uids},
-        database_="neo4j",
     )
 
     return {record["uid"]: record["exists"] for record in result.records}
@@ -380,6 +338,66 @@ async def parse_file_for_batch(
                 suggestion="This is an unexpected error. Check the file format and encoding.",
             )
             return (None, None, error.to_dict())
+
+
+async def _ingest_edge_batch(
+    driver: Any,
+    edge_files: list[dict[str, Any]],
+) -> tuple[int, list[dict[str, str]]]:
+    """
+    Ingest a batch of prepared edge data into Neo4j.
+
+    Args:
+        driver: Neo4j async driver
+        edge_files: List of prepared edge dicts (from prepare_edge_data)
+
+    Returns:
+        Tuple of (edges_created_count, error_dicts)
+    """
+    edges_created = 0
+    errors: list[dict[str, str]] = []
+
+    for edge_data in edge_files:
+        from_uid = edge_data["from_uid"]
+        to_uid = edge_data["to_uid"]
+        rel_type = edge_data["relationship"]
+        props = edge_data["properties"]
+
+        # Validated against RelationshipName enum, safe to interpolate
+        query = f"""
+        MATCH (a {{uid: $from_uid}})
+        MATCH (b {{uid: $to_uid}})
+        MERGE (a)-[r:{rel_type}]->(b)
+        SET r += $props
+        RETURN true AS ok
+        """
+        try:
+            records, _, _ = await driver.execute_query(
+                query,
+                from_uid=from_uid,
+                to_uid=to_uid,
+                props=props,
+            )
+            if records:
+                edges_created += 1
+            else:
+                edge_error = IngestionError(
+                    file=props.get("source_file", "<edge>"),
+                    error=f"Entity not found: from={from_uid} or to={to_uid}",
+                    stage="edge_ingestion",
+                    error_type="not_found",
+                )
+                errors.append(edge_error.to_dict())
+        except Exception as e:
+            edge_error = IngestionError(
+                file=props.get("source_file", "<edge>"),
+                error=str(e),
+                stage="edge_ingestion",
+                error_type="database",
+            )
+            errors.append(edge_error.to_dict())
+
+    return edges_created, errors
 
 
 async def ingest_directory(
@@ -700,45 +718,8 @@ async def ingest_directory(
     # Ingest edge files (after entities, so referenced nodes likely exist)
     total_edges_created = 0
     if edge_files and driver is not None:
-        for edge_data in edge_files:
-            from_uid = edge_data["from_uid"]
-            to_uid = edge_data["to_uid"]
-            rel_type = edge_data["relationship"]
-            props = edge_data["properties"]
-
-            query = f"""
-            MATCH (a {{uid: $from_uid}})
-            MATCH (b {{uid: $to_uid}})
-            MERGE (a)-[r:{rel_type}]->(b)
-            SET r += $props
-            RETURN true AS ok
-            """
-            try:
-                records, _, _ = await driver.execute_query(
-                    query,
-                    from_uid=from_uid,
-                    to_uid=to_uid,
-                    props=props,
-                )
-                if records:
-                    total_edges_created += 1
-                else:
-                    edge_error = IngestionError(
-                        file=props.get("source_file", "<edge>"),
-                        error=f"Entity not found: from={from_uid} or to={to_uid}",
-                        stage="edge_ingestion",
-                        error_type="not_found",
-                    )
-                    errors.append(edge_error.to_dict())
-            except Exception as e:
-                edge_error = IngestionError(
-                    file=props.get("source_file", "<edge>"),
-                    error=str(e),
-                    stage="edge_ingestion",
-                    error_type="database",
-                )
-                errors.append(edge_error.to_dict())
-
+        total_edges_created, edge_errors = await _ingest_edge_batch(driver, edge_files)
+        errors.extend(edge_errors)
         if total_edges_created:
             logger.info(f"Ingested {total_edges_created} edges from {len(edge_files)} edge files")
 

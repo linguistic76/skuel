@@ -34,7 +34,7 @@ class IngestionStats:
     relationships_created: int = 0
     edges_created: int = 0
     duration_seconds: float = 0.0
-    errors: list[dict[str, Any]] | None = field(default_factory=list)
+    errors: list[dict[str, Any]] | None = None
 
     @property
     def files_per_second(self) -> float:
@@ -144,7 +144,7 @@ class IncrementalStats:
     # Breakdown by skip reason
     skipped_unchanged: int = 0
     skipped_hash_match: int = 0
-    errors: list[dict[str, Any]] | None = field(default_factory=list)
+    errors: list[dict[str, Any]] | None = None
 
     @property
     def skip_efficiency(self) -> float:

@@ -25,7 +25,7 @@ from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-from .config import DEFAULT_MAX_CONCURRENT_PARSING, ENTITY_CONFIGS
+from .config import DEFAULT_MAX_CONCURRENT_PARSING, ENTITY_CONFIGS, collect_files
 from .detector import detect_entity_type, detect_format
 from .parser import parse_markdown, parse_yaml
 from .preparer import prepare_entity_data
@@ -362,19 +362,8 @@ async def validate_directory(
     if not directory.exists():
         return Result.fail(Errors.not_found(f"Directory not found: {directory}"))
 
-    # Collect files
-    md_files = (
-        list(directory.glob(f"**/{pattern}.md"))
-        if "*" in pattern
-        else list(directory.glob("**/*.md"))
-    )
-    yaml_files = list(directory.glob(f"**/{pattern}.yaml")) + list(
-        directory.glob(f"**/{pattern}.yml")
-    )
-    if "*" in pattern:
-        yaml_files = list(directory.glob("**/*.yaml")) + list(directory.glob("**/*.yml"))
-
-    all_files = md_files + yaml_files
+    # Collect files using shared logic from batch module
+    all_files = collect_files(directory, pattern)
 
     if not all_files:
         return Result.ok(
@@ -507,7 +496,12 @@ async def validate_relationship_targets(
 
     except Exception as e:
         logger.error(f"Failed to validate relationship targets: {e}")
-        return Result.fail(str(e))
+        return Result.fail(
+            Errors.database(
+                operation="validate_relationship_targets",
+                message=f"Failed to validate relationship targets: {e}",
+            )
+        )
 
     # Check each reference against existing UIDs
     for source_uid, target_uid, _target_label in references:
