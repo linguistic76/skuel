@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import Any
 
 from fasthtml.common import Request
+from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -242,7 +243,21 @@ def create_pathways_api_routes(
             )
         )
 
-    logger.info("Pathways API routes registered (CRUDRouteFactory + 6 domain routes)")
+    # Enrollment
+    # ----------
+
+    @rt("/api/pathways/enroll/{uid}", methods=["POST"])
+    async def enroll_in_path_route(request: Request, uid: str) -> Any:
+        """Enroll the authenticated user in a learning path."""
+        user_uid = require_authenticated_user(request)
+
+        result = await user_service.enroll_in_learning_path(user_uid, uid)
+        if result.is_error:
+            return Result.fail(result.error)
+
+        return Response(headers={"HX-Redirect": f"/pathways/path/{uid}"})
+
+    logger.info("Pathways API routes registered (CRUDRouteFactory + 7 domain routes)")
     return []  # Routes registered via @rt() decorators (no objects returned)
 
 

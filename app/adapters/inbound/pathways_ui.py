@@ -41,6 +41,18 @@ from ui.ui_types import (
 logger = get_logger("skuel.ui.pathways")
 
 
+def _path_to_display_dict(path: Any) -> dict[str, Any]:
+    """Convert a LearningPath domain model to a display dict for browser cards."""
+    return {
+        "uid": path.uid,
+        "title": path.title or "Untitled Path",
+        "description": path.description or "",
+        "difficulty": _difficulty_label(path.difficulty_rating),
+        "estimated_hours": int(path.estimated_hours or 0),
+        "tags": list(path.tags) if path.tags else [],
+    }
+
+
 def _difficulty_label(rating: float) -> str:
     """Convert 0.0-1.0 difficulty rating to human-readable label."""
     if rating <= 0.35:
@@ -434,17 +446,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None):
         available_paths: list[dict[str, Any]] = []
         paths_result = await lp_service.list_all_paths(limit=50)
         if not paths_result.is_error and paths_result.value:
-            available_paths.extend(
-                {
-                    "uid": path.uid,
-                    "title": path.title or "Untitled Path",
-                    "description": path.description or "",
-                    "difficulty": _difficulty_label(path.difficulty_rating),
-                    "estimated_hours": int(path.estimated_hours or 0),
-                    "tags": list(path.tags) if path.tags else [],
-                }
-                for path in paths_result.value
-            )
+            available_paths.extend(_path_to_display_dict(path) for path in paths_result.value)
 
         if available_paths:
             grid_content = Div(
@@ -498,6 +500,46 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None):
         )
 
     routes.append(browse_learning_paths)
+
+    @rt("/api/pathways/filter-paths", methods=["POST"])
+    async def filter_learning_paths(request) -> Any:
+        """Filter learning paths by difficulty, domain, and duration."""
+        form_data = await request.form()
+        difficulty = form_data.get("difficulty", "all")
+        domain = form_data.get("domain", "all")
+        duration = form_data.get("duration", "all")
+
+        paths: list[dict[str, Any]] = []
+        paths_result = await lp_service.list_all_paths(limit=50)
+        if not paths_result.is_error and paths_result.value:
+            paths = [_path_to_display_dict(p) for p in paths_result.value]
+
+        # Apply filters
+        if difficulty and difficulty != "all":
+            paths = [p for p in paths if p["difficulty"] == difficulty]
+        if domain and domain != "all":
+            paths = [p for p in paths if domain in p["tags"]]
+        if duration and duration != "all":
+            if duration == "short":
+                paths = [p for p in paths if p["estimated_hours"] < 20]
+            elif duration == "medium":
+                paths = [p for p in paths if 20 <= p["estimated_hours"] <= 50]
+            elif duration == "long":
+                paths = [p for p in paths if p["estimated_hours"] > 50]
+
+        if paths:
+            return Div(
+                *[PathwaysUIComponents.render_learning_path_browser_card(p) for p in paths],
+                cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+            )
+        return Div(
+            P(
+                "No learning paths match your filters.",
+                cls="text-base-content/60 text-center py-8",
+            ),
+        )
+
+    routes.append(filter_learning_paths)
 
     @rt("/pathways/path/{path_uid}")
     async def learning_path_detail(request, path_uid: str) -> Any:

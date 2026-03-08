@@ -230,7 +230,7 @@ def _ready_to_learn_list(context: UserContext) -> Div:
             A(
                 Span("💡", cls="mr-2"),
                 Span(title, cls="font-medium text-base-content"),
-                href=f"/pathways/article/{uid}",
+                href=f"/article/{uid}",
                 cls="flex items-center p-3 bg-base-100 rounded-lg hover:bg-base-200 transition-colors",
             )
         )
