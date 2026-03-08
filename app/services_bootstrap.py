@@ -97,7 +97,7 @@ __version__ = "4.0"  # Entity type + cross-cutting system architecture
 
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import TYPE_CHECKING, Any
 
 from core.constants import MasteryLevel
@@ -447,31 +447,25 @@ class Services:
             except Exception as e:
                 logger.warning(f"Error closing event bus: {e}")
 
-        # Close individual services if they have cleanup methods
-        services_to_close = [
-            ("tasks", self.tasks),
-            ("events", self.events),
-            ("finance", self.finance),
-            ("content_enrichment", self.content_enrichment),
-            ("habits", self.habits),
-            ("transcription", self.transcription),
-            ("performance_optimization", self.performance_optimization),
-            # Note: sync was removed (January 2026) - use unified_ingestion instead
-        ]
-
-        for service_name, service in services_to_close:
-            if service:
-                try:
-                    if isinstance(service, AsyncCloseable):
-                        logger.info(f"Closing {service_name}...")
-                        await service.close()
-                        logger.info(f"{service_name} closed")
-                    elif isinstance(service, Closeable):
-                        logger.info(f"Closing {service_name}...")
-                        service.close()
-                        logger.info(f"{service_name} closed")
-                except Exception as e:
-                    logger.warning(f"Error closing {service_name}: {e}")
+        # Auto-close all remaining closeable fields (no hardcoded list)
+        already_handled = {"graph_adapter", "event_bus"}
+        for f in fields(self):
+            if f.name in already_handled:
+                continue
+            service = getattr(self, f.name)
+            if service is None:
+                continue
+            try:
+                if isinstance(service, AsyncCloseable):
+                    logger.info(f"Closing {f.name}...")
+                    await service.close()
+                    logger.info(f"{f.name} closed")
+                elif isinstance(service, Closeable):
+                    logger.info(f"Closing {f.name}...")
+                    service.close()
+                    logger.info(f"{f.name} closed")
+            except Exception as e:
+                logger.warning(f"Error closing {f.name}: {e}")
 
         logger.info("✅ Service container cleanup complete")
 
