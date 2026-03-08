@@ -193,7 +193,9 @@ class ChoicesViewComponents:
         # Status color
         from ui.badge_classes import priority_text_class, status_badge_class
 
-        status_str = str(status).lower().replace("choicestatus.", "")
+        from core.utils.type_converters import normalize_enum_str
+
+        status_str = normalize_enum_str(status, "pending")
         status_badge = status_badge_class(status_str)
 
         # Priority color

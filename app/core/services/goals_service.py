@@ -93,9 +93,7 @@ def _apply_goal_sort(goals: list[Any], sort_by: str = "target_date") -> list[Any
     if sort_by == "target_date":
         return sorted(goals, key=_get_goal_target_date)
     elif sort_by == "priority":
-        sort_key = make_priority_string_getter(
-            PRIORITY_STRING_SORT_ORDER, _get_goal_priority_str
-        )
+        sort_key = make_priority_string_getter(PRIORITY_STRING_SORT_ORDER, _get_goal_priority_str)
         return sorted(goals, key=sort_key)
     elif sort_by == "progress":
         return sorted(goals, key=get_current_value, reverse=True)

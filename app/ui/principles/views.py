@@ -237,7 +237,9 @@ class PrinciplesViewComponents:
         )
 
         # Category color
-        category_str = str(category).lower().replace("principlecategory.", "")
+        from core.utils.type_converters import normalize_enum_str
+
+        category_str = normalize_enum_str(category, "personal")
         category_colors = {
             "spiritual": "text-purple-600",
             "ethical": "text-blue-600",
@@ -620,7 +622,9 @@ class PrinciplesViewComponents:
         category = getattr(principle, "category", "personal")
         is_active = getattr(principle, "is_active", True)
 
-        category_str = str(category).lower().replace("principlecategory.", "")
+        from core.utils.type_converters import normalize_enum_str
+
+        category_str = normalize_enum_str(category, "personal")
 
         return Div(
             Div(

@@ -227,9 +227,7 @@ class IntentClassifier:
             embeddings_for_intent = []
 
             for exemplar_query in exemplar_queries:
-                embedding_result = await self.embeddings_service.create_embedding(
-                    exemplar_query
-                )
+                embedding_result = await self.embeddings_service.create_embedding(exemplar_query)
                 if embedding_result.is_ok:
                     embeddings_for_intent.append(embedding_result.value)
                 else:
@@ -239,14 +237,10 @@ class IntentClassifier:
                     )
 
             exemplar_embeddings[intent] = embeddings_for_intent
-            logger.debug(
-                "Loaded %d exemplars for %s", len(embeddings_for_intent), intent.value
-            )
+            logger.debug("Loaded %d exemplars for %s", len(embeddings_for_intent), intent.value)
 
         self._intent_exemplar_embeddings = exemplar_embeddings
-        logger.info(
-            "Intent exemplar embeddings loaded (%d intents)", len(exemplar_embeddings)
-        )
+        logger.info("Intent exemplar embeddings loaded (%d intents)", len(exemplar_embeddings))
 
     @staticmethod
     def _cosine_similarity(vec1: list[float], vec2: list[float]) -> float:

@@ -1676,7 +1676,9 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         cue = getattr(habit, "cue", "") or ""
         routine = getattr(habit, "routine", "") or ""
         reward = getattr(habit, "reward", "") or ""
-        status = str(getattr(habit, "status", "active")).lower().replace("habitstatus.", "")
+        from core.utils.type_converters import normalize_enum_str
+
+        status = normalize_enum_str(getattr(habit, "status", None), "active")
 
         from fasthtml.common import Form, Input, Label, Option, Select, Textarea
 

@@ -28,6 +28,7 @@ from core.ports.domain_protocols import (
 )
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.utils.type_converters import normalize_enum_str
 
 # Import sub-services and their types
 from core.services.principles import (
@@ -97,8 +98,7 @@ def _apply_principle_filters(
         principles = [
             p
             for p in principles
-            if str(getattr(p, "category", "")).lower().replace("principlecategory.", "")
-            == category_filter.lower()
+            if normalize_enum_str(getattr(p, "category", None)) == category_filter.lower()
         ]
 
     if strength_filter == "core":

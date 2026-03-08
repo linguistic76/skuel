@@ -196,9 +196,7 @@ class TestLearningPathGeneration:
     """Test goal-driven learning path generation."""
 
     @pytest.mark.asyncio
-    async def test_generate_goal_driven_learning_path_basic(
-        self, core_service, mock_user_context
-    ):
+    async def test_generate_goal_driven_learning_path_basic(self, core_service, mock_user_context):
         """Basic learning path generation returns AdaptiveLp."""
         result = await core_service.generate_goal_driven_learning_path(
             context=mock_user_context,

@@ -240,15 +240,11 @@ def EntityCard(
     if not config.show_actions:
         actions = None
     # Priority border colors
-    border_colors = {
-        "critical": "border-l-error",
-        "high": "border-l-error",
-        "medium": "border-l-warning",
-        "low": "border-l-success",
-    }
+    from ui.badge_classes import priority_border_class
+
     border_cls = ""
     if priority:
-        border_cls = border_colors.get(priority.lower(), "border-l-base-300")
+        border_cls = priority_border_class(priority)
 
     # Build header row: title + badges
     badges = []

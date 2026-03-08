@@ -134,7 +134,11 @@ def mock_events_service():
 
 @pytest.fixture
 def extractor_with_services(
-    mock_ku_service, mock_tasks_service, mock_goals_service, mock_habits_service, mock_events_service
+    mock_ku_service,
+    mock_tasks_service,
+    mock_goals_service,
+    mock_habits_service,
+    mock_events_service,
 ):
     """EntityExtractor with all domain services."""
     return EntityExtractor(

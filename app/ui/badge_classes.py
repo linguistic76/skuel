@@ -107,6 +107,39 @@ def priority_text_class(priority: str) -> str:
 
 
 # ============================================================================
+# PRIORITY / IMPACT → BORDER & DOT CLASSES
+# ============================================================================
+# Used by entity cards (left border accent) and insight cards (impact dots).
+# Same semantic scale as PRIORITY_BADGE: critical/high → error, medium → warning,
+# low → success.
+
+PRIORITY_BORDER: dict[str, str] = {
+    "critical": "border-l-error",
+    "high": "border-l-error",
+    "medium": "border-l-warning",
+    "low": "border-l-success",
+}
+
+
+def priority_border_class(priority: str) -> str:
+    """Get DaisyUI border-left class for a priority/impact level."""
+    return PRIORITY_BORDER.get(priority.lower().strip(), "border-l-base-300")
+
+
+PRIORITY_DOT: dict[str, str] = {
+    "critical": "bg-error",
+    "high": "bg-error",
+    "medium": "bg-warning",
+    "low": "bg-success",
+}
+
+
+def priority_dot_class(priority: str) -> str:
+    """Get background dot class for a priority/impact level."""
+    return PRIORITY_DOT.get(priority.lower().strip(), "bg-base-300")
+
+
+# ============================================================================
 # ESSENTIALITY → BADGE CLASS
 # ============================================================================
 

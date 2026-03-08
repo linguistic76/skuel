@@ -19,7 +19,6 @@ __version__ = "2.0"
 import contextlib
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from typing import Any, cast
 
 from fasthtml.common import H1, H2, H3, Div, Form, Option, P, Span
@@ -35,6 +34,7 @@ from adapters.inbound.ui_helpers import render_safe_error_response
 from core.ports.query_types import ActivityFilterSpec
 from core.services.choices_service import ChoicesService
 from core.utils.logging import get_logger
+from core.utils.type_converters import get_enum_attr_str
 from core.utils.result_simplified import Errors, Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
@@ -117,16 +117,6 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
             )
             return Result.fail(Errors.system(f"Failed to fetch choices: {e}"))
 
-    def _get_enum_value(obj, attr: str, default: str = "") -> str:
-        """Extract value from attribute (handles both enum and string)."""
-        value = getattr(obj, attr, None)
-        if value is None:
-            return default
-        # Handle enum with .value attribute
-        if isinstance(value, Enum):
-            return str(value.value).lower()
-        return str(value).lower()
-
     def _parse_options_from_form(form) -> list[dict[str, str]]:
         """Parse options[0].title, options[0].description, etc. from form."""
         options = []
@@ -168,7 +158,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
             # Calculate analytics
             total = len(choices)
             decided_statuses = ["decided", "implemented", "evaluated"]
-            decided = sum(1 for c in choices if _get_enum_value(c, "status") in decided_statuses)
+            decided = sum(1 for c in choices if get_enum_attr_str(c, "status") in decided_statuses)
 
             # Calculate satisfaction rate from choices with satisfaction_score (1-5 scale)
             choices_with_satisfaction = [
@@ -718,7 +708,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                                 Option(
                                     p.title(),
                                     value=p,
-                                    selected=_get_enum_value(choice, "priority") == p,
+                                    selected=get_enum_attr_str(choice, "priority") == p,
                                 )
                                 for p in priorities
                             ],
@@ -735,7 +725,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                                 Option(
                                     d.title(),
                                     value=d,
-                                    selected=_get_enum_value(choice, "domain") == d,
+                                    selected=get_enum_attr_str(choice, "domain") == d,
                                 )
                                 for d in domains
                             ],
@@ -954,10 +944,10 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         choice = result.value
 
         # Extract metadata for display
-        status = _get_enum_value(choice, "status", "pending")
-        priority = _get_enum_value(choice, "priority", "medium")
-        domain = _get_enum_value(choice, "domain", "personal")
-        choice_type = _get_enum_value(choice, "choice_type", "multiple")
+        status = get_enum_attr_str(choice, "status", "pending")
+        priority = get_enum_attr_str(choice, "priority", "medium")
+        domain = get_enum_attr_str(choice, "domain", "personal")
+        choice_type = get_enum_attr_str(choice, "choice_type", "multiple")
         options = getattr(choice, "options", []) or []
 
         # Render detail page

@@ -170,6 +170,39 @@ def get_enum_value(obj: Any) -> Any:
     return obj
 
 
+def normalize_enum_str(value: Any, default: str = "") -> str:
+    """Normalize an enum or string value to a clean lowercase string.
+
+    Replaces the duplicated ``str(val).lower().replace("enumprefix.", "")``
+    pattern scattered across UI and service code.
+
+    Args:
+        value: An enum instance, string, or None.
+        default: Value to return when *value* is None.
+
+    Returns:
+        Lowercase string — the enum's ``.value`` when applicable.
+
+    Examples:
+        >>> from enum import Enum
+        >>> class GoalStatus(str, Enum):
+        ...     ACTIVE = "active"
+        >>> normalize_enum_str(GoalStatus.ACTIVE)
+        'active'
+
+        >>> normalize_enum_str("Pending")
+        'pending'
+
+        >>> normalize_enum_str(None, "unknown")
+        'unknown'
+    """
+    if value is None:
+        return default
+    if isinstance(value, _EnumLike):
+        return str(value.value).lower()
+    return str(value).lower()
+
+
 def get_enum_attr_str(obj: Any, attr: str, default: str = "") -> str:
     """Extract an attribute as a lowercase string, handling both enum and string values.
 
@@ -210,5 +243,6 @@ def get_enum_attr_str(obj: Any, attr: str, default: str = "") -> str:
 __all__ = [
     "get_enum_attr_str",
     "get_enum_value",
+    "normalize_enum_str",
     "to_dict",
 ]

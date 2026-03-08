@@ -565,7 +565,9 @@ def create_principles_ui_routes(
         strength_str = (
             strength.value if isinstance(strength, PrincipleStrength) else str(strength).lower()
         )
-        category_str = str(category).lower().replace("principlecategory.", "")
+        from core.utils.type_converters import normalize_enum_str
+
+        category_str = normalize_enum_str(category, "personal")
 
         # Fetch recent reflections for this principle
         recent_reflections = []
