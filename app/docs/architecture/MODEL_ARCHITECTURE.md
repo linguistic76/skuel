@@ -137,7 +137,7 @@ core/models/{domain}/
 | `article/` | Article + ArticleDTO | Curriculum | Teaching compositions |
 | `exercises/` | Exercise, RevisedExercise + DTOs + requests | Curriculum | Exercise and revision models |
 | `pathways/` | LearningStep, LearningPath + DTOs, Mastery, LpPosition, LpRelationships, LearningProgress | Curriculum | LP/LS pathway models |
-| `content/` | Content, ContentChunks, ContentMetadata | Curriculum | Content processing models |
+| `article_content/` | CurriculumContent, ContentChunk, ContentMetadata | Curriculum | Article body storage + RAG chunking |
 | `ku/` | Ku + KuDTO | Curriculum | Atomic knowledge units |
 | `resource/` | Resource + ResourceDTO | Shared | Curated content (books, talks) |
 | `submissions/` | Submission, Journal + DTOs | Submissions | + submission_requests.py, ku_schedule.py |

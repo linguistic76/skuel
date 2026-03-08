@@ -26,7 +26,8 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `learning_enums.py` | Education, knowledge, mastery | LearningLevel, EducationalLevel, MasteryStatus, ContentType, SELCategory |
 | `metadata_enums.py` | Relationships, search, system config | RelationshipType (48 values), Intent, Visibility, SystemConstants |
 | `user_enums.py` | User roles and health scoring | UserRole, ContextHealthScore |
-| `finance_enums.py` | Finance domain | ExpenseStatus, PaymentMethod, BudgetPeriod |
+| `ku_enums.py` | Ku domain classification | KuCategory |
+| `finance_enums.py` | Finance domain | ExpenseStatus, PaymentMethod, ExpenseCategory, BudgetPeriod |
 | `transcription_enums.py` | Transcription processing | TranscriptionStatus |
 | `neo_labels.py` | Neo4j node labels | NeoLabel (32 labels) |
 
@@ -270,6 +271,9 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 - `Visibility` (PRIVATE, SHARED, TEAM, PUBLIC)
 - `SystemConstants` (class with thresholds: MASTERY_THRESHOLD=0.8, etc.)
 - Plus: ResponseTone, Personality, GuidanceMode, LearningModality, SearchScope, FacetType, MessageRole, ConversationState, CacheStrategy, TrendDirection, HealthStatus, SeverityLevel, BridgeType, ErrorSeverity, ExtractionMethod
+
+**Ku** (`ku_enums.py`):
+- KuCategory (7): STATE, CONCEPT, PRINCIPLE, INTAKE, SUBSTANCE, PRACTICE, VALUE
 
 **Finance** (`finance_enums.py`):
 - ExpenseStatus (7), PaymentMethod (8+), ExpenseCategory (3), RecurrencePattern (7), BudgetPeriod (4)
