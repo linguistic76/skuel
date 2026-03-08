@@ -15,12 +15,9 @@ See: /docs/patterns/ERROR_HANDLING.md
 import logging
 from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import Any, ParamSpec, TypeVar
+from typing import Any
 
 from core.utils.result_simplified import Errors, Result
-
-_P = ParamSpec("_P")
-_R = TypeVar("_R")
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +27,9 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 
-def exception_to_result(
-    func: Callable[_P, Awaitable[_R]],
-) -> Callable[_P, Awaitable[_R]]:
+def exception_to_result[R, **P](
+    func: Callable[P, Awaitable[R]],
+) -> Callable[P, Awaitable[R]]:
     """
     Decorator that catches exceptions and converts them to Result.fail().
     Used internally in services to ensure all operations return Results.
@@ -45,7 +42,7 @@ def exception_to_result(
     """
 
     @wraps(func)
-    async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         try:
             result = await func(*args, **kwargs)
             # Ensure we return a Result
@@ -95,9 +92,9 @@ def chain_results(*operations: Callable[..., Awaitable[Result[Any]]]) -> Callabl
 # ============================================================================
 
 
-def safe_backend_operation(
+def safe_backend_operation[R, **P](
     operation_name: str,
-) -> Callable[[Callable[_P, Awaitable[_R]]], Callable[_P, Awaitable[_R]]]:
+) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
     """
     Decorator for backend operations that ensures they return Results.
     Catches database exceptions and converts them to Result.fail().
@@ -110,9 +107,9 @@ def safe_backend_operation(
             return self._deserialize(record)
     """
 
-    def decorator(func: Callable[_P, Awaitable[_R]]) -> Callable[_P, Awaitable[_R]]:
+    def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
         @wraps(func)
-        async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             try:
                 result = await func(*args, **kwargs)
                 # Wrap non-Result returns
