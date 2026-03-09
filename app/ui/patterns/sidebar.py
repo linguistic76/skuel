@@ -90,7 +90,6 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
                 content,
                 href=item.href,
                 cls=f"flex items-center rounded-lg px-3 py-2.5 min-h-[44px] transition-colors hover:bg-base-200 {active_cls}",
-                **{"hx-boost": "false"},
                 **item.hx_attrs,
             )
         )
@@ -103,7 +102,6 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
             *children,
             href=item.href,
             cls=f"flex items-center gap-2 rounded-lg px-3 py-2.5 min-h-[44px] transition-colors hover:bg-base-200 {active_cls}",
-            **{"hx-boost": "false"},
             **item.hx_attrs,
         )
     )
@@ -154,7 +152,6 @@ def SidebarNav(
             title,
             href=title_href,
             cls="text-xl font-bold text-primary hover:text-primary-focus",
-            **{"hx-boost": "false"},
         )
     else:
         title_el = H3(title, cls="text-xl font-bold text-primary")
@@ -211,7 +208,6 @@ def SidebarNav(
                 href=item.href,
                 role="tab",
                 cls=f"tab whitespace-nowrap {'tab-active' if is_active else ''}",
-                **{"hx-boost": "false"},
                 **item.hx_attrs,
             )
         )

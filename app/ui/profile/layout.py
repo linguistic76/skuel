@@ -132,7 +132,6 @@ def _profile_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
                 href=item.href,
                 cls=f"flex items-center gap-2 rounded-lg px-3 py-2.5 min-h-[44px]"
                 f" transition-colors hover:bg-base-200 {active_cls}",
-                **{"hx-boost": "false"},
             )
         )
 
@@ -144,7 +143,6 @@ def _profile_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
             href=item.href,
             cls=f"flex items-center gap-2 rounded-lg px-3 py-2.5 min-h-[44px]"
             f" transition-colors hover:bg-base-200 {active_cls}",
-            **{"hx-boost": "false"},
         )
     )
 

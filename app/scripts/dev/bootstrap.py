@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from fasthtml.common import Script, StaticFiles, fast_app
+from fasthtml.common import StaticFiles, fast_app
 
 from core.config import UnifiedConfig
 from core.ports.infrastructure_protocols import EventBusOperations
@@ -387,31 +387,6 @@ def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None)
             *daisy_headers(),
             # Chart.js for data visualization
             *chartjs_headers(),
-            # Disable HTMX boost completely - intercept and cancel boosted requests
-            # This is a bootstrap-level fix - element-level patches don't work
-            Script("""
-                // Intercept ALL htmx requests and cancel boosted ones
-                // This runs before ANY htmx request is made
-                document.addEventListener('htmx:beforeRequest', function(evt) {
-                    // Check if this is a boosted request (from hx-boost)
-                    var elt = evt.detail.elt;
-                    var boosted = evt.detail.boosted;
-
-                    // If it's a boosted anchor link, cancel htmx and do normal navigation
-                    if (boosted && elt.tagName === 'A') {
-                        evt.preventDefault();
-                        window.location.href = elt.href;
-                        return false;
-                    }
-                });
-
-                // Also remove hx-boost from body when DOM is ready
-                document.addEventListener('DOMContentLoaded', function() {
-                    if (document.body) {
-                        document.body.removeAttribute('hx-boost');
-                    }
-                });
-            """),
         ),
         lifespan=skuel_lifespan,
         # FastHTML built-in session support

@@ -805,7 +805,6 @@ def _domain_menu_item(domain: ProfileDomainItem, is_active: bool) -> "FT":
             href=domain.href,
             cls=f"flex items-center gap-2 {active_cls}",
             aria_current="page" if is_active else None,  # Marks active page
-            **{"hx-boost": "false"},
         )
     )
 ```

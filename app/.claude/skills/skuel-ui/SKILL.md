@@ -464,7 +464,6 @@ def _profile_item_renderer(item: SidebarItem, is_active: bool) -> Any:
         Span(item.badge_text, cls=item.badge_cls) if item.badge_text else "",
         href=item.href,
         cls=f"flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-base-200 {active_cls}",
-        **{"hx-boost": "false"},
     ))
 
 return await SidebarPage(..., item_renderer=_profile_item_renderer)

@@ -266,13 +266,11 @@ def InsightMiniCard(insight: PersistedInsight, show_domain: bool = False) -> Div
                 button_text,
                 cls="btn btn-xs btn-ghost",
                 hx_get=link_url,
-                hx_boost="false",
             ),
             cls="mt-2",
         ),
         cls="p-3 bg-base-200 rounded-lg border-l-2 border-l-warning cursor-pointer hover:bg-base-300 transition-colors",
         hx_get=link_url,
-        hx_boost="false",
     )
 
 

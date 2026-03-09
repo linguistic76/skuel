@@ -5,13 +5,6 @@ Navbar Component - SKUEL Patterns
 Dark themed navigation using DaisyUI patterns.
 Alpine.js handles UI state, FastHTML handles rendering.
 
-Version: 3.2 - Explicit hx-boost=false on all navigation links
-
-ARCHITECTURE NOTE:
-    HTMX boost from Theme.blue.headers() requires explicit hx-boost="false"
-    on anchor links to ensure standard HTML navigation. The global bootstrap
-    cancellation script has timing issues on some page types.
-
 Usage:
     from ui.layouts.navbar import create_navbar_for_request
 
@@ -47,8 +40,7 @@ def _nav_link(item: NavItem, active_page: str, mobile: bool = False) -> A:
 
     cls = f"{base_cls} {active_cls if is_active else inactive_cls}"
 
-    # Explicit hx-boost=false ensures standard HTML navigation
-    return A(item.label, href=item.href, cls=cls, **{"hx-boost": "false"})
+    return A(item.label, href=item.href, cls=cls)
 
 
 def _bell_icon() -> NotStr:
@@ -107,7 +99,6 @@ def _search_button(active_page: str = "") -> A:
         _search_icon(),
         href="/search",
         cls=f"btn btn-ghost btn-circle {active_cls}",
-        **{"hx-boost": "false"},
     )
 
 
@@ -141,7 +132,7 @@ def _notification_button(unread_count: int = 0) -> Button:
         *button_content,
         type="button",
         cls="btn btn-ghost btn-circle text-base-content/70 hover:text-base-content relative",
-        **{"hx-get": "/notifications", "hx-boost": "false"},  # Navigate to notifications on click
+        **{"hx-get": "/notifications"},  # Navigate to notifications on click
     )
 
 
@@ -192,7 +183,6 @@ def _logout_button() -> A:
         _logout_icon(),
         href="/logout",
         cls="btn btn-ghost btn-circle text-base-content/70 hover:text-base-content",
-        **{"hx-boost": "false"},
     )
 
 
@@ -213,7 +203,6 @@ def _avatar_link(current_user: str) -> A:
         avatar,
         href="/profile",
         cls="btn btn-ghost btn-circle",
-        **{"hx-boost": "false"},
     )
 
 
@@ -239,13 +228,11 @@ def _admin_profile_section(current_user: str) -> Div:
             avatar,
             href="/admin",
             cls="btn btn-ghost btn-circle",
-            **{"hx-boost": "false"},
         ),
         A(
             "Sign out",
             href="/logout",
             cls="btn btn-ghost btn-sm text-base-content/70 hover:text-base-content",
-            **{"hx-boost": "false"},
         ),
         cls="hidden sm:flex items-center gap-2",
     )
@@ -254,8 +241,8 @@ def _admin_profile_section(current_user: str) -> Div:
 def _auth_buttons() -> Div:
     """Create login/signup buttons for unauthenticated users."""
     return Div(
-        A("Login", href="/login", cls="btn btn-ghost btn-sm", **{"hx-boost": "false"}),
-        A("Sign Up", href="/register", cls="btn btn-primary btn-sm", **{"hx-boost": "false"}),
+        A("Login", href="/login", cls="btn btn-ghost btn-sm"),
+        A("Sign Up", href="/register", cls="btn btn-primary btn-sm"),
         cls="flex items-center gap-2",
     )
 
@@ -338,7 +325,6 @@ def create_navbar(
                     "SKUEL",
                     href="/",
                     cls="text-xl font-bold text-primary flex-shrink-0",
-                    **{"hx-boost": "false"},
                 ),
                 profile_section,
                 cls="flex items-center gap-2 flex-1",

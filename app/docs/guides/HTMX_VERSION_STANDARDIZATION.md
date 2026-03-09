@@ -299,7 +299,7 @@ The navbar navigation bug was traced to HTMX version mismatch:
 - `ui/layouts/activity_layout.py` - Returns `Html` instead of `Div`
 - `ui/tasks/layout.py` - Delegates to `create_activity_page()`
 - `ui/patterns/entity_dashboard.py` - `render_entity_dashboard()` returns `Html`
-- `ui/layouts/navbar.py` - Added `hx-boost="false"` as defensive measure
+- `ui/layouts/navbar.py` - Previously added `hx-boost="false"` as defensive measure (later removed — hx-boost was never being set)
 
 ## See Also
 

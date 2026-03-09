@@ -313,7 +313,6 @@ def create_teaching_ui_routes(
                     "Back to Queue",
                     href="/teaching/queue",
                     cls="btn btn-ghost btn-sm mt-4",
-                    **{"hx-boost": "false"},
                 ),
             ),
         )
@@ -359,7 +358,6 @@ def create_teaching_ui_routes(
                     "+ New Exercise",
                     href="/teaching/exercises/new",
                     cls="btn btn-primary btn-sm mb-4",
-                    **{"hx-boost": "false"},
                 ),
             ),
             page_content,
@@ -391,7 +389,6 @@ def create_teaching_ui_routes(
                 "← Back to Exercises",
                 href="/teaching/exercises",
                 cls="btn btn-ghost btn-sm mt-4",
-                **{"hx-boost": "false"},
             ),
         )
         return await SidebarPage(
@@ -429,7 +426,6 @@ def create_teaching_ui_routes(
                 "← Back to Exercises",
                 href="/teaching/exercises",
                 cls="btn btn-ghost btn-sm mt-4",
-                **{"hx-boost": "false"},
             ),
         )
         return await SidebarPage(
@@ -466,7 +462,6 @@ def create_teaching_ui_routes(
                 "← By Exercise",
                 href="/teaching/exercises",
                 cls="btn btn-ghost btn-sm mt-4",
-                **{"hx-boost": "false"},
             ),
         )
 
@@ -552,7 +547,6 @@ def create_teaching_ui_routes(
                 "← By Student",
                 href="/teaching/students",
                 cls="btn btn-ghost btn-sm mt-4",
-                **{"hx-boost": "false"},
             ),
         )
 
@@ -598,7 +592,6 @@ def create_teaching_ui_routes(
                         "Go to Groups →",
                         href="/groups",
                         cls="btn btn-primary btn-sm mt-4",
-                        **{"hx-boost": "false"},
                     ),
                     cls="text-center py-12",
                 ),
@@ -645,7 +638,6 @@ def create_teaching_ui_routes(
                 "← Classes",
                 href="/teaching/classes",
                 cls="btn btn-ghost btn-sm mt-4",
-                **{"hx-boost": "false"},
             ),
         )
 

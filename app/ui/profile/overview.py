@@ -263,7 +263,6 @@ def _current_focus_card(context: UserContext) -> Div:
             ),
             href="/profile/tasks",
             cls="flex items-center mb-4 group",
-            **{"hx-boost": "false"},
         )
 
     # Get task title from rich data if available

@@ -109,7 +109,6 @@ def _notification_card(notif: dict[str, Any]) -> Div:
                             "View →",
                             href=link_href,
                             cls="text-xs link link-primary",
-                            **{"hx-boost": "false"},
                         ),
                         mark_read_btn,
                         cls="flex items-center gap-3 mt-2",
