@@ -2623,12 +2623,14 @@ async def compose_services(
         # Neo4j curriculum graph. Gated by INTELLIGENCE_TIER=FULL — requires
         # behavioral signals from choices + habits intelligence services.
         # Returns empty assessment (not an error) when curriculum graph < 3 KUs.
+        from adapters.persistence.neo4j.zpd_backend import ZPDBackend
         from core.services.zpd import ZPDService
 
         zpd_service: ZPDOperations | None = None
         if tier.ai_enabled:
+            zpd_backend = ZPDBackend(driver)
             zpd_service = ZPDService(
-                driver=driver,
+                backend=zpd_backend,
                 choices_intelligence=activity_services["choices"].intelligence,
                 habits_intelligence=activity_services["habits"].intelligence,
             )

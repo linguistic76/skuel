@@ -1,0 +1,171 @@
+"""
+ZPD Backend — Neo4j Graph Queries for Zone of Proximal Development
+===================================================================
+
+Pure persistence layer for ZPD graph traversals. Owns all Cypher queries
+that compute the user's current zone, proximal zone, readiness scores,
+and blocking gaps from the curriculum graph.
+
+Consumed by: core/services/zpd/zpd_service.py
+See: core/ports/zpd_protocols.py — ZPDBackendOperations protocol
+See: docs/roadmap/zpd-service-deferred.md — design rationale
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from neo4j import AsyncDriver
+
+from core.utils.logging import get_logger
+from core.utils.result_simplified import Errors, Result
+
+logger = get_logger(__name__)
+
+
+# ============================================================================
+# CYPHER QUERIES
+# ============================================================================
+
+# Step 1 + 2: Current zone (engaged KUs) and proximal zone (adjacent KUs)
+# in a single round-trip. Uses CALL{} subqueries for clarity.
+_ZONE_QUERY = """
+// ── Step 1: Current zone — KUs the user has meaningfully engaged ──────────
+MATCH (u:User {uid: $user_uid})
+OPTIONAL MATCH (u)-[:OWNS]->(t:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku_t:Entity)
+OPTIONAL MATCH (u)-[:OWNS]->(j:Entity {entity_type: 'journal'})-[:APPLIES_KNOWLEDGE]->(ku_j:Entity)
+OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {entity_type: 'habit'})-[:REINFORCES_KNOWLEDGE]->(ku_h:Entity)
+WITH u,
+     collect(DISTINCT ku_t.uid) + collect(DISTINCT ku_j.uid) + collect(DISTINCT ku_h.uid)
+     AS engaged_uids_raw
+
+// Deduplicate and remove nulls
+WITH u, [uid IN engaged_uids_raw WHERE uid IS NOT NULL] AS engaged_uids
+
+// ── Step 2: Proximal zone — structurally adjacent, not yet engaged ─────────
+UNWIND CASE WHEN size(engaged_uids) = 0 THEN [null] ELSE engaged_uids END AS engaged_uid
+OPTIONAL MATCH (engaged:Entity {uid: engaged_uid})-[:PREREQUISITE_FOR]->(next:Entity)
+OPTIONAL MATCH (engaged:Entity {uid: engaged_uid})-[:COMPLEMENTARY_TO]->(adj:Entity)
+// Next step in the same Learning Path: find siblings that come after engaged_uid
+OPTIONAL MATCH (lp:Entity)-[:ORGANIZES]->(path_next:Entity)
+WHERE (lp)-[:ORGANIZES]->(:Entity {uid: engaged_uid})
+
+WITH engaged_uids,
+     collect(DISTINCT next.uid) + collect(DISTINCT adj.uid) + collect(DISTINCT path_next.uid)
+     AS candidate_uids_raw
+
+// Proximal = adjacent candidates NOT already in current zone, and non-null
+WITH engaged_uids,
+     [uid IN candidate_uids_raw
+      WHERE uid IS NOT NULL AND NOT uid IN engaged_uids] AS proximal_uids
+
+// ── Step 3: Prerequisite graph for readiness scoring ─────────────────────
+// For each proximal KU, find how many prerequisites it has and how many
+// are in the current zone
+UNWIND CASE WHEN size(proximal_uids) = 0 THEN [null] ELSE proximal_uids END AS proximal_uid
+OPTIONAL MATCH (prox:Entity {uid: proximal_uid})<-[:PREREQUISITE_FOR]-(prereq:Entity)
+WITH engaged_uids, proximal_uids,
+     proximal_uid,
+     count(prereq) AS total_prereqs,
+     count(CASE WHEN prereq.uid IN engaged_uids THEN 1 END) AS met_prereqs
+
+WITH engaged_uids, proximal_uids,
+     collect({
+         ku_uid: proximal_uid,
+         total: total_prereqs,
+         met: met_prereqs
+     }) AS prereq_data
+
+// ── Step 4: Engaged Learning Paths ───────────────────────────────────────
+OPTIONAL MATCH (lp:Entity {entity_type: 'learning_path'})-[:ORGANIZES]->(step:Entity)
+WHERE step.uid IN engaged_uids
+WITH engaged_uids, proximal_uids, prereq_data,
+     collect(DISTINCT lp.uid) AS engaged_path_uids
+
+// ── Step 5: Blocking gaps — prerequisites NOT met ────────────────────────
+// A blocking gap = a prerequisite KU that is not in current_zone and
+// blocks at least one proximal KU
+UNWIND CASE WHEN size(proximal_uids) = 0 THEN [null] ELSE proximal_uids END AS p_uid
+OPTIONAL MATCH (p:Entity {uid: p_uid})<-[:PREREQUISITE_FOR]-(gap:Entity)
+WHERE gap.uid IS NOT NULL AND NOT gap.uid IN engaged_uids
+
+WITH engaged_uids, proximal_uids, prereq_data, engaged_path_uids,
+     collect(DISTINCT gap.uid) AS blocking_gap_uids
+
+RETURN
+    engaged_uids      AS current_zone,
+    proximal_uids     AS proximal_zone,
+    engaged_path_uids AS engaged_paths,
+    prereq_data       AS prereq_data,
+    blocking_gap_uids AS blocking_gaps
+LIMIT 1
+"""
+
+# Minimum KU count to consider the curriculum graph "ready"
+_MIN_KU_COUNT_QUERY = """
+MATCH (ku:Entity {entity_type: 'ku'})
+RETURN count(ku) AS ku_count
+"""
+
+
+class ZPDBackend:
+    """Neo4j persistence backend for ZPD graph traversals.
+
+    Pure data access — no business logic. Executes Cypher queries and returns
+    raw parsed results. Business logic (readiness scoring, behavioral
+    enrichment) stays in ZPDService.
+
+    Args:
+        driver: Neo4j async driver (injected at bootstrap).
+    """
+
+    def __init__(self, driver: AsyncDriver) -> None:
+        self._driver = driver
+        self._logger = logger
+
+    async def get_ku_count(self) -> int:
+        """Count total KUs in the curriculum graph."""
+        try:
+            records, _, _ = await self._driver.execute_query(_MIN_KU_COUNT_QUERY)
+            if records:
+                return records[0].get("ku_count", 0) or 0
+            return 0
+        except Exception as exc:
+            self._logger.warning("ZPD: failed to count KUs — %s", exc)
+            return 0
+
+    async def get_zone_data(
+        self, user_uid: str
+    ) -> Result[tuple[list[str], list[str], list[str], list[dict[str, Any]], list[str]]]:
+        """Execute the 2-hop zone traversal query and parse results.
+
+        Returns:
+            Result containing a tuple of:
+                - current_zone: KU UIDs the user has engaged
+                - proximal_zone: Adjacent KU UIDs not yet engaged
+                - engaged_paths: Learning Path UIDs the user is on
+                - prereq_data: Raw prerequisite counts per proximal KU
+                - blocking_gaps: Prerequisite KU UIDs not yet met
+        """
+        try:
+            records, _, _ = await self._driver.execute_query(_ZONE_QUERY, {"user_uid": user_uid})
+        except Exception as exc:
+            self._logger.error("ZPD zone query failed for %s: %s", user_uid, exc)
+            return Result.fail(
+                Errors.database(
+                    operation="ZPDBackend.get_zone_data",
+                    message=f"ZPD zone query failed: {exc}",
+                )
+            )
+
+        if not records:
+            return Result.ok(([], [], [], [], []))
+
+        row = records[0]
+        current_zone: list[str] = list(row.get("current_zone") or [])
+        proximal_zone: list[str] = list(row.get("proximal_zone") or [])
+        engaged_paths: list[str] = list(row.get("engaged_paths") or [])
+        blocking_gaps: list[str] = list(row.get("blocking_gaps") or [])
+        prereq_data: list[dict[str, Any]] = list(row.get("prereq_data") or [])
+
+        return Result.ok((current_zone, proximal_zone, engaged_paths, prereq_data, blocking_gaps))

@@ -157,7 +157,9 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return await self._basic_get_with_context(uid, depth, min_confidence)
 
         # Registry-driven generation
-        from adapters.persistence.neo4j.query.cypher.context_query_generator import generate_context_query
+        from adapters.persistence.neo4j.query.cypher.context_query_generator import (
+            generate_context_query,
+        )
 
         query, params = generate_context_query(
             entity_label=self.entity_label,

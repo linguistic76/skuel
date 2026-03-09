@@ -32,7 +32,7 @@ The app functions fully without any LLM dependencies - AI services enhance but a
 
 **Note:** Finance is a standalone bookkeeping domain (no intelligence service).
 
-**ZPDService** (`core/services/zpd/zpd_service.py`) is a specialized curriculum graph analytics service, distinct from the 10 `BaseAnalyticsService` subclasses. It does NOT extend `BaseAnalyticsService` — it takes a Neo4j driver directly and computes Zone of Proximal Development assessments via a single 2-hop Cypher traversal. Only available in FULL tier; gracefully degrades (returns empty assessment) when curriculum engagement relationships are absent.
+**ZPDService** (`core/services/zpd/zpd_service.py`) is a specialized curriculum graph analytics service, distinct from the 10 `BaseAnalyticsService` subclasses. It does NOT extend `BaseAnalyticsService` — it delegates Neo4j queries to `ZPDBackend` (`adapters/persistence/neo4j/zpd_backend.py`) and computes Zone of Proximal Development assessments from the results. Only available in FULL tier; gracefully degrades (returns empty assessment) when curriculum engagement relationships are absent.
 
 ## Quick Start
 

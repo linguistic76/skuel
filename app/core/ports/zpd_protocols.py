@@ -1,21 +1,52 @@
 """
-ZPD Protocol
-============
+ZPD Protocols
+=============
 
-Protocol interface for ZPDService — the pedagogical core of Askesis that
-computes a user's Zone of Proximal Development from the Neo4j curriculum graph.
+Protocol interfaces for the Zone of Proximal Development subsystem.
 
-See: core/services/zpd/zpd_service.py — implementation
+- ZPDBackendOperations: Persistence layer — Cypher queries against Neo4j.
+- ZPDOperations: Service layer — business logic consumed by Askesis.
+
+See: core/services/zpd/zpd_service.py — service implementation
+See: adapters/persistence/neo4j/zpd_backend.py — backend implementation
 See: docs/roadmap/zpd-service-deferred.md — design rationale
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from core.models.zpd.zpd_assessment import ZPDAssessment
     from core.utils.result_simplified import Result
+
+
+@runtime_checkable
+class ZPDBackendOperations(Protocol):
+    """Persistence protocol for ZPD graph queries.
+
+    Implemented by: adapters/persistence/neo4j/zpd_backend.py
+    Consumed by: ZPDService
+    """
+
+    async def get_ku_count(self) -> int:
+        """Count total KUs in the curriculum graph."""
+        ...
+
+    async def get_zone_data(
+        self, user_uid: str
+    ) -> Result[tuple[list[str], list[str], list[str], list[dict[str, Any]], list[str]]]:
+        """Execute the zone traversal query and return parsed results.
+
+        Returns:
+            Result containing a tuple of:
+                - current_zone: KU UIDs the user has engaged
+                - proximal_zone: Adjacent KU UIDs not yet engaged
+                - engaged_paths: Learning Path UIDs the user is on
+                - prereq_data: Raw prerequisite counts per proximal KU
+                - blocking_gaps: Prerequisite KU UIDs not yet met
+        """
+        ...
 
 
 @runtime_checkable

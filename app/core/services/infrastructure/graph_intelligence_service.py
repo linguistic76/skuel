@@ -635,9 +635,7 @@ class GraphIntelligenceService:
         if not records:
             return Result.fail(Errors.not_found(resource="Node", identifier=node_uid))
 
-        graph_context = transform_records_to_graph_context(
-            records, node_uid, domain, intent, depth
-        )
+        graph_context = transform_records_to_graph_context(records, node_uid, domain, intent, depth)
 
         self.logger.info(
             f"Graph context retrieved: {graph_context.total_nodes} nodes, "

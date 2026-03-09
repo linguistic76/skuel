@@ -2,8 +2,8 @@
 ZPDService — Zone of Proximal Development
 ==========================================
 
-Computes a user's Zone of Proximal Development by traversing the Neo4j
-curriculum graph. Answers: *what does this user know, and what are they
+Computes a user's Zone of Proximal Development by delegating graph traversal
+to ZPDBackend. Answers: *what does this user know, and what are they
 structurally ready to learn next?*
 
 This service is the pedagogical core of Askesis. Without it, Askesis can only
@@ -12,23 +12,12 @@ curriculum before the conversation starts.
 
 Architecture
 ------------
-- Takes the driver directly (not BaseService/BaseAnalyticsService) — pure graph
-  computation, stateless. No entities are stored.
+- Delegates all Neo4j queries to ZPDBackend (adapters/persistence/neo4j/).
+- Owns business logic: readiness scoring, behavioral enrichment.
 - Optional behavioral intelligence injection: ChoicesIntelligenceService and
   HabitsIntelligenceService enrich the assessment with behavioral readiness.
 - Returns ZPDAssessment with empty lists (not a failure) when the curriculum
   graph has fewer than 3 KUs or no user engagement exists.
-
-Query Strategy
---------------
-Single 2-hop Cypher traversal per assess_zone() call:
-  Step 1: Find current zone — KUs via APPLIES_KNOWLEDGE (Tasks, Journals) +
-          REINFORCES_KNOWLEDGE (Habits)
-  Step 2: Find proximal zone — adjacent via PREREQUISITE_FOR, COMPLEMENTARY_TO,
-          LP ORGANIZES (same path, next step)
-  Step 3: Compute readiness scores — fraction of prerequisites in current zone
-  Step 4: Compute behavioral_readiness — calls choices + habits intelligence
-          signals (both optional, degrades gracefully)
 
 Integration
 -----------
@@ -39,7 +28,8 @@ Integration
   AskesisService (scaffold_entry, ku_bridge prompts)
 
 See: core/models/zpd/zpd_assessment.py — ZPDAssessment model
-See: core/ports/zpd_protocols.py — ZPDOperations protocol
+See: core/ports/zpd_protocols.py — ZPDOperations + ZPDBackendOperations protocols
+See: adapters/persistence/neo4j/zpd_backend.py — persistence layer
 See: docs/roadmap/zpd-service-deferred.md — full design rationale
 """
 
@@ -49,109 +39,25 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from core.models.zpd.zpd_assessment import ZPDAssessment
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from logging import Logger
 
+    from core.ports.zpd_protocols import ZPDBackendOperations
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
-
-
-# ============================================================================
-# CYPHER QUERIES
-# ============================================================================
-
-# Step 1 + 2: Current zone (engaged KUs) and proximal zone (adjacent KUs)
-# in a single round-trip. Uses CALL{} subqueries for clarity.
-_ZONE_QUERY = """
-// ── Step 1: Current zone — KUs the user has meaningfully engaged ──────────
-MATCH (u:User {uid: $user_uid})
-OPTIONAL MATCH (u)-[:OWNS]->(t:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku_t:Entity)
-OPTIONAL MATCH (u)-[:OWNS]->(j:Entity {entity_type: 'journal'})-[:APPLIES_KNOWLEDGE]->(ku_j:Entity)
-OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {entity_type: 'habit'})-[:REINFORCES_KNOWLEDGE]->(ku_h:Entity)
-WITH u,
-     collect(DISTINCT ku_t.uid) + collect(DISTINCT ku_j.uid) + collect(DISTINCT ku_h.uid)
-     AS engaged_uids_raw
-
-// Deduplicate and remove nulls
-WITH u, [uid IN engaged_uids_raw WHERE uid IS NOT NULL] AS engaged_uids
-
-// ── Step 2: Proximal zone — structurally adjacent, not yet engaged ─────────
-UNWIND CASE WHEN size(engaged_uids) = 0 THEN [null] ELSE engaged_uids END AS engaged_uid
-OPTIONAL MATCH (engaged:Entity {uid: engaged_uid})-[:PREREQUISITE_FOR]->(next:Entity)
-OPTIONAL MATCH (engaged:Entity {uid: engaged_uid})-[:COMPLEMENTARY_TO]->(adj:Entity)
-// Next step in the same Learning Path: find siblings that come after engaged_uid
-OPTIONAL MATCH (lp:Entity)-[:ORGANIZES]->(path_next:Entity)
-WHERE (lp)-[:ORGANIZES]->(:Entity {uid: engaged_uid})
-
-WITH engaged_uids,
-     collect(DISTINCT next.uid) + collect(DISTINCT adj.uid) + collect(DISTINCT path_next.uid)
-     AS candidate_uids_raw
-
-// Proximal = adjacent candidates NOT already in current zone, and non-null
-WITH engaged_uids,
-     [uid IN candidate_uids_raw
-      WHERE uid IS NOT NULL AND NOT uid IN engaged_uids] AS proximal_uids
-
-// ── Step 3: Prerequisite graph for readiness scoring ─────────────────────
-// For each proximal KU, find how many prerequisites it has and how many
-// are in the current zone
-UNWIND CASE WHEN size(proximal_uids) = 0 THEN [null] ELSE proximal_uids END AS proximal_uid
-OPTIONAL MATCH (prox:Entity {uid: proximal_uid})<-[:PREREQUISITE_FOR]-(prereq:Entity)
-WITH engaged_uids, proximal_uids,
-     proximal_uid,
-     count(prereq) AS total_prereqs,
-     count(CASE WHEN prereq.uid IN engaged_uids THEN 1 END) AS met_prereqs
-
-WITH engaged_uids, proximal_uids,
-     collect({
-         ku_uid: proximal_uid,
-         total: total_prereqs,
-         met: met_prereqs
-     }) AS prereq_data
-
-// ── Step 4: Engaged Learning Paths ───────────────────────────────────────
-OPTIONAL MATCH (lp:Entity {entity_type: 'learning_path'})-[:ORGANIZES]->(step:Entity)
-WHERE step.uid IN engaged_uids
-WITH engaged_uids, proximal_uids, prereq_data,
-     collect(DISTINCT lp.uid) AS engaged_path_uids
-
-// ── Step 5: Blocking gaps — prerequisites NOT met ────────────────────────
-// A blocking gap = a prerequisite KU that is not in current_zone and
-// blocks at least one proximal KU
-UNWIND CASE WHEN size(proximal_uids) = 0 THEN [null] ELSE proximal_uids END AS p_uid
-OPTIONAL MATCH (p:Entity {uid: p_uid})<-[:PREREQUISITE_FOR]-(gap:Entity)
-WHERE gap.uid IS NOT NULL AND NOT gap.uid IN engaged_uids
-
-WITH engaged_uids, proximal_uids, prereq_data, engaged_path_uids,
-     collect(DISTINCT gap.uid) AS blocking_gap_uids
-
-RETURN
-    engaged_uids      AS current_zone,
-    proximal_uids     AS proximal_zone,
-    engaged_path_uids AS engaged_paths,
-    prereq_data       AS prereq_data,
-    blocking_gap_uids AS blocking_gaps
-LIMIT 1
-"""
-
-# Minimum KU count to consider the curriculum graph "ready"
-_MIN_KU_COUNT_QUERY = """
-MATCH (ku:Entity {entity_type: 'ku'})
-RETURN count(ku) AS ku_count
-"""
 
 
 class ZPDService:
     """
     Zone of Proximal Development service.
 
-    Stateless graph computation — traverses the live Neo4j curriculum graph
-    to determine what the user knows and what they are ready to learn next.
+    Stateless business logic — delegates graph traversal to ZPDBackend,
+    then enriches results with readiness scoring and behavioral signals.
 
     Args:
-        driver: Neo4j async driver (injected directly, not wrapped in backend)
+        backend: ZPDBackend instance for Neo4j queries.
         choices_intelligence: Optional — enriches behavioral_readiness with
             choice history signals. When None, behavioral_readiness defaults
             to 0.5 (neutral).
@@ -163,12 +69,12 @@ class ZPDService:
 
     def __init__(
         self,
-        driver: Any,
+        backend: ZPDBackendOperations,
         choices_intelligence: ChoicesIntelligenceService | None = None,
         habits_intelligence: HabitsIntelligenceService | None = None,
         logger: Logger | None = None,
     ) -> None:
-        self._driver = driver
+        self._backend = backend
         self._choices_intelligence = choices_intelligence
         self._habits_intelligence = habits_intelligence
         self._logger = logger or logging.getLogger("skuel.services.zpd")
@@ -190,7 +96,7 @@ class ZPDService:
             Result[ZPDAssessment]: Full ZPD snapshot.
         """
         # Guard: curriculum graph must be populated enough to be meaningful
-        ku_count = await self._get_ku_count()
+        ku_count = await self._backend.get_ku_count()
         if ku_count < 3:
             self._logger.debug(
                 "ZPD skipped: curriculum graph has %d KUs (minimum 3 required)", ku_count
@@ -198,13 +104,14 @@ class ZPDService:
             return Result.ok(self._empty_assessment())
 
         # Graph traversal: current zone + proximal zone + readiness data
-        graph_result = await self._run_zone_query(user_uid)
+        graph_result = await self._backend.get_zone_data(user_uid)
         if graph_result.is_error:
             return Result.fail(graph_result.expect_error())
 
-        current_zone, proximal_zone, engaged_paths, readiness_scores, blocking_gaps = (
-            graph_result.value
-        )
+        current_zone, proximal_zone, engaged_paths, prereq_data, blocking_gaps = graph_result.value
+
+        # Business logic: compute readiness scores from raw prereq data
+        readiness_scores = self._compute_readiness_scores(prereq_data)
 
         # Behavioral readiness: enrich with choices + habits signals
         behavioral_readiness = await self._compute_behavioral_readiness(user_uid, current_zone)
@@ -244,50 +151,8 @@ class ZPDService:
         return Result.ok(score)
 
     # =========================================================================
-    # PRIVATE HELPERS
+    # PRIVATE HELPERS — Business Logic
     # =========================================================================
-
-    async def _get_ku_count(self) -> int:
-        """Count total KUs in the curriculum graph."""
-        try:
-            records, _, _ = await self._driver.execute_query(_MIN_KU_COUNT_QUERY)
-            if records:
-                return records[0].get("ku_count", 0) or 0
-            return 0
-        except Exception as exc:
-            self._logger.warning("ZPD: failed to count KUs — %s", exc)
-            return 0
-
-    async def _run_zone_query(
-        self, user_uid: str
-    ) -> Result[tuple[list[str], list[str], list[str], dict[str, float], list[str]]]:
-        """Execute the 2-hop zone traversal query and parse results."""
-        try:
-            records, _, _ = await self._driver.execute_query(_ZONE_QUERY, {"user_uid": user_uid})
-        except Exception as exc:
-            self._logger.error("ZPD zone query failed for %s: %s", user_uid, exc)
-            return Result.fail(
-                Errors.database(
-                    operation="ZPDService._run_zone_query",
-                    message=f"ZPD zone query failed: {exc}",
-                )
-            )
-
-        if not records:
-            return Result.ok(([], [], [], {}, []))
-
-        row = records[0]
-        current_zone: list[str] = list(row.get("current_zone") or [])
-        proximal_zone: list[str] = list(row.get("proximal_zone") or [])
-        engaged_paths: list[str] = list(row.get("engaged_paths") or [])
-        blocking_gaps: list[str] = list(row.get("blocking_gaps") or [])
-
-        prereq_data: list[dict[str, Any]] = list(row.get("prereq_data") or [])
-        readiness_scores = self._compute_readiness_scores(prereq_data)
-
-        return Result.ok(
-            (current_zone, proximal_zone, engaged_paths, readiness_scores, blocking_gaps)
-        )
 
     def _compute_readiness_scores(self, prereq_data: list[dict[str, Any]]) -> dict[str, float]:
         """Compute readiness score for each proximal KU.
