@@ -10,7 +10,7 @@ from datetime import date
 import pytest
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-from core.models.query import UnifiedQueryBuilder, query
+from adapters.persistence.neo4j.query import UnifiedQueryBuilder, query
 from core.models.task.task import Task as Task
 
 
@@ -187,7 +187,7 @@ class TestUnifiedQueryBuilder:
         """Test that for_model returns ModelQueryBuilder."""
         builder = UnifiedQueryBuilder().for_model(Task)
 
-        from core.models.query.unified_query_builder import ModelQueryBuilder
+        from adapters.persistence.neo4j.query.unified_query_builder import ModelQueryBuilder
 
         assert isinstance(builder, ModelQueryBuilder)
         assert builder.model == Task
@@ -196,7 +196,7 @@ class TestUnifiedQueryBuilder:
         """Test that semantic returns SemanticQueryBuilder."""
         builder = UnifiedQueryBuilder().semantic("test.uid")
 
-        from core.models.query.unified_query_builder import SemanticQueryBuilder
+        from adapters.persistence.neo4j.query.unified_query_builder import SemanticQueryBuilder
 
         assert isinstance(builder, SemanticQueryBuilder)
         assert builder.uid == "test.uid"
@@ -206,7 +206,7 @@ class TestUnifiedQueryBuilder:
         # Use a valid template name that exists in the default templates
         builder = UnifiedQueryBuilder().template("get_by_uid")
 
-        from core.models.query.unified_query_builder import TemplateQueryBuilder
+        from adapters.persistence.neo4j.query.unified_query_builder import TemplateQueryBuilder
 
         assert isinstance(builder, TemplateQueryBuilder)
         assert builder.template_name == "get_by_uid"
@@ -290,7 +290,7 @@ class TestBackwardCompatibility:
 
     def test_modular_cypher_functions_work(self):
         """Test that modular cypher functions work."""
-        from core.models.query import build_search_query
+        from adapters.persistence.neo4j.query import build_search_query
 
         # Direct function import (one way forward)
         cypher, params = build_search_query(Task, {"priority": "high"})

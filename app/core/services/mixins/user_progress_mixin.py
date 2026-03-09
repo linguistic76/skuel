@@ -104,7 +104,7 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
                 )
             )
 
-        from core.models.query.cypher import build_user_progress_query
+        from adapters.persistence.neo4j.query.cypher import build_user_progress_query
 
         query, params = build_user_progress_query(
             label=self.entity_label,
@@ -238,7 +238,7 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
         if not user_uid:
             return Result.fail(Errors.validation(message="user_uid is required", field="user_uid"))
 
-        from core.models.query.cypher import build_user_curriculum_query
+        from adapters.persistence.neo4j.query.cypher import build_user_curriculum_query
 
         query, params = build_user_curriculum_query(
             label=self.entity_label,

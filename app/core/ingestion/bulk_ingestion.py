@@ -11,9 +11,9 @@ NOT as node properties. Key design decisions:
 
 1. RELATIONSHIP CREATION: Uses MERGE to create graph edges from connection data
    - Input: Entity with metadata._connections dict
-   - Process: Extract connection data, flatten to dotted keys (connections.requires)
+   - Process: batch_preparer extracts connection data, flattens to dotted keys
    - Output: Neo4j edges (e.g., [:REQUIRES_KNOWLEDGE], [:ENABLES_KNOWLEDGE])
-   - Cleanup: Connection data filtered in Python layer (CypherExecutor) before Neo4j
+   - Cleanup: Connection data filtered in Python layer (batch_preparer) before Neo4j
 
 2. EDGE DIRECTION: Configurable via relationship_config
    - "incoming": Creates (n)<-[:TYPE]-(target)
@@ -25,7 +25,7 @@ NOT as node properties. Key design decisions:
    - Edges: MERGE creates edge if not exists, idempotent on repeat
 
 4. PROPERTY FILTERING: Connection data never stored as node properties
-   - Python-side filtering via dict comprehension (CypherExecutor:283-292)
+   - Python-side filtering via batch_preparer.prepare_batch_items()
    - Only scalar/array properties stored in nodes
    - Relationships exist ONLY as graph edges
    - Zero APOC dependency for maximum portability
@@ -85,6 +85,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, TypedDict, TypeVar
 
+from core.ingestion.batch_preparer import prepare_batch_items
 from core.ingestion.cypher_executor import CypherExecutor, CypherTemplate
 
 if TYPE_CHECKING:
@@ -259,10 +260,11 @@ class BulkIngestionEngine[T]:
 
         async with self.driver.session() as session:
             executor = CypherExecutor(session, self.entity_type)
+            items = prepare_batch_items(entities)
 
             result = await executor.execute_batch(
                 template=template,
-                entities=entities,
+                items=items,
                 batch_size=batch_size,
                 extra_params={"entity_label": self.entity_label},
             )
@@ -386,12 +388,13 @@ RETURN count(n) as processed
 
         async with self.driver.session() as session:
             executor = CypherExecutor(session, self.entity_type)
+            items = prepare_batch_items(entities, rel_config=relationship_config)
 
             result = await executor.execute_batch(
                 template=template,
-                entities=entities,
+                items=items,
                 batch_size=batch_size,
-                extra_params={"entity_label": self.entity_label, "rel_config": relationship_config},
+                extra_params={"entity_label": self.entity_label},
             )
 
             if result.is_ok:

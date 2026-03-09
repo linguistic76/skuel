@@ -26,7 +26,7 @@ from core.infrastructure.database.schema import (
     RelationshipTypeInfo,
     SchemaContext,
 )
-from core.models.query.schema_ddl import (
+from adapters.persistence.neo4j.query.schema_ddl import (
     build_create_constraint_ddl,
     build_create_index_ddl,
     build_drop_constraint_ddl,

@@ -23,13 +23,12 @@ from typing import Any, Protocol, runtime_checkable
 
 from core.constants import GraphDepth
 from core.models.article.article import Article
-from core.models.query import (
-    IndexStrategy,
+from adapters.persistence.neo4j.query import (
     QueryElements,
-    QueryIntent,
     analyze_query_intent,
     create_search_request,
 )
+from core.models.query_types import IndexStrategy, QueryIntent
 
 # Use protocol interfaces instead of ports
 from core.ports.curriculum_protocols import ArticleOperations

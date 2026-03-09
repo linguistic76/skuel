@@ -13,13 +13,13 @@ The QueryBuilder facade wires these dependencies.
 
 from typing import TYPE_CHECKING
 
-from core.models.query import (
+from adapters.persistence.neo4j.query import (
     QueryBuildRequest,
     QueryConstraint,
     QueryOptimizationResult,
     TemplateSpec,
 )
-from core.models.query.search_models import FacetSetRequest as FacetSetSchema
+from core.models.search_models import FacetSetRequest as FacetSetSchema
 from core.services.search.core_types import FacetSet
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

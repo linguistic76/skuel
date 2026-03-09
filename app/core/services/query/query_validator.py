@@ -13,7 +13,7 @@ for full functionality. The QueryBuilder facade wires these dependencies.
 
 from typing import TYPE_CHECKING
 
-from core.models.query import (
+from adapters.persistence.neo4j.query import (
     QueryBuildRequest,
     QueryConstraint,
     QueryOptimizationResult,

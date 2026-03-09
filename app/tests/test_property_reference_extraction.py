@@ -8,7 +8,7 @@ and classifies their usage (filter, lookup, return, sort, aggregate).
 This is a foundational feature for query validation and optimization.
 """
 
-from core.models.query._query_models import (
+from adapters.persistence.neo4j.query._query_models import (
     PropertyReference,
     _extract_property_references,
     analyze_query_intent,

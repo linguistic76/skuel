@@ -111,7 +111,7 @@ def test_backward_compatibility():
 
 def test_graph_context_delegation():
     """Test 7: Test GraphContextBuilder delegation"""
-    from core.models.query import QueryIntent
+    from core.models.query_types import QueryIntent
     from core.services.query_builder import QueryBuilder
 
     qb = QueryBuilder(schema_service=None)

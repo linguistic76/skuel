@@ -22,7 +22,7 @@ Instead of APOC procedures, we use:
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.query._query_models import QueryIntent
+    from core.models.query_types import QueryIntent
 
 
 def build_graph_context_query(
@@ -52,7 +52,7 @@ def build_graph_context_query(
         query = build_graph_context_query("ku.python_basics", QueryIntent.PREREQUISITE, 3)
         result = await session.run(query, {"uid": "ku.python_basics"})
     """
-    from core.models.query._query_models import QueryIntent
+    from core.models.query_types import QueryIntent
 
     if intent == QueryIntent.HIERARCHICAL:
         # Pure Cypher variable-length pattern for hierarchical traversal

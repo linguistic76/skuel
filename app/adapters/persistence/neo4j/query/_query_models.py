@@ -12,43 +12,9 @@ Infrastructure-level query models accessible to ALL domains.
 
 import re
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any
 
-# ============================================================================
-# QUERY STRATEGIES AND INTENTS
-# ============================================================================
-
-
-class IndexStrategy(Enum):
-    """Index utilization strategies for query optimization"""
-
-    UNIQUE_LOOKUP = "unique_lookup"  # Use unique constraints for O(1) lookups
-    FULLTEXT_SEARCH = "fulltext_search"  # Use fulltext indexes for text search
-    RANGE_FILTER = "range_filter"  # Use range indexes for filtering/sorting
-    VECTOR_SEARCH = "vector_search"  # Use vector indexes for semantic search
-    TEXT_SEARCH = "text_search"  # Use text indexes for text operations
-    COMPOSITE_INDEX = "composite_index"  # Use multi-property indexes
-    NO_INDEX = "no_index"  # No suitable index available
-
-
-class QueryIntent(Enum):
-    """Types of query intents for semantic understanding"""
-
-    # Generic intents (cross-domain)
-    EXPLORATORY = "exploratory"  # Broad search, discovery
-    SPECIFIC = "specific"  # Looking for specific concept
-    HIERARCHICAL = "hierarchical"  # Needs parent/child context
-    PREREQUISITE = "prerequisite"  # Needs prerequisite chain
-    PRACTICE = "practice"  # Looking for exercises/examples
-    AGGREGATION = "aggregation"  # Statistical queries
-    RELATIONSHIP = "relationship"  # Graph traversal focused
-
-    # Domain-specific intents (December 2025)
-    GOAL_ACHIEVEMENT = "goal_achievement"  # Goal achievement path analysis
-    PRINCIPLE_EMBODIMENT = "principle_embodiment"  # How principle is LIVED
-    PRINCIPLE_ALIGNMENT = "principle_alignment"  # Choice alignment with principles
-    SCHEDULED_ACTION = "scheduled_action"  # Event as scheduled task execution
+from core.models.query_types import IndexStrategy, QueryIntent
 
 
 # ============================================================================

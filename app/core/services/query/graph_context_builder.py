@@ -7,8 +7,8 @@ Builds graph traversal queries for context discovery.
 Part of QueryBuilder decomposition.
 """
 
-from core.models.query import QueryIntent
-from core.models.query.graph_traversal import build_graph_context_query
+from core.models.query_types import QueryIntent
+from adapters.persistence.neo4j.query.graph_traversal import build_graph_context_query
 from core.utils.logging import get_logger
 
 

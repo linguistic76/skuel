@@ -32,7 +32,7 @@ from typing import Any
 from core.infrastructure.utils.factory_functions import create_default_energy_pattern
 from core.models.base_models_consolidated import BaseEntity
 from core.models.enums import EnergyLevel, LearningLevel, TimeOfDay, UserRole
-from core.models.query import QueryIntent
+from core.models.query_types import QueryIntent
 
 # ============================================================================
 # USER PREFERENCES

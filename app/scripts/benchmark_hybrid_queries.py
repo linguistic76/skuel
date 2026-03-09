@@ -27,7 +27,7 @@ import time
 from typing import Any
 
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
-from core.models.query import build_optimized_ready_to_learn
+from adapters.persistence.neo4j.query import build_optimized_ready_to_learn
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)

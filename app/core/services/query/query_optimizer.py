@@ -12,13 +12,13 @@ based on available indexes.
 from functools import partial
 
 from core.infrastructure.database.schema import SchemaContext
-from core.models.query import (
+from adapters.persistence.neo4j.query import (
     IndexRecommendation,
-    IndexStrategy,
     QueryBuildRequest,
     QueryOptimizationResult,
     QueryPlan,
 )
+from core.models.query_types import IndexStrategy
 from core.ports import HasStrategy
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

@@ -15,7 +15,7 @@ Date: November 23, 2025
 
 import pytest
 
-from core.models.query import ProvenanceQueries
+from adapters.persistence.neo4j.query import ProvenanceQueries
 from core.models.semantic.edge_metadata import (
     EdgeMetadata,
     create_cited_metadata,

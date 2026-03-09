@@ -25,7 +25,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.protocols import DomainModelProtocol, DTOProtocol
-from core.models.query import build_user_activity_query
+from adapters.persistence.neo4j.query import build_user_activity_query
 from core.ports import BackendOperations
 from core.utils.result_simplified import Errors, Result
 
@@ -247,7 +247,7 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
             domain uses custom "due" logic (e.g., Habits use frequency-based
             calculations).
         """
-        from core.models.query.cypher import build_due_soon_query
+        from adapters.persistence.neo4j.query.cypher import build_due_soon_query
 
         # Get configured date field
         date_field = self._get_config_value("date_field", "created_at")
@@ -319,7 +319,7 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
             (i.e., _date_field == "created_at"). Override this method if
             domain uses custom "overdue" logic.
         """
-        from core.models.query.cypher import build_overdue_query
+        from adapters.persistence.neo4j.query.cypher import build_overdue_query
 
         # Get configured date field
         date_field = self._get_config_value("date_field", "created_at")

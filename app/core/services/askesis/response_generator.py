@@ -24,7 +24,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.constants import MasteryLevel
-from core.models.query import QueryIntent
+from core.models.query_types import QueryIntent
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:

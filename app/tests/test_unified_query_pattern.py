@@ -16,7 +16,7 @@ from datetime import date
 import pytest
 
 from core.models.enums import EntityStatus
-from core.models.query import build_user_activity_query
+from adapters.persistence.neo4j.query import build_user_activity_query
 
 
 class TestUnifiedQueryPattern:

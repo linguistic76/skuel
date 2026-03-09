@@ -195,8 +195,8 @@ from .schema_ddl import (
     build_drop_index_ddl,
 )
 
-# Search boundary models (relocated from transcription package, February 2026)
-from .search_models import FacetSetRequest, SearchQueryRequest, SearchResultDTO
+# Search boundary models — canonical location is core.models.search_models
+from core.models.search_models import FacetSetRequest, SearchQueryRequest, SearchResultDTO
 from .unified_query_builder import (
     # Individual builders (for advanced usage)
     ModelQueryBuilder,

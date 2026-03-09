@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 
 from core.models.entity import Entity
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory, SystemConstants
-from core.models.query import QueryIntent
+from core.models.query_types import QueryIntent
 
 
 @dataclass(frozen=True)

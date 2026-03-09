@@ -11,7 +11,8 @@ Manages library of query templates and executes them with parameters.
 from dataclasses import dataclass
 from typing import Any
 
-from core.models.query import IndexStrategy, QueryOptimizationResult, QueryPlan, TemplateSpec
+from adapters.persistence.neo4j.query import QueryOptimizationResult, QueryPlan, TemplateSpec
+from core.models.query_types import IndexStrategy
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

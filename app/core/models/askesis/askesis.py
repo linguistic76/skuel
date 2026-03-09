@@ -31,10 +31,10 @@ from core.models.askesis.askesis_intelligence import (
 )
 from core.models.entity_dto import EntityDTO as KnowledgeUnitDTO
 from core.models.enums import GuidanceMode, Intent, Personality, ResponseTone
-from core.models.query import QueryIntent
-from core.models.query.search_models import FacetSetRequest as FacetSetSchema
-from core.models.query.search_models import SearchQueryRequest as SearchQuerySchema
-from core.models.query.search_models import SearchResultDTO as CrossDomainSearchResultsSchema
+from core.models.query_types import QueryIntent
+from core.models.search_models import FacetSetRequest as FacetSetSchema
+from core.models.search_models import SearchQueryRequest as SearchQuerySchema
+from core.models.search_models import SearchResultDTO as CrossDomainSearchResultsSchema
 from core.models.user import User
 from core.models.user.conversation import ConversationSession, PedagogicalContext
 

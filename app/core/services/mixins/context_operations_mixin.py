@@ -29,7 +29,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.protocols import DomainModelProtocol, DTOProtocol
-from core.models.query.cypher.post_processors import apply_processor
+from adapters.persistence.neo4j.query.cypher.post_processors import apply_processor
 from core.models.relationship_names import RelationshipName
 from core.ports import BackendOperations
 from core.utils.decorators import with_error_handling
@@ -157,7 +157,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return await self._basic_get_with_context(uid, depth, min_confidence)
 
         # Registry-driven generation
-        from core.models.query.cypher.context_query_generator import generate_context_query
+        from adapters.persistence.neo4j.query.cypher.context_query_generator import generate_context_query
 
         query, params = generate_context_query(
             entity_label=self.entity_label,

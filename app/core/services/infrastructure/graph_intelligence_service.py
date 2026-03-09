@@ -22,7 +22,6 @@ Date: October 26, 2025
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
-from core.ports import get_enum_value
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -612,15 +611,11 @@ class GraphIntelligenceService:
                 GraphDepth.NEIGHBORHOOD
             )
         """
-        from datetime import datetime
-
-        from core.models.graph_context import (
-            ContextRelevance,
-            DomainContext,
-            GraphContext,
-            GraphNode,
-            GraphRelationship,
-            RelationshipStrength,
+        from core.services.infrastructure.graph_query_builder import (
+            build_context_query_for_intent,
+        )
+        from core.services.infrastructure.graph_record_transformer import (
+            transform_records_to_graph_context,
         )
 
         self.logger.info(
@@ -628,8 +623,7 @@ class GraphIntelligenceService:
             f"intent={intent}, depth={depth}"
         )
 
-        # Build intent-specific Pure Cypher query
-        query = self._build_context_query_for_intent(intent, depth)
+        query = build_context_query_for_intent(intent, depth)
         params = {"uid": node_uid}
 
         result = await self.executor.execute_query(query, params)
@@ -641,109 +635,14 @@ class GraphIntelligenceService:
         if not records:
             return Result.fail(Errors.not_found(resource="Node", identifier=node_uid))
 
-        # Parse nodes and relationships from Cypher results
-        all_nodes = []
-        all_relationships = []
-
-        for record in records:
-            # Extract nodes (may be in different result keys depending on intent)
-            nodes_data = record.get("nodes", []) or record.get("related_nodes", [])
-            rels_data = record.get("relationships", [])
-
-            # Build GraphNode objects
-            for i, node_dict in enumerate(nodes_data):
-                if not node_dict:
-                    continue
-
-                # Extract node properties
-                uid = node_dict.get("uid", f"node_{i}")
-                labels = node_dict.get("labels", ["Unknown"])
-                if isinstance(labels, str):
-                    labels = [labels]
-
-                # Determine domain from node properties or labels
-                node_domain = self._determine_domain(node_dict, labels)
-
-                graph_node = GraphNode(
-                    uid=uid,
-                    labels=labels,
-                    domain=node_domain,
-                    properties=node_dict,
-                    distance_from_origin=node_dict.get("distance", 1),
-                    relevance=ContextRelevance.MEDIUM,
-                    relationship_to_origin=node_dict.get("relationship_type"),
-                )
-                all_nodes.append(graph_node)
-
-            # Build GraphRelationship objects
-            for rel_dict in rels_data:
-                if not rel_dict:
-                    continue
-
-                graph_rel = GraphRelationship(
-                    type=rel_dict.get("type", "RELATED_TO"),
-                    start_node_uid=rel_dict.get("start_uid", ""),
-                    end_node_uid=rel_dict.get("end_uid", ""),
-                    properties=rel_dict.get("properties", {}),
-                    strength=RelationshipStrength.MODERATE,
-                    bidirectional=rel_dict.get("bidirectional", False),
-                )
-                all_relationships.append(graph_rel)
-
-        # Group nodes by domain
-        domain_contexts_dict = {}
-        for node in all_nodes:
-            if node.domain not in domain_contexts_dict:
-                domain_contexts_dict[node.domain] = {
-                    "nodes": [],
-                    "relationships": [],
-                }
-            domain_contexts_dict[node.domain]["nodes"].append(node)
-
-        # Build DomainContext objects
-        domain_contexts = {}
-        for dom, data in domain_contexts_dict.items():
-            domain_rels = [
-                r
-                for r in all_relationships
-                if any(n.uid == r.start_node_uid or n.uid == r.end_node_uid for n in data["nodes"])
-            ]
-            domain_contexts[dom] = DomainContext(
-                domain=dom,
-                nodes=data["nodes"],
-                relationships=domain_rels,
-                node_count=len(data["nodes"]),
-                relationship_count=len(domain_rels),
-            )
-
-        # Calculate relationship patterns
-        relationship_patterns = {}
-        for rel in all_relationships:
-            relationship_patterns[rel.type] = relationship_patterns.get(rel.type, 0) + 1
-
-        # Build GraphContext
-        graph_context = GraphContext(
-            origin_uid=node_uid,
-            origin_domain=domain,
-            query_intent=get_enum_value(intent),
-            all_nodes=all_nodes,
-            all_relationships=all_relationships,
-            domain_contexts=domain_contexts,
-            cross_domain_insights=[],
-            relationship_patterns=relationship_patterns,
-            total_nodes=len(all_nodes),
-            total_relationships=len(all_relationships),
-            domains_involved=list(domain_contexts.keys()),
-            max_depth_reached=depth,
-            query_timestamp=datetime.now(),
-            neo4j_query_time_ms=None,
-            processing_time_ms=None,
+        graph_context = transform_records_to_graph_context(
+            records, node_uid, domain, intent, depth
         )
 
         self.logger.info(
-            f"Graph context retrieved: {len(all_nodes)} nodes, "
-            f"{len(all_relationships)} relationships, "
-            f"{len(domain_contexts)} domains"
+            f"Graph context retrieved: {graph_context.total_nodes} nodes, "
+            f"{graph_context.total_relationships} relationships, "
+            f"{len(graph_context.domains_involved)} domains"
         )
 
         return Result.ok(graph_context)
@@ -768,7 +667,8 @@ class GraphIntelligenceService:
         Example:
             context = await graph_intel.get_entity_context("event_meeting_123", GraphDepth.NEIGHBORHOOD)
         """
-        from core.models.query import QueryIntent
+        from core.models.query_types import QueryIntent
+        from core.services.infrastructure.graph_query_builder import determine_domain
 
         # First, determine domain of entity by fetching it
         query = """
@@ -786,211 +686,11 @@ class GraphIntelligenceService:
             return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
 
         node_labels = records[0]["labels"]
-        domain = self._determine_domain(records[0]["n"], node_labels)
+        domain = determine_domain(records[0]["n"], node_labels)
 
-        # Use query_with_intent with RELATIONSHIP intent for generic traversal
         return await self.query_with_intent(
             domain=domain,
             node_uid=entity_uid,
             intent=QueryIntent.RELATIONSHIP,
             depth=depth,
         )
-
-    def _build_context_query_for_intent(self, intent: Any, depth: int) -> str:
-        """
-        Build Pure Cypher query for graph context retrieval based on intent.
-
-        Uses variable-length patterns for efficient traversal.
-
-        Args:
-            intent: QueryIntent determining traversal strategy
-            depth: Maximum traversal depth
-
-        Returns:
-            Pure Cypher query string
-        """
-        from core.models.query import QueryIntent
-
-        intent_value = get_enum_value(intent)
-
-        # Build query based on intent
-        if intent_value == QueryIntent.HIERARCHICAL.value:
-            return f"""
-            MATCH (origin {{uid: $uid}})
-            OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
-            WHERE any(r in relationships(path) WHERE type(r) IN ['HAS_CHILD', 'PARENT_OF', 'CHILD_OF'])
-            WITH origin, collect(DISTINCT related) as nodes,
-                 collect(DISTINCT [r in relationships(path) | {{
-                     type: type(r),
-                     start_uid: startNode(r).uid,
-                     end_uid: endNode(r).uid,
-                     properties: properties(r)
-                 }}]) as rels
-            RETURN nodes, rels[0] as relationships
-            """
-
-        elif intent_value == QueryIntent.PREREQUISITE.value:
-            return f"""
-            MATCH (origin {{uid: $uid}})
-            OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
-            WHERE any(r in relationships(path) WHERE type(r) IN ['REQUIRES_KNOWLEDGE', 'PREREQUISITE_FOR', 'ENABLES'])
-            WITH origin, collect(DISTINCT related) as nodes,
-                 collect(DISTINCT [r in relationships(path) | {{
-                     type: type(r),
-                     start_uid: startNode(r).uid,
-                     end_uid: endNode(r).uid,
-                     properties: properties(r)
-                 }}]) as rels
-            RETURN nodes, rels[0] as relationships
-            """
-
-        elif intent_value == QueryIntent.PRACTICE.value:
-            return f"""
-            MATCH (origin {{uid: $uid}})
-            OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
-            WHERE any(r in relationships(path) WHERE type(r) IN ['PRACTICES', 'REINFORCES', 'APPLIES_KNOWLEDGE'])
-            WITH origin, collect(DISTINCT related) as nodes,
-                 collect(DISTINCT [r in relationships(path) | {{
-                     type: type(r),
-                     start_uid: startNode(r).uid,
-                     end_uid: endNode(r).uid,
-                     properties: properties(r)
-                 }}]) as rels
-            RETURN nodes, rels[0] as relationships
-            """
-
-        elif intent_value == QueryIntent.GOAL_ACHIEVEMENT.value:
-            # Goal achievement path: tasks, habits, knowledge, subgoals, milestones, principles
-            return f"""
-            MATCH (origin {{uid: $uid}})
-            OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
-            WHERE any(r in relationships(path) WHERE type(r) IN [
-                'FULFILLS_GOAL', 'SUPPORTS_GOAL', 'REQUIRES_KNOWLEDGE',
-                'SUBGOAL_OF', 'HAS_MILESTONE', 'GUIDED_BY_PRINCIPLE',
-                'CONTRIBUTES_TO_GOAL'
-            ])
-            WITH origin, collect(DISTINCT related) as nodes,
-                 collect(DISTINCT [r in relationships(path) | {{
-                     type: type(r),
-                     start_uid: startNode(r).uid,
-                     end_uid: endNode(r).uid,
-                     properties: properties(r)
-                 }}]) as rels
-            RETURN nodes, rels[0] as relationships
-            """
-
-        elif intent_value == QueryIntent.PRINCIPLE_EMBODIMENT.value:
-            # Principle embodiment: how principle is LIVED across domains
-            return f"""
-            MATCH (origin {{uid: $uid}})
-            OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
-            WHERE any(r in relationships(path) WHERE type(r) IN [
-                'GUIDED_BY_PRINCIPLE', 'ALIGNED_WITH_PRINCIPLE', 'INSPIRES_HABIT',
-                'GROUNDED_IN_KNOWLEDGE', 'GUIDES_GOAL', 'GUIDES_CHOICE'
-            ])
-            WITH origin, collect(DISTINCT related) as nodes,
-                 collect(DISTINCT [r in relationships(path) | {{
-                     type: type(r),
-                     start_uid: startNode(r).uid,
-                     end_uid: endNode(r).uid,
-                     properties: properties(r)
-                 }}]) as rels
-            RETURN nodes, rels[0] as relationships
-            """
-
-        elif intent_value == QueryIntent.PRINCIPLE_ALIGNMENT.value:
-            # Choice principle alignment: principles guiding choice, knowledge informing it
-            return f"""
-            MATCH (origin {{uid: $uid}})
-            OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
-            WHERE any(r in relationships(path) WHERE type(r) IN [
-                'ALIGNED_WITH_PRINCIPLE', 'INFORMED_BY_KNOWLEDGE', 'SUPPORTS_GOAL',
-                'CONFLICTS_WITH_GOAL', 'REQUIRES_KNOWLEDGE_FOR_DECISION',
-                'OPENS_LEARNING_PATH', 'GUIDED_BY_PRINCIPLE'
-            ])
-            WITH origin, collect(DISTINCT related) as nodes,
-                 collect(DISTINCT [r in relationships(path) | {{
-                     type: type(r),
-                     start_uid: startNode(r).uid,
-                     end_uid: endNode(r).uid,
-                     properties: properties(r)
-                 }}]) as rels
-            RETURN nodes, rels[0] as relationships
-            """
-
-        elif intent_value == QueryIntent.SCHEDULED_ACTION.value:
-            # Scheduled action: tasks executed, knowledge practiced, habits reinforced
-            return f"""
-            MATCH (origin {{uid: $uid}})
-            OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
-            WHERE any(r in relationships(path) WHERE type(r) IN [
-                'EXECUTES_TASK', 'PRACTICES_KNOWLEDGE', 'REINFORCES_HABIT',
-                'MILESTONE_FOR_GOAL', 'CONFLICTS_WITH', 'SUPPORTS_GOAL',
-                'SCHEDULED_FOR', 'DERIVED_FROM_TASK'
-            ])
-            WITH origin, collect(DISTINCT related) as nodes,
-                 collect(DISTINCT [r in relationships(path) | {{
-                     type: type(r),
-                     start_uid: startNode(r).uid,
-                     end_uid: endNode(r).uid,
-                     properties: properties(r)
-                 }}]) as rels
-            RETURN nodes, rels[0] as relationships
-            """
-
-        else:  # RELATIONSHIP, EXPLORATORY, SPECIFIC, AGGREGATION - generic traversal
-            return f"""
-            MATCH (origin {{uid: $uid}})
-            OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
-            WITH origin, collect(DISTINCT related) as nodes,
-                 collect(DISTINCT [r in relationships(path) | {{
-                     type: type(r),
-                     start_uid: startNode(r).uid,
-                     end_uid: endNode(r).uid,
-                     properties: properties(r)
-                 }}]) as rels
-            RETURN nodes, rels[0] as relationships
-            LIMIT 100
-            """
-
-    def _determine_domain(self, node_dict: dict[str, Any], labels: list[str]) -> Any:
-        """
-        Determine domain from node properties or labels.
-
-        Args:
-            node_dict: Node properties dictionary
-            labels: Node labels list
-
-        Returns:
-            Domain enum value
-        """
-        from core.models.enums import Domain
-
-        # Check if domain is in properties
-        if "domain" in node_dict:
-            domain_val = node_dict["domain"]
-            try:
-                return Domain(domain_val) if isinstance(domain_val, str) else domain_val
-            except ValueError:
-                pass
-
-        # Infer from labels
-        label_to_domain = {
-            "Task": Domain.TASKS,
-            "Habit": Domain.HABITS,
-            "Goal": Domain.GOALS,
-            "Event": Domain.EVENTS,
-            "Entity": Domain.KNOWLEDGE,
-            "Lp": Domain.LEARNING,
-            "Finance": Domain.FINANCE,
-            "Choice": Domain.CHOICES,
-            "Principle": Domain.PRINCIPLES,
-            "Journal": Domain.JOURNALS,
-        }
-
-        for label in labels:
-            if label in label_to_domain:
-                return label_to_domain[label]
-
-        # Default fallback
-        return Domain.KNOWLEDGE

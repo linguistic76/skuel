@@ -70,7 +70,7 @@ class KuRelationshipFilters:
             result = await backend.execute_query(query, params)
             # Returns: [{"uid": "ku:python", "has_relationships": True}, ...]
         """
-        from core.models.query import (
+        from adapters.persistence.neo4j.query import (
             build_batch_relationship_exists_with_filters,
         )
         from core.models.relationship_names import RelationshipName
@@ -104,7 +104,7 @@ class KuRelationshipFilters:
                 min_enablement_strength=0.7
             )
         """
-        from core.models.query import (
+        from adapters.persistence.neo4j.query import (
             build_batch_relationship_exists_with_filters,
         )
         from core.models.relationship_names import RelationshipName
@@ -138,7 +138,7 @@ class KuRelationshipFilters:
                 min_strength=0.7
             )
         """
-        from core.models.query import (
+        from adapters.persistence.neo4j.query import (
             build_batch_relationship_exists_with_filters,
         )
 
@@ -181,7 +181,7 @@ class KuRelationshipFilters:
             result = await backend.execute_query(query, params)
             # Returns: [{"uid": "ku:python", "related_uids": ["ku:basics", "ku:variables"]}, ...]
         """
-        from core.models.query import (
+        from adapters.persistence.neo4j.query import (
             build_batch_get_related_with_filters,
         )
         from core.models.relationship_names import RelationshipName
@@ -213,7 +213,7 @@ class KuRelationshipFilters:
         Returns:
             Tuple of (query_template, params) for batch execution
         """
-        from core.models.query import (
+        from adapters.persistence.neo4j.query import (
             build_batch_get_related_with_filters,
         )
         from core.models.relationship_names import RelationshipName
@@ -245,7 +245,7 @@ class KuRelationshipFilters:
         Returns:
             Tuple of (query_template, params) for batch execution
         """
-        from core.models.query import (
+        from adapters.persistence.neo4j.query import (
             build_batch_get_related_with_filters,
         )
 
@@ -285,7 +285,7 @@ class KuRelationshipTypeFilters:
             params["uids"] = ku_uids
             result = await backend.execute_query(query, params)
         """
-        from core.models.query import (
+        from adapters.persistence.neo4j.query import (
             build_batch_relationship_exists_with_filters,
         )
         from core.models.relationship_names import RelationshipName
@@ -309,7 +309,7 @@ class KuRelationshipTypeFilters:
         Returns:
             Tuple of (query_template, params) for batch execution
         """
-        from core.models.query import (
+        from adapters.persistence.neo4j.query import (
             build_batch_relationship_exists_with_filters,
         )
         from core.models.relationship_names import RelationshipName
@@ -343,7 +343,7 @@ class KuRelationshipTypeFilters:
                 min_specificity_level=2
             )
         """
-        from core.models.query import (
+        from adapters.persistence.neo4j.query import (
             build_batch_relationship_exists_with_filters,
         )
 
@@ -371,7 +371,7 @@ class KuRelationshipTypeFilters:
         Returns:
             Tuple of (query_template, params) for batch execution
         """
-        from core.models.query import (
+        from adapters.persistence.neo4j.query import (
             build_batch_relationship_exists_with_filters,
         )
 

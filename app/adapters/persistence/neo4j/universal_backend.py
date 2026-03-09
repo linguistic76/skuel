@@ -91,7 +91,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol
-from core.models.query import QueryIntent, UnifiedQueryBuilder
+from adapters.persistence.neo4j.query import UnifiedQueryBuilder
+from core.models.query_types import QueryIntent
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -441,7 +442,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
             query_intent = QueryIntent.SPECIFIC
 
         # Build query via infrastructure (not entity — entities express intent, not Cypher)
-        from core.models.query.graph_traversal import build_graph_context_query
+        from adapters.persistence.neo4j.query.graph_traversal import build_graph_context_query
 
         cypher_query = build_graph_context_query(node_uid=uid, intent=query_intent, depth=depth)
 

@@ -12,7 +12,7 @@ from datetime import date
 
 import pytest
 
-from core.models.query import (
+from adapters.persistence.neo4j.query import (
     build_count_query,
     build_cross_domain_bridges,
     build_get_by_field_query,

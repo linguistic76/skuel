@@ -52,16 +52,16 @@ __version__ = "1.0"
 from dataclasses import dataclass
 from typing import Any
 
-from core.models.query import (
+from adapters.persistence.neo4j.query import (
     QueryBuildRequest,
     QueryConstraint,
-    QueryIntent,
     QueryOptimizationResult,
     QueryPlan,
     TemplateSpec,
     ValidationResult,
 )
-from core.models.query.search_models import FacetSetRequest as FacetSetSchema
+from core.models.query_types import QueryIntent
+from core.models.search_models import FacetSetRequest as FacetSetSchema
 from core.services.query.faceted_query_builder import FacetedQueryBuilder
 from core.services.query.graph_context_builder import GraphContextBuilder
 from core.services.query.query_optimizer import QueryOptimizer

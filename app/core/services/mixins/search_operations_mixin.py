@@ -61,7 +61,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.protocols import DomainModelProtocol, DTOProtocol
-from core.models.query import (
+from adapters.persistence.neo4j.query import (
     build_relationship_traversal_query,
     build_text_search_query,
 )
@@ -309,7 +309,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(config_result)
 
         # Use graph-aware search query builder
-        from core.models.query.cypher import build_graph_aware_search_query
+        from adapters.persistence.neo4j.query.cypher import build_graph_aware_search_query
 
         cypher_query, params = build_graph_aware_search_query(
             self._model_class,
@@ -376,7 +376,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             )
 
         # Use array search query builder
-        from core.models.query.cypher import build_array_any_match_query
+        from adapters.persistence.neo4j.query.cypher import build_array_any_match_query
 
         cypher_query, params = build_array_any_match_query(
             label=self.entity_label,
@@ -430,7 +430,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(config_result)
 
         # Use array contains query builder
-        from core.models.query.cypher import build_array_contains_query
+        from adapters.persistence.neo4j.query.cypher import build_array_contains_query
 
         cypher_query, params = build_array_contains_query(
             label=self.entity_label,
@@ -725,7 +725,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Returns:
             Result containing list of category strings for this user
         """
-        from core.models.query.cypher import build_distinct_values_query
+        from adapters.persistence.neo4j.query.cypher import build_distinct_values_query
 
         query, params = build_distinct_values_query(
             label=self.entity_label,
@@ -754,7 +754,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Returns:
             Result containing list of all category strings
         """
-        from core.models.query.cypher import build_distinct_values_query
+        from adapters.persistence.neo4j.query.cypher import build_distinct_values_query
 
         query, params = build_distinct_values_query(
             label=self.entity_label,

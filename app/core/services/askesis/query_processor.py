@@ -36,7 +36,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryProcessorConfidence
-from core.models.query import QueryIntent
+from core.models.query_types import QueryIntent
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

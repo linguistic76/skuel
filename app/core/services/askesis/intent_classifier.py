@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.models.query import QueryIntent
+from core.models.query_types import QueryIntent
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 

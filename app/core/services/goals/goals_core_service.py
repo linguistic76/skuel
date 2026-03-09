@@ -381,7 +381,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         # Cannot abandon goal with active tasks - forces user to handle dependencies first
         if "status" in updates and updates["status"] == EntityStatus.CANCELLED.value:
             # Query for active tasks linked to this goal
-            from core.models.query import build_relationship_count
+            from adapters.persistence.neo4j.query import build_relationship_count
 
             # Check for tasks that are not in terminal states (i.e., still active/pending)
             # We can't filter by non-terminal in a simple property match, so we check for

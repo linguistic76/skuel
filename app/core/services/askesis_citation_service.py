@@ -21,7 +21,7 @@ Philosophy:
 from dataclasses import dataclass, field
 from typing import Any
 
-from core.models.query import ProvenanceQueries
+from adapters.persistence.neo4j.query import ProvenanceQueries
 from core.models.relationship_names import RelationshipName
 from core.ports.base_protocols import BackendOperations
 from core.utils.result_simplified import Errors, Result

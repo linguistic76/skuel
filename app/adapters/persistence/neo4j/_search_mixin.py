@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
-    from core.models.query import UnifiedQueryBuilder
+    from adapters.persistence.neo4j.query import UnifiedQueryBuilder
     from core.ports.base_protocols import GraphContextNode
 
 
@@ -420,7 +420,7 @@ class _SearchMixin[T: DomainModelProtocol]:
             - TasksRelationshipService.get_task_cross_domain_context() for usage
             - CypherGenerator.build_domain_context_with_paths()
         """
-        from core.models.query import build_domain_context_with_paths
+        from adapters.persistence.neo4j.query import build_domain_context_with_paths
 
         try:
             # Build pure Cypher query
@@ -468,7 +468,7 @@ class _SearchMixin[T: DomainModelProtocol]:
 
         Example:
             ```python
-            from core.models.query import build_batch_relationship_exists
+            from adapters.persistence.neo4j.query import build_batch_relationship_exists
 
             query, params = build_batch_relationship_exists(
                 node_label="Task",

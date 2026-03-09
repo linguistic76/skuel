@@ -1,64 +1,11 @@
 """
 Generic Cypher template executor for Neo4j operations.
 
-This module provides a generic pattern for executing Cypher templates with any entity type,
-using type introspection to automatically handle conversions.
+This module provides a generic pattern for executing Cypher templates with any entity type.
+Handles transaction management, batching, and statistics aggregation.
 
-GRAPH-NATIVE INTEGRATION:
--------------------------
-CypherExecutor handles the critical step of preserving connection data during batch
-operations while ensuring it doesn't pollute node properties.
-
-CONNECTION DATA FLOW:
-    1. YAML frontmatter → MarkdownSyncService stores in metadata._connections
-    2. Here: Extract and flatten to dotted keys (Neo4j can't store nested maps)
-    3. BulkIngestionEngine: Uses apoc.map.removeKeys() to exclude from node props
-    4. Cypher template: Creates graph edges via FOREACH + MERGE
-    5. Result: Edges exist in graph, properties don't exist in nodes
-
-Key Method: execute_batch() (lines 119-219)
-    - Processes entities in configurable batch sizes (default 1000)
-    - Extracts and flattens connection data for each entity (lines 161-177)
-    - Executes Cypher template with transaction management
-    - Returns aggregated statistics across all batches
-
-Example Flow:
-    # Input: Entity with metadata
-    entity = Ku(
-        uid="ku:test",
-        title="Test",
-        metadata={"_connections": {"requires": ["ku:A"], "enables": ["ku:B"]}}
-    )
-
-    # Step 1: Convert to Neo4j node (automatic via to_neo4j_node)
-    item = {
-        "uid": "ku:test",
-        "title": "Test",
-        "metadata": {...} # Contains _connections
-    }
-
-    # Step 2: Extract connections from metadata (lines 169-177)
-    # Flattened output:
-    item["connections.requires"] = ["ku:A"]
-    item["connections.enables"] = ["ku:B"]
-
-    # Step 3: BulkIngestionEngine template filters connections.* from node props
-    # Step 4: Cypher FOREACH creates edges:
-    # MERGE (n)-[:REQUIRES_KNOWLEDGE]->(target {uid: "ku:A"})
-    # MERGE (n)-[:ENABLES_KNOWLEDGE]->(target {uid: "ku:B"})
-
-    # Final Result:
-    # - Node: (:Entity {uid: "ku:test", title: "Test"})
-    # - Edges: (ku:test)-[:REQUIRES_KNOWLEDGE]->(ku:A)
-    # (ku:test)-[:ENABLES_KNOWLEDGE]->(ku:B)
-
-Type Safety:
-    - Generic[T] parameter ensures type-safe entity processing
-    - Automatic conversion via to_neo4j_node() handles all field types
-    - No manual type casting needed by callers
-
-Critical Section: Lines 161-177 (Connection Extraction)
-    See inline comments for detailed explanation of flattening logic.
+Data transformation (entity→dict conversion, connection flattening) lives in
+batch_preparer.py — this module is purely about database execution.
 
 See: /docs/architecture/YAML_MARKDOWN_INGESTION_GUIDE.md for complete flow
 See: /docs/architecture/GRAPH_NATIVE_ANALYSIS.md for architecture details
@@ -75,7 +22,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from neo4j import AsyncSession
-from core.utils.neo4j_mapper import to_neo4j_node
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
@@ -145,8 +91,9 @@ class CypherExecutor[T]:
         Returns:
             Result containing query statistics
         """
+        from core.utils.neo4j_mapper import to_neo4j_node
+
         try:
-            # Convert entity to Neo4j properties using generic mapper
             params = {"item": to_neo4j_node(entity)}
             if extra_params:
                 params.update(extra_params)
@@ -176,25 +123,26 @@ class CypherExecutor[T]:
     async def execute_batch(
         self,
         template: CypherTemplate,
-        entities: list[T],
+        items: list[dict[str, Any]],
         batch_size: int = 1000,
         extra_params: dict[str, Any] | None = None,
     ) -> Result[dict[str, Any]]:
         """
-        Execute template for a batch of entities.
+        Execute template for a batch of pre-shaped item dicts.
 
-        Uses UNWIND for efficient bulk operations.
+        Data transformation (entity conversion, connection flattening) is handled
+        by batch_preparer.prepare_batch_items() before calling this method.
 
         Args:
             template: The Cypher template to execute,
-            entities: List of entities to process,
-            batch_size: Number of entities per transaction,
+            items: Pre-shaped dicts ready for Neo4j (from prepare_batch_items),
+            batch_size: Number of items per transaction,
             extra_params: Additional parameters for the query
 
         Returns:
             Result containing aggregated statistics
         """
-        if not entities:
+        if not items:
             return Result.ok(
                 {"nodes_created": 0, "relationships_created": 0, "batches_processed": 0}
             )
@@ -209,97 +157,18 @@ class CypherExecutor[T]:
                 "batches_processed": 0,
             }
 
-            # Process in batches for memory efficiency
-            for i in range(0, len(entities), batch_size):
-                batch = entities[i : i + batch_size]
+            for i in range(0, len(items), batch_size):
+                batch = items[i : i + batch_size]
 
-                # Convert batch to Neo4j properties
-                items = []
-                for entity in batch:
-                    item = to_neo4j_node(entity)
-
-                    # ========================================================================
-                    # GRAPH-NATIVE: Critical Connection Data Extraction
-                    # ========================================================================
-                    # Connection data flow:
-                    # 1. YAML frontmatter → MarkdownSyncService stores in metadata._connections
-                    # 2. HERE: Extract and flatten to dotted keys (Neo4j can't store nested maps)
-                    # 3. BulkIngestionEngine: Uses apoc.map.removeKeys() to exclude from node props
-                    # 4. Cypher template: Creates graph edges via FOREACH + MERGE
-                    # 5. Result: Edges exist in graph, properties don't exist in nodes
-                    #
-                    # Why flatten?
-                    # Neo4j properties cannot store nested dictionaries, but CAN use them
-                    # in Cypher queries. By flattening {"requires": ["ku:A"]} to
-                    # {"connections.requires": ["ku:A"]}, we make it accessible in Cypher
-                    # via backtick escaping: item.`connections.requires`
-                    #
-                    # Example transformation:
-                    # Input: metadata._connections = {"requires": ["ku:A"], "enables": ["ku:B"]}
-                    # Output: item["connections.requires"] = ["ku:A"]
-                    # item["connections.enables"] = ["ku:B"]
-                    #
-                    # Later in BulkIngestionEngine:
-                    # - apoc.map.removeKeys() filters out "connections.requires", "connections.enables"
-                    # - FOREACH creates edges: MERGE (n)-[:REQUIRES_KNOWLEDGE]->(target {uid: "ku:A"})
-                    # - Result: Node has NO connection properties, ONLY graph edges exist
-                    # ========================================================================
-                    metadata = getattr(entity, "metadata", None)
-                    if isinstance(metadata, dict):
-                        connections = metadata.get("_connections")
-                        if connections and isinstance(connections, dict):
-                            # Flatten connections dict to individual properties with dotted keys
-                            # This allows Cypher to access them via backticks while keeping
-                            # them separate from regular node properties for filtering
-                            for key, value in connections.items():
-                                if value:  # Only add non-empty lists
-                                    item[f"connections.{key}"] = value
-
-                    items.append(item)
-
-                # ========================================================================
-                # PURE CYPHER: Filter connection properties before sending to Neo4j
-                # ========================================================================
-                # Instead of using apoc.map.removeKeys() in Cypher, we filter connection
-                # properties in Python before sending to Neo4j. This eliminates APOC
-                # dependency while maintaining graph-native architecture.
-                #
-                # Connection keys (e.g., "connections.requires", "connections.enables")
-                # are extracted from extra_params['rel_config'] if available.
-                # ========================================================================
-                if extra_params and "rel_config" in extra_params:
-                    # Get list of connection keys from relationship configuration
-                    connection_keys = set(extra_params["rel_config"].keys())
-
-                    # Filter out connection properties from each item
-                    # Keep original items with connections for FOREACH clauses
-                    # Create separate props dict with connections removed
-                    filtered_items = []
-                    for item_dict in items:
-                        # Create a copy with connection keys removed for node properties
-                        props = {k: v for k, v in item_dict.items() if k not in connection_keys}
-
-                        # Add both filtered props and original item (for FOREACH access)
-                        filtered_item = {
-                            **item_dict,  # Keep connections for FOREACH clauses
-                            "_node_props": props,  # Filtered properties for node storage
-                        }
-                        filtered_items.append(filtered_item)
-
-                    params = {"items": filtered_items}
-                else:
-                    # No relationship config - use items as-is
-                    params = {"items": items}
+                params: dict[str, Any] = {"items": batch}
                 if extra_params:
                     params.update(extra_params)
 
-                # Begin transaction (must await to get the transaction object)
                 tx = await self.session.begin_transaction()
                 try:
                     result = await tx.run(template.template, params)
                     summary = await result.consume()
 
-                    # Aggregate statistics
                     total_stats["nodes_created"] += summary.counters.nodes_created
                     total_stats["nodes_deleted"] += summary.counters.nodes_deleted
                     total_stats["relationships_created"] += summary.counters.relationships_created
@@ -312,10 +181,10 @@ class CypherExecutor[T]:
                     await tx.rollback()
                     raise
 
-                self.logger.info(f"Processed batch {i // batch_size + 1}: {len(batch)} entities")
+                self.logger.info(f"Processed batch {i // batch_size + 1}: {len(batch)} items")
 
             self.logger.info(
-                f"Batch execution complete: {len(entities)} entities in "
+                f"Batch execution complete: {len(items)} items in "
                 f"{total_stats['batches_processed']} batches"
             )
             return Result.ok(total_stats)

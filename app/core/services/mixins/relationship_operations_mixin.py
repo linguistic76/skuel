@@ -246,7 +246,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
                 )
             )
 
-        from core.models.query.cypher import build_prerequisite_traversal_query
+        from adapters.persistence.neo4j.query.cypher import build_prerequisite_traversal_query
 
         query, params = build_prerequisite_traversal_query(
             label=self.entity_label,
@@ -288,7 +288,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if not uid:
             return Result.fail(Errors.validation(message="UID is required", field="uid"))
 
-        from core.models.query.cypher import build_prerequisite_traversal_query
+        from adapters.persistence.neo4j.query.cypher import build_prerequisite_traversal_query
 
         # Use direction="incoming" for enables (inverse of prerequisites)
         query, params = build_prerequisite_traversal_query(
@@ -373,7 +373,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if not uid:
             return Result.fail(Errors.validation(message="UID is required", field="uid"))
 
-        from core.models.query.cypher import build_hierarchy_query
+        from adapters.persistence.neo4j.query.cypher import build_hierarchy_query
 
         query, params = build_hierarchy_query(
             label=self.entity_label,

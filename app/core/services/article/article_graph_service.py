@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from core.models.context_types import ContextualKnowledge
     from core.services.user.unified_user_context import UserContext
 from core.models.curriculum_dto import CurriculumDTO
-from core.models.query import (
+from adapters.persistence.neo4j.query import (
     build_metadata_aware_path_query,
     build_relationship_traversal_query,
     build_simple_prerequisite_chain,

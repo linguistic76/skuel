@@ -40,9 +40,6 @@ from typing import Any
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.curriculum_dto import CurriculumDTO
-from core.models.exercises.exercise_dto import ExerciseDTO
-from core.models.pathways.learning_path_dto import LearningPathDTO
-from core.models.pathways.learning_step_dto import LearningStepDTO
 
 # Curriculum domain imports - (February 2026): LS/LP unified into Entity model
 # NOTE (February 2026): Habit imports removed — Habit merged into Entity model
@@ -52,17 +49,20 @@ from core.models.entity_dto import EntityDTO
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event_dto import EventDTO
+from core.models.exercises.exercise_dto import ExerciseDTO
 from core.models.goal.goal_dto import GoalDTO
 from core.models.habit.habit_dto import HabitDTO
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
+from core.models.pathways.learning_path_dto import LearningPathDTO
+from core.models.pathways.learning_step_dto import LearningStepDTO
 from core.models.principle.principle_dto import PrincipleDTO
 
 # NOTE (February 2026): MOC is not a separate EntityType.
 # Any KU can organize others via ORGANIZES relationships (emergent MOC identity).
 from core.models.principle.reflection import PrincipleReflection
 from core.models.principle.reflection_dto import PrincipleReflectionDTO
-from core.models.query import QueryIntent
+from core.models.query_types import QueryIntent
 from core.models.relationship_names import RelationshipName
 from core.models.task.task_dto import TaskDTO
 
